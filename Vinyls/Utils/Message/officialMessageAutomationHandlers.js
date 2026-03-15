@@ -90,6 +90,14 @@ function shouldSkipProcessedBump(key, ttlMs = 5 * 60 * 1000) {
   return false;
 }
 
+/** True se il bot ha già inviato un messaggio di ringraziamento bump in risposta a questo messaggio (evita duplicati dopo riavvio). */
+function hasExistingBumpThanksReply(channel, bumpMessageId, botUserId) {
+  if (!channel?.messages?.cache || !bumpMessageId || !botUserId) return false;
+  return channel.messages.cache.some(
+    (m) => m.author?.id === botUserId && String(m.reference?.messageId) === String(bumpMessageId),
+  );
+}
+
 async function getCachedOrFetchMember(guild, userId) {
   if (!guild || !userId) return null;
   const cachedMember = guild.members.cache.get(userId);
@@ -365,6 +373,7 @@ async function handleDisboardBump(message, client) {
   }
   const channel = message.channel || (await getGuildChannelCached(message.guild, message.channelId));
   if (channel?.isTextBased?.()) {
+    if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;
     try {
       await channel.send({
         content: thanksMessage.trim(),
@@ -450,6 +459,7 @@ async function handleDiscadiaBump(message, client) {
       ? (message.guild.channels.cache.get(commandsChannelId) || (await getGuildChannelCached(message.guild, commandsChannelId)))
       : (message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null));
   if (targetChannel?.isTextBased?.()) {
+    if (hasExistingBumpThanksReply(targetChannel, message.id, client.user?.id)) return true;
     const isInCommands = String(message.channelId) === String(commandsChannelId);
     try {
       await targetChannel.send({
