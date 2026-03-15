@@ -423,6 +423,7 @@ module.exports = {
           oldRole: roleBefore.id,
           newRole: roleAfter.id,
           reason,
+          date: new Date(),
         });
         await staffDoc.save();
         return;

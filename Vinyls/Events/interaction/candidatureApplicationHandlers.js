@@ -5,6 +5,7 @@ const IDs = require("../../Utils/Config/ids");
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage } = require("../../Utils/Staff/staffDocUtils");
+const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -725,6 +726,9 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
     date: new Date(),
   });
   await staffDoc.save();
+  if (guild.client && guild.id === IDs.guilds?.main) {
+    scheduleStaffListRefresh(guild.client, guild.id, 800);
+  }
 
   const pexDepexChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex));
   if (pexDepexChannel?.isTextBased?.()) {
