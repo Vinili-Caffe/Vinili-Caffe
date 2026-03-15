@@ -8,6 +8,7 @@ const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const SuggestionCount = require("../../Schemas/Suggestion/suggestionSchema");
+const { shouldBlockDm } = require("../noDmList");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
@@ -280,7 +281,7 @@ async function handleVoteManagerMessage(message, client) {
     }
   }
 
-  const { DIVIDER_URL: dividerUrl } = require("../../shared/discord/constants");
+  const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
   const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
     : "<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per 24 ore";
@@ -317,6 +318,9 @@ async function handleVoteManagerMessage(message, client) {
   const sent = await message.channel.send({ content: mention, embeds: [embed], components, }).catch((error) => { const detail = error?.message || error?.code || error; global.logger?.error?.("[VOTE EMBED] Failed to send embed:", detail); return null; });
   if (sent) {
     await message.delete().catch(() => { });
+  }
+  if (user?.id && message.guild?.id && !(await shouldBlockDm(message.guild.id, user.id, "bump").catch(() => true))) {
+    await user.send({ embeds: [embed], components: components.length ? components : undefined, allowedMentions: { parse: [] } }).catch((err) => { global.logger?.warn?.("[VOTE EMBED] DM reminder failed:", err?.message || err); });
   }
   return true;
 }
@@ -586,4 +590,33 @@ async function handlePauseChannelMessage(message) {
   return true;
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage };
+const RECENT_VOTE_LOOKBACK_MS = 2 * 60 * 60 * 1000;
+const RECENT_VOTE_FETCH_LIMIT = 25;
+
+async function processRecentVoteChannelMessages(client) {
+  if (!client || !VOTE_CHANNEL_ID) return;
+  const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || (await client.channels.fetch(VOTE_CHANNEL_ID).catch(() => null));
+  if (!channel?.isTextBased?.() || !channel.messages) return;
+  const cutoff = Date.now() - RECENT_VOTE_LOOKBACK_MS;
+  let messages = [];
+  try {
+    messages = await channel.messages.fetch({ limit: RECENT_VOTE_FETCH_LIMIT });
+  } catch (err) {
+    global.logger?.warn?.("[VOTE EMBED] Failed to fetch recent messages for startup:", err?.message || err);
+    return;
+  }
+  const ourId = client.user?.id;
+  const sorted = [...messages.values()].sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+  for (const message of sorted) {
+    if ((message.createdTimestamp || 0) < cutoff) continue;
+    if (message.author?.id === ourId) continue;
+    try {
+      const handled = await handleVoteManagerMessage(message, client);
+      if (handled) return;
+    } catch (err) {
+      global.logger?.warn?.("[VOTE EMBED] Startup process message error:", err?.message || err);
+    }
+  }
+}
+
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages };

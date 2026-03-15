@@ -152,20 +152,28 @@ async function getEventWeekTopThreeTextAndVoice(guild, eventWeekNum) {
   const rowsWithLive = Array.from(rowsByUser.values());
   const sortedMessages = [...rowsWithLive].filter((r) => Number(r?.messageCount || 0) > 0).sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
   const sortedVoice = [...rowsWithLive].filter((r) => Number(r?.voiceSeconds || 0) > 0).sort((a, b) => (b.voiceSeconds || 0) - (a.voiceSeconds || 0));
-  const topMessages = [];
-  const topVoice = [];
+  const poolSize = 20;
+  const sortedMessagesFiltered = [];
   for (const row of sortedMessages) {
-    if (topMessages.length >= 3) break;
+    if (sortedMessagesFiltered.length >= poolSize) break;
     const member = await getGuildMemberCached(guild, row.userId);
     if (member && !isEventStaffMember(member))
-      topMessages.push({ userId: row.userId, messageCount: row.messageCount });
+      sortedMessagesFiltered.push({ userId: row.userId, messageCount: row.messageCount });
   }
+  const sortedVoiceFiltered = [];
   for (const row of sortedVoice) {
-    if (topVoice.length >= 3) break;
+    if (sortedVoiceFiltered.length >= poolSize) break;
     const member = await getGuildMemberCached(guild, row.userId);
     if (member && !isEventStaffMember(member))
-      topVoice.push({ userId: row.userId, voiceSeconds: row.voiceSeconds });
+      sortedVoiceFiltered.push({ userId: row.userId, voiceSeconds: row.voiceSeconds });
   }
+  const { listA: topMessages, listB: topVoice } = deduplicateTopTwoLists(
+    sortedMessagesFiltered.slice(0, 3),
+    sortedVoiceFiltered.slice(0, 3),
+    sortedMessagesFiltered,
+    sortedVoiceFiltered,
+    3,
+  );
   return { topMessages, topVoice };
 }
 
@@ -302,10 +310,11 @@ async function loadWeeklyRowsFromDaily(guild, weekKey) {
   }));
 }
 
-async function resolveTopThreeUsers(client, guild, docs, valueGetter) {
+async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3) {
+  const cap = Math.max(1, Math.min(25, Number(limit) || 3));
   const out = [];
   for (const doc of docs) {
-    if (out.length >= 3) break;
+    if (out.length >= cap) break;
     const userId = String(doc.userId || "");
     if (!userId) continue;
 
@@ -361,6 +370,63 @@ function pickFirstAvailable(ranking, excludedUserIds = new Set()) {
     return row;
   }
   return null;
+}
+
+/** Deduplica due top (es. messaggi e vocale): stessa persona in una sola lista, in quella con posizione migliore; l'altra viene riempita con il successivo in classifica. */
+function deduplicateTopTwoLists(topA, topB, sortedA, sortedB, targetSize = 3) {
+  const cap = Math.max(1, Math.min(25, Number(targetSize) || 3));
+  const takeA = (topA || []).slice(0, cap);
+  const takeB = (topB || []).slice(0, cap);
+  const poolA = Array.isArray(sortedA) && sortedA.length ? sortedA : takeA;
+  const poolB = Array.isArray(sortedB) && sortedB.length ? sortedB : takeB;
+  const idsA = new Set(takeA.map((r) => r?.userId).filter(Boolean));
+  const idsB = new Set(takeB.map((r) => r?.userId).filter(Boolean));
+  const keptInA = new Set();
+  const keptInB = new Set();
+  for (const uid of idsA) {
+    if (!idsB.has(uid)) {
+      keptInA.add(uid);
+      continue;
+    }
+    const rankA = takeA.findIndex((r) => r?.userId === uid) + 1;
+    const rankB = takeB.findIndex((r) => r?.userId === uid) + 1;
+    if (rankA <= rankB) keptInA.add(uid);
+    else keptInB.add(uid);
+  }
+  for (const uid of idsB) {
+    if (!idsA.has(uid)) keptInB.add(uid);
+  }
+  const resultA = [];
+  const resultB = [];
+  const usedInA = new Set();
+  const usedInB = new Set();
+  for (let i = 0; i < cap; i += 1) {
+    if (i < takeA.length && keptInA.has(takeA[i].userId)) {
+      resultA.push(takeA[i]);
+      usedInA.add(takeA[i].userId);
+    } else {
+      for (const row of poolA) {
+        if (!row?.userId || usedInA.has(row.userId) || keptInB.has(row.userId)) continue;
+        resultA.push(row);
+        usedInA.add(row.userId);
+        break;
+      }
+    }
+  }
+  for (let i = 0; i < cap; i += 1) {
+    if (i < takeB.length && keptInB.has(takeB[i].userId)) {
+      resultB.push(takeB[i]);
+      usedInB.add(takeB[i].userId);
+    } else {
+      for (const row of poolB) {
+        if (!row?.userId || usedInB.has(row.userId) || keptInA.has(row.userId)) continue;
+        resultB.push(row);
+        usedInB.add(row.userId);
+        break;
+      }
+    }
+  }
+  return { listA: resultA, listB: resultB };
 }
 
 async function updateWeeklyWinnerRoles(guild, topMessages, topVoice) {
@@ -536,13 +602,20 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   const messageDocs = weeklyRows.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 200);
   const voiceDocs = weeklyRows.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 200);
 
-  const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0),);
-
-  const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0),);
+  const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 10);
+  const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 10);
 
   const useEventTop = eventPayoutWeek >= 1 && eventPayoutWeek <= 4;
-  const displayTopMessages = useEventTop ? eventTopMessages.map((item) => ({ userId: item.userId, value: Number(item.messageCount || 0) })) : topMessages;
-  const displayTopVoice = useEventTop ? eventTopVoice.map((item) => ({ userId: item.userId, value: Math.floor((Math.max(0, Number(item.voiceSeconds || 0)) / 60) * VOICE_EXP_PER_MINUTE), })) : topVoice;
+  let displayTopMessages;
+  let displayTopVoice;
+  if (useEventTop) {
+    displayTopMessages = eventTopMessages.map((item) => ({ userId: item.userId, value: Number(item.messageCount || 0) }));
+    displayTopVoice = eventTopVoice.map((item) => ({ userId: item.userId, value: Math.floor((Math.max(0, Number(item.voiceSeconds || 0)) / 60) * VOICE_EXP_PER_MINUTE), }));
+  } else {
+    const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
+    displayTopMessages = dedupe.listA;
+    displayTopVoice = dedupe.listB;
+  }
 
   const messageRows = displayTopMessages.length ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"),
   )
