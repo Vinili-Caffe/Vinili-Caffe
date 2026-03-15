@@ -81,7 +81,8 @@ async function finalizeVerification(interaction, member) {
 
   try {
     const record = await upsertVerifiedMember(guildId, targetMember.id, new Date(),);
-    await applyTenureForMember(targetMember, record);
+    const memberWithRoles = await getGuildMemberCached(guild, targetMember.id, { preferFresh: true }).catch(() => targetMember);
+    await applyTenureForMember(memberWithRoles, record);
   } catch (err) {
     global.logger?.warn?.("[VERIFY] upsertVerifiedMember/applyTenureForMember:", err);
   }
