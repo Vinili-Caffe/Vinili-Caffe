@@ -18,10 +18,7 @@ module.exports = (client) => {
       try {
         delete require.cache[require.resolve(file)];
         const event = require(file);
-        if (!event?.name || typeof event.execute !== "function") {
-          statusMap.set(rel, "Skipped (not event)");
-          continue;
-        }
+        if (!event?.name || typeof event.execute !== "function") continue;
 
         const eventName = normalizeLifecycleEventName(event.name);
         const handler = async (...args) => {

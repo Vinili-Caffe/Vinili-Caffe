@@ -461,10 +461,7 @@ module.exports = {
     if (primaryScheduler) scheduleMonthlyGif(client);
     setClientPresence(client);
 
-    logLaunch(
-      client,
-      `[BOT] ${client.user?.username || "Bot"} has been launched! Ready in ${formatDurationMs(Date.now() - readyStartedAt)}.`,
-    );
+    global.logger?.info?.(`[BOT] ${client.user?.username || "Bot"} has been launched! Ready in ${formatDurationMs(Date.now() - readyStartedAt)}.`);
 
     if (!client._deferredStartupRunning) {
       client._deferredStartupRunning = true;
