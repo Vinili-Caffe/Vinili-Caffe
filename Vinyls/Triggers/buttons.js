@@ -390,11 +390,14 @@ module.exports = {
   async execute(interaction) {
     if (!interaction.guild) return;
     const levelPanelIds = ["info_boost_levels", "info_levels", "torna_indietro"];
-    const allowWithoutMessage = interaction.isButton() && levelPanelIds.includes(interaction.customId);
-    if (!interaction.message && !allowWithoutMessage) return;
+    const canRunWithoutMessage = interaction.isButton() && levelPanelIds.includes(interaction.customId);
+    if (!interaction.message && !canRunWithoutMessage) return;
     if (interaction.replied || interaction.deferred) return;
     const allowed = await enforceInteractionPermissions(interaction);
     if (!allowed) return;
+    if (canRunWithoutMessage) {
+      await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
+    }
     const guild = interaction.guild;
     const withFooter = (p) => (p && typeof p === "object" && Array.isArray(p.embeds) && p.embeds.length ? applyDefaultFooterToEmbeds(p, guild) : p);
     const origReply = interaction.reply.bind(interaction);
@@ -794,10 +797,8 @@ module.exports = {
     }
 
     const sendUpdatedView = async (payload) => {
-      if (interaction.replied || interaction.deferred) return interaction.editReply(payload).catch(() => {});
-      await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
-      if (!interaction.deferred) return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => {});
-      return interaction.editReply(payload).catch(() => {});
+      if (interaction.deferred) return interaction.editReply(payload).catch(() => {});
+      return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => {});
     };
     if (interaction.customId == "info_verifica") {
       const verifyEmbed = new EmbedBuilder()
