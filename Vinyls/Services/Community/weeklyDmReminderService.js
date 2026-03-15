@@ -15,7 +15,7 @@ const EXTERNAL_STARTUP_DM_DELAY_MS = 600;
 const BLAST_STALE_LOCK_MS = 45 * 60 * 1000;
 const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa +dm-disable nel server.";
 const DEFAULT_TZ = "Europe/Rome";
-const STAFF_ROLE_IDS = [IDs.roles.Staff, IDs.roles.PartnerManager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Founder, IDs.roles.CoFounder,].map((id) => String(id || "").trim()).filter(Boolean);
+const STAFF_ROLE_IDS = [IDs.roles.Staff, IDs.roles.StafferDelMese, IDs.roles.PartnerManager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Founder, IDs.roles.CoFounder,].map((id) => String(id || "").trim()).filter(Boolean);
 const channelMention = (channelId, fallback) => channelId ? `<#${channelId}>` : fallback;
 const defaultPool = [
   {
@@ -721,9 +721,14 @@ function collectOpenDmRecipientIds(client) {
   return ids;
 }
 
+function hasAnyStaffRole(member) {
+  if (!member?.roles?.cache?.size || !STAFF_ROLE_IDS.length) return false;
+  return STAFF_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+}
 async function isStaffMemberResolved(guild, member) {
   if (!guild || !member?.id) return false;
   if (!STAFF_ROLE_IDS.length) return false;
+  if (hasAnyStaffRole(member)) return true;
   let m = member;
   if (m.partial || !m.roles?.cache?.size) {
     m = (await guild.members.fetch({ user: m.id, force: true }).catch(() => null)) || m;
@@ -824,7 +829,7 @@ async function buildWeeklyJobs(client, guild) {
   const candidates = [];
   for (const member of guild.members.cache.values()) {
     if (!member || member.user?.bot) continue;
-    if (await isStaffMemberResolved(guild, member)) continue;
+    if (hasAnyStaffRole(member) || (await isStaffMemberResolved(guild, member))) continue;
     if (!isMemberOldEnough(member, minMemberAgeDays)) continue;
     const id = String(member.id);
     if (await shouldBlockDm(guild.id, id, "weekly").catch(() => false)) continue;
@@ -960,7 +965,7 @@ async function runStartupBlastOnce(client, guild) {
     const eligibleMembers = [];
     for (const member of guild.members.cache.values()) {
       if (!member || member.user?.bot) continue;
-      if (await isStaffMemberResolved(guild, member)) continue;
+      if (hasAnyStaffRole(member) || (await isStaffMemberResolved(guild, member))) continue;
       const userId = String(member.id);
       if (!userId || (await shouldBlockDm(guild.id, userId, "weekly").catch(() => false))) continue;
       eligibleMembers.push(member);
@@ -1265,7 +1270,7 @@ async function sendDueJobs(client, guild) {
       job.skipped = "not-in-guild";
       continue;
     }
-    if (await isStaffMemberResolved(guild, member)) {
+    if (hasAnyStaffRole(member) || (await isStaffMemberResolved(guild, member))) {
       job.skipped = "staff-member";
       continue;
     }
