@@ -1,12 +1,10 @@
-const fs = require("fs");
-const path = require("path");
 const { randomInt } = require("crypto");
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { ActivityUser } = require("../../Schemas/Community/communitySchemas");
 const { getClientGuildCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
-const STATE_PATH = path.join(__dirname, "..", "..", "Data", "weeklyDmReminderState.json",);
+const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const TICK_EVERY_MS = 60 * 1000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MIN_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
@@ -347,49 +345,44 @@ const weeklyPlanLocks = new Set();
 const MEMBER_LIST_REFRESH_TTL_MS = 10 * 60 * 1000;
 const memberListRefreshedAt = new Map();
 
-function readJson(filePath, fallback) {
-  try {
-    if (!fs.existsSync(filePath)) return fallback;
-    const raw = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson(filePath, payload) {
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), "utf8");
-  } catch (err) {
-    global.logger?.warn?.("[weeklyDmReminder] write:", err?.message || err);
-  }
-}
-
-function ensureState() {
+async function ensureState() {
   if (state) return state;
-  const loaded = readJson(STATE_PATH, {});
-  if (!loaded || typeof loaded !== "object" || Array.isArray(loaded)) {
+  try {
+    const loaded = await getBotState("weeklyDmReminderState", null);
+    if (loaded && typeof loaded === "object" && !Array.isArray(loaded)) {
+      state = loaded;
+    } else {
+      state = {};
+    }
+  } catch (err) {
+    global.logger?.warn?.("[weeklyDmReminder] load state:", err?.message || err);
     state = {};
-  } else {
-    state = loaded;
   }
   return state;
 }
 
-function flushState() {
+async function persistStateToDb() {
+  await ensureState();
+  try {
+    await setBotState("weeklyDmReminderState", state);
+  } catch (err) {
+    global.logger?.warn?.("[weeklyDmReminder] write state:", err?.message || err);
+  }
+}
+
+async function flushState() {
   if (stateWriteTimer) {
     clearTimeout(stateWriteTimer);
     stateWriteTimer = null;
   }
-  writeJson(STATE_PATH, ensureState());
+  await persistStateToDb();
 }
 
 function saveState() {
   if (stateWriteTimer) return;
   stateWriteTimer = setTimeout(() => {
     stateWriteTimer = null;
-    writeJson(STATE_PATH, ensureState());
+    persistStateToDb().catch((err) => global.logger?.warn?.("[weeklyDmReminder] saveState:", err?.message || err));
   }, 250);
   if (typeof stateWriteTimer?.unref === "function") stateWriteTimer.unref();
 }
@@ -502,8 +495,8 @@ function getMainGuildId(client) {
   return IDs.guilds.main || client?.guilds?.cache?.first?.()?.id || null;
 }
 
-function getGuildEntry(guildId) {
-  const root = ensureState();
+async function getGuildEntry(guildId) {
+  const root = await ensureState();
   const key = String(guildId || "");
   if (!key) return null;
   if (!root[key] || typeof root[key] !== "object") {
@@ -812,7 +805,7 @@ async function buildWeeklyJobs(client, guild) {
   const minRecipients = Math.max(1, Number(cfg.minRecipients || 15));
   const maxRecipients = Math.max(minRecipients, Number(cfg.maxRecipients || 80));
   const recipients = [];
-  const guildEntry = getGuildEntry(guild.id);
+  const guildEntry = await getGuildEntry(guild.id);
   const history = guildEntry.reminderHistory || {};
   const recentThreshold = Date.now() - WEEK_MS;
   const blockedUsers = new Set();
@@ -924,7 +917,7 @@ async function buildWeeklyJobs(client, guild) {
 }
 
 async function maybePlanWeeklyBatch(client, guild) {
-  const entry = getGuildEntry(guild.id);
+  const entry = await getGuildEntry(guild.id);
   if (!entry) return;
   const now = Date.now();
   const hasPending = entry.jobs.some((job) => !job?.sentAt && !job?.skipped && Number(job?.sendAt || 0) >= now,);
@@ -948,7 +941,7 @@ async function maybePlanWeeklyBatch(client, guild) {
 }
 
 async function runStartupBlastOnce(client, guild) {
-  const entry = getGuildEntry(guild.id);
+  const entry = await getGuildEntry(guild.id);
   if (!entry) return;
   if (entry.startupBlastDone) return;
   if (
@@ -1047,7 +1040,7 @@ async function runStartupBlastOnce(client, guild) {
 }
 
 async function runExternalStartupBlastOnce(client, guild) {
-  const entry = getGuildEntry(guild.id);
+  const entry = await getGuildEntry(guild.id);
   if (!entry) return;
   if (entry.externalStartupBlastDone) return;
   if (
@@ -1119,7 +1112,7 @@ async function runExternalStartupBlastOnce(client, guild) {
 }
 
 async function sendExternalReturnReminders(client, guild) {
-  const entry = getGuildEntry(guild.id);
+  const entry = await getGuildEntry(guild.id);
   if (!entry) return;
   await refreshGuildMembersIfNeeded(guild);
   const dmIds = collectOpenDmRecipientIds(client);
@@ -1233,7 +1226,7 @@ function shouldRetry(job) {
 }
 
 async function sendDueJobs(client, guild) {
-  const entry = getGuildEntry(guild.id);
+  const entry = await getGuildEntry(guild.id);
   if (!entry) return;
   const minMemberAgeDays = getMinMemberAgeDays(client);
   const now = Date.now();

@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const StaffModel = require("../../Schemas/Staff/staffSchema");
@@ -19,6 +20,23 @@ const ROLE_UP = {
 };
 
 let weeklyStaffResocontoTask = null;
+const BOT_STATE_KEY_LAST_RESOCONTO = "lastResocontoRun";
+
+function getLastSunday15RomeUtc(now = new Date()) {
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const romeParts = getRomeDateParts(yesterday);
+  return createUtcFromRomeLocal(romeParts.year, romeParts.month, romeParts.day, 15, 0, 0);
+}
+
+async function readLastResocontoRun() {
+  const data = await getBotState(BOT_STATE_KEY_LAST_RESOCONTO, null);
+  const ts = data?.lastRunAt;
+  return Number.isFinite(ts) ? ts : null;
+}
+
+async function writeLastResocontoRun() {
+  await setBotState(BOT_STATE_KEY_LAST_RESOCONTO, { lastRunAt: Date.now() });
+}
 
 function toSafeNumber(value) {
   const num = Number(value || 0);
@@ -498,6 +516,7 @@ async function runWeeklyStaffResoconti(client) {
         .catch(() => null);
     }
   }
+  await writeLastResocontoRun();
 }
 
 async function runPreResocontoReminders(client) {
@@ -594,12 +613,17 @@ function startWeeklyStaffResocontoLoop(client) {
   );
   if (typeof preResocontoTask?.ref === "function") preResocontoTask.ref();
 
-  setImmediate(() => {
+  setImmediate(async () => {
     const wd = getRomeWeekdayShort(new Date());
-    if (wd === "Mon") {
-      global.logger?.info?.("[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto (bot was likely offline Sunday 15:00).");
-      runWeeklyStaffResoconti(client).catch((err) => global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err));
+    if (wd !== "Mon") return;
+    const lastRunAt = await readLastResocontoRun();
+    const lastSunday15 = getLastSunday15RomeUtc(new Date());
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    if (lastRunAt != null && lastRunAt >= lastSunday15.getTime() - twoHoursMs) {
+      return;
     }
+    global.logger?.info?.("[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto (bot was likely offline Sunday 15:00).");
+    runWeeklyStaffResoconti(client).catch((err) => global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err));
   });
 
   return weeklyStaffResocontoTask;

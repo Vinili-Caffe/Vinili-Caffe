@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const IDs = require("../../Utils/Config/ids");
+const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -16,7 +17,6 @@ const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", level: "Level", miniga
 const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "vip", "partner", "ticket", "moderation", "admin", "staff", "dev",];
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const HELP_NEW_DAYS = 14;
-const HELP_NEW_UNTIL_PATH = path.join(__dirname, "..", "..", "Utils", "Config", "helpNewUntil.json");
 const HELP_NEW_INVOKES = new Set([]);
 const HELP_NEW_CATEGORIES = new Set(["minigames", "tts", "stats", "level", "utility", "music"]);
 const HELP_PAGE_SIZE = 18;
@@ -35,35 +35,31 @@ function getHelpNewEntryKey(entry) {
   return `${type}:${invoke}`.trim() || null;
 }
 
-function loadHelpNewUntilMap() {
+async function loadHelpNewUntilMap() {
   const now = Date.now();
   try {
-    if (fs.existsSync(HELP_NEW_UNTIL_PATH)) {
-      const raw = fs.readFileSync(HELP_NEW_UNTIL_PATH, "utf8");
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return {};
-      const filtered = {};
-      for (const [k, v] of Object.entries(data)) {
-        if (typeof v === "number" && v > now) filtered[k] = v;
-      }
-      if (Object.keys(filtered).length !== Object.keys(data).length) saveHelpNewUntilMap(filtered);
-      return filtered;
+    const data = await getBotState("helpNewUntil", null);
+    if (!data || typeof data !== "object") return {};
+    const filtered = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (typeof v === "number" && v > now) filtered[k] = v;
     }
-  } catch (_) { }
-  return {};
+    if (Object.keys(filtered).length !== Object.keys(data).length) await saveHelpNewUntilMap(filtered);
+    return filtered;
+  } catch (_) {
+    return {};
+  }
 }
 
-function saveHelpNewUntilMap(data) {
+async function saveHelpNewUntilMap(data) {
   try {
-    const dir = path.dirname(HELP_NEW_UNTIL_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(HELP_NEW_UNTIL_PATH, JSON.stringify(data, null, 2), "utf8");
+    await setBotState("helpNewUntil", data);
   } catch (err) {
     global.logger?.warn?.("[help] saveHelpNewUntilMap:", err?.message || err);
   }
 }
 
-function ensureHelpNewUntilForEntries(entries, newUntilMap) {
+async function ensureHelpNewUntilForEntries(entries, newUntilMap) {
   const now = Date.now();
   const expiryMs = HELP_NEW_DAYS * 24 * 60 * 60 * 1000;
   let dirty = false;
@@ -75,7 +71,7 @@ function ensureHelpNewUntilForEntries(entries, newUntilMap) {
       dirty = true;
     }
   }
-  if (dirty) saveHelpNewUntilMap(newUntilMap);
+  if (dirty) await saveHelpNewUntilMap(newUntilMap);
   return newUntilMap;
 }
 
@@ -1329,7 +1325,7 @@ module.exports = {
     await message.channel.sendTyping().catch(() => { });
     const permissions = loadPermissions();
     const allEntries = buildEntries(client, permissions);
-    const newUntilMap = ensureHelpNewUntilForEntries(allEntries, loadHelpNewUntilMap());
+    const newUntilMap = await ensureHelpNewUntilForEntries(allEntries, await loadHelpNewUntilMap());
     const freshMember = await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000, preferFresh: true, });
     const resolvedMember = freshMember || message.member;
     const memberRoles = resolvedMember?.roles?.cache || new Map();

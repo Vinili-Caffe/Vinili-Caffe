@@ -1,4 +1,3 @@
-const fs = require("fs");
 const path = require("path");
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
@@ -7,6 +6,7 @@ const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/In
 const { getOrCreateStaffDoc, deleteThreadForMessage } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -26,11 +26,11 @@ const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.CoFounder, IDs.roles.Founder,].filter(Boolean);
-const APPLICATION_COOLDOWN_PATH = path.join(BOT_ROOT, "Data", "applicationCooldowns.json",);
-const APPLICATION_COUNTERS_PATH = path.join(BOT_ROOT, "Data", "applicationCounters.json",);
-const APPLICATION_DRAFTS_PATH = path.join(BOT_ROOT, "Data", "applicationDrafts.json",);
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
+let cooldownLoaded = false;
+let countersLoaded = false;
+let draftsLoaded = false;
 function cooldownTypeKey(type) {
   return type === "partnermanager" ? "partnermanager" : "helper";
 }
@@ -42,11 +42,11 @@ const candidatePexLocks = new Set();
 const applicationCounters = { helper: 0, partnermanager: 0, };
 const APPLICATIONS = { helper: { label: "Helper", questions: [{ id: "id_discord", text: "1. ID", modalLabel: "1. ID", placeholder: "Copia e incolla il tuo ID di Discord", style: TextInputStyle.Short, }, { id: "eta", text: "2. Età", modalLabel: "2. Età", placeholder: "Scrivi la tua età", style: TextInputStyle.Short, }, { id: "staff_server", text: "3. Nomina tutti i server dove sei stato staff, per quanto tempo e che ruolo avevi", modalLabel: "3. Esperienze staff", style: TextInputStyle.Paragraph, }, { id: "motivo_candidatura", text: "4. Come mai ti sei voluto candidare su Vinili & Caffè?", modalLabel: "4. Motivo candidatura", style: TextInputStyle.Paragraph, }, { id: "aiuto_economico", text: "5. Saresti disposto ad aiutare il server economicamente?", modalLabel: "5. Aiuto economico", placeholder: "Si / No", style: TextInputStyle.Paragraph, }, { id: "flame_testuale", text: "6. Se due utenti si flammano a vicenda su un determinato argomento, come ti comporti? (in testuale)", modalLabel: "6. Gestione flame", style: TextInputStyle.Paragraph, }, { id: "comandi_dyno", text: "7. Elenca i comandi di moderazioni più importanti di Dyno", modalLabel: "7. Comandi Dyno", style: TextInputStyle.Paragraph, }, { id: "critica_staff", text: "8. Se una persona critica il server o lo staff in maniera non idonea, come ti comporti?", modalLabel: "8. Gestione critica", style: TextInputStyle.Paragraph, }, { id: "vocale", text: "9. Potrai stare in vocale? In caso di risposta positiva, potrai parlare?", modalLabel: "9. Disponibilità vocale", style: TextInputStyle.Paragraph, }, { id: "definizione_flame", text: "10. Definizione di flame", modalLabel: "10. Definizione flame", style: TextInputStyle.Paragraph, }, { id: "troll_pubblico", text: "11. Se due utenti iniziassero a trollare in pubblico, come agiresti?", modalLabel: "11. Gestione troll", style: TextInputStyle.Paragraph, },], }, partnermanager: { label: "Partner Manager", questions: [{ id: "id_discord", text: "1. ID", modalLabel: "1. ID", placeholder: "Scrivi il tuo ID di Discord", style: TextInputStyle.Short, }, { id: "luminous_nova", text: "2. Conosci il bot Luminous Nova/SkyForce?", modalLabel: "2. Luminous Nova/SkyForce", placeholder: "Si / No", style: TextInputStyle.Short, }, { id: "partner_giorno", text: "3. Quante partner fai al giorno?", modalLabel: "3. Partner al giorno", placeholder: "<15 / 15+", style: TextInputStyle.Short, },], }, };
 
-function loadCooldownMap() {
+async function loadCooldownMap() {
+  if (cooldownLoaded) return;
+  cooldownLoaded = true;
   try {
-    if (!fs.existsSync(APPLICATION_COOLDOWN_PATH)) return;
-    const raw = fs.readFileSync(APPLICATION_COOLDOWN_PATH, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = await getBotState("applicationCooldowns", null);
     if (!parsed || typeof parsed !== "object") return;
     const now = Date.now();
     for (const [userId, entry] of Object.entries(parsed)) {
@@ -70,80 +70,61 @@ function loadCooldownMap() {
       }
     }
   } catch (err) {
-    global.logger?.warn?.("[candidature] load:", err?.message || err);
+    global.logger?.warn?.("[candidature] load cooldowns:", err?.message || err);
   }
 }
 
-function persistCooldownMap() {
+async function persistCooldownMap() {
+  const now = Date.now();
+  const out = {};
+  for (const [key, until] of cooldownByUserAndType.entries()) {
+    const ts = Number(until || 0);
+    if (!(ts > now)) continue;
+    const idx = key.lastIndexOf(":");
+    if (idx <= 0) continue;
+    const uid = key.slice(0, idx);
+    const typ = key.slice(idx + 1);
+    if (!out[uid]) out[uid] = {};
+    out[uid][typ] = ts;
+  }
+  await setBotState("applicationCooldowns", out);
+}
+
+async function loadApplicationCounters() {
+  if (countersLoaded) return;
+  countersLoaded = true;
   try {
-    const dir = path.dirname(APPLICATION_COOLDOWN_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const now = Date.now();
-    const out = {};
-    for (const [key, until] of cooldownByUserAndType.entries()) {
-      const ts = Number(until || 0);
-      if (!(ts > now)) continue;
-      const idx = key.lastIndexOf(":");
-      if (idx <= 0) continue;
-      const uid = key.slice(0, idx);
-      const typ = key.slice(idx + 1);
-      if (!out[uid]) out[uid] = {};
-      out[uid][typ] = ts;
+    const parsed = await getBotState("applicationCounters", null);
+    if (parsed && typeof parsed === "object") {
+      const helper = Number(parsed.helper || 0);
+      const pm = Number(parsed.partnermanager || 0);
+      applicationCounters.helper = Number.isFinite(helper) && helper > 0 ? Math.floor(helper) : 0;
+      applicationCounters.partnermanager = Number.isFinite(pm) && pm > 0 ? Math.floor(pm) : 0;
     }
-    fs.writeFileSync(APPLICATION_COOLDOWN_PATH, JSON.stringify(out, null, 2), "utf8");
   } catch (err) {
-    global.logger?.warn?.("[candidature] load:", err?.message || err);
+    global.logger?.warn?.("[candidature] load counters:", err?.message || err);
   }
 }
 
-loadCooldownMap();
-
-function loadApplicationCounters() {
-  try {
-    if (!fs.existsSync(APPLICATION_COUNTERS_PATH)) return;
-    const raw = fs.readFileSync(APPLICATION_COUNTERS_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return;
-    const helper = Number(parsed.helper || 0);
-    const pm = Number(parsed.partnermanager || 0);
-    applicationCounters.helper = Number.isFinite(helper) && helper > 0 ? Math.floor(helper) : 0;
-    applicationCounters.partnermanager =
-      Number.isFinite(pm) && pm > 0 ? Math.floor(pm) : 0;
-  } catch (err) {
-    global.logger?.warn?.("[candidature] load:", err?.message || err);
-  }
+async function persistApplicationCounters() {
+  await setBotState("applicationCounters", { ...applicationCounters });
 }
 
-function persistApplicationCounters() {
-  try {
-    const dir = path.dirname(APPLICATION_COUNTERS_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      APPLICATION_COUNTERS_PATH,
-      JSON.stringify(applicationCounters, null, 2),
-      "utf8",
-    );
-  } catch (err) {
-    global.logger?.warn?.("[candidature] load:", err?.message || err);
-  }
-}
-
-function nextApplicationNumber(type) {
+async function nextApplicationNumber(type) {
+  await loadApplicationCounters();
   const key = type === "partnermanager" ? "partnermanager" : "helper";
   const current = Number(applicationCounters[key] || 0);
   const next = Number.isFinite(current) ? Math.floor(current) + 1 : 1;
   applicationCounters[key] = next;
-  persistApplicationCounters();
+  await persistApplicationCounters();
   return next;
 }
 
-loadApplicationCounters();
-
-function loadDraftMap() {
+async function loadDraftMap() {
+  if (draftsLoaded) return;
+  draftsLoaded = true;
   try {
-    if (!fs.existsSync(APPLICATION_DRAFTS_PATH)) return;
-    const raw = fs.readFileSync(APPLICATION_DRAFTS_PATH, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = await getBotState("applicationDrafts", null);
     if (!parsed || typeof parsed !== "object") return;
     const now = Date.now();
     for (const [stateKey, draft] of Object.entries(parsed)) {
@@ -159,63 +140,58 @@ function loadDraftMap() {
       });
     }
   } catch (err) {
-    global.logger?.warn?.("[candidature] load:", err?.message || err);
+    global.logger?.warn?.("[candidature] load drafts:", err?.message || err);
   }
 }
 
-function persistDraftMap() {
-  try {
-    const dir = path.dirname(APPLICATION_DRAFTS_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const now = Date.now();
-    const out = {};
-    for (const [stateKey, draft] of draftByStateKey.entries()) {
-      const updatedAt = Number(draft?.updatedAt || 0);
-      const nextStep = Number(draft?.nextStep || 1);
-      if (!Number.isFinite(updatedAt) || now - updatedAt > DRAFT_TTL_MS) continue;
-      if (!Number.isFinite(nextStep) || nextStep < 1) continue;
-      out[stateKey] = {
-        answers: draft.answers && typeof draft.answers === "object" ? draft.answers : {},
-        nextStep: Math.floor(nextStep),
-        updatedAt,
-      };
-    }
-    fs.writeFileSync(APPLICATION_DRAFTS_PATH, JSON.stringify(out, null, 2), "utf8");
-  } catch (err) {
-    global.logger?.warn?.("[candidature] load:", err?.message || err);
+async function persistDraftMap() {
+  const now = Date.now();
+  const out = {};
+  for (const [stateKey, draft] of draftByStateKey.entries()) {
+    const updatedAt = Number(draft?.updatedAt || 0);
+    const nextStep = Number(draft?.nextStep || 1);
+    if (!Number.isFinite(updatedAt) || now - updatedAt > DRAFT_TTL_MS) continue;
+    if (!Number.isFinite(nextStep) || nextStep < 1) continue;
+    out[stateKey] = {
+      answers: draft.answers && typeof draft.answers === "object" ? draft.answers : {},
+      nextStep: Math.floor(nextStep),
+      updatedAt,
+    };
   }
+  await setBotState("applicationDrafts", out);
 }
 
-function setDraftState(stateKey, answers, nextStep) {
+async function setDraftState(stateKey, answers, nextStep) {
+  await loadDraftMap();
   draftByStateKey.set(stateKey, {
     answers: answers && typeof answers === "object" ? answers : {},
     nextStep: Math.max(1, Math.floor(Number(nextStep) || 1)),
     updatedAt: Date.now(),
   });
-  persistDraftMap();
+  await persistDraftMap();
 }
 
-function getDraftState(stateKey) {
+async function getDraftState(stateKey) {
+  await loadDraftMap();
   const draft = draftByStateKey.get(stateKey);
   if (!draft) return null;
   const updatedAt = Number(draft.updatedAt || 0);
   if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > DRAFT_TTL_MS) {
     draftByStateKey.delete(stateKey);
-    persistDraftMap();
+    await persistDraftMap();
     return null;
   }
   return draft;
 }
 
-function clearDraftState(stateKey) {
+async function clearDraftState(stateKey) {
+  await loadDraftMap();
   if (!draftByStateKey.has(stateKey)) return;
   draftByStateKey.delete(stateKey);
-  persistDraftMap();
+  await persistDraftMap();
 }
 
-loadDraftMap();
-
-function pruneOldStates() {
+async function pruneOldStates() {
   const now = Date.now();
   for (const [key, state] of pendingApplications.entries()) {
     if (!state?.createdAt || now - state.createdAt > STATE_TTL_MS) {
@@ -230,7 +206,7 @@ function pruneOldStates() {
       draftChanged = true;
     }
   }
-  if (draftChanged) persistDraftMap();
+  if (draftChanged) await persistDraftMap();
 }
 
 if (!global.__vcCandidatureCleanupTimer) {
@@ -286,19 +262,22 @@ function hasHighStaffRole(interaction) {
   return Boolean(interaction?.member?.roles?.cache?.has(highStaffRoleId));
 }
 
-function getCooldownUntil(userId, type) {
+async function getCooldownUntil(userId, type) {
+  await loadCooldownMap();
   const key = cooldownStorageKey(userId, type);
   const ts = Number(cooldownByUserAndType.get(key) || 0);
   if (!Number.isFinite(ts) || ts <= Date.now()) {
     cooldownByUserAndType.delete(key);
+    await persistCooldownMap();
     return 0;
   }
   return ts;
 }
 
-function setCooldown(userId, untilTs, type) {
+async function setCooldown(userId, untilTs, type) {
+  await loadCooldownMap();
   cooldownByUserAndType.set(cooldownStorageKey(userId, type), Number(untilTs));
-  persistCooldownMap();
+  await persistCooldownMap();
 }
 
 function buildRoleDeniedEmbed() {
@@ -441,7 +420,7 @@ async function enforceEligibility(interaction, type) {
     }).catch(() => null);
     return false;
   }
-  const until = getCooldownUntil(interaction.user?.id, type);
+  const until = await getCooldownUntil(interaction.user?.id, type);
   if (until) {
     await interaction.reply({
       embeds: [buildCooldownDeniedEmbed(until, type)],
@@ -533,7 +512,7 @@ async function handleStartButton(interaction, type, step = 1, forceStep = false)
   const stateKey = getStateKey(interaction, type);
   const normalizedStep = Number(step) || 1;
   if (normalizedStep <= 1 && !forceStep) {
-    const draft = getDraftState(stateKey);
+    const draft = await getDraftState(stateKey);
     if (draft?.nextStep > 1) {
       const totalSteps = splitQuestions(APPLICATIONS[type]?.questions || [], 4).length || 1;
       const row1 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`${APPLY_START_PREFIX}:${type}:${interaction.user.id}:${draft.nextStep}`)
@@ -550,12 +529,12 @@ async function handleStartButton(interaction, type, step = 1, forceStep = false)
       }).catch(() => null);
       return true;
     }
-    clearDraftState(stateKey);
+    await clearDraftState(stateKey);
     pendingApplications.set(stateKey, { createdAt: Date.now(), answers: {} });
   } else {
     const state = pendingApplications.get(stateKey);
     if (!state) {
-      const draft = getDraftState(stateKey);
+      const draft = await getDraftState(stateKey);
       if (!draft?.answers) {
         await interaction.reply({
           content:
@@ -593,7 +572,7 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   }
 
   const user = interaction.user;
-  const applicationNumber = nextApplicationNumber(type);
+  const applicationNumber = await nextApplicationNumber(type);
   const embed = new EmbedBuilder()
     .setColor("#3498DB")
     .setAuthor({ name: user.username, iconURL: user.displayAvatarURL({ size: 128 }) })
@@ -638,8 +617,8 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   }
 
   const nextAllowedAt = Date.now() + APPLICATION_COOLDOWN_MS;
-  setCooldown(user.id, nextAllowedAt, type);
-  if (stateKey) clearDraftState(stateKey);
+  await setCooldown(user.id, nextAllowedAt, type);
+  if (stateKey) await clearDraftState(stateKey);
 
   await interaction.reply({
     embeds: [buildFinalThanksEmbed(nextAllowedAt, type)],
@@ -775,7 +754,7 @@ async function handleModalSubmit(interaction, type, stepRaw) {
   const stateKey = getStateKey(interaction, type);
   if (hasNoModuliRole(interaction)) {
     pendingApplications.delete(stateKey);
-    clearDraftState(stateKey);
+    await clearDraftState(stateKey);
     await interaction.reply({
       embeds: [buildNoModuliDeniedEmbed()],
       flags: 1 << 6,
@@ -784,7 +763,7 @@ async function handleModalSubmit(interaction, type, stepRaw) {
   }
   if (!hasMemberRole(interaction)) {
     pendingApplications.delete(stateKey);
-    clearDraftState(stateKey);
+    await clearDraftState(stateKey);
     await interaction.reply({
       embeds: [buildRoleDeniedEmbed()],
       flags: 1 << 6,
@@ -794,7 +773,7 @@ async function handleModalSubmit(interaction, type, stepRaw) {
   const targetRoleId = getTargetRoleIdByType(type);
   if (targetRoleId && hasAnyRole(interaction, [targetRoleId])) {
     pendingApplications.delete(stateKey);
-    clearDraftState(stateKey);
+    await clearDraftState(stateKey);
     await interaction.reply({
       embeds: [buildAlreadyRoleEmbed(targetRoleId)],
       flags: 1 << 6,
@@ -803,7 +782,7 @@ async function handleModalSubmit(interaction, type, stepRaw) {
   }
   if (type === "helper" && hasAnyRole(interaction, HELPER_REAPPLY_BLOCK_ROLE_IDS)) {
     pendingApplications.delete(stateKey);
-    clearDraftState(stateKey);
+    await clearDraftState(stateKey);
     const highestRoleId = getHighestRoleId(interaction, HELPER_REAPPLY_BLOCK_ROLE_IDS) || HELPER_ROLE_ID;
     await interaction.reply({
       embeds: [buildAlreadyRoleEmbed(highestRoleId)],
@@ -823,7 +802,7 @@ async function handleModalSubmit(interaction, type, stepRaw) {
 
   const state = pendingApplications.get(stateKey);
   if (!state) {
-    const draft = getDraftState(stateKey);
+    const draft = await getDraftState(stateKey);
     if (!draft?.answers) {
       await interaction.reply({
         content:
@@ -847,7 +826,7 @@ async function handleModalSubmit(interaction, type, stepRaw) {
   const nextStep = step + 1;
   if (nextStep <= chunks.length) {
     pendingApplications.set(stateKey, activeState);
-    setDraftState(stateKey, activeState.answers, nextStep);
+    await setDraftState(stateKey, activeState.answers, nextStep);
     const controls = [new ButtonBuilder().setCustomId(`${APPLY_START_PREFIX}:${type}:${interaction.user.id}:${nextStep}`)
       .setLabel(String(`Continua (${nextStep}/${chunks.length})`).slice(0, 80))
       .setStyle(ButtonStyle.Primary)

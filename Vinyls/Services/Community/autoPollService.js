@@ -28,7 +28,32 @@ function warnPollOpenRouter(...args) {
   global.logger?.warn?.("[poll.auto]", ...args);
 }
 
-const LOCAL_THEME_POLLS = [{ question: "Qual è il momento migliore della giornata?", answers: ["Mattina presto", "Tarda mattinata", "Pomeriggio", "Prima serata", "Notte"], }, { question: "Quale stagione ti rappresenta di più?", answers: ["Primavera", "Estate", "Autunno", "Inverno"], }, { question: "Come preferisci iniziare la giornata?", answers: ["Con calma", "Con una colazione abbondante", "Allenandomi", "Con musica o podcast", "Di corsa ma produttivo"], }, { question: "Quale tipo di vacanza sceglieresti?", answers: ["Mare", "Montagna", "Città d'arte", "Road trip", "Relax totale"], }, { question: "Cosa conta di più in un film?", answers: ["Trama", "Personaggi", "Colonna sonora", "Finale", "Fotografia"], }, { question: "Quale pasto preferisci in assoluto?", answers: ["Colazione", "Pranzo", "Cena", "Spuntino"], }, { question: "Che rapporto hai con il freddo?", answers: ["Lo adoro", "Mi piace solo se sono coperto bene", "Lo tollero", "Lo odio"], }, { question: "Se potessi vivere in un'altra epoca, quale sceglieresti?", answers: ["Anni 80", "Anni 90", "Primi 2000", "Futuro", "Resto nel presente"], }, { question: "Quale qualità apprezzi di più in una persona?", answers: ["Sincerità", "Ironia", "Intelligenza", "Gentilezza", "Determinazione"], }, { question: "Come scegli di solito cosa guardare la sera?", answers: ["Consigli degli amici", "Trending", "Vado a caso", "Riguardo qualcosa che conosco", "Recensioni online"], }, { question: "Qual è il tuo comfort food ideale?", answers: ["Pizza", "Pasta", "Dolci", "Panino o fast food", "Cibo fatto in casa"], }, { question: "Che tipo di weekend preferisci?", answers: ["Pieno di impegni", "Fuori casa", "Chill totale", "Tra amici", "Improvvisato"], }, { question: "Quale mezzo di trasporto sopporti meglio?", answers: ["Auto", "Treno", "Aereo", "Moto", "A piedi"], }, { question: "Quale app usi più spesso in una giornata normale?", answers: ["WhatsApp", "Instagram", "TikTok", "YouTube", "Spotify"], }, { question: "Che tipo di meteo ti mette più di buon umore?", answers: ["Sole pieno", "Pioggia leggera", "Temporale", "Freddo secco", "Cielo coperto"], }, { question: "Se dovessi scegliere un superpotere, quale prenderesti?", answers: ["Teletrasporto", "Leggere nel pensiero", "Invisibilità", "Volare", "Fermare il tempo"], }, { question: "Che tipo di contenuto ti intrattiene di più?", answers: ["Video brevi", "Film", "Serie TV", "Podcast", "Streaming live"], }, { question: "Quando sei stanco, cosa ti recupera prima?", answers: ["Dormire", "Mangiare", "Uscire", "Musica", "Stare da solo"], }, { question: "Quale snack vince sempre?", answers: ["Patatine", "Cioccolato", "Popcorn", "Gelato", "Frutta"], }, { question: "Che tipo di persona sei nelle chat di gruppo?", answers: ["Quello che legge e basta", "Quello che manda meme", "Quello che risponde a tutti", "Quello che sparisce", "Quello che organizza"], }, { question: "Qual è il miglior modo per passare il tempo da solo?", answers: ["Guardare qualcosa", "Giocare", "Ascoltare musica", "Dormire", "Fare una passeggiata"], }, { question: "Cosa non dovrebbe mai mancare in una casa ideale?", answers: ["Spazio", "Silenzio", "Luce naturale", "Una cucina grande", "Una postazione relax"], }, { question: "Quale sapore scegli più spesso?", answers: ["Dolce", "Salato", "Piccante", "Amaro", "Aspro"], }, { question: "Come reagisci di solito agli imprevisti?", answers: ["Mi adatto subito", "Mi innervosisco", "Cerco un piano B", "Aspetto e vedo", "Dipende dalla situazione"], }, { question: "Qual è il miglior periodo dell'anno?", answers: ["Gennaio-Marzo", "Aprile-Giugno", "Luglio-Settembre", "Ottobre-Dicembre"], }, { question: "Che tipo di musica metti più spesso in cuffia?", answers: ["Per caricarmi", "Per rilassarmi", "Per concentrarmi", "Per nostalgia", "Dipende dal mood"], }, { question: "Sei più tipo da piano o improvvisazione?", answers: ["Programmo tutto", "Organizzo il minimo", "Vado d'istinto", "Cambio idea spesso"], }, { question: "Quale posto scegli per rilassarti davvero?", answers: ["Casa", "Mare", "Montagna", "Città", "Ovunque purché in pace"], }, { question: "Quanto conta per te il primo impatto?", answers: ["Tantissimo", "Abbastanza", "Il giusto", "Poco"], },];
+const LOCAL_ATTUALITA_POLLS = [
+  { question: "Da dove segui soprattutto le notizie?", answers: ["TV", "Siti e app di news", "Social network", "Radio", "Passaparola"], },
+  { question: "Quanto sei preoccupato per il cambiamento climatico?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Non ci penso"], },
+  { question: "Smart working: come preferisci lavorare?", answers: ["Solo da remoto", "Solo in sede", "Ibrido a scelta", "Ibrido obbligatorio", "Dipende dal ruolo"], },
+  { question: "L'intelligenza artificiale nella vita quotidiana: come la vedi?", answers: ["Utile e positiva", "Utile ma da regolamentare", "Neutra", "Preoccupante", "La evito"], },
+  { question: "Quale tema di attualità ti interessa di più?", answers: ["Ambiente e clima", "Economia e lavoro", "Politica e società", "Tecnologia", "Salute"], },
+  { question: "Quanto ti senti informato sulla politica italiana?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Non mi interessa"], },
+  { question: "Dove ti informi prima su un fatto di cronaca?", answers: ["TG o telegiornali", "Siti di news", "Twitter/X o social", "Google", "Non seguo la cronaca"], },
+  { question: "Il costo della vita: come lo stai vivendo?", answers: ["Con difficoltà", "Con qualche rinuncia", "Senza grandi problemi", "Non mi tocca", "Preferisco non pensarci"], },
+  { question: "Quanto è importante per te la privacy online?", answers: ["Molto, la proteggo", "Abbastanza", "Poco", "Non ci penso", "Rinuncio per comodità"], },
+  { question: "Come vedi il futuro dell'Europa?", answers: ["Più unita", "Come ora", "Più divisa", "Non so", "Non mi interessa"], },
+  { question: "Quale problema sociale ti sta più a cuore?", answers: ["Disuguaglianze", "Immigrazione e integrazione", "Lavoro e giovani", "Salute e welfare", "Sicurezza"], },
+  { question: "Le fonti di energia: quale direzione preferisci?", answers: ["Solo rinnovabili", "Mix con meno fossili", "Nucleare incluso", "Status quo", "Non ho un'opinione"], },
+  { question: "Quanto ti fidi dei media tradizionali?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Dipende dal mezzo"], },
+  { question: "Tasse e welfare: come la pensi?", answers: ["Più tasse, più servizi", "Meno tasse", "Equilibrio", "Riforma radicale", "Non so"], },
+  { question: "Come ti rapporti alle fake news?", answers: ["Le verifico sempre", "Cerco di verificare", "A volte ci cascano", "Non mi preoccupano", "Non so come verificarle"], },
+  { question: "Lavoro e giovani: qual è la priorità?", answers: ["Contratti stabili", "Stipendio dignitoso", "Formazione", "Lavoro da remoto", "Menare meno"], },
+  { question: "Salute pubblica: cosa conta di più?", answers: ["Prevenzione", "Ospedali e cure", "Mental health", "Ricerca", "Tutto uguale"], },
+  { question: "Scuola e università: cosa cambieresti?", answers: ["Più fondi", "Programmi aggiornati", "Meno burocrazia", "Più meritocrazia", "Niente di particolare"], },
+  { question: "Come vedi il ruolo dell'Italia in Europa?", answers: ["Più protagonista", "Come ora", "Più indipendente", "Non so", "Poco rilevante"], },
+  { question: "Quale tema vorresti più dibattuto in TV?", answers: ["Ambiente", "Economia", "Diritti civili", "Lavoro", "Cronaca e giustizia"], },
+  { question: "Quanto sei favorevole a leggi più severe sul clima?", answers: ["Molto", "Abbastanza", "Poco", "Contrario", "Indifferente"], },
+  { question: "Dove investiresti più risorse pubbliche?", answers: ["Sanità", "Istruzione", "Infrastrutture", "Ambiente", "Sicurezza"], },
+  { question: "Come giudichi l'informazione sui social?", answers: ["Utile se si filtra", "Troppo caotica", "Pericolosa", "Indispensabile", "La evito"], },
+  { question: "Reddito e lavoro: qual è la priorità per il Paese?", answers: ["Lotta alla povertà", "Creare posti di lavoro", "Formazione", "Ridurre il precariato", "Tagliare le tasse"], },
+];
 
 function normalizeText(value) {
   return String(value || "")
@@ -177,8 +202,8 @@ function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
   return new Date(utcMs);
 }
 
-function buildLocalThemePoll(cfg = {}, forcedTargetOptions = null) {
-  const picked = pickRandom(LOCAL_THEME_POLLS);
+function buildLocalAttualitaPoll(cfg = {}, forcedTargetOptions = null) {
+  const picked = pickRandom(LOCAL_ATTUALITA_POLLS);
   if (!picked) return null;
   return applyOptionCount(
     {
@@ -290,12 +315,12 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
 
   for (const model of models) {
     const payload = {
-      model, messages: [{ role: "system", content: "Genera sondaggi generali per utenti italiani. " + "Scrivi solo in italiano naturale. " + "Le domande devono sembrare sondaggi generali, leggeri e coinvolgenti, non interni a un server o community. " + "Evita trivia, domande da enciclopedia. " + "Le risposte devono essere coerenti tra loro, tutte plausibili, corte e senza duplicati. " + "Non usare risposte meta come 'dipende', 'altro', 'non so' salvo se davvero sensate. " + "Non usare mai riferimenti a Discord, community, server, staff, eventi del server o chat di gruppo. " + "Non usare mai il formato 'Qual e la tua opinione su ...'. " + "Restituisci solo JSON valido con le chiavi question e answers.", }, {
+      model, messages: [{ role: "system", content: "Genera sondaggi su argomenti di attualità per utenti italiani. " + "Scrivi solo in italiano naturale. " + "Le domande devono riguardare temi di attualità: cronaca, società, politica, ambiente, lavoro, tecnologia, economia, salute, diritti, Europa, media e informazione. " + "Le risposte devono essere coerenti tra loro, plausibili, corte e senza duplicati. " + "Non usare risposte meta come 'dipende', 'altro', 'non so' salvo se davvero sensate. " + "Non usare riferimenti a Discord, community, server o chat. " + "Non usare il formato 'Qual e la tua opinione su ...'. " + "Restituisci solo JSON valido con le chiavi question e answers.", }, {
         role: "user", content: `Genera un poll con ${optionCount} risposte.` +
-          " Target: pubblico italiano generalista." +
-          " La domanda deve essere breve, chiara, coinvolgente e adatta a ricevere risposte reali da chiunque." +
-          " I temi giusti sono abitudini, gusti, preferenze quotidiane, intrattenimento, lifestyle, stagioni, cibo, carattere, tempo libero, gaming, sesso, politica, musica, religione, cronaca." +
-          ' Rispondi solo con JSON del tipo {"question":"...","answers":["..."]}.',
+          " Target: pubblico italiano." +
+          " La domanda deve essere su un tema di attualità (cronaca, società, politica, ambiente, lavoro, tecnologia, economia, salute, diritti, media)." +
+          " Domanda breve, chiara e che inviti a rispondere con opzioni concrete e realistiche." +
+          ' Rispondi solo con JSON: {"question":"...","answers":["..."]}.',
       },
       ],
       max_tokens: 220,
@@ -384,17 +409,17 @@ async function pickPollCandidate(cfg = {}, forcedTargetOptions = null) {
         global.logger?.warn?.("[poll.auto] openrouter generation failed:", error?.message || error);
         return null;
       });
-      if (!candidate) candidate = buildLocalThemePoll(cfg, forcedTargetOptions);
+      if (!candidate) candidate = buildLocalAttualitaPoll(cfg, forcedTargetOptions);
     }
 
     if (!candidate && source === "local") {
-      candidate = buildLocalThemePoll(cfg, forcedTargetOptions);
+      candidate = buildLocalAttualitaPoll(cfg, forcedTargetOptions);
     }
 
     if (candidate?.question && Array.isArray(candidate?.answers)) return candidate;
   }
 
-  return buildLocalThemePoll(cfg, forcedTargetOptions);
+  return buildLocalAttualitaPoll(cfg, forcedTargetOptions);
 }
 
 async function runAutoPoll(client) {
