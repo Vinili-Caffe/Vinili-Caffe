@@ -5,7 +5,7 @@ const {
   resolveValidVerifyRoleIds,
   isResolvedMainGuildId,
 } = require("../../Utils/Interaction/verifyUtils");
-const { addRolesAndGetMember } = require("../../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 function isSponsorGuild(guildId) {
   const gid = String(guildId || "");
@@ -221,7 +221,7 @@ module.exports = {
       const guild = message.guild;
       const guildId = guild?.id;
       const modLogId = IDs.channels?.modLogs;
-      const logChannel=modLogId?(guild?.channels?.cache?.get(modLogId)||(await guild.channels.fetch(modLogId).catch(() => null))):null;
+      const logChannel=modLogId&&guild?(guild.channels.cache.get(modLogId)||(await getGuildChannelCached(guild,modLogId))||(await getClientChannelCached(message.client,modLogId))||(await guild.channels.fetch(modLogId).catch(() => null))):null;
       const sanitizeEmbed=(v) => String(v||"").replace(/[\\`*_~|>]/g, "\\$&").replace(/\n/g, " ").trim();
       for (const member of targets) {
         const fresh=guildId&&member?.id?await guild.members.fetch(member.id).catch(() => null):member;

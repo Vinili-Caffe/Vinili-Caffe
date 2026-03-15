@@ -8,7 +8,7 @@ const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
 const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Services/Moderation/antiNukeService");
-const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
+const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -359,6 +359,9 @@ async function removePlusColorsIfNotEligible(member) {
 
   const hasRequiredRole=PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId),);
   if (hasRequiredRole) return;
+
+  const hasEventWeek2Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 2).catch(() => false)) : false;
+  if (hasEventWeek2Grant) return;
 
   const heldPlusRoles=PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
   if (!heldPlusRoles.length) return;

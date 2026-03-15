@@ -8,7 +8,7 @@ const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const { InviteTrack, ExpUser, ActivityUser, LevelHistory, } = require("../Schemas/Community/communitySchemas");
 const { MinigameUser } = require("../Schemas/Minigames/minigameSchema");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
@@ -121,16 +121,15 @@ async function closeOpenTicketsForMember(member) {
   if (!openTickets.length) return;
 
   const centralTicketLogChannelId = IDs.channels.ticketLogs || "1442569290682208296";
-  const mainGuildId = IDs.guilds?.main || null;
-  const mainGuild = mainGuildId ? client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null)) : null;
-  let logChannel = mainGuild ? mainGuild.channels.cache.get(centralTicketLogChannelId) || (await mainGuild.channels.fetch(centralTicketLogChannelId).catch(() => null)) : null;
-  if (!logChannel?.isTextBased?.() && guild.channels.cache.get(centralTicketLogChannelId)) {
-    logChannel = guild.channels.cache.get(centralTicketLogChannelId) || (await guild.channels.fetch(centralTicketLogChannelId).catch(() => null));
-  }
+  let logChannel = client.channels.cache.get(centralTicketLogChannelId) ||
+    (await getClientChannelCached(client, centralTicketLogChannelId)) ||
+    (await client.channels.fetch(centralTicketLogChannelId).catch(() => null));
+  if (!logChannel?.isTextBased?.()) logChannel = null;
 
   for (const ticket of openTickets) {
     const ticketGuild = String(ticket.guildId || "") === String(guild.id) ? guild : await client.guilds.fetch(ticket.guildId).catch(() => null);
-    const channel = ticketGuild ? ticketGuild.channels.cache.get(ticket.channelId) || (await ticketGuild.channels.fetch(ticket.channelId).catch(() => null)) : null;
+    let channel = ticketGuild ? ticketGuild.channels.cache.get(ticket.channelId) || (await ticketGuild.channels.fetch(ticket.channelId).catch(() => null)) : null;
+    if (!channel) channel = client.channels.cache.get(ticket.channelId) || (await client.channels.fetch(ticket.channelId).catch(() => null));
 
     let transcriptTXT = "";
     let transcriptHtmlPath = null;
@@ -201,8 +200,8 @@ async function handleTrackedStaffLeave(member) {
   if (!hadTrackedStaffRole) return;
 
   const guild = member.guild;
-  const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex);
-  if (resignChannel) {
+  const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex)) || (await getClientChannelCached(member.client, IDs.channels.pexDepex));
+  if (resignChannel?.isTextBased?.()) {
     const highestTrackedRole = getHighestTrackedRole(member);
     const roleLabel = highestTrackedRole?.name || "Staff/PM";
     const userRole = guild.roles.cache.get(IDs.roles.Member);

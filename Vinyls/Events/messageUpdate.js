@@ -1,6 +1,6 @@
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 
 const MAX_EMBED_DIFF_LENGTH = 900;
@@ -100,7 +100,8 @@ function isHttpUrl(value) {
 async function resolveLogChannel(guild) {
   const channelId = IDs.channels.activityLogs;
   if (!guild || !channelId) return null;
-  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+  const client = guild.client;
+  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (client ? (await getClientChannelCached(client, channelId)) : null);
 }
 
 async function sendRaw(channel, payload) {

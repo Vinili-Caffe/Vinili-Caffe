@@ -1,5 +1,6 @@
 const { EmbedBuilder, MessageFlagsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
+const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 
 const MAX_CONTENT_LOG_LENGTH = 1800;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map(String),);
@@ -123,10 +124,11 @@ function hasMeaningfulDeleteData(message) {
 async function resolveLogChannel(guild) {
   const channelId = IDs.channels.activityLogs;
   if (!guild || !channelId) return null;
-  return (
-    guild.channels.cache.get(channelId) ||
-    (await guild.channels.fetch(channelId).catch(() => null))
-  );
+  const client = guild.client;
+  return guild.channels.cache.get(channelId) ||
+    (await getGuildChannelCached(guild, channelId)) ||
+    (client ? (await getClientChannelCached(client, channelId)) : null) ||
+    (await guild.channels.fetch(channelId).catch(() => null));
 }
 
 async function sendRaw(channel, payload) {

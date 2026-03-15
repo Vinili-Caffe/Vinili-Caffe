@@ -5,7 +5,7 @@ const StaffModel = require("../../Schemas/Staff/staffSchema");
 const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazione } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = { [String(IDs.roles.Helper)]: { messages: 250, hours: 2.5 }, [String(IDs.roles.Mod)]: { messages: 350, hours: 3.5 }, [String(IDs.roles.Coordinator)]: { messages: 450, hours: 4.5 }, [String(IDs.roles.Supervisor)]: { messages: 500, hours: 5 }, };
 const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 1, [String(IDs.roles.Coordinator)]: 2, [String(IDs.roles.Supervisor)]: 3 };
@@ -370,8 +370,8 @@ async function getWeeklySanctionCountByMod(guildId, weekStart, weekEnd) {
 async function resolveChannel(client, channelId) {
   if (!channelId) return null;
   return client.channels.cache.get(channelId) ||
-    (await getGuildChannelCached(client.guilds.cache.get(String(IDs.guilds?.main || "")), channelId)) ||
-    (await client.channels.fetch(channelId).catch(() => null));
+    (await getClientChannelCached(client, String(channelId))) ||
+    (await client.channels.fetch(String(channelId)).catch(() => null));
 }
 
 async function runWeeklyStaffResoconti(client) {

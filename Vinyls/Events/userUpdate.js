@@ -1,7 +1,7 @@
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { getJoinGateConfigSnapshot } = require("../Services/Moderation/joinGateService");
 const {
   kickForJoinGate,
@@ -55,7 +55,8 @@ async function punishUsernameMatchPostJoin(member, match, cfg) {
   if (action === "log") {
     const logChannel = IDs.channels.modLogs
       ? member.guild.channels.cache.get(IDs.channels.modLogs) ||
-        (await getGuildChannelCached(member.guild, IDs.channels.modLogs))
+        (await getGuildChannelCached(member.guild, IDs.channels.modLogs)) ||
+        (await getClientChannelCached(member.client, IDs.channels.modLogs))
       : null;
     if (logChannel?.isTextBased?.()) {
       await logChannel

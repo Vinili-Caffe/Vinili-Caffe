@@ -1,6 +1,6 @@
 const { ExpUser, GlobalSettings, LevelHistory, EventUserExpSnapshot, } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryGames].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
@@ -580,7 +580,8 @@ async function maybeSendPerkNearReminder(guild, member, result) {
 
 async function getLevelUpChannel(guild) {
   if (!guild || !LEVEL_UP_CHANNEL_ID) return null;
-  return guild.channels.cache.get(LEVEL_UP_CHANNEL_ID) || (await getGuildChannelCached(guild, LEVEL_UP_CHANNEL_ID));
+  const client = guild.client;
+  return guild.channels.cache.get(LEVEL_UP_CHANNEL_ID) || (await getGuildChannelCached(guild, LEVEL_UP_CHANNEL_ID)) || (client ? (await getClientChannelCached(client, LEVEL_UP_CHANNEL_ID)) : null);
 }
 
 const EVENT_LEVEL_UP_DEBOUNCE_MS = 1800;

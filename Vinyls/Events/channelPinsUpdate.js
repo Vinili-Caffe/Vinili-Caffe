@@ -1,6 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 
 const DEDUPE_TTL_MS = 15 * 1000;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -26,7 +26,8 @@ function formatAuditActor(actor) {
 async function resolveLogChannel(guild) {
   const channelId = IDs.channels.activityLogs;
   if (!guild || !channelId) return null;
-  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+  const client = guild.client;
+  return guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (client ? (await getClientChannelCached(client, channelId)) : null);
 }
 
 function getDedupeStore(client) {

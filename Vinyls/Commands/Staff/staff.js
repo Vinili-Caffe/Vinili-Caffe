@@ -2,6 +2,7 @@ const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const StaffModel = require("../../Schemas/Staff/staffSchema");
 const IDs = require("../../Utils/Config/ids");
+const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
 const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
@@ -375,7 +376,7 @@ module.exports = {
     const pexDepexChannel = interaction.guild.channels.cache.get(IDs.channels?.pexDepex,);
     const pmChannel = interaction.guild.channels.cache.get(IDs.channels?.partnersChat,);
     const staffChat = interaction.guild.channels.cache.get(IDs.channels?.staffChat,);
-    const resolveMember = createMemberResolver(interaction.guild);
+    const resolveMember = createMemberResolver(guild);
 
     if (sub === "pex") {
       try {
@@ -482,7 +483,7 @@ module.exports = {
       try {
         const targetUser = interaction.options.getUser("staffer");
         const reason = interaction.options.getString("motivo");
-        const warnChannel = interaction.guild.channels.cache.get(IDs.channels?.warnStaff,);
+        const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) || (await getClientChannelCached(client, IDs.channels?.warnStaff));
 
         const staffDoc = await getOrCreateStaffDoc(interaction.guild.id, targetUser.id,);
         if (!staffDoc.idCount) staffDoc.idCount = 0;

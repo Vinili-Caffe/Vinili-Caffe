@@ -3,7 +3,7 @@ const axios = require("axios");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 function extractInviteCode(text) {
   if (!text) return null;
@@ -233,7 +233,9 @@ async function handlePartnerModal(interaction) {
 
   try {
     const guildId = interaction.guild.id;
-    const partnershipChannel = interaction.guild.channels.cache.get(IDs.channels.partnerships,);
+    const guild = interaction.guild;
+    const client = interaction.client;
+    const partnershipChannel = guild.channels.cache.get(IDs.channels.partnerships) || (await getGuildChannelCached(guild, IDs.channels.partnerships)) || (await getClientChannelCached(client, IDs.channels.partnerships));
     if (!partnershipChannel?.isTextBased?.()) {
       await interaction.editReply({
         embeds: [

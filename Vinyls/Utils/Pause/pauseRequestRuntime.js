@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("d
 const Staff = require("../../Schemas/Staff/staffSchema");
 const IDs = require("../Config/ids");
 const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek } = require("./pauseHandlersUtils");
+const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
 const PAUSE_REQUEST_ROLE_IDS = [IDs.roles.PartnerManager, IDs.roles.Staff, IDs.roles.HighStaff].filter(Boolean);
@@ -106,7 +107,8 @@ async function getOrCreateStaffDoc(guildId, userId) {
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null }) {
   const guildId = guild?.id;
   if (!guild || !guildId || !userId) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
-  const pauseChannel = guild.channels.cache.get(IDs.channels?.pause);
+  const client = guild.client;
+  const pauseChannel = guild.channels.cache.get(IDs.channels?.pause) || (await getGuildChannelCached(guild, IDs.channels?.pause)) || (await getClientChannelCached(client, IDs.channels?.pause));
   const normalized = normalizePauseDates(rawStart, rawEnd);
   if (!normalized) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };

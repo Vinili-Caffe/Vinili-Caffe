@@ -2,7 +2,8 @@ const cron = require("node-cron");
 const axios = require("axios");
 const Poll = require("../../Schemas/Poll/pollSchema");
 const IDs = require("../../Utils/Config/ids");
-const { createPollForGuild, getPollChannelFromGuild } = require("../../Commands/Admin/poll");
+const { createPollForGuild } = require("../../Commands/Admin/poll");
+const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const TIMEZONE = "Europe/Rome";
 const COUNTER_FILTER_QUESTION = "__counter__";
 const DEFAULT_WINDOW_START_HOUR = 19;
@@ -397,8 +398,13 @@ async function pickPollCandidate(cfg = {}, forcedTargetOptions = null) {
 }
 
 async function runAutoPoll(client) {
-  const guild = client.guilds.cache.get(IDs.guilds.main) || (await client.guilds.fetch(IDs.guilds.main).catch(() => null));
-  if (!guild) return;
+  const channelId = IDs.channels?.polls;
+  if (!channelId) return;
+  const pollChannel = client.channels.cache.get(channelId) || (await getClientChannelCached(client, String(channelId))) || (await client.channels.fetch(String(channelId)).catch(() => null));
+  if (!pollChannel?.guild?.id || !pollChannel.isTextBased?.()) {
+    return;
+  }
+  const guild = pollChannel.guild;
 
   if (await hasManualPollToday(guild.id)) return;
   if (await hasAutoPollToday(guild.id)) return;
@@ -422,16 +428,6 @@ async function runAutoPoll(client) {
   }
 
   if (!payload) return;
-
-  const pollChannel = await getPollChannelFromGuild(guild);
-  if (!pollChannel) {
-    global.logger?.warn?.(
-      "[poll.auto] Canale poll non disponibile. Controlla che il canale esista nel server e che il bot abbia permesso di vederlo.",
-      "guildId=" + guild.id,
-      "channelId=" + (IDs.channels?.polls || "non configurato"),
-    );
-    return;
-  }
 
   const result = await createPollForGuild(guild, { question: payload.question, answers: payload.answers, source: "auto", });
   if (!result?.ok) {
@@ -457,8 +453,6 @@ function startAutoPollLoop(client) {
     },
     { timezone: TIMEZONE },
   );
-
-  runAutoPoll(client).catch((err) => global.logger?.warn?.("[poll.auto] Recovery on start failed:", err?.message || err));
 }
 
 module.exports = { startAutoPollLoop, runAutoPoll };

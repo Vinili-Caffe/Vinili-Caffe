@@ -430,6 +430,7 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
   await eventChannel.send({
     content: `<@&1442568949605597264>
 <a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori dell'Activity Event EXP della settimana ${eventWeek}
+
 <:VC_EXP:1482534670896730143> Avete ricevuto __${getEventWeeklyRewardLabel(eventWeek)}__ come ricompensa di questa settimana
 
 <a:VC_Events:1482706144953897223> Vi aspettiamo la prossima settimana, con i vincitori che vinceranno __${getEventWeeklyRewardLabel(eventWeek + 1)}__`,
