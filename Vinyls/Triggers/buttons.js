@@ -399,8 +399,6 @@ module.exports = {
     interaction.reply = (p) => origReply(withFooter(p));
     const origEditReply = interaction.editReply.bind(interaction);
     interaction.editReply = (p) => origEditReply(withFooter(p));
-    const origUpdate = interaction.update?.bind(interaction);
-    if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
@@ -797,8 +795,6 @@ module.exports = {
 
     const sendUpdatedView = async (payload) => {
       if (interaction.replied || interaction.deferred) return;
-      const updated = await interaction.update(payload).catch(() => null);
-      if (updated !== null) return true;
       await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
       if (!interaction.deferred) return;
       await interaction.editReply(payload).catch(() => {});
