@@ -526,7 +526,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
 
   const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0),);
 
-  const useEventTop = eventWeek >= 1 && eventWeek <= 4;
+  const useEventTop = eventPayoutWeek >= 1 && eventPayoutWeek <= 4;
   const displayTopMessages = useEventTop ? eventTopMessages.map((item) => ({ userId: item.userId, value: Number(item.messageCount || 0) })) : topMessages;
   const displayTopVoice = useEventTop ? eventTopVoice.map((item) => ({ userId: item.userId, value: Math.floor((Math.max(0, Number(item.voiceSeconds || 0)) / 60) * VOICE_EXP_PER_MINUTE), })) : topVoice;
 
@@ -609,11 +609,11 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       }
     }
   }
-  if (eventWeek >= 1 && eventWeek <= 4 && EVENT_ANNOUNCEMENT_CHANNEL_ID) {
-    await sendEventWeekAnnouncementToNews(client, guild, eventWeek, eventTopMessages, eventTopVoice);
+  if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4 && EVENT_ANNOUNCEMENT_CHANNEL_ID) {
+    await sendEventWeekAnnouncementToNews(client, guild, eventPayoutWeek, eventTopMessages, eventTopVoice);
   }
-  if (eventWeek >= 1 && eventWeek <= 4 && settings) {
-    await giveWeekly20PointsIfEligible(guild, eventWeek, settings).catch((err) => {
+  if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4 && settings) {
+    await giveWeekly20PointsIfEligible(guild, eventPayoutWeek, settings).catch((err) => {
       global.logger?.error?.("[WEEKLY ACTIVITY] Staff event weekly 20 pts failed:", err);
     });
   }
@@ -723,7 +723,32 @@ function startWeeklyActivityWinnersLoop(client) {
     { timezone: TIME_ZONE },
   );
 
-  const runRecoveryIfNeeded = async () => { const now = new Date(); const weekday = getWeekdayRome(now); if (weekday !== "Mon" && weekday !== "Tue") return; const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID)); const guildId = channel?.guild?.id; if (!guildId) return; const currentWeekKey = getWeekKey(now); const alreadyReset = await ActivityUser.exists({ guildId, "messages.weeklyKey": currentWeekKey, }).catch(() => false); if (alreadyReset) return; const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000); const previousWeekKey = getWeekKey(yesterday); if (previousWeekKey === currentWeekKey) return; try { global.logger.info("[WEEKLY ACTIVITY] Recovery: running missed weekly winners (bot was likely offline Sunday 21:00).",); await publishWeeklyActivityWinners(client, { weekKey: previousWeekKey }); await resetWeeklyActivityCounters(client, { nextWeekKey: currentWeekKey, }); } catch (error) { global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error); } }; runRecoveryIfNeeded();
+  const runRecoveryIfNeeded = async () => {
+    const now = new Date();
+    const weekday = getWeekdayRome(now);
+    if (weekday !== "Mon" && weekday !== "Tue") return;
+    const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID));
+    const guildId = channel?.guild?.id;
+    if (!guildId) return;
+    const currentWeekKey = getWeekKey(now);
+    const alreadyReset = await ActivityUser.exists({ guildId, "messages.weeklyKey": currentWeekKey, }).catch(() => false);
+    if (alreadyReset) return;
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const previousWeekKey = getWeekKey(yesterday);
+    if (previousWeekKey === currentWeekKey) return;
+    try {
+      global.logger.info("[WEEKLY ACTIVITY] Recovery: running missed weekly winners (bot was likely offline Sunday 21:00).");
+      await publishWeeklyActivityWinners(client, { weekKey: previousWeekKey });
+      await resetWeeklyActivityCounters(client, { nextWeekKey: currentWeekKey });
+    } catch (error) {
+      global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error);
+    }
+  };
+  const recoveryDelayMs = 10_000;
+  const recoveryTimer = setTimeout(() => {
+    runRecoveryIfNeeded().catch((err) => global.logger?.error?.("[WEEKLY ACTIVITY] Recovery on start failed:", err));
+  }, recoveryDelayMs);
+  recoveryTimer.unref?.();
 }
 
 /**
