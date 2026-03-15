@@ -5,6 +5,7 @@ const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
 const { buildPrefixLookupKeys, buildSlashLookupKeys, hasTemporaryCommandPermission, } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+const { hasEventWeekWinnerGrant } = require("../../Services/Community/activityEventRewardsService");
 const PERMISSIONS_CANDIDATES = [path.resolve(__dirname, "../../permissions.json"), path.join(process.cwd(), "permissions.json"),];
 const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, selectMenus: {}, modals: {}, };
 const PERMISSIONS_CACHE_TTL_MS = 3000;
@@ -1000,6 +1001,11 @@ async function checkButtonPermission(interaction) {
   }
 
   if (hasRoleConstraint && !rolePass) {
+    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
+      if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+    }
     return {
       allowed: false,
       reason: "missing_role",
@@ -1144,6 +1150,11 @@ async function checkStringSelectPermission(interaction) {
   }
 
   if (hasRoleConstraint && !rolePass) {
+    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
+      if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+    }
     return {
       allowed: false,
       reason: "missing_role",
@@ -1289,6 +1300,11 @@ async function checkModalPermission(interaction) {
   }
 
   if (hasRoleConstraint && !rolePass) {
+    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
+      if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+    }
     return {
       allowed: false,
       reason: "missing_role",

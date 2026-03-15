@@ -435,8 +435,10 @@ module.exports = {
           return replyOrEdit({ content: ROLE_REMOVED });
         }
         if (menuId === "personality_colors_plus") {
-          const hasEventWeek2 = interaction.guildId && interaction.user?.id && (await require("../Services/Community/activityEventRewardsService").hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 2).catch(() => false));
-          const allowed = member.roles.cache.has(IDs.roles.ServerBooster) || member.roles.cache.has(IDs.roles.Level50) || hasEventWeek2;
+          const act = require("../Services/Community/activityEventRewardsService");
+          const hasEventWeek2 = interaction.guildId && interaction.user?.id && (await act.hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 2).catch(() => false));
+          const hasEventWeek3 = interaction.guildId && interaction.user?.id && (await act.hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 3).catch(() => false));
+          const allowed = member.roles.cache.has(IDs.roles.ServerBooster) || member.roles.cache.has(IDs.roles.Level50) || member.roles.cache.has(IDs.roles.Level70) || hasEventWeek2 || hasEventWeek3;
           if (!allowed) {
             return replyOrEdit({ content: ROLE_PLUS_FORBIDDEN });
           }
