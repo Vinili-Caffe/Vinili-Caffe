@@ -389,7 +389,9 @@ module.exports = {
 
   async execute(interaction) {
     if (!interaction.guild) return;
-    if (!interaction.message) return;
+    const levelPanelIds = ["info_boost_levels", "info_levels", "torna_indietro"];
+    const allowWithoutMessage = interaction.isButton() && levelPanelIds.includes(interaction.customId);
+    if (!interaction.message && !allowWithoutMessage) return;
     if (interaction.replied || interaction.deferred) return;
     const allowed = await enforceInteractionPermissions(interaction);
     if (!allowed) return;
@@ -792,7 +794,10 @@ module.exports = {
     }
 
     const sendUpdatedView = async (payload) => {
-      return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => {});
+      if (interaction.replied || interaction.deferred) return interaction.editReply(payload).catch(() => {});
+      await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
+      if (!interaction.deferred) return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => {});
+      return interaction.editReply(payload).catch(() => {});
     };
     if (interaction.customId == "info_verifica") {
       const verifyEmbed = new EmbedBuilder()
