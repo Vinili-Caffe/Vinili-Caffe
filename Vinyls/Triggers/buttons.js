@@ -509,7 +509,7 @@ module.exports = {
         global.logger?.warn?.("[buttons] ", err?.message || err);
       }
       const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("Comando sbloccato").setDescription("Hai sbloccato con successo la visualizzazione del tuo avatar.",);
-      return interaction.reply({ embeds: [embed] });
+      return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG });
     }
 
     if (
@@ -543,7 +543,7 @@ module.exports = {
         global.logger?.warn?.("[buttons] ", err?.message || err);
       }
       const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("Comando sbloccato").setDescription("Hai sbloccato con successo la visualizzazione del tuo banner.",);
-      return interaction.reply({ embeds: [embed] });
+      return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG });
     }
 
     if (
