@@ -399,6 +399,8 @@ module.exports = {
     interaction.reply = (p) => origReply(withFooter(p));
     const origEditReply = interaction.editReply.bind(interaction);
     interaction.editReply = (p) => origEditReply(withFooter(p));
+    const origUpdate = interaction.update?.bind(interaction);
+    if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
@@ -680,6 +682,7 @@ module.exports = {
         "<:VC_Reply:1482532158080942191> È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
       ].join("\n"));
       await interaction.reply({ embeds: [generalEmbed, textEmbed, voiceEmbed, commonEmbed], flags: 1 << 6 }).catch(() => null);
+      return true;
     }
 
     if (interaction.customId == "info_donations") {
@@ -738,6 +741,7 @@ module.exports = {
         .setTitle("Acquista ora!")
         .setDescription("<:blueflash:1470064803157643468> Apri un ticket nella **terza categoria** su: <#1442569095068254219>.");
       await interaction.reply({ embeds: [donations, vip, ticket], flags: 1 << 6 }).catch(() => null);
+      return true;
     }
 
     if (interaction.customId == "info_sponsor") {
@@ -792,7 +796,13 @@ module.exports = {
     }
 
     const sendUpdatedView = async (payload) => {
-      return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => {});
+      if (interaction.replied || interaction.deferred) return;
+      const updated = await interaction.update(payload).catch(() => null);
+      if (updated !== null) return true;
+      await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
+      if (!interaction.deferred) return;
+      await interaction.editReply(payload).catch(() => {});
+      return true;
     };
     if (interaction.customId == "info_verifica") {
       const verifyEmbed = new EmbedBuilder()
@@ -939,17 +949,20 @@ module.exports = {
       return { embeds: [levelEmbed, howtoEmbed], components: [row] };
     };
     if (interaction.customId == "info_boost_levels") {
-      return sendUpdatedView(buildBoostLevelsPayload());
+      await sendUpdatedView(buildBoostLevelsPayload());
+      return true;
     }
     if (
       interaction.customId == "info_levels" ||
       interaction.customId == "info_level" ||
       interaction.customId == "infolivelli"
     ) {
-      return sendUpdatedView(buildLevelsPayload());
+      await sendUpdatedView(buildLevelsPayload());
+      return true;
     }
     if (interaction.customId == "torna_indietro") {
-      return sendUpdatedView(buildBoostLevelsPayload());
+      await sendUpdatedView(buildBoostLevelsPayload());
+      return true;
     }
 
     if (interaction.customId == "info_badges_roles") {
