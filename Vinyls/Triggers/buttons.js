@@ -389,7 +389,9 @@ module.exports = {
 
   async execute(interaction) {
     if (!interaction.guild) return;
-    if (!interaction.message) return;
+    const levelPanelIds = ["info_boost_levels", "info_levels", "torna_indietro"];
+    const allowWithoutMessage = interaction.isButton() && levelPanelIds.includes(interaction.customId);
+    if (!interaction.message && !allowWithoutMessage) return;
     if (interaction.replied || interaction.deferred) return;
     const allowed = await enforceInteractionPermissions(interaction);
     if (!allowed) return;
@@ -399,6 +401,8 @@ module.exports = {
     interaction.reply = (p) => origReply(withFooter(p));
     const origEditReply = interaction.editReply.bind(interaction);
     interaction.editReply = (p) => origEditReply(withFooter(p));
+    const origUpdate = interaction.update?.bind(interaction);
+    if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
@@ -795,7 +799,14 @@ module.exports = {
 
     const sendUpdatedView = async (payload) => {
       if (interaction.replied || interaction.deferred) return;
-      await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
+      const msg = interaction.message;
+      const ephemeralFlag = 1 << 6;
+      const isEphemeralPanel = msg?.author?.id === interaction.client?.user?.id && ((msg?.flags?.bitfield ?? 0) & ephemeralFlag) === ephemeralFlag;
+      if (isEphemeralPanel) {
+        const updated = await interaction.update(payload).catch(() => null);
+        if (updated !== null) return true;
+      }
+      await interaction.deferReply({ flags: ephemeralFlag }).catch(() => {});
       if (!interaction.deferred) return;
       await interaction.editReply(payload).catch(() => {});
       return true;
