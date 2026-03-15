@@ -83,11 +83,11 @@ async function handleStaffButtons(interaction) {
       .setImage(DIVIDER_URL)
       .setColor("#6f4e37")
       .setDescription(
-        "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>, chi non lo farà **riceverà** una __valutazione negativa__.\n\n" +
+        "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.\n\n" +
         "> <a:VC_Arrow:1448672967721615452> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
-        "<:dot:1443660294596329582> Ogni <@&1442568901887000618> dovrà __eseguire__ almeno: **`3 sanzioni`**\n" +
-        "<:dot:1443660294596329582> Ogni <@&1442568897902678038> dovrà __eseguire__ almeno: **`4 sanzioni`**\n" +
-        "<:dot:1443660294596329582> Ogni <@&1442568896237277295> dovrà __eseguire__ almeno: **`4 sanzioni`**\n\n" +
+        "<:dot:1443660294596329582> Ogni <@&1442568901887000618> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
+        "<:dot:1443660294596329582> Ogni <@&1442568897902678038> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+        "<:dot:1443660294596329582> Ogni <@&1442568896237277295> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
         "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**."
       );
     await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch(() => null);

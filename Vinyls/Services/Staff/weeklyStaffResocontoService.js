@@ -8,7 +8,7 @@ const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = { [String(IDs.roles.Helper)]: { messages: 250, hours: 2.5 }, [String(IDs.roles.Mod)]: { messages: 350, hours: 3.5 }, [String(IDs.roles.Coordinator)]: { messages: 450, hours: 4.5 }, [String(IDs.roles.Supervisor)]: { messages: 500, hours: 5 }, };
-const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 3, [String(IDs.roles.Coordinator)]: 4, [String(IDs.roles.Supervisor)]: 4 };
+const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 1, [String(IDs.roles.Coordinator)]: 2, [String(IDs.roles.Supervisor)]: 3 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
 const STAFF_ROLE_PRIORITY = [String(IDs.roles.Supervisor), String(IDs.roles.Coordinator), String(IDs.roles.Mod), String(IDs.roles.Helper),];
 const ROLE_UP = {
@@ -454,8 +454,9 @@ async function runWeeklyStaffResoconti(client) {
       if (sanctionLimit != null && !inPauseDuringWeek) {
         const weeklySanctions = sanctionCountByModId.get(userId) || 0;
         const sanctionMet = weeklySanctions >= sanctionLimit;
-        const reason = sanctionMet ? "Limite sanzioni settimanale completato" : "Limite sanzioni settimanale non completato";
-        await applyAutomaticValutazione(guild, client, member.user, sanctionMet, reason).catch(() => null);
+        if (sanctionMet) {
+          await applyAutomaticValutazione(guild, client, member.user, true, "Limite sanzioni settimanale completato").catch(() => null);
+        }
       }
 
       await channel
