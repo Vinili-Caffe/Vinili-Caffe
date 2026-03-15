@@ -67,9 +67,7 @@ async function isUserVerifiedInMainGuild(client, userId) {
   if (!client || !userId) return false;
   const guild = await getMainGuild(client);
   if (!guild) return false;
-  const member =
-    (await guild.members.fetch(userId).catch(() => null)) ||
-    (await getGuildMemberCached(guild, userId, { preferFresh: true }));
+  const member = await getGuildMemberCached(guild, userId);
   if (!member?.roles?.cache) return false;
   if (!MAIN_VERIFIED_ROLE_ID) return Boolean(member);
   return member.roles.cache.has(MAIN_VERIFIED_ROLE_ID);

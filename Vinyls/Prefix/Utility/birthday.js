@@ -1,5 +1,6 @@
 const{EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,ComponentType,ModalBuilder,TextInputBuilder,TextInputStyle,}=require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
 const BirthdayProfile = require("../../Schemas/Community/birthdayProfileSchema");
 const{inferBirthYearFromAge,getRomeDateParts,}=require("../../Services/Community/birthdayService");
@@ -183,7 +184,7 @@ async function sendBirthSaveEmbed(client, guild, user, state, options = {}) {
   if (!channel) {
     const channelId = IDs.channels.birthday;
     if (!channelId) return null;
-    channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+    channel = await getGuildChannelCached(guild, channelId);
   }
   if (!channel?.isTextBased?.()) return null;
 

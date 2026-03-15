@@ -373,7 +373,7 @@ module.exports = {
       }
       const nowForStart = new Date();
       const guildForRewards = message.guild;
-      setTimeout(() => {
+      const eventStartTimer = setTimeout(() => {
         invalidateSettingsCache(guildId);
         grantEventRewardsForExistingRoleMembers(guildForRewards).catch((err) => {
           global.logger?.error?.("[evento start] grantEventRewardsForExistingRoleMembers failed:", err);
@@ -382,6 +382,7 @@ module.exports = {
           global.logger?.error?.("[evento start] grantEventRewardsForSameDayReviewAndVote failed:", err);
         });
       }, 800);
+      eventStartTimer.unref?.();
       const embed = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("Evento Activity EXP avviato")

@@ -1,96 +1,89 @@
 const { EmbedBuilder, AttachmentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { safeReply, safeEditReply, safeDeferReply } = require("../../../shared/discord/replyRuntime");
-const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, addRolesAndGetMember } = require("../../Utils/Interaction/interactionEntityCache");
 const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
+const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
+
+function withFooter(interaction, payload) {
+  return payload?.embeds?.length ? applyDefaultFooterToEmbeds(payload, interaction?.guild) : payload;
+}
 
 async function finalizeVerification(interaction, member) {
   const guild = interaction.guild;
   const guildId = guild?.id;
 
   if (!guild || !guildId) {
-    await safeReply(interaction, {
+    await safeReply(interaction, withFooter(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setDescription(
-            "<:vegax:1443934876440068179> Verifica disponibile solo nei server.",
-          ),
+          .setDescription(VERIFY_UNAVAILABLE),
       ],
       flags: 1 << 6,
-    }).catch(() => { });
+    })).catch(() => { });
     return true;
   }
 
   const freshMember = member?.id && (await getGuildMemberCached(guild, member.id, { preferFresh: true }));
   const targetMember = freshMember || member;
   if (!targetMember?.roles?.cache) {
-    await safeReply(interaction, {
+    await safeReply(interaction, withFooter(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setDescription(
-            "<:vegax:1443934876440068179> Impossibile caricare il membro. Riprova.",
-          ),
+          .setDescription(VERIFY_LOAD_MEMBER),
       ],
       flags: 1 << 6,
-    }).catch(() => { });
+    })).catch(() => { });
     return true;
   }
 
   const validRoleIds = await resolveValidVerifyRoleIds(guild);
   if (!validRoleIds.length) {
-    await safeReply(interaction, {
+    await safeReply(interaction, withFooter(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setDescription(
-            "<:vegax:1443934876440068179> Ruoli verifica non configurati correttamente.",
-          ),
+          .setDescription(VERIFY_CONFIG),
       ],
       flags: 1 << 6,
-    }).catch(() => {});
+    })).catch(() => {});
     return true;
   }
 
   const rolesToAdd = validRoleIds.filter((id) => !targetMember.roles.cache.has(id),);
   await safeDeferReply(interaction, { flags: 1 << 6 });
 
+  const memberAfterAdd = await addRolesAndGetMember(guild, targetMember.id, rolesToAdd);
+  if (!memberAfterAdd) {
+    await safeEditReply(interaction, withFooter(interaction, {
+      embeds: [new EmbedBuilder().setColor("Red").setDescription(VERIFY_LOAD_MEMBER)],
+    })).catch(() => { });
+    return true;
+  }
   if (rolesToAdd.length > 0) {
-    const rolesApplied = await targetMember.roles.add(rolesToAdd).then(() => true).catch((err) => {
-      global.logger?.error?.("[VERIFY] Failed to add roles:", err);
-      return false;
-    });
-    if (!rolesApplied) {
-      const refreshedMember = await getGuildMemberCached(guild, targetMember.id, { preferFresh: true }).catch(() => null);
-      const missingRoles = rolesToAdd.filter((roleId) => !refreshedMember?.roles?.cache?.has(roleId));
-      if (missingRoles.length > 0) {
-        await safeEditReply(interaction, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non sono riuscito ad assegnare i ruoli automatici della verifica. Riprova o contatta lo staff.",
-              ),
-          ],
-        }).catch(() => { });
-        return true;
-      }
+    const missingRoles = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    if (missingRoles.length > 0) {
+      await safeEditReply(interaction, withFooter(interaction, {
+        embeds: [new EmbedBuilder().setColor("Red").setDescription(VERIFY_ROLES_FAILED)],
+      })).catch(() => { });
+      return true;
     }
   }
 
   try {
-    const record = await upsertVerifiedMember(guildId, targetMember.id, new Date(),);
-    const memberWithRoles = await getGuildMemberCached(guild, targetMember.id, { preferFresh: true }).catch(() => targetMember);
-    await applyTenureForMember(memberWithRoles, record);
+    const record = await upsertVerifiedMember(guildId, memberAfterAdd.id, new Date(),);
+    await applyTenureForMember(memberAfterAdd, record);
   } catch (err) {
     global.logger?.warn?.("[VERIFY] upsertVerifiedMember/applyTenureForMember:", err);
   }
 
   const mainGuild = await getMainGuild(interaction.client);
   let logChannel = mainGuild ? await getGuildChannelCached(mainGuild, CENTRAL_VERIFY_LOG_CHANNEL_ID) : null;
-  if (!logChannel?.isTextBased?.() && CENTRAL_VERIFY_LOG_CHANNEL_ID && interaction.client?.channels?.fetch) {
-    logChannel = await interaction.client.channels.fetch(CENTRAL_VERIFY_LOG_CHANNEL_ID).catch(() => null);
+  if (!logChannel?.isTextBased?.() && CENTRAL_VERIFY_LOG_CHANNEL_ID) {
+    logChannel = await getClientChannelCached(interaction.client, CENTRAL_VERIFY_LOG_CHANNEL_ID);
   }
   if (logChannel?.isTextBased?.()) {
     const createdAtUnix = Math.floor(interaction.user.createdTimestamp / 1000);
@@ -132,10 +125,10 @@ async function finalizeVerification(interaction, member) {
   }
 
   const serverName = guild?.name || "this server";
-  await safeEditReply(interaction, {
+  await safeEditReply(interaction, withFooter(interaction, {
     content: "<:vegacheckmark:1443666279058772028> Verification done.",
     embeds: [makeVerifiedEmbed(serverName)],
-  });
+  }));
 
   return true;
 }
@@ -147,10 +140,10 @@ async function handleVerifyInteraction(interaction) {
       const stateKey = getVerifyStateKey(interaction.user?.id, guildId);
 
       if (interaction.guild?.ownerId === interaction.user.id) {
-        await safeReply(interaction, {
+        await safeReply(interaction, withFooter(interaction, {
           embeds: [makeOwnerEmbed()],
           flags: 1 << 6,
-        });
+        }));
         return true;
       }
 
@@ -167,17 +160,17 @@ async function handleVerifyInteraction(interaction) {
             .catch(() => null)) || memberForVerify;
       }
       if (isAlreadyVerifiedInThisGuild(memberForVerify, guildId)) {
-        await safeReply(interaction, {
+        await safeReply(interaction, withFooter(interaction, {
           embeds: [makeAlreadyVerifiedEmbed()],
           flags: 1 << 6,
-        });
+        }));
         return true;
       }
 
       if (isSponsorGuildVerify(guildId)) {
         const verifiedInMain = await isUserVerifiedInMainGuild(interaction.client, interaction.user.id);
         if (!verifiedInMain) {
-          await safeReply(interaction, {
+          await safeReply(interaction, withFooter(interaction, {
             embeds: [
               new EmbedBuilder()
                 .setColor("Red")
@@ -190,7 +183,7 @@ async function handleVerifyInteraction(interaction) {
                 ),
             ],
             flags: 1 << 6,
-          });
+          }));
           return true;
         }
       }
@@ -230,11 +223,11 @@ async function handleVerifyInteraction(interaction) {
 
       const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("verify_enter").setLabel("Answer").setStyle(ButtonStyle.Primary),);
 
-      await safeEditReply(interaction, {
+      await safeEditReply(interaction, withFooter(interaction, {
         embeds: [embed],
         components: [row],
         files: [captchaFile],
-      });
+      }));
 
       try {
         const replyMsg = await interaction.fetchReply();
@@ -271,11 +264,11 @@ async function handleVerifyInteraction(interaction) {
             .catch(() => { });
         } catch {
           if (!interaction.replied && !interaction.deferred) {
-            await safeReply(interaction, {
+            await safeReply(interaction, withFooter(interaction, {
               embeds: [makeExpiredEmbed()],
               components: [makeVerifyStartRow()],
               flags: 1 << 6,
-            });
+            }));
           }
         }
         return true;
@@ -306,7 +299,7 @@ async function handleVerifyInteraction(interaction) {
   ) {
     const modalUserId = String(interaction.customId || "").split(":")[1] || "";
     if (modalUserId && modalUserId !== String(interaction.user?.id || "")) {
-      await safeReply(interaction, {
+      await safeReply(interaction, withFooter(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -315,7 +308,7 @@ async function handleVerifyInteraction(interaction) {
             ),
         ],
         flags: 1 << 6,
-      }).catch(() => {});
+      })).catch(() => {});
       return true;
     }
     const stateKey = getVerifyStateKey(interaction.user?.id, interaction.guild?.id);
@@ -332,11 +325,11 @@ async function handleVerifyInteraction(interaction) {
           })
           .catch(() => { });
       }
-      await safeReply(interaction, {
+      await safeReply(interaction, withFooter(interaction, {
         embeds: [makeExpiredEmbed()],
         components: [makeVerifyStartRow()],
         flags: 1 << 6,
-      });
+      }));
       return true;
     }
 
@@ -346,7 +339,7 @@ async function handleVerifyInteraction(interaction) {
         interaction.fields.getTextInputValue("verify_input") ?? "",
       ).trim();
     } catch {
-      await safeReply(interaction, {
+      await safeReply(interaction, withFooter(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -355,7 +348,7 @@ async function handleVerifyInteraction(interaction) {
             ),
         ],
         flags: 1 << 6,
-      }).catch(() => { });
+      })).catch(() => {});
       return true;
     }
     if (inputCode.toLowerCase() !== state.code.toLowerCase()) {
@@ -372,18 +365,18 @@ async function handleVerifyInteraction(interaction) {
             })
             .catch(() => { });
         }
-        await safeReply(interaction, {
+        await safeReply(interaction, withFooter(interaction, {
           embeds: [makeTooManyAttemptsEmbed()],
           components: [makeVerifyStartRow()],
           flags: 1 << 6,
-        });
+        }));
         return true;
       }
       verifyState.set(stateKey, state);
-      await safeReply(interaction, {
+      await safeReply(interaction, withFooter(interaction, {
         embeds: [makeWrongAnswerEmbed()],
         flags: 1 << 6,
-      });
+      }));
       return true;
     }
 
@@ -391,7 +384,7 @@ async function handleVerifyInteraction(interaction) {
 
     const member = interaction.member;
     if (!member || !member.roles) {
-      await safeReply(interaction, {
+      await safeReply(interaction, withFooter(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -400,7 +393,7 @@ async function handleVerifyInteraction(interaction) {
             ),
         ],
         flags: 1 << 6,
-      });
+      }));
       return true;
     }
 

@@ -1,4 +1,5 @@
 const { PermissionsBitField } = require("discord.js");
+const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { getSession, buildPreviewEmbed, buildEditModal, buildSendModal, isValidUrl, updatePreview } = require("../../Utils/Interaction/embedBuilderUtils");
 
 async function handleEmbedBuilderInteraction(interaction, client) {
@@ -81,7 +82,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
 
     if (kind === "send") {
       const rawChannelId = String(interaction.fields.getTextInputValue("channelId") || "",).trim();
-      const channel = await client.channels.fetch(rawChannelId).catch(() => null);
+      const channel = await getClientChannelCached(client, rawChannelId);
       if (!channel?.isTextBased?.()) {
         await interaction
           .reply({

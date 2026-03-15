@@ -1,4 +1,5 @@
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, } = require("discord.js");
+const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { InviteTrack, InviteReminderState, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { shouldBlockDm } = require("../Utils/noDmList");
@@ -13,6 +14,8 @@ const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation
 const{markJoinGateSuspiciousAccount,}=require("../Services/Moderation/suspiciousAccountService");
 const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/Moderation/securityProfilesService");
 const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
+const { addRolesAndGetMember, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
+const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const{isStaffEventActive,isStaffButNotHighStaff,addStaffEventPoints,}=require("../Services/Community/staffEventService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
@@ -66,10 +69,7 @@ function formatAccountAge(createdAt) {
 
 async function resolveGuildChannel(guild, channelId) {
   if (!guild || !channelId) return null;
-  return (
-    guild.channels.cache.get(channelId) ||
-    (await guild.channels.fetch(channelId).catch(() => null))
-  );
+  return getGuildChannelCached(guild, channelId);
 }
 
 function ensureInviteCache(client) {
@@ -144,7 +144,7 @@ async function resolveInviteInfo(member) {
 async function trackInviteJoin(member, inviterId) {
   if (!inviterId || inviterId === member.id) return;
 
-  const inviterMember=member.guild.members.cache.get(inviterId)||(await member.guild.members.fetch(inviterId).catch(() => null));
+  const inviterMember = await getGuildMemberCached(member.guild, inviterId);
   if (!inviterMember || inviterMember.user?.bot) return;
 
   await InviteTrack.findOneAndUpdate(
@@ -167,7 +167,7 @@ async function tryAwardInviteRole(member, inviteInfo) {
   }
 
   const guild = member.guild;
-  const inviterMember=guild.members.cache.get(inviteInfo.inviterId)||(await guild.members.fetch(inviteInfo.inviterId).catch(() => null));
+  const inviterMember = await getGuildMemberCached(guild, inviteInfo.inviterId);
   if (!inviterMember || inviterMember.user?.bot) return { awarded: false, roleIds: [], targets: [] };
 
   const me = guild.members.me;
@@ -180,7 +180,7 @@ async function tryAwardInviteRole(member, inviteInfo) {
     if (totalInvites < Number(tier.target || 0)) continue;
     reachedTargets.push(Number(tier.target || 0));
     for (const roleId of Array.isArray(tier.roleIds) ? tier.roleIds : []) {
-      const role=guild.roles.cache.get(roleId)||(await guild.roles.fetch(roleId).catch(() => null));
+      const role = await getGuildRoleCached(guild, roleId);
       if (!role) continue;
       if (inviterMember.roles.cache.has(role.id)) continue;
       if (role.position >= me.roles.highest.position) continue;
@@ -191,13 +191,13 @@ async function tryAwardInviteRole(member, inviteInfo) {
     return { awarded: false, roleIds: [], targets: reachedTargets };
   }
 
-  const roleGrantApplied = await inviterMember.roles.add(rolesToAdd).then(() => true).catch(() => false);
-  if (!roleGrantApplied) {
-    const refreshedInviter = await guild.members.fetch(inviterMember.id).catch(() => null);
-    const missingRoleIds = rolesToAdd.filter((roleId) => !refreshedInviter?.roles?.cache?.has(roleId));
-    if (missingRoleIds.length > 0) {
-      return { awarded: false, roleIds: [], targets: reachedTargets };
-    }
+  const inviterAfter = await addRolesAndGetMember(guild, inviterMember.id, rolesToAdd);
+  if (!inviterAfter) {
+    return { awarded: false, roleIds: [], targets: reachedTargets };
+  }
+  const missingRoleIds = rolesToAdd.filter((roleId) => !inviterAfter.roles.cache.has(roleId));
+  if (missingRoleIds.length > 0) {
+    return { awarded: false, roleIds: [], targets: reachedTargets };
   }
   return { awarded: true, roleIds: rolesToAdd, targets: reachedTargets };
 }
@@ -245,14 +245,14 @@ async function addBotRoles(member) {
     return;
   }
 
-  const added = await member.roles.add(roles).then(() => true).catch(() => false);
-  if (added) return;
-  const refreshedMember = await member.guild.members.fetch(member.id).catch(() => null);
-  const unappliedRoleIds = roles.filter((role) => !refreshedMember?.roles?.cache?.has(role.id));
+  const idsToAdd = roles.map((r) => r.id);
+  const memberAfter = await addRolesAndGetMember(member.guild, member.id, idsToAdd);
+  if (!memberAfter) return;
+  const unappliedRoleIds = idsToAdd.filter((id) => !memberAfter.roles.cache.has(id));
   if (unappliedRoleIds.length) {
     global.logger.warn(
       "[guildMemberAdd] Failed to add bot roles:",
-      unappliedRoleIds.map((role) => role.id),
+      unappliedRoleIds,
     );
   }
 }
@@ -271,9 +271,7 @@ function buildWelcomeEmbed(member) {
         "Passa su <#1469429150669602961> per **abbellire il tuo profilo** con i ruoli & colori.",
     )
     .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-    .setImage(
-      "https://cdn.discordapp.com/attachments/1467927329140641936/1467927368034422959/image.png?ex=69876f65&is=69861de5&hm=02f439283952389d1b23bb2793b6d57d0f8e6518e5a209cb9e84e625075627db",
-    )
+    .setImage(DIVIDER_URL)
     .setColor("#6f4e37")
     .setFooter({ text: `Ora siamo in ${member.guild.memberCount} membri` });
 }
@@ -312,7 +310,7 @@ async function sendBotAddLog(member) {
   if (!guild || !member?.user?.bot) return;
 
   const modLogId = IDs.channels?.modLogs;
-  const logChannel=modLogId?(guild.channels.cache.get(modLogId)||(await guild.channels.fetch(modLogId).catch(() => null))):null;
+  const logChannel = modLogId ? await getGuildChannelCached(guild, modLogId) : null;
   if (!logChannel?.isTextBased?.()) return;
 
   let executor = null;
@@ -413,10 +411,10 @@ async function handleBotJoin(member, joinGateConfig) {
   const welcomeChannel=await resolveGuildChannel(member.guild,IDs.channels.chat,);
   if (welcomeChannel) {
     await welcomeChannel
-      .send({
+      .send(applyDefaultFooterToEmbeds({
         content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
         embeds: [buildWelcomeEmbed(member)],
-      })
+      }, member.guild))
       .catch(() => {});
   }
 
@@ -746,7 +744,7 @@ async function isVerifiedBot(user) {
 
 async function isAuthorizedBotAdder(guild, executorId) {
   if (!guild || !executorId) return false;
-  const executorMember=guild.members.cache.get(String(executorId||""))||(await guild.members.fetch(String(executorId||"")).catch(() => null));
+  const executorMember = await getGuildMemberCached(guild, String(executorId || ""));
   if (isConfiguredExempt(guild, executorId, executorMember)) return true;
   const executor = executorMember;
   if (!executor) return false;
@@ -894,7 +892,7 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
     }
   }
   const modLogId = IDs.channels?.modLogs;
-  const logChannel=modLogId?(member.guild.channels.cache.get(modLogId)||(await member.guild.channels.fetch(modLogId).catch(() => null))):null;
+  const logChannel = modLogId ? await getGuildChannelCached(member.guild, modLogId) : null;
   if (logChannel?.isTextBased?.()) {
     const actionLabel = appliedAction === "ban" ? "banned" : appliedAction === "timeout" ? "timed out" : appliedAction === "kick" ? "kicked" : "flagged";
     const embed = punished
@@ -943,7 +941,7 @@ async function sendJoinGateNoAvatarLog(member) {
   if (!hasNoAvatar(member)) return;
 
   const modLogId = IDs.channels?.modLogs;
-  const logChannel=modLogId?(member.guild.channels.cache.get(modLogId)||(await member.guild.channels.fetch(modLogId).catch(() => null))):null;
+  const logChannel = modLogId ? await getGuildChannelCached(member.guild, modLogId) : null;
   if (!logChannel?.isTextBased?.()) return;
 
   const embed = buildJoinGateTriggeredEmbed(member, "Account has no avatar.");
@@ -954,7 +952,7 @@ async function sendJoinGateNoAvatarLog(member) {
 async function sendSuspiciousAccountLog(member, reason) {
   if (!member?.guild || !reason) return;
   const modLogId = IDs.channels?.modLogs;
-  const logChannel=modLogId?(member.guild.channels.cache.get(modLogId)||(await member.guild.channels.fetch(modLogId).catch(() => null))):null;
+  const logChannel = modLogId ? await getGuildChannelCached(member.guild, modLogId) : null;
   if (!logChannel?.isTextBased?.()) return;
   const embed = buildJoinGateTriggeredEmbed(member, reason);
   await logChannel.send({ embeds: [embed] }).catch(() => {});
@@ -1031,7 +1029,7 @@ async function maybeSendInviteReward(member, info) {
   const rewardResult=await tryAwardInviteRole(member,info).catch(() => ({awarded:false,roleIds:[],targets:[],}));
   if (!inviteChannel || !rewardResult?.awarded || !info?.inviterId) return;
 
-  const inviterMember = await member.guild.members.fetch(info.inviterId).catch(() => null);
+  const inviterMember = await getGuildMemberCached(member.guild, info.inviterId);
   const levelsByTier = { 5: 5, 25: 10, 100: 25 };
   for (const tier of rewardResult.targets || []) {
     const levels = levelsByTier[tier];
@@ -1055,7 +1053,7 @@ async function maybeSendInviteReward(member, info) {
       `<@${info.inviterId}> hai raggiunto **${Math.max(...(rewardResult.targets || [0]))} inviti** e hai ottenuto ${rewardedRolesText || "nuovi ruoli"}.\n` +
         `<a:Boost_Cycle:1329504283007385642> Controlla <#${INFO_PERKS_CHANNEL_ID}> per i nuovi vantaggi.`,
     );
-  await inviteChannel.send({ embeds: [rewardEmbed] }).catch(() => {});
+  await inviteChannel.send(applyDefaultFooterToEmbeds({ embeds: [rewardEmbed] }, member.guild)).catch(() => {});
 }
 
 async function maybeSendInviteNearRewardReminder(member, info) {
@@ -1067,7 +1065,7 @@ async function maybeSendInviteNearRewardReminder(member, info) {
 
   const inviterId = String(info.inviterId);
   const guild = member.guild;
-  const inviterMember=guild.members.cache.get(inviterId)||(await guild.members.fetch(inviterId).catch(() => null));
+  const inviterMember = await getGuildMemberCached(guild, inviterId);
   if (!inviterMember || inviterMember.user?.bot) return;
 
   if (await shouldBlockDm(guild.id, inviterId, "invites").catch(() => false)) return;
@@ -1247,10 +1245,10 @@ module.exports = {
       let info = null;
       if (welcomeChannel) {
         await welcomeChannel
-          .send({
+          .send(applyDefaultFooterToEmbeds({
             content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
             embeds: [buildWelcomeEmbed(member)],
-          })
+          }, member.guild))
           .catch(() => {});
 
         info = await resolveInviteInfo(member).catch(() => null);
@@ -1267,7 +1265,7 @@ module.exports = {
             if (info && !info.isVanity && info.inviterId) {
               await trackInviteJoin(member, info.inviterId).catch(() => {});
               if (await isStaffEventActive(member.guild.id)) {
-                const inviterMember=member.guild.members.cache.get(info.inviterId)||(await member.guild.members.fetch(info.inviterId).catch(() => null));
+                const inviterMember = await getGuildMemberCached(member.guild, info.inviterId);
                 if (inviterMember && isStaffButNotHighStaff(inviterMember)) {
                   await addStaffEventPoints(member.guild.id, info.inviterId, 1, "invite").catch(() => null);
                 }

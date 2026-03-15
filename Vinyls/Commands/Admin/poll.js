@@ -38,7 +38,16 @@ async function getPollChannelFromGuild(guild) {
   if (cached?.promise) {
     return cached.promise;
   }
-  const fetchPromise = Promise.resolve(guild.channels.cache.get(channelId) || guild.channels.fetch(channelId).catch(() => null),).then((channel) => { const ttl = channel ? POLL_CHANNEL_CACHE_TTL_MS : POLL_CHANNEL_CACHE_TTL_NULL_MS; pollChannelCache.set(cacheKey, { channel, expiresAt: Date.now() + ttl, promise: null, }); return channel; });
+  const fetchPromise = (async () => {
+    let ch = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
+    if (!ch && guild.client?.channels?.fetch) {
+      ch = await guild.client.channels.fetch(channelId).catch(() => null);
+    }
+    if (ch && ch.guildId && ch.guildId !== guild.id) ch = null;
+    const ttl = ch ? POLL_CHANNEL_CACHE_TTL_MS : POLL_CHANNEL_CACHE_TTL_NULL_MS;
+    pollChannelCache.set(cacheKey, { channel: ch, expiresAt: Date.now() + ttl, promise: null });
+    return ch;
+  })();
   pollChannelCache.set(cacheKey, { channel: null, expiresAt: 0, promise: fetchPromise });
   const channel = await fetchPromise;
   if (!channel || !channel.isTextBased?.()) return null;

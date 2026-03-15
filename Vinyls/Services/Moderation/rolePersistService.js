@@ -1,4 +1,5 @@
 const RolePersist = require("../../Schemas/Moderation/rolePersistSchema");
+const { getGuildRoleCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 async function setRolePersist({ guildId, userId, roleId, setBy = null, reason = null }) {
   if (!guildId || !userId || !roleId) return null;
@@ -45,12 +46,12 @@ async function applyRolePersistForMember(member) {
   const me = member.guild.members.me;
   if (!me?.permissions?.has?.("ManageRoles")) return;
   for (const row of rows) {
-    const role = member.guild.roles.cache.get(row.roleId) || (await member.guild.roles.fetch(String(row.roleId)).catch(() => null));
+    const role = await getGuildRoleCached(member.guild, row.roleId);
     if (!role) continue;
     if (role.position >= me.roles.highest.position) continue;
     if (member.roles.cache.has(role.id)) continue;
     await member.roles.add(role.id, "<:success:1461731530333229226> Rolepersist rejoin restore").catch(() => { });
-    const refreshedMember = await member.guild.members.fetch(member.id).catch(() => null);
+    const refreshedMember = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
     if (!refreshedMember?.roles?.cache?.has(role.id)) {
       global.logger?.warn?.("[ROLEPERSIST] restore failed:", member.guild.id, member.id, role.id);
     }

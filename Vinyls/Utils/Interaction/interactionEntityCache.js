@@ -123,4 +123,14 @@ async function getClientChannelCached(client, channelId, options = {}) {
   });
 }
 
-module.exports = { buildCacheKey, getCachedValue, setCachedValue, getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached };
+/** Aggiunge ruoli al member e restituisce il member aggiornato (fetch fresco). Utile per evitare cache ruoli stale dopo add. */
+async function addRolesAndGetMember(guild, userId, roleIds) {
+  if (!guild || !userId) return null;
+  const member = await getGuildMemberCached(guild, userId).catch(() => null);
+  if (!member) return null;
+  const ids = Array.isArray(roleIds) ? roleIds.filter(Boolean) : [];
+  if (ids.length) await member.roles.add(ids).catch(() => {});
+  return getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);
+}
+
+module.exports = { buildCacheKey, getCachedValue, setCachedValue, getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached, addRolesAndGetMember };

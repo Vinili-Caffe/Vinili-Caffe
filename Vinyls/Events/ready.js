@@ -27,6 +27,7 @@ const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const{formatDurationMs,runTaskGroup,runTaskSequence,}=require("../Utils/Startup/readyStartupRuntime");
+const { logBotReady } = require("../../shared/discord/readyLog");
 
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = 60 * 1000;
@@ -461,7 +462,7 @@ module.exports = {
     if (primaryScheduler) scheduleMonthlyGif(client);
     setClientPresence(client);
 
-    global.logger?.info?.(`[BOT] ${client.user?.username || "Bot"} has been launched! Ready in ${formatDurationMs(Date.now() - readyStartedAt)}.`);
+    logBotReady(client, readyStartedAt);
 
     if (!client._deferredStartupRunning) {
       client._deferredStartupRunning = true;

@@ -3,6 +3,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { TICKETS_CATEGORY_NAME, isTicketCategoryName, } = require("./ticketCategoryUtils");
 const { safeEditReply: safeEditReplyHelper } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
+const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { findOpenTicketByUser, warmGuildChannels } = require("./ticketInteractionRuntime");
 const { buildTicketChannelName } = require("./ticketNamingRuntime");
 const TICKET_PERMISSIONS_SPONSOR = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions,];
@@ -191,7 +192,7 @@ async function createTicketsCategory(interaction, guild) {
 
   const cachedCategoryId = interaction.client.ticketCategoryCache.get(guild.id);
   if (cachedCategoryId) {
-    const cachedCategory = guild.channels.cache.get(cachedCategoryId) || (await guild.channels.fetch(cachedCategoryId).catch(() => null));
+    const cachedCategory = await getGuildChannelCached(guild, cachedCategoryId);
     if (cachedCategory && cachedCategory.type === ChannelType.GuildCategory && isTicketCategoryName(cachedCategory.name) && getChildrenCount(cachedCategory.id) < 50) {
       await moveCategoryToTop(cachedCategory);
       return cachedCategory;

@@ -1,7 +1,7 @@
 const cron = require("node-cron");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const IDs = require("../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 let dailyPartnerAuditTask = null;
 const SAME_DAY_DUPLICATE_REASON = "Non fare la stessa partnership più di una volta al giorno";
 const SELF_PARTNERSHIP_DAILY_REASON = "Non fare partnership con se stessi più di una volta al giorno";
@@ -71,7 +71,7 @@ async function fetchPartnerActionText(guild, action) {
     return "";
   }
 
-  const channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+  const channel = await getGuildChannelCached(guild, channelId);
   if (!channel?.isTextBased?.()) {
     global.logger?.warn?.(
       "[PARTNER AUDIT] Channel not found or not text-based:",
@@ -135,7 +135,7 @@ async function logPointRemoval(guild, staffUserId, reason, action) {
 async function runDailyPartnerAudit(client, opts = {}) {
   const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
   if (!guildId) return;
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const guild = await getClientGuildCached(client, guildId);
   if (!guild) return;
 
   const targetDateKey = opts.dateKey || getPreviousRomeDateKey(new Date());

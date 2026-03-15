@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { randomInt } = require("crypto");
 const { ChatReminderSchedule, ChatReminderRotation } = require("../../Schemas/Community/chatReminderSchemas");
+const { getClientChannelCached } = require("../../Utils/Interaction/entityCache");
 const IDs = require("../../Utils/Config/ids");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const DEFAULT_START_HOUR = 9;
@@ -519,9 +520,7 @@ async function getRecentChannelMessageCount(
   windowMs = 60 * 60 * 1000,
 ) {
   if (!client || !channelId) return 0;
-  const channel =
-    client.channels.cache.get(channelId) ||
-    (await client.channels.fetch(channelId).catch(() => null));
+  const channel = await getClientChannelCached(client, channelId);
   if (!channel?.isTextBased?.()) return 0;
   const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
   if (!messages?.size) return 0;
@@ -614,9 +613,7 @@ async function sendEventReminderAtSlot(client, parts, slotKey) {
   const { count30m: activityCount30m } = await getActivityCounts(client);
   const minForSlot = Math.max(1, Number(getCfg(client)?.minMessagesForEventSlot ?? 1));
   if (activityCount30m < minForSlot) return;
-  const channel =
-    client.channels.cache.get(channelId) ||
-    (await client.channels.fetch(channelId).catch(() => null));
+  const channel = await getClientChannelCached(client, channelId);
   if (!channel) return;
   const embed = getEventReminderEmbed();
   await channel.send({ embeds: [embed] }).catch(() => { });
@@ -630,9 +627,7 @@ async function sendReminderAtFixedSlot(client, parts, slotKey) {
   const { count30m: activityCount30m } = await getActivityCounts(client);
   const minForSlot = Math.max(1, Number(getCfg(client)?.minMessagesForFixedSlot ?? 1));
   if (activityCount30m < minForSlot) return;
-  const channel =
-    client.channels.cache.get(channelId) ||
-    (await client.channels.fetch(channelId).catch(() => null));
+  const channel = await getClientChannelCached(client, channelId);
   if (!channel) return;
   const guildId = client.guilds?.cache?.first()?.id ?? null;
   const embed = await nextReminderEmbed(parts, guildId);

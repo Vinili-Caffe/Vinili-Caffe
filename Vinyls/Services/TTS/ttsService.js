@@ -8,9 +8,10 @@ const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
 const VoiceState = require("../../Schemas/Voice/voiceStateSchema");
 const IDs = require("../../Utils/Config/ids");
-const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { getVoiceSession } = require("../Voice/voiceSessionService");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
+const MAX_TTS_QUEUE = 30;
 const ttsStates = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
@@ -609,6 +610,7 @@ async function playNext(state) {
   }
 }
 function enqueue(state, item) {
+  if (state.queue.length >= MAX_TTS_QUEUE) return;
   state.queue.push(item);
   if (!state.playing) {
     playNext(state);
@@ -755,8 +757,8 @@ async function leaveTtsGuild(guildId, client) {
     if (lockedChannelId) setLockedChannel(guildId, lockedChannelId);
   }
   if (!lockedChannelId && client) {
-    const guild = client.guilds?.cache?.get(guildId) || (await client.guilds?.fetch(guildId).catch(() => null));
-    const me = guild?.members?.me ?? (await guild?.members?.fetch(client.user?.id).catch(() => null));
+    const guild = await getClientGuildCached(client, guildId);
+    const me = guild?.members?.me ?? (guild && client.user?.id ? await getGuildMemberCached(guild, client.user.id) : null);
     if (me?.voice?.channelId) {
       try {
         const existing = getVoiceConnection(String(guildId));

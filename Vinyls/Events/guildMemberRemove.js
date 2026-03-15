@@ -8,6 +8,7 @@ const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const { InviteTrack, ExpUser, ActivityUser, LevelHistory, } = require("../Schemas/Community/communitySchemas");
 const { MinigameUser } = require("../Schemas/Minigames/minigameSchema");
 const IDs = require("../Utils/Config/ids");
+const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
@@ -86,10 +87,7 @@ function sleep(ms) {
 
 async function resolveGuildChannel(guild, channelId) {
   if (!guild || !channelId) return null;
-  return (
-    guild.channels.cache.get(channelId) ||
-    (await guild.channels.fetch(channelId).catch(() => null))
-  );
+  return getGuildChannelCached(guild, channelId);
 }
 
 async function sendLeaveLog(member) {
@@ -243,7 +241,7 @@ function schedulePartnershipRollback(member, partnerships) {
   const guild = member.guild;
   const rollbackTimer = setTimeout(
     async () => {
-      const stillInGuild = await guild.members.fetch(member.id).catch(() => null);
+      const stillInGuild = await getGuildMemberCached(guild, member.id);
       if (stillInGuild) return;
 
       for (const doc of partnerships) {
@@ -252,7 +250,7 @@ function schedulePartnershipRollback(member, partnerships) {
 
         for (const action of toRollback) {
           const channelId = action?.partnershipChannelId || IDs.channels.partnerships;
-          const channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+          const channel = await getGuildChannelCached(guild, channelId);
           if (!channel?.isTextBased?.()) continue;
 
           const messageIds = Array.isArray(action?.partnerMessageIds) ? action.partnerMessageIds : [];
@@ -284,7 +282,7 @@ async function handlePartnershipOnLeave(member, client) {
   if (!partnerships.length) return;
 
   try {
-    const mainGuild = client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));
+    const mainGuild = await getClientGuildCached(client, mainGuildId);
     if (!mainGuild) return;
 
     await sendRejoinDm(member);
@@ -334,7 +332,7 @@ async function sendMemberKickLog(member) {
   const isJoinGateKickByBot = botUserId && executorId && executorId === botUserId && JOIN_GATE_KICK_REASON_PATTERNS.some((value) => reasonText.includes(value));
   if (isJoinGateKickByBot) return;
 
-  const logChannel = guild.channels.cache.get(IDs.channels.modLogs) || (await guild.channels.fetch(IDs.channels.modLogs).catch(() => null));
+  const logChannel = await getGuildChannelCached(guild, IDs.channels.modLogs);
   if (!logChannel?.isTextBased?.()) return;
 
   const responsible = formatActor(entry.executor);

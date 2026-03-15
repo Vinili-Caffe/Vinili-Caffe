@@ -5,6 +5,7 @@ const {
   resolveValidVerifyRoleIds,
   isResolvedMainGuildId,
 } = require("../../Utils/Interaction/verifyUtils");
+const { addRolesAndGetMember } = require("../../Utils/Interaction/interactionEntityCache");
 
 function isSponsorGuild(guildId) {
   const gid = String(guildId || "");
@@ -230,11 +231,11 @@ module.exports = {
         const displayName=targetMember?.user?.username||targetMember?.displayName||targetMember?.id;
         try {
           if (rolesToAdd?.length > 0) {
-            await targetMember.roles.add(rolesToAdd);
-            const refreshedMember=await guild.members.fetch(targetMember.id).catch(() => null);
-            const resolvedMember = refreshedMember || targetMember;
-            const refreshedCache = resolvedMember?.roles?.cache;
-            const missingRoleIds=rolesToAdd.filter((id) => !refreshedCache?.has?.(id));
+            const resolvedMember = await addRolesAndGetMember(guild, targetMember.id, rolesToAdd);
+            if (!resolvedMember) {
+              throw new Error("Failed to add roles or fetch member");
+            }
+            const missingRoleIds = rolesToAdd.filter((id) => !resolvedMember.roles.cache.has(id));
             if (missingRoleIds.length > 0) {
               throw new Error(`Verify roles not applied: ${missingRoleIds.join(",")}`);
             }

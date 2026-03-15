@@ -16,7 +16,7 @@ const COLORS_IMAGE_NAME = "colori.gif";
 const COLORS_IMAGE_PATH = path.join(__dirname, "..", "Photos", COLORS_IMAGE_NAME);
 const PLUS_COLORS_IMAGE_NAME = "coloriPlus.gif";
 const PLUS_COLORS_IMAGE_PATH = path.join(__dirname, "..", "Photos", PLUS_COLORS_IMAGE_NAME);
-const DIVIDER_URL = "https://cdn.discordapp.com/attachments/1467927329140641936/1467927368034422959/image.png?ex=69876f65&is=69861de5&hm=02f439283952389d1b23bb2793b6d57d0f8e6518e5a209cb9e84e625075627db";
+const { DIVIDER_URL } = require("../../shared/discord/constants");
 
 async function run(client) {
   const channel = client.channels.cache.get(CHANNEL_ID) || (await getClientChannelCached(client, CHANNEL_ID));

@@ -7,6 +7,7 @@ const axios = require("axios");
 const VoiceState = require("../../Schemas/Voice/voiceStateSchema");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, } = require("../../Utils/Interaction/entityCache");
+const MAX_TTS_QUEUE = 30;
 const ttsStates = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
@@ -342,14 +343,14 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
     });
   } catch (err) {
     if (isAbortOrTimeoutError(err) && attempt < maxAttempts) {
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((resolve) => { const t = setTimeout(resolve, 2000); t.unref?.(); });
       return fetchTtsAudio(url, provider, attempt + 1);
     }
     throw new Error(err?.message && !isAbortOrTimeoutError(err) ? err.message : `${provider}: richiesta annullata o timeout`);
   }
   const status = res?.status ?? 0;
   if (status >= 500 && status < 600 && attempt < maxAttempts) {
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((resolve) => { const t = setTimeout(resolve, 2000); t.unref?.(); });
     return fetchTtsAudio(url, provider, attempt + 1);
   }
   if (status < 200 || status >= 300) {
@@ -594,6 +595,7 @@ async function playNext(state) {
   }
 }
 function enqueue(state, item) {
+  if (state.queue.length >= MAX_TTS_QUEUE) return;
   state.queue.push(item);
   if (!state.playing) {
     playNext(state);
@@ -715,7 +717,7 @@ async function leaveTtsGuild(guildId, client) {
   }
   if (!lockedChannelId && client) {
     const guild = await getClientGuildCached(client, guildId, { ttlMs: 30_000 });
-    const me = guild?.members?.me ?? (await guild?.members?.fetch(client.user?.id).catch(() => null));
+    const me = guild?.members?.me ?? (guild && client.user?.id ? await getGuildMemberCached(guild, client.user.id) : null);
     if (me?.voice?.channelId) {
       try {
         const existing = getVoiceConnection(String(guildId));

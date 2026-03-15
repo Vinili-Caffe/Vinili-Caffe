@@ -7,7 +7,9 @@ const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/in
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
-const DIVIDER_URL = "https://cdn.discordapp.com/attachments/1467927329140641936/1467927368034422959/image.png?ex=69876f65&is=69861de5&hm=02f439283952389d1b23bb2793b6d57d0f8e6518e5a209cb9e84e625075627db";
+const { DIVIDER_URL } = require("../../shared/discord/constants");
+const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, ROLE_DM_OLD_STATE, ROLE_COLOR_OLD, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
+const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 
@@ -391,6 +393,12 @@ module.exports = {
     if (interaction.replied || interaction.deferred) return;
     const allowed = await enforceInteractionPermissions(interaction);
     if (!allowed) return;
+    const guild = interaction.guild;
+    const withFooter = (p) => (p && typeof p === "object" && Array.isArray(p.embeds) && p.embeds.length ? applyDefaultFooterToEmbeds(p, guild) : p);
+    const origReply = interaction.reply.bind(interaction);
+    interaction.reply = (p) => origReply(withFooter(p));
+    const origEditReply = interaction.editReply.bind(interaction);
+    interaction.editReply = (p) => origEditReply(withFooter(p));
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
@@ -407,7 +415,7 @@ module.exports = {
 
       await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => null);
       if (!interaction.deferred) {
-        return interaction.reply({ content: "<:vegax:1443934876440068179> Riprova tra un attimo.", flags: PRIVATE_FLAG }).catch(() => null);
+        return interaction.reply({ content: ROLE_TRY_AGAIN, flags: PRIVATE_FLAG }).catch(() => null);
       }
 
       const replyOrEdit = (payload) => interaction.editReply(payload).catch(() => null);
@@ -422,22 +430,15 @@ module.exports = {
           const refreshedMember = await interaction.guild?.members?.fetch?.(interaction.user.id).catch(() => null);
           const stillHasManagedRole = Array.isArray(rolesToRemove) && rolesToRemove.some((roleId) => refreshedMember?.roles?.cache?.has?.(roleId));
           if (stillHasManagedRole) {
-            return replyOrEdit({
-              content: "<:vegax:1443934876440068179> Impossibile aggiornare il ruolo. Verifica che il ruolo del bot sia **sopra** i ruoli del pannello Personalità (Impostazioni server → Ruoli).",
-            });
+            return replyOrEdit({ content: ROLE_BOT_HIERARCHY });
           }
-          return replyOrEdit({
-            content: "Ruoli rimossi correttamente.",
-          });
+          return replyOrEdit({ content: ROLE_REMOVED });
         }
         if (menuId === "personality_colors_plus") {
           const hasEventWeek2 = interaction.guildId && interaction.user?.id && (await require("../Services/Community/activityEventRewardsService").hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 2).catch(() => false));
           const allowed = member.roles.cache.has(IDs.roles.ServerBooster) || member.roles.cache.has(IDs.roles.Level50) || hasEventWeek2;
           if (!allowed) {
-            return replyOrEdit({
-              content:
-                "<:vegax:1443934876440068179> Non puoi selezionare i Colori PLUS. Servono i ruoli richiesti.",
-            });
+            return replyOrEdit({ content: ROLE_PLUS_FORBIDDEN });
           }
         }
         if (colorMenuIds.includes(menuId)) {
@@ -451,19 +452,13 @@ module.exports = {
         const appliedAll = values.every((roleId) => m?.roles?.cache?.has?.(roleId));
         const stillOld = rolesToRemove.some((rid) => values.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid));
         if (menuId === "personality_dm" && stillOld) {
-          return replyOrEdit({
-            content: "<:vegax:1443934876440068179> Non sono riuscito a togliere il vecchio stato DM. Metti il **ruolo del bot** sopra i ruoli DMs Opened / Closed / Ask (Server → Ruoli → trascina il bot sopra).",
-          });
+          return replyOrEdit({ content: ROLE_DM_OLD_STATE });
         }
         if (colorMenuIds.includes(menuId) && stillOld) {
-          return replyOrEdit({
-            content: "<:vegax:1443934876440068179> Non sono riuscito a togliere il vecchio colore. Verifica che il **ruolo del bot** sia sopra i ruoli Personalità (Impostazioni server → Ruoli).",
-          });
+          return replyOrEdit({ content: ROLE_COLOR_OLD });
         }
         if (!appliedAll) {
-          return replyOrEdit({
-            content: "<:vegax:1443934876440068179> Impossibile aggiornare il ruolo.",
-          });
+          return replyOrEdit({ content: ROLE_UPDATE_FAILED });
         }
         const primary = values[0];
         const label =
@@ -476,10 +471,7 @@ module.exports = {
               : `Aggiornato: **${label}**`,
         });
       } catch {
-        return replyOrEdit({
-          content:
-            "<:vegax:1443934876440068179> Impossibile aggiornare il ruolo.",
-        });
+        return replyOrEdit({ content: ROLE_UPDATE_FAILED });
       }
     }
     if (!interaction.isButton()) return;

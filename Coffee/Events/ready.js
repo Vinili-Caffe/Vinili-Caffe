@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { logBotReady } = require("../../shared/discord/readyLog");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService");
 
@@ -51,7 +52,7 @@ module.exports = {
   once: true,
   async execute(_readyClient, client) {
     const activeClient = client || _readyClient;
-    global.logger.info(`[BOT] ${activeClient.user.username} has been launched!`);
+    logBotReady(activeClient);
 
     await setPresence(activeClient);
     await connectMongo(activeClient);

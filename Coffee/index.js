@@ -36,16 +36,10 @@ try {
   process.exit(1);
 }
 
-client.config.token = process.env.DISCORD_TOKEN_TEST || client.config.token;
-client.config.mongoURL =
-  process.env.MONGO_URL || process.env.MONGODB_URI || client.config.mongoURL;
-
-if (!client.config.token) {
-  global.logger.error(
-    " Manca DISCORD_TOKEN_TEST nel .env. Aggiungi DISCORD_TOKEN_TEST=<token del Bot Test> nel file .env (nella cartella principale del progetto). Non usare il token del bot ufficiale.",
-  );
-  process.exit(1);
-}
+const { getToken, getMongoUrl, ensureToken } = require("../shared/config/env");
+client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
+client.config.mongoURL = getMongoUrl(client.config);
+ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
 
 client.logs = require("./Utils/Moderation/logs");
 initializeCommandCollections(client);

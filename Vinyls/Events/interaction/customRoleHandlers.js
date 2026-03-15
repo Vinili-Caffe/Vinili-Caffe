@@ -2,7 +2,7 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSe
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const axios = require("axios");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
-const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName } = require("../../Utils/Interaction/customRoleUtils");
 const pendingRoleGrants = new Map();
 const PRIVATE_FLAG = 1 << 6;
@@ -246,7 +246,7 @@ async function handleRoleActionButton(interaction) {
     const me = interaction.guild?.members?.me || interaction.guild?.members?.cache?.get(interaction.client.user.id);
     const canManageChannels = Boolean(me?.permissions?.has(PermissionsBitField.Flags.ManageChannels),);
     if (canManageChannels) {
-      const linkedVoice = (ownerDoc?.customVocChannelId ? interaction.guild.channels.cache.get(ownerDoc.customVocChannelId) || (await interaction.guild.channels.fetch(ownerDoc.customVocChannelId).catch(() => null)) : null) || findCustomVoiceByRole(interaction.guild, role.id);
+      const linkedVoice = (ownerDoc?.customVocChannelId ? await getGuildChannelCached(interaction.guild, ownerDoc.customVocChannelId) : null) || findCustomVoiceByRole(interaction.guild, role.id);
       if (linkedVoice) {
         await linkedVoice
           .delete(`Custom private voice deleted by ${interaction.user.tag}`)

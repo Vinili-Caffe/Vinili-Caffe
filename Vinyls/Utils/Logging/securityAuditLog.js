@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const IDs = require("../Config/ids");
 const { getSecurityStaticsSnapshot } = require("../../Services/Moderation/securityProfilesService");
 const EMBED_DESCRIPTION_MAX = 4096;
@@ -12,7 +13,7 @@ async function resolveSecurityLogChannel(guild) {
   const candidates = [...dynamicIds, ...DEFAULT_LOG_CHANNEL_IDS];
   if (!candidates.length) return null;
   for (const channelId of candidates) {
-    const channel = guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+    const channel = await getGuildChannelCached(guild, channelId);
     if (channel?.isTextBased?.()) return channel;
   }
   return null;

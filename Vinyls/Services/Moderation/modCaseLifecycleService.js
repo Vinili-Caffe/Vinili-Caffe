@@ -1,4 +1,5 @@
 const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
+const { getGuildChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { closeCase } = require("../../Utils/Moderation/moderation");
 const LOOP_MS = 60 * 1000;
 const BATCH_SIZE = 50;
@@ -24,7 +25,7 @@ async function tryUnban(guild, userId, reason) {
 
 async function tryUnlockChannel(guild, channelId) {
   if (!guild || !channelId) return false;
-  const channel=guild.channels.cache.get(String(channelId))||(await guild.channels.fetch(String(channelId)).catch(() => null));
+  const channel = await getGuildChannelCached(guild, String(channelId));
   if (!channel?.permissionOverwrites?.edit) return false;
   try {
     await channel.permissionOverwrites.edit(
@@ -72,7 +73,7 @@ async function closeExpiredBanCases(client, now) {
   const rows=await ModCase.find({action:"BAN",active:true,expiresAt:{$lte:now},}).sort({expiresAt:1}).limit(BATCH_SIZE).exec();
 
   for (const row of rows) {
-    const guild=client.guilds.cache.get(String(row.guildId||""))||(await client.guilds.fetch(String(row.guildId||"")).catch(() => null));
+    const guild = await getClientGuildCached(client, String(row.guildId || ""));
     if (!guild) {
       closeCase(row, "<:cancel:1461730653677551691> Ban temporaneo scaduto");
       await row.save().catch(() => null);
@@ -90,7 +91,7 @@ async function closeExpiredLockCases(client, now) {
   const rows=await ModCase.find({action:"LOCK",active:true,expiresAt:{$lte:now},userId:{$regex:/^CHANNEL:/},}).sort({expiresAt:1}).limit(BATCH_SIZE).exec();
 
   for (const row of rows) {
-    const guild=client.guilds.cache.get(String(row.guildId||""))||(await client.guilds.fetch(String(row.guildId||"")).catch(() => null));
+    const guild = await getClientGuildCached(client, String(row.guildId || ""));
     if (!guild) {
       closeCase(row, "<:cancel:1461730653677551691> Lock temporaneo scaduto");
       await row.save().catch(() => null);

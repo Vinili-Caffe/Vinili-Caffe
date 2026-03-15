@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { sendDm } = require("../../Utils/noDmList");
 const EVENT_REWARD_LOG_CHANNEL_ID = "1477994178230095903";
 
@@ -16,7 +17,7 @@ const EVENT_REWARD_LOG_CHANNEL_ID = "1477994178230095903";
  */
 async function sendEventRewardLog(client, data) {
   if (!client?.channels) return;
-  const channel = client.channels.cache.get(EVENT_REWARD_LOG_CHANNEL_ID) || (await client.channels.fetch(EVENT_REWARD_LOG_CHANNEL_ID).catch(() => null));
+  const channel = await getClientChannelCached(client, EVENT_REWARD_LOG_CHANNEL_ID);
   if (!channel) return;
   const userId = String(data?.userId || "");
   const label = String(data?.label || "<a:VC_Events:1482706144953897223> Premio evento");
@@ -50,7 +51,7 @@ async function sendEventRewardLog(client, data) {
 
 async function sendEventRewardSkippedLog(client, data) {
   if (!client?.channels) return;
-  const channel = client.channels.cache.get(EVENT_REWARD_LOG_CHANNEL_ID) || (await client.channels.fetch(EVENT_REWARD_LOG_CHANNEL_ID).catch(() => null));
+  const channel = await getClientChannelCached(client, EVENT_REWARD_LOG_CHANNEL_ID);
   if (!channel) return;
 
   const userId = String(data?.userId || "");

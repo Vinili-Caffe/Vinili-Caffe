@@ -6,6 +6,7 @@ const IDs = require("../../Utils/Config/ids");
 const JoinRaidState = require("../../Schemas/Moderation/joinRaidStateSchema");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./suspiciousAccountService");
+const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
@@ -491,7 +492,7 @@ function isHighRiskJoinRaidReasons(reasons = []) {
 async function resolveModLogChannel(guild) {
   const channelId = IDs.channels?.modLogs || IDs.channels?.activityLogs;
   if (!guild || !channelId) return null;
-  return guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+  return getGuildChannelCached(guild, channelId);
 }
 
 async function sendJoinRaidLog(guild, title, lines, color = "#ED4245") {

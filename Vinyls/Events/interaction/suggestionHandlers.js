@@ -9,7 +9,8 @@ const STAFF_ACCEPT_BUTTON_ID = "suggestion_staff_accept";
 const STAFF_REJECT_BUTTON_ID = "suggestion_staff_reject";
 const STAFF_MODAL_PREFIX = "suggestion_staff_modal";
 const STAFF_REASON_INPUT_ID = "staff_reason";
-const DIVIDER_URL = "https://cdn.discordapp.com/attachments/1467927329140641936/1467927368034422959/image.png?ex=69876f65&is=69861de5&hm=02f439283952389d1b23bb2793b6d57d0f8e6518e5a209cb9e84e625075627db";
+const { DIVIDER_URL } = require("../../../shared/discord/constants");
+const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const suggestionVoteLocks = new Set();
 const suggestionDecisionLocks = new Set();
 
@@ -36,6 +37,13 @@ function isSuggestionClosed(message) {
 
 async function handleSuggestionVote(interaction) {
   if (!interaction?.guild) return false;
+
+  const guild = interaction.guild;
+  const withFooter = (p) => (p && typeof p === "object" && Array.isArray(p.embeds) && p.embeds.length ? applyDefaultFooterToEmbeds(p, guild) : p);
+  const origReply = interaction.reply.bind(interaction);
+  interaction.reply = (p) => origReply(withFooter(p));
+  const origEditReply = interaction.editReply?.bind(interaction);
+  if (origEditReply) interaction.editReply = (p) => origEditReply(withFooter(p));
 
   if (interaction.isButton && interaction.isButton()) {
     if (!interaction.message) return false;

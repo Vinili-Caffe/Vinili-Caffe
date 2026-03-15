@@ -6,6 +6,7 @@ const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../U
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
+const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -876,6 +877,13 @@ async function handleModalSubmit(interaction, type, stepRaw) {
 }
 
 async function handleCandidatureApplicationInteraction(interaction) {
+  const guild = interaction.guild;
+  const withFooter = (p) => (p && typeof p === "object" && Array.isArray(p.embeds) && p.embeds.length ? applyDefaultFooterToEmbeds(p, guild) : p);
+  const origReply = interaction.reply.bind(interaction);
+  interaction.reply = (p) => origReply(withFooter(p));
+  const origEditReply = interaction.editReply?.bind(interaction);
+  if (origEditReply) interaction.editReply = (p) => origEditReply(withFooter(p));
+
   if (interaction.isButton?.()) {
     if (String(interaction.customId || "").startsWith(`${APPLY_PEX_PREFIX}:`)) {
       const parsed = parseCandidatePexCustomId(interaction.customId);

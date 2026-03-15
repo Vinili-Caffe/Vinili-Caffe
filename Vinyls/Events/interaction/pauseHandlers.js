@@ -188,7 +188,8 @@ async function handlePauseButton(interaction) {
       })
       .catch(() => {});
     if (interaction.channel?.isThread?.()) {
-      setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
+      const t = setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
+      t.unref?.();
     }
     return true;
   }
@@ -355,7 +356,8 @@ async function handlePauseButton(interaction) {
     await interaction.deferUpdate().catch(() => {});
     await interaction.message?.delete().catch(() => {});
     await interaction.channel.send({ content: acceptanceContent }).catch(() => {});
-    setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
+    const t = setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
+    t.unref?.();
     return true;
   }
 
