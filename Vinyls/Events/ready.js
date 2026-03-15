@@ -147,6 +147,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => processAllRecentAutomationMessages(client),
     },
     {
+      label: "run due one-time reminders",
+      enabled: true,
+      run: () => runDueOneTimeReminders(client),
+    },
+    {
       label: "restore core startup state",
       enabled: true,
       run: () => restoreCoreStartupState(client),

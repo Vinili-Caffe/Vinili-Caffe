@@ -178,6 +178,9 @@ function startVerificationTenureLoop(client) {
     VERIFICATION_TENURE_SWEEP_INTERVAL_MS,
   );
   verificationTenureLoopHandle.unref?.();
+  runTenureSweep(client).catch((error) => {
+    global.logger.error("[VERIFY TENURE] Recovery sweep on start failed:", error);
+  });
   return verificationTenureLoopHandle;
 }
 
@@ -289,6 +292,9 @@ function startCategoryNumberingLoop(client) {
     runAllGuilds(client).catch(() => { });
   }, options.intervalMs);
   numberingLoopHandle.unref?.();
+  runAllGuilds(client).catch((err) => {
+    global.logger?.warn?.("[CATEGORY NUMBERING] Recovery run on start failed:", err?.message || err);
+  });
 }
 
 async function runSponsorKickAfter24h(client) {
