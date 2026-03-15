@@ -4,7 +4,7 @@ const { getEventWeekTopNTextAndVoice } = require("../Services/Community/weeklyAc
 const { getTop10ExpDuringEventExcludingStaff, getEventWeekNumber } = require("../Services/Community/activityEventRewardsService");
 const EVENTO_CLASSIFICA_PREFIX = "evento_classifica:";
 const MAX_WEEKS = 4;
-const TROPHY_LABELS = ["<:VC_Podio1:1469659449974329598>", "<:VC_Podio2:1469659512863592500>", "<:VC_Podio3:1469659557696504024>"];
+const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>"];
 
 function formatVoiceDuration(seconds) {
   const s = Number(seconds || 0);
@@ -63,13 +63,13 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
   const topExp = await getTop10ExpDuringEventExcludingStaff(guild, 10);
 
   const msgLines = topMessages.length
-    ? topMessages.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1448672967721615452> **${item.messageCount}** _messaggi_`)
+    ? topMessages.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.messageCount}** _messaggi_`)
     : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica testuale."];
   const voiceLines = topVoice.length
-    ? topVoice.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1448672967721615452> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`)
+    ? topVoice.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`)
     : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica vocale."];
   const expLines = topExp.length
-    ? topExp.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1448672967721615452> **${item.expDuringEvent}** _EXP_`)
+    ? topExp.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.expDuringEvent}** _EXP_`)
     : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica EXP."];
 
   const embed = new EmbedBuilder()
@@ -96,7 +96,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
     row.addComponents(
       new ButtonBuilder()
         .setCustomId(`${EVENTO_CLASSIFICA_PREFIX}${w}`)
-        .setEmoji(`<a:VC_Calendar:1448670320180592724>`)
+        .setEmoji(`<a:VC_Calendar:1482706208149475358>`)
         .setStyle(w === week ? ButtonStyle.Primary : ButtonStyle.Secondary)
     );
   }

@@ -71,7 +71,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<a:VC_Infinity:1448687797266288832> Conta con noi fino all'infinito!")
       .setDescription([
-        `<a:VC_Countdown:1331620801560051783> Ami la matematica e le sfide? Vieni a contare ogni numero insieme a noi su <#1442569179743125554>!`,
+        `<a:VC_Countdown:1482706760476131539> Ami la matematica e le sfide? Vieni a contare ogni numero insieme a noi su <#1442569179743125554>!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -86,7 +86,7 @@ const reminderPool = [
       .setTitle("<a:VC_PepeFoto:1479131953100750882> Sblocca subito i Picperms!")
       .setDescription([
         '<:VC_Link:1482460590894088222> Basta mettere ".gg/viniliecaffe" nello stato, boostare il server o arrivare al Livello 10 per sbloccarli velocemente.',
-        `> <a:VC_Arrow:1448672967721615452> Scopri tutte le ricompense di boost & livelli su: <#1442569111119990887>`,
+        `> <a:VC_Arrow:1482706699365257397> Scopri tutte le ricompense di boost & livelli su: <#1442569111119990887>`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -119,10 +119,10 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_EXP:1482534670896730143> Sfida te stesso con i minigiochi e vinci EXP!")
       .setDescription([
-        "<a:VC_Events:1448688007438667796> Ogni giorno nuovi minigiochi: indovina la bandiera, capitale, impiccato, quiz patente e tanti altri!",
+        "<a:VC_Events:1482706144953897223> Ogni giorno nuovi minigiochi: indovina la bandiera, capitale, impiccato, quiz patente e tanti altri!",
         "",
         "<:VC_EXP:1482534670896730143> Vinci, accumula EXP e sali di livello giocando. Controlla le tue stats con `+mstats`.",
-        `> <a:VC_Arrow:1448672967721615452> Trovi livelli e premi in <#1442569111119990887>`,
+        `> <a:VC_Arrow:1482706699365257397> Trovi livelli e premi in <#1442569111119990887>`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -138,9 +138,9 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_BlackPin:1482534513400610948> Tutte le info sul server in un unico posto")
       .setDescription([
-        `<a:VC_Boost:1448670271115497617> Livelli, boost, Picperms, ruoli, funzioni... tutto raccolto in <#1442569111119990887>!`,
+        `<a:VC_Boost:1482706171386269830> Livelli, boost, Picperms, ruoli, funzioni... tutto raccolto in <#1442569111119990887>!`,
         "",
-        "<a:VC_Arrow:1448672967721615452> Scopri come ottenere nuovi colori, premi e tutto ciò che offre Vinili & Caffè.",
+        "<a:VC_Arrow:1482706699365257397> Scopri come ottenere nuovi colori, premi e tutto ciò che offre Vinili & Caffè.",
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -149,7 +149,7 @@ const reminderPool = [
       .setDescription([
         "<:VC_Vip:1482534921472835895> Su <#1469429150669602961> scegli ruoli e colori per rendere unico il tuo nome nel server.",
         "",
-        `<a:VC_Boost:1448670271115497617> Alcuni colori/ruoli si sbloccano con livelli o boost: rendi il tuo profilo davvero personale!`,
+        `<a:VC_Boost:1482706171386269830> Alcuni colori/ruoli si sbloccano con livelli o boost: rendi il tuo profilo davvero personale!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -192,7 +192,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Chat:1482532573002465413> Qui si gioca pulito: rispetto e regole")
       .setDescription([
-        "<a:VC_Rule:1469462649950703709> **Il rispetto è la base!** Leggi le regole e rispetta tutti, membri e staff.",
+        "<a:VC_Rule:1482706839928967280> **Il rispetto è la base!** Leggi le regole e rispetta tutti, membri e staff.",
         "",
         `<:VC_Ticket:1482535175283019888> Dubbio o problema? Apri un ticket in <#1442569095068254219>: siamo sempre disponibili ad aiutarti.`,
       ].join("\n")),
@@ -212,7 +212,7 @@ const reminderPool = [
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Oltre alla chat, unisciti ai **canali vocali** per musica, giochi e chiacchiere live. La voce ci rende una vera famiglia!",
         "",
-        "<a:VC_Mute:1448670470323835060> Nessuno è obbligato: puoi parlare oppure solo ascoltare. Trova la categoria vocali e entra quando vuoi.",
+        "<a:VC_Mute:1482534751511515238> Nessuno è obbligato: puoi parlare oppure solo ascoltare. Trova la categoria vocali e entra quando vuoi.",
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -226,7 +226,7 @@ const reminderPool = [
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<a:VC_Diamon:1469463765610135635> CLICK ME!")
+      .setTitle("<a:VC_Diamon:1482706116873031680> CLICK ME!")
       .setDescription([
         "<a:VC_Coffe:1448695567244066827> Se non l'hai già fatto, vai su <#1442569058406109216> e clicca la reazione: aiuti il server a crescere, ti basta un secondo!",
       ].join("\n")),
@@ -240,7 +240,7 @@ const reminderPool = [
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<a:VC_Events:1448688007438667796> TOP WEEKLY!")
+      .setTitle("<a:VC_Events:1482706144953897223> TOP WEEKLY!")
       .setDescription([
         "<a:VC_HelloKittyGift:1329447876857958471> Ogni domenica alle 21:00 scopriamo chi è stato il top del server su <#1470183921236049940>! Sfida gli altri e scala la classifica della settimana.",
       ].join("\n")),
@@ -249,7 +249,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<a:VC_PepeFoto:1479131953100750882> Verifica con un Selfie!")
       .setDescription([
-        "<a:VC_Moon:1472299537094934642> Sapevi che puoi verificarti semplicemente con un selfie? Apri un <#1442569095068254219> \`Terza Categoria\` e segui le istruzioni.",
+        "<a:VC_Moon:1482724651430838406> Sapevi che puoi verificarti semplicemente con un selfie? Apri un <#1442569095068254219> \`Terza Categoria\` e segui le istruzioni.",
         "<a:VC_Sparkles:1468546911936974889> Sblocca il canale <#1470029899740873029> e tanti altri vantaggi visibili in <#1442569111119990887>!",
       ].join("\n")),
   () =>
@@ -284,7 +284,7 @@ const reminderPool = [
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<a:VC_Events:1448688007438667796> Giveaway per tutti!")
+      .setTitle("<a:VC_Events:1482706144953897223> Giveaway per tutti!")
       .setDescription([
         "<:VC_Wallet:1482534947574124584> Partecipa ai giveaway organizzati dallo staff! Li trovi in <#1442569115972669541> e sono aperti a tutti i membri: non perdere le prossime estrazioni!",
       ].join("\n")),
@@ -293,12 +293,12 @@ const reminderPool = [
 function getEventReminderEmbed() {
   return new EmbedBuilder()
     .setColor("#e8c547")
-    .setTitle("<a:VC_Events:1448688007438667796> Evento in corso!")
+    .setTitle("<a:VC_Events:1482706144953897223> Evento in corso!")
     .setDescription(
       [
         "<:VC_EXP:1482534670896730143> **È attivo un moltiplicatore EXP**: messaggi in chat e minigiochi danno più punti!",
         "",
-        "<a:VC_Arrow:1448672967721615452> Partecipa in chat, gioca ai minigiochi e scala la classifica prima che finisca.",
+        "<a:VC_Arrow:1482706699365257397> Partecipa in chat, gioca ai minigiochi e scala la classifica prima che finisca.",
         "",
         "> <:VC_InactiveStatus:1472011031709745307> Livelli e premi in <#1442569111119990887>",
       ].join("\n"),

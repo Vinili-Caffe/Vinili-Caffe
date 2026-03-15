@@ -17,7 +17,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
     if (interaction.user.id !== ownerId) {
       await interaction
         .reply({
-          content: "<a:VC_Alert:1448670089670037675> Questo builder non è tuo.",
+          content: "<a:VC_Alert:1482706673176150077> Questo builder non è tuo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -29,7 +29,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
       await interaction
         .reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Sessione scaduta o non trovata.",
+            "<a:VC_Alert:1482706673176150077> Sessione scaduta o non trovata.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -60,7 +60,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
     if (interaction.user.id !== ownerId) {
       await interaction
         .reply({
-          content: "<a:VC_Alert:1448670089670037675> Questo builder non è tuo.",
+          content: "<a:VC_Alert:1482706673176150077> Questo builder non è tuo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -72,7 +72,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
       await interaction
         .reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Sessione scaduta o non trovata.",
+            "<a:VC_Alert:1482706673176150077> Sessione scaduta o non trovata.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -85,7 +85,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
       if (!channel?.isTextBased?.()) {
         await interaction
           .reply({
-            content: "<a:VC_Alert:1448670089670037675> Canale non valido.",
+            content: "<a:VC_Alert:1482706673176150077> Canale non valido.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -99,7 +99,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
           await interaction
             .reply({
               content:
-                "<a:VC_Alert:1448670089670037675> Non ho permesso di scrivere in quel canale.",
+                "<a:VC_Alert:1482706673176150077> Non ho permesso di scrivere in quel canale.",
               flags: 1 << 6,
             })
             .catch(() => { });
@@ -118,7 +118,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
         await interaction
           .reply({
             content:
-              "<a:VC_Alert:1448670089670037675> Non sono riuscito a inviare l'embed in quel canale.",
+              "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare l'embed in quel canale.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -150,7 +150,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
         await interaction
           .reply({
             content:
-              "<a:VC_Alert:1448670089670037675> Colore non valido. Usa tipo `#6f4e37`.",
+              "<a:VC_Alert:1482706673176150077> Colore non valido. Usa tipo `#6f4e37`.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -164,7 +164,7 @@ async function handleEmbedBuilderInteraction(interaction, client) {
       await interaction
         .reply({
           content:
-            "<a:VC_Alert:1448670089670037675> URL non valido (usa http/https).",
+            "<a:VC_Alert:1482706673176150077> URL non valido (usa http/https).",
           flags: 1 << 6,
         })
         .catch(() => { });

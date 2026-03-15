@@ -365,7 +365,7 @@ function buildPendingEmbed(member) {
         "<a:VC_Infinity:1448687797266288832> - Inviare **media** in __ogni chat__",
         "<a:VC_HeartWhite:1448673535253024860> - Mandare **adesivi** __esterni__ in **qualsiasi chat**",
         "",
-        "<a:VC_Arrow:1448672967721615452> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status .",
+        "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status .",
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" })

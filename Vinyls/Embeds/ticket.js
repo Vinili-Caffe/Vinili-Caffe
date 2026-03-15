@@ -21,10 +21,10 @@ async function run(client) {
     .setDescription(
       `<:reportmessage:1443670575376765130> Benvenuto nella **sezione** dedicata all'__assistenza__! Apri un **ticket** in base alle tue _esigenze_ e ricorda di **rispettare** il regolamento.
 
-<:dot:1443660294596329582> Massimo **__\`1\`__** ticket alla volta;
-<:dot:1443660294596329582> Scegli **sempre** la giusta sezione;
-<:dot:1443660294596329582> Non **abusare** dei __ticket__;
-<:dot:1443660294596329582> Non aprire ticket __inutili__;`,
+<:VC_Dot:1482532364222595303> Massimo **__\`1\`__** ticket alla volta;
+<:VC_Dot:1482532364222595303> Scegli **sempre** la giusta sezione;
+<:VC_Dot:1482532364222595303> Non **abusare** dei __ticket__;
+<:VC_Dot:1482532364222595303> Non aprire ticket __inutili__;`,
     )
     .setImage(DIVIDER_URL);
 
@@ -37,12 +37,12 @@ async function run(client) {
     .setDescription(
       `I ticket equivalgono a un sistema di supporto che permette di parlare direttamente con lo staff con il fine di chiedere chiarimenti, fare domande agli staffers riguardo al server, segnalare un accaduto all'interno di quest'ultimo o per altre richieste.
 
-<:VC_1:1444099819680563200> **Prima categoria**
-<a:VC_Arrow:1448672967721615452> Usalo per fare segnalazioni, riportare dei problemi o bug, per avere delle informazioni o per qualunque altra cosa che non rientra nelle categorie sottostanti.
-<:VC_2:1444099781864722535> **Seconda categoria**
-<a:VC_Arrow:1448672967721615452> Usalo per fare partnership con noi.
-<:VC_3:1444099746116534282> **Terza categoria**
-<a:VC_Arrow:1448672967721615452> Usalo per fare una donazione, per fare la "selfie verify", per richiedere una sponsor a pagamento o per parlare con un amministratore del server.
+<:VC_1:1482706338021642333> **Prima categoria**
+<a:VC_Arrow:1482706699365257397> Usalo per fare segnalazioni, riportare dei problemi o bug, per avere delle informazioni o per qualunque altra cosa che non rientra nelle categorie sottostanti.
+<:VC_2:1482706376525611090> **Seconda categoria**
+<a:VC_Arrow:1482706699365257397> Usalo per fare partnership con noi.
+<:VC_3:1482706404773990460> **Terza categoria**
+<a:VC_Arrow:1482706699365257397> Usalo per fare una donazione, per fare la "selfie verify", per richiedere una sponsor a pagamento o per parlare con un amministratore del server.
 
 <:attentionfromvega:1443651874032062505> Aprire un ticket **__inutile__** oppure **__non rispondere__** nell'arco di **\`24\` ore** comporterà un **warn**.`,
     )

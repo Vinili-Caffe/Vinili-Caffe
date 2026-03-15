@@ -19,9 +19,9 @@ function getInvokedCommand(message) {
 }
 
 function rankLabel(index) {
-  if (index === 0) return "<:VC_Podio1:1469659449974329598>";
-  if (index === 1) return "<:VC_Podio2:1469659512863592500>";
-  if (index === 2) return "<:VC_Podio3:1469659557696504024>";
+  if (index === 0) return "<:VC_Podio1:1482694399283433582>";
+  if (index === 1) return "<:VC_Podio2:1482694424411635712>";
+  if (index === 2) return "<:VC_Podio3:1482694450806259744>";
   return `${index + 1}°`;
 }
 
@@ -358,7 +358,7 @@ async function buildAllTimeEmbed(message, excludeStaffFromShort = false, useExpU
     const level = Number(row.level || 0);
     lines.push(`${rankLabel(index)} ${label}`);
     lines.push(
-      `<:VC_Reply:1482532158080942191> Exp: <:VC_EXP:1482534670896730143> __${exp}__ <a:VC_Arrow:1448672967721615452> Livello: ${level}`,
+      `<:VC_Reply:1482532158080942191> Exp: <:VC_EXP:1482534670896730143> __${exp}__ <a:VC_Arrow:1482706699365257397> Livello: ${level}`,
     );
   });
 

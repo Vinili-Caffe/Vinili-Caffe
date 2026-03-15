@@ -105,17 +105,17 @@ async function getOrCreateStaffDoc(guildId, userId) {
 
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null }) {
   const guildId = guild?.id;
-  if (!guild || !guildId || !userId) return { ok: false, error: "<a:VC_Alert:1448670089670037675> Dati pausa non validi." };
+  if (!guild || !guildId || !userId) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
   const pauseChannel = guild.channels.cache.get(IDs.channels?.pause);
   const normalized = normalizePauseDates(rawStart, rawEnd);
   if (!normalized) {
-    return { ok: false, error: "<a:VC_Alert:1448670089670037675> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
   }
   if (!String(reason || "").trim()) {
-    return { ok: false, error: "<a:VC_Alert:1448670089670037675> Devi specificare una motivazione valida." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Devi specificare una motivazione valida." };
   }
   if (!pauseChannel?.isTextBased?.()) {
-    return { ok: false, error: "<a:VC_Alert:1448670089670037675> Canale pause non disponibile." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Canale pause non disponibile." };
   }
   const stafferDoc = await getOrCreateStaffDoc(guildId, userId);
   stafferDoc.pauses.push({
@@ -140,7 +140,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Helper in prima settimana:** le pause richieste dagli Helper nella prima settimana sono consentite solo per problemi personali o familiari gravi.");
   }
   const warningBlock = requisitiNonRispettati.length
-    ? "\n\n<a:VC_Alert:1448670089670037675> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
+    ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
   let thread = null;
@@ -151,7 +151,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       reason: "Richiesta pausa staff",
     });
   } catch (e) {
-    return { ok: false, error: "<a:VC_Alert:1448670089670037675> Impossibile creare il thread privato per la richiesta." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Impossibile creare il thread privato per la richiesta." };
   }
   await thread.members.add(userId).catch(() => null);
   const highStaffRoleId = String(IDs.roles.HighStaff || "");
@@ -161,14 +161,14 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       await thread.members.add(m.id).catch(() => null);
     }
   }
-  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1448670320180592724> Data richiesta: ${normalized.dataRichiesta}\n Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
+  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
   const posted = await thread.send({
     content,
     components: pauseId ? [buildPauseRequestButtonsRow(userId, pauseId)] : [],
   }).catch(() => null);
   if (!posted) {
     await thread.delete().catch(() => null);
-    return { ok: false, error: "<a:VC_Alert:1448670089670037675> Non sono riuscito a inviare la richiesta nel thread." };
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel thread." };
   }
   return { ok: true, pauseId };
 }

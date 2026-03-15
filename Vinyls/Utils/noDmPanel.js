@@ -44,7 +44,7 @@ function buildPanelEmbed(prefs, mode = "disable") {
     "",
     isAll
       ? "<:attentionfromvega:1443651874032062505> **Tutti i DM sono attualmente disattivati.** Clicca una categoria per ricevere solo quella, o **Attiva tutto**."
-      : "<a:VC_Alert:1448670089670037675> Usa **Disattiva tutto** per bloccare tutti i DM, o **Attiva tutto** per riceverli tutti.",
+      : "<a:VC_Alert:1482706673176150077> Usa **Disattiva tutto** per bloccare tutti i DM, o **Attiva tutto** per riceverli tutti.",
     "",
     "<a:VC_Exclamation:1482534702077444217> Ticket, moderazione e messaggi importanti restano sempre inviati.",
   ].join("\n");

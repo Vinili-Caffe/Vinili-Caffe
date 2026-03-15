@@ -16,8 +16,8 @@ function buildCooldownErrorEmbed(remainingSeconds) {
       `<:attentionfromvega:1443651874032062505> Aspetta **${remaining}s** prima di usare un altro comando.`,
       "",
       "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}> <a:VC_Arrow:1448672967721615452> **15s**`,
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}> <a:VC_Arrow:1448672967721615452> **5s**`,
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}> <a:VC_Arrow:1482706699365257397> **15s**`,
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}> <a:VC_Arrow:1482706699365257397> **5s**`,
     ].join("\n"),
   );
 }

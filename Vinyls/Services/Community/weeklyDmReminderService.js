@@ -692,7 +692,7 @@ function createExternalReturnEmbed(guild) {
       [
         "<:VC_PepeWave:1331589315175907412> Se vuoi rientrare, sei il benvenuto: il server è sempre attivo.",
         "",
-        "<a:VC_Events:1448688007438667796> Trovi eventi, attività e contenuti nuovi con continuità.",
+        "<a:VC_Events:1482706144953897223> Trovi eventi, attività e contenuti nuovi con continuità.",
         "<:staff:1443651912179388548> Se ti interessa, puoi anche candidarti e valutare il percorso staff pagato.",
         "<:partneredserverowner:1443651871125409812> Se vuoi richiedere una partnership, resta nel server: in caso contrario la partnership verrà annullata.",
         "",

@@ -94,9 +94,9 @@ function buildContent(guild, membersSource = guild.members.cache, pexedLast7Days
     const membersList = filteredMembers
       .map((member) => {
         const newBadge = pexedLast7Days.has(member.id) ? ` ${STAFF_NEW_EMOJI}` : "";
-        return `<:dot:1443660294596329582> <@${member.id}>${newBadge}`;
+        return `<:VC_Dot:1482532364222595303> <@${member.id}>${newBadge}`;
       })
-      .join("\n") || "<:dot:1443660294596329582>";
+      .join("\n") || "<:VC_Dot:1482532364222595303>";
 
     content += `${emoji} **<@&${roleId}>︲\`${memberCount}\`**\n\n${membersList}\n\n`;
   }

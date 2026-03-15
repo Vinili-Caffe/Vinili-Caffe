@@ -163,7 +163,7 @@ module.exports = {
           await message.delete().catch(() => {});
           const embed = new EmbedBuilder()
             .setColor("#6f4e37")
-            .setDescription([`<:attentionfromvega:1443651874032062505> Ciao ${message.author}, __non hai i permessi__ per inviare \`FOTO, GIF, LINK, VIDEO O AUDIO\` in chat.`, "", "<a:VC_StarPink:1330194976440848500> ➥ **__Sblocca il permesso:__**", `<a:VC_Arrow:1448672967721615452> Ottieni il ruolo: <@&${IDs.roles.PicPerms}>.`,
+            .setDescription([`<:attentionfromvega:1443651874032062505> Ciao ${message.author}, __non hai i permessi__ per inviare \`FOTO, GIF, LINK, VIDEO O AUDIO\` in chat.`, "", "<a:VC_StarPink:1330194976440848500> ➥ **__Sblocca il permesso:__**", `<a:VC_Arrow:1482706699365257397> Ottieni il ruolo: <@&${IDs.roles.PicPerms}>.`,
               ].join("\n"));
           await message.channel
             .send({ content: `${message.author}`, embeds: [embed] })

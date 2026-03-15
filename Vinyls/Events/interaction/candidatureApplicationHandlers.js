@@ -305,7 +305,7 @@ function buildRoleDeniedEmbed() {
     .setColor("Red")
     .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
     .setDescription(
-      "<a:VC_Alert:1448670089670037675> Le candidature sono disponibili solo agli utenti con ruolo Member.",
+      "<a:VC_Alert:1482706673176150077> Le candidature sono disponibili solo agli utenti con ruolo Member.",
     );
 }
 
@@ -324,7 +324,7 @@ function buildNoModuliDeniedEmbed() {
     .setColor("Red")
     .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
     .setDescription(
-      "<a:VC_Alert:1448670089670037675> Sei blacklistato dalle candidature.",
+      "<a:VC_Alert:1482706673176150077> Sei blacklistato dalle candidature.",
       "",
       "<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un ticket.",
     );
@@ -361,7 +361,7 @@ function buildIntroEmbed(type) {
         "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
         "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket terza categoria.",
         "",
-        "<a:VC_Alert:1448670089670037675> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",);
+        "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",);
   }
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -371,7 +371,7 @@ function buildIntroEmbed(type) {
       "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
       "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket terza categoria.",
       "",
-      "<a:VC_Alert:1448670089670037675> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+      "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
     );
 }
 
@@ -389,7 +389,7 @@ function buildFinalThanksEmbed(untilTs, type) {
         `<:VC_update:1478721333096349817> Per **un'altra candidatura ${label}** dovrai attendere fino a: <t:${unix}:F> (<t:${unix}:R>).`,
         "<:VC_InactiveStatus:1472011031709745307> Puoi comunque candidarti all’**altro** ruolo (Helper / Partner Manager) se non l’hai già fatto di recente per quello.",
         "",
-        "<a:VC_Alert:1448670089670037675> Non aprire ticket e non pingare lo staff per chiedere l'esito, altrimenti la candidatura verrà automaticamente scartata.",
+        "<a:VC_Alert:1482706673176150077> Non aprire ticket e non pingare lo staff per chiedere l'esito, altrimenti la candidatura verrà automaticamente scartata.",
       ].join("\n"),
     );
 }
@@ -558,7 +558,7 @@ async function handleStartButton(interaction, type, step = 1, forceStep = false)
       if (!draft?.answers) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Sessione candidatura scaduta. Clicca di nuovo il bottone candidatura.",
+            "<a:VC_Alert:1482706673176150077> Sessione candidatura scaduta. Clicca di nuovo il bottone candidatura.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -585,7 +585,7 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   if (!channel?.isTextBased?.()) {
     await interaction.reply({
       content:
-        "<a:VC_Alert:1448670089670037675> Non trovo il canale `visioneModuli` per inviare la candidatura.",
+        "<a:VC_Alert:1482706673176150077> Non trovo il canale `visioneModuli` per inviare la candidatura.",
       flags: 1 << 6,
     }).catch(() => null);
     return true;
@@ -609,7 +609,7 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   if (!sent) {
     await interaction.reply({
       content:
-        "<a:VC_Alert:1448670089670037675> Non sono riuscito a inviare la candidatura. Riprova più tardi.",
+        "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la candidatura. Riprova più tardi.",
       flags: 1 << 6,
     }).catch(() => null);
     return true;
@@ -683,6 +683,7 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
   if (!member) return "Utente non trovato nel server.";
   if (member.roles.cache.has(String(targetRoleId))) return "Utente già pexato su quel ruolo.";
 
+  const roleBeforeId = String(IDs.roles.Member || "");
   const roleApplied = await member.roles
     .add(String(targetRoleId))
     .then(() => true)
@@ -716,7 +717,6 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
     await sendPartnerManagerWelcome(pmChannel, member.user);
   }
 
-  const roleBeforeId = String(IDs.roles.Member || member.roles.highest?.id || "");
   const staffDoc = await getOrCreateStaffDoc(guild.id, member.id);
   if (!Array.isArray(staffDoc.rolesHistory)) staffDoc.rolesHistory = [];
   staffDoc.rolesHistory.push({
@@ -728,6 +728,8 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
   await staffDoc.save();
   if (guild.client && guild.id === IDs.guilds?.main) {
     scheduleStaffListRefresh(guild.client, guild.id, 800);
+    const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
+    if (t?.unref) t.unref();
   }
 
   const pexDepexChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex));
@@ -736,7 +738,7 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
     const newRole = guild.roles.cache.get(String(targetRoleId));
     await pexDepexChannel.send({
       content: `**<:success:1461731530333229226> PEX** <@${member.id}>
-<:staff:1443651912179388548> \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1448672967721615452> \`${newRole?.name || targetRoleId}\`
+<:staff:1443651912179388548> \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     }).catch(() => null);
   }
@@ -880,7 +882,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (!parsed) return false;
       if (!hasHighStaffRole(interaction)) {
         await interaction.reply({
-          content: "<a:VC_Alert:1448670089670037675> Questo bottone è riservato all'High Staff.",
+          content: "<a:VC_Alert:1482706673176150077> Questo bottone è riservato all'High Staff.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -913,7 +915,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (String(ownerId) !== String(interaction.user?.id || "")) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Questo modulo non è associato al tuo click iniziale.",
+            "<a:VC_Alert:1482706673176150077> Questo modulo non è associato al tuo click iniziale.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -930,7 +932,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (String(ownerId) !== String(interaction.user?.id || "")) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Questo modulo non è associato al tuo click iniziale.",
+            "<a:VC_Alert:1482706673176150077> Questo modulo non è associato al tuo click iniziale.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -947,7 +949,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       if (String(ownerId) !== String(interaction.user?.id || "")) {
         await interaction.reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Questo modulo non è associato al tuo click iniziale.",
+            "<a:VC_Alert:1482706673176150077> Questo modulo non è associato al tuo click iniziale.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;
@@ -966,7 +968,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
     if (!parsed) return false;
     if (!hasHighStaffRole(interaction)) {
       await interaction.reply({
-        content: "<a:VC_Alert:1448670089670037675> Questo modulo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo modulo è riservato all'High Staff.",
         flags: 1 << 6,
       }).catch(() => null);
       return true;
@@ -975,7 +977,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
     if (candidatePexLocks.has(pexLockKey)) {
       await interaction.reply({
         content:
-          "<a:VC_Alert:1448670089670037675> Questa candidatura è già in elaborazione.",
+          "<a:VC_Alert:1482706673176150077> Questa candidatura è già in elaborazione.",
         flags: 1 << 6,
       }).catch(() => null);
       return true;
@@ -985,7 +987,7 @@ async function handleCandidatureApplicationInteraction(interaction) {
       const reason = String(interaction.fields.getTextInputValue(APPLY_PEX_REASON_INPUT_ID) || "",).trim();
       if (!reason) {
         await interaction.reply({
-          content: "<a:VC_Alert:1448670089670037675> Devi inserire un motivo valido.",
+          content: "<a:VC_Alert:1482706673176150077> Devi inserire un motivo valido.",
           flags: 1 << 6,
         }).catch(() => null);
         return true;

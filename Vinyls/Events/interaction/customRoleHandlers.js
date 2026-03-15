@@ -44,7 +44,7 @@ async function ensureOwnerCustomRoleActive(
   if (state.status === "expired") {
     await replyEphemeral(interaction, {
       content: [
-        "<a:VC_Alert:1448670089670037675> Il tuo custom role temporaneo è scaduto.",
+        "<a:VC_Alert:1482706673176150077> Il tuo custom role temporaneo è scaduto.",
         `<:VC_Clock:1473359204189474886> Scadenza: ${buildExpiryText(state.doc)}`,
         "<:VC_InactiveStatus:1472011031709745307> Usa `+customrole create` per crearne uno nuovo.",
       ].join("\n"),
@@ -135,7 +135,7 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setTitle("<a:VC_Alert:1448670089670037675> Impossibile inviare DM")
+            .setTitle("<a:VC_Alert:1482706673176150077> Impossibile inviare DM")
             .setDescription(
               `<:vegax:1443934876440068179> Non posso inviare il messaggio privato a ${targetMember}.`,
             ),
@@ -729,7 +729,7 @@ async function handleCustomVocButton(interaction) {
             .setColor("Red")
             .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
             .setDescription(
-              "<a:VC_Alert:1448670089670037675> Solo il proprietario della vocale privata può usare questo controllo.",
+              "<a:VC_Alert:1482706673176150077> Solo il proprietario della vocale privata può usare questo controllo.",
             ),
         ],
         flags: 1 << 6,
@@ -906,7 +906,7 @@ async function handleGrantButtons(interaction) {
             .setColor("Red")
             .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
             .setDescription(
-              "<a:VC_Alert:1448670089670037675>Solo l'utente invitato può rispondere a questa richiesta.",
+              "<a:VC_Alert:1482706673176150077>Solo l'utente invitato può rispondere a questa richiesta.",
             ),
         ],
         flags: 1 << 6,
@@ -1010,7 +1010,7 @@ async function handleGrantButtons(interaction) {
               .setColor("Red")
               .setTitle("<:attentionfromvega:1443651874032062505> Impossibile assegnare")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Non posso assegnare questo ruolo per permessi/gerarchia.",
+                "<a:VC_Alert:1482706673176150077> Non posso assegnare questo ruolo per permessi/gerarchia.",
               ),
           ],
         })
@@ -1022,7 +1022,7 @@ async function handleGrantButtons(interaction) {
           new EmbedBuilder()
             .setColor("Red")
             .setTitle("<:vegax:1443934876440068179> Errore")
-            .setDescription("<a:VC_Alert:1448670089670037675> Il bot non può assegnare questo ruolo."),
+            .setDescription("<a:VC_Alert:1482706673176150077> Il bot non può assegnare questo ruolo."),
         ],
         components: [disabledRow],
       })
@@ -1051,7 +1051,7 @@ async function handleGrantButtons(interaction) {
               .setColor("Red")
               .setTitle("<:attentionfromvega:1443651874032062505> Impossibile assegnare")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> L'assegnazione del ruolo non è andata a buon fine.",
+                "<a:VC_Alert:1482706673176150077> L'assegnazione del ruolo non è andata a buon fine.",
               ),
           ],
         })
@@ -1063,7 +1063,7 @@ async function handleGrantButtons(interaction) {
           new EmbedBuilder()
             .setColor("Red")
             .setTitle("<:vegax:1443934876440068179> Errore")
-            .setDescription("<a:VC_Alert:1448670089670037675> Il bot non è riuscito ad assegnare questo ruolo."),
+            .setDescription("<a:VC_Alert:1482706673176150077> Il bot non è riuscito ad assegnare questo ruolo."),
         ],
         components: [disabledRow],
       })

@@ -19,7 +19,7 @@ async function handlePauseButton(interaction) {
   if (!userId) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Dati pausa non validi.",
+        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -33,7 +33,7 @@ async function handlePauseButton(interaction) {
   ) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Dati pausa non validi.",
+        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -51,7 +51,7 @@ async function handlePauseButton(interaction) {
     await interaction
       .reply({
         content:
-          "<a:VC_Alert:1448670089670037675> Solo High Staff può usare questi pulsanti.",
+          "<a:VC_Alert:1482706673176150077> Solo High Staff può usare questi pulsanti.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -65,7 +65,7 @@ async function handlePauseButton(interaction) {
   ) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Puoi vedere solo le tue pause.",
+        content: "<a:VC_Alert:1482706673176150077> Puoi vedere solo le tue pause.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -77,7 +77,7 @@ async function handlePauseButton(interaction) {
   if (!stafferRecord) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Record pausa non trovato.",
+        content: "<a:VC_Alert:1482706673176150077> Record pausa non trovato.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -117,7 +117,7 @@ async function handlePauseButton(interaction) {
               .setColor("#6f4e37")
               .setTitle(`Pause ${year}-${memberLabel}`)
               .setDescription(
-                `<:staff:1443651912179388548> Staffer: <@${userId}>\n\n${rows.join("\n")}\n\n<a:VC_Calendar:1448670320180592724> Totale giorni scalati nell'anno corrente: \`${computeConsumedPauseDays(pauses)}\``,
+                `<:staff:1443651912179388548> Staffer: <@${userId}>\n\n${rows.join("\n")}\n\n<a:VC_Calendar:1482706208149475358> Totale giorni scalati nell'anno corrente: \`${computeConsumedPauseDays(pauses)}\``,
               ),
           ],
           flags: 1 << 6,
@@ -134,7 +134,7 @@ async function handlePauseButton(interaction) {
   if (!pauseId) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Dati pausa non validi.",
+        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -146,7 +146,7 @@ async function handlePauseButton(interaction) {
     await interaction
       .reply({
         content:
-          "<a:VC_Alert:1448670089670037675> Questa richiesta pausa è già in elaborazione.",
+          "<a:VC_Alert:1482706673176150077> Questa richiesta pausa è già in elaborazione.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -160,7 +160,7 @@ async function handlePauseButton(interaction) {
   if (!targetPause) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Richiesta pausa non trovata.",
+        content: "<a:VC_Alert:1482706673176150077> Richiesta pausa non trovata.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -172,7 +172,7 @@ async function handlePauseButton(interaction) {
       await interaction
         .reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Questa richiesta è già stata gestita.",
+            "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.",
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -198,7 +198,7 @@ async function handlePauseButton(interaction) {
       await interaction
         .reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Questa pausa non è annullabile.",
+            "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.",
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -216,7 +216,7 @@ async function handlePauseButton(interaction) {
       await interaction
         .followUp({
           content:
-            "<a:VC_Alert:1448670089670037675> La pausa è scaduta: il pulsante annulla non è più disponibile.",
+            "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.",
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -228,7 +228,7 @@ async function handlePauseButton(interaction) {
       await interaction
         .reply({
           content:
-            "<a:VC_Alert:1448670089670037675> Staffer non trovato nel server.",
+            "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.",
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -275,7 +275,7 @@ async function handlePauseButton(interaction) {
 
     await interaction.channel
       ?.send({
-        content: `<:cancel:1461730653677551691> Pausa annullata per <@${userId}>. <a:VC_Calendar:1448670320180592724> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
+        content: `<:cancel:1461730653677551691> Pausa annullata per <@${userId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
       })
       .catch(() => {});
     return true;
@@ -285,7 +285,7 @@ async function handlePauseButton(interaction) {
     await interaction
       .reply({
         content:
-          "<a:VC_Alert:1448670089670037675> Questa richiesta è già stata gestita.",
+          "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -296,7 +296,7 @@ async function handlePauseButton(interaction) {
   if (!member) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Staffer non trovato nel server.",
+        content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -307,7 +307,7 @@ async function handlePauseButton(interaction) {
   if (!giorniRichiesti) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Date pausa non valide.",
+        content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.",
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -323,7 +323,7 @@ async function handlePauseButton(interaction) {
   if (giorniRimanenti < 0) {
     await interaction
       .reply({
-        content: `<a:VC_Alert:1448670089670037675> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`,
+        content: `<a:VC_Alert:1482706673176150077> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`,
         flags: 1 << 6,
       })
       .catch(() => {});
@@ -349,7 +349,7 @@ async function handlePauseButton(interaction) {
   const pauseEnd = parseItalianDate(targetPause.dataRitorno);
   const hideCancelOnCreate = Boolean(pauseEnd && getTodayUtc() > pauseEnd);
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
-  const acceptanceContent = `<a:VC_Calendar:1448670320180592724> **\`${targetPause.ruolo}\`** - **<@${userId}>** ${pauseTimingText}.\n<a:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<a:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
+  const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${targetPause.ruolo}\`** - **<@${userId}>** ${pauseTimingText}.\n<a:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<a:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 
   if (interaction.channel?.isThread?.()) {
     await interaction.deferUpdate().catch(() => {});
@@ -385,7 +385,7 @@ async function handlePauseButton(interaction) {
     await interaction
       .reply({
         content:
-          "<a:VC_Alert:1448670089670037675> Non sono riuscito a pubblicare la pausa nel canale dedicato. Riprova.",
+          "<a:VC_Alert:1482706673176150077> Non sono riuscito a pubblicare la pausa nel canale dedicato. Riprova.",
         flags: 1 << 6,
       })
       .catch(() => {});

@@ -76,7 +76,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Non puoi usare questo modulo.",
+            "<a:VC_Alert:1482706673176150077> Non puoi usare questo modulo.",
           ),
       ],
       flags: 1 << 6,
@@ -92,7 +92,7 @@ async function handlePartnerModal(interaction) {
       embeds: [
         new EmbedBuilder()
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Non hai i permessi per fare partnership.",
+            "<a:VC_Alert:1482706673176150077> Non hai i permessi per fare partnership.",
           )
           .setColor("Red"),
       ],
@@ -108,7 +108,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Errore interno: manager non trovato.",
+            "<a:VC_Alert:1482706673176150077> Errore interno: manager non trovato.",
           ),
       ],
     });
@@ -122,7 +122,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Manager non trovato nel server.",
+            "<a:VC_Alert:1482706673176150077> Manager non trovato nel server.",
           ),
       ],
     });
@@ -138,7 +138,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Questo utente non è verificato, fagli effettuare prima la verifica e poi riprova!",
+            "<a:VC_Alert:1482706673176150077> Questo utente non è verificato, fagli effettuare prima la verifica e poi riprova!",
           ),
       ],
     });
@@ -150,7 +150,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("#6f4e37")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Non puoi fare partner con questo manager poiché blacklistato!",
+            "<a:VC_Alert:1482706673176150077> Non puoi fare partner con questo manager poiché blacklistato!",
           ),
       ],
     });
@@ -163,7 +163,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> Devi inserire un link di invito Discord valido.",
+            "<a:VC_Alert:1482706673176150077> Devi inserire un link di invito Discord valido.",
           ),
       ],
     });
@@ -191,7 +191,7 @@ async function handlePartnerModal(interaction) {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1448670089670037675> Questo server è in **blacklist partnership**: non puoi effettuare partner con lui.",
+              "<a:VC_Alert:1482706673176150077> Questo server è in **blacklist partnership**: non puoi effettuare partner con lui.",
             ),
         ],
       });
@@ -207,7 +207,7 @@ async function handlePartnerModal(interaction) {
     const embed = new EmbedBuilder()
       .setAuthor({ name: interaction.user.username, iconURL: interaction.user.displayAvatarURL() })
       .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${interaction.user.username}**`)
-      .setDescription(`<a:VC_Alert:1448670089670037675> Non puoi fare partner con il tuo server`)
+      .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("Red")
       .setTimestamp()
@@ -224,7 +224,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1448670089670037675> La descrizione è vuota.",
+            "<a:VC_Alert:1482706673176150077> La descrizione è vuota.",
           ),
       ],
     });
@@ -240,7 +240,7 @@ async function handlePartnerModal(interaction) {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1448670089670037675> Canale partnership non configurato correttamente.",
+              "<a:VC_Alert:1482706673176150077> Canale partnership non configurato correttamente.",
             ),
         ],
       });
@@ -292,7 +292,7 @@ async function handlePartnerModal(interaction) {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1448670089670037675> Non sono riuscito a pubblicare la partner nel canale configurato.",
+              "<a:VC_Alert:1482706673176150077> Non sono riuscito a pubblicare la partner nel canale configurato.",
             ),
         ],
       });
@@ -318,7 +318,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("#e74c3c")
           .setDescription(
-            `<a:VC_Alert:1448670089670037675> C'è stato un errore nell'esecuzione del comando.`,
+            `<a:VC_Alert:1482706673176150077> C'è stato un errore nell'esecuzione del comando.`,
           ),
       ],
     });

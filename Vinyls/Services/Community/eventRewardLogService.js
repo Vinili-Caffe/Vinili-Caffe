@@ -19,7 +19,7 @@ async function sendEventRewardLog(client, data) {
   const channel = client.channels.cache.get(EVENT_REWARD_LOG_CHANNEL_ID) || (await client.channels.fetch(EVENT_REWARD_LOG_CHANNEL_ID).catch(() => null));
   if (!channel) return;
   const userId = String(data?.userId || "");
-  const label = String(data?.label || "<a:VC_Events:1448688007438667796> Premio evento");
+  const label = String(data?.label || "<a:VC_Events:1482706144953897223> Premio evento");
   const detail = data?.detail != null ? String(data.detail) : null;
   const levels = data?.levels != null && Number.isFinite(Number(data.levels)) ? Number(data.levels) : null;
   const roleId = data?.roleId ? String(data.roleId) : null;
@@ -38,7 +38,7 @@ async function sendEventRewardLog(client, data) {
     embed.addFields({ name: String("<:VC_Mention:1482526855289634997> Ruolo").slice(0, 256), value: String(`<@&${roleId}>`).slice(0, 1024), inline: true });
   }
   if (week != null) {
-    embed.addFields({ name: String("<a:VC_Calendar:1448670320180592724> Settimana").slice(0, 256), value: String(`${week}`).slice(0, 1024), inline: true });
+    embed.addFields({ name: String("<a:VC_Calendar:1482706208149475358> Settimana").slice(0, 256), value: String(`${week}`).slice(0, 1024), inline: true });
   }
   if (detail) {
     embed.addFields({ name: String("<:VC_InactiveStatus:1472011031709745307> Dettaglio").slice(0, 256), value: String(detail).slice(0, 1024), inline: false });
@@ -54,7 +54,7 @@ async function sendEventRewardSkippedLog(client, data) {
   if (!channel) return;
 
   const userId = String(data?.userId || "");
-  const label = String(data?.label || "<a:VC_Events:1448688007438667796> Premio evento");
+  const label = String(data?.label || "<a:VC_Events:1482706144953897223> Premio evento");
 
   const embed = new EmbedBuilder()
     .setColor("#99aab5")
@@ -82,7 +82,7 @@ async function sendEventRewardDm(client, userId, guildId, data) {
   const user = client.users.cache.get(userId) || (await client.users.fetch(userId).catch(() => null));
   if (!user?.send) return;
 
-  const label = String(data?.label || "<a:VC_Events:1448688007438667796> Premio evento");
+  const label = String(data?.label || "<a:VC_Events:1482706144953897223> Premio evento");
   const levels = data?.levels != null && Number.isFinite(Number(data.levels)) ? Number(data.levels) : null;
   const roleId = data?.roleId ? String(data.roleId) : null;
   const week = data?.week != null && Number.isFinite(Number(data.week)) ? Number(data.week) : null;
@@ -96,13 +96,13 @@ async function sendEventRewardDm(client, userId, guildId, data) {
     lines.push(`<:VC_Mention:1482526855289634997> Ruolo <@&${roleId}>.`, "");
   }
   if (week != null) {
-    lines.push(`<a:VC_Calendar:1448670320180592724> Premio della **settimana ${week}** dell'evento.`, "");
+    lines.push(`<a:VC_Calendar:1482706208149475358> Premio della **settimana ${week}** dell'evento.`, "");
   }
   lines.push("<a:VC_ThankYou:1330186319673950401> Grazie per aver partecipato!");
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_Events:1448688007438667796> Premio Activity EXP Event")
+    .setTitle("<a:VC_Events:1482706144953897223> Premio Activity EXP Event")
     .setDescription(lines.join("\n"))
     .setTimestamp();
 

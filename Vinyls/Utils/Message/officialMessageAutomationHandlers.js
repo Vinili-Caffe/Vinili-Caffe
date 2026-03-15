@@ -255,8 +255,8 @@ async function handleVoteManagerMessage(message, client) {
       if (reward?.effectiveExp != null) {
         expValue = reward.effectiveExp;
       }
-      if (reward?.fastBonus > 0) voteRewardExtras.push("<a:VC_Flame:1473106990493335665> Risposta rapida **+" + reward.fastBonus + " exp**");
-      if (reward?.streakBonus > 0) voteRewardExtras.push("<a:VC_Flame:1473106990493335665> Streak " + reward.newStreak + " **+" + reward.streakBonus + " exp**");
+      if (reward?.fastBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Risposta rapida **+" + reward.fastBonus + " exp**");
+      if (reward?.streakBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " **+" + reward.streakBonus + " exp**");
     } catch (err) {
       global.logger?.warn?.("[officialMessageAutomation] ", err?.message || err);
     }
@@ -282,13 +282,13 @@ async function handleVoteManagerMessage(message, client) {
 
   const dividerUrl = "https://cdn.discordapp.com/attachments/1467927329140641936/1467927368034422959/image.png?ex=69876f65&is=69861de5&hm=02f439283952389d1b23bb2793b6d57d0f8e6518e5a209cb9e84e625075627db";
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
-  const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1448671284748746905> <a:VC_Arrow:1448672967721615452> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
-    : "<a:VC_Money:1448671284748746905> <a:VC_Arrow:1448672967721615452> Reward voto assegnata per 24 ore";
+  const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
+    : "<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per 24 ore";
   const descriptionLines = [
     `<a:VC_ThankYou:1330186319673950401> Grazie ${user ? `${user}` : nameClean} per aver votato su [Discadia](<https://discadia.com/server/viniliecaffe/>) il server!`,
     "",
     "`Hai guadagnato:`",
-    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1448672967721615452> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto**` : "**voto**"}`,
+    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto**` : "**voto**"}`,
     ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
     voteRoleText,
     "",
@@ -355,8 +355,8 @@ async function handleDisboardBump(message, client) {
     const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "disboard", recordResult.previousLastBumpAt, disboardCooldownMs).catch(() => null);
     if (reward?.effectiveExp != null) {
       const parts = ["<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**", "<:VC_EXP:1482534670896730143> **" + reward.effectiveExp + " exp** guadagnati!"];
-      if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1473106990493335665> Risposta rapida +" + reward.fastBonus + " exp");
-      if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1473106990493335665> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
+      if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Risposta rapida +" + reward.fastBonus + " exp");
+      if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
       parts.push("<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **due ore!**\n" + bumpMention);
       thanksMessage = parts.join("\n");
     }
@@ -436,8 +436,8 @@ async function handleDiscadiaBump(message, client) {
     const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "discadia_bump", recordResult.previousLastBumpAt, discadiaCooldownMs).catch(() => null);
     if (reward?.effectiveExp != null) {
       const parts = ["<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server su Discadia!__**", "<:VC_EXP:1482534670896730143> **" + reward.effectiveExp + " exp** guadagnati!"];
-      if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1473106990493335665> Risposta rapida +" + reward.fastBonus + " exp");
-      if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1473106990493335665> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
+      if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Risposta rapida +" + reward.fastBonus + " exp");
+      if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
       parts.push("<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" + bumpMention);
       thanksMessage = parts.join("\n");
     }

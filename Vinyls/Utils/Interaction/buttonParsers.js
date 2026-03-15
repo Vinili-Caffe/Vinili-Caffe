@@ -13,7 +13,7 @@ async function denyIfNotOwner(interaction, ownerId) {
   if (!safeOwnerId) return false;
   if (String(interaction?.user?.id || "") === safeOwnerId) return false;
   await interaction.reply({
-    content: "<a:VC_Alert:1448670089670037675> Questo controllo non appartiene a te.",
+    content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.",
     flags: 1 << 6,
   }).catch(() => { });
   return true;
@@ -21,7 +21,7 @@ async function denyIfNotOwner(interaction, ownerId) {
 
 async function sendControlErrorFallback(interaction) {
   const payload = {
-    content: "<a:VC_Alert:1448670089670037675> Errore durante l'aggiornamento del controllo.",
+    content: "<a:VC_Alert:1482706673176150077> Errore durante l'aggiornamento del controllo.",
     flags: 1 << 6,
   };
   if (interaction.deferred || interaction.replied) {

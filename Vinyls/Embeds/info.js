@@ -29,7 +29,7 @@ async function run(client) {
     )
     .addFields(
       {
-        name: "<:dot:1443660294596329582> Links",
+        name: "<:VC_Dot:1482532364222595303> Links",
         value: [
           "<:VC_bump:1482531857521311885> [Lascia una recensione su DISBOARD](<https://disboard.org/it/server/1329080093599076474>)",
           "<:link:1470064815899803668> [Votaci su Discadia](<https://discadia.com/vote/viniliecaffe/>)",
@@ -37,7 +37,7 @@ async function run(client) {
         inline: true,
       },
       {
-        name: "<:dot:1443660294596329582> Informazioni",
+        name: "<:VC_Dot:1482532364222595303> Informazioni",
         value: [
           "<:exp:1470067108543987846> Owner: <@295500038401163264>",
           "<:moon:1470064812615667827> Fondazione: ||<t:1765382400:F>||",
@@ -51,7 +51,7 @@ async function run(client) {
     new ButtonBuilder()
       .setCustomId("info_rules")
       .setLabel("︲REGOLAMENTO")
-      .setEmoji("<a:VC_Rule:1469462649950703709>")
+      .setEmoji("<a:VC_Rule:1482706839928967280>")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId("info_donations")
@@ -79,7 +79,7 @@ async function run(client) {
     .setImage(DIVIDER_URL);
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("info_boost_levels").setLabel("︲VANTAGGI BOOST & LIVELLI").setEmoji("<a:VC_Rocket:1468544312475123753>").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("info_badges_roles").setLabel("︲BADGE & ALTRI RUOLI").setEmoji("<a:VC_Diamon:1469463765610135635>").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("info_badges_roles").setLabel("︲BADGE & ALTRI RUOLI").setEmoji("<a:VC_Diamon:1482706116873031680>").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId("info_verifica").setLabel("︲VERIFICA SELFIE").setEmoji(`<a:VC_Verified:1482532479637127188>`).setStyle(ButtonStyle.Secondary),
   );
   const guildId = channel.guild?.id;

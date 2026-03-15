@@ -15,7 +15,7 @@ const TARGET_CHANNEL_ID = IDs.channels.topWeeklyUser;
 const EVENT_ANNOUNCEMENT_CHANNEL_ID = IDs.channels.eventAnnouncements;
 const NEWS_STAFF_CHANNEL_ID = IDs.channels.staffNews;
 const INFO_CHANNEL_ID = IDs.channels.info;
-const TROPHY_LABELS = ["<:VC_Podio1:1469659449974329598>", "<:VC_Podio2:1469659512863592500>", "<:VC_Podio3:1469659557696504024>",];
+const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>",];
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
 const VOICE_WINNER_ROLE_ID = IDs.roles.TopWeeklyVoc;
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
@@ -211,7 +211,7 @@ function buildEmptyLine(kind) {
 
 function formatRankLine(index, userMention, value, unit) {
   const medal = TROPHY_LABELS[index] || "[#]";
-  return `${medal} ${userMention} <a:VC_Arrow:1448672967721615452> **${value}** *${unit}*`;
+  return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${value}** *${unit}*`;
 }
 
 function extractMapEntries(raw) {
@@ -399,11 +399,11 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
   const eventChannel = client.channels.cache.get(EVENT_ANNOUNCEMENT_CHANNEL_ID) || (await getClientChannelCached(client, EVENT_ANNOUNCEMENT_CHANNEL_ID));
   if (!eventChannel?.guild) return;
   const msgLines = topMessages.length ? topMessages.map((item, i) => {
-    const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}> <a:VC_Arrow:1448672967721615452> **${item.messageCount}** _messaggi_`;
+    const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.messageCount}** _messaggi_`;
   })
     : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica testuale."];
   const voiceLines = topVoice.length ? topVoice.map((item, i) => {
-    const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}> <a:VC_Arrow:1448672967721615452> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`;
+    const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}> <a:VC_Arrow:1482706699365257397> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`;
   })
     : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica vocale."];
   const embed = new EmbedBuilder()
@@ -425,7 +425,7 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
 <a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori dell'Activity Event EXP della settimana ${eventWeek}
 <:VC_EXP:1482534670896730143> Avete ricevuto __${getEventWeeklyRewardLabel(eventWeek)}__ come ricompensa di questa settimana
 
-<a:VC_Events:1448688007438667796> Vi aspettiamo la prossima settimana, con i vincitori che vinceranno __${getEventWeeklyRewardLabel(eventWeek + 1)}__`,
+<a:VC_Events:1482706144953897223> Vi aspettiamo la prossima settimana, con i vincitori che vinceranno __${getEventWeeklyRewardLabel(eventWeek + 1)}__`,
     embeds: [embed],
   }).catch((err) => {
     global.logger?.error?.("[WEEKLY ACTIVITY] Event week announcement failed:", err);
@@ -460,7 +460,7 @@ async function trySendEventEndAnnouncementToNews(client) {
   const eventChannel = client.channels.cache.get(EVENT_ANNOUNCEMENT_CHANNEL_ID) || (await getClientChannelCached(client, EVENT_ANNOUNCEMENT_CHANNEL_ID));
   if (!eventChannel?.guild) return;
   await eventChannel.send({
-    content: `${EVENT_END_ANNOUNCEMENT_MESSAGE}\n\n<a:VC_Ping:1448670620412809298>︲<@&1442569012063109151>`,
+    content: `${EVENT_END_ANNOUNCEMENT_MESSAGE}\n\n<a:VC_Ping:1482694298687246377>︲<@&1442569012063109151>`,
     embeds: [embed],
     allowedMentions: { parse: ["everyone"] },
   }).catch((err) => {
@@ -483,8 +483,8 @@ async function trySendEventEndAnnouncementToNews(client) {
     const first = filtered[0];
     const last = filtered.length > 1 ? filtered[filtered.length - 1] : null;
     const staffEndLines = [];
-    if (first) staffEndLines.push(`<:VC_Podio1:1469659449974329598> **Miglior punteggio:** <@${first.userId}> <a:VC_Arrow:1448672967721615452> **${first.points}** punti`);
-    if (last && last.userId !== first?.userId) staffEndLines.push(`**Peggior punteggio:** <@${last.userId}> <a:VC_Arrow:1448672967721615452> **${last.points}** punti`);
+    if (first) staffEndLines.push(`<:VC_Podio1:1482694399283433582> **Miglior punteggio:** <@${first.userId}> <a:VC_Arrow:1482706699365257397> **${first.points}** punti`);
+    if (last && last.userId !== first?.userId) staffEndLines.push(`**Peggior punteggio:** <@${last.userId}> <a:VC_Arrow:1482706699365257397> **${last.points}** punti`);
     const staffEndContent = ["## <a:VC_Announce:1482534613568979007> **EVENTO STAFF — Terminato**", "", "<:VC_Attention:1482534443632558151> Risultati evento staff:", ...(staffEndLines.length ? staffEndLines : [" - Nessun dato."]), "", `<:VC_Mention:1482526855289634997>︲<@&${IDs.roles.Staff}>`,
     ].join("\n");
     const newsStaffChannel = NEWS_STAFF_CHANNEL_ID && (client.channels.cache.get(NEWS_STAFF_CHANNEL_ID) || (await getClientChannelCached(client, NEWS_STAFF_CHANNEL_ID)));
@@ -643,8 +643,8 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       content: `<@&${IDs.roles.Member}>
 <a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.
 
-<a:VC_Arrow:1448672967721615452> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
-<a:VC_Arrow:1448672967721615452> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.
+<a:VC_Arrow:1482706699365257397> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
+<a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.
 _ _`,
       embeds: [embed],
       components: [button],

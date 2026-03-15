@@ -64,7 +64,7 @@ async function handleSlashCommand(interaction, client) {
   ) {
     return interaction.reply({
       content:
-        "<a:VC_Alert:1448670089670037675> Comandi di moderazione temporaneamente bloccati.",
+        "<a:VC_Alert:1482706673176150077> Comandi di moderazione temporaneamente bloccati.",
       flags: 1 << 6,
     });
   }

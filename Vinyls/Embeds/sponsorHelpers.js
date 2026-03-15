@@ -24,13 +24,13 @@ function buildSponsorTagEmbed(config, boosterRoleMention) {
         sponsorDividerLine(),
         "",
         "",
-        "**<a:VC_Arrow:1448672967721615452> Come mantenere la Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
+        "**<a:VC_Arrow:1482706699365257397> Come mantenere la Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
         "────────୨ৎ────────",
         "<a:VC_Exclamation:1482534702077444217> Ti basta essere parte di https://discord.gg/viniliecaffe oppure",
         `boostare questo server (<a:flyingnitroboost:1443652205705170986> ${boosterRoleMention})`,
         "",
         "",
-        "**<a:VC_Arrow:1448672967721615452> How to keep the Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
+        "**<a:VC_Arrow:1482706699365257397> How to keep the Guild-TAG <:VC_PinkQuestionMark:1471892611026391306>**",
         "────────୨ৎ────────",
         "<a:VC_Exclamation:1482534702077444217> You just need to be in https://discord.gg/viniliecaffe or boost",
         `this server (<a:flyingnitroboost:1443652205705170986> ${boosterRoleMention})`,
@@ -192,10 +192,10 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
     .setColor(color)
     .setTitle("<:verification:1461725843125571758> **`Verification Required!`**")
     .setDescription(
-      "<:space:1461733157840621608> <:alarm:1461725841451909183> **Per accedere a `" +
+      "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
         (guild.name || "this server") +
         "` devi prima verificarti.**\n" +
-        "<:space:1461733157840621608><:space:1461733157840621608> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
+        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
     );
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("verify_start").setEmoji(`<a:VC_Verified:1482532479637127188>`).setLabel("︲VERIFY").setStyle(ButtonStyle.Success),

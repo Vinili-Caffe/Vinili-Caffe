@@ -44,7 +44,7 @@ async function handleStaffButtons(interaction) {
     if (!userId || !/^\d{16,20}$/.test(userId) || !["yes", "no"].includes(choice)) return false;
     const hasHighStaff = interaction.member?.roles?.cache?.has?.(IDs.roles?.HighStaff);
     if (!hasHighStaff) {
-      await interaction.reply({ content: "<a:VC_Alert:1448670089670037675> Solo l'High Staff può usare questo pulsante.", flags: PRIVATE_FLAG }).catch(() => null);
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Solo l'High Staff può usare questo pulsante.", flags: PRIVATE_FLAG }).catch(() => null);
       return true;
     }
     const guild = interaction.guild;
@@ -59,12 +59,12 @@ async function handleStaffButtons(interaction) {
       return true;
     }
     if (!member) {
-      await interaction.reply({ content: "<a:VC_Alert:1448670089670037675> Utente non trovato nel server.", flags: PRIVATE_FLAG }).catch(() => null);
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.", flags: PRIVATE_FLAG }).catch(() => null);
       return true;
     }
     const result = await applyDepexOneLevel(guild, member);
     if (!result.ok) {
-      await interaction.reply({ content: `<a:VC_Alert:1448670089670037675> ${result.reason || "Depex non applicato."}`, flags: PRIVATE_FLAG }).catch(() => null);
+      await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> ${result.reason || "Depex non applicato."}`, flags: PRIVATE_FLAG }).catch(() => null);
       return true;
     }
     const oldRoleId = result.roleRemoved;
@@ -84,10 +84,10 @@ async function handleStaffButtons(interaction) {
       .setColor("#6f4e37")
       .setDescription(
         "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.\n\n" +
-        "> <a:VC_Arrow:1448672967721615452> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
-        "<:dot:1443660294596329582> Ogni <@&1442568901887000618> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
-        "<:dot:1443660294596329582> Ogni <@&1442568897902678038> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
-        "<:dot:1443660294596329582> Ogni <@&1442568896237277295> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
+        "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
+        "<:VC_Dot:1482532364222595303> Ogni <@&1442568901887000618> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
+        "<:VC_Dot:1482532364222595303> Ogni <@&1442568897902678038> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+        "<:VC_Dot:1482532364222595303> Ogni <@&1442568896237277295> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
         "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**."
       );
     await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch(() => null);
@@ -124,20 +124,20 @@ async function handleStaffButtons(interaction) {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
       "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n\n" +
       "> Per __richiedere__ una pausa basta scrivere nel canale <#1442569262689554444> usando il formato corretto.\n\n" +
-      "<a:VC_Arrow:1448672967721615452> **__LIMITI__**\n" +
+      "<a:VC_Arrow:1482706699365257397> **__LIMITI__**\n" +
       "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno. Gli <@&1442568895251611924> avranno **__`5`__** giorni in più.\n\n" +
       "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
-      "<:dot:1443660294596329582> **24**, **25**, **26**, **31** __Dicembre__\n" +
-      "<:dot:1443660294596329582> **1** Gennaio\n" +
-      "<:dot:1443660294596329582> **Pasqua** e **Pasquetta**\n\n" +
+      "<:VC_Dot:1482532364222595303> **24**, **25**, **26**, **31** __Dicembre__\n" +
+      "<:VC_Dot:1482532364222595303> **1** Gennaio\n" +
+      "<:VC_Dot:1482532364222595303> **Pasqua** e **Pasquetta**\n\n" +
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
-      "<:dot:1443660294596329582> <@&1442568904311570555> <a:VC_Arrow:1448672967721615452> __Nessun limite__\n" +
-      "<:dot:1443660294596329582> <@&1442568901887000618> <a:VC_Arrow:1448672967721615452> __3__ **staffer**\n" +
-      "<:dot:1443660294596329582> <@&1442568897902678038> <a:VC_Arrow:1448672967721615452> __1__ **staffer**\n" +
-      "<:dot:1443660294596329582> <@&1442568896237277295> <a:VC_Arrow:1448672967721615452> __1__ **staffer**\n" +
-      "<:dot:1443660294596329582> <@&1442568893435478097> <a:VC_Arrow:1448672967721615452> __2__ **staffer**\n" +
-      "<:dot:1443660294596329582> <@&1442568891875201066> <a:VC_Arrow:1448672967721615452> __1__ **staffer**\n" +
-      "<:dot:1443660294596329582> <@&1442568889052430609> <a:VC_Arrow:1448672967721615452> __1__ **staffer**\n\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __Nessun limite__\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568901887000618> <a:VC_Arrow:1482706699365257397> __3__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568897902678038> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568896237277295> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568893435478097> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568891875201066> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568889052430609> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:attentionfromvega:1443651874032062505> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
       "<:infoglowingdot:1443660296823767110> Gli __`Helper`__ potranno richiedere una __pausa__ nella loro prima settimana **solo** per **__problemi personali__ o __familiari gravi__**. Se l'<@&1442568894349840435> viene a conoscenza di un **__falso__ motivo** per usare una pausa, **in qualsiasi circostanza**, si verrà **__depexati__** all'**__istante__**.\n\n" +
       "> <:banhammer:1443651875441217639> Se l'<@&1442568894349840435> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer."
@@ -150,16 +150,16 @@ async function handleStaffButtons(interaction) {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
       "<:infoglowingdot:1443660296823767110> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
       "> <:attentionfromvega:1443651874032062505> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n\n" +
-      "<a:VC_Arrow:1448672967721615452> <@&1442568904311570555>\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&1442568904311570555>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__250__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__2.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1448672967721615452> <@&1442568901887000618>\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&1442568901887000618>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__3.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1448672967721615452> <@&1442568897902678038>\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&1442568897902678038>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__450__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__4.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1448672967721615452> <@&1442568896237277295>\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&1442568896237277295>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
       "> <:attentionfromvega:1443651874032062505> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
@@ -169,21 +169,21 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "regolamento") {
-    const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(`<:dot:1443660294596329582> **Rispettare** le regole (<#1442569111119990887>) del server;
+    const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(`<:VC_Dot:1482532364222595303> **Rispettare** le regole (<#1442569111119990887>) del server;
 
-            <:dot:1443660294596329582> __Non__ **chiedere** pex _continuamente_;
+            <:VC_Dot:1482532364222595303> __Non__ **chiedere** pex _continuamente_;
 
-            <:dot:1443660294596329582> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**;
+            <:VC_Dot:1482532364222595303> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**;
 
-            <:dot:1443660294596329582> __Non__ **abusare** di potere, ad esempio **sanzionando** un __utente__ \`senza un vero motivo\`;
+            <:VC_Dot:1482532364222595303> __Non__ **abusare** di potere, ad esempio **sanzionando** un __utente__ \`senza un vero motivo\`;
 
-            <:dot:1443660294596329582> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>;
+            <:VC_Dot:1482532364222595303> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>;
 
-            <:dot:1443660294596329582> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**
+            <:VC_Dot:1482532364222595303> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**
 
-            <:dot:1443660294596329582> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__
+            <:VC_Dot:1482532364222595303> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__
 
-            <:dot:1443660294596329582> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__`);
+            <:VC_Dot:1482532364222595303> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__`);
     await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch(() => null);
     return true;
   }
@@ -348,7 +348,7 @@ async function sendPrivacyViewsLeaderboard(interaction, Model, title) {
   const guildId = interaction.guild.id;
   const top = await Model.find({ guildId }).sort({ views: -1 }).limit(10).lean().catch(() => []);
 
-  const rankEmojis = ["<:VC_1:1444099819680563200>", "<:VC_2:1444099781864722535>", "<:VC_3:1444099746116534282>", "<:VC_4:1444099708292169740>", "<:VC_5:1444099671894134947>", "<:VC_6:1444099623714033838>", "<:VC_7:1444099572916945120>", "<:VC_8:1444099520500600998>", "<:VC_9:1444099441790554182>", "<:VC_10:1469357839066730627>",];
+  const rankEmojis = ["<:VC_1:1482706338021642333>", "<:VC_2:1482706376525611090>", "<:VC_3:1482706404773990460>", "<:VC_4:1482706432347344916>", "<:VC_5:1482706459765637272>", "<:VC_6:1482706490769801327>", "<:VC_7:1482706523330183218>", "<:VC_8:1482706553281708092>", "<:VC_9:1482706583438889051>", "<:VC_10:1482706613663174707>",];
 
   const lines = [];
   let idx = 1;
@@ -356,7 +356,7 @@ async function sendPrivacyViewsLeaderboard(interaction, Model, title) {
     const label = await resolveMentionLabel(interaction, entry.userId);
     const rank = rankEmojis[idx - 1] || `${idx}.`;
     lines.push(
-      `${rank} ${label} <a:VC_Arrow:1448672967721615452> **${entry.views}** visualizzazioni`,
+      `${rank} ${label} <a:VC_Arrow:1482706699365257397> **${entry.views}** visualizzazioni`,
     );
     idx += 1;
   }
@@ -584,18 +584,18 @@ module.exports = {
     if (interaction.customId == "metodi") {
       const embeds = [new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
         `<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#${IDs.channels.ticket}> \`Terza Categoria\`.\n\n` +
-        "<:dot:1443660294596329582> **€1,50** <a:VC_Arrow:1448672967721615452> sponsor per **2** settimane\n" +
-        "<:dot:1443660294596329582> **€3** <a:VC_Arrow:1448672967721615452> sponsor per **1** mese\n" +
-        "<:dot:1443660294596329582> **€5** <a:VC_Arrow:1448672967721615452> sponsor **lifetime**"
+        "<:VC_Dot:1482532364222595303> **€1,50** <a:VC_Arrow:1482706699365257397> sponsor per **2** settimane\n" +
+        "<:VC_Dot:1482532364222595303> **€3** <a:VC_Arrow:1482706699365257397> sponsor per **1** mese\n" +
+        "<:VC_Dot:1482532364222595303> **€5** <a:VC_Arrow:1482706699365257397> sponsor **lifetime**"
       ),];
       await interaction.reply({ embeds: [embeds[0]], flags: 1 << 6 }).catch(() => null);
     }
     if (interaction.customId == "ping") {
       const embeds = [new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
         "<:Discord_Mention:1329524304790028328> I **ping** variano in base al __numero__ di **membri** del server.\n\n" +
-        "<:dot:1443660294596329582> Meno di **500** <a:VC_Arrow:1448672967721615452> `no ping`\n" +
-        "<:dot:1443660294596329582> Tra i **500** e i **1000** <a:VC_Arrow:1448672967721615452> `ping @here`\n" +
-        "<:dot:1443660294596329582> **1000+** <a:VC_Arrow:1448672967721615452> `ping @here & @everyone`"
+        "<:VC_Dot:1482532364222595303> Meno di **500** <a:VC_Arrow:1482706699365257397> `no ping`\n" +
+        "<:VC_Dot:1482532364222595303> Tra i **500** e i **1000** <a:VC_Arrow:1482706699365257397> `ping @here`\n" +
+        "<:VC_Dot:1482532364222595303> **1000+** <a:VC_Arrow:1482706699365257397> `ping @here & @everyone`"
       ),];
       await interaction.reply({ embeds: [embeds[0]], flags: 1 << 6 }).catch(() => null);
     }
@@ -676,15 +676,15 @@ module.exports = {
           "",
           "**Vuoi acquistare direttamente tutti i vantaggi permanenti e differenti dal VIP?**",
           "`5,00 €`✩",
-          "<:dot:1443660294596329582> Il ruolo <@&1442568916114346096> **permanente**",
-          "<:dot:1443660294596329582> Possibilità di allegare link e immagini in chat",
-          "<:dot:1443660294596329582> Possibilità di usare le soundboard di altri server",
-          "<:dot:1443660294596329582> Possibilità di mandare sticker ed emoji di altri server",
-          "<:dot:1443660294596329582> Bypass dei requisiti nei giveaway",
-          "<:dot:1443660294596329582> Possibilità di cambiare il tuo nickname",
-          "<:dot:1443660294596329582> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
-          "<:dot:1443660294596329582> Sblocchi il comando `+quote`",
-          "<:dot:1443660294596329582> X3 EXP boost",
+          "<:VC_Dot:1482532364222595303> Il ruolo <@&1442568916114346096> **permanente**",
+          "<:VC_Dot:1482532364222595303> Possibilità di allegare link e immagini in chat",
+          "<:VC_Dot:1482532364222595303> Possibilità di usare le soundboard di altri server",
+          "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
+          "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
+          "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
+          "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
+          "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
+          "<:VC_Dot:1482532364222595303> X3 EXP boost",
         ].join("\n"))
         .setImage(DIVIDER_URL);
 
@@ -698,14 +698,14 @@ module.exports = {
           "`10,00 €`✩",
           "",
           "<:sparkledred:1470064814502973591> Sbloccherai:",
-          "<:dot:1443660294596329582> Permesso di allegare link e immagini in chat",
-          "<:dot:1443660294596329582> Permesso di usare soundboard di altri server",
-          "<:dot:1443660294596329582> Possibilità di mandare sticker ed emoji di altri server",
-          "<:dot:1443660294596329582> Bypass dei requisiti nei giveaway",
-          "<:dot:1443660294596329582> Possibilità di creare una vocale privata per te e i tuoi amici",
-          "<:dot:1443660294596329582> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
-          "<:dot:1443660294596329582> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
-          "<:dot:1443660294596329582> X4 EXP boost",
+          "<:VC_Dot:1482532364222595303> Permesso di allegare link e immagini in chat",
+          "<:VC_Dot:1482532364222595303> Permesso di usare soundboard di altri server",
+          "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
+          "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
+          "<:VC_Dot:1482532364222595303> Possibilità di creare una vocale privata per te e i tuoi amici",
+          "<:VC_Dot:1482532364222595303> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
+          "<:VC_Dot:1482532364222595303> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
+          "<:VC_Dot:1482532364222595303> X4 EXP boost",
           "",
           "<:attentionfromvega:1443651874032062505> DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.",
           "I vantaggi segnati con \"✩\" vengono rimossi qualora l'utente violi il regolamento, porti un'immagine negativa al server o sia inattivo per mesi.",
@@ -726,9 +726,9 @@ module.exports = {
         .setDescription(
           "<:pinnednew:1443670849990430750> **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un <#1442569095068254219> `Terza Categoria`.\n\n" +
           "> Ogni server che vorrà effettuare una **sponsor** dovrà rispettare questi 3 requisiti:\n" +
-          "> <:dot:1443660294596329582> Rispettare i [**ToS di Discord**](https://discord.com/terms)\n" +
-          "> <:dot:1443660294596329582> Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n" +
-          "> <:dot:1443660294596329582> Rispettare il [**Regolamento di Vinili & Caffè**](https://discord.com/channels/1329080093599076474/1442569111119990887)",
+          "> <:VC_Dot:1482532364222595303> Rispettare i [**ToS di Discord**](https://discord.com/terms)\n" +
+          "> <:VC_Dot:1482532364222595303> Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n" +
+          "> <:VC_Dot:1482532364222595303> Rispettare il [**Regolamento di Vinili & Caffè**](https://discord.com/channels/1329080093599076474/1442569111119990887)",
         )
         .setImage(DIVIDER_URL);
       const rowSponsor = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("metodi").setLabel("︲METODI").setEmoji("<:Money:1330544713463500970>").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("ping").setLabel("︲PING").setEmoji("<:Discord_Mention:1329524304790028328>").setStyle(ButtonStyle.Secondary));
@@ -743,12 +743,12 @@ module.exports = {
         .setDescription([
           "> Per prendere una di queste tag vi basterà entrare nel server dedicato e verificarvi <a:VC_HeartsBlue:1468686100045369404>",
           "",
-          "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1448672967721615452> <https://discord.gg/E6vrm5zE6B>",
-          "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1448672967721615452> <https://discord.gg/QnTN5P578g>",
-          "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1448672967721615452> <https://discord.gg/WMuZ4EMAkc>",
-          "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1448672967721615452> <https://discord.gg/uqUNS9f5m5>",
-          "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1448672967721615452> <https://discord.gg/SzBwnxHXNv>",
-          "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1448672967721615452> <https://discord.gg/z3EXtJwvQH>",
+          "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
+          "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
+          "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
+          "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
+          "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
+          "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
           "",
           "<:VC_Reply:1482532158080942191> _In costante aggiornamento, per consigliarne altre " + suggestionsMention + "_",
         ].join("\n"))
@@ -762,9 +762,9 @@ module.exports = {
         .setDescription(
           "<:partneredserverowner:1443651871125409812> **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n" +
           "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`Terza Categoria`__**\n\n" +
-          "<:dot:1443660294596329582> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **__2__ euro** <:paypal:1329524292446191676>\n" +
-          "<:dot:1443660294596329582> **__`175`__** partner <a:vegarightarrow:1443673039156936837> **__3__ euro** <:paypal:1329524292446191676> / **Nitro __Basic__** <:sparkles_nitro_basic:1330196488336310383>\n" +
-          "<:dot:1443660294596329582> **__`250`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n\n" +
+          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **__2__ euro** <:paypal:1329524292446191676>\n" +
+          "<:VC_Dot:1482532364222595303> **__`175`__** partner <a:vegarightarrow:1443673039156936837> **__3__ euro** <:paypal:1329524292446191676> / **Nitro __Basic__** <:sparkles_nitro_basic:1330196488336310383>\n" +
+          "<:VC_Dot:1482532364222595303> **__`250`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n\n" +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente, in caso di riscatto del **Nitro __Boost__**, almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )
         .setImage(DIVIDER_URL);
@@ -832,11 +832,11 @@ module.exports = {
           "I livelli nel server rappresentano la tua attività: scrivendo in chat testuale e stando nei canali vocali, guadagnerai esperienza che verrà aggiunta al tuo livello globale.",
           "Una volta raggiunta una certa somma di esperienza, farai un **level up**!",
           "",
-          `<:dot:1443660294596329582> Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
+          `<:VC_Dot:1482532364222595303> Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
           "",
           "<:VC_Dot:1482532364222595303> ──────── <:exp:1470067108543987846> ──────── <:VC_Dot:1482532364222595303>",
           "",
-          "<a:VC_Arrow:1448672967721615452> **LISTA DEI LIVELLI:**",
+          "<a:VC_Arrow:1482706699365257397> **LISTA DEI LIVELLI:**",
         ].join("\n"))
         .addFields(
           {
@@ -938,7 +938,7 @@ module.exports = {
           "",
           "<:VC_Dot:1482532364222595303> ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── <:VC_Dot:1482532364222595303>",
           "",
-          "<a:VC_Arrow:1448672967721615452> **LISTA DEI BADGES:**",
+          "<a:VC_Arrow:1482706699365257397> **LISTA DEI BADGES:**",
         ].join("\n"))
         .addFields(
           {
@@ -1042,7 +1042,7 @@ module.exports = {
     if (interaction.customId == "r_multiplier_info") {
       const entries = ROLE_MULTIPLIERS instanceof Map ? Array.from(ROLE_MULTIPLIERS.entries()) : Array.isArray(ROLE_MULTIPLIERS) ? ROLE_MULTIPLIERS : Object.entries(ROLE_MULTIPLIERS || {});
 
-      const lines = entries.length ? entries.map(([roleId, multi]) => `<@&${roleId}><a:VC_Arrow:1448672967721615452>x${multi}`,
+      const lines = entries.length ? entries.map(([roleId, multi]) => `<@&${roleId}><a:VC_Arrow:1482706699365257397>x${multi}`,
       )
         : ["Nessun moltiplicatore attivo."];
 
@@ -1065,7 +1065,7 @@ module.exports = {
       return sendPrivacyViewsLeaderboard(
         interaction,
         AvatarPrivacy,
-        "<a:VC_CrownYellow:1330194103564238930> Classifica Visualizzazioni Avatar",
+        "<a:VC_CrownYellow:1482706085440651428> Classifica Visualizzazioni Avatar",
       );
     }
 
@@ -1073,7 +1073,7 @@ module.exports = {
       return sendPrivacyViewsLeaderboard(
         interaction,
         BannerPrivacy,
-        "<a:VC_CrownYellow:1330194103564238930> Classifica Visualizzazioni Banner",
+        "<a:VC_CrownYellow:1482706085440651428> Classifica Visualizzazioni Banner",
       );
     }
   },

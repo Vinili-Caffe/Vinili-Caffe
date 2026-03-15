@@ -76,7 +76,7 @@ async function processTickets(client) {
       const embed = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta di chiusura")
-        .setDescription("<a:VC_Alert:1448670089670037675> Il ticket è aperto da più di 24 ore e non ci sono messaggi recenti. È stato risolto?");
+        .setDescription("<a:VC_Alert:1482706673176150077> Il ticket è aperto da più di 24 ore e non ci sono messaggi recenti. È stato risolto?");
 
       await channel
         .send({

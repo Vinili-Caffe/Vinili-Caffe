@@ -39,7 +39,7 @@ module.exports = {
           { name: `<a:VC_Loading:1482526772862914776> **API:** \`...\``, value: empty, inline: true },
           { name: empty, value: empty, inline: true },
           { name: `<:DatabaseCheck:1330543470259212329> **Database:** ${databaseLabel}`, value: empty, inline: true },
-          { name: `<a:VC_Calendar:1448670320180592724> **Shard:** \`${shardLabel}\``, value: empty, inline: true },
+          { name: `<a:VC_Calendar:1482706208149475358> **Shard:** \`${shardLabel}\``, value: empty, inline: true },
           { name: empty, value: empty, inline: true },
         );
       const sent=await safeMessageReply(message,{embeds:[pingEmbed],allowedMentions:{repliedUser:false},});

@@ -66,7 +66,7 @@ const lastPlayedAtByChannelAndType = new Map();
 const startingChannels = new Set();
 const recentQuestionKeysByChannel = new Map();
 const REWARD_CHANNEL_ID = IDs.channels.commands;
-const MINIGAME_WIN_EMOJI = "<a:VC_Events:1448688007438667796>";
+const MINIGAME_WIN_EMOJI = "<a:VC_Events:1482706144953897223>";
 const MINIGAME_CORRECT_FALLBACK_EMOJI = "\u2714";
 const MINIGAME_WRONG_EMOJI = "<a:VC_Cross:1482532424570376253>";
 
@@ -3085,14 +3085,14 @@ const DRIVING_QUIZ_LETTERS = ["A", "B", "C", "D"];
 function getDrivingQuizThematicHint(row) {
   const s = String(row?.statement || "").toLowerCase();
   if (!s) return null;
-  if (/velocit|limite|km\/h|130|50|90/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda i **limiti di velocità**.`;
-  if (/precedenza|incrocio|destra|fermarsi/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda **precedenza** o **incroci**.`;
-  if (/semaforo|rosso|giallo|verde/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda i **semafori**.`;
-  if (/segnal|triangolo|circolare|ottagonale|stop/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda la **segnaletica stradale**.`;
-  if (/sosta|parcheggio|divieto/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda **sosta** o **parcheggio**.`;
-  if (/cintur|casco|telefono/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda **obblighi** del conducente.`;
-  if (/sorpasso|autostrada|corsia/.test(s)) return `<a:VC_Flame:1473106990493335665> La domanda riguarda **sorpasso** o **autostrada**.`;
-  return `<a:VC_Flame:1473106990493335665> La risposta è **Vero** o **Falso**: rifletti sulla normativa.`;
+  if (/velocit|limite|km\/h|130|50|90/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda i **limiti di velocità**.`;
+  if (/precedenza|incrocio|destra|fermarsi/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **precedenza** o **incroci**.`;
+  if (/semaforo|rosso|giallo|verde/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda i **semafori**.`;
+  if (/segnal|triangolo|circolare|ottagonale|stop/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda la **segnaletica stradale**.`;
+  if (/sosta|parcheggio|divieto/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **sosta** o **parcheggio**.`;
+  if (/cintur|casco|telefono/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **obblighi** del conducente.`;
+  if (/sorpasso|autostrada|corsia/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **sorpasso** o **autostrada**.`;
+  return `<a:VC_Flame:1482725674711126140> La risposta è **Vero** o **Falso**: rifletti sulla normativa.`;
 }
 
 function buildDrivingQuizEmbed(row, rewardExp, durationMs) {
@@ -3167,7 +3167,7 @@ function buildMinuteHintEmbed(channelId) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<a:VC_Heart:1448672728822448141> Indizio")
-    .setDescription(`<a:VC_Arrow:1448672967721615452> <#${channelId}>`);
+    .setDescription(`<a:VC_Arrow:1482706699365257397> <#${channelId}>`);
 }
 
 function buildGenericHintEmbed(text) {
@@ -3175,15 +3175,15 @@ function buildGenericHintEmbed(text) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<a:VC_Heart:1448672728822448141> Indizio")
-    .setDescription(`<a:VC_Arrow:1448672967721615452> ${safeText}`);
+    .setDescription(`<a:VC_Arrow:1482706699365257397> ${safeText}`);
 }
 
 function buildMaskedTextHint(value) {
   const normalized = normalizeCountryName(value);
   if (!normalized) return null;
   const plain = normalized.replace(/\s+/g, "");
-  if (plain.length <= 2) return `<a:VC_Flame:1473106990493335665> Inizia con **${plain[0] || "?"}**`;
-  return `<a:VC_Flame:1473106990493335665> Inizia con **${plain[0]}** e termina con **${plain[plain.length - 1]}** (${plain.length} lettere)`;
+  if (plain.length <= 2) return `<a:VC_Flame:1482725674711126140> Inizia con **${plain[0] || "?"}**`;
+  return `<a:VC_Flame:1482725674711126140> Inizia con **${plain[0]}** e termina con **${plain[plain.length - 1]}** (${plain.length} lettere)`;
 }
 
 const ACCENT_TO_ASCII = {
@@ -3265,7 +3265,7 @@ function buildRevealHint(value, revealRatio = 0.4, includeEmoji = false) {
     .map((_, i) => i)
     .filter((i) => /[a-z0-9]/.test(charsLower[i]));
   if (indices.length === 0) return null;
-  const wrap = (s) => (includeEmoji ? `<a:VC_Flame:1473106990493335665> **${s}**` : `**${s}**`);
+  const wrap = (s) => (includeEmoji ? `<a:VC_Flame:1482725674711126140> **${s}**` : `**${s}**`);
   const isLetterOrDigit = (c) => /[a-z0-9]/i.test(c);
   if (indices.length <= 2) {
     const out = chars.map((c, i) => (indices.includes(i) ? c : isLetterOrDigit(c) ? "_" : c)).join("");
@@ -3298,14 +3298,14 @@ function buildCountryHint(country) {
     parts.push(`Lingua/e: **${country.languages.slice(0, 2).join(", ")}**`);
   }
   if (!parts.length) return null;
-  return `<a:VC_Flame:1473106990493335665> ${parts.join(" \u2022 ")}`;
+  return `<a:VC_Flame:1482725674711126140> ${parts.join(" \u2022 ")}`;
 }
 
 function buildCapitalHint(countryName) {
   const key = normalizeCountryName(countryName || "").replace(/\s+/g, " ");
   const region = key ? CAPITAL_COUNTRY_REGION[key] : null;
   if (!region) return null;
-  return `<a:VC_Flame:1473106990493335665> Capitale di un paese in **${region}**.`;
+  return `<a:VC_Flame:1482725674711126140> Capitale di un paese in **${region}**.`;
 }
 
 function buildRegionCapitalHint(regionName) {
@@ -3322,7 +3322,7 @@ function buildRegionCapitalHint(regionName) {
     parts.push(`ha circa **${data.population}** abitanti`);
   }
   if (!parts.length) return null;
-  return `<a:VC_Flame:1473106990493335665> Capoluogo di una regione che ${parts.join(" • ")}.`;
+  return `<a:VC_Flame:1482725674711126140> Capoluogo di una regione che ${parts.join(" • ")}.`;
 }
 
 function buildNumberNearHint(target, min, max) {
@@ -3332,7 +3332,7 @@ function buildNumberNearHint(target, min, max) {
   const band = Math.max(2, Math.round(range * 0.18));
   const from = Math.max(low, Number(target) - band);
   const to = Math.min(high, Number(target) + band);
-  return `<a:VC_Flame:1473106990493335665> Il numero è tra **${from}** e **${to}**.`;
+  return `<a:VC_Flame:1482725674711126140> Il numero è tra **${from}** e **${to}**.`;
 }
 
 function buildHintEmbed(isHigher) {
@@ -3340,8 +3340,8 @@ function buildHintEmbed(isHigher) {
     .setColor("#6f4e37")
     .setDescription(
       isHigher
-        ? "<:thumbsup:1471292172145004768> <a:VC_Arrow:1448672967721615452> Più alto!"
-        : "<:thumbsdown:1471292163957457013> <a:VC_Arrow:1448672967721615452> Più basso!",
+        ? "<:thumbsup:1471292172145004768> <a:VC_Arrow:1482706699365257397> Più alto!"
+        : "<:thumbsdown:1471292163957457013> <a:VC_Arrow:1482706699365257397> Più basso!",
     );
 }
 
@@ -3350,8 +3350,8 @@ function buildYearHintEmbed(guessBeforeTarget) {
     .setColor("#6f4e37")
     .setDescription(
       guessBeforeTarget
-        ? "<:thumbsup:1471292172145004768> <a:VC_Arrow:1448672967721615452> Dopo!"
-        : "<:thumbsdown:1471292163957457013> <a:VC_Arrow:1448672967721615452> Prima!",
+        ? "<:thumbsup:1471292172145004768> <a:VC_Arrow:1482706699365257397> Dopo!"
+        : "<:thumbsdown:1471292163957457013> <a:VC_Arrow:1482706699365257397> Prima!",
     );
 }
 
@@ -3361,15 +3361,15 @@ function buildWinEmbed(winnerId, effectiveExp, totalExp, details = null) {
   ];
   if (details) {
     const extras = [];
-    if (details.fastBonus > 0) extras.push(`<a:VC_Flame:1473106990493335665> Risposta fulminea **+${details.fastBonus} exp**`);
-    if (details.streakBonus > 0) extras.push(`<a:VC_Flame:1473106990493335665> Streak ${details.newStreak} **+${details.streakBonus} exp**`);
+    if (details.fastBonus > 0) extras.push(`<a:VC_Flame:1482725674711126140> Risposta fulminea **+${details.fastBonus} exp**`);
+    if (details.streakBonus > 0) extras.push(`<a:VC_Flame:1482725674711126140> Streak ${details.newStreak} **+${details.streakBonus} exp**`);
     if (extras.length) lines.push("", ...extras);
   }
-  lines.push("", "<:VC_Stats:1482527532682055780> **Le tue statistiche:**", `<a:VC_Arrow:1448672967721615452> Ora hai un totale di **${totalExp} exp**`);
-  if (details?.newStreak > 1) lines.push(`<a:VC_Arrow:1448672967721615452> Serie di vittorie: **${details.newStreak}** (record: **${details.bestStreak}**)`);
+  lines.push("", "<:VC_Stats:1482527532682055780> **Le tue statistiche:**", `<a:VC_Arrow:1482706699365257397> Ora hai un totale di **${totalExp} exp**`);
+  if (details?.newStreak > 1) lines.push(`<a:VC_Arrow:1482706699365257397> Serie di vittorie: **${details.newStreak}** (record: **${details.bestStreak}**)`);
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_Events:1448688007438667796> Un utente ha vinto<a:VC_Exclamation:1482534702077444217>")
+    .setTitle("<a:VC_Events:1482706144953897223> Un utente ha vinto<a:VC_Exclamation:1482534702077444217>")
     .setDescription(lines.join("\n"))
     .setFooter({
       text: 'Digita il comando "+mstats" per vedere i tuoi progressi',
@@ -3397,7 +3397,7 @@ function buildRewardEmbed(member, reward, totalExp) {
   const description = [
     "<a:VC_Flower:1468685050966179841> Premio ricevuto <a:VC_Flower:1468685050966179841>",
     "",
-    `<a:VC_Events:1448688007438667796> **__<@${member.id}>__**`,
+    `<a:VC_Events:1482706144953897223> **__<@${member.id}>__**`,
     `hai ottenuto il ruolo <@&${reward.roleId}> per aver raggiunto **${reward.exp}** exp ai **Minigiochi** <a:VC_HeartsPink:1468685897389052008>`,
     "",
     nextReward
@@ -4212,7 +4212,7 @@ async function startGuessSongGame(client, cfg) {
   timeout.unref?.();
 
   const songHint = info.artistCountry || info.genre
-    ? `<a:VC_Flame:1473106990493335665> Artista da **${info.artistCountry || "?"}**, genere **${info.genre || "?"}**. Il titolo: ${buildRevealHint(info.title)}`
+    ? `<a:VC_Flame:1482725674711126140> Artista da **${info.artistCountry || "?"}**, genere **${info.genre || "?"}**. Il titolo: ${buildRevealHint(info.title)}`
     : `Canzone: ${buildRevealHint(info.title)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, songHint,
   );
@@ -5124,7 +5124,7 @@ async function startDrivingQuizGame(client, cfg) {
         client,
         channelId,
         durationMs,
-        `<a:VC_Flame:1473106990493335665> La risposta è tra **${L1}** e **${L2}**.`,
+        `<a:VC_Flame:1482725674711126140> La risposta è tra **${L1}** e **${L2}**.`,
       );
     }
   } else if (row.questionType === "trueFalse" && row.statement) {
@@ -5188,8 +5188,8 @@ async function startMathExpressionGame(client, cfg) {
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; recordNoParticipationIfNeeded(channelId, game); activeGames.delete(channelId); if (game.hintTimeout) clearTimeout(game.hintTimeout); await channel.send({ embeds: [buildTimeoutMathEmbed(game.answer)] }).catch(() => { }); await clearActiveGame(client, cfg); }, durationMs); timeout.unref?.();
   const answerNum = Number(row.answer);
-  const hintRangeText = Number.isFinite(answerNum) ? `<a:VC_Flame:1473106990493335665> Il risultato è compreso tra **${Math.floor(answerNum - 2)}** e **${Math.ceil(answerNum + 2)}**.`
-    : `<a:VC_Flame:1473106990493335665> Il risultato è un numero intero.`;
+  const hintRangeText = Number.isFinite(answerNum) ? `<a:VC_Flame:1482725674711126140> Il risultato è compreso tra **${Math.floor(answerNum - 2)}** e **${Math.ceil(answerNum + 2)}**.`
+    : `<a:VC_Flame:1482725674711126140> Il risultato è un numero intero.`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintRangeText,);
 
   activeGames.set(channelId, {
@@ -5338,7 +5338,7 @@ async function startGuessYearGame(client, cfg) {
     await clearActiveGame(client, cfg);
   }, durationMs);
   timeout.unref?.();
-  const yearHint = `<a:VC_Flame:1473106990493335665> L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
+  const yearHint = `<a:VC_Flame:1482725674711126140> L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, yearHint);
   activeGames.set(channelId, {
     type: "guessYear",
@@ -5969,7 +5969,7 @@ async function handleMinigameMessage(message, client) {
     const range = Math.max(1, Number(game.max || 100) - Number(game.min || 1));
     const nearThreshold = Math.max(2, Math.round(range * 0.05));
     if (Math.abs(guess - game.target) <= nearThreshold) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6008,7 +6008,7 @@ async function handleMinigameMessage(message, client) {
         }),
       )
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
       return false;
     }
     await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
@@ -6032,7 +6032,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6056,7 +6056,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6082,7 +6082,7 @@ async function handleMinigameMessage(message, client) {
         { maxDistance: 3, maxRatio: 0.25 },
       )
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6106,7 +6106,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6130,7 +6130,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6154,7 +6154,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6181,7 +6181,7 @@ async function handleMinigameMessage(message, client) {
         minGuessLength: 6,
       })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6205,7 +6205,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6223,7 +6223,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6242,7 +6242,7 @@ async function handleMinigameMessage(message, client) {
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 3, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6270,7 +6270,7 @@ async function handleMinigameMessage(message, client) {
         minGuessLength: 2,
       })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });
     }
@@ -6332,7 +6332,7 @@ async function handleMinigameMessage(message, client) {
       Number.isFinite(answerNum) &&
       Math.abs(guessNum - answerNum) <= 1
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => { });    }
     return false;
@@ -6365,7 +6365,7 @@ async function handleMinigameMessage(message, client) {
         minGuessLength: 4,
       })
     ) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => { });
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
     }
 
     const guessed = new Set(Array.isArray(game.guessedLetters) ? game.guessedLetters : [],);
@@ -6457,7 +6457,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     const diff = Math.abs(guessNum - game.year);
-    if (diff <= 2) await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+    if (diff <= 2) await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     else await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     await message
       .reply({ embeds: [buildYearHintEmbed(guessNum < game.year)] })
@@ -6480,7 +6480,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.3 })) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     }
@@ -6502,7 +6502,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.3 })) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     }
@@ -6524,7 +6524,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     }
@@ -6546,7 +6546,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.35 })) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     }
@@ -6568,7 +6568,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (isNearTextGuess(contentForGuess, game.answers, { maxDistance: 1, maxRatio: 0.25 })) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     }
@@ -6590,7 +6590,7 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
     if (isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })) {
-      await message.react("<a:VC_Flame:1473106990493335665>").catch(() => {});
+      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => {});
     } else {
       await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
     }
@@ -6752,7 +6752,7 @@ ${game.previewUrl}`,
     await mainChannel.send({ embeds: [winEmbed] }).catch(() => { });
   }
   await interaction
-    .reply({ content: "<a:VC_Events:1448688007438667796> Hai vinto!", flags: 1 << 6 })
+    .reply({ content: "<a:VC_Events:1482706144953897223> Hai vinto!", flags: 1 << 6 })
     .catch(() => { });
   if (member) {
     await handleExpReward(interaction.client, member, nextTotal);

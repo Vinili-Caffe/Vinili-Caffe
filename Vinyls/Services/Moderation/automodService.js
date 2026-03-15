@@ -2179,7 +2179,7 @@ async function sendAutomodLog(message, action, violations, heatValue, context = 
       "",
       shouldShowFullMessage ? `*${fullMessage}*` : null,
       "",
-      `<:member_role_icon:1330530086792728618> **Member:** ${message.author} [\`${message.author.id}\`]`, `<a:VC_Alarm:1448670164173328398> **Heat:** ${Number(heatValue || 0).toFixed(1)}`,
+      `<:member_role_icon:1330530086792728618> **Member:** ${message.author} [\`${message.author.id}\`]`, `<a:VC_Alarm:1482706641618079816> **Heat:** ${Number(heatValue || 0).toFixed(1)}`,
       context.timeoutMs
         ? `<:VC_Clock:1473359204189474886> **Timeout:** ${formatDurationShort(context.timeoutMs,)}`
         : null,

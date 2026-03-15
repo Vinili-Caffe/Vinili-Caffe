@@ -99,7 +99,7 @@ async function runPermissionGate(interaction) {
             buildGlobalPermissionDeniedEmbed(
               [],
               "bottone",
-              "<a:VC_Alert:1448670089670037675> Devi completare la verifica per aprire un ticket. Verificati e riprova.",
+              "<a:VC_Alert:1482706673176150077> Devi completare la verifica per aprire un ticket. Verificati e riprova.",
             ),
           ],
           flags: PRIVATE_FLAG,
@@ -126,7 +126,7 @@ async function runPermissionGate(interaction) {
             buildGlobalPermissionDeniedEmbed(
               [],
               "menu",
-              "<a:VC_Alert:1448670089670037675> Devi completare la verifica per aprire un ticket. Verificati e riprova.",
+              "<a:VC_Alert:1482706673176150077> Devi completare la verifica per aprire un ticket. Verificati e riprova.",
             ),
           ],
           flags: PRIVATE_FLAG,

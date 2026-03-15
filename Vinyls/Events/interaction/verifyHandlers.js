@@ -87,7 +87,10 @@ async function finalizeVerification(interaction, member) {
   }
 
   const mainGuild = await getMainGuild(interaction.client);
-  const logChannel = mainGuild ? await getGuildChannelCached(mainGuild, CENTRAL_VERIFY_LOG_CHANNEL_ID) : null;
+  let logChannel = mainGuild ? await getGuildChannelCached(mainGuild, CENTRAL_VERIFY_LOG_CHANNEL_ID) : null;
+  if (!logChannel?.isTextBased?.() && CENTRAL_VERIFY_LOG_CHANNEL_ID && interaction.client?.channels?.fetch) {
+    logChannel = await interaction.client.channels.fetch(CENTRAL_VERIFY_LOG_CHANNEL_ID).catch(() => null);
+  }
   if (logChannel?.isTextBased?.()) {
     const createdAtUnix = Math.floor(interaction.user.createdTimestamp / 1000);
     const createdAtText = `<t:${createdAtUnix}:F>`;
@@ -100,14 +103,12 @@ async function finalizeVerification(interaction, member) {
       .setDescription(`<:profile:1461732907508039834> **Member**: ${safeUsername} **[${interaction.user.id}]**\n` + `<:creation:1461732905016492220> Creation: ${createdAtText}\n` +
       `<:info:1466070288554004604> **Server**: ${sanitizeEmbedText(serverName)}\n\n` +
       `<:info:1466070288554004604> Status:\n` +
-      `<:space:1461733157840621608><:success:1461731530333229226>\`${safeUsername}\` has passed verification successfully.\n` + "<:space:1461733157840621608><:space:1461733157840621608><:rightSort:1461726104422453298> Auto roles have been assigned as well.",)
+      `<:VC_Space:1482459974667075685><:success:1461731530333229226>\`${safeUsername}\` has passed verification successfully.\n` + "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",)
       .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }));
 
     await logChannel.send({ embeds: [logEmbed] }).catch((err) => {
       global.logger?.warn?.("[VERIFY] Failed to send verification log:", err);
     });
-  } else if (CENTRAL_VERIFY_LOG_CHANNEL_ID) {
-    global.logger?.warn?.("[VERIFY] Central verify log channel not found:", CENTRAL_VERIFY_LOG_CHANNEL_ID);
   }
 
   if (!isSponsorGuildVerify(guildId)) {

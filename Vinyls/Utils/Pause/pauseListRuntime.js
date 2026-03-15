@@ -115,7 +115,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     const start = parseItalianDate(pause?.dataRichiesta);
     const end = parseItalianDate(pause?.dataRitorno);
     if (!start || !end || countOverlapDays(start, end, yearStart, yearEnd) <= 0) return null;
-    return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1448672967721615452> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati:\`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\``;
+    return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1482706699365257397> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati:\`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\``;
   }).filter(Boolean);
   if (!rows.length) {
     return {
@@ -127,7 +127,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const embeds = splitRowsForEmbeds(rows).map((chunk, index, chunks) =>
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle(`<a:VC_Calendar:1448670320180592724> Pause ${currentYear}-${targetUser.username}${chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : ""}`)
+      .setTitle(`<a:VC_Calendar:1482706208149475358> Pause ${currentYear}-${targetUser.username}${chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : ""}`)
       .setDescription(`${chunk}\n\n<:VC_Clock:1473359204189474886> Totale giorni scalati anno corrente: \`${totalScaledDays}\``),
   );
   return { ok: true, embeds };

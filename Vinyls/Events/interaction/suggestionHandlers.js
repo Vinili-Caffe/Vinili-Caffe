@@ -53,7 +53,7 @@ async function handleSuggestionVote(interaction) {
             new EmbedBuilder()
               .setColor("Red")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Suggerimento non trovato nel database.",
+                "<a:VC_Alert:1482706673176150077> Suggerimento non trovato nel database.",
               ),
           ],
           flags: 1 << 6,
@@ -74,7 +74,7 @@ async function handleSuggestionVote(interaction) {
             new EmbedBuilder()
               .setColor("Red")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Messaggio suggerimento non disponibile.",
+                "<a:VC_Alert:1482706673176150077> Messaggio suggerimento non disponibile.",
               ),
           ],
           flags: 1 << 6,
@@ -94,7 +94,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Red")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Questo controllo è riservato all'High Staff.",
+                  "<a:VC_Alert:1482706673176150077> Questo controllo è riservato all'High Staff.",
                 ),
             ],
             flags: 1 << 6,
@@ -113,7 +113,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Yellow")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Questo suggerimento è già stato gestito.",
+                  "<a:VC_Alert:1482706673176150077> Questo suggerimento è già stato gestito.",
                 ),
             ],
             flags: 1 << 6,
@@ -142,7 +142,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Yellow")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Voto già in elaborazione.",
+                  "<a:VC_Alert:1482706673176150077> Voto già in elaborazione.",
                 ),
             ],
             flags: 1 << 6,
@@ -159,7 +159,7 @@ async function handleSuggestionVote(interaction) {
                 new EmbedBuilder()
                   .setColor("Yellow")
                   .setDescription(
-                    "<a:VC_Alert:1448670089670037675> Questo suggerimento è già stato gestito.",
+                    "<a:VC_Alert:1482706673176150077> Questo suggerimento è già stato gestito.",
                   ),
               ],
               flags: 1 << 6,
@@ -173,7 +173,7 @@ async function handleSuggestionVote(interaction) {
               embeds: [
                 new EmbedBuilder()
                   .setDescription(
-                    "<a:VC_Alert:1448670089670037675> Non puoi votare di nuovo! Hai già votato per questo suggerimento",
+                    "<a:VC_Alert:1482706673176150077> Non puoi votare di nuovo! Hai già votato per questo suggerimento",
                   )
                   .setColor("Red"),
               ],
@@ -216,7 +216,7 @@ async function handleSuggestionVote(interaction) {
                 new EmbedBuilder()
                   .setColor("Red")
                   .setDescription(
-                    "<a:VC_Alert:1448670089670037675> Impossibile salvare il voto. Riprova.",
+                    "<a:VC_Alert:1482706673176150077> Impossibile salvare il voto. Riprova.",
                   ),
               ],
               flags: 1 << 6,
@@ -242,7 +242,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Yellow")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Voto già in elaborazione.",
+                  "<a:VC_Alert:1482706673176150077> Voto già in elaborazione.",
                 ),
             ],
             flags: 1 << 6,
@@ -259,7 +259,7 @@ async function handleSuggestionVote(interaction) {
                 new EmbedBuilder()
                   .setColor("Yellow")
                   .setDescription(
-                    "<a:VC_Alert:1448670089670037675> Questo suggerimento è già stato gestito.",
+                    "<a:VC_Alert:1482706673176150077> Questo suggerimento è già stato gestito.",
                   ),
               ],
               flags: 1 << 6,
@@ -273,7 +273,7 @@ async function handleSuggestionVote(interaction) {
               embeds: [
                 new EmbedBuilder()
                   .setDescription(
-                    "<a:VC_Alert:1448670089670037675> Non puoi votare di nuovo! Hai già votato per questo suggerimento",
+                    "<a:VC_Alert:1482706673176150077> Non puoi votare di nuovo! Hai già votato per questo suggerimento",
                   )
                   .setColor("Red"),
               ],
@@ -316,7 +316,7 @@ async function handleSuggestionVote(interaction) {
                 new EmbedBuilder()
                   .setColor("Red")
                   .setDescription(
-                    "<a:VC_Alert:1448670089670037675> Impossibile salvare il voto. Riprova.",
+                    "<a:VC_Alert:1482706673176150077> Impossibile salvare il voto. Riprova.",
                   ),
               ],
               flags: 1 << 6,
@@ -347,7 +347,7 @@ async function handleSuggestionVote(interaction) {
             new EmbedBuilder()
               .setColor("Red")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Questo modulo è riservato all'High Staff.",
+                "<a:VC_Alert:1482706673176150077> Questo modulo è riservato all'High Staff.",
               ),
           ],
           flags: 1 << 6,
@@ -364,7 +364,7 @@ async function handleSuggestionVote(interaction) {
             new EmbedBuilder()
               .setColor("Red")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Richiesta non valida.",
+                "<a:VC_Alert:1482706673176150077> Richiesta non valida.",
               ),
           ],
           flags: 1 << 6,
@@ -381,7 +381,7 @@ async function handleSuggestionVote(interaction) {
             new EmbedBuilder()
               .setColor("Red")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Devi inserire un motivo.",
+                "<a:VC_Alert:1482706673176150077> Devi inserire un motivo.",
               ),
           ],
           flags: 1 << 6,
@@ -397,7 +397,7 @@ async function handleSuggestionVote(interaction) {
             new EmbedBuilder()
               .setColor("Yellow")
               .setDescription(
-                "<a:VC_Alert:1448670089670037675> Questo suggerimento è già in elaborazione.",
+                "<a:VC_Alert:1482706673176150077> Questo suggerimento è già in elaborazione.",
               ),
           ],
           flags: 1 << 6,
@@ -416,7 +416,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Red")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Suggerimento non trovato.",
+                  "<a:VC_Alert:1482706673176150077> Suggerimento non trovato.",
                 ),
             ],
             flags: 1 << 6,
@@ -435,7 +435,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Red")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Messaggio suggerimento non trovato.",
+                  "<a:VC_Alert:1482706673176150077> Messaggio suggerimento non trovato.",
                 ),
             ],
             flags: 1 << 6,
@@ -453,7 +453,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Yellow")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Questo suggerimento è già stato gestito.",
+                  "<a:VC_Alert:1482706673176150077> Questo suggerimento è già stato gestito.",
                 ),
             ],
             flags: 1 << 6,
@@ -490,7 +490,7 @@ async function handleSuggestionVote(interaction) {
               new EmbedBuilder()
                 .setColor("Red")
                 .setDescription(
-                  "<a:VC_Alert:1448670089670037675> Non sono riuscito ad aggiornare il messaggio del suggerimento.",
+                  "<a:VC_Alert:1482706673176150077> Non sono riuscito ad aggiornare il messaggio del suggerimento.",
                 ),
             ],
             flags: 1 << 6,

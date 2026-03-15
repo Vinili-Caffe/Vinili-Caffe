@@ -115,7 +115,7 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
     .setThumbnail(targetUser.displayAvatarURL())
     .setDescription(
       [
-        `<:staff:1443651912179388548> <a:VC_Arrow:1448672967721615452> <@${targetUser.id}>`,
+        `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> <@${targetUser.id}>`,
         `<:VC_reason:1478517122929004544> __${reason}__`,
       ].join("\n"),
     )
@@ -203,7 +203,7 @@ async function sendPexDepexLog(guild, type, targetUser, oldRoleId, newRoleId, re
   await channel
     .send({
       content: `${typeLabel} <@${targetUser.id}>
-<:staff:1443651912179388548> \`${oldRole?.name || oldRoleId}\` <a:VC_Arrow:1448672967721615452> \`${newRole?.name || newRoleId || "Nessuno"}\`
+<:staff:1443651912179388548> \`${oldRole?.name || oldRoleId}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || newRoleId || "Nessuno"}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     })
     .catch(() => null);
@@ -234,9 +234,9 @@ async function appendOutcomeToMessage(guild, channelId, messageId, actorId, acce
 
 async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   const member = await getGuildMemberCached(guild, payload.userId);
-  if (!member) return "<a:VC_Alert:1448670089670037675> Utente non trovato nel server.";
+  if (!member) return "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.";
 
-  if (payload.actionKey === "nl") return "<a:VC_Alert:1448670089670037675> Nessuna azione applicata.";
+  if (payload.actionKey === "nl") return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
 
   const targetUser = member.user;
   if (payload.actionKey === "vp") {
@@ -267,7 +267,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
       if (warnChannel?.isTextBased?.()) {
         const warnLogEmbed = new EmbedBuilder()
           .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${actor.username}`, iconURL: actor.displayAvatarURL() })
-          .setTitle(`<a:VC_Alert:1448670089670037675> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
+          .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
           .setThumbnail(targetUser.displayAvatarURL())
           .setDescription(`<@${payload.userId}>\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 400)}__`)
           .setColor("#E74C3C");
@@ -275,7 +275,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
         if (warnResult.shouldAskDepex) {
           const embed = new EmbedBuilder()
             .setColor("#E74C3C")
-            .setTitle("<a:VC_Alert:1448670089670037675> 2 warn staff — Decidi azione")
+            .setTitle("<a:VC_Alert:1482706673176150077> 2 warn staff — Decidi azione")
             .setDescription(
               `<@${payload.userId}> ha raggiunto **2 warn staff** (da valutazioni negative).\n\n` +
               "**Depex ora** = un livello in basso (Mod → depex completo; Coord → Mod; Super → Coord; Admin → Super; …).\n" +
@@ -303,17 +303,17 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
 
   const roleBeforeId = String(payload.roleId || "");
   const reason = String(reasonOverride || "").trim();
-  if (!reason) return "<a:VC_Alert:1448670089670037675> Motivazione mancante.";
+  if (!reason) return "<a:VC_Alert:1482706673176150077> Motivazione mancante.";
 
   if (payload.actionKey === "px") {
     const roleAfterId = ROLE_UP[roleBeforeId] || null;
-    if (!roleAfterId) return "<a:VC_Alert:1448670089670037675> Pex non applicato: nessun ruolo successivo configurato.";
-    if (member.roles.cache.has(roleAfterId)) return "<a:VC_Alert:1448670089670037675> Pex non applicato: utente ha già il ruolo successivo.";
+    if (!roleAfterId) return "<a:VC_Alert:1482706673176150077> Pex non applicato: nessun ruolo successivo configurato.";
+    if (member.roles.cache.has(roleAfterId)) return "<a:VC_Alert:1482706673176150077> Pex non applicato: utente ha già il ruolo successivo.";
 
     const roleAdded = await ensureRoleAdded(guild, member, roleAfterId);
-    if (!roleAdded) return "<a:VC_Alert:1448670089670037675> Pex non applicato: impossibile assegnare il ruolo successivo.";
+    if (!roleAdded) return "<a:VC_Alert:1482706673176150077> Pex non applicato: impossibile assegnare il ruolo successivo.";
     const sideEffectsApplied = await applyPexSideEffects(guild, member, roleAfterId);
-    if (!sideEffectsApplied) return "<a:VC_Alert:1448670089670037675> Pex applicato parzialmente: side-effect ruoli non completati.";
+    if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Pex applicato parzialmente: side-effect ruoli non completati.";
     const staffDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
     if (!Array.isArray(staffDoc.rolesHistory)) staffDoc.rolesHistory = [];
     staffDoc.rolesHistory.push({
@@ -329,30 +329,30 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
 
   if (payload.actionKey === "dp") {
     const roleAfterId = ROLE_DOWN[roleBeforeId];
-    if (!member.roles.cache.has(roleBeforeId)) return "<a:VC_Alert:1448670089670037675> Depex non applicato: ruolo corrente non presente.";
+    if (!member.roles.cache.has(roleBeforeId)) return "<a:VC_Alert:1482706673176150077> Depex non applicato: ruolo corrente non presente.";
 
     const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
-    if (!roleRemoved) return "<a:VC_Alert:1448670089670037675> Depex non applicato: impossibile rimuovere il ruolo corrente.";
+    if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
     const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
-    if (!sideEffectsApplied) return "<a:VC_Alert:1448670089670037675> Depex applicato parzialmente: side-effect ruoli non completati.";
+    if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
     await StaffModel.deleteOne({ guildId: guild.id, userId: payload.userId }).catch(() => null);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Depex applicato.";
   }
 
-  return "<a:VC_Alert:1448670089670037675> Nessuna operazione eseguita.";
+  return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
 }
 
 async function applyPmAction(guild, payload) {
   const member = await getGuildMemberCached(guild, payload.userId);
-  if (!member) return "<a:VC_Alert:1448670089670037675> Utente non trovato nel server.";
+  if (!member) return "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.";
 
-  if (payload.actionKey === "nl") return "<a:VC_Alert:1448670089670037675> Nessuna azione applicata.";
-  if (payload.actionKey === "rc") return "<a:VC_Alert:1448670089670037675> Richiamo non applica modifiche automatiche.";
-  if (payload.actionKey !== "dp") return "<a:VC_Alert:1448670089670037675> Nessuna operazione eseguita.";
+  if (payload.actionKey === "nl") return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
+  if (payload.actionKey === "rc") return "<a:VC_Alert:1482706673176150077> Richiamo non applica modifiche automatiche.";
+  if (payload.actionKey !== "dp") return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
 
   const partnerRoleRemoved = await ensureRoleRemoved(guild, member, ROLE_PARTNER_MANAGER);
-  if (!partnerRoleRemoved) return "<a:VC_Alert:1448670089670037675> Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.";
+  if (!partnerRoleRemoved) return "<a:VC_Alert:1482706673176150077> Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.";
   await member.roles.remove(ROLE_HELPER).catch(() => null);
   await member.roles.remove(ROLE_MODERATOR).catch(() => null);
   await member.roles.remove(ROLE_COORDINATOR).catch(() => null);
@@ -361,7 +361,7 @@ async function applyPmAction(guild, payload) {
   await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
   if (ROLE_MEMBER) {
     const memberRoleAdded = await ensureRoleAdded(guild, member, ROLE_MEMBER);
-    if (!memberRoleAdded) return "<a:VC_Alert:1448670089670037675> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
+    if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
   }
   const staffDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
   staffDoc.partnerCount = 0;
@@ -395,7 +395,7 @@ async function handleResocontoButton(interaction) {
   if (!hasResocontoHighStaffAccess(interaction)) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Questo controllo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo controllo è riservato all'High Staff.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -409,7 +409,7 @@ async function handleResocontoButton(interaction) {
   if (!activeMessage) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Questo controllo è già stato gestito.",
+        content: "<a:VC_Alert:1482706673176150077> Questo controllo è già stato gestito.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -455,7 +455,7 @@ async function handleResocontoModal(interaction) {
   if (!hasResocontoHighStaffAccess(interaction)) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Questo modulo è riservato all'High Staff.",
+        content: "<a:VC_Alert:1482706673176150077> Questo modulo è riservato all'High Staff.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -469,7 +469,7 @@ async function handleResocontoModal(interaction) {
   if (!activeMessage) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Questo controllo è già stato gestito.",
+        content: "<a:VC_Alert:1482706673176150077> Questo controllo è già stato gestito.",
         flags: 1 << 6,
       })
       .catch(() => null);
@@ -479,7 +479,7 @@ async function handleResocontoModal(interaction) {
   if (!reason) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1448670089670037675> Motivazione non valida.",
+        content: "<a:VC_Alert:1482706673176150077> Motivazione non valida.",
         flags: 1 << 6,
       })
       .catch(() => null);

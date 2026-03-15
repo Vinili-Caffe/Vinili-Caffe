@@ -1341,7 +1341,7 @@ function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "c
   if (roles.length > 0) {
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: `<a:VC_Arrow:1448672967721615452> Ottieni uno dei seguenti ruoli: ${rolesText}`,
+      value: `<a:VC_Arrow:1482706699365257397> Ottieni uno dei seguenti ruoli: ${rolesText}`,
     });
   }
   return embed;
@@ -1359,7 +1359,7 @@ function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "co
   if (channels.length > 0) {
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: `<a:VC_Arrow:1448672967721615452> Usa il comando in uno dei seguenti canali: ${channelsText}`,
+      value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
     });
   }
   return embed;

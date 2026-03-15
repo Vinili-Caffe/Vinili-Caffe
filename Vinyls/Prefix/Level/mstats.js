@@ -55,16 +55,16 @@ module.exports = {
     }
 
     const unlocked = getUnlockedRewards(totalExp);
-    const unlockedText = unlocked.length ? unlocked.map((reward) => `<a:VC_Arrow:1448672967721615452> <@&${reward.roleId}>`).join("\n") : "Nessun ruolo ancora sbloccato";
+    const unlockedText = unlocked.length ? unlocked.map((reward) => `<a:VC_Arrow:1482706699365257397> <@&${reward.roleId}>`).join("\n") : "Nessun ruolo ancora sbloccato";
 
     const descLines = [
-      `<a:VC_Arrow:1448672967721615452> Hai un totale di \`${totalExp}\` punti (exp) <a:VC_FlowerPink:1468688049725636903>`,
+      `<a:VC_Arrow:1482706699365257397> Hai un totale di \`${totalExp}\` punti (exp) <a:VC_FlowerPink:1468688049725636903>`,
       "",
       "🎲 .ᐟ Ruoli sbloccati:",
       unlockedText,
     ];
     if (currentStreak > 0 || bestStreak > 0) {
-      descLines.push("", "<a:VC_Flame:1473106990493335665> **Serie vittorie:** " + (currentStreak > 0 ? `attuale **${currentStreak}**` : "—") + (bestStreak > 0 ? ` • record **${bestStreak}**` : ""));
+      descLines.push("", "<a:VC_Flame:1482725674711126140> **Serie vittorie:** " + (currentStreak > 0 ? `attuale **${currentStreak}**` : "—") + (bestStreak > 0 ? ` • record **${bestStreak}**` : ""));
     }
 
     const embed = new EmbedBuilder()

@@ -16,7 +16,7 @@ async function execute(interaction) {
   const restStr = customId.startsWith(PREFIX_PREV) ? customId.slice(PREFIX_PREV.length) : customId.slice(PREFIX_NEXT.length);
   const authorId = restStr.split(":")[0];
   if (authorId && authorId !== userId) {
-    await interaction.reply({ content: "<a:VC_Alert:1448670089670037675> Questo controllo non appartiene a te.", flags: 1 << 6 }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 

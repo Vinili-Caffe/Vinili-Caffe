@@ -152,10 +152,10 @@ function getStaffPauseLine(staffDoc) {
     const end = parseItalianDate(p.dataRitorno);
     if (!start || !end) continue;
     if (today >= start && today <= end) {
-      return `<a:VC_Calendar:1448670320180592724> **In pausa** fino al ${p.dataRitorno}`;
+      return `<a:VC_Calendar:1482706208149475358> **In pausa** fino al ${p.dataRitorno}`;
     }
     if (end < today && end >= sevenDaysAgo) {
-      return `<a:VC_Calendar:1448670320180592724> **Rientrato** il ${p.dataRitorno}`;
+      return `<a:VC_Calendar:1482706208149475358> **Rientrato** il ${p.dataRitorno}`;
     }
   }
   return null;

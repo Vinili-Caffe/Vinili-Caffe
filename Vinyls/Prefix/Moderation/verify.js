@@ -28,11 +28,11 @@ function formatUserList(list) {
   if (!Array.isArray(list) || list.length === 0) return "Nessuno";
   const maxVisible = 5;
   const shown = list.slice(0, maxVisible);
-  const lines=shown.map((entry,index) => index===0?`**${entry}**` : `<:space:1461733157840621608> **${entry}**`,
+  const lines=shown.map((entry,index) => index===0?`**${entry}**` : `<:VC_Space:1482459974667075685> **${entry}**`,
   );
   const remaining = list.length - shown.length;
   if (remaining > 0) {
-    lines.push(`<:space:1461733157840621608> \`+${remaining} users\``);
+    lines.push(`<:VC_Space:1482459974667075685> \`+${remaining} users\``);
   }
   return lines.join("\n");
 }
@@ -257,8 +257,8 @@ module.exports = {
                   `<:profile:1461732907508039834> **Member**: ${safeUsername} **[${user.id}]**\n` +
                     `<:creation:1461732905016492220> Creation: ${createdAtText}\n\n` +
                     "Status:\n" +
-                    `<:space:1461733157840621608><:success:1461731530333229226> \`${safeUsername}\` has passed verification successfully.\n` +
-                    "<:space:1461733157840621608><:space:1461733157840621608><:rightSort:1461726104422453298> Auto roles have been assigned as well.",
+                    `<:VC_Space:1482459974667075685><:success:1461731530333229226> \`${safeUsername}\` has passed verification successfully.\n` +
+                    "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",
                 )
                 .setThumbnail(user.displayAvatarURL({ dynamic: true }));
               await logChannel.send({ embeds: [resultEmbed] }).catch(() => {});

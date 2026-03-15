@@ -33,10 +33,10 @@ async function run(client) {
     .setColor(color)
     .setTitle("<:verification:1461725843125571758> **`Verification Required!`**")
     .setDescription(
-      "<:space:1461733157840621608> <:alarm:1461725841451909183> **Per accedere a `" +
+      "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
         serverName +
         "` devi prima verificarti.**\n" +
-        "<:space:1461733157840621608><:space:1461733157840621608> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
+        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
     )
     .setImage(DIVIDER_URL);
 

@@ -81,7 +81,7 @@ async function handleTicketInteraction(interaction) {
         embeds: [
           makeErrorEmbed(
             "<a:VC_Loading:1482526818278969578> Attendi",
-            "<a:VC_Alert:1448670089670037675> Azione già in corso su questo ticket, attendi un attimo.",
+            "<a:VC_Alert:1482706673176150077> Azione già in corso su questo ticket, attendi un attimo.",
           ),
         ],
         flags: 1 << 6,
@@ -115,7 +115,7 @@ async function handleTicketInteraction(interaction) {
         await safeReply(interaction, {
           embeds: [
             makeErrorEmbed(
-              "<a:VC_Alert:1448670089670037675> Errore",
+              "<a:VC_Alert:1482706673176150077> Errore",
               "<:vegax:1443934876440068179> Interazione non valida (fuori dal server).",
             ),
           ],
@@ -133,7 +133,7 @@ async function handleTicketInteraction(interaction) {
             new EmbedBuilder()
               .setColor("#6f4e37")
               .setDescription(
-                `<a:VC_Alert:1448670089670037675> Non puoi usare questo bottone poiché sei blacklistato dalle partner.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`Terza Categoria\``,
+                `<a:VC_Alert:1482706673176150077> Non puoi usare questo bottone poiché sei blacklistato dalle partner.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`Terza Categoria\``,
               ),
           ],
           flags: 1 << 6,
@@ -163,7 +163,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Ruolo verifica (Member) non configurato. Contatta lo staff.",
               ),
             ],
@@ -186,7 +186,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Devi aver completato la **verifica** per aprire un ticket.",
               ),
             ],
@@ -255,7 +255,7 @@ async function handleTicketInteraction(interaction) {
         await safeReply(interaction, {
           embeds: [
             makeErrorEmbed(
-              "<a:VC_Alert:1448670089670037675> Errore",
+              "<a:VC_Alert:1482706673176150077> Errore",
               "<:vegax:1443934876440068179> Categoria ticket non valida. Riprova dal pannello.",
             ),
           ],
@@ -311,7 +311,7 @@ async function handleTicketInteraction(interaction) {
               await safeReply(interaction, {
                 embeds: [
                   makeErrorEmbed(
-                    "<a:VC_Alert:1448670089670037675> Errore",
+                    "<a:VC_Alert:1482706673176150077> Errore",
                     "<:vegax:1443934876440068179> Devi aver completato la **verifica** per aprire questo ticket.",
                   ),
                 ],
@@ -328,7 +328,7 @@ async function handleTicketInteraction(interaction) {
               await safeReply(interaction, {
                 embeds: [
                   makeErrorEmbed(
-                    "<a:VC_Alert:1448670089670037675> Errore",
+                    "<a:VC_Alert:1482706673176150077> Errore",
                     "<:vegax:1443934876440068179> Non hai i requisiti per aprire questo ticket",
                   ),
                 ],
@@ -344,7 +344,7 @@ async function handleTicketInteraction(interaction) {
                 new EmbedBuilder()
                   .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
                   .setDescription(
-                    `<a:VC_Alert:1448670089670037675> Hai già un ticket aperto: <#${existing.channelId}>`,
+                    `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existing.channelId}>`,
                   )
                   .setColor("#6f4e37"),
               ],
@@ -357,7 +357,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Impossibile creare o trovare la categoria ticket",
                 ),
               ],
@@ -370,7 +370,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Impossibile creare il canale ticket",
                 ),
               ],
@@ -406,7 +406,7 @@ async function handleTicketInteraction(interaction) {
                   new EmbedBuilder()
                     .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
                     .setDescription(
-                      `<a:VC_Alert:1448670089670037675> Hai già un ticket aperto ${other?.channelId ? ": <#" + other.channelId + ">" : "."}`,
+                      `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto ${other?.channelId ? ": <#" + other.channelId + ">" : "."}`,
                     )
                     .setColor("#6f4e37"),
                 ],
@@ -421,7 +421,7 @@ async function handleTicketInteraction(interaction) {
             await safeEditReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Impossibile creare il ticket, riprova.",
                 ),
               ],
@@ -456,7 +456,7 @@ async function handleTicketInteraction(interaction) {
         const ratingParts = String(interaction.customId).split(":");
         if (ratingParts.length !== 3) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Errore", "<:vegax:1443934876440068179> Valutazione non valida.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Valutazione non valida.")],
             flags: 1 << 6,
           });
           return true;
@@ -465,7 +465,7 @@ async function handleTicketInteraction(interaction) {
         const score = Number(scoreRaw);
         if (!ticketDbId || !Number.isInteger(score) || score < 1 || score > 5) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Errore", "<:vegax:1443934876440068179> Valutazione non valida.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Valutazione non valida.")],
             flags: 1 << 6,
           });
           return true;
@@ -474,7 +474,7 @@ async function handleTicketInteraction(interaction) {
         const currentTicket = await Ticket.findById(ticketDbId).catch(() => null);
         if (!currentTicket) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Errore", "<:vegax:1443934876440068179> Ticket non trovato.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato.")],
             flags: 1 << 6,
           });
           return true;
@@ -484,7 +484,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Solo chi ha aperto il ticket può votare.",
               ),
             ],
@@ -499,7 +499,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Info",
+                "<a:VC_Alert:1482706673176150077> Info",
                 "<:attentionfromvega:1443651874032062505> Hai già inviato una valutazione per questo ticket.",
               ),
             ],
@@ -534,7 +534,7 @@ async function handleTicketInteraction(interaction) {
         const transcriptParts = String(interaction.customId).split(":");
         if (transcriptParts.length < 2) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Errore", "<:vegax:1443934876440068179> Transcript non valido.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Transcript non valido.")],
             flags: 1 << 6,
           });
           return true;
@@ -542,7 +542,7 @@ async function handleTicketInteraction(interaction) {
         const [, ticketDbId] = transcriptParts;
         if (!ticketDbId) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Errore", "<:vegax:1443934876440068179> Transcript non valido.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Transcript non valido.")],
             flags: 1 << 6,
           });
           return true;
@@ -550,7 +550,7 @@ async function handleTicketInteraction(interaction) {
         const ticketDoc = await Ticket.findById(ticketDbId).catch(() => null);
         if (!ticketDoc) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Errore", "<:vegax:1443934876440068179> Ticket non trovato.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato.")],
             flags: 1 << 6,
           });
           return true;
@@ -562,7 +562,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Non puoi visualizzare questo transcript.",
               ),
             ],
@@ -574,7 +574,7 @@ async function handleTicketInteraction(interaction) {
         const transcriptHtmlPath = String(ticketDoc.transcriptHtmlPath || "");
         if (!transcriptHtmlPath || !fs.existsSync(transcriptHtmlPath)) {
           await safeReply(interaction, {
-            embeds: [makeErrorEmbed("<a:VC_Alert:1448670089670037675> Info", "<:vegax:1443934876440068179> Transcript HTML non disponibile.")],
+            embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Info", "<:vegax:1443934876440068179> Transcript HTML non disponibile.")],
             flags: 1 << 6,
           });
           return true;
@@ -603,7 +603,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione fuori canale",
               ),
             ],
@@ -619,7 +619,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Ticket non trovato",
                 ),
               ],
@@ -634,7 +634,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Solo lo staff può claimare i ticket",
                 ),
               ],
@@ -646,7 +646,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Non puoi claimare il ticket che hai aperto tu.",
                 ),
               ],
@@ -659,7 +659,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Ticket già claimato",
                 ),
               ],
@@ -688,7 +688,7 @@ async function handleTicketInteraction(interaction) {
               await safeReply(interaction, {
                 embeds: [
                   makeErrorEmbed(
-                    "<a:VC_Alert:1448670089670037675> Errore",
+                    "<a:VC_Alert:1482706673176150077> Errore",
                     "<:vegax:1443934876440068179> Ticket già claimato",
                   ),
                 ],
@@ -701,7 +701,7 @@ async function handleTicketInteraction(interaction) {
               await safeReply(interaction, {
                 embeds: [
                   makeErrorEmbed(
-                    "<a:VC_Alert:1448670089670037675> Errore",
+                    "<a:VC_Alert:1482706673176150077> Errore",
                     "<:vegax:1443934876440068179> Ticket già claimato da un altro staff.",
                   ),
                 ],
@@ -712,7 +712,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Ticket già claimato.",
                 ),
               ],
@@ -851,7 +851,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione fuori canale",
               ),
             ],
@@ -873,7 +873,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Questo non è un ticket valido.",
                 ),
               ],
@@ -885,7 +885,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Questo ticket non è claimato.",
                 ),
               ],
@@ -897,7 +897,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Chi ha aperto il ticket non può usare questo pulsante.",
                 ),
               ],
@@ -909,7 +909,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Solo chi ha claimato può unclaimare il ticket.",
                 ),
               ],
@@ -925,7 +925,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Solo chi ha claimato può unclaimare il ticket.",
                 ),
               ],
@@ -983,7 +983,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione non valida",
               ),
             ],
@@ -1004,7 +1004,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Impossibile aprire il modulo, riprova.",
               ),
             ],
@@ -1018,7 +1018,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione non valida",
               ),
             ],
@@ -1051,7 +1051,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione fuori canale",
               ),
             ],
@@ -1066,7 +1066,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Solo opener o claimer possono gestire questa richiesta.",
               ),
             ],
@@ -1097,7 +1097,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione fuori canale",
               ),
             ],
@@ -1112,7 +1112,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Solo opener o claimer possono gestire questa richiesta.",
               ),
             ],
@@ -1153,7 +1153,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
-                "<a:VC_Alert:1448670089670037675> Errore",
+                "<a:VC_Alert:1482706673176150077> Errore",
                 "<:vegax:1443934876440068179> Interazione fuori canale",
               ),
             ],
@@ -1171,7 +1171,7 @@ async function handleTicketInteraction(interaction) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
-                  "<a:VC_Alert:1448670089670037675> Errore",
+                  "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Solo opener o claimer possono gestire questa richiesta automatica.",
                 ),
               ],
@@ -1269,7 +1269,7 @@ async function handleTicketInteraction(interaction) {
       await safeReply(interaction, {
         embeds: [
           makeErrorEmbed(
-            "<a:VC_Alert:1448670089670037675> Errore Interno",
+            "<a:VC_Alert:1482706673176150077> Errore Interno",
             "<:vegax:1443934876440068179> Si è verificato un errore durante l'elaborazione.",
           ),
         ],

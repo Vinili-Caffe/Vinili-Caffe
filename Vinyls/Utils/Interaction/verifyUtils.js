@@ -80,7 +80,7 @@ function makeExpiredEmbed() {
     .setColor("Red")
     .setTitle("<:cancel:1461730653677551691> Operazione non riuscita!")
     .setDescription(
-      "<:space:1461733157840621608> <:rightSort:1461726104422453298> La tua verifica è scaduta, devi premere Verifica di nuovo.",
+      "<:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> La tua verifica è scaduta, devi premere Verifica di nuovo.",
     );
 }
 
@@ -89,7 +89,7 @@ function makeWrongAnswerEmbed() {
     .setColor("Red")
     .setTitle("<:cancel:1461730653677551691> Operazione non riuscita!")
     .setDescription(
-      "<:space:1461733157840621608> <:rightSort:1461726104422453298> Risposta sbagliata, riprova prima che sia troppo tardi.",
+      "<:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Risposta sbagliata, riprova prima che sia troppo tardi.",
     );
 }
 
@@ -98,7 +98,7 @@ function makeTooManyAttemptsEmbed() {
     .setColor("Red")
     .setTitle("<:cancel:1461730653677551691> Operazione non riuscita!")
     .setDescription(
-      "<:space:1461733157840621608> <:rightSort:1461726104422453298> Troppi tentativi errati. Premi **Verifica** per ricominciare.",
+      "<:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Troppi tentativi errati. Premi **Verifica** per ricominciare.",
     );
 }
 
@@ -132,7 +132,7 @@ function makeOwnerEmbed() {
     .setColor("Red")
     .setTitle("<:cancel:1461730653677551691> Operazione non riuscita!")
     .setDescription(
-      "<:space:1461733157840621608> <:rightSort:1461726104422453298> Sei il proprietario, perché un owner dovrebbe provare a verificarsi?",
+      "<:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Sei il proprietario, perché un owner dovrebbe provare a verificarsi?",
     );
 }
 

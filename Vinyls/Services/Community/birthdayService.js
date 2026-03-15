@@ -4,7 +4,7 @@ const BirthdayProfile = require("../../Schemas/Community/birthdayProfileSchema")
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = "1474729085719548048";
-const BIRTHDAY_REACTIONS = ["<a:VC_Events:1448688007438667796>", "<a:VC_HelloKittyGift:1329447876857958471>",];
+const BIRTHDAY_REACTIONS = ["<a:VC_Events:1482706144953897223>", "<a:VC_HelloKittyGift:1329447876857958471>",];
 let birthdayLoopHandle = null;
 let birthdayTickRunning = false;
 
@@ -45,12 +45,12 @@ function buildBirthdayAnnouncement(docs, currentYear) {
   const visibleAges = docs.filter((doc) => doc.showAge && Number.isFinite(Number(doc.birthYear))).map((doc) => Math.max(1, currentYear - Number(doc.birthYear)));
 
   if (!visibleAges.length) {
-    return `${intro}\n<a:VC_Events:1448688007438667796> Fate gli auguri.`;
+    return `${intro}\n<a:VC_Events:1482706144953897223> Fate gli auguri.`;
   }
   if (visibleAges.length === 1) {
-    return `${intro}\n<a:VC_Events:1448688007438667796> Oggi compie ${visibleAges[0]} anni. Tantissimi auguri.`;
+    return `${intro}\n<a:VC_Events:1482706144953897223> Oggi compie ${visibleAges[0]} anni. Tantissimi auguri.`;
   }
-  return `${intro}\n<a:VC_Events:1448688007438667796> Oggi compiono ${visibleAges.join(", ")} anni. Tantissimi auguri.`;
+  return `${intro}\n<a:VC_Events:1482706144953897223> Oggi compiono ${visibleAges.join(", ")} anni. Tantissimi auguri.`;
 }
 
 function isMemberGoneError(err) {

@@ -415,7 +415,7 @@ module.exports = {
 
         await pexDepexChannel.send({
           content: `**<:success:1461731530333229226> PEX** ${targetUser}
-<:staff:1443651912179388548> \`${roleBefore.name}\` <a:VC_Arrow:1448672967721615452> \`${roleAfter.name}\`
+<:staff:1443651912179388548> \`${roleBefore.name}\` <a:VC_Arrow:1482706699365257397> \`${roleAfter.name}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
         }).catch(() => null);
 
@@ -468,7 +468,7 @@ module.exports = {
 
         await pexDepexChannel.send({
           content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
-<:staff:1443651912179388548> \`${oldRole.name}\` <a:VC_Arrow:1448672967721615452> \`${newRole.name}\`
+<:staff:1443651912179388548> \`${oldRole.name}\` <a:VC_Arrow:1482706699365257397> \`${newRole.name}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
         }).catch(() => null);
         return;
@@ -498,9 +498,9 @@ module.exports = {
           name: `<:success:1461731530333229226> Warn eseguito da ${interaction.user.username}`,
           iconURL: interaction.user.displayAvatarURL(),
         })
-          .setTitle(`<a:VC_Alert:1448670089670037675> • **__WARN STAFF__**\`#${staffDoc.warnCount}\``,)
+          .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${staffDoc.warnCount}\``,)
           .setThumbnail(targetUser.displayAvatarURL())
-          .setDescription(`<:staff:1443651912179388548> <a:VC_Arrow:1448672967721615452> ${targetUser} 
+          .setDescription(`<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${targetUser} 
             <:VC_reason:1478517122929004544> __${reason}__ 
             <:VC_id:1478517313618575419> **ID Valutazione:** __\`${staffDoc.idCount}\`__`,)
           .setColor(SUCCESS_COLOR);

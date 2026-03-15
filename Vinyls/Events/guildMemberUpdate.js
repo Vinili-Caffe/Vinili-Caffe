@@ -398,7 +398,7 @@ async function sendBoostEmbeds(channel, member, times, boostCount) {
   const safeTimes = Math.max(0, Number(times || 0));
   for (let i = 0; i < safeTimes; i += 1) {
     await channel.send({
-      content: `<a:VC_Boost:1448670271115497617> \`|\`  ${member.user} \`|\` <@&1442568910070349985>`,
+      content: `<a:VC_Boost:1482706171386269830> \`|\`  ${member.user} \`|\` <@&1442568910070349985>`,
       embeds: [buildBoostEmbed(member, boostCount)],
     }).catch(() => null);
   }

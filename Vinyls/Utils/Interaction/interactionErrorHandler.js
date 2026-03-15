@@ -21,7 +21,7 @@ async function logInteractionError(interaction, client, err) {
 
     await sendPrivateInteractionResponse(interaction, {
       content:
-        "<a:VC_Alert:1448670089670037675> C'è stato un errore nell'esecuzione del comando.",
+        "<a:VC_Alert:1482706673176150077> C'è stato un errore nell'esecuzione del comando.",
       flags: PRIVATE_FLAG,
     });
   } catch (nestedErr) {
