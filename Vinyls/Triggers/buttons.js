@@ -394,7 +394,9 @@ module.exports = {
     const allowed = await enforceInteractionPermissions(interaction);
     if (!allowed) return;
     const levelPanelIds = ["info_boost_levels", "info_levels", "torna_indietro"];
-    if (interaction.isButton() && levelPanelIds.includes(interaction.customId)) {
+    let levelPanelDeferred = false;
+    if (interaction.isButton() && interaction.customId === "info_boost_levels") {
+      levelPanelDeferred = true;
       await interaction.deferReply({ flags: 1 << 6 }).catch((err) => { global.logger?.error?.("[buttons]", err?.message ?? err); return null; });
     }
     const guild = interaction.guild;
@@ -403,6 +405,8 @@ module.exports = {
     interaction.reply = (p) => origReply(withFooter(p));
     const origEditReply = interaction.editReply.bind(interaction);
     interaction.editReply = (p) => origEditReply(withFooter(p));
+    const origUpdate = interaction.update?.bind(interaction);
+    if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
@@ -454,7 +458,7 @@ module.exports = {
           const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => { global.logger?.warn?.("[buttons]", err?.message ?? err); return member; });
           await m.roles.add(values).catch((err) => { global.logger?.error?.("[buttons]", err?.message ?? err); });
         }
-        let m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => { global.logger?.warn?.("[buttons]", err?.message ?? err); return member; });
+        let m = await interaction.guild.members.fetch(interaction.user.id).catch(() => member);
         const appliedAll = values.every((roleId) => m?.roles?.cache?.has?.(roleId));
         const stillOld = rolesToRemove.some((rid) => values.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid));
         if (menuId === "personality_dm" && stillOld) {
@@ -598,11 +602,10 @@ module.exports = {
       }
       return interaction
         .update({ embeds: [removedEmbed], components: [], files: [] })
-        .catch(async (err) => {
-          global.logger?.error?.("[buttons] quote update fallback", err?.message ?? err);
+        .catch(async () => {
           await interaction
             .reply({ embeds: [removedEmbed], flags: 1 << 6 })
-            .catch((e) => { global.logger?.error?.("[buttons]", e?.message ?? e); });
+            .catch((err) => { global.logger?.error?.("[buttons]", err?.message ?? err); });
         });
     }
 
@@ -797,11 +800,16 @@ module.exports = {
     }
 
     const sendUpdatedView = async (payload) => {
-      if (interaction.deferred) {
+      if (levelPanelDeferred || interaction.deferred) {
         return interaction.editReply(payload).catch((err) => {
           global.logger?.error?.("[buttons] sendUpdatedView editReply error:", err?.message ?? err, err?.code);
         });
       }
+      const updated = await interaction.update(payload).catch((err) => {
+        global.logger?.error?.("[buttons] sendUpdatedView update error:", err?.message ?? err, err?.code);
+        return null;
+      });
+      if (updated !== null) return;
       return interaction.reply({ ...payload, flags: 1 << 6 }).catch((err) => {
         global.logger?.error?.("[buttons] sendUpdatedView reply error:", err?.message ?? err, err?.code, err?.rawError);
       });
@@ -867,20 +875,20 @@ module.exports = {
           "I livelli nel server rappresentano la tua attività: scrivendo in chat testuale e stando nei canali vocali, guadagnerai esperienza che verrà aggiunta al tuo livello globale.",
           "Una volta raggiunta una certa somma di esperienza, farai un **level up**!",
           "",
-          `<:dot:1443660294596329582> Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
+          `<:VC_Dot:1482532364222595303> Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
           "",
-          "<:VC_Dot:1443932948599668746> ──────── <:exp:1470067108543987846> ──────── <:VC_Dot:1443932948599668746>",
+          "<:VC_Dot:1482532364222595303> ──────── <:exp:1470067108543987846> ──────── <:VC_Dot:1482532364222595303>",
           "",
-          "<a:VC_Arrow:1448672967721615452> **LISTA DEI LIVELLI:**",
+          "<a:VC_Arrow:1482706699365257397> **LISTA DEI LIVELLI:**",
         ].join("\n"))
         .addFields(
           {
             name: "\`LIVELLO 10-19\`",
             value: [
               `<@&${IDs.roles.Level10}>`,
-              "<:VC_DoubleReply:1468713981152727120> Permesso di cambiare nickname",
-              "<:VC_DoubleReply:1468713981152727120> Permesso di allegare link e immagini in chat",
-              "<:VC_Reply:1468262952934314131> Sblocchi il comando \`+quote\`",
+              "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
+              "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
+              "<:VC_Reply:1482532158080942191> Sblocchi il comando \`+quote\`",
             ].join("\n"),
             inline: true,
           },
@@ -889,7 +897,7 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level20}>`,
               "Tutte le ricompense precedenti",
-              "<:VC_DoubleReply:1468713981152727120> Possibilità di aggiungere reazioni ai messaggi in chat",
+              "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
             ].join("\n"),
             inline: true,
           },
@@ -898,8 +906,8 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level30}>`,
               "Tutte le ricompense precedenti",
-              "<:VC_DoubleReply:1468713981152727120> Permesso di usare soundboard di altri server",
-              "<:VC_Reply:1468262952934314131> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
+              "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
+              "<:VC_Reply:1482532158080942191> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
             ].join("\n"),
             inline: true,
           },
@@ -908,9 +916,9 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level50}>`,
               "Tutte le ricompense precedenti",
-              `<:VC_DoubleReply:1468713981152727120> Possibilità di usare i **colori PLUS** su <#${IDs.channels.ruoliColori}>`,
-              "<:VC_DoubleReply:1468713981152727120> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
-              "<:VC_Reply:1468262952934314131> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+              `<:VC_DoubleReply:1482532332509466797> Possibilità di usare i **colori PLUS** su <#${IDs.channels.ruoliColori}>`,
+              "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
+              "<:VC_Reply:1482532158080942191> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
             ].join("\n"),
             inline: true,
           },
@@ -919,8 +927,8 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level70}>`,
               "Tutte le ricompense precedenti",
-              "<:VC_DoubleReply:1468713981152727120> Permesso di usare sticker ed emoji di altri server",
-              "<:VC_Reply:1468262952934314131> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
+              "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
+              "<:VC_Reply:1482532158080942191> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
             ].join("\n"),
             inline: true,
           },
@@ -929,10 +937,10 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level100}>`,
               "Tutte le ricompense precedenti",
-              "<:VC_DoubleReply:1468713981152727120> Cooldown sui comandi del nostro bot ridotto (da 5 secondi a 1 secondo).",
-              "<:VC_DoubleReply:1468713981152727120> Bypass requisiti per i giveaway",
-              "<:VC_DoubleReply:1468713981152727120> Bypass requisiti per le candidature",
-              "<:VC_Reply:1468262952934314131> Bonus EXP permanente +25%",
+              "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 5 secondi a 1 secondo).",
+              "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
+              "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
+              "<:VC_Reply:1482532158080942191> Bonus EXP permanente +25%",
             ].join("\n"),
             inline: true,
           },
@@ -946,7 +954,7 @@ module.exports = {
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 
-      const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("︲COLORI VIP SBLOCCATI").setEmoji(`<:VC_Color:1470781368630775982>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1469429150669602961/1469803395937472647",), new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
+      const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("︲COLORI VIP SBLOCCATI").setEmoji(`<:VC_Color:1482532543273238569>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1469429150669602961/1469803395937472647",), new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
 
       return { embeds: [levelEmbed, howtoEmbed], components: [row] };
     };
@@ -955,7 +963,8 @@ module.exports = {
     }
     if (
       interaction.customId == "info_levels" ||
-      interaction.customId == "info_level"
+      interaction.customId == "info_level" ||
+      interaction.customId == "infolivelli"
     ) {
       return sendUpdatedView(buildLevelsPayload());
     }
