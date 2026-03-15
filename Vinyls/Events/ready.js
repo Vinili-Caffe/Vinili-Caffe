@@ -2,7 +2,7 @@ const config = require("../config.json");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
-const { processRecentVoteChannelMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
+const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const{runDueOneTimeReminders,}=require("../Services/Reminders/oneTimeReminderService");
@@ -142,9 +142,9 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => restoreBumpReminders(client),
     },
     {
-      label: "process recent vote channel messages",
+      label: "process recent automation messages (vote, bump)",
       enabled: primaryScheduler,
-      run: () => processRecentVoteChannelMessages(client),
+      run: () => processAllRecentAutomationMessages(client),
     },
     {
       label: "restore core startup state",

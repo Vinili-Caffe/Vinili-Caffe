@@ -456,6 +456,9 @@ function startDiscadiaVoteReminderLoop(client) {
     });
   }, intervalMs);
   discadiaVoteReminderLoopHandle.unref?.();
+  sendDueDiscadiaVoteReminders(client).catch((error) => {
+    global.logger.error("[DISCADIA VOTE REMINDER ERROR] (first run)", error);
+  });
   return discadiaVoteReminderLoopHandle;
 }
 

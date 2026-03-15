@@ -8,8 +8,9 @@ const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const SuggestionCount = require("../../Schemas/Suggestion/suggestionSchema");
-const { shouldBlockDm } = require("../noDmList");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
+const COMMANDS_CHANNEL_ID = IDs.channels.commands;
+const PAUSE_CHANNEL_ID = IDs.channels.pause;
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
 const VOTE_ROLE_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -319,9 +320,6 @@ async function handleVoteManagerMessage(message, client) {
   if (sent) {
     await message.delete().catch(() => { });
   }
-  if (user?.id && message.guild?.id && !(await shouldBlockDm(message.guild.id, user.id, "bump").catch(() => true))) {
-    await user.send({ embeds: [embed], components: components.length ? components : undefined, allowedMentions: { parse: [] } }).catch((err) => { global.logger?.warn?.("[VOTE EMBED] DM reminder failed:", err?.message || err); });
-  }
   return true;
 }
 
@@ -561,6 +559,9 @@ async function handlePauseChannelMessage(message) {
   const pauseChannelId = String(IDs.channels.pause || "");
   if (!pauseChannelId || String(message.channelId) !== pauseChannelId) return false;
 
+  if (!message.member && message.guild?.id && message.author?.id) {
+    message.member = await getGuildMemberCached(message.guild, message.author.id);
+  }
   const allowedRoleIds = new Set(PAUSE_REQUEST_ROLE_IDS.map(String));
   const hasAllowedRole = Array.from(allowedRoleIds).some((roleId) => message.member?.roles?.cache?.has(roleId));
   if (!hasAllowedRole) return false;
@@ -619,4 +620,64 @@ async function processRecentVoteChannelMessages(client) {
   }
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages };
+const RECENT_BUMP_LOOKBACK_MS = 2 * 60 * 60 * 1000;
+
+async function processRecentCommandsChannelMessages(client) {
+  if (!client || !COMMANDS_CHANNEL_ID) return;
+  const channel = client.channels.cache.get(COMMANDS_CHANNEL_ID) || (await client.channels.fetch(COMMANDS_CHANNEL_ID).catch(() => null));
+  if (!channel?.isTextBased?.() || !channel.messages) return;
+  const cutoff = Date.now() - RECENT_BUMP_LOOKBACK_MS;
+  let messages = [];
+  try {
+    messages = await channel.messages.fetch({ limit: RECENT_VOTE_FETCH_LIMIT });
+  } catch (err) {
+    global.logger?.warn?.("[BUMP] Failed to fetch recent commands channel for startup:", err?.message || err);
+    return;
+  }
+  const ourId = client.user?.id;
+  const sorted = [...messages.values()].sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+  for (const message of sorted) {
+    if ((message.createdTimestamp || 0) < cutoff) continue;
+    if (message.author?.id === ourId) continue;
+    try {
+      const handledDiscadia = await handleDiscadiaBump(message, client);
+      if (handledDiscadia) continue;
+      await handleDisboardBump(message, client);
+    } catch (err) {
+      global.logger?.warn?.("[BUMP] Startup process message error:", err?.message || err);
+    }
+  }
+}
+
+async function processRecentPauseChannelMessages(client) {
+  if (!client || !PAUSE_CHANNEL_ID) return;
+  const channel = client.channels.cache.get(PAUSE_CHANNEL_ID) || (await client.channels.fetch(PAUSE_CHANNEL_ID).catch(() => null));
+  if (!channel?.isTextBased?.() || !channel.messages) return;
+  const cutoff = Date.now() - RECENT_BUMP_LOOKBACK_MS;
+  let messages = [];
+  try {
+    messages = await channel.messages.fetch({ limit: RECENT_VOTE_FETCH_LIMIT });
+  } catch (err) {
+    global.logger?.warn?.("[PAUSE] Failed to fetch recent pause channel for startup:", err?.message || err);
+    return;
+  }
+  const ourId = client.user?.id;
+  const sorted = [...messages.values()].sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+  for (const message of sorted) {
+    if ((message.createdTimestamp || 0) < cutoff) continue;
+    if (message.author?.id === ourId) continue;
+    try {
+      await handlePauseChannelMessage(message);
+    } catch (err) {
+      global.logger?.warn?.("[PAUSE] Startup process message error:", err?.message || err);
+    }
+  }
+}
+
+async function processAllRecentAutomationMessages(client) {
+  await processRecentVoteChannelMessages(client);
+  await processRecentCommandsChannelMessages(client);
+  await processRecentPauseChannelMessages(client);
+}
+
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages };
