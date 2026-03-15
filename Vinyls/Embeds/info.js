@@ -83,6 +83,17 @@ async function run(client) {
     new ButtonBuilder().setCustomId("info_badges_roles").setLabel("︲BADGE & ALTRI RUOLI").setEmoji("<a:VC_Diamon:1482706116873031680>").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId("info_verifica").setLabel("︲VERIFICA SELFIE").setEmoji(`<a:VC_Verified:1482532479637127188>`).setStyle(ButtonStyle.Secondary),
   );
+  const embed3 = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setFooter({ text: "Usa il bottone sottostante per la guida completa livelli e vantaggi:" })
+    .setTitle("<:exp:1470067108543987846> Livelli, EXP e vantaggi ruoli")
+    .setDescription(
+      "Sali di livello con l'attività in chat e in vocale, sblocca permessi e ruoli. Clicca il bottone per la lista completa dei livelli e dei vantaggi.",
+    )
+    .setImage(DIVIDER_URL);
+  const row3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("info_levels").setLabel("︲INFO & VANTAGGI RUOLI").setEmoji("<:exp:1470067108543987846>").setStyle(ButtonStyle.Secondary),
+  );
   const guildId = channel.guild?.id;
   if (!guildId) return;
   let panel = null;
@@ -98,14 +109,16 @@ async function run(client) {
 
   const msg1 = await upsertPanelMessage(channel, client, { messageId: panel?.infoMessageId1 || null, files: [attachment], embeds: [embed1], components: [row1], attachmentName: INFO_MEDIA_NAME });
   const msg2 = await upsertPanelMessage(channel, client, { messageId: panel?.infoMessageId2 || null, embeds: [embed2], components: [row2] });
+  const msg3 = await upsertPanelMessage(channel, client, { messageId: panel?.infoMessageId3 || null, embeds: [embed3], components: [row3] });
 
-  if (msg1?.id || msg2?.id) {
+  if (msg1?.id || msg2?.id || msg3?.id) {
     await PersonalityPanel.updateOne(
       { guildId, channelId: INFO_CHANNEL_ID },
       {
         $set: {
           infoMessageId1: msg1?.id || panel?.infoMessageId1 || null,
           infoMessageId2: msg2?.id || panel?.infoMessageId2 || null,
+          infoMessageId3: msg3?.id || panel?.infoMessageId3 || null,
         },
       },
     ).catch(() => {});

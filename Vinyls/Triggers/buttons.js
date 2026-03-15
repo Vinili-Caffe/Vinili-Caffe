@@ -796,7 +796,15 @@ module.exports = {
         await interaction.update(payload);
         return;
       } catch (_) {
-        return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => { });
+        try {
+          await interaction.deferUpdate();
+          if (interaction.message?.editable) await interaction.message.edit(payload);
+          return;
+        } catch (__) {
+          if (!interaction.replied && !interaction.deferred) {
+            return interaction.reply({ content: "<:vegax:1443934876440068179> Impossibile aggiornare il messaggio. Riprova.", flags: 1 << 6 }).catch(() => { });
+          }
+        }
       }
     };
     if (interaction.customId == "info_verifica") {

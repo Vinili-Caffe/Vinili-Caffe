@@ -1435,7 +1435,13 @@
         "info_donations": [
             "roles.Member"
         ],
+        "info_level": [
+            "roles.Member"
+        ],
         "info_levels": [
+            "roles.Member"
+        ],
+        "infolivelli": [
             "roles.Member"
         ],
         "info_rules": [

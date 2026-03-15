@@ -577,6 +577,7 @@ function renderPageText(page, newUntilMap = null) {
     "Usa il prefix, slash o context menu in base al comando.",
     "Mini-help rapido: `+help <comando>`.",
     "",
+    ...(IDs?.channels?.ruoliColori ? ["Nel canale <#" + IDs.channels.ruoliColori + "> trovi il **pannello Info & Vantaggi Ruoli** (livelli, boost, badge).", ""] : []),
     "",
   ].join("\n");
   const body = sections.join("\n\n");
