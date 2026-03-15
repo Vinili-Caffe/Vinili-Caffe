@@ -2,6 +2,7 @@ const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const Poll = require("../../Schemas/Poll/pollSchema");
 const IDs = require("../../Utils/Config/ids");
+const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const EPHEMERAL_FLAG = 1 << 6;
 const COUNTER_FILTER_QUESTION = "__counter__";
 const POLL_CHANNEL_CACHE_TTL_MS = 30_000;
@@ -29,29 +30,15 @@ async function getPollChannelFromGuild(guild) {
   if (!guild) return null;
   const channelId = IDs.channels?.polls;
   if (!channelId) return null;
-  const cacheKey = `${guild.id}:${channelId}`;
-  const now = Date.now();
-  const cached = pollChannelCache.get(cacheKey);
-  if (cached?.channel && now < Number(cached.expiresAt || 0)) {
-    return cached.channel;
+  const client = guild.client;
+  if (!client) return null;
+  let ch = client.channels.cache.get(channelId) || (await getClientChannelCached(client, String(channelId), { ttlMs: POLL_CHANNEL_CACHE_TTL_MS }));
+  if (!ch) {
+    ch = await client.channels.fetch(String(channelId)).catch(() => null);
   }
-  if (cached?.promise) {
-    return cached.promise;
-  }
-  const fetchPromise = (async () => {
-    let ch = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
-    if (!ch && guild.client?.channels?.fetch) {
-      ch = await guild.client.channels.fetch(channelId).catch(() => null);
-    }
-    if (ch && ch.guildId && ch.guildId !== guild.id) ch = null;
-    const ttl = ch ? POLL_CHANNEL_CACHE_TTL_MS : POLL_CHANNEL_CACHE_TTL_NULL_MS;
-    pollChannelCache.set(cacheKey, { channel: ch, expiresAt: Date.now() + ttl, promise: null });
-    return ch;
-  })();
-  pollChannelCache.set(cacheKey, { channel: null, expiresAt: 0, promise: fetchPromise });
-  const channel = await fetchPromise;
-  if (!channel || !channel.isTextBased?.()) return null;
-  return channel;
+  if (ch && ch.guildId && ch.guildId !== guild.id) ch = null;
+  if (!ch || !ch.isTextBased?.()) return null;
+  return ch;
 }
 
 function buildGuildPollFilter(guildId, extra = {}) {
