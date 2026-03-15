@@ -879,7 +879,7 @@ async function runNamed(name, message, args, client) {
             embeds: [
               new EmbedBuilder()
                 .setColor("#3498DB")
-                .setDescription(`<:VC_InactiveStatus:1472011031709745307> **${msg}**`),
+                .setDescription(`<:VC_InactiveStatus:1482526984234860574> **${msg}**`),
             ],
           })
           .catch(() => null);
@@ -955,7 +955,7 @@ async function runNamed(name, message, args, client) {
       const length = formatDurationWords(row.durationMs);
       const blockLines = [
         `<:VC_id:1478517313618575419> **Case ${row.caseId}**`,
-        `<:VC_InactiveStatus:1472011031709745307> **Tipo:** ${type}`,
+        `<:VC_InactiveStatus:1482526984234860574> **Tipo:** ${type}`,
         `<:member_role_icon:1330530086792728618> **Utente:** \`${target.userId}\` · ${targetUser?.username || "Sconosciuto"}`,
         `<:staff:1443651912179388548> **Moderatore:** ${modUser?.username || row.modId || "Sconosciuto"}`,
       ];

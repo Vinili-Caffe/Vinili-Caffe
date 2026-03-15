@@ -35,8 +35,8 @@ function buildPanelEmbed(prefs, mode = "disable") {
       : "<:VC_PinkQuestionMark:1471892611026391306>Scegli **quali DM** disattivare. Clicca un pulsante per attivare/disattivare quella categoria.";
   const footerText =
     mode === "enable"
-      ? "<:VC_InactiveStatus:1472011031709745307> Usa +dm-disable per disattivare categorie."
-      : "<:VC_InactiveStatus:1472011031709745307> Usa +dm-enable per riattivare tutto.";
+      ? "<:VC_InactiveStatus:1482526984234860574> Usa +dm-disable per disattivare categorie."
+      : "<:VC_InactiveStatus:1482526984234860574> Usa +dm-enable per riattivare tutto.";
   const desc = [
     `<:VC_Ticket:1482535175283019888> ${intro}`,
     "",
@@ -182,7 +182,7 @@ async function runNoDmPanel(message, options = {}) {
               .setColor("#6f4e37")
               .setTitle("<:VC_Success:1468685897389052008> Preferenze DM salvate")
               .setDescription(
-                "<:VC_InactiveStatus:1472011031709745307> Le tue preferenze sono state aggiornate. Usa `+dm-disable` o `+dm-enable` per modificarle.",
+                "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate. Usa `+dm-disable` o `+dm-enable` per modificarle.",
               ),
           ],
           components: [],

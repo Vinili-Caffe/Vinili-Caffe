@@ -176,7 +176,7 @@ const reminderPool = [
       .setDescription([
         "<a:VC_NewsExclamation:1471891662786527253> Scrivi **`+help`** per vedere tutti i comandi bot, giochi e funzioni!",
         "",
-        `<:VC_InactiveStatus:1472011031709745307> Per info su livelli, ruoli, minigiochi e regole: <#1442569111119990887>. Trovi davvero tutto lì!`,
+        `<:VC_InactiveStatus:1482526984234860574> Per info su livelli, ruoli, minigiochi e regole: <#1442569111119990887>. Trovi davvero tutto lì!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -300,7 +300,7 @@ function getEventReminderEmbed() {
         "",
         "<a:VC_Arrow:1482706699365257397> Partecipa in chat, gioca ai minigiochi e scala la classifica prima che finisca.",
         "",
-        "> <:VC_InactiveStatus:1472011031709745307> Livelli e premi in <#1442569111119990887>",
+        "> <:VC_InactiveStatus:1482526984234860574> Livelli e premi in <#1442569111119990887>",
       ].join("\n"),
     );
 }

@@ -201,7 +201,7 @@ function buildLoadWarningEmbed(backupId, messagesLimit = DEFAULT_MESSAGES_LIMIT)
       [
         "<:VC_update:1478721333096349817> What do you want the bot to load from the backup?",
         "",
-        "<:VC_InactiveStatus:1472011031709745307> Select below what actions should be performed.",
+        "<:VC_InactiveStatus:1482526984234860574> Select below what actions should be performed.",
         "<:VC_update:1478721333096349817> In the next step the restore starts immediately.",
         "",
         `<:VC_Chat:1482532573002465413> Messages limit: \`${formatMessagesLimit(messagesLimit)}\``,
@@ -402,7 +402,7 @@ function buildLoadErrorEmbed(error) {
 function buildLoadCancelledEmbed(backupId) {
   return new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1472011031709745307> Info")
+    .setTitle("<:VC_InactiveStatus:1482526984234860574> Info")
     .setDescription(
       [
         "<:VC_update:1478721333096349817> The loading process has been **cancelled**.",
@@ -422,7 +422,7 @@ function buildLoadComponents(
   const options = LOAD_ACTIONS.map((action) => ({ label: action.label, description: action.description, value: action.key, emoji: action.emoji, default: selected.has(action.key), }));
 
   const selectRow = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`backup_load_actions:${sessionId}`)
-    .setPlaceholder("<:VC_InactiveStatus:1472011031709745307> Select load actions")
+    .setPlaceholder("<:VC_InactiveStatus:1482526984234860574> Select load actions")
     .setMinValues(1)
     .setMaxValues(options.length)
     .addOptions(options),
@@ -438,7 +438,7 @@ function buildLoadComponents(
   );
 
   const limitRow = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`backup_load_messages_limit:${sessionId}`)
-    .setPlaceholder("<:VC_InactiveStatus:1472011031709745307> Select messages limit")
+    .setPlaceholder("<:VC_InactiveStatus:1482526984234860574> Select messages limit")
     .setMinValues(1)
     .setMaxValues(1)
     .addOptions(

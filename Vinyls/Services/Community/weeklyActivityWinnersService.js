@@ -206,7 +206,7 @@ async function getEventWeekTopNTextAndVoice(guild, eventWeekNum, limit = 10) {
 }
 
 function buildEmptyLine(kind) {
-  return `<:VC_InactiveStatus:1472011031709745307> - Nessun dato disponibile per ${kind}.`;
+  return `<:VC_InactiveStatus:1482526984234860574> - Nessun dato disponibile per ${kind}.`;
 }
 
 function formatRankLine(index, userMention, value, unit) {
@@ -401,11 +401,11 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
   const msgLines = topMessages.length ? topMessages.map((item, i) => {
     const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.messageCount}** _messaggi_`;
   })
-    : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica testuale."];
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica testuale."];
   const voiceLines = topVoice.length ? topVoice.map((item, i) => {
     const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}> <a:VC_Arrow:1482706699365257397> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`;
   })
-    : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica vocale."];
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica vocale."];
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(`<:VC_Leaderboard:1482534806314287387> Evento Activity EXP — Settimana ${eventWeek}`)
@@ -449,7 +449,7 @@ async function trySendEventEndAnnouncementToNews(client) {
   const lines = top3.length ? top3.map((item, i) => {
     const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}>—**${item.expDuringEvent.toLocaleString("it-IT")}** <:VC_EXP:1482534670896730143>`;
   })
-    : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato."];
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato."];
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:VC_Leaderboard:1482534806314287387> Top 3 EXP totale — Evento Activity EXP")

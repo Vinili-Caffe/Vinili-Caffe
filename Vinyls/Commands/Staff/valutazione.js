@@ -281,7 +281,7 @@ async function handleMedia(interaction, staffUser, doc) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle(`<:VC_InactiveStatus:1472011031709745307> Valutazioni di ${staffUser.username}`)
+    .setTitle(`<:VC_InactiveStatus:1482526984234860574> Valutazioni di ${staffUser.username}`)
     .setColor("#6f4e37")
     .addFields(
       {

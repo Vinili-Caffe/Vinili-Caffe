@@ -143,7 +143,7 @@ module.exports = {
         .setTitle(title)
         .setDescription([
           `<:VC_Mention:1482526855289634997> Ruolo: ${role}`,
-          `<:VC_InactiveStatus:1472011031709745307> Azione:\`${action}\``, "",
+          `<:VC_InactiveStatus:1482526984234860574> Azione:\`${action}\``, "",
           `<a:VC_Loading:1482526818278969578> Processati: **${processed}/${total}**`,
           `<:success:1461731530333229226> Aggiornati:**${success}**`,
           `<:VC_skip:1478521335629086812> Saltati:**${skipped}**`,

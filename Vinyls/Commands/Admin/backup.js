@@ -41,7 +41,7 @@ function buildSuccessEmbed(interaction, result) {
       [
         `<:success:1461731530333229226> Backup creato con successo con ID \`${result.backupId}\`.`,
         "",
-        "<:VC_InactiveStatus:1472011031709745307> Comandi utili",
+        "<:VC_InactiveStatus:1482526984234860574> Comandi utili",
         `\`/backup info backup_id: ${result.backupId}\``,
         `\`/backup load backup_id: ${result.backupId}\``,
       ].join("\n"),
@@ -156,12 +156,12 @@ function buildInfoEmbed(interaction, backupId, backupData, fileSize, checksum = 
 
   const minimalBackup = totalMessages <= 0 || members.length <= 0 || bans.length <= 0;
 
-  const embed = new EmbedBuilder().setColor("#3498db").setTitle(`<:VC_InactiveStatus:1472011031709745307> Info Backup - ${guild.name || interaction.guild?.name || "Server sconosciuto"}`,
+  const embed = new EmbedBuilder().setColor("#3498db").setTitle(`<:VC_InactiveStatus:1482526984234860574> Info Backup - ${guild.name || interaction.guild?.name || "Server sconosciuto"}`,
   )
     .setDescription(
       minimalBackup
         ? "<:vegax:1443934876440068179> Questo backup non contiene messaggi, membri o ban."
-        : "<:VC_InactiveStatus:1472011031709745307> Questo backup contiene uno snapshot completo del server.",
+        : "<:VC_InactiveStatus:1482526984234860574> Questo backup contiene uno snapshot completo del server.",
     )
     .addFields([
       {
@@ -206,7 +206,7 @@ function buildLoadStatusEmbed(status) {
   const actions = Array.isArray(status.actions) ? status.actions : [];
   return new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1472011031709745307> Stato caricamento backup")
+    .setTitle("<:VC_InactiveStatus:1482526984234860574> Stato caricamento backup")
     .setDescription(
       [
         `<:VC_id:1478517313618575419> Backup ID: \`${String(status.backupId || "").toUpperCase()}\``,
@@ -223,7 +223,7 @@ function buildLoadStatusEmbed(status) {
 function buildLoadCancelResultEmbed(cancelled) {
   return new EmbedBuilder()
     .setColor(cancelled ? "#2ecc71" : "#3498db")
-    .setTitle(cancelled ? "<:success:1461731530333229226> Completato" : " <:VC_InactiveStatus:1472011031709745307> Info")
+    .setTitle(cancelled ? "<:success:1461731530333229226> Completato" : " <:VC_InactiveStatus:1482526984234860574> Info")
     .setDescription(
       cancelled
         ? "<:success:1461731530333229226> Richiesta di annullamento inviata. Il processo verrà fermato appena possibile."
@@ -359,7 +359,7 @@ module.exports = {
       const backupRef = String(interaction.options.getString("backup_id") || "").trim();
       if (!backupRef) {
         await safeEditReply(interaction, {
-          embeds: [buildErrorEmbed("backup_id non valido.", "<:VC_InactiveStatus:1472011031709745307> Backup info")],
+          embeds: [buildErrorEmbed("backup_id non valido.", "<:VC_InactiveStatus:1482526984234860574> Backup info")],
           flags: EPHEMERAL_FLAG,
         });
         return;

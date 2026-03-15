@@ -46,7 +46,7 @@ async function ensureOwnerCustomRoleActive(
       content: [
         "<a:VC_Alert:1482706673176150077> Il tuo custom role temporaneo è scaduto.",
         `<:VC_Clock:1473359204189474886> Scadenza: ${buildExpiryText(state.doc)}`,
-        "<:VC_InactiveStatus:1472011031709745307> Usa `+customrole create` per crearne uno nuovo.",
+        "<:VC_InactiveStatus:1482526984234860574> Usa `+customrole create` per crearne uno nuovo.",
       ].join("\n"),
       flags: PRIVATE_FLAG,
     });
@@ -305,7 +305,7 @@ async function handleRoleActionButton(interaction) {
           new EmbedBuilder()
             .setColor("#6f4e37")
             .setTitle("<:VC_Mention:1482526855289634997> Seleziona un utente")
-            .setDescription("<:VC_InactiveStatus:1472011031709745307> Seleziona un utente: riceverà una richiesta in DM per accettare il ruolo." ),
+            .setDescription("<:VC_InactiveStatus:1482526984234860574> Seleziona un utente: riceverà una richiesta in DM per accettare il ruolo." ),
         ],
         components: [
           new ActionRowBuilder().addComponents(

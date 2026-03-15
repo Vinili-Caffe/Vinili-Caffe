@@ -64,13 +64,13 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
 
   const msgLines = topMessages.length
     ? topMessages.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.messageCount}** _messaggi_`)
-    : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica testuale."];
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica testuale."];
   const voiceLines = topVoice.length
     ? topVoice.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`)
-    : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica vocale."];
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica vocale."];
   const expLines = topExp.length
     ? topExp.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.expDuringEvent}** _EXP_`)
-    : ["<:VC_InactiveStatus:1472011031709745307> - Nessun dato per la classifica EXP."];
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP."];
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")

@@ -315,7 +315,7 @@ function buildAlreadyRoleEmbed(roleId) {
     .setColor("Red")
     .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
     .setDescription(
-      `<:VC_InactiveStatus:1472011031709745307> Sei già ${roleText}, perché dovresti ricandidarti?`,
+      `<:VC_InactiveStatus:1482526984234860574> Sei già ${roleText}, perché dovresti ricandidarti?`,
     );
 }
 
@@ -345,7 +345,7 @@ function buildCooldownDeniedEmbed(untilTs, type) {
         "",
         `<:VC_update:1478721333096349817> Potrai reinviare **solo quella** (${label}) dopo: <t:${unix}:F> (<t:${unix}:R>).`,
         "",
-        "<:VC_InactiveStatus:1472011031709745307> Le candidature **Helper** e **Partner Manager** hanno cooldown **separati**: puoi comunque candidarti all’altra se non è in cooldown.",
+        "<:VC_InactiveStatus:1482526984234860574> Le candidature **Helper** e **Partner Manager** hanno cooldown **separati**: puoi comunque candidarti all’altra se non è in cooldown.",
         "<a:VC_Timer:1482527426557775954> Tra una candidatura e la successiva **dello stesso tipo** passano 7 giorni.",
       ].join("\n"),
     );
@@ -387,7 +387,7 @@ function buildFinalThanksEmbed(untilTs, type) {
         "<a:VC_ThankYou:1330186319673950401> Grazie per esserti candidato.",
         "",
         `<:VC_update:1478721333096349817> Per **un'altra candidatura ${label}** dovrai attendere fino a: <t:${unix}:F> (<t:${unix}:R>).`,
-        "<:VC_InactiveStatus:1472011031709745307> Puoi comunque candidarti all’**altro** ruolo (Helper / Partner Manager) se non l’hai già fatto di recente per quello.",
+        "<:VC_InactiveStatus:1482526984234860574> Puoi comunque candidarti all’**altro** ruolo (Helper / Partner Manager) se non l’hai già fatto di recente per quello.",
         "",
         "<a:VC_Alert:1482706673176150077> Non aprire ticket e non pingare lo staff per chiedere l'esito, altrimenti la candidatura verrà automaticamente scartata.",
       ].join("\n"),

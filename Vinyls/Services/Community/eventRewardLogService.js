@@ -29,7 +29,7 @@ async function sendEventRewardLog(client, data) {
     .setColor("#6f4e37")
     .setTitle("<:VC_EXP:1482534670896730143> Premio evento assegnato")
     .setDescription(String(`**Utente:** <@${userId}>`).slice(0, 4096))
-    .addFields({ name: String("<:VC_InactiveStatus:1472011031709745307> Tipo").slice(0, 256), value: String(label || "").slice(0, 1024), inline: true });
+    .addFields({ name: String("<:VC_InactiveStatus:1482526984234860574> Tipo").slice(0, 256), value: String(label || "").slice(0, 1024), inline: true });
 
   if (levels != null && levels > 0) {
     embed.addFields({ name: String("<:VC_EXP:1482534670896730143> Livelli").slice(0, 256), value: String(`+${levels}`).slice(0, 1024), inline: true });
@@ -41,7 +41,7 @@ async function sendEventRewardLog(client, data) {
     embed.addFields({ name: String("<a:VC_Calendar:1482706208149475358> Settimana").slice(0, 256), value: String(`${week}`).slice(0, 1024), inline: true });
   }
   if (detail) {
-    embed.addFields({ name: String("<:VC_InactiveStatus:1472011031709745307> Dettaglio").slice(0, 256), value: String(detail).slice(0, 1024), inline: false });
+    embed.addFields({ name: String("<:VC_InactiveStatus:1482526984234860574> Dettaglio").slice(0, 256), value: String(detail).slice(0, 1024), inline: false });
   }
   embed.setTimestamp();
 
@@ -59,10 +59,10 @@ async function sendEventRewardSkippedLog(client, data) {
   const embed = new EmbedBuilder()
     .setColor("#99aab5")
     .setTitle("<:VC_page3:1482459759268462613> Premio già assegnato")
-    .setDescription(`<:VC_InactiveStatus:1472011031709745307> **Utente:** <@${userId}>`)
+    .setDescription(`<:VC_InactiveStatus:1482526984234860574> **Utente:** <@${userId}>`)
     .addFields(
-      { name: "<:VC_InactiveStatus:1472011031709745307> Tipo", value: label, inline: true },
-      { name: "<:VC_InactiveStatus:1472011031709745307> Motivo", value: "Già ricevuto per questo evento", inline: true },
+      { name: "<:VC_InactiveStatus:1482526984234860574> Tipo", value: label, inline: true },
+      { name: "<:VC_InactiveStatus:1482526984234860574> Motivo", value: "Già ricevuto per questo evento", inline: true },
     )
     .setTimestamp();
 

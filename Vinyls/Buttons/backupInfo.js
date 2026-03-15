@@ -75,7 +75,7 @@ async function execute(interaction) {
       return true;
     }
     await safeEditReply(interaction, {
-      embeds: [new EmbedBuilder().setColor("#3498db").setDescription("<:VC_InactiveStatus:1472011031709745307> Eliminazione annullata.")],
+      embeds: [new EmbedBuilder().setColor("#3498db").setDescription("<:VC_InactiveStatus:1482526984234860574> Eliminazione annullata.")],
       components: [],
       flags: EPHEMERAL,
     });
