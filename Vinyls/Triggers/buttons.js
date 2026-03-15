@@ -1,4 +1,4 @@
-const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
+const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlagsBitField, } = require("discord.js");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter");
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, } = require("../Schemas/Community/communitySchemas");
@@ -12,6 +12,16 @@ const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, RO
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
+
+function isMessageEphemeral(message) {
+  if (!message?.flags) return false;
+  try {
+    if (typeof message.flags.has === "function") return Boolean(message.flags.has(MessageFlagsBitField.Flags.Ephemeral));
+  } catch (_) {}
+  const raw = message.flags?.bitfield ?? message.flags ?? 0;
+  const bits = Number(typeof raw === "bigint" ? raw : raw);
+  return (bits & MessageFlagsBitField.Flags.Ephemeral) === MessageFlagsBitField.Flags.Ephemeral;
+}
 
 function findStringSelectOptionLabel(message, customId, value) {
   const rows = message?.components || [];
@@ -801,8 +811,11 @@ module.exports = {
       if (interaction.replied || interaction.deferred) return;
       const msg = interaction.message;
       const ephemeralFlag = 1 << 6;
-      const isEphemeralPanel = msg?.author?.id === interaction.client?.user?.id && ((msg?.flags?.bitfield ?? 0) & ephemeralFlag) === ephemeralFlag;
-      if (isEphemeralPanel) {
+      const fromUs = msg?.author?.id === interaction.client?.user?.id;
+      const isEphemeral = isMessageEphemeral(msg);
+      const isInteractionResponse = Boolean(msg?.interaction?.id ?? msg?.interaction);
+      const shouldUpdateInPlace = fromUs && (isEphemeral || isInteractionResponse);
+      if (shouldUpdateInPlace) {
         const updated = await interaction.update(payload).catch(() => null);
         if (updated !== null) return true;
       }
