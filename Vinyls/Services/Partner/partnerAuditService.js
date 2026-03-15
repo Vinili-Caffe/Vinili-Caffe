@@ -285,6 +285,10 @@ function startDailyPartnerAuditLoop(client) {
     { timezone: "Europe/Rome" },
   );
 
+  setImmediate(() => {
+    runDailyPartnerAudit(client).catch((err) => global.logger?.warn?.("[PARTNER AUDIT] Recovery on start failed:", err?.message || err));
+  });
+
   return dailyPartnerAuditTask;
 }
 

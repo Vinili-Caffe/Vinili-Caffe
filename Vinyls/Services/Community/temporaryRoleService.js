@@ -156,6 +156,7 @@ async function removeExpiredTemporaryRoles(client) {
 function startTemporaryRoleCleanupLoop(client) {
   if (!client) return null;
   if (cleanupLoopHandle) return cleanupLoopHandle;
+  removeExpiredTemporaryRoles(client).catch((err) => global.logger?.warn?.("[TEMP ROLE] Recovery cleanup on start failed:", err?.message || err));
   cleanupLoopHandle = setInterval(() => {
     removeExpiredTemporaryRoles(client).catch(() => { });
   }, CHECK_INTERVAL_MS);

@@ -118,6 +118,10 @@ function startPartnershipChannelCleanupLoop(client) {
     { timezone: "Europe/Rome" },
   );
 
+  setImmediate(() => {
+    runPartnershipChannelCleanup(client).catch((err) => global.logger?.warn?.("[PARTNERSHIP CLEANUP] Recovery on start failed:", err?.message || err));
+  });
+
   return cleanupTask;
 }
 

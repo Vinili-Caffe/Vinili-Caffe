@@ -457,6 +457,8 @@ function startAutoPollLoop(client) {
     },
     { timezone: TIMEZONE },
   );
+
+  runAutoPoll(client).catch((err) => global.logger?.warn?.("[poll.auto] Recovery on start failed:", err?.message || err));
 }
 
 module.exports = { startAutoPollLoop, runAutoPoll };

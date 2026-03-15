@@ -148,6 +148,10 @@ function startBirthdayLoop(client) {
     { timezone: DEFAULT_TIME_ZONE },
   );
 
+  setImmediate(() => {
+    runBirthdayTick(client).catch((err) => global.logger?.warn?.("[BIRTHDAY] Recovery tick on start failed:", err?.message || err));
+  });
+
   return birthdayLoopHandle;
 }
 

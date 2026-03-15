@@ -565,6 +565,11 @@ async function runPreResocontoReminders(client) {
   }
 }
 
+function getRomeWeekdayShort(now = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" });
+  return formatter.format(now);
+}
+
 function startWeeklyStaffResocontoLoop(client) {
   if (weeklyStaffResocontoTask) return weeklyStaffResocontoTask;
 
@@ -588,6 +593,14 @@ function startWeeklyStaffResocontoLoop(client) {
     { timezone: TIME_ZONE },
   );
   if (typeof preResocontoTask?.ref === "function") preResocontoTask.ref();
+
+  setImmediate(() => {
+    const wd = getRomeWeekdayShort(new Date());
+    if (wd === "Mon") {
+      global.logger?.info?.("[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto (bot was likely offline Sunday 15:00).");
+      runWeeklyStaffResoconti(client).catch((err) => global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err));
+    }
+  });
 
   return weeklyStaffResocontoTask;
 }

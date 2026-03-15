@@ -14,7 +14,15 @@ module.exports = {
     await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => { });
 
     const guild = interaction.guild;
-    if (!guild || guild.id !== IDs.guilds?.main) {
+    const mainGuildId = IDs.guilds?.main != null ? String(IDs.guilds.main) : null;
+    if (!guild) {
+      await safeEditReply(interaction, {
+        content: "<:VC_InactiveStatus:1482526984234860574> Comando utilizzabile solo in un server.",
+        flags: EPHEMERAL_FLAG,
+      });
+      return;
+    }
+    if (mainGuildId && String(guild.id) !== mainGuildId) {
       await safeEditReply(interaction, {
         content: "<:VC_InactiveStatus:1482526984234860574> Comando utilizzabile solo nel server principale.",
         flags: EPHEMERAL_FLAG,

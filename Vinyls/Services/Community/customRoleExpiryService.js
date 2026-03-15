@@ -123,6 +123,7 @@ async function runExpiredCustomRolesSweep(client) {
 function startCustomRoleExpiryLoop(client) {
   if (!client) return null;
   if (expiryLoopHandle) return expiryLoopHandle;
+  runExpiredCustomRolesSweep(client).catch((err) => global.logger?.warn?.("[CUSTOM ROLE EXPIRY] Recovery sweep on start failed:", err?.message || err));
   expiryLoopHandle = setInterval(() => {
     runExpiredCustomRolesSweep(client).catch(() => { });
   }, CHECK_INTERVAL_MS);

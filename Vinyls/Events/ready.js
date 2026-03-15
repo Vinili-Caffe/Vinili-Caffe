@@ -297,6 +297,7 @@ function startPrimaryLoops(client, engagementTick) {
   const interval = setInterval(engagementTick, ENGAGEMENT_INTERVAL_MS);
   interval.unref?.();
   client._primaryEngagementInterval = interval;
+  engagementTick().catch((err) => global.logger?.warn?.("[STARTUP] First engagement tick failed:", err?.message || err));
 
   const startLoopSafely = (label, starter) => {
     try { starter(); } catch (err) { global.logger?.error?.(label, err); }

@@ -754,11 +754,9 @@ function startWeeklyActivityWinnersLoop(client) {
       global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error);
     }
   };
-  const recoveryDelayMs = 10_000;
-  const recoveryTimer = setTimeout(() => {
+  setImmediate(() => {
     runRecoveryIfNeeded().catch((err) => global.logger?.error?.("[WEEKLY ACTIVITY] Recovery on start failed:", err));
-  }, recoveryDelayMs);
-  recoveryTimer.unref?.();
+  });
 }
 
 /**

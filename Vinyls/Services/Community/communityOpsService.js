@@ -56,6 +56,7 @@ async function removeExpiredVoteRoles(client) {
 function startVoteRoleCleanupLoop(client) {
   if (!client) return;
   if (voteCleanupLoopHandle) return voteCleanupLoopHandle;
+  removeExpiredVoteRoles(client).catch((err) => global.logger?.warn?.("[VOTE ROLE] Recovery cleanup on start failed:", err?.message || err));
   voteCleanupLoopHandle = setInterval(() => {
     removeExpiredVoteRoles(client).catch(() => { });
   }, CHECK_INTERVAL_MS);
