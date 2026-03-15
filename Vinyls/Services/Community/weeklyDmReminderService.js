@@ -825,7 +825,7 @@ async function buildWeeklyJobs(client, guild) {
   for (const member of guild.members.cache.values()) {
     if (!member || member.user?.bot) continue;
     if (await isStaffMemberResolved(guild, member)) continue;
-    if (!isMemberOldEnough(m, minMemberAgeDays)) continue;
+    if (!isMemberOldEnough(member, minMemberAgeDays)) continue;
     const id = String(member.id);
     if (await shouldBlockDm(guild.id, id, "weekly").catch(() => false)) continue;
     candidates.push(member);

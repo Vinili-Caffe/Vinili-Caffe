@@ -325,11 +325,11 @@ async function getChannelCached(client, channelId) {
 }
 
 function getActivityWindowMs(cfg) {
-  return Math.max(60 * 1000, Number(cfg?.activityWindowMs || 30 * 60 * 1000));
+  return Math.max(60 * 1000, Number(cfg?.activityWindowMs || 15 * 60 * 1000));
 }
 
 function getMinMessages(cfg) {
-  return Math.max(1, Number(cfg?.minMessages || 3));
+  return Math.max(1, Number(cfg?.minMessages ?? 1));
 }
 
 function getFailsafeMs(cfg) {
@@ -653,6 +653,16 @@ function normalizeRewardExp(value) {
   return best;
 }
 
+function shuffleArray(arr = []) {
+  if (!Array.isArray(arr) || arr.length <= 1) return arr;
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 function pickRandomItem(list = []) {
   if (!Array.isArray(list) || !list.length) return null;
   return list[randomBetween(0, list.length - 1)] || null;
@@ -684,13 +694,14 @@ function pushQuestionKeyToRecent(channelId, type, questionKey, recentLimit = 20)
 
 function pickQuestionAvoidRecent(channelId, type, list = [], keySelector, recentLimit = 20) {
   if (!channelId || !type || !Array.isArray(list) || !list.length) {
-    return pickRandomItem(list);
+    return pickRandomItem(shuffleArray(list));
   }
   const key = `${channelId}:${type}`;
   const recent = recentQuestionKeysByChannel.get(key) || [];
   const seen = new Set(recent);
-  const pool = list.filter((item) => { const k = getRecentQuestionKey(keySelector?.(item)); if (!k) return true; return !seen.has(k); });
-  const picked = pickRandomItem(pool.length ? pool : list);
+  const shuffled = shuffleArray(list);
+  const pool = shuffled.filter((item) => { const k = getRecentQuestionKey(keySelector?.(item)); if (!k) return true; return !seen.has(k); });
+  const picked = pickRandomItem(pool.length ? pool : shuffled);
   if (!picked) return null;
   const pickedKey = getRecentQuestionKey(keySelector?.(picked));
   if (pickedKey) pushQuestionKeyToRecent(channelId, type, pickedKey, recentLimit);
@@ -5500,9 +5511,10 @@ async function startQuoteFilmGame(client, cfg) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   if (cfg.roleId) await channel.send({ content: `<@&${cfg.roleId}>` }).catch(() => {});
-  const attachment = buildPromptImageAttachment("Citazione da film/serie", [pick.quote], "quote_film");
+  const displayQuote = pick.quoteIt || pick.quote;
+  const attachment = buildPromptImageAttachment("Citazione da film/serie", [displayQuote], "quote_film");
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
-  const embed = buildQuoteFilmEmbed(pick.quote, rewardExp, durationMs, imageUrl);
+  const embed = buildQuoteFilmEmbed(displayQuote, rewardExp, durationMs, imageUrl);
   const gameMessage = await channel.send({ embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
   const timeout = setTimeout(async () => {
     const game = activeGames.get(channelId);
@@ -5521,7 +5533,7 @@ async function startQuoteFilmGame(client, cfg) {
   if (pick.answers && pick.answers.length) answers.push(...pick.answers.map((a) => normalizeCountryName(a)));
   activeGames.set(channelId, {
     type: "quoteFilm",
-    quote: pick.quote,
+    quote: displayQuote,
     answer: pick.answer,
     answers,
     displayAnswer,
@@ -5534,7 +5546,7 @@ async function startQuoteFilmGame(client, cfg) {
   });
   await saveActiveGame(client, cfg, {
     type: "quoteFilm",
-    target: JSON.stringify({ quote: pick.quote, answer: pick.answer, displayAnswer: pick.answer }),
+    target: JSON.stringify({ quote: displayQuote, answer: pick.answer, displayAnswer: pick.answer }),
     rewardExp,
     startedAt: new Date(),
     endsAt: new Date(Date.now() + durationMs),
@@ -5610,7 +5622,7 @@ async function startSynonymAntonymGame(client, cfg) {
   if (cfg.roleId) await channel.send({ content: `<@&${cfg.roleId}>` }).catch(() => {});
   const answer = pick.kind === "antonym" ? pick.antonym : pick.synonym;
   const kindLabel = pick.kind === "antonym" ? "il contrario" : "un sinonimo";
-  const attachment = buildPromptImageAttachment(pick.kind === "antonym" ? "Trova il contrario" : "Trova il sinonimo", [`Parola: **${pick.word}**`, `Scrivi ${kindLabel} di questa parola.`], "synonym_antonym");
+  const attachment = buildPromptImageAttachment(pick.kind === "antonym" ? "Trova il contrario" : "Trova il sinonimo", [`Parola: ${pick.word}`, `Scrivi ${kindLabel} di questa parola.`], "synonym_antonym");
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildSynonymAntonymEmbed(pick.word, pick.kind, rewardExp, durationMs, imageUrl);
   const gameMessage = await channel.send({ embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
