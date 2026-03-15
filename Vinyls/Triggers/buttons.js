@@ -34,6 +34,16 @@ async function removeMemberRolesSequential(member, roleIds) {
   }
 }
 
+/** Una sola chiamata API: rimuove roleIdsToRemove e aggiunge roleIdsToAdd. */
+async function setMemberRolesBulk(member, roleIdsToRemove, roleIdsToAdd = []) {
+  if (!member?.guild || !Array.isArray(roleIdsToRemove)) return;
+  const m = await member.guild.members.fetch(member.id).catch(() => member);
+  const removeSet = new Set(roleIdsToRemove.filter(Boolean));
+  const current = [...m.roles.cache.keys()].filter((id) => id !== member.guild?.id);
+  const next = current.filter((id) => !removeSet.has(id)).concat(roleIdsToAdd.filter(Boolean));
+  await m.edit({ roles: [...new Set(next)] }).catch(() => { });
+}
+
 async function handleStaffButtons(interaction) {
   if (!interaction.isButton()) return false;
 
@@ -404,7 +414,11 @@ module.exports = {
 
       try {
         if (!values.length || values.includes("remove")) {
-          await removeMemberRolesSequential(member, rolesToRemove);
+          if (colorMenuIds.includes(menuId)) {
+            await setMemberRolesBulk(member, rolesToRemove, []);
+          } else {
+            await removeMemberRolesSequential(member, rolesToRemove);
+          }
           const refreshedMember = await interaction.guild?.members?.fetch?.(interaction.user.id).catch(() => null);
           const stillHasManagedRole = Array.isArray(rolesToRemove) && rolesToRemove.some((roleId) => refreshedMember?.roles?.cache?.has?.(roleId));
           if (stillHasManagedRole) {
@@ -426,10 +440,14 @@ module.exports = {
             });
           }
         }
-        await removeMemberRolesSequential(member, rolesToRemove);
+        if (colorMenuIds.includes(menuId)) {
+          await setMemberRolesBulk(member, rolesToRemove, values);
+        } else {
+          await removeMemberRolesSequential(member, rolesToRemove);
+          const m = await interaction.guild.members.fetch(interaction.user.id).catch(() => member);
+          await m.roles.add(values).catch(() => { });
+        }
         let m = await interaction.guild.members.fetch(interaction.user.id).catch(() => member);
-        await m.roles.add(values).catch(() => { });
-        m = await interaction.guild.members.fetch(interaction.user.id).catch(() => m);
         const appliedAll = values.every((roleId) => m?.roles?.cache?.has?.(roleId));
         const stillOld = rolesToRemove.some((rid) => values.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid));
         if (menuId === "personality_dm" && stillOld) {
