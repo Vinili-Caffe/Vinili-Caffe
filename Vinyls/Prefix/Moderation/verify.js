@@ -271,7 +271,8 @@ module.exports = {
                 targetMember.id,
                 new Date(),
               );
-              await applyTenureForMember(targetMember, record);
+              const memberForTenure = await guild.members.fetch(targetMember.id).catch(() => targetMember);
+              await applyTenureForMember(memberForTenure, record);
             } catch (dbErr) {
               global.logger?.warn?.(
                 "[+verify] upsertVerifiedMember:",

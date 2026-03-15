@@ -134,7 +134,8 @@ async function applyFullDepex(guild, member, currentRoleId) {
   const roleRemoved = await member.roles.remove(currentRoleId).then(() => true).catch(() => false);
   if (!roleRemoved) return { ok: false, reason: "Impossibile rimuovere il ruolo." };
   if (typeof applyDepexSideEffects !== "function") return { ok: false, reason: "applyDepexSideEffects non disponibile." };
-  const sideEffectsApplied = await applyDepexSideEffects(guild, member, currentRoleId);
+  const memberAfterRemove = await getGuildMemberCached(guild, member.id, { preferFresh: true }).catch(() => member);
+  const sideEffectsApplied = await applyDepexSideEffects(guild, memberAfterRemove, currentRoleId);
   if (!sideEffectsApplied) return { ok: false, reason: "Side-effect depex non completati." };
   return { ok: true, roleRemoved: currentRoleId };
 }
