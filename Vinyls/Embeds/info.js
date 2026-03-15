@@ -96,14 +96,21 @@ async function run(client) {
     global.logger?.warn?.("[embeds] ", err?.message || err);
   }
 
-  const hasBothIds = Boolean(panel?.infoMessageId1 && panel?.infoMessageId2);
+  const id1 = panel?.infoMessageId1 || null;
+  const id2 = panel?.infoMessageId2 || null;
+  const distinct = id1 && id2 && String(id1) !== String(id2);
+  const exists1 = id1 ? await channel.messages.fetch(id1).then(() => true).catch(() => false) : false;
+  const exists2 = id2 ? await channel.messages.fetch(id2).then(() => true).catch(() => false) : false;
+  const hasTwoDistinctExisting = Boolean(distinct && exists1 && exists2);
   let msg1 = null;
   let msg2 = null;
 
-  if (hasBothIds) {
-    msg1 = await upsertPanelMessage(channel, client, { messageId: panel.infoMessageId1, files: [attachment], embeds: [embed1], components: [row1], attachmentName: INFO_MEDIA_NAME });
-    msg2 = await upsertPanelMessage(channel, client, { messageId: panel.infoMessageId2, embeds: [embed2], components: [row2] });
+  if (hasTwoDistinctExisting) {
+    msg1 = await upsertPanelMessage(channel, client, { messageId: id1, files: [attachment], embeds: [embed1], components: [row1], attachmentName: INFO_MEDIA_NAME });
+    msg2 = await upsertPanelMessage(channel, client, { messageId: id2, embeds: [embed2], components: [row2] });
   } else {
+    if (id1) await channel.messages.fetch(id1).then((m) => m.delete()).catch(() => {});
+    if (id2 && String(id2) !== String(id1)) await channel.messages.fetch(id2).then((m) => m.delete()).catch(() => {});
     const payload1 = { files: [attachment], embeds: [embed1], components: [row1] };
     const payload2 = { embeds: [embed2], components: [row2] };
     msg1 = await channel.send(payload1).catch((err) => { global.logger?.warn?.("[embeds] info msg1 send:", err?.message || err); return null; });
