@@ -1,4 +1,4 @@
-const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlagsBitField, } = require("discord.js");
+const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter");
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, } = require("../Schemas/Community/communitySchemas");
@@ -12,16 +12,6 @@ const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, RO
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
-
-function isMessageEphemeral(message) {
-  if (!message?.flags) return false;
-  try {
-    if (typeof message.flags.has === "function") return Boolean(message.flags.has(MessageFlagsBitField.Flags.Ephemeral));
-  } catch (_) {}
-  const raw = message.flags?.bitfield ?? message.flags ?? 0;
-  const bits = Number(typeof raw === "bigint" ? raw : raw);
-  return (bits & MessageFlagsBitField.Flags.Ephemeral) === MessageFlagsBitField.Flags.Ephemeral;
-}
 
 function findStringSelectOptionLabel(message, customId, value) {
   const rows = message?.components || [];
@@ -399,9 +389,7 @@ module.exports = {
 
   async execute(interaction) {
     if (!interaction.guild) return;
-    const levelPanelIds = ["info_boost_levels", "info_levels", "torna_indietro"];
-    const allowWithoutMessage = interaction.isButton() && levelPanelIds.includes(interaction.customId);
-    if (!interaction.message && !allowWithoutMessage) return;
+    if (!interaction.message) return;
     if (interaction.replied || interaction.deferred) return;
     const allowed = await enforceInteractionPermissions(interaction);
     if (!allowed) return;
@@ -411,8 +399,6 @@ module.exports = {
     interaction.reply = (p) => origReply(withFooter(p));
     const origEditReply = interaction.editReply.bind(interaction);
     interaction.editReply = (p) => origEditReply(withFooter(p));
-    const origUpdate = interaction.update?.bind(interaction);
-    if (origUpdate) interaction.update = (p) => origUpdate(withFooter(p));
     if (await handleStaffButtons(interaction)) return;
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
@@ -694,7 +680,6 @@ module.exports = {
         "<:VC_Reply:1482532158080942191> È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
       ].join("\n"));
       await interaction.reply({ embeds: [generalEmbed, textEmbed, voiceEmbed, commonEmbed], flags: 1 << 6 }).catch(() => null);
-      return true;
     }
 
     if (interaction.customId == "info_donations") {
@@ -753,7 +738,6 @@ module.exports = {
         .setTitle("Acquista ora!")
         .setDescription("<:blueflash:1470064803157643468> Apri un ticket nella **terza categoria** su: <#1442569095068254219>.");
       await interaction.reply({ embeds: [donations, vip, ticket], flags: 1 << 6 }).catch(() => null);
-      return true;
     }
 
     if (interaction.customId == "info_sponsor") {
@@ -808,21 +792,7 @@ module.exports = {
     }
 
     const sendUpdatedView = async (payload) => {
-      if (interaction.replied || interaction.deferred) return;
-      const msg = interaction.message;
-      const ephemeralFlag = 1 << 6;
-      const fromUs = msg?.author?.id === interaction.client?.user?.id;
-      const isEphemeral = isMessageEphemeral(msg);
-      const isInteractionResponse = Boolean(msg?.interaction?.id ?? msg?.interaction);
-      const shouldUpdateInPlace = fromUs && (isEphemeral || isInteractionResponse);
-      if (shouldUpdateInPlace) {
-        const updated = await interaction.update(payload).catch(() => null);
-        if (updated !== null) return true;
-      }
-      await interaction.deferReply({ flags: ephemeralFlag }).catch(() => {});
-      if (!interaction.deferred) return;
-      await interaction.editReply(payload).catch(() => {});
-      return true;
+      return interaction.reply({ ...payload, flags: 1 << 6 }).catch(() => {});
     };
     if (interaction.customId == "info_verifica") {
       const verifyEmbed = new EmbedBuilder()
@@ -969,20 +939,17 @@ module.exports = {
       return { embeds: [levelEmbed, howtoEmbed], components: [row] };
     };
     if (interaction.customId == "info_boost_levels") {
-      await sendUpdatedView(buildBoostLevelsPayload());
-      return true;
+      return sendUpdatedView(buildBoostLevelsPayload());
     }
     if (
       interaction.customId == "info_levels" ||
       interaction.customId == "info_level" ||
       interaction.customId == "infolivelli"
     ) {
-      await sendUpdatedView(buildLevelsPayload());
-      return true;
+      return sendUpdatedView(buildLevelsPayload());
     }
     if (interaction.customId == "torna_indietro") {
-      await sendUpdatedView(buildBoostLevelsPayload());
-      return true;
+      return sendUpdatedView(buildBoostLevelsPayload());
     }
 
     if (interaction.customId == "info_badges_roles") {
