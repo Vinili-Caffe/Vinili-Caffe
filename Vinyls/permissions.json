@@ -525,7 +525,7 @@
         },
         "evento": {
             "roles": [
-                "roles.HighStaff"
+                "roles.Member"
             ],
             "channels": [
                 "channels.highCmds",
