@@ -204,17 +204,17 @@ async function run(client) {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
-        { label: "Red Gradient", value: IDs.roles.redPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Orange Gradient", value: IDs.roles.orangePlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Yellow Gradient", value: IDs.roles.yellowPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Green Gradient", value: IDs.roles.greenPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Blue Gradient", value: IDs.roles.bluePlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Purple Gradient", value: IDs.roles.purplePlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Pink Gradient", value: IDs.roles.pinkPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Black Gradient", value: IDs.roles.blackPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Gray Gradient", value: IDs.roles.grayPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "White Gradient", value: IDs.roles.whitePlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Yin & Yang Special", value: IDs.roles.YinYangPlus, emoji: { id: "1448691936797134880", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Red Gradient", value: IDs.roles.redPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Orange Gradient", value: IDs.roles.orangePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Yellow Gradient", value: IDs.roles.yellowPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Green Gradient", value: IDs.roles.greenPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Blue Gradient", value: IDs.roles.bluePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Purple Gradient", value: IDs.roles.purplePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Pink Gradient", value: IDs.roles.pinkPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Black Gradient", value: IDs.roles.blackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Gray Gradient", value: IDs.roles.grayPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "White Gradient", value: IDs.roles.whitePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Yin & Yang Special", value: IDs.roles.YinYangPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 
