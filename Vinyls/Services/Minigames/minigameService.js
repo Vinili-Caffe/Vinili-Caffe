@@ -5022,14 +5022,18 @@ function isDrivingPatenteRelated(statement) {
     "logo", "animale", "animal", "marchio", "brand", "manufacturer", "automobilistica",
     "raffigurato", "depicted", "which animal", "quale animale", "porsche", "ferrari",
     "symbol of", "simbolo del", "casa automobilistica", "car manufacturer", "depicted on",
+    "aria condizionata", "air conditioning", "primo veicolo", "first vehicle", "standard di fabbrica",
+    "dotato di", "equipped with", "packard", "tucker", "hudson", "quale fu il primo",
+    "which was the first", "invented", "inventato", "storia", "history", "anno di",
+    "year of", "fondat", "founded",
   ];
   if (offTopic.some((w) => s.includes(w))) return false;
   const onTopic = [
     "conducente", "segnale", "strada", "velocit", "speed", "limit", "limite", "patente",
-    "veicolo", "vehicle", "semaforo", "traffic", "precedenza", "priority", "divieto",
-    "obbligo", "corsia", "lane", "autostrada", "highway", "sorpasso", "overtak",
-    "sosta", "parking", "pedonale", "pedestrian", "incrocio", "intersection", "freno",
-    "brake", "cintura", "seat belt", "triangolo", "hazard", "incident", "incidente",
+    "semaforo", "traffic", "precedenza", "priority", "divieto", "obbligo", "corsia", "lane",
+    "autostrada", "highway", "sorpasso", "overtak", "sosta", "parking", "pedonale", "pedestrian",
+    "incrocio", "intersection", "freno", "brake", "cintura", "seat belt", "triangolo", "hazard",
+    "incident", "incidente", "codice della strada", "traffic law", "road sign",
   ];
   return onTopic.some((w) => s.includes(w));
 }
@@ -5071,7 +5075,7 @@ async function startDrivingQuizGame(client, cfg) {
       if (row) fromApi = true;
     }
   }
-  if (!row && (cfg?.drivingQuiz?.useDefaultApi !== false)) {
+  if (!row && (cfg?.drivingQuiz?.useDefaultApi === true)) {
     for (let r = 0; r < maxApiRetries && !row; r++) {
       row = await fetchDrivingQuizFromApi(appendCacheBuster(DEFAULT_DRIVING_QUIZ_API_URL));
       if (row && !isDrivingPatenteRelated(row.statement)) row = null;
