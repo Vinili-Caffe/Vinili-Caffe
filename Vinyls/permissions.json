@@ -153,6 +153,11 @@
                 ]
             }
         },
+        "weeklywinners": {
+            "roles": [
+                "roles.HighStaff"
+            ]
+        },
         "valutazione": {
             "roles": [
                 "roles.HighStaff"
