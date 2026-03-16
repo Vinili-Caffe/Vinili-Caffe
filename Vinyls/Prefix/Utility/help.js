@@ -615,7 +615,8 @@ function splitHelpTextByLength(text, maxLen = MAX_HELP_TEXT_LENGTH) {
   return chunks.length ? chunks : [input.slice(0, maxLen)];
 }
 
-const HELP_PAGE_FOOTER_LEN = 28;
+const HELP_PAGE_FOOTER_RESERVED = 30;
+const MAX_TEXTDISPLAY_LENGTH = 3800;
 
 function splitBodyBySections(body, maxBodyLen) {
   const sections = body.split("\n\n").filter(Boolean);
@@ -627,12 +628,21 @@ function splitBodyBySections(body, maxBodyLen) {
     const sep = current.length ? 2 : 0;
     if (currentLen + sep + sec.length > maxBodyLen && current.length) {
       chunks.push(current.join("\n\n"));
-      current = [sec];
-      currentLen = sec.length;
-    } else {
-      current.push(sec);
-      currentLen += sep + sec.length;
+      current = [];
+      currentLen = 0;
     }
+    if (sec.length > maxBodyLen) {
+      if (current.length) {
+        chunks.push(current.join("\n\n"));
+        current = [];
+        currentLen = 0;
+      }
+      const subChunks = splitHelpTextByLength(sec, maxBodyLen);
+      for (const sub of subChunks) chunks.push(sub);
+      continue;
+    }
+    current.push(sec);
+    currentLen += sep + sec.length;
   }
   if (current.length) chunks.push(current.join("\n\n"));
   return chunks;
@@ -648,7 +658,7 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
       continue;
     }
     const parts = result;
-    const maxBodyLen = Math.max(200, MAX_HELP_TEXT_LENGTH - HELP_PAGE_FOOTER_LEN - parts.header.length);
+    const maxBodyLen = Math.max(200, MAX_TEXTDISPLAY_LENGTH - HELP_PAGE_FOOTER_RESERVED - parts.header.length);
     const bodyChunks = splitBodyBySections(parts.body, maxBodyLen);
     for (const chunk of bodyChunks) {
       expanded.push({
@@ -659,14 +669,9 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
   }
 
   const total = expanded.length;
-  const MAX_TEXTDISPLAY_LENGTH = 3800;
   expanded.forEach((page, idx) => {
     page.indexLabel = `${idx + 1}/${total}`;
-    let text = `${String(page.renderedText || "").trimEnd()}\n\n**Pagina ${page.indexLabel}**`;
-    if (text.length > MAX_TEXTDISPLAY_LENGTH) {
-      text = `${text.slice(0, MAX_TEXTDISPLAY_LENGTH - 20).trimEnd()}\n...\n**Pagina ${page.indexLabel}**`;
-    }
-    page.renderedText = text;
+    page.renderedText = `${String(page.renderedText || "").trimEnd()}\n\n**Pagina ${page.indexLabel}**`;
   });
 
   return expanded;
