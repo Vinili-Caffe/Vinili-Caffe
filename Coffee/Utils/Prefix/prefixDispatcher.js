@@ -185,6 +185,10 @@ async function dispatchPrefixMessage(message, client) {
     return true;
   }
 
+  if (/^-?\d+$/.test(invokedName) || (args[0] != null && /^-\d+$/.test(String(args[0]).trim()))) {
+    return true;
+  }
+
   const availableCommands = Array.from(client.pcommands.keys()).sort((a,b)=>a.localeCompare(b)).map((name)=>`\`${safePrefix}${name}\``).join(", ");
 
   const embed = new EmbedBuilder()

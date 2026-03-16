@@ -39,13 +39,11 @@ async function execute(interaction) {
       await safeEditReply(interaction, {
         embeds: [buildLoadWarningEmbed(bid, null)],
         components: buildLoadComponents(sessionId, null, null),
-        flags: EPHEMERAL,
       });
     } catch (err) {
       global.logger?.error?.("[Buttons/backupInfo] load", err);
       await safeEditReply(interaction, {
         content: `<:vegax:1443934876440068179> ${String(err?.message || err).slice(0, 300)}`,
-        flags: EPHEMERAL,
       });
     }
     return true;
@@ -77,7 +75,6 @@ async function execute(interaction) {
     await safeEditReply(interaction, {
       embeds: [new EmbedBuilder().setColor("#3498db").setDescription("<:VC_InactiveStatus:1482526984234860574> Eliminazione annullata.")],
       components: [],
-      flags: EPHEMERAL,
     });
     return true;
   }
@@ -112,7 +109,6 @@ async function execute(interaction) {
             .setDescription(`<:vegax:1443934876440068179> ${String(err?.message || err).slice(0, 300)}`),
         ],
         components: [],
-        flags: EPHEMERAL,
       });
     }
     return true;

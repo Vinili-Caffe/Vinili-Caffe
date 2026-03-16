@@ -49,7 +49,7 @@ async function execute(interaction, client) {
       await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
     } else {
       await interaction.update(payload).catch(async () => {
-        await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral }).catch(() => { });
+        await interaction.reply(payload).catch(() => { });
       });
     }
     return true;

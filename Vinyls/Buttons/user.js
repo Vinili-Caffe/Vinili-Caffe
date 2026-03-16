@@ -51,7 +51,7 @@ async function execute(interaction, client) {
       await interaction.editReply(payloadWithComponents).catch(() => interaction.followUp(payloadWithComponents).catch(() => { }));
     } else {
       await interaction.update(payloadWithComponents).catch(async () => {
-        await interaction.reply({ ...payloadWithComponents, flags: MessageFlags.Ephemeral }).catch(() => { });
+        await interaction.reply(payloadWithComponents).catch(() => { });
       });
     }
     return true;

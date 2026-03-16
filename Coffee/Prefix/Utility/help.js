@@ -884,7 +884,8 @@ module.exports = {
     const visibleEntriesForQuery=dedupeAndSortEntries(allEntries.filter((entry) => canMemberSeeEntry(entry,memberRoles)),);
 
     const query = Array.isArray(args) ? args.join(" ").trim() : "";
-    if (query.length) {
+    const useSimpleHelpNoFlag = /^-\d+$/.test(query);
+    if (query.length && !useSimpleHelpNoFlag) {
       const embed=buildMiniHelpEmbed(query,visibleEntriesForQuery,{client,permissions,});
       await safeMessageReply(message, {
         embeds: [embed],
@@ -907,6 +908,15 @@ module.exports = {
     }
 
     const initialPageIndex = 0;
+
+    if (useSimpleHelpNoFlag) {
+      const page = displayPages[initialPageIndex];
+      const content = String(page?.renderedText || renderPageText(page) || "").slice(0, 4096);
+      return safeMessageReply(message, {
+        embeds: [new EmbedBuilder().setColor(0x6f4e37).setDescription(content || "Nessun comando.")],
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+    }
 
     const uniqueToken = `${message.id}_${Date.now()}`;
     const navState={currentIndex:initialPageIndex,total:displayPages.length,prevId:`help_prev_${uniqueToken}`,

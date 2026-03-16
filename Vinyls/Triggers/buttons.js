@@ -121,7 +121,7 @@ async function handleStaffButtons(interaction) {
         "<:VC_Dot:1482532364222595303> Ogni <@&1442568896237277295> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
         "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**."
       );
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -134,7 +134,7 @@ async function handleStaffButtons(interaction) {
         "> L'<@&1442568894349840435> può decidere di graziare qualcuno al secondo warn, ma in caso di **terzo warn** lo staffer verrà depexato **__completamente__**\n\n" +
         "<:attentionfromvega:1443651874032062505> I **warn staff** non possono essere __rimossi__. Il **reset** dei __warn staff__ avviene ogni **__6 mesi__**."
       );
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -147,7 +147,7 @@ async function handleStaffButtons(interaction) {
       "> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
       "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione."
     );
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -173,7 +173,7 @@ async function handleStaffButtons(interaction) {
       "<:infoglowingdot:1443660296823767110> Gli __`Helper`__ potranno richiedere una __pausa__ nella loro prima settimana **solo** per **__problemi personali__ o __familiari gravi__**. Se l'<@&1442568894349840435> viene a conoscenza di un **__falso__ motivo** per usare una pausa, **in qualsiasi circostanza**, si verrà **__depexati__** all'**__istante__**.\n\n" +
       "> <:banhammer:1443651875441217639> Se l'<@&1442568894349840435> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer."
     );
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -195,7 +195,7 @@ async function handleStaffButtons(interaction) {
       "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
       "> <:attentionfromvega:1443651874032062505> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
     );
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -215,7 +215,7 @@ async function handleStaffButtons(interaction) {
             <:VC_Dot:1482532364222595303> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__
 
             <:VC_Dot:1482532364222595303> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__`);
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -239,7 +239,7 @@ async function handleStaffButtons(interaction) {
 
                 <:rules:1443307208543703131> **__Regola \`1.5\`__**
                 <:VC_Reply:1482532158080942191> Sanzione: **Ban**`);
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -268,7 +268,7 @@ async function handleStaffButtons(interaction) {
                 <:rules:1443307208543703131> **__Regola \`2.5\`__**
                 <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**`);
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -315,7 +315,7 @@ async function handleStaffButtons(interaction) {
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
                 <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**`);
-    await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+    await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -375,7 +375,7 @@ async function resolveMentionLabel(interaction, userId) {
 }
 
 async function sendPrivacyViewsLeaderboard(interaction, Model, title) {
-  await interaction.deferReply({ flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+  await interaction.deferReply().catch((err) => { logButtonErr(err); return null; });
   const guildId = interaction.guild.id;
   const top = await Model.find({ guildId }).sort({ views: -1 }).limit(10).lean().catch((err) => { logButtonErr(err, { warn: true }); return []; });
 
@@ -399,7 +399,7 @@ async function sendPrivacyViewsLeaderboard(interaction, Model, title) {
   const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle(title).setDescription(description).setFooter({ text: footerText, iconURL: interaction.user.displayAvatarURL(), });
 
   if (interaction.deferred) return interaction.editReply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
-  return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+  return interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
 }
 
 module.exports = {
@@ -415,7 +415,7 @@ module.exports = {
     const levelPanelIds = ["info_boost_levels", "info_levels", "torna_indietro"];
     let levelPanelDeferred = false;
     if (interaction.isButton() && interaction.customId === "info_boost_levels") {
-      const deferred = await interaction.deferReply({ flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      const deferred = await interaction.deferReply().catch((err) => { logButtonErr(err); return null; });
       levelPanelDeferred = !!deferred && !!interaction.deferred;
     }
     const guild = interaction.guild;
@@ -440,7 +440,7 @@ module.exports = {
       const member = interaction.member;
       if (!member) return;
 
-      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.deferReply().catch((err) => { logButtonErr(err); return null; });
       if (!interaction.deferred) {
         return interaction.reply({ content: ROLE_TRY_AGAIN, flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
       }
@@ -536,7 +536,7 @@ module.exports = {
         logButtonErr(err, { warn: true });
       }
       const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("Comando sbloccato").setDescription("Hai sbloccato con successo la visualizzazione del tuo avatar.",);
-      return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG });
+      return interaction.reply({ embeds: [embed] });
     }
 
     if (
@@ -570,7 +570,7 @@ module.exports = {
         logButtonErr(err, { warn: true });
       }
       const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("Comando sbloccato").setDescription("Hai sbloccato con successo la visualizzazione del tuo banner.",);
-      return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG });
+      return interaction.reply({ embeds: [embed] });
     }
 
     if (
@@ -589,7 +589,7 @@ module.exports = {
       const originMessageId = parts[3] || null;
       if (interaction.user.id !== targetId) {
         const denied = new EmbedBuilder().setColor("#e74c3c").setTitle("<:vegax:1443934876440068179> Accesso negato").setDescription("Solo l'autore della citazione può rimuoverla.");
-        return interaction.reply({ embeds: [denied], flags: 1 << 6 });
+        return interaction.reply({ embeds: [denied], flags: PRIVATE_FLAG });
       }
       const now = new Date();
       const dateStr = now.toLocaleDateString("it-IT");
@@ -624,7 +624,7 @@ module.exports = {
         .catch(async (err) => {
           logButtonErr(err, { warn: true });
           await interaction
-            .reply({ embeds: [removedEmbed], flags: 1 << 6 })
+            .reply({ embeds: [removedEmbed] })
             .catch((e) => { logButtonErr(e); });
         });
     }
@@ -636,7 +636,7 @@ module.exports = {
         "<:VC_Dot:1482532364222595303> **€3** <a:VC_Arrow:1482706699365257397> sponsor per **1** mese\n" +
         "<:VC_Dot:1482532364222595303> **€5** <a:VC_Arrow:1482706699365257397> sponsor **lifetime**"
       ),];
-      await interaction.reply({ embeds: [embeds[0]], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [embeds[0]] }).catch((err) => { logButtonErr(err); return null; });
     }
     if (interaction.customId == "ping") {
       const embeds = [new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
@@ -645,7 +645,7 @@ module.exports = {
         "<:VC_Dot:1482532364222595303> Tra i **500** e i **1000** <a:VC_Arrow:1482706699365257397> `ping @here`\n" +
         "<:VC_Dot:1482532364222595303> **1000+** <a:VC_Arrow:1482706699365257397> `ping @here & @everyone`"
       ),];
-      await interaction.reply({ embeds: [embeds[0]], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [embeds[0]] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_rules") {
@@ -707,7 +707,7 @@ module.exports = {
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.7`**",
         "<:VC_Reply:1482532158080942191> È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
       ].join("\n"));
-      await interaction.reply({ embeds: [generalEmbed, textEmbed, voiceEmbed, commonEmbed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [generalEmbed, textEmbed, voiceEmbed, commonEmbed] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_donations") {
@@ -765,7 +765,7 @@ module.exports = {
         .setColor("#6f4e37")
         .setTitle("Acquista ora!")
         .setDescription("<:blueflash:1470064803157643468> Apri un ticket nella **terza categoria** su: <#1442569095068254219>.");
-      await interaction.reply({ embeds: [donations, vip, ticket], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [donations, vip, ticket] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_sponsor") {
@@ -780,7 +780,7 @@ module.exports = {
         )
         .setImage(DIVIDER_URL);
       const rowSponsor = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("metodi").setLabel("︲METODI").setEmoji("<:Money:1330544713463500970>").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("ping").setLabel("︲PING").setEmoji("<:Discord_Mention:1329524304790028328>").setStyle(ButtonStyle.Secondary));
-      await interaction.reply({ embeds: [sponsorEmbed], components: [rowSponsor], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [sponsorEmbed], components: [rowSponsor] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_tags") {
@@ -801,7 +801,7 @@ module.exports = {
           "<:VC_Reply:1482532158080942191> _In costante aggiornamento, per consigliarne altre " + suggestionsMention + "_",
         ].join("\n"))
         .setImage(DIVIDER_URL);
-      await interaction.reply({ embeds: [tagsEmbed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [tagsEmbed] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "candidature_premi_partner") {
@@ -816,7 +816,7 @@ module.exports = {
           "<a:flyingnitroboost:1443652205705170986> Naturalmente, in caso di riscatto del **Nitro __Boost__**, almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )
         .setImage(DIVIDER_URL);
-      await interaction.reply({ embeds: [premiPartnerEmbed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [premiPartnerEmbed] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     const sendUpdatedView = async (payload) => {
@@ -832,7 +832,7 @@ module.exports = {
         return null;
       });
       if (updated !== null) return;
-      return interaction.reply({ ...payload, flags: 1 << 6 }).catch((err) => {
+      return interaction.reply({ ...payload }).catch((err) => {
         if (err?.code === 10062) return;
         logButtonErr(err);
       });
@@ -852,7 +852,7 @@ module.exports = {
           "<:pinkstar:1470064804835229768> Permesso di scrivere in <#1470029899740873029>",
         ].join("\n"));
 
-      await interaction.reply({ embeds: [verifyEmbed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [verifyEmbed] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     const buildBoostLevelsPayload = () => {
@@ -1103,7 +1103,7 @@ module.exports = {
           text: "⚠️ ▸ Se dovessi uscire dal server o cambiare account perderai i tuoi badge e i vantaggi annessi.",
         });
 
-      await interaction.reply({ embeds: [badgesEmbed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [badgesEmbed] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "r_multiplier_info") {
@@ -1125,7 +1125,7 @@ module.exports = {
       ].join("\n"),
       );
 
-      await interaction.reply({ embeds: [embed], flags: 1 << 6 }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "avatar_views") {
