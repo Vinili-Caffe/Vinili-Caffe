@@ -1,14 +1,3 @@
-/**
- * Riconcilia le richieste pausa: legge i messaggi dal canale pause, trova quelli
- * che non hanno un record in DB e crea il record Staff/pauses collegato, aggiornando
- * i pulsanti del messaggio con il nuovo _id.
- *
- * Esecuzione dalla root DiscordBot-1:
- *   node scripts/reconcile-pause-requests-from-channel.js
- *   node scripts/reconcile-pause-requests-from-channel.js --limit=50
- *
- * Richiede: MONGO_URL (o MONGODB_URI), DISCORD_TOKEN (o TOKEN), bot avviabile.
- */
 const path = require("path");
 const fs = require("fs");
 const mongoose = require("mongoose");
@@ -33,7 +22,7 @@ function getMongoUrl() {
 }
 
 function getDiscordToken() {
-  return process.env.DISCORD_TOKEN || process.env.TOKEN || "";
+  return process.env.DISCORD_TOKEN_OFFICIAL || process.env.TOKEN || "";
 }
 
 let IDs = { guilds: { main: "" }, channels: { pause: "" } };
