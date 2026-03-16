@@ -177,12 +177,21 @@ module.exports = {
           if (member?.user?.id && isStaffButNotHighStaff(member)) allowedIds.add(member.id);
         }
         const leaderboard = rawLeaderboard.filter((r) => allowedIds.has(r.userId)).slice(0, 25);
-        const lines = leaderboard.length ? leaderboard.map((r, i) => `${i + 1}.<@${r.userId}>—**${r.points}**pt`)
-          : ["Nessun punteggio."];
+        const lines = leaderboard.length
+          ? leaderboard.map((r, i) => `${i + 1}. <@${r.userId}> — **${r.points}** pt`)
+          : ["Nessun punteggio registrato per l'evento staff."];
         const embed = new EmbedBuilder()
           .setColor("#6f4e37")
           .setTitle("Evento Staff — Classifica punti")
-          .setDescription(lines.join("\n"))
+          .setDescription(
+            [
+              "<:VC_Leaderboard:1482534806314287387> **Punteggio complessivo evento staff**",
+              "",
+              ...lines,
+              "",
+              "_A fine evento i punti verranno usati per valutare pex / depex._",
+            ].join("\n"),
+          )
           .setFooter({ text: `Fine evento: ${fmtDateWithTime(staffSettings.expiresAt)}` });
         await safeMessageReply(message, {
           embeds: [embed],
