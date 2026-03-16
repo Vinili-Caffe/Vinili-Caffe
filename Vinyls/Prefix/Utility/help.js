@@ -573,8 +573,9 @@ function renderPageText(page, newUntilMap = null) {
     "Usa il prefix, slash o context menu in base al comando.",
     "Mini-help rapido: `+help <comando>`.",
     "",
+    "",
   ].join("\n");
-  const body = sections.join("\n\n");
+  const body = sections.join("\n");
   return { header, body };
 }
 
@@ -619,21 +620,22 @@ const HELP_PAGE_FOOTER_RESERVED = 30;
 const MAX_TEXTDISPLAY_LENGTH = 3800;
 
 function splitBodyBySections(body, maxBodyLen) {
-  const sections = body.split("\n\n").filter(Boolean);
+  const sections = body.split(/\n(?=\*\*[^*]+\*\*)/).filter(Boolean);
   if (!sections.length) return [""];
   const chunks = [];
   let current = [];
   let currentLen = 0;
+  const sepLen = 1;
   for (const sec of sections) {
-    const sep = current.length ? 2 : 0;
+    const sep = current.length ? sepLen : 0;
     if (currentLen + sep + sec.length > maxBodyLen && current.length) {
-      chunks.push(current.join("\n\n"));
+      chunks.push(current.join("\n"));
       current = [];
       currentLen = 0;
     }
     if (sec.length > maxBodyLen) {
       if (current.length) {
-        chunks.push(current.join("\n\n"));
+        chunks.push(current.join("\n"));
         current = [];
         currentLen = 0;
       }
@@ -644,7 +646,7 @@ function splitBodyBySections(body, maxBodyLen) {
     current.push(sec);
     currentLen += sep + sec.length;
   }
-  if (current.length) chunks.push(current.join("\n\n"));
+  if (current.length) chunks.push(current.join("\n"));
   return chunks;
 }
 
@@ -668,11 +670,49 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
     }
   }
 
-  const total = expanded.length;
+  let total = expanded.length;
   expanded.forEach((page, idx) => {
     page.indexLabel = `${idx + 1}/${total}`;
     page.renderedText = `${String(page.renderedText || "").trimEnd()}\n\n**Pagina ${page.indexLabel}**`;
   });
+
+  const MIN_BODY_LEN_TO_KEEP_PAGE = 400;
+  for (let i = 0; i < expanded.length - 1; i++) {
+    const page = expanded[i];
+    const text = String(page.renderedText || "");
+    const bodyStart = text.indexOf("\n**");
+    if (bodyStart === -1) continue;
+    const footerMatch = text.match(/\n\n\*\*Pagina \d+\/\d+\*\*$/);
+    const bodyEnd = footerMatch ? text.length - footerMatch[0].length : text.length;
+    const bodyLen = bodyEnd - (bodyStart + 1);
+    if (bodyLen >= MIN_BODY_LEN_TO_KEEP_PAGE) continue;
+    const header = text.slice(0, bodyStart + 1);
+    const body = text.slice(bodyStart + 1, bodyEnd).trimEnd();
+    const nextPage = expanded[i + 1];
+    const nextText = String(nextPage.renderedText || "");
+    const nextBodyStart = nextText.indexOf("\n**");
+    if (nextBodyStart === -1) continue;
+    const nextFooterMatch = nextText.match(/\n\n\*\*Pagina \d+\/\d+\*\*$/);
+    const nextBodyEnd = nextFooterMatch ? nextText.length - nextFooterMatch[0].length : nextText.length;
+    const nextBody = nextText.slice(nextBodyStart + 1, nextBodyEnd).trimEnd();
+    const mergedBody = body ? `${body}\n${nextBody}` : nextBody;
+    const newTotal = expanded.length - 1;
+    const footerStr = `\n\n**Pagina ${i + 1}/${newTotal}**`;
+    let merged = `${header}${mergedBody}${footerStr}`;
+    if (merged.length > MAX_TEXTDISPLAY_LENGTH) {
+      const maxBodyLen = MAX_TEXTDISPLAY_LENGTH - header.length - footerStr.length;
+      const bodyTruncated = mergedBody.length <= maxBodyLen ? mergedBody : mergedBody.slice(0, maxBodyLen).trimEnd();
+      merged = `${header}${bodyTruncated}${footerStr}`;
+    }
+    nextPage.renderedText = merged;
+    expanded.splice(i, 1);
+    total = expanded.length;
+    for (let idx = 0; idx < expanded.length; idx++) {
+      expanded[idx].indexLabel = `${idx + 1}/${total}`;
+      expanded[idx].renderedText = expanded[idx].renderedText.replace(/\n\n\*\*Pagina \d+\/\d+\*\*$/, `\n\n**Pagina ${expanded[idx].indexLabel}**`);
+    }
+    i--;
+  }
 
   return expanded;
 }
@@ -1321,7 +1361,7 @@ function buildMiniHelpEmbed(query, entries, context = {}) {
 
   return new EmbedBuilder()
     .setColor(HELP_EMBED_COLOR)
-    .setTitle(`Mini Help: ${query}`)
+    .setTitle(`Mini Help: ${query}`.replace(/^(Mini Help:)(\S)/, "$1 $2"))
     .setDescription(`${lines.join("\n")}${extra}`);
 }
 
