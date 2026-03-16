@@ -696,20 +696,18 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
     const nextBodyEnd = nextFooterMatch ? nextText.length - nextFooterMatch[0].length : nextText.length;
     const nextBody = nextText.slice(nextBodyStart + 1, nextBodyEnd).trimEnd();
     const mergedBody = body ? `${body}\n${nextBody}` : nextBody;
-    const newTotal = expanded.length - 1;
-    const footerStr = `\n\n**Pagina ${i + 1}/${newTotal}**`;
-    let merged = `${header}${mergedBody}${footerStr}`;
-    if (merged.length > MAX_TEXTDISPLAY_LENGTH) {
-      const maxBodyLen = MAX_TEXTDISPLAY_LENGTH - header.length - footerStr.length;
-      const bodyTruncated = mergedBody.length <= maxBodyLen ? mergedBody : mergedBody.slice(0, maxBodyLen).trimEnd();
-      merged = `${header}${bodyTruncated}${footerStr}`;
-    }
-    nextPage.renderedText = merged;
-    expanded.splice(i, 1);
+    const maxBodyLen = Math.max(200, MAX_TEXTDISPLAY_LENGTH - HELP_PAGE_FOOTER_RESERVED - header.length);
+    const bodyChunks = splitBodyBySections(mergedBody, maxBodyLen);
+    if (bodyChunks.length === 0) bodyChunks.push("");
+    const newPages = bodyChunks.map((chunk, j) => ({
+      ...nextPage,
+      renderedText: `${header}${chunk}`,
+    }));
+    expanded.splice(i, 2, ...newPages);
     total = expanded.length;
     for (let idx = 0; idx < expanded.length; idx++) {
       expanded[idx].indexLabel = `${idx + 1}/${total}`;
-      expanded[idx].renderedText = expanded[idx].renderedText.replace(/\n\n\*\*Pagina \d+\/\d+\*\*$/, `\n\n**Pagina ${expanded[idx].indexLabel}**`);
+      expanded[idx].renderedText = `${String(expanded[idx].renderedText || "").trimEnd()}\n\n**Pagina ${expanded[idx].indexLabel}**`;
     }
     i--;
   }
