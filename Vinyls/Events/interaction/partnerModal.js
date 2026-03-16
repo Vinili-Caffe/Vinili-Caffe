@@ -49,11 +49,14 @@ function stripLinksFromDescription(text) {
 }
 
 async function getOrCreateStaffPartnerDoc(guildId, userId) {
-  let staffDoc = await Staff.findOne({ guildId, userId });
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
+  let staffDoc = await Staff.findOne({ guildId: g, userId: u });
   if (!staffDoc) {
     staffDoc = new Staff({
-      guildId,
-      userId,
+      guildId: g,
+      userId: u,
       partnerCount: 0,
       partnerActions: [],
     });
@@ -249,6 +252,13 @@ async function handlePartnerModal(interaction) {
       return true;
     }
     const staffDoc = await getOrCreateStaffPartnerDoc(guildId, interaction.user.id,);
+    if (!staffDoc) {
+      await interaction.reply({
+        content: "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff. Riprova.",
+        ephemeral: true,
+      }).catch(() => {});
+      return true;
+    }
 
     staffDoc.partnerCount++;
     staffDoc.managerId = managerId;

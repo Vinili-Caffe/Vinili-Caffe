@@ -121,8 +121,8 @@ async function handlePauseButton(interaction) {
       const scaledDays = computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd);
       const statusLabel = getPauseStatusLabel(pause, todayUtc);
       const reasonFromMsg = await getPauseReasonFromMessage(interaction.client, pause);
-      const reason = (reasonFromMsg || String(pause?.motivazione || "").trim().slice(0, 100) || "—");
-      return `- \`${pause.dataRichiesta}\` -> \`${pause.dataRitorno}\` | **${statusLabel}** · Giorni scalati: \`${scaledDays}\`\n  <:VC_reason:1478517122929004544> ${reason}`;
+      const reason = (reasonFromMsg || String(pause?.motivazione || "").trim().slice(0, 800) || "—");
+      return `- \`${pause.dataRichiesta}\` -> \`${pause.dataRitorno}\` | **${statusLabel}** · Giorni scalati: \`${scaledDays}\`\n\n<:VC_reason:1478517122929004544> ${reason}`;
     });
     const rows = (await Promise.all(rowPromises)).filter(Boolean);
     const memberLabel = interaction.guild?.members?.cache?.get(userId)?.displayName || interaction.client?.users?.cache?.get(userId)?.username || ` User ID: ${userId}`;

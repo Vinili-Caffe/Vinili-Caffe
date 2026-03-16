@@ -830,6 +830,10 @@
                     "roles.Staff",
                     "roles.PartnerManager"
                 ],
+                "transfer": [
+                    "roles.Staff",
+                    "roles.PartnerManager"
+                ],
                 "switchpanel": [
                     "roles.HighStaff"
                 ],

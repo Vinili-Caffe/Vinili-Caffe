@@ -1,4 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const mongoose = require("mongoose");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
@@ -180,6 +181,16 @@ async function getStaffPauseRecord(guildId, userId) {
   return Staff.findOne({ guildId: g, userId: u });
 }
 
+function normalizePauseIdForQuery(pauseId) {
+  if (!pauseId) return null;
+  const str = String(pauseId).trim();
+  if (!str) return null;
+  if (mongoose.Types.ObjectId.isValid(str) && String(new mongoose.Types.ObjectId(str)) === str) {
+    return new mongoose.Types.ObjectId(str);
+  }
+  return str;
+}
+
 async function updatePauseInDb(guildId, userId, pauseId, setFields) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
@@ -189,8 +200,10 @@ async function updatePauseInDb(guildId, userId, pauseId, setFields) {
     if (key && value !== undefined) updates[`pauses.$.${key}`] = value;
   }
   if (Object.keys(updates).length === 0) return { ok: true };
+  const pauseIdQuery = normalizePauseIdForQuery(pauseId);
+  if (!pauseIdQuery) return { ok: false };
   const result = await Staff.updateOne(
-    { guildId: g, userId: u, "pauses._id": pauseId },
+    { guildId: g, userId: u, "pauses._id": pauseIdQuery },
     { $set: updates },
   ).catch(() => null);
   return { ok: Boolean(result?.modifiedCount === 1 || result?.matchedCount === 1) };
@@ -457,7 +470,7 @@ async function getPauseReasonFromMessage(client, pause) {
     const idx = content.indexOf(prefix);
     if (idx === -1) return null;
     const raw = content.slice(idx + prefix.length).trim();
-    return raw ? raw.slice(0, 100) : null;
+    return raw ? raw.slice(0, 800) : null;
   } catch {
     return null;
   }

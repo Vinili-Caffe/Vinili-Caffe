@@ -121,9 +121,12 @@ async function ensureNotSelf(interaction, targetUser) {
 }
 
 async function getOrCreateStaffDoc(guildId, userId) {
-  let staffDoc = await StaffModel.findOne({ guildId, userId });
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
+  let staffDoc = await StaffModel.findOne({ guildId: g, userId: u });
   if (!staffDoc) {
-    staffDoc = new StaffModel({ guildId, userId });
+    staffDoc = new StaffModel({ guildId: g, userId: u });
   }
   return staffDoc;
 }

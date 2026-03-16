@@ -26,11 +26,14 @@ function formatPartnerPointsChange(action, amount) {
 }
 
 async function addPartnerPoints(guildId, userId, amount) {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
   return Staff.findOneAndUpdate(
-    { guildId, userId },
+    { guildId: g, userId: u },
     {
       $inc: { partnerCount: amount },
-      $setOnInsert: { guildId, userId, partnerCount: 0 },
+      $setOnInsert: { guildId: g, userId: u, partnerCount: 0 },
     },
     {
       new: true,
@@ -41,13 +44,16 @@ async function addPartnerPoints(guildId, userId, amount) {
 }
 
 async function removePartnerPoints(guildId, userId, amount) {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
   return Staff.findOneAndUpdate(
-    { guildId, userId },
+    { guildId: g, userId: u },
     [
       {
         $set: {
-          guildId,
-          userId,
+          guildId: g,
+          userId: u,
           partnerCount: {
             $max: [
               0,

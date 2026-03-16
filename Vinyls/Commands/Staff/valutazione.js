@@ -20,9 +20,12 @@ function successEmbed(description) {
 
 function ensureStaffDoc(staffDoc, guildId, userId) {
   if (staffDoc) return staffDoc;
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
   return new Staff({
-    guildId,
-    userId,
+    guildId: g,
+    userId: u,
     rolesHistory: [],
     warnReasons: [],
     positiveReasons: [],
@@ -35,7 +38,10 @@ function ensureStaffDoc(staffDoc, guildId, userId) {
 }
 
 async function getStaffDoc(guildId, userId) {
-  return Staff.findOne({ guildId, userId });
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
+  return Staff.findOne({ guildId: g, userId: u });
 }
 
 function makeLogEmbed(

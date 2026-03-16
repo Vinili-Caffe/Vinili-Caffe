@@ -2,8 +2,11 @@ const StaffModel = require("../../Schemas/Staff/staffSchema");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 
 async function getOrCreateStaffDoc(guildId, userId) {
-  let doc = await StaffModel.findOne({ guildId, userId });
-  if (!doc) doc = new StaffModel({ guildId, userId });
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
+  let doc = await StaffModel.findOne({ guildId: g, userId: u });
+  if (!doc) doc = new StaffModel({ guildId: g, userId: u });
   return doc;
 }
 
