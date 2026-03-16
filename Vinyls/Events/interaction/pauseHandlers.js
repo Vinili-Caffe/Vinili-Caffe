@@ -1,6 +1,12 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+
+async function deletePauseThreadIfAny(guild, requestThreadId) {
+  if (!guild || !requestThreadId) return;
+  const thread = await guild.channels.fetch(requestThreadId).catch(() => null);
+  if (thread?.isThread?.()) await thread.delete().catch(() => null);
+}
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange } = require("../../Utils/Pause/pauseHandlersUtils");
 const pauseActionLocks = new Set();
 
@@ -179,7 +185,9 @@ async function handlePauseButton(interaction) {
       return true;
     }
     targetPause.status = "rejected";
+    stafferRecord.markModified("pauses");
     await stafferRecord.save();
+    await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
     await interaction.deferUpdate().catch(() => {});
     const currentContent = interaction.message?.content || "";
     const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${userId}>.`;
@@ -250,6 +258,7 @@ async function handlePauseButton(interaction) {
     targetPause.status = "cancelled";
     targetPause.giorniUsati = consumedForCancelledPause;
     targetPause.cancelledAt = new Date();
+    stafferRecord.markModified("pauses");
     await stafferRecord.save();
 
     const baseLimit = getBasePauseLimit(member);
@@ -337,6 +346,7 @@ async function handlePauseButton(interaction) {
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
   targetPause.stafferInPausa = sameRoleActiveCount;
+  stafferRecord.markModified("pauses");
   await stafferRecord.save();
 
   const roleLimit = getPauseRoleLimit(roleLabel);
@@ -349,6 +359,7 @@ async function handlePauseButton(interaction) {
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
   const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${targetPause.ruolo}\`** - **<@${userId}>** ${pauseTimingText}.\n<a:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<a:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 
+  await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
   await interaction.deferUpdate().catch(() => {});
   await interaction.message?.edit({
     content: acceptanceContent,

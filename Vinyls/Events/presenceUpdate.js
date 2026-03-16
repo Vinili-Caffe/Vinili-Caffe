@@ -180,7 +180,7 @@ async function addRoleIfPossible(member) {
     return false;
   }
 
-  const role = member.guild.roles.cache.get(ROLE_ID);
+  let role = member.guild.roles.cache.get(ROLE_ID) || await member.guild.roles.fetch(ROLE_ID).catch(() => null);
   if (!role) {
     global.logger?.warn?.("[presenceUpdate] Supporter role not found:", ROLE_ID);
     return false;
@@ -242,7 +242,7 @@ async function removeRoleIfPossible(member) {
     return false;
   }
 
-  const role = member.guild.roles.cache.get(ROLE_ID);
+  let role = member.guild.roles.cache.get(ROLE_ID) || await member.guild.roles.fetch(ROLE_ID).catch(() => null);
   if (!role) {
     global.logger?.warn?.("[presenceUpdate] Supporter role not found:", ROLE_ID);
     return false;

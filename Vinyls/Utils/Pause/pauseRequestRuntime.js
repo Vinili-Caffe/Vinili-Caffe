@@ -98,15 +98,19 @@ function buildPauseRequestButtonsRow(userId, pauseId) {
 }
 
 async function getOrCreateStaffDoc(guildId, userId) {
-  let stafferDoc = await Staff.findOne({ guildId, userId });
-  if (!stafferDoc) stafferDoc = new Staff({ guildId, userId });
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
+  let stafferDoc = await Staff.findOne({ guildId: g, userId: u });
+  if (!stafferDoc) stafferDoc = new Staff({ guildId: g, userId: u });
   if (!Array.isArray(stafferDoc.pauses)) stafferDoc.pauses = [];
   return stafferDoc;
 }
 
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null }) {
-  const guildId = guild?.id;
-  if (!guild || !guildId || !userId) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
+  const guildId = String(guild?.id ?? "").trim();
+  const uid = String(userId ?? "").trim();
+  if (!guild || !guildId || !uid) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
   const client = guild.client;
   const pauseChannel = guild.channels.cache.get(IDs.channels?.pause) || (await getGuildChannelCached(guild, IDs.channels?.pause)) || (await getClientChannelCached(client, IDs.channels?.pause));
   const normalized = normalizePauseDates(rawStart, rawEnd);
@@ -119,7 +123,11 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   if (!pauseChannel?.isTextBased?.()) {
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Canale pause non disponibile." };
   }
-  const stafferDoc = await getOrCreateStaffDoc(guildId, userId);
+  const stafferDoc = await getOrCreateStaffDoc(guildId, uid);
+  if (!stafferDoc) {
+    global.logger?.error?.("[createPauseRequest] getOrCreateStaffDoc returned null", { guildId, userId: uid });
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff (guild/user non validi)." };
+  }
   stafferDoc.pauses.push({
     dataRichiesta: normalized.dataRichiesta,
     dataRitorno: normalized.dataRitorno,
@@ -127,7 +135,13 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     status: "pending",
     createdAt: new Date(),
   });
-  await stafferDoc.save();
+  stafferDoc.markModified("pauses");
+  try {
+    await stafferDoc.save();
+  } catch (err) {
+    global.logger?.error?.("[createPauseRequest] save failed", err);
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Errore nel salvataggio della richiesta pausa. Riprova o contatta chi gestisce il bot." };
+  }
   const createdPause = stafferDoc.pauses[stafferDoc.pauses.length - 1];
   const pauseId = String(createdPause?._id || "");
 
@@ -148,16 +162,22 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
   const posted = await pauseChannel.send({
     content,
-    components: [buildPauseRequestButtonsRow(userId, pauseId)],
+    components: [buildPauseRequestButtonsRow(uid, pauseId)],
   }).catch(() => null);
   if (!posted) {
     createdPause.status = "cancelled";
+    stafferDoc.markModified("pauses");
     await stafferDoc.save().catch(() => null);
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale." };
   }
-  createdPause.requestChannelId = pauseChannel.id;
-  createdPause.requestMessageId = posted.id;
-  await stafferDoc.save().catch(() => null);
+  createdPause.requestChannelId = String(pauseChannel.id ?? "").trim();
+  createdPause.requestMessageId = posted.id ? String(posted.id) : null;
+  stafferDoc.markModified("pauses");
+  try {
+    await stafferDoc.save();
+  } catch (err) {
+    global.logger?.error?.("[createPauseRequest] save (messageId) failed", err);
+  }
 
   let thread = null;
   try {
@@ -169,7 +189,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   } catch (e) {
     return { ok: true, pauseId };
   }
-  await thread.members.add(userId).catch(() => null);
+  await thread.members.add(uid).catch(() => null);
   const highStaffRoleId = String(IDs.roles.HighStaff || "");
   if (highStaffRoleId) {
     const membersWithHighStaff = guild.members.cache.filter((m) => m.roles.cache.has(highStaffRoleId));
@@ -180,6 +200,13 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   await thread.send({
     content: `<:staff:1443651912179388548> Discussione per la richiesta pausa di ${requesterMention}. Il messaggio con i pulsanti è nel canale.`,
   }).catch(() => null);
+  createdPause.requestThreadId = String(thread.id ?? "").trim();
+  stafferDoc.markModified("pauses");
+  try {
+    await stafferDoc.save();
+  } catch (err) {
+    global.logger?.error?.("[createPauseRequest] save (threadId) failed", err);
+  }
   return { ok: true, pauseId };
 }
 

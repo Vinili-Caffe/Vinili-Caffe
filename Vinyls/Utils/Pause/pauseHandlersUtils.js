@@ -151,7 +151,9 @@ async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeSta
   const targetEnd = parseItalianDate(rangeEndRaw);
   if (!targetStart || !targetEnd) return 0;
 
-  const docs = await Staff.find({ guildId }, { userId: 1, pauses: 1 })
+  const g = String(guildId ?? "").trim();
+  if (!g) return 0;
+  const docs = await Staff.find({ guildId: g }, { userId: 1, pauses: 1 })
     .lean()
     .catch(() => []);
   const userIds = new Set();
@@ -172,7 +174,10 @@ async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeSta
 }
 
 async function getStaffPauseRecord(guildId, userId) {
-  return Staff.findOne({ guildId, userId });
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u) return null;
+  return Staff.findOne({ guildId: g, userId: u });
 }
 
 function computeConsumedPauseDays(pauses) {

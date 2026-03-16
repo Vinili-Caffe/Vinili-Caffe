@@ -106,7 +106,13 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   if (!isHighStaff && String(targetUser?.id || "") !== String(requesterId || "")) {
     return { ok: false, error: "<:vegax:1443934876440068179> Puoi vedere solo le tue pause." };
   }
-  const stafferRecord = await Staff.findOne({ guildId, userId: targetUser.id }, { pauses: 1 }).lean().catch(() => null);
+  const g = String(guildId ?? "").trim();
+  const u = String(targetUser?.id ?? "").trim();
+  if (!g || !u) {
+    const y = getCurrentYearBoundsUtc().yearStart.getUTCFullYear();
+    return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], };
+  }
+  const stafferRecord = await Staff.findOne({ guildId: g, userId: u }, { pauses: 1 }).lean().catch(() => null);
   const pauses = Array.isArray(stafferRecord?.pauses) ? stafferRecord.pauses : [];
   const todayUtc = getTodayUtc();
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
