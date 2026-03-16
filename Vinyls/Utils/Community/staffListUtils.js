@@ -164,6 +164,23 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   const pexedLast7Days = await getStaffPexedLast7Days(guild.id);
 
   const content = buildContent(guild, membersSource, pexedLast7Days);
+
+  // Se la lista è vuota, logghiamo informazioni diagnostiche per capire perché.
+  if (content.trim() === "## STAFF LIST") {
+    const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
+    const roleDebug = staffRoleIds.map((roleId) => {
+      const role = guild.roles.cache.get(roleId);
+      if (!role) return { roleId, name: null, memberCount: 0 };
+      const count = Array.from(iterMembers(membersSource)).filter((m) => m?.roles?.cache?.has?.(roleId)).length;
+      return { roleId, name: role.name, memberCount: count };
+    });
+    global.logger?.error?.("[STAFF LIST] Empty content debug", {
+      guildId: guild.id,
+      guildName: guild.name,
+      staffRoles: roleDebug,
+    });
+  }
+
   const previousHash = state.contentHashByGuild.get(guildId);
   if (!force && previousHash === content) return;
 
