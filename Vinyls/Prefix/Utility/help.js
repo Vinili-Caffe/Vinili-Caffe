@@ -707,7 +707,10 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
     total = expanded.length;
     for (let idx = 0; idx < expanded.length; idx++) {
       expanded[idx].indexLabel = `${idx + 1}/${total}`;
-      expanded[idx].renderedText = `${String(expanded[idx].renderedText || "").trimEnd()}\n\n**Pagina ${expanded[idx].indexLabel}**`;
+      const rt = expanded[idx].renderedText || "";
+      expanded[idx].renderedText = rt.match(/\n\n\*\*Pagina \d+\/\d+\*\*$/)
+        ? rt.replace(/\n\n\*\*Pagina \d+\/\d+\*\*$/, `\n\n**Pagina ${expanded[idx].indexLabel}**`)
+        : `${rt.trimEnd()}\n\n**Pagina ${expanded[idx].indexLabel}**`;
     }
     i += newPages.length - 1;
   }
