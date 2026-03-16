@@ -420,18 +420,12 @@ function getCompletedEventWeekForSundayPayout(settings) {
 async function getTop10ExpDuringEvent(guildId, limit = 10) {
   if (!guildId) return [];
   const cap = Math.max(1, Math.min(100, Number(limit) || 10));
-  const snapshots = await EventUserExpSnapshot.find({ guildId }).select("userId totalExpAtStart activityExpAtStart").lean().then((list) => new Map(list.map((d) => [String(d.userId), { totalExpAtStart: Number(d.totalExpAtStart) || 0, activityExpAtStart: Number(d.activityExpAtStart) || 0, }, ]))).catch(() => new Map());
   const users = await ExpUser.find({ guildId }).select("userId totalExp activityExpTotal").lean().catch(() => []);
   const withExp = users.map((d) => {
     const userId = String(d?.userId || "");
-    const total = Math.max(0, Number(d?.totalExp || 0));
     const activityTotal = Math.max(0, Number(d?.activityExpTotal || 0));
-    const snap = snapshots.get(userId) || { totalExpAtStart: 0, activityExpAtStart: 0 };
-    const activityDuringRaw = activityTotal - (snap.activityExpAtStart || 0);
-    const fallbackTotalDuring = total - (snap.totalExpAtStart || 0);
-    const activityDuring = Math.max(0, Number.isFinite(activityDuringRaw) ? activityDuringRaw : 0);
-    const expDuringEvent = activityDuring > 0 ? activityDuring : Math.max(0, fallbackTotalDuring);
-    return { userId, expDuringEvent, activityExpDuringEvent: Math.max(0, activityDuring) };
+    const expDuringEvent = activityTotal;
+    return { userId, expDuringEvent, activityExpDuringEvent: activityTotal };
   });
   const ranked = withExp
     .filter((r) => r.expDuringEvent > 0)
