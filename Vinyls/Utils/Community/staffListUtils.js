@@ -5,7 +5,18 @@ const STAFF_LIST_MARKER = "staff list";
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const ROLE_UP = { [String(IDs.roles.Member || "")]: String(IDs.roles.Helper), [String(IDs.roles.Helper)]: String(IDs.roles.Mod), [String(IDs.roles.Mod)]: String(IDs.roles.Coordinator), [String(IDs.roles.Coordinator)]: String(IDs.roles.Supervisor) };
-const ROLE_EMOJIS = { [IDs.roles.PartnerManager]: { emoji: "<:partnermanager:1443651916838998099>"}, [IDs.roles.Helper]: { emoji: "<:helper:1443651909448630312>" }, [IDs.roles.Mod]: { emoji: "<:mod:1443651914209165454>" }, [IDs.roles.Coordinator]: { emoji: "<:coordinator:1443651923168202824>" }, [IDs.roles.Supervisor]: { emoji: "<:supervisor:1443651907900932157>" }, [IDs.roles.Admin]: { emoji: "<:admin:1443651911059247225>" }, [IDs.roles.Manager]: { emoji: "<:manager:1443651919829536940>" }, [IDs.roles.CoFounder]: { emoji: "<:cofounder:1443651915752804392>" }, [IDs.roles.Founder]: { emoji: "<:founder:1443651924674216128>" }, };
+const ROLE_EMOJIS = {
+  [IDs.roles.PartnerManager]: { emoji: "<:partnermanager:1443651916838998099>" },
+  [IDs.roles.Helper]: { emoji: "<:helper:1443651909448630312>" },
+  [IDs.roles.Mod]: { emoji: "<:mod:1443651914209165454>" },
+  [IDs.roles.Coordinator]: { emoji: "<:coordinator:1443651923168202824>" },
+  [IDs.roles.Supervisor]: { emoji: "<:supervisor:1443651907900932157>" },
+  [IDs.roles.Admin]: { emoji: "<:admin:1443651911059247225>" },
+  [IDs.roles.Manager]: { emoji: "<:manager:1443651919829536940>" },
+  [IDs.roles.CoFounder]: { emoji: "<:cofounder:1443651915752804392>" },
+  [IDs.roles.Founder]: { emoji: "<:founder:1443651924674216128>" },
+  [IDs.roles.Staff]: { emoji: "<:staff:1443651912179388548>" },
+};
 const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };
 const STAFF_ROLE_IDS = Object.keys(ROLE_EMOJIS);
 
