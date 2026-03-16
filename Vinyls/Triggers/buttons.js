@@ -12,7 +12,11 @@ const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, RO
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
-const IGNORED_BUTTON_LOG_CODES = new Set([10062, 10015]);
+const IGNORED_BUTTON_LOG_CODES = new Set([
+  10062, // Unknown interaction
+  10015, // Unknown webhook
+  40060, // Interaction has already been acknowledged
+]);
 
 function logButtonErr(err, opts = {}) {
   if (!err) return;
