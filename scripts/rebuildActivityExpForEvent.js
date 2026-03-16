@@ -1,8 +1,19 @@
 const mongoose = require("mongoose");
-const { ActivityHourly, ExpUser, EventUserExpSnapshot, GlobalSettings } = require("../Vinyls/Schemas/Community/communitySchemas");
-const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE } = require("../Vinyls/Services/Community/expService");
+require("dotenv").config();
+const {
+  ActivityHourly,
+  ExpUser,
+  EventUserExpSnapshot,
+  GlobalSettings,
+} = require("../Vinyls/Schemas/Community/communitySchemas");
+const {
+  MESSAGE_EXP,
+  VOICE_EXP_PER_MINUTE,
+} = require("../Vinyls/Services/Community/expService");
 const IDs = require("../Vinyls/Utils/Config/ids");
-const { getEventWeekRomeDateKeys } = require("../Vinyls/Services/Community/activityEventRewardsService");
+const {
+  getEventWeekRomeDateKeys,
+} = require("../Vinyls/Services/Community/activityEventRewardsService");
 
 async function main() {
   const guildId = IDs.guilds?.main;
@@ -152,9 +163,14 @@ async function main() {
 }
 
 if (require.main === module) {
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  const uri =
+    process.env.MONGO_URI ||
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URL;
   if (!uri) {
-    console.error("[rebuildActivityExpForEvent] MONGO_URI mancante.");
+    console.error(
+      "[rebuildActivityExpForEvent] MONGO_URI/MONGODB_URI/MONGO_URL mancante.",
+    );
     process.exit(1);
   }
   mongoose
