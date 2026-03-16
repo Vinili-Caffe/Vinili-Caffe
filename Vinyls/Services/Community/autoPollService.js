@@ -29,30 +29,31 @@ function warnPollOpenRouter(...args) {
 }
 
 const LOCAL_ATTUALITA_POLLS = [
-  { question: "Da dove segui soprattutto le notizie?", answers: ["TV", "Siti e app di news", "Social network", "Radio", "Passaparola"], },
-  { question: "Quanto sei preoccupato per il cambiamento climatico?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Non ci penso"], },
-  { question: "Smart working: come preferisci lavorare?", answers: ["Solo da remoto", "Solo in sede", "Ibrido a scelta", "Ibrido obbligatorio", "Dipende dal ruolo"], },
-  { question: "L'intelligenza artificiale nella vita quotidiana: come la vedi?", answers: ["Utile e positiva", "Utile ma da regolamentare", "Neutra", "Preoccupante", "La evito"], },
-  { question: "Quale tema di attualità ti interessa di più?", answers: ["Ambiente e clima", "Economia e lavoro", "Politica e società", "Tecnologia", "Salute"], },
-  { question: "Quanto ti senti informato sulla politica italiana?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Non mi interessa"], },
-  { question: "Dove ti informi prima su un fatto di cronaca?", answers: ["TG o telegiornali", "Siti di news", "Twitter/X o social", "Google", "Non seguo la cronaca"], },
-  { question: "Il costo della vita: come lo stai vivendo?", answers: ["Con difficoltà", "Con qualche rinuncia", "Senza grandi problemi", "Non mi tocca", "Preferisco non pensarci"], },
-  { question: "Quanto è importante per te la privacy online?", answers: ["Molto, la proteggo", "Abbastanza", "Poco", "Non ci penso", "Rinuncio per comodità"], },
-  { question: "Come vedi il futuro dell'Europa?", answers: ["Più unita", "Come ora", "Più divisa", "Non so", "Non mi interessa"], },
-  { question: "Quale problema sociale ti sta più a cuore?", answers: ["Disuguaglianze", "Immigrazione e integrazione", "Lavoro e giovani", "Salute e welfare", "Sicurezza"], },
-  { question: "Le fonti di energia: quale direzione preferisci?", answers: ["Solo rinnovabili", "Mix con meno fossili", "Nucleare incluso", "Status quo", "Non ho un'opinione"], },
-  { question: "Quanto ti fidi dei media tradizionali?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Dipende dal mezzo"], },
-  { question: "Tasse e welfare: come la pensi?", answers: ["Più tasse, più servizi", "Meno tasse", "Equilibrio", "Riforma radicale", "Non so"], },
-  { question: "Come ti rapporti alle fake news?", answers: ["Le verifico sempre", "Cerco di verificare", "A volte ci cascano", "Non mi preoccupano", "Non so come verificarle"], },
-  { question: "Lavoro e giovani: qual è la priorità?", answers: ["Contratti stabili", "Stipendio dignitoso", "Formazione", "Lavoro da remoto", "Menare meno"], },
-  { question: "Salute pubblica: cosa conta di più?", answers: ["Prevenzione", "Ospedali e cure", "Mental health", "Ricerca", "Tutto uguale"], },
+  { question: "Da dove arriva la notizia che controlli per prima?", answers: ["TG o telegiornale", "Siti / app di news", "Twitter/X o social", "Radio", "Passaparola"], },
+  { question: "Smart working: come preferisci?", answers: ["Solo da remoto", "Solo in sede", "Ibrido a mia scelta", "Ibrido obbligatorio", "Dipende dal lavoro"], },
+  { question: "L'IA (ChatGPT, assistenti, ecc.): come la usi?", answers: ["Spesso e volentieri", "A volte, con cautela", "Poco", "La evito", "Non so da dove iniziare"], },
+  { question: "Quale tema ti fa aprire un articolo?", answers: ["Ambiente e clima", "Economia e lavoro", "Politica e società", "Tecnologia", "Salute e scienza"], },
+  { question: "Costo della vita: come la stai vivendo?", answers: ["Con difficoltà", "Con qualche rinuncia", "Senza grandi problemi", "Non mi tocca", "Preferisco non pensarci"], },
+  { question: "Privacy online: quanto ci stai attento?", answers: ["Molto", "Abbastanza", "Poco", "Quasi per niente", "Rinuncio per comodità"], },
+  { question: "Fake news: come ti comporti?", answers: ["Verifico quasi sempre", "Cerco di verificare", "A volte ci cascano", "Non mi preoccupano", "Non so come verificarle"], },
+  { question: "Priorità per i giovani al lavoro?", answers: ["Contratti stabili", "Stipendio dignitoso", "Formazione", "Più remoto", "Meno precariato"], },
+  { question: "Dove investiresti più soldi pubblici?", answers: ["Sanità", "Istruzione", "Infrastrutture", "Ambiente", "Sicurezza"], },
+  { question: "Informazione sui social: come la vedi?", answers: ["Utile se filtri", "Troppo caotica", "Pericolosa", "Indispensabile", "La evito"], },
+  { question: "Energia: quale direzione per l'Italia?", answers: ["Solo rinnovabili", "Mix con meno fossili", "Nucleare incluso", "Come ora", "Non ho un'opinione"], },
+  { question: "Europa: come la vorresti?", answers: ["Più unita", "Come ora", "Più divisa", "Non so", "Poco rilevante per me"], },
+  { question: "Quale tema vorresti più in TV?", answers: ["Ambiente", "Economia", "Diritti civili", "Lavoro", "Cronaca e giustizia"], },
+  { question: "Reddito e lavoro: priorità per il Paese?", answers: ["Lotta alla povertà", "Più posti di lavoro", "Formazione", "Meno precariato", "Tagliare le tasse"], },
   { question: "Scuola e università: cosa cambieresti?", answers: ["Più fondi", "Programmi aggiornati", "Meno burocrazia", "Più meritocrazia", "Niente di particolare"], },
-  { question: "Come vedi il ruolo dell'Italia in Europa?", answers: ["Più protagonista", "Come ora", "Più indipendente", "Non so", "Poco rilevante"], },
-  { question: "Quale tema vorresti più dibattuto in TV?", answers: ["Ambiente", "Economia", "Diritti civili", "Lavoro", "Cronaca e giustizia"], },
-  { question: "Quanto sei favorevole a leggi più severe sul clima?", answers: ["Molto", "Abbastanza", "Poco", "Contrario", "Indifferente"], },
-  { question: "Dove investiresti più risorse pubbliche?", answers: ["Sanità", "Istruzione", "Infrastrutture", "Ambiente", "Sicurezza"], },
-  { question: "Come giudichi l'informazione sui social?", answers: ["Utile se si filtra", "Troppo caotica", "Pericolosa", "Indispensabile", "La evito"], },
-  { question: "Reddito e lavoro: qual è la priorità per il Paese?", answers: ["Lotta alla povertà", "Creare posti di lavoro", "Formazione", "Ridurre il precariato", "Tagliare le tasse"], },
+  { question: "Ruolo dell'Italia in Europa?", answers: ["Più protagonista", "Come ora", "Più indipendente", "Non so", "Poco rilevante"], },
+  { question: "Media tradizionali: quanto ti fidi?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Dipende dal mezzo"], },
+  { question: "Tema sociale che ti sta più a cuore?", answers: ["Disuguaglianze", "Immigrazione e integrazione", "Lavoro e giovani", "Salute e welfare", "Sicurezza"], },
+  { question: "Salute pubblica: cosa conta di più?", answers: ["Prevenzione", "Ospedali e cure", "Salute mentale", "Ricerca", "Tutto uguale"], },
+  { question: "Lavoro: preferisci?", answers: ["Stabilità", "Stipendio alto", "Flessibilità orari", "Remoto", "Work-life balance"], },
+  { question: "Notizie: quante ne leggi al giorno?", answers: ["Tante, mi tengo aggiornato", "Qualche titolo", "Poche", "Quasi nessuna", "Solo sui social"], },
+  { question: "Cambiamento climatico: livello di preoccupazione?", answers: ["Molto preoccupato", "Abbastanza", "Poco", "Per niente", "Non ci penso"], },
+  { question: "Tasse: più servizi o meno tasse?", answers: ["Più tasse, più servizi", "Meno tasse", "Equilibrio", "Riforma radicale", "Non so"], },
+  { question: "Leggi più severe sul clima?", answers: ["Sì, molto", "Sì, abbastanza", "Poco favorevole", "Contrario", "Indifferente"], },
+  { question: "Politica italiana: quanto ti senti informato?", answers: ["Molto", "Abbastanza", "Poco", "Per niente", "Non mi interessa"], },
 ];
 
 function normalizeText(value) {
@@ -135,16 +136,19 @@ function pickNextOptionTarget(client, cfg = {}) {
   return target;
 }
 
-function applyOptionCount(payload, cfg = {}, forcedTargetOptions = null) {
+function applyOptionCount(payload, cfg = {}, forcedTargetOptions = null, options = {}) {
   if (!payload) return null;
+  const shuffleAnswers = options.shuffleAnswers !== false;
   const minOptions = clampOptionCount(cfg.minOptions, 4);
   const maxOptions = Math.max(minOptions, clampOptionCount(cfg.maxOptions, 6));
   const targetOptions = Number.isFinite(Number(forcedTargetOptions)) ? Math.max(minOptions, Math.min(maxOptions, Math.floor(Number(forcedTargetOptions)))) : maxOptions;
-  const answers = Array.isArray(payload.answers) ? payload.answers.map((x) => normalizeText(String(x || ""))).filter(Boolean) : [];
+  let answers = Array.isArray(payload.answers) ? payload.answers.map((x) => normalizeText(String(x || ""))).filter(Boolean) : [];
   if (answers.length < minOptions) return null;
+  if (shuffleAnswers) answers = shuffle(answers);
+  answers = answers.slice(0, targetOptions);
   return {
     question: normalizeText(String(payload.question || "")),
-    answers: shuffle(answers).slice(0, targetOptions),
+    answers,
   };
 }
 
@@ -206,12 +210,10 @@ function buildLocalAttualitaPoll(cfg = {}, forcedTargetOptions = null) {
   const picked = pickRandom(LOCAL_ATTUALITA_POLLS);
   if (!picked) return null;
   return applyOptionCount(
-    {
-      question: picked.question,
-      answers: picked.answers,
-    },
+    { question: picked.question, answers: picked.answers },
     cfg,
     forcedTargetOptions,
+    { shuffleAnswers: false },
   );
 }
 
@@ -315,12 +317,8 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
 
   for (const model of models) {
     const payload = {
-      model, messages: [{ role: "system", content: "Genera sondaggi su argomenti di attualità per utenti italiani. " + "Scrivi solo in italiano naturale. " + "Le domande devono riguardare temi di attualità: cronaca, società, politica, ambiente, lavoro, tecnologia, economia, salute, diritti, Europa, media e informazione. " + "Le risposte devono essere coerenti tra loro, plausibili, corte e senza duplicati. " + "Non usare risposte meta come 'dipende', 'altro', 'non so' salvo se davvero sensate. " + "Non usare riferimenti a Discord, community, server o chat. " + "Non usare il formato 'Qual e la tua opinione su ...'. " + "Restituisci solo JSON valido con le chiavi question e answers.", }, {
-        role: "user", content: `Genera un poll con ${optionCount} risposte.` +
-          " Target: pubblico italiano." +
-          " La domanda deve essere su un tema di attualità (cronaca, società, politica, ambiente, lavoro, tecnologia, economia, salute, diritti, media)." +
-          " Domanda breve, chiara e che inviti a rispondere con opzioni concrete e realistiche." +
-          ' Rispondi solo con JSON: {"question":"...","answers":["..."]}.',
+      model, messages: [{ role: "system", content: "Genera sondaggi su attualità per utenti italiani. Regole: (1) Italiano naturale, domande brevi e che invoglino a votare. (2) Evita domande generiche tipo 'Quanto sei preoccupato per X' o 'Qual è la tua opinione su Y'. (3) Preferisci domande su scelte concrete, preferenze chiare, fatti recenti o trend. (4) Temi: cronaca, società, politica, ambiente, lavoro, tech, economia, salute, diritti, Europa, media. (5) Risposte corte, coerenti tra loro, senza 'dipende'/'altro'/'non so' se non necessari. (6) Niente riferimenti a Discord o community. (7) Output solo JSON: {\"question\":\"...\",\"answers\":[\"...\"]}.", }, {
+        role: "user", content: `Genera un poll con ${optionCount} risposte. Domanda su attualità: concreta, non generica. Esempi di stile: 'Se votassi domani per X, sceglieresti?', 'Dove andresti a vivere?', 'Quale notizia ti ha colpito di più?'. Opzioni concrete e realistiche. Solo JSON.`,
       },
       ],
       max_tokens: 220,

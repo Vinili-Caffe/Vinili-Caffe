@@ -52,6 +52,15 @@ function didStaffMembershipChange(oldMember, newMember) {
   return memberHasStaffRole(oldMember) !== memberHasStaffRole(newMember);
 }
 
+function didStaffRolesChange(oldMember, newMember) {
+  const oldStaffIds = new Set(STAFF_ROLE_IDS.filter((id) => oldMember?.roles?.cache?.has?.(id)));
+  const newStaffIds = new Set(STAFF_ROLE_IDS.filter((id) => newMember?.roles?.cache?.has?.(id)));
+  if (oldStaffIds.size !== newStaffIds.size) return true;
+  for (const id of oldStaffIds) if (!newStaffIds.has(id)) return true;
+  for (const id of newStaffIds) if (!oldStaffIds.has(id)) return true;
+  return false;
+}
+
 function isPexEntry(row) {
   const oldRole = String(row?.oldRole || "");
   const newRole = String(row?.newRole || "");
@@ -221,4 +230,4 @@ function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 5
   state.timersByGuild.set(guildId, timer);
 }
 
-module.exports = { STAFF_ROLE_IDS, memberHasStaffRole, didStaffMembershipChange, refreshStaffList, scheduleStaffListRefresh };
+module.exports = { STAFF_ROLE_IDS, memberHasStaffRole, didStaffMembershipChange, didStaffRolesChange, refreshStaffList, scheduleStaffListRefresh };
