@@ -3,6 +3,7 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const{scheduleStaffListRefresh,didStaffMembershipChange,}=require("../Utils/Community/staffListUtils");
+const { adjustPmStaffPointsOnRoleChange } = require("../Services/Community/staffEventService");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/Moderation/securityProfilesService");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
@@ -704,12 +705,11 @@ module.exports = {
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);
 
-      if (
-        newMember?.guild?.id === IDs.guilds.main &&
-        didStaffMembershipChange(oldMember, newMember) &&
-        client
-      ) {
-        scheduleStaffListRefresh(client, newMember.guild.id);
+      if (newMember?.guild?.id === IDs.guilds.main && client) {
+        if (didStaffMembershipChange(oldMember, newMember)) {
+          scheduleStaffListRefresh(client, newMember.guild.id);
+        }
+        await adjustPmStaffPointsOnRoleChange(oldMember, newMember).catch(() => {});
       }
 
       await removePlusColorsIfNotEligible(newMember);

@@ -593,7 +593,7 @@ function startWeeklyStaffResocontoLoop(client) {
   if (weeklyStaffResocontoTask) return weeklyStaffResocontoTask;
 
   weeklyStaffResocontoTask = cron.schedule(
-    "0 15 * * 0",
+    "0 20 * * 0",
     async () => {
       await runWeeklyStaffResoconti(client).catch((err) => {
         global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Execution failed", err);

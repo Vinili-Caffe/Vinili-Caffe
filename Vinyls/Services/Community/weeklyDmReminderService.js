@@ -715,8 +715,31 @@ function collectOpenDmRecipientIds(client) {
 }
 
 function hasAnyStaffRole(member) {
-  if (!member?.roles?.cache?.size || !STAFF_ROLE_IDS.length) return false;
-  return STAFF_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+  const cache = member?.roles?.cache;
+  if (!cache?.size) return false;
+
+  // Check by configured role IDs
+  if (STAFF_ROLE_IDS.length && STAFF_ROLE_IDS.some((roleId) => cache.has(roleId))) {
+    return true;
+  }
+
+  // Fallback: check by role name (covers dev/test guild con ruoli diversi)
+  for (const role of cache.values()) {
+    const name = String(role?.name || "").toLowerCase();
+    if (
+      name.includes("staff") ||
+      name.includes("helper") ||
+      name.includes("mod") ||
+      name.includes("coordinat") ||
+      name.includes("supervisor") ||
+      name.includes("admin") ||
+      name.includes("manager")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 async function isStaffMemberResolved(guild, member) {
   if (!guild || !member?.id) return false;

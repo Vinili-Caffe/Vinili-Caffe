@@ -22,6 +22,12 @@ function logButtonErr(err, opts = {}) {
   if (!err) return;
   if (IGNORED_BUTTON_LOG_CODES.has(err?.code)) return;
   const msg = err?.message ?? err;
+  if (
+    typeof msg === "string" &&
+    msg.startsWith("The reply to this interaction has already been sent or deferred.")
+  ) {
+    return;
+  }
   if (opts.warn) global.logger?.warn?.("[buttons]", msg);
   else global.logger?.error?.("[buttons]", msg);
 }

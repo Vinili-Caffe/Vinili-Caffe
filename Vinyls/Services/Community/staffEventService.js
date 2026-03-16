@@ -33,12 +33,29 @@ async function addStaffEventPoints(guildId, userId, points, note = null) {
   if (!guildId || !userId || !Number.isFinite(points) || points <= 0) return null;
   const active = await isStaffEventActive(guildId);
   if (!active) return null;
-  await StaffEventPoints.findOneAndUpdate(
+  const updated = await StaffEventPoints.findOneAndUpdate(
     { guildId, userId },
     { $inc: { points: Math.floor(points) } },
     { upsert: true, new: true },
   ).catch(() => null);
+  if (updated) {
+    global.logger?.info?.("[STAFF EVENT] addPoints", {
+      guildId,
+      userId,
+      delta: Math.floor(points),
+      note: note || null,
+      total: Number(updated.points || 0),
+    });
+  }
   return true;
+}
+
+async function getStaffEventPointsDoc(guildId, userId) {
+  if (!guildId || !userId) return null;
+  const doc = await StaffEventPoints.findOne({ guildId, userId })
+    .lean()
+    .catch(() => null);
+  return doc;
 }
 
 async function getStaffEventLeaderboard(guildId) {
@@ -57,6 +74,10 @@ async function giveExistingInvitesPointsAtStart(guild) {
     if (member?.user?.id && isStaffButNotHighStaff(member)) staffIds.push(member.id);
   }
   if (!staffIds.length) return;
+  global.logger?.info?.("[STAFF EVENT] existing_invites start", {
+    guildId: guild.id,
+    staffCount: staffIds.length,
+  });
   for (const inviterId of staffIds) {
     const alreadyGiven=await StaffEventRewardGiven.findOne({guildId:guild.id,userId:inviterId,rewardType:"existing_invites",}).lean().catch(() => null);
     if (alreadyGiven) continue;
@@ -83,6 +104,7 @@ async function givePmStaff15PointsAtStart(guild) {
   const active = await isStaffEventActive(guild.id);
   if (!active) return;
   await guild.members.fetch().catch(() => null);
+  let granted = 0;
   for (const [, member] of guild.members.cache) {
     if (!member?.user?.id) continue;
     if (!hasPartnerManagerAndStaff(member)) continue;
@@ -94,6 +116,13 @@ async function givePmStaff15PointsAtStart(guild) {
       userId: member.id,
       rewardType: "pm_staff",
     }).catch(() => null);
+    granted += 1;
+  }
+  if (granted > 0) {
+    global.logger?.info?.("[STAFF EVENT] pm_staff start", {
+      guildId: guild.id,
+      granted,
+    });
   }
 }
 
@@ -105,6 +134,40 @@ function resolveStaffRoleForLimits(member) {
   return null;
 }
 
+async function adjustPmStaffPointsOnRoleChange(oldMember, newMember) {
+  const guild = newMember?.guild;
+  if (!guild?.id || !newMember?.id) return;
+  const active = await isStaffEventActive(guild.id);
+  if (!active) return;
+
+  const hadComboBefore = hasPartnerManagerAndStaff(oldMember);
+  const hasComboNow = hasPartnerManagerAndStaff(newMember);
+  if (hadComboBefore === hasComboNow) return;
+
+  const doc = await getStaffEventPointsDoc(guild.id, newMember.id);
+  const currentPoints = Number(doc?.points || 0);
+
+  if (!hadComboBefore && hasComboNow) {
+    await addStaffEventPoints(guild.id, newMember.id, 15, "pm_staff_auto");
+    return;
+  }
+
+  if (hadComboBefore && !hasComboNow && currentPoints >= 15) {
+    const res = await StaffEventPoints.updateOne(
+      { guildId: guild.id, userId: newMember.id },
+      { $inc: { points: -15 } },
+    ).catch(() => null);
+    if (res?.modifiedCount) {
+      global.logger?.info?.("[STAFF EVENT] pm_staff_auto remove", {
+        guildId: guild.id,
+        userId: newMember.id,
+        delta: -15,
+        previousTotal: currentPoints,
+      });
+    }
+  }
+}
+
 async function giveWeekly20PointsIfEligible(guild, eventWeekNum, _settings) {
   if (!guild?.id || eventWeekNum < 1 || eventWeekNum > 4) return;
   const active = await isStaffEventActive(guild.id);
@@ -113,6 +176,10 @@ async function giveWeekly20PointsIfEligible(guild, eventWeekNum, _settings) {
   if (!staffSettings?.startedAt) return;
   const { getUserOverviewStats } = require("./activityService");
   await guild.members.fetch().catch(() => null);
+  global.logger?.info?.("[STAFF EVENT] weekly check", {
+    guildId: guild.id,
+    week: eventWeekNum,
+  });
   for (const [, member] of guild.members.cache) {
     if (!member?.user?.id) continue;
     if (!isStaffButNotHighStaff(member)) continue;
