@@ -49,7 +49,7 @@ const fullCatalog = {
 
 const ids = {
   guilds: {
-    main: meta.guildMain || null,
+    main: "1329080093599076474",
     test: "1462458562507964584",
     luna: "1471511676019933354",
     cash: "1471511928739201047",
