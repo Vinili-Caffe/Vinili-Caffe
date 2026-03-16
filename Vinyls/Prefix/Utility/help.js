@@ -10,7 +10,7 @@ const MAX_HELP_COLLECTOR_MS = 24 * 60 * 60 * 1000;
 const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
-const NO_REPLY_MENTIONS = { repliedUser: false };
+const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", level: "Level", minigames: "Minigames", music: "Music", stats: "Stats", partner: "Partner", ticket: "Ticket", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
@@ -1452,7 +1452,7 @@ module.exports = {
       }
 
       const page = displayPages[navState.currentIndex];
-      const updated = await interaction.update({ components: [buildHelpV2Container(page, navState)], }).then(() => true).catch(() => false);
+      const updated = await interaction.update({ components: [buildHelpV2Container(page, navState)], allowedMentions: NO_REPLY_MENTIONS, }).then(() => true).catch(() => false);
       if (!updated) {
         navState.currentIndex = prevIndex;
       }
