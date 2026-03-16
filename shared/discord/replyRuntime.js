@@ -121,12 +121,20 @@ async function safeEditReply(interaction, payload) {
   }
 }
 
+function payloadWithReplyReference(payload, message) {
+  if (!message?.id || !payload || typeof payload !== "object") return payload;
+  return {
+    ...payload,
+    reply: { messageReference: message.id, failIfNotExists: false },
+  };
+}
+
 async function safeMessageReply(message, payload) {
   if (!message) return null;
   if (typeof message.reply !== "function") {
     if (message.channel?.send) {
       try {
-        return await message.channel.send(stripMessageReference(payload));
+        return await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
       } catch (err) {
         if (err?.code === 10008) return null;
         logReplyError("message.channel.send(fallback)", err);
@@ -141,7 +149,7 @@ async function safeMessageReply(message, payload) {
     if (err?.code === 10008) return null;
     if (isUnknownMessageReferenceError(err)) {
       try {
-        return await message.channel.send(stripMessageReference(payload));
+        return await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
       } catch (fallbackErr) {
         if (fallbackErr?.code === 10008) return null;
         logReplyError("message.reply(reference-fallback)", fallbackErr);

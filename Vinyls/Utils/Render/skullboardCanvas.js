@@ -20,12 +20,22 @@ function wrapLines(ctx, text, maxWidth) {
 }
 
 function drawCircleImage(ctx, image, x, y, size) {
+  if (!image) return;
   ctx.save();
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.closePath();
   ctx.clip();
   ctx.drawImage(image, x, y, size, size);
+  ctx.restore();
+}
+
+function drawCirclePlaceholder(ctx, x, y, size, fillStyle = "#4e5058") {
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -80,7 +90,10 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
 
   const probe = createCanvas(width, 10).getContext("2d");
   probe.font = fontStack(16, "500");
-  const messageLines = hasEmbedOnly ? [] : wrapLines(probe, message || "", textMaxWidth);
+  const rawLines = hasEmbedOnly ? [] : wrapLines(probe, message || "", textMaxWidth);
+  const maxMessageLines = 20;
+  const messageLines = rawLines.slice(0, maxMessageLines);
+  const messageTruncated = rawLines.length > maxMessageLines;
   const hasReply = Boolean(reply && (reply.content || reply.author));
 
   let mediaImage = null;
@@ -93,8 +106,10 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
   const headerY = hasReply ? y + 24 : y;
   const avatarTop = headerY + headerLineHeight / 2 - avatarSize / 2;
   const messageY = headerY + 26;
-  const messageH = messageLines.length ? messageLines.length * 20 : 0;
+  const lineHeight = 20;
+  const messageH = messageLines.length ? messageLines.length * lineHeight : 0;
   y = messageY + messageH;
+  if (messageTruncated) y += lineHeight;
 
   let mediaLayout = null;
   if (mediaImage) {
@@ -191,7 +206,8 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
   });
 
   ctx.font = fontStack(usernameSize, usernameWeight);
-  let cursorX = contentX + ctx.measureText(username || "").width + usernameToIconGap;
+  const usernameWidth = ctx.measureText(username || "").width;
+  let cursorX = contentX + usernameWidth + usernameToIconGap;
   if (roleIconUrl) {
     const roleIcon = await loadImage(roleIconUrl).catch(() => null);
     if (roleIcon) {
@@ -223,7 +239,15 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
         color: "#f2f3f5",
         forcePrimaryFont: true,
       });
-      lineY += 20;
+      lineY += lineHeight;
+    }
+    if (messageTruncated) {
+      drawTextWithSpecialFallback(ctx, "...", contentX, lineY, {
+        size: 33 / 2,
+        weight: "500",
+        color: "#949ba4",
+        forcePrimaryFont: true,
+      });
     }
   }
 
