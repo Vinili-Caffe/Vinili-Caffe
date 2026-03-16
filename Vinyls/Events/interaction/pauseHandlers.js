@@ -355,15 +355,16 @@ async function handlePauseButton(interaction) {
     : "";
 
   const pauseEnd = parseItalianDate(targetPause.dataRitorno);
-  const hideCancelOnCreate = Boolean(pauseEnd && getTodayUtc() > pauseEnd);
+  const now = getTodayUtc();
+  const pauseAlreadyEnded = Boolean(pauseEnd && now > pauseEnd);
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
-  const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${targetPause.ruolo}\`** - **<@${userId}>** ${pauseTimingText}.\n<a:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<a:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
+  const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${targetPause.ruolo}\`** - **<@${userId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 
   await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
   await interaction.deferUpdate().catch(() => {});
   await interaction.message?.edit({
     content: acceptanceContent,
-    components: [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: hideCancelOnCreate })],
+    components: [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
   }).catch(() => {});
   if (pauseEnd && interaction.message?.id && interaction.channel?.id) {
     schedulePauseButtonsRemoval(

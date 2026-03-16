@@ -159,7 +159,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
-  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
+  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
   const posted = await pauseChannel.send({
     content,
     components: [buildPauseRequestButtonsRow(uid, pauseId)],
@@ -200,6 +200,9 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   await thread.send({
     content: `<:staff:1443651912179388548> Discussione per la richiesta pausa di ${requesterMention}. Il messaggio con i pulsanti è nel canale.`,
   }).catch(() => null);
+  if (warningBlock) {
+    await thread.send({ content: warningBlock.trim() }).catch(() => null);
+  }
   createdPause.requestThreadId = String(thread.id ?? "").trim();
   stafferDoc.markModified("pauses");
   try {
