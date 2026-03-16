@@ -376,7 +376,7 @@ module.exports = {
     const pexDepexChannel = interaction.guild.channels.cache.get(IDs.channels?.pexDepex,);
     const pmChannel = interaction.guild.channels.cache.get(IDs.channels?.partnersChat,);
     const staffChat = interaction.guild.channels.cache.get(IDs.channels?.staffChat,);
-    const resolveMember = createMemberResolver(guild);
+    const resolveMember = createMemberResolver(interaction.guild);
 
     if (sub === "pex") {
       try {
@@ -483,7 +483,7 @@ module.exports = {
       try {
         const targetUser = interaction.options.getUser("staffer");
         const reason = interaction.options.getString("motivo");
-        const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) || (await getClientChannelCached(client, IDs.channels?.warnStaff));
+        const warnChannel = interaction.guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(interaction.guild, IDs.channels?.warnStaff)) || (await getClientChannelCached(interaction.client, IDs.channels?.warnStaff));
 
         const staffDoc = await getOrCreateStaffDoc(interaction.guild.id, targetUser.id,);
         if (!staffDoc.idCount) staffDoc.idCount = 0;

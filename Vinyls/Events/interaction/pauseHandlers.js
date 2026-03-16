@@ -181,16 +181,13 @@ async function handlePauseButton(interaction) {
     targetPause.status = "rejected";
     await stafferRecord.save();
     await interaction.deferUpdate().catch(() => {});
-    await interaction.message?.delete().catch(() => {});
-    await interaction.channel
-      ?.send({
-        content: `<:cancel:1461730653677551691> Richiesta pausa rifiutata per <@${userId}>.`,
-      })
-      .catch(() => {});
-    if (interaction.channel?.isThread?.()) {
-      const t = setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
-      t.unref?.();
-    }
+    const currentContent = interaction.message?.content || "";
+    const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${userId}>.`;
+    const updatedContent = currentContent + rejectedSuffix;
+    await interaction.message?.edit({
+      content: updatedContent,
+      components: [],
+    }).catch(() => {});
     return true;
   }
 
@@ -352,50 +349,19 @@ async function handlePauseButton(interaction) {
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
   const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${targetPause.ruolo}\`** - **<@${userId}>** ${pauseTimingText}.\n<a:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<a:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 
-  if (interaction.channel?.isThread?.()) {
-    await interaction.deferUpdate().catch(() => {});
-    await interaction.message?.delete().catch(() => {});
-    await interaction.channel.send({ content: acceptanceContent }).catch(() => {});
-    const t = setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
-    t.unref?.();
-    return true;
-  }
-
-  const channel = await getGuildChannelCached(interaction.guild, IDs.channels.pause);
-  let pauseMessage = null;
-  if (channel) {
-    pauseMessage = await channel.send({
-      content: acceptanceContent,
-      components: [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: hideCancelOnCreate })],
-    }).catch(() => null);
-    if (pauseMessage && pauseEnd) {
-      schedulePauseButtonsRemoval(
-        interaction.guild,
-        channel.id,
-        pauseMessage.id,
-        targetPause.dataRitorno,
-      );
-    }
-  }
-  if (channel && !pauseMessage) {
-    targetPause.status = "pending";
-    targetPause.ruolo = null;
-    targetPause.giorniUsati = undefined;
-    targetPause.giorniAggiuntivi = undefined;
-    targetPause.stafferInPausa = undefined;
-    await stafferRecord.save().catch(() => {});
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Non sono riuscito a pubblicare la pausa nel canale dedicato. Riprova.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
-    return true;
-  }
-
   await interaction.deferUpdate().catch(() => {});
-  await interaction.message?.delete().catch(() => {});
+  await interaction.message?.edit({
+    content: acceptanceContent,
+    components: [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: hideCancelOnCreate })],
+  }).catch(() => {});
+  if (pauseEnd && interaction.message?.id && interaction.channel?.id) {
+    schedulePauseButtonsRemoval(
+      interaction.guild,
+      interaction.channel.id,
+      interaction.message.id,
+      targetPause.dataRitorno,
+    );
+  }
   return true;
   } finally {
     pauseActionLocks.delete(lockKey);

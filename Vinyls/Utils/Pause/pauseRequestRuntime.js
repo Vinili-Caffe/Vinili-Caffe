@@ -145,6 +145,20 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
+  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
+  const posted = await pauseChannel.send({
+    content,
+    components: [buildPauseRequestButtonsRow(userId, pauseId)],
+  }).catch(() => null);
+  if (!posted) {
+    createdPause.status = "cancelled";
+    await stafferDoc.save().catch(() => null);
+    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale." };
+  }
+  createdPause.requestChannelId = pauseChannel.id;
+  createdPause.requestMessageId = posted.id;
+  await stafferDoc.save().catch(() => null);
+
   let thread = null;
   try {
     thread = await pauseChannel.threads.create({
@@ -153,7 +167,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       reason: "Richiesta pausa staff",
     });
   } catch (e) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Impossibile creare il thread privato per la richiesta." };
+    return { ok: true, pauseId };
   }
   await thread.members.add(userId).catch(() => null);
   const highStaffRoleId = String(IDs.roles.HighStaff || "");
@@ -163,15 +177,9 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       await thread.members.add(m.id).catch(() => null);
     }
   }
-  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}${warningBlock}`;
-  const posted = await thread.send({
-    content,
-    components: pauseId ? [buildPauseRequestButtonsRow(userId, pauseId)] : [],
+  await thread.send({
+    content: `<:staff:1443651912179388548> Discussione per la richiesta pausa di ${requesterMention}. Il messaggio con i pulsanti è nel canale.`,
   }).catch(() => null);
-  if (!posted) {
-    await thread.delete().catch(() => null);
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel thread." };
-  }
   return { ok: true, pauseId };
 }
 
