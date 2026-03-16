@@ -567,8 +567,8 @@ function renderPageText(page, newUntilMap = null) {
   }
 
   if (!page.items.length) return "<:vegax:1443934876440068179> Nessun comando disponibile in questa pagina.";
-  const header = ["## Comandi Disponibili", "", `### ${PAGE_TITLES[page.roleId] || "Comandi"}`,
-    "",
+  const pageTitle = PAGE_TITLES[page.roleId] || "Comandi";
+  const header = ["## Comandi Disponibili", "", ...(pageTitle !== "Comandi Disponibili" ? [`### ${pageTitle}`, ""] : []),
     "Ecco la lista dei comandi disponibili.",
     "Usa il prefix, slash o context menu in base al comando.",
     "Mini-help rapido: `+help <comando>`.",
