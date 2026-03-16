@@ -427,17 +427,10 @@ async function getTop10ExpDuringEvent(guildId, limit = 10) {
     const expDuringEvent = activityTotal;
     return { userId, expDuringEvent, activityExpDuringEvent: activityTotal };
   });
-  const ranked = withExp
+  return withExp
     .filter((r) => r.expDuringEvent > 0)
     .sort((a, b) => b.expDuringEvent - a.expDuringEvent)
     .slice(0, cap);
-  if (ranked.length) {
-    global.logger?.info?.("[activityEventRewards] Top10 activity EXP during event sample", {
-      guildId,
-      sample: ranked.slice(0, 5),
-    });
-  }
-  return ranked;
 }
 
 async function getTop3ExpDuringEventExcludingStaff(guild) {

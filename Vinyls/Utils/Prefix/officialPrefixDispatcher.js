@@ -283,7 +283,52 @@ async function drainPrefixQueue(lockId, resolvedClient) {
   }
 }
 
+function rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix) {
+  const text = String(message?.content || "");
+  const lower = text.toLowerCase();
+  const base = String(defaultPrefix || "+");
+
+  const explicit = [
+    { from: "?afk", to: `${base}afk` },
+    { from: "?av", to: `${base}av` },
+    { from: "?bn", to: `${base}bn` },
+    { from: "?membercount", to: `${base}membercount` },
+    { from: "s?channel", to: `${base}channel` },
+    { from: "s?server", to: `${base}server` },
+    { from: "s?me", to: `${base}me` },
+    { from: "s?top", to: `${base}top` },
+    { from: "s?user", to: `${base}user` },
+  ];
+
+  for (const row of explicit) {
+    if (lower.startsWith(row.from)) {
+      message.content = row.to + text.slice(row.from.length);
+      return true;
+    }
+  }
+
+  const direct = lower.match(/^\?([a-z0-9][\w-]*)/i);
+  if (direct && resolvedClient?.pcommands) {
+    const token = String(direct[1] || "").toLowerCase();
+    const baseName =
+      resolvedClient.aliases?.get?.(token) || token;
+    const cmd = resolvedClient.pcommands.get(baseName);
+    const folder = String(cmd?.folder || "").toLowerCase();
+    if (
+      cmd &&
+      (folder === "moderation" || folder === "minigames")
+    ) {
+      message.content =
+        base + token + text.slice(direct[0].length);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand = null, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission }) {
+  rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix);
   const startsWithDefault = message.content.startsWith(defaultPrefix);
   const deleteCommandMessage = async () => { await message.delete().catch(() => { }); };
 

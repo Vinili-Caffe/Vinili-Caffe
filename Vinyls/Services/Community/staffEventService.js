@@ -38,15 +38,6 @@ async function addStaffEventPoints(guildId, userId, points, note = null) {
     { $inc: { points: Math.floor(points) } },
     { upsert: true, new: true },
   ).catch(() => null);
-  if (updated) {
-    global.logger?.info?.("[STAFF EVENT] addPoints", {
-      guildId,
-      userId,
-      delta: Math.floor(points),
-      note: note || null,
-      total: Number(updated.points || 0),
-    });
-  }
   return true;
 }
 
@@ -74,10 +65,6 @@ async function giveExistingInvitesPointsAtStart(guild) {
     if (member?.user?.id && isStaffButNotHighStaff(member)) staffIds.push(member.id);
   }
   if (!staffIds.length) return;
-  global.logger?.info?.("[STAFF EVENT] existing_invites start", {
-    guildId: guild.id,
-    staffCount: staffIds.length,
-  });
   for (const inviterId of staffIds) {
     const alreadyGiven=await StaffEventRewardGiven.findOne({guildId:guild.id,userId:inviterId,rewardType:"existing_invites",}).lean().catch(() => null);
     if (alreadyGiven) continue;
@@ -118,12 +105,6 @@ async function givePmStaff15PointsAtStart(guild) {
     }).catch(() => null);
     granted += 1;
   }
-  if (granted > 0) {
-    global.logger?.info?.("[STAFF EVENT] pm_staff start", {
-      guildId: guild.id,
-      granted,
-    });
-  }
 }
 
 function resolveStaffRoleForLimits(member) {
@@ -158,12 +139,6 @@ async function adjustPmStaffPointsOnRoleChange(oldMember, newMember) {
       { $inc: { points: -15 } },
     ).catch(() => null);
     if (res?.modifiedCount) {
-      global.logger?.info?.("[STAFF EVENT] pm_staff_auto remove", {
-        guildId: guild.id,
-        userId: newMember.id,
-        delta: -15,
-        previousTotal: currentPoints,
-      });
       return "removed";
     }
   }
@@ -178,10 +153,6 @@ async function giveWeekly20PointsIfEligible(guild, eventWeekNum, _settings) {
   if (!staffSettings?.startedAt) return;
   const { getUserOverviewStats } = require("./activityService");
   await guild.members.fetch().catch(() => null);
-  global.logger?.info?.("[STAFF EVENT] weekly check", {
-    guildId: guild.id,
-    week: eventWeekNum,
-  });
   for (const [, member] of guild.members.cache) {
     if (!member?.user?.id) continue;
     if (!isStaffButNotHighStaff(member)) continue;

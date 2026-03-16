@@ -659,9 +659,14 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
   }
 
   const total = expanded.length;
+  const MAX_TEXTDISPLAY_LENGTH = 3800;
   expanded.forEach((page, idx) => {
     page.indexLabel = `${idx + 1}/${total}`;
-    page.renderedText = `${String(page.renderedText || "").trimEnd()}\n\n**Pagina ${page.indexLabel}**`;
+    let text = `${String(page.renderedText || "").trimEnd()}\n\n**Pagina ${page.indexLabel}**`;
+    if (text.length > MAX_TEXTDISPLAY_LENGTH) {
+      text = `${text.slice(0, MAX_TEXTDISPLAY_LENGTH - 20).trimEnd()}\n...\n**Pagina ${page.indexLabel}**`;
+    }
+    page.renderedText = text;
   });
 
   return expanded;
