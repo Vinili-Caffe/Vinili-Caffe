@@ -4,6 +4,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const{scheduleStaffListRefresh,didStaffMembershipChange,}=require("../Utils/Community/staffListUtils");
 const { adjustPmStaffPointsOnRoleChange } = require("../Services/Community/staffEventService");
+const { sendEventRewardLog } = require("../Services/Community/eventRewardLogService");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/Moderation/securityProfilesService");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
@@ -709,7 +710,22 @@ module.exports = {
         if (didStaffMembershipChange(oldMember, newMember)) {
           scheduleStaffListRefresh(client, newMember.guild.id);
         }
-        await adjustPmStaffPointsOnRoleChange(oldMember, newMember).catch(() => {});
+        const pmChange = await adjustPmStaffPointsOnRoleChange(oldMember, newMember).catch(() => null);
+        if (pmChange === "added") {
+          await sendEventRewardLog(client, {
+            userId: newMember.id,
+            guildId: newMember.guild.id,
+            label: "Evento staff — bonus PM+Staff",
+            detail: "+15 punti evento staff per ruolo Partner Manager + Staff.",
+          }).catch(() => {});
+        } else if (pmChange === "removed") {
+          await sendEventRewardLog(client, {
+            userId: newMember.id,
+            guildId: newMember.guild.id,
+            label: "Evento staff — rimozione PM+Staff",
+            detail: "-15 punti evento staff (rimosso bonus PM+Staff).",
+          }).catch(() => {});
+        }
       }
 
       await removePlusColorsIfNotEligible(newMember);

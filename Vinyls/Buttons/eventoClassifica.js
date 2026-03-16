@@ -69,8 +69,15 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
     ? topVoice.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${formatVoiceDuration(item.voiceSeconds)}** _in vocale_`)
     : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica vocale."];
   const expLines = topExp.length
-    ? topExp.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.expDuringEvent}** _EXP_`)
-    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP."];
+    ? topExp.map((item, i) => {
+        const value = Number(
+          item.activityExpDuringEvent != null
+            ? item.activityExpDuringEvent
+            : item.expDuringEvent,
+        );
+        return `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${value}** _EXP_`;
+      })
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP (solo messaggi + vocale)."];
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -83,7 +90,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
         "<a:VC_HeartsBlue:1468686100045369404> **Top 10 vocale**:",
         ...voiceLines,
         "",
-        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
+        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP (solo messaggi + vocale)**:",
         ...expLines,
       ].join("\n")
     )

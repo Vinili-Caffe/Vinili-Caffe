@@ -165,7 +165,6 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
 
   const content = buildContent(guild, membersSource, pexedLast7Days);
 
-  // Se la lista è vuota, logghiamo informazioni diagnostiche per capire perché.
   if (content.trim() === "## STAFF LIST") {
     const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
     const roleDebug = staffRoleIds.map((roleId) => {

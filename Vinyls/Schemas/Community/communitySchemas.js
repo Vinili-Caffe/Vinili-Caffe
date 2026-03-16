@@ -4,7 +4,7 @@ const { Schema, model, models } = mongoose;
 const activityUserSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},messages:{total:{type:Number,default:0},daily:{type:Number,default:0},weekly:{type:Number,default:0},dailyKey:{type:String,default:""},weeklyKey:{type:String,default:""},},voice:{totalSeconds:{type:Number,default:0},dailySeconds:{type:Number,default:0},weeklySeconds:{type:Number,default:0},dailyKey:{type:String,default:""},weeklyKey:{type:String,default:""},sessionStartedAt:{type:Date,default:null},sessionChannelId:{type:String,default:null},expAwardedSeconds:{type:Number,default:0},},},{timestamps:true},);
 activityUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
-const expUserSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},totalExp:{type:Number,default:0},weeklyExp:{type:Number,default:0},level:{type:Number,default:0},weeklyKey:{type:String,default:""},perkNearReminderLevels:{type:[Number],default:[]},},{timestamps:true},);
+const expUserSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},totalExp:{type:Number,default:0},weeklyExp:{type:Number,default:0},level:{type:Number,default:0},weeklyKey:{type:String,default:""},perkNearReminderLevels:{type:[Number],default:[]},activityExpTotal:{type:Number,default:0},},{timestamps:true},);
 expUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 expUserSchema.index({ guildId: 1, totalExp: -1 });
 
@@ -55,7 +55,7 @@ activityEventRewardSchema.index(
   { unique: true },
 );
 
-const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},},{timestamps:true},);
+const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
 /** Vincitori settimana evento 2 o 3: permesso ad personam permanente (equivalente Level50/Level70) senza ruolo. Nessuna scadenza: i vincitori mantengono per sempre l’accesso a +customrole, +customvoc, ecc. */

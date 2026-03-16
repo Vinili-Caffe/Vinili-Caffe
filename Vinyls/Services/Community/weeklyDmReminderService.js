@@ -718,12 +718,10 @@ function hasAnyStaffRole(member) {
   const cache = member?.roles?.cache;
   if (!cache?.size) return false;
 
-  // Check by configured role IDs
   if (STAFF_ROLE_IDS.length && STAFF_ROLE_IDS.some((roleId) => cache.has(roleId))) {
     return true;
   }
 
-  // Fallback: check by role name (covers dev/test guild con ruoli diversi)
   for (const role of cache.values()) {
     const name = String(role?.name || "").toLowerCase();
     if (

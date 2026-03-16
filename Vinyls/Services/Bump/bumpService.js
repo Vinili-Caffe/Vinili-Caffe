@@ -485,13 +485,13 @@ function getRewardConfig(client, source) {
 async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, cooldownMs, baseExpOverride) {
   if (!guild?.id || !userId) return null;
   const now = Date.now();
-  const slotAvailableAt = previousLastAt ? new Date(previousLastAt).getTime() + cooldownMs : now;
+  const lastSlotAt = previousLastAt ? new Date(previousLastAt).getTime() : 0;
   const cfg = getRewardConfig(client, source);
   const baseExp = Number(baseExpOverride) > 0 ? Number(baseExpOverride) : (Number(cfg?.baseExp ?? 100) || 100);
   const fastCfg = cfg?.fastGuess ?? {};
   const windowMs = Number(fastCfg.windowMs ?? 15 * 60 * 1000) || 0;
   const fastMultiplier = Number(fastCfg.multiplier ?? 1.5) || 1;
-  const isFast = windowMs > 0 && previousLastAt != null && (now - slotAvailableAt) <= windowMs;
+  const isFast = windowMs > 0 && lastSlotAt > 0 && (now - lastSlotAt) <= windowMs;
   const fastBonus = isFast ? Math.round(baseExp * (fastMultiplier - 1)) : 0;
   const streakCfg = cfg?.streak ?? {};
   const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;
@@ -499,9 +499,8 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
   const guildId = String(guild.id);
   const rewardDoc = await BumpVoteReward.findOne({ guildId, userId, source }).lean().catch(() => null);
   const prevStreak = Number(rewardDoc?.currentStreak ?? 0);
-  const lastActionAt = rewardDoc?.lastActionAt ? new Date(rewardDoc.lastActionAt).getTime() : 0;
-  const prevWindowStart = slotAvailableAt - cooldownMs;
-  const didPreviousSlot = lastActionAt >= prevWindowStart && lastActionAt < slotAvailableAt;
+  const STREAK_GRACE_MS = Math.min(cooldownMs, 6 * 60 * 60 * 1000);
+  const didPreviousSlot = lastSlotAt > 0 && (now - lastSlotAt) <= (cooldownMs + STREAK_GRACE_MS);
   const newStreak = didPreviousSlot ? prevStreak + 1 : 1;
   const bestStreak = Math.max(Number(rewardDoc?.bestStreak ?? 0), newStreak);
   const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;

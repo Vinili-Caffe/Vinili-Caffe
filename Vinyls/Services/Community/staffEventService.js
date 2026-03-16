@@ -138,18 +138,18 @@ async function adjustPmStaffPointsOnRoleChange(oldMember, newMember) {
   const guild = newMember?.guild;
   if (!guild?.id || !newMember?.id) return;
   const active = await isStaffEventActive(guild.id);
-  if (!active) return;
+  if (!active) return null;
 
   const hadComboBefore = hasPartnerManagerAndStaff(oldMember);
   const hasComboNow = hasPartnerManagerAndStaff(newMember);
-  if (hadComboBefore === hasComboNow) return;
+  if (hadComboBefore === hasComboNow) return null;
 
   const doc = await getStaffEventPointsDoc(guild.id, newMember.id);
   const currentPoints = Number(doc?.points || 0);
 
   if (!hadComboBefore && hasComboNow) {
     await addStaffEventPoints(guild.id, newMember.id, 15, "pm_staff_auto");
-    return;
+    return "added";
   }
 
   if (hadComboBefore && !hasComboNow && currentPoints >= 15) {
@@ -164,8 +164,10 @@ async function adjustPmStaffPointsOnRoleChange(oldMember, newMember) {
         delta: -15,
         previousTotal: currentPoints,
       });
+      return "removed";
     }
   }
+  return null;
 }
 
 async function giveWeekly20PointsIfEligible(guild, eventWeekNum, _settings) {

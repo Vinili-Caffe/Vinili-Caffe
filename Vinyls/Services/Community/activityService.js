@@ -298,7 +298,7 @@ async function recordMessageActivity(message) {
   const member = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
   const ignored = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
   if (!ignored) {
-    await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true);
+    await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true, true, { source: "activity" });
   }
 }
 
@@ -319,7 +319,7 @@ async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
   const remainingExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
   doc.voice.expAwardedSeconds = 0;
   if (!skipExp && remainingExp > 0) {
-    await addExpWithLevel(guild, doc.userId, remainingExp, true);
+    await addExpWithLevel(guild, doc.userId, remainingExp, true, true, { source: "activity" });
   }
   return elapsedSeconds;
 }
@@ -1139,7 +1139,7 @@ async function runLiveVoiceExpTick(client) {
     const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId, });
 
     if (!ignored) {
-      await addExpWithLevel(guild, userId, grantableExp, true).catch(() => { });
+      await addExpWithLevel(guild, userId, grantableExp, true, true, { source: "activity" }).catch(() => { });
     }
 
     await ActivityUser.updateOne(

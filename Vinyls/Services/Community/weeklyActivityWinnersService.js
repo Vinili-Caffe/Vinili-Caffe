@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const cron = require("node-cron");
-const { ActivityUser, ActivityDaily, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUser, ActivityDaily, ActivityHourly, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
 const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("./staffEventService");
@@ -267,20 +267,55 @@ async function getEligibleChannelSets(guild) {
   return { text, voice };
 }
 
-async function loadWeeklyRowsFromDaily(guild, weekKey) {
-  const dateKeys = getDateKeysForWeekKey(weekKey);
-  if (!dateKeys.length) return [];
+function getLastSunday21BoundaryMs(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date).reduce((acc, p) => {
+    if (p.type !== "literal") acc[p.type] = p.value;
+    return acc;
+  }, {});
+  const wd = parts.weekday;
+  const daysToLastSunday = wd === "Sun" ? 0 : { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
+  const baseMs = date.getTime() - daysToLastSunday * 24 * 60 * 60 * 1000;
+  const sunday = new Date(baseMs);
+  const y = sunday.getFullYear();
+  const m = sunday.getMonth();
+  const d = sunday.getDate();
+  const sunday21 = new Date(y, m, d, 21, 0, 0, 0);
+  return sunday21.getTime();
+}
 
+function buildLast7DaysHourKeys(endMs) {
+  const endDate = new Date(endMs);
+  const keys = [];
+  for (let h = 0; h < 24 * 7; h += 1) {
+    const d = new Date(endMs - h * 60 * 60 * 1000);
+    const parts = getTimeParts(d);
+    keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
+  }
+  return keys;
+}
+
+async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
   const eligible = await getEligibleChannelSets(guild);
   if (!eligible.text.size && !eligible.voice.size) return [];
 
-  const perUser = new Map();
-  const cursor = ActivityDaily.find({ guildId: guild.id, dateKey: { $in: dateKeys }, }).select("userId textChannels voiceChannels").lean().cursor();
+  const endMs = getLastSunday21BoundaryMs(anchorDate);
+  const hourKeys = buildLast7DaysHourKeys(endMs);
+  const rows = await ActivityHourly.find({
+    guildId: guild.id,
+    hourKey: { $in: hourKeys },
+  }).lean().catch(() => []);
 
-  for await (const row of cursor) {
+  const perUser = new Map();
+  for (const row of rows) {
     const userId = String(row?.userId || "");
     if (!userId) continue;
-
     let messageCount = 0;
     let voiceSeconds = 0;
 
@@ -294,7 +329,7 @@ async function loadWeeklyRowsFromDaily(guild, weekKey) {
     }
 
     if (messageCount <= 0 && voiceSeconds <= 0) continue;
-    const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0, };
+    const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
     current.messageCount += messageCount;
     current.voiceSeconds += voiceSeconds;
     perUser.set(userId, current);
@@ -597,7 +632,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     eventTopVoice = eventTop.topVoice || [];
   }
 
-  const weeklyRows = await loadWeeklyRowsFromDaily(guild, currentWeekKey);
+  const weeklyRows = await loadWeeklyRowsFromHourlyWindow(guild, now);
 
   const messageDocs = weeklyRows.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 200);
   const voiceDocs = weeklyRows.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 200);

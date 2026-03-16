@@ -13,8 +13,8 @@ const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false };
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
-const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", partner: "Partner", ticket: "Ticket", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
-const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "vip", "partner", "ticket", "moderation", "admin", "staff", "dev",];
+const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", level: "Level", minigames: "Minigames", music: "Music", stats: "Stats", partner: "Partner", ticket: "Ticket", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
+const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "music", "stats", "vip", "partner", "ticket", "moderation", "admin", "staff", "dev",];
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const HELP_NEW_DAYS = 14;
 const HELP_NEW_INVOKES = new Set([]);
@@ -572,8 +572,6 @@ function renderPageText(page, newUntilMap = null) {
     "Ecco la lista dei comandi disponibili.",
     "Usa il prefix, slash o context menu in base al comando.",
     "Mini-help rapido: `+help <comando>`.",
-    "",
-    ...(IDs?.channels?.ruoliColori ? ["Nel canale <#" + IDs.channels.ruoliColori + "> trovi il **pannello Info & Vantaggi Ruoli** (livelli, boost, badge).", ""] : []),
     "",
   ].join("\n");
   const body = sections.join("\n\n");

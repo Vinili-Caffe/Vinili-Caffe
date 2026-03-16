@@ -360,7 +360,7 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
   }).catch(() => null);
 }
 
-async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAmountOverride = null) {
+async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAmountOverride = null, options = {}) {
   if (!guildId || !userId || !Number.isFinite(amount)) return null;
   const now = new Date();
   const weekKey = getIsoWeekKey(now);
@@ -381,6 +381,7 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
   const uid = String(userId);
   const eff = Math.floor(effective);
   const wk = Math.floor(weeklyEffective);
+  const activityDelta = Math.max(0, Math.floor(Number(options?.activityAmount || 0)));
   let doc = null;
   try {
     doc = await ExpUser.findOneAndUpdate(
@@ -391,6 +392,9 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
             guildId: { $ifNull: ["$guildId", gid] },
             userId: { $ifNull: ["$userId", uid] },
             totalExp: { $add: [{ $ifNull: ["$totalExp", 0] }, eff] },
+            activityExpTotal: {
+              $add: [{ $ifNull: ["$activityExpTotal", 0] }, activityDelta],
+            },
             weeklyKey: weekKey,
             weeklyExp: {
               $cond: [
@@ -410,6 +414,10 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
     if (!fallback) fallback = new ExpUser({ guildId: gid, userId: uid });
     ensureWeekly(fallback, now);
     fallback.totalExp = Number(fallback.totalExp || 0) + eff;
+    if (activityDelta > 0) {
+      fallback.activityExpTotal =
+        Number(fallback.activityExpTotal || 0) + activityDelta;
+    }
     fallback.weeklyExp = Number(fallback.weeklyExp || 0) + wk;
     const li = getLevelInfo(fallback.totalExp);
     fallback.level = li.level;
@@ -729,7 +737,7 @@ async function syncLevelRolesForMember(guild, userId, level) {
   return awarded;
 }
 
-async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, includeWeekly = true) {
+async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, includeWeekly = true, options = {}) {
   if (!guild || !userId) return null;
   const member = await fetchGuildMember(guild, userId);
   if (member?.user?.bot) return null;
@@ -749,7 +757,17 @@ async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, i
   } else if (applyMultiplier) {
     weeklyAmount = Number(amount || 0);
   }
-  const result = await addExp(guild.id, userId, effectiveAmount, false, weeklyAmount,);
+  const isActivitySource = options?.source === "activity";
+  const activityBase = isActivitySource ? Number(amount || 0) : 0;
+  const activityAmount = applyMultiplier ? activityBase * (options?.activityMultiplierOverride || 1) : activityBase;
+  const result = await addExp(
+    guild.id,
+    userId,
+    effectiveAmount,
+    false,
+    weeklyAmount,
+    { activityAmount },
+  );
   if (!result || !result.levelInfo) return result;
   if (result.levelInfo.level > (result.prevLevel ?? 0)) {
     if (member) {
