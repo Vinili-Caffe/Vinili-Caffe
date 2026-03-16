@@ -180,6 +180,22 @@ async function getStaffPauseRecord(guildId, userId) {
   return Staff.findOne({ guildId: g, userId: u });
 }
 
+async function updatePauseInDb(guildId, userId, pauseId, setFields) {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!g || !u || !pauseId || !setFields || typeof setFields !== "object") return { ok: false };
+  const updates = {};
+  for (const [key, value] of Object.entries(setFields)) {
+    if (key && value !== undefined) updates[`pauses.$.${key}`] = value;
+  }
+  if (Object.keys(updates).length === 0) return { ok: true };
+  const result = await Staff.updateOne(
+    { guildId: g, userId: u, "pauses._id": pauseId },
+    { $set: updates },
+  ).catch(() => null);
+  return { ok: Boolean(result?.modifiedCount === 1 || result?.matchedCount === 1) };
+}
+
 function computeConsumedPauseDays(pauses) {
   if (!Array.isArray(pauses)) return 0;
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
@@ -427,6 +443,26 @@ function buildAcceptedButtonsRow(userId, pauseId, options = {}) {
   return new ActionRowBuilder().addComponents(components);
 }
 
+/** Recupera la motivazione dal messaggio di richiesta pausa (canale pause). Ritorna null se non disponibile. */
+async function getPauseReasonFromMessage(client, pause) {
+  const channelId = pause?.requestChannelId;
+  const messageId = pause?.requestMessageId;
+  if (!channelId || !messageId || !client) return null;
+  try {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel?.isTextBased?.()) return null;
+    const msg = await channel.messages.fetch(messageId).catch(() => null);
+    const content = String(msg?.content ?? "");
+    const prefix = "Motivo: ";
+    const idx = content.indexOf(prefix);
+    if (idx === -1) return null;
+    const raw = content.slice(idx + prefix.length).trim();
+    return raw ? raw.slice(0, 100) : null;
+  } catch {
+    return null;
+  }
+}
+
 function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseEndRaw) {
   const end = parseItalianDate(pauseEndRaw);
   if (!end || !guild || !channelId || !messageId) return;
@@ -452,4 +488,4 @@ function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseEndRaw) {
   if (typeof timer?.unref === "function") timer.unref();
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage };

@@ -838,13 +838,6 @@ async function clearVoiceState(guildId) {
 
 async function restoreTtsConnections(client) {
   try {
-    const autojoinEnabled = booleanFromConfig(client?.config?.tts?.autojoin, false,);
-    if (!autojoinEnabled) {
-      const guildIds = [...(client?.guilds?.cache?.keys?.() || [])];
-      if (guildIds.length)
-        await VoiceState.deleteMany({ guildId: { $in: guildIds } }).catch(() => null);
-      return;
-    }
     await sleep(4500);
     const states = await VoiceState.find({});
     for (const entry of states) {

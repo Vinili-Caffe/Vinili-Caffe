@@ -1344,8 +1344,11 @@ function getPrefixRequiredRoles(commandName, subcommandName = null) {
   return resolvePrefixRoles(data, commandName, subcommandName);
 }
 
-function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null) {
-  const roles = Array.isArray(requiredRoleIds) ? requiredRoleIds.filter(Boolean) : [];
+function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null, guild = null) {
+  let roles = Array.isArray(requiredRoleIds) ? requiredRoleIds.filter(Boolean) : [];
+  if (guild?.roles?.cache) {
+    roles = roles.filter((id) => guild.roles.cache.has(id));
+  }
   const rolesText = roles.length ? roles.map((id) => `<@&${id}>`).join(", ")
     : "<:attentionfromvega:1443651874032062505> Nessun ruolo configurato.";
   const description = customDescription != null ? customDescription : `<:VC_Lock:1482526739044368476> Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;

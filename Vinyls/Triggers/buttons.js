@@ -322,14 +322,15 @@ async function handleStaffButtons(interaction) {
   return false;
 }
 
-function buildDeniedEmbedFromGate(gate, kind) {
+function buildDeniedEmbedFromGate(gate, kind, interaction = null) {
+  const guild = interaction?.guild ?? null;
   let embed = null;
   if (gate.reason === "not_owner") embed = buildGlobalNotYourControlEmbed();
   if (gate.reason === "mono_guild") {
-    embed = buildGlobalPermissionDeniedEmbed([], kind, MONO_GUILD_DENIED_TEXT);
+    embed = buildGlobalPermissionDeniedEmbed([], kind, MONO_GUILD_DENIED_TEXT, guild);
   }
   if (!embed) {
-    embed = buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], kind);
+    embed = buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], kind, null, guild);
   }
   return embed;
 }
@@ -338,7 +339,7 @@ async function enforceInteractionPermissions(interaction) {
   if (interaction.isButton && interaction.isButton()) {
     const gate = await checkButtonPermission(interaction);
     if (!gate.allowed) {
-      const deniedEmbed = buildDeniedEmbedFromGate(gate, "bottone");
+      const deniedEmbed = buildDeniedEmbedFromGate(gate, "bottone", interaction);
       await interaction
         .reply({ embeds: [deniedEmbed], flags: PRIVATE_FLAG })
         .catch((err) => { logButtonErr(err); });
@@ -349,7 +350,7 @@ async function enforceInteractionPermissions(interaction) {
   if (interaction.isStringSelectMenu && interaction.isStringSelectMenu()) {
     const gate = await checkStringSelectPermission(interaction);
     if (!gate.allowed) {
-      const deniedEmbed = buildDeniedEmbedFromGate(gate, "menu");
+      const deniedEmbed = buildDeniedEmbedFromGate(gate, "menu", interaction);
       await interaction
         .reply({ embeds: [deniedEmbed], flags: PRIVATE_FLAG })
         .catch((err) => { logButtonErr(err); });

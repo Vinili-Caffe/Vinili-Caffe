@@ -7,7 +7,7 @@ async function deletePauseThreadIfAny(guild, requestThreadId) {
   const thread = await guild.channels.fetch(requestThreadId).catch(() => null);
   if (thread?.isThread?.()) await thread.delete().catch(() => null);
 }
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange } = require("../../Utils/Pause/pauseHandlersUtils");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage } = require("../../Utils/Pause/pauseHandlersUtils");
 const pauseActionLocks = new Set();
 
 async function handlePauseButton(interaction) {
@@ -108,12 +108,24 @@ async function handlePauseButton(interaction) {
       acknowledgedByUpdate = true;
     }
 
-    const pauses=Array.isArray(stafferRecord.pauses)?stafferRecord.pauses:[];
+    const pauses = Array.isArray(stafferRecord.pauses) ? stafferRecord.pauses : [];
     const todayUtc = getTodayUtc();
     const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
     const year = yearStart.getUTCFullYear();
 
-    const rows=pauses.map((pause) => {const start=parseItalianDate(pause?.dataRichiesta);const end=parseItalianDate(pause?.dataRitorno);if(!start||!end)return null;if(countOverlapDays(start,end,yearStart,yearEnd)<=0)return null;const scaledDays=computePauseScaledDaysThisYear(pause,todayUtc,yearStart,yearEnd,);const statusLabel=getPauseStatusLabel(pause,todayUtc);return`- \`${pause.dataRichiesta}\` -> \`${pause.dataRitorno}\` | **${statusLabel}** · Giorni scalati: \`${scaledDays}\``;}).filter(Boolean);const memberLabel = interaction.guild?.members?.cache?.get(userId)?.displayName || interaction.client?.users?.cache?.get(userId)?.username || ` User ID: ${userId}`;
+    const rowPromises = pauses.map(async (pause) => {
+      const start = parseItalianDate(pause?.dataRichiesta);
+      const end = parseItalianDate(pause?.dataRitorno);
+      if (!start || !end) return null;
+      if (countOverlapDays(start, end, yearStart, yearEnd) <= 0) return null;
+      const scaledDays = computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd);
+      const statusLabel = getPauseStatusLabel(pause, todayUtc);
+      const reasonFromMsg = await getPauseReasonFromMessage(interaction.client, pause);
+      const reason = (reasonFromMsg || String(pause?.motivazione || "").trim().slice(0, 100) || "—");
+      return `- \`${pause.dataRichiesta}\` -> \`${pause.dataRitorno}\` | **${statusLabel}** · Giorni scalati: \`${scaledDays}\`\n  <:VC_reason:1478517122929004544> ${reason}`;
+    });
+    const rows = (await Promise.all(rowPromises)).filter(Boolean);
+    const memberLabel = interaction.guild?.members?.cache?.get(userId)?.displayName || interaction.client?.users?.cache?.get(userId)?.username || ` User ID: ${userId}`;
 
     const payload = rows.length === 0
       ? { content: `<:staff:1443651912179388548> Staffer: <@${userId}>\n<:attentionfromvega:1443651874032062505> Nessuna pausa trovata nell'anno **${year}**.`, flags: 1 << 6 }
@@ -184,9 +196,8 @@ async function handlePauseButton(interaction) {
         .catch(() => {});
       return true;
     }
+    await updatePauseInDb(guildId, userId, pauseId, { status: "rejected" });
     targetPause.status = "rejected";
-    stafferRecord.markModified("pauses");
-    await stafferRecord.save();
     await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
     await interaction.deferUpdate().catch(() => {});
     const currentContent = interaction.message?.content || "";
@@ -255,11 +266,14 @@ async function handlePauseButton(interaction) {
         );
     }
 
+    await updatePauseInDb(guildId, userId, pauseId, {
+      status: "cancelled",
+      giorniUsati: consumedForCancelledPause,
+      cancelledAt: new Date(),
+    });
     targetPause.status = "cancelled";
     targetPause.giorniUsati = consumedForCancelledPause;
     targetPause.cancelledAt = new Date();
-    stafferRecord.markModified("pauses");
-    await stafferRecord.save();
 
     const baseLimit = getBasePauseLimit(member);
     const bonusBestStaff=member.roles.cache.has(IDs.roles.StafferDelMese)?5:0;
@@ -341,13 +355,25 @@ async function handlePauseButton(interaction) {
   const overlappingSameRole=await computeStaffersInPauseByRoleForRange(guildId,roleLabel,targetPause.dataRichiesta,targetPause.dataRitorno,);
   const sameRoleActiveCount = overlappingSameRole + 1;
 
+  const updateResult = await updatePauseInDb(guildId, userId, pauseId, {
+    status: "accepted",
+    ruolo: roleLabel,
+    giorniUsati,
+    giorniAggiuntivi: bonusBestStaff,
+    stafferInPausa: sameRoleActiveCount,
+  });
+  if (!updateResult.ok) {
+    await interaction.reply({
+      content: "<a:VC_Alert:1482706673176150077> Impossibile salvare l'accettazione della pausa nel database. Riprova.",
+      flags: 1 << 6,
+    }).catch(() => {});
+    return true;
+  }
   targetPause.status = "accepted";
   targetPause.ruolo = roleLabel;
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
   targetPause.stafferInPausa = sameRoleActiveCount;
-  stafferRecord.markModified("pauses");
-  await stafferRecord.save();
 
   const roleLimit = getPauseRoleLimit(roleLabel);
   const roleLimitWarning = (roleLimit != null && sameRoleActiveCount > roleLimit)

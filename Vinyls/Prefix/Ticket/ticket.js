@@ -362,6 +362,7 @@ module.exports = {
     "remove",
     "claim",
     "unclaim",
+    "transfer",
     "close",
     "closerequest",
     "switchpanel",
@@ -376,6 +377,7 @@ module.exports = {
     "close",
     "claim",
     "unclaim",
+    "transfer",
     "switchpanel",
     "rename",
     "reopen",
@@ -387,6 +389,7 @@ module.exports = {
     closerequest: "closerequest",
     claim: "claim",
     unclaim: "unclaim",
+    transfer: "transfer",
     switchpanel: "switchpanel",
     rename: "rename",
     reopen: "reopen",
@@ -421,7 +424,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Uso corretto: `+ticket <add | remove | closerequest | close | claim | unclaim | switchpanel | rename | reopen>`",
+              "<:vegax:1443934876440068179> Uso corretto: `+ticket <add | remove | closerequest | close | claim | unclaim | transfer | switchpanel | rename | reopen>`",
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -1108,6 +1111,153 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
       });
       return;
     }
+
+    if (subcommand === "transfer") {
+      const ticketDoc = await Ticket.findOne({ channelId: effectiveChannelId, open: true });
+      if (!ticketDoc) {
+        await safeMessageReply(message, {
+          embeds: [
+            makeErrorEmbed(
+              "Errore",
+              "<:vegax:1443934876440068179> Questo non è un canale ticket.",
+            ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      if (!ticketDoc.claimedBy) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Errore")
+              .setDescription(
+                "<:vegax:1443934876440068179> Il ticket non è claimato. Usa `+ticket claim` o `+claim` per prenderlo in carico.",
+              )
+              .setColor("Red"),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      const isClaimer = message.author.id === ticketDoc.claimedBy;
+      if (!isClaimer && !message.member.roles.cache.has(HIGHSTAFF_ROLE_ID)) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Errore")
+              .setDescription(
+                "<:vegax:1443934876440068179> Solo chi ha claimato il ticket o l'**High Staff** può trasferire il claim.",
+              )
+              .setColor("Red"),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      const targetUser = await resolveUserFromArg(message, normalizedRest[0]);
+      if (!targetUser) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setColor("Red")
+              .setDescription(
+                "<:vegax:1443934876440068179> Uso: `+ticket transfer <@utente | id>` oppure `+transfer <@utente | id>`. Specifica un utente valido.",
+              ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      const targetMember = await getGuildMemberCached(message.guild, targetUser.id);
+      if (!targetMember) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Errore")
+              .setDescription(
+                "<:vegax:1443934876440068179> L'utente non è nel server.",
+              )
+              .setColor("Red"),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      if (!canClaimTicket(targetMember, ticketDoc.ticketType, message.guild?.id)) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Errore")
+              .setDescription(
+                "<:vegax:1443934876440068179> L'utente selezionato non può gestire questo tipo di ticket (ruolo non autorizzato).",
+              )
+              .setColor("Red"),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      if (targetUser.id === ticketDoc.userId) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Errore")
+              .setDescription(
+                "<:vegax:1443934876440068179> Non puoi trasferire il claim all'utente che ha aperto il ticket.",
+              )
+              .setColor("Red"),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      if (targetUser.id === ticketDoc.claimedBy) {
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Info")
+              .setDescription(
+                "<:attentionfromvega:1443651874032062505> Il ticket è già claimato da questo utente.",
+              )
+              .setColor("#6f4e37"),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      const oldClaimerId = ticketDoc.claimedBy;
+      ticketDoc.claimedBy = targetUser.id;
+      await ticketDoc.save();
+      await message.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
+      await message.channel.permissionOverwrites.edit(targetUser.id, {
+        ViewChannel: true,
+        SendMessages: true,
+      });
+      const msg = await fetchTicketMessage(message.channel, ticketDoc.messageId);
+      if (msg) {
+        const updatedEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
+        const updatedButtons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
+        );
+        await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] }).catch(() => {});
+      }
+      await safeMessageReply(message, {
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("Claim trasferito")
+            .setDescription(
+              `<:VC_claim:1478517202016669887> Il ticket è stato assegnato a <@${targetUser.id}> (prima: <@${oldClaimerId}>).`,
+            )
+            .setColor("#6f4e37"),
+        ],
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+
     if (subcommand === "switchpanel") {
       if (!message.member.roles.cache.has(HIGHSTAFF_ROLE_ID)) {
         await safeMessageReply(message, {
@@ -1476,7 +1626,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<:vegax:1443934876440068179> Subcomando non valido. Usa: `add`, `remove`, `closerequest`, `close`, `claim`, `unclaim`, `switchpanel`, `rename`, `reopen`.",
+            "<:vegax:1443934876440068179> Subcomando non valido. Usa: `add`, `remove`, `closerequest`, `close`, `claim`, `unclaim`, `transfer`, `switchpanel`, `rename`, `reopen`.",
           ),
       ],
       allowedMentions: { repliedUser: false },

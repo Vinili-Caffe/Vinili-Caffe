@@ -69,6 +69,7 @@ module.exports = {
       requesterId: message.author.id,
       targetUser,
       isHighStaff: message.member.roles?.cache?.has(IDs.roles.HighStaff),
+      client: message.client,
     });
     if (!payload.ok) {
       await safeMessageReply(message, {

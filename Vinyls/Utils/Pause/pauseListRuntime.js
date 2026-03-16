@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const Staff = require("../../Schemas/Staff/staffSchema");
-const { MS_PER_DAY, countOverlapDays, countEffectiveOverlapDays } = require("./pauseHandlersUtils");
+const { MS_PER_DAY, countOverlapDays, countEffectiveOverlapDays, getPauseReasonFromMessage } = require("./pauseHandlersUtils");
 
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
@@ -102,7 +102,7 @@ function splitRowsForEmbeds(rows, limit = 3500) {
   return chunks;
 }
 
-async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff }) {
+async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client }) {
   if (!isHighStaff && String(targetUser?.id || "") !== String(requesterId || "")) {
     return { ok: false, error: "<:vegax:1443934876440068179> Puoi vedere solo le tue pause." };
   }
@@ -117,12 +117,15 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const todayUtc = getTodayUtc();
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
   const currentYear = yearStart.getUTCFullYear();
-  const rows = pauses.map((pause) => {
+  const rowPromises = pauses.map(async (pause) => {
     const start = parseItalianDate(pause?.dataRichiesta);
     const end = parseItalianDate(pause?.dataRitorno);
     if (!start || !end || countOverlapDays(start, end, yearStart, yearEnd) <= 0) return null;
-    return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1482706699365257397> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati:\`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\``;
-  }).filter(Boolean);
+    const reasonFromMsg = client ? await getPauseReasonFromMessage(client, pause) : null;
+    const reason = (reasonFromMsg || String(pause?.motivazione || "").trim().slice(0, 100) || "—");
+    return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1482706699365257397> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati: \`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\`\n<:VC_reason:1478517122929004544> ${reason}`;
+  });
+  const rows = (await Promise.all(rowPromises)).filter(Boolean);
   if (!rows.length) {
     return {
       ok: true,
