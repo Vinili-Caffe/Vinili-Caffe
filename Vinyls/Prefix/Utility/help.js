@@ -709,7 +709,7 @@ function expandHelpDisplayPages(basePages, newUntilMap = null) {
       expanded[idx].indexLabel = `${idx + 1}/${total}`;
       expanded[idx].renderedText = `${String(expanded[idx].renderedText || "").trimEnd()}\n\n**Pagina ${expanded[idx].indexLabel}**`;
     }
-    i--;
+    i += newPages.length - 1;
   }
 
   return expanded;
