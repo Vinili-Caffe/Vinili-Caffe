@@ -1238,6 +1238,13 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
           })
           .catch(() => { });
 
+        if (ticketDoc.claimedBy) {
+          const claimerMember = await getGuildMemberCached(message.guild, ticketDoc.claimedBy);
+          if (!canClaimTicket(claimerMember, panelConfig.type, message.guild?.id)) {
+            ticketDoc.claimedBy = null;
+          }
+        }
+
         const applyReadOnly = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, };
         const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
         const denyView = { ViewChannel: false };

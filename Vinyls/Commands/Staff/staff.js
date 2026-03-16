@@ -154,6 +154,9 @@ __Per qualsiasi cosa l'High Staff è disponibile__ <:staff:1443651912179388548>`
   }).catch(() => null);
 }
 
+const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_COORDINATOR, ROLE_SUPERVISOR, ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER];
+const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER];
+
 async function applyPexSideEffects(
   member,
   roleId,
@@ -163,6 +166,15 @@ async function applyPexSideEffects(
 ) {
   if (roleId === ROLE_PARTNER_MANAGER) {
     await sendPartnerManagerWelcome(pmChannel, user);
+  }
+
+  if (STAFF_LADDER_ROLES.includes(roleId)) {
+    await member.roles.add(ROLE_STAFF);
+    member = (await ensureRoleState(member, ROLE_STAFF, true)).member;
+  }
+  if (ROLES_REQUIRING_HIGH_STAFF.includes(roleId)) {
+    await member.roles.add(ROLE_HIGH_STAFF);
+    member = (await ensureRoleState(member, ROLE_HIGH_STAFF, true)).member;
   }
 
   if (roleId === ROLE_HELPER) {
@@ -412,14 +424,7 @@ module.exports = {
           targetUser,
         );
 
-        await replySuccess(interaction);
-
-        await pexDepexChannel.send({
-          content: `**<:success:1461731530333229226> PEX** ${targetUser}
-<:staff:1443651912179388548> \`${roleBefore.name}\` <a:VC_Arrow:1482706699365257397> \`${roleAfter.name}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
-        }).catch(() => null);
-
+        if (!Array.isArray(staffDoc.rolesHistory)) staffDoc.rolesHistory = [];
         staffDoc.rolesHistory.push({
           oldRole: roleBefore.id,
           newRole: roleAfter.id,
@@ -427,6 +432,14 @@ module.exports = {
           date: new Date(),
         });
         await staffDoc.save();
+
+        await replySuccess(interaction);
+
+        await pexDepexChannel.send({
+          content: `**<:success:1461731530333229226> PEX** ${targetUser}
+<:staff:1443651912179388548> \`${roleBefore.name}\` <a:VC_Arrow:1482706699365257397> \`${roleAfter.name}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+        }).catch(() => null);
         return;
       } catch (err) {
         global.logger.error(err);

@@ -67,7 +67,9 @@ function isPexEntry(row) {
   const isPromotion = oldRole && newRole && ROLE_UP[oldRole] === newRole;
   const reasonHasPex = String(row?.reason || "").toLowerCase().includes("pex");
   const isPartnerManagerPex = newRole === String(IDs.roles.PartnerManager || "");
-  return isPromotion || reasonHasPex || isPartnerManagerPex;
+  const hadStaffRoleBefore = oldRole && STAFF_ROLE_IDS.includes(oldRole);
+  const partnerManagerPexCountsAsNew = isPartnerManagerPex && !hadStaffRoleBefore;
+  return isPromotion || reasonHasPex || partnerManagerPexCountsAsNew;
 }
 
 async function getStaffPexedLast7Days(guildId) {
