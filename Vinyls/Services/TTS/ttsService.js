@@ -147,7 +147,7 @@ const TTS_ABBREVIATIONS_IT = {
   bestie: "migliore amica", bff: "migliori amici per sempre", goat: "il migliore di tutti",
   mvp: "giocatore più prezioso", pog: "fantastico", poggers: "fantastico", kek: "lol",
   rekt: "distrutto", noob: "principiante", pro: "professionista", op: "troppo forte",
-  nerf: "indebolire", buff: "potenziare", dlc: "contenuto scaricabile", f2p: "free to play",
+  nerf: "indebolire", dlc: "contenuto scaricabile", f2p: "free to play",
   p2w: "pay to win", grind: "grindare", loot: "bottino", rng: "caso", dps: "danno al secondo",
   main: "main", alt: "alternativo", smurf: "smurf", carry: "portare", tilt: "tilt",
   toxic: "tossico", ff: "forfeit", inv: "invita", dc: "disconnesso", mod: "moderatore",
