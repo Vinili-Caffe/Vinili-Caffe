@@ -45,15 +45,11 @@ function parsePauseMessage(content, components) {
   if (!dataRichiestaMatch || !dataRitornoMatch) return null;
   let userId = null;
   let oldPauseId = null;
-  if (components && components.length > 0) {
-    const row = components[0];
-    const firstButton = row?.components?.[0];
-    const customId = firstButton?.customId || "";
-    const match = customId.match(/^pause_accept:(\d{17,20}):(.+)$/);
-    if (match) {
-      userId = match[1];
-      oldPauseId = match[2];
-    }
+  const customId = getPauseAcceptCustomId(components) || "";
+  const match = String(customId).match(/^pause_accept:(\d{17,20}):(.+)$/);
+  if (match) {
+    userId = match[1];
+    oldPauseId = match[2];
   }
   if (!userId) return null;
   return {
@@ -65,12 +61,25 @@ function parsePauseMessage(content, components) {
   };
 }
 
+function getPauseAcceptCustomId(components) {
+  if (!components?.length) return null;
+  const rows = Array.isArray(components) ? components : (components && typeof components[Symbol.iterator] === "function" ? [...components] : []);
+  for (const row of rows) {
+    const comps = Array.isArray(row?.components) ? row.components : (row?.components && typeof row.components[Symbol.iterator] === "function" ? [...row.components] : []);
+    for (const c of comps) {
+      const id = c?.customId ?? c?.custom_id ?? c?.data?.custom_id ?? "";
+      if (String(id).startsWith("pause_accept:")) return String(id);
+    }
+  }
+  return null;
+}
+
 function isPauseRequestMessage(content, components) {
-  if (!content || !content.includes("ha richiesto una pausa")) return false;
-  if (!components?.length) return false;
-  const row = components[0];
-  const first = row?.components?.[0];
-  return first?.customId?.startsWith?.("pause_accept:") ?? false;
+  if (!content || typeof content !== "string") return false;
+  const hasData = content.includes("Data richiesta") && content.includes("Data ritorno");
+  const hasRichiesta = content.includes("richiesto una pausa");
+  const pauseAcceptId = getPauseAcceptCustomId(components);
+  return hasData && (hasRichiesta || pauseAcceptId) && !!pauseAcceptId;
 }
 
 function buildPauseRequestButtonsRow(userId, pauseId) {
@@ -155,13 +164,35 @@ async function run() {
   }
 
   const messages = await channel.messages.fetch({ limit });
+  const verbose = process.argv.includes("--verbose");
+  const total = messages.size;
+  let fromBot = 0;
+  let withData = 0;
+  let withPauseButton = 0;
+  let matched = 0;
+  for (const [, m] of messages) {
+    if (m.author?.bot) fromBot++;
+    if (m.author?.bot && m.content?.includes("Data richiesta")) withData++;
+    if (m.author?.bot && getPauseAcceptCustomId(m.components)) withPauseButton++;
+  }
+  console.log(`Canale: ${channel.name} (${channel.id}). Messaggi totali: ${total}, dal bot: ${fromBot}, con "Data richiesta": ${withData}, con pulsante pause_accept: ${withPauseButton}.`);
+  if (total === 0) console.warn("Attenzione: nessun messaggio nel canale. Verifica che l'ID canale in ids.js (channels.pause) sia corretto.");
+  if (fromBot === 0 && total > 0) console.warn("Attenzione: nessun messaggio dal bot in questo canale. I messaggi di richiesta pausa sono inviati dal bot.");
+
   let created = 0;
   let skipped = 0;
   let errors = 0;
+  let matched = 0;
 
   for (const [, msg] of messages) {
     if (!msg.author?.bot) continue;
-    if (!isPauseRequestMessage(msg.content, msg.components)) continue;
+    if (!isPauseRequestMessage(msg.content, msg.components)) {
+      if (verbose && msg.content?.includes("Data richiesta")) {
+        console.log(`[skip] ${msg.id}: non match (pulsante: ${getPauseAcceptCustomId(msg.components) ? "sì" : "no"}).`);
+      }
+      continue;
+    }
+    matched++;
     if (existingByMessageId.has(msg.id)) {
       skipped++;
       continue;
@@ -212,7 +243,7 @@ async function run() {
     console.log(`[ok] Messaggio ${msg.id} → pause creata per userId ${parsed.userId}, _id ${newPauseId}`);
   }
 
-  console.log(`\nFine: ${created} pause create, ${skipped} saltate (già in DB o non richieste), ${errors} errori.`);
+  console.log(`\nMessaggi riconosciuti come richiesta pausa: ${matched}. Fine: ${created} pause create, ${skipped} saltate (già in DB o non richieste), ${errors} errori.`);
   client.destroy();
   await mongoose.disconnect();
 }

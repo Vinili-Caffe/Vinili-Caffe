@@ -48,6 +48,7 @@
     "enabled": true,
     "cooldownHours": 24,
     "checkIntervalMinutes": 30,
+    "fallbackChannelId": null,
     "voteUrl": "https://discadia.com/vote/viniliecaffe/",
     "message": [
       "<:VC_bump:1482531857521311885> Hey! Sono passate 24 ore: puoi votare di nuovo su Discadia.",
