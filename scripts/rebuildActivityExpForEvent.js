@@ -164,7 +164,7 @@ async function main() {
 
 if (require.main === module) {
   const uri =
-    process.env.MONGO_URL_LOCAL_LOCAL ||
+    process.env.MONGO_URL_LOCAL ||
     process.env.MONGODB_URI_LOCAL ||
     process.env.MONGO_URI ||
     process.env.MONGODB_URI ||

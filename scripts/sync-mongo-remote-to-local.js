@@ -24,7 +24,7 @@ function getSourceUrl() {
 }
 
 function getDestUrl() {
-  return argDest || process.env.MONGO_URL_LOCAL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
+  return argDest || process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
 }
 
 async function run() {

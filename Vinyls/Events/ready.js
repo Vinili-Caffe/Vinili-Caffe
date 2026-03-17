@@ -174,9 +174,9 @@ const getChannelSafe = async (client, channelId) => { if (!channelId) return nul
 
 function buildMongoUrl(client) {
   return (
-    process.env.MONGO_URL_LOCAL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
     process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
+    process.env.MONGO_URL ||
     process.env.MONGODB_URI ||
     client.config.mongoURL
   );
@@ -187,7 +187,7 @@ async function connectMongo(client) {
   if (!mongoUrl) {
     logError(
       client,
-      "[DATABASE] No MongoDB URL has been provided. Set MONGO_URL (or MONGODB_URI) or fallback config.mongoURL.",
+      "[DATABASE] No MongoDB URL. Set MONGO_URL or MONGO_URL_LOCAL (or MONGODB_URI) in .env.",
     );
     return false;
   }
