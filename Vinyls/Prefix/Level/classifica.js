@@ -115,6 +115,27 @@ function getActiveWeeklyKeyRome(date = new Date()) {
   return getWeekKeyRome(date);
 }
 
+function getLastSunday21BoundaryMs(date = new Date()) {
+  const parts = getRomeDayParts(date);
+  const daysToLastSunday = parts.weekday === 0 ? 0 : parts.weekday;
+  const base = new Date(date.getTime() - daysToLastSunday * 24 * 60 * 60 * 1000);
+  const y = base.getFullYear();
+  const m = base.getMonth();
+  const d = base.getDate();
+  const sunday21 = new Date(y, m, d, 21, 0, 0, 0);
+  return sunday21.getTime();
+}
+
+function buildLast7DaysHourKeys(endMs) {
+  const keys = [];
+  for (let h = 0; h < 24 * 7; h += 1) {
+    const d = new Date(endMs - h * 60 * 60 * 1000);
+    const parts = getRomeDayParts(d);
+    keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
+  }
+  return keys;
+}
+
 async function resolveMemberRole(guild) {
   if (!guild) return null;
   const configuredId = String(IDs.roles?.Member || "").trim();
@@ -161,29 +182,32 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
   if (cached && cached.expiresAt > Date.now()) return cached.rows;
 
   if (mode === "weekly") {
-    const docs = await ActivityUser.find(
-      {
-        guildId: guild.id,
-        $or: [
-          { "messages.weeklyKey": activeWeeklyKey },
-          { "voice.weeklyKey": activeWeeklyKey },
-        ],
-      },
-      { userId: 1, messages: 1, voice: 1 },
-    ).limit(5000).lean().catch(() => []);
+    const endMs = getLastSunday21BoundaryMs(new Date());
+    const hourKeys = buildLast7DaysHourKeys(endMs);
+    const docs = await ActivityHourly.find({
+      guildId: guild.id,
+      hourKey: { $in: hourKeys },
+    }).select("userId textCount voiceSeconds").lean().catch(() => []);
 
-    const rows = docs
-      .map((doc) => {
-        const textCount = Math.max(0, Number(doc?.messages?.weekly || 0));
-        const voiceSeconds = Math.max(0, Number(doc?.voice?.weeklySeconds || 0));
-        const baseExpFromText = textCount * MESSAGE_EXP;
-        const baseExpFromVoice = Math.floor((voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
+    const perUser = new Map();
+    for (const doc of docs) {
+      const userId = String(doc?.userId || "");
+      if (!userId) continue;
+      const textCount = Math.max(0, Number(doc?.textCount || 0));
+      const voiceSeconds = Math.max(0, Number(doc?.voiceSeconds || 0));
+      if (textCount <= 0 && voiceSeconds <= 0) continue;
+      const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+      current.textCount += textCount;
+      current.voiceSeconds += voiceSeconds;
+      perUser.set(userId, current);
+    }
+
+    const rows = Array.from(perUser.values())
+      .map((entry) => {
+        const baseExpFromText = entry.textCount * MESSAGE_EXP;
+        const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
         const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
-        return {
-          userId: String(doc?.userId || ""),
-          exp,
-          level: getLevelInfo(exp).level,
-        };
+        return { userId: entry.userId, exp, level: getLevelInfo(exp).level };
       })
       .filter((entry) => entry.userId && entry.exp > 0)
       .sort((a, b) => b.exp - a.exp)
@@ -291,12 +315,10 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
 
 async function buildWeeklyEmbed(message, excludeStaffFromShort = false, useExpUserBoard = false) {
   const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
-  const candidateRows = useExpUserBoard
-    ? await computeExpUserLeaderboardRows(message.guild, "weekly", maxCand)
-    : await computeLeaderboardRows(message.guild, "weekly", maxCand);
+  const candidateRows = await computeLeaderboardRows(message.guild, "weekly", maxCand);
   const staffId = IDs.roles?.Staff;
   const members = await fetchMembers(message.guild, candidateRows.map((r) => r.userId),);
-  let rows = candidateRows.filter((row) => members.has(row.userId));
+  let rows = candidateRows;
   if (excludeStaffFromShort && staffId) {
     rows = rows.filter((row) => !members.get(row.userId)?.roles?.cache?.has(staffId));
   }

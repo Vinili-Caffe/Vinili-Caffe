@@ -151,8 +151,6 @@ async function resolveUserTargetAndLookback(message, args = []) {
 
   const numericId = first.replace(/[<@!>]/g, "").trim();
   if (/^\d{17,20}$/.test(numericId)) {
-    // Accetta sempre un ID numerico valido, anche se non è fetchabile (cache/intent/offline).
-    // Le stats possono comunque esistere nel DB e non serve risolvere il member qui.
     return { targetId: numericId, lookbackDays };
     const user = await message.client?.users?.fetch(numericId).catch(() => null);
     if (user) return { targetId: user.id, lookbackDays };
