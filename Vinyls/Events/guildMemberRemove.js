@@ -196,13 +196,13 @@ function getHighestTrackedRole(member) {
 }
 
 async function handleTrackedStaffLeave(member) {
-  const hadTrackedStaffRole = member.roles?.cache ? [...STAFF_TRACKED_ROLE_IDS].some((roleId) => member.roles.cache.has(roleId),) : false;
-  if (!hadTrackedStaffRole) return;
-
   const guild = member.guild;
+  const result = await Staff.deleteOne({ guildId: guild.id, userId: member.id }).catch(() => ({ deletedCount: 0 }));
+  if (result?.deletedCount === 0) return;
+
   const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex)) || (await getClientChannelCached(member.client, IDs.channels.pexDepex));
   if (resignChannel?.isTextBased?.()) {
-    const highestTrackedRole = getHighestTrackedRole(member);
+    const highestTrackedRole = member.roles?.cache ? getHighestTrackedRole(member) : null;
     const roleLabel = highestTrackedRole?.name || "Staff/PM";
     const userRole = guild.roles.cache.get(IDs.roles.Member);
     const userRoleLabel = userRole?.name || "User";
@@ -210,11 +210,6 @@ async function handleTrackedStaffLeave(member) {
 <:discordstaff:1443651872258003005> __Dimissioni (Esce dal server)__`;
     await resignChannel.send({ content }).catch(() => { });
   }
-
-  await Staff.deleteOne({
-    guildId: guild.id,
-    userId: member.id,
-  }).catch(() => { });
 }
 
 async function sendRejoinDm(member) {

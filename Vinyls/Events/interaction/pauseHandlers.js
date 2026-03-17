@@ -102,28 +102,6 @@ async function handlePauseButton(interaction) {
   }
 
   if (action === "pause_list") {
-    let contextualPause = pauseId ? stafferRecord.pauses?.id?.(pauseId) : null;
-    if (!contextualPause && messageId) {
-      const p = Array.isArray(stafferRecord.pauses) ? stafferRecord.pauses.find((x) => String(x?.requestMessageId) === String(messageId)) : null;
-      if (p) contextualPause = p;
-    }
-    const now = getTodayUtc();
-    const contextualEnd=contextualPause?parseItalianDate(contextualPause.dataRitorno):null;
-    const shouldHideCancel=Boolean(contextualPause&&(contextualPause.status!=="accepted"||(contextualEnd&&now>contextualEnd)),);
-
-    const effectivePauseId = contextualPause?._id != null ? String(contextualPause._id) : pauseId;
-    let acknowledgedByUpdate = false;
-    if (contextualPause && shouldHideCancel) {
-      await interaction
-        .update({
-          components: [
-            buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true }),
-          ],
-        })
-        .catch(() => {});
-      acknowledgedByUpdate = true;
-    }
-
     const pauses = Array.isArray(stafferRecord.pauses) ? stafferRecord.pauses : [];
     const todayUtc = getTodayUtc();
     const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
@@ -159,11 +137,7 @@ async function handlePauseButton(interaction) {
           flags: 1 << 6,
         };
 
-    if (acknowledgedByUpdate) {
-      await interaction.followUp(payload).catch(() => {});
-    } else {
-      await interaction.reply(payload).catch(() => {});
-    }
+    await interaction.reply(payload).catch(() => {});
     return true;
   }
 
