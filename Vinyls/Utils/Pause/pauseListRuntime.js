@@ -37,11 +37,22 @@ function buildPauseListMonthRows(targetUserId, year) {
 
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
+  const raw = value.trim();
+  let match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  let day = null;
+  let month = null;
+  let year = null;
+  if (match) {
+    day = Number(match[1]);
+    month = Number(match[2]);
+    year = Number(match[3]);
+  } else {
+    match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    year = Number(match[1]);
+    month = Number(match[2]);
+    day = Number(match[3]);
+  }
   if (!day || !month || !year) return null;
   const date = new Date(Date.UTC(year, month - 1, day));
   if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
