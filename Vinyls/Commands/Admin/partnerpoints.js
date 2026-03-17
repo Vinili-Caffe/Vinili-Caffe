@@ -33,7 +33,7 @@ async function addPartnerPoints(guildId, userId, amount) {
     { guildId: g, userId: u },
     {
       $inc: { partnerCount: amount },
-      $setOnInsert: { guildId: g, userId: u, partnerCount: 0 },
+      $setOnInsert: { guildId: g, userId: u },
     },
     {
       new: true,
