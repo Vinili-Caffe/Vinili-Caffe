@@ -1,13 +1,3 @@
-/**
- * Scarica dal server i file generati/aggiornati dal bot (es. idsCatalog.js).
- * Esegui dalla root del progetto: node scripts/sync-from-server.js
- *
- * Configura nel .env (root):
- *   SYNC_SERVER=user@host     (es. root@myserver.com)
- *   SYNC_REMOTE_PATH=/opt/bot (path sul server dove sta il progetto)
- *
- * Su Windows serve OpenSSH (scp) in PATH; su Linux/macOS è incluso.
- */
 const path = require("path");
 const { execSync } = require("child_process");
 const fs = require("fs");
