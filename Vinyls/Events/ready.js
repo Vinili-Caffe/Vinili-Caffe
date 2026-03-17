@@ -428,6 +428,11 @@ module.exports = {
   name: "clientReady",
   once: true,
   async execute(client) {
+    if (client._readyBootstrapDone) {
+      return;
+    }
+    client._readyBootstrapDone = true;
+
     const readyStartedAt = Date.now();
     const maxListeners = resolveMaxListeners(client);
     client.setMaxListeners(maxListeners);
