@@ -128,7 +128,7 @@ async function main() {
     incOps.push({
       updateOne: {
         filter: { guildId, userId },
-        update: { $inc: { totalExp: exp }, $setOnInsert: { guildId, userId } },
+        update: { $inc: { totalExp: exp, activityExpTotal: exp }, $setOnInsert: { guildId, userId } },
         upsert: true,
       },
     });
