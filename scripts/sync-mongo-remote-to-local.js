@@ -1,12 +1,17 @@
 /**
  * Sincronizza il database MongoDB remoto verso quello locale.
- * Copia tutte le collection: i dati sul DB locale vengono sostituiti con quelli remoti.
+ * Copia tutte le collection: i dati sul DB locale vengono SOSTITUITI con quelli remoti.
  *
  * Uso (argomenti: prima sorgente remota, poi destinazione locale):
- *   node scripts/sync-mongo-remote-to-local.js "mongodb+srv://..." "mongodb://127.0.0.1:27017/local"
+ *   node scripts/sync-mongo-remote-to-local.js "mongodb+srv://..." "mongodb://127.0.0.1:27017/local" --overwrite-local
  *
  * Oppure con variabili d'ambiente / .env:
  *   MONGO_URL = remoto, MONGO_URL_LOCAL = locale
+ * Poi: node scripts/sync-mongo-remote-to-local.js --overwrite-local
+ *
+ * --overwrite-local OBBLIGATORIO quando la destinazione è locale (127.0.0.1/localhost):
+ *   evita di sovrascrivere per sbaglio il DB locale. Fai prima un backup se serve:
+ *   mongodump --uri="<MONGO_URL_LOCAL>" --out=./backup-local
  */
 
 const path = require("path");
@@ -15,12 +20,14 @@ const mongoose = require("mongoose");
 const ROOT = path.resolve(__dirname, "..");
 require("dotenv").config({ path: path.join(ROOT, ".env"), quiet: true });
 
-const argv = process.argv.slice(2);
-const argSource = argv[0]?.trim() || null;
-const argDest = argv[1]?.trim() || null;
+const rawArgs = process.argv.slice(2).map((a) => String(a).trim());
+const overwriteLocal = rawArgs.some((a) => a.toLowerCase() === "--overwrite-local");
+const urlArgs = rawArgs.filter((a) => a.toLowerCase() !== "--overwrite-local");
+const argSource = urlArgs[0] || null;
+const argDest = urlArgs[1] || null;
 
 function getSourceUrl() {
-  return argSource || process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI || null;
+  return argSource || process.env.MONGO_URL || process.env.MONGODB_URI || null;
 }
 
 function getDestUrl() {
@@ -52,6 +59,35 @@ async function run() {
   }
   if (!destUrl) {
     console.error("Manca l’URL del DB locale. Passalo come 2° argomento oppure imposta MONGO_URL_LOCAL nel .env.");
+    process.exit(1);
+  }
+
+  const norm = (u) => (u || "").replace(/\/\/[^@]+@/, "//***@").toLowerCase();
+  if (norm(sourceUrl) === norm(destUrl)) {
+    console.error("Sorgente e destinazione sono lo stesso DB. Usa MONGO_URL (remoto) e MONGO_URL_LOCAL (locale).");
+    process.exit(1);
+  }
+
+  const isDestLocal = () => {
+    try {
+      const u = new URL(destUrl.replace(/^mongodb(\+srv)?:/, "https:"));
+      const h = (u.hostname || "").toLowerCase();
+      return h === "127.0.0.1" || h === "localhost" || h === "::1";
+    } catch {
+      return false;
+    }
+  };
+  if (isDestLocal() && !overwriteLocal) {
+    console.error("");
+    console.error("*** DESTINAZIONE LOCALE: serve conferma ***");
+    console.error("Stai per SOVRASCRIVERE il DB locale con il remoto. I dati attuali sul locale andranno persi.");
+    console.error("");
+    console.error("Per procedere aggiungi: --overwrite-local");
+    console.error("Esempio: node scripts/sync-mongo-remote-to-local.js --overwrite-local");
+    console.error("");
+    console.error("Per fare prima un backup del locale:");
+    console.error('  mongodump --uri="<MONGO_URL_LOCAL>" --out=./backup-local');
+    console.error("");
     process.exit(1);
   }
 
