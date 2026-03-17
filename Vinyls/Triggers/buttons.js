@@ -15,6 +15,7 @@ const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server princ
 const IGNORED_BUTTON_LOG_CODES = new Set([
   10062, // Unknown interaction
   10015, // Unknown webhook
+  10011, // Unknown Role (ruolo cancellato dal server, menu ruoli)
   40060, // Interaction has already been acknowledged
 ]);
 
@@ -30,6 +31,22 @@ function logButtonErr(err, opts = {}) {
   }
   if (opts.warn) global.logger?.warn?.("[buttons]", msg);
   else global.logger?.error?.("[buttons]", msg);
+}
+
+function onlyExistingRoleIds(guild, roleIds) {
+  if (!guild?.roles?.cache || !Array.isArray(roleIds)) return [];
+  return roleIds.filter((id) => id && guild.roles.cache.has(id));
+}
+
+/** Restituisce { existing, missing }. Se missing.length > 0, logga quali ID ruolo non sono più sul server. */
+function partitionRoleIdsByExisting(guild, roleIds, context) {
+  if (!guild?.roles?.cache || !Array.isArray(roleIds)) return { existing: [], missing: [] };
+  const existing = roleIds.filter((id) => id && guild.roles.cache.has(id));
+  const missing = roleIds.filter((id) => id && !guild.roles.cache.has(id));
+  if (missing.length) {
+    global.logger?.warn?.("[buttons] Ruolo/i non più presenti sul server (Unknown Role).", context, "ID eliminati:", missing);
+  }
+  return { existing, missing };
 }
 
 function findStringSelectOptionLabel(message, customId, value) {
@@ -440,6 +457,8 @@ module.exports = {
       if (!roleIds) return;
       const member = interaction.member;
       if (!member) return;
+      const guild = interaction.guild;
+      const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, rolesToRemove || [], `menu=${menuId} (config)`);
 
       await interaction.deferReply({ flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
       if (!interaction.deferred) {
@@ -451,12 +470,12 @@ module.exports = {
       try {
         if (!values.length || values.includes("remove")) {
           if (colorMenuIds.includes(menuId)) {
-            await setMemberRolesBulk(member, rolesToRemove, []);
+            await setMemberRolesBulk(member, rolesToRemoveExisting, []);
           } else {
-            await removeMemberRolesSequential(member, rolesToRemove);
+            await removeMemberRolesSequential(member, rolesToRemoveExisting);
           }
           const refreshedMember = await interaction.guild?.members?.fetch?.(interaction.user.id).catch((err) => { logButtonErr(err); return null; });
-          const stillHasManagedRole = Array.isArray(rolesToRemove) && rolesToRemove.some((roleId) => refreshedMember?.roles?.cache?.has?.(roleId));
+          const stillHasManagedRole = rolesToRemoveExisting.some((roleId) => refreshedMember?.roles?.cache?.has?.(roleId));
           if (stillHasManagedRole) {
             return replyOrEdit({ content: ROLE_BOT_HIERARCHY });
           }
@@ -471,16 +490,17 @@ module.exports = {
             return replyOrEdit({ content: ROLE_PLUS_FORBIDDEN });
           }
         }
+        const { existing: valuesExisting } = partitionRoleIdsByExisting(guild, values, `menu=${menuId} (selezione utente)`);
         if (colorMenuIds.includes(menuId)) {
-          await setMemberRolesBulk(member, rolesToRemove, values);
+          await setMemberRolesBulk(member, rolesToRemoveExisting, valuesExisting);
         } else {
-          await removeMemberRolesSequential(member, rolesToRemove);
+          await removeMemberRolesSequential(member, rolesToRemoveExisting);
           const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => { logButtonErr(err, { warn: true }); return member; });
-          await m.roles.add(values).catch((err) => { logButtonErr(err); });
+          await m.roles.add(valuesExisting).catch((err) => { logButtonErr(err); });
         }
         let m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => { logButtonErr(err, { warn: true }); return member; });
-        const appliedAll = values.every((roleId) => m?.roles?.cache?.has?.(roleId));
-        const stillOld = rolesToRemove.some((rid) => values.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid));
+        const appliedAll = valuesExisting.length ? valuesExisting.every((roleId) => m?.roles?.cache?.has?.(roleId)) : false;
+        const stillOld = rolesToRemoveExisting.some((rid) => valuesExisting.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid));
         if (menuId === "personality_dm" && stillOld) {
           return replyOrEdit({ content: ROLE_DM_OLD_STATE });
         }

@@ -22,7 +22,7 @@ const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
 
-const PLUS_COLOR_REQUIRED_ROLE_IDS=[IDs.roles.ServerBooster,IDs.roles.Level50,].filter(Boolean);
+const PLUS_COLOR_REQUIRED_ROLE_IDS=[IDs.roles.ServerBooster,IDs.roles.Level50,IDs.roles.Level70,IDs.roles.Donator,IDs.roles.vip,].filter(Boolean);
 const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,IDs.roles.YinYangPlus,].filter(Boolean);
 
 const boostCountCache = new Map();
@@ -370,6 +370,8 @@ async function removePlusColorsIfNotEligible(member) {
 
   const heldPlusRoles=PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
   if (!heldPlusRoles.length) return;
+
+  global.logger?.warn?.("[guildMemberUpdate] Removing plus colors (not eligible):", { guildId: member.guild.id, userId: member.id, hasRequiredRole, hasEventWeek2Grant, hasEventWeek3Grant, heldPlusRoles, });
 
   const removableRoleIds=heldPlusRoles.filter((roleId) => {const role=member.guild.roles.cache.get(roleId);return role&&role.position<me.roles.highest.position;});
   if (!removableRoleIds.length) return;

@@ -1002,9 +1002,12 @@ async function checkButtonPermission(interaction) {
 
   if (hasRoleConstraint && !rolePass) {
     if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => true);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => true);
       if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+    }
+    if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
+      global.logger?.warn?.("[permissions] Blocked personality_colors_plus:", { guildId, userId: interaction.user.id, reason: "missing_role", requiredRoles: policy.roles, });
     }
     return {
       allowed: false,
@@ -1151,8 +1154,8 @@ async function checkStringSelectPermission(interaction) {
 
   if (hasRoleConstraint && !rolePass) {
     if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => true);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => true);
       if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
     }
     return {
@@ -1301,8 +1304,8 @@ async function checkModalPermission(interaction) {
 
   if (hasRoleConstraint && !rolePass) {
     if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => true);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => true);
       if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
     }
     return {
