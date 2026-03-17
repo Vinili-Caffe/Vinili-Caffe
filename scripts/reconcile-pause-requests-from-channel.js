@@ -9,6 +9,8 @@ const VINYLS = path.join(ROOT, "Vinyls");
 require("dotenv").config({ path: path.join(ROOT, ".env"), quiet: true });
 
 function getMongoUrl() {
+  if (process.env.MONGO_URL_LOCAL) return process.env.MONGO_URL_LOCAL;
+  if (process.env.MONGODB_URI_LOCAL) return process.env.MONGODB_URI_LOCAL;
   if (process.env.MONGO_URL) return process.env.MONGO_URL;
   if (process.env.MONGODB_URI) return process.env.MONGODB_URI;
   try {
@@ -169,7 +171,7 @@ async function run() {
   let fromBot = 0;
   let withData = 0;
   let withPauseButton = 0;
-  let matched = 0;
+  let summaryMatched = 0; // <-- Fix: avoid redeclaring 'matched'
   for (const [, m] of messages) {
     if (m.author?.bot) fromBot++;
     if (m.author?.bot && m.content?.includes("Data richiesta")) withData++;
@@ -182,7 +184,7 @@ async function run() {
   let created = 0;
   let skipped = 0;
   let errors = 0;
-  let matched = 0;
+  let matched = 0; // Only for the main loop
 
   for (const [, msg] of messages) {
     if (!msg.author?.bot) continue;
@@ -243,6 +245,7 @@ async function run() {
     console.log(`[ok] Messaggio ${msg.id} → pause creata per userId ${parsed.userId}, _id ${newPauseId}`);
   }
 
+  // Use the matched value from the main loop
   console.log(`\nMessaggi riconosciuti come richiesta pausa: ${matched}. Fine: ${created} pause create, ${skipped} saltate (già in DB o non richieste), ${errors} errori.`);
   client.destroy();
   await mongoose.disconnect();

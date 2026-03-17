@@ -3,7 +3,15 @@ function getToken(config = {}, envKey = "DISCORD_TOKEN") {
 }
 
 function getMongoUrl(config = {}) {
-  return process.env.MONGO_URL || process.env.MONGODB_URI || config?.mongoURL || config?.mongoUrl || null;
+  return (
+    process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
+    process.env.MONGO_URL ||
+    process.env.MONGODB_URI ||
+    config?.mongoURL ||
+    config?.mongoUrl ||
+    null
+  );
 }
 
 function ensureToken(token, botLabel = "Bot") {

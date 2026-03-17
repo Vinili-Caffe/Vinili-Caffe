@@ -80,6 +80,7 @@ module.exports = {
     }
     await safeMessageReply(message, {
       embeds: payload.embeds,
+      components: payload.components || [],
       allowedMentions: { repliedUser: false },
     });
   },

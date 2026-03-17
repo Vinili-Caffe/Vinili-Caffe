@@ -164,12 +164,14 @@ async function main() {
 
 if (require.main === module) {
   const uri =
+    process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
     process.env.MONGO_URI ||
     process.env.MONGODB_URI ||
     process.env.MONGO_URL;
   if (!uri) {
     console.error(
-      "[rebuildActivityExpForEvent] MONGO_URI/MONGODB_URI/MONGO_URL mancante.",
+      "[rebuildActivityExpForEvent] MONGO_URI/MONGODB_URI/MONGO_URL (o MONGO_URL_LOCAL) mancante.",
     );
     process.exit(1);
   }

@@ -50,6 +50,8 @@ const FILES = [
 ];
 
 function getMongoUrl() {
+  if (process.env.MONGO_URL_LOCAL) return process.env.MONGO_URL_LOCAL;
+  if (process.env.MONGODB_URI_LOCAL) return process.env.MONGODB_URI_LOCAL;
   if (process.env.MONGO_URL) return process.env.MONGO_URL;
   if (process.env.MONGODB_URI) return process.env.MONGODB_URI;
   try {

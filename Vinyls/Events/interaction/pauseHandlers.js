@@ -8,6 +8,7 @@ async function deletePauseThreadIfAny(guild, requestThreadId) {
   if (thread?.isThread?.()) await thread.delete().catch(() => null);
 }
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage } = require("../../Utils/Pause/pauseHandlersUtils");
+const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
 const pauseActionLocks = new Set();
 
 async function handlePauseButton(interaction) {
@@ -16,7 +17,8 @@ async function handlePauseButton(interaction) {
     !interaction.customId.startsWith("pause_accept:") &&
     !interaction.customId.startsWith("pause_reject:") &&
     !interaction.customId.startsWith("pause_cancel:") &&
-    !interaction.customId.startsWith("pause_list:")
+    !interaction.customId.startsWith("pause_list:") &&
+    !interaction.customId.startsWith("pause_list_month:")
   )
     return false;
 
@@ -64,7 +66,7 @@ async function handlePauseButton(interaction) {
     return true;
   }
   if (
-    action === "pause_list" &&
+    (action === "pause_list" || action === "pause_list_month") &&
     !isHighStaff &&
     !isStaff &&
     interaction.user.id !== userId
@@ -127,8 +129,9 @@ async function handlePauseButton(interaction) {
     const rows = (await Promise.all(rowPromises)).filter(Boolean);
     const memberLabel = interaction.guild?.members?.cache?.get(userId)?.displayName || interaction.client?.users?.cache?.get(userId)?.username || ` User ID: ${userId}`;
 
+    const monthRows = buildPauseListMonthRows(userId, year);
     const payload = rows.length === 0
-      ? { content: `<:staff:1443651912179388548> Staffer: <@${userId}>\n<:attentionfromvega:1443651874032062505> Nessuna pausa trovata nell'anno **${year}**.`, flags: 1 << 6 }
+      ? { content: `<:staff:1443651912179388548> Staffer: <@${userId}>\n<:attentionfromvega:1443651874032062505> Nessuna pausa trovata nell'anno **${year}**.`, components: monthRows, flags: 1 << 6 }
       : {
           embeds: [
             new EmbedBuilder()
@@ -138,6 +141,7 @@ async function handlePauseButton(interaction) {
                 `<:staff:1443651912179388548> Staffer: <@${userId}>\n\n${rows.join("\n")}\n\n<a:VC_Calendar:1482706208149475358> Totale giorni scalati nell'anno corrente: \`${computeConsumedPauseDays(pauses)}\``,
               ),
           ],
+          components: monthRows,
           flags: 1 << 6,
         };
 
@@ -146,6 +150,35 @@ async function handlePauseButton(interaction) {
     } else {
       await interaction.reply(payload).catch(() => {});
     }
+    return true;
+  }
+
+  if (action === "pause_list_month") {
+    const year = parts[2];
+    const month = parts[3];
+    if (!year || !month) {
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Mese non valido.", flags: 1 << 6 }).catch(() => {});
+      return true;
+    }
+    const memberLabel = interaction.guild?.members?.cache?.get(userId)?.displayName || interaction.client?.users?.cache?.get(userId)?.username || ` User ID: ${userId}`;
+    const targetUser = { id: userId, username: memberLabel };
+    const listPayload = await buildPauseListPayload({
+      guildId: interaction.guildId,
+      requesterId: interaction.user.id,
+      targetUser,
+      isHighStaff,
+      client: interaction.client,
+      filterMonth: Number(month),
+    });
+    if (!listPayload.ok) {
+      await interaction.reply({ content: listPayload.error || "<a:VC_Alert:1482706673176150077> Errore.", flags: 1 << 6 }).catch(() => {});
+      return true;
+    }
+    await interaction.reply({
+      embeds: listPayload.embeds,
+      components: listPayload.components || [],
+      flags: 1 << 6,
+    }).catch(() => {});
     return true;
   }
 

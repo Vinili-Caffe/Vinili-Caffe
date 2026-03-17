@@ -174,7 +174,11 @@ const getChannelSafe = async (client, channelId) => { if (!channelId) return nul
 
 function buildMongoUrl(client) {
   return (
-    process.env.MONGO_URL || process.env.MONGODB_URI || client.config.mongoURL
+    process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
+    process.env.MONGO_URL ||
+    process.env.MONGODB_URI ||
+    client.config.mongoURL
   );
 }
 

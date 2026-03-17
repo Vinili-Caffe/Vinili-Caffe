@@ -147,6 +147,26 @@ function rangesOverlap(startA, endA, startB, endB) {
   return startA <= endB && startB <= endA;
 }
 
+function getMonthBoundsUtc(year, month) {
+  const y = Number(year);
+  const m = Number(month);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+  return {
+    monthStart: new Date(Date.UTC(y, m - 1, 1)),
+    monthEnd: new Date(Date.UTC(y, m, 0, 23, 59, 59, 999)),
+  };
+}
+
+function filterPausesByMonth(pauses, year, month) {
+  const bounds = getMonthBoundsUtc(year, month);
+  if (!bounds || !Array.isArray(pauses)) return [];
+  return pauses.filter((pause) => {
+    const start = parseItalianDate(pause?.dataRichiesta);
+    const end = parseItalianDate(pause?.dataRitorno);
+    return start && end && countOverlapDays(start, end, bounds.monthStart, bounds.monthEnd) > 0;
+  });
+}
+
 async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeStartRaw, rangeEndRaw) {
   const targetStart = parseItalianDate(rangeStartRaw);
   const targetEnd = parseItalianDate(rangeEndRaw);
@@ -501,4 +521,4 @@ function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseEndRaw) {
   if (typeof timer?.unref === "function") timer.unref();
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage };

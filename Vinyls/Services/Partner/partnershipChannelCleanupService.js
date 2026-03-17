@@ -93,9 +93,6 @@ async function runPartnershipChannelCleanup(client) {
       hasMore = Boolean(lastId) && messages.size >= BULK_DELETE_LIMIT;
     }
 
-    if (totalDeleted > 0) {
-      global.logger?.info?.("[PARTNERS CLEANUP] #partners: eliminati", totalDeleted, "messaggi bot (prima di mezzanotte Roma).");
-    }
   } catch (err) {
     global.logger?.error?.("[PARTNERS CLEANUP] Errore:", err);
   }

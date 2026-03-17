@@ -27,7 +27,11 @@ async function setPresence(client) {
 }
 
 async function connectMongo(client) {
-  const mongodbURL = process.env.MONGO_URL || client.config.mongoURL;
+  const mongodbURL =
+    process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
+    process.env.MONGO_URL ||
+    client.config.mongoURL;
   if (!mongodbURL) {
     global.logger.warn(" MONGO_URL non impostato.");
     return;

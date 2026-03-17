@@ -1,6 +1,40 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const Staff = require("../../Schemas/Staff/staffSchema");
-const { MS_PER_DAY, countOverlapDays, countEffectiveOverlapDays, getPauseReasonFromMessage } = require("./pauseHandlersUtils");
+const { MS_PER_DAY, countOverlapDays, countEffectiveOverlapDays, getPauseReasonFromMessage, filterPausesByMonth } = require("./pauseHandlersUtils");
+
+const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+
+function buildPauseListMonthRows(targetUserId, year) {
+  const uid = String(targetUserId ?? "").trim();
+  const y = String(Number(year) || new Date().getUTCFullYear());
+  if (!uid) return [];
+  const row1 = new ActionRowBuilder();
+  for (let m = 1; m <= 6; m++) {
+    row1.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pause_list_month:${uid}:${y}:${m}`)
+        .setLabel(MONTH_LABELS[m - 1])
+        .setStyle(ButtonStyle.Secondary),
+    );
+  }
+  const row2 = new ActionRowBuilder();
+  for (let m = 7; m <= 12; m++) {
+    row2.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pause_list_month:${uid}:${y}:${m}`)
+        .setLabel(MONTH_LABELS[m - 1])
+        .setStyle(ButtonStyle.Secondary),
+    );
+  }
+  const row3 = new ActionRowBuilder();
+  row3.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pause_list:${uid}:`)
+      .setLabel("Anno intero")
+      .setStyle(ButtonStyle.Primary),
+  );
+  return [row1, row2, row3];
+}
 
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
@@ -102,7 +136,7 @@ function splitRowsForEmbeds(rows, limit = 3500) {
   return chunks;
 }
 
-async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client }) {
+async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client, filterMonth }) {
   if (!isHighStaff && String(targetUser?.id || "") !== String(requesterId || "")) {
     return { ok: false, error: "<:vegax:1443934876440068179> Puoi vedere solo le tue pause." };
   }
@@ -110,13 +144,17 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const u = String(targetUser?.id ?? "").trim();
   if (!g || !u) {
     const y = getCurrentYearBoundsUtc().yearStart.getUTCFullYear();
-    return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], };
+    return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], components: buildPauseListMonthRows(u, y) };
   }
   const stafferRecord = await Staff.findOne({ guildId: g, userId: u }, { pauses: 1 }).lean().catch(() => null);
-  const pauses = Array.isArray(stafferRecord?.pauses) ? stafferRecord.pauses : [];
+  let pauses = Array.isArray(stafferRecord?.pauses) ? stafferRecord.pauses : [];
   const todayUtc = getTodayUtc();
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
   const currentYear = yearStart.getUTCFullYear();
+  const monthFilter = Number(filterMonth);
+  if (Number.isFinite(monthFilter) && monthFilter >= 1 && monthFilter <= 12) {
+    pauses = filterPausesByMonth(pauses, currentYear, monthFilter);
+  }
   const rowPromises = pauses.map(async (pause) => {
     const start = parseItalianDate(pause?.dataRichiesta);
     const end = parseItalianDate(pause?.dataRitorno);
@@ -126,20 +164,26 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1482706699365257397> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati: \`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\`\n\n<:VC_reason:1478517122929004544> ${reason}`;
   });
   const rows = (await Promise.all(rowPromises)).filter(Boolean);
+  const monthLabel = monthFilter >= 1 && monthFilter <= 12 ? ` ${MONTH_LABELS[monthFilter - 1]} ${currentYear}` : "";
   if (!rows.length) {
+    const desc = monthLabel
+      ? `<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nel mese **${MONTH_LABELS[monthFilter - 1]} ${currentYear}**.`
+      : `<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${currentYear}**.`;
     return {
       ok: true,
-      embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${currentYear}**.`)],
+      embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(desc)],
+      components: buildPauseListMonthRows(u, currentYear),
     };
   }
   const totalScaledDays = computeConsumedPauseDays(pauses);
+  const titleSuffix = monthLabel ? `${MONTH_LABELS[monthFilter - 1]} ${currentYear}` : `${currentYear}-${targetUser.username}`;
   const embeds = splitRowsForEmbeds(rows).map((chunk, index, chunks) =>
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle(`<a:VC_Calendar:1482706208149475358> Pause ${currentYear}-${targetUser.username}${chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : ""}`)
-      .setDescription(`${chunk}\n\n<:VC_Clock:1473359204189474886> Totale giorni scalati anno corrente: \`${totalScaledDays}\``),
+      .setTitle(`<a:VC_Calendar:1482706208149475358> Pause ${titleSuffix}${chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : ""}`)
+      .setDescription(`${chunk}\n\n<:VC_Clock:1473359204189474886> Totale giorni scalati${monthLabel ? " nel mese" : " anno corrente"}: \`${totalScaledDays}\``),
   );
-  return { ok: true, embeds };
+  return { ok: true, embeds, components: buildPauseListMonthRows(u, currentYear) };
 }
 
-module.exports = { buildPauseListPayload };
+module.exports = { buildPauseListPayload, buildPauseListMonthRows };
