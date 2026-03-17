@@ -1355,7 +1355,6 @@ function startWeeklyDmReminderLoop(client) {
   if (loopHandle) return;
   const runTick = () => { if (tickInFlight) return tickInFlight; tickInFlight = weeklyTick(client).finally(() => { tickInFlight = null; }); return tickInFlight; };
 
-  runTick().catch(() => { });
   loopHandle = setInterval(() => {
     runTick().catch(() => { });
   }, TICK_EVERY_MS);

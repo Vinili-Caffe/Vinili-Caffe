@@ -9,7 +9,6 @@ const{runDueOneTimeReminders,}=require("../Services/Reminders/oneTimeReminderSer
 const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigames/minigameService");
 const{startWeeklyDmReminderLoop,}=require("../Services/Community/weeklyDmReminderService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, } = require("../Services/Community/communityOpsService");
-const{startWeeklyActivityWinnersLoop,}=require("../Services/Community/weeklyActivityWinnersService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
@@ -126,10 +125,6 @@ function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
     {
       label: "heavy task: custom role expiry sweep",
       run: () => runExpiredCustomRolesSweep(client),
-    },
-    {
-      label: "heavy task: startup panels",
-      run: () => runStartupPanels(client, "startup"),
     },
   ];
 }
@@ -326,7 +321,6 @@ function startPrimaryLoops(client, engagementTick) {
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
-    ["[WEEKLY ACTIVITY] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
     ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
     ["[TEMP ROLE] Failed to start cleanup loop", () => startTemporaryRoleCleanupLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
@@ -469,16 +463,6 @@ module.exports = {
       startPrimaryLoops(client, engagementTick);
       client._engagementTick = engagementTick;
     }
-
-    if (client._startupPanelsRetryTimer) {
-      clearTimeout(client._startupPanelsRetryTimer);
-    }
-    client._startupPanelsRetryTimer = setTimeout(() => {
-      runStartupPanels(client, "retry+15s").catch((err) => {
-        global.logger?.error?.("[STARTUP PANELS] retry failed", err);
-      });
-    }, STARTUP_PANELS_RETRY_MS);
-    client._startupPanelsRetryTimer.unref?.();
 
     if (primaryScheduler) scheduleMonthlyGif(client);
     setClientPresence(client);
