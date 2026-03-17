@@ -9,13 +9,56 @@ async function getFiles(dir) {
   return files.flat();
 }
 
+const NODE_CORE_MODULES = new Set([
+  "assert",
+  "buffer",
+  "child_process",
+  "cluster",
+  "console",
+  "constants",
+  "crypto",
+  "dgram",
+  "dns",
+  "domain",
+  "events",
+  "fs",
+  "http",
+  "http2",
+  "https",
+  "module",
+  "net",
+  "os",
+  "path",
+  "perf_hooks",
+  "process",
+  "punycode",
+  "querystring",
+  "readline",
+  "repl",
+  "stream",
+  "string_decoder",
+  "timers",
+  "tls",
+  "tty",
+  "url",
+  "util",
+  "v8",
+  "vm",
+  "worker_threads",
+  "zlib",
+]);
+
 async function extractRequiredPackages(file) {
   const content = await fs.readFile(file, "utf8");
   const requireRegex = /require\(['"`]([^'"`{}$\/\\]+)['"`]\)/g;
   return new Set(
     [...content.matchAll(requireRegex)]
       .map((match) => match[1])
-      .filter((pkg) => !pkg.startsWith(".") && !pkg.startsWith("node:")),
+      .filter((pkg) => {
+        if (pkg.startsWith(".") || pkg.startsWith("node:")) return false;
+        if (NODE_CORE_MODULES.has(pkg)) return false;
+        return true;
+      }),
   );
 }
 
@@ -101,12 +144,20 @@ async function checkAndInstallPackages(
     }
     const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
     const installedPackages = new Set([...Object.keys(packageJson.dependencies || {}), ...Object.keys(packageJson.devDependencies || {}),]);
-    const missingPackages = [...requiredPackages].filter((pkg) => { if (ignorePackages.includes(pkg)) return false; if (installedPackages.has(pkg)) return false; const modulePath = path.join("node_modules", ...pkg.split("/")); return !fsSync.existsSync(modulePath); });
+    const missingPackages = [...requiredPackages].filter((pkg) => {
+      if (ignorePackages.includes(pkg)) return false;
+      if (installedPackages.has(pkg)) return false;
+      const modulePath = path.join("node_modules", ...pkg.split("/"));
+      return !fsSync.existsSync(modulePath);
+    });
     if (missingPackages.length > 0) {
       client.logs.error(
         `Missing packages detected: ${missingPackages.join(", ")}`,
       );
-      const allowAutoInstall = false;
+      const allowAutoInstall =
+        String(process.env.AUTO_INSTALL_MISSING_PACKAGES || "")
+          .trim()
+          .toLowerCase() === "1";
       if (!allowAutoInstall) {
         client.logs.warn(
           "Auto install disabled (set AUTO_INSTALL_MISSING_PACKAGES=1 to enable).",

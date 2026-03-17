@@ -9,9 +9,9 @@
  *   MONGO_URL = remoto, MONGO_URL_LOCAL = locale
  * Poi: node scripts/sync-mongo-remote-to-local.js --overwrite-local
  *
- * --overwrite-local OBBLIGATORIO quando la destinazione è locale (127.0.0.1/localhost):
- *   evita di sovrascrivere per sbaglio il DB locale. Fai prima un backup se serve:
- *   mongodump --uri="<MONGO_URL_LOCAL>" --out=./backup-local
+ * --overwrite-local OBBLIGATORIO quando la destinazione è locale (127.0.0.1/localhost).
+ *   Accetta anche: -overwrite-local, SYNC_OVERWRITE_LOCAL=1 nel .env.
+ *   Backup locale: mongodump --uri="<MONGO_URL_LOCAL>" --out=./backup-local
  */
 
 const path = require("path");
@@ -21,8 +21,14 @@ const ROOT = path.resolve(__dirname, "..");
 require("dotenv").config({ path: path.join(ROOT, ".env"), quiet: true });
 
 const rawArgs = process.argv.slice(2).map((a) => String(a).trim());
-const overwriteLocal = rawArgs.some((a) => a.toLowerCase() === "--overwrite-local");
-const urlArgs = rawArgs.filter((a) => a.toLowerCase() !== "--overwrite-local");
+const isOverwriteFlag = (a) => {
+  const s = String(a).toLowerCase().replace(/^-+/, "");
+  return s === "overwrite-local" || s === "overwritelocal";
+};
+const overwriteLocal =
+  String(process.env.SYNC_OVERWRITE_LOCAL || "").trim() === "1" ||
+  rawArgs.some(isOverwriteFlag);
+const urlArgs = rawArgs.filter((a) => !isOverwriteFlag(a));
 const argSource = urlArgs[0] || null;
 const argDest = urlArgs[1] || null;
 
@@ -82,7 +88,7 @@ async function run() {
     console.error("*** DESTINAZIONE LOCALE: serve conferma ***");
     console.error("Stai per SOVRASCRIVERE il DB locale con il remoto. I dati attuali sul locale andranno persi.");
     console.error("");
-    console.error("Per procedere aggiungi: --overwrite-local");
+    console.error("Per procedere: aggiungi --overwrite-local oppure nel .env: SYNC_OVERWRITE_LOCAL=1");
     console.error("Esempio: node scripts/sync-mongo-remote-to-local.js --overwrite-local");
     console.error("");
     console.error("Per fare prima un backup del locale:");
