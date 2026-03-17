@@ -66,14 +66,20 @@ function extractMapEntries(raw) {
 }
 
 async function pickBucketVoiceChannelId(guild) {
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
+  const role = memberRoleId
+    ? (guild.roles.cache.get(memberRoleId) || (await guild.roles.fetch(memberRoleId).catch(() => null)))
+    : (guild.roles.everyone || null);
+  if (!role) return null;
+
   const candidate = String(IDs.channels?.vocaleLounge1 || IDs.channels?.vocaleTrio1 || "").trim();
   if (candidate) {
     const ch = guild.channels.cache.get(candidate) || (await guild.channels.fetch(candidate).catch(() => null));
-    const perms = ch?.permissionsFor?.(guild.roles.everyone);
+    const perms = ch?.permissionsFor?.(role);
     if (ch && perms?.has("ViewChannel") && perms.has("Connect") && perms.has("Speak")) return String(ch.id);
   }
   for (const ch of guild.channels.cache.values()) {
-    const perms = ch?.permissionsFor?.(guild.roles.everyone);
+    const perms = ch?.permissionsFor?.(role);
     if (!perms?.has("ViewChannel")) continue;
     if (perms.has("Connect") && perms.has("Speak")) return String(ch.id);
   }
