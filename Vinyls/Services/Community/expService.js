@@ -466,14 +466,16 @@ function getRoleMultiplier(member, settings = null) {
 }
 
 function buildLevelUpEmbed(member, level) {
+  const avatarUrl =
+    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
+    member?.user?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
+    null;
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: `${member?.displayName || member?.user?.username} leveled up!`,
-        thumbnail: {
-          url: member?.user?.displayAvatarURL({ size: 256 }),
-        },
+        ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il **livello** \`${level}\``,
@@ -502,14 +504,16 @@ async function sendLevelUpAnnouncement(guild, member, level) {
 }
 
 function buildPerksLevelEmbed(member, level, roleId) {
+  const avatarUrl =
+    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
+    member?.user?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
+    null;
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: `${member.user.username} leveled up!`,
-        thumbnail: {
-          url: member?.user?.displayAvatarURL({ size: 256 }),
-        },
+        ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
           `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il <@&${roleId}>`,

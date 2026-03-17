@@ -203,7 +203,7 @@ const PROVERB_BANK = [
   { start: "Roma non fu costruita in un...", end: "giorno" },
 ];
 
-const SYNONYM_ANTONYM_BANK = [
+const RAW_SYNONYM_ANTONYM_BANK = [
   { word: "felice", synonym: "contento", antonym: "triste", kind: "synonym" },
   { word: "felice", synonym: "contento", antonym: "triste", kind: "antonym" },
   { word: "grande", synonym: "enorme", antonym: "piccolo", kind: "synonym" },
@@ -246,6 +246,14 @@ const SYNONYM_ANTONYM_BANK = [
   { word: "pacifico", synonym: "tranquillo", antonym: "bellicoso", kind: "synonym" },
   { word: "pacifico", synonym: "tranquillo", antonym: "bellicoso", kind: "antonym" },
 ];
+
+const SYNONYM_ANTONYM_BANK = RAW_SYNONYM_ANTONYM_BANK.filter((entry) => {
+  if (!entry || !entry.word) return false;
+  const w = String(entry.word).toLowerCase();
+  const syn = entry.synonym != null ? String(entry.synonym).toLowerCase() : "";
+  const ant = entry.antonym != null ? String(entry.antonym).toLowerCase() : "";
+  return syn !== w && ant !== w;
+});
 
 const GUESS_CITY_BANK = [
   { landmark: "Colosseo", city: "Roma", country: "Italia" },
