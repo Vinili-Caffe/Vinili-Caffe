@@ -8,11 +8,15 @@ const VINYLS = path.join(ROOT, "Vinyls");
 
 require("dotenv").config({ path: path.join(ROOT, ".env"), quiet: true });
 
+const argv = process.argv.slice(2).filter((a) => typeof a === "string");
+const argMongoUrl = argv.find((a) => !a.startsWith("--") && (a.startsWith("mongodb://") || a.startsWith("mongodb+srv://")));
+
 function getMongoUrl() {
+  if (argMongoUrl) return argMongoUrl;
   if (process.env.MONGO_URL_LOCAL) return process.env.MONGO_URL_LOCAL;
   if (process.env.MONGODB_URI_LOCAL) return process.env.MONGODB_URI_LOCAL;
-  if (process.env.MONGO_URL_LOCAL) return process.env.MONGO_URL_LOCAL;
   if (process.env.MONGODB_URI) return process.env.MONGODB_URI;
+  if (process.env.MONGO_URL) return process.env.MONGO_URL;
   try {
     const configPath = path.join(VINYLS, "config.json");
     if (fs.existsSync(configPath)) {
