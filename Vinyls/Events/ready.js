@@ -49,6 +49,26 @@ function logError(client, ...args) {
   global.logger?.error?.(...args);
 }
 
+function logAlways(client, ...args) {
+  if (client?.logs?.logging) {
+    client.logs.logging(...args);
+    return;
+  }
+  if (client?.logs?.success) {
+    client.logs.success(...args);
+    return;
+  }
+  if (client?.logs?.error) {
+    client.logs.error(...args);
+    return;
+  }
+  if (global.logger?.info) {
+    global.logger.info(...args);
+    return;
+  }
+  console.log(...args);
+}
+
 function logInfo(client, ...args) {
   if (!LOG_STARTUP) return;
   if (client?.logs?.success) {
@@ -227,7 +247,7 @@ async function connectMongo(client) {
     return false;
   }
 
-  logInfo(client, "[DATABASE] Connecting to:", maskMongoUrlForLog(mongoUrl));
+  logAlways(client, "[DATABASE] Connecting to:", maskMongoUrlForLog(mongoUrl));
 
   mongoose.set("strictQuery", false);
   mongoose.set("bufferCommands", false);
