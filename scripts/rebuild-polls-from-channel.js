@@ -189,7 +189,7 @@ async function main() {
         updateOne: {
           filter: { guildId: String(guildId), pollcount: parsedPoll.pollcount },
           update: {
-            $setOnInsert: { guildId: String(guildId), pollcount: parsedPoll.pollcount },
+            $setOnInsert: {},
             $set: {
               ...parsedPoll,
               guildId: String(guildId),
