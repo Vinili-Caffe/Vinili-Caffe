@@ -197,6 +197,14 @@ function buildMongoUrl(client) {
   );
 }
 
+function getMongoUrlSource() {
+  if (process.env.MONGO_URL_LOCAL) return "MONGO_URL_LOCAL (env)";
+  if (process.env.MONGODB_URI_LOCAL) return "MONGODB_URI_LOCAL (env)";
+  if (process.env.MONGO_URL) return "MONGO_URL (env)";
+  if (process.env.MONGODB_URI) return "MONGODB_URI (env)";
+  return "client.config.mongoURL";
+}
+
 /** Ritorna URL con host sostituito da 127.0.0.1 solo per mongodb:// (non srv). Null se già 127.0.0.1 o srv. */
 function mongoUrlWith127(url) {
   if (!url || typeof url !== "string" || url.startsWith("mongodb+srv://")) return null;
@@ -247,7 +255,7 @@ async function connectMongo(client) {
     return false;
   }
 
-  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl));
+  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl) + " (source: " + getMongoUrlSource() + ")");
 
   mongoose.set("strictQuery", false);
   mongoose.set("bufferCommands", false);
