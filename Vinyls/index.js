@@ -56,9 +56,9 @@ client.config = require("./config.json");
 
 const envToken = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
 const envMongoUrl =
-  process.env.MONGO_URL_LOCAL ||
+  process.env.MONGO_URL_LOCAL_LOCAL ||
   process.env.MONGODB_URI_LOCAL ||
-  process.env.MONGO_URL ||
+  process.env.MONGO_URL_LOCAL ||
   process.env.MONGODB_URI;
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;

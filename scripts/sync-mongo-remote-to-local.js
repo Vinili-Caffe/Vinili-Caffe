@@ -20,11 +20,11 @@ const argSource = argv[0]?.trim() || null;
 const argDest = argv[1]?.trim() || null;
 
 function getSourceUrl() {
-  return argSource || process.env.MONGO_URL || process.env.MONGODB_URI || null;
+  return argSource || process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI || null;
 }
 
 function getDestUrl() {
-  return argDest || process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
+  return argDest || process.env.MONGO_URL_LOCAL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
 }
 
 async function run() {
