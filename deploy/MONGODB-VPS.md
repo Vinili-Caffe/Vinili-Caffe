@@ -25,7 +25,9 @@ Poi nel **`.env` del bot** (stesso user/password di `.env.mongo`):
 MONGO_URL=mongodb://USER:PASSWORD@127.0.0.1:27017/nomedb?authSource=admin
 ```
 
-Poi: **`pm2 restart all`** (o il processo del bot).
+Poi: **`pm2 restart all --update-env`** (o il processo del bot).
+
+> **PM2 e .env:** PM2 non rilegge il `.env` a ogni `restart`. Se hai cambiato il `.env` (es. MONGO_URL), usa **`pm2 restart all --update-env`** così PM2 aggiorna l’ambiente. In alternativa: `pm2 delete all` e poi riavvia i processi (es. `npm run start`), così partono con l’env fresco.
 
 ---
 

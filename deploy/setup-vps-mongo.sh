@@ -15,7 +15,7 @@ mkdir -p backups
 echo ""
 echo "Prossimi passi manuali:"
 echo "1) Nel .env del bot: MONGO_URL=mongodb://USER:PASS@127.0.0.1:27017/NOMEDB?authSource=admin"
-echo "2) pm2 restart all"
+echo "2) pm2 restart all --update-env   (--update-env serve se hai cambiato il .env)"
 echo "3) (opzionale) Dump da Atlas → vedi MONGODB-VPS.md"
 echo "4) Cron backup (dom 03:15):"
 echo "   (crontab -l 2>/dev/null; echo '15 3 * * 0 $DIR/backup-mongo.sh >> $DIR/backups/cron.log 2>&1') | crontab -"
