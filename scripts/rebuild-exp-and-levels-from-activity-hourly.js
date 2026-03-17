@@ -20,7 +20,7 @@ try {
 } catch (_) {}
 const { ActivityHourly } = require(path.join(VINYLS, "Schemas", "Community", "communitySchemas"));
 const { ExpUser } = require(path.join(VINYLS, "Schemas", "Community", "communitySchemas"));
-const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, retroSyncGuildLevels } = require(path.join(VINYLS, "Services", "Community", "expService"));
+const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, retroSyncGuildLevels } = require(path.join(VINYLS, "Services", "Community", "expService"));
 
 const TIME_ZONE = "Europe/Rome";
 
@@ -136,26 +136,7 @@ async function main() {
   for (let i = 0; i < incOps.length; i += BATCH) {
     await ExpUser.bulkWrite(incOps.slice(i, i + BATCH), { ordered: false });
   }
-  console.log("[rebuild-exp] ExpUser aggiornati (totalExp incrementato).");
-
-  const cursorExp = ExpUser.find({ guildId }).select("userId totalExp level").lean().cursor();
-  const levelOps = [];
-  for await (const doc of cursorExp) {
-    const totalExp = Math.max(0, Math.floor(Number(doc?.totalExp || 0)));
-    const oldLevel = Math.max(0, Math.floor(Number(doc?.level || 0)));
-    const newLevel = getLevelInfo(totalExp).level;
-    if (newLevel === oldLevel) continue;
-    levelOps.push({
-      updateOne: {
-        filter: { guildId, userId: String(doc.userId) },
-        update: { $set: { level: newLevel } },
-      },
-    });
-  }
-  for (let i = 0; i < levelOps.length; i += BATCH) {
-    await ExpUser.bulkWrite(levelOps.slice(i, i + BATCH), { ordered: false });
-  }
-  console.log("[rebuild-exp] Livelli aggiornati: " + levelOps.length + " utenti.");
+  console.log("[rebuild-exp] ExpUser aggiornati (totalExp incrementato). Livelli e ruoli li allinea retroSyncGuildLevels.");
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
   await client.login(token);
