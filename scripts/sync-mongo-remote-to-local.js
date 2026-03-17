@@ -1,11 +1,12 @@
 /**
- * Sincronizza il database MongoDB remoto (MONGO_URL) verso quello locale (MONGO_URL_LOCAL).
+ * Sincronizza il database MongoDB remoto verso quello locale.
  * Copia tutte le collection: i dati sul DB locale vengono sostituiti con quelli remoti.
  *
- * Uso:
- *   MONGO_URL="mongodb+srv://..." MONGO_URL_LOCAL="mongodb://127.0.0.1:27017/local" node scripts/sync-mongo-remote-to-local.js
+ * Uso (argomenti: prima sorgente remota, poi destinazione locale):
+ *   node scripts/sync-mongo-remote-to-local.js "mongodb+srv://..." "mongodb://127.0.0.1:27017/local"
  *
- * Da .env: MONGO_URL = remoto (sorgente), MONGO_URL_LOCAL = locale (destinazione).
+ * Oppure con variabili d'ambiente / .env:
+ *   MONGO_URL = remoto, MONGO_URL_LOCAL = locale
  */
 
 const path = require("path");
@@ -14,12 +15,16 @@ const mongoose = require("mongoose");
 const ROOT = path.resolve(__dirname, "..");
 require("dotenv").config({ path: path.join(ROOT, ".env"), quiet: true });
 
+const argv = process.argv.slice(2);
+const argSource = argv[0]?.trim() || null;
+const argDest = argv[1]?.trim() || null;
+
 function getSourceUrl() {
-  return process.env.MONGO_URL || process.env.MONGODB_URI || null;
+  return argSource || process.env.MONGO_URL || process.env.MONGODB_URI || null;
 }
 
 function getDestUrl() {
-  return process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
+  return argDest || process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
 }
 
 async function run() {
@@ -27,11 +32,11 @@ async function run() {
   const destUrl = getDestUrl();
 
   if (!sourceUrl) {
-    console.error("Manca l’URL del DB remoto. Imposta MONGO_URL o MONGODB_URI nel .env.");
+    console.error("Manca l’URL del DB remoto. Passalo come 1° argomento oppure imposta MONGO_URL nel .env.");
     process.exit(1);
   }
   if (!destUrl) {
-    console.error("Manca l’URL del DB locale. Imposta MONGO_URL_LOCAL o MONGODB_URI_LOCAL nel .env.");
+    console.error("Manca l’URL del DB locale. Passalo come 2° argomento oppure imposta MONGO_URL_LOCAL nel .env.");
     process.exit(1);
   }
 
