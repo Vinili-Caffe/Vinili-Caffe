@@ -15,7 +15,7 @@ module.exports = {
   buildUserComponents: userButton.buildUserComponents,
 
   async execute(message, args = []) {
-    await message.channel.sendTyping();
+    await message.channel.sendTyping().catch(() => {});
     const { targetId, lookbackDays } = await userButton.resolveUserTargetAndLookback(message, args);
     if (!targetId) {
       await safeMessageReply(message, {
@@ -24,8 +24,17 @@ module.exports = {
       });
       return;
     }
-    const payload = await userButton.buildUserOverviewPayload(message.guild, targetId, lookbackDays, "main");
-    payload.components = userButton.buildUserComponents(message.author.id, targetId, lookbackDays, "main");
-    await safeMessageReply(message, { ...payload, allowedMentions: { repliedUser: false } });
+    try {
+      const payload = await userButton.buildUserOverviewPayload(message.guild, targetId, lookbackDays, "main", message.client);
+      payload.components = userButton.buildUserComponents(message.author.id, targetId, lookbackDays, "main");
+      await safeMessageReply(message, { ...payload, allowedMentions: { repliedUser: false } });
+    } catch (err) {
+      global.logger?.error?.("[+user] Errore:", err?.message || err);
+      const hint = err?.message && /canvas|Cannot find module/i.test(String(err.message)) ? " Sul server potrebbe mancare il pacchetto `canvas` (e dipendenze di sistema)." : "";
+      await safeMessageReply(message, {
+        content: `<:vegax:1443934876440068179> Errore nel generare le statistiche.${hint}`,
+        allowedMentions: { repliedUser: false },
+      });
+    }
   },
 };

@@ -210,7 +210,7 @@ async function main() {
         ops.push({
           updateOne: {
             filter: { guildId: String(guildId), userId: String(userId), rewardType, tier: tierVal },
-            update: { $setOnInsert: { guildId: String(guildId), userId: String(userId), rewardType, tier: tierVal } },
+            update: { $setOnInsert: {} },
             upsert: true,
           },
         });
