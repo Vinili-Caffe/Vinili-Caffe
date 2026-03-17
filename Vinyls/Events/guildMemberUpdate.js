@@ -363,9 +363,9 @@ async function removePlusColorsIfNotEligible(member) {
   const hasRequiredRole=PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId),);
   if (hasRequiredRole) return;
 
-  const hasEventWeek2Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 2).catch(() => false)) : false;
+  const hasEventWeek2Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 2).catch(() => true)) : false;
   if (hasEventWeek2Grant) return;
-  const hasEventWeek3Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 3).catch(() => false)) : false;
+  const hasEventWeek3Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 3).catch(() => true)) : false;
   if (hasEventWeek3Grant) return;
 
   const heldPlusRoles=PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);

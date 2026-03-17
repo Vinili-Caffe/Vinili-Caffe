@@ -228,7 +228,9 @@ async function addEventWeekWinner(guildId, userId, week) {
 
 async function hasEventWeekWinnerGrant(guildId, userId, week) {
   if (!guildId || !userId || (week !== 2 && week !== 3)) return false;
-  const doc = await EventWeekWinner.findOne({ guildId, userId, week }).lean().catch(() => null);
+  const g = String(guildId);
+  const u = String(userId);
+  const doc = await EventWeekWinner.findOne({ guildId: g, userId: u, week }).lean().catch(() => null);
   return Boolean(doc);
 }
 
