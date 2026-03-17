@@ -247,7 +247,7 @@ async function connectMongo(client) {
     return false;
   }
 
-  logAlways(client, "[DATABASE] Connecting to:", maskMongoUrlForLog(mongoUrl));
+  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl));
 
   mongoose.set("strictQuery", false);
   mongoose.set("bufferCommands", false);
