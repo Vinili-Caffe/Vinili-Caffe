@@ -203,6 +203,20 @@ const MONGO_CONNECT_OPTIONS = {
 const MONGO_RETRY_ATTEMPTS = 4;
 const MONGO_RETRY_DELAY_MS = 3000;
 
+function maskMongoUrlForLog(url) {
+  if (!url || typeof url !== "string") return "***";
+  try {
+    const u = url.replace(/^mongodb(\+srv)?:/, "https:");
+    const parsed = new URL(u);
+    const host = (parsed.hostname || "").toLowerCase();
+    const path = (parsed.pathname || "/").replace(/^\//, "") || "(default)";
+    const protocol = url.startsWith("mongodb+srv") ? "mongodb+srv" : "mongodb";
+    return `${protocol}://***@${host}${parsed.port && parsed.port !== "443" && parsed.port !== "80" ? ":" + parsed.port : ""}/${path}`;
+  } catch {
+    return "***";
+  }
+}
+
 async function connectMongo(client) {
   const mongoUrl = buildMongoUrl(client);
   if (!mongoUrl) {
@@ -212,6 +226,8 @@ async function connectMongo(client) {
     );
     return false;
   }
+
+  logInfo(client, "[DATABASE] Connecting to:", maskMongoUrlForLog(mongoUrl));
 
   mongoose.set("strictQuery", false);
   mongoose.set("bufferCommands", false);
