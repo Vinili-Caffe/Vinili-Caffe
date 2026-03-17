@@ -27,9 +27,24 @@ function getDestUrl() {
   return argDest || process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || null;
 }
 
+/** Rimuove parametri URI con valore vuoto (es. retry=) che il driver MongoDB rifiuta. */
+function normalizeMongoUrl(url) {
+  if (!url || typeof url !== "string") return url;
+  const i = url.indexOf("?");
+  if (i === -1) return url;
+  const base = url.slice(0, i);
+  const search = url.slice(i + 1);
+  const params = new URLSearchParams(search);
+  const kept = [];
+  for (const [k, v] of params.entries()) {
+    if (v !== "" && v !== null && v !== undefined) kept.push(`${k}=${encodeURIComponent(v)}`);
+  }
+  return kept.length ? `${base}?${kept.join("&")}` : base;
+}
+
 async function run() {
-  const sourceUrl = getSourceUrl();
-  const destUrl = getDestUrl();
+  const sourceUrl = normalizeMongoUrl(getSourceUrl());
+  const destUrl = normalizeMongoUrl(getDestUrl());
 
   if (!sourceUrl) {
     console.error("Manca l’URL del DB remoto. Passalo come 1° argomento oppure imposta MONGO_URL nel .env.");

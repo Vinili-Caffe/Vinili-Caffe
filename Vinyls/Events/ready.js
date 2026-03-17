@@ -177,6 +177,32 @@ function buildMongoUrl(client) {
   );
 }
 
+/** Ritorna URL con host sostituito da 127.0.0.1 solo per mongodb:// (non srv). Null se già 127.0.0.1 o srv. */
+function mongoUrlWith127(url) {
+  if (!url || typeof url !== "string" || url.startsWith("mongodb+srv://")) return null;
+  try {
+    const parsed = new URL(url.replace(/^mongodb:/, "https:"));
+    const host = (parsed.hostname || "").toLowerCase();
+    if (host === "127.0.0.1") return null;
+    parsed.hostname = "127.0.0.1";
+    return parsed.toString().replace(/^https:/, "mongodb:");
+  } catch {
+    return null;
+  }
+}
+
+const MONGO_CONNECT_OPTIONS = {
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 5000,
+  socketTimeoutMS: 20000,
+  maxPoolSize: 25,
+  minPoolSize: 2,
+  maxIdleTimeMS: 60_000,
+};
+
+const MONGO_RETRY_ATTEMPTS = 4;
+const MONGO_RETRY_DELAY_MS = 3000;
+
 async function connectMongo(client) {
   const mongoUrl = buildMongoUrl(client);
   if (!mongoUrl) {
@@ -187,30 +213,48 @@ async function connectMongo(client) {
     return false;
   }
 
-  try {
-    mongoose.set("strictQuery", false);
-    mongoose.set("bufferCommands", false);
+  mongoose.set("strictQuery", false);
+  mongoose.set("bufferCommands", false);
 
-    if (mongoose.connection.readyState !== 1) {
-      await mongoose.connect(mongoUrl, {
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
-        socketTimeoutMS: 20000,
-        maxPoolSize: 25,
-        minPoolSize: 2,
-        maxIdleTimeMS: 60_000,
-      });
-    }
-
-    logInfo(client, "[DATABASE] Connected to MongoDB successfully.");
+  if (mongoose.connection.readyState === 1) {
+    logInfo(client, "[DATABASE] Already connected to MongoDB.");
     return true;
-  } catch (err) {
-    logError(
-      client,
-      `[DATABASE] Error connecting to the database (continuo comunque il bootstrap): ${err}`,
-    );
-    return false;
   }
+
+  const fallbackUrl = mongoUrlWith127(mongoUrl);
+  const urlsToTry = [mongoUrl];
+  if (fallbackUrl && fallbackUrl !== mongoUrl) urlsToTry.push(fallbackUrl);
+
+  for (let attempt = 1; attempt <= MONGO_RETRY_ATTEMPTS; attempt++) {
+    for (const url of urlsToTry) {
+      try {
+        await mongoose.connect(url, MONGO_CONNECT_OPTIONS);
+        logInfo(client, "[DATABASE] Connected to MongoDB successfully.");
+        return true;
+      } catch (err) {
+        const isLast = attempt === MONGO_RETRY_ATTEMPTS && url === urlsToTry[urlsToTry.length - 1];
+        if (isLast) {
+          logError(
+            client,
+            `[DATABASE] Error connecting to the database (continuo comunque il bootstrap): ${err}`,
+          );
+          return false;
+        }
+        if (attempt === 1 && url === mongoUrl) {
+          logInfo(client, `[DATABASE] First connection failed, retrying up to ${MONGO_RETRY_ATTEMPTS - 1} times (${err?.message || err}).`);
+        }
+      }
+    }
+    if (attempt < MONGO_RETRY_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, MONGO_RETRY_DELAY_MS));
+    }
+  }
+
+  logError(
+    client,
+    "[DATABASE] All connection attempts failed (continuo comunque il bootstrap).",
+  );
+  return false;
 }
 
 function isPrimaryScheduler(client) {
