@@ -88,6 +88,27 @@ function isPauseRequestMessage(content, components) {
   return hasData && (hasRichiesta || pauseAcceptId) && !!pauseAcceptId;
 }
 
+function isAcceptedPauseMessage(content) {
+  if (!content || typeof content !== "string") return false;
+  const hasTiming = /(?:è in pausa|è stato in pausa|era in pausa)/i.test(content);
+  const hasDates = content.includes("Dal ") && content.includes(" al ");
+  return hasTiming && hasDates;
+}
+
+function parseAcceptedPauseMessage(content) {
+  if (!content || typeof content !== "string") return null;
+  const userIdMatch = content.match(/<@(\d{17,20})>/);
+  const dateMatch = content.match(/Dal\s+\*\*`(\d{1,2}\/\d{1,2}\/\d{4})`\*\*\s+al\s+\*\*`(\d{1,2}\/\d{1,2}\/\d{4})`\*\*/i);
+  const ruoloMatch = content.match(/\*\*`([^`]+)`\*\*\s+-\s+(?:\*\*)?<@\d+>/);
+  if (!userIdMatch || !dateMatch) return null;
+  return {
+    userId: userIdMatch[1],
+    dataRichiesta: dateMatch[1].trim(),
+    dataRitorno: dateMatch[2].trim(),
+    ruolo: ruoloMatch ? ruoloMatch[1].trim() : null,
+  };
+}
+
 function buildPauseRequestButtonsRow(userId, pauseId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -175,82 +196,124 @@ async function run() {
   let fromBot = 0;
   let withData = 0;
   let withPauseButton = 0;
-  let summaryMatched = 0; // <-- Fix: avoid redeclaring 'matched'
+  let withAccepted = 0;
   for (const [, m] of messages) {
     if (m.author?.bot) fromBot++;
     if (m.author?.bot && m.content?.includes("Data richiesta")) withData++;
     if (m.author?.bot && getPauseAcceptCustomId(m.components)) withPauseButton++;
+    if (m.author?.bot && isAcceptedPauseMessage(m.content)) withAccepted++;
   }
-  console.log(`Canale: ${channel.name} (${channel.id}). Messaggi totali: ${total}, dal bot: ${fromBot}, con "Data richiesta": ${withData}, con pulsante pause_accept: ${withPauseButton}.`);
+  console.log(`Canale: ${channel.name} (${channel.id}). Messaggi totali: ${total}, dal bot: ${fromBot}, con "Data richiesta": ${withData}, con pulsante pause_accept: ${withPauseButton}, "è in pausa": ${withAccepted}.`);
   if (total === 0) console.warn("Attenzione: nessun messaggio nel canale. Verifica che l'ID canale in ids.js (channels.pause) sia corretto.");
   if (fromBot === 0 && total > 0) console.warn("Attenzione: nessun messaggio dal bot in questo canale. I messaggi di richiesta pausa sono inviati dal bot.");
 
   let created = 0;
+  let createdAccepted = 0;
   let skipped = 0;
   let errors = 0;
-  let matched = 0; // Only for the main loop
+  let matched = 0;
 
   for (const [, msg] of messages) {
     if (!msg.author?.bot) continue;
-    if (!isPauseRequestMessage(msg.content, msg.components)) {
-      if (verbose && msg.content?.includes("Data richiesta")) {
-        console.log(`[skip] ${msg.id}: non match (pulsante: ${getPauseAcceptCustomId(msg.components) ? "sì" : "no"}).`);
+
+    if (isPauseRequestMessage(msg.content, msg.components)) {
+      matched++;
+      if (existingByMessageId.has(msg.id)) {
+        skipped++;
+        continue;
       }
-      continue;
-    }
-    matched++;
-    if (existingByMessageId.has(msg.id)) {
-      skipped++;
-      continue;
-    }
-    const parsed = parsePauseMessage(msg.content, msg.components);
-    if (!parsed) {
-      console.warn(`[skip] Messaggio ${msg.id}: parsing fallito`);
-      skipped++;
-      continue;
-    }
-    const g = String(guildId).trim();
-    const u = String(parsed.userId).trim();
-    let stafferDoc = await Staff.findOne({ guildId: g, userId: u });
-    if (!stafferDoc) stafferDoc = new Staff({ guildId: g, userId: u });
-    if (!Array.isArray(stafferDoc.pauses)) stafferDoc.pauses = [];
-    stafferDoc.pauses.push({
-      dataRichiesta: parsed.dataRichiesta,
-      dataRitorno: parsed.dataRitorno,
-      motivazione: parsed.motivazione,
-      status: "pending",
-      requestChannelId: channel.id,
-      requestMessageId: msg.id,
-      createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
-    });
-    stafferDoc.markModified("pauses");
-    try {
-      await stafferDoc.save();
-    } catch (err) {
-      console.error(`[err] Messaggio ${msg.id} save:`, err?.message || err);
-      errors++;
-      continue;
-    }
-    const newPause = stafferDoc.pauses[stafferDoc.pauses.length - 1];
-    const newPauseId = String(newPause?._id ?? "");
-    if (!newPauseId) {
-      errors++;
-      continue;
-    }
-    try {
-      await msg.edit({
-        components: [buildPauseRequestButtonsRow(parsed.userId, newPauseId)],
+      const parsed = parsePauseMessage(msg.content, msg.components);
+      if (!parsed) {
+        console.warn(`[skip] Messaggio ${msg.id}: parsing fallito`);
+        skipped++;
+        continue;
+      }
+      const g = String(guildId).trim();
+      const u = String(parsed.userId).trim();
+      let stafferDoc = await Staff.findOne({ guildId: g, userId: u });
+      if (!stafferDoc) stafferDoc = new Staff({ guildId: g, userId: u });
+      if (!Array.isArray(stafferDoc.pauses)) stafferDoc.pauses = [];
+      stafferDoc.pauses.push({
+        dataRichiesta: parsed.dataRichiesta,
+        dataRitorno: parsed.dataRitorno,
+        motivazione: parsed.motivazione,
+        status: "pending",
+        requestChannelId: channel.id,
+        requestMessageId: msg.id,
+        createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
       });
-    } catch (editErr) {
-      console.warn(`[warn] Messaggio ${msg.id} edit pulsanti:`, editErr?.message || editErr);
+      stafferDoc.markModified("pauses");
+      try {
+        await stafferDoc.save();
+      } catch (err) {
+        console.error(`[err] Messaggio ${msg.id} save:`, err?.message || err);
+        errors++;
+        continue;
+      }
+      const newPause = stafferDoc.pauses[stafferDoc.pauses.length - 1];
+      const newPauseId = String(newPause?._id ?? "");
+      if (!newPauseId) {
+        errors++;
+        continue;
+      }
+      try {
+        await msg.edit({
+          components: [buildPauseRequestButtonsRow(parsed.userId, newPauseId)],
+        });
+      } catch (editErr) {
+        console.warn(`[warn] Messaggio ${msg.id} edit pulsanti:`, editErr?.message || editErr);
+      }
+      existingByMessageId.add(msg.id);
+      created++;
+      console.log(`[ok] Messaggio ${msg.id} → pause creata (pending) per userId ${parsed.userId}, _id ${newPauseId}`);
+      continue;
     }
-    existingByMessageId.add(msg.id);
-    created++;
-    console.log(`[ok] Messaggio ${msg.id} → pause creata per userId ${parsed.userId}, _id ${newPauseId}`);
+
+    if (isAcceptedPauseMessage(msg.content)) {
+      matched++;
+      if (existingByMessageId.has(msg.id)) {
+        skipped++;
+        continue;
+      }
+      const parsed = parseAcceptedPauseMessage(msg.content);
+      if (!parsed) {
+        console.warn(`[skip] Messaggio ${msg.id}: parsing "è in pausa" fallito`);
+        skipped++;
+        continue;
+      }
+      const g = String(guildId).trim();
+      const u = String(parsed.userId).trim();
+      let stafferDoc = await Staff.findOne({ guildId: g, userId: u });
+      if (!stafferDoc) stafferDoc = new Staff({ guildId: g, userId: u });
+      if (!Array.isArray(stafferDoc.pauses)) stafferDoc.pauses = [];
+      stafferDoc.pauses.push({
+        dataRichiesta: parsed.dataRichiesta,
+        dataRitorno: parsed.dataRitorno,
+        motivazione: "—",
+        status: "accepted",
+        ruolo: parsed.ruolo || undefined,
+        requestChannelId: channel.id,
+        requestMessageId: msg.id,
+        createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
+      });
+      stafferDoc.markModified("pauses");
+      try {
+        await stafferDoc.save();
+      } catch (err) {
+        console.error(`[err] Messaggio ${msg.id} save (accepted):`, err?.message || err);
+        errors++;
+        continue;
+      }
+      existingByMessageId.add(msg.id);
+      created++;
+      createdAccepted++;
+      console.log(`[ok] Messaggio ${msg.id} → pause creata (accepted) per userId ${parsed.userId}${parsed.ruolo ? `, ruolo ${parsed.ruolo}` : ""}`);
+    } else if (verbose && msg.content?.includes("Data richiesta")) {
+      console.log(`[skip] ${msg.id}: non match (pulsante: ${getPauseAcceptCustomId(msg.components) ? "sì" : "no"}).`);
+    }
   }
 
-  // Use the matched value from the main loop
-  console.log(`\nMessaggi riconosciuti come richiesta pausa: ${matched}. Fine: ${created} pause create, ${skipped} saltate (già in DB o non richieste), ${errors} errori.`);
+  console.log(`\nMessaggi riconosciuti: ${matched}. Fine: ${created} pause create (${createdAccepted} da "è in pausa"), ${skipped} saltate, ${errors} errori.`);
   client.destroy();
   await mongoose.disconnect();
 }
