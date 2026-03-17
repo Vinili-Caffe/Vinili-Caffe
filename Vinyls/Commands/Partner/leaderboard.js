@@ -179,7 +179,17 @@ module.exports = {
     const weekWindow = getCurrentWeekWindow(new Date());
 
     const allStaff = await PartnershipCount.find({ guildId: interaction.guild.id, }).lean();
-    const partners = allStaff.map((staff) => { if (!isWeekly) { const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : []; return { userId: staff.userId, score: countValidAllTimePartners(actions) }; } const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : []; const weeklyCount = actions.reduce((total, action) => isActionInWeeklyWindow(action, weekWindow.weekStart, weekWindow.weekEnd,) ? total + 1 : total, 0,); return { userId: staff.userId, score: weeklyCount }; }).filter((staff) => staff.score > 0).sort((a, b) => b.score - a.score); if (!partners.length) { return safeEditReply(interaction, { embeds: [buildNoDataEmbed(isWeekly)], }); } const totalPages = Math.ceil(partners.length / PARTNERS_PER_PAGE);
+    const partners = allStaff.map((staff) => {
+      if (!isWeekly) {
+        const totalCount = Number(staff.partnerCount);
+        const fromActions = countValidAllTimePartners(Array.isArray(staff.partnerActions) ? staff.partnerActions : []);
+        const score = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : fromActions;
+        return { userId: staff.userId, score };
+      }
+      const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : [];
+      const weeklyCount = actions.reduce((total, action) => isActionInWeeklyWindow(action, weekWindow.weekStart, weekWindow.weekEnd) ? total + 1 : total, 0);
+      return { userId: staff.userId, score: weeklyCount };
+    }).filter((staff) => staff.score > 0).sort((a, b) => b.score - a.score); if (!partners.length) { return safeEditReply(interaction, { embeds: [buildNoDataEmbed(isWeekly)], }); } const totalPages = Math.ceil(partners.length / PARTNERS_PER_PAGE);
     let currentPage = 1;
     let row = buildPaginationRow(currentPage, totalPages);
     const resolveUsername = createUsernameResolver(interaction.client);
