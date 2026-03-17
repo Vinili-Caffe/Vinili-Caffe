@@ -115,22 +115,30 @@ function getActiveWeeklyKeyRome(date = new Date()) {
   return getWeekKeyRome(date);
 }
 
-function getLastSunday21BoundaryMs(date = new Date()) {
-  const parts = getRomeDayParts(date);
-  const daysToLastSunday = parts.weekday === 0 ? 0 : parts.weekday;
-  const base = new Date(date.getTime() - daysToLastSunday * 24 * 60 * 60 * 1000);
-  const y = base.getFullYear();
-  const m = base.getMonth();
-  const d = base.getDate();
-  const sunday21 = new Date(y, m, d, 21, 0, 0, 0);
-  return sunday21.getTime();
+function floorToHourMs(ms) {
+  const n = Number(ms || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.floor(n / (60 * 60 * 1000)) * 60 * 60 * 1000;
 }
 
-function buildLast7DaysHourKeys(endMs) {
+function findLastSunday21RomeMs(now = new Date()) {
+  let cursorMs = floorToHourMs(now.getTime());
+  const maxHours = 24 * 8 + 2;
+  for (let i = 0; i < maxHours; i += 1) {
+    const parts = getRomeDayParts(new Date(cursorMs));
+    if (parts.weekday === 0 && parts.hour === 21) return cursorMs;
+    cursorMs -= 60 * 60 * 1000;
+  }
+  return floorToHourMs(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+}
+
+function buildHourKeysBetweenRome(startMs, endMs) {
+  const from = floorToHourMs(startMs);
+  const to = floorToHourMs(endMs);
+  if (!from || !to || to < from) return [];
   const keys = [];
-  for (let h = 0; h < 24 * 7; h += 1) {
-    const d = new Date(endMs - h * 60 * 60 * 1000);
-    const parts = getRomeDayParts(d);
+  for (let ms = from; ms <= to; ms += 60 * 60 * 1000) {
+    const parts = getRomeDayParts(new Date(ms));
     keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
   }
   return keys;
@@ -176,14 +184,14 @@ async function getEligibleChannelIdSet(guild) {
 
 async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = TOP_LIMIT * 5) {
   if (!guild?.id) return [];
-  const activeWeeklyKey = mode === "weekly" ? getActiveWeeklyKeyRome(new Date()) : "";
-  const key = `${guild.id}:${mode}:${activeWeeklyKey}:n${maxCandidates}`;
+  const weeklyStartMs = mode === "weekly" ? findLastSunday21RomeMs(new Date()) : 0;
+  const key = `${guild.id}:${mode}:${mode === "weekly" ? weeklyStartMs : ""}:n${maxCandidates}`;
   const cached = leaderboardCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.rows;
 
   if (mode === "weekly") {
-    const endMs = getLastSunday21BoundaryMs(new Date());
-    const hourKeys = buildLast7DaysHourKeys(endMs);
+    const startMs = weeklyStartMs;
+    const hourKeys = buildHourKeysBetweenRome(startMs, Date.now());
     const docs = await ActivityHourly.find({
       guildId: guild.id,
       hourKey: { $in: hourKeys },

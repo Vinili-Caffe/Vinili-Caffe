@@ -8,32 +8,31 @@ function buildPauseListMonthRows(targetUserId, year) {
   const uid = String(targetUserId ?? "").trim();
   const y = String(Number(year) || new Date().getUTCFullYear());
   if (!uid) return [];
-  const row1 = new ActionRowBuilder();
-  for (let m = 1; m <= 6; m++) {
-    row1.addComponents(
+  const rows = [];
+  let current = new ActionRowBuilder();
+  for (let m = 1; m <= 12; m++) {
+    if (current.components.length >= 5) {
+      rows.push(current);
+      current = new ActionRowBuilder();
+    }
+    current.addComponents(
       new ButtonBuilder()
         .setCustomId(`pause_list_month:${uid}:${y}:${m}`)
         .setLabel(MONTH_LABELS[m - 1])
         .setStyle(ButtonStyle.Secondary),
     );
   }
-  const row2 = new ActionRowBuilder();
-  for (let m = 7; m <= 12; m++) {
-    row2.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`pause_list_month:${uid}:${y}:${m}`)
-        .setLabel(MONTH_LABELS[m - 1])
-        .setStyle(ButtonStyle.Secondary),
-    );
-  }
-  const row3 = new ActionRowBuilder();
-  row3.addComponents(
+  if (current.components.length) rows.push(current);
+
+  const rowYear = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`pause_list:${uid}:`)
       .setLabel("Anno intero")
       .setStyle(ButtonStyle.Primary),
   );
-  return [row1, row2, row3];
+  rows.push(rowYear);
+
+  return rows;
 }
 
 function parseItalianDate(value) {
