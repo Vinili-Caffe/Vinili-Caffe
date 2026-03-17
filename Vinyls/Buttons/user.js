@@ -153,6 +153,11 @@ async function resolveUserTargetAndLookback(message, args = []) {
   if (/^\d{17,20}$/.test(numericId)) {
     const user = await message.client?.users?.fetch(numericId).catch(() => null);
     if (user) return { targetId: user.id, lookbackDays };
+    const guild = message.guild;
+    if (guild?.members?.fetch) {
+      const member = await guild.members.fetch(numericId).catch(() => null);
+      if (member?.id) return { targetId: member.id, lookbackDays };
+    }
   }
 
   const guild = message.guild;
