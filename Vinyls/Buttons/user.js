@@ -119,9 +119,7 @@ function buildUserComponents(ownerId, targetUserId, lookbackDays, view) {
 
 function parseUserActivityArgs(args) {
   const targetId = args && args[0] != null ? String(args[0]).trim() : null;
-  const raw = args && args[1] != null ? String(args[1]).trim().replace(/d$/i, "") : "";
-  const lookback = raw ? Number.parseInt(raw, 10) : 14;
-  return { targetId, lookbackDays: normalizeLookbackDays(lookback) };
+  return { targetId, lookbackDays: 14 };
 }
 
 /**
@@ -132,18 +130,14 @@ function parseUserActivityArgs(args) {
  */
 async function resolveUserTargetAndLookback(message, args = []) {
   const tokens = Array.isArray(args) ? args.map((a) => String(a ?? "").trim()).filter(Boolean) : [];
-  let lookbackDays = 14;
-  const lookbackMatch = tokens.find((t) => /^\d+d?$/i.test(t));
-  if (lookbackMatch) {
-    lookbackDays = normalizeLookbackDays(lookbackMatch.replace(/d$/i, ""));
-  }
+  const lookbackDays = 14;
 
   const mention = message?.mentions?.users?.first();
   if (mention) {
     return { targetId: mention.id, lookbackDays };
   }
 
-  const first = tokens.find((t) => !/^\d+d?$/i.test(t));
+  const first = tokens[0] || null;
   if (!first) return { targetId: null, lookbackDays };
 
   const mentionId = first.match(/^<@!?(\d+)>$/)?.[1];
@@ -152,13 +146,6 @@ async function resolveUserTargetAndLookback(message, args = []) {
   const numericId = first.replace(/[<@!>]/g, "").trim();
   if (/^\d{17,20}$/.test(numericId)) {
     return { targetId: numericId, lookbackDays };
-    const user = await message.client?.users?.fetch(numericId).catch(() => null);
-    if (user) return { targetId: user.id, lookbackDays };
-    const guild = message.guild;
-    if (guild?.members?.fetch) {
-      const member = await guild.members.fetch(numericId).catch(() => null);
-      if (member?.id) return { targetId: member.id, lookbackDays };
-    }
   }
 
   const guild = message.guild;
