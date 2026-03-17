@@ -284,7 +284,7 @@ async function main() {
   }
 
   console.log("[backfill] Scritti ActivityHourly: " + hourlyOps.length + ", ActivityDaily: " + dailyOps.length + ", ActivityUser: " + userOps.length);
-  console.log("[backfill] Esegui rebuild-exp-and-levels-from-activity-hourly.js --fix per aggiornare EXP e livelli.");
+  console.log("[backfill] Per EXP evento: node scripts/rebuildActivityExpForEvent.js. Per EXP/livelli generali il bot fa retroSync all'avvio.");
   client.destroy();
   await mongoose.disconnect().catch(() => {});
 }
