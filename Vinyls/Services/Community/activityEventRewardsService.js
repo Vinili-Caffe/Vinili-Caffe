@@ -218,9 +218,11 @@ async function grantEventRewardOnce(guildId, userId, rewardType, options = {}) {
 
 async function addEventWeekWinner(guildId, userId, week) {
   if (!guildId || !userId || (week !== 2 && week !== 3)) return null;
+  const g = String(guildId);
+  const u = String(userId);
   await EventWeekWinner.findOneAndUpdate(
-    { guildId, userId, week },
-    { guildId, userId, week },
+    { guildId: g, userId: u, week },
+    { guildId: g, userId: u, week },
     { upsert: true, new: true },
   ).catch(() => null);
   return true;
@@ -231,7 +233,17 @@ async function hasEventWeekWinnerGrant(guildId, userId, week) {
   const g = String(guildId);
   const u = String(userId);
   const doc = await EventWeekWinner.findOne({ guildId: g, userId: u, week }).lean().catch(() => null);
-  return Boolean(doc);
+  if (doc) return true;
+  const fallback = await EventWeekWinner.findOne({
+    $expr: {
+      $and: [
+        { $eq: [{ $toString: "$guildId" }, g] },
+        { $eq: [{ $toString: "$userId" }, u] },
+        { $in: ["$week", [2, 3]] },
+      ],
+    },
+  }).lean().catch(() => null);
+  return Boolean(fallback);
 }
 
 async function grantEventRewardsForExistingRoleMembers(guild) {

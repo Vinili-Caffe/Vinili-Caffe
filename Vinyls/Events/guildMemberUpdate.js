@@ -371,8 +371,6 @@ async function removePlusColorsIfNotEligible(member) {
   const heldPlusRoles=PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
   if (!heldPlusRoles.length) return;
 
-  global.logger?.warn?.("[guildMemberUpdate] Removing plus colors (not eligible):", { guildId: member.guild.id, userId: member.id, hasRequiredRole, hasEventWeek2Grant, hasEventWeek3Grant, heldPlusRoles, });
-
   const removableRoleIds=heldPlusRoles.filter((roleId) => {const role=member.guild.roles.cache.get(roleId);return role&&role.position<me.roles.highest.position;});
   if (!removableRoleIds.length) return;
 
