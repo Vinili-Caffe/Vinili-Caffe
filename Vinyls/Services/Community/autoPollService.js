@@ -439,10 +439,12 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
 
       lastError = new Error(`Invalid OpenRouter payload for model ${model}`);
     } catch (error) {
-      const status = Number(error?.response?.status || 0);
-      if (status === 429) {
+      const status = Number(error?.response?.status || error?.status || 0);
+      const msg = String(error?.message || "");
+      const is429 = status === 429 || /status code\s*429/i.test(msg) || /\b429\b/.test(msg);
+      if (is429) {
         had429 = true;
-        const retryAfterMs = parseRetryAfterMs(error?.response?.headers);
+        const retryAfterMs = parseRetryAfterMs(error?.response?.headers || error?.headers);
         if (retryAfterMs != null) startOpenRouterCooldownWithRetryAfter(retryAfterMs);
         else startOpenRouterCooldown();
       }
@@ -450,7 +452,7 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
         lastError = error;
         continue;
       }
-      if (status === 429) {
+      if (is429) {
         lastError = error;
         break;
       }

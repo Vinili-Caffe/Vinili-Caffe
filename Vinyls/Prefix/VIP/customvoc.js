@@ -174,6 +174,34 @@ module.exports = {
     const existing = findExistingVoiceChannel(message.guild, customRole.id);
     if (existing) {
       const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:existing.id},);
+
+    await Promise.allSettled([
+      existing.permissionOverwrites
+        .edit(message.guild.roles.everyone.id, {
+          deny: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.UseVAD,
+            PermissionsBitField.Flags.Stream,
+            PermissionsBitField.Flags.SendMessages,
+          ].filter(Boolean),
+        })
+        .catch(() => null),
+      existing.permissionOverwrites
+        .edit(customRole.id, {
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.UseVAD,
+            PermissionsBitField.Flags.Stream,
+            PermissionsBitField.Flags.SendMessages,
+          ].filter(Boolean),
+        })
+        .catch(() => null),
+    ]);
+
       await safeMessageReply(message, {
         embeds: [
           buildVoicePanelEmbed(
@@ -199,6 +227,8 @@ module.exports = {
               PermissionsBitField.Flags.Connect,
               PermissionsBitField.Flags.Speak,
               PermissionsBitField.Flags.UseVAD,
+              PermissionsBitField.Flags.Stream,
+              PermissionsBitField.Flags.SendMessages,
             ],
           },
           {
@@ -208,6 +238,8 @@ module.exports = {
               PermissionsBitField.Flags.Connect,
               PermissionsBitField.Flags.Speak,
               PermissionsBitField.Flags.UseVAD,
+              PermissionsBitField.Flags.Stream,
+              PermissionsBitField.Flags.SendMessages,
             ],
           },
           {
