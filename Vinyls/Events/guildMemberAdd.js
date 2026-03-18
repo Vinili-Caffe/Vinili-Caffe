@@ -1237,13 +1237,38 @@ module.exports = {
         return;
       }
 
-      let welcomeChannel = await resolveGuildChannel(member.guild, IDs.channels.chat);
+      const welcomeChannelId = IDs.channels.chat;
+      let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
       if (!welcomeChannel && member.client && String(member.guild?.id) === String(IDs.guilds?.main)) {
         const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
-        welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, IDs.channels.chat) : null;
+        welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
       }
       if (!welcomeChannel) {
-        global.logger.info("[guildMemberAdd] Welcome channel not found.");
+        const detail = {
+          guildId: String(member.guild?.id || ""),
+          channelId: String(welcomeChannelId || ""),
+          cached: Boolean(member.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
+        };
+        try {
+          const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
+            const code = err?.code || err?.rawError?.code || null;
+            global.logger?.warn?.("[guildMemberAdd] Welcome channel fetch failed:", {
+              ...detail,
+              code,
+              status: err?.status ?? err?.statusCode ?? null,
+              message: String(err?.message || ""),
+              missingAccess: code === 50001 || code === 50013,
+            });
+            return null;
+          });
+          if (fetched?.isTextBased?.()) {
+            welcomeChannel = fetched;
+          } else {
+            global.logger?.warn?.("[guildMemberAdd] Welcome channel not found:", detail);
+          }
+        } catch (e) {
+          global.logger?.warn?.("[guildMemberAdd] Welcome channel not found:", detail, e?.message || e);
+        }
       }
 
       let info = null;

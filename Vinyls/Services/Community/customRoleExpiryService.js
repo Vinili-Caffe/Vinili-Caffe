@@ -5,6 +5,8 @@ const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = requ
 const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
 const CHECK_INTERVAL_MS = 60 * 1000;
 let expiryLoopHandle = null;
+const CUSTOM_VOC_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+const CUSTOM_ROLE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
 
 function findVoiceByRole(guild, roleId) {
   if (!guild || !roleId) return null;
@@ -117,6 +119,39 @@ async function runExpiredCustomRolesSweep(client) {
 
   for (const row of rows) {
     await processExpiredCustomRole(client, row).catch(() => { });
+  }
+
+  const cutoff = new Date(Date.now() - CUSTOM_VOC_GRACE_MS);
+  const staleVoc = await CustomRole.find({
+    customVocChannelId: { $ne: null },
+    customVocEligibilityLostAt: { $ne: null, $lte: cutoff },
+  }).lean().catch(() => []);
+  for (const doc of staleVoc) {
+    try {
+      const guild = client.guilds.cache.get(doc.guildId) || (await getClientGuildCached(client, doc.guildId));
+      if (!guild) {
+        await CustomRole.updateOne({ _id: doc._id }, { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } }).catch(() => {});
+        continue;
+      }
+      const voiceChannel = await resolveVoiceChannel(guild, doc);
+      if (voiceChannel && (await canManageChannels(guild))) {
+        await voiceChannel.delete(`Custom private voice removed after 14d without eligibility for user ${doc.userId}`).catch(() => {});
+      }
+      await CustomRole.updateOne(
+        { _id: doc._id },
+        { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } },
+      ).catch(() => {});
+    } catch {
+    }
+  }
+
+  const roleCutoff = new Date(Date.now() - CUSTOM_ROLE_GRACE_MS);
+  const staleRole = await CustomRole.find({
+    roleId: { $ne: null },
+    customRoleEligibilityLostAt: { $ne: null, $lte: roleCutoff },
+  }).lean().catch(() => []);
+  for (const doc of staleRole) {
+    await processExpiredCustomRole(client, doc).catch(() => {});
   }
 }
 

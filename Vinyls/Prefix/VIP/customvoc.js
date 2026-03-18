@@ -2,35 +2,10 @@ const { ChannelType, EmbedBuilder, PermissionsBitField, ActionRowBuilder, Button
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
-const { formatDuration } = require("../../Utils/Moderation/moderation");
-const{parseFlexibleDuration,}=require("../../Utils/Moderation/durationParser");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 
 const CUSTOM_VOICE_CATEGORY_ID = "1442569078379118755";
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-
-function parseOptionalDuration(raw) {
-  const value=String(raw||"").trim().toLowerCase();
-  if (!value) return { provided: false, clear: false, ms: null, error: null };
-
-  if (
-    ["off", "none", "no", "perma", "permanent", "permanente"].includes(value)
-  ) {
-    return { provided: true, clear: true, ms: null, error: null };
-  }
-
-  const ms = parseFlexibleDuration(value);
-  if (!ms) {
-    return {
-      provided: true,
-      clear: false,
-      ms: null,
-      error:
-        "Durata non valida. Esempi: `14d`, `2w`, `2 settimane`, oppure `permanente`.",
-    };
-  }
-  return { provided: true, clear: false, ms, error: null };
-}
 
 function sanitizeVoiceBaseName(name) {
   const clean=String(name||"").replace(/[^\p{L}\p{N}_ ',.!?\-]/gu, "").replace(/\s+/g," ").trim();
@@ -62,7 +37,7 @@ function findExistingVoiceChannel(guild, roleId) {
   );
 }
 
-function buildVoicePanelEmbed(channel, customRole, doc, durationOption) {
+function buildVoicePanelEmbed(channel, customRole, doc) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Pannello Vocale Privata")
@@ -72,17 +47,9 @@ function buildVoicePanelEmbed(channel, customRole, doc, durationOption) {
         `<:VC_Dot:1482532364222595303> Categoria: <#${CUSTOM_VOICE_CATEGORY_ID}>`,
         `<:VC_Dot:1482532364222595303> Accesso consentito a chi possiede ${customRole}`,
         "",
-        `Scadenza custom: ${buildExpiryText(doc)}`,
+        `Stato custom: ${buildExpiryText(doc)}`,
       ].join("\n"),
     );
-
-  if (durationOption?.provided && !durationOption.clear && durationOption.ms) {
-    embed.addFields({
-      name: "Durata impostata",
-      value: `**${formatDuration(durationOption.ms)}**`,
-      inline: true,
-    });
-  }
 
   return embed;
 }
@@ -100,18 +67,12 @@ function buildVoicePanelRow(ownerId, channelId) {
   );
 }
 
-async function updateCustomRoleTiming(
+async function updateCustomRoleData(
   guildId,
   userId,
-  durationOption,
   extraSet = {},
 ) {
   const setData = { ...extraSet };
-  if (durationOption?.provided) {
-    setData.expiresAt = durationOption.clear
-      ? null
-      : new Date(Date.now() + durationOption.ms);
-  }
   if (!Object.keys(setData).length) return null;
   return CustomRole.findOneAndUpdate(
     { guildId, userId },
@@ -128,21 +89,6 @@ module.exports = {
 
   async execute(message, args = []) {
     if (!message.guild || !message.member) return;
-
-    const durationOption = parseOptionalDuration(args[0]);
-    if (durationOption.error) {
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              `<:vegax:1443934876440068179> ${durationOption.error}`,
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
 
     const state=await resolveCustomRoleState({guild:message.guild,userId:message.author.id,client:message.client,cleanupExpired:true,});
 
@@ -227,14 +173,13 @@ module.exports = {
 
     const existing = findExistingVoiceChannel(message.guild, customRole.id);
     if (existing) {
-      const updatedDoc=await updateCustomRoleTiming(message.guild.id,message.author.id,durationOption,{customVocChannelId:existing.id},);
+      const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:existing.id},);
       await safeMessageReply(message, {
         embeds: [
           buildVoicePanelEmbed(
             existing,
             customRole,
             updatedDoc || customRoleDoc,
-            durationOption,
           ),
         ],
         components: [buildVoicePanelRow(message.author.id, existing.id)],
@@ -303,7 +248,7 @@ module.exports = {
       }
     } catch (_) {}
 
-    const updatedDoc=await updateCustomRoleTiming(message.guild.id,message.author.id,durationOption,{customVocChannelId:channel.id},);
+    const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:channel.id},);
 
     await safeMessageReply(message, {
       embeds: [
@@ -311,7 +256,6 @@ module.exports = {
           channel,
           customRole,
           updatedDoc || customRoleDoc,
-          durationOption,
         ),
       ],
       components: [buildVoicePanelRow(message.author.id, channel.id)],

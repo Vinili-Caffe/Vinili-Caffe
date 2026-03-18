@@ -20,6 +20,24 @@ function safeHost(url) {
   }
 }
 
+function rewriteDiscordCdnUrl(url) {
+  const raw = String(url || "");
+  if (!/^https?:\/\//i.test(raw)) return raw;
+  let next = raw;
+  try {
+    const u = new URL(raw);
+    if (!/cdn\.discordapp\.com$/i.test(u.host)) return raw;
+    const path = String(u.pathname || "");
+    if (path.endsWith(".webp")) u.pathname = path.replace(/\.webp$/i, ".png");
+    if (u.searchParams.get("format")) u.searchParams.set("format", "png");
+    else u.searchParams.append("format", "png");
+    if (!u.searchParams.get("size")) u.searchParams.append("size", "256");
+    next = u.toString();
+  } catch {
+  }
+  return next;
+}
+
 function shouldWarnOnce(key) {
   const now = Date.now();
   const last = Number(warnDedupe.get(key) || 0);
@@ -45,17 +63,36 @@ async function safeLoadImage(source, opts = {}) {
       return await loadImage(src);
     }
 
-    const res = await axios.get(src, {
-      responseType: "arraybuffer",
-      timeout: timeoutMs,
-      validateStatus: (s) => s >= 200 && s < 300,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        Accept: "image/*,*/*;q=0.8",
-      },
-      maxRedirects: 3,
-    });
+    const fetchImage = async (url) =>
+      axios.get(url, {
+        responseType: "arraybuffer",
+        timeout: timeoutMs,
+        validateStatus: (s) => s >= 200 && s < 300,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          Accept: "image/*,*/*;q=0.8",
+        },
+        maxRedirects: 3,
+      });
+
+    let res = null;
+    try {
+      res = await fetchImage(src);
+    } catch (e) {
+      const status = e?.response?.status || null;
+      const host = safeHost(src);
+      if (Number(status) === 415 && /cdn\.discordapp\.com$/i.test(host)) {
+        const retryUrl = rewriteDiscordCdnUrl(src);
+        if (retryUrl && retryUrl !== src) {
+          res = await fetchImage(retryUrl);
+        } else {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
 
     const ct = String(res?.headers?.["content-type"] || "").toLowerCase();
     if (ct && !ct.startsWith("image/")) return null;

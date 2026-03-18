@@ -97,7 +97,7 @@ function buildPanelRows(ownerId, roleId) {
       .setStyle(ButtonStyle.Primary),
   );
   const row2=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${roleId}`)
-      .setLabel("Aggiungi Emoji")
+      .setLabel("Aggiungi Icona")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId}`)
       .setLabel("Elimina Ruolo")

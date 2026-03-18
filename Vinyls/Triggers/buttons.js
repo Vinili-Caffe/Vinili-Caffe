@@ -1140,7 +1140,7 @@ module.exports = {
         ...lines,
         "",
         "**Nota sulla classifica settimanale:**",
-        "Gli exp che determinano la classifica settimanale non vengono influenzati dai moltiplicatori per garantire parit? tra gli utenti.",
+        "Gli exp che determinano la classifica settimanale non vengono influenzati dai moltiplicatori per garantire parità tra gli utenti.",
         "",
         "Puoi vedere la classifica settimanale con il comando \`+classifica\`",
       ].join("\n"),

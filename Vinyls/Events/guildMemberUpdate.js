@@ -4,6 +4,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const Staff = require("../Schemas/Staff/staffSchema");
+const { CustomRole } = require("../Schemas/Community/communitySchemas");
 const { adjustPmStaffPointsOnRoleChange } = require("../Services/Community/staffEventService");
 const { sendEventRewardLog } = require("../Services/Community/eventRewardLogService");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
@@ -388,8 +389,11 @@ async function removePlusColorsIfNotEligible(member) {
 }
 
 function buildBoostEmbed(member, boostCount) {
+  const avatarUrl = member?.user?.displayAvatarURL
+    ? member.user.displayAvatarURL({ extension: "png", size: 256, forceStatic: true })
+    : null;
   return new EmbedBuilder()
-    .setAuthor({ name: member.user.username })
+    .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
     .setTitle(
       "<a:vegarightarrow:1443673039156936837> **__GRAZIE PER IL BOOST!__**",
     )
@@ -400,7 +404,7 @@ function buildBoostEmbed(member, boostCount) {
     )
     .setColor("#6f4e37")
     .setFooter({ text: `Ora siamo a ${boostCount} boost!` })
-    .setThumbnail(member.user.displayAvatarURL())
+    .setThumbnail(avatarUrl || null)
     .setImage(DIVIDER_URL)
 }
 
@@ -686,6 +690,15 @@ async function handleBoostUpdate(oldMember, newMember) {
   );
   if (!shouldAnnounce) {
     boostCountCache.set(guildId, currentCount);
+    if (newBoostTs > 0 || boosterRoleAdded) {
+      scheduleBoostFollowup(
+        boostAnnounceChannel,
+        newMember,
+        guildId,
+        boostKey,
+        currentCount,
+      );
+    }
     return;
   }
 
@@ -749,6 +762,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   let channelCandidates = 0;
   let channelFetchOk = null;
   let memberFetchOk = null;
+  let candidateCounts = null;
   if (canReadAudit) {
     const audits = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 50 }).catch(() => null);
     const entries = audits?.entries ? Array.from(audits.entries.values()) : [];
@@ -822,6 +836,14 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     }
     candidates = fromChannel;
     channelCandidates = candidates.length;
+    if (candidates.length) {
+      candidateCounts = candidates.reduce((acc, c) => {
+        const id = String(c?.targetId || "");
+        if (!id) return acc;
+        acc[id] = Number(acc[id] || 0) + 1;
+        return acc;
+      }, {});
+    }
     if (debugEnabled) {
       global.logger?.info?.("[BOOST RECOVERY DEBUG] channel scan:", {
         boostTypes: Array.from(boostTypes.values()),
@@ -831,16 +853,18 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     }
   }
 
-  const unique = [];
-  const seen = new Set();
-  for (const c of candidates.sort((a, b) => Number(b.createdMs) - Number(a.createdMs))) {
-    if (seen.has(c.targetId)) continue;
-    seen.add(c.targetId);
-    unique.push(c);
-    if (unique.length >= limit) break;
-  }
+  const counts = candidateCounts || candidates.reduce((acc, c) => {
+    const id = String(c?.targetId || "");
+    if (!id) return acc;
+    acc[id] = Number(acc[id] || 0) + 1;
+    return acc;
+  }, {});
+  const orderedUserIds = Object.entries(counts)
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+    .slice(0, limit)
+    .map(([id]) => id);
 
-  if (!unique.length) {
+  if (!orderedUserIds.length) {
     const debug = {
       canReadAudit,
       auditCandidates,
@@ -860,9 +884,10 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
 
   const recentMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
   const recent = recentMessages ? Array.from(recentMessages.values()) : [];
-  const wasAlreadyAnnounced = (userId) => {
+  const countAlreadyAnnounced = (userId) => {
     const needle = `<@${String(userId)}>`;
-    return recent.some((m) => {
+    let n = 0;
+    for (const m of recent) {
       if (!m) return false;
       if (String(m.author?.id || "") !== String(client.user?.id || "")) return false;
       const embeds = Array.isArray(m.embeds) ? m.embeds : [];
@@ -870,12 +895,14 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
         [e?.title || "", e?.description || "", e?.footer?.text || ""].join("\n"),
       );
       const text = [m.content || "", ...embedTexts].join("\n");
-      if (!text.includes(needle)) return false;
-      return (
+      if (!text.includes(needle)) continue;
+      const looksLikeBoost = (
         /grazie\s+per\s+il\s+boost/i.test(text) ||
         /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
       );
-    });
+      if (looksLikeBoost) n += 1;
+    }
+    return n;
   };
 
   const freshGuild = await guild.fetch().catch(() => null);
@@ -883,19 +910,23 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   boostCountCache.set(guild.id, currentCount);
 
   let recovered = 0;
-  for (const { targetId } of unique) {
-    if (wasAlreadyAnnounced(targetId)) continue;
+  for (const targetId of orderedUserIds) {
+    const want = Math.max(1, Number(counts[String(targetId)] || 1));
+    const already = countAlreadyAnnounced(targetId);
+    const missing = Math.max(0, want - already);
+    if (missing <= 0) continue;
+
     const member = await getGuildMemberCached(guild, targetId, { preferFresh: true }).catch(() => null);
     const user = member?.user || (await client.users.fetch(String(targetId)).catch(() => null));
     if (!user) continue;
     if (member && !Number(member.premiumSinceTimestamp || 0)) continue;
 
     if (member) await addPerkRoleIfPossible(member).catch(() => {});
-    await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, 1, currentCount).catch(() => {});
+    await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, missing, currentCount).catch(() => {});
 
     const boostKey = `${guild.id}:${String(targetId)}`;
     boostAnnounceCache.set(boostKey, currentCount);
-    recovered += 1;
+    recovered += missing;
 
     if (member) {
       scheduleBoostFollowup(boostAnnounceChannel, member, guild.id, boostKey, currentCount);
@@ -918,6 +949,111 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   } : undefined;
   if (debugEnabled) global.logger?.info?.("[BOOST RECOVERY DEBUG] done:", { recovered, debug });
   return { ok: true, recovered, debug };
+}
+
+async function ensureCustomVocAccess(newMember) {
+  const guild = newMember?.guild;
+  if (!guild || !newMember?.id) return;
+  const me = guild.members?.me;
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels)) return;
+
+  const doc = await CustomRole.findOne({ guildId: String(guild.id), userId: String(newMember.id) })
+    .lean()
+    .catch(() => null);
+  const channelId = String(doc?.customVocChannelId || "");
+  const roleId = String(doc?.roleId || "");
+  if (!channelId || !roleId) return;
+
+  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+  if (!channel || channel.type !== 2) return; // GuildVoice
+
+  await channel.permissionOverwrites
+    .edit(guild.roles.everyone.id, {
+      ViewChannel: false,
+      Connect: false,
+      Speak: false,
+    })
+    .catch(() => {});
+  await channel.permissionOverwrites
+    .edit(roleId, {
+      ViewChannel: true,
+      Connect: true,
+      Speak: true,
+    })
+    .catch(() => {});
+  await channel.permissionOverwrites
+    .edit(me.id, {
+      ViewChannel: true,
+      Connect: true,
+      Speak: true,
+      ManageChannels: true,
+      MoveMembers: true,
+    })
+    .catch(() => {});
+}
+
+async function syncCustomVocEligibilityWindow(newMember) {
+  const guild = newMember?.guild;
+  if (!guild || !newMember?.id) return;
+  const guildId = String(guild.id);
+  const userId = String(newMember.id);
+
+  const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
+  if (!doc?.customVocChannelId) return;
+
+  const hasRequiredRole = PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
+  const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
+  const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
+  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant;
+
+  if (eligible) {
+    if (doc.customVocEligibilityLostAt) {
+      await CustomRole.updateOne(
+        { guildId, userId },
+        { $set: { customVocEligibilityLostAt: null } },
+      ).catch(() => {});
+    }
+    return;
+  }
+
+  if (!doc.customVocEligibilityLostAt) {
+    await CustomRole.updateOne(
+      { guildId, userId },
+      { $set: { customVocEligibilityLostAt: new Date() } },
+    ).catch(() => {});
+  }
+}
+
+async function syncCustomRoleEligibilityWindow(newMember) {
+  const guild = newMember?.guild;
+  if (!guild || !newMember?.id) return;
+  const guildId = String(guild.id);
+  const userId = String(newMember.id);
+
+  const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
+  if (!doc?.roleId) return;
+
+  const hasRequiredRole = PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
+  const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
+  const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
+  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant;
+
+  if (eligible) {
+    if (doc.customRoleEligibilityLostAt) {
+      await CustomRole.updateOne(
+        { guildId, userId },
+        { $set: { customRoleEligibilityLostAt: null } },
+      ).catch(() => {});
+    }
+    return;
+  }
+
+  if (!doc.customRoleEligibilityLostAt) {
+    await CustomRole.updateOne(
+      { guildId, userId },
+      { $set: { customRoleEligibilityLostAt: new Date() } },
+    ).catch(() => {});
+  }
 }
 
 module.exports = {
@@ -955,6 +1091,9 @@ module.exports = {
       }
 
       await removePlusColorsIfNotEligible(newMember);
+      await ensureCustomVocAccess(newMember);
+      await syncCustomVocEligibilityWindow(newMember);
+      await syncCustomRoleEligibilityWindow(newMember);
       await handleBoostUpdate(oldMember, newMember);
     } catch (error) {
       global.logger?.error?.("[guildMemberUpdate] failed:", error);

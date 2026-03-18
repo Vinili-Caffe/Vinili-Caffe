@@ -211,6 +211,63 @@ async function handleRoleActionButton(interaction) {
 
   const { head, ownerId, roleId } = parsed;
   if (!(await checkOwnership(interaction, ownerId))) return true;
+
+  const modalHeads = new Set([
+    "customrole_name",
+    "customrole_color_solid",
+    "customrole_color_gradient",
+    "customrole_emoji",
+  ]);
+  if (modalHeads.has(head)) {
+    let modalId = null;
+    let title = null;
+    let label = null;
+    let placeholder = null;
+    const panelMessageId = interaction.message?.id || "";
+
+    if (head === "customrole_name") {
+      modalId = `customrole_modal_name:${ownerId}:${roleId}:${panelMessageId}`;
+      title = "Modifica nome ruolo";
+      label = "Nuovo nome";
+      placeholder = "Es: AstroFam";
+    } else if (head === "customrole_color_solid") {
+      modalId = `customrole_modal_color_solid:${ownerId}:${roleId}:${panelMessageId}`;
+      title = "Colore solido";
+      label = "Colore HEX";
+      placeholder = "Es: #ff66cc";
+    } else if (head === "customrole_color_gradient") {
+      modalId = `customrole_modal_color_gradient:${ownerId}:${roleId}:${panelMessageId}`;
+      title = "Colore gradiente";
+    } else if (head === "customrole_emoji") {
+      modalId = `customrole_modal_emoji:${ownerId}:${roleId}:${panelMessageId}`;
+      title = "Imposta emoji o icona ruolo";
+      label = "Emoji / icona (unicode, URL, :nome:, <:...:...>)";
+      placeholder = "Es: :VC_PandaExcited: oppure <:VC_PandaExcited:123> oppure https://.../icon.png";
+    }
+
+    if (!modalId) return true;
+    const rows = [];
+    if (head === "customrole_color_gradient") {
+      const input1 = new TextInputBuilder().setCustomId("value1").setLabel("Colore 1 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
+      const input2 = new TextInputBuilder().setCustomId("value2").setLabel("Colore 2 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #6f4e37").setMaxLength(64);
+      rows.push(new ActionRowBuilder().addComponents(input1));
+      rows.push(new ActionRowBuilder().addComponents(input2));
+    } else {
+      const input = new TextInputBuilder().setCustomId("value").setLabel(String(label || "").slice(0, 45)).setStyle(TextInputStyle.Short).setRequired(head !== "customrole_emoji").setPlaceholder(placeholder).setMaxLength(4000);
+      rows.push(new ActionRowBuilder().addComponents(input));
+    }
+
+    const modal = new ModalBuilder().setCustomId(modalId).setTitle(String(title || "").slice(0, 45)).addComponents(...rows);
+    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
+    if (!shown) {
+      await replyEphemeral(interaction, {
+        content: "<:vegax:1443934876440068179> Impossibile aprire il modulo, riprova.",
+        flags: 1 << 6,
+      });
+    }
+    return true;
+  }
+
   const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
   if (!ownerState.ok) return true;
 
@@ -369,8 +426,8 @@ async function handleRoleActionButton(interaction) {
   } else if (head === "customrole_emoji") {
     modalId = `customrole_modal_emoji:${ownerId}:${roleId}:${panelMessageId}`;
     title = "Imposta emoji o icona ruolo";
-    label = "Emoji unicode o URL immagine";
-    placeholder = "Es: ? oppure https://.../icon.png";
+    label = "Emoji / icona (unicode, URL, :nome:, <:...:...>)";
+    placeholder = "Es: :VC_PandaExcited: oppure <:VC_PandaExcited:123> oppure https://.../icon.png";
   } else if (head === "customrole_color_holo") {
     const role = await fetchRole(interaction, roleId);
     if (!role) return true;
@@ -623,6 +680,37 @@ async function handleRoleActionModal(interaction) {
         .catch(() => { });
       return true;
     }
+    const nameOnlyMatch = String(value || "").trim().match(/^:([a-zA-Z0-9_]{2,32}):$/);
+    if (nameOnlyMatch) {
+      const emojiName = String(nameOnlyMatch[1] || "");
+      const found = interaction.guild?.emojis?.cache?.find?.((e) => String(e?.name || "") === emojiName) || null;
+      if (!found?.id) {
+        await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non trovo questa custom emoji nel server. Incolla l'emoji completa `<:nome:id>` oppure usa un URL.", flags: 1 << 6 }).catch(() => { });
+        return true;
+      }
+      const ext = found.animated ? "gif" : "png";
+      const emojiUrl = `https://cdn.discordapp.com/emojis/${found.id}.${ext}?size=128&quality=lossless`;
+      const iconBuffer = await axios.get(emojiUrl, { responseType: "arraybuffer", timeout: 15000, }).then((r) => r?.status >= 200 && r?.status < 300 ? Buffer.from(r.data) : null,).catch(() => null);
+      if (!iconBuffer) {
+        await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito a caricare l'emoji. Riprova o incolla un URL immagine.", flags: 1 << 6 }).catch(() => { });
+        return true;
+      }
+      const edited = await role
+        .edit(
+          { icon: iconBuffer, unicodeEmoji: null },
+          `Custom role icon (emoji name) by ${interaction.user.tag}`,
+        )
+        .then(() => true)
+        .catch(() => false);
+      const iconApplied = edited || await confirmRoleState((liveRole) => Boolean(liveRole.icon));
+      if (!iconApplied) {
+        await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare l'icona del ruolo.", flags: 1 << 6 }).catch(() => { });
+        return true;
+      }
+      await updatePanelMessage(interaction, panelMessageId, role);
+      await interaction.reply({ content: "<:success:1461731530333229226> Icona ruolo aggiornata con la custom emoji.", flags: 1 << 6 }).catch(() => { });
+      return true;
+    }
     const customEmojiMatch = String(value || "").trim().match(/^<(?:(a):)?[a-zA-Z0-9_]+:(\d+)>$/);
     if (customEmojiMatch) {
       const animated = Boolean(customEmojiMatch[1]);
@@ -668,18 +756,39 @@ async function handleRoleActionModal(interaction) {
         .catch(() => { });
       return true;
     }
-    const edited = await role
-      .edit(
-        { unicodeEmoji: value, icon: null },
-        `Custom role emoji by ${interaction.user.tag}`,
-      )
-      .then(() => true)
-      .catch(() => false);
-    const emojiApplied = edited || await confirmRoleState((liveRole) => String(liveRole.unicodeEmoji || "") === value);
-    if (!emojiApplied) {
+    const looksLikeUnicodeEmoji = /[\p{Extended_Pictographic}\u200D\uFE0F]/u.test(String(value || ""));
+    if (!looksLikeUnicodeEmoji) {
       await interaction
         .reply({
-          content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare l'emoji del ruolo.",
+          content:
+            "<:VC_Attention:1482534443632558151> Valore non valido. Usa un'emoji unicode (es. `🐼`), una custom emoji (`<:nome:id>` / `:nome:`) o un URL immagine.",
+          flags: 1 << 6,
+        })
+        .catch(() => { });
+      return true;
+    }
+
+    let edited = false;
+    let editErr = null;
+    try {
+      await role.edit(
+        { unicodeEmoji: value, icon: null },
+        `Custom role emoji by ${interaction.user.tag}`,
+      );
+      edited = true;
+    } catch (e) {
+      editErr = e;
+    }
+    const emojiApplied = edited || await confirmRoleState((liveRole) => String(liveRole.unicodeEmoji || "") === value);
+    if (!emojiApplied) {
+      const code = editErr?.code || editErr?.rawError?.code || null;
+      const message = String(editErr?.rawError?.message || editErr?.message || "");
+      const hint = code === 50035 || /role icon|unicode|emoji/i.test(message)
+        ? " Probabile che il server non abbia i requisiti per le icone ruolo oppure che l'emoji non sia supportata. Prova con una custom emoji (`<:nome:id>` / `:nome:`) o un URL immagine."
+        : "";
+      await interaction
+        .reply({
+          content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare l'icona del ruolo." + hint,
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -688,7 +797,7 @@ async function handleRoleActionModal(interaction) {
     await updatePanelMessage(interaction, panelMessageId, role);
     await interaction
       .reply({
-        content: `<:success:1461731530333229226> Emoji ruolo aggiornata: ${value}`,
+        content: `<:success:1461731530333229226> Icona ruolo aggiornata: ${value}`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -713,7 +822,13 @@ async function handleRoleColorTypeSelect(interaction) {
     const modalId = `customrole_modal_color_solid:${ownerId}:${roleId}:${panelMessageId || ""}`;
     const input = new TextInputBuilder().setCustomId("value").setLabel("Colore HEX").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
     const modal = new ModalBuilder().setCustomId(modalId).setTitle("Colore solido").addComponents(new ActionRowBuilder().addComponents(input));
-    await interaction.showModal(modal).catch(() => { });
+    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
+    if (!shown) {
+      await replyEphemeral(interaction, {
+        content: "<:vegax:1443934876440068179> Impossibile aprire il modulo, riprova.",
+        flags: 1 << 6,
+      });
+    }
     return true;
   }
 
@@ -722,7 +837,13 @@ async function handleRoleColorTypeSelect(interaction) {
     const input1 = new TextInputBuilder().setCustomId("value1").setLabel("Colore 1 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
     const input2 = new TextInputBuilder().setCustomId("value2").setLabel("Colore 2 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #6f4e37").setMaxLength(64);
     const modal = new ModalBuilder().setCustomId(modalId).setTitle("Colore gradiente").addComponents(new ActionRowBuilder().addComponents(input1), new ActionRowBuilder().addComponents(input2));
-    await interaction.showModal(modal).catch(() => { });
+    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
+    if (!shown) {
+      await replyEphemeral(interaction, {
+        content: "<:vegax:1443934876440068179> Impossibile aprire il modulo, riprova.",
+        flags: 1 << 6,
+      });
+    }
     return true;
   }
 

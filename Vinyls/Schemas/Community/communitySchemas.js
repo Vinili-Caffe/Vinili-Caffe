@@ -71,7 +71,7 @@ staffEventWeeklyRewardSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique:
 const staffEventRewardGivenSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardType:{type:String,required:true},},{timestamps:true},);
 staffEventRewardGivenSchema.index({ guildId: 1, userId: 1, rewardType: 1 }, { unique: true });
 
-const customRoleSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true},roleId:{type:String,required:true},customVocEmoji:{type:String,default:null},customVocChannelId:{type:String,default:null,index:true},expiresAt:{type:Date,default:null},},{timestamps:true},);
+const customRoleSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true},roleId:{type:String,required:true},customVocEmoji:{type:String,default:null},customVocChannelId:{type:String,default:null,index:true},customVocEligibilityLostAt:{type:Date,default:null,index:true},customRoleEligibilityLostAt:{type:Date,default:null,index:true},expiresAt:{type:Date,default:null},},{timestamps:true},);
 customRoleSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 customRoleSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 

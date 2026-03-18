@@ -1769,6 +1769,9 @@
         "customrole_add_select:*": {
             "ownerSegment": 1
         },
+        "customrole_color_type_select:*": {
+            "ownerSegment": 1
+        },
         "customrole_remove_select:*": {
             "ownerSegment": 1
         },
