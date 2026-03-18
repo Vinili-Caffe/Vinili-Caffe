@@ -785,12 +785,15 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     channelFetchOk = Boolean(recentBoostMessages);
     const recent = recentBoostMessages ? Array.from(recentBoostMessages.values()) : [];
     const minTs = now - lookbackMs;
-    const boostTypes = new Set([
-      MessageType?.UserPremiumGuildSubscription,
-      MessageType?.UserPremiumGuildSubscriptionTier1,
-      MessageType?.UserPremiumGuildSubscriptionTier2,
-      MessageType?.UserPremiumGuildSubscriptionTier3,
-    ].filter((x) => typeof x === "number"));
+    const boostTypes = new Set(
+      [
+        MessageType?.UserPremiumGuildSubscription,
+        MessageType?.UserPremiumGuildSubscriptionTier1,
+        MessageType?.UserPremiumGuildSubscriptionTier2,
+        MessageType?.UserPremiumGuildSubscriptionTier3,
+        8, // discord system message: USER_PREMIUM_GUILD_SUBSCRIPTION (fallback when enum missing)
+      ].filter((x) => typeof x === "number"),
+    );
     const boostTextRe = /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i;
     const typeCounts = {};
     const samples = [];
