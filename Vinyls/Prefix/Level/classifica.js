@@ -5,6 +5,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
+const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const TOP_LIMIT = 10;
 const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const TIME_ZONE = "Europe/Rome";
@@ -324,12 +325,9 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
 async function buildWeeklyEmbed(message, excludeStaffFromShort = false, useExpUserBoard = false) {
   const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
   const candidateRows = await computeLeaderboardRows(message.guild, "weekly", maxCand);
-  const staffId = IDs.roles?.Staff;
   const members = await fetchMembers(message.guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows;
-  if (excludeStaffFromShort && staffId) {
-    rows = rows.filter((row) => !members.get(row.userId)?.roles?.cache?.has(staffId));
-  }
+  rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
   rows = rows.slice(0, TOP_LIMIT);
   const lines = [];
   rows.forEach((row, index) => {
@@ -373,12 +371,9 @@ async function buildAllTimeEmbed(message, excludeStaffFromShort = false, useExpU
   const candidateRows = useExpUserBoard
     ? await computeExpUserLeaderboardRows(message.guild, "alltime", maxCand)
     : await computeLeaderboardRows(message.guild, "alltime", maxCand);
-  const staffId = IDs.roles?.Staff;
   const members = await fetchMembers(message.guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows.filter((row) => members.has(row.userId));
-  if (excludeStaffFromShort && staffId) {
-    rows = rows.filter((row) => !members.get(row.userId)?.roles?.cache?.has(staffId));
-  }
+  rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
   rows = rows.slice(0, TOP_LIMIT);
   const lines = [];
   rows.forEach((row, index) => {

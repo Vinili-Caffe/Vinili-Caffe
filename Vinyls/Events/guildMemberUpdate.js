@@ -1099,5 +1099,4 @@ module.exports = {
       global.logger?.error?.("[guildMemberUpdate] failed:", error);
     }
   },
-  recoverRecentBoostEmbedsOnStartup,
 };
