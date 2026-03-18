@@ -791,12 +791,15 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       MessageType?.UserPremiumGuildSubscriptionTier2,
       MessageType?.UserPremiumGuildSubscriptionTier3,
     ].filter((x) => typeof x === "number"));
+    const boostTextRe = /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i;
     const fromChannel = [];
     for (const m of recent) {
       if (!m?.author?.id) continue;
       const createdMs = Number(m.createdTimestamp || 0);
       if (!createdMs || createdMs < minTs) continue;
-      if (!boostTypes.has(Number(m.type))) continue;
+      const isBoostType = boostTypes.has(Number(m.type));
+      const isBoostText = boostTextRe.test(String(m.content || ""));
+      if (!isBoostType && !isBoostText) continue;
       fromChannel.push({ targetId: String(m.author.id), createdMs });
     }
     candidates = fromChannel;
