@@ -198,6 +198,7 @@ module.exports = {
               PermissionsBitField.Flags.ViewChannel,
               PermissionsBitField.Flags.Connect,
               PermissionsBitField.Flags.Speak,
+              PermissionsBitField.Flags.UseVAD,
             ],
           },
           {
@@ -206,6 +207,7 @@ module.exports = {
               PermissionsBitField.Flags.ViewChannel,
               PermissionsBitField.Flags.Connect,
               PermissionsBitField.Flags.Speak,
+              PermissionsBitField.Flags.UseVAD,
             ],
           },
           {

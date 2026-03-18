@@ -133,7 +133,6 @@ initializeCommandCollections(client, { includeSnipes: true });
     }
 
     const { getPlayer } = require("./Services/Music/musicService");
-    // Non bloccare lo shard: inizializza Lavalink in background.
     void getPlayer(client).catch(() => {});
 
     client.login(client.config.token).catch((error) => {

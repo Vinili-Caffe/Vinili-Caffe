@@ -191,23 +191,31 @@ function logEventError(client, label, error) {
 }
 
 async function handleCounting(message, client) {
-  const countdata = await getCountingConfig(message.guild.id);
+  const guildId =
+    message?.guild?.id || message?.channel?.guild?.id || message?.guildId;
+  if (!guildId) return;
+
+  const countdata = await getCountingConfig(guildId);
   if (!countdata) return;
   const member = message.member;
   if (!member) return;
   const mainGuildId = IDs.guilds?.main || null;
-  const countingChannelId = countdata.Channel || (message.guild.id === mainGuildId ? COUNTING_CHANNEL_ID : null);
+  const countingChannelId = countdata.Channel || (String(guildId) === String(mainGuildId) ? COUNTING_CHANNEL_ID : null);
   if (!countingChannelId) return;
-  const countchannel = message.guild.channels.cache.get(countingChannelId);
+  const guild = message.guild || message.channel?.guild;
+  if (!guild?.channels?.cache) return;
+  const countchannel = guild.channels.cache.get(countingChannelId);
   if (!countchannel) {
     logEventError(
       client,
       "COUNTING",
-      `Counting channel not found for guild: ${message.guild.id}`,
+      `Counting channel not found for guild: ${guildId}`,
     );
     return;
   }
-  if (message.channel.id !== countchannel.id) return;
+  const messageChannelId = message?.channel?.id;
+  if (!messageChannelId) return;
+  if (messageChannelId !== countchannel.id) return;
   if (!COUNTING_ALLOWED_REGEX.test(message.content)) {
     return message.delete().catch(() => { });
   }
@@ -261,7 +269,7 @@ async function handleCounting(message, client) {
       .catch((err) => logEventError(client, "COUNTING", err));
   }
   await countdata.save();
-  invalidateCountingConfig(message.guild.id);
+  invalidateCountingConfig(guildId);
 }
 
 const COUNTING_CATCHUP_LOOKBACK_MS = 10 * 60 * 1000; // 10 min
@@ -297,7 +305,11 @@ async function processPendingCountingMessages(client) {
     const cutoff = Date.now() - COUNTING_CATCHUP_LOOKBACK_MS;
     const recent = pending.filter((m) => m.createdTimestamp >= cutoff);
     for (const message of recent) {
-      await handleCounting(message, client);
+      try {
+        await handleCounting(message, client);
+      } catch (err) {
+        global.logger?.warn?.("[READY] counting catch-up item failed:", err?.message || err);
+      }
     }
   }
 }

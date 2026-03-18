@@ -3,6 +3,8 @@ const MINIGAME_429_THROTTLE_MS = 15 * 60 * 1000;
 const MINIGAME_403_THROTTLE_MS = 60 * 1000;
 let last429LogAt = 0;
 let last403LogAt = 0;
+let sportsDb429Until = 0;
+const SPORTSDB_429_BACKOFF_FLOOR_MS = 60_000;
 function warnMinigame(err) {
   const msg = err?.message || err?.response?.data || String(err);
   const status = err?.response?.status;
@@ -10,6 +12,22 @@ function warnMinigame(err) {
   const is429 = status === 429 || (typeof msg === "string" && msg.includes("429"));
   const is403 = status === 403 || (typeof msg === "string" && msg.includes("403"));
   if (is403 && typeof url === "string" && /wikipedia\.org\/api\/rest_v1\/page\/summary/i.test(url)) return;
+  // Se è ThesportsDB e siamo in 429, applica un backoff anche se poi throttliamo il log.
+  if (is429 && typeof url === "string" && /thesportsdb\.com/i.test(url)) {
+    const now = Date.now();
+    const retryAfterRaw = err?.response?.headers?.["retry-after"] || err?.response?.headers?.["Retry-After"];
+    let retryAfterMs = 0;
+    if (typeof retryAfterRaw === "string" && retryAfterRaw.trim()) {
+      const asNum = Number(retryAfterRaw);
+      if (Number.isFinite(asNum) && asNum > 0) retryAfterMs = asNum * 1000;
+      else {
+        const t = Date.parse(retryAfterRaw);
+        if (Number.isFinite(t)) retryAfterMs = Math.max(0, t - now);
+      }
+    }
+    if (!retryAfterMs) retryAfterMs = SPORTSDB_429_BACKOFF_FLOOR_MS;
+    sportsDb429Until = Math.max(sportsDb429Until, now + retryAfterMs);
+  }
   const now = Date.now();
   if (is429 && now - last429LogAt < MINIGAME_429_THROTTLE_MS) return;
   if (is429) last429LogAt = now;
@@ -23,6 +41,21 @@ function warnMinigame(err) {
   }
   if (is403 && url) logMsg += ` URL: ${typeof url === "string" ? url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***") : url}`;
   global.logger?.warn?.("[minigameService] ", logMsg);
+}
+
+function isThesportsdb429(err) {
+  const msg = err?.message || err?.response?.data || String(err);
+  const status = err?.response?.status;
+  const url = err?.response?.config?.url || err?.config?.url;
+  const is429 = status === 429 || (typeof msg === "string" && msg.includes("429"));
+  return is429 && typeof url === "string" && /thesportsdb\.com/i.test(url);
+}
+
+async function waitIfSportsDb429() {
+  const now = Date.now();
+  if (now >= sportsDb429Until) return;
+  const ms = sportsDb429Until - now;
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 const canvasModule = require("canvas");
 const { createCanvas, loadImage } = canvasModule;
@@ -984,6 +1017,7 @@ async function loadFootballTeamsFromApi(cfg) {
   const now = Date.now();
   if (cachedTeams && now - cachedTeamsAt < TEAM_CACHE_TTL_MS)
     return cachedTeams;
+  await waitIfSportsDb429();
 
   const apiBase = cfg?.guessTeam?.apiUrl || "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=";
   const leagues = Array.isArray(cfg?.guessTeam?.leagues) && cfg.guessTeam.leagues.length ? cfg.guessTeam.leagues : DEFAULT_FOOTBALL_LEAGUES;
@@ -1008,6 +1042,11 @@ async function loadFootballTeamsFromApi(cfg) {
       }
     } catch (err) {
       warnMinigame(err);
+      if (isThesportsdb429(err)) {
+        // Non cache-siamo risultati vuoti/partiali quando la API sta rate-limitando.
+        if (Array.isArray(cachedTeams) && cachedTeams.length) return cachedTeams;
+        return out;
+      }
     }
   }
 
@@ -2392,6 +2431,7 @@ function buildPlayerInfoFromApiPlayer(player) {
 async function loadLeaguePlayersFromApi(cfg) {
   const now = Date.now();
   if (cachedLeaguePlayers && now - cachedLeaguePlayersAt < LEAGUE_PLAYER_CACHE_TTL_MS) return cachedLeaguePlayers;
+  await waitIfSportsDb429();
 
   const teams = await loadFootballTeamsFromApi(cfg);
   const playerApiBase = cfg?.guessPlayer?.teamApiUrl || "https://www.thesportsdb.com/api/v1/json/123/lookup_all_players.php?id=";
@@ -2417,6 +2457,10 @@ async function loadLeaguePlayersFromApi(cfg) {
       }
     } catch (err) {
       warnMinigame(err);
+      if (isThesportsdb429(err)) {
+        if (Array.isArray(cachedLeaguePlayers) && cachedLeaguePlayers.length) return cachedLeaguePlayers;
+        return out;
+      }
     }
   }
 
@@ -2430,6 +2474,7 @@ async function fetchPlayerInfo(cfg, name) {
   if (!apiBase || !name) return null;
   const url = `${apiBase}${encodeURIComponent(name)}`;
   try {
+    await waitIfSportsDb429();
     const res = await axios.get(url, { timeout: 15000 });
     const players = res?.data?.player;
     if (!Array.isArray(players) || players.length === 0) return null;
@@ -2446,7 +2491,8 @@ async function fetchPlayerInfo(cfg, name) {
       image: player.strThumb || player.strCutout || null,
       aliases: buildPlayerAliases(player),
     };
-  } catch {
+  } catch (err) {
+    warnMinigame(err);
     return null;
   }
 }
@@ -2459,6 +2505,7 @@ async function fetchPlayerFromRandomLetter(cfg) {
     const letter = letters[randomBetween(0, letters.length - 1)];
     const url = `${apiBase}${encodeURIComponent(letter)}`;
     try {
+      await waitIfSportsDb429();
       const res = await axios.get(url, { timeout: 15000 });
       const players = res?.data?.player;
       if (!Array.isArray(players) || players.length === 0) continue;
@@ -2479,6 +2526,7 @@ async function fetchPlayerFromRandomLetter(cfg) {
       };
     } catch (err) {
       warnMinigame(err);
+      if (isThesportsdb429(err)) return null;
     }
   }
   return null;
