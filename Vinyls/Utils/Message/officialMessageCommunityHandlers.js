@@ -195,7 +195,10 @@ async function handleCounting(message, client) {
   if (!countdata) return;
   const member = message.member;
   if (!member) return;
-  const countchannel = message.guild.channels.cache.get(COUNTING_CHANNEL_ID);
+  const mainGuildId = IDs.guilds?.main || null;
+  const countingChannelId = countdata.Channel || (message.guild.id === mainGuildId ? COUNTING_CHANNEL_ID : null);
+  if (!countingChannelId) return;
+  const countchannel = message.guild.channels.cache.get(countingChannelId);
   if (!countchannel) {
     logEventError(
       client,
@@ -261,4 +264,42 @@ async function handleCounting(message, client) {
   invalidateCountingConfig(message.guild.id);
 }
 
-module.exports = { handleAfk, handleAutoResponders, handleCounting, handleMentionAutoReactions, logEventError };
+const COUNTING_CATCHUP_LOOKBACK_MS = 10 * 60 * 1000; // 10 min
+
+function messageHasBotCountingReaction(message) {
+  return message.reactions.cache.some((r) => r.me === true);
+}
+
+async function processPendingCountingMessages(client) {
+  if (!client?.user?.id) return;
+  const mainGuildId = IDs.guilds?.main || null;
+  for (const guild of client.guilds.cache.values()) {
+    const countdata = await getCountingConfig(guild.id);
+    if (!countdata) continue;
+    const channelId = countdata.Channel || (guild.id === mainGuildId ? COUNTING_CHANNEL_ID : null);
+    if (!channelId) continue;
+    const channel = guild.channels.cache.get(channelId) || client.channels.cache.get(channelId);
+    if (!channel?.messages?.fetch) continue;
+    let messages;
+    try {
+      messages = await channel.messages.fetch({ limit: 50 });
+    } catch {
+      continue;
+    }
+    const pending = messages
+      .filter(
+        (m) =>
+          !m.author.bot &&
+          COUNTING_ALLOWED_REGEX.test(m.content) &&
+          !messageHasBotCountingReaction(m),
+      )
+      .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    const cutoff = Date.now() - COUNTING_CATCHUP_LOOKBACK_MS;
+    const recent = pending.filter((m) => m.createdTimestamp >= cutoff);
+    for (const message of recent) {
+      await handleCounting(message, client);
+    }
+  }
+}
+
+module.exports = { handleAfk, handleAutoResponders, handleCounting, handleMentionAutoReactions, logEventError, processPendingCountingMessages };

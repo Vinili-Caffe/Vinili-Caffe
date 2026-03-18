@@ -29,6 +29,7 @@ function rewriteDiscordCdnUrl(url) {
     if (!/cdn\.discordapp\.com$/i.test(u.host)) return raw;
     const path = String(u.pathname || "");
     if (path.endsWith(".webp")) u.pathname = path.replace(/\.webp$/i, ".png");
+    else if (path.endsWith(".gif")) u.pathname = path.replace(/\.gif$/i, ".png");
     else {
       const last = path.split("/").pop() || "";
       if (last && !last.includes(".")) {

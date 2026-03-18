@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
+const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const{runDueOneTimeReminders,}=require("../Services/Reminders/oneTimeReminderService");
@@ -186,6 +187,60 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
 
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const getChannelSafe = async (client, channelId) => { if (!channelId) return null; return client.channels.cache.get(channelId) || (await getClientChannelCached(client, channelId)); };
+
+const PENDING_COMMANDS_LOOKBACK_MS = 5 * 60 * 1000;
+const PENDING_COMMANDS_FETCH_LIMIT = 25;
+
+async function processPendingPrefixCommands(client) {
+  if (client?.config?.processPendingCommands === false) return;
+  const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
+  const { getCachedOrFetchMember } = require("../Utils/Message/officialMessageAutomationHandlers");
+  const { PermissionFlagsBits, ChannelType } = require("discord.js");
+  const prefix = String(client?.config?.prefix || "+").trim();
+  const cutoff = Date.now() - PENDING_COMMANDS_LOOKBACK_MS;
+  const hasAnyStaffBypassPermission = (permissions) => permissions && typeof permissions.has === "function" && [PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageGuild, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ManageRoles, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.KickMembers, PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers].some((p) => permissions.has(p));
+  const noopWrongPrefixHint = () => Promise.resolve(false);
+  const isScannableChannel = (ch) =>
+    ch?.messages?.fetch &&
+    (ch?.isTextBased?.() || ch?.type === ChannelType.GuildVoice || ch?.type === ChannelType.GuildStageVoice);
+
+  const collected = [];
+  for (const guild of client.guilds.cache.values()) {
+    const me = guild.members.me;
+    for (const channel of guild.channels.cache.values()) {
+      if (!isScannableChannel(channel)) continue;
+      const perms = me ? channel.permissionsFor(me) : null;
+      if (!perms?.has(PermissionFlagsBits.ViewChannel) || !perms?.has(PermissionFlagsBits.ReadMessageHistory)) continue;
+      try {
+        const messages = await channel.messages.fetch({ limit: PENDING_COMMANDS_FETCH_LIMIT }).catch(() => null);
+        if (!messages) continue;
+        for (const msg of messages.values()) {
+          if (msg.author?.bot || !msg.content?.trim().startsWith(prefix)) continue;
+          if (msg.createdTimestamp < cutoff) continue;
+          collected.push({ message: msg, ts: msg.createdTimestamp });
+        }
+      } catch (err) {
+        global.logger?.warn?.("[READY] pending commands fetch failed:", channel?.id, err?.message || err);
+      }
+    }
+  }
+  collected.sort((a, b) => a.ts - b.ts);
+  for (const { message } of collected) {
+    try {
+      await handleOfficialPrefixMessage({
+        message,
+        resolvedClient: client,
+        defaultPrefix: prefix,
+        overrideCommand: null,
+        maybeSendWrongPrefixHint: noopWrongPrefixHint,
+        getCachedOrFetchMember,
+        hasAnyStaffBypassPermission,
+      });
+    } catch (err) {
+      global.logger?.warn?.("[READY] pending command execution failed:", message?.id, err?.message || err);
+    }
+  }
+}
 
 function buildMongoUrl(client) {
   return (
@@ -556,6 +611,9 @@ module.exports = {
     setClientPresence(client);
 
     logBotReady(client, readyStartedAt);
+
+    void processPendingPrefixCommands(client).catch((err) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
+    void processPendingCountingMessages(client).catch((err) => global.logger?.warn?.("[READY] counting catch-up:", err?.message || err));
 
     if (!client._deferredStartupRunning) {
       client._deferredStartupRunning = true;
