@@ -100,7 +100,7 @@ async function ensureMember(interaction, user, resolveMember) {
   if (!member) {
     await replyError(
       interaction,
-      "<:attentionfromvega:1443651874032062505> Utente non trovato nel server.",
+      "<:VC_Attention:1482534443632558151> Utente non trovato nel server.",
     );
     return null;
   }
@@ -115,7 +115,7 @@ async function ensureNotSelf(interaction, targetUser) {
 
   await replyError(
     interaction,
-    "<:attentionfromvega:1443651874032062505> Non puoi usare questo comando su te stesso.",
+    "<:VC_Attention:1482534443632558151> Non puoi usare questo comando su te stesso.",
   );
   return false;
 }
@@ -410,7 +410,7 @@ module.exports = {
         if (member.roles.cache.has(roleAfter.id)) {
           return replyError(
             interaction,
-            `<:attentionfromvega:1443651874032062505> L'utente ${targetUser} ha già il ruolo che gli vuoi aggiungere.`,
+            `<:VC_Attention:1482534443632558151> L'utente ${targetUser} ha già il ruolo che gli vuoi aggiungere.`,
           );
         }
 
@@ -465,7 +465,7 @@ module.exports = {
         if (!member.roles.cache.has(oldRole.id)) {
           return replyError(
             interaction,
-            `<:attentionfromvega:1443651874032062505> L'utente ${targetUser} non ha il ruolo che gli vuoi togliere.`,
+            `<:VC_Attention:1482534443632558151> L'utente ${targetUser} non ha il ruolo che gli vuoi togliere.`,
           );
         }
 

@@ -16,7 +16,7 @@ async function checkOwnership(interaction, ownerId) {
           .setColor("Red")
           .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
           .setDescription(
-            "<:attentionfromvega:1443651874032062505> Solo il proprietario del ruolo personalizzato può usare questo controllo.",
+            "<:VC_Attention:1482534443632558151> Solo il proprietario del ruolo personalizzato può usare questo controllo.",
           ),
       ],
       flags: PRIVATE_FLAG,
@@ -35,7 +35,7 @@ async function ensureOwnerCustomRoleActive(
   if (state.status === "none") {
     await replyEphemeral(interaction, {
       content:
-        "<:attentionfromvega:1443651874032062505> Non hai più un custom role attivo. Usa `+customrole create`.",
+        "<:VC_Attention:1482534443632558151> Non hai più un custom role attivo. Usa `+customrole create`.",
       flags: PRIVATE_FLAG,
     });
     return { ok: false, state };
@@ -56,7 +56,7 @@ async function ensureOwnerCustomRoleActive(
   if (state.status === "missing_role") {
     await replyEphemeral(interaction, {
       content:
-        "<:attentionfromvega:1443651874032062505> Ruolo non trovato, ricrealo con `+customrole create`.",
+        "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole create`.",
       flags: PRIVATE_FLAG,
     });
     return { ok: false, state };
@@ -223,7 +223,7 @@ async function handleRoleActionButton(interaction) {
     await interaction
       .reply({
         content:
-          "<:attentionfromvega:1443651874032062505> Ruolo non trovato, ricrealo con `+customrole create`.",
+          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole create`.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -235,7 +235,7 @@ async function handleRoleActionButton(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Non posso eliminare questo ruolo.",
+            "<:VC_Attention:1482534443632558151> Non posso eliminare questo ruolo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -263,7 +263,7 @@ async function handleRoleActionButton(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Non sono riuscito a eliminare il ruolo. Controlla gerarchia e permessi.",
+            "<:VC_Attention:1482534443632558151> Non sono riuscito a eliminare il ruolo. Controlla gerarchia e permessi.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -276,7 +276,7 @@ async function handleRoleActionButton(interaction) {
 
     const deletedEmbed = new EmbedBuilder()
       .setColor("#e74c3c")
-      .setTitle("<:attentionfromvega:1443651874032062505> Ruolo eliminato")
+      .setTitle("<:VC_Attention:1482534443632558151> Ruolo eliminato")
       .setDescription(
         `<:success:1461731530333229226> Il ruolo **${roleName}** è stato cancellato con successo.`,
     );
@@ -375,13 +375,13 @@ async function handleRoleActionButton(interaction) {
     const role = await fetchRole(interaction, roleId);
     if (!role) return true;
     if (!canManageRole(interaction, role)) {
-      await interaction.reply({ content: "<:attentionfromvega:1443651874032062505> Non posso modificare questo ruolo.", flags: 1 << 6 }).catch(() => { });
+      await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo.", flags: 1 << 6 }).catch(() => { });
       return true;
     }
     const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
     const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${interaction.user.tag}`).then(() => true).catch(() => false);
     if (!edited) {
-      await interaction.reply({ content: "<:attentionfromvega:1443651874032062505> Non sono riuscito ad applicare lo stile olografico.", flags: 1 << 6 }).catch(() => { });
+      await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare lo stile olografico.", flags: 1 << 6 }).catch(() => { });
       return true;
     }
     await updatePanelMessage(interaction, panelMessageId, role);
@@ -436,7 +436,7 @@ async function handleRoleActionModal(interaction) {
     await interaction
       .reply({
         content:
-          "<:attentionfromvega:1443651874032062505> Ruolo non trovato, ricrealo con `+customrole create`.",
+          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole create`.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -446,7 +446,7 @@ async function handleRoleActionModal(interaction) {
     await interaction
       .reply({
         content:
-          "<:attentionfromvega:1443651874032062505> Non posso modificare questo ruolo.",
+          "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -467,7 +467,7 @@ async function handleRoleActionModal(interaction) {
     if (!name) {
       await interaction
         .reply({
-          content: "<:attentionfromvega:1443651874032062505> Nome non valido.",
+          content: "<:VC_Attention:1482534443632558151> Nome non valido.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -481,7 +481,7 @@ async function handleRoleActionModal(interaction) {
     if (!renameApplied) {
       await interaction
         .reply({
-          content: "<:attentionfromvega:1443651874032062505> Non sono riuscito ad aggiornare il nome del ruolo.",
+          content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare il nome del ruolo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -518,7 +518,7 @@ async function handleRoleActionModal(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Non sono riuscito ad aggiornare il colore del ruolo.",
+            "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare il colore del ruolo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -546,7 +546,7 @@ async function handleRoleActionModal(interaction) {
     const edited = await role.edit({ colors: { primaryColor: hex1, secondaryColor: hex2 } }, `Custom role gradient by ${interaction.user.tag}`).then(() => true).catch(() => false);
     const applied = edited || await confirmRoleState((liveRole) => String(liveRole.hexColor || "").toUpperCase() === hex1.toUpperCase());
     if (!applied) {
-      await interaction.reply({ content: "<:attentionfromvega:1443651874032062505> Non sono riuscito ad applicare il gradiente.", flags: 1 << 6 }).catch(() => { });
+      await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare il gradiente.", flags: 1 << 6 }).catch(() => { });
       return true;
     }
     await updatePanelMessage(interaction, panelMessageId, role);
@@ -567,7 +567,7 @@ async function handleRoleActionModal(interaction) {
       if (!clearApplied) {
         await interaction
           .reply({
-            content: "<:attentionfromvega:1443651874032062505> Non sono riuscito a rimuovere icona del ruolo.",
+            content: "<:VC_Attention:1482534443632558151> Non sono riuscito a rimuovere icona del ruolo.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -589,7 +589,7 @@ async function handleRoleActionModal(interaction) {
         await interaction
           .reply({
             content:
-              "<:attentionfromvega:1443651874032062505> URL immagine non valida o non raggiungibile.",
+              "<:VC_Attention:1482534443632558151> URL immagine non valida o non raggiungibile.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -607,7 +607,7 @@ async function handleRoleActionModal(interaction) {
         await interaction
           .reply({
             content:
-              "<:attentionfromvega:1443651874032062505> Non sono riuscito ad aggiornare l'icona del ruolo.",
+              "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare l'icona del ruolo.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -634,7 +634,7 @@ async function handleRoleActionModal(interaction) {
         await interaction
           .reply({
             content:
-              "<:attentionfromvega:1443651874032062505> Non sono riuscito a caricare l'emoji. Assicurati che sia una custom emoji valida e accessibile.",
+              "<:VC_Attention:1482534443632558151> Non sono riuscito a caricare l'emoji. Assicurati che sia una custom emoji valida e accessibile.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -652,7 +652,7 @@ async function handleRoleActionModal(interaction) {
         await interaction
           .reply({
             content:
-              "<:attentionfromvega:1443651874032062505> Non sono riuscito ad aggiornare l'icona del ruolo.",
+              "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare l'icona del ruolo.",
             flags: 1 << 6,
           })
           .catch(() => { });
@@ -679,7 +679,7 @@ async function handleRoleActionModal(interaction) {
     if (!emojiApplied) {
       await interaction
         .reply({
-          content: "<:attentionfromvega:1443651874032062505> Non sono riuscito ad aggiornare l'emoji del ruolo.",
+          content: "<:VC_Attention:1482534443632558151> Non sono riuscito ad aggiornare l'emoji del ruolo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -730,12 +730,12 @@ async function handleRoleColorTypeSelect(interaction) {
     const role = await fetchRole(interaction, roleId);
     if (!role) return true;
     if (!canManageRole(interaction, role)) {
-      await interaction.update({ content: "<:attentionfromvega:1443651874032062505> Non posso modificare questo ruolo.", embeds: [], components: [] }).catch(() => { });
+      await interaction.update({ content: "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo.", embeds: [], components: [] }).catch(() => { });
       return true;
     }
     const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
     const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${interaction.user.tag}`).then(() => true).catch(() => false);
-    await interaction.update({ content: edited ? "<:success:1461731530333229226> Stile olografico applicato." : "<:attentionfromvega:1443651874032062505> Non sono riuscito ad applicare lo stile olografico.", embeds: [], components: [] }).catch(() => { });
+    await interaction.update({ content: edited ? "<:success:1461731530333229226> Stile olografico applicato." : "<:VC_Attention:1482534443632558151> Non sono riuscito ad applicare lo stile olografico.", embeds: [], components: [] }).catch(() => { });
     if (edited) await updatePanelMessage(interaction, panelMessageId, role);
     return true;
   }
@@ -763,7 +763,7 @@ async function handleAddRemoveSelectMenus(interaction) {
     if (!targetId || !role) {
       await interaction
         .reply({
-          content: "<:attentionfromvega:1443651874032062505> Target o ruolo non valido.",
+          content: "<:VC_Attention:1482534443632558151> Target o ruolo non valido.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -776,7 +776,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Non sono riuscito ad avviare la richiesta (DM chiusi o errore).",
+            "<:VC_Attention:1482534443632558151> Non sono riuscito ad avviare la richiesta (DM chiusi o errore).",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -819,7 +819,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Ruolo non trovato, ricrealo con `+customrole create`.",
+            "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole create`.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -829,7 +829,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Non posso modificare questo ruolo.",
+            "<:VC_Attention:1482534443632558151> Non posso modificare questo ruolo.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -841,7 +841,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       await interaction
         .reply({
           content:
-            "<:attentionfromvega:1443651874032062505> Non puoi rimuovere il tuo stesso ruolo con questo comando.",
+            "<:VC_Attention:1482534443632558151> Non puoi rimuovere il tuo stesso ruolo con questo comando.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -909,7 +909,7 @@ async function handleCustomVocButton(interaction) {
   if (!channel || channel.type !== ChannelType.GuildVoice) {
     await interaction
       .reply({
-        content: "<:attentionfromvega:1443651874032062505> Canale vocale non trovato.",
+        content: "<:VC_Attention:1482534443632558151> Canale vocale non trovato.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -929,7 +929,7 @@ async function handleCustomVocButton(interaction) {
   if (!shown) {
     await replyEphemeral(interaction, {
       content:
-        "<:attentionfromvega:1443651874032062505> Impossibile aprire il modulo, riprova.",
+        "<:VC_Attention:1482534443632558151> Impossibile aprire il modulo, riprova.",
       flags: 1 << 6,
     });
   }
@@ -953,7 +953,7 @@ async function handleCustomVocModal(interaction) {
     if (interaction.user.id !== ownerId) {
       await send({
         content:
-          "<:attentionfromvega:1443651874032062505> Non puoi modificare questo canale.",
+          "<:VC_Attention:1482534443632558151> Non puoi modificare questo canale.",
       });
       return true;
     }
@@ -966,7 +966,7 @@ async function handleCustomVocModal(interaction) {
     const channel = interaction.guild?.channels?.cache?.get(channelId) || (await interaction.guild?.channels?.fetch(channelId).catch(() => null));
     if (!channel || channel.type !== ChannelType.GuildVoice) {
       await send({
-        content: "<:attentionfromvega:1443651874032062505> Canale vocale non trovato.",
+        content: "<:VC_Attention:1482534443632558151> Canale vocale non trovato.",
       });
       return true;
     }
@@ -975,7 +975,7 @@ async function handleCustomVocModal(interaction) {
     if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) {
       await send({
         content:
-          "<:attentionfromvega:1443651874032062505> Mi serve il permesso Gestisci Canali.",
+          "<:VC_Attention:1482534443632558151> Mi serve il permesso Gestisci Canali.",
       });
       return true;
     }
@@ -1173,7 +1173,7 @@ async function handleGrantButtons(interaction) {
           embeds: [
             new EmbedBuilder()
               .setColor("Red")
-              .setTitle("<:attentionfromvega:1443651874032062505> Impossibile assegnare")
+              .setTitle("<:VC_Attention:1482534443632558151> Impossibile assegnare")
               .setDescription(
                 "<a:VC_Alert:1482706673176150077> Non posso assegnare questo ruolo per permessi/gerarchia.",
               ),
@@ -1214,7 +1214,7 @@ async function handleGrantButtons(interaction) {
           embeds: [
             new EmbedBuilder()
               .setColor("Red")
-              .setTitle("<:attentionfromvega:1443651874032062505> Impossibile assegnare")
+              .setTitle("<:VC_Attention:1482534443632558151> Impossibile assegnare")
               .setDescription(
                 "<a:VC_Alert:1482706673176150077> L'assegnazione del ruolo non è andata a buon fine.",
               ),

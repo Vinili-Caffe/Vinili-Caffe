@@ -669,10 +669,21 @@ async function handleBoostUpdate(oldMember, newMember) {
   const{currentCount,countIncreased,boostDelta}=computeBoostDelta(oldMember,newMember,guildId,);
   const alreadyBoostingBefore = oldBoostTs > 0;
   const startedBoostingNow = !alreadyBoostingBefore && newBoostTs > 0;
+  const boosterRoleId = IDs?.roles?.ServerBooster || null;
+  const boosterRoleAdded = Boolean(
+    boosterRoleId &&
+      oldMember?.roles?.cache &&
+      newMember?.roles?.cache &&
+      !oldMember.roles.cache.has(boosterRoleId) &&
+      newMember.roles.cache.has(boosterRoleId),
+  );
   const premiumSinceChanged =
     alreadyBoostingBefore && newBoostTs > 0 && newBoostTs !== oldBoostTs;
   const realNewBoost = newBoostTs > 0 && countIncreased;
-  const shouldAnnounce = Boolean(newBoostTs && (startedBoostingNow || realNewBoost || premiumSinceChanged));
+  const shouldAnnounce = Boolean(
+    (newBoostTs || boosterRoleAdded) &&
+      (startedBoostingNow || realNewBoost || premiumSinceChanged || boosterRoleAdded),
+  );
   if (!shouldAnnounce) {
     boostCountCache.set(guildId, currentCount);
     return;

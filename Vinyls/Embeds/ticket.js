@@ -44,7 +44,7 @@ async function run(client) {
 <:VC_3:1482706404773990460> **Terza categoria**
 <a:VC_Arrow:1482706699365257397> Usalo per fare una donazione, per fare la "selfie verify", per richiedere una sponsor a pagamento o per parlare con un amministratore del server.
 
-<:attentionfromvega:1443651874032062505> Aprire un ticket **__inutile__** oppure **__non rispondere__** nell'arco di **\`24\` ore** comporterà un **warn**.`,
+<:VC_Attention:1482534443632558151> Aprire un ticket **__inutile__** oppure **__non rispondere__** nell'arco di **\`24\` ore** comporterà un **warn**.`,
     )
     .setFooter({ text: `Non garantiamo risposta negli orari notturni, dalle 00:00 alle 10:00` })
     .setImage(DIVIDER_URL);

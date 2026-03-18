@@ -1350,7 +1350,7 @@ function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "c
     roles = roles.filter((id) => guild.roles.cache.has(id));
   }
   const rolesText = roles.length ? roles.map((id) => `<@&${id}>`).join(", ")
-    : "<:attentionfromvega:1443651874032062505> Nessun ruolo configurato.";
+    : "<:VC_Attention:1482534443632558151> Nessun ruolo configurato.";
   const description = customDescription != null ? customDescription : `<:VC_Lock:1482526739044368476> Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;
 
   const embed = new EmbedBuilder()
@@ -1369,7 +1369,7 @@ function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "c
 function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando") {
   const channels = Array.isArray(allowedChannelIds) ? allowedChannelIds.filter(Boolean).map(String) : [];
   const channelsText = channels.length ? channels.map((id) => `<#${id}>`).join(", ")
-    : "<:attentionfromvega:1443651874032062505> Nessun canale configurato.";
+    : "<:VC_Attention:1482534443632558151> Nessun canale configurato.";
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -1388,7 +1388,7 @@ function buildGlobalNotYourControlEmbed() {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
-    .setDescription("<:attentionfromvega:1443651874032062505> Questo controllo non è associato al tuo comando.");
+    .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
 }
 
 module.exports = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole };

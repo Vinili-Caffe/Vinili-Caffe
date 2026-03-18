@@ -49,7 +49,7 @@ async function handleSlashCommand(interaction, client) {
   ) {
     return interaction.reply({
       content:
-        `<:attentionfromvega:1443651874032062505> Server in lockdown di sicurezza: comandi temporaneamente bloccati.${securityLockState.sources.length ? ` (${securityLockState.sources.join(", ")})` : ""}`,
+        `<:VC_Attention:1482534443632558151> Server in lockdown di sicurezza: comandi temporaneamente bloccati.${securityLockState.sources.length ? ` (${securityLockState.sources.join(", ")})` : ""}`,
       flags: 1 << 6,
     });
   }
@@ -92,7 +92,7 @@ async function handleSlashCommand(interaction, client) {
         ? buildGlobalPermissionDeniedEmbed(
             [],
             "comando",
-            "<:attentionfromvega:1443651874032062505> Solo i developer del bot possono usare questo comando.",
+            "<:VC_Attention:1482534443632558151> Solo i developer del bot possono usare questo comando.",
           )
         : buildGlobalPermissionDeniedEmbed(requiredRoles);
     return interaction.reply({

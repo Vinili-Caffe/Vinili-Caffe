@@ -154,7 +154,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const u = String(targetUser?.id ?? "").trim();
   if (!g || !u) {
     const y = getCurrentYearBoundsUtc().yearStart.getUTCFullYear();
-    return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], components: buildPauseListMonthRows(u, y) };
+    return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], components: buildPauseListMonthRows(u, y) };
   }
   const stafferRecord = await Staff.findOne({ guildId: g, userId: u }, { pauses: 1 }).lean().catch(() => null);
   let pauses = Array.isArray(stafferRecord?.pauses) ? stafferRecord.pauses : [];
@@ -177,8 +177,8 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const monthLabel = monthFilter >= 1 && monthFilter <= 12 ? ` ${MONTH_LABELS[monthFilter - 1]} ${currentYear}` : "";
   if (!rows.length) {
     const desc = monthLabel
-      ? `<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nel mese **${MONTH_LABELS[monthFilter - 1]} ${currentYear}**.`
-      : `<:attentionfromvega:1443651874032062505> Nessuna pausa trovata per ${targetUser} nell'anno **${currentYear}**.`;
+      ? `<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nel mese **${MONTH_LABELS[monthFilter - 1]} ${currentYear}**.`
+      : `<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${currentYear}**.`;
     return {
       ok: true,
       embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(desc)],

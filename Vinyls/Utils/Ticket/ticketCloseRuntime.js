@@ -110,7 +110,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
       embeds: [
         makeErrorEmbed(
           "Attendi",
-          "<:attentionfromvega:1443651874032062505> Chiusura ticket già in corso, attendi un attimo.",
+          "<:VC_Attention:1482534443632558151> Chiusura ticket già in corso, attendi un attimo.",
         ),
       ],
       flags: 1 << 6,
@@ -137,7 +137,7 @@ async function closeTicket(targetInteraction, motivo, helpers) {
         embeds: [
           makeErrorEmbed(
             "Info",
-            "<:attentionfromvega:1443651874032062505> Ticket già chiuso o chiusura già in corso.",
+            "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
           ),
         ],
         flags: 1 << 6,

@@ -497,7 +497,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
           embeds: [
             makeErrorEmbed(
               "Info",
-              `<:attentionfromvega:1443651874032062505> Ticket #${ticketNumber} è già aperto: <#${ticketDoc.channelId}>`,
+              `<:VC_Attention:1482534443632558151> Ticket #${ticketNumber} è già aperto: <#${ticketDoc.channelId}>`,
             ),
           ],
           allowedMentions: NO_REPLY_MENTIONS,
@@ -816,7 +816,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
             new EmbedBuilder()
               .setColor("Orange")
               .setDescription(
-                "<:attentionfromvega:1443651874032062505> Ticket già chiuso o chiusura già in corso.",
+                "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
               ),
           ],
           allowedMentions: { repliedUser: false },
@@ -952,7 +952,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
             new EmbedBuilder()
               .setTitle("Errore")
               .setDescription(
-                `<:attentionfromvega:1443651874032062505> Questo ticket è già stato claimato da <@${ticketDoc.claimedBy}>`,
+                `<:VC_Attention:1482534443632558151> Questo ticket è già stato claimato da <@${ticketDoc.claimedBy}>`,
               )
               .setColor("Red"),
           ],
@@ -1218,7 +1218,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
             new EmbedBuilder()
               .setTitle("Info")
               .setDescription(
-                "<:attentionfromvega:1443651874032062505> Il ticket è già claimato da questo utente.",
+                "<:VC_Attention:1482534443632558151> Il ticket è già claimato da questo utente.",
               )
               .setColor("#6f4e37"),
           ],
@@ -1315,7 +1315,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
           embeds: [
             makeErrorEmbed(
               "Attendi",
-              "<:attentionfromvega:1443651874032062505> C'è già uno switchpanel in esecuzione su questo ticket.",
+              "<:VC_Attention:1482534443632558151> C'è già uno switchpanel in esecuzione su questo ticket.",
             ),
           ],
           allowedMentions: { repliedUser: false },
@@ -1328,7 +1328,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
           embeds: [
             makeErrorEmbed(
               "Attendi",
-              "<:attentionfromvega:1443651874032062505> Aspetta un attimo prima di rifare switchpanel.",
+              "<:VC_Attention:1482534443632558151> Aspetta un attimo prima di rifare switchpanel.",
             ),
           ],
           allowedMentions: { repliedUser: false },
@@ -1358,7 +1358,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
             embeds: [
               makeErrorEmbed(
                 "Info",
-                `<:attentionfromvega:1443651874032062505> Questo ticket è già impostato su **${panelConfig.label}**.`,
+                `<:VC_Attention:1482534443632558151> Questo ticket è già impostato su **${panelConfig.label}**.`,
               ),
             ],
             allowedMentions: { repliedUser: false },
@@ -1586,7 +1586,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
           embeds: [
             makeErrorEmbed(
               "Info",
-              "<:attentionfromvega:1443651874032062505> Il canale ha già questo nome.",
+              "<:VC_Attention:1482534443632558151> Il canale ha già questo nome.",
             ),
           ],
           allowedMentions: { repliedUser: false },

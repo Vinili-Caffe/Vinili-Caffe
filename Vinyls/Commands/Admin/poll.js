@@ -369,7 +369,7 @@ async function handleEdit(interaction) {
     return safeEditReply(interaction, {
       embeds: [
         errorEmbed(
-          `<:attentionfromvega:1443651874032062505> Non puoi impostare la risposta N°${gapPosition} senza aver riempito le precedenti.`,
+          `<:VC_Attention:1482534443632558151> Non puoi impostare la risposta N°${gapPosition} senza aver riempito le precedenti.`,
         ),
       ],
       flags: EPHEMERAL_FLAG,

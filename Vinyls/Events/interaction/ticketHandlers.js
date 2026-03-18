@@ -280,7 +280,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Loading:1482526818278969578> Attendi",
-                "<:attentionfromvega:1443651874032062505> Sto già aprendo un ticket per te, aspetta un attimo.",
+                "<:VC_Attention:1482534443632558151> Sto già aprendo un ticket per te, aspetta un attimo.",
               ),
             ],
             flags: 1 << 6,
@@ -500,7 +500,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Info",
-                "<:attentionfromvega:1443651874032062505> Hai già inviato una valutazione per questo ticket.",
+                "<:VC_Attention:1482534443632558151> Hai già inviato una valutazione per questo ticket.",
               ),
             ],
             flags: 1 << 6,

@@ -136,7 +136,7 @@ async function handlePositiveRemove(
     !staffDoc.positiveReasons?.[removeId - 1]
   ) {
     return safeEditReply(interaction, {
-      embeds: [errorEmbed("<:attentionfromvega:1443651874032062505> ID non valido")],
+      embeds: [errorEmbed("<:VC_Attention:1482534443632558151> ID non valido")],
       flags: EPHEMERAL_FLAG,
     });
   }
@@ -249,7 +249,7 @@ async function handleNegativeRemove(
     !staffDoc.negativeReasons?.[removeId - 1]
   ) {
     return safeEditReply(interaction, {
-      embeds: [errorEmbed("<:attentionfromvega:1443651874032062505> ID non valido")],
+      embeds: [errorEmbed("<:VC_Attention:1482534443632558151> ID non valido")],
       flags: EPHEMERAL_FLAG,
     });
   }
@@ -280,7 +280,7 @@ async function handleMedia(interaction, staffUser, doc) {
   if (!doc) {
     return safeEditReply(interaction, {
       embeds: [
-        errorEmbed("<:attentionfromvega:1443651874032062505> Nessuna valutazione trovata."),
+        errorEmbed("<:VC_Attention:1482534443632558151> Nessuna valutazione trovata."),
       ],
       flags: EPHEMERAL_FLAG,
     });

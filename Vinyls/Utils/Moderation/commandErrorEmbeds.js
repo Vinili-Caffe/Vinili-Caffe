@@ -13,7 +13,7 @@ function buildCooldownErrorEmbed(remainingSeconds) {
   return buildBaseErrorEmbed(
     "<:cancel:1461730653677551691> Cooldown attivo",
     [
-      `<:attentionfromvega:1443651874032062505> Aspetta **${remaining}s** prima di usare un altro comando.`,
+      `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
       "",
       "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
       `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}> <a:VC_Arrow:1482706699365257397> **15s**`,
@@ -25,21 +25,21 @@ function buildCooldownErrorEmbed(remainingSeconds) {
 function buildBusyCommandErrorEmbed() {
   return buildBaseErrorEmbed(
     "<:cancel:1461730653677551691> Comando in esecuzione",
-    "<:attentionfromvega:1443651874032062505> Hai già un comando in esecuzione, attendi un attimo.",
+    "<:VC_Attention:1482534443632558151> Hai già un comando in esecuzione, attendi un attimo.",
   );
 }
 
 function buildMissingArgumentsErrorEmbed() {
   return buildBaseErrorEmbed(
     "<:cancel:1461730653677551691> Argomenti mancanti",
-    "<:attentionfromvega:1443651874032062505> Non hai aggiunto nessun argomento.",
+    "<:VC_Attention:1482534443632558151> Non hai aggiunto nessun argomento.",
   );
 }
 
 function buildCommandTimeoutErrorEmbed() {
   return buildBaseErrorEmbed(
     "<:cancel:1461730653677551691> Comando scaduto",
-    "<:attentionfromvega:1443651874032062505> Il comando è scaduto dopo 60 secondi. Riprova.",
+    "<:VC_Attention:1482534443632558151> Il comando è scaduto dopo 60 secondi. Riprova.",
   );
 }
 
@@ -48,7 +48,7 @@ function buildInternalCommandErrorEmbed(rawError) {
   const compact = raw.length > 900 ? `${raw.slice(0, 900)}...` : raw;
   return buildBaseErrorEmbed(
     "<:cancel:1461730653677551691> Errore comando",
-    `<:attentionfromvega:1443651874032062505> C'è stato un errore nell'esecuzione del comando.\n\`\`\`${compact}\`\`\``,
+    `<:VC_Attention:1482534443632558151> C'è stato un errore nell'esecuzione del comando.\n\`\`\`${compact}\`\`\``,
   );
 }
 

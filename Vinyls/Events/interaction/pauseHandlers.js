@@ -123,7 +123,7 @@ async function handlePauseButton(interaction) {
 
     const monthRows = buildPauseListMonthRows(effectiveUserId, year);
     const payload = rows.length === 0
-      ? { content: `<:staff:1443651912179388548> Staffer: <@${effectiveUserId}>\n<:attentionfromvega:1443651874032062505> Nessuna pausa trovata nell'anno **${year}**.`, components: monthRows, flags: 1 << 6 }
+      ? { content: `<:staff:1443651912179388548> Staffer: <@${effectiveUserId}>\n<:VC_Attention:1482534443632558151> Nessuna pausa trovata nell'anno **${year}**.`, components: monthRows, flags: 1 << 6 }
       : {
           embeds: [
             new EmbedBuilder()

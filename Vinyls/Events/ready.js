@@ -346,8 +346,16 @@ async function restoreCoreStartupState(client) {
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
   if (joinRaidRestore.status === "rejected")
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
-  if (boostRecovery.status === "rejected")
+  if (boostRecovery.status === "rejected") {
     global.logger?.error?.("[BOOST RECOVERY ERROR]", boostRecovery.reason);
+  } else {
+    const res = boostRecovery.value || null;
+    if (res?.ok === false) {
+      global.logger?.warn?.("[BOOST RECOVERY] skipped:", res?.reason || "unknown");
+    } else if (res?.ok === true) {
+      global.logger?.info?.("[BOOST RECOVERY] ok:", { recovered: Number(res?.recovered || 0) });
+    }
+  }
 }
 
 async function runStartupPanels(client, label = "immediate") {

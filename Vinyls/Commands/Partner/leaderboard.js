@@ -90,8 +90,8 @@ function buildNoDataEmbed(isWeekly) {
     .setColor("#6f4e37")
     .setDescription(
       isWeekly
-        ? "<:attentionfromvega:1443651874032062505> Nessuno ha effettuato partner in questa settimana!"
-        : "<:attentionfromvega:1443651874032062505> Nessuno ha ancora effettuato partner!",
+        ? "<:VC_Attention:1482534443632558151> Nessuno ha effettuato partner in questa settimana!"
+        : "<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!",
     );
 }
 
