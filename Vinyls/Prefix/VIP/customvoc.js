@@ -37,6 +37,74 @@ function findExistingVoiceChannel(guild, roleId) {
   );
 }
 
+function findLinkedTextChannelForVoice(guild, voiceChannel) {
+  const voiceName = String(voiceChannel?.name || "");
+  if (!voiceName) return null;
+
+  const exact = guild.channels.cache.find((ch) => {
+    if (ch.type !== ChannelType.GuildText) return false;
+    if (String(ch.parentId || "") !== String(CUSTOM_VOICE_CATEGORY_ID)) return false;
+    return String(ch.name || "") === voiceName;
+  });
+  if (exact) return exact;
+
+  return (
+    guild.channels.cache.find((ch) => {
+      if (ch.type !== ChannelType.GuildText) return false;
+      if (String(ch.parentId || "") !== String(CUSTOM_VOICE_CATEGORY_ID)) return false;
+      const name = String(ch.name || "");
+      return name.startsWith(voiceName.slice(0, 20));
+    }) || null
+  );
+}
+
+async function waitForLinkedTextChannel(guild, voiceChannel, timeoutMs = 5000, stepMs = 500) {
+  const start = Date.now();
+  while (Date.now() - start <= timeoutMs) {
+    const found = findLinkedTextChannelForVoice(guild, voiceChannel);
+    if (found) return found;
+    await new Promise((resolve) => setTimeout(resolve, stepMs));
+  }
+  return null;
+}
+
+async function applyCustomTextPermissions(guild, textChannel, customRoleId) {
+  if (!textChannel || !textChannel.permissionOverwrites?.edit) return;
+
+  await Promise.allSettled([
+    textChannel.permissionOverwrites
+      .edit(guild.roles.everyone.id, {
+        deny: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.SendMessages,
+        ].filter(Boolean),
+      })
+      .catch(() => null),
+
+    textChannel.permissionOverwrites
+      .edit(customRoleId, {
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.SendMessages,
+        ].filter(Boolean),
+      })
+      .catch(() => null),
+
+    textChannel.permissionOverwrites
+      .edit(guild.members.me?.id || guild.client.user.id, {
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ManageChannels,
+        ].filter(Boolean),
+      })
+      .catch(() => null),
+  ]);
+}
+
 function buildVoicePanelEmbed(channel, customRole, doc) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -175,32 +243,33 @@ module.exports = {
     if (existing) {
       const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:existing.id},);
 
-    await Promise.allSettled([
-      existing.permissionOverwrites
-        .edit(message.guild.roles.everyone.id, {
-          deny: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.Connect,
-            PermissionsBitField.Flags.Speak,
-            PermissionsBitField.Flags.UseVAD,
-            PermissionsBitField.Flags.Stream,
-            PermissionsBitField.Flags.SendMessages,
-          ].filter(Boolean),
-        })
-        .catch(() => null),
-      existing.permissionOverwrites
-        .edit(customRole.id, {
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.Connect,
-            PermissionsBitField.Flags.Speak,
-            PermissionsBitField.Flags.UseVAD,
-            PermissionsBitField.Flags.Stream,
-            PermissionsBitField.Flags.SendMessages,
-          ].filter(Boolean),
-        })
-        .catch(() => null),
-    ]);
+      await Promise.allSettled([
+        existing.permissionOverwrites
+          .edit(message.guild.roles.everyone.id, {
+            deny: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.Connect,
+              PermissionsBitField.Flags.Speak,
+              PermissionsBitField.Flags.UseVAD,
+              PermissionsBitField.Flags.Stream,
+            ].filter(Boolean),
+          })
+          .catch(() => null),
+        existing.permissionOverwrites
+          .edit(customRole.id, {
+            allow: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.Connect,
+              PermissionsBitField.Flags.Speak,
+              PermissionsBitField.Flags.UseVAD,
+              PermissionsBitField.Flags.Stream,
+            ].filter(Boolean),
+          })
+          .catch(() => null),
+      ]);
+
+      const linkedTextChannel = await waitForLinkedTextChannel(message.guild, existing).catch(() => null);
+      await applyCustomTextPermissions(message.guild, linkedTextChannel, customRole.id);
 
       await safeMessageReply(message, {
         embeds: [
@@ -228,7 +297,6 @@ module.exports = {
               PermissionsBitField.Flags.Speak,
               PermissionsBitField.Flags.UseVAD,
               PermissionsBitField.Flags.Stream,
-              PermissionsBitField.Flags.SendMessages,
             ],
           },
           {
@@ -239,7 +307,6 @@ module.exports = {
               PermissionsBitField.Flags.Speak,
               PermissionsBitField.Flags.UseVAD,
               PermissionsBitField.Flags.Stream,
-              PermissionsBitField.Flags.SendMessages,
             ],
           },
           {
@@ -283,6 +350,9 @@ module.exports = {
     } catch (_) {}
 
     const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:channel.id},);
+
+    const linkedTextChannel = await waitForLinkedTextChannel(message.guild, channel).catch(() => null);
+    await applyCustomTextPermissions(message.guild, linkedTextChannel, customRole.id);
 
     await safeMessageReply(message, {
       embeds: [
