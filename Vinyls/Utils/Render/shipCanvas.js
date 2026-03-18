@@ -1,5 +1,6 @@
 const canvasModule = require("canvas");
 const { createCanvas, loadImage } = canvasModule; const { registerCanvasFonts, drawTextWithSpecialFallback, } = require("./canvasFonts");
+const { safeLoadImage } = require("./safeLoadImage");
 
 function hashSeed(source) {
   let h = 2166136261;
@@ -155,11 +156,29 @@ module.exports = async function renderShipCanvas({ leftAvatarUrl, rightAvatarUrl
     hashSeed(`${leftId}:${rightId}:${finalPercent}:${Date.now()}`),
   );
 
-  const leftAvatar = await loadImage(leftAvatarUrl);
-  const rightAvatar = await loadImage(rightAvatarUrl);
+  const leftAvatar = await safeLoadImage(leftAvatarUrl);
+  const rightAvatar = await safeLoadImage(rightAvatarUrl);
 
-  drawFramedImage(ctx, leftAvatar, 110, 145, 220, -2.8);
-  drawFramedImage(ctx, rightAvatar, 670, 145, 220, 3.2);
+  if (leftAvatar) {
+    drawFramedImage(ctx, leftAvatar, 110, 145, 220, -2.8);
+  } else {
+    ctx.save();
+    ctx.translate(220, 255);
+    ctx.rotate(-2.8 * (Math.PI / 180));
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(-110, -110, 220, 220);
+    ctx.restore();
+  }
+  if (rightAvatar) {
+    drawFramedImage(ctx, rightAvatar, 670, 145, 220, 3.2);
+  } else {
+    ctx.save();
+    ctx.translate(780, 255);
+    ctx.rotate(3.2 * (Math.PI / 180));
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(-110, -110, 220, 220);
+    ctx.restore();
+  }
 
   const topTitleSize = getFittedTitleSize(ctx, topText, width - 64, 42, 24);
   drawTextWithSpecialFallback(ctx, topText, width / 2, 66, {

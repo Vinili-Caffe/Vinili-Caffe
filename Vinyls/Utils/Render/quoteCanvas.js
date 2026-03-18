@@ -1,6 +1,7 @@
 const canvasModule = require("canvas");
 const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback, } = require("./canvasFonts");
 const { createCanvas, loadImage } = canvasModule;
+const { safeLoadImage } = require("./safeLoadImage");
 
 function wrapLines(ctx, text, maxWidth, maxLines = Infinity) {
   const lines = [];
@@ -42,8 +43,8 @@ module.exports = async function renderQuoteCanvas({ avatarUrl, message, username
   ctx.fillStyle = "#070707";
   ctx.fillRect(0, 0, width, height);
 
-  const avatar = await loadImage(avatarUrl);
-  drawImageCover(ctx, avatar, 0, 0, leftWidth, height);
+  const avatar = await safeLoadImage(avatarUrl);
+  if (avatar) drawImageCover(ctx, avatar, 0, 0, leftWidth, height);
 
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(0, 0, leftWidth, height);

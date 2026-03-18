@@ -1,6 +1,7 @@
 const canvasModule = require("canvas");
 const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback, } = require("./canvasFonts");
 const { createCanvas, loadImage } = canvasModule;
+const { safeLoadImage } = require("./safeLoadImage");
 
 function wrapLines(ctx, text, maxWidth) {
   const lines = [];
@@ -192,8 +193,16 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     ctx.stroke();
   }
 
-  const avatar = await loadImage(avatarUrl);
-  drawCircleImage(ctx, avatar, outerPad, avatarTop, avatarSize);
+  const avatar = await safeLoadImage(avatarUrl);
+  if (avatar) {
+    drawCircleImage(ctx, avatar, outerPad, avatarTop, avatarSize);
+  } else {
+    ctx.beginPath();
+    ctx.arc(outerPad + avatarSize / 2, avatarTop + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fill();
+  }
 
   const userColor = nameColor || "#f2f3f5";
   ctx.textBaseline = "top";

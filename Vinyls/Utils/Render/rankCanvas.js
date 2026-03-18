@@ -1,5 +1,6 @@
 const canvasModule = require("canvas");
-const { createCanvas, loadImage } = canvasModule; const { registerCanvasFonts, drawTextWithSpecialFallback, } = require("./canvasFonts");
+const { createCanvas } = canvasModule; const { registerCanvasFonts, drawTextWithSpecialFallback, } = require("./canvasFonts");
+const { safeLoadImage } = require("./safeLoadImage");
 
 function roundedRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
@@ -29,23 +30,37 @@ module.exports = async function renderRankCanvas({ username, avatarUrl, level, t
   ctx.fillStyle = "rgba(0,0,0,0.20)";
   ctx.fill();
 
-  const avatar = await loadImage(avatarUrl);
+  const avatar = await safeLoadImage(avatarUrl);
   const avatarSize = 180;
   const avatarX = 52;
   const avatarY = 90;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(
-    avatarX + avatarSize / 2,
-    avatarY + avatarSize / 2,
-    avatarSize / 2,
-    0,
-    Math.PI * 2,
-  );
-  ctx.closePath();
-  ctx.clip();
-  ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
-  ctx.restore();
+  if (avatar) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(
+      avatarX + avatarSize / 2,
+      avatarY + avatarSize / 2,
+      avatarSize / 2,
+      0,
+      Math.PI * 2,
+    );
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+    ctx.restore();
+  } else {
+    ctx.beginPath();
+    ctx.arc(
+      avatarX + avatarSize / 2,
+      avatarY + avatarSize / 2,
+      avatarSize / 2,
+      0,
+      Math.PI * 2,
+    );
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fill();
+  }
 
   ctx.beginPath();
   ctx.arc(

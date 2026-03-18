@@ -801,17 +801,19 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   const recent = recentMessages ? Array.from(recentMessages.values()) : [];
   const wasAlreadyAnnounced = (userId) => {
     const needle = `<@${String(userId)}>`;
-    const idStr = String(userId);
     return recent.some((m) => {
       if (!m) return false;
       if (String(m.author?.id || "") !== String(client.user?.id || "")) return false;
       const embeds = Array.isArray(m.embeds) ? m.embeds : [];
-      const text = [
-        m.content || "",
-        ...embeds.map((e) => e?.description || ""),
-        ...embeds.map((e) => e?.title || ""),
-      ].join("\n");
-      return text.includes(needle) || text.includes(idStr);
+      const embedTexts = embeds.map((e) =>
+        [e?.title || "", e?.description || "", e?.footer?.text || ""].join("\n"),
+      );
+      const text = [m.content || "", ...embedTexts].join("\n");
+      if (!text.includes(needle)) return false;
+      return (
+        /grazie\s+per\s+il\s+boost/i.test(text) ||
+        /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
+      );
     });
   };
 
@@ -823,17 +825,20 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   for (const { targetId } of unique) {
     if (wasAlreadyAnnounced(targetId)) continue;
     const member = await getGuildMemberCached(guild, targetId, { preferFresh: true }).catch(() => null);
-    if (!member?.user) continue;
-    if (!Number(member.premiumSinceTimestamp || 0)) continue;
+    const user = member?.user || (await client.users.fetch(String(targetId)).catch(() => null));
+    if (!user) continue;
+    if (member && !Number(member.premiumSinceTimestamp || 0)) continue;
 
-    await addPerkRoleIfPossible(member).catch(() => {});
-    await sendBoostEmbeds(boostAnnounceChannel, member, 1, currentCount).catch(() => {});
+    if (member) await addPerkRoleIfPossible(member).catch(() => {});
+    await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, 1, currentCount).catch(() => {});
 
-    const boostKey = `${guild.id}:${member.id}`;
+    const boostKey = `${guild.id}:${String(targetId)}`;
     boostAnnounceCache.set(boostKey, currentCount);
     recovered += 1;
 
-    scheduleBoostFollowup(boostAnnounceChannel, member, guild.id, boostKey, currentCount);
+    if (member) {
+      scheduleBoostFollowup(boostAnnounceChannel, member, guild.id, boostKey, currentCount);
+    }
     await sleep(900);
   }
 
