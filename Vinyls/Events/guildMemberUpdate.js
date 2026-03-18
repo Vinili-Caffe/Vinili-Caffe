@@ -730,23 +730,38 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   const limit = Math.max(1, Math.min(5, Number(opts.limit || 2)));
   const lookbackMs = Math.max(5 * 60 * 1000, Math.min(24 * 60 * 60 * 1000, Number(opts.lookbackMs || 2 * 60 * 60 * 1000)));
   const now = Date.now();
+  const fallbackMemberScan = opts?.fallbackMemberScan !== false;
 
-  if (!guild.members?.me?.permissions?.has?.(PermissionsBitField.Flags.ViewAuditLog)) {
-    return { ok: false, reason: "missing_auditlog_permission" };
+  let candidates = [];
+  const canReadAudit = Boolean(
+    guild.members?.me?.permissions?.has?.(PermissionsBitField.Flags.ViewAuditLog),
+  );
+  if (canReadAudit) {
+    const audits = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 50 }).catch(() => null);
+    const entries = audits?.entries ? Array.from(audits.entries.values()) : [];
+    for (const entry of entries) {
+      const createdMs = Number(entry?.createdTimestamp || 0);
+      if (!createdMs || now - createdMs > lookbackMs) continue;
+      const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+      const hasPremiumSinceChange = changes.some((c) => String(c?.key || "").toLowerCase() === "premium_since");
+      if (!hasPremiumSinceChange) continue;
+      const targetId = String(entry?.target?.id || "");
+      if (!targetId) continue;
+      candidates.push({ targetId, createdMs });
+    }
   }
 
-  const audits = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 50 }).catch(() => null);
-  const entries = audits?.entries ? Array.from(audits.entries.values()) : [];
-  const candidates = [];
-  for (const entry of entries) {
-    const createdMs = Number(entry?.createdTimestamp || 0);
-    if (!createdMs || now - createdMs > lookbackMs) continue;
-    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
-    const hasPremiumSinceChange = changes.some((c) => String(c?.key || "").toLowerCase() === "premium_since");
-    if (!hasPremiumSinceChange) continue;
-    const targetId = String(entry?.target?.id || "");
-    if (!targetId) continue;
-    candidates.push({ targetId, createdMs });
+  if (!candidates.length && fallbackMemberScan) {
+    const members = await guild.members.fetch().catch(() => null);
+    const rows = members ? Array.from(members.values()) : [];
+    const minTs = now - lookbackMs;
+    const fromMembers = [];
+    for (const member of rows) {
+      const ts = Number(member?.premiumSinceTimestamp || 0);
+      if (!ts || ts < minTs) continue;
+      fromMembers.push({ targetId: String(member.id), createdMs: ts });
+    }
+    candidates = fromMembers;
   }
 
   const unique = [];
