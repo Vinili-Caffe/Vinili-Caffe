@@ -6,6 +6,7 @@ const { processAllRecentAutomationMessages } = require("../Utils/Message/officia
 const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
+const { restoreMusicSessions } = require("../Services/Music/musicService");
 const{runDueOneTimeReminders,}=require("../Services/Reminders/oneTimeReminderService");
 const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigames/minigameService");
 const{startWeeklyDmReminderLoop,}=require("../Services/Community/weeklyDmReminderService");
@@ -227,6 +228,14 @@ async function processPendingPrefixCommands(client) {
   collected.sort((a, b) => a.ts - b.ts);
   for (const { message } of collected) {
     try {
+      try {
+        const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
+        const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
+        const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
+        if (emoji) await message.react(emoji).catch(() => {});
+        else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => {});
+        else await message.react("\u23F3").catch(() => {});
+      } catch (_) {}
       await handleOfficialPrefixMessage({
         message,
         resolvedClient: client,
@@ -388,18 +397,28 @@ async function restoreBumpReminders(client) {
 }
 
 async function restoreCoreStartupState(client) {
-  const[bootstrap,inviteCache,tts,liveVoiceSync,joinRaidRestore]=await Promise.allSettled([bootstrapSupporter(client),primeInviteCache(client),restoreTtsConnections(client),syncLiveVoiceSessionsFromGateway(client),Promise.allSettled([...client.guilds.cache.values()].map((guild) => restoreTempBans(guild,{force:true}),),),]);
+  const [bootstrap, inviteCache, musicRestore, liveVoiceSync, joinRaidRestore] = await Promise.allSettled([
+    bootstrapSupporter(client),
+    primeInviteCache(client),
+    restoreMusicSessions(client),
+    syncLiveVoiceSessionsFromGateway(client),
+    Promise.allSettled(
+      [...client.guilds.cache.values()].map((guild) => restoreTempBans(guild, { force: true })),
+    ),
+  ]);
 
   if (bootstrap.status === "rejected")
     global.logger?.error?.("[PRESENCE BOOTSTRAP ERROR]", bootstrap.reason);
   if (inviteCache.status === "rejected")
     global.logger?.error?.("[INVITE CACHE] Failed to prime:", inviteCache.reason);
-  if (tts.status === "rejected")
-    global.logger?.error?.("[TTS RESTORE ERROR]", tts.reason);
+  if (musicRestore.status === "rejected")
+    global.logger?.error?.("[MUSIC RESTORE ERROR]", musicRestore.reason);
   if (liveVoiceSync.status === "rejected")
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
   if (joinRaidRestore.status === "rejected")
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
+
+  await restoreTtsConnections(client);
 }
 
 async function runStartupPanels(client, label = "immediate") {

@@ -4,6 +4,8 @@ const { EmbedBuilder } = require("discord.js");
 const { leaveTtsGuild, clearGuildTtsLock } = require("../TTS/ttsService");
 const { resolvePlayableRadioUrl } = require("./radioService");
 const { getVoiceSession, setVoiceSession, clearVoiceSession, } = require("../Voice/voiceSessionService");
+const mongoose = require("mongoose");
+const MusicQueueState = require("../../Schemas/musicQueueStateSchema");
 
 let Shoukaku = null;
 let Connectors = null;
@@ -23,6 +25,8 @@ const LAVALINK_NULL_LOG_THROTTLE_MS = 15_000;
 const DEFAULT_VOLUME = 5;
 const INACTIVITY_MS = 3 * 60 * 1000;
 const EMPTY_VOICE_MS = 3 * 60 * 1000;
+const MUSIC_STATE_PERSIST_THROTTLE_MS = 5000;
+const MUSIC_STATE_RESTORE_MAX_GUILDS = 10;
 const PLAYABLE_SOURCE_KEYS = new Set(["youtube", "radio"]);
 const DIRECT_URL_SOURCE_BY_MATCHER = [
   { fn: (u) => /youtu\.be|youtube\.com/i.test(String(u || "")), source: "youtube" },
@@ -100,6 +104,37 @@ function formatDurationMs(ms) {
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function serializeTrackForState(track) {
+  if (!track || !track.encoded) return null;
+  return {
+    encoded: String(track.encoded),
+    title: String(track.title || "Sconosciuto"),
+    author: String(track.author || "Unknown"),
+    url: String(track.url || ""),
+    source: String(track.source || "youtube"),
+    durationMS: Number(track.durationMS || 0),
+  };
+}
+
+function reviveTrackFromState(trackState) {
+  if (!trackState || !trackState.encoded) return null;
+  const durationMS = Number(trackState.durationMS || 0);
+  return {
+    encoded: String(trackState.encoded),
+    title: String(trackState.title || "Sconosciuto"),
+    author: String(trackState.author || "Unknown"),
+    url: String(trackState.url || ""),
+    source: String(trackState.source || "youtube"),
+    durationMS,
+    duration: formatDurationMs(durationMS),
+    isStream: false,
+    score: 0,
+    metadata: {
+      requestedAt: Date.now(),
+    },
+  };
 }
 
 function normalizeSourceName(sourceName, uri = "") {
@@ -489,6 +524,46 @@ function buildNodeFacade(queue) {
   };
 }
 
+async function persistMusicQueueState(queue) {
+  if (!queue?.guildId) return;
+  if (mongoose.connection?.readyState !== 1) return;
+
+  const guildId = String(queue.guildId);
+  const voiceChannelId = String(queue.voiceChannelId || "");
+  const currentTrackState = serializeTrackForState(queue.currentTrack);
+
+  if (!currentTrackState) {
+    await MusicQueueState.deleteOne({ guildId }).catch(() => null);
+    return;
+  }
+
+  if (!voiceChannelId) return;
+
+  const tracksState = Array.isArray(queue.tracks)
+    ? queue.tracks.map(serializeTrackForState).filter(Boolean)
+    : [];
+
+  const textChannelId = String(queue?.metadata?.channel?.id || "");
+
+  await MusicQueueState.findOneAndUpdate(
+    { guildId },
+    {
+      $set: {
+        guildId,
+        voiceChannelId,
+        textChannelId: textChannelId || null,
+        currentTrack: currentTrackState,
+        tracks: tracksState,
+        positionMs: Number(queue.positionMs || 0),
+        paused: Boolean(queue.paused),
+        volume: Number(queue.volume || DEFAULT_VOLUME),
+        updatedAt: new Date(),
+      },
+    },
+    { upsert: true, new: true },
+  );
+}
+
 async function playTrack(queue, track) {
   clearTimer(inactivityTimers, queue.guildId);
   clearTimer(emptyVoiceTimers, queue.guildId);
@@ -496,6 +571,7 @@ async function playTrack(queue, track) {
   queue.positionMs = 0;
   queue.startedAt = Date.now();
   queue.paused = false;
+  void persistMusicQueueState(queue).catch(() => null);
   await queue.player.setGlobalVolume(queue.volume).catch(() => { });
   await queue.player.playTrack({
     track: {
@@ -519,6 +595,7 @@ async function playNext(queue) {
   }
   queue.currentTrack = null;
   queue.positionMs = 0;
+  void persistMusicQueueState(queue).catch(() => null);
   await sendQueueNotice(queue, "There are no more tracks");
   await scheduleInactivityLeave(queue);
 }
@@ -529,7 +606,7 @@ function attachPlayerEvents(queue) {
   queue.player.on("start", () => {
     queue.startedAt = Date.now();
     queue.positionMs = 0;
-    queue.paused = false;
+    queue.paused = Boolean(queue.player?.paused);
     clearTimer(inactivityTimers, queue.guildId);
     clearTimer(emptyVoiceTimers, queue.guildId);
     logMusic("player_start", { guildId: queue.guildId, track: queue.currentTrack?.title, source: queue.currentTrack?.source });
@@ -540,6 +617,14 @@ function attachPlayerEvents(queue) {
     if (now - (queue._lastPositionWrite || 0) < 1500) return;
     queue._lastPositionWrite = now;
     queue.positionMs = Number(data?.state?.position || 0);
+    queue.paused = Boolean(queue.player?.paused);
+    if (queue.currentTrack?.encoded) {
+      const last = Number(queue._lastMusicStatePersistAt || 0);
+      if (!last || now - last >= MUSIC_STATE_PERSIST_THROTTLE_MS) {
+        queue._lastMusicStatePersistAt = now;
+        void persistMusicQueueState(queue).catch(() => null);
+      }
+    }
   });
   queue.player.on("end", async (data) => {
     const reason = String(data?.reason || "");
@@ -651,6 +736,7 @@ async function destroyQueue(guildId, { manual = false } = {}) {
   queue.tracks = [];
   queue.currentTrack = null;
   await queue.player.destroy().catch(() => { });
+  await MusicQueueState.deleteOne({ guildId: key }).catch(() => null);
   clearGuildTtsLock(key);
   return true;
 }
@@ -682,7 +768,7 @@ async function forceDisconnectGuildVoice(client, guildId) {
   return true;
 }
 
-async function getPlayer(client) {
+async function getPlayer(client, { waitForTcpMs } = {}) {
   if (client.musicPlayer?.manager) return client.musicPlayer;
   if (!Shoukaku || !Connectors || !LoadType) {
     throw new Error("Shoukaku is not installed");
@@ -692,7 +778,7 @@ async function getPlayer(client) {
   const auth = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim();
   const secure = ["1", "true", "yes", "on"].includes(String(process.env.LAVALINK_SECURE || "").toLowerCase());
   const name = String(process.env.LAVALINK_NAME || "main").trim() || "main";
-  const waitMs = Number(process.env.LAVALINK_WAIT_MS || 15000);
+  const waitMs = Number(waitForTcpMs ?? process.env.LAVALINK_WAIT_MS || 15000);
   const ready = await waitForTcp(host, waitMs);
   if (!ready) {
     logMusic("lavalink_wait_timeout", { host, waitMs });
@@ -864,6 +950,116 @@ async function touchMusicOutputChannel(client, guildId, channel) {
   return true;
 }
 
+async function restoreMusicSessions(client) {
+  if (mongoose.connection?.readyState !== 1) return;
+  if (!client?.user?.id) return;
+
+  const docs = await MusicQueueState.find({}).lean().catch(() => []);
+  if (!Array.isArray(docs) || docs.length === 0) return;
+
+  await getPlayer(client, { waitForTcpMs: 3000 }).catch(() => null);
+
+  let restoredCount = 0;
+  for (const doc of docs) {
+    if (restoredCount >= MUSIC_STATE_RESTORE_MAX_GUILDS) break;
+    const guildId = String(doc?.guildId || "");
+    const voiceChannelId = String(doc?.voiceChannelId || "");
+    if (!guildId || !voiceChannelId) continue;
+
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) continue;
+
+    const voiceChannel =
+      guild.channels.cache.get(voiceChannelId) ||
+      (await guild.channels.fetch(voiceChannelId).catch(() => null));
+    if (!voiceChannel?.isVoiceBased?.()) continue;
+
+    const textChannelId = doc?.textChannelId ? String(doc.textChannelId) : "";
+    const textChannel =
+      textChannelId && guild.channels.cache.get(textChannelId)
+        ? guild.channels.cache.get(textChannelId)
+        : textChannelId
+          ? await guild.channels.fetch(textChannelId).catch(() => null)
+          : null;
+
+    const currentTrack = reviveTrackFromState(doc?.currentTrack);
+    if (!currentTrack?.encoded) continue;
+
+    const tracks = Array.isArray(doc?.tracks)
+      ? doc.tracks.map(reviveTrackFromState).filter(Boolean)
+      : [];
+
+    const queue = await ensureQueue(client, guild, textChannel, voiceChannel).catch(() => null);
+    if (!queue) continue;
+
+    setVoiceSession(guildId, { mode: "music", channelId: voiceChannelId, ownerId: "" });
+    queue.volume = Number(doc?.volume || DEFAULT_VOLUME);
+    queue.paused = Boolean(doc?.paused);
+    queue.voiceChannelId = voiceChannelId;
+    queue.metadata = { ...(queue.metadata || {}), channel: textChannel };
+
+    let positionMs = Math.max(0, Number(doc?.positionMs || 0));
+    const durationMS = Number(currentTrack.durationMS || 0);
+    if (durationMS > 0 && positionMs >= Math.max(0, durationMS - 15_000) && tracks.length > 0) {
+      const next = tracks.shift();
+      queue.currentTrack = next;
+      positionMs = 0;
+    } else {
+      queue.currentTrack = currentTrack;
+    }
+
+    queue.tracks = tracks;
+    queue.positionMs = positionMs;
+    queue.startedAt = Date.now() - positionMs;
+    queue.manualDisconnect = false;
+
+    try {
+      const actualEncoded = queue.player?.track || null;
+      const actualPos = Number(queue.player?.position || 0);
+      if (
+        actualEncoded &&
+        queue.currentTrack?.encoded &&
+        String(actualEncoded) === String(queue.currentTrack.encoded) &&
+        actualPos > 0
+      ) {
+        queue.positionMs = actualPos;
+        queue.paused = Boolean(queue.player?.paused);
+        await MusicQueueState.deleteOne({ guildId }).catch(() => null);
+        restoredCount += 1;
+        continue;
+      }
+    } catch (_) {}
+
+    const clampedPosition = (() => {
+      if (!Number.isFinite(positionMs)) return 0;
+      if (durationMS > 0) return Math.min(positionMs, Math.max(0, durationMS - 1000));
+      return positionMs;
+    })();
+
+    await queue.player.playTrack(
+      {
+        track: {
+          encoded: queue.currentTrack.encoded,
+          userData: {
+            title: queue.currentTrack.title,
+            author: queue.currentTrack.author,
+            url: queue.currentTrack.url,
+            source: queue.currentTrack.source,
+          },
+        },
+        position: clampedPosition,
+        paused: Boolean(queue.paused),
+        volume: Number(queue.volume || DEFAULT_VOLUME),
+      },
+      false,
+    );
+
+    await MusicQueueState.deleteOne({ guildId }).catch(() => null);
+    restoredCount += 1;
+  }
+}
+
 async function playRadioStation({ client, guild, channel, voiceChannel, station, requestedBy = null }) {
   try {
     const player = await getPlayer(client);
@@ -950,4 +1146,5 @@ module.exports = {
   destroyQueue,
   forceDisconnectGuildVoice,
   handleMusicVoiceStateUpdate,
+  restoreMusicSessions,
 };

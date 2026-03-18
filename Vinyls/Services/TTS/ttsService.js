@@ -12,6 +12,9 @@ const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = r
 const { getVoiceSession } = require("../Voice/voiceSessionService");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const MAX_TTS_QUEUE = 30;
+const TTS_CATCHUP_FETCH_LIMIT = 100;
+const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 10 * 60 * 1000; // 10 min
+const TTS_RESTORE_CONCURRENCY = 3;
 const ttsStates = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
@@ -726,6 +729,7 @@ async function handleTtsMessage(message, client, prefix) {
   text = normalizePausesForTts(text);
   text = numbersToWordsForTts(text, lang);
   const clipped = text.slice(0, maxChars);
+  await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
   enqueue(state, { voiceChannel, text: clipped, lang });
 }
 async function joinTtsChannel(voiceChannel) {
@@ -874,17 +878,99 @@ async function clearVoiceState(guildId) {
   }
 }
 
+async function saveTtsLastMessageProgress(guildId, channelId, messageId, createdTimestamp) {
+  if (!guildId || !channelId || !messageId) return;
+  const gid = String(guildId);
+  const cid = String(channelId);
+  const mid = String(messageId);
+  const ts = createdTimestamp ? new Date(Number(createdTimestamp)) : new Date();
+  try {
+    await VoiceState.findOneAndUpdate(
+      { guildId: gid },
+      {
+        $set: {
+          guildId: gid,
+          channelId: cid,
+          lastTtsMessageId: mid,
+          lastTtsProcessedAt: ts,
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true, new: true },
+    );
+  } catch (error) {
+    global.logger?.error?.("[TTS] Failed to save last TTS message progress", error);
+  }
+}
+
+async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state, prefix) {
+  const config = client?.config;
+  if (!message || !client || !voiceChannel || !state) return;
+  if (!shouldHandleMessage(message, config, prefix)) return;
+  const maxChars = config?.tts?.maxChars || 200;
+  const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false);
+  const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
+  const rawMessageText = message.cleanContent ?? message.content ?? "";
+  let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText));
+  if (!baseText || !baseText.trim()) return;
+  baseText = expandAbbreviationsForTts(baseText, lang);
+  const name = message.author?.username || "Utente";
+  let text = includeUsername ? `${name}: ${baseText}` : baseText;
+  text = normalizeCaseForTts(text);
+  text = normalizePausesForTts(text);
+  text = numbersToWordsForTts(text, lang);
+  const clipped = text.slice(0, maxChars);
+  enqueue(state, { voiceChannel, text: clipped, lang });
+  await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
+}
+
+async function catchupTtsMessagesForChannel(client, voiceChannel, lastProcessedAt, prefix) {
+  if (!voiceChannel?.messages?.fetch) return;
+  const nowMs = Date.now();
+  const baseCutoffMs = lastProcessedAt ? new Date(lastProcessedAt).getTime() : nowMs - TTS_CATCHUP_DEFAULT_LOOKBACK_MS;
+  if (!Number.isFinite(baseCutoffMs)) return;
+
+  const state = getState(voiceChannel);
+  const messages = await voiceChannel.messages.fetch({ limit: TTS_CATCHUP_FETCH_LIMIT }).catch(() => null);
+  if (!messages) return;
+
+  const cutoffMs = Math.max(0, baseCutoffMs - 1500); // small grace to avoid edge duplicates
+  const sorted = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+  for (const message of sorted) {
+    if (state.queue.length >= MAX_TTS_QUEUE) break;
+    if (message?.createdTimestamp <= cutoffMs) continue;
+    if (message?.author?.bot) continue;
+    await enqueueTtsMessageFromHistory(message, client, voiceChannel, state, prefix).catch(() => null);
+  }
+}
+
 async function restoreTtsConnections(client) {
   try {
-    await sleep(4500);
-    const states = await VoiceState.find({});
-    for (const entry of states) {
-      const channel = await getClientChannelCached(client, entry.channelId);
-      if (!channel || !channel.isVoiceBased?.()) continue;
-      await joinTtsChannel(channel).catch((e) =>
-        global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
+    const prefix = String(client?.config?.prefix || "+");
+    const states = await VoiceState.find({}).lean().catch(() => []);
+
+    for (let i = 0; i < states.length; i += TTS_RESTORE_CONCURRENCY) {
+      const batch = states.slice(i, i + TTS_RESTORE_CONCURRENCY);
+      await Promise.all(
+        batch.map(async (entry) => {
+          const channel = await getClientChannelCached(client, entry?.channelId);
+          if (!channel || !channel.isVoiceBased?.()) return;
+
+          try {
+            const { getQueue } = require("../Music/musicService");
+            const q = getQueue(entry?.guildId);
+            const guild = client.guilds.cache.get(String(entry?.guildId || ""));
+            const botVc = guild?.members?.me?.voice?.channel;
+            if (q && botVc) return;
+          } catch (_) {}
+
+          await joinTtsChannel(channel).catch((e) =>
+            global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
+          );
+          await catchupTtsMessagesForChannel(client, channel, entry?.lastTtsProcessedAt, prefix);
+        }),
       );
-      await sleep(1200);
     }
   } catch (error) {
     global.logger?.error?.("[TTS] Failed to restore voice connections", error);

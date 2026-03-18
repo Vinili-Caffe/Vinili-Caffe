@@ -38,6 +38,44 @@ async function sendTemporaryMessage(channel, payload, ttlMs) {
   return sent;
 }
 
+async function sendTemporaryReply(message, payload, ttlMs) {
+  const sent = await message.reply(payload).catch(() => null);
+  if (sent) {
+    const timer = setTimeout(() => sent.delete().catch(() => { }), ttlMs);
+    timer.unref?.();
+  }
+  return sent;
+}
+
+async function addLoadingReaction(message) {
+  const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
+  const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
+  const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
+  if (emoji) {
+    await message.react(emoji).catch(() => {});
+    return;
+  }
+  if (fallbackEmojiId) {
+    await message.react(fallbackEmojiId).catch(() => {});
+    return;
+  }
+  await message.react("\u23F3").catch(() => {});
+}
+
+async function removeLoadingReaction(message, resolvedClient) {
+  try {
+    const loadingId = IDs.emojis?.loadingAnimatedId;
+    const fallbackId = IDs.emojis?.loadingFallbackId;
+    const emoji = loadingId ? message.client?.emojis?.cache?.get(loadingId) : null;
+    if (emoji) {
+      const react = message.reactions?.resolve?.(emoji.id);
+      if (react) await react.users.remove(resolvedClient.user.id);
+    }
+    const fallback = message.reactions?.resolve?.("VC_Loading") || (fallbackId ? message.reactions?.resolve?.(fallbackId) : null);
+    if (fallback) await fallback.users.remove(resolvedClient.user.id);
+  } catch (_) {}
+}
+
 async function resolveWithTimeout(task, fallbackValue, label, timeoutMs = PREFIX_PRECHECK_TIMEOUT_MS) {
   let timer = null;
   try {
@@ -243,7 +281,7 @@ async function executePrefixCommandRuntime({
     }
 
     const feedback = buildInternalCommandErrorEmbed(error);
-    return execMessage.reply({ embeds: [feedback] }).catch(() => null);
+    return sendTemporaryReply(execMessage, { embeds: [feedback] }, EPHEMERAL_TTL_SHORT_MS);
   } finally {
     commandFinished = true;
     if (typingStartTimer) clearTimeout(typingStartTimer);
@@ -436,7 +474,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
       const remaining = Math.max(1, Math.ceil(cooldownResult.remainingMs / 1000));
       const embed = buildCooldownErrorEmbed(remaining);
       await deleteCommandMessage();
-      await message.channel.send({ embeds: [embed] }).catch(() => null);
+      await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
       return;
     }
   }

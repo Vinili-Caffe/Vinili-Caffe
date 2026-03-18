@@ -130,14 +130,20 @@ function parseUserActivityArgs(args) {
  */
 async function resolveUserTargetAndLookback(message, args = []) {
   const tokens = Array.isArray(args) ? args.map((a) => String(a ?? "").trim()).filter(Boolean) : [];
-  const lookbackDays = 14;
+  let lookbackDays = 14;
+  const lookbackToken = tokens.find((t) => {
+    const s = String(t || "").toLowerCase().trim();
+    return /^(1d|7d|14d|21d|30d|1|7|14|21|30)$/.test(s);
+  });
+  if (lookbackToken) lookbackDays = normalizeLookbackDays(lookbackToken);
+  const tokensWithoutLookback = lookbackToken ? tokens.filter((t) => String(t) !== String(lookbackToken)) : tokens;
 
   const mention = message?.mentions?.users?.first();
   if (mention) {
     return { targetId: mention.id, lookbackDays };
   }
 
-  const first = tokens[0] || null;
+  const first = tokensWithoutLookback[0] || null;
   if (!first) return { targetId: null, lookbackDays };
 
   const mentionId = first.match(/^<@!?(\d+)>$/)?.[1];
