@@ -102,9 +102,12 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     mediaImage = await loadImage(mediaUrl).catch(() => null);
   }
 
+  const replyRowHeight = 22;
+  const replyTopPad = 6;
+  const replyToHeaderGap = 10;
   let y = topY;
-  const replyY = hasReply ? y : null;
-  const headerY = hasReply ? y + 24 : y;
+  const replyY = hasReply ? y + replyTopPad : null;
+  const headerY = hasReply ? replyY + replyRowHeight + replyToHeaderGap : y;
   const avatarTop = headerY + headerLineHeight / 2 - avatarSize / 2;
   const messageY = headerY + 26;
   const lineHeight = 20;
@@ -136,9 +139,8 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
   if (hasReply) {
     let rx = contentX;
     const replyAvatarSize = 16;
-    const replyLineHeight = 16;
-    const replyTextY = replyY + (replyLineHeight - 12) / 2;
-    const replyAvatarTop = replyY + (replyLineHeight - replyAvatarSize) / 2;
+    const replyRowMidY = replyY + replyRowHeight / 2;
+    const replyAvatarTop = replyRowMidY - replyAvatarSize / 2;
     if (reply.avatarUrl) {
       const rAvatar = await loadImage(reply.avatarUrl).catch(() => null);
       if (rAvatar) {
@@ -150,11 +152,12 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     ctx.font = fontStack(12, "600");
     const replyName = reply.author || "Sconosciuto";
     const replyNameColor = reply.nameColor || "#b9bbbe";
-    drawTextWithSpecialFallback(ctx, replyName, rx, replyTextY, {
+    drawTextWithSpecialFallback(ctx, replyName, rx, replyRowMidY, {
       size: 12,
       weight: "600",
       color: replyNameColor,
       forcePrimaryFont: true,
+      baseline: "middle",
     });
     rx += ctx.measureText(replyName).width + 8;
 
@@ -162,24 +165,25 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
       const replyIcon = await loadImage(reply.roleIconUrl).catch(() => null);
       if (replyIcon) {
         const replyIconSize = 12;
-        const replyIconTop = replyY + (replyLineHeight - replyIconSize) / 2;
+        const replyIconTop = replyRowMidY - replyIconSize / 2;
         drawCircleImage(ctx, replyIcon, rx, replyIconTop, replyIconSize);
         rx += replyIconSize + 8;
       }
     }
 
     const replyContent = String(reply.content || "").slice(0, 72);
-    drawTextWithSpecialFallback(ctx, replyContent, rx, replyTextY, {
+    drawTextWithSpecialFallback(ctx, replyContent, rx, replyRowMidY, {
       size: 12,
       weight: "500",
       color: "#949ba4",
       forcePrimaryFont: true,
+      baseline: "middle",
     });
 
     const connStartX = outerPad + avatarSize / 2;
     const connStartY = avatarTop + avatarSize / 2;
     const connEndX = contentX - 10;
-    const connEndY = replyY + 10;
+    const connEndY = replyRowMidY;
     const radius = 8;
 
     ctx.strokeStyle = "#4e5058";

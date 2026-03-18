@@ -33,7 +33,7 @@ module.exports = {
       const empty = "​";
       const pingEmbed = new EmbedBuilder()
         .setColor("#6f4e37")
-        .setDescription(`<a:VC_GreenDot:1454118116392042711> Ping: **\`${gatewayPing}ms\`**`,)
+        .setDescription(`<:VC_Status_5:1472011474909008017> Ping: **\`${gatewayPing}ms\`**`,)
         .addFields(
           { name: `<:Clock:1330530065133338685> **Uptime:** \`${uptimeString}\``, value: empty, inline: true },
           { name: `<a:VC_Loading:1482526772862914776> **API:** \`...\``, value: empty, inline: true },
