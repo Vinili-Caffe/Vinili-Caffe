@@ -4,6 +4,8 @@ const MINIGAME_403_THROTTLE_MS = 60 * 1000;
 let last429LogAt = 0;
 let last403LogAt = 0;
 let sportsDb429Until = 0;
+let sportsDb429Consecutive = 0;
+let sportsDb429LastHitAt = 0;
 const SPORTSDB_429_BACKOFF_FLOOR_MS = 60_000;
 function warnMinigame(err) {
   const msg = err?.message || err?.response?.data || String(err);
@@ -12,10 +14,12 @@ function warnMinigame(err) {
   const is429 = status === 429 || (typeof msg === "string" && msg.includes("429"));
   const is403 = status === 403 || (typeof msg === "string" && msg.includes("403"));
   if (is403 && typeof url === "string" && /wikipedia\.org\/api\/rest_v1\/page\/summary/i.test(url)) return;
-  // Se è ThesportsDB e siamo in 429, applica un backoff anche se poi throttliamo il log.
   if (is429 && typeof url === "string" && /thesportsdb\.com/i.test(url)) {
     const now = Date.now();
     const retryAfterRaw = err?.response?.headers?.["retry-after"] || err?.response?.headers?.["Retry-After"];
+    if (now - sportsDb429LastHitAt < SPORTSDB_429_BACKOFF_FLOOR_MS) sportsDb429Consecutive += 1;
+    else sportsDb429Consecutive = 1;
+    sportsDb429LastHitAt = now;
     let retryAfterMs = 0;
     if (typeof retryAfterRaw === "string" && retryAfterRaw.trim()) {
       const asNum = Number(retryAfterRaw);
@@ -25,7 +29,10 @@ function warnMinigame(err) {
         if (Number.isFinite(t)) retryAfterMs = Math.max(0, t - now);
       }
     }
-    if (!retryAfterMs) retryAfterMs = SPORTSDB_429_BACKOFF_FLOOR_MS;
+    if (!retryAfterMs) {
+      const expMultiplier = Math.min(8, 2 ** Math.max(0, sportsDb429Consecutive - 1));
+      retryAfterMs = SPORTSDB_429_BACKOFF_FLOOR_MS * expMultiplier;
+    }
     sportsDb429Until = Math.max(sportsDb429Until, now + retryAfterMs);
   }
   const now = Date.now();
@@ -1043,7 +1050,6 @@ async function loadFootballTeamsFromApi(cfg) {
     } catch (err) {
       warnMinigame(err);
       if (isThesportsdb429(err)) {
-        // Non cache-siamo risultati vuoti/partiali quando la API sta rate-limitando.
         if (Array.isArray(cachedTeams) && cachedTeams.length) return cachedTeams;
         return out;
       }

@@ -13,11 +13,12 @@ module.exports = {
   description:
     "Blacklist server Discord (guild ID) con cui non si possono fare partnership.",
   usage:
-    "`+blacklist add <guildId> [nota]` — aggiungi\n`+blacklist remove <guildId>` — rimuovi\n`+blacklist list` — elenco",
+    "`+blacklist add <guildId> [nota]` — aggiungi\n`+blacklist remove <guildId>` — rimuovi\n`+blacklist remove this` — rimuovi il server corrente\n`+blacklist list` — elenco",
   examples: [
     "+blacklist add 987654321098765432",
     "+blacklist add 987654321098765432 server tossico",
     "+blacklist remove 987654321098765432",
+    "+blacklist remove this",
     "+blacklist list",
   ],
   async execute(message, args) {
@@ -33,6 +34,7 @@ module.exports = {
               "**Uso:**\n" +
                 "`+blacklist add <guildId> [nota]` — nessuna partnership verso quel server\n" +
                 "`+blacklist remove <guildId>`\n" +
+                "`+blacklist remove this`\n" +
                 "`+blacklist list`\n\n" +
                 "Il **guildId** è l’ID del server da bloccare (non l’invite).",
             ),
@@ -66,15 +68,21 @@ module.exports = {
         allowedMentions: { repliedUser: false },
       });
     }
-    const rawId = rest[0];
-    const gid = normalizeGuildId(rawId);
+    let gid = null;
+    if (sub === "remove") {
+      const selector = String(rest[0] || "").toLowerCase();
+      const removeCurrent = !selector || ["this", "current", "me", "server"].includes(selector);
+      gid = removeCurrent ? message?.guild?.id || null : normalizeGuildId(rest[0]);
+    } else {
+      gid = normalizeGuildId(rest[0]);
+    }
     if (!gid) {
       return safeMessageReply(message, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Fornisci un **guild ID** valido (17–20 cifre).",
+              "<:vegax:1443934876440068179> Fornisci un **guild ID** valido (17–20 cifre) oppure usa `this` per rimuovere il server corrente.",
             ),
         ],
         allowedMentions: { repliedUser: false },

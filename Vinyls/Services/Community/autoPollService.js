@@ -174,6 +174,24 @@ function startOpenRouterCooldown() {
   openRouterCooldownUntil = Date.now() + OPENROUTER_RATE_LIMIT_COOLDOWN_MS;
 }
 
+function startOpenRouterCooldownWithRetryAfter(retryAfterMs) {
+  const ms = Number.isFinite(Number(retryAfterMs)) ? Math.max(0, Number(retryAfterMs)) : OPENROUTER_RATE_LIMIT_COOLDOWN_MS;
+  openRouterCooldownUntil = Date.now() + ms;
+}
+
+function parseRetryAfterMs(headers) {
+  const retryAfterRaw = headers?.["retry-after"] || headers?.["Retry-After"];
+  if (!retryAfterRaw) return null;
+
+  if (typeof retryAfterRaw === "string") {
+    const asNum = Number(retryAfterRaw);
+    if (Number.isFinite(asNum) && asNum > 0) return asNum * 1000;
+    const parsed = Date.parse(retryAfterRaw);
+    if (Number.isFinite(parsed)) return Math.max(0, parsed - Date.now());
+  }
+  return null;
+}
+
 function resolveOpenRouterModels(cfg = {}) {
   const configuredModels = Array.isArray(cfg.openrouterModels) ? cfg.openrouterModels : String(process.env.OPENROUTER_MODEL || cfg.openrouterModel || "").split(",").map((entry) => entry.trim()).filter(Boolean);
   const sanitizedModels = configuredModels.map((entry) => String(entry || "").trim()).filter(Boolean).filter((entry) => !GENERIC_OPENROUTER_MODEL_ALIASES.has(entry.toLowerCase()));
@@ -384,8 +402,10 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
   if (!models.length) return null;
   const optionCount = Math.max(4, Math.min(6, Number(forcedTargetOptions || 5)));
   let lastError = null;
+  let had429 = false;
 
   for (const model of models) {
+    if (isOpenRouterCoolingDown()) break;
     const payload = {
       model, messages: [{ role: "system", content: "Genera sondaggi su attualità per utenti italiani. Regole: (1) Italiano naturale, domande brevi e che invoglino a votare. (2) Evita domande generiche tipo 'Quanto sei preoccupato per X' o 'Qual è la tua opinione su Y'. (3) Preferisci domande su scelte concrete, preferenze chiare, fatti recenti o trend. (4) Temi: cronaca, società, politica, ambiente, lavoro, tech, economia, salute, diritti, Europa, media. (5) Risposte corte, coerenti tra loro, senza 'dipende'/'altro'/'non so' se non necessari. (6) Niente riferimenti a Discord o community. (7) Output solo JSON: {\"question\":\"...\",\"answers\":[\"...\"]}.", }, {
         role: "user", content: `Genera un poll con ${optionCount} risposte. Domanda su attualità: concreta, non generica. Esempi di stile: 'Se votassi domani per X, sceglieresti?', 'Dove andresti a vivere?', 'Quale notizia ti ha colpito di più?'. Opzioni concrete e realistiche. Solo JSON.`,
@@ -420,10 +440,19 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
       lastError = new Error(`Invalid OpenRouter payload for model ${model}`);
     } catch (error) {
       const status = Number(error?.response?.status || 0);
-      if (status === 429) startOpenRouterCooldown();
+      if (status === 429) {
+        had429 = true;
+        const retryAfterMs = parseRetryAfterMs(error?.response?.headers);
+        if (retryAfterMs != null) startOpenRouterCooldownWithRetryAfter(retryAfterMs);
+        else startOpenRouterCooldown();
+      }
       if (status === 400) {
         lastError = error;
         continue;
+      }
+      if (status === 429) {
+        lastError = error;
+        break;
       }
       if ([404, 429, 500, 502, 503, 504].includes(status)) {
         lastError = error;
@@ -433,7 +462,7 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
     }
   }
 
-  if (lastError) {
+  if (lastError && !had429) {
     warnPollOpenRouter("all OpenRouter model attempts failed:", lastError?.message || lastError);
   }
   return null;
