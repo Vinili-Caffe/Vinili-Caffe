@@ -14,6 +14,7 @@ const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Ut
 const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Services/Moderation/antiNukeService");
 const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
+const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -1068,6 +1069,9 @@ module.exports = {
       if (newMember?.guild?.id === IDs.guilds.main && client) {
         if (didStaffMembershipChange(oldMember, newMember) || didStaffRolesChange(oldMember, newMember)) {
           scheduleStaffListRefresh(client, newMember.guild.id);
+          if (!memberHasStaffRole(oldMember) && memberHasStaffRole(newMember)) {
+            setWelcomeContextActive(newMember.guild.id, client);
+          }
           if (memberHasStaffRole(oldMember) && !memberHasStaffRole(newMember)) {
             await Staff.deleteOne({ guildId: newMember.guild.id, userId: newMember.id }).catch(() => {});
           }

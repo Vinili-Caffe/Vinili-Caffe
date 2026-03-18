@@ -17,6 +17,7 @@ const { grantEventRewardOnce } = require("../Services/Community/activityEventRew
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const{isStaffEventActive,isStaffButNotHighStaff,addStaffEventPoints,}=require("../Services/Community/staffEventService");
+const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -1279,6 +1280,8 @@ module.exports = {
             embeds: [buildWelcomeEmbed(member)],
           }, member.guild))
           .catch(() => {});
+
+        if (member.client) setWelcomeContextActive(member.guild.id, member.client);
 
         info = await resolveInviteInfo(member).catch(() => null);
         await announceInviteInfo(member, welcomeChannel, info);

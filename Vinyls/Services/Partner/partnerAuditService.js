@@ -256,9 +256,6 @@ async function runDailyPartnerAudit(client, opts = {}) {
       try {
         await doc.save();
         totalRemoved += flagged;
-        global.logger?.warn?.(
-          `[PARTNER AUDIT] User ${doc.userId}: penalized ${flagged} invalid partnerships (messages preserved)`,
-        );
       } catch (saveErr) {
         global.logger?.error?.(
           `[PARTNER AUDIT] User ${doc.userId}: failed to persist penalties`,

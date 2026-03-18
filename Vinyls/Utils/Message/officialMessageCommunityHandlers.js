@@ -1,3 +1,4 @@
+const path = require("path");
 const mongoose = require("mongoose");
 const { EmbedBuilder } = require("discord.js");
 const { inspect } = require("node:util");
@@ -10,6 +11,80 @@ const IDs = require("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, EPHEMERAL_TTL_LONG_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const COUNTING_CHANNEL_ID = IDs.channels.counting;
 const COUNTING_ALLOWED_REGEX = /^[0-9+\-*/x:() ]+$/;
+const WORD_REACTIONS_CONFIG_PATH = path.join(__dirname, "..", "Config", "wordReactions.json");
+const WORD_REACTIONS_MAX_REACTIONS = 20;
+const WORD_REACTIONS_TIMEZONE = "Europe/Rome";
+const WELCOME_CONTEXT_DURATION_MS = 5 * 60 * 1000;
+let wordReactionsConfigCache = null;
+const welcomeContextUntilByChannelId = new Map();
+
+function getWelcomeContextChannelIds() {
+  const rules = getWordReactionsConfig();
+  const ids = new Set();
+  for (const rule of rules) {
+    if (!rule.onlyInWelcomeContext || !Array.isArray(rule.contextChannelIds)) continue;
+    for (const idOrKey of rule.contextChannelIds) {
+      const resolved = IDs.channels?.[String(idOrKey)] ?? String(idOrKey || "").trim();
+      if (resolved) ids.add(resolved);
+    }
+  }
+  return Array.from(ids);
+}
+
+function setWelcomeContextActive(guildId, client) {
+  if (!guildId || !client?.channels?.cache) return;
+  const channelIds = getWelcomeContextChannelIds();
+  const until = Date.now() + WELCOME_CONTEXT_DURATION_MS;
+  for (const channelId of channelIds) {
+    const ch = client.channels.cache.get(channelId);
+    if (ch?.guild?.id === guildId) welcomeContextUntilByChannelId.set(channelId, until);
+  }
+}
+
+function isWelcomeContextActive(channelId) {
+  const until = welcomeContextUntilByChannelId.get(String(channelId || ""));
+  return typeof until === "number" && Date.now() < until;
+}
+
+function getWordReactionsRomeHour(now = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: WORD_REACTIONS_TIMEZONE, hour: "2-digit", hour12: false });
+  const hour = Number(formatter.format(now)) || 0;
+  return Math.max(0, Math.min(23, hour));
+}
+
+function isWithinTimeWindow(now, timeWindow) {
+  if (!timeWindow || typeof timeWindow.startHour !== "number" || typeof timeWindow.endHour !== "number") return true;
+  const hour = getWordReactionsRomeHour(now);
+  const start = Math.max(0, Math.min(23, Math.floor(timeWindow.startHour)));
+  const end = Math.max(0, Math.min(23, Math.floor(timeWindow.endHour)));
+  if (start <= end) return hour >= start && hour <= end;
+  return hour >= start || hour <= end;
+}
+
+function escapeRegex(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsWholeWord(haystack, word) {
+  const w = String(word || "").trim().toLowerCase();
+  if (!w) return false;
+  const lastChar = w.slice(-1);
+  const trailingRepeat = lastChar ? `${escapeRegex(lastChar)}*` : "";
+  const pattern = new RegExp(`(?:^|[\\s\\p{P}])(?:${escapeRegex(w)})${trailingRepeat}(?:[\\s\\p{P}]|$)`, "iu");
+  return pattern.test(haystack);
+}
+
+function getWordReactionsConfig() {
+  if (wordReactionsConfigCache) return wordReactionsConfigCache;
+  try {
+    const data = require(WORD_REACTIONS_CONFIG_PATH);
+    wordReactionsConfigCache = Array.isArray(data) ? data : [];
+    return wordReactionsConfigCache;
+  } catch {
+    wordReactionsConfigCache = [];
+    return [];
+  }
+}
 const COUNTING_CACHE_TTL_MS = 60_000;
 const countingConfigCache = new Map();
 
@@ -73,6 +148,19 @@ function resolveReactionToken(token) {
   if (value.startsWith("custom:")) return value.slice("custom:".length);
   if (value.startsWith("unicode:")) return value.slice("unicode:".length);
   return value;
+}
+
+function resolveReactionForMessage(message, token) {
+  const value = resolveReactionToken(token);
+  if (!value) return null;
+  const snowflake = /^\d{16,20}$/.test(value) ? value : null;
+  if (snowflake) {
+    const client = message?.client;
+    const guild = message?.guild;
+    const emoji = client?.emojis?.cache?.get(snowflake) ?? guild?.emojis?.cache?.get(snowflake);
+    if (emoji) return { key: snowflake, value: emoji };
+  }
+  return { key: value, value };
 }
 
 function normalizeForTriggerMatch(value) {
@@ -173,6 +261,47 @@ async function handleMentionAutoReactions(message) {
   for (const token of uniqueTokens) {
     const emoji = resolveReactionToken(token);
     if (!emoji) continue;
+    await message.react(emoji).catch(() => { });
+  }
+}
+
+async function handleWordReactions(message) {
+  if (!message?.guild || !message.content || typeof message.react !== "function") return;
+  const content = String(message.content || "").trim();
+  if (!content || content.startsWith("+")) return;
+
+  const rules = getWordReactionsConfig();
+  if (!Array.isArray(rules) || !rules.length) return;
+
+  const normalized = content.toLowerCase();
+  const seen = new Set();
+  const toReact = [];
+
+  const now = new Date();
+  for (const rule of rules) {
+    if (Array.isArray(rule.channelIds) && rule.channelIds.length > 0) {
+      const resolved = rule.channelIds.map((idOrKey) => IDs.channels?.[String(idOrKey)] ?? String(idOrKey || "").trim()).filter(Boolean);
+      if (!resolved.includes(String(message.channelId || ""))) continue;
+    }
+    if (!isWithinTimeWindow(now, rule.timeWindow)) continue;
+    if (rule.onlyInWelcomeContext && Array.isArray(rule.contextChannelIds)) {
+      const resolvedIds = rule.contextChannelIds.map((idOrKey) => IDs.channels?.[String(idOrKey)] ?? String(idOrKey || "").trim()).filter(Boolean);
+      const inAllowedChannel = resolvedIds.includes(String(message.channelId || ""));
+      if (!inAllowedChannel || !isWelcomeContextActive(message.channelId)) continue;
+    }
+    const words = Array.isArray(rule.words) ? rule.words : [];
+    const reactions = Array.isArray(rule.reactions) ? rule.reactions : [];
+    const match = words.some((w) => containsWholeWord(normalized, w));
+    if (!match) continue;
+    for (const token of reactions) {
+      const resolved = resolveReactionForMessage(message, token);
+      if (!resolved || seen.has(resolved.key) || toReact.length >= WORD_REACTIONS_MAX_REACTIONS) continue;
+      seen.add(resolved.key);
+      toReact.push(resolved.value);
+    }
+  }
+
+  for (const emoji of toReact) {
     await message.react(emoji).catch(() => { });
   }
 }
@@ -314,4 +443,4 @@ async function processPendingCountingMessages(client) {
   }
 }
 
-module.exports = { handleAfk, handleAutoResponders, handleCounting, handleMentionAutoReactions, logEventError, processPendingCountingMessages };
+module.exports = { handleAfk, handleAutoResponders, handleCounting, handleMentionAutoReactions, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive };

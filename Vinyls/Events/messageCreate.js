@@ -4,7 +4,7 @@ const { handleMinigameMessage } = require("../Services/Minigames/minigameService
 const { recordMessageActivity } = require("../Services/Community/activityService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handlePauseChannelMessage,handleSuggestionChannelMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
-const{handleAfk,handleAutoResponders,handleCounting,handleMentionAutoReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
+const{handleAfk,handleAutoResponders,handleCounting,handleMentionAutoReactions,handleWordReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
@@ -188,7 +188,7 @@ module.exports = {
         );
       });
 
-      const[minigameResult,afkResult,mentionsResult,autoRespondersResult,countingResult]=await Promise.allSettled([handleMinigameMessage(message,resolvedClient),handleAfk(message),handleMentionAutoReactions(message),handleAutoResponders(message),handleCounting(message,resolvedClient),]);
+      const[minigameResult,afkResult,mentionsResult,autoRespondersResult,countingResult,wordReactionsResult]=await Promise.allSettled([handleMinigameMessage(message,resolvedClient),handleAfk(message),handleMentionAutoReactions(message),handleAutoResponders(message),handleCounting(message,resolvedClient),handleWordReactions(message),]);
       if (minigameResult.status === "rejected") {
         logEventError(resolvedClient, "MINIGAME ERROR", minigameResult.reason);
       }
@@ -203,6 +203,9 @@ module.exports = {
       }
       if (countingResult.status === "rejected") {
         logEventError(resolvedClient, "COUNTING ERROR", countingResult.reason);
+      }
+      if (wordReactionsResult.status === "rejected") {
+        logEventError(resolvedClient, "WORD REACTIONS ERROR", wordReactionsResult.reason);
       }
     }
 
