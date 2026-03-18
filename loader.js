@@ -4,7 +4,9 @@ const path = require('path');
 const os = require('os');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 const baseDir = __dirname;
-const ENABLE_LOADER_GIT_PULL = false;
+// Default: disabilitato. Attivabile via env quando vuoi.
+const ENABLE_LOADER_GIT_PULL =
+  ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL = true;
 const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:7000}];
 const NPM_CACHE_DIR = path.join(os.tmpdir(), '.npm-global');
@@ -294,7 +296,7 @@ function spawnBotProcess(bot, workingDir, file, resolve) {
 function runfile(bot, options = {}) {
     return new Promise((resolve) => {
         const { workingDir, file } = splitStartPath(bot);
-        const skipGitPull = true;
+        const skipGitPull = options.skipGitPull ?? !ENABLE_LOADER_GIT_PULL;
         const bypassDelay = Boolean(options.bypassDelay);
         const useWorkspaces = WORKSPACES_ENABLED;
 
@@ -309,4 +311,6 @@ function runfile(bot, options = {}) {
     });
 }
 
-BOTS.forEach((bot) => runfile(bot, { skipGitPull: true }));
+BOTS.forEach((bot) =>
+  runfile(bot, { skipGitPull: !ENABLE_LOADER_GIT_PULL }),
+);

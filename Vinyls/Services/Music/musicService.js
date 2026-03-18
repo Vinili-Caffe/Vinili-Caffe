@@ -778,7 +778,9 @@ async function getPlayer(client, { waitForTcpMs } = {}) {
   const auth = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim();
   const secure = ["1", "true", "yes", "on"].includes(String(process.env.LAVALINK_SECURE || "").toLowerCase());
   const name = String(process.env.LAVALINK_NAME || "main").trim() || "main";
-  const waitMs = Number(waitForTcpMs ?? process.env.LAVALINK_WAIT_MS || 15000);
+  const waitMs = Number(
+    waitForTcpMs != null ? waitForTcpMs : process.env.LAVALINK_WAIT_MS || 15000,
+  );
   const ready = await waitForTcp(host, waitMs);
   if (!ready) {
     logMusic("lavalink_wait_timeout", { host, waitMs });
