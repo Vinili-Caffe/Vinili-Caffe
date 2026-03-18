@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, AuditLogEvent, } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, AuditLogEvent, MessageType, } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -731,6 +731,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   const lookbackMs = Math.max(5 * 60 * 1000, Math.min(24 * 60 * 60 * 1000, Number(opts.lookbackMs || 2 * 60 * 60 * 1000)));
   const now = Date.now();
   const fallbackMemberScan = opts?.fallbackMemberScan !== false;
+  const fallbackChannelScan = opts?.fallbackChannelScan !== false;
 
   let candidates = [];
   const canReadAudit = Boolean(
@@ -762,6 +763,27 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       fromMembers.push({ targetId: String(member.id), createdMs: ts });
     }
     candidates = fromMembers;
+  }
+
+  if (!candidates.length && fallbackChannelScan) {
+    const recentBoostMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
+    const recent = recentBoostMessages ? Array.from(recentBoostMessages.values()) : [];
+    const minTs = now - lookbackMs;
+    const boostTypes = new Set([
+      MessageType?.UserPremiumGuildSubscription,
+      MessageType?.UserPremiumGuildSubscriptionTier1,
+      MessageType?.UserPremiumGuildSubscriptionTier2,
+      MessageType?.UserPremiumGuildSubscriptionTier3,
+    ].filter((x) => typeof x === "number"));
+    const fromChannel = [];
+    for (const m of recent) {
+      if (!m?.author?.id) continue;
+      const createdMs = Number(m.createdTimestamp || 0);
+      if (!createdMs || createdMs < minTs) continue;
+      if (!boostTypes.has(Number(m.type))) continue;
+      fromChannel.push({ targetId: String(m.author.id), createdMs });
+    }
+    candidates = fromChannel;
   }
 
   const unique = [];
