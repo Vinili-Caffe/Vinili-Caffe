@@ -136,13 +136,15 @@ module.exports = {
     const totalViews = Number(privacyCount?.views || 0);
     const isUser = sub === "user";
     const title = isUser ? "User Avatar" : "Server Avatar";
-    const imageUrl=isUser?user.displayAvatarURL({size:4096}):member.displayAvatarURL({size:4096});
+    const imageUrl = isUser
+      ? user.displayAvatarURL({ extension: "png", size: 4096, forceStatic: true })
+      : member.displayAvatarURL({ extension: "png", size: 4096, forceStatic: true });
     const authorLabel=member?.displayName||member?.user?.username||user.tag;
 
     const embed = new EmbedBuilder()
         .setTitle(title)
         .setImage(imageUrl)
-        .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL() })
+        .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL({ extension: "png", size: 256, forceStatic: true }) })
         .setColor("#6f4e37")
         .setFooter({
           text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il comando ?blockav.\n${totalViews} Views 👁️`,
