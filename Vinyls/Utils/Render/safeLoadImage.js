@@ -1,5 +1,7 @@
 const axios = require("axios");
 let _canvas = null;
+const warnDedupe = new Map();
+const WARN_TTL_MS = 10 * 60 * 1000;
 
 function getCanvas() {
   if (!_canvas) _canvas = require("canvas");
@@ -8,6 +10,22 @@ function getCanvas() {
 
 function isHttpUrl(value) {
   return /^https?:\/\//i.test(String(value || ""));
+}
+
+function safeHost(url) {
+  try {
+    return new URL(String(url)).host || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function shouldWarnOnce(key) {
+  const now = Date.now();
+  const last = Number(warnDedupe.get(key) || 0);
+  if (now - last <= WARN_TTL_MS) return false;
+  warnDedupe.set(key, now);
+  return true;
 }
 
 async function safeLoadImage(source, opts = {}) {
@@ -46,8 +64,20 @@ async function safeLoadImage(source, opts = {}) {
     if (!buf.length) return null;
     return await loadImage(buf);
   } catch (err) {
+    const src = String(source || "");
+    const status = err?.response?.status || null;
+    const ct = String(err?.response?.headers?.["content-type"] || "");
     const msg = err?.message || err?.code || err;
-    if (global.logger?.warn) global.logger.warn("[canvas] safeLoadImage failed:", msg);
+    const host = isHttpUrl(src) ? safeHost(src) : "non-http";
+    const warnKey = `${host}:${String(status || msg)}`;
+    if (global.logger?.warn && shouldWarnOnce(warnKey)) {
+      global.logger.warn("[canvas] safeLoadImage failed:", {
+        host,
+        status,
+        contentType: ct || null,
+        message: String(msg || ""),
+      });
+    }
     return null;
   }
 }

@@ -732,11 +732,23 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   const now = Date.now();
   const fallbackMemberScan = opts?.fallbackMemberScan !== false;
   const fallbackChannelScan = opts?.fallbackChannelScan !== false;
+  const debugEnabled = opts?.debug === true;
+
+  const me = guild.members?.me || null;
+  const perms = me && boostAnnounceChannel?.permissionsFor ? boostAnnounceChannel.permissionsFor(me) : null;
+  const canViewChannel = Boolean(perms?.has?.(PermissionsBitField.Flags.ViewChannel));
+  const canReadHistory = Boolean(perms?.has?.(PermissionsBitField.Flags.ReadMessageHistory));
+  const canSend = Boolean(perms?.has?.(PermissionsBitField.Flags.SendMessages));
 
   let candidates = [];
   const canReadAudit = Boolean(
     guild.members?.me?.permissions?.has?.(PermissionsBitField.Flags.ViewAuditLog),
   );
+  let auditCandidates = 0;
+  let memberCandidates = 0;
+  let channelCandidates = 0;
+  let channelFetchOk = null;
+  let memberFetchOk = null;
   if (canReadAudit) {
     const audits = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 50 }).catch(() => null);
     const entries = audits?.entries ? Array.from(audits.entries.values()) : [];
@@ -750,10 +762,12 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       if (!targetId) continue;
       candidates.push({ targetId, createdMs });
     }
+    auditCandidates = candidates.length;
   }
 
   if (!candidates.length && fallbackMemberScan) {
     const members = await guild.members.fetch().catch(() => null);
+    memberFetchOk = Boolean(members);
     const rows = members ? Array.from(members.values()) : [];
     const minTs = now - lookbackMs;
     const fromMembers = [];
@@ -763,10 +777,12 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       fromMembers.push({ targetId: String(member.id), createdMs: ts });
     }
     candidates = fromMembers;
+    memberCandidates = candidates.length;
   }
 
   if (!candidates.length && fallbackChannelScan) {
     const recentBoostMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
+    channelFetchOk = Boolean(recentBoostMessages);
     const recent = recentBoostMessages ? Array.from(recentBoostMessages.values()) : [];
     const minTs = now - lookbackMs;
     const boostTypes = new Set([
@@ -784,6 +800,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       fromChannel.push({ targetId: String(m.author.id), createdMs });
     }
     candidates = fromChannel;
+    channelCandidates = candidates.length;
   }
 
   const unique = [];
@@ -795,7 +812,23 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     if (unique.length >= limit) break;
   }
 
-  if (!unique.length) return { ok: true, recovered: 0 };
+  if (!unique.length) {
+    const debug = {
+      canReadAudit,
+      auditCandidates,
+      memberFetchOk,
+      memberCandidates,
+      channelFetchOk,
+      channelCandidates,
+      canViewChannel,
+      canReadHistory,
+      canSend,
+      lookbackMs,
+      limit,
+    };
+    if (debugEnabled) global.logger?.info?.("[BOOST RECOVERY DEBUG] no candidates:", debug);
+    return { ok: true, recovered: 0, debug };
+  }
 
   const recentMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
   const recent = recentMessages ? Array.from(recentMessages.values()) : [];
@@ -842,7 +875,21 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     await sleep(900);
   }
 
-  return { ok: true, recovered };
+  const debug = debugEnabled ? {
+    canReadAudit,
+    auditCandidates,
+    memberFetchOk,
+    memberCandidates,
+    channelFetchOk,
+    channelCandidates,
+    canViewChannel,
+    canReadHistory,
+    canSend,
+    lookbackMs,
+    limit,
+  } : undefined;
+  if (debugEnabled) global.logger?.info?.("[BOOST RECOVERY DEBUG] done:", { recovered, debug });
+  return { ok: true, recovered, debug };
 }
 
 module.exports = {
