@@ -11,10 +11,10 @@ logging:
 lavalink:
   server:
     password: "youshallnotpass"
-    bufferDurationMs: 3000
-    frameBufferDurationMs: 12000
-    trackStuckThresholdMs: 20000
-    playerUpdateInterval: 10
+    bufferDurationMs: 2000
+    frameBufferDurationMs: 2500
+    trackStuckThresholdMs: 15000
+    playerUpdateInterval: 5
     sources:
       youtube: false
   plugins:

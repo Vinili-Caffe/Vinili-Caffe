@@ -753,7 +753,8 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds"
+                "channels.highCmds",
+                "channels.partnersChat"
             ]
         },
         "server": {
