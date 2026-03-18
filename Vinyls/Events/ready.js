@@ -334,7 +334,7 @@ async function restoreBumpReminders(client) {
 }
 
 async function restoreCoreStartupState(client) {
-  const[bootstrap,inviteCache,tts,liveVoiceSync,joinRaidRestore,boostRecovery]=await Promise.allSettled([bootstrapSupporter(client),primeInviteCache(client),restoreTtsConnections(client),syncLiveVoiceSessionsFromGateway(client),Promise.allSettled([...client.guilds.cache.values()].map((guild) => restoreTempBans(guild,{force:true}),),),recoverRecentBoostEmbedsOnStartup(client,{limit:2,lookbackMs:2*60*60*1000,}),]);
+  const[bootstrap,inviteCache,tts,liveVoiceSync,joinRaidRestore,boostRecovery]=await Promise.allSettled([bootstrapSupporter(client),primeInviteCache(client),restoreTtsConnections(client),syncLiveVoiceSessionsFromGateway(client),Promise.allSettled([...client.guilds.cache.values()].map((guild) => restoreTempBans(guild,{force:true}),),),recoverRecentBoostEmbedsOnStartup(client,{limit:2,lookbackMs:6*60*60*1000,}),]);
 
   if (bootstrap.status === "rejected")
     global.logger?.error?.("[PRESENCE BOOTSTRAP ERROR]", bootstrap.reason);
