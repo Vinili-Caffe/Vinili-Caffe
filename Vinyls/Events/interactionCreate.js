@@ -4,6 +4,7 @@ const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { handlePartnerModal } = require("./interaction/partnerModal");
 const { handleDmBroadcastModal } = require("./interaction/dmBroadcastModal");
 const { handleVerifyInteraction } = require("./interaction/verifyHandlers");
+const { handleCustomRoleInteraction } = require("./interaction/customRoleHandlers");
 const{acquireButtonSpamGuard,runPermissionGate,}=require("../Utils/Interaction/interactionRuntimeGuards");
 const{logInteractionError,}=require("../Utils/Interaction/interactionErrorHandler");
 
@@ -51,6 +52,7 @@ module.exports = {
       if (!allowedByGate) return;
 
       if (await handlePartnerModal(interaction)) return;
+      if (await handleCustomRoleInteraction(interaction)) return;
       if (await handleButtonInteraction(interaction, resolvedClient)) return;
     } catch (err) {
       await logInteractionError(interaction, resolvedClient, err);

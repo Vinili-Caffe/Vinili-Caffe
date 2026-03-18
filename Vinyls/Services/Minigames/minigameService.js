@@ -1,5 +1,5 @@
 const axios = require("axios");
-const MINIGAME_429_THROTTLE_MS = 60 * 1000;
+const MINIGAME_429_THROTTLE_MS = 15 * 60 * 1000;
 const MINIGAME_403_THROTTLE_MS = 60 * 1000;
 let last429LogAt = 0;
 let last403LogAt = 0;
@@ -16,6 +16,11 @@ function warnMinigame(err) {
   if (is403 && now - last403LogAt < MINIGAME_403_THROTTLE_MS) return;
   if (is403) last403LogAt = now;
   let logMsg = is403 ? `${msg} (API 403 Forbidden: chiave/permessi o IP bloccato)` : msg;
+  if (is429) {
+    let host = null;
+    try { host = url ? new URL(String(url)).host : null; } catch { host = null; }
+    logMsg = `429 rate limit${host ? ` (${host})` : ""}`;
+  }
   if (is403 && url) logMsg += ` URL: ${typeof url === "string" ? url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***") : url}`;
   global.logger?.warn?.("[minigameService] ", logMsg);
 }

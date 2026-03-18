@@ -126,10 +126,12 @@ function createBumpReminderService(options) {
     let lastBumpAt = bumpDate;
     let doc = null;
     let previousLastBumpAt = null;
+    let previousLastBumpUserId = null;
     let previousReminderSentAt = null;
     try {
       const before = await model.findOne({ guildId }).lean().catch(() => null);
       if (before?.lastBumpAt) previousLastBumpAt = new Date(before.lastBumpAt);
+      if (before?.lastBumpUserId) previousLastBumpUserId = String(before.lastBumpUserId);
       if (before?.reminderSentAt) previousReminderSentAt = new Date(before.reminderSentAt);
       doc = await model.findOneAndUpdate(
         { guildId },
@@ -147,7 +149,7 @@ function createBumpReminderService(options) {
       global.logger?.error?.(`${errorTag} setBumpAt DB failed, scheduling in-memory anyway:`, err?.message || err);
     }
     scheduleReminder(client, guildId, lastBumpAt);
-    return { doc, previousLastBumpAt, previousReminderSentAt };
+    return { doc, previousLastBumpAt, previousLastBumpUserId, previousReminderSentAt };
   }
 
   async function recordBump(client, guildId, userId) {
@@ -476,7 +478,7 @@ function getRewardConfig(client, source) {
   return base;
 }
 
-async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, cooldownMs, baseExpOverride, fastSinceAt = null) {
+async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, cooldownMs, baseExpOverride, fastSinceAt = null, previousLastUserId = null) {
   if (!guild?.id || !userId) return null;
   const now = Date.now();
   const lastSlotAt = previousLastAt ? new Date(previousLastAt).getTime() : 0;
@@ -494,8 +496,15 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
   const guildId = String(guild.id);
   const rewardDoc = await BumpVoteReward.findOne({ guildId, userId, source }).lean().catch(() => null);
   const prevStreak = Number(rewardDoc?.currentStreak ?? 0);
-  const STREAK_GRACE_MS = Math.min(cooldownMs, 6 * 60 * 60 * 1000);
-  const didPreviousSlot = lastSlotAt > 0 && (now - lastSlotAt) <= (cooldownMs + STREAK_GRACE_MS);
+  const graceMs = Math.max(0, Math.min(cooldownMs, Number(streakCfg.graceMs ?? 30 * 60 * 1000) || 0));
+  const sameUserAsPrevious = previousLastUserId ? String(previousLastUserId) === String(userId) : true;
+  const deltaMs = lastSlotAt > 0 ? (now - lastSlotAt) : 0;
+  const earlySlackMs = Math.max(0, Math.min(cooldownMs, Number(streakCfg.earlySlackMs ?? 5 * 60 * 1000) || 0));
+  const didPreviousSlot =
+    sameUserAsPrevious &&
+    lastSlotAt > 0 &&
+    deltaMs >= Math.max(0, cooldownMs - earlySlackMs) &&
+    deltaMs <= (cooldownMs + graceMs);
   const newStreak = didPreviousSlot ? prevStreak + 1 : 1;
   const bestStreak = Math.max(Number(rewardDoc?.bestStreak ?? 0), newStreak);
   const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;
