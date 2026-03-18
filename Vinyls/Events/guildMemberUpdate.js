@@ -792,11 +792,26 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       MessageType?.UserPremiumGuildSubscriptionTier3,
     ].filter((x) => typeof x === "number"));
     const boostTextRe = /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i;
+    const typeCounts = {};
+    const samples = [];
     const fromChannel = [];
     for (const m of recent) {
       if (!m?.author?.id) continue;
       const createdMs = Number(m.createdTimestamp || 0);
       if (!createdMs || createdMs < minTs) continue;
+      const t = Number(m.type);
+      typeCounts[String(Number.isFinite(t) ? t : "NaN")] = Number(typeCounts[String(t)] || 0) + 1;
+      if (samples.length < 6) {
+        samples.push({
+          id: String(m.id || ""),
+          type: Number.isFinite(t) ? t : null,
+          system: Boolean(m.system),
+          authorId: String(m.author?.id || ""),
+          contentLen: Number(String(m.content || "").length),
+          hasEmbeds: Array.isArray(m.embeds) && m.embeds.length > 0,
+          createdTimestamp: createdMs,
+        });
+      }
       const isBoostType = boostTypes.has(Number(m.type));
       const isBoostText = boostTextRe.test(String(m.content || ""));
       if (!isBoostType && !isBoostText) continue;
@@ -804,6 +819,13 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     }
     candidates = fromChannel;
     channelCandidates = candidates.length;
+    if (debugEnabled) {
+      global.logger?.info?.("[BOOST RECOVERY DEBUG] channel scan:", {
+        boostTypes: Array.from(boostTypes.values()),
+        typeCounts,
+        samples,
+      });
+    }
   }
 
   const unique = [];
