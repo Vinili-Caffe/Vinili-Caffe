@@ -3,6 +3,7 @@ const userButton = require("../../Buttons").user;
 
 module.exports = {
   name: userButton.name,
+  aliases: ["user"],
   allowEmptyArgs: false,
   description: "Mostra le statistiche attività di un utente (mention, ID o username).",
   usage: "+user <@utente | id | username>",

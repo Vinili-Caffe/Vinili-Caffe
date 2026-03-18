@@ -3,6 +3,7 @@ const channelButton = require("../../Buttons").channel;
 
 module.exports = {
   name: channelButton.name,
+  aliases: ["ch"],
   allowEmptyArgs: true,
   description: "Mostra le statistiche attività di un canale (vocale o testo). Senza canale usa quello corrente.",
   usage: "+channel [ <#canale> | id | nome ] [1d | 7d | 14d | 21d | 30d]",

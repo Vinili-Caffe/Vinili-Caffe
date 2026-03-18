@@ -822,7 +822,10 @@ async function handleRoleColorTypeSelect(interaction) {
     const modalId = `customrole_modal_color_solid:${ownerId}:${roleId}:${panelMessageId || ""}`;
     const input = new TextInputBuilder().setCustomId("value").setLabel("Colore HEX").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
     const modal = new ModalBuilder().setCustomId(modalId).setTitle("Colore solido").addComponents(new ActionRowBuilder().addComponents(input));
-    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
+    const shown = await interaction.showModal(modal).then(() => true).catch((err) => {
+      global.logger?.warn?.("[customrole] showModal solid failed:", err?.code || err?.message || err);
+      return false;
+    });
     if (!shown) {
       await replyEphemeral(interaction, {
         content: "<:vegax:1443934876440068179> Impossibile aprire il modulo, riprova.",
@@ -837,7 +840,10 @@ async function handleRoleColorTypeSelect(interaction) {
     const input1 = new TextInputBuilder().setCustomId("value1").setLabel("Colore 1 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
     const input2 = new TextInputBuilder().setCustomId("value2").setLabel("Colore 2 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #6f4e37").setMaxLength(64);
     const modal = new ModalBuilder().setCustomId(modalId).setTitle("Colore gradiente").addComponents(new ActionRowBuilder().addComponents(input1), new ActionRowBuilder().addComponents(input2));
-    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
+    const shown = await interaction.showModal(modal).then(() => true).catch((err) => {
+      global.logger?.warn?.("[customrole] showModal gradient failed:", err?.code || err?.message || err);
+      return false;
+    });
     if (!shown) {
       await replyEphemeral(interaction, {
         content: "<:vegax:1443934876440068179> Impossibile aprire il modulo, riprova.",

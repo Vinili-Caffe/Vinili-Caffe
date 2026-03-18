@@ -745,10 +745,10 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
   const canvas = getCanvasModule().createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  const M = 32;
+  const M = 20;
   const GAP = 36;
-  const headerH = 100;
-  const contentTop = 20 + headerH + 24;
+  const headerH = 96;
+  const contentTop = 16 + headerH + 20;
   const topRowH = 248;
   const bottomTop = contentTop + topRowH + GAP;
   const bottomH = height - bottomTop - 72;
@@ -762,115 +762,126 @@ async function renderChannelActivityCanvas({ channelName, channelIconUrl, create
 
   drawBackground(ctx, width, height);
 
-  fillRoundRect(ctx, M, 20, contentW, headerH, 22, "rgba(32, 42, 57, 0.9)");
-  strokeRoundRect(ctx, M, 20, contentW, headerH, 22, "rgba(255,255,255,0.06)", 1);
+  fillRoundRect(ctx, M, 16, contentW, headerH, 22, "rgba(32, 42, 57, 0.9)");
+  strokeRoundRect(ctx, M, 16, contentW, headerH, 22, "rgba(255,255,255,0.06)", 1);
 
   const headerIconX = M + 28;
   if (channelIconUrl && !isTextChannel) {
-    await drawAvatarCircle(ctx, channelIconUrl, headerIconX, 28, 80);
+    await drawAvatarCircle(ctx, channelIconUrl, headerIconX, 24, 80);
   } else {
-    fillRoundRect(ctx, headerIconX, 28, 80, 80, 40, "rgba(50, 60, 75, 0.95)");
-    drawLabel(ctx, "#", headerIconX + 40, 68, { size: 36, weight: "700", color: "#8b95a5", align: "center", baseline: "middle" });
+    fillRoundRect(ctx, headerIconX, 24, 80, 80, 40, "rgba(50, 60, 75, 0.95)");
+    drawLabel(ctx, "#", headerIconX + 40, 64, { size: 36, weight: "700", color: "#8b95a5", align: "center", baseline: "middle" });
   }
-  drawLabelFull(ctx, channelName || "# channel", M + 124, 52, headerTextMaxWidth, 52, {
+  drawLabelFull(ctx, channelName || "# channel", M + 124, 52, headerTextMaxWidth, 56, {
     weight: "700",
     color: "#eef3fb",
+    minSize: 20,
     forcePrimaryFont: true,
   });
-  drawLabelFull(ctx, guildName || "Server", M + 124, 88, headerTextMaxWidth, 28, {
+  const subtitle = `${guildName || "Server"} / Channel Overview`;
+  drawLabelFull(ctx, subtitle, M + 124, 88, headerTextMaxWidth, 28, {
     weight: "600",
-    color: "#8b95a5",
+    color: "#bfc8d6",
     minSize: 16,
+    forcePrimaryFont: true,
   });
-  drawDateBadge(ctx, "Created On", dateText(createdOn), width - M - 278, 28, 270, 80);
+  drawDateBadge(ctx, "Created On", dateText(createdOn), width - M - 278, 24, 270, 80);
 
   if (isTextChannel) {
-    drawBigLookbackPanel(
+    drawMetricPanel(
       ctx,
-      "Server Lookback",
-      compactNumber(lookbackWindow?.text || 0),
-      "messages",
-      M,
-      contentTop,
-      topPanelW,
-      topRowH,
-    );
-    drawMetricPanelStatbotRows(
-      ctx,
-      "Messages",
+      "Channel Lookback",
       [
-        { period: "1d", value: `${compactNumber(windows?.d1?.text || 0)} messages` },
-        { period: "7d", value: `${compactNumber(windows?.d7?.text || 0)} messages` },
-        { period: "30d", value: `${compactNumber(windows?.d30?.text || 0)} messages` },
+        { label: "1d", value: `${compactNumber(windows?.d1?.text || 0)} messages` },
+        { label: "7d", value: `${compactNumber(windows?.d7?.text || 0)} messages` },
+        { label: `${safeLookback}d`, value: `${compactNumber(lookbackWindow?.text || 0)} messages` },
       ],
-      topX2,
+      M,
       contentTop,
       topPanelW,
       topRowH,
       { icon: "#" },
     );
-    drawMetricPanelStatbotRows(
+    drawMetricPanel(
       ctx,
       "Contributors",
       [
-        { period: "1d", value: `${Number(windows?.d1?.contributors || 0)} members` },
-        { period: "7d", value: `${Number(windows?.d7?.contributors || 0)} members` },
-        { period: "30d", value: `${Number(windows?.d30?.contributors || 0)} members` },
-      ],
-      topX3,
-      contentTop,
-      topPanelW,
-      topRowH,
-      { icon: "\uD83D\uDC64" },
-    );
-    const messageRows = (topUsersText || []).slice(0, 3).map((r) => ({ label: r?.label || "-", value: compactNumber(r?.value || 0) }));
-    await drawTopListCardStatbotStyle(ctx, "Top Message Members", messageRows, M, bottomTop, bottomPanelW, bottomH, { unit: "messages", icon: "#" });
-    drawMessageOnlyChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomH);
-  } else {
-    drawBigLookbackPanel(
-      ctx,
-      "Server Lookback",
-      formatHours(lookbackWindow?.voiceSeconds || 0),
-      "hours",
-      M,
-      contentTop,
-      topPanelW,
-      topRowH,
-    );
-    drawMetricPanelStatbotRows(
-      ctx,
-      "Voice Activity",
-      [
-        { period: "1d", value: `${formatHours(windows?.d1?.voiceSeconds || 0)} hours` },
-        { period: "7d", value: `${formatHours(windows?.d7?.voiceSeconds || 0)} hours` },
-        { period: "30d", value: `${formatHours(windows?.d30?.voiceSeconds || 0)} hours` },
+        { label: "1d", value: `${Number(windows?.d1?.contributors || 0)} members` },
+        { label: "7d", value: `${Number(windows?.d7?.contributors || 0)} members` },
+        { label: `${safeLookback}d`, value: `${Number(lookbackWindow?.contributors || 0)} members` },
       ],
       topX2,
       contentTop,
       topPanelW,
       topRowH,
-      { icon: "\uD83D\uDD0A" },
+      { icon: "\uD83D\uDC64" },
     );
-    drawMetricPanelStatbotRows(
+    drawMetricPanel(
       ctx,
-      "Contributors",
+      "Messages",
       [
-        { period: "1d", value: `${Number(windows?.d1?.contributors || 0)} members` },
-        { period: "7d", value: `${Number(windows?.d7?.contributors || 0)} members` },
-        { period: "30d", value: `${Number(windows?.d30?.contributors || 0)} members` },
+        { label: "1d", value: `${compactNumber(windows?.d1?.text || 0)} messages` },
+        { label: "7d", value: `${compactNumber(windows?.d7?.text || 0)} messages` },
+        { label: "30d", value: `${compactNumber(windows?.d30?.text || 0)} messages` },
       ],
       topX3,
       contentTop,
       topPanelW,
       topRowH,
+      { icon: "#" },
+    );
+    const messageRows = (topUsersText || []).slice(0, 3).map((r) => ({ label: r?.label || "-", value: compactNumber(r?.value || 0) }));
+    await drawTopListCardStatbotStyle(ctx, "Top Message Members", messageRows, M, bottomTop, bottomPanelW, bottomH, { unit: "messages", icon: "#" });
+    drawMessageOnlyChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomH);
+  } else {
+    drawMetricPanel(
+      ctx,
+      "Channel Lookback",
+      [
+        { label: "1d", value: `${formatHours(windows?.d1?.voiceSeconds || 0)} hours` },
+        { label: "7d", value: `${formatHours(windows?.d7?.voiceSeconds || 0)} hours` },
+        { label: `${safeLookback}d`, value: `${formatHours(lookbackWindow?.voiceSeconds || 0)} hours` },
+      ],
+      M,
+      contentTop,
+      topPanelW,
+      topRowH,
+      { icon: "\uD83D\uDD0A" },
+    );
+    drawMetricPanel(
+      ctx,
+      "Contributors",
+      [
+        { label: "1d", value: `${Number(windows?.d1?.contributors || 0)} members` },
+        { label: "7d", value: `${Number(windows?.d7?.contributors || 0)} members` },
+        { label: `${safeLookback}d`, value: `${Number(lookbackWindow?.contributors || 0)} members` },
+      ],
+      topX2,
+      contentTop,
+      topPanelW,
+      topRowH,
       { icon: "\uD83D\uDC64" },
+    );
+    drawMetricPanel(
+      ctx,
+      "Voice Activity",
+      [
+        { label: "1d", value: `${formatHours(windows?.d1?.voiceSeconds || 0)} hours` },
+        { label: "7d", value: `${formatHours(windows?.d7?.voiceSeconds || 0)} hours` },
+        { label: "30d", value: `${formatHours(windows?.d30?.voiceSeconds || 0)} hours` },
+      ],
+      topX3,
+      contentTop,
+      topPanelW,
+      topRowH,
+      { icon: "\uD83D\uDD0A" },
     );
     const voiceRows = (topUsersVoice || []).slice(0, 3).map((r) => ({ label: r?.label || "-", value: formatHours(r?.value || 0) }));
     await drawTopListCardStatbotStyle(ctx, "Top Voice Members", voiceRows, M, bottomTop, bottomPanelW, bottomH, { unit: "hours", icon: "\uD83D\uDD0A" });
     drawVoiceOnlyChart(ctx, chart, bottomX2, bottomTop, bottomPanelW, bottomH);
   }
 
-  drawLabel(ctx, `Server Lookback: Last ${safeLookback} days — Timezone: ${ROME_TIME_ZONE}`, M, height - 28, {
+  drawLabel(ctx, `Lookback: Last ${safeLookback} days — Timezone: ${ROME_TIME_ZONE}`, M, height - 28, {
     size: 20,
     weight: "700",
     color: "#cfd6e2",
