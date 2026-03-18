@@ -14,7 +14,7 @@ const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation
 const{markJoinGateSuspiciousAccount,}=require("../Services/Moderation/suspiciousAccountService");
 const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/Moderation/securityProfilesService");
 const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
-const { addRolesAndGetMember, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
+const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const{isStaffEventActive,isStaffButNotHighStaff,addStaffEventPoints,}=require("../Services/Community/staffEventService");
 
@@ -1237,7 +1237,11 @@ module.exports = {
         return;
       }
 
-      const welcomeChannel=await resolveGuildChannel(member.guild,IDs.channels.chat,);
+      let welcomeChannel = await resolveGuildChannel(member.guild, IDs.channels.chat);
+      if (!welcomeChannel && member.client && String(member.guild?.id) === String(IDs.guilds?.main)) {
+        const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
+        welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, IDs.channels.chat) : null;
+      }
       if (!welcomeChannel) {
         global.logger.info("[guildMemberAdd] Welcome channel not found.");
       }

@@ -6,7 +6,7 @@ const { formatDuration } = require("../../Utils/Moderation/moderation");
 const{parseFlexibleDuration,}=require("../../Utils/Moderation/durationParser");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 
-const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
+const CUSTOM_VOICE_CATEGORY_ID = "1442569078379118755";
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 function parseOptionalDuration(raw) {
@@ -290,6 +290,18 @@ module.exports = {
       });
       return;
     }
+
+    try {
+      const existingVoicePositions = message.guild.channels.cache
+        .filter((ch) => ch && ch.type === ChannelType.GuildVoice && String(ch.parentId || "") === String(CUSTOM_VOICE_CATEGORY_ID))
+        .filter((ch) => Boolean(ch.permissionOverwrites?.cache?.get(customRole.id)))
+        .map((ch) => Number(ch.position))
+        .filter((n) => Number.isFinite(n));
+      const maxPos = existingVoicePositions.length ? Math.max(...existingVoicePositions) : null;
+      if (maxPos != null && Number.isFinite(maxPos)) {
+        await channel.setPosition(maxPos + 1).catch(() => { });
+      }
+    } catch (_) {}
 
     const updatedDoc=await updateCustomRoleTiming(message.guild.id,message.author.id,durationOption,{customVocChannelId:channel.id},);
 

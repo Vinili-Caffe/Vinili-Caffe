@@ -9,6 +9,7 @@ function warnMinigame(err) {
   const url = err?.response?.config?.url || err?.config?.url;
   const is429 = status === 429 || (typeof msg === "string" && msg.includes("429"));
   const is403 = status === 403 || (typeof msg === "string" && msg.includes("403"));
+  if (is403 && typeof url === "string" && /wikipedia\.org\/api\/rest_v1\/page\/summary/i.test(url)) return;
   const now = Date.now();
   if (is429 && now - last429LogAt < MINIGAME_429_THROTTLE_MS) return;
   if (is429) last429LogAt = now;

@@ -14,7 +14,12 @@ function getVoiceSession(guildId) {
 function setVoiceSession(guildId, payload = {}) {
   const key = normalizeGuildId(guildId);
   if (!key) return null;
-  const next = { mode: String(payload.mode || "unknown"), channelId: String(payload.channelId || ""), updatedAt: Date.now(), };
+  const next = {
+    mode: String(payload.mode || "unknown"),
+    channelId: String(payload.channelId || ""),
+    ownerId: payload.ownerId != null ? String(payload.ownerId || "") : "",
+    updatedAt: Date.now(),
+  };
   sessions.set(key, next);
   return next;
 }

@@ -30,6 +30,10 @@ const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
 const CORE_EXEMPT_USER_IDS=new Set(["1466495522474037463","1329118940110127204",]);
 
+function isPrimaryShard(client) {
+  return !client?.shard || client.shard.ids?.[0] === 0;
+}
+
 function buildJoinGateTriggeredEmbed(member, reason) {
   return new EmbedBuilder()
     .setColor("#F59E0B")
@@ -664,10 +668,12 @@ async function handleBoostUpdate(oldMember, newMember) {
 
   const{currentCount,countIncreased,boostDelta}=computeBoostDelta(oldMember,newMember,guildId,);
   const alreadyBoostingBefore = oldBoostTs > 0;
+  const startedBoostingNow = !alreadyBoostingBefore && newBoostTs > 0;
   const premiumSinceChanged =
     alreadyBoostingBefore && newBoostTs > 0 && newBoostTs !== oldBoostTs;
   const realNewBoost = newBoostTs > 0 && countIncreased;
-  if (!(newBoostTs && (realNewBoost || premiumSinceChanged))) {
+  const shouldAnnounce = Boolean(newBoostTs && (startedBoostingNow || realNewBoost || premiumSinceChanged));
+  if (!shouldAnnounce) {
     boostCountCache.set(guildId, currentCount);
     return;
   }
@@ -696,6 +702,94 @@ async function handleBoostUpdate(oldMember, newMember) {
     currentCount,
   );
   boostCountCache.set(guildId, currentCount);
+}
+
+async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
+  if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds.main || "");
+  if (!guildId) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+
+  const boostChannelId = IDs.channels.supporters;
+  if (!boostChannelId) return { ok: false, reason: "no_boost_channel" };
+  const boostAnnounceChannel = guild.channels.cache.get(boostChannelId) || (await getGuildChannelCached(guild, boostChannelId));
+  if (!boostAnnounceChannel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+
+  const limit = Math.max(1, Math.min(5, Number(opts.limit || 2)));
+  const lookbackMs = Math.max(5 * 60 * 1000, Math.min(24 * 60 * 60 * 1000, Number(opts.lookbackMs || 2 * 60 * 60 * 1000)));
+  const now = Date.now();
+
+  if (!guild.members?.me?.permissions?.has?.(PermissionsBitField.Flags.ViewAuditLog)) {
+    return { ok: false, reason: "missing_auditlog_permission" };
+  }
+
+  const audits = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 50 }).catch(() => null);
+  const entries = audits?.entries ? Array.from(audits.entries.values()) : [];
+  const candidates = [];
+  for (const entry of entries) {
+    const createdMs = Number(entry?.createdTimestamp || 0);
+    if (!createdMs || now - createdMs > lookbackMs) continue;
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+    const hasPremiumSinceChange = changes.some((c) => String(c?.key || "").toLowerCase() === "premium_since");
+    if (!hasPremiumSinceChange) continue;
+    const targetId = String(entry?.target?.id || "");
+    if (!targetId) continue;
+    candidates.push({ targetId, createdMs });
+  }
+
+  const unique = [];
+  const seen = new Set();
+  for (const c of candidates.sort((a, b) => Number(b.createdMs) - Number(a.createdMs))) {
+    if (seen.has(c.targetId)) continue;
+    seen.add(c.targetId);
+    unique.push(c);
+    if (unique.length >= limit) break;
+  }
+
+  if (!unique.length) return { ok: true, recovered: 0 };
+
+  const recentMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
+  const recent = recentMessages ? Array.from(recentMessages.values()) : [];
+  const wasAlreadyAnnounced = (userId) => {
+    const needle = `<@${String(userId)}>`;
+    const idStr = String(userId);
+    return recent.some((m) => {
+      if (!m) return false;
+      if (String(m.author?.id || "") !== String(client.user?.id || "")) return false;
+      const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+      const text = [
+        m.content || "",
+        ...embeds.map((e) => e?.description || ""),
+        ...embeds.map((e) => e?.title || ""),
+      ].join("\n");
+      return text.includes(needle) || text.includes(idStr);
+    });
+  };
+
+  const freshGuild = await guild.fetch().catch(() => null);
+  const currentCount = Number(freshGuild?.premiumSubscriptionCount || guild.premiumSubscriptionCount || 0);
+  boostCountCache.set(guild.id, currentCount);
+
+  let recovered = 0;
+  for (const { targetId } of unique) {
+    if (wasAlreadyAnnounced(targetId)) continue;
+    const member = await getGuildMemberCached(guild, targetId, { preferFresh: true }).catch(() => null);
+    if (!member?.user) continue;
+    if (!Number(member.premiumSinceTimestamp || 0)) continue;
+
+    await addPerkRoleIfPossible(member).catch(() => {});
+    await sendBoostEmbeds(boostAnnounceChannel, member, 1, currentCount).catch(() => {});
+
+    const boostKey = `${guild.id}:${member.id}`;
+    boostAnnounceCache.set(boostKey, currentCount);
+    recovered += 1;
+
+    scheduleBoostFollowup(boostAnnounceChannel, member, guild.id, boostKey, currentCount);
+    await sleep(900);
+  }
+
+  return { ok: true, recovered };
 }
 
 module.exports = {
@@ -738,4 +832,5 @@ module.exports = {
       global.logger?.error?.("[guildMemberUpdate] failed:", error);
     }
   },
+  recoverRecentBoostEmbedsOnStartup,
 };

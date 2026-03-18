@@ -5,6 +5,7 @@ const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePen
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
+const { recoverRecentBoostEmbedsOnStartup } = require("./guildMemberUpdate");
 const{runDueOneTimeReminders,}=require("../Services/Reminders/oneTimeReminderService");
 const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigames/minigameService");
 const{startWeeklyDmReminderLoop,}=require("../Services/Community/weeklyDmReminderService");
@@ -333,7 +334,7 @@ async function restoreBumpReminders(client) {
 }
 
 async function restoreCoreStartupState(client) {
-  const[bootstrap,inviteCache,tts,liveVoiceSync,joinRaidRestore]=await Promise.allSettled([bootstrapSupporter(client),primeInviteCache(client),restoreTtsConnections(client),syncLiveVoiceSessionsFromGateway(client),Promise.allSettled([...client.guilds.cache.values()].map((guild) => restoreTempBans(guild,{force:true}),),),]);
+  const[bootstrap,inviteCache,tts,liveVoiceSync,joinRaidRestore,boostRecovery]=await Promise.allSettled([bootstrapSupporter(client),primeInviteCache(client),restoreTtsConnections(client),syncLiveVoiceSessionsFromGateway(client),Promise.allSettled([...client.guilds.cache.values()].map((guild) => restoreTempBans(guild,{force:true}),),),recoverRecentBoostEmbedsOnStartup(client,{limit:2,lookbackMs:2*60*60*1000,}),]);
 
   if (bootstrap.status === "rejected")
     global.logger?.error?.("[PRESENCE BOOTSTRAP ERROR]", bootstrap.reason);
@@ -345,6 +346,8 @@ async function restoreCoreStartupState(client) {
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
   if (joinRaidRestore.status === "rejected")
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
+  if (boostRecovery.status === "rejected")
+    global.logger?.error?.("[BOOST RECOVERY ERROR]", boostRecovery.reason);
 }
 
 async function runStartupPanels(client, label = "immediate") {

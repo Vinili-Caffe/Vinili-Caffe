@@ -1,5 +1,5 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js");
-const { leaveTtsGuild } = require("../Services/TTS/ttsService");
+const { leaveTtsGuild, handleTtsBotVoiceMove } = require("../Services/TTS/ttsService");
 const { handleMusicVoiceStateUpdate } = require("../Services/Music/musicService");
 const { getVoiceSession } = require("../Services/Voice/voiceSessionService");
 const{handleVoiceActivity,}=require("../Services/Community/activityService");
@@ -167,6 +167,34 @@ async function sendMemberDisconnectLog(oldState, newState) {
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberDisconnectLog failed:");
 }
 
+async function sendMemberJoinLog(oldState, newState) {
+  const member = newState?.member || oldState?.member;
+  const user = member?.user;
+  if (!member || !user) return;
+  if (oldState?.channelId || !newState?.channelId) return;
+
+  const guild = newState?.guild || oldState?.guild;
+  if (!guild) return;
+
+  const logChannel = await resolveActivityLogChannel(guild);
+  if (!logChannel?.isTextBased?.()) return;
+  const newChannelId = String(newState?.channelId || "");
+  const destination = newState?.channel || (newChannelId ? `<#${newChannelId}>` : "#sconosciuto");
+
+  const embed = new EmbedBuilder()
+    .setColor("#57F287")
+    .setTitle("Member Join")
+    .setDescription([
+      `<:VC_right_arrow:1482459908245815296> **Target:** ${user}\`${user.id}\``,
+      `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+      "",
+      "**Additional Information**",
+      `<:VC_right_arrow:1482459908245815296> **Channel:** ${destination}\`${newChannelId || "sconosciuto"}\``,
+    ].join("\n"));
+
+  await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberJoinLog failed:");
+}
+
 async function sendMemberMoveLog(oldState, newState) {
   const member = newState?.member || oldState?.member;
   const user = member?.user;
@@ -210,19 +238,22 @@ async function sendMemberVoiceFlagsUpdateLog(oldState, newState) {
 
   const muteChanged = Boolean(oldState?.serverMute) !== Boolean(newState?.serverMute);
   const deafChanged = Boolean(oldState?.serverDeaf) !== Boolean(newState?.serverDeaf);
-  if (!muteChanged && !deafChanged) return;
+  const selfMuteChanged = Boolean(oldState?.selfMute) !== Boolean(newState?.selfMute);
+  const selfDeafChanged = Boolean(oldState?.selfDeaf) !== Boolean(newState?.selfDeaf);
+  if (!muteChanged && !deafChanged && !selfMuteChanged && !selfDeafChanged) return;
 
   const logChannel = await resolveActivityLogChannel(guild);
   if (!logChannel?.isTextBased?.()) return;
 
-  const audit = await resolveMemberUpdateAuditInfo(guild, user.id);
-  const responsibleText = formatActor(audit.executor);
+  const auditNeeded = muteChanged || deafChanged;
+  const audit = auditNeeded ? await resolveMemberUpdateAuditInfo(guild, user.id) : { executor: null, reason: null };
+  const responsibleText = auditNeeded ? formatActor(audit.executor) : `${user} \`${user.id}\``;
 
   const lines = [`<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
     `<:VC_right_arrow:1482459908245815296> **Target:** ${user}\`${user.id}\``,
     `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
   ];
-  if (audit.reason) {
+  if (auditNeeded && audit.reason) {
     lines.push(`<:VC_right_arrow:1482459908245815296> **Reason:** ${audit.reason}`);
   }
   lines.push("", "**Changes**");
@@ -234,6 +265,14 @@ async function sendMemberVoiceFlagsUpdateLog(oldState, newState) {
   if (deafChanged) {
     lines.push("<:VC_right_arrow:1482459908245815296> **Deaf**");
     lines.push(`  ${yesNo(Boolean(oldState?.serverDeaf))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.serverDeaf))}`);
+  }
+  if (selfMuteChanged) {
+    lines.push("<:VC_right_arrow:1482459908245815296> **Self Mute**");
+    lines.push(`  ${yesNo(Boolean(oldState?.selfMute))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.selfMute))}`);
+  }
+  if (selfDeafChanged) {
+    lines.push("<:VC_right_arrow:1482459908245815296> **Self Deaf**");
+    lines.push(`  ${yesNo(Boolean(oldState?.selfDeaf))} <:VC_right_arrow:1482459908245815296> ${yesNo(Boolean(newState?.selfDeaf))}`);
   }
 
   const embed = new EmbedBuilder()
@@ -262,6 +301,11 @@ module.exports = {
     } catch (error) {
       global.logger?.error?.("[voiceStateUpdate] disconnect log failed:", error);
     }
+    try {
+      await sendMemberJoinLog(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[voiceStateUpdate] join log failed:", error);
+    }
 
     try {
       await handleVoiceActivity(oldState, newState);
@@ -287,6 +331,21 @@ module.exports = {
     const voiceSession = getVoiceSession(guild.id);
 
     if (voiceSession?.mode === "music") return;
+
+    if (
+      oldState.id === client.user.id &&
+      oldState.channelId &&
+      newState.channelId &&
+      String(oldState.channelId) !== String(newState.channelId)
+    ) {
+      const newChannelId = String(newState.channelId);
+      const channel = guild.channels?.cache?.get(newChannelId) || (await guild.channels?.fetch?.(newChannelId).catch(() => null));
+      if (channel?.isVoiceBased?.()) {
+        await handleTtsBotVoiceMove({ voiceChannel: channel, oldChannelId: oldState.channelId }).catch((err) => {
+          global.logger?.warn?.("[voiceStateUpdate] handleTtsBotVoiceMove failed:", err?.message || err);
+        });
+      }
+    }
 
     if (
       oldState.id === client.user.id &&

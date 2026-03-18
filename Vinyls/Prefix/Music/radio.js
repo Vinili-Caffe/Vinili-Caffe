@@ -189,6 +189,7 @@ module.exports = {
         channel: message.channel,
         voiceChannel,
         station,
+        requestedBy: message.member,
       });
 
       if (!result?.ok) {

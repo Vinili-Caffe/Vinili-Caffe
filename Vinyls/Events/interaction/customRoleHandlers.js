@@ -1,4 +1,4 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField, ChannelType, } = require("discord.js");
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField, ChannelType, } = require("discord.js");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const axios = require("axios");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
@@ -322,6 +322,31 @@ async function handleRoleActionButton(interaction) {
     return true;
   }
 
+  if (head === "customrole_color") {
+    const panelMessageId = interaction.message?.id || "";
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId(`customrole_color_type_select:${ownerId}:${roleId}:${panelMessageId}`)
+      .setPlaceholder("Scegli il tipo di colore")
+      .addOptions(
+        { label: "Solido (1 colore)", value: "solid", description: "Imposta un singolo colore HEX" },
+        { label: "Gradiente (2 colori)", value: "gradient", description: "Imposta due colori HEX" },
+        { label: "Olografico", value: "holo", description: "Stile olografico predefinito" },
+      );
+    await interaction
+      .reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#6f4e37")
+            .setTitle("Modifica colore ruolo")
+            .setDescription("Scegli come vuoi impostare il colore del tuo custom role."),
+        ],
+        components: [new ActionRowBuilder().addComponents(menu)],
+        flags: 1 << 6,
+      })
+      .catch(() => { });
+    return true;
+  }
+
   let modalId = null;
   let title = null;
   let label = null;
@@ -333,22 +358,50 @@ async function handleRoleActionButton(interaction) {
     title = "Modifica nome ruolo";
     label = "Nuovo nome";
     placeholder = "Es: AstroFam";
-  } else if (head === "customrole_color") {
-    modalId = `customrole_modal_color:${ownerId}:${roleId}:${panelMessageId}`;
-    title = "Modifica colore ruolo";
+  } else if (head === "customrole_color_solid") {
+    modalId = `customrole_modal_color_solid:${ownerId}:${roleId}:${panelMessageId}`;
+    title = "Colore solido";
     label = "Colore HEX";
     placeholder = "Es: #ff66cc";
+  } else if (head === "customrole_color_gradient") {
+    modalId = `customrole_modal_color_gradient:${ownerId}:${roleId}:${panelMessageId}`;
+    title = "Colore gradiente";
   } else if (head === "customrole_emoji") {
     modalId = `customrole_modal_emoji:${ownerId}:${roleId}:${panelMessageId}`;
     title = "Imposta emoji o icona ruolo";
     label = "Emoji unicode o URL immagine";
     placeholder = "Es: ? oppure https://.../icon.png";
+  } else if (head === "customrole_color_holo") {
+    const role = await fetchRole(interaction, roleId);
+    if (!role) return true;
+    if (!canManageRole(interaction, role)) {
+      await interaction.reply({ content: "<:attentionfromvega:1443651874032062505> Non posso modificare questo ruolo.", flags: 1 << 6 }).catch(() => { });
+      return true;
+    }
+    const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
+    const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${interaction.user.tag}`).then(() => true).catch(() => false);
+    if (!edited) {
+      await interaction.reply({ content: "<:attentionfromvega:1443651874032062505> Non sono riuscito ad applicare lo stile olografico.", flags: 1 << 6 }).catch(() => { });
+      return true;
+    }
+    await updatePanelMessage(interaction, panelMessageId, role);
+    await interaction.reply({ content: "<:success:1461731530333229226> Stile olografico applicato.", flags: 1 << 6 }).catch(() => { });
+    return true;
   }
   if (!modalId) return true;
 
-  const input = new TextInputBuilder().setCustomId("value").setLabel(String(label || "").slice(0, 45)).setStyle(TextInputStyle.Short).setRequired(head !== "customrole_emoji").setPlaceholder(placeholder).setMaxLength(4000);
+  const rows = [];
+  if (head === "customrole_color_gradient") {
+    const input1 = new TextInputBuilder().setCustomId("value1").setLabel("Colore 1 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
+    const input2 = new TextInputBuilder().setCustomId("value2").setLabel("Colore 2 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #6f4e37").setMaxLength(64);
+    rows.push(new ActionRowBuilder().addComponents(input1));
+    rows.push(new ActionRowBuilder().addComponents(input2));
+  } else {
+    const input = new TextInputBuilder().setCustomId("value").setLabel(String(label || "").slice(0, 45)).setStyle(TextInputStyle.Short).setRequired(head !== "customrole_emoji").setPlaceholder(placeholder).setMaxLength(4000);
+    rows.push(new ActionRowBuilder().addComponents(input));
+  }
 
-  const modal = new ModalBuilder().setCustomId(modalId).setTitle(String(title || "").slice(0, 45)).addComponents(new ActionRowBuilder().addComponents(input));
+  const modal = new ModalBuilder().setCustomId(modalId).setTitle(String(title || "").slice(0, 45)).addComponents(...rows);
   const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
   if (!shown) {
     await replyEphemeral(interaction, {
@@ -409,7 +462,8 @@ async function handleRoleActionModal(interaction) {
   }
 
   if (action === "name") {
-    const name = String(value).slice(0, 32).trim();
+    const cleaned = String(value).replace(/\s+/g, " ").trim();
+    const name = (cleaned.startsWith("༄") ? cleaned : `༄ ${cleaned}`).slice(0, 32).trim();
     if (!name) {
       await interaction
         .reply({
@@ -443,7 +497,7 @@ async function handleRoleActionModal(interaction) {
     return true;
   }
 
-  if (action === "color") {
+  if (action === "color" || action === "color_solid") {
     const hex = value.startsWith("#") ? value : `#${value}`;
     if (!/^#?[0-9a-fA-F]{6}$/.test(hex)) {
       await interaction
@@ -456,7 +510,7 @@ async function handleRoleActionModal(interaction) {
       return true;
     }
     const edited = await role
-      .edit({ color: hex }, `Custom role color by ${interaction.user.tag}`)
+      .edit({ colors: { primaryColor: hex } }, `Custom role color by ${interaction.user.tag}`)
       .then(() => true)
       .catch(() => false);
     const colorApplied = edited || await confirmRoleState((liveRole) => String(liveRole.hexColor || "").toUpperCase() === hex.toUpperCase());
@@ -477,6 +531,26 @@ async function handleRoleActionModal(interaction) {
         flags: 1 << 6,
       })
       .catch(() => { });
+    return true;
+  }
+
+  if (action === "color_gradient") {
+    const raw1 = interaction.fields.getTextInputValue("value1")?.trim() || "";
+    const raw2 = interaction.fields.getTextInputValue("value2")?.trim() || "";
+    const hex1 = raw1.startsWith("#") ? raw1 : `#${raw1}`;
+    const hex2 = raw2.startsWith("#") ? raw2 : `#${raw2}`;
+    if (!/^#?[0-9a-fA-F]{6}$/.test(hex1) || !/^#?[0-9a-fA-F]{6}$/.test(hex2)) {
+      await interaction.reply({ content: "<:vegax:1443934876440068179> Colori HEX non validi. Esempio: `#ff66cc`.", flags: 1 << 6 }).catch(() => { });
+      return true;
+    }
+    const edited = await role.edit({ colors: { primaryColor: hex1, secondaryColor: hex2 } }, `Custom role gradient by ${interaction.user.tag}`).then(() => true).catch(() => false);
+    const applied = edited || await confirmRoleState((liveRole) => String(liveRole.hexColor || "").toUpperCase() === hex1.toUpperCase());
+    if (!applied) {
+      await interaction.reply({ content: "<:attentionfromvega:1443651874032062505> Non sono riuscito ad applicare il gradiente.", flags: 1 << 6 }).catch(() => { });
+      return true;
+    }
+    await updatePanelMessage(interaction, panelMessageId, role);
+    await interaction.reply({ content: `<:success:1461731530333229226> Gradiente aggiornato: \`${hex1}\` → \`${hex2}\``, flags: 1 << 6 }).catch(() => { });
     return true;
   }
 
@@ -549,6 +623,51 @@ async function handleRoleActionModal(interaction) {
         .catch(() => { });
       return true;
     }
+    const customEmojiMatch = String(value || "").trim().match(/^<(?:(a):)?[a-zA-Z0-9_]+:(\d+)>$/);
+    if (customEmojiMatch) {
+      const animated = Boolean(customEmojiMatch[1]);
+      const emojiId = String(customEmojiMatch[2] || "");
+      const ext = animated ? "gif" : "png";
+      const emojiUrl = `https://cdn.discordapp.com/emojis/${emojiId}.${ext}?size=128&quality=lossless`;
+      const iconBuffer = await axios.get(emojiUrl, { responseType: "arraybuffer", timeout: 15000, }).then((r) => r?.status >= 200 && r?.status < 300 ? Buffer.from(r.data) : null,).catch(() => null);
+      if (!iconBuffer) {
+        await interaction
+          .reply({
+            content:
+              "<:attentionfromvega:1443651874032062505> Non sono riuscito a caricare l'emoji. Assicurati che sia una custom emoji valida e accessibile.",
+            flags: 1 << 6,
+          })
+          .catch(() => { });
+        return true;
+      }
+      const edited = await role
+        .edit(
+          { icon: iconBuffer, unicodeEmoji: null },
+          `Custom role icon (emoji) by ${interaction.user.tag}`,
+        )
+        .then(() => true)
+        .catch(() => false);
+      const iconApplied = edited || await confirmRoleState((liveRole) => Boolean(liveRole.icon));
+      if (!iconApplied) {
+        await interaction
+          .reply({
+            content:
+              "<:attentionfromvega:1443651874032062505> Non sono riuscito ad aggiornare l'icona del ruolo.",
+            flags: 1 << 6,
+          })
+          .catch(() => { });
+        return true;
+      }
+      await updatePanelMessage(interaction, panelMessageId, role);
+      await interaction
+        .reply({
+          content:
+            "<:success:1461731530333229226> Icona ruolo aggiornata con la custom emoji.",
+          flags: 1 << 6,
+        })
+        .catch(() => { });
+      return true;
+    }
     const edited = await role
       .edit(
         { unicodeEmoji: value, icon: null },
@@ -576,6 +695,52 @@ async function handleRoleActionModal(interaction) {
     return true;
   }
 
+  return true;
+}
+
+async function handleRoleColorTypeSelect(interaction) {
+  if (!interaction.isStringSelectMenu?.() || !interaction.guild) return false;
+  const customId = String(interaction.customId || "");
+  if (!customId.startsWith("customrole_color_type_select:")) return false;
+
+  const parts = customId.split(":");
+  if (parts.length < 4) return true;
+  const [, ownerId, roleId, panelMessageId] = parts;
+  const choice = String(interaction.values?.[0] || "");
+  if (!(await checkOwnership(interaction, ownerId))) return true;
+
+  if (choice === "solid") {
+    const modalId = `customrole_modal_color_solid:${ownerId}:${roleId}:${panelMessageId || ""}`;
+    const input = new TextInputBuilder().setCustomId("value").setLabel("Colore HEX").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
+    const modal = new ModalBuilder().setCustomId(modalId).setTitle("Colore solido").addComponents(new ActionRowBuilder().addComponents(input));
+    await interaction.showModal(modal).catch(() => { });
+    return true;
+  }
+
+  if (choice === "gradient") {
+    const modalId = `customrole_modal_color_gradient:${ownerId}:${roleId}:${panelMessageId || ""}`;
+    const input1 = new TextInputBuilder().setCustomId("value1").setLabel("Colore 1 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
+    const input2 = new TextInputBuilder().setCustomId("value2").setLabel("Colore 2 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #6f4e37").setMaxLength(64);
+    const modal = new ModalBuilder().setCustomId(modalId).setTitle("Colore gradiente").addComponents(new ActionRowBuilder().addComponents(input1), new ActionRowBuilder().addComponents(input2));
+    await interaction.showModal(modal).catch(() => { });
+    return true;
+  }
+
+  if (choice === "holo") {
+    const role = await fetchRole(interaction, roleId);
+    if (!role) return true;
+    if (!canManageRole(interaction, role)) {
+      await interaction.update({ content: "<:attentionfromvega:1443651874032062505> Non posso modificare questo ruolo.", embeds: [], components: [] }).catch(() => { });
+      return true;
+    }
+    const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
+    const edited = await role.edit({ colors: HOLO }, `Custom role holographic by ${interaction.user.tag}`).then(() => true).catch(() => false);
+    await interaction.update({ content: edited ? "<:success:1461731530333229226> Stile olografico applicato." : "<:attentionfromvega:1443651874032062505> Non sono riuscito ad applicare lo stile olografico.", embeds: [], components: [] }).catch(() => { });
+    if (edited) await updatePanelMessage(interaction, panelMessageId, role);
+    return true;
+  }
+
+  await interaction.update({ content: "<:vegax:1443934876440068179> Scelta non valida.", embeds: [], components: [] }).catch(() => { });
   return true;
 }
 
@@ -1115,6 +1280,7 @@ async function handleCustomRoleInteraction(interaction) {
   if (await handleCustomVocModal(interaction)) return true;
   if (await handleAddRemoveSelectMenus(interaction)) return true;
   if (await handleGrantButtons(interaction)) return true;
+  if (await handleRoleColorTypeSelect(interaction)) return true;
   if (await handleRoleActionButton(interaction)) return true;
   if (await handleRoleActionModal(interaction)) return true;
   return false;

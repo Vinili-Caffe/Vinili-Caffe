@@ -478,6 +478,44 @@ function clearLockedChannel(guildId, channelId) {
     guildLocks.delete(String(guildId));
   }
 }
+
+async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
+  if (!voiceChannel?.guild?.id || !voiceChannel?.id || !oldChannelId) return { ok: false, reason: "invalid" };
+  const guildId = String(voiceChannel.guild.id);
+  const oldId = String(oldChannelId);
+  const newId = String(voiceChannel.id);
+  if (!newId || !oldId || oldId === newId) return { ok: false, reason: "no_change" };
+
+  let lockedChannelId = getLockedChannelId(guildId);
+  if (!lockedChannelId) lockedChannelId = findLockedChannelIdByGuild(guildId);
+  if (lockedChannelId && String(lockedChannelId) !== oldId) {
+    return { ok: false, reason: "not_tts_channel" };
+  }
+
+  const oldState = ttsStates.get(oldId) || null;
+  const newState = ttsStates.get(newId) || null;
+
+  if (newState && newState !== oldState) {
+    try { if (newState.connection) newState.connection.destroy(); } catch (_) {}
+    ttsStates.delete(newId);
+  }
+
+  if (oldState) {
+    ttsStates.delete(oldId);
+    oldState.guildId = guildId;
+    oldState.channelId = newId;
+    if (oldState.connection?.joinConfig) {
+      try { oldState.connection.joinConfig.channelId = newId; } catch (_) {}
+    }
+    try { oldState.connection?.subscribe?.(oldState.player); } catch (_) {}
+    ttsStates.set(newId, oldState);
+  }
+
+  clearLockedChannel(guildId, oldId);
+  setLockedChannel(guildId, newId);
+  await saveVoiceState(guildId, newId);
+  return { ok: true };
+}
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -862,4 +900,4 @@ function clearGuildTtsLock(guildId) {
   guildLocks.delete(String(guildId));
 }
 
-module.exports = { handleTtsMessage, armTtsChannel, joinTtsChannel, leaveTtsGuild, setTtsLockedChannel, clearGuildTtsLock, setUserTtsLang, getUserTtsLang, restoreTtsConnections };
+module.exports = { handleTtsMessage, armTtsChannel, joinTtsChannel, leaveTtsGuild, setTtsLockedChannel, clearGuildTtsLock, setUserTtsLang, getUserTtsLang, restoreTtsConnections, handleTtsBotVoiceMove };

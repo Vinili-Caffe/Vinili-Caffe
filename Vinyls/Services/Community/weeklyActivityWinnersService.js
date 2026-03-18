@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require(
 const cron = require("node-cron");
 const { ActivityUser, ActivityDaily, ActivityHourly, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
-const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
+const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
 const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("./staffEventService");
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
 const { isEventStaffMember } = require("./expService");
@@ -20,6 +20,14 @@ const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
 const VOICE_WINNER_ROLE_ID = IDs.roles.TopWeeklyVoc;
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const EXCLUDED_ROLE_IDS = new Set([IDs.roles.Staff, IDs.roles.HighStaff,].filter(Boolean).map((id) => String(id)),);
+
+const EVENT_WEEK3_SKIP_ROLE_IDS = [
+  IDs.roles.ServerBooster,
+  IDs.roles.vip,
+  IDs.roles.Donator,
+  IDs.roles.Level50,
+  IDs.roles.Level70,
+].filter(Boolean).map(String);
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -218,6 +226,51 @@ async function getEventWeekTopNTextAndVoice(guild, eventWeekNum, limit = 10) {
       topVoice.push({ userId: row.userId, voiceSeconds: row.voiceSeconds });
   }
   return { topMessages, topVoice };
+}
+
+function memberHasAnyRole(member, roleIds = []) {
+  if (!member?.roles?.cache) return false;
+  return roleIds.some((id) => member.roles.cache.has(String(id)));
+}
+
+async function shouldSkipEventWinner(guild, userId, eventWeekNum) {
+  const w = Number(eventWeekNum || 0);
+  const member = await getGuildMemberCached(guild, userId).catch(() => null);
+  if (!member) return true;
+  if (isEventStaffMember(member)) return true;
+
+  if (w === 3) {
+    if (memberHasAnyRole(member, EVENT_WEEK3_SKIP_ROLE_IDS)) return true;
+    const alreadyGranted = await hasEventWeekWinnerGrant(guild.id, userId, 3).catch(() => false);
+    if (alreadyGranted) return true;
+    return false;
+  }
+
+  if (w === 4) {
+    const vipId = IDs.roles.VIP;
+    if (vipId && member.roles.cache.has(String(vipId))) return true;
+    return false;
+  }
+
+  return false;
+}
+
+async function filterEventTopForWeek(guild, eventWeekNum, topMessages = [], topVoice = []) {
+  const w = Number(eventWeekNum || 0);
+  if (w !== 3 && w !== 4) return { topMessages, topVoice };
+  const outMessages = [];
+  for (const row of Array.isArray(topMessages) ? topMessages : []) {
+    if (!row?.userId) continue;
+    if (await shouldSkipEventWinner(guild, row.userId, w)) continue;
+    outMessages.push(row);
+  }
+  const outVoice = [];
+  for (const row of Array.isArray(topVoice) ? topVoice : []) {
+    if (!row?.userId) continue;
+    if (await shouldSkipEventWinner(guild, row.userId, w)) continue;
+    outVoice.push(row);
+  }
+  return { topMessages: outMessages, topVoice: outVoice };
 }
 
 function buildEmptyLine(kind) {
@@ -627,9 +680,17 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   let eventTopMessages = [];
   let eventTopVoice = [];
   if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4) {
-    const eventTop = await getEventWeekTopThreeTextAndVoice(guild, eventPayoutWeek);
-    eventTopMessages = eventTop.topMessages || [];
-    eventTopVoice = eventTop.topVoice || [];
+    const pool = await getEventWeekTopNTextAndVoice(guild, eventPayoutWeek, 20);
+    const filtered = await filterEventTopForWeek(guild, eventPayoutWeek, pool.topMessages || [], pool.topVoice || []);
+    const deduped = deduplicateTopTwoLists(
+      (filtered.topMessages || []).slice(0, 3),
+      (filtered.topVoice || []).slice(0, 3),
+      filtered.topMessages || [],
+      filtered.topVoice || [],
+      3,
+    );
+    eventTopMessages = deduped.listA || [];
+    eventTopVoice = deduped.listB || [];
   }
 
   const weeklyRows = await loadWeeklyRowsFromHourlyWindow(guild, now);
@@ -662,12 +723,8 @@ async function publishWeeklyActivityWinners(client, options = {}) {
 
   const awarded = await updateWeeklyWinnerRoles(guild, displayTopMessages, displayTopVoice);
   const topSixUserIds = new Set();
-  for (const item of eventTopMessages) {
-    if (item?.userId) topSixUserIds.add(item.userId);
-  }
-  for (const item of eventTopVoice) {
-    if (item?.userId) topSixUserIds.add(item.userId);
-  }
+  for (const item of eventTopMessages) if (item?.userId) topSixUserIds.add(item.userId);
+  for (const item of eventTopVoice) if (item?.userId) topSixUserIds.add(item.userId);
   if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4 && topSixUserIds.size > 0) {
     const VIP_ID = IDs.roles.VIP;
     const me = guild.members.me;

@@ -126,9 +126,11 @@ function createBumpReminderService(options) {
     let lastBumpAt = bumpDate;
     let doc = null;
     let previousLastBumpAt = null;
+    let previousReminderSentAt = null;
     try {
       const before = await model.findOne({ guildId }).lean().catch(() => null);
       if (before?.lastBumpAt) previousLastBumpAt = new Date(before.lastBumpAt);
+      if (before?.reminderSentAt) previousReminderSentAt = new Date(before.reminderSentAt);
       doc = await model.findOneAndUpdate(
         { guildId },
         {
@@ -145,7 +147,7 @@ function createBumpReminderService(options) {
       global.logger?.error?.(`${errorTag} setBumpAt DB failed, scheduling in-memory anyway:`, err?.message || err);
     }
     scheduleReminder(client, guildId, lastBumpAt);
-    return { doc, previousLastBumpAt };
+    return { doc, previousLastBumpAt, previousReminderSentAt };
   }
 
   async function recordBump(client, guildId, userId) {
@@ -474,16 +476,17 @@ function getRewardConfig(client, source) {
   return base;
 }
 
-async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, cooldownMs, baseExpOverride) {
+async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, cooldownMs, baseExpOverride, fastSinceAt = null) {
   if (!guild?.id || !userId) return null;
   const now = Date.now();
   const lastSlotAt = previousLastAt ? new Date(previousLastAt).getTime() : 0;
+  const fastRefAt = fastSinceAt ? new Date(fastSinceAt).getTime() : lastSlotAt;
   const cfg = getRewardConfig(client, source);
   const baseExp = Number(baseExpOverride) > 0 ? Number(baseExpOverride) : (Number(cfg?.baseExp ?? 100) || 100);
   const fastCfg = cfg?.fastGuess ?? {};
   const windowMs = Number(fastCfg.windowMs ?? 15 * 60 * 1000) || 0;
   const fastMultiplier = Number(fastCfg.multiplier ?? 1.5) || 1;
-  const isFast = windowMs > 0 && lastSlotAt > 0 && (now - lastSlotAt) <= windowMs;
+  const isFast = windowMs > 0 && fastRefAt > 0 && (now - fastRefAt) <= windowMs;
   const fastBonus = isFast ? Math.round(baseExp * (fastMultiplier - 1)) : 0;
   const streakCfg = cfg?.streak ?? {};
   const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;

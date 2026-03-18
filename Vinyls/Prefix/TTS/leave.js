@@ -3,7 +3,7 @@ const { getVoiceConnection } = require("@discordjs/voice");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { leaveTtsGuild } = require("../../Services/TTS/ttsService");
 const { forceDisconnectGuildVoice } = require("../../Services/Music/musicService");
-const { clearVoiceSession } = require("../../Services/Voice/voiceSessionService");
+const { clearVoiceSession, getVoiceSession } = require("../../Services/Voice/voiceSessionService");
 
 module.exports = {
   name: "leave",
@@ -11,6 +11,21 @@ module.exports = {
   async execute(message) {
     await message.channel.sendTyping();
 
+    const session = getVoiceSession(message.guild?.id);
+    const ownerId = session?.ownerId ? String(session.ownerId) : "";
+    const botChannelId = message.guild?.members?.me?.voice?.channelId ? String(message.guild.members.me.voice.channelId) : "";
+    if (ownerId && botChannelId && String(message.author?.id || "") !== ownerId) {
+      const ownerMember = await message.guild.members.fetch(ownerId).catch(() => null);
+      const ownerInBotChannel = Boolean(ownerMember?.voice?.channelId && String(ownerMember.voice.channelId) === botChannelId);
+      if (ownerInBotChannel) {
+        const denied = new EmbedBuilder()
+          .setColor("#ED4245")
+          .setDescription(`Solo chi ha avviato la sessione può usare \`+leave\` finché è in vocale: <@${ownerId}>.`);
+        return safeMessageReply(message, { embeds: [denied], allowedMentions: { users: [] } });
+      }
+    }
+
+    const wasInVoice = Boolean(botChannelId);
     await forceDisconnectGuildVoice(message.client, message.guild.id).catch(() => null);
     const ttsVc = getVoiceConnection(String(message.guild.id));
     if (ttsVc) ttsVc.destroy();

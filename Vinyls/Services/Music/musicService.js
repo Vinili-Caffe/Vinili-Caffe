@@ -1,4 +1,5 @@
 const axios = require("axios");
+const net = require("net");
 const { EmbedBuilder } = require("discord.js");
 const { leaveTtsGuild, clearGuildTtsLock } = require("../TTS/ttsService");
 const { resolvePlayableRadioUrl } = require("./radioService");
@@ -36,6 +37,44 @@ function logMusic(event, payload = {}) {
   const line = `[MUSIC][${event}]${parts.length ? ` ${parts.join(" | ")}` : ""}`;
   if (logger.info) logger.info(line);
   else if (logger.warn) logger.warn(line);
+}
+
+function parseHostPort(host) {
+  const raw = String(host || "").trim();
+  const m = raw.match(/^(.+):(\d{2,5})$/);
+  if (m) return { host: m[1], port: Number(m[2]) };
+  return { host: raw || "127.0.0.1", port: 2333 };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0))));
+}
+
+async function waitForTcp(host, timeoutMs) {
+  const { host: h, port } = parseHostPort(host);
+  const ms = Math.max(0, Number(timeoutMs || 0));
+  if (!ms) return true;
+  const started = Date.now();
+  let attempt = 0;
+  while (Date.now() - started < ms) {
+    attempt += 1;
+    const ok = await new Promise((resolve) => {
+      const s = net.createConnection({ host: h, port }, () => {
+        s.end();
+        resolve(true);
+      });
+      s.setTimeout(1000);
+      s.on("error", () => resolve(false));
+      s.on("timeout", () => {
+        s.destroy();
+        resolve(false);
+      });
+    });
+    if (ok) return true;
+    const backoff = Math.min(5000, 250 * attempt);
+    await sleep(backoff);
+  }
+  return false;
 }
 
 function cleanQuery(value) {
@@ -653,13 +692,25 @@ async function getPlayer(client) {
   const auth = String(process.env.LAVALINK_PASSWORD || "youshallnotpass").trim();
   const secure = ["1", "true", "yes", "on"].includes(String(process.env.LAVALINK_SECURE || "").toLowerCase());
   const name = String(process.env.LAVALINK_NAME || "main").trim() || "main";
+  const waitMs = Number(process.env.LAVALINK_WAIT_MS || 15000);
+  const ready = await waitForTcp(host, waitMs);
+  if (!ready) {
+    logMusic("lavalink_wait_timeout", { host, waitMs });
+  } else {
+    logMusic("lavalink_wait_ok", { host });
+  }
   const manager = new Shoukaku(new Connectors.DiscordJS(client), [{ name, url: host, auth, secure }], { resume: true, resumeTimeout: 30, reconnectTries: 5, reconnectInterval: 5, restTimeout: 60, voiceConnectionTimeout: 15, },);
 
   manager.on("ready", (nodeName) => {
     logMusic("node_ready", { node: nodeName, host });
   });
   manager.on("error", (nodeName, error) => {
-    global.logger?.error?.("[MUSIC] lavalink node error:", nodeName, error?.message || error);
+    const msg = String(error?.message || error || "");
+    if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
+      global.logger?.warn?.("[MUSIC] lavalink node not ready:", nodeName, msg);
+      return;
+    }
+    global.logger?.error?.("[MUSIC] lavalink node error:", nodeName, msg || error);
   });
   manager.on("close", (nodeName, code, reason) => {
     global.logger?.warn?.("[MUSIC] lavalink node close:", nodeName, code, reason);
@@ -763,7 +814,7 @@ async function playRequest({
   }
 
   const queue = await ensureQueue(client, guild, channel, voiceChannel);
-  setVoiceSession(guild?.id, { mode: "music", channelId: voiceChannel?.id });
+  setVoiceSession(guild?.id, { mode: "music", channelId: voiceChannel?.id, ownerId: requestedBy?.id || requestedBy?.user?.id || "" });
   queue.manualDisconnect = false;
 
   const firstTrack = searchResult.tracks[0] || null;
@@ -813,7 +864,7 @@ async function touchMusicOutputChannel(client, guildId, channel) {
   return true;
 }
 
-async function playRadioStation({ client, guild, channel, voiceChannel, station }) {
+async function playRadioStation({ client, guild, channel, voiceChannel, station, requestedBy = null }) {
   try {
     const player = await getPlayer(client);
     const manager = player.manager;
@@ -845,7 +896,7 @@ async function playRadioStation({ client, guild, channel, voiceChannel, station 
 
     const queue = await ensureQueue(client, guild, channel, voiceChannel);
     queue.tracks = [];
-    setVoiceSession(guild?.id, { mode: "music", channelId: voiceChannel?.id });
+    setVoiceSession(guild?.id, { mode: "music", channelId: voiceChannel?.id, ownerId: requestedBy?.id || requestedBy?.user?.id || "" });
     await playTrack(queue, track);
     return { ok: true, track, queue };
   } catch (err) {

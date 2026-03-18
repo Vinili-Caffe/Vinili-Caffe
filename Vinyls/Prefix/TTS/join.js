@@ -61,6 +61,7 @@ module.exports = {
     setVoiceSession(message.guild?.id, {
       mode: "tts",
       channelId: voiceChannel.id,
+      ownerId: message.author?.id,
     });
 
     const okEmbed = new EmbedBuilder()
