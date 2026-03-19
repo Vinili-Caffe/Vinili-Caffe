@@ -80,17 +80,16 @@ function flattenEmbedText(embed) {
 function parseLevelFromText(text) {
   const s = String(text || "");
   const patterns = [
-    /sei\s+salit[oa]\/?a?\s+di\s+livello[^0-9]{0,20}(\d{1,4})/i,
-    /sei\s+salit[oa]\s+di\s+livello[^0-9]{0,20}(\d{1,4})/i,
-    /livello\s*[:` ]+\s*(\d{1,4})/i,
-    /level(?:ed)?\s*up[^0-9]{0,20}(\d{1,4})/i,
-    /\braggiunt[oa]\s+il\s+livello[^0-9]{0,20}(\d{1,4})/i,
+    /sei\s+salit[oa](?:\/a)?\s+di\s+livello[^0-9]{0,12}(\d{1,3})(?!\d)/i,
+    /\braggiunt[oa]\s+il\s+livello[^0-9]{0,12}(\d{1,3})(?!\d)/i,
+    /\blivello\s*(?:[:`]|n\.?|numero)?\s*([1-9]\d{0,2})(?!\d)/i,
+    /\blevel(?:ed)?\s*up[^0-9]{0,12}([1-9]\d{0,2})(?!\d)/i,
   ];
   for (const re of patterns) {
     const m = s.match(re);
     if (!m) continue;
     const n = Number(m[1]);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isFinite(n) && n > 0 && n <= 300) return n;
   }
   return null;
 }
@@ -103,7 +102,7 @@ function parseLevelFromEmbed(embed) {
   const mLevel = description.match(/livello\s*`?\s*(\d{1,4})\s*`?/i);
   if (mLevel) {
     const n = Number(mLevel[1]);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isFinite(n) && n > 0 && n <= 300) return n;
   }
 
   // Caso perks: "Hai appena raggiunto il <@&ROLE_ID>"
@@ -117,7 +116,7 @@ function parseLevelFromEmbed(embed) {
   const mTitle = title.match(/level\s*(\d{1,4})/i);
   if (mTitle) {
     const n = Number(mTitle[1]);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isFinite(n) && n > 0 && n <= 300) return n;
   }
 
   const fromText = parseLevelFromText(flattenEmbedText(embed));
@@ -217,6 +216,7 @@ async function scanTodayLevelEmbeds(channel) {
 }
 
 async function applyLevels(guildId, levelsByUser, dryRun) {
+  const allowDecrease = process.argv.includes("--allow-decrease");
   const weekKey = getCurrentWeekKey();
   const rows = await ExpUser.find({
     guildId: String(guildId),
@@ -235,8 +235,8 @@ async function applyLevels(guildId, levelsByUser, dryRun) {
     const row = byUser.get(String(userId));
     const oldLevel = Math.max(0, Math.floor(Number(row?.level || 0)));
     const oldTotal = Math.max(0, Number(row?.totalExp || 0));
-    const newLevel = Math.max(oldLevel, targetLevel);
-    const newTotal = Math.max(oldTotal, minExp);
+    const newLevel = allowDecrease ? targetLevel : Math.max(oldLevel, targetLevel);
+    const newTotal = allowDecrease ? minExp : Math.max(oldTotal, minExp);
 
     if (newLevel === oldLevel && newTotal === oldTotal) {
       skipped += 1;
@@ -292,6 +292,7 @@ async function main() {
     JSON.stringify(
       {
         dryRun,
+        allowDecrease,
         guildId: guild.id,
         levelChannelId: String(LEVEL_CHANNEL_ID),
         scannedMessages: scan.scanned,
