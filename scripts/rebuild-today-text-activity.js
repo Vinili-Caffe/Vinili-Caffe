@@ -127,6 +127,33 @@ function ensureHourlyMap(hours, hourKey) {
   return hours[hourKey];
 }
 
+function collectSupportedTextChannels(guild) {
+  const byId = new Map();
+  for (const ch of Array.from(guild.channels?.cache?.values?.() || [])) {
+    if (isSupportedTextChannel(ch)) byId.set(String(ch.id), ch);
+  }
+  const activeThreads = guild.channels?.cache?.filter?.((ch) => {
+    if (!ch || !isSupportedTextChannel(ch)) return false;
+    return (
+      ch.type === ChannelType.PublicThread ||
+      ch.type === ChannelType.PrivateThread ||
+      ch.type === ChannelType.AnnouncementThread
+    );
+  });
+  for (const ch of Array.from(activeThreads?.values?.() || [])) {
+    if (isSupportedTextChannel(ch)) byId.set(String(ch.id), ch);
+  }
+  return Array.from(byId.values());
+}
+
+async function fetchMessagesBatch(channel, before) {
+  let batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
+  if (!batch) {
+    batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
+  }
+  return batch;
+}
+
 async function scanGuildMessagesToday(guild) {
   const todayStartMs = getRomeDayStartUtcMs(new Date());
   const dailyUsers = {};
@@ -134,13 +161,13 @@ async function scanGuildMessagesToday(guild) {
   let scannedMessages = 0;
   let countedMessages = 0;
 
-  const channels = Array.from(guild.channels.cache.values()).filter(isSupportedTextChannel);
+  const channels = collectSupportedTextChannels(guild);
 
   for (const channel of channels) {
     let before;
     let stop = false;
     while (!stop) {
-      const batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
+      const batch = await fetchMessagesBatch(channel, before);
       if (!batch || batch.size === 0) break;
       const list = Array.from(batch.values());
       scannedMessages += list.length;
@@ -295,7 +322,9 @@ async function main() {
   const guild = await client.guilds.fetch(guildId).catch(() => null);
   if (!guild) throw new Error(`Guild non trovata: ${guildId}`);
   await guild.channels.fetch().catch(() => null);
+  await guild.channels.fetchActiveThreads?.().catch(() => null);
 
+  const channelsToScan = collectSupportedTextChannels(guild);
   const dayKey = dayKeyFromParts(romeParts(new Date()));
   const scan = await scanGuildMessagesToday(guild);
 
@@ -311,7 +340,7 @@ async function main() {
         dryRun,
         guildId: guild.id,
         dayKey,
-        channelsScanned: Array.from(guild.channels.cache.values()).filter(isSupportedTextChannel).length,
+        channelsScanned: channelsToScan.length,
         scannedMessages: scan.scannedMessages,
         countedMessages: scan.countedMessages,
         usersCount,

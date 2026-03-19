@@ -42,7 +42,7 @@ function resolveMongoUrl() {
 
 function parseMentionUserId(content) {
   const s = String(content || "");
-  const m = s.match(/<@!?(\d{16,})>/);
+  const m = s.match(/<@!?(\d{15,21})>/);
   return m ? String(m[1]) : null;
 }
 
@@ -300,10 +300,25 @@ async function applyLevels(guildId, levelsByUser, dryRun) {
 async function filterUsersStillInGuild(guild, levelsByUser) {
   const usersInGuild = new Map();
   const ids = Array.from(levelsByUser.keys()).map((v) => String(v)).filter((v) => v.trim().length > 0);
+  const idSet = new Set(ids);
+  // Percorso principale: fetch completo membri e filtro locale, evita buchi dovuti a errori batch/singolo.
+  const allMembers = await guild.members.fetch().catch(() => null);
+  if (allMembers && allMembers.size > 0) {
+    for (const [memberId] of allMembers) {
+      const key = String(memberId);
+      if (!idSet.has(key)) continue;
+      const level = Number(levelsByUser.get(key) || 0);
+      if (level > 0) usersInGuild.set(key, level);
+    }
+    return usersInGuild;
+  }
   const chunkSize = 100;
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
-    const fetched = await guild.members.fetch({ user: chunk, force: true }).catch(() => null);
+    let fetched = await guild.members.fetch({ user: chunk, force: true }).catch(() => null);
+    if (!fetched) {
+      fetched = await guild.members.fetch({ user: chunk, force: true }).catch(() => null);
+    }
     if (fetched) {
       for (const [memberId] of fetched) {
         const level = Number(levelsByUser.get(String(memberId)) || 0);
@@ -314,7 +329,10 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
     // Fallback: se il fetch in batch fallisce (utente non trovato/errore parziale),
     // proviamo per singolo utente per non perdere level-up validi del resto del chunk.
     for (const userId of chunk) {
-      const single = await guild.members.fetch({ user: userId, force: true }).catch(() => null);
+      let single = await guild.members.fetch({ user: userId, force: true }).catch(() => null);
+      if (!single) {
+        single = await guild.members.fetch({ user: userId, force: true }).catch(() => null);
+      }
       const memberId = single?.id ? String(single.id) : "";
       if (!memberId) continue;
       const level = Number(levelsByUser.get(memberId) || 0);
