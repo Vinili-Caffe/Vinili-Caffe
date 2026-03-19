@@ -32,8 +32,8 @@ const{formatDurationMs,runTaskGroup,runTaskSequence,}=require("../Utils/Startup/
 const { logBotReady } = require("../../shared/discord/readyLog");
 
 const STARTUP_PANELS_RETRY_MS = 15000;
-const ENGAGEMENT_INTERVAL_MS = 60 * 1000;
-const JOIN_RAID_RESTORE_INTERVAL_MS = 5 * 60 * 1000;
+const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
+const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 
 function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();

@@ -1112,10 +1112,17 @@ async function syncLiveVoiceSessionsFromGateway(client) {
   }
 }
 
+const LIVE_VOICE_EXP_BATCH_SIZE = Math.max(10, Math.min(100, Number(process.env.LIVE_VOICE_EXP_BATCH_SIZE) || 40));
+
 async function runLiveVoiceExpTick(client) {
   if (!client?.guilds?.cache) return;
   const nowMs = Date.now();
-  const rows = await ActivityUser.find({ "voice.sessionStartedAt": { $ne: null }, }).select("guildId userId voice.sessionStartedAt voice.sessionChannelId voice.expAwardedSeconds").lean().catch(() => []);
+  const rows = await ActivityUser.find({ "voice.sessionStartedAt": { $ne: null }, })
+    .select("guildId userId voice.sessionStartedAt voice.sessionChannelId voice.expAwardedSeconds")
+    .sort({ "voice.sessionStartedAt": 1 })
+    .limit(LIVE_VOICE_EXP_BATCH_SIZE)
+    .lean()
+    .catch(() => []);
 
   for (const row of rows) {
     const guildId = String(row?.guildId || "");
@@ -1153,8 +1160,11 @@ async function runLiveVoiceExpTick(client) {
   }
 }
 
-function startLiveVoiceExpLoop(client, intervalMs = 5000) {
-  const safeInterval = Math.max(5000, Number(intervalMs || 15000));
+const LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS = Number(process.env.LIVE_VOICE_EXP_INTERVAL_MS) || 30_000;
+
+function startLiveVoiceExpLoop(client, intervalMs) {
+  const resolved = Number(intervalMs ?? LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS) || LIVE_VOICE_EXP_DEFAULT_INTERVAL_MS;
+  const safeInterval = Math.max(10_000, Math.min(300_000, resolved));
   if (client?._liveVoiceExpInterval) return client._liveVoiceExpInterval;
   const runner = () => runLiveVoiceExpTick(client).catch((error) => { global.logger?.warn?.("[LIVE VOICE EXP] Tick failed:", error?.message || error,); });
   runner();

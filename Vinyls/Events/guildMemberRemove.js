@@ -5,8 +5,42 @@ const SponsorMainLeave = require("../Schemas/Tags/tagsSchema");
 const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
 const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
 const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
-const { InviteTrack, ExpUser, ActivityUser, LevelHistory, } = require("../Schemas/Community/communitySchemas");
+const {
+  InviteTrack,
+  ExpUser,
+  ActivityUser,
+  LevelHistoryUser,
+  ActivityDaily,
+  ActivityHourly,
+  VoteRole,
+  VerificationTenure,
+  InviteReminderState,
+  ActivityEventReward,
+  EventUserExpSnapshot,
+  EventWeekWinner,
+  StaffEventPoints,
+  StaffEventWeeklyReward,
+  StaffEventRewardGiven,
+  CustomRole,
+  AvatarPrivacy,
+  BannerPrivacy,
+  QuotePrivacy,
+} = require("../Schemas/Community/communitySchemas");
 const { MinigameUser } = require("../Schemas/Minigames/minigameSchema");
+const AFK = require("../Schemas/Afk/afkSchema");
+const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
+const RolePersist = require("../Schemas/Moderation/rolePersistSchema");
+const TemporaryRoleGrant = require("../Schemas/Moderation/temporaryRoleGrantSchema");
+const TemporaryCommandPermission = require("../Schemas/Moderation/temporaryCommandPermissionSchema");
+const SupporterStatus = require("../Schemas/Supporter/supporterStatusSchema");
+const VoiceDisconnectCounter = require("../Schemas/Voice/voiceDisconnectCounterSchema");
+const SuspiciousAccount = require("../Schemas/Moderation/suspiciousAccountSchema");
+const BirthdayProfile = require("../Schemas/Community/birthdayProfileSchema");
+const NoDmPreference = require("../Schemas/Community/noDmPreferenceSchema");
+const BumpVoteReward = require("../Schemas/Bump/bumpVoteRewardSchema");
+const { DiscadiaVoter } = require("../Schemas/Discadia/discadiaSchemas");
+const OneTimeReminder = require("../Schemas/Reminders/oneTimeReminderSchema");
+const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
@@ -355,8 +389,39 @@ async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     ExpUser.deleteOne({ guildId, userId }),
     ActivityUser.deleteOne({ guildId, userId }),
-    LevelHistory.deleteMany({ guildId, userId }),
+    ActivityDaily.deleteMany({ guildId, userId }),
+    ActivityHourly.deleteMany({ guildId, userId }),
+    LevelHistoryUser.deleteOne({ guildId, userId }),
     MinigameUser.deleteOne({ guildId, userId }),
+    AFK.deleteOne({ guildId, userId }),
+    MentionReaction.deleteOne({ guildId, userId }),
+    RolePersist.deleteMany({ guildId, userId }),
+    TemporaryRoleGrant.deleteMany({ guildId, userId }),
+    TemporaryCommandPermission.deleteMany({ guildId, userId }),
+    SupporterStatus.deleteOne({ guildId, userId }),
+    VoiceDisconnectCounter.deleteOne({ guildId, userId }),
+    Staff.deleteOne({ guildId, userId }),
+    SuspiciousAccount.deleteMany({ guildId, userId }),
+    BirthdayProfile.deleteOne({ guildId, userId }),
+    NoDmPreference.deleteOne({ guildId, userId }),
+    BumpVoteReward.deleteMany({ guildId, userId }),
+    DiscadiaVoter.deleteOne({ guildId, userId }),
+    VoteRole.deleteOne({ guildId, userId }),
+    VerificationTenure.deleteOne({ guildId, userId }),
+    InviteReminderState.deleteOne({ guildId, userId }),
+    ActivityEventReward.deleteMany({ guildId, userId }),
+    EventUserExpSnapshot.deleteOne({ guildId, userId }),
+    EventWeekWinner.deleteMany({ guildId, userId }),
+    StaffEventPoints.deleteOne({ guildId, userId }),
+    StaffEventWeeklyReward.deleteMany({ guildId, userId }),
+    StaffEventRewardGiven.deleteMany({ guildId, userId }),
+    CustomRole.deleteOne({ guildId, userId }),
+    AvatarPrivacy.deleteOne({ guildId, userId }),
+    BannerPrivacy.deleteOne({ guildId, userId }),
+    QuotePrivacy.deleteOne({ guildId, userId }),
+    InviteTrack.deleteOne({ guildId, userId }),
+    OneTimeReminder.deleteMany({ userId }),
+    AutoModBadUser.deleteOne({ userId }),
   ]);
 }
 

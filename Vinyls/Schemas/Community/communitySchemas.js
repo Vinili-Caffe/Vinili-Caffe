@@ -24,6 +24,26 @@ activityHourlySchema.index({ guildId: 1, userId: 1, hourKey: 1 });
 const levelHistorySchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},actorId:{type:String,default:null,index:true},action:{type:String,required:true,index:true},beforeExp:{type:Number,default:0},afterExp:{type:Number,default:0},beforeLevel:{type:Number,default:0},afterLevel:{type:Number,default:0},deltaExp:{type:Number,default:0},note:{type:String,default:null},},{timestamps:true},);
 levelHistorySchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 
+const levelHistoryEntrySchema = new Schema({
+  actorId: { type: String, default: null },
+  action: { type: String, required: true },
+  beforeExp: { type: Number, default: 0 },
+  afterExp: { type: Number, default: 0 },
+  beforeLevel: { type: Number, default: 0 },
+  afterLevel: { type: Number, default: 0 },
+  deltaExp: { type: Number, default: 0 },
+  note: { type: String, default: null },
+  createdAt: { type: Date, default: Date.now, required: true },
+}, { _id: false });
+const LEVEL_HISTORY_MAX_ENTRIES = 500;
+const levelHistoryUserSchema = new Schema({
+  guildId: { type: String, required: true, index: true },
+  userId: { type: String, required: true, index: true },
+  entries: { type: [levelHistoryEntrySchema], default: [] },
+}, { timestamps: true });
+levelHistoryUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+levelHistoryUserSchema.index({ guildId: 1, "entries.createdAt": -1 });
+
 const globalSettingsSchema=new Schema({guildId:{type:String,required:true,unique:true,index:true},expMultiplier:{type:Number,default:2},expEventMultiplier:{type:Number,default:1},expEventMultiplierExpiresAt:{type:Date,default:null},expEventRoleOverrides:{type:Schema.Types.Mixed,default:null},expEventExtraMultiplierRoleIds:{type:[String],default:[]},expEventStartedAt:{type:Date,default:null},expEventEndAnnouncementSentForExpiresAt:{type:Date,default:null},staffEventExpiresAt:{type:Date,default:null},staffEventStartedAt:{type:Date,default:null},expLockedChannelIds:{type:[String],default:[]},expIgnoredRoleIds:{type:[String],default:[]},},{timestamps:true},);
 
 const voteRoleSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},expiresAt:{type:Date,required:true},},{timestamps:true},);
@@ -92,6 +112,7 @@ const ExpUser = models.ExpUser || model("ExpUser", expUserSchema);
 const ActivityDaily=models.ActivityDaily||model("ActivityDaily",activityDailySchema);
 const ActivityHourly=models.ActivityHourly||model("ActivityHourly",activityHourlySchema);
 const LevelHistory=models.LevelHistory||model("LevelHistory",levelHistorySchema);
+const LevelHistoryUser = models.LevelHistoryUser || model("LevelHistoryUser", levelHistoryUserSchema, "levelhistoryusers");
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
 const VoteRole = models.VoteRole || model("VoteRole", voteRoleSchema);
 const VerificationTenure=models.VerificationTenure||model("VerificationTenure",verificationTenureSchema);
@@ -118,6 +139,8 @@ module.exports = {
   ActivityDaily,
   ActivityHourly,
   LevelHistory,
+  LevelHistoryUser,
+  LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
   VoteRole,
   VerificationTenure,

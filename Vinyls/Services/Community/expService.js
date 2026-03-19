@@ -1,4 +1,4 @@
-const { ExpUser, GlobalSettings, LevelHistory, EventUserExpSnapshot, } = require("../../Schemas/Community/communitySchemas");
+const { ExpUser, GlobalSettings, LevelHistoryUser, LEVEL_HISTORY_MAX_ENTRIES, EventUserExpSnapshot, } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
@@ -346,18 +346,24 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
   if (!guildId || !userId) return null;
   const beforeLevel = getLevelInfo(beforeExp).level;
   const afterLevel = getLevelInfo(afterExp).level;
-  return LevelHistory.create({
-    guildId,
-    userId,
-    actorId,
-    action,
+  const entry = {
+    actorId: actorId || null,
+    action: String(action || "update"),
     beforeExp: Number(beforeExp || 0),
     afterExp: Number(afterExp || 0),
     beforeLevel,
     afterLevel,
     deltaExp: Number(afterExp || 0) - Number(beforeExp || 0),
     note: note ? String(note).slice(0, 500) : null,
-  }).catch(() => null);
+    createdAt: new Date(),
+  };
+  const cap = Math.max(100, Math.min(2000, Number(LEVEL_HISTORY_MAX_ENTRIES) || 500));
+  await LevelHistoryUser.findOneAndUpdate(
+    { guildId: String(guildId), userId: String(userId) },
+    { $push: { entries: { $each: [entry], $position: 0, $slice: -cap } } },
+    { upsert: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  return null;
 }
 
 async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAmountOverride = null, options = {}) {
@@ -934,12 +940,13 @@ async function getLevelHistoryPage(guildId, userId, page = 1, pageSize = 10) {
     return { rows: [], page: 1, totalPages: 1, totalCount: 0, pageSize: 10 };
   const safePageSize = Math.max(1, Math.min(20, Number(pageSize || 10)));
   const safePage = Math.max(1, Number(page || 1));
-  const filter = { guildId, userId };
-  const totalCount = await LevelHistory.countDocuments(filter).catch(() => 0);
+  const doc = await LevelHistoryUser.findOne({ guildId, userId }).select("entries").lean().catch(() => null);
+  const entries = doc?.entries || [];
+  const totalCount = entries.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
   const effectivePage = Math.min(safePage, totalPages);
   const skip = (effectivePage - 1) * safePageSize;
-  const rows = await LevelHistory.find(filter).sort({ createdAt: -1 }).skip(skip).limit(safePageSize).lean().catch(() => []);
+  const rows = entries.slice(skip, skip + safePageSize);
   return {
     rows,
     page: effectivePage,
@@ -1057,9 +1064,11 @@ async function getTopExpGainsInPeriod(guildId, lookbackDays, limit = 100) {
   if (!Number.isFinite(safeLookback) || safeLookback < 1) return [];
   const since = new Date(Date.now() - safeLookback * DAY_MS);
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 100)));
-  const agg = await LevelHistory.aggregate([
-    { $match: { guildId: safeGuildId, createdAt: { $gte: since }, deltaExp: { $gt: 0 } } },
-    { $group: { _id: "$userId", expGain: { $sum: "$deltaExp" } } },
+  const agg = await LevelHistoryUser.aggregate([
+    { $match: { guildId: safeGuildId } },
+    { $unwind: "$entries" },
+    { $match: { "entries.createdAt": { $gte: since }, "entries.deltaExp": { $gt: 0 } } },
+    { $group: { _id: "$userId", expGain: { $sum: "$entries.deltaExp" } } },
     { $sort: { expGain: -1 } },
     { $limit: safeLimit },
   ]).catch(() => []);
@@ -1073,9 +1082,11 @@ async function getTopLevelGainsInPeriod(guildId, lookbackDays, limit = 100) {
   if (!Number.isFinite(safeLookback) || safeLookback < 1) return [];
   const since = new Date(Date.now() - safeLookback * DAY_MS);
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 100)));
-  const agg = await LevelHistory.aggregate([
-    { $match: { guildId: safeGuildId, createdAt: { $gte: since } } },
-    { $project: { userId: 1, levelGain: { $subtract: ["$afterLevel", "$beforeLevel"] } } },
+  const agg = await LevelHistoryUser.aggregate([
+    { $match: { guildId: safeGuildId } },
+    { $unwind: "$entries" },
+    { $match: { "entries.createdAt": { $gte: since } } },
+    { $addFields: { levelGain: { $subtract: ["$entries.afterLevel", "$entries.beforeLevel"] } } },
     { $match: { levelGain: { $gt: 0 } } },
     { $group: { _id: "$userId", levelGain: { $sum: "$levelGain" } } },
     { $sort: { levelGain: -1 } },
