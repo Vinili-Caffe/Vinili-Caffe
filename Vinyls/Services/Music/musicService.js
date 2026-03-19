@@ -25,9 +25,11 @@ const LAVALINK_NULL_LOG_THROTTLE_MS = 15_000;
 const DEFAULT_VOLUME = 5;
 const INACTIVITY_MS = 3 * 60 * 1000;
 const EMPTY_VOICE_MS = 3 * 60 * 1000;
+const MUSIC_WATCHDOG_INTERVAL_MS = 30 * 1000;
 const MUSIC_STATE_PERSIST_THROTTLE_MS = 5000;
 const MUSIC_STATE_RESTORE_MAX_GUILDS = 10;
 const PLAYABLE_SOURCE_KEYS = new Set(["youtube", "radio"]);
+let musicWatchdogTimer = null;
 const DIRECT_URL_SOURCE_BY_MATCHER = [
   { fn: (u) => /youtu\.be|youtube\.com/i.test(String(u || "")), source: "youtube" },
   { fn: (u) => /^https?:\/\//i.test(String(u || "")), source: "radio" },
@@ -504,6 +506,52 @@ async function scheduleEmptyVoiceLeave(queue) {
   const timer = setTimeout(async () => { const current = queues.get(guildId); if (!current) return; const guild = current.guild; const channel = guild?.channels?.cache?.get(current.voiceChannelId) || (current.voiceChannelId ? await guild?.channels?.fetch?.(current.voiceChannelId).catch(() => null) : null); const humans = channel?.members ? Array.from(channel.members.values()).filter((m) => !m.user?.bot) : []; if (humans.length > 0) return; const embed = new EmbedBuilder().setColor("#ED4245").setDescription("No one has been listening for the past 3 minutes, leaving \uD83D\uDC4B"); if (current.metadata?.channel?.isTextBased?.()) { await current.metadata.channel.send({ embeds: [embed] }).catch(() => { }); } await destroyQueue(guildId, { manual: true }); }, EMPTY_VOICE_MS); timer.unref?.(); emptyVoiceTimers.set(guildId, timer);
 }
 
+async function resolveQueueVoiceChannel(queue) {
+  const guild = queue?.guild;
+  const channelId = String(queue?.voiceChannelId || "");
+  if (!guild || !channelId) return null;
+  return (
+    guild.channels?.cache?.get(channelId) ||
+    (await guild.channels?.fetch?.(channelId).catch(() => null))
+  );
+}
+
+async function countHumanListeners(queue) {
+  const channel = await resolveQueueVoiceChannel(queue);
+  if (!channel?.members) return 0;
+  return Array.from(channel.members.values()).filter((m) => !m.user?.bot).length;
+}
+
+function startMusicQueueWatchdog() {
+  if (musicWatchdogTimer) return musicWatchdogTimer;
+  musicWatchdogTimer = setInterval(() => {
+    void (async () => {
+      for (const [guildId, queue] of queues.entries()) {
+        if (!queue) continue;
+        const hasTrack = Boolean(queue.currentTrack);
+        const hasQueuedTracks = Array.isArray(queue.tracks) && queue.tracks.length > 0;
+        if (!hasTrack && !hasQueuedTracks) {
+          if (!inactivityTimers.has(guildId)) {
+            await scheduleInactivityLeave(queue);
+          }
+        } else {
+          clearTimer(inactivityTimers, guildId);
+        }
+        const humans = await countHumanListeners(queue);
+        if (humans === 0) {
+          if (!emptyVoiceTimers.has(guildId)) {
+            await scheduleEmptyVoiceLeave(queue);
+          }
+        } else {
+          clearTimer(emptyVoiceTimers, guildId);
+        }
+      }
+    })().catch(() => { });
+  }, MUSIC_WATCHDOG_INTERVAL_MS);
+  musicWatchdogTimer.unref?.();
+  return musicWatchdogTimer;
+}
+
 function buildNodeFacade(queue) {
   return {
     isPlaying: () => Boolean(queue.currentTrack && !queue.paused),
@@ -720,6 +768,18 @@ async function ensureQueue(client, guild, channel, voiceChannel) {
   queue.metadata = { ...(queue.metadata || {}), channel };
   queue.voiceChannelId = String(voiceChannel.id);
   queue.connection = { channelId: queue.voiceChannelId };
+  startMusicQueueWatchdog();
+  const hasTrack = Boolean(queue.currentTrack);
+  const hasQueuedTracks = Array.isArray(queue.tracks) && queue.tracks.length > 0;
+  if (!hasTrack && !hasQueuedTracks) {
+    await scheduleInactivityLeave(queue);
+  }
+  const humans = await countHumanListeners(queue);
+  if (humans === 0) {
+    await scheduleEmptyVoiceLeave(queue);
+  } else {
+    clearTimer(emptyVoiceTimers, guildId);
+  }
   return queue;
 }
 
@@ -805,6 +865,7 @@ async function getPlayer(client, { waitForTcpMs } = {}) {
   });
 
   client.musicPlayer = buildManagerFacade(client, manager);
+  startMusicQueueWatchdog();
   return client.musicPlayer;
 }
 
