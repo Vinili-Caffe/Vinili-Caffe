@@ -3,6 +3,7 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const fs = require("fs");
 const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper, } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
+const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
 const { buildTicketChannelName } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosableTicketOrReply: runtimeEnsureClosableTicketOrReply, findOpenTicketByUser: runtimeFindOpenTicketByUser, findTicketByChannel: runtimeFindTicketByChannel, getClientGuildCached: runtimeGetClientGuildCached, getGuildChannelCached: runtimeGetGuildChannelCached, getSelectedTicketAction: runtimeGetSelectedTicketAction, hasActiveTicketClaimer: runtimeHasActiveTicketClaimer, isHandledTicketInteraction: runtimeIsHandledTicketInteraction, isSponsorGuild: runtimeIsSponsorGuild, isTicketRatingButton: runtimeIsTicketRatingButton, isTicketTranscriptButton: runtimeIsTicketTranscriptButton, loadTicketForChannelOrReply: runtimeLoadTicketForChannelOrReply, } = require("../../Utils/Ticket/ticketInteractionRuntime");
 const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRatingRows: runtimeBuildTicketRatingRows, closeTicket: runtimeCloseTicket, } = require("../../Utils/Ticket/ticketCloseRuntime");
@@ -195,48 +196,20 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
       }
-      const ticketConfig = {
-        ticket_supporto: {
-          type: "supporto",
-          emoji: "⭐",
-          name: "supporto",
-          role: ROLE_STAFF,
-          requiredRoles: ROLE_USER ? [ROLE_USER] : [],
-          embed: new EmbedBuilder()
-            .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET SUPPORTO__**",)
-            .setDescription(
-              `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi un membro dello **__\`STAFF\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Descrivi supporto, segnalazione o problema in modo chiaro.`,
-            )
-            .setColor("#6f4e37"),
-        },
-        ticket_partnership: {
-          type: "partnership",
-          emoji: "🤝",
-          name: "partnership",
-          role: ROLE_PARTNERMANAGER,
-          requiredRoles: [ROLE_USER],
-          embed: new EmbedBuilder()
-            .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET PARTNERSHIP__**",)
-            .setDescription(
-              `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi un **__\`PARTNER MANAGER\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Invia direttamente qui la tua descrizione.`,
-            )
-            .setColor("#6f4e37"),
-        },
-        ticket_highstaff: {
-          type: "high",
-          emoji: "✨",
-          name: "highstaff",
-          role: ROLE_HIGHSTAFF,
-          requiredRoles: [ROLE_USER],
-          embed: new EmbedBuilder()
-            .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET HIGH STAFF__**",)
-            .setDescription(
-              `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> ➥ Attendi un **__\`HIGH STAFF\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Specifica se riguarda Verifica Selfie, Donazioni, Sponsor o High Staff.`,
-            )
-            .setColor("#6f4e37"),
-        },
+      const panelByAction = {
+        ticket_supporto: "supporto",
+        ticket_partnership: "partnership",
+        ticket_highstaff: "highstaff",
       };
-      const config = ticketConfig[ticketActionId];
+      const panelKey = panelByAction[ticketActionId] || "";
+      const panelConfig = panelKey ? getTicketPanelConfig(panelKey) : null;
+      const config = panelConfig
+        ? {
+          ...panelConfig,
+          role: panelConfig.type === "supporto" ? ROLE_STAFF : panelConfig.type === "partnership" ? ROLE_PARTNERMANAGER : ROLE_HIGHSTAFF,
+          requiredRoles: ROLE_USER ? [ROLE_USER] : [],
+        }
+        : null;
       if (
         !config &&
         ![

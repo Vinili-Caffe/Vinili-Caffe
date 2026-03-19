@@ -1860,9 +1860,9 @@
         "stats_top_channel_page_modal:*": {
             "ownerSegment": 1
         },
-        "suggestion_staff_modal:*": {
-            "ownerSegment": 1
-        },
+        "suggestion_staff_modal:*": [
+            "roles.HighStaff"
+        ],
         "apply_form:*": {
             "ownerSegment": 2
         },

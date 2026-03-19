@@ -5,6 +5,7 @@ const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require(
 const { getNextTicketId } = require("../../Utils/Ticket/ticketIdUtils");
 const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("../../Utils/Ticket/ticketNamingRuntime");
+const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const LOG_CHANNEL_ID = IDs.channels.ticketLogs;
@@ -205,51 +206,6 @@ async function fetchTicketMessage(channel, messageId) {
   }
   const fallback = await channel.messages.fetch({ limit: 5 }).catch(() => null);
   return fallback?.first() || null;
-}
-
-function getTicketPanelConfig(raw) {
-  const key = String(raw || "").toLowerCase();
-  const configs = {
-    supporto: {
-      type: "supporto",
-      emoji: "⭐",
-      name: "supporto",
-      label: "Supporto",
-      embed: new EmbedBuilder()
-        .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET SUPPORTO__**")
-        .setDescription(
-          `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> 🠆 Attendi un membro dello **__\`STAFF\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Descrivi supporto, segnalazione o problema in modo chiaro.`,
-        )
-        .setColor("#6f4e37"),
-    },
-    partnership: {
-      type: "partnership",
-      emoji: "🤝",
-      name: "partnership",
-      label: "Partnership",
-      embed: new EmbedBuilder()
-        .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET PARTNERSHIP__**",)
-        .setDescription(
-          `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> 🠆 Attendi un **__\`PARTNER MANAGER\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Manda la descrizione del tuo server/catena tramite il bottone qui in basso.`,
-        )
-        .setColor("#6f4e37"),
-    },
-    highstaff: {
-      type: "high",
-      emoji: "✨",
-      name: "highstaff",
-      label: "High Staff",
-      embed: new EmbedBuilder()
-        .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET HIGH STAFF__**",)
-        .setDescription(
-          `<a:ThankYou:1329504268369002507> • __Grazie per aver aperto un ticket!__\n\n<a:loading:1443934440614264924> 🠆 Attendi un **__\`HIGH STAFF\`__**.\n\n<:reportmessage:1443670575376765130> ➥ Specifica se riguarda Verifica Selfie, Donazioni, Sponsor o HighStaff.`,
-        )
-        .setColor("#6f4e37"),
-    },
-  };
-  const aliases = { supporto: "supporto", prima: "supporto", 1: "supporto", first: "supporto", partnership: "partnership", partner: "partnership", seconda: "partnership", 2: "partnership", second: "partnership", highstaff: "highstaff", high: "highstaff", terza: "highstaff", 3: "highstaff", third: "highstaff", };
-  const resolved = aliases[key] || key;
-  return configs[resolved] || null;
 }
 
 function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {

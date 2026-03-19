@@ -493,7 +493,6 @@ async function handleSuggestionChannelMessage(message) {
       .setDescription(`**<:VC_Mention:1482526855289634997> Mandato da:**\n${message.author.username}
     
     **<:VC_PinkQuestionMark:1471892611026391306> Suggerimento:**
-    
     ${suggestionText}
     
     **<a:VC_Vote:1482535223001485473> Numero voti:**\n\n`,

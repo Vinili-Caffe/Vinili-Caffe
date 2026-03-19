@@ -129,7 +129,6 @@ const ActivityDaily=models.ActivityDaily||model("ActivityDaily",activityDailySch
 const ActivityDailyCompact = models.ActivityDailyCompact || model("ActivityDailyCompact", activityDailyCompactSchema, "activitydailycompact");
 const ActivityHourly=models.ActivityHourly||model("ActivityHourly",activityHourlySchema);
 const ActivityHourlyCompact = models.ActivityHourlyCompact || model("ActivityHourlyCompact", activityHourlyCompactSchema, "activityhourlycompact");
-const LevelHistory=models.LevelHistory||model("LevelHistory",levelHistorySchema);
 const LevelHistoryUser = models.LevelHistoryUser || model("LevelHistoryUser", levelHistoryUserSchema, "levelhistoryusers");
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
 const VoteRole = models.VoteRole || model("VoteRole", voteRoleSchema);
@@ -158,7 +157,6 @@ module.exports = {
   ActivityDailyCompact,
   ActivityHourly,
   ActivityHourlyCompact,
-  LevelHistory,
   LevelHistoryUser,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
