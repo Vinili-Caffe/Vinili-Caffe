@@ -8,6 +8,7 @@
  * Uso:
  *   node scripts/restore-modcases-backup-local-compact-clean.js
  *   node scripts/restore-modcases-backup-local-compact-clean.js --backup="deploy/backups/mongo-YYYYMMDD-HHMMSS"
+ *   node scripts/restore-modcases-backup-local-compact-clean.js --migrate-guild=1329080093599076474
  *   node scripts/restore-modcases-backup-local-compact-clean.js --dry-run
  */
 const path = require("path");
@@ -176,6 +177,8 @@ async function main() {
   const remainingFromChannelOnly = process.argv.includes("--remaining-from-channel-only");
   const useAtlas = process.argv.includes("--atlas");
   const useLocal = process.argv.includes("--local");
+  const migrateGuildArg = process.argv.find((a) => String(a).startsWith("--migrate-guild="));
+  const migrateGuildId = migrateGuildArg ? String(migrateGuildArg.split("=").slice(1).join("")).trim() : "";
   const backupArg = process.argv.find((a) => String(a).startsWith("--backup="));
   const backupDir = backupArg ? String(backupArg.split("=").slice(1).join("=")) : pickLatestBackupDir();
 
@@ -200,7 +203,8 @@ async function main() {
   // Modalità dedicata: importa i case mancanti dal canale e ricompatta senza fare restore backup.
   if (remainingFromChannelOnly) {
     const registerArgs = [];
-    const migrateArgs = ["--write", `--guild=${MAIN_GUILD_ID}`];
+    const migrateArgs = ["--write"];
+    if (migrateGuildId) migrateArgs.push(`--guild=${migrateGuildId}`);
     if (useAtlas) {
       registerArgs.push("--atlas");
       migrateArgs.push("--atlas");
@@ -282,7 +286,9 @@ async function main() {
 
   // Ricostruzione compact: usa legacy mod_cases -> mod_case_users (merge, senza sovrascrivere i case già presenti)
   if (!dryRun) {
-    runNodeScript("migrate-mod-case-to-compact.js", ["--write", `--guild=${MAIN_GUILD_ID}`]);
+    const migrateArgs = ["--write"];
+    if (migrateGuildId) migrateArgs.push(`--guild=${migrateGuildId}`);
+    runNodeScript("migrate-mod-case-to-compact.js", migrateArgs);
   } else {
     console.log("[DRY-RUN] skip migrate-mod-case-to-compact.js");
   }
