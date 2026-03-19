@@ -7,33 +7,35 @@ const { processPendingCountingMessages } = require("../Utils/Message/officialMes
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { restoreMusicSessions } = require("../Services/Music/musicService");
-const{runDueOneTimeReminders,}=require("../Services/Reminders/oneTimeReminderService");
+const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
 const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigames/minigameService");
-const{startWeeklyDmReminderLoop,}=require("../Services/Community/weeklyDmReminderService");
+const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmReminderService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
 const { removeExpiredTemporaryRoles, startTemporaryRoleCleanupLoop, } = require("../Services/Community/temporaryRoleService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
-const{startDailyPartnerAuditLoop,}=require("../Services/Partner/partnerAuditService");
+const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
 const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
-const{startWeeklyStaffResocontoLoop,}=require("../Services/Staff/weeklyStaffResocontoService");
+const { startWeeklyStaffResocontoLoop, } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
+const { runCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
-const{formatDurationMs,runTaskGroup,runTaskSequence,}=require("../Utils/Startup/readyStartupRuntime");
+const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
+const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 90 * 1000;
 
 function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();
@@ -232,10 +234,10 @@ async function processPendingPrefixCommands(client) {
         const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
         const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
         const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
-        if (emoji) await message.react(emoji).catch(() => {});
-        else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => {});
-        else await message.react("\u23F3").catch(() => {});
-      } catch (_) {}
+        if (emoji) await message.react(emoji).catch(() => { });
+        else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => { });
+        else await message.react("\u23F3").catch(() => { });
+      } catch (_) { }
       await handleOfficialPrefixMessage({
         message,
         resolvedClient: client,
@@ -376,7 +378,7 @@ async function primeInviteCache(client) {
   const guilds = [...client.guilds.cache.values()];
   for (let i = 0; i < guilds.length; i += INVITE_CACHE_CONCURRENCY) {
     const batch = guilds.slice(i, i + INVITE_CACHE_CONCURRENCY);
-    const results=await Promise.all(batch.map(async(guild) => {const invites=await guild.invites.fetch().catch(() => null);if(!invites)return{guildId:guild.id,inviteMap:null};const inviteMap=new Map();for(const invite of invites.values()){inviteMap.set(invite.code,{uses:invite.uses||0,inviterId:invite.inviter?.id||null,});}return{guildId:guild.id,inviteMap};}),);
+    const results = await Promise.all(batch.map(async (guild) => { const invites = await guild.invites.fetch().catch(() => null); if (!invites) return { guildId: guild.id, inviteMap: null }; const inviteMap = new Map(); for (const invite of invites.values()) { inviteMap.set(invite.code, { uses: invite.uses || 0, inviterId: invite.inviter?.id || null, }); } return { guildId: guild.id, inviteMap }; }),);
     for (const { guildId, inviteMap } of results) {
       if (inviteMap) client.inviteCache.set(guildId, inviteMap);
     }
@@ -384,7 +386,7 @@ async function primeInviteCache(client) {
 }
 
 async function restoreBumpReminders(client) {
-  const[reminders,discadia,voteReminders]=await Promise.allSettled([restorePendingReminders(client),restorePendingDiscadiaReminders(client),restorePendingVoteReminders(client),]);
+  const [reminders, discadia, voteReminders] = await Promise.allSettled([restorePendingReminders(client), restorePendingDiscadiaReminders(client), restorePendingVoteReminders(client),]);
 
   if (reminders.status === "rejected")
     global.logger?.error?.("[DISBOARD REMINDER ERROR]", reminders.reason);
@@ -443,7 +445,7 @@ async function runStartupPanels(client, label = "immediate") {
 
 async function runPrimaryHeavyTasks(client, engagementTick) {
   const mainGuildId = IDs.guilds.main || null;
-  const mainGuild=mainGuildId?client.guilds.cache.get(mainGuildId)||(await client.guilds.fetch(mainGuildId).catch(() => null)):client.guilds.cache.first()||null;
+  const mainGuild = mainGuildId ? client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null)) : client.guilds.cache.first() || null;
 
   const heavyTasks = buildPrimaryHeavyTasks(client, mainGuild, engagementTick);
   const hooks = createStartupHooks(client);
@@ -458,7 +460,7 @@ async function runPrimaryHeavyTasks(client, engagementTick) {
 }
 
 async function runDeferredStartup(client, primaryScheduler, engagementTick) {
-  const startupTasks=buildDeferredStartupTasks(client,primaryScheduler,engagementTick,);
+  const startupTasks = buildDeferredStartupTasks(client, primaryScheduler, engagementTick,);
   await runTaskSequence(startupTasks, createStartupHooks(client));
 }
 
@@ -494,9 +496,9 @@ function startPrimaryLoops(client, engagementTick) {
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
       const tick = async () => {
         const guilds = [...client.guilds.cache.values()];
-        for (const guild of guilds) { await restoreTempBans(guild).catch(() => {}); }
+        for (const guild of guilds) { await restoreTempBans(guild).catch(() => { }); }
       };
-      tick().catch(() => {});
+      tick().catch(() => { });
       const timer = setInterval(tick, JOIN_RAID_RESTORE_INTERVAL_MS);
       if (typeof timer.unref === "function") timer.unref();
       client._joinRaidRestoreInterval = timer;
@@ -620,7 +622,7 @@ module.exports = {
 
     if (primaryScheduler) {
       let engagementTickRunning = false;
-      const engagementTick=async() => {if(engagementTickRunning)return;engagementTickRunning=true;try{await runDueOneTimeReminders(client);}catch(err){global.logger?.error?.(err);}finally{engagementTickRunning=false;}};
+      const engagementTick = async () => { if (engagementTickRunning) return; engagementTickRunning = true; try { await runDueOneTimeReminders(client); } catch (err) { global.logger?.error?.(err); } finally { engagementTickRunning = false; } };
 
       startPrimaryLoops(client, engagementTick);
       client._engagementTick = engagementTick;
@@ -641,5 +643,36 @@ module.exports = {
         client._deferredStartupRunning = false;
       });
     }
+
+    const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";
+    if (!cleanupDisabled) {
+      const t = setTimeout(() => {
+        runStartupCleanupUsersNotInServer(client).catch((err) => {
+          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err?.message || err);
+        });
+      }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
+      if (t?.unref) t.unref();
+    }
   },
 };
+
+async function runStartupCleanupUsersNotInServer(client) {
+  const guilds = Array.from(client.guilds?.cache?.values() ?? []);
+  if (!guilds.length) return;
+  let grandTotal = 0;
+  for (const guild of guilds) {
+    const guildId = guild?.id;
+    if (!guildId) continue;
+    await guild.members.fetch().catch(() => null);
+    const memberIds = Array.from(guild.members?.cache?.values() ?? []).map((m) => m?.id).filter(Boolean);
+    const { total, details } = await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false });
+    if (total > 0) {
+      grandTotal += total;
+      const guildLabel = guild.name ? `${guild.name} (${guildId})` : guildId;
+      global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] " + guildLabel + ": rimossi " + total + " documenti. " + details.map((d) => d.name + " " + d.count).join(", "));
+    }
+  }
+  if (grandTotal > 0) {
+    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] Totale rimossi: " + grandTotal + " documenti in " + guilds.length + " server.");
+  }
+}

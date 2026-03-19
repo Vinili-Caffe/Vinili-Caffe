@@ -1,15 +1,17 @@
 /**
- * Rimuove dal DB tutti i documenti relativi a utenti che non sono più nel server principale.
- * Usa la Discord REST API per ottenere la lista membri (no Gateway Intents).
+ * Rimuove dal DB i documenti di utenti che non sono più nei server del bot.
+ * Per default elabora TUTTE le guild in cui il bot è presente (come all'avvio del bot).
+ * Usa la Discord REST API (no Gateway Intents).
  *
  * SICUREZZA: per default NON elimina nulla, solo conta. Per eliminare serve --confirm.
  *
  * Uso:
- *   node scripts/cleanup-db-users-not-in-server.js          → solo conteggio, nessuna eliminazione
+ *   node scripts/cleanup-db-users-not-in-server.js          → solo conteggio, tutte le guild
  *   node scripts/cleanup-db-users-not-in-server.js --confirm → esegue le eliminazioni
+ *   GUILD_ID=xxx node scripts/cleanup-db-users-not-in-server.js --confirm → solo quella guild
  *
  * Richiede .env: DISCORD_TOKEN (o DISCORD_TOKEN_OFFICIAL), MONGO_URL.
- * Opzionale: GUILD_ID per sovrascrivere il server (default: IDs.guilds.main).
+ * Opzionale: GUILD_ID per limitare a un solo server (altrimenti tutti i server del bot).
  */
 const path = require("path");
 const confirm = process.argv.includes("--confirm");
@@ -49,6 +51,15 @@ async function fetchAllGuildMemberIds(guildId, token) {
   return Array.from(memberIds);
 }
 
+async function fetchBotGuildIds(token) {
+  const res = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+    headers: { Authorization: `Bot ${token}` },
+  });
+  if (!res.ok) throw new Error(`Discord API ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data.map((g) => ({ id: g.id, name: g.name })) : [];
+}
+
 async function run() {
   if (!DISCORD_TOKEN) {
     console.error("Imposta DISCORD_TOKEN (o DISCORD_TOKEN_OFFICIAL) in .env");
@@ -59,116 +70,41 @@ async function run() {
     process.exit(1);
   }
 
-  const IDs = require("../Vinyls/Utils/Config/ids");
-  const mainGuildId = process.env.GUILD_ID || IDs.guilds?.main || "1329080093599076474";
-  console.log("[cleanup] Recupero lista membri del server:", mainGuildId);
-  const memberIds = await fetchAllGuildMemberIds(mainGuildId, DISCORD_TOKEN);
-  console.log("[cleanup] Membri attuali:", memberIds.length);
+  const singleGuildId = process.env.GUILD_ID || null;
+  let guilds;
+  if (singleGuildId) {
+    guilds = [{ id: singleGuildId, name: singleGuildId }];
+    console.log("[cleanup] Modalità singola guild:", singleGuildId);
+  } else {
+    guilds = await fetchBotGuildIds(DISCORD_TOKEN);
+    console.log("[cleanup] Guild in cui è il bot:", guilds.length);
+  }
+  if (!guilds.length) {
+    console.log("[cleanup] Nessuna guild da elaborare.");
+    return;
+  }
 
   await mongoose.connect(MONGO_URL);
-  const {
-    ExpUser,
-    ActivityUser,
-    ActivityDaily,
-    ActivityHourly,
-    LevelHistoryUser,
-    VoteRole,
-    VerificationTenure,
-    InviteReminderState,
-    ActivityEventReward,
-    EventUserExpSnapshot,
-    EventWeekWinner,
-    StaffEventPoints,
-    StaffEventWeeklyReward,
-    StaffEventRewardGiven,
-    CustomRole,
-    AvatarPrivacy,
-    BannerPrivacy,
-    QuotePrivacy,
-    InviteTrack,
-  } = require("../Vinyls/Schemas/Community/communitySchemas");
-  const BirthdayProfile = require("../Vinyls/Schemas/Community/birthdayProfileSchema");
-  const NoDmPreference = require("../Vinyls/Schemas/Community/noDmPreferenceSchema");
-  const { MinigameUser } = require("../Vinyls/Schemas/Minigames/minigameSchema");
-  const AFK = require("../Vinyls/Schemas/Afk/afkSchema");
-  const { MentionReaction } = require("../Vinyls/Schemas/Community/autoInteractionSchemas");
-  const RolePersist = require("../Vinyls/Schemas/Moderation/rolePersistSchema");
-  const TemporaryRoleGrant = require("../Vinyls/Schemas/Moderation/temporaryRoleGrantSchema");
-  const TemporaryCommandPermission = require("../Vinyls/Schemas/Moderation/temporaryCommandPermissionSchema");
-  const SupporterStatus = require("../Vinyls/Schemas/Supporter/supporterStatusSchema");
-  const VoiceDisconnectCounter = require("../Vinyls/Schemas/Voice/voiceDisconnectCounterSchema");
-  const Staff = require("../Vinyls/Schemas/Staff/staffSchema");
-  const SuspiciousAccount = require("../Vinyls/Schemas/Moderation/suspiciousAccountSchema");
-  const BumpVoteReward = require("../Vinyls/Schemas/Bump/bumpVoteRewardSchema");
-  const { DiscadiaVoter } = require("../Vinyls/Schemas/Discadia/discadiaSchemas");
-  const OneTimeReminder = require("../Vinyls/Schemas/Reminders/oneTimeReminderSchema");
-  const AutoModBadUser = require("../Vinyls/Schemas/Moderation/autoModBadUserSchema");
-
-  const guildScoped = [
-    [ExpUser, "ExpUser"],
-    [ActivityUser, "ActivityUser"],
-    [ActivityDaily, "ActivityDaily"],
-    [ActivityHourly, "ActivityHourly"],
-    [LevelHistoryUser, "LevelHistoryUser"],
-    [MinigameUser, "MinigameUser"],
-    [AFK, "AFK"],
-    [MentionReaction, "MentionReaction"],
-    [RolePersist, "RolePersist"],
-    [TemporaryRoleGrant, "TemporaryRoleGrant"],
-    [TemporaryCommandPermission, "TemporaryCommandPermission"],
-    [SupporterStatus, "SupporterStatus"],
-    [VoiceDisconnectCounter, "VoiceDisconnectCounter"],
-    [Staff, "Staff"],
-    [SuspiciousAccount, "SuspiciousAccount"],
-    [BirthdayProfile, "BirthdayProfile"],
-    [NoDmPreference, "NoDmPreference"],
-    [BumpVoteReward, "BumpVoteReward"],
-    [DiscadiaVoter, "DiscadiaVoter"],
-    [VoteRole, "VoteRole"],
-    [VerificationTenure, "VerificationTenure"],
-    [InviteReminderState, "InviteReminderState"],
-    [ActivityEventReward, "ActivityEventReward"],
-    [EventUserExpSnapshot, "EventUserExpSnapshot"],
-    [EventWeekWinner, "EventWeekWinner"],
-    [StaffEventPoints, "StaffEventPoints"],
-    [StaffEventWeeklyReward, "StaffEventWeeklyReward"],
-    [StaffEventRewardGiven, "StaffEventRewardGiven"],
-    [CustomRole, "CustomRole"],
-    [AvatarPrivacy, "AvatarPrivacy"],
-    [BannerPrivacy, "BannerPrivacy"],
-    [QuotePrivacy, "QuotePrivacy"],
-    [InviteTrack, "InviteTrack"],
-  ];
-  const userScoped = [
-    [OneTimeReminder, "OneTimeReminder"],
-    [AutoModBadUser, "AutoModBadUser"],
-  ];
-
-  const filterGuild = { guildId: mainGuildId, userId: { $nin: memberIds } };
-  const filterUser = { userId: { $nin: memberIds } };
-  let totalDeleted = 0;
-
+  const { runCleanupUsersNotInServer } = require("../Vinyls/Services/Community/cleanupUsersNotInServerService");
+  const dryRun = !confirm;
   if (!confirm) {
     console.log("[cleanup] Modalità SICURA: nessuna eliminazione (manca --confirm).\n");
   }
-
-  for (const [Model, name] of guildScoped) {
-    const n = confirm
-      ? (await Model.deleteMany(filterGuild).catch((e) => ({ deletedCount: 0, error: e })))?.deletedCount ?? 0
-      : await Model.countDocuments(filterGuild).catch(() => 0);
-    if (n > 0) console.log(`[cleanup] ${name}: ${confirm ? "rimossi" : "da rimuovere"} ${n}`);
-    totalDeleted += n;
+  let grandTotal = 0;
+  for (const g of guilds) {
+    const memberIds = await fetchAllGuildMemberIds(g.id, DISCORD_TOKEN);
+    const { total, details } = await runCleanupUsersNotInServer(g.id, memberIds, { dryRun });
+    if (total > 0) {
+      grandTotal += total;
+      const label = g.name ? `${g.name} (${g.id})` : g.id;
+      console.log(`[cleanup] ${label}: ${dryRun ? "da rimuovere" : "rimossi"} ${total}`);
+      for (const d of details) {
+        console.log(`  ${d.name}: ${d.count}`);
+      }
+    }
   }
-  for (const [Model, name] of userScoped) {
-    const n = confirm
-      ? (await Model.deleteMany(filterUser).catch((e) => ({ deletedCount: 0, error: e })))?.deletedCount ?? 0
-      : await Model.countDocuments(filterUser).catch(() => 0);
-    if (n > 0) console.log(`[cleanup] ${name}: ${confirm ? "rimossi" : "da rimuovere"} ${n}`);
-    totalDeleted += n;
-  }
-
-  console.log("\n[cleanup] Totale documenti " + (confirm ? "rimossi" : "da rimuovere") + ":", totalDeleted);
-  if (!confirm && totalDeleted > 0) {
+  console.log("\n[cleanup] Totale documenti " + (dryRun ? "da rimuovere" : "rimossi") + ":", grandTotal);
+  if (!confirm && grandTotal > 0) {
     console.log("\n[cleanup] Per eliminare davvero esegui: node scripts/cleanup-db-users-not-in-server.js --confirm");
   }
   await mongoose.disconnect();
