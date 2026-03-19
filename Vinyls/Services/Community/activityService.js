@@ -217,37 +217,88 @@ async function ensureHourlyBackfillForGuild(guildId) {
   }
 
   const task = (async () => {
-    const dailyRows = await loadDailyRows(safeGuildId); if (!dailyRows.length) return false; const operations = []; for (const row of dailyRows) {
-      const dateKey = String(row?.dateKey || ""); const userId = String(row?.userId || ""); if (!dateKey || !userId) continue; const hourKey = `${dateKey}${BACKFILL_HOUR_SUFFIX}`;
+    const dailyRows = await loadDailyRows(safeGuildId);
+    if (!dailyRows.length) return false;
+
+    const legacyOps = [];
+    const compactOps = [];
+
+    for (const row of dailyRows) {
+      const dateKey = String(row?.dateKey || "");
+      const userId = String(row?.userId || "");
+      if (!dateKey || !userId) continue;
+
+      const hourKey = `${dateKey}${BACKFILL_HOUR_SUFFIX}`;
       const textChannels = sanitizeChannelsMap(row?.textChannels || {});
       const voiceChannels = sanitizeChannelsMap(row?.voiceChannels || {});
-      operations.push({
-        updateOne: {
-          filter: { guildId: safeGuildId, hourKey, userId },
-          update: {
-            $setOnInsert: {
-              guildId: safeGuildId,
-              hourKey,
-              userId,
-              textCount: Math.max(0, Number(row?.textCount || 0)),
-              voiceSeconds: Math.max(0, Number(row?.voiceSeconds || 0)),
-              textChannels,
-              voiceChannels,
+      const textCount = Math.max(0, Number(row?.textCount || 0));
+      const voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
+
+      if (useLegacyHourlyStorage()) {
+        legacyOps.push({
+          updateOne: {
+            filter: { guildId: safeGuildId, hourKey, userId },
+            update: {
+              $setOnInsert: {
+                guildId: safeGuildId,
+                hourKey,
+                userId,
+                textCount,
+                voiceSeconds,
+                textChannels,
+                voiceChannels,
+              },
             },
+            upsert: true,
           },
-          upsert: true,
-        },
-      });
+        });
+      }
+
+      if (useCompactHourlyStorage()) {
+        const inc = {
+          [`users.${userId}.textCount`]: textCount,
+          [`users.${userId}.voiceSeconds`]: voiceSeconds,
+        };
+        for (const [channelId, val] of Object.entries(textChannels)) {
+          inc[`users.${userId}.textChannels.${channelId}`] = Math.max(0, Number(val || 0));
+        }
+        for (const [channelId, val] of Object.entries(voiceChannels)) {
+          inc[`users.${userId}.voiceChannels.${channelId}`] = Math.max(0, Number(val || 0));
+        }
+
+        compactOps.push({
+          updateOne: {
+            filter: { guildId: safeGuildId, hourKey },
+            update: {
+              $setOnInsert: { guildId: safeGuildId, hourKey },
+              $inc: inc,
+            },
+            upsert: true,
+          },
+        });
+      }
     }
 
-    if (!operations.length) return false;
+    if (!legacyOps.length && !compactOps.length) return false;
 
-    const chunks = chunkArray(operations, HOURLY_BACKFILL_BATCH);
     let insertedCount = 0;
-    for (const ops of chunks) {
-      const result = await ActivityHourly.bulkWrite(ops, { ordered: false }).catch(() => null,);
-      insertedCount += Number(result?.upsertedCount || 0);
+
+    if (legacyOps.length) {
+      const chunks = chunkArray(legacyOps, HOURLY_BACKFILL_BATCH);
+      for (const ops of chunks) {
+        const result = await ActivityHourly.bulkWrite(ops, { ordered: false }).catch(() => null,);
+        insertedCount += Number(result?.upsertedCount || 0);
+      }
     }
+
+    if (compactOps.length) {
+      const chunks = chunkArray(compactOps, HOURLY_BACKFILL_BATCH);
+      for (const ops of chunks) {
+        const result = await ActivityHourlyCompact.bulkWrite(ops, { ordered: false }).catch(() => null,);
+        insertedCount += Number(result?.upsertedCount || 0);
+      }
+    }
+
     return insertedCount > 0;
   })()
     .catch((error) => {

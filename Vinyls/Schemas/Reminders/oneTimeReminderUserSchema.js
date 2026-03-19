@@ -25,4 +25,10 @@ oneTimeReminderUserSchema.index({ "entries.sendAt": 1, "entries.sentAt": 1 });
 
 module.exports =
   mongoose.models.OneTimeReminderUser ||
-  model("OneTimeReminderUser", oneTimeReminderUserSchema);
+  (process.env.ONE_TIME_REMINDER_USER_COLLECTION
+    ? model(
+      "OneTimeReminderUser",
+      oneTimeReminderUserSchema,
+      String(process.env.ONE_TIME_REMINDER_USER_COLLECTION).trim(),
+    )
+    : model("OneTimeReminderUser", oneTimeReminderUserSchema));

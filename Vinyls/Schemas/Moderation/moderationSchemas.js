@@ -56,7 +56,19 @@ modCaseUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 modCaseUserSchema.index({ guildId: 1, "cases.caseId": 1 }, { unique: true });
 
 const ModConfig = models.mod_config || model("mod_config", modConfigSchema);
-const ModCase = models.mod_case || model("mod_case", modCaseSchema);
-const ModCaseUser = models.mod_case_user || model("mod_case_user", modCaseUserSchema);
+
+const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "";
+const MOD_CASE_USER_COLLECTION = process.env.MOD_CASE_USER_COLLECTION ? String(process.env.MOD_CASE_USER_COLLECTION).trim() : "";
+
+const ModCase = models.mod_case
+  ? models.mod_case
+  : MOD_CASE_COLLECTION
+    ? model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)
+    : model("mod_case", modCaseSchema);
+const ModCaseUser = models.mod_case_user
+  ? models.mod_case_user
+  : MOD_CASE_USER_COLLECTION
+    ? model("mod_case_user", modCaseUserSchema, MOD_CASE_USER_COLLECTION)
+    : model("mod_case_user", modCaseUserSchema);
 
 module.exports = { ModConfig, ModCase, ModCaseUser };
