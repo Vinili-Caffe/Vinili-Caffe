@@ -60,15 +60,73 @@ function extractUserId(raw, message) {
   const mention = message.mentions?.users?.first();
   if (mention) return mention.id;
   if (!raw) return null;
-  const match = String(raw).match(/^<@!?(\d+)>$/);
+  const token = String(raw).trim();
+  const match = token.match(/^<@!?(\d+)>$/);
   if (match) return match[1];
-  if (/^\d{17,20}$/.test(raw)) return raw;
+  if (/^\d{17,20}$/.test(token)) return token;
+  return null;
+}
+
+function normalizeUserLookupToken(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/^@+/, "")
+    .toLowerCase();
+}
+
+function matchesUserToken(member, token) {
+  if (!member || !token) return false;
+  const user = member.user;
+  const username = String(user?.username || "").toLowerCase();
+  const globalName = String(user?.globalName || "").toLowerCase();
+  const displayName = String(member?.displayName || "").toLowerCase();
+  const tag = String(user?.tag || "").toLowerCase();
+  return (
+    username === token ||
+    globalName === token ||
+    displayName === token ||
+    tag === token
+  );
+}
+
+async function resolveUserIdByName(guild, raw) {
+  if (!guild || !raw) return null;
+  const token = normalizeUserLookupToken(raw);
+  if (!token) return null;
+
+  const fromCache = guild.members.cache.find((member) =>
+    matchesUserToken(member, token),
+  );
+  if (fromCache?.id) return String(fromCache.id);
+
+  const fetchedChunk = await guild.members
+    .fetch({ query: token, limit: 20 })
+    .catch(() => null);
+  if (fetchedChunk?.size) {
+    const fromFetched = fetchedChunk.find((member) =>
+      matchesUserToken(member, token),
+    );
+    if (fromFetched?.id) return String(fromFetched.id);
+    const first = fetchedChunk.first();
+    if (first?.id) return String(first.id);
+  }
+
+  const searched = await guild.members.search({ query: token, limit: 20 }).catch(() => null);
+  if (searched?.size) {
+    const fromSearch = searched.find((member) => matchesUserToken(member, token));
+    if (fromSearch?.id) return String(fromSearch.id);
+    const first = searched.first();
+    if (first?.id) return String(first.id);
+  }
   return null;
 }
 
 async function resolveTarget(message, args, index = 0) {
   const raw = args?.[index];
-  const userId = extractUserId(raw, message);
+  let userId = extractUserId(raw, message);
+  if (!userId && raw) {
+    userId = await resolveUserIdByName(message.guild, raw);
+  }
   if (!userId) return { user: null, member: null, userId: null };
   const user = await message.client.users.fetch(userId).catch(() => null);
   const member = user ? await fetchMemberSafe(message.guild, user.id) : null;

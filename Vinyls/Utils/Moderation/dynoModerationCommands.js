@@ -363,6 +363,39 @@ function parseLockDuration(raw) {
   return parseMaybeDuration(token);
 }
 
+function normalizeLookupToken(raw) {
+  return String(raw || "").trim().replace(/^@+/, "").toLowerCase();
+}
+
+function matchesBanUserToken(user, token) {
+  if (!user || !token) return false;
+  const username = String(user.username || "").toLowerCase();
+  const globalName = String(user.globalName || "").toLowerCase();
+  const tag = String(user.tag || "").toLowerCase();
+  return (
+    username === token ||
+    globalName === token ||
+    tag === token
+  );
+}
+
+async function resolveBanTarget(message, raw) {
+  const token = String(raw || "").trim();
+  if (!token) return { userId: null, banInfo: null };
+  const idLike = token.replace(/[<@!>]/g, "").trim();
+  if (/^\d{17,20}$/.test(idLike)) {
+    const banInfoById = await message.guild.bans.fetch(idLike).catch(() => null);
+    return { userId: idLike, banInfo: banInfoById };
+  }
+
+  const lookup = normalizeLookupToken(token);
+  if (!lookup) return { userId: null, banInfo: null };
+  const bans = await message.guild.bans.fetch().catch(() => null);
+  if (!bans?.size) return { userId: null, banInfo: null };
+  const banInfo = bans.find((entry) => matchesBanUserToken(entry?.user, lookup)) || null;
+  return { userId: banInfo?.user?.id || null, banInfo };
+}
+
 async function runNamed(name, message, args, client) {
   const cmd = String(name || "").toLowerCase();
 
@@ -516,24 +549,14 @@ async function runNamed(name, message, args, client) {
       const helpEmbed = new EmbedBuilder()
         .setColor("#3498DB")
         .setDescription(
-          ["**Comando: +unban**", "", "**Descrizione:** Revoca il ban di un utente.", "**Cooldown:** 5 secondi", "**Uso:**", "+unban [id_utente] (motivo opzionale)", "**Esempio:**", "+unban 155037590859284481 Appello accettato"].join("\n"),
+          ["**Comando: +unban**", "", "**Descrizione:** Revoca il ban di un utente.", "**Cooldown:** 5 secondi", "**Uso:**", "+unban [utente] (motivo opzionale)", "**Esempio:**", "+unban 155037590859284481 Appello accettato", "+unban @username Appello accettato", "+unban username Appello accettato"].join("\n"),
         );
       return message.channel.send({ embeds: [helpEmbed] }).catch(() => null);
     }
-    const id = raw.replace(/[<@!>]/g, "").trim();
-    if (!/^\d{17,20}$/.test(id)) {
-      return message.channel
-        .send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#ED4245")
-              .setDescription("<:cancel:1461730653677551691> Il comando unban accetta solo ID utente."),
-          ],
-        })
-        .catch(() => null);
-    }
+    const { userId: id, banInfo: resolvedBanInfo } = await resolveBanTarget(message, raw);
+    if (!id) return reply(message, client, "Unban", "<:VC_Lock:1482526739044368476> Utente bannato non trovato (usa tag, ID o username).", "Red");
     const reason = reasonFrom(args, 1);
-    const banInfo = await message.guild.bans.fetch(id).catch(() => null);
+    const banInfo = resolvedBanInfo || (await message.guild.bans.fetch(id).catch(() => null));
     const ok = await message.guild.bans.remove(id, reason).then(() => true).catch(() => false);
     if (!ok) return reply(message, client, "Unban", "Operazione fallita.", "Red");
     const targetUser = banInfo?.user || (await message.client.users.fetch(id).catch(() => null));
