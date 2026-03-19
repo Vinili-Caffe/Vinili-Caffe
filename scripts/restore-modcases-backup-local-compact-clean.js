@@ -1,8 +1,8 @@
 /**
  * Recovery completa mod cases:
  * 1) Restore in DB locale (mongorestore) solo mod_cases + mod_configs dal dump deploy/backups/mongo-*
- * 2) Ricostruzione compact: mod_cases -> mod_case_users
- * 3) Recupero casi mancanti 77-80 dagli embed del canale e upsert in mod_case_users
+ * 2) Recupero casi mancanti 77-80 dagli embed del canale e upsert in mod_case_users
+ * 3) Ricostruzione compact: mod_cases -> mod_case_users (merge con i 77-80 già registrati)
  * 4) Pulizia: drop collezioni legacy mod_cases (e mod_case_user se esiste)
  *
  * Uso:
@@ -206,19 +206,19 @@ async function main() {
     await dropCollection(db, "mod_case_users");
   }
 
-  // Ricostruzione compact: usa legacy mod_cases -> mod_case_users
-  if (!dryRun) {
-    runNodeScript("migrate-mod-case-to-compact.js", ["--write", `--guild=${MAIN_GUILD_ID}`]);
-  } else {
-    console.log("[DRY-RUN] skip migrate-mod-case-to-compact.js");
-  }
-
-  // Recupero 77-80 dagli embed e upsert nel compact
+  // Recupero 77-80 dagli embed e upsert nel compact (PRIMA della compattazione completa da backup)
   if (!dryRun) {
     // Lo script di import legge sempre dal canale, non serve passare parametri
     runNodeScript("register-modcases-from-embeds-to-compact.js", ["--local"]);
   } else {
     console.log("[DRY-RUN] skip register-modcases-from-embeds-to-compact.js");
+  }
+
+  // Ricostruzione compact: usa legacy mod_cases -> mod_case_users (merge, senza sovrascrivere i case già presenti)
+  if (!dryRun) {
+    runNodeScript("migrate-mod-case-to-compact.js", ["--write", `--guild=${MAIN_GUILD_ID}`]);
+  } else {
+    console.log("[DRY-RUN] skip migrate-mod-case-to-compact.js");
   }
 
   if (!dryRun) {

@@ -23,12 +23,17 @@ const oneTimeReminderUserSchema = new Schema(
 oneTimeReminderUserSchema.index({ userId: 1, "entries.key": 1 });
 oneTimeReminderUserSchema.index({ "entries.sendAt": 1, "entries.sentAt": 1 });
 
+const RAW_ONE_TIME_REMINDER_USER_COLLECTION = process.env.ONE_TIME_REMINDER_USER_COLLECTION
+  ? String(process.env.ONE_TIME_REMINDER_USER_COLLECTION).trim().toLowerCase()
+  : "";
+const ONE_TIME_REMINDER_USER_COLLECTION = (
+  RAW_ONE_TIME_REMINDER_USER_COLLECTION === "onetimereminderuser" ||
+  RAW_ONE_TIME_REMINDER_USER_COLLECTION === "onetimereminderusers" ||
+  !RAW_ONE_TIME_REMINDER_USER_COLLECTION
+)
+  ? "onetimereminderusers"
+  : RAW_ONE_TIME_REMINDER_USER_COLLECTION;
+
 module.exports =
   mongoose.models.OneTimeReminderUser ||
-  (process.env.ONE_TIME_REMINDER_USER_COLLECTION
-    ? model(
-      "OneTimeReminderUser",
-      oneTimeReminderUserSchema,
-      String(process.env.ONE_TIME_REMINDER_USER_COLLECTION).trim(),
-    )
-    : model("OneTimeReminderUser", oneTimeReminderUserSchema));
+  model("OneTimeReminderUser", oneTimeReminderUserSchema, ONE_TIME_REMINDER_USER_COLLECTION);
