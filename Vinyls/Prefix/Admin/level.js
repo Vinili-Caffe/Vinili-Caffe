@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { ExpUser } = require("../../Schemas/Community/communitySchemas");
+const { ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getTotalExpForLevel, recordLevelHistory, setLevelChannelLocked, setRoleIgnored, getGuildExpSettings, setTemporaryEventMultiplier, setGlobalMultiplier, syncLevelRolesForMember, sendLevelUpAnnouncement } = require("../../Services/Community/expService");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
@@ -111,15 +111,30 @@ module.exports = {
           content: "<:VC_InactiveStatus:1482526984234860574> Sync ruoli in corso (tutti gli utenti con EXP nel DB)…",
           allowedMentions: { repliedUser: false },
         });
-        const cursor = ExpUser.find({ guildId }).select("userId totalExp").lean().cursor();
+        const profileRows = await ActivityUserProfile.find({ guildId }).select("userId exp.totalExp").lean().catch(() => []);
+        const useProfile = profileRows.length > 0;
+        const cursor = useProfile
+          ? null
+          : ExpUser.find({ guildId }).select("userId totalExp").lean().cursor();
         let n = 0;
-        for await (const row of cursor) {
-          const uid = String(row?.userId || "");
-          if (!uid) continue;
-          const level = getLevelInfo(Math.max(0, Number(row?.totalExp || 0))).level;
-          await syncLevelRolesForMember(message.guild, uid, level).catch(() => {});
-          n += 1;
-          if (n % 25 === 0) await message.channel.sendTyping().catch(() => {});
+        if (useProfile) {
+          for (const row of profileRows) {
+            const uid = String(row?.userId || "");
+            if (!uid) continue;
+            const level = getLevelInfo(Math.max(0, Number(row?.exp?.totalExp || 0))).level;
+            await syncLevelRolesForMember(message.guild, uid, level).catch(() => {});
+            n += 1;
+            if (n % 25 === 0) await message.channel.sendTyping().catch(() => {});
+          }
+        } else {
+          for await (const row of cursor) {
+            const uid = String(row?.userId || "");
+            if (!uid) continue;
+            const level = getLevelInfo(Math.max(0, Number(row?.totalExp || 0))).level;
+            await syncLevelRolesForMember(message.guild, uid, level).catch(() => {});
+            n += 1;
+            if (n % 25 === 0) await message.channel.sendTyping().catch(() => {});
+          }
         }
         await safeMessageReply(message, {
           content: `<:vegacheckmark:1443666279058772028> Sync ruoli completato: **${n}** utenti.`,
@@ -136,8 +151,9 @@ module.exports = {
         });
         return;
       }
-      const row = await ExpUser.findOne({ guildId, userId: target.id }).lean().catch(() => null);
-      const totalExp = Math.max(0, Number(row?.totalExp || 0));
+      const profileRow = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("exp.totalExp").lean().catch(() => null);
+      const row = profileRow || await ExpUser.findOne({ guildId, userId: target.id }).lean().catch(() => null);
+      const totalExp = Math.max(0, Number(profileRow ? profileRow?.exp?.totalExp : row?.totalExp || 0));
       const level = getLevelInfo(totalExp).level;
       await syncLevelRolesForMember(message.guild, target.id, level);
       await safeMessageReply(message, {

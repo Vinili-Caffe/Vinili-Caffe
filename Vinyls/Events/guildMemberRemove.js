@@ -14,6 +14,7 @@ const {
   ActivityDailyCompact,
   ActivityHourly,
   ActivityHourlyCompact,
+  ActivityUserProfile,
   VoteRole,
   VerificationTenure,
   InviteReminderState,
@@ -426,6 +427,7 @@ async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     ExpUser.deleteOne({ guildId, userId }),
     ActivityUser.deleteOne({ guildId, userId }),
+    ActivityUserProfile.deleteOne({ guildId, userId }),
     useLegacyActivityDaily ? ActivityDaily.deleteMany({ guildId, userId }) : Promise.resolve(),
     compactOps.length ? ActivityDailyCompact.bulkWrite(compactOps, { ordered: false }) : Promise.resolve(),
     useLegacyActivityHourly ? ActivityHourly.deleteMany({ guildId, userId }) : Promise.resolve(),

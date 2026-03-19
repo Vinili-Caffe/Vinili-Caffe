@@ -2,7 +2,7 @@ const { AttachmentBuilder, ChannelType } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 const { getServerOverviewStats } = require("../../Services/Community/activityService");
-const { InviteTrack, ExpUser } = require("../../Schemas/Community/communitySchemas");
+const { InviteTrack, ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS } = require("../../Services/Community/expService");
 const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../Utils/Render/activityCanvas");
 const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../Utils/Community/channelSnapshotUtils");
@@ -239,12 +239,20 @@ async function resolveTopExpEntries(guild, guildId, lookbackDays, limit = TOP_PA
     if (out.length > 0) return out;
   }
 
-  const docs = await ExpUser.find({ guildId: safeGuildId })
-    .sort({ totalExp: -1 })
+  const profileDocs = await ActivityUserProfile.find({ guildId: safeGuildId, "exp.totalExp": { $gt: 0 } })
+    .sort({ "exp.totalExp": -1 })
     .limit(safeLimit * 2)
-    .select("userId totalExp")
+    .select("userId exp.totalExp")
     .lean()
     .catch(() => []);
+  const docs = profileDocs.length
+    ? profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp }))
+    : await ExpUser.find({ guildId: safeGuildId })
+      .sort({ totalExp: -1 })
+      .limit(safeLimit * 2)
+      .select("userId totalExp")
+      .lean()
+      .catch(() => []);
   const out = [];
   for (const doc of docs) {
     const userId = String(doc?.userId || "").trim();
@@ -267,15 +275,24 @@ async function resolveTopLevelEntries(guild, guildId, _lookbackDays, limit = TOP
   if (!safeGuildId) return [];
   const safeLimit = Math.max(1, Math.min(TOP_PAGE_DATA_LIMIT, Number(limit || TOP_PAGE_DATA_LIMIT)));
 
-  const docs = await ExpUser.find({ guildId: safeGuildId })
-    .sort({ totalExp: -1 })
+  const profileDocs = await ActivityUserProfile.find({ guildId: safeGuildId, "exp.totalExp": { $gt: 0 } })
+    .sort({ "exp.totalExp": -1 })
     .limit(safeLimit * 2)
-    .select("userId totalExp")
+    .select("userId exp.totalExp exp.level")
     .lean()
     .catch(() => []);
+  const docs = profileDocs.length
+    ? profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }))
+    : await ExpUser.find({ guildId: safeGuildId })
+      .sort({ totalExp: -1 })
+      .limit(safeLimit * 2)
+      .select("userId totalExp level")
+      .lean()
+      .catch(() => []);
   const withLevel = docs.map((doc) => {
     const totalExp = Math.max(0, Math.floor(Number(doc?.totalExp || 0)));
-    return { userId: String(doc?.userId || "").trim(), totalExp, level: getLevelInfo(totalExp).level };
+    const storedLevel = Math.max(0, Math.floor(Number(doc?.level || 0)));
+    return { userId: String(doc?.userId || "").trim(), totalExp, level: storedLevel || getLevelInfo(totalExp).level };
   }).filter((x) => x.userId);
   withLevel.sort((a, b) => b.level - a.level || b.totalExp - a.totalExp);
   const out = [];

@@ -5,6 +5,7 @@ const {
   ActivityDailyCompact,
   ActivityHourly,
   ActivityHourlyCompact,
+  ActivityUserProfile,
   LevelHistoryUser,
   VoteRole,
   VerificationTenure,
@@ -47,6 +48,7 @@ const includeLegacyActivityHourly = ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP === "le
 const guildScoped = [
   [ExpUser, "ExpUser"],
   [ActivityUser, "ActivityUser"],
+  [ActivityUserProfile, "ActivityUserProfile"],
   ...(includeLegacyActivityDaily ? [[ActivityDaily, "ActivityDaily"]] : []),
   ...(includeLegacyActivityHourly ? [[ActivityHourly, "ActivityHourly"]] : []),
   [LevelHistoryUser, "LevelHistoryUser"],

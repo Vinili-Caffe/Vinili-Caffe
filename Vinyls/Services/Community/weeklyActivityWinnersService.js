@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const cron = require("node-cron");
-const { ActivityUser, ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityHourlyCompact, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUser, ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityHourlyCompact, ActivityUserProfile, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
 const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("./staffEventService");
@@ -166,6 +166,23 @@ async function loadActivityRowsFromDateKeys(guild, dateKeys) {
   if (!eligible.text.size && !eligible.voice.size) return [];
   const perUser = new Map();
   const rows = [];
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId daily").lean().catch(() => []);
+  if (profileDocs.length) {
+    const wanted = new Set(dateKeys.map(String));
+    for (const doc of profileDocs) {
+      const userId = String(doc?.userId || "");
+      const daily = toObjectMap(doc?.daily || {});
+      if (!userId) continue;
+      for (const [dateKey, value] of Object.entries(daily)) {
+        if (!wanted.has(String(dateKey))) continue;
+        rows.push({
+          userId,
+          textChannels: toObjectMap(value?.textChannels || {}),
+          voiceChannels: toObjectMap(value?.voiceChannels || {}),
+        });
+      }
+    }
+  }
   if (useLegacyDailyStorage()) {
     const legacyRows = await ActivityDaily.find({ guildId: guild.id, dateKey: { $in: dateKeys }, })
       .select("userId textChannels voiceChannels")
@@ -432,6 +449,23 @@ async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
   const endMs = getLastSunday21BoundaryMs(anchorDate);
   const hourKeys = buildLast7DaysHourKeys(endMs);
   const rows = [];
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId hourly").lean().catch(() => []);
+  if (profileDocs.length) {
+    const wanted = new Set(hourKeys.map(String));
+    for (const doc of profileDocs) {
+      const userId = String(doc?.userId || "");
+      const hourly = toObjectMap(doc?.hourly || {});
+      if (!userId) continue;
+      for (const [hourKey, value] of Object.entries(hourly)) {
+        if (!wanted.has(String(hourKey))) continue;
+        rows.push({
+          userId,
+          textChannels: toObjectMap(value?.textChannels || {}),
+          voiceChannels: toObjectMap(value?.voiceChannels || {}),
+        });
+      }
+    }
+  }
   if (useCompactHourlyStorage()) {
     const compactDocs = await ActivityHourlyCompact.find({
       guildId: guild.id,
@@ -928,6 +962,19 @@ async function resetWeeklyActivityCounters(client, options = {}) {
   const nextWeekKey = options.nextWeekKey != null ? options.nextWeekKey : getNextWeekKey(now);
 
   await Promise.all([
+    ActivityUserProfile.updateMany(
+      { guildId },
+      {
+        $set: {
+          "totals.messagesWeekly": 0,
+          "totals.messagesWeeklyKey": nextWeekKey,
+          "totals.voiceWeeklySeconds": 0,
+          "totals.voiceWeeklyKey": nextWeekKey,
+          "exp.weeklyExp": 0,
+          "exp.weeklyKey": nextWeekKey,
+        },
+      },
+    ),
     ActivityUser.updateMany(
       { guildId },
       {
@@ -990,7 +1037,9 @@ function startWeeklyActivityWinnersLoop(client) {
     const guildId = channel?.guild?.id;
     if (!guildId) return;
     const currentWeekKey = getWeekKey(now);
-    const alreadyReset = await ActivityUser.exists({ guildId, "messages.weeklyKey": currentWeekKey, }).catch(() => false);
+    const alreadyReset =
+      await ActivityUserProfile.exists({ guildId, "totals.messagesWeeklyKey": currentWeekKey }).catch(() => false) ||
+      await ActivityUser.exists({ guildId, "messages.weeklyKey": currentWeekKey, }).catch(() => false);
     if (alreadyReset) return;
     const previousWeekKey = getLastCompletedWeekKey(now);
     if (previousWeekKey === currentWeekKey) return;
