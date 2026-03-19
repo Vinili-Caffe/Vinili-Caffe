@@ -1,8 +1,3 @@
-/**
- * Pulizia DB: rimuove documenti di utenti che non sono più nel server (guildId).
- * Usato all'avvio del bot (ready) e dallo script scripts/cleanup-db-users-not-in-server.js.
- * Non connette a MongoDB: il chiamante deve aver già mongoose connesso.
- */
 const {
   ExpUser,
   ActivityUser,
@@ -29,7 +24,7 @@ const NoDmPreference = require("../../Schemas/Community/noDmPreferenceSchema");
 const { MinigameUser } = require("../../Schemas/Minigames/minigameSchema");
 const AFK = require("../../Schemas/Afk/afkSchema");
 const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
-const RolePersist = require("../../Schemas/Moderation/rolePersistSchema");
+const { RolePersistUser } = require("../../Schemas/Moderation/rolePersistSchema");
 const TemporaryRoleGrant = require("../../Schemas/Moderation/temporaryRoleGrantSchema");
 const TemporaryCommandPermission = require("../../Schemas/Moderation/temporaryCommandPermissionSchema");
 const SupporterStatus = require("../../Schemas/Supporter/supporterStatusSchema");
@@ -50,7 +45,7 @@ const guildScoped = [
   [MinigameUser, "MinigameUser"],
   [AFK, "AFK"],
   [MentionReaction, "MentionReaction"],
-  [RolePersist, "RolePersist"],
+  [RolePersistUser, "RolePersistUser"],
   [TemporaryRoleGrant, "TemporaryRoleGrant"],
   [TemporaryCommandPermission, "TemporaryCommandPermission"],
   [SupporterStatus, "SupporterStatus"],

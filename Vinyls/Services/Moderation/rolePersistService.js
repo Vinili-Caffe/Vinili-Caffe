@@ -1,42 +1,39 @@
-const RolePersist = require("../../Schemas/Moderation/rolePersistSchema");
+const { RolePersistUser } = require("../../Schemas/Moderation/rolePersistSchema");
 const { getGuildRoleCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 async function setRolePersist({ guildId, userId, roleId, setBy = null, reason = null }) {
   if (!guildId || !userId || !roleId) return null;
-  return RolePersist.findOneAndUpdate(
-    { guildId: String(guildId), userId: String(userId), roleId: String(roleId) },
-    {
-      $set: {
-        setBy: setBy ? String(setBy) : null,
-        reason: String(reason || "Nessun motivo fornito").slice(0, 512),
-      },
-      $setOnInsert: {
-        guildId: String(guildId),
-        userId: String(userId),
-        roleId: String(roleId),
-      },
-    },
+  const g = String(guildId);
+  const u = String(userId);
+  const r = String(roleId);
+  const reasonStr = String(reason || "Nessun motivo fornito").slice(0, 512);
+  const setByStr = setBy ? String(setBy) : null;
+  const updated = await RolePersistUser.findOneAndUpdate(
+    { guildId: g, userId: u, "roles.roleId": r },
+    { $set: { "roles.$.setBy": setByStr, "roles.$.reason": reasonStr } },
+    { new: true },
+  ).catch(() => null);
+  if (updated) return updated;
+  return RolePersistUser.findOneAndUpdate(
+    { guildId: g, userId: u },
+    { $push: { roles: { roleId: r, setBy: setByStr, reason: reasonStr } } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
 }
 
 async function clearRolePersist({ guildId, userId, roleId }) {
   if (!guildId || !userId || !roleId) return null;
-  return RolePersist.deleteOne({
-    guildId: String(guildId),
-    userId: String(userId),
-    roleId: String(roleId),
-  }).catch(() => null);
+  return RolePersistUser.findOneAndUpdate(
+    { guildId: String(guildId), userId: String(userId) },
+    { $pull: { roles: { roleId: String(roleId) } } },
+    { new: true },
+  ).catch(() => null);
 }
 
 async function listRolePersistByUser(guildId, userId) {
   if (!guildId || !userId) return [];
-  return RolePersist.find({
-    guildId: String(guildId),
-    userId: String(userId),
-  })
-    .lean()
-    .catch(() => []);
+  const doc = await RolePersistUser.findOne({ guildId: String(guildId), userId: String(userId) }).lean().catch(() => null);
+  return doc?.roles || [];
 }
 
 async function applyRolePersistForMember(member) {
@@ -46,7 +43,9 @@ async function applyRolePersistForMember(member) {
   const me = member.guild.members.me;
   if (!me?.permissions?.has?.("ManageRoles")) return;
   for (const row of rows) {
-    const role = await getGuildRoleCached(member.guild, row.roleId);
+    const roleId = row?.roleId || row?.id;
+    if (!roleId) continue;
+    const role = await getGuildRoleCached(member.guild, roleId);
     if (!role) continue;
     if (role.position >= me.roles.highest.position) continue;
     if (member.roles.cache.has(role.id)) continue;

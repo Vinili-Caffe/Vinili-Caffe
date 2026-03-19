@@ -1,10 +1,3 @@
-/**
- * Validazione prima di scrivere su collezioni per (guildId, userId).
- * Evita documenti con id vuoti o "a caso".
- * @param {string} guildId
- * @param {string} userId
- * @returns {boolean} true se entrambi sono stringhe non vuote (dopo trim)
- */
 function isValidGuildUserId(guildId, userId) {
   const g = typeof guildId === "string" ? guildId.trim() : "";
   const u = typeof userId === "string" ? userId.trim() : "";

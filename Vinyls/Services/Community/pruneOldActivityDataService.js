@@ -1,9 +1,3 @@
-/**
- * Elimina ActivityDaily e ActivityHourly più vecchi di una retention configurable.
- * Il codice usa al massimo 30 giorni per le query (getChannelOverviewStats, getServerActivityStats, ecc.),
- * quindi una retention di 60-90 giorni è sicura.
- * Richiede mongoose già connesso.
- */
 const { ActivityDaily, ActivityHourly } = require("../../Schemas/Community/communitySchemas");
 
 function pad2(n) {
