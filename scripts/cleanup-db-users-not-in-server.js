@@ -86,9 +86,9 @@ async function run() {
     BannerPrivacy,
     QuotePrivacy,
     InviteTrack,
-    BirthdayProfile,
-    NoDmPreference,
   } = require("../Vinyls/Schemas/Community/communitySchemas");
+  const BirthdayProfile = require("../Vinyls/Schemas/Community/birthdayProfileSchema");
+  const NoDmPreference = require("../Vinyls/Schemas/Community/noDmPreferenceSchema");
   const { MinigameUser } = require("../Vinyls/Schemas/Minigames/minigameSchema");
   const AFK = require("../Vinyls/Schemas/Afk/afkSchema");
   const { MentionReaction } = require("../Vinyls/Schemas/Community/autoInteractionSchemas");
