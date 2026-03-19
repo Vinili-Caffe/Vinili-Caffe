@@ -407,7 +407,7 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
           $set: {
             guildId: { $ifNull: ["$guildId", gid] },
             userId: { $ifNull: ["$userId", uid] },
-            totalExp: { $add: [{ $ifNull: ["$totalExp", 0] }, eff] },
+            totalExp: { $add: [{ $max: [{ $ifNull: ["$totalExp", 0] }, beforeExp] }, eff] },
             activityExpTotal: {
               $add: [{ $ifNull: ["$activityExpTotal", 0] }, activityDelta],
             },
