@@ -80,7 +80,11 @@ function isExcludedActivityChannel(channelLike) {
 
 async function scanTodayMessages(guild) {
   const startMs = getRomeDayStartUtcMs(new Date());
-  const channels = Array.from(guild.channels.cache.values())
+  await guild.channels.fetch().catch(() => null);
+  await guild.channels.fetchActiveThreads?.().catch(() => null);
+
+  const allChannels = Array.from(guild.channels.cache.values());
+  const channels = allChannels
     .filter(isSupportedTextChannel)
     .filter((c) => !isExcludedActivityChannel(c));
 
@@ -144,7 +148,13 @@ async function scanTodayMessages(guild) {
     }
   }
 
-  return { scannedMessages, eligibleMessages, countByUser };
+  return {
+    totalChannelsInCache: allChannels.length,
+    scannedChannels: channels.length,
+    scannedMessages,
+    eligibleMessages,
+    countByUser,
+  };
 }
 
 async function applyExp(guild, countByUser, dryRun) {
@@ -204,6 +214,8 @@ async function main() {
       {
         dryRun,
         guildId: String(guild.id),
+        totalChannelsInCache: scan.totalChannelsInCache,
+        scannedChannels: scan.scannedChannels,
         scannedMessages: scan.scannedMessages,
         eligibleMessages: scan.eligibleMessages,
         uniqueUsersDetected: scan.countByUser.size,

@@ -267,6 +267,7 @@ async function applyLevels(guildId, levelsByUser, dryRun) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
+  const allowDecrease = process.argv.includes("--allow-decrease");
   const guildArg = process.argv.find((a) => String(a).startsWith("--guild="));
   const guildId = guildArg ? String(guildArg.split("=").slice(1).join("=")).trim() : String(DEFAULT_GUILD_ID);
 
