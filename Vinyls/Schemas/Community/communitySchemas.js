@@ -96,6 +96,43 @@ activityEventRewardSchema.index(
   { unique: true },
 );
 
+const activityUserProfileRewardEntrySchema = new Schema(
+  {
+    rewardType: { type: String, required: true },
+    tier: { type: Number, default: null },
+    firstSeenAt: { type: Date, default: null },
+    lastSeenAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+const activityUserProfileSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    totals: {
+      messagesTotal: { type: Number, default: 0 },
+      messagesDaily: { type: Number, default: 0 },
+      messagesWeekly: { type: Number, default: 0 },
+      messagesDailyKey: { type: String, default: "" },
+      messagesWeeklyKey: { type: String, default: "" },
+      voiceTotalSeconds: { type: Number, default: 0 },
+      voiceDailySeconds: { type: Number, default: 0 },
+      voiceWeeklySeconds: { type: Number, default: 0 },
+      voiceDailyKey: { type: String, default: "" },
+      voiceWeeklyKey: { type: String, default: "" },
+      sessionStartedAt: { type: Date, default: null },
+      sessionChannelId: { type: String, default: null },
+      expAwardedSeconds: { type: Number, default: 0 },
+    },
+    daily: { type: Schema.Types.Mixed, default: {} },
+    hourly: { type: Schema.Types.Mixed, default: {} },
+    eventRewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
+  },
+  { timestamps: true },
+);
+activityUserProfileSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+activityUserProfileSchema.index({ guildId: 1, "eventRewards.rewardType": 1 });
+
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
@@ -149,6 +186,7 @@ const BannerPrivacy=models.BannerPrivacy||model("BannerPrivacy",bannerPrivacySch
 const QuotePrivacy=models.QuotePrivacy||model("QuotePrivacy",quotePrivacySchema);
 const ChannelSnapshot=models.ChannelSnapshot||model("ChannelSnapshot",channelSnapshotSchema);
 const ActivityEventReward=models.ActivityEventReward||model("ActivityEventReward",activityEventRewardSchema);
+const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const EventUserExpSnapshot=models.EventUserExpSnapshot||model("EventUserExpSnapshot",eventUserExpSnapshotSchema);
 const EventWeekWinner=models.EventWeekWinner||model("EventWeekWinner",eventWeekWinnerSchema);
 const StaffEventPoints=models.StaffEventPoints||model("StaffEventPoints",staffEventPointsSchema);
@@ -173,6 +211,7 @@ module.exports = {
   InviteTrack,
   InviteReminderState,
   ActivityEventReward,
+  ActivityUserProfile,
   EventUserExpSnapshot,
   EventWeekWinner,
   StaffEventPoints,
