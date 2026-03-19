@@ -353,13 +353,16 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const allowDecrease = !process.argv.includes("--no-decrease");
+  const allHistory = process.argv.includes("--all-history");
   const scanAllChannels = process.argv.includes("--all-channels");
   const daysArg = process.argv.find((a) => String(a).startsWith("--days="));
   const guildArg = process.argv.find((a) => String(a).startsWith("--guild="));
   const channelArg = process.argv.find((a) => String(a).startsWith("--channel="));
   const guildId = guildArg ? String(guildArg.split("=").slice(1).join("=")).trim() : String(DEFAULT_GUILD_ID);
   const specificChannelId = channelArg ? String(channelArg.split("=").slice(1).join("=")).trim() : "";
-  const daysLookback = daysArg ? Math.max(1, Math.min(30, Math.floor(Number(String(daysArg.split("=").slice(1).join("=")).trim() || 1)))) : null;
+  const daysLookback = daysArg
+    ? Math.max(1, Math.min(30, Math.floor(Number(String(daysArg.split("=").slice(1).join("=")).trim() || 1))))
+    : (allHistory ? null : 1);
   const scanStartMs = Number.isFinite(daysLookback) ? getRomeStartUtcMsFromDays(daysLookback, new Date()) : null;
 
   const mongoUrl = resolveMongoUrl();
@@ -417,6 +420,7 @@ async function main() {
       {
         dryRun,
         allowDecrease,
+        allHistory,
         scanAllChannels,
         daysLookback,
         scanStartAt: Number.isFinite(scanStartMs) ? new Date(scanStartMs).toISOString() : null,
