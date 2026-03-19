@@ -105,6 +105,20 @@ const activityUserProfileRewardEntrySchema = new Schema(
   },
   { _id: false },
 );
+const activityUserProfileLevelHistoryEntrySchema = new Schema(
+  {
+    actorId: { type: String, default: null },
+    action: { type: String, default: "update" },
+    beforeExp: { type: Number, default: 0 },
+    afterExp: { type: Number, default: 0 },
+    beforeLevel: { type: Number, default: 0 },
+    afterLevel: { type: Number, default: 0 },
+    deltaExp: { type: Number, default: 0 },
+    note: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
 const activityUserProfileSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
@@ -127,11 +141,28 @@ const activityUserProfileSchema = new Schema(
     daily: { type: Schema.Types.Mixed, default: {} },
     hourly: { type: Schema.Types.Mixed, default: {} },
     eventRewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
+    exp: {
+      totalExp: { type: Number, default: 0 },
+      weeklyExp: { type: Number, default: 0 },
+      level: { type: Number, default: 0 },
+      weeklyKey: { type: String, default: "" },
+      perkNearReminderLevels: { type: [Number], default: [] },
+      activityExpTotal: { type: Number, default: 0 },
+      sourceUpdatedAt: { type: Date, default: null },
+    },
+    eventExpSnapshot: {
+      totalExpAtStart: { type: Number, default: 0 },
+      activityExpAtStart: { type: Number, default: 0 },
+      sourceUpdatedAt: { type: Date, default: null },
+    },
+    eventWeekWinners: { type: [Number], default: [] },
+    levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
   },
   { timestamps: true },
 );
 activityUserProfileSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 activityUserProfileSchema.index({ guildId: 1, "eventRewards.rewardType": 1 });
+activityUserProfileSchema.index({ guildId: 1, "exp.totalExp": -1 });
 
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });

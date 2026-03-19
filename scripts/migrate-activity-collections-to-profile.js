@@ -27,6 +27,10 @@ const {
   ActivityHourlyCompact,
   ActivityEventReward,
   ActivityUserProfile,
+  ExpUser,
+  EventUserExpSnapshot,
+  EventWeekWinner,
+  LevelHistoryUser,
 } = require("../Vinyls/Schemas/Community/communitySchemas");
 const IDs = require("../Vinyls/Utils/Config/ids");
 
@@ -101,6 +105,22 @@ function ensureUserBucket(map, guildId, userId) {
     daily: {},
     hourly: {},
     eventRewards: [],
+    exp: {
+      totalExp: 0,
+      weeklyExp: 0,
+      level: 0,
+      weeklyKey: "",
+      perkNearReminderLevels: [],
+      activityExpTotal: 0,
+      sourceUpdatedAt: null,
+    },
+    eventExpSnapshot: {
+      totalExpAtStart: 0,
+      activityExpAtStart: 0,
+      sourceUpdatedAt: null,
+    },
+    eventWeekWinners: [],
+    levelHistory: [],
   };
   map.set(key, row);
   return row;
@@ -196,6 +216,69 @@ async function main() {
     });
   }
 
+  const expRows = await ExpUser.find(baseQuery).lean().catch(() => []);
+  for (const row of expRows) {
+    const bucket = ensureUserBucket(profiles, row.guildId, row.userId);
+    bucket.exp = {
+      totalExp: toNonNegativeInt(row?.totalExp),
+      weeklyExp: toNonNegativeInt(row?.weeklyExp),
+      level: toNonNegativeInt(row?.level),
+      weeklyKey: String(row?.weeklyKey || ""),
+      perkNearReminderLevels: Array.isArray(row?.perkNearReminderLevels)
+        ? row.perkNearReminderLevels
+            .map((n) => toNonNegativeInt(n))
+            .filter((n, i, arr) => Number.isFinite(n) && arr.indexOf(n) === i)
+            .sort((a, b) => a - b)
+        : [],
+      activityExpTotal: toNonNegativeInt(row?.activityExpTotal),
+      sourceUpdatedAt: row?.updatedAt ? new Date(row.updatedAt) : null,
+    };
+  }
+
+  const snapshotRows = await EventUserExpSnapshot.find(baseQuery).lean().catch(() => []);
+  for (const row of snapshotRows) {
+    const bucket = ensureUserBucket(profiles, row.guildId, row.userId);
+    bucket.eventExpSnapshot = {
+      totalExpAtStart: toNonNegativeInt(row?.totalExpAtStart),
+      activityExpAtStart: toNonNegativeInt(row?.activityExpAtStart),
+      sourceUpdatedAt: row?.updatedAt ? new Date(row.updatedAt) : null,
+    };
+  }
+
+  const winnerRows = await EventWeekWinner.find(baseQuery).lean().catch(() => []);
+  const winnerMap = new Map();
+  for (const row of winnerRows) {
+    const gid = String(row?.guildId || "");
+    const uid = String(row?.userId || "");
+    const week = toNonNegativeInt(row?.week);
+    if (!gid || !uid || !week) continue;
+    const k = `${gid}\t${uid}`;
+    if (!winnerMap.has(k)) winnerMap.set(k, new Set());
+    winnerMap.get(k).add(week);
+  }
+  for (const [k, weeks] of winnerMap.entries()) {
+    const [gid, uid] = k.split("\t");
+    const bucket = ensureUserBucket(profiles, gid, uid);
+    bucket.eventWeekWinners = Array.from(weeks.values()).sort((a, b) => a - b);
+  }
+
+  const historyRows = await LevelHistoryUser.find(baseQuery).select("guildId userId entries").lean().catch(() => []);
+  for (const row of historyRows) {
+    const bucket = ensureUserBucket(profiles, row.guildId, row.userId);
+    const entries = Array.isArray(row?.entries) ? row.entries : [];
+    bucket.levelHistory = entries.map((e) => ({
+      actorId: e?.actorId ?? null,
+      action: String(e?.action || "update"),
+      beforeExp: toNonNegativeInt(e?.beforeExp),
+      afterExp: toNonNegativeInt(e?.afterExp),
+      beforeLevel: toNonNegativeInt(e?.beforeLevel),
+      afterLevel: toNonNegativeInt(e?.afterLevel),
+      deltaExp: Number.isFinite(Number(e?.deltaExp)) ? Math.floor(Number(e.deltaExp)) : 0,
+      note: e?.note == null ? null : String(e.note),
+      createdAt: e?.createdAt ? new Date(e.createdAt) : new Date(),
+    }));
+  }
+
   let upserts = 0;
   if (!dryRun) {
     const ops = [];
@@ -209,6 +292,10 @@ async function main() {
               daily: row.daily,
               hourly: row.hourly,
               eventRewards: row.eventRewards,
+              exp: row.exp,
+              eventExpSnapshot: row.eventExpSnapshot,
+              eventWeekWinners: row.eventWeekWinners,
+              levelHistory: row.levelHistory,
             },
             $setOnInsert: { guildId: row.guildId, userId: row.userId },
           },
@@ -238,6 +325,10 @@ async function main() {
           activityDailyCompact: dailyRows.length,
           activityHourlyCompact: hourlyRows.length,
           activityEventRewards: eventRows.length,
+          expUsers: expRows.length,
+          eventUserExpSnapshots: snapshotRows.length,
+          eventWeekWinners: winnerRows.length,
+          levelHistoryUsers: historyRows.length,
         },
         mergedProfiles: profiles.size,
         writes: dryRun ? 0 : upserts,
