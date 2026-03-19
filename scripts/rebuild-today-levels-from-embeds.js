@@ -127,21 +127,25 @@ function parseLevelFromEmbed(embed) {
 }
 
 function isLikelyLevelUpMessage(message) {
-  const content = String(message?.content || "").toLowerCase();
+  if (!message?.author?.bot) return false;
+  const contentRaw = String(message?.content || "");
+  const content = contentRaw.toLowerCase();
   const hasEmbed = Array.isArray(message?.embeds) && message.embeds.length > 0;
-  const embedText = flattenEmbedText(message?.embeds?.[0]).toLowerCase();
+  if (!hasEmbed) return false;
+  const embedTextRaw = flattenEmbedText(message?.embeds?.[0]);
+  const embedText = embedTextRaw.toLowerCase();
   const joined = `${content}\n${embedText}`;
-  const hasRequiredItalianContent =
-    /<@!?\d{16,}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(String(message?.content || ""));
-  return (
-    hasEmbed &&
+  const hasOfficialContent =
+    /<a?:[A-Za-z0-9_]+:\d{16,}>\s*<@!?\d{15,21}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(contentRaw) ||
+    /<@!?\d{15,21}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(contentRaw);
+  if (!hasOfficialContent) return false;
+  const isOfficialEmbed =
+    /leveled?\s*up/i.test(embedText) &&
     (
-      hasRequiredItalianContent ||
-      /leveled?\s*up/i.test(joined) ||
-      /sei\s+salit[oa](?:\/a)?\s+di\s+livello/i.test(joined) ||
-      /livello/i.test(joined)
-    )
-  );
+      /hai\s+appena\s+raggiunto\s+il\s+livello/i.test(joined) ||
+      /hai\s+appena\s+raggiunto\s+il\s+<@&\d{15,21}>/i.test(joined)
+    );
+  return isOfficialEmbed;
 }
 
 function extractUserIdFromMessage(msg) {

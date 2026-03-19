@@ -73,7 +73,10 @@ async function collectVoiceSecondsByUser(guildId, dateKey) {
     .catch(() => null);
 
   if (compact?.users && typeof compact.users === "object") {
-    for (const [uid, payload] of Object.entries(compact.users)) {
+    const usersEntries = compact.users instanceof Map
+      ? Array.from(compact.users.entries())
+      : Object.entries(compact.users);
+    for (const [uid, payload] of usersEntries) {
       const userId = String(uid || "").trim();
       const sec = Math.max(0, Math.floor(Number(payload?.voiceSeconds || 0)));
       if (!userId || sec <= 0) continue;
