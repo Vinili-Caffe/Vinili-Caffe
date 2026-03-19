@@ -83,7 +83,7 @@ function parseLevelFromText(text) {
   const patterns = [
     /sei\s+salit[oa](?:\/a)?\s+di\s+livello[^0-9]{0,12}(\d{1,3})(?!\d)/i,
     /\braggiunt[oa]\s+il\s+livello[^0-9]{0,12}(\d{1,3})(?!\d)/i,
-    /\blivello\s*(?:[:`]|n\.?|numero)?\s*([1-9]\d{0,2})(?!\d)/i,
+    /\blivello(?:\*{1,2})?\s*(?:\*{1,2})?\s*(?:[:`]|n\.?|numero)?\s*`?\s*([1-9]\d{0,2})(?!\d)/i,
     /\blevel(?:ed)?\s*up[^0-9]{0,12}([1-9]\d{0,2})(?!\d)/i,
   ];
   for (const re of patterns) {
@@ -100,7 +100,7 @@ function parseLevelFromEmbed(embed) {
   const description = String(embed?.description || "");
 
   // Caso standard: "Hai appena ... livello `12`"
-  const mLevel = description.match(/livello\s*`?\s*(\d{1,4})\s*`?/i);
+  const mLevel = description.match(/livello(?:\*{1,2})?\s*(?:\*{1,2})?\s*`?\s*(\d{1,4})\s*`?/i);
   if (mLevel) {
     const n = Number(mLevel[1]);
     if (Number.isFinite(n) && n > 0 && n <= 300) return n;
@@ -234,7 +234,11 @@ async function scanTodayLevelEmbeds(channel, startMs) {
       if (!bestLevel) continue;
 
       matched += 1;
-      levelsByUser.set(userId, Math.max(Number(levelsByUser.get(userId) || 0), Number(bestLevel)));
+      const prev = levelsByUser.get(userId);
+      const ts = Number(msg.createdTimestamp || 0);
+      if (!prev || ts > Number(prev.ts || 0)) {
+        levelsByUser.set(userId, { level: Number(bestLevel), ts, messageId: String(msg.id || "") });
+      }
     }
     before = msgs[msgs.length - 1]?.id;
     if (!before || msgs.length < 100) break;
@@ -244,7 +248,7 @@ async function scanTodayLevelEmbeds(channel, startMs) {
 }
 
 async function applyLevels(guildId, levelsByUser, dryRun) {
-  const allowDecrease = process.argv.includes("--allow-decrease");
+  const allowDecrease = !process.argv.includes("--no-decrease");
   const weekKey = getCurrentWeekKey();
   const rows = await ExpUser.find({
     guildId: String(guildId),
@@ -307,7 +311,7 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
     for (const [memberId] of allMembers) {
       const key = String(memberId);
       if (!idSet.has(key)) continue;
-      const level = Number(levelsByUser.get(key) || 0);
+      const level = Number(levelsByUser.get(key)?.level || 0);
       if (level > 0) usersInGuild.set(key, level);
     }
     return usersInGuild;
@@ -321,7 +325,7 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
     }
     if (fetched) {
       for (const [memberId] of fetched) {
-        const level = Number(levelsByUser.get(String(memberId)) || 0);
+        const level = Number(levelsByUser.get(String(memberId))?.level || 0);
         if (level > 0) usersInGuild.set(String(memberId), level);
       }
       continue;
@@ -335,7 +339,7 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
       }
       const memberId = single?.id ? String(single.id) : "";
       if (!memberId) continue;
-      const level = Number(levelsByUser.get(memberId) || 0);
+      const level = Number(levelsByUser.get(memberId)?.level || 0);
       if (level > 0) usersInGuild.set(memberId, level);
     }
   }
@@ -344,7 +348,7 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const allowDecrease = process.argv.includes("--allow-decrease");
+  const allowDecrease = !process.argv.includes("--no-decrease");
   const scanAllChannels = process.argv.includes("--all-channels");
   const daysArg = process.argv.find((a) => String(a).startsWith("--days="));
   const guildArg = process.argv.find((a) => String(a).startsWith("--guild="));
@@ -392,9 +396,11 @@ async function main() {
     const scan = await scanTodayLevelEmbeds(channel, scanStartMs);
     scannedMessages += Number(scan.scanned || 0);
     matchedLevelMessages += Number(scan.matched || 0);
-    for (const [uid, lvl] of scan.levelsByUser.entries()) {
-      const prev = Number(mergedLevels.get(uid) || 0);
-      mergedLevels.set(uid, Math.max(prev, Number(lvl || 0)));
+    for (const [uid, payload] of scan.levelsByUser.entries()) {
+      const prev = mergedLevels.get(uid);
+      if (!prev || Number(payload?.ts || 0) > Number(prev?.ts || 0)) {
+        mergedLevels.set(uid, payload);
+      }
     }
   }
 
