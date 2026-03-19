@@ -8,7 +8,6 @@ const MAX_AUTOMATIC_BACKUPS = 1;
 const MAX_MANUAL_BACKUP_AGE_DAYS = 45;
 const MIN_MANUAL_BACKUPS_TO_KEEP = 8;
 const AUTO_BACKUP_TIMEZONE = "Europe/Rome";
-const STARTUP_CATCHUP_WINDOW_MINUTES = 10;
 
 function getZonedParts(date = new Date(), timeZone = AUTO_BACKUP_TIMEZONE) {
   const formatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, });
@@ -28,11 +27,6 @@ function getZonedDayKey(date = new Date(), timeZone = AUTO_BACKUP_TIMEZONE) {
   const m = String(parts.month).padStart(2, "0");
   const d = String(parts.day).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-function shouldRunStartupCatchup(date = new Date()) {
-  const parts = getZonedParts(date, AUTO_BACKUP_TIMEZONE);
-  return parts.hour === 0 && parts.minute <= STARTUP_CATCHUP_WINDOW_MINUTES;
 }
 
 function getMarkerPath(guildId) {
@@ -106,9 +100,7 @@ function startAutoBackupLoop(client) {
 
   const runTick = async () => { for (const guild of client.guilds.cache.values()) { try { await validateAndHealGuildBackups(guild.id, { limit: 20 }).catch(() => null); const result = await runGuildAutoBackup(guild); void result; } catch (error) { global.logger?.error?.("[backup.auto] failed:", error); } } };
 
-  if (shouldRunStartupCatchup()) {
-    runTick().catch(() => { });
-  }
+  runTick().catch(() => { });
 
   client._autoBackupCron = cron.schedule(
     "0 0 * * *",

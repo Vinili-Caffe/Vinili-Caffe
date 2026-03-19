@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { ActivityUser, ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityHourlyCompact, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
@@ -149,7 +150,63 @@ function extractCompactRowsByKey(doc = {}, keyField = "dateKey") {
   return rows;
 }
 
+function extractProfileRowsByKey(doc = {}, bucketField = "daily", keyField = "dateKey") {
+  const guildId = String(doc?.guildId || "");
+  const userId = String(doc?.userId || "");
+  if (!guildId || !userId) return [];
+  const bucket = toObjectMap(doc?.[bucketField] || {});
+  const rows = [];
+  for (const [bucketKey, value] of Object.entries(bucket)) {
+    const clean = value && typeof value === "object" ? value : {};
+    rows.push({
+      guildId,
+      [keyField]: String(bucketKey || ""),
+      userId,
+      textCount: Number(clean?.textCount || 0),
+      voiceSeconds: Number(clean?.voiceSeconds || 0),
+      textChannels: toObjectMap(clean?.textChannels || {}),
+      voiceChannels: toObjectMap(clean?.voiceChannels || {}),
+    });
+  }
+  return rows;
+}
+
+async function loadDailyRowsFromProfile(guildId, dateKeys = null) {
+  const filter = { guildId: String(guildId || "") };
+  if (!filter.guildId) return [];
+  const docs = await ActivityUserProfile.find(filter).select("guildId userId daily").lean().catch(() => []);
+  const wanted = Array.isArray(dateKeys) && dateKeys.length ? new Set(dateKeys.map(String)) : null;
+  const rows = [];
+  for (const doc of docs) {
+    const list = extractProfileRowsByKey(doc, "daily", "dateKey");
+    for (const row of list) {
+      if (wanted && !wanted.has(String(row.dateKey || ""))) continue;
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
+async function loadHourlyRowsFromProfile(guildId, hourKeys = null, userId = null) {
+  const filter = { guildId: String(guildId || "") };
+  if (!filter.guildId) return [];
+  if (userId) filter.userId = String(userId);
+  const docs = await ActivityUserProfile.find(filter).select("guildId userId hourly").lean().catch(() => []);
+  const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
+  const rows = [];
+  for (const doc of docs) {
+    const list = extractProfileRowsByKey(doc, "hourly", "hourKey");
+    for (const row of list) {
+      if (wanted && !wanted.has(String(row.hourKey || ""))) continue;
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 async function loadDailyRows(guildId, dateKeys = null) {
+  const profileRows = await loadDailyRowsFromProfile(guildId, dateKeys);
+  if (profileRows.length > 0) return profileRows;
   const useCompact = useCompactDailyStorage();
   const useLegacy = useLegacyDailyStorage();
   const filter = dateKeys?.length
@@ -176,6 +233,8 @@ async function loadDailyRows(guildId, dateKeys = null) {
 }
 
 async function loadHourlyRows(guildId, hourKeys = null, userId = null) {
+  const profileRows = await loadHourlyRowsFromProfile(guildId, hourKeys, userId);
+  if (profileRows.length > 0) return profileRows;
   const useCompact = useCompactHourlyStorage();
   const useLegacy = useLegacyHourlyStorage();
   const filter = hourKeys?.length
@@ -345,6 +404,17 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
       { upsert: true },
     ).catch(() => { });
   }
+  await ActivityUserProfile.updateOne(
+    { guildId: String(guildId), userId: String(userId) },
+    {
+      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
+      $inc: {
+        [`daily.${dateKey}.textCount`]: inc,
+        [`daily.${dateKey}.textChannels.${String(channelId)}`]: inc,
+      },
+    },
+    { upsert: true },
+  ).catch(() => { });
 }
 
 async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
@@ -376,6 +446,17 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
       { upsert: true },
     ).catch(() => { });
   }
+  await ActivityUserProfile.updateOne(
+    { guildId: String(guildId), userId: String(userId) },
+    {
+      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
+      $inc: {
+        [`hourly.${hourKey}.textCount`]: inc,
+        [`hourly.${hourKey}.textChannels.${String(channelId)}`]: inc,
+      },
+    },
+    { upsert: true },
+  ).catch(() => { });
 }
 
 async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
@@ -407,6 +488,17 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
       { upsert: true },
     ).catch(() => { });
   }
+  await ActivityUserProfile.updateOne(
+    { guildId: String(guildId), userId: String(userId) },
+    {
+      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
+      $inc: {
+        [`daily.${dateKey}.voiceSeconds`]: inc,
+        [`daily.${dateKey}.voiceChannels.${String(channelId)}`]: inc,
+      },
+    },
+    { upsert: true },
+  ).catch(() => { });
 }
 
 async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
@@ -438,6 +530,17 @@ async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
       { upsert: true },
     ).catch(() => { });
   }
+  await ActivityUserProfile.updateOne(
+    { guildId: String(guildId), userId: String(userId) },
+    {
+      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
+      $inc: {
+        [`hourly.${hourKey}.voiceSeconds`]: inc,
+        [`hourly.${hourKey}.voiceChannels.${String(channelId)}`]: inc,
+      },
+    },
+    { upsert: true },
+  ).catch(() => { });
 }
 
 function getWeekKey(date) {

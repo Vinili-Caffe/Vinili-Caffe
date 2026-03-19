@@ -1,4 +1,4 @@
-const { ActivityEventReward, ExpUser, EventUserExpSnapshot, EventWeekWinner, VoteRole } = require("../../Schemas/Community/communitySchemas");
+const { ActivityEventReward, ActivityUserProfile, ExpUser, EventUserExpSnapshot, EventWeekWinner, VoteRole } = require("../../Schemas/Community/communitySchemas");
 const { getGuildExpSettings, addExp, getTotalExpForLevel, getLevelInfo, recordLevelHistory, isEventStaffMember, scheduleEventLevelUpMessage, syncLevelRolesForMember } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const { sendEventRewardLog, sendEventRewardSkippedLog, sendEventRewardDm } = require("./eventRewardLogService");
@@ -434,7 +434,13 @@ function getCompletedEventWeekForSundayPayout(settings) {
 async function getTop10ExpDuringEvent(guildId, limit = 10) {
   if (!guildId) return [];
   const cap = Math.max(1, Math.min(100, Number(limit) || 10));
-  const users = await ExpUser.find({ guildId }).select("userId totalExp activityExpTotal").lean().catch(() => []);
+  const profileUsers = await ActivityUserProfile.find({ guildId }).select("userId exp").lean().catch(() => []);
+  const users = profileUsers.length
+    ? profileUsers.map((row) => ({
+      userId: row?.userId,
+      activityExpTotal: Number(row?.exp?.activityExpTotal || 0),
+    }))
+    : await ExpUser.find({ guildId }).select("userId activityExpTotal").lean().catch(() => []);
   const withExp = users.map((d) => {
     const userId = String(d?.userId || "");
     const activityTotal = Math.max(0, Number(d?.activityExpTotal || 0));
