@@ -379,10 +379,19 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
       : effective;
   if (effective === 0 && weeklyEffective === 0) return null;
   const beforeRow = await ExpUser.findOne({ guildId, userId })
-    .select("totalExp")
+    .select("totalExp level")
     .lean()
     .catch(() => null);
-  const beforeExp = Math.max(0, Math.floor(Number(beforeRow?.totalExp || 0)));
+  let beforeExp = Math.max(0, Math.floor(Number(beforeRow?.totalExp || 0)));
+  const storedLevel = Math.max(0, Math.floor(Number(beforeRow?.level || 0)));
+  const minExpForStoredLevel = getTotalExpForLevel(storedLevel);
+  if (storedLevel > 0 && beforeExp < minExpForStoredLevel) {
+    beforeExp = minExpForStoredLevel;
+    await ExpUser.updateOne(
+      { guildId: String(guildId), userId: String(userId) },
+      { $max: { totalExp: beforeExp }, $set: { level: storedLevel } },
+    ).catch(() => null);
+  }
   const prevLevel = getLevelInfo(beforeExp).level;
   const gid = String(guildId);
   const uid = String(userId);
@@ -999,13 +1008,20 @@ async function getUserExpStats(guildId, userId) {
     };
   }
   ensureWeekly(doc, now);
-  const levelInfo = getLevelInfo(doc.totalExp);
-  doc.level = levelInfo.level;
+  let safeTotalExp = Math.max(0, Math.floor(Number(doc.totalExp || 0)));
+  const storedLevel = Math.max(0, Math.floor(Number(doc.level || 0)));
+  const minExpForStoredLevel = getTotalExpForLevel(storedLevel);
+  if (storedLevel > 0 && safeTotalExp < minExpForStoredLevel) {
+    safeTotalExp = minExpForStoredLevel;
+    doc.totalExp = safeTotalExp;
+  }
+  const levelInfo = getLevelInfo(safeTotalExp);
+  doc.level = Math.max(storedLevel, levelInfo.level);
   await doc.save();
   return {
-    totalExp: Number(doc.totalExp || 0),
+    totalExp: Number(safeTotalExp || 0),
     weeklyExp: Number(doc.weeklyExp || 0),
-    level: levelInfo.level,
+    level: Number(doc.level || 0),
     currentLevelExp: levelInfo.currentLevelExp,
     nextLevelExp: levelInfo.nextLevelExp,
     remainingToNext: levelInfo.remainingToNext,
