@@ -124,7 +124,8 @@ function ensureMongoRestoreInstalled() {
 
 function runNodeScript(scriptRelPath, args) {
   const scriptPath = path.resolve(__dirname, scriptRelPath);
-  const nodeBin = process.env.NODE_BINARY || "node";
+  // Usa il runtime Node corrente: evita problemi con NODE_BINARY in .env (es: "node 24.7.0")
+  const nodeBin = process.execPath || "node";
   const res = spawnSync(nodeBin, [scriptPath, ...args], {
     stdio: "inherit",
   });
@@ -139,6 +140,7 @@ function dropCollection(db, collectionName) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
+  const skipRestore = process.argv.includes("--skip-restore");
   const backupArg = process.argv.find((a) => String(a).startsWith("--backup="));
   const backupDir = backupArg ? String(backupArg.split("=").slice(1).join("=")) : pickLatestBackupDir();
 
@@ -181,19 +183,23 @@ async function main() {
     `--nsInclude=${nsIncludeConfig}`,
   ];
 
-  console.log("[RESTORE] mongorestore args:", mongorestoreArgs.join(" "));
-  console.log("[RESTORE] backupDir:", backupDir);
-  console.log("[RESTORE] restoreDir:", restoreDir);
-  console.log("[RESTORE] mongorestoreDir:", mongorestoreDir);
-  console.log("[RESTORE] exists checks:", {
-    direct_mod_cases: fileExists(path.join(restoreDir, "mod_cases.bson")),
-    direct_mod_configs: fileExists(path.join(restoreDir, "mod_configs.bson")),
-    under_db_mod_cases: fileExists(path.join(restoreDir, dbName, "mod_cases.bson")),
-    under_db_mod_configs: fileExists(path.join(restoreDir, dbName, "mod_configs.bson")),
-  });
-  if (!dryRun) {
-    const res = spawnSync("mongorestore", mongorestoreArgs, { stdio: "inherit" });
-    if (res.status !== 0) throw new Error("mongorestore fallito");
+  if (!skipRestore) {
+    console.log("[RESTORE] mongorestore args:", mongorestoreArgs.join(" "));
+    console.log("[RESTORE] backupDir:", backupDir);
+    console.log("[RESTORE] restoreDir:", restoreDir);
+    console.log("[RESTORE] mongorestoreDir:", mongorestoreDir);
+    console.log("[RESTORE] exists checks:", {
+      direct_mod_cases: fileExists(path.join(restoreDir, "mod_cases.bson")),
+      direct_mod_configs: fileExists(path.join(restoreDir, "mod_configs.bson")),
+      under_db_mod_cases: fileExists(path.join(restoreDir, dbName, "mod_cases.bson")),
+      under_db_mod_configs: fileExists(path.join(restoreDir, dbName, "mod_configs.bson")),
+    });
+    if (!dryRun) {
+      const res = spawnSync("mongorestore", mongorestoreArgs, { stdio: "inherit" });
+      if (res.status !== 0) throw new Error("mongorestore fallito");
+    }
+  } else {
+    console.log("[RESTORE] skipRestore=true, salto mongorestore");
   }
 
   if (!dryRun) {

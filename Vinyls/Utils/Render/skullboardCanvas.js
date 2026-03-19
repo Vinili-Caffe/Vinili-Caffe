@@ -142,7 +142,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     const replyRowMidY = replyY + replyRowHeight / 2;
     const replyAvatarTop = replyRowMidY - replyAvatarSize / 2;
     if (reply.avatarUrl) {
-      const rAvatar = await loadImage(reply.avatarUrl).catch(() => null);
+      const rAvatar = await safeLoadImage(reply.avatarUrl, { timeoutMs: 10000 });
       if (rAvatar) {
         drawCircleImage(ctx, rAvatar, rx, replyAvatarTop, replyAvatarSize);
         rx += replyAvatarSize + 8;
@@ -162,7 +162,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     rx += ctx.measureText(replyName).width + 8;
 
     if (reply.roleIconUrl) {
-      const replyIcon = await loadImage(reply.roleIconUrl).catch(() => null);
+      const replyIcon = await safeLoadImage(reply.roleIconUrl, { timeoutMs: 10000 });
       if (replyIcon) {
         const replyIconSize = 12;
         const replyIconTop = replyRowMidY - replyIconSize / 2;
@@ -222,7 +222,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
   const usernameWidth = ctx.measureText(username || "").width;
   let cursorX = contentX + usernameWidth + usernameToIconGap;
   if (roleIconUrl) {
-    const roleIcon = await loadImage(roleIconUrl).catch(() => null);
+    const roleIcon = await safeLoadImage(roleIconUrl, { timeoutMs: 10000 });
     if (roleIcon) {
       const iconTop = headerY + (headerLineHeight - roleIconSize) / 2;
       drawCircleImage(ctx, roleIcon, cursorX, iconTop, roleIconSize);

@@ -1,6 +1,7 @@
 let _canvasModule = null;
 function getCanvasModule() { if (!_canvasModule) _canvasModule = require("canvas"); return _canvasModule; }
 const { registerCanvasFonts, drawTextWithSpecialFallback, fontStack, } = require("./canvasFonts");
+const { safeLoadImage } = require("./safeLoadImage");
 const emojiImageCache = new Map();
 const CUSTOM_EMOJI_START_RE = /^<(a)?:([a-zA-Z0-9_~]+):(\d{16,22})>/;
 const ROME_TIME_ZONE = "Europe/Rome";
@@ -224,7 +225,7 @@ async function getEmojiImage(token) {
   const key = typeof token === "string" ? token : `custom:${token.id}:${token.animated ? 1 : 0}`;
   if (emojiImageCache.has(key)) return emojiImageCache.get(key);
   const sourceUrl = typeof token === "string" ? emojiToTwemojiUrl(token) : customEmojiUrl(token.id, false);
-  const promise = getCanvasModule().loadImage(sourceUrl).catch(() => null);
+  const promise = safeLoadImage(sourceUrl, { timeoutMs: 10000 }).catch(() => null);
   emojiImageCache.set(key, promise);
   return promise;
 }
@@ -293,7 +294,7 @@ function drawBackground(ctx, width, height) {
 
 async function drawAvatarCircle(ctx, avatarUrl, x, y, size) {
   if (!avatarUrl) return;
-  const image = await getCanvasModule().loadImage(avatarUrl).catch(() => null);
+  const image = await safeLoadImage(avatarUrl, { timeoutMs: 10000 });
   if (!image) return;
 
   ctx.save();

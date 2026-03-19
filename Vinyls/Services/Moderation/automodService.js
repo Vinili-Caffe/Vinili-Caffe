@@ -2136,9 +2136,9 @@ async function sendAutomodActionInChannel(message, action, violations, context =
   ACTION_CHANNEL_LOG_COOLDOWN.set(cooldownKey, nowMs());
   const durationLabel = context.timeoutMs ? ` for ${formatDurationShort(context.timeoutMs)}`
     : "";
-  const title = action === "timeout" ? `${message.author.username}has been timed out${durationLabel}`
+  const title = action === "timeout" ? `${message.author.username} has been timed out${durationLabel}`
     : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}'s message has been removed` : `${message.author.username}has been warned`;
+      ? `${message.author.username}'s message has been removed` : `${message.author.username} has been warned`;
 
   const embed = new EmbedBuilder()
     .setColor(action === "timeout" ? "#f4d35e" : action === "delete" || action === "delete_webhook" ? "#f59e0b" : "#5865f2",)

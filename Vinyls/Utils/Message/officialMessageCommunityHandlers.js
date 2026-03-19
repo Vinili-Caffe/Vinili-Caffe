@@ -119,8 +119,9 @@ async function handleAfk(message) {
   const afkData = await AFK.findOne({ guildId, userId }).lean();
   if (afkData) {
     const member = message.guild.members.cache.get(userId);
-    if (member && afkData.originalName) {
-      await member.setNickname(afkData.originalName).catch(() => { });
+    if (member) {
+      const originalName = afkData.originalName == null ? null : String(afkData.originalName);
+      await member.setNickname(originalName).catch(() => { });
     }
     await AFK.deleteOne({ guildId, userId });
     const msg = await safeMessageReply(message, `<:VC_PepeWave:1331589315175907412> Bentornato <@${userId}>! Ho rimosso il tuo stato AFK.`,

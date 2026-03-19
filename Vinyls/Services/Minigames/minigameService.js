@@ -1,5 +1,5 @@
 const axios = require("axios");
-const MINIGAME_429_THROTTLE_MS = 15 * 60 * 1000;
+const MINIGAME_429_THROTTLE_MS = 60 * 60 * 1000;
 const MINIGAME_403_THROTTLE_MS = 60 * 1000;
 let last429LogAt = 0;
 let last403LogAt = 0;
@@ -44,10 +44,12 @@ function warnMinigame(err) {
   if (is429) {
     let host = null;
     try { host = url ? new URL(String(url)).host : null; } catch { host = null; }
-    logMsg = `429 rate limit${host ? ` (${host})` : ""}`;
+    const remainingMs = Math.max(0, sportsDb429Until - Date.now());
+    const remainingMin = Math.ceil(remainingMs / 60000);
+    logMsg = `429 rate limit${host ? ` (${host})` : ""}${remainingMin > 0 ? `, cooldown ${remainingMin}m` : ""}`;
   }
   if (is403 && url) logMsg += ` URL: ${typeof url === "string" ? url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***") : url}`;
-  global.logger?.warn?.("[minigameService] ", logMsg);
+  global.logger?.warn?.(`[minigameService] ${logMsg}`);
 }
 
 function isThesportsdb429(err) {

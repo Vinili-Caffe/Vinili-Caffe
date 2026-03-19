@@ -31,7 +31,10 @@ module.exports = {
           message,
           "<:vegax:1443934876440068179> Errore: non posso trovare il tuo profilo.",
         );
-      const originalName = member.nickname || message.author.username;
+      const originalName = member.nickname ?? null;
+      const preferredBaseName = member.nickname || member.displayName || message.author.username;
+      const baseName = String(preferredBaseName || "").replace(/^\s*\[AFK\]\s*/i, "").trim() || message.author.username;
+      const afkNickname = `[AFK] ${baseName}`.slice(0, 32);
       await AFK.findOneAndUpdate(
         { guildId, userId },
         {
@@ -43,9 +46,7 @@ module.exports = {
         },
         { upsert: true },
       );
-      if (!originalName.startsWith("[AFK]")) {
-        await member.setNickname(`[AFK] ${originalName}`).catch(() => {});
-      }
+      await member.setNickname(afkNickname).catch(() => {});
       safeMessageReply(
         message,
         `<@${userId}> Ho impostato il tuo stato AFK: __**${afkMessage}**__`,
