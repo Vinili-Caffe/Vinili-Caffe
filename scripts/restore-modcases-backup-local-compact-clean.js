@@ -167,10 +167,15 @@ async function main() {
   const nsIncludeConfig = `${dbName}.mod_configs`;
 
   const restoreDir = resolveRestoreDir(backupDir, dbName);
+  const restoreBsonDir = path.join(restoreDir, dbName);
+  const useBsonDir =
+    fileExists(path.join(restoreBsonDir, "mod_cases.bson")) &&
+    fileExists(path.join(restoreBsonDir, "mod_configs.bson"));
+  const mongorestoreDir = useBsonDir ? restoreBsonDir : restoreDir;
 
   const mongorestoreArgs = [
     `--uri=${mongoLocalUrl}`,
-    `--dir=${restoreDir}`,
+    `--dir=${mongorestoreDir}`,
     "--drop",
     `--nsInclude=${nsIncludeCases}`,
     `--nsInclude=${nsIncludeConfig}`,
@@ -179,6 +184,7 @@ async function main() {
   console.log("[RESTORE] mongorestore args:", mongorestoreArgs.join(" "));
   console.log("[RESTORE] backupDir:", backupDir);
   console.log("[RESTORE] restoreDir:", restoreDir);
+  console.log("[RESTORE] mongorestoreDir:", mongorestoreDir);
   console.log("[RESTORE] exists checks:", {
     direct_mod_cases: fileExists(path.join(restoreDir, "mod_cases.bson")),
     direct_mod_configs: fileExists(path.join(restoreDir, "mod_configs.bson")),
