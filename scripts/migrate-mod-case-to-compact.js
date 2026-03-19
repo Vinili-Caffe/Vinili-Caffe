@@ -22,6 +22,17 @@ const write = process.argv.includes("--write");
 const guildArg = process.argv.find((a) => String(a).startsWith("--guild="));
 const guildFilter = guildArg ? String(guildArg.split("=")[1] || "").trim() : "";
 
+async function pickLegacySourceCollection(db) {
+  const candidates = ["mod_cases", "mod_case"];
+  const counts = {};
+  for (const name of candidates) {
+    counts[name] = await db.collection(name).countDocuments({}).catch(() => 0);
+  }
+  if (counts.mod_cases > 0) return { name: "mod_cases", counts };
+  if (counts.mod_case > 0) return { name: "mod_case", counts };
+  return { name: null, counts };
+}
+
 function toEntry(doc) {
   return {
     caseId: Number(doc.caseId),
@@ -49,6 +60,10 @@ async function main() {
   await mongoose.connect(MONGO_URL);
   let q = guildFilter ? { guildId: guildFilter } : {};
   let totalLegacy = await ModCase.countDocuments(q).catch(() => 0);
+  const db = mongoose.connection.db;
+  let sourceCollection = "model:mod_case";
+  let rawFallback = null;
+
   if (guildFilter && totalLegacy === 0) {
     const availableGuildIds = await ModCase.distinct("guildId").catch(() => []);
     console.warn(
@@ -60,16 +75,47 @@ async function main() {
     q = {};
     totalLegacy = await ModCase.countDocuments({}).catch(() => 0);
   }
-  console.log("[migrate-mod-case] legacy mod_case:", totalLegacy, write ? "WRITE" : "DRY-RUN", guildFilter || "all guilds");
+
+  if (totalLegacy === 0) {
+    rawFallback = await pickLegacySourceCollection(db);
+    if (rawFallback.name) {
+      sourceCollection = `raw:${rawFallback.name}`;
+      totalLegacy = await db.collection(rawFallback.name).countDocuments(q).catch(() => 0);
+    }
+  }
+
+  console.log(
+    "[migrate-mod-case] legacy mod_case:",
+    totalLegacy,
+    write ? "WRITE" : "DRY-RUN",
+    guildFilter || "all guilds",
+    "| source:",
+    sourceCollection,
+    rawFallback ? `| rawCounts=${JSON.stringify(rawFallback.counts)}` : "",
+  );
 
   const groups = new Map();
-  const cursor = ModCase.find(q).lean().cursor();
-  for await (const doc of cursor) {
-    const gid = String(doc.guildId || "");
-    const uid = String(doc.userId || "");
-    const key = `${gid}\t${uid}`;
-    if (!groups.has(key)) groups.set(key, new Map());
-    groups.get(key).set(Number(doc.caseId), toEntry(doc));
+  if (sourceCollection.startsWith("raw:")) {
+    const col = sourceCollection.replace("raw:", "");
+    const cursor = db.collection(col).find(q);
+    for await (const doc of cursor) {
+      const gid = String(doc.guildId || "");
+      const uid = String(doc.userId || "");
+      if (!gid || !uid) continue;
+      const key = `${gid}\t${uid}`;
+      if (!groups.has(key)) groups.set(key, new Map());
+      groups.get(key).set(Number(doc.caseId), toEntry(doc));
+    }
+  } else {
+    const cursor = ModCase.find(q).lean().cursor();
+    for await (const doc of cursor) {
+      const gid = String(doc.guildId || "");
+      const uid = String(doc.userId || "");
+      if (!gid || !uid) continue;
+      const key = `${gid}\t${uid}`;
+      if (!groups.has(key)) groups.set(key, new Map());
+      groups.get(key).set(Number(doc.caseId), toEntry(doc));
+    }
   }
 
   let upsertCount = 0;
