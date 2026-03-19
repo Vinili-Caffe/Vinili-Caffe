@@ -145,11 +145,15 @@ function isLikelyLevelUpMessage(message) {
 }
 
 function extractUserIdFromMessage(msg) {
+  const fromMentions = msg?.mentions?.users?.first?.();
+  if (fromMentions?.id) return String(fromMentions.id);
   const fromContent = parseMentionUserId(msg?.content);
   if (fromContent) return fromContent;
   const fromEmbeds = (msg?.embeds || []).map((e) => flattenEmbedText(e)).join("\n");
   const fromEmbedText = parseMentionUserId(fromEmbeds);
   if (fromEmbedText) return fromEmbedText;
+  const fromInteraction = msg?.interactionMetadata?.user?.id || msg?.interaction?.user?.id;
+  if (fromInteraction) return String(fromInteraction);
   return null;
 }
 
@@ -300,10 +304,21 @@ async function filterUsersStillInGuild(guild, levelsByUser) {
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
     const fetched = await guild.members.fetch({ user: chunk, force: true }).catch(() => null);
-    if (!fetched) continue;
-    for (const [memberId] of fetched) {
-      const level = Number(levelsByUser.get(String(memberId)) || 0);
-      if (level > 0) usersInGuild.set(String(memberId), level);
+    if (fetched) {
+      for (const [memberId] of fetched) {
+        const level = Number(levelsByUser.get(String(memberId)) || 0);
+        if (level > 0) usersInGuild.set(String(memberId), level);
+      }
+      continue;
+    }
+    // Fallback: se il fetch in batch fallisce (utente non trovato/errore parziale),
+    // proviamo per singolo utente per non perdere level-up validi del resto del chunk.
+    for (const userId of chunk) {
+      const single = await guild.members.fetch({ user: userId, force: true }).catch(() => null);
+      const memberId = single?.id ? String(single.id) : "";
+      if (!memberId) continue;
+      const level = Number(levelsByUser.get(memberId) || 0);
+      if (level > 0) usersInGuild.set(memberId, level);
     }
   }
   return usersInGuild;
