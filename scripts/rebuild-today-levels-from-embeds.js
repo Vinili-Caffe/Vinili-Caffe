@@ -11,14 +11,15 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const mongoose = require("mongoose");
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ChannelType } = require("discord.js");
 const { ExpUser } = require("../Vinyls/Schemas/Community/communitySchemas");
 const { getTotalExpForLevel, getCurrentWeekKey } = require("../Vinyls/Services/Community/expService");
 const IDs = require("../Vinyls/Utils/Config/ids");
+const { isValidGuildUserId } = require("../Vinyls/Utils/DB/validateWriteIds");
 
 const TZ = "Europe/Rome";
 const DEFAULT_GUILD_ID = IDs.guilds?.main || "1329080093599076474";
-const LEVEL_CHANNEL_ID = IDs.channels?.commands || "1442569189486497905";
+const LEVEL_CHANNEL_ID = "1442569138114662490";
 
 const ROLE_TO_LEVEL = new Map([
   [String(IDs.roles?.Level10 || ""), 10],
@@ -127,12 +128,19 @@ function parseLevelFromEmbed(embed) {
 
 function isLikelyLevelUpMessage(message) {
   const content = String(message?.content || "").toLowerCase();
+  const hasEmbed = Array.isArray(message?.embeds) && message.embeds.length > 0;
   const embedText = flattenEmbedText(message?.embeds?.[0]).toLowerCase();
   const joined = `${content}\n${embedText}`;
+  const hasRequiredItalianContent =
+    /<@!?\d{16,}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(String(message?.content || ""));
   return (
-    /leveled?\s*up/i.test(joined) ||
-    /sei\s+salit[oa](?:\/a)?\s+di\s+livello/i.test(joined) ||
-    /livello/i.test(joined)
+    hasEmbed &&
+    (
+      hasRequiredItalianContent ||
+      /leveled?\s*up/i.test(joined) ||
+      /sei\s+salit[oa](?:\/a)?\s+di\s+livello/i.test(joined) ||
+      /livello/i.test(joined)
+    )
   );
 }
 
@@ -179,8 +187,24 @@ function getRomeDayStartUtcMs(now = new Date()) {
   return Date.UTC(y, m - 1, d, 0, 0, 0) + offsetMs;
 }
 
-async function scanTodayLevelEmbeds(channel) {
-  const startMs = getRomeDayStartUtcMs(new Date());
+function getRomeStartUtcMsFromDays(days = 1, now = new Date()) {
+  const safeDays = Math.max(1, Math.min(30, Math.floor(Number(days || 1))));
+  return getRomeDayStartUtcMs(now) - (safeDays - 1) * 24 * 60 * 60 * 1000;
+}
+
+function isSupportedTextChannel(ch) {
+  if (!ch?.isTextBased?.() || !ch?.messages?.fetch) return false;
+  const allowed = new Set([
+    ChannelType.GuildText,
+    ChannelType.GuildAnnouncement,
+    ChannelType.PublicThread,
+    ChannelType.PrivateThread,
+    ChannelType.AnnouncementThread,
+  ]);
+  return allowed.has(ch.type);
+}
+
+async function scanTodayLevelEmbeds(channel, startMs) {
   const levelsByUser = new Map();
   let scanned = 0;
   let matched = 0;
@@ -193,7 +217,7 @@ async function scanTodayLevelEmbeds(channel) {
     const msgs = Array.from(batch.values());
     scanned += msgs.length;
     for (const msg of msgs) {
-      if (Number(msg.createdTimestamp || 0) < startMs) {
+      if (Number.isFinite(startMs) && Number(msg.createdTimestamp || 0) < startMs) {
         stop = true;
         break;
       }
@@ -230,6 +254,10 @@ async function applyLevels(guildId, levelsByUser, dryRun) {
   let skipped = 0;
   const ops = [];
   for (const [userId, targetLevelRaw] of levelsByUser.entries()) {
+    if (!isValidGuildUserId(String(guildId), String(userId))) {
+      skipped += 1;
+      continue;
+    }
     const targetLevel = Math.max(1, Math.floor(Number(targetLevelRaw || 0)));
     const minExp = Math.max(0, Number(getTotalExpForLevel(targetLevel) || 0));
     const row = byUser.get(String(userId));
@@ -265,11 +293,33 @@ async function applyLevels(guildId, levelsByUser, dryRun) {
   return { updated, skipped };
 }
 
+async function filterUsersStillInGuild(guild, levelsByUser) {
+  const usersInGuild = new Map();
+  const ids = Array.from(levelsByUser.keys()).map((v) => String(v)).filter((v) => v.trim().length > 0);
+  const chunkSize = 100;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const fetched = await guild.members.fetch({ user: chunk, force: true }).catch(() => null);
+    if (!fetched) continue;
+    for (const [memberId] of fetched) {
+      const level = Number(levelsByUser.get(String(memberId)) || 0);
+      if (level > 0) usersInGuild.set(String(memberId), level);
+    }
+  }
+  return usersInGuild;
+}
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const allowDecrease = process.argv.includes("--allow-decrease");
+  const scanAllChannels = process.argv.includes("--all-channels");
+  const daysArg = process.argv.find((a) => String(a).startsWith("--days="));
   const guildArg = process.argv.find((a) => String(a).startsWith("--guild="));
+  const channelArg = process.argv.find((a) => String(a).startsWith("--channel="));
   const guildId = guildArg ? String(guildArg.split("=").slice(1).join("=")).trim() : String(DEFAULT_GUILD_ID);
+  const specificChannelId = channelArg ? String(channelArg.split("=").slice(1).join("=")).trim() : "";
+  const daysLookback = daysArg ? Math.max(1, Math.min(30, Math.floor(Number(String(daysArg.split("=").slice(1).join("=")).trim() || 1)))) : null;
+  const scanStartMs = Number.isFinite(daysLookback) ? getRomeStartUtcMsFromDays(daysLookback, new Date()) : null;
 
   const mongoUrl = resolveMongoUrl();
   const token = process.env.DISCORD_TOKEN_OFFICIAL || process.env.DISCORD_TOKEN;
@@ -278,27 +328,63 @@ async function main() {
 
   await mongoose.connect(mongoUrl, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000 });
 
-  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMembers] });
   await client.login(token);
 
   const guild = await client.guilds.fetch(guildId).catch(() => null);
   if (!guild) throw new Error(`Guild non trovata: ${guildId}`);
-  const channel = await guild.channels.fetch(String(LEVEL_CHANNEL_ID)).catch(() => null);
-  if (!channel?.isTextBased?.() || !channel.messages?.fetch) throw new Error(`Canale level-up non accessibile: ${LEVEL_CHANNEL_ID}`);
+  await guild.channels.fetch().catch(() => null);
+  await guild.channels.fetchActiveThreads?.().catch(() => null);
 
-  const scan = await scanTodayLevelEmbeds(channel);
-  const apply = await applyLevels(guild.id, scan.levelsByUser, dryRun);
+  let channels = [];
+  if (specificChannelId) {
+    const ch = await guild.channels.fetch(String(specificChannelId)).catch(() => null);
+    if (!ch?.isTextBased?.() || !ch.messages?.fetch) throw new Error(`Canale non accessibile: ${specificChannelId}`);
+    channels = [ch];
+  } else if (scanAllChannels) {
+    channels = Array.from(guild.channels.cache.values()).filter(isSupportedTextChannel);
+  } else {
+    const ch = await guild.channels.fetch(String(LEVEL_CHANNEL_ID)).catch(() => null);
+    if (!ch?.isTextBased?.() || !ch.messages?.fetch) throw new Error(`Canale level-up non accessibile: ${LEVEL_CHANNEL_ID}`);
+    channels = [ch];
+  }
+
+  const mergedLevels = new Map();
+  let scannedMessages = 0;
+  let matchedLevelMessages = 0;
+  let scannedChannels = 0;
+  for (const channel of channels) {
+    if (!channel?.isTextBased?.() || !channel.messages?.fetch) continue;
+    scannedChannels += 1;
+    const scan = await scanTodayLevelEmbeds(channel, scanStartMs);
+    scannedMessages += Number(scan.scanned || 0);
+    matchedLevelMessages += Number(scan.matched || 0);
+    for (const [uid, lvl] of scan.levelsByUser.entries()) {
+      const prev = Number(mergedLevels.get(uid) || 0);
+      mergedLevels.set(uid, Math.max(prev, Number(lvl || 0)));
+    }
+  }
+
+  const usersStillInGuild = await filterUsersStillInGuild(guild, mergedLevels);
+  const removedNotInGuild = Math.max(0, mergedLevels.size - usersStillInGuild.size);
+  const apply = await applyLevels(guild.id, usersStillInGuild, dryRun);
 
   console.log(
     JSON.stringify(
       {
         dryRun,
         allowDecrease,
+        scanAllChannels,
+        daysLookback,
+        scanStartAt: Number.isFinite(scanStartMs) ? new Date(scanStartMs).toISOString() : null,
         guildId: guild.id,
-        levelChannelId: String(LEVEL_CHANNEL_ID),
-        scannedMessages: scan.scanned,
-        matchedLevelEmbeds: scan.matched,
-        usersWithDetectedLevelUp: scan.levelsByUser.size,
+        levelChannelId: specificChannelId || String(LEVEL_CHANNEL_ID),
+        scannedChannels,
+        scannedMessages,
+        matchedLevelEmbeds: matchedLevelMessages,
+        usersWithDetectedLevelUp: mergedLevels.size,
+        usersStillInGuild: usersStillInGuild.size,
+        ignoredUsersNotInGuild: removedNotInGuild,
         updatedUsers: apply.updated,
         skippedUsers: apply.skipped,
       },
