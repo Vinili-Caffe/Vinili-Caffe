@@ -174,6 +174,8 @@ async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const skipRestore = process.argv.includes("--skip-restore");
   const remainingFromChannelOnly = process.argv.includes("--remaining-from-channel-only");
+  const useAtlas = process.argv.includes("--atlas");
+  const useLocal = process.argv.includes("--local");
   const backupArg = process.argv.find((a) => String(a).startsWith("--backup="));
   const backupDir = backupArg ? String(backupArg.split("=").slice(1).join("=")) : pickLatestBackupDir();
 
@@ -197,9 +199,20 @@ async function main() {
 
   // Modalità dedicata: importa i case mancanti dal canale e ricompatta senza fare restore backup.
   if (remainingFromChannelOnly) {
+    const registerArgs = [];
+    const migrateArgs = ["--write", `--guild=${MAIN_GUILD_ID}`];
+    if (useAtlas) {
+      registerArgs.push("--atlas");
+      migrateArgs.push("--atlas");
+    } else {
+      // default esplicito: locale, come comportamento storico
+      registerArgs.push("--local");
+    }
+    if (useLocal) registerArgs.push("--local");
+    console.log("[remaining-from-channel-only] target:", useAtlas ? "atlas" : "local");
     if (!dryRun) {
-      runNodeScript("register-modcases-from-embeds-to-compact.js", ["--local"]);
-      runNodeScript("migrate-mod-case-to-compact.js", ["--write", `--guild=${MAIN_GUILD_ID}`]);
+      runNodeScript("register-modcases-from-embeds-to-compact.js", registerArgs);
+      runNodeScript("migrate-mod-case-to-compact.js", migrateArgs);
     } else {
       console.log("[DRY-RUN] remaining-from-channel-only: skip register+migrate");
     }
