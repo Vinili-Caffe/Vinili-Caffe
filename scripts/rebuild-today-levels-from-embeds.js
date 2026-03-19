@@ -45,6 +45,56 @@ function parseMentionUserId(content) {
   return m ? String(m[1]) : null;
 }
 
+function flattenEmbedText(embed) {
+  if (!embed) return "";
+  const parts = [];
+  const push = (v) => {
+    if (typeof v === "string" && v.trim()) parts.push(v);
+  };
+  push(embed.title);
+  push(embed.description);
+  push(embed.author?.name);
+  push(embed.footer?.text);
+  if (Array.isArray(embed.fields)) {
+    for (const f of embed.fields) {
+      push(f?.name);
+      push(f?.value);
+    }
+  }
+  const data = embed.data || embed._data;
+  if (data) {
+    push(data.title);
+    push(data.description);
+    push(data.author?.name);
+    push(data.footer?.text);
+    if (Array.isArray(data.fields)) {
+      for (const f of data.fields) {
+        push(f?.name);
+        push(f?.value);
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+function parseLevelFromText(text) {
+  const s = String(text || "");
+  const patterns = [
+    /sei\s+salit[oa]\/?a?\s+di\s+livello[^0-9]{0,20}(\d{1,4})/i,
+    /sei\s+salit[oa]\s+di\s+livello[^0-9]{0,20}(\d{1,4})/i,
+    /livello\s*[:` ]+\s*(\d{1,4})/i,
+    /level(?:ed)?\s*up[^0-9]{0,20}(\d{1,4})/i,
+    /\braggiunt[oa]\s+il\s+livello[^0-9]{0,20}(\d{1,4})/i,
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
 function parseLevelFromEmbed(embed) {
   const title = String(embed?.title || "");
   const description = String(embed?.description || "");
@@ -70,13 +120,41 @@ function parseLevelFromEmbed(embed) {
     if (Number.isFinite(n) && n > 0) return n;
   }
 
+  const fromText = parseLevelFromText(flattenEmbedText(embed));
+  if (fromText) return fromText;
+
   return null;
 }
 
 function isLikelyLevelUpMessage(message) {
-  const title = String(message?.embeds?.[0]?.title || "").toLowerCase();
   const content = String(message?.content || "").toLowerCase();
-  return title.includes("leveled up") || content.includes("sei salito/a di livello");
+  const embedText = flattenEmbedText(message?.embeds?.[0]).toLowerCase();
+  const joined = `${content}\n${embedText}`;
+  return (
+    /leveled?\s*up/i.test(joined) ||
+    /sei\s+salit[oa](?:\/a)?\s+di\s+livello/i.test(joined) ||
+    /livello/i.test(joined)
+  );
+}
+
+function extractUserIdFromMessage(msg) {
+  const fromContent = parseMentionUserId(msg?.content);
+  if (fromContent) return fromContent;
+  const fromEmbeds = (msg?.embeds || []).map((e) => flattenEmbedText(e)).join("\n");
+  const fromEmbedText = parseMentionUserId(fromEmbeds);
+  if (fromEmbedText) return fromEmbedText;
+  return null;
+}
+
+function extractBestLevelFromMessage(msg) {
+  let best = null;
+  for (const embed of msg?.embeds || []) {
+    const level = parseLevelFromEmbed(embed);
+    if (level) best = best == null ? level : Math.max(best, level);
+  }
+  const fromText = parseLevelFromText(String(msg?.content || ""));
+  if (fromText) best = best == null ? fromText : Math.max(best, fromText);
+  return best;
 }
 
 function getRomeDayStartUtcMs(now = new Date()) {
@@ -120,18 +198,12 @@ async function scanTodayLevelEmbeds(channel) {
         stop = true;
         break;
       }
-      if (!msg.embeds?.length) continue;
       if (!isLikelyLevelUpMessage(msg)) continue;
 
-      const userId = parseMentionUserId(msg.content);
+      const userId = extractUserIdFromMessage(msg);
       if (!userId) continue;
 
-      let bestLevel = null;
-      for (const embed of msg.embeds) {
-        const level = parseLevelFromEmbed(embed);
-        if (!level) continue;
-        bestLevel = bestLevel == null ? level : Math.max(bestLevel, level);
-      }
+      const bestLevel = extractBestLevelFromMessage(msg);
       if (!bestLevel) continue;
 
       matched += 1;
