@@ -197,7 +197,11 @@ const PENDING_COMMANDS_LOOKBACK_MS = 5 * 60 * 1000;
 const PENDING_COMMANDS_FETCH_LIMIT = 25;
 
 async function processPendingPrefixCommands(client) {
-  if (client?.config?.processPendingCommands === false) return;
+  const envValue = String(process.env.PROCESS_PENDING_COMMANDS_ON_STARTUP || "").trim().toLowerCase();
+  const enabled = envValue
+    ? ["1", "true", "yes", "on"].includes(envValue)
+    : client?.config?.processPendingCommands === true;
+  if (!enabled) return;
   const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
   const { getCachedOrFetchMember } = require("../Utils/Message/officialMessageAutomationHandlers");
   const { PermissionFlagsBits, ChannelType } = require("discord.js");

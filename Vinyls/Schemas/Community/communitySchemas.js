@@ -19,6 +19,8 @@ const activityDailyCompactSchema = new Schema({
   users: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 activityDailyCompactSchema.index({ guildId: 1, dateKey: 1 }, { unique: true });
+activityDailyCompactSchema.index({ guildId: 1, dateKey: -1 });
+activityDailyCompactSchema.index({ dateKey: -1 });
 
 const activityHourlySchema=new Schema({guildId:{type:String,required:true,index:true},hourKey:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},textCount:{type:Number,default:0},voiceSeconds:{type:Number,default:0},textChannels:{type:Map,of:Number,default:{}},voiceChannels:{type:Map,of:Number,default:{}},},{timestamps:true},);
 activityHourlySchema.index(
