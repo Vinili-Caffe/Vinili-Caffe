@@ -45,6 +45,58 @@ function pickLatestBackupDir() {
   return path.join(backupsRoot, best);
 }
 
+function dirExists(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function fileExists(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function resolveRestoreDir(backupDir, dbName) {
+  // mongorestore si aspetta tipicamente: <dumpRoot>/<db>/<collection>.bson
+  // Se il tuo backup ha un livello extra tipo: <backupDir>/mongo-*/<db>/...
+  // allora dobbiamo puntare al livello giusto.
+  const wantedCollections = ["mod_cases.bson", "mod_configs.bson"];
+  const candidateRoots = [];
+  candidateRoots.push(backupDir);
+
+  // depth 1
+  const level1 = fs.readdirSync(backupDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => path.join(backupDir, e.name));
+  for (const p of level1) candidateRoots.push(p);
+
+  // depth 2
+  for (const p1 of level1) {
+    if (!dirExists(p1)) continue;
+    const level2 = fs.readdirSync(p1, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => path.join(p1, e.name));
+    for (const p2 of level2) candidateRoots.push(p2);
+  }
+
+  for (const root of candidateRoots) {
+    const ok =
+      fileExists(path.join(root, dbName, wantedCollections[0])) &&
+      fileExists(path.join(root, dbName, wantedCollections[1]));
+    if (ok) return root;
+  }
+
+  // fallback: se esiste <backupDir>/test/<coll>.bson prova test
+  const fallbackDb = "test";
+  const okFallback =
+    fileExists(path.join(backupDir, fallbackDb, "mod_cases.bson")) &&
+    fileExists(path.join(backupDir, fallbackDb, "mod_configs.bson"));
+  if (okFallback) return backupDir;
+
+  return backupDir;
+}
+
 function mustGetMongoLocalUrl() {
   const url = process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL;
   if (!url) throw new Error("Manca MONGO_URL_LOCAL (o MONGODB_URI_LOCAL) in .env");
@@ -102,15 +154,19 @@ async function main() {
   const nsIncludeCases = `${dbName}.mod_cases`;
   const nsIncludeConfig = `${dbName}.mod_configs`;
 
+  const restoreDir = resolveRestoreDir(backupDir, dbName);
+
   const mongorestoreArgs = [
     `--uri=${mongoLocalUrl}`,
-    `--dir=${backupDir}`,
+    `--dir=${restoreDir}`,
     "--drop",
     `--nsInclude=${nsIncludeCases}`,
     `--nsInclude=${nsIncludeConfig}`,
   ];
 
   console.log("[RESTORE] mongorestore args:", mongorestoreArgs.join(" "));
+  console.log("[RESTORE] backupDir:", backupDir);
+  console.log("[RESTORE] restoreDir:", restoreDir);
   if (!dryRun) {
     const res = spawnSync("mongorestore", mongorestoreArgs, { stdio: "inherit" });
     if (res.status !== 0) throw new Error("mongorestore fallito");
