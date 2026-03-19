@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityUser, ExpUser } = require("../../Schemas/Community/communitySchemas");
+const { ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityHourlyCompact, ActivityUser, ExpUser } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService");
@@ -12,6 +12,7 @@ const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
 const leaderboardCache = new Map();
 const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
 
 function useCompactDailyStorage() {
   return ACTIVITY_DAILY_STORAGE_MODE === "compact" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
@@ -19,6 +20,14 @@ function useCompactDailyStorage() {
 
 function useLegacyDailyStorage() {
   return ACTIVITY_DAILY_STORAGE_MODE === "legacy" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
+
+function useCompactHourlyStorage() {
+  return ACTIVITY_HOURLY_STORAGE_MODE === "compact" || ACTIVITY_HOURLY_STORAGE_MODE === "dual";
+}
+
+function useLegacyHourlyStorage() {
+  return ACTIVITY_HOURLY_STORAGE_MODE === "legacy" || ACTIVITY_HOURLY_STORAGE_MODE === "dual";
 }
 
 function getInvokedCommand(message) {
@@ -209,10 +218,30 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
   if (mode === "weekly") {
     const startMs = weeklyStartMs;
     const hourKeys = buildHourKeysBetweenRome(startMs, Date.now());
-    const docs = await ActivityHourly.find({
-      guildId: guild.id,
-      hourKey: { $in: hourKeys },
-    }).select("userId textCount voiceSeconds").lean().catch(() => []);
+    const docs = [];
+    if (useCompactHourlyStorage()) {
+      const compactDocs = await ActivityHourlyCompact.find({
+        guildId: guild.id,
+        hourKey: { $in: hourKeys },
+      }).select("users").lean().catch(() => []);
+      for (const doc of compactDocs) {
+        const users = toObjectMap(doc?.users || {});
+        for (const [userId, row] of Object.entries(users)) {
+          docs.push({
+            userId: String(userId || ""),
+            textCount: Number(row?.textCount || 0),
+            voiceSeconds: Number(row?.voiceSeconds || 0),
+          });
+        }
+      }
+    }
+    if (docs.length === 0 && useLegacyHourlyStorage()) {
+      const legacyRows = await ActivityHourly.find({
+        guildId: guild.id,
+        hourKey: { $in: hourKeys },
+      }).select("userId textCount voiceSeconds").lean().catch(() => []);
+      docs.push(...legacyRows);
+    }
 
     const perUser = new Map();
     for (const doc of docs) {

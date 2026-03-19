@@ -13,6 +13,7 @@ const {
   ActivityDaily,
   ActivityDailyCompact,
   ActivityHourly,
+  ActivityHourlyCompact,
   VoteRole,
   VerificationTenure,
   InviteReminderState,
@@ -392,10 +393,25 @@ async function cleanupUserData(guildId, userId) {
     .lean()
     .catch(() => []);
   const compactOps = [];
+  const compactHourlyDocs = await ActivityHourlyCompact.find({ guildId })
+    .select("_id users")
+    .lean()
+    .catch(() => []);
+  const compactHourlyOps = [];
   for (const row of compactDocs) {
     const users = row?.users && typeof row.users === "object" ? row.users : {};
     if (!Object.prototype.hasOwnProperty.call(users, String(userId))) continue;
     compactOps.push({
+      updateOne: {
+        filter: { _id: row._id },
+        update: { $unset: { [`users.${String(userId)}`]: 1 } },
+      },
+    });
+  }
+  for (const row of compactHourlyDocs) {
+    const users = row?.users && typeof row.users === "object" ? row.users : {};
+    if (!Object.prototype.hasOwnProperty.call(users, String(userId))) continue;
+    compactHourlyOps.push({
       updateOne: {
         filter: { _id: row._id },
         update: { $unset: { [`users.${String(userId)}`]: 1 } },
@@ -408,6 +424,7 @@ async function cleanupUserData(guildId, userId) {
     ActivityDaily.deleteMany({ guildId, userId }),
     compactOps.length ? ActivityDailyCompact.bulkWrite(compactOps, { ordered: false }) : Promise.resolve(),
     ActivityHourly.deleteMany({ guildId, userId }),
+    compactHourlyOps.length ? ActivityHourlyCompact.bulkWrite(compactHourlyOps, { ordered: false }) : Promise.resolve(),
     LevelHistoryUser.deleteOne({ guildId, userId }),
     MinigameUser.deleteOne({ guildId, userId }),
     AFK.deleteOne({ guildId, userId }),

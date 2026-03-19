@@ -1,4 +1,4 @@
-const { ActivityDaily, ActivityHourly } = require("../../Schemas/Community/communitySchemas");
+const { ActivityDaily, ActivityHourly, ActivityHourlyCompact } = require("../../Schemas/Community/communitySchemas");
 
 function pad2(n) {
   return String(Number(n)).padStart(2, "0");
@@ -36,12 +36,13 @@ async function pruneOldActivityData(options = {}) {
   const cutoffDateKey = getDayKey(cutoffDaily);
   const cutoffHourKey = getHourKey(cutoffHourly);
 
-  const [dailyResult, hourlyResult] = await Promise.all([
+  const [dailyResult, hourlyResult, hourlyCompactResult] = await Promise.all([
     ActivityDaily.deleteMany({ dateKey: { $lt: cutoffDateKey } }).catch(() => ({ deletedCount: 0 })),
     ActivityHourly.deleteMany({ hourKey: { $lt: cutoffHourKey } }).catch(() => ({ deletedCount: 0 })),
+    ActivityHourlyCompact.deleteMany({ hourKey: { $lt: cutoffHourKey } }).catch(() => ({ deletedCount: 0 })),
   ]);
   const dailyDeleted = dailyResult?.deletedCount ?? 0;
-  const hourlyDeleted = hourlyResult?.deletedCount ?? 0;
+  const hourlyDeleted = (hourlyResult?.deletedCount ?? 0) + (hourlyCompactResult?.deletedCount ?? 0);
   return { dailyDeleted, hourlyDeleted, retentionDaysDaily: retentionDaily, retentionDaysHourly: retentionHourly };
 }
 

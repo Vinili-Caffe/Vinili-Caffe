@@ -4,6 +4,7 @@ const {
   ActivityDaily,
   ActivityDailyCompact,
   ActivityHourly,
+  ActivityHourlyCompact,
   LevelHistoryUser,
   VoteRole,
   VerificationTenure,
@@ -127,6 +128,33 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false }
     }
     total += compactStaleUsers;
     details.push({ name: "ActivityDailyCompact(users)", count: compactStaleUsers });
+  }
+  const compactHourlyRows = await ActivityHourlyCompact.find({ guildId: String(guildId) })
+    .select("hourKey users")
+    .lean()
+    .catch(() => []);
+  let compactHourlyStaleUsers = 0;
+  const staleHourlyByKey = new Map();
+  for (const row of compactHourlyRows) {
+    const users = row?.users && typeof row.users === "object" ? row.users : {};
+    const staleUserIds = Object.keys(users).filter((id) => id && !keep.has(String(id)));
+    if (!staleUserIds.length) continue;
+    compactHourlyStaleUsers += staleUserIds.length;
+    staleHourlyByKey.set(String(row.hourKey || ""), staleUserIds);
+  }
+  if (compactHourlyStaleUsers > 0) {
+    if (!dryRun) {
+      for (const [hourKey, staleUserIds] of staleHourlyByKey.entries()) {
+        const unset = {};
+        for (const userId of staleUserIds) unset[`users.${userId}`] = 1;
+        await ActivityHourlyCompact.updateOne(
+          { guildId: String(guildId), hourKey: String(hourKey) },
+          { $unset: unset },
+        ).catch(() => ({ modifiedCount: 0 }));
+      }
+    }
+    total += compactHourlyStaleUsers;
+    details.push({ name: "ActivityHourlyCompact(users)", count: compactHourlyStaleUsers });
   }
   for (const [Model, name] of userScoped) {
     if (!Model?.countDocuments) continue;
