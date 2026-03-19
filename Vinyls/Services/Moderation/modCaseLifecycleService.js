@@ -1,6 +1,5 @@
-const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
-const { getGuildChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { closeCase } = require("../../Utils/Moderation/moderation");
+const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { findLifecycleCandidates, closeCaseByRef } = require("../../Utils/Moderation/modCaseStore");
 const LOOP_MS = 60 * 1000;
 const BATCH_SIZE = 50;
 let loopHandle = null;
@@ -40,68 +39,89 @@ async function tryUnlockChannel(guild, channelId) {
 }
 
 async function closeExpiredMuteCases(client, now) {
-  const rows=await ModCase.find({action:"MUTE",active:true,expiresAt:{$lte:now},}).sort({expiresAt:1}).limit(BATCH_SIZE).exec();
+  const rows = await findLifecycleCandidates("MUTE", now, BATCH_SIZE);
 
-  for (const row of rows) {
-    const guild=client.guilds.cache.get(String(row.guildId||""))||(await client.guilds.fetch(String(row.guildId||"")).catch(() => null));
+  for (const item of rows) {
+    const row = item._virtual;
+    if (!row) continue;
+    const guildId = String(row.guildId || "");
+    const userId = String(row.userId || "");
+    const caseId = Number(row.caseId);
+    const guild =
+      client.guilds.cache.get(guildId) ||
+      (await client.guilds.fetch(guildId).catch(() => null));
     if (!guild) {
-      closeCase(row, "<:cancel:1461730653677551691> Mute scaduto");
-      await row.save().catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Mute scaduto").catch(() => null);
       continue;
     }
-    const member = await guild.members.fetch(String(row.userId || "")).catch(() => null);
+    const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) {
-      closeCase(row, "Mute scaduto automaticamente");
-      await row.save().catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, "Mute scaduto automaticamente").catch(() => null);
       continue;
     }
     const untilTs = Number(member.communicationDisabledUntilTimestamp || 0);
     if (untilTs > Date.now()) {
-      closeCase(
-        row,
+      await closeCaseByRef(
+        guildId,
+        userId,
+        caseId,
         `<:cancel:1461730653677551691> Mute case scaduto: utente ancora in timeout fino a ${new Date(untilTs).toISOString()}`,
-      );
-      await row.save().catch(() => null);
+      ).catch(() => null);
       continue;
     }
-    closeCase(row, "Mute scaduto automaticamente");
-    await row.save().catch(() => null);
+    await closeCaseByRef(guildId, userId, caseId, "Mute scaduto automaticamente").catch(() => null);
   }
 }
 
 async function closeExpiredBanCases(client, now) {
-  const rows=await ModCase.find({action:"BAN",active:true,expiresAt:{$lte:now},}).sort({expiresAt:1}).limit(BATCH_SIZE).exec();
+  const rows = await findLifecycleCandidates("BAN", now, BATCH_SIZE);
 
-  for (const row of rows) {
-    const guild = await getClientGuildCached(client, String(row.guildId || ""));
+  for (const item of rows) {
+    const row = item._virtual;
+    if (!row) continue;
+    const guildId = String(row.guildId || "");
+    const userId = String(row.userId || "");
+    const caseId = Number(row.caseId);
+    const guild = await getClientGuildCached(client, guildId);
     if (!guild) {
-      closeCase(row, "<:cancel:1461730653677551691> Ban temporaneo scaduto");
-      await row.save().catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Ban temporaneo scaduto").catch(() => null);
       continue;
     }
-    const unbanned=await tryUnban(guild,row.userId,`Timed ban expired (case #${row.caseId})`,
-    );
+    const unbanned = await tryUnban(guild, userId, `Timed ban expired (case #${caseId})`);
     if (!unbanned) continue;
-    closeCase(row, "<:cancel:1461730653677551691> Ban temporaneo scaduto: utente sbannato automaticamente");
-    await row.save().catch(() => null);
+    await closeCaseByRef(
+      guildId,
+      userId,
+      caseId,
+      "<:cancel:1461730653677551691> Ban temporaneo scaduto: utente sbannato automaticamente",
+    ).catch(() => null);
   }
 }
 
 async function closeExpiredLockCases(client, now) {
-  const rows=await ModCase.find({action:"LOCK",active:true,expiresAt:{$lte:now},userId:{$regex:/^CHANNEL:/},}).sort({expiresAt:1}).limit(BATCH_SIZE).exec();
+  const channelLockExtra = { userId: { $regex: /^CHANNEL:/ } };
+  const rows = await findLifecycleCandidates("LOCK", now, BATCH_SIZE, channelLockExtra);
 
-  for (const row of rows) {
-    const guild = await getClientGuildCached(client, String(row.guildId || ""));
+  for (const item of rows) {
+    const row = item._virtual;
+    if (!row) continue;
+    const guildId = String(row.guildId || "");
+    const userId = String(row.userId || "");
+    const caseId = Number(row.caseId);
+    const guild = await getClientGuildCached(client, guildId);
     if (!guild) {
-      closeCase(row, "<:cancel:1461730653677551691> Lock temporaneo scaduto");
-      await row.save().catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Lock temporaneo scaduto").catch(() => null);
       continue;
     }
-    const channelId = String(row.userId || "").replace(/^CHANNEL:/, "");
+    const channelId = userId.replace(/^CHANNEL:/, "");
     const unlocked = await tryUnlockChannel(guild, channelId);
     if (!unlocked) continue;
-    closeCase(row, "<:cancel:1461730653677551691> Lock temporaneo scaduto: canale sbloccato automaticamente");
-    await row.save().catch(() => null);
+    await closeCaseByRef(
+      guildId,
+      userId,
+      caseId,
+      "<:cancel:1461730653677551691> Lock temporaneo scaduto: canale sbloccato automaticamente",
+    ).catch(() => null);
   }
 }
 

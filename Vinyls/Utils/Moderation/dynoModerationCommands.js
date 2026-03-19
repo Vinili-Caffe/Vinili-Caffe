@@ -1,7 +1,18 @@
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, } = require("discord.js");
 const IDs = require("../Config/ids");
-const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
-const { appendCaseEdit, closeCase, createModCase, getModConfig, logModCase, parseDuration, formatDuration } = require("./moderation");
+const {
+  resolveCaseByGuildCaseId,
+  appendCaseEditStore,
+  setCaseReasonStore,
+  setCaseDurationStore,
+  findActiveModerations,
+  countModLogsForUser,
+  findModLogsPage,
+  findOpenCases,
+  findActiveWarns,
+  countModActionsByMod,
+} = require("./modCaseStore");
+const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, logModCase, parseDuration, formatDuration } = require("./moderation");
 const { resolveTarget } = require("./prefixModeration");
 const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../Logging/modAuditLogUtils");
 const { sendDm } = require("../noDmList");
@@ -534,10 +545,9 @@ async function runNamed(name, message, args, client) {
       action: "unmute",
       reason,
     });
-    const openMutes = await ModCase.find({ guildId: message.guild.id, userId, action: "MUTE", active: true, }).catch(() => []);
+    const openMutes = await findOpenCases(message.guild.id, userId, "MUTE");
     for (const item of openMutes) {
-      closeCase(item, `Unmute manuale da ${message.author.id}`);
-      await item.save().catch(() => null);
+      await closeCasePersist(item, `Unmute manuale da ${message.author.id}`);
     }
     await makeCase(client, message, "UNMUTE", userId, reason);
     return successReply(message, formatTargetLabel(member.user || { id: userId }), "was unmuted", reason);
@@ -567,10 +577,9 @@ async function runNamed(name, message, args, client) {
       action: "unban",
       reason,
     });
-    const openBans = await ModCase.find({ guildId: message.guild.id, userId: id, action: "BAN", active: true, }).catch(() => []);
+    const openBans = await findOpenCases(message.guild.id, id, "BAN");
     for (const item of openBans) {
-      closeCase(item, `Unban manuale da ${message.author.id}`);
-      await item.save().catch(() => null);
+      await closeCasePersist(item, `Unban manuale da ${message.author.id}`);
     }
     await makeCase(client, message, "UNBAN", id, reason);
     const subject = formatTargetLabel(banInfo?.user || { id });
@@ -607,7 +616,7 @@ async function runNamed(name, message, args, client) {
   if (cmd === "warnings") {
     const { userId } = await pickUser(message, args, 0);
     if (!userId) return reply(message, client, cmd, `<:VC_Lock:1482526739044368476> Uso: \`+${cmd} @utente\`.`, "Red");
-    const rows = await ModCase.find({ guildId: message.guild.id, userId, action: "WARN", active: true }).sort({ createdAt: -1 }).limit(20).lean().catch(() => []);
+    const rows = await findActiveWarns(message.guild.id, userId, 20);
     if (!rows.length) {
       return message.channel
         .send({
@@ -651,7 +660,7 @@ async function runNamed(name, message, args, client) {
     }
     const guardDelwarn = await validateModerationTarget(message, target.member, "delwarn", target.userId);
     if (!guardDelwarn.ok) return reply(message, client, "Delwarn", guardDelwarn.error, "Red");
-    const rows = await ModCase.find({ guildId: message.guild.id, userId: target.userId, action: "WARN", active: true, }).sort({ createdAt: -1 }).limit(50).catch(() => []);
+    const rows = await findActiveWarns(message.guild.id, target.userId, 50);
     const needle = warningText.toLowerCase();
     const row = rows.find((r) => String(r.reason || "").toLowerCase() === needle) || rows.find((r) => String(r.reason || "").toLowerCase().includes(needle)) || null;
     if (!row) {
@@ -665,8 +674,7 @@ async function runNamed(name, message, args, client) {
         })
         .catch(() => null);
     }
-    closeCase(row, `Avviso rimosso da ${message.author.id}`);
-    await row.save().catch(() => null);
+    await closeCasePersist(row, `Avviso rimosso da ${message.author.id}`);
     const targetUser = await message.client.users.fetch(target.userId).catch(() => null);
     await sendModerationDm({
       user: targetUser,
@@ -710,7 +718,7 @@ async function runNamed(name, message, args, client) {
     }
     const guardClearwarn = await validateModerationTarget(message, target.member, "clearwarn", target.userId);
     if (!guardClearwarn.ok) return reply(message, client, "Clearwarn", guardClearwarn.error, "Red");
-    const rows = await ModCase.find({ guildId: message.guild.id, userId: target.userId, action: "WARN", active: true, }).lean().catch(() => []);
+    const rows = await findActiveWarns(message.guild.id, target.userId, 5000);
     if (!rows.length) {
       return message.channel
         .send({
@@ -724,11 +732,7 @@ async function runNamed(name, message, args, client) {
     }
     const closeReason = `Warning azzerati da ${message.author.id}`;
     for (const row of rows) {
-      const doc = await ModCase.findById(row._id).catch(() => null);
-      if (doc) {
-        closeCase(doc, closeReason);
-        await doc.save().catch(() => null);
-      }
+      await closeCasePersist(row, closeReason);
     }
     const targetUser = await message.client.users.fetch(target.userId).catch(() => null);
     await sendModerationDm({
@@ -788,8 +792,11 @@ async function runNamed(name, message, args, client) {
       }
       return reply(message, client, cmd, `Uso: \`+${cmd} <case> [...]\`.`, "Red");
     }
-    const row = await ModCase.findOne({ guildId: message.guild.id, caseId }).catch(() => null);
-    if (!row) return reply(message, client, cmd, "Caso non trovato.", "Red");
+    const resolved = await resolveCaseByGuildCaseId(message.guild.id, caseId);
+    if (!resolved?.row) return reply(message, client, cmd, "Caso non trovato.", "Red");
+    const row = resolved.row;
+    const refGuildId = String(resolved.guildId || message.guild.id);
+    const refUserId = String(resolved.userId || row.userId || "");
     if (cmd === "case") {
       const targetUser = await message.client.users.fetch(String(row.userId || "")).catch(() => null);
       const modUser = await message.client.users.fetch(String(row.modId || "")).catch(() => null);
@@ -817,9 +824,11 @@ async function runNamed(name, message, args, client) {
         return message.channel.send({ embeds: [helpEmbed] }).catch(() => null);
       }
       const nextReason = reasonFrom(args, 1);
-      appendCaseEdit(row, "reason", row.reason, nextReason, message.author.id);
+      const prevReason = row.reason;
+      await appendCaseEditStore(refGuildId, refUserId, caseId, "reason", prevReason, nextReason, message.author.id);
+      await setCaseReasonStore(refGuildId, refUserId, caseId, nextReason);
+      appendCaseEdit(row, "reason", prevReason, nextReason, message.author.id);
       row.reason = nextReason;
-      await row.save().catch(() => null);
       await sendStaffActionToModLogs(message.guild, row, {
         actionLabel: "Reason Updated",
         moderatorId: message.author.id,
@@ -860,6 +869,17 @@ async function runNamed(name, message, args, client) {
         })
         .catch(() => null);
     }
+    const expiresAt = new Date(Date.now() + duration);
+    await appendCaseEditStore(
+      refGuildId,
+      refUserId,
+      caseId,
+      "durationMs",
+      row.durationMs == null ? "" : row.durationMs,
+      duration,
+      message.author.id,
+    );
+    await setCaseDurationStore(refGuildId, refUserId, caseId, duration, expiresAt);
     appendCaseEdit(
       row,
       "durationMs",
@@ -868,9 +888,8 @@ async function runNamed(name, message, args, client) {
       message.author.id,
     );
     row.durationMs = duration;
-    row.expiresAt = new Date(Date.now() + duration);
+    row.expiresAt = expiresAt;
     row.active = true;
-    await row.save().catch(() => null);
     await sendStaffActionToModLogs(message.guild, row, {
       actionLabel: "Duration Updated",
       moderatorId: message.author.id,
@@ -887,14 +906,9 @@ async function runNamed(name, message, args, client) {
 
   if (cmd === "modlogs" || cmd === "moderations") {
     const target = await pickUser(message, args, 0);
-    const query = { guildId: message.guild.id };
-    if (target.userId) query.userId = target.userId;
     if (cmd === "moderations") {
-      query.active = true;
-      query.expiresAt = { $gt: new Date() };
-      query.action = { $in: ["MUTE", "BAN"] };
       const limit = target.userId ? 10 : 25;
-      const rows = await ModCase.find(query).sort({ expiresAt: 1 }).limit(limit).lean().catch(() => []);
+      const rows = await findActiveModerations(message.guild.id, target.userId || null, limit);
       if (!rows.length) {
         const msg = target.userId ? "<:cancel:1461730653677551691> Non ci sono moderazioni attive per questo utente." : "<:cancel:1461730653677551691> Non ci sono moderazioni attive al momento.";
         return message.channel
@@ -945,7 +959,7 @@ async function runNamed(name, message, args, client) {
     const rawPage = Number.parseInt(args[1], 10);
     const requestedPage = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
     const perPage = 6;
-    const total = await ModCase.countDocuments(query).catch(() => 0);
+    const total = await countModLogsForUser(message.guild.id, target.userId);
     if (total <= 0) {
       return message.channel
         .send({
@@ -960,7 +974,7 @@ async function runNamed(name, message, args, client) {
     const totalPages = Math.max(1, Math.ceil(total / perPage));
     const safePage = Math.min(requestedPage, totalPages);
     const skip = (safePage - 1) * perPage;
-    const rows = await ModCase.find(query).sort({ createdAt: -1, caseId: -1 }).skip(skip).limit(perPage).lean().catch(() => []);
+    const rows = await findModLogsPage(message.guild.id, target.userId, skip, perPage);
     if (!rows.length) {
       return message.channel
         .send({
@@ -1004,7 +1018,7 @@ async function runNamed(name, message, args, client) {
     const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
     const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
     const guildId = message.guild.id;
-    const countAction = (action, since = null) => { const q = { guildId, modId, action }; if (since) q.createdAt = { $gte: since }; return ModCase.countDocuments(q).catch(() => 0); };
+    const countAction = (action, since = null) => countModActionsByMod(guildId, modId, action, since);
     const [m7, m30, mall, b7, b30, ball, k7, k30, kall, w7, w30, wall] = await Promise.all([countAction("MUTE", d7), countAction("MUTE", d30), countAction("MUTE"), countAction("BAN", d7), countAction("BAN", d30), countAction("BAN"), countAction("KICK", d7), countAction("KICK", d30), countAction("KICK"), countAction("WARN", d7), countAction("WARN", d30), countAction("WARN"),]);
     const t7 = Number(m7) + Number(b7) + Number(k7) + Number(w7);
     const t30 = Number(m30) + Number(b30) + Number(k30) + Number(w30);

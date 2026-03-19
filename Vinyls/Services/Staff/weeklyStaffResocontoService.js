@@ -3,7 +3,7 @@ const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const StaffModel = require("../../Schemas/Staff/staffSchema");
-const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
+const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCaseStore");
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazione } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
@@ -374,15 +374,7 @@ function countPmWeeklyPartners(staffDoc, weekStart, weekEnd) {
 }
 
 async function getWeeklySanctionCountByMod(guildId, weekStart, weekEnd) {
-  const map = new Map();
-  const counts = await ModCase.aggregate([
-    { $match: { guildId, createdAt: { $gte: weekStart, $lte: weekEnd }, action: { $in: Array.from(SANCTION_ACTIONS) } } },
-    { $group: { _id: "$modId", count: { $sum: 1 } } },
-  ]).catch(() => []);
-  for (const row of counts) {
-    if (row?._id) map.set(String(row._id), Math.max(0, Number(row.count) || 0));
-  }
-  return map;
+  return aggregateSanctionsByModInWeek(guildId, weekStart, weekEnd, SANCTION_ACTIONS);
 }
 
 async function resolveChannel(client, channelId) {

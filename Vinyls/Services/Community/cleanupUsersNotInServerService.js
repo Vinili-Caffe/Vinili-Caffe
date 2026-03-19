@@ -38,6 +38,7 @@ const { DiscadiaVoter } = require("../../Schemas/Discadia/discadiaSchemas");
 const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
 const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
+const { ModCaseUser } = require("../../Schemas/Moderation/moderationSchemas");
 
 const guildScoped = [
   [ExpUser, "ExpUser"],
@@ -73,6 +74,7 @@ const guildScoped = [
   [BannerPrivacy, "BannerPrivacy"],
   [QuotePrivacy, "QuotePrivacy"],
   [InviteTrack, "InviteTrack"],
+  [ModCaseUser, "ModCaseUser"],
 ];
 const userScoped = [
   [OneTimeReminder, "OneTimeReminder"],

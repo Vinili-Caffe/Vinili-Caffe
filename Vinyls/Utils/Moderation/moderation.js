@@ -1,14 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const { ModConfig } = require("../../Schemas/Moderation/moderationSchemas");
-const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
 const { sendStaffActionToModLogs } = require("../Logging/modAuditLogUtils");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
-const IDs = require("../Config/ids");
-const BOT_MODERATOR_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map((id) => String(id)),);
-
-function normalizeAction(action) {
-  return String(action || "UNKNOWN").trim().toUpperCase();
-}
+const { createModCaseStore, closeCaseByRef } = require("./modCaseStore");
 
 async function getModConfig(guildId) {
   return ModConfig.findOneAndUpdate(
@@ -59,65 +53,8 @@ function parseDuration(input) {
   return val * mult;
 }
 
-async function createModCase({ guildId, action, userId, modId, reason, durationMs, context, dedupe }) {
-  if (modId != null && BOT_MODERATOR_IDS.has(String(modId))) {
-    const cfg = await getModConfig(guildId).catch(() => null);
-    return {
-      doc: null,
-      config: cfg,
-      created: false,
-      isDuplicate: false,
-      skipped: true,
-      skipReason: "bot_moderator",
-    };
-  }
-
-  const normalizedAction = normalizeAction(action);
-  const normalizedReason = reason || "Nessun motivo fornito";
-  const normalizedDurationMs = durationMs || null;
-  const normalizedContext = { channelId: context?.channelId || null, messageId: context?.messageId || null, };
-  const dedupeEnabled = Boolean(dedupe?.enabled);
-  if (dedupeEnabled) {
-    const byMessageId = dedupe?.byMessageId !== false;
-    const messageId = String(normalizedContext.messageId || "").trim();
-    if (byMessageId && messageId) {
-      const existingByMessage = await ModCase.findOne({ guildId, action: normalizedAction, userId, modId, "context.messageId": messageId, }).sort({ createdAt: -1 }).catch(() => null);
-      if (existingByMessage) {
-        const cfgExisting = await getModConfig(guildId);
-        return {
-          doc: existingByMessage,
-          config: cfgExisting,
-          created: false,
-          isDuplicate: true,
-        };
-      }
-    }
-
-    const rawWindowMs = Number(dedupe?.windowMs);
-    const windowMs = Number.isFinite(rawWindowMs) && rawWindowMs > 0 ? rawWindowMs : 15_000;
-    const createdAtFrom = new Date(Date.now() - windowMs);
-    const matchReason = dedupe?.matchReason !== false;
-    const fallbackQuery = { guildId, action: normalizedAction, userId, modId, createdAt: { $gte: createdAtFrom }, };
-    if (matchReason) fallbackQuery.reason = normalizedReason;
-    if (normalizedDurationMs == null) fallbackQuery.durationMs = null;
-    else fallbackQuery.durationMs = Number(normalizedDurationMs);
-    const existingRecent = await ModCase.findOne(fallbackQuery).sort({ createdAt: -1 }).catch(() => null);
-    if (existingRecent) {
-      const cfgExisting = await getModConfig(guildId);
-      return {
-        doc: existingRecent,
-        config: cfgExisting,
-        created: false,
-        isDuplicate: true,
-      };
-    }
-  }
-
-  const cfg = await ModConfig.findOneAndUpdate({ guildId }, { $inc: { caseCounter: 1 }, $setOnInsert: { guildId } }, { upsert: true, new: true, setDefaultsOnInsert: true },);
-  const caseId = cfg.caseCounter;
-  const expiresAt = normalizedDurationMs ? new Date(Date.now() + normalizedDurationMs) : null;
-  const doc = await ModCase.create({ guildId, caseId, action: normalizedAction, userId, modId, reason: normalizedReason, durationMs: normalizedDurationMs, expiresAt, context: normalizedContext, });
-  return { doc, config: cfg, created: true, isDuplicate: false };
+async function createModCase(opts) {
+  return createModCaseStore(opts);
 }
 
 function normalizeEditValue(value) {
@@ -143,6 +80,12 @@ function closeCase(modCase, closeReason = null) {
   modCase.active = false;
   modCase.closedAt = new Date();
   modCase.closeReason = closeReason ? String(closeReason).slice(0, 300) : null;
+}
+
+async function closeCasePersist(modCase, closeReason = null) {
+  if (!modCase) return;
+  closeCase(modCase, closeReason);
+  await closeCaseByRef(String(modCase.guildId), String(modCase.userId), Number(modCase.caseId), closeReason).catch(() => null);
 }
 
 async function logModCase({ client, guild, modCase, config }) {
@@ -188,4 +131,4 @@ async function tryDmUser(user, content) {
   }
 }
 
-module.exports = { getModConfig, isExempt, createModCase, appendCaseEdit, closeCase, logModCase, formatDuration, parseDuration, tryDmUser };
+module.exports = { getModConfig, isExempt, createModCase, appendCaseEdit, closeCase, closeCasePersist, logModCase, formatDuration, parseDuration, tryDmUser };

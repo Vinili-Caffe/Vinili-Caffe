@@ -9,7 +9,54 @@ modCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, modId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, action: 1, active: 1, expiresAt: 1 });
 
+const modCaseEditEntrySchema = new Schema(
+  {
+    field: { type: String, required: true },
+    previous: { type: String, default: "" },
+    next: { type: String, default: "" },
+    editedBy: { type: String, default: null },
+    editedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const modCaseEntrySchema = new Schema(
+  {
+    caseId: { type: Number, required: true },
+    action: { type: String, required: true },
+    userId: { type: String, required: true },
+    modId: { type: String, required: true },
+    reason: { type: String, default: "Nessun motivo fornito" },
+    durationMs: { type: Number, default: null },
+    expiresAt: { type: Date, default: null },
+    active: { type: Boolean, default: true },
+    context: {
+      channelId: { type: String, default: null },
+      messageId: { type: String, default: null },
+    },
+    edits: { type: [modCaseEditEntrySchema], default: [] },
+    closedAt: { type: Date, default: null },
+    closeReason: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const modCaseUserSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    cases: { type: [modCaseEntrySchema], default: [] },
+  },
+  { timestamps: true },
+);
+
+modCaseUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+modCaseUserSchema.index({ guildId: 1, "cases.caseId": 1 }, { unique: true });
+
 const ModConfig = models.mod_config || model("mod_config", modConfigSchema);
 const ModCase = models.mod_case || model("mod_case", modCaseSchema);
+const ModCaseUser = models.mod_case_user || model("mod_case_user", modCaseUserSchema);
 
-module.exports = { ModConfig, ModCase };
+module.exports = { ModConfig, ModCase, ModCaseUser };

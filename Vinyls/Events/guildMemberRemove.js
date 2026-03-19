@@ -32,6 +32,7 @@ const { MinigameUser } = require("../Schemas/Minigames/minigameSchema");
 const AFK = require("../Schemas/Afk/afkSchema");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { RolePersistUser } = require("../Schemas/Moderation/rolePersistSchema");
+const { ModCaseUser } = require("../Schemas/Moderation/moderationSchemas");
 const TemporaryRoleGrant = require("../Schemas/Moderation/temporaryRoleGrantSchema");
 const TemporaryCommandPermission = require("../Schemas/Moderation/temporaryCommandPermissionSchema");
 const SupporterStatus = require("../Schemas/Supporter/supporterStatusSchema");
@@ -431,6 +432,7 @@ async function cleanupUserData(guildId, userId) {
     AFK.deleteOne({ guildId, userId }),
     MentionReaction.deleteOne({ guildId, userId }),
     RolePersistUser.deleteOne({ guildId, userId }),
+    ModCaseUser.deleteOne({ guildId, userId }),
     TemporaryRoleGrant.deleteMany({ guildId, userId }),
     TemporaryCommandPermission.deleteMany({ guildId, userId }),
     SupporterStatus.deleteOne({ guildId, userId }),
