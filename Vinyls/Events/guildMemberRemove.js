@@ -42,6 +42,7 @@ const NoDmPreference = require("../Schemas/Community/noDmPreferenceSchema");
 const BumpVoteReward = require("../Schemas/Bump/bumpVoteRewardSchema");
 const { DiscadiaVoter } = require("../Schemas/Discadia/discadiaSchemas");
 const OneTimeReminder = require("../Schemas/Reminders/oneTimeReminderSchema");
+const OneTimeReminderUser = require("../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -455,6 +456,7 @@ async function cleanupUserData(guildId, userId) {
     QuotePrivacy.deleteOne({ guildId, userId }),
     InviteTrack.deleteOne({ guildId, userId }),
     OneTimeReminder.deleteMany({ userId }),
+    OneTimeReminderUser.deleteOne({ userId }),
     AutoModBadUser.deleteOne({ userId }),
   ]);
 }

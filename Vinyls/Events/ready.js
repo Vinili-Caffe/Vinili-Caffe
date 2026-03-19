@@ -25,7 +25,7 @@ const { startWeeklyStaffResocontoLoop, } = require("../Services/Staff/weeklyStaf
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
-const { runCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
+const { runCleanupUsersNotInServer, runCleanupUserScopedNotInAnyServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
@@ -667,17 +667,24 @@ async function runStartupCleanupUsersNotInServer(client) {
   const guilds = Array.from(client.guilds?.cache?.values() ?? []);
   if (!guilds.length) return;
   let grandTotal = 0;
+  const allMemberIds = new Set();
   for (const guild of guilds) {
     const guildId = guild?.id;
     if (!guildId) continue;
     await guild.members.fetch().catch(() => null);
     const memberIds = Array.from(guild.members?.cache?.values() ?? []).map((m) => m?.id).filter(Boolean);
-    const { total, details } = await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false });
+    for (const memberId of memberIds) allMemberIds.add(String(memberId));
+    const { total, details } = await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
     if (total > 0) {
       grandTotal += total;
       const guildLabel = guild.name ? `${guild.name} (${guildId})` : guildId;
       global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] " + guildLabel + ": rimossi " + total + " documenti. " + details.map((d) => d.name + " " + d.count).join(", "));
     }
+  }
+  const userScopedCleanup = await runCleanupUserScopedNotInAnyServer(Array.from(allMemberIds), { dryRun: false });
+  if (userScopedCleanup.total > 0) {
+    grandTotal += userScopedCleanup.total;
+    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] User-scoped global cleanup: rimossi " + userScopedCleanup.total + " documenti. " + userScopedCleanup.details.map((d) => d.name + " " + d.count).join(", "));
   }
   if (grandTotal > 0) {
     global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] Totale rimossi: " + grandTotal + " documenti in " + guilds.length + " server.");
