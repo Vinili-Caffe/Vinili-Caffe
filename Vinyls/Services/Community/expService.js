@@ -1,4 +1,5 @@
 const { ExpUser, GlobalSettings, LevelHistoryUser, LEVEL_HISTORY_MAX_ENTRIES, EventUserExpSnapshot, } = require("../../Schemas/Community/communitySchemas");
+const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
@@ -343,7 +344,7 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
     const o = guildId;
     return recordLevelHistory(o.guildId, o.userId, o.actorId ?? null, o.action ?? "update", o.beforeExp ?? 0, o.afterExp ?? 0, o.note ?? null);
   }
-  if (!guildId || !userId) return null;
+  if (!isValidGuildUserId(guildId, userId)) return null;
   const beforeLevel = getLevelInfo(beforeExp).level;
   const afterLevel = getLevelInfo(afterExp).level;
   const entry = {
@@ -367,7 +368,7 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
 }
 
 async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAmountOverride = null, options = {}) {
-  if (!guildId || !userId || !Number.isFinite(amount)) return null;
+  if (!isValidGuildUserId(guildId, userId) || !Number.isFinite(amount)) return null;
   const now = new Date();
   const weekKey = getIsoWeekKey(now);
   const multiplier = applyMultiplier ? await getGlobalMultiplier(guildId) : 1;
@@ -969,10 +970,33 @@ async function getLevelHistoryPage(guildId, userId, page = 1, pageSize = 10) {
 }
 
 async function getUserExpStats(guildId, userId) {
+  if (!isValidGuildUserId(guildId, userId)) {
+    return {
+      totalExp: 0,
+      weeklyExp: 0,
+      level: 0,
+      currentLevelExp: 0,
+      nextLevelExp: getLevelInfo(0).nextLevelExp,
+      remainingToNext: getLevelInfo(0).remainingToNext,
+      progressPercent: 0,
+    };
+  }
   const now = new Date();
-  let doc = await ExpUser.findOne({ guildId, userId });
+  let doc = await ExpUser.findOneAndUpdate(
+    { guildId: String(guildId), userId: String(userId) },
+    { $setOnInsert: { guildId: String(guildId), userId: String(userId) } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
   if (!doc) {
-    doc = new ExpUser({ guildId, userId });
+    return {
+      totalExp: 0,
+      weeklyExp: 0,
+      level: 0,
+      currentLevelExp: 0,
+      nextLevelExp: getLevelInfo(0).nextLevelExp,
+      remainingToNext: getLevelInfo(0).remainingToNext,
+      progressPercent: 0,
+    };
   }
   ensureWeekly(doc, now);
   const levelInfo = getLevelInfo(doc.totalExp);

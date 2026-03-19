@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { ActivityUser, ActivityDaily, ActivityHourly, } = require("../../Schemas/Community/communitySchemas");
+const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
@@ -160,7 +161,7 @@ async function ensureHourlyBackfillForGuild(guildId) {
 
 async function bumpDailyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
-  if (!guildId || !userId || !channelId || !inc) return;
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const dateKey = getDayKey(new Date());
   await ActivityDaily.updateOne(
     { guildId, dateKey, userId },
@@ -176,7 +177,7 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
 
 async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
-  if (!guildId || !userId || !channelId || !inc) return;
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const hourKey = getHourKey(new Date());
   await ActivityHourly.updateOne(
     { guildId, hourKey, userId },
@@ -192,7 +193,7 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
 
 async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
   const inc = Math.max(0, Math.floor(Number(seconds || 0)));
-  if (!guildId || !userId || !channelId || !inc) return;
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const dateKey = getDayKey(new Date());
   await ActivityDaily.updateOne(
     { guildId, dateKey, userId },
@@ -208,7 +209,7 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
 
 async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
   const inc = Math.max(0, Math.floor(Number(seconds || 0)));
-  if (!guildId || !userId || !channelId || !inc) return;
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const hourKey = getHourKey(new Date());
   await ActivityHourly.updateOne(
     { guildId, hourKey, userId },
@@ -265,10 +266,12 @@ function ensureTimedCounters(target, now, keys) {
 }
 
 async function getOrCreateActivityUser(guildId, userId) {
-  let doc = await ActivityUser.findOne({ guildId, userId });
-  if (!doc) {
-    doc = new ActivityUser({ guildId, userId });
-  }
+  if (!isValidGuildUserId(guildId, userId)) return null;
+  const doc = await ActivityUser.findOneAndUpdate(
+    { guildId: String(guildId), userId: String(userId) },
+    { $setOnInsert: { guildId: String(guildId), userId: String(userId) } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
   return doc;
 }
 
@@ -277,7 +280,8 @@ async function recordMessageActivity(message) {
   if (!message?.guild || !message.author || message.author.bot) return;
   if (isExcludedActivityChannel(message.channel)) return;
   const now = new Date();
-  const doc = await getOrCreateActivityUser(message.guild.id, message.author.id,);
+  const doc = await getOrCreateActivityUser(message.guild.id, message.author.id);
+  if (!doc) return;
   ensureMessageKeys(doc, now);
   doc.messages.total = Number(doc.messages.total || 0) + 1;
   doc.messages.daily = Number(doc.messages.daily || 0) + 1;
@@ -347,6 +351,7 @@ async function handleVoiceActivity(oldState, newState) {
   const isCountable = isCountableVoiceState(newState);
 
   let doc = await getOrCreateActivityUser(guildId, userId);
+  if (!doc) return;
 
   if (wasInVoice && !isInVoice) {
     const oldChannel = oldState?.channel || oldState?.guild?.channels?.cache?.get(oldState.channelId);
@@ -437,6 +442,12 @@ async function handleVoiceActivity(oldState, newState) {
 async function getUserActivityStats(guildId, userId) {
   const now = new Date();
   let doc = await getOrCreateActivityUser(guildId, userId);
+  if (!doc) {
+    return {
+      messages: { daily: 0, weekly: 0, total: 0 },
+      voice: { dailySeconds: 0, weeklySeconds: 0, totalSeconds: 0 },
+    };
+  }
   ensureMessageKeys(doc, now);
   ensureVoiceKeys(doc, now);
 

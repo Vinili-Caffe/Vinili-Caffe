@@ -26,6 +26,7 @@ const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService"
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
+const { pruneOldActivityData } = require("../Services/Community/pruneOldActivityDataService");
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -36,6 +37,7 @@ const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 90 * 1000;
+const PRUNE_ACTIVITY_DELAY_MS = Number(process.env.PRUNE_ACTIVITY_DELAY_MS) || 2 * 60 * 1000;
 
 function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();
@@ -653,6 +655,16 @@ module.exports = {
       }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
       if (t?.unref) t.unref();
     }
+
+    const pruneDisabled = String(process.env.PRUNE_ACTIVITY_ON_STARTUP || "1").trim().toLowerCase() === "0";
+    if (!pruneDisabled) {
+      const t2 = setTimeout(() => {
+        runStartupPruneActivity().catch((err) => {
+          global.logger?.warn?.("[PRUNE ACTIVITY] Startup prune failed:", err?.message || err);
+        });
+      }, PRUNE_ACTIVITY_DELAY_MS);
+      if (t2?.unref) t2.unref();
+    }
   },
 };
 
@@ -674,5 +686,17 @@ async function runStartupCleanupUsersNotInServer(client) {
   }
   if (grandTotal > 0) {
     global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] Totale rimossi: " + grandTotal + " documenti in " + guilds.length + " server.");
+  }
+}
+
+async function runStartupPruneActivity() {
+  const retentionDaily = Number(process.env.PRUNE_ACTIVITY_RETENTION_DAYS_DAILY) || 90;
+  const retentionHourly = Number(process.env.PRUNE_ACTIVITY_RETENTION_DAYS_HOURLY) || 60;
+  const { dailyDeleted, hourlyDeleted } = await pruneOldActivityData({
+    retentionDaysDaily: retentionDaily,
+    retentionDaysHourly: retentionHourly,
+  });
+  if (dailyDeleted > 0 || hourlyDeleted > 0) {
+    global.logger?.info?.("[PRUNE ACTIVITY] Rimossi " + dailyDeleted + " ActivityDaily (>" + retentionDaily + " gg), " + hourlyDeleted + " ActivityHourly (>" + retentionHourly + " gg).");
   }
 }
