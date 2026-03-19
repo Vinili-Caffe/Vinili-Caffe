@@ -11,7 +11,8 @@
  *   node scripts/sync-totalexp-from-level.js --user=123456789012345678
  *   node scripts/sync-totalexp-from-level.js --dry-run
  *   node scripts/sync-totalexp-from-level.js --atlas
- *   node scripts/sync-totalexp-from-level.js --exact   // imposta totalExp esatto della soglia livello
+ *   node scripts/sync-totalexp-from-level.js --exact   // imposta totalExp esatto della soglia livello (default)
+ *   node scripts/sync-totalexp-from-level.js --keep-higher-total // mantiene totalExp alto se gia sopra soglia
  */
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
@@ -42,7 +43,8 @@ function resolveMongoUrl() {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const exact = process.argv.includes("--exact");
+  const keepHigherTotal = process.argv.includes("--keep-higher-total");
+  const exact = process.argv.includes("--exact") || !keepHigherTotal;
   const guildId = String(getArg("guild", String(DEFAULT_GUILD_ID)));
   const userId = String(getArg("user", ""));
 
@@ -101,6 +103,7 @@ async function main() {
       {
         dryRun,
         exact,
+        keepHigherTotal,
         guildId,
         userId: userId || null,
         scanned,
