@@ -2,6 +2,7 @@ const {
   ExpUser,
   ActivityUser,
   ActivityDaily,
+  ActivityDailyCompact,
   ActivityHourly,
   LevelHistoryUser,
   VoteRole,
@@ -98,6 +99,34 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false }
       total += n;
       details.push({ name, count: n });
     }
+  }
+  const compactMatch = await ActivityDailyCompact.find({ guildId: String(guildId) })
+    .select("users")
+    .lean()
+    .catch(() => []);
+  let compactStaleUsers = 0;
+  const staleByDateKey = new Map();
+  const keep = new Set((memberIds || []).map(String));
+  for (const row of compactMatch) {
+    const users = row?.users && typeof row.users === "object" ? row.users : {};
+    const staleUserIds = Object.keys(users).filter((id) => id && !keep.has(String(id)));
+    if (!staleUserIds.length) continue;
+    compactStaleUsers += staleUserIds.length;
+    staleByDateKey.set(String(row.dateKey || ""), staleUserIds);
+  }
+  if (compactStaleUsers > 0) {
+    if (!dryRun) {
+      for (const [dateKey, staleUserIds] of staleByDateKey.entries()) {
+        const unset = {};
+        for (const userId of staleUserIds) unset[`users.${userId}`] = 1;
+        await ActivityDailyCompact.updateOne(
+          { guildId: String(guildId), dateKey: String(dateKey) },
+          { $unset: unset },
+        ).catch(() => ({ modifiedCount: 0 }));
+      }
+    }
+    total += compactStaleUsers;
+    details.push({ name: "ActivityDailyCompact(users)", count: compactStaleUsers });
   }
   for (const [Model, name] of userScoped) {
     if (!Model?.countDocuments) continue;

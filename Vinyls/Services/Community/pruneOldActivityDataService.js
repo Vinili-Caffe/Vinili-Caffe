@@ -45,4 +45,33 @@ async function pruneOldActivityData(options = {}) {
   return { dailyDeleted, hourlyDeleted, retentionDaysDaily: retentionDaily, retentionDaysHourly: retentionHourly };
 }
 
-module.exports = { pruneOldActivityData };
+const PRUNE_ACTIVITY_LOOP_DEFAULT_INTERVAL_MS = Number(process.env.PRUNE_ACTIVITY_INTERVAL_MS) || 12 * 60 * 60 * 1000;
+
+function startPruneActivityLoop(client, options = {}) {
+  if (client?._pruneActivityInterval) return client._pruneActivityInterval;
+  const resolved = Number(options.intervalMs ?? PRUNE_ACTIVITY_LOOP_DEFAULT_INTERVAL_MS) || PRUNE_ACTIVITY_LOOP_DEFAULT_INTERVAL_MS;
+  const safeInterval = Math.max(60 * 60 * 1000, Math.min(7 * 24 * 60 * 60 * 1000, resolved));
+
+  const runTick = async () => {
+    const retentionDaily = Number(process.env.PRUNE_ACTIVITY_RETENTION_DAYS_DAILY) || 90;
+    const retentionHourly = Number(process.env.PRUNE_ACTIVITY_RETENTION_DAYS_HOURLY) || 60;
+    const { dailyDeleted, hourlyDeleted } = await pruneOldActivityData({
+      retentionDaysDaily: retentionDaily,
+      retentionDaysHourly: retentionHourly,
+    });
+    if (dailyDeleted > 0 || hourlyDeleted > 0) {
+      global.logger?.info?.("[PRUNE ACTIVITY] Rimossi " + dailyDeleted + " ActivityDaily (>" + retentionDaily + " gg), " + hourlyDeleted + " ActivityHourly (>" + retentionHourly + " gg).");
+    }
+  };
+
+  const timer = setInterval(() => {
+    runTick().catch((err) => {
+      global.logger?.warn?.("[PRUNE ACTIVITY] Loop prune failed:", err?.message || err);
+    });
+  }, safeInterval);
+  if (timer?.unref) timer.unref();
+  client._pruneActivityInterval = timer;
+  return timer;
+}
+
+module.exports = { pruneOldActivityData, startPruneActivityLoop };

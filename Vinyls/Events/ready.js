@@ -26,7 +26,7 @@ const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService"
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
-const { pruneOldActivityData } = require("../Services/Community/pruneOldActivityDataService");
+const { pruneOldActivityData, startPruneActivityLoop } = require("../Services/Community/pruneOldActivityDataService");
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -495,6 +495,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
+    ["[PRUNE ACTIVITY] Failed to start loop", () => startPruneActivityLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
       const tick = async () => {
         const guilds = [...client.guilds.cache.values()];

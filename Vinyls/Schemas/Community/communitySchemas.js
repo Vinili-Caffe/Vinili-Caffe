@@ -13,6 +13,12 @@ activityDailySchema.index(
   { guildId: 1, dateKey: 1, userId: 1 },
   { unique: true },
 );
+const activityDailyCompactSchema = new Schema({
+  guildId: { type: String, required: true, index: true },
+  dateKey: { type: String, required: true, index: true },
+  users: { type: Schema.Types.Mixed, default: {} },
+}, { timestamps: true });
+activityDailyCompactSchema.index({ guildId: 1, dateKey: 1 }, { unique: true });
 
 const activityHourlySchema=new Schema({guildId:{type:String,required:true,index:true},hourKey:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},textCount:{type:Number,default:0},voiceSeconds:{type:Number,default:0},textChannels:{type:Map,of:Number,default:{}},voiceChannels:{type:Map,of:Number,default:{}},},{timestamps:true},);
 activityHourlySchema.index(
@@ -110,6 +116,7 @@ channelSnapshotSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
 const ActivityUser=models.ActivityUser||model("ActivityUser",activityUserSchema);
 const ExpUser = models.ExpUser || model("ExpUser", expUserSchema);
 const ActivityDaily=models.ActivityDaily||model("ActivityDaily",activityDailySchema);
+const ActivityDailyCompact = models.ActivityDailyCompact || model("ActivityDailyCompact", activityDailyCompactSchema, "activitydailycompact");
 const ActivityHourly=models.ActivityHourly||model("ActivityHourly",activityHourlySchema);
 const LevelHistory=models.LevelHistory||model("LevelHistory",levelHistorySchema);
 const LevelHistoryUser = models.LevelHistoryUser || model("LevelHistoryUser", levelHistoryUserSchema, "levelhistoryusers");
@@ -137,6 +144,7 @@ module.exports = {
   ActivityUser,
   ExpUser,
   ActivityDaily,
+  ActivityDailyCompact,
   ActivityHourly,
   LevelHistory,
   LevelHistoryUser,

@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const cron = require("node-cron");
-const { ActivityUser, ActivityDaily, ActivityHourly, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUser, ActivityDaily, ActivityDailyCompact, ActivityHourly, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
 const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("./staffEventService");
@@ -28,6 +28,38 @@ const EVENT_WEEK3_SKIP_ROLE_IDS = [
   IDs.roles.Level50,
   IDs.roles.Level70,
 ].filter(Boolean).map(String);
+const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+
+function useCompactDailyStorage() {
+  return ACTIVITY_DAILY_STORAGE_MODE === "compact" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
+
+function useLegacyDailyStorage() {
+  return ACTIVITY_DAILY_STORAGE_MODE === "legacy" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
+
+function toObjectMap(raw) {
+  if (!raw) return {};
+  if (raw instanceof Map) return Object.fromEntries(raw.entries());
+  if (typeof raw === "object") return raw;
+  return {};
+}
+
+function compactRowsToUserRows(docs = []) {
+  const out = [];
+  for (const doc of docs) {
+    const users = toObjectMap(doc?.users || {});
+    for (const [userId, value] of Object.entries(users)) {
+      if (!userId) continue;
+      out.push({
+        userId: String(userId),
+        textChannels: toObjectMap(value?.textChannels || {}),
+        voiceChannels: toObjectMap(value?.voiceChannels || {}),
+      });
+    }
+  }
+  return out;
+}
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -108,8 +140,22 @@ async function loadActivityRowsFromDateKeys(guild, dateKeys) {
   const eligible = await getEligibleChannelSets(guild);
   if (!eligible.text.size && !eligible.voice.size) return [];
   const perUser = new Map();
-  const cursor = ActivityDaily.find({ guildId: guild.id, dateKey: { $in: dateKeys }, }).select("userId textChannels voiceChannels").lean().cursor();
-  for await (const row of cursor) {
+  const rows = [];
+  if (useLegacyDailyStorage()) {
+    const legacyRows = await ActivityDaily.find({ guildId: guild.id, dateKey: { $in: dateKeys }, })
+      .select("userId textChannels voiceChannels")
+      .lean()
+      .catch(() => []);
+    rows.push(...legacyRows);
+  }
+  if (useCompactDailyStorage()) {
+    const compactDocs = await ActivityDailyCompact.find({ guildId: guild.id, dateKey: { $in: dateKeys }, })
+      .select("users")
+      .lean()
+      .catch(() => []);
+    rows.push(...compactRowsToUserRows(compactDocs));
+  }
+  for (const row of rows) {
     const userId = String(row?.userId || "");
     if (!userId) continue;
     let messageCount = 0;
@@ -939,10 +985,21 @@ async function getEventDiagnostics(guild) {
   if (eventWeek >= 1 && eventWeek <= 4 && settings?.eventStartedAt) {
     dateKeys = getEventWeekDateKeys(settings, eventWeek);
     if (dateKeys.length) {
-      activityDailyCount = await ActivityDaily.countDocuments({
-        guildId: guild.id,
-        dateKey: { $in: dateKeys },
-      }).catch(() => 0);
+      const [legacyCount, compactCount] = await Promise.all([
+        useLegacyDailyStorage()
+          ? ActivityDaily.countDocuments({
+            guildId: guild.id,
+            dateKey: { $in: dateKeys },
+          }).catch(() => 0)
+          : Promise.resolve(0),
+        useCompactDailyStorage()
+          ? ActivityDailyCompact.countDocuments({
+            guildId: guild.id,
+            dateKey: { $in: dateKeys },
+          }).catch(() => 0)
+          : Promise.resolve(0),
+      ]);
+      activityDailyCount = Number(legacyCount || 0) + Number(compactCount || 0);
     }
   }
   return {

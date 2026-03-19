@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { ActivityDaily, ActivityHourly, ActivityUser, ExpUser } = require("../../Schemas/Community/communitySchemas");
+const { ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityUser, ExpUser } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService");
@@ -11,6 +11,15 @@ const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
 const leaderboardCache = new Map();
+const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+
+function useCompactDailyStorage() {
+  return ACTIVITY_DAILY_STORAGE_MODE === "compact" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
+
+function useLegacyDailyStorage() {
+  return ACTIVITY_DAILY_STORAGE_MODE === "legacy" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
 
 function getInvokedCommand(message) {
   const content = String(message?.content || "").trim();
@@ -162,6 +171,13 @@ function extractChannelEntries(raw) {
   return [];
 }
 
+function toObjectMap(raw) {
+  if (!raw) return {};
+  if (raw instanceof Map) return Object.fromEntries(raw.entries());
+  if (typeof raw === "object") return raw;
+  return {};
+}
+
 async function getEligibleChannelIdSet(guild) {
   const role = await resolveMemberRole(guild);
   if (!role) return new Set();
@@ -234,29 +250,53 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
 
   const filter = { guildId: guild.id };
   const perUser = new Map();
-  const cursor = ActivityDaily.find(filter).select("userId textChannels voiceChannels").lean().cursor();
-
-  for await (const row of cursor) {
-    const userId = String(row?.userId || "");
-    if (!userId) continue;
-
-    let textCount = 0;
-    let voiceSeconds = 0;
-
-    for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
-      if (!eligibleChannels.has(String(channelId))) continue;
-      textCount += Math.max(0, Number(value || 0));
+  if (useLegacyDailyStorage()) {
+    const cursor = ActivityDaily.find(filter).select("userId textChannels voiceChannels").lean().cursor();
+    for await (const row of cursor) {
+      const userId = String(row?.userId || "");
+      if (!userId) continue;
+      let textCount = 0;
+      let voiceSeconds = 0;
+      for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
+        if (!eligibleChannels.has(String(channelId))) continue;
+        textCount += Math.max(0, Number(value || 0));
+      }
+      for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
+        if (!eligibleChannels.has(String(channelId))) continue;
+        voiceSeconds += Math.max(0, Number(value || 0));
+      }
+      if (textCount <= 0 && voiceSeconds <= 0) continue;
+      const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+      current.textCount += textCount;
+      current.voiceSeconds += voiceSeconds;
+      perUser.set(userId, current);
     }
-    for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
-      if (!eligibleChannels.has(String(channelId))) continue;
-      voiceSeconds += Math.max(0, Number(value || 0));
+  }
+  if (useCompactDailyStorage()) {
+    const compactCursor = ActivityDailyCompact.find(filter).select("users").lean().cursor();
+    for await (const doc of compactCursor) {
+      const users = toObjectMap(doc?.users || {});
+      for (const [userIdRaw, valueRaw] of Object.entries(users)) {
+        const userId = String(userIdRaw || "");
+        if (!userId) continue;
+        const value = valueRaw && typeof valueRaw === "object" ? valueRaw : {};
+        let textCount = 0;
+        let voiceSeconds = 0;
+        for (const [channelId, amount] of extractChannelEntries(toObjectMap(value?.textChannels || {}))) {
+          if (!eligibleChannels.has(String(channelId))) continue;
+          textCount += Math.max(0, Number(amount || 0));
+        }
+        for (const [channelId, amount] of extractChannelEntries(toObjectMap(value?.voiceChannels || {}))) {
+          if (!eligibleChannels.has(String(channelId))) continue;
+          voiceSeconds += Math.max(0, Number(amount || 0));
+        }
+        if (textCount <= 0 && voiceSeconds <= 0) continue;
+        const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+        current.textCount += textCount;
+        current.voiceSeconds += voiceSeconds;
+        perUser.set(userId, current);
+      }
     }
-
-    if (textCount <= 0 && voiceSeconds <= 0) continue;
-    const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
-    current.textCount += textCount;
-    current.voiceSeconds += voiceSeconds;
-    perUser.set(userId, current);
   }
 
   const rows = Array.from(perUser.values()).map((entry) => { const baseExpFromText = entry.textCount * MESSAGE_EXP; const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60,); const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice)); return { userId: entry.userId, exp, level: getLevelInfo(exp).level, }; }).filter((entry) => entry.exp > 0).sort((a, b) => b.exp - a.exp).slice(0, Math.max(TOP_LIMIT * 5, maxCandidates)); if (mode === "alltime" && rows.length > 0) {

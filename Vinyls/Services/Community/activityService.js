@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { ActivityUser, ActivityDaily, ActivityHourly, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUser, ActivityDaily, ActivityDailyCompact, ActivityHourly, } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
@@ -8,6 +8,15 @@ const TIME_ZONE = "Europe/Rome";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BACKFILL_HOUR_SUFFIX = "T12";
 const HOURLY_BACKFILL_BATCH = 500;
+const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+
+function useCompactDailyStorage() {
+  return ACTIVITY_DAILY_STORAGE_MODE === "compact" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
+
+function useLegacyDailyStorage() {
+  return ACTIVITY_DAILY_STORAGE_MODE === "legacy" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
+}
 
 function shouldSkipBackfillRow(hourKey, hourSet) {
   if (!hourKey || typeof hourKey !== "string") return false;
@@ -102,6 +111,60 @@ function sanitizeChannelsMap(raw = {}) {
   return out;
 }
 
+function toObjectMap(raw = {}) {
+  if (!raw) return {};
+  if (raw instanceof Map) return Object.fromEntries(raw.entries());
+  if (typeof raw === "object") return raw;
+  return {};
+}
+
+function extractCompactRows(doc = {}) {
+  const guildId = String(doc?.guildId || "");
+  const dateKey = String(doc?.dateKey || "");
+  const users = toObjectMap(doc?.users || {});
+  const rows = [];
+  for (const [userIdRaw, userData] of Object.entries(users)) {
+    const userId = String(userIdRaw || "");
+    if (!userId) continue;
+    const clean = userData && typeof userData === "object" ? userData : {};
+    rows.push({
+      guildId,
+      dateKey,
+      userId,
+      textCount: Number(clean?.textCount || 0),
+      voiceSeconds: Number(clean?.voiceSeconds || 0),
+      textChannels: toObjectMap(clean?.textChannels || {}),
+      voiceChannels: toObjectMap(clean?.voiceChannels || {}),
+    });
+  }
+  return rows;
+}
+
+async function loadDailyRows(guildId, dateKeys = null) {
+  const useCompact = useCompactDailyStorage();
+  const useLegacy = useLegacyDailyStorage();
+  const filter = dateKeys?.length
+    ? { guildId, dateKey: { $in: dateKeys } }
+    : { guildId };
+
+  const out = [];
+  if (useLegacy) {
+    const legacyRows = await ActivityDaily.find(filter)
+      .select("guildId dateKey userId textCount voiceSeconds textChannels voiceChannels")
+      .lean()
+      .catch(() => []);
+    out.push(...legacyRows);
+  }
+  if (useCompact) {
+    const compactDocs = await ActivityDailyCompact.find(filter)
+      .select("guildId dateKey users")
+      .lean()
+      .catch(() => []);
+    for (const doc of compactDocs) out.push(...extractCompactRows(doc));
+  }
+  return out;
+}
+
 async function ensureHourlyBackfillForGuild(guildId) {
   const safeGuildId = String(guildId || "");
   if (!safeGuildId) return false;
@@ -111,7 +174,7 @@ async function ensureHourlyBackfillForGuild(guildId) {
   }
 
   const task = (async () => {
-    const dailyRows = await ActivityDaily.find({ guildId: safeGuildId }).select("guildId dateKey userId textCount voiceSeconds textChannels voiceChannels").lean().catch(() => []); if (!dailyRows.length) return false; const operations = []; for (const row of dailyRows) {
+    const dailyRows = await loadDailyRows(safeGuildId); if (!dailyRows.length) return false; const operations = []; for (const row of dailyRows) {
       const dateKey = String(row?.dateKey || ""); const userId = String(row?.userId || ""); if (!dateKey || !userId) continue; const hourKey = `${dateKey}${BACKFILL_HOUR_SUFFIX}`;
       const textChannels = sanitizeChannelsMap(row?.textChannels || {});
       const voiceChannels = sanitizeChannelsMap(row?.voiceChannels || {});
@@ -163,16 +226,31 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
   if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const dateKey = getDayKey(new Date());
-  await ActivityDaily.updateOne(
-    { guildId, dateKey, userId },
-    {
-      $inc: {
-        textCount: inc,
-        [`textChannels.${channelId}`]: inc,
+  if (useLegacyDailyStorage()) {
+    await ActivityDaily.updateOne(
+      { guildId, dateKey, userId },
+      {
+        $inc: {
+          textCount: inc,
+          [`textChannels.${channelId}`]: inc,
+        },
       },
-    },
-    { upsert: true },
-  ).catch(() => { });
+      { upsert: true },
+    ).catch(() => { });
+  }
+  if (useCompactDailyStorage()) {
+    await ActivityDailyCompact.updateOne(
+      { guildId: String(guildId), dateKey },
+      {
+        $setOnInsert: { guildId: String(guildId), dateKey },
+        $inc: {
+          [`users.${String(userId)}.textCount`]: inc,
+          [`users.${String(userId)}.textChannels.${String(channelId)}`]: inc,
+        },
+      },
+      { upsert: true },
+    ).catch(() => { });
+  }
 }
 
 async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
@@ -195,16 +273,31 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
   const inc = Math.max(0, Math.floor(Number(seconds || 0)));
   if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const dateKey = getDayKey(new Date());
-  await ActivityDaily.updateOne(
-    { guildId, dateKey, userId },
-    {
-      $inc: {
-        voiceSeconds: inc,
-        [`voiceChannels.${channelId}`]: inc,
+  if (useLegacyDailyStorage()) {
+    await ActivityDaily.updateOne(
+      { guildId, dateKey, userId },
+      {
+        $inc: {
+          voiceSeconds: inc,
+          [`voiceChannels.${channelId}`]: inc,
+        },
       },
-    },
-    { upsert: true },
-  ).catch(() => { });
+      { upsert: true },
+    ).catch(() => { });
+  }
+  if (useCompactDailyStorage()) {
+    await ActivityDailyCompact.updateOne(
+      { guildId: String(guildId), dateKey },
+      {
+        $setOnInsert: { guildId: String(guildId), dateKey },
+        $inc: {
+          [`users.${String(userId)}.voiceSeconds`]: inc,
+          [`users.${String(userId)}.voiceChannels.${String(channelId)}`]: inc,
+        },
+      },
+      { upsert: true },
+    ).catch(() => { });
+  }
 }
 
 async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
@@ -697,7 +790,7 @@ function buildChartByDayFromHourlyRows(rows = [], hourKeys = []) {
 
 async function getServerActivityStats(guildId, days = 7) {
   const dateKeys = getLastNDaysKeys(days);
-  const rows = await ActivityDaily.find({ guildId, dateKey: { $in: dateKeys }, }).lean().catch(() => []);
+  const rows = await loadDailyRows(guildId, dateKeys);
 
   const userText = new Map();
   const userVoice = new Map();
@@ -1203,10 +1296,7 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
   const dayKeys30 = getLastNDaysKeys(30);
   const dayKeysLookback = getLastNDaysKeys(safeLookback);
   const allKeys = Array.from(new Set([...dayKeys1, ...dayKeys7, ...dayKeys14, ...dayKeys21, ...dayKeys30, ...dayKeysLookback]));
-  const rows = await ActivityDaily.find({ guildId, dateKey: { $in: allKeys } })
-    .select("dateKey userId textChannels voiceChannels")
-    .lean()
-    .catch(() => []);
+  const rows = await loadDailyRows(guildId, allKeys);
 
   const getChannelVal = (row, key) => {
     const map = row?.[key];

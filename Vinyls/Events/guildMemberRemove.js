@@ -11,6 +11,7 @@ const {
   ActivityUser,
   LevelHistoryUser,
   ActivityDaily,
+  ActivityDailyCompact,
   ActivityHourly,
   VoteRole,
   VerificationTenure,
@@ -386,10 +387,26 @@ async function sendMemberKickLog(member) {
   });
 }
 async function cleanupUserData(guildId, userId) {
+  const compactDocs = await ActivityDailyCompact.find({ guildId })
+    .select("_id users")
+    .lean()
+    .catch(() => []);
+  const compactOps = [];
+  for (const row of compactDocs) {
+    const users = row?.users && typeof row.users === "object" ? row.users : {};
+    if (!Object.prototype.hasOwnProperty.call(users, String(userId))) continue;
+    compactOps.push({
+      updateOne: {
+        filter: { _id: row._id },
+        update: { $unset: { [`users.${String(userId)}`]: 1 } },
+      },
+    });
+  }
   await Promise.allSettled([
     ExpUser.deleteOne({ guildId, userId }),
     ActivityUser.deleteOne({ guildId, userId }),
     ActivityDaily.deleteMany({ guildId, userId }),
+    compactOps.length ? ActivityDailyCompact.bulkWrite(compactOps, { ordered: false }) : Promise.resolve(),
     ActivityHourly.deleteMany({ guildId, userId }),
     LevelHistoryUser.deleteOne({ guildId, userId }),
     MinigameUser.deleteOne({ guildId, userId }),
