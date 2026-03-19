@@ -47,8 +47,19 @@ async function main() {
     process.exit(1);
   }
   await mongoose.connect(MONGO_URL);
-  const q = guildFilter ? { guildId: guildFilter } : {};
-  const totalLegacy = await ModCase.countDocuments(q).catch(() => 0);
+  let q = guildFilter ? { guildId: guildFilter } : {};
+  let totalLegacy = await ModCase.countDocuments(q).catch(() => 0);
+  if (guildFilter && totalLegacy === 0) {
+    const availableGuildIds = await ModCase.distinct("guildId").catch(() => []);
+    console.warn(
+      "[migrate-mod-case] Nessun legacy case trovato per guild filter:",
+      guildFilter,
+      "| fallback: all guilds | available:",
+      availableGuildIds,
+    );
+    q = {};
+    totalLegacy = await ModCase.countDocuments({}).catch(() => 0);
+  }
   console.log("[migrate-mod-case] legacy mod_case:", totalLegacy, write ? "WRITE" : "DRY-RUN", guildFilter || "all guilds");
 
   const groups = new Map();
