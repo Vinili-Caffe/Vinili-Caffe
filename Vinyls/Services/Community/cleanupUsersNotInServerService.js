@@ -38,7 +38,6 @@ const { DiscadiaVoter } = require("../../Schemas/Discadia/discadiaSchemas");
 const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
 const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
-const { ModCaseUser } = require("../../Schemas/Moderation/moderationSchemas");
 
 const ACTIVITY_DAILY_STORAGE_MODE_CLEANUP = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
 const ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
@@ -79,7 +78,6 @@ const guildScoped = [
   [BannerPrivacy, "BannerPrivacy"],
   [QuotePrivacy, "QuotePrivacy"],
   [InviteTrack, "InviteTrack"],
-  [ModCaseUser, "ModCaseUser"],
 ];
 const userScoped = [
   [OneTimeReminder, "OneTimeReminder"],

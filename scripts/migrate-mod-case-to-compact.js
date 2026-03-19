@@ -13,11 +13,10 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const mongoose = require("mongoose");
 const { ModCase, ModCaseUser } = require("../Vinyls/Schemas/Moderation/moderationSchemas");
 
-const MONGO_URL =
-  process.env.MONGO_URL_LOCAL ||
-  process.env.MONGODB_URI_LOCAL ||
-  process.env.MONGO_URL ||
-  process.env.MONGODB_URI;
+const useAtlas = process.argv.includes("--atlas");
+const MONGO_URL = useAtlas
+  ? process.env.MONGO_URL || process.env.MONGODB_URI
+  : process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || process.env.MONGO_URL || process.env.MONGODB_URI;
 const MAX_CASES = Math.max(100, Number(process.env.MOD_CASE_MAX_CASES_PER_USER) || 800);
 const write = process.argv.includes("--write");
 const guildArg = process.argv.find((a) => String(a).startsWith("--guild="));
