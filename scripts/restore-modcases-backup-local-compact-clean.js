@@ -122,6 +122,38 @@ function ensureMongoRestoreInstalled() {
   }
 }
 
+function resolveBsonFiles(backupDir, dbName) {
+  const wanted = ["mod_cases.bson", "mod_configs.bson"];
+  const roots = new Set([backupDir]);
+
+  function walkDirs(base, depth) {
+    if (!dirExists(base) || depth <= 0) return;
+    const dirs = fs.readdirSync(base, { withFileTypes: true }).filter((e) => e.isDirectory());
+    for (const d of dirs) {
+      const next = path.join(base, d.name);
+      roots.add(next);
+      walkDirs(next, depth - 1);
+    }
+  }
+
+  walkDirs(backupDir, 3);
+
+  const candidates = Array.from(roots.values());
+  for (const root of candidates) {
+    const underDbCases = path.join(root, dbName, "mod_cases.bson");
+    const underDbConfig = path.join(root, dbName, "mod_configs.bson");
+    if (fileExists(underDbCases) && fileExists(underDbConfig)) {
+      return { modCasesBson: underDbCases, modConfigsBson: underDbConfig };
+    }
+    const directCases = path.join(root, "mod_cases.bson");
+    const directConfig = path.join(root, "mod_configs.bson");
+    if (fileExists(directCases) && fileExists(directConfig)) {
+      return { modCasesBson: directCases, modConfigsBson: directConfig };
+    }
+  }
+  throw new Error(`BSON non trovati nel backup: servono mod_cases.bson + mod_configs.bson in ${backupDir}`);
+}
+
 function runNodeScript(scriptRelPath, args) {
   const scriptPath = path.resolve(__dirname, scriptRelPath);
   // Usa il runtime Node corrente: evita problemi con NODE_BINARY in .env (es: "node 24.7.0")
@@ -141,6 +173,7 @@ function dropCollection(db, collectionName) {
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const skipRestore = process.argv.includes("--skip-restore");
+  const remainingFromChannelOnly = process.argv.includes("--remaining-from-channel-only");
   const backupArg = process.argv.find((a) => String(a).startsWith("--backup="));
   const backupDir = backupArg ? String(backupArg.split("=").slice(1).join("=")) : pickLatestBackupDir();
 
@@ -162,41 +195,61 @@ async function main() {
   const db = mongoose.connection.db;
   console.log("[DB] connected:", mongoose.connection.name);
 
-  // Restore legacy only: mod_cases + mod_configs
-  // Namespace target: <db>.mod_cases, <db>.mod_configs
+  // Modalità dedicata: importa i case mancanti dal canale e ricompatta senza fare restore backup.
+  if (remainingFromChannelOnly) {
+    if (!dryRun) {
+      runNodeScript("register-modcases-from-embeds-to-compact.js", ["--local"]);
+      runNodeScript("migrate-mod-case-to-compact.js", ["--write", `--guild=${MAIN_GUILD_ID}`]);
+    } else {
+      console.log("[DRY-RUN] remaining-from-channel-only: skip register+migrate");
+    }
+    const countsOnly = {};
+    for (const id of WANTED_CASES) {
+      countsOnly[id] = await db.collection("mod_case_users").countDocuments({ "cases.caseId": id }).catch(() => 0);
+    }
+    console.log(
+      JSON.stringify(
+        {
+          dryRun,
+          remainingFromChannelOnly: true,
+          countsWanted_77_80: countsOnly,
+        },
+        null,
+        2,
+      ),
+    );
+    await mongoose.disconnect().catch(() => null);
+    return;
+  }
+
+  // Restore legacy only: mod_cases + mod_configs (FILE-BASED, no restore dir intera)
   const dbName = mongoose.connection.name;
-  const nsIncludeCases = `${dbName}.mod_cases`;
-  const nsIncludeConfig = `${dbName}.mod_configs`;
-
-  const restoreDir = resolveRestoreDir(backupDir, dbName);
-  const restoreBsonDir = path.join(restoreDir, dbName);
-  const useBsonDir =
-    fileExists(path.join(restoreBsonDir, "mod_cases.bson")) &&
-    fileExists(path.join(restoreBsonDir, "mod_configs.bson"));
-  const mongorestoreDir = useBsonDir ? restoreBsonDir : restoreDir;
-
-  const mongorestoreArgs = [
-    `--uri=${mongoLocalUrl}`,
-    `--dir=${mongorestoreDir}`,
-    "--drop",
-    `--nsInclude=${nsIncludeCases}`,
-    `--nsInclude=${nsIncludeConfig}`,
-  ];
+  const { modCasesBson, modConfigsBson } = resolveBsonFiles(backupDir, dbName);
 
   if (!skipRestore) {
-    console.log("[RESTORE] mongorestore args:", mongorestoreArgs.join(" "));
+    const argsCases = [
+      `--uri=${mongoLocalUrl}`,
+      `--db=${dbName}`,
+      "--collection=mod_cases",
+      "--drop",
+      modCasesBson,
+    ];
+    const argsConfig = [
+      `--uri=${mongoLocalUrl}`,
+      `--db=${dbName}`,
+      "--collection=mod_configs",
+      "--drop",
+      modConfigsBson,
+    ];
+    console.log("[RESTORE] mongorestore mod_cases args:", argsCases.join(" "));
+    console.log("[RESTORE] mongorestore mod_configs args:", argsConfig.join(" "));
     console.log("[RESTORE] backupDir:", backupDir);
-    console.log("[RESTORE] restoreDir:", restoreDir);
-    console.log("[RESTORE] mongorestoreDir:", mongorestoreDir);
-    console.log("[RESTORE] exists checks:", {
-      direct_mod_cases: fileExists(path.join(restoreDir, "mod_cases.bson")),
-      direct_mod_configs: fileExists(path.join(restoreDir, "mod_configs.bson")),
-      under_db_mod_cases: fileExists(path.join(restoreDir, dbName, "mod_cases.bson")),
-      under_db_mod_configs: fileExists(path.join(restoreDir, dbName, "mod_configs.bson")),
-    });
+    console.log("[RESTORE] bson files:", { modCasesBson, modConfigsBson });
     if (!dryRun) {
-      const res = spawnSync("mongorestore", mongorestoreArgs, { stdio: "inherit" });
-      if (res.status !== 0) throw new Error("mongorestore fallito");
+      const resCases = spawnSync("mongorestore", argsCases, { stdio: "inherit" });
+      if (resCases.status !== 0) throw new Error("mongorestore mod_cases fallito");
+      const resConfig = spawnSync("mongorestore", argsConfig, { stdio: "inherit" });
+      if (resConfig.status !== 0) throw new Error("mongorestore mod_configs fallito");
     }
   } else {
     console.log("[RESTORE] skipRestore=true, salto mongorestore");

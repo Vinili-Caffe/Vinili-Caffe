@@ -8,12 +8,21 @@ const rolePersistUserSchema = new Schema({
 }, { timestamps: true });
 rolePersistUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
-const ROLE_PERSIST_USER_COLLECTION = process.env.ROLE_PERSIST_USER_COLLECTION ? String(process.env.ROLE_PERSIST_USER_COLLECTION).trim() : "";
+const RAW_ROLE_PERSIST_USER_COLLECTION = process.env.ROLE_PERSIST_USER_COLLECTION
+  ? String(process.env.ROLE_PERSIST_USER_COLLECTION).trim().toLowerCase()
+  : "";
+const ROLE_PERSIST_USER_COLLECTION = (
+  RAW_ROLE_PERSIST_USER_COLLECTION === "rolepersistuser" ||
+  RAW_ROLE_PERSIST_USER_COLLECTION === "rolepersistusers" ||
+  RAW_ROLE_PERSIST_USER_COLLECTION === "role_persist" ||
+  RAW_ROLE_PERSIST_USER_COLLECTION === "role_persists" ||
+  !RAW_ROLE_PERSIST_USER_COLLECTION
+)
+  ? "rolepersistusers"
+  : RAW_ROLE_PERSIST_USER_COLLECTION;
 
 const RolePersistUser = models.RolePersistUser
   ? models.RolePersistUser
-  : ROLE_PERSIST_USER_COLLECTION
-    ? model("RolePersistUser", rolePersistUserSchema, ROLE_PERSIST_USER_COLLECTION)
-    : model("RolePersistUser", rolePersistUserSchema, "rolepersistusers");
+  : model("RolePersistUser", rolePersistUserSchema, ROLE_PERSIST_USER_COLLECTION);
 
 module.exports = { RolePersistUser };
