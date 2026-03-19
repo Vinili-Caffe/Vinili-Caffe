@@ -140,6 +140,28 @@ async function resolveMongoUrl() {
   return local;
 }
 
+function getUrlLabel(url) {
+  const local = process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL;
+  const atlas = process.env.MONGO_URL || process.env.MONGODB_URI;
+  if (!url) return "unknown";
+  if (local && url === local) return "local";
+  if (atlas && url === atlas) return "atlas";
+  const s = String(url).toLowerCase();
+  if (s.includes("127.0.0.1") || s.includes("localhost")) return "local";
+  return "atlas";
+}
+
+async function countWantedCases(db, wantedArr) {
+  const out = {};
+  for (const id of wantedArr) {
+    out[id] = await db
+      .collection("mod_case_users")
+      .countDocuments({ "cases.caseId": id })
+      .catch(() => 0);
+  }
+  return out;
+}
+
 async function upsertCompactCase(entry, { dryRun }) {
   const n = Number(entry.caseId);
   if (!Number.isFinite(n) || n <= 0) throw new Error("Invalid caseId in entry");
@@ -212,12 +234,15 @@ async function upsertCompactCase(entry, { dryRun }) {
 
 async function run() {
   const dryRun = process.argv.includes("--dry-run");
+  const forceAtlas = process.argv.includes("--atlas");
+  const forceLocal = process.argv.includes("--local");
 
   const token = process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL;
   if (!token) throw new Error("Missing DISCORD_TOKEN (or DISCORD_TOKEN_OFFICIAL) in .env");
 
   const mongoUrl = await resolveMongoUrl();
   if (!mongoUrl) throw new Error("Missing Mongo URL in .env (MONGO_URL_LOCAL/MONGO_URL etc.)");
+  const wantedArr = Array.from(WANTED_CASES);
 
   // Discord client
   const client = new Client({
@@ -232,13 +257,33 @@ async function run() {
     throw new Error(`Channel ${CHANNEL_ID} non è text-based oppure non accessibile`);
   }
 
-  await mongoose.connect(mongoUrl, { serverSelectionTimeoutMS: 5000 }).catch(() => null);
-  // se la connessione fallisce in auto, prova Atlas (ultimo tentativo)
-  if (mongoose.connection.readyState !== 1 && !process.argv.includes("--atlas")) {
-    const atlas = process.env.MONGO_URL || process.env.MONGODB_URI;
-    if (atlas) await mongoose.connect(atlas, { serverSelectionTimeoutMS: 5000 }).catch(() => null);
+  let connected = false;
+  let usedMongoUrl = mongoUrl;
+  let mongoLabel = getUrlLabel(mongoUrl);
+
+  try {
+    await mongoose.connect(mongoUrl, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000 });
+    connected = mongoose.connection.readyState === 1;
+  } catch {
+    connected = false;
   }
-  if (mongoose.connection.readyState !== 1) throw new Error("MongoDB connection failed (local/atlas)");
+
+  // se la connessione fallisce in auto, prova Atlas (ultimo tentativo)
+  if (!connected && !forceAtlas && !forceLocal) {
+    const atlas = process.env.MONGO_URL || process.env.MONGODB_URI;
+    if (atlas) {
+      usedMongoUrl = atlas;
+      mongoLabel = getUrlLabel(atlas);
+      await mongoose.connect(atlas, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000 }).catch(() => null);
+      connected = mongoose.connection.readyState === 1;
+    }
+  }
+
+  if (!connected) throw new Error("MongoDB connection failed (local/atlas)");
+
+  const db = mongoose.connection.db;
+  console.log("[DB]", { label: mongoLabel, dbName: mongoose.connection.name, usedMongoUrl });
+  console.log("[DB] wanted BEFORE", await countWantedCases(db, wantedArr));
 
   const wantedLeft = new Set(WANTED_CASES);
   const upserted = [];
@@ -277,7 +322,17 @@ async function run() {
     await ModConfig.updateOne({ guildId }, { $setOnInsert: { guildId }, $max: { caseCounter: maxImported } }, { upsert: true }).catch(() => null);
   }
 
-  console.log(JSON.stringify({ dryRun, upserted, remainingWanted: Array.from(wantedLeft).sort((a, b) => a - b) }, null, 2));
+  if (!dryRun) {
+    console.log("[DB] wanted AFTER", await countWantedCases(db, wantedArr));
+  }
+
+  console.log(
+    JSON.stringify(
+      { dryRun, upserted, remainingWanted: Array.from(wantedLeft).sort((a, b) => a - b) },
+      null,
+      2,
+    ),
+  );
 
   await mongoose.disconnect().catch(() => null);
   await client.destroy().catch(() => null);
