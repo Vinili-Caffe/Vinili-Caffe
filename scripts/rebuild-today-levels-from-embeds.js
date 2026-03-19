@@ -46,6 +46,13 @@ function parseMentionUserId(content) {
   return m ? String(m[1]) : null;
 }
 
+function normalizeDiscordFormatText(text) {
+  return String(text || "")
+    .replace(/[*_`~>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function flattenEmbedText(embed) {
   if (!embed) return "";
   const parts = [];
@@ -127,23 +134,26 @@ function parseLevelFromEmbed(embed) {
 }
 
 function isLikelyLevelUpMessage(message) {
-  if (!message?.author?.bot) return false;
+  if (!message?.author?.bot && !message?.webhookId) return false;
   const contentRaw = String(message?.content || "");
   const content = contentRaw.toLowerCase();
+  const contentNorm = normalizeDiscordFormatText(contentRaw).toLowerCase();
   const hasEmbed = Array.isArray(message?.embeds) && message.embeds.length > 0;
   if (!hasEmbed) return false;
   const embedTextRaw = flattenEmbedText(message?.embeds?.[0]);
   const embedText = embedTextRaw.toLowerCase();
-  const joined = `${content}\n${embedText}`;
+  const embedNorm = normalizeDiscordFormatText(embedTextRaw).toLowerCase();
+  const joinedNorm = `${contentNorm}\n${embedNorm}`;
   const hasOfficialContent =
     /<a?:[A-Za-z0-9_]+:\d{16,}>\s*<@!?\d{15,21}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(contentRaw) ||
-    /<@!?\d{15,21}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(contentRaw);
+    /<@!?\d{15,21}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(contentRaw) ||
+    /<@!?\d{15,21}>\s+sei\s+salit[oa](?:\/a)?\s+di\s+livello!?/i.test(contentNorm);
   if (!hasOfficialContent) return false;
   const isOfficialEmbed =
-    /leveled?\s*up/i.test(embedText) &&
+    /leveled?\s*up/i.test(embedNorm) &&
     (
-      /hai\s+appena\s+raggiunto\s+il\s+livello/i.test(joined) ||
-      /hai\s+appena\s+raggiunto\s+il\s+<@&\d{15,21}>/i.test(joined)
+      /hai\s+appena\s+raggiunto\s+il\s+livello/i.test(joinedNorm) ||
+      /hai\s+appena\s+raggiunto\s+il\s+<@&\d{15,21}>/i.test(joinedNorm)
     );
   return isOfficialEmbed;
 }
