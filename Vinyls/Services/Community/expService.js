@@ -347,17 +347,17 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
   const beforeLevel = getLevelInfo(beforeExp).level;
   const afterLevel = getLevelInfo(afterExp).level;
   const entry = {
-    actorId: actorId || null,
     action: String(action || "update"),
     beforeExp: Number(beforeExp || 0),
     afterExp: Number(afterExp || 0),
     beforeLevel,
     afterLevel,
     deltaExp: Number(afterExp || 0) - Number(beforeExp || 0),
-    note: note ? String(note).slice(0, 500) : null,
     createdAt: new Date(),
   };
-  const cap = Math.max(100, Math.min(2000, Number(LEVEL_HISTORY_MAX_ENTRIES) || 500));
+  if (actorId) entry.actorId = String(actorId);
+  if (note) entry.note = String(note).slice(0, 500);
+  const cap = Math.max(50, Math.min(500, Number(process.env.LEVEL_HISTORY_MAX_ENTRIES) || LEVEL_HISTORY_MAX_ENTRIES));
   await LevelHistoryUser.findOneAndUpdate(
     { guildId: String(guildId), userId: String(userId) },
     { $push: { entries: { $each: [entry], $position: 0, $slice: -cap } } },
@@ -925,14 +925,26 @@ async function shouldIgnoreExpForMember({ guildId, member, channelId = null }) {
   return false;
 }
 
+function normalizeHistoryEntry(e) {
+  return {
+    actorId: e?.actorId ?? null,
+    action: e?.action ?? "update",
+    beforeExp: Number(e?.beforeExp ?? 0),
+    afterExp: Number(e?.afterExp ?? 0),
+    beforeLevel: Number(e?.beforeLevel ?? 0),
+    afterLevel: Number(e?.afterLevel ?? 0),
+    deltaExp: Number(e?.deltaExp ?? 0),
+    note: e?.note ?? null,
+    createdAt: e?.createdAt ?? new Date(),
+  };
+}
+
 async function getRecentLevelHistory(guildId, userId, limit = 10) {
   if (!guildId || !userId) return [];
   const safeLimit = Math.max(1, Math.min(30, Number(limit || 10)));
-  return LevelHistory.find({ guildId, userId })
-    .sort({ createdAt: -1 })
-    .limit(safeLimit)
-    .lean()
-    .catch(() => []);
+  const doc = await LevelHistoryUser.findOne({ guildId, userId }).select("entries").lean().catch(() => null);
+  const entries = (doc?.entries || []).slice(0, safeLimit);
+  return entries.map(normalizeHistoryEntry);
 }
 
 async function getLevelHistoryPage(guildId, userId, page = 1, pageSize = 10) {
@@ -941,12 +953,12 @@ async function getLevelHistoryPage(guildId, userId, page = 1, pageSize = 10) {
   const safePageSize = Math.max(1, Math.min(20, Number(pageSize || 10)));
   const safePage = Math.max(1, Number(page || 1));
   const doc = await LevelHistoryUser.findOne({ guildId, userId }).select("entries").lean().catch(() => null);
-  const entries = doc?.entries || [];
-  const totalCount = entries.length;
+  const rawEntries = doc?.entries || [];
+  const totalCount = rawEntries.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
   const effectivePage = Math.min(safePage, totalPages);
   const skip = (effectivePage - 1) * safePageSize;
-  const rows = entries.slice(skip, skip + safePageSize);
+  const rows = rawEntries.slice(skip, skip + safePageSize).map(normalizeHistoryEntry);
   return {
     rows,
     page: effectivePage,

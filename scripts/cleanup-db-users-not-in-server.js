@@ -1,13 +1,18 @@
 /**
  * Rimuove dal DB tutti i documenti relativi a utenti che non sono più nel server principale.
  * Usa la Discord REST API per ottenere la lista membri (no Gateway Intents).
- * Eseguire con: node scripts/cleanup-db-users-not-in-server.js
+ *
+ * SICUREZZA: per default NON elimina nulla, solo conta. Per eliminare serve --confirm.
+ *
+ * Uso:
+ *   node scripts/cleanup-db-users-not-in-server.js          → solo conteggio, nessuna eliminazione
+ *   node scripts/cleanup-db-users-not-in-server.js --confirm → esegue le eliminazioni
+ *
  * Richiede .env: DISCORD_TOKEN (o DISCORD_TOKEN_OFFICIAL), MONGO_URL.
  * Opzionale: GUILD_ID per sovrascrivere il server (default: IDs.guilds.main).
- * Opzionale: --dry-run per solo contare i documenti da rimuovere senza eliminarli.
  */
 const path = require("path");
-const dryRun = process.argv.includes("--dry-run");
+const confirm = process.argv.includes("--confirm");
 const mongoose = require("mongoose");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
@@ -143,24 +148,29 @@ async function run() {
   const filterUser = { userId: { $nin: memberIds } };
   let totalDeleted = 0;
 
-  if (dryRun) console.log("[cleanup] Modalità --dry-run: nessuna eliminazione.\n");
+  if (!confirm) {
+    console.log("[cleanup] Modalità SICURA: nessuna eliminazione (manca --confirm).\n");
+  }
 
   for (const [Model, name] of guildScoped) {
-    const n = dryRun
-      ? await Model.countDocuments(filterGuild).catch(() => 0)
-      : (await Model.deleteMany(filterGuild).catch((e) => ({ deletedCount: 0, error: e })))?.deletedCount ?? 0;
-    if (n > 0) console.log(`[cleanup] ${name}: ${dryRun ? "da rimuovere" : "rimossi"} ${n}`);
+    const n = confirm
+      ? (await Model.deleteMany(filterGuild).catch((e) => ({ deletedCount: 0, error: e })))?.deletedCount ?? 0
+      : await Model.countDocuments(filterGuild).catch(() => 0);
+    if (n > 0) console.log(`[cleanup] ${name}: ${confirm ? "rimossi" : "da rimuovere"} ${n}`);
     totalDeleted += n;
   }
   for (const [Model, name] of userScoped) {
-    const n = dryRun
-      ? await Model.countDocuments(filterUser).catch(() => 0)
-      : (await Model.deleteMany(filterUser).catch((e) => ({ deletedCount: 0, error: e })))?.deletedCount ?? 0;
-    if (n > 0) console.log(`[cleanup] ${name}: ${dryRun ? "da rimuovere" : "rimossi"} ${n}`);
+    const n = confirm
+      ? (await Model.deleteMany(filterUser).catch((e) => ({ deletedCount: 0, error: e })))?.deletedCount ?? 0
+      : await Model.countDocuments(filterUser).catch(() => 0);
+    if (n > 0) console.log(`[cleanup] ${name}: ${confirm ? "rimossi" : "da rimuovere"} ${n}`);
     totalDeleted += n;
   }
 
-  console.log("[cleanup] Totale documenti " + (dryRun ? "da rimuovere" : "rimossi") + ":", totalDeleted);
+  console.log("\n[cleanup] Totale documenti " + (confirm ? "rimossi" : "da rimuovere") + ":", totalDeleted);
+  if (!confirm && totalDeleted > 0) {
+    console.log("\n[cleanup] Per eliminare davvero esegui: node scripts/cleanup-db-users-not-in-server.js --confirm");
+  }
   await mongoose.disconnect();
 }
 

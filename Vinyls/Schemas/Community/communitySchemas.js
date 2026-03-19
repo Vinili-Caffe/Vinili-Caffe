@@ -35,7 +35,7 @@ const levelHistoryEntrySchema = new Schema({
   note: { type: String, default: null },
   createdAt: { type: Date, default: Date.now, required: true },
 }, { _id: false });
-const LEVEL_HISTORY_MAX_ENTRIES = 500;
+const LEVEL_HISTORY_MAX_ENTRIES = 150;
 const levelHistoryUserSchema = new Schema({
   guildId: { type: String, required: true, index: true },
   userId: { type: String, required: true, index: true },
