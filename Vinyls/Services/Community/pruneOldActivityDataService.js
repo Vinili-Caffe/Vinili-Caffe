@@ -1,4 +1,9 @@
-const { ActivityDaily, ActivityHourly, ActivityHourlyCompact } = require("../../Schemas/Community/communitySchemas");
+const {
+  ActivityDaily,
+  ActivityDailyCompact,
+  ActivityHourly,
+  ActivityHourlyCompact,
+} = require("../../Schemas/Community/communitySchemas");
 
 function pad2(n) {
   return String(Number(n)).padStart(2, "0");
@@ -61,7 +66,7 @@ function startPruneActivityLoop(client, options = {}) {
       retentionDaysHourly: retentionHourly,
     });
     if (dailyDeleted > 0 || hourlyDeleted > 0) {
-      global.logger?.info?.("[PRUNE ACTIVITY] Rimossi " + dailyDeleted + " ActivityDaily (>" + retentionDaily + " gg), " + hourlyDeleted + " ActivityHourly (>" + retentionHourly + " gg).");
+      global.logger?.info?.("[PRUNE ACTIVITY] Rimossi " + dailyDeleted + " documenti activity daily (>" + retentionDaily + " gg), " + hourlyDeleted + " activity hourly (>" + retentionHourly + " gg).");
     }
   };
 

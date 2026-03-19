@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
 
+const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
+const ACTIVITY_LEGACY_DAILY_DISABLED = ACTIVITY_DAILY_STORAGE_MODE === "compact";
+const ACTIVITY_LEGACY_HOURLY_DISABLED = ACTIVITY_HOURLY_STORAGE_MODE === "compact";
+
 const activityUserSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},messages:{total:{type:Number,default:0},daily:{type:Number,default:0},weekly:{type:Number,default:0},dailyKey:{type:String,default:""},weeklyKey:{type:String,default:""},},voice:{totalSeconds:{type:Number,default:0},dailySeconds:{type:Number,default:0},weeklySeconds:{type:Number,default:0},dailyKey:{type:String,default:""},weeklyKey:{type:String,default:""},sessionStartedAt:{type:Date,default:null},sessionChannelId:{type:String,default:null},expAwardedSeconds:{type:Number,default:0},},},{timestamps:true},);
 activityUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
@@ -8,7 +13,7 @@ const expUserSchema=new Schema({guildId:{type:String,required:true},userId:{type
 expUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 expUserSchema.index({ guildId: 1, totalExp: -1 });
 
-const activityDailySchema=new Schema({guildId:{type:String,required:true,index:true},dateKey:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},textCount:{type:Number,default:0},voiceSeconds:{type:Number,default:0},textChannels:{type:Map,of:Number,default:{}},voiceChannels:{type:Map,of:Number,default:{}},},{timestamps:true},);
+const activityDailySchema=new Schema({guildId:{type:String,required:true,index:true},dateKey:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},textCount:{type:Number,default:0},voiceSeconds:{type:Number,default:0},textChannels:{type:Map,of:Number,default:{}},voiceChannels:{type:Map,of:Number,default:{}},},{timestamps:true,autoCreate:!ACTIVITY_LEGACY_DAILY_DISABLED,autoIndex:!ACTIVITY_LEGACY_DAILY_DISABLED},);
 activityDailySchema.index(
   { guildId: 1, dateKey: 1, userId: 1 },
   { unique: true },
@@ -22,7 +27,7 @@ activityDailyCompactSchema.index({ guildId: 1, dateKey: 1 }, { unique: true });
 activityDailyCompactSchema.index({ guildId: 1, dateKey: -1 });
 activityDailyCompactSchema.index({ dateKey: -1 });
 
-const activityHourlySchema=new Schema({guildId:{type:String,required:true,index:true},hourKey:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},textCount:{type:Number,default:0},voiceSeconds:{type:Number,default:0},textChannels:{type:Map,of:Number,default:{}},voiceChannels:{type:Map,of:Number,default:{}},},{timestamps:true},);
+const activityHourlySchema=new Schema({guildId:{type:String,required:true,index:true},hourKey:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},textCount:{type:Number,default:0},voiceSeconds:{type:Number,default:0},textChannels:{type:Map,of:Number,default:{}},voiceChannels:{type:Map,of:Number,default:{}},},{timestamps:true,autoCreate:!ACTIVITY_LEGACY_HOURLY_DISABLED,autoIndex:!ACTIVITY_LEGACY_HOURLY_DISABLED},);
 activityHourlySchema.index(
   { guildId: 1, hourKey: 1, userId: 1 },
   { unique: true },

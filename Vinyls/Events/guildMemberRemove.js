@@ -390,6 +390,10 @@ async function sendMemberKickLog(member) {
   });
 }
 async function cleanupUserData(guildId, userId) {
+  const dailyMode = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+  const hourlyMode = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
+  const useLegacyActivityDaily = dailyMode === "legacy" || dailyMode === "dual";
+  const useLegacyActivityHourly = hourlyMode === "legacy" || hourlyMode === "dual";
   const compactDocs = await ActivityDailyCompact.find({ guildId })
     .select("_id users")
     .lean()
@@ -423,9 +427,9 @@ async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     ExpUser.deleteOne({ guildId, userId }),
     ActivityUser.deleteOne({ guildId, userId }),
-    ActivityDaily.deleteMany({ guildId, userId }),
+    useLegacyActivityDaily ? ActivityDaily.deleteMany({ guildId, userId }) : Promise.resolve(),
     compactOps.length ? ActivityDailyCompact.bulkWrite(compactOps, { ordered: false }) : Promise.resolve(),
-    ActivityHourly.deleteMany({ guildId, userId }),
+    useLegacyActivityHourly ? ActivityHourly.deleteMany({ guildId, userId }) : Promise.resolve(),
     compactHourlyOps.length ? ActivityHourlyCompact.bulkWrite(compactHourlyOps, { ordered: false }) : Promise.resolve(),
     LevelHistoryUser.deleteOne({ guildId, userId }),
     MinigameUser.deleteOne({ guildId, userId }),

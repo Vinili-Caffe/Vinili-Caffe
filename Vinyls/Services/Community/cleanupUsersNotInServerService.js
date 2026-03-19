@@ -40,11 +40,16 @@ const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUser
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 const { ModCaseUser } = require("../../Schemas/Moderation/moderationSchemas");
 
+const ACTIVITY_DAILY_STORAGE_MODE_CLEANUP = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
+const ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
+const includeLegacyActivityDaily = ACTIVITY_DAILY_STORAGE_MODE_CLEANUP === "legacy" || ACTIVITY_DAILY_STORAGE_MODE_CLEANUP === "dual";
+const includeLegacyActivityHourly = ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP === "legacy" || ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP === "dual";
+
 const guildScoped = [
   [ExpUser, "ExpUser"],
   [ActivityUser, "ActivityUser"],
-  [ActivityDaily, "ActivityDaily"],
-  [ActivityHourly, "ActivityHourly"],
+  ...(includeLegacyActivityDaily ? [[ActivityDaily, "ActivityDaily"]] : []),
+  ...(includeLegacyActivityHourly ? [[ActivityHourly, "ActivityHourly"]] : []),
   [LevelHistoryUser, "LevelHistoryUser"],
   [MinigameUser, "MinigameUser"],
   [AFK, "AFK"],
