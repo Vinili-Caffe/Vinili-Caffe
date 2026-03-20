@@ -48,8 +48,18 @@ function getTimeParts(date) {
 }
 
 function getDayKey(date) {
-  const { year, month, day } = getTimeParts(date);
-  return `${year}-${pad2(month)}-${pad2(day)}`;
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const map = {};
+  for (const part of parts) {
+    if (part.type !== "literal") map[part.type] = part.value;
+  }
+  return `${map.year}-${map.month}-${map.day}`;
 }
 
 function getHourKey(date) {
@@ -60,6 +70,15 @@ function getHourKey(date) {
     if (part.type !== "literal") map[part.type] = part.value;
   }
   return `${map.year}-${map.month}-${map.day}T${map.hour}`;
+}
+
+function logActivityBumpError(label, err) {
+  global.logger?.warn?.(`[ACTIVITY] ${label}:`, err?.message || err);
+}
+
+/** Update su `activityuserprofiles` via driver Mongo (no casting Mongoose su Mixed + path dinamici). */
+function profileActivityCollection() {
+  return ActivityUserProfile.collection;
 }
 
 function getLastNDaysKeys(days) {
@@ -270,68 +289,112 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
   if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const dateKey = getDayKey(new Date());
-  await ActivityUserProfile.updateOne(
-    { guildId: String(guildId), userId: String(userId) },
-    {
-      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
-      $inc: {
-        [`daily.${dateKey}.textCount`]: inc,
-        [`daily.${dateKey}.textChannels.${String(channelId)}`]: inc,
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    logActivityBumpError("bumpDailyText invalid dateKey", new Error(String(dateKey)));
+    return;
+  }
+  const gid = String(guildId);
+  const uid = String(userId);
+  const cid = String(channelId);
+  try {
+    await profileActivityCollection().updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $setOnInsert: { guildId: gid, userId: uid },
+        $inc: {
+          [`daily.${dateKey}.textCount`]: inc,
+          [`daily.${dateKey}.textChannels.${cid}`]: inc,
+        },
       },
-    },
-    { upsert: true },
-  ).catch(() => { });
+      { upsert: true },
+    );
+  } catch (err) {
+    logActivityBumpError("bumpDailyText", err);
+  }
 }
 
 async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
   if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const hourKey = getHourKey(new Date());
-  await ActivityUserProfile.updateOne(
-    { guildId: String(guildId), userId: String(userId) },
-    {
-      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
-      $inc: {
-        [`hourly.${hourKey}.textCount`]: inc,
-        [`hourly.${hourKey}.textChannels.${String(channelId)}`]: inc,
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hourKey)) {
+    logActivityBumpError("bumpHourlyText invalid hourKey", new Error(String(hourKey)));
+    return;
+  }
+  const gid = String(guildId);
+  const uid = String(userId);
+  const cid = String(channelId);
+  try {
+    await profileActivityCollection().updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $setOnInsert: { guildId: gid, userId: uid },
+        $inc: {
+          [`hourly.${hourKey}.textCount`]: inc,
+          [`hourly.${hourKey}.textChannels.${cid}`]: inc,
+        },
       },
-    },
-    { upsert: true },
-  ).catch(() => { });
+      { upsert: true },
+    );
+  } catch (err) {
+    logActivityBumpError("bumpHourlyText", err);
+  }
 }
 
 async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
   const inc = Math.max(0, Math.floor(Number(seconds || 0)));
   if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const dateKey = getDayKey(new Date());
-  await ActivityUserProfile.updateOne(
-    { guildId: String(guildId), userId: String(userId) },
-    {
-      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
-      $inc: {
-        [`daily.${dateKey}.voiceSeconds`]: inc,
-        [`daily.${dateKey}.voiceChannels.${String(channelId)}`]: inc,
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    logActivityBumpError("bumpDailyVoice invalid dateKey", new Error(String(dateKey)));
+    return;
+  }
+  const gid = String(guildId);
+  const uid = String(userId);
+  const cid = String(channelId);
+  try {
+    await profileActivityCollection().updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $setOnInsert: { guildId: gid, userId: uid },
+        $inc: {
+          [`daily.${dateKey}.voiceSeconds`]: inc,
+          [`daily.${dateKey}.voiceChannels.${cid}`]: inc,
+        },
       },
-    },
-    { upsert: true },
-  ).catch(() => { });
+      { upsert: true },
+    );
+  } catch (err) {
+    logActivityBumpError("bumpDailyVoice", err);
+  }
 }
 
 async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
   const inc = Math.max(0, Math.floor(Number(seconds || 0)));
   if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
   const hourKey = getHourKey(new Date());
-  await ActivityUserProfile.updateOne(
-    { guildId: String(guildId), userId: String(userId) },
-    {
-      $setOnInsert: { guildId: String(guildId), userId: String(userId) },
-      $inc: {
-        [`hourly.${hourKey}.voiceSeconds`]: inc,
-        [`hourly.${hourKey}.voiceChannels.${String(channelId)}`]: inc,
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hourKey)) {
+    logActivityBumpError("bumpHourlyVoice invalid hourKey", new Error(String(hourKey)));
+    return;
+  }
+  const gid = String(guildId);
+  const uid = String(userId);
+  const cid = String(channelId);
+  try {
+    await profileActivityCollection().updateOne(
+      { guildId: gid, userId: uid },
+      {
+        $setOnInsert: { guildId: gid, userId: uid },
+        $inc: {
+          [`hourly.${hourKey}.voiceSeconds`]: inc,
+          [`hourly.${hourKey}.voiceChannels.${cid}`]: inc,
+        },
       },
-    },
-    { upsert: true },
-  ).catch(() => { });
+      { upsert: true },
+    );
+  } catch (err) {
+    logActivityBumpError("bumpHourlyVoice", err);
+  }
 }
 
 function getWeekKey(date) {
