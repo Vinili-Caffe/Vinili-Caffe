@@ -392,6 +392,8 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
       ? Math.max(0, Math.floor(Number(weeklyAmountOverride)))
       : effective;
   if (effective === 0 && weeklyEffective === 0) return null;
+  const gid = String(guildId);
+  const uid = String(userId);
   const beforeRow = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
     .select("exp.totalExp exp.level")
     .lean()
@@ -407,8 +409,6 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
     ).catch(() => null);
   }
   const prevLevel = getLevelInfo(beforeExp).level;
-  const gid = String(guildId);
-  const uid = String(userId);
   const eff = Math.floor(effective);
   const wk = Math.floor(weeklyEffective);
   const activityDelta = Math.max(0, Math.floor(Number(options?.activityAmount || 0)));
