@@ -20,6 +20,20 @@ const LEGACY = {
   minigameUsers: "minigameusers",
   supporterStatuses: "supporterstatuses",
   reviewRewards: "reviewrewards",
+  afks: "afks",
+  mentionReactions: "mentionreactions",
+  avatarPrivacies: "avatarprivacies",
+  bannerPrivacies: "bannerprivacies",
+  quotePrivacies: "quoteprivacies",
+  birthdayProfiles: "birthdayprofiles",
+  customRoles: "customroles",
+  inviteTracks: "invitetracks",
+  noDmPreferences: "nodmpreferences",
+  rolePersistUsers: "rolepersistusers",
+  temporaryRoleGrants: "temporary_role_grants",
+  temporaryCommandPermissions: "temporary_command_permissions",
+  verificationTenures: "verificationtenures",
+  oneTimeReminderUsers: "onetimereminderusers",
 };
 
 const TARGET = {
@@ -277,6 +291,42 @@ async function migrateAll(db, apply) {
     const res = await profiles.bulkWrite(ops, { ordered: false });
     report.reviewRewards.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
   }
+  const afkDocs = await db.collection(LEGACY.afks).find({}, { projection: { guildId: 1, userId: 1, message: 1, timestamp: 1, originalName: 1 } }).toArray();
+  report.afks = { found: afkDocs.length, migrated: 0 };
+  if (apply && afkDocs.length) {
+    const ops = afkDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.afk.message": String(d.message || ""),
+            "profile.afk.timestamp": toDate(d.timestamp),
+            "profile.afk.originalName": d.originalName == null ? null : String(d.originalName),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.afks.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const mentionDocs = await db.collection(LEGACY.mentionReactions).find({}, { projection: { guildId: 1, userId: 1, reactions: 1 } }).toArray();
+  report.mentionReactions = { found: mentionDocs.length, migrated: 0 };
+  if (apply && mentionDocs.length) {
+    const ops = mentionDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: { "profile.mentionReaction.reactions": Array.isArray(d.reactions) ? d.reactions.map((x) => String(x)) : [] },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.mentionReactions.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
   return report;
 }
 
@@ -382,6 +432,23 @@ async function verifyAll(db) {
     if (String(s.rewardedBy || "") !== String(d.rewardedBy || "") || !sameDate(s.rewardedAt, d.rewardedAt)) mismatches += 1;
   }
   out.reviewRewards = { total: reviewDocs.length, mismatches };
+  mismatches = 0;
+  const afkDocs = await db.collection(LEGACY.afks).find({}).toArray();
+  for (const d of afkDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.afk": 1 } });
+    const s = t?.profile?.afk || {};
+    if (String(s.message || "") !== String(d.message || "")) mismatches += 1;
+  }
+  out.afks = { total: afkDocs.length, mismatches };
+  mismatches = 0;
+  const mentionDocs = await db.collection(LEGACY.mentionReactions).find({}).toArray();
+  for (const d of mentionDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.mentionReaction.reactions": 1 } });
+    const arr = Array.isArray(t?.profile?.mentionReaction?.reactions) ? t.profile.mentionReaction.reactions.map((x) => String(x)) : [];
+    const src = Array.isArray(d.reactions) ? d.reactions.map((x) => String(x)) : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.mentionReactions = { total: mentionDocs.length, mismatches };
 
   out.totalMismatches = Object.values(out).reduce((acc, row) => acc + Number(row?.mismatches || 0), 0);
   return out;

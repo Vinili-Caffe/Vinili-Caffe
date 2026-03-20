@@ -1,5 +1,5 @@
 const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
-const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUserSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
 const ONE_TIME_REMINDER_STORAGE_MODE = String(
   process.env.ONE_TIME_REMINDER_STORAGE_MODE || "dual",
@@ -27,15 +27,16 @@ function useLegacyReminderStorage() {
 
 async function ensureOneTimeReminderCompact({ key, userId, message, sendAt }) {
   const userIdStr = String(userId);
-  const touchExisting = await OneTimeReminderUser.updateOne(
+  const touchExisting = await ActivityUserProfile.updateOne(
     {
+      guildId: "__global__",
       userId: userIdStr,
-      entries: { $elemMatch: { key: String(key), sentAt: null } },
+      "profile.globalOneTimeReminder.entries": { $elemMatch: { key: String(key), sentAt: null } },
     },
     {
       $set: {
-        "entries.$.message": String(message),
-        "entries.$.sendAt": new Date(sendAt),
+        "profile.globalOneTimeReminder.entries.$.message": String(message),
+        "profile.globalOneTimeReminder.entries.$.sendAt": new Date(sendAt),
       },
     },
   ).catch(() => ({ modifiedCount: 0 }));
@@ -44,12 +45,12 @@ async function ensureOneTimeReminderCompact({ key, userId, message, sendAt }) {
     return { ok: true, mode: "compact_existing" };
   }
 
-  await OneTimeReminderUser.findOneAndUpdate(
-    { userId: userIdStr },
+  await ActivityUserProfile.findOneAndUpdate(
+    { guildId: "__global__", userId: userIdStr },
     {
-      $setOnInsert: { userId: userIdStr },
+      $setOnInsert: { guildId: "__global__", userId: userIdStr },
       $push: {
-        entries: {
+        "profile.globalOneTimeReminder.entries": {
           $each: [
             {
               key: String(key),
@@ -92,23 +93,24 @@ async function ensureOneTimeReminder({ key, userId, message, sendAt }) {
 }
 
 async function loadDueCompactReminders(now, limit = 100) {
-  return OneTimeReminderUser.aggregate([
-    { $unwind: "$entries" },
+  return ActivityUserProfile.aggregate([
+    { $match: { guildId: "__global__" } },
+    { $unwind: "$profile.globalOneTimeReminder.entries" },
     {
       $match: {
-        "entries.sentAt": null,
-        "entries.sendAt": { $lte: now },
+        "profile.globalOneTimeReminder.entries.sentAt": null,
+        "profile.globalOneTimeReminder.entries.sendAt": { $lte: now },
       },
     },
-    { $sort: { "entries.sendAt": 1 } },
+    { $sort: { "profile.globalOneTimeReminder.entries.sendAt": 1 } },
     { $limit: limit },
     {
       $project: {
         _id: 0,
         userId: "$userId",
-        key: "$entries.key",
-        message: "$entries.message",
-        sendAt: "$entries.sendAt",
+        key: "$profile.globalOneTimeReminder.entries.key",
+        message: "$profile.globalOneTimeReminder.entries.message",
+        sendAt: "$profile.globalOneTimeReminder.entries.sendAt",
       },
     },
   ]).catch(() => []);
@@ -116,10 +118,11 @@ async function loadDueCompactReminders(now, limit = 100) {
 
 async function claimCompactReminder(row, now) {
   if (!row?.userId || !row?.key || !row?.sendAt) return null;
-  const claim = await OneTimeReminderUser.findOneAndUpdate(
+  const claim = await ActivityUserProfile.findOneAndUpdate(
     {
+      guildId: "__global__",
       userId: String(row.userId),
-      entries: {
+      "profile.globalOneTimeReminder.entries": {
         $elemMatch: {
           key: String(row.key),
           sentAt: null,
@@ -128,7 +131,7 @@ async function claimCompactReminder(row, now) {
       },
     },
     {
-      $set: { "entries.$.sentAt": now },
+      $set: { "profile.globalOneTimeReminder.entries.$.sentAt": now },
     },
     { new: true },
   ).catch(() => null);
@@ -137,17 +140,18 @@ async function claimCompactReminder(row, now) {
 
 async function revertCompactReminder(row) {
   if (!row?.userId || !row?.key) return;
-  await OneTimeReminderUser.updateOne(
+  await ActivityUserProfile.updateOne(
     {
+      guildId: "__global__",
       userId: String(row.userId),
-      entries: {
+      "profile.globalOneTimeReminder.entries": {
         $elemMatch: {
           key: String(row.key),
         },
       },
     },
     {
-      $set: { "entries.$.sentAt": null },
+      $set: { "profile.globalOneTimeReminder.entries.$.sentAt": null },
     },
   ).catch(() => {});
 }

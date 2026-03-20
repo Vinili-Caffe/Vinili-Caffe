@@ -6,26 +6,16 @@ const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require(
 const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
 const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
-  InviteTrack,
   ActivityUserProfile,
-  VerificationTenure,
   InviteReminderState,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
 } = require("../Schemas/Community/communitySchemas");
-const AFK = require("../Schemas/Afk/afkSchema");
-const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
-const { RolePersistUser } = require("../Schemas/Moderation/rolePersistSchema");
-const TemporaryRoleGrant = require("../Schemas/Moderation/temporaryRoleGrantSchema");
-const TemporaryCommandPermission = require("../Schemas/Moderation/temporaryCommandPermissionSchema");
 const VoiceDisconnectCounter = require("../Schemas/Voice/voiceDisconnectCounterSchema");
 const SuspiciousAccount = require("../Schemas/Moderation/suspiciousAccountSchema");
-const BirthdayProfile = require("../Schemas/Community/birthdayProfileSchema");
-const NoDmPreference = require("../Schemas/Community/noDmPreferenceSchema");
 const OneTimeReminder = require("../Schemas/Reminders/oneTimeReminderSchema");
-const OneTimeReminderUser = require("../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -128,9 +118,18 @@ async function sendLeaveLog(member) {
 }
 
 async function markInviteInactive(member) {
-  await InviteTrack.findOneAndUpdate(
-    { guildId: member.guild.id, userId: member.id, active: true },
-    { $set: { active: false, leftAt: new Date() } },
+  await ActivityUserProfile.findOneAndUpdate(
+    {
+      guildId: member.guild.id,
+      userId: member.id,
+      "profile.inviteTrack.active": true,
+    },
+    {
+      $set: {
+        "profile.inviteTrack.active": false,
+        "profile.inviteTrack.leftAt": new Date(),
+      },
+    },
   ).catch(() => { });
 }
 
@@ -374,25 +373,39 @@ async function sendMemberKickLog(member) {
 async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     ActivityUserProfile.deleteOne({ guildId, userId }),
-    AFK.deleteOne({ guildId, userId }),
-    MentionReaction.deleteOne({ guildId, userId }),
-    RolePersistUser.deleteOne({ guildId, userId }),
-    TemporaryRoleGrant.deleteMany({ guildId, userId }),
-    TemporaryCommandPermission.deleteMany({ guildId, userId }),
     VoiceDisconnectCounter.deleteOne({ guildId, userId }),
     Staff.deleteOne({ guildId, userId }),
     SuspiciousAccount.deleteMany({ guildId, userId }),
-    BirthdayProfile.deleteOne({ guildId, userId }),
-    NoDmPreference.deleteOne({ guildId, userId }),
-    VerificationTenure.deleteOne({ guildId, userId }),
     InviteReminderState.deleteOne({ guildId, userId }),
     CustomRole.deleteOne({ guildId, userId }),
     AvatarPrivacy.deleteOne({ guildId, userId }),
     BannerPrivacy.deleteOne({ guildId, userId }),
     QuotePrivacy.deleteOne({ guildId, userId }),
-    InviteTrack.deleteOne({ guildId, userId }),
+    ActivityUserProfile.updateOne(
+      { guildId, userId },
+      {
+        $set: {
+          "profile.afk.message": null,
+          "profile.mentionReaction.reactions": [],
+          "profile.birthday.day": null,
+          "profile.birthday.month": null,
+          "profile.birthday.birthYear": null,
+          "profile.noDmPreference.categories": null,
+          "profile.inviteTrack.active": false,
+          "profile.inviteTrack.leftAt": new Date(),
+          "profile.verificationTenure.verifiedAt": null,
+          "profile.verificationTenure.stage": 1,
+          "profile.rolePersist.roles": [],
+          "profile.temporaryRoleGrants.grants": [],
+          "profile.temporaryCommandPermissions.permissions": [],
+        },
+      },
+    ),
     OneTimeReminder.deleteMany({ userId }),
-    OneTimeReminderUser.deleteOne({ userId }),
+    ActivityUserProfile.updateOne(
+      { guildId: "__global__", userId },
+      { $set: { "profile.globalOneTimeReminder.entries": [] } },
+    ),
     AutoModBadUser.deleteOne({ userId }),
   ]);
 }

@@ -2,7 +2,7 @@ const { AttachmentBuilder, ChannelType } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 const { getServerOverviewStats } = require("../../Services/Community/activityService");
-const { InviteTrack, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS } = require("../../Services/Community/expService");
 const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../Utils/Render/activityCanvas");
 const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../Utils/Community/channelSnapshotUtils");
@@ -153,14 +153,14 @@ async function resolveTopInviteEntries(
 
   let trackedTotals = [];
   try {
-    trackedTotals = await InviteTrack.aggregate([
+    trackedTotals = await ActivityUserProfile.aggregate([
       {
         $match: {
           guildId: safeGuildId,
-          inviterId: { $exists: true, $nin: [null, ""] },
+          "profile.inviteTrack.inviterId": { $exists: true, $nin: [null, ""] },
         },
       },
-      { $group: { _id: "$inviterId", value: { $sum: 1 } } },
+      { $group: { _id: "$profile.inviteTrack.inviterId", value: { $sum: 1 } } },
       { $sort: { value: -1 } },
       { $limit: Math.max(20, Number(limit || TOP_PAGE_DATA_LIMIT) * 2) },
     ]);

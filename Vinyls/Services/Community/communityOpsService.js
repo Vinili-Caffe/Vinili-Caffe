@@ -1,6 +1,6 @@
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { ActivityUserProfile, VerificationTenure, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const SponsorMainLeave = require("../../Schemas/Tags/tagsSchema");
 const IDs = require("../../Utils/Config/ids");
 const VOTE_ROLE_ID = IDs.roles.Voter;
@@ -76,9 +76,12 @@ function startVoteRoleCleanupLoop(client) {
 }
 
 async function upsertVerifiedMember(guildId, userId, verifiedAt = new Date()) {
-  return VerificationTenure.findOneAndUpdate(
+  return ActivityUserProfile.findOneAndUpdate(
     { guildId, userId },
-    { $set: { verifiedAt }, $setOnInsert: { stage: 1 } },
+    {
+      $setOnInsert: { guildId, userId },
+      $set: { "profile.verificationTenure.verifiedAt": verifiedAt, "profile.verificationTenure.stage": 1 },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 }
@@ -110,7 +113,9 @@ async function applyTenureForMember(member, record) {
   if (!hasVerifiedRole) return;
   const now = new Date();
   const baseJoinedAtMs = Number(member.joinedTimestamp || member.joinedAt?.getTime?.() || 0);
-  const baseVerifiedAtMs = Number(new Date(record.verifiedAt).getTime() || 0);
+  const verifiedAtValue = record?.profile?.verificationTenure?.verifiedAt || record?.verifiedAt;
+  const stageValue = Number(record?.profile?.verificationTenure?.stage ?? record?.stage ?? 1);
+  const baseVerifiedAtMs = Number(new Date(verifiedAtValue).getTime() || 0);
   const baseTenureMs = baseJoinedAtMs > 0 ? baseJoinedAtMs : baseVerifiedAtMs;
   if (!Number.isFinite(baseTenureMs) || baseTenureMs <= 0) return;
   const stage1At = new Date(baseTenureMs + STAGE_1_DAYS * DAY_MS,);
@@ -130,10 +135,10 @@ async function applyTenureForMember(member, record) {
         if ((ROLE_STAGE_1 && refreshedMember.roles.cache.has(ROLE_STAGE_1)) || (ROLE_STAGE_2 && refreshedMember.roles.cache.has(ROLE_STAGE_2)) || (ROLE_STAGE_3 && !refreshedMember.roles.cache.has(ROLE_STAGE_3))) return;
       }
     }
-    if (record.stage !== 3) {
-      await VerificationTenure.updateOne(
+    if (stageValue !== 3) {
+      await ActivityUserProfile.updateOne(
         { guildId: record.guildId, userId: record.userId },
-        { $set: { stage: 3 } },
+        { $set: { "profile.verificationTenure.stage": 3 } },
       );
     }
     return;
@@ -149,10 +154,10 @@ async function applyTenureForMember(member, record) {
         if ((ROLE_STAGE_1 && refreshedMember.roles.cache.has(ROLE_STAGE_1)) || (ROLE_STAGE_2 && !refreshedMember.roles.cache.has(ROLE_STAGE_2))) return;
       }
     }
-    if (record.stage !== 2) {
-      await VerificationTenure.updateOne(
+    if (stageValue !== 2) {
+      await ActivityUserProfile.updateOne(
         { guildId: record.guildId, userId: record.userId },
-        { $set: { stage: 2 } },
+        { $set: { "profile.verificationTenure.stage": 2 } },
       );
     }
     return;
@@ -167,7 +172,10 @@ async function applyTenureForMember(member, record) {
 }
 
 async function runTenureSweep(client) {
-  const docs = await VerificationTenure.find({}).lean().catch(() => []);
+  const docs = await ActivityUserProfile.find({ "profile.verificationTenure.verifiedAt": { $ne: null } })
+    .select("guildId userId profile.verificationTenure")
+    .lean()
+    .catch(() => []);
   if (!docs.length) return;
   for (const doc of docs) {
     const guild = await getClientGuildCached(client, doc.guildId);
@@ -205,7 +213,17 @@ async function backfillVerificationTenure(client) {
 
     for (const member of targetMembers.values()) {
       const verifiedAt = member.joinedAt || new Date();
-      const record = await VerificationTenure.findOneAndUpdate({ guildId: guild.id, userId: member.id }, { $setOnInsert: { verifiedAt, stage: 1 } }, { upsert: true, new: true, setDefaultsOnInsert: true },).catch(() => null);
+      const record = await ActivityUserProfile.findOneAndUpdate(
+        { guildId: guild.id, userId: member.id },
+        {
+          $setOnInsert: { guildId: guild.id, userId: member.id },
+          $set: {
+            "profile.verificationTenure.verifiedAt": verifiedAt,
+            "profile.verificationTenure.stage": 1,
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).catch(() => null);
       if (!record) continue;
       await applyTenureForMember(member, record);
     }

@@ -1,7 +1,8 @@
 const fs = require("fs/promises");
 const path = require("path");
 const mongoose = require("mongoose");
-const NoDmPreference = require("../Schemas/Community/noDmPreferenceSchema");
+const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
+const { getNoDmPreference, setNoDmPreference, listNoDmPreferences, clearNoDmPreference } = require("../Services/Community/profileStore");
 const DATA_PATH = path.join(__dirname, "..", "Data", "noDmList.json");
 const BACKUP_PATH = `${DATA_PATH}.bak`;
 const TMP_PATH = `${DATA_PATH}.tmp`;
@@ -122,7 +123,17 @@ async function migrateFileToDbOnce() {
     }
 
     if (ops.length > 0) {
-      await NoDmPreference.bulkWrite(ops, { ordered: false }).catch(() => { });
+      const profileOps = ops.map((op) => ({
+        updateOne: {
+          filter: op.updateOne.filter,
+          update: {
+            $setOnInsert: op.updateOne.update.$setOnInsert,
+            $set: { "profile.noDmPreference.categories": ["all"] },
+          },
+          upsert: true,
+        },
+      }));
+      await ActivityUserProfile.bulkWrite(profileOps, { ordered: false }).catch(() => { });
     }
   })();
 
@@ -144,10 +155,7 @@ async function getNoDmSet(guildId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
-    const rows = await NoDmPreference.find(
-      { guildId: key },
-      { _id: 0, userId: 1, categories: 1 },
-    ).lean();
+    const rows = await listNoDmPreferences(key);
     return new Set(
       rows
         .filter((row) => {
@@ -173,10 +181,7 @@ async function getNoDmPreferences(guildId, userId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
-    const doc = await NoDmPreference.findOne(
-      { guildId: key, userId: uid },
-      { _id: 0, categories: 1 },
-    ).lean();
+    const doc = await getNoDmPreference(key, uid);
     if (!doc) return { blockAll: false, disabled: new Set() };
     const cat = doc.categories;
     if (!cat || !Array.isArray(cat) || cat.length === 0) return { blockAll: true, disabled: new Set([DM_CATEGORY_ALL]) };
@@ -198,15 +203,11 @@ async function setNoDmCategories(guildId, userId, categories) {
   if (isDbReady()) {
     await migrateFileToDbOnce();
     if (list.length === 0) {
-      await NoDmPreference.deleteOne({ guildId: key, userId: uid });
+      await clearNoDmPreference(key, uid);
       await mirrorRemoveFromFile(key, uid).catch(() => { });
       return;
     }
-    await NoDmPreference.updateOne(
-      { guildId: key, userId: uid },
-      { $set: { guildId: key, userId: uid, categories: list } },
-      { upsert: true },
-    );
+    await setNoDmPreference(key, uid, list);
     await mirrorAddToFile(key, uid).catch(() => { });
     return;
   }
@@ -227,7 +228,7 @@ async function getAllNoDmPreferences(guildId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
-    const rows = await NoDmPreference.find({ guildId: key }, { _id: 0, userId: 1, categories: 1 }).lean();
+    const rows = await listNoDmPreferences(key);
     return rows.map((row) => {
       const uid = String(row.userId);
       const cat = row.categories;
@@ -250,11 +251,7 @@ async function addNoDm(guildId, userId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
-    await NoDmPreference.updateOne(
-      { guildId: key, userId: uid },
-      { $set: { guildId: key, userId: uid, categories: [DM_CATEGORY_ALL] } },
-      { upsert: true },
-    );
+    await setNoDmPreference(key, uid, [DM_CATEGORY_ALL]);
     await mirrorAddToFile(key, uid).catch(() => { });
     return;
   }
@@ -268,7 +265,7 @@ async function removeNoDm(guildId, userId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
-    await NoDmPreference.deleteOne({ guildId: key, userId: uid });
+    await clearNoDmPreference(key, uid);
     await mirrorRemoveFromFile(key, uid).catch(() => { });
     return;
   }

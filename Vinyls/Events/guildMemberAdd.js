@@ -1,6 +1,6 @@
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
-const { InviteTrack, InviteReminderState, } = require("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, InviteReminderState, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { shouldBlockDm } = require("../Utils/noDmList");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -148,11 +148,16 @@ async function trackInviteJoin(member, inviterId) {
   const inviterMember = await getGuildMemberCached(member.guild, inviterId);
   if (!inviterMember || inviterMember.user?.bot) return;
 
-  await InviteTrack.findOneAndUpdate(
+  await ActivityUserProfile.findOneAndUpdate(
     { guildId: member.guild.id, userId: member.id },
     {
-      $set: { inviterId, active: true, leftAt: null },
-      $setOnInsert: { joinedAt: new Date() },
+      $setOnInsert: { guildId: member.guild.id, userId: member.id },
+      $set: {
+        "profile.inviteTrack.inviterId": inviterId,
+        "profile.inviteTrack.active": true,
+        "profile.inviteTrack.leftAt": null,
+        "profile.inviteTrack.joinedAt": new Date(),
+      },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );

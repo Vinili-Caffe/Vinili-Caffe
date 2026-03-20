@@ -1,6 +1,6 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { EmbedBuilder } = require("discord.js");
-const AFK = require("../../Schemas/Afk/afkSchema");
+const { setAfk } = require("../../Services/Community/profileStore");
 
 module.exports = {
   name: "afk",
@@ -35,17 +35,13 @@ module.exports = {
       const preferredBaseName = member.nickname || member.displayName || message.author.username;
       const baseName = String(preferredBaseName || "").replace(/^\s*\[AFK\]\s*/i, "").trim() || message.author.username;
       const afkNickname = `[AFK] ${baseName}`.slice(0, 32);
-      await AFK.findOneAndUpdate(
-        { guildId, userId },
-        {
-          guildId,
-          userId,
-          message: afkMessage,
-          timestamp: Date.now(),
-          originalName,
-        },
-        { upsert: true },
-      );
+      await setAfk({
+        guildId,
+        userId,
+        message: afkMessage,
+        timestamp: Date.now(),
+        originalName,
+      });
       await member.setNickname(afkNickname).catch(() => {});
       safeMessageReply(
         message,

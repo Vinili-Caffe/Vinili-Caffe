@@ -2,9 +2,9 @@ const path = require("path");
 const mongoose = require("mongoose");
 const { EmbedBuilder } = require("discord.js");
 const { inspect } = require("node:util");
-const { MentionReaction, AutoResponder } = require("../../Schemas/Community/autoInteractionSchemas");
+const { AutoResponder } = require("../../Schemas/Community/autoInteractionSchemas");
 const countschema = require("../../Schemas/Counting/countingSchema");
-const AFK = require("../../Schemas/Afk/afkSchema");
+const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
 const { getGuildAutoResponderCache, setGuildAutoResponderCache } = require("../Community/autoResponderCache");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
@@ -116,14 +116,14 @@ async function handleAfk(message) {
   const guildId = message.guild?.id;
   if (!guildId) return;
   const userId = message.author.id;
-  const afkData = await AFK.findOne({ guildId, userId }).lean();
+  const afkData = await getAfk(guildId, userId);
   if (afkData) {
     const member = message.guild.members.cache.get(userId);
     if (member) {
       const originalName = afkData.originalName == null ? null : String(afkData.originalName);
       await member.setNickname(originalName).catch(() => { });
     }
-    await AFK.deleteOne({ guildId, userId });
+    await clearAfk(guildId, userId);
     const msg = await safeMessageReply(message, `<:VC_PepeWave:1331589315175907412> Bentornato <@${userId}>! Ho rimosso il tuo stato AFK.`,
     );
     if (msg) scheduleMessageDeletion(msg, EPHEMERAL_TTL_LONG_MS);
@@ -134,7 +134,7 @@ async function handleAfk(message) {
 
   for (const [mentionedId, mentionedUser] of mentions) {
     if (mentionedUser.bot) continue;
-    const targetAfk = await AFK.findOne({ guildId, userId: mentionedId, }).lean();
+    const targetAfk = await getAfk(guildId, mentionedId);
     if (!targetAfk) continue;
 
     const reason = targetAfk.reason ? `\n <:VC_reason:1478517122929004544> Motivo: ${targetAfk.reason}` : "";
@@ -248,7 +248,7 @@ async function handleMentionAutoReactions(message) {
   if (!explicitMentionIds.size) return;
   const targetIds = Array.from(new Set(mentionedUsers.filter((user) => !user.bot && explicitMentionIds.has(user.id)).map((user) => user.id),),);
   if (!targetIds.length) return;
-  const docs = await MentionReaction.find({ guildId: message.guild.id, userId: { $in: targetIds }, }).lean().catch(() => []);
+  const docs = await listMentionReactions(message.guild.id, targetIds).catch(() => []);
   if (!Array.isArray(docs) || !docs.length) return;
   const uniqueTokens = new Set();
   for (const doc of docs) {

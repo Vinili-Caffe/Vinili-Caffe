@@ -1,4 +1,4 @@
-const { InviteTrack } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const { getStaffEventSettings } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
@@ -75,7 +75,11 @@ async function giveExistingInvitesPointsAtStart(guild) {
   for (const inviterId of staffIds) {
     const alreadyGiven=await Staff.findOne({guildId:guild.id,userId:inviterId,"staffEvent.rewardGivenTypes":"existing_invites",}).select("_id").lean().catch(() => null);
     if (alreadyGiven?._id) continue;
-    const count=await InviteTrack.countDocuments({guildId:guild.id,inviterId,active:true,}).catch(() => 0);
+    const count=await ActivityUserProfile.countDocuments({
+      guildId: guild.id,
+      "profile.inviteTrack.inviterId": inviterId,
+      "profile.inviteTrack.active": true,
+    }).catch(() => 0);
     if (count <= 0) {
       await Staff.updateOne(
         { guildId: guild.id, userId: inviterId },

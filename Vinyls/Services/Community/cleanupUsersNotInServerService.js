@@ -1,50 +1,30 @@
 const {
   ActivityUserProfile,
-  VerificationTenure,
   InviteReminderState,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
-  InviteTrack,
 } = require("../../Schemas/Community/communitySchemas");
-const BirthdayProfile = require("../../Schemas/Community/birthdayProfileSchema");
-const NoDmPreference = require("../../Schemas/Community/noDmPreferenceSchema");
-const AFK = require("../../Schemas/Afk/afkSchema");
-const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
-const { RolePersistUser } = require("../../Schemas/Moderation/rolePersistSchema");
-const TemporaryRoleGrant = require("../../Schemas/Moderation/temporaryRoleGrantSchema");
-const TemporaryCommandPermission = require("../../Schemas/Moderation/temporaryCommandPermissionSchema");
 const VoiceDisconnectCounter = require("../../Schemas/Voice/voiceDisconnectCounterSchema");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
 const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
-const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 
 const guildScoped = [
   [ActivityUserProfile, "ActivityUserProfile"],
-  [AFK, "AFK"],
-  [MentionReaction, "MentionReaction"],
-  [RolePersistUser, "RolePersistUser"],
-  [TemporaryRoleGrant, "TemporaryRoleGrant"],
-  [TemporaryCommandPermission, "TemporaryCommandPermission"],
   [VoiceDisconnectCounter, "VoiceDisconnectCounter"],
   [Staff, "Staff"],
   [SuspiciousAccount, "SuspiciousAccount"],
-  [BirthdayProfile, "BirthdayProfile"],
-  [NoDmPreference, "NoDmPreference"],
-  [VerificationTenure, "VerificationTenure"],
   [InviteReminderState, "InviteReminderState"],
   [CustomRole, "CustomRole"],
   [AvatarPrivacy, "AvatarPrivacy"],
   [BannerPrivacy, "BannerPrivacy"],
   [QuotePrivacy, "QuotePrivacy"],
-  [InviteTrack, "InviteTrack"],
 ];
 const userScoped = [
   [OneTimeReminder, "OneTimeReminder"],
-  [OneTimeReminderUser, "OneTimeReminderUser"],
   [AutoModBadUser, "AutoModBadUser"],
 ];
 

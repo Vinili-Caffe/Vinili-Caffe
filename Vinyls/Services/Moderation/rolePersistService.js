@@ -1,4 +1,4 @@
-const { RolePersistUser } = require("../../Schemas/Moderation/rolePersistSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getGuildRoleCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 async function setRolePersist({ guildId, userId, roleId, setBy = null, reason = null }) {
@@ -8,32 +8,38 @@ async function setRolePersist({ guildId, userId, roleId, setBy = null, reason = 
   const r = String(roleId);
   const reasonStr = String(reason || "Nessun motivo fornito").slice(0, 512);
   const setByStr = setBy ? String(setBy) : null;
-  const updated = await RolePersistUser.findOneAndUpdate(
-    { guildId: g, userId: u, "roles.roleId": r },
-    { $set: { "roles.$.setBy": setByStr, "roles.$.reason": reasonStr } },
+  const updated = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: g, userId: u, "profile.rolePersist.roles.roleId": r },
+    { $set: { "profile.rolePersist.roles.$.setBy": setByStr, "profile.rolePersist.roles.$.reason": reasonStr } },
     { new: true },
   ).catch(() => null);
   if (updated) return updated;
-  return RolePersistUser.findOneAndUpdate(
+  return ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
-    { $push: { roles: { roleId: r, setBy: setByStr, reason: reasonStr } } },
+    {
+      $setOnInsert: { guildId: g, userId: u },
+      $push: { "profile.rolePersist.roles": { roleId: r, setBy: setByStr, reason: reasonStr } },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
 }
 
 async function clearRolePersist({ guildId, userId, roleId }) {
   if (!guildId || !userId || !roleId) return null;
-  return RolePersistUser.findOneAndUpdate(
+  return ActivityUserProfile.findOneAndUpdate(
     { guildId: String(guildId), userId: String(userId) },
-    { $pull: { roles: { roleId: String(roleId) } } },
+    { $pull: { "profile.rolePersist.roles": { roleId: String(roleId) } } },
     { new: true },
   ).catch(() => null);
 }
 
 async function listRolePersistByUser(guildId, userId) {
   if (!guildId || !userId) return [];
-  const doc = await RolePersistUser.findOne({ guildId: String(guildId), userId: String(userId) }).lean().catch(() => null);
-  return doc?.roles || [];
+  const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select("profile.rolePersist.roles")
+    .lean()
+    .catch(() => null);
+  return doc?.profile?.rolePersist?.roles || [];
 }
 
 async function applyRolePersistForMember(member) {

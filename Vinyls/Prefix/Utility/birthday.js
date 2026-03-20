@@ -2,7 +2,7 @@ const{EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,ComponentType,Moda
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const IDs = require("../../Utils/Config/ids");
-const BirthdayProfile = require("../../Schemas/Community/birthdayProfileSchema");
+const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../../Services/Community/profileStore");
 const{inferBirthYearFromAge,getRomeDateParts,}=require("../../Services/Community/birthdayService");
 
 const PRIVATE_FLAG = 1 << 6;
@@ -369,7 +369,7 @@ async function openBirthdayPanel(message, client, initialState = null, mode = "s
         const commandChannel = message.channel;
         let messageToEdit = null;
         if (isEdit) {
-          const existingProfile=await BirthdayProfile.findOne({guildId:message.guild.id,userId:ownerId,}).lean().catch(() => null);
+          const existingProfile=await getBirthdayProfile(message.guild.id, ownerId);
           const regChannelId=existingProfile?.registrationChannelId||commandChannel?.id;
           const regMessageId = existingProfile?.registrationMessageId;
           if (regMessageId && regChannelId && String(regChannelId) === String(commandChannel?.id)) {
@@ -389,11 +389,7 @@ async function openBirthdayPanel(message, client, initialState = null, mode = "s
           updatePayload.registrationChannelId = registrationMessage.channelId;
         }
 
-        await BirthdayProfile.findOneAndUpdate(
-          { guildId: message.guild.id, userId: ownerId },
-          { $set: updatePayload },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        );
+        await setBirthdayProfile(message.guild.id, ownerId, updatePayload);
 
         finished = true;
         await interaction
@@ -454,10 +450,7 @@ async function handleRemoveBirthday(message) {
 
     if (interaction.customId === yesId) {
       decided = true;
-      await BirthdayProfile.deleteOne({
-        guildId: message.guild.id,
-        userId: ownerId,
-      }).catch(() => {});
+      await clearBirthdayProfile(message.guild.id, ownerId).catch(() => {});
 
       await interaction
         .update({
@@ -526,7 +519,7 @@ module.exports = {
       return;
     }
 
-    const existing=await BirthdayProfile.findOne({guildId:message.guild.id,userId:message.author.id,}).lean().catch(() => null);
+    const existing = await getBirthdayProfile(message.guild.id, message.author.id);
 
     if (sub === "edit") {
       if (!existing) {

@@ -1,6 +1,6 @@
 const cron = require("node-cron");
 const IDs = require("../../Utils/Config/ids");
-const BirthdayProfile = require("../../Schemas/Community/birthdayProfileSchema");
+const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = "1474729085719548048";
@@ -82,7 +82,7 @@ async function runBirthdayTick(client) {
     const channelId = IDs.channels.chat || null;
 
     const today = getRomeDateParts(new Date());
-    const docs = await BirthdayProfile.find({ day: today.day, month: today.month, $or: [{ lastCelebratedYear: { $exists: false } }, { lastCelebratedYear: { $ne: today.year } },], }).lean().catch(() => []);
+    const docs = await listBirthdayDue(today.day, today.month, today.year);
 
     if (!docs.length) return;
 
@@ -123,10 +123,7 @@ async function runBirthdayTick(client) {
 
       const ids = guildDocs.map((doc) => String(doc._id)).filter(Boolean);
       if (ids.length) {
-        await BirthdayProfile.updateMany(
-          { _id: { $in: ids } },
-          { $set: { lastCelebratedYear: today.year } },
-        ).catch(() => { });
+        await markBirthdayCelebratedByIds(ids, today.year).catch(() => {});
       }
     }
   } catch (error) {

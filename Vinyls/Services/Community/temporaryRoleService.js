@@ -1,4 +1,4 @@
-const TemporaryRoleGrant = require("../../Schemas/Moderation/temporaryRoleGrantSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const CHECK_INTERVAL_MS = 60 * 1000;
 let cleanupLoopHandle = null;
 
@@ -34,21 +34,26 @@ async function grantTemporaryRole( guild, userId, roleId, grantedBy = null, dura
   }
 
   const expiresAt = new Date(Date.now() + safeDuration);
-  await TemporaryRoleGrant.findOneAndUpdate(
-    { guildId: guild.id, userId: member.id, roleId: role.id },
+  await ActivityUserProfile.findOneAndUpdate(
+    { guildId: guild.id, userId: member.id },
     {
-      $set: {
-        grantedBy: grantedBy ? String(grantedBy) : null,
-        removeOnExpire: !hadRoleBefore,
-        expiresAt,
-      },
-      $setOnInsert: {
-        guildId: guild.id,
-        userId: member.id,
-        roleId: role.id,
-      },
+      $setOnInsert: { guildId: guild.id, userId: member.id },
+      $pull: { "profile.temporaryRoleGrants.grants": { roleId: role.id } },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+  await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId: member.id },
+    {
+      $push: {
+        "profile.temporaryRoleGrants.grants": {
+          roleId: role.id,
+          grantedBy: grantedBy ? String(grantedBy) : null,
+          removeOnExpire: !hadRoleBefore,
+          expiresAt,
+        },
+      },
+    },
   );
 
   return { ok: true, expiresAt, hadRoleBefore };
@@ -57,7 +62,18 @@ async function grantTemporaryRole( guild, userId, roleId, grantedBy = null, dura
 async function revokeTemporaryRole({ guild, userId, roleId }) {
   if (!guild || !userId || !roleId)
     return { ok: false, reason: "invalid_input" };
-  const doc = await TemporaryRoleGrant.findOneAndDelete({ guildId: guild.id, userId: String(userId), roleId: String(roleId), }).lean().catch(() => null);
+  const profile = await ActivityUserProfile.findOne({ guildId: guild.id, userId: String(userId) })
+    .select("profile.temporaryRoleGrants.grants")
+    .lean()
+    .catch(() => null);
+  const grants = Array.isArray(profile?.profile?.temporaryRoleGrants?.grants)
+    ? profile.profile.temporaryRoleGrants.grants
+    : [];
+  const doc = grants.find((g) => String(g?.roleId || "") === String(roleId)) || null;
+  await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId: String(userId) },
+    { $pull: { "profile.temporaryRoleGrants.grants": { roleId: String(roleId) } } },
+  ).catch(() => {});
 
   if (!doc) return { ok: true, removedRecord: false, removedRole: false };
 
@@ -75,7 +91,13 @@ async function revokeTemporaryRole({ guild, userId, roleId }) {
 
 async function clearTemporaryRolesForUser({ guild, userId }) {
   if (!guild || !userId) return { ok: false, removed: 0 };
-  const docs = await TemporaryRoleGrant.find({ guildId: guild.id, userId: String(userId), }).lean().catch(() => []);
+  const profile = await ActivityUserProfile.findOne({ guildId: guild.id, userId: String(userId) })
+    .select("profile.temporaryRoleGrants.grants")
+    .lean()
+    .catch(() => null);
+  const docs = Array.isArray(profile?.profile?.temporaryRoleGrants?.grants)
+    ? profile.profile.temporaryRoleGrants.grants
+    : [];
   if (!docs.length) return { ok: true, removed: 0 };
 
   const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
@@ -87,51 +109,79 @@ async function clearTemporaryRolesForUser({ guild, userId }) {
     }
   }
 
-  const result = await TemporaryRoleGrant.deleteMany({ guildId: guild.id, userId: String(userId), }).catch(() => null);
-
-  return { ok: true, removed: Number(result?.deletedCount || 0) };
+  await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId: String(userId) },
+    { $set: { "profile.temporaryRoleGrants.grants": [] } },
+  ).catch(() => null);
+  return { ok: true, removed: docs.length };
 }
 
 async function listTemporaryRolesForUser({ guildId, userId }) {
   if (!guildId || !userId) return [];
   const now = new Date();
-  return TemporaryRoleGrant.find({
-    guildId: String(guildId),
-    userId: String(userId),
-    expiresAt: { $gt: now },
-  })
-    .sort({ expiresAt: 1, roleId: 1 })
+  const profile = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select("profile.temporaryRoleGrants.grants")
     .lean()
-    .catch(() => []);
+    .catch(() => null);
+  const docs = Array.isArray(profile?.profile?.temporaryRoleGrants?.grants)
+    ? profile.profile.temporaryRoleGrants.grants
+    : [];
+  return docs
+    .filter((x) => new Date(x?.expiresAt || 0) > now)
+    .sort((a, b) => new Date(a?.expiresAt || 0).getTime() - new Date(b?.expiresAt || 0).getTime());
 }
 
 async function removeExpiredTemporaryRoles(client) {
   if (!client) return;
   const now = new Date();
-  const expired = await TemporaryRoleGrant.find({ expiresAt: { $lte: now } }).lean().catch(() => []);
+  const expired = await ActivityUserProfile.aggregate([
+    { $unwind: "$profile.temporaryRoleGrants.grants" },
+    { $match: { "profile.temporaryRoleGrants.grants.expiresAt": { $lte: now } } },
+    {
+      $project: {
+        _id: 0,
+        guildId: "$guildId",
+        userId: "$userId",
+        roleId: "$profile.temporaryRoleGrants.grants.roleId",
+        removeOnExpire: "$profile.temporaryRoleGrants.grants.removeOnExpire",
+      },
+    },
+  ]).catch(() => []);
   if (!expired.length) return;
 
   for (const item of expired) {
     const guild = client.guilds.cache.get(item.guildId) || (await client.guilds.fetch(item.guildId).catch(() => null));
     if (!guild) {
-      await TemporaryRoleGrant.deleteOne({ _id: item._id }).catch(() => { });
+      await ActivityUserProfile.updateOne(
+        { guildId: item.guildId, userId: item.userId },
+        { $pull: { "profile.temporaryRoleGrants.grants": { roleId: item.roleId } } },
+      ).catch(() => {});
       continue;
     }
 
     if (item.removeOnExpire) {
       const member = guild.members.cache.get(item.userId) || (await guild.members.fetch(item.userId).catch(() => null));
       if (!member) {
-        await TemporaryRoleGrant.deleteOne({ _id: item._id }).catch(() => { });
+        await ActivityUserProfile.updateOne(
+          { guildId: item.guildId, userId: item.userId },
+          { $pull: { "profile.temporaryRoleGrants.grants": { roleId: item.roleId } } },
+        ).catch(() => {});
         continue;
       }
       if (!member.roles.cache.has(item.roleId)) {
-        await TemporaryRoleGrant.deleteOne({ _id: item._id }).catch(() => { });
+        await ActivityUserProfile.updateOne(
+          { guildId: item.guildId, userId: item.userId },
+          { $pull: { "profile.temporaryRoleGrants.grants": { roleId: item.roleId } } },
+        ).catch(() => {});
         continue;
       }
 
       const role = guild.roles.cache.get(item.roleId) || (await guild.roles.fetch(item.roleId).catch(() => null));
       if (!role) {
-        await TemporaryRoleGrant.deleteOne({ _id: item._id }).catch(() => { });
+        await ActivityUserProfile.updateOne(
+          { guildId: item.guildId, userId: item.userId },
+          { $pull: { "profile.temporaryRoleGrants.grants": { roleId: item.roleId } } },
+        ).catch(() => {});
         continue;
       }
 
@@ -149,7 +199,10 @@ async function removeExpiredTemporaryRoles(client) {
       }
     }
 
-    await TemporaryRoleGrant.deleteOne({ _id: item._id }).catch(() => { });
+    await ActivityUserProfile.updateOne(
+      { guildId: item.guildId, userId: item.userId },
+      { $pull: { "profile.temporaryRoleGrants.grants": { roleId: item.roleId } } },
+    ).catch(() => {});
   }
 }
 
