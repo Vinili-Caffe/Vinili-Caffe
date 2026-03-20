@@ -97,8 +97,14 @@ async function resolveWithTimeout(task, fallbackValue, label, timeoutMs = PREFIX
 function resolveSubcommandState(command, cmd, args) {
   const rawPrefixSubcommandArg = args[0] ? String(args[0]).toLowerCase() : null;
   const prefixSubcommandFromArgs = rawPrefixSubcommandArg && command?.subcommandAliases ? command.subcommandAliases[rawPrefixSubcommandArg] || rawPrefixSubcommandArg : rawPrefixSubcommandArg;
-  const prefixSubcommandFromAlias = !rawPrefixSubcommandArg && command?.subcommandAliases ? command.subcommandAliases[cmd] || null : null;
-  const prefixSubcommand = prefixSubcommandFromArgs || prefixSubcommandFromAlias || null;
+  const prefixSubcommandFromAlias = command?.subcommandAliases ? command.subcommandAliases[cmd] || null : null;
+  const shouldPreferAliasSubcommand =
+    Boolean(rawPrefixSubcommandArg) &&
+    Boolean(prefixSubcommandFromAlias) &&
+    !hasKnownSubcommand(command, rawPrefixSubcommandArg, rawPrefixSubcommandArg);
+  const prefixSubcommand = shouldPreferAliasSubcommand
+    ? prefixSubcommandFromAlias
+    : (prefixSubcommandFromArgs || prefixSubcommandFromAlias || null);
 
   if (
     rawPrefixSubcommandArg &&
@@ -107,7 +113,7 @@ function resolveSubcommandState(command, cmd, args) {
   ) {
     args[0] = prefixSubcommandFromArgs;
   }
-  if (!prefixSubcommandFromArgs && prefixSubcommandFromAlias) {
+  if (!rawPrefixSubcommandArg && prefixSubcommandFromAlias) {
     args.unshift(prefixSubcommandFromAlias);
   }
 
@@ -444,6 +450,12 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   const rawPrefixSubcommandArg = args[0] ? String(args[0]).toLowerCase() : null;
   const prefixSubcommand = resolveSubcommandState(command, cmd, args);
+  const aliasInvokesSubcommand = Boolean(
+    command?.subcommandAliases &&
+      typeof command.subcommandAliases === "object" &&
+      command.subcommandAliases[cmd] &&
+      String(command.subcommandAliases[cmd]).toLowerCase() !== String(cmd).toLowerCase(),
+  );
   const hasSubcommandMetadata = Boolean(
     (Array.isArray(command?.subcommands) && command.subcommands.length > 0) ||
       (command?.subcommandAliases &&
@@ -453,6 +465,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   if (
     hasSubcommandMetadata &&
     rawPrefixSubcommandArg &&
+    !aliasInvokesSubcommand &&
     !hasKnownSubcommand(command, rawPrefixSubcommandArg, prefixSubcommand)
   ) {
     const shown = await showPrefixUsageGuide({

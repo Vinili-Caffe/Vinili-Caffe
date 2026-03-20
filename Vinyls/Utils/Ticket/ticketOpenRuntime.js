@@ -31,7 +31,7 @@ async function handleSponsorTicketOpen(interaction) {
       embeds: [
         new EmbedBuilder()
           .setTitle("<:VC_Clock:1473359204189474886> Attendi")
-          .setDescription("<:VC_alert:1448670089670037675> Stai già aprendo un ticket, attendi.")
+          .setDescription("<a:VC_Alert:1482706673176150077> Stai già aprendo un ticket, attendi.")
           .setColor("#6f4e37"),
       ],
       flags: 1 << 6,
@@ -50,7 +50,7 @@ async function handleSponsorTicketOpen(interaction) {
         embeds: [
           new EmbedBuilder()
             .setTitle("<:VC_open:1478517277279129712> Ticket Aperto")
-            .setDescription(`<:VC_alert:1448670089670037675> Hai già un ticket aperto: <#${existing.channelId}>`)
+            .setDescription(`<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existing.channelId}>`)
             .setColor("#6f4e37"),
         ],
         flags: 1 << 6,
@@ -77,7 +77,7 @@ async function handleSponsorTicketOpen(interaction) {
       await safeEditReplyHelper(interaction, {
         embeds: [
           new EmbedBuilder()
-            .setTitle("<:VC_alert:1448670089670037675> Errore")
+            .setTitle("<a:VC_Alert:1482706673176150077> Errore")
             .setDescription("<:vegax:1443934876440068179> Impossibile creare o trovare la categoria ticket.")
             .setColor("#6f4e37"),
         ],
@@ -111,7 +111,7 @@ async function handleSponsorTicketOpen(interaction) {
       await safeEditReplyHelper(interaction, {
         embeds: [
           new EmbedBuilder()
-            .setTitle("<:VC_alert:1448670089670037675> Errore")
+            .setTitle("<a:VC_Alert:1482706673176150077> Errore")
             .setDescription("<:vegax:1443934876440068179> Impossibile creare il canale ticket.")
             .setColor("#6f4e37"),
         ],
@@ -162,7 +162,7 @@ async function handleSponsorTicketOpen(interaction) {
           embeds: [
             new EmbedBuilder()
               .setTitle("<:VC_Ticket:1482535175283019888> Ticket Aperto")
-              .setDescription(`<:VC_alert:1448670089670037675> Hai già un ticket aperto${other?.channelId ? `: <#${other.channelId}>` : "."}`)
+              .setDescription(`<a:VC_Alert:1482706673176150077> Hai già un ticket aperto${other?.channelId ? `: <#${other.channelId}>` : "."}`)
               .setColor("#6f4e37"),
           ],
           flags: 1 << 6,
@@ -177,7 +177,7 @@ async function handleSponsorTicketOpen(interaction) {
       await safeEditReplyHelper(interaction, {
         embeds: [
           new EmbedBuilder()
-            .setTitle("<:VC_alert:1448670089670037675> Errore")
+            .setTitle("<a:VC_Alert:1482706673176150077> Errore")
             .setDescription("<:vegax:1443934876440068179> Impossibile creare il ticket, riprova.")
             .setColor("#6f4e37"),
         ],

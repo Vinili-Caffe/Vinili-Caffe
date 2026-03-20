@@ -150,7 +150,7 @@ function buildDeleteConfirmButtons(backupId, userId, guildId) {
 function buildDeleteWarningEmbed() {
   return new EmbedBuilder()
     .setColor("#e74c3c")
-    .setTitle("<:VC_Alert:1448670089670037675> Conferma eliminazione")
+    .setTitle("<a:VC_Alert:1482706673176150077> Conferma eliminazione")
     .setDescription(
       "<:VC_PinkQuestionMark:1471892611026391306> Sei sicuro di voler **eliminare** questo backup? L'operazione è **irreversibile** e non potrai recuperare i dati."
     );

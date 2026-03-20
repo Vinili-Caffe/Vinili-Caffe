@@ -924,7 +924,13 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
 }
 
-async function catchupTtsMessagesForChannel(client, voiceChannel, lastProcessedAt, prefix) {
+async function catchupTtsMessagesForChannel(
+  client,
+  voiceChannel,
+  lastProcessedAt,
+  lastProcessedMessageId,
+  prefix,
+) {
   if (!voiceChannel?.messages?.fetch) return;
   const nowMs = Date.now();
   const baseCutoffMs = lastProcessedAt ? new Date(lastProcessedAt).getTime() : nowMs - TTS_CATCHUP_DEFAULT_LOOKBACK_MS;
@@ -939,6 +945,12 @@ async function catchupTtsMessagesForChannel(client, voiceChannel, lastProcessedA
 
   for (const message of sorted) {
     if (state.queue.length >= MAX_TTS_QUEUE) break;
+    if (
+      lastProcessedMessageId &&
+      String(message?.id || "") === String(lastProcessedMessageId)
+    ) {
+      continue;
+    }
     if (message?.createdTimestamp <= cutoffMs) continue;
     if (message?.author?.bot) continue;
     await enqueueTtsMessageFromHistory(message, client, voiceChannel, state, prefix).catch(() => null);
@@ -968,7 +980,13 @@ async function restoreTtsConnections(client) {
           await joinTtsChannel(channel).catch((e) =>
             global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
           );
-          await catchupTtsMessagesForChannel(client, channel, entry?.lastTtsProcessedAt, prefix);
+          await catchupTtsMessagesForChannel(
+            client,
+            channel,
+            entry?.lastTtsProcessedAt,
+            entry?.lastTtsMessageId,
+            prefix,
+          );
         }),
       );
     }

@@ -456,6 +456,19 @@ async function handleTicketInteraction(interaction) {
         }
       }
       if (runtimeIsTicketRatingButton(interaction.customId)) {
+        const clearRatingButtonsFromMessage = async (ticketDbIdForButtons) => {
+          const sourceMessage = interaction?.message;
+          if (!sourceMessage?.edit || !Array.isArray(sourceMessage.components)) return;
+          const keepRows = sourceMessage.components.filter((row) => {
+            const items = Array.isArray(row?.components) ? row.components : [];
+            return !items.some((component) =>
+              String(component?.customId || "").startsWith(
+                `ticket_rate:${ticketDbIdForButtons}:`,
+              ),
+            );
+          });
+          await sourceMessage.edit({ components: keepRows }).catch(() => {});
+        };
         const ratingParts = String(interaction.customId).split(":");
         if (ratingParts.length !== 3) {
           await safeReply(interaction, {
@@ -499,6 +512,7 @@ async function handleTicketInteraction(interaction) {
         const ratedTicket = await Ticket.findOneAndUpdate({ _id: ticketDbId, ratingScore: null }, { $set: { ratingScore: score, ratingBy: interaction.user.id, ratingAt: new Date(), }, }, { new: true },).catch(() => null);
 
         if (!ratedTicket) {
+          await clearRatingButtonsFromMessage(ticketDbId);
           await safeReply(interaction, {
             embeds: [
               makeErrorEmbed(
@@ -511,6 +525,7 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
 
+        await clearRatingButtonsFromMessage(ticketDbId);
         if (ratedTicket.closeLogChannelId && ratedTicket.closeLogMessageId) {
           const ticketGuild = interaction.guild || await runtimeGetClientGuildCached(interaction.client, ratedTicket.guildId);
           const logChannel = await runtimeGetGuildChannelCached(ticketGuild, ratedTicket.closeLogChannelId,) || await runtimeGetGuildChannelCached(interaction.client.guilds.cache.get(ratedTicket.guildId), ratedTicket.closeLogChannelId,);

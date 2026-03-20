@@ -22,7 +22,7 @@ let numberingLoopHandle = null;
 let voteCleanupLoopHandle = null;
 let verificationTenureLoopHandle = null;
 let sponsorKickLoopHandle = null;
-const SPONSOR_KICK_REASON = "<:VC_Alert:1448670089670037675> Non sei più nel server principale da 24 ore. Rientra nel server principale per accedere di nuovo agli server sponsor.";
+const SPONSOR_KICK_REASON = "<a:VC_Alert:1482706673176150077> Non sei più nel server principale da 24 ore. Rientra nel server principale per accedere di nuovo agli server sponsor.";
 const SPONSOR_KICK_INTERVAL_MS = 15 * 60 * 1000;
 
 async function upsertVoteRole(guildId, userId, expiresAt) {

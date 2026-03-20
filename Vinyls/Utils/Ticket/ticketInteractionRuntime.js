@@ -102,11 +102,11 @@ function canUserHandleCloseRequest(ticketDoc, userId, highStaff) {
   );
 }
 
-async function loadTicketForChannelOrReply({ interaction, safeReply, makeErrorEmbed, channelId, missingDescription = "<:VC_alert:1448670089670037675> Ticket non trovato" }) {
+async function loadTicketForChannelOrReply({ interaction, safeReply, makeErrorEmbed, channelId, missingDescription = "<a:VC_Alert:1482706673176150077> Ticket non trovato" }) {
   const ticketDoc = await findTicketByChannel(channelId);
   if (ticketDoc) return ticketDoc;
   await safeReply(interaction, {
-    embeds: [makeErrorEmbed("<:VC_alert:1448670089670037675> Errore", missingDescription)],
+    embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", missingDescription)],
     flags: 1 << 6,
   });
   return null;
@@ -118,7 +118,7 @@ async function ensureClosableTicketOrReply({ interaction, safeReply, makeErrorEm
     await safeReply(interaction, {
       embeds: [
         makeErrorEmbed(
-          "<:VC_alert:1448670089670037675> Errore",
+          "<a:VC_Alert:1482706673176150077> Errore",
           "<:VC_close:1478517239136256020> Non puoi chiudere da solo il ticket che hai aperto.",
         ),
       ],
@@ -130,7 +130,7 @@ async function ensureClosableTicketOrReply({ interaction, safeReply, makeErrorEm
     await safeReply(interaction, {
       embeds: [
         makeErrorEmbed(
-          "<:VC_alert:1448670089670037675> Errore",
+          "<a:VC_Alert:1482706673176150077> Errore",
           "<:VC_claim:1478517202016669887> Questo ticket non è claimato.",
         ),
       ],
@@ -146,7 +146,7 @@ async function ensureClosableTicketOrReply({ interaction, safeReply, makeErrorEm
     await safeReply(interaction, {
       embeds: [
         makeErrorEmbed(
-          "<:VC_alert:1448670089670037675> Errore",
+          "<a:VC_Alert:1482706673176150077> Errore",
           "<:VC_claim:1478517202016669887> Solo chi ha claimato il ticket può chiuderlo.",
         ),
       ],

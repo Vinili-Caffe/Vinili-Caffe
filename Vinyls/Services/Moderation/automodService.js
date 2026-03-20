@@ -2173,7 +2173,7 @@ async function sendAutomodLog(message, action, violations, heatValue, context = 
     .setColor(action === "timeout" ? "#ED4245" : action === "delete" || action === "delete_webhook" ? "#F59E0B" : "#5865F2",)
     .setTitle(actionHeadline)
     .setDescription([
-      `<:VC_Alert:1448670089670037675> **Automod Filter:** ${primaryFilter}`,
+      `<a:VC_Alert:1482706673176150077> **Automod Filter:** ${primaryFilter}`,
       `<:channeltext:1443247596922470551> **Channel:** ${message.channel} [\`${message.channelId}\`]`, preview ? `<:VC_Chat:1482532573002465413> **Message:** ${preview}`
         : null,
       "",
@@ -2205,13 +2205,13 @@ async function sendPanicModeLog(message, event, count, activeUntil) {
     .setColor(event === "panic_enabled" ? "#ED4245" : "#5865F2")
     .setTitle(event === "panic_enabled" ? "AutoMod Panic Mode enabled!" : "AutoMod Panic Mode update",)
     .setDescription([
-      `<:VC_Alert:1448670089670037675> **Automod Filter:** Panic Mode`, `<:channeltext:1443247596922470551> **Channel:** ${message.channel}[\`${message.channelId}\`]`, `<:member_role_icon:1330530086792728618> **Member:** ${message.author}[\`${message.author.id}\`]`, `<:VC_Alert:1448670089670037675> **Event:** ${event}`,
-      `<:VC_Alert:1448670089670037675> **Trigger Accounts:** ${count}/${PANIC_MODE.triggerCount}`,
+      `<a:VC_Alert:1482706673176150077> **Automod Filter:** Panic Mode`, `<:channeltext:1443247596922470551> **Channel:** ${message.channel}[\`${message.channelId}\`]`, `<:member_role_icon:1330530086792728618> **Member:** ${message.author}[\`${message.author.id}\`]`, `<a:VC_Alert:1482706673176150077> **Event:** ${event}`,
+      `<a:VC_Alert:1482706673176150077> **Trigger Accounts:** ${count}/${PANIC_MODE.triggerCount}`,
       triggerAccountIds.length
-        ? `<:VC_Alert:1448670089670037675> **Trigger IDs:** ${triggerAccountIds.map((id) => `\`${id}\``).join(", ")}`
+        ? `<a:VC_Alert:1482706673176150077> **Trigger IDs:** ${triggerAccountIds.map((id) => `\`${id}\``).join(", ")}`
         : null,
-      `<:VC_Alert:1448670089670037675> **Duration:** ${Math.round(PANIC_MODE.durationMs / 60_000)} minuti`,
-      `<:VC_Alert:1448670089670037675> **Active Until:** <t:${when}:F>`,
+      `<a:VC_Alert:1482706673176150077> **Duration:** ${Math.round(PANIC_MODE.durationMs / 60_000)} minuti`,
+      `<a:VC_Alert:1482706673176150077> **Active Until:** <t:${when}:F>`,
     ].join("\n"),
     )
     .setTimestamp();

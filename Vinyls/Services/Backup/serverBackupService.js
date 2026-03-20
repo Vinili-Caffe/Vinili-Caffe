@@ -513,7 +513,7 @@ function parseBackupIdFromFileName(fileName) {
 
 function toSafeDateLabel(value) {
   const date = new Date(value || Date.now());
-  if (Number.isNaN(date.getTime())) return "<:VC_Alert:1448670089670037675> Data sconosciuta";
+  if (Number.isNaN(date.getTime())) return "<a:VC_Alert:1482706673176150077> Data sconosciuta";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -579,7 +579,7 @@ async function listGuildBackupMetas(guildId, { search = "", limit = 25, offset =
     const meta = await readBackupMeta(guildId, backupId).catch(() => null);
     if (!meta) continue;
 
-    const guildName = meta.guildName || "<:VC_Alert:1448670089670037675> Server sconosciuto";
+    const guildName = meta.guildName || "<a:VC_Alert:1482706673176150077> Server sconosciuto";
     const dateLabel = toSafeDateLabel(meta.createdAt || file.mtimeMs);
     const label = `${guildName} | ${dateLabel} (${meta.backupId})`;
     const haystack = `${label} ${meta.backupId}`.toLowerCase();
@@ -644,7 +644,7 @@ async function listAllBackupMetas({ search = "", limit = 25, offset = 0 } = {}) 
     const meta = await readBackupMeta(entry.guildId, entry.backupId).catch(() => null);
     if (!meta) continue;
 
-    const guildName = meta.guildName || "<:VC_Alert:1448670089670037675> Server sconosciuto";
+    const guildName = meta.guildName || "<a:VC_Alert:1482706673176150077> Server sconosciuto";
     const dateLabel = toSafeDateLabel(meta.createdAt || entry.mtimeMs);
     const label = `${guildName} | ${dateLabel} (${meta.backupId})`;
     const haystack = `${label} ${meta.backupId} ${entry.guildId}`.toLowerCase();
@@ -705,7 +705,7 @@ async function readBackupByIdGlobal(backupRef) {
   const all = await listAllBackupMetas({ search: backupId, limit: 2000, offset: 0 });
   const hit = all.find((meta) => String(meta.backupId || "").toUpperCase() === backupId);
   if (!hit?.guildId) {
-    const err = new Error(`<:VC_Alert:1448670089670037675> Backup \`${backupId}\` non trovato.`);
+    const err = new Error(`<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` non trovato.`);
     err.code = "ENOENT";
     throw err;
   }
@@ -890,7 +890,7 @@ async function readSecuritySnapshot(guildId, snapshotId) {
   const effectiveGuildId = getEffectiveGuildIdForSecurity(guildId);
   const normalizedId = String(snapshotId || "").trim();
   if (!normalizedId.startsWith(SECURITY_SNAPSHOT_PREFIX)) {
-    const err = new Error("<:VC_Alert:1448670089670037675> Invalid security snapshot id");
+    const err = new Error("<a:VC_Alert:1482706673176150077> Invalid security snapshot id");
     err.code = "EBADSEC";
     throw err;
   }

@@ -104,7 +104,7 @@ function deleteLoadSession(sessionId) {
 }
 
 class BackupLoadCancelledError extends Error {
-  constructor(message = "<:VC_Alert:1448670089670037675> Backup load cancelled by user.") {
+  constructor(message = "<a:VC_Alert:1482706673176150077> Backup load cancelled by user.") {
     super(message);
     this.name = "BackupLoadCancelledError";
     this.code = "BACKUP_LOAD_CANCELLED";
@@ -196,7 +196,7 @@ function clearStaleActiveLoad(guildId) {
 function buildLoadWarningEmbed(backupId, messagesLimit = DEFAULT_MESSAGES_LIMIT) {
   return new EmbedBuilder()
     .setColor("#f1c40f")
-    .setTitle("<:VC_Alert:1448670089670037675> Warning")
+    .setTitle("<a:VC_Alert:1482706673176150077> Warning")
     .setDescription(
       [
         "<:VC_update:1478721333096349817> What do you want the bot to load from the backup?",
@@ -335,11 +335,11 @@ function buildPreflightWarningEmbed({
     lines.push(`<:VC_AutoMod:1478861194759508039> **${backupAutomodRules.length}** AutoMod rules will be loaded`);
   }
 
-  if (!lines.length) lines.push("<:VC_Alert:1448670089670037675> No action selected");
+  if (!lines.length) lines.push("<a:VC_Alert:1482706673176150077> No action selected");
 
   return new EmbedBuilder()
     .setColor("#f1c40f")
-    .setTitle("<:VC_Alert:1448670089670037675> Warning")
+    .setTitle("<a:VC_Alert:1482706673176150077> Warning")
     .setDescription(
       [
         "<:VC_update:1478721333096349817> **Hey, be careful!** The following actions will be taken on this server and **can not be undone**:",
@@ -392,11 +392,11 @@ function buildLoadDoneEmbed(backupId, stats) {
 }
 
 function buildLoadErrorEmbed(error) {
-  const detail = String(error?.message || error || "<:VC_Alert:1448670089670037675> Errore sconosciuto").slice(0, 700);
+  const detail = String(error?.message || error || "<a:VC_Alert:1482706673176150077> Errore sconosciuto").slice(0, 700);
   return new EmbedBuilder()
     .setColor("Red")
-    .setTitle("<:VC_Alert:1448670089670037675> Backup load failed")
-    .setDescription(`<:VC_Alert:1448670089670037675> ${detail}`);
+    .setTitle("<a:VC_Alert:1482706673176150077> Backup load failed")
+    .setDescription(`<a:VC_Alert:1482706673176150077> ${detail}`);
 }
 
 function buildLoadCancelledEmbed(backupId) {
@@ -652,7 +652,7 @@ async function applyBackupToGuild(guild, backupId, selectedActions, sourceGuildI
       const preview = undeletable.slice(0, 8).map((r) => `@${r.name}`)
         .join(", ");
       throw new Error(
-        `<:VC_Alert:1448670089670037675> Impossibile eliminare tutti i ruoli: alza il ruolo del bot sopra i ruoli target. Bloccanti: ${preview}${undeletable.length > 8 ? ", ..." : ""}`,
+        `<a:VC_Alert:1482706673176150077> Impossibile eliminare tutti i ruoli: alza il ruolo del bot sopra i ruoli target. Bloccanti: ${preview}${undeletable.length > 8 ? ", ..." : ""}`,
       );
     }
     const roles = candidateRoles;
@@ -1201,7 +1201,7 @@ async function handleBackupLoadInteraction(interaction) {
   if (!session) {
     await interaction
       .reply({
-        content: "<:VC_Alert:1448670089670037675> Sessione backup scaduta. Riesegui `/backup load`.",
+        content: "<a:VC_Alert:1482706673176150077> Sessione backup scaduta. Riesegui `/backup load`.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1211,7 +1211,7 @@ async function handleBackupLoadInteraction(interaction) {
   if (String(session.userId) !== String(interaction.user?.id || "")) {
     await interaction
       .reply({
-        content: "<:VC_Alert:1448670089670037675> Questo pannello non è tuo.",
+        content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1221,7 +1221,7 @@ async function handleBackupLoadInteraction(interaction) {
   if (String(session.guildId) !== String(interaction.guildId || "")) {
     await interaction
       .reply({
-        content: "<:VC_Alert:1448670089670037675> Questo pannello appartiene a un altro server.",
+        content: "<a:VC_Alert:1482706673176150077> Questo pannello appartiene a un altro server.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1231,7 +1231,7 @@ async function handleBackupLoadInteraction(interaction) {
   if (!ensureManageGuild(interaction)) {
     await interaction
       .reply({
-        content: "<:VC_Alert:1448670089670037675> Ti serve il permesso Manage Server per usare il backup load.",
+        content: "<a:VC_Alert:1482706673176150077> Ti serve il permesso Manage Server per usare il backup load.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1309,7 +1309,7 @@ async function handleBackupLoadInteraction(interaction) {
     if (getActiveLoadState(interaction.guildId)) {
       await interaction
         .reply({
-          content: "<:VC_Alert:1448670089670037675> C'è già un backup load in corso in questo server.",
+          content: "<a:VC_Alert:1482706673176150077> C'è già un backup load in corso in questo server.",
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -1383,7 +1383,7 @@ async function handleBackupLoadInteraction(interaction) {
     if (!status) {
       await interaction
         .reply({
-          content: "<:VC_Alert:1448670089670037675> Nessun backup load in corso.",
+          content: "<a:VC_Alert:1482706673176150077> Nessun backup load in corso.",
           flags: 1 << 6,
         })
         .catch(() => { });
