@@ -38,7 +38,7 @@ async function handleSponsorTicketOpen(interaction) {
 
   interaction.client.ticketOpenLocks.add(ticketLockKey);
   try {
-    const existing = await findOpenTicketByUser(guild.id, userId);
+    const existing = await findOpenTicketByUser(guild.id, userId, guild);
     if (existing) {
       await safeEditReplyHelper(interaction, {
         embeds: [
@@ -139,7 +139,7 @@ async function handleSponsorTicketOpen(interaction) {
       const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
       if (isDuplicate) {
         await channel.delete().catch(() => { });
-        const other = await findOpenTicketByUser(guild.id, userId);
+        const other = await findOpenTicketByUser(guild.id, userId, guild);
         await safeEditReplyHelper(interaction, {
           embeds: [
             new EmbedBuilder()

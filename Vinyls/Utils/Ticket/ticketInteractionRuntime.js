@@ -38,8 +38,30 @@ async function warmGuildChannels(guild) {
   return resolved;
 }
 
-async function findOpenTicketByUser(guildId, userId) {
-  return Ticket.findOne({ guildId, userId, open: true }).catch(() => null);
+async function findOpenTicketByUser(guildId, userId, guild = null) {
+  const existing = await Ticket.findOne({ guildId, userId, open: true }).catch(
+    () => null,
+  );
+  if (!existing) return null;
+  if (!guild || !existing.channelId) return existing;
+
+  await warmGuildChannels(guild).catch(() => null);
+  const liveChannel =
+    guild.channels?.cache?.get?.(String(existing.channelId)) ||
+    (await getGuildChannelCached(guild, existing.channelId).catch(() => null));
+  if (liveChannel) return existing;
+
+  await Ticket.updateOne(
+    { _id: existing._id, open: true },
+    {
+      $set: {
+        open: false,
+        closedAt: new Date(),
+        closeReason: "Auto-closed stale open ticket (missing channel)",
+      },
+    },
+  ).catch(() => null);
+  return null;
 }
 
 async function findTicketByChannel(channelId) {

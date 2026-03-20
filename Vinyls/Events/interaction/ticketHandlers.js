@@ -311,7 +311,11 @@ async function handleTicketInteraction(interaction) {
               return true;
             }
           }
-          const existing = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id,);
+          const existing = await runtimeFindOpenTicketByUser(
+            interaction.guild.id,
+            interaction.user.id,
+            interaction.guild,
+          );
           if (existing) {
             await safeReply(interaction, {
               embeds: [
@@ -374,7 +378,11 @@ async function handleTicketInteraction(interaction) {
             const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
             if (isDuplicate) {
               await channel.delete().catch(() => { });
-              const other = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id,);
+              const other = await runtimeFindOpenTicketByUser(
+                interaction.guild.id,
+                interaction.user.id,
+                interaction.guild,
+              );
               await safeEditReply(interaction, {
                 embeds: [
                   new EmbedBuilder()
