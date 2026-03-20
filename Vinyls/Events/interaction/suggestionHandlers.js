@@ -2,7 +2,7 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder
 const suggestion = require("../../Schemas/Suggestion/suggestionSchema.js");
 const IDs = require("../../Utils/Config/ids");
 const { addExpWithLevel, getLevelInfo, getTotalExpForLevel, } = require("../../Services/Community/expService");
-const { ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { deleteThreadForMessage } = require("../../Utils/Staff/staffDocUtils");
 const STAFF_ACCEPT_BUTTON_ID = "suggestion_staff_accept";
@@ -514,8 +514,7 @@ async function handleSuggestionVote(interaction) {
         let levelsAwarded = 0;
         try {
           const profileDoc = await ActivityUserProfile.findOne({ guildId, userId }).select("exp.totalExp").lean().catch(() => null);
-          const expDoc = profileDoc || await ExpUser.findOne({ guildId, userId }).lean().catch(() => null);
-          const currentExp = Number(profileDoc ? profileDoc?.exp?.totalExp : expDoc?.totalExp || 0);
+          const currentExp = Number(profileDoc?.exp?.totalExp || 0);
           const currentLevel = Number(getLevelInfo(currentExp).level || 0);
           const targetLevel = Math.max(0, currentLevel + 5);
           const targetExp = Number(getTotalExpForLevel(targetLevel) || currentExp,);

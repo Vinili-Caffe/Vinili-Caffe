@@ -2,7 +2,7 @@ const { randomInt } = require("crypto");
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList");
-const { ActivityUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getClientGuildCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const TICK_EVERY_MS = 60 * 1000;
@@ -767,22 +767,15 @@ async function getActivityMapForUsers(guildId, userIds) {
     { guildId: String(guildId), userId: { $in: ids } },
     { _id: 0, userId: 1, totals: 1 },
   ).lean().catch(() => []);
-  if (profileRows.length) {
-    for (const row of profileRows) {
-      map.set(String(row.userId), {
-        messages: {
-          weekly: Number(row?.totals?.messagesWeekly || 0),
-        },
-        voice: {
-          weeklySeconds: Number(row?.totals?.voiceWeeklySeconds || 0),
-        },
-      });
-    }
-    return map;
-  }
-  const rows = await ActivityUser.find({ guildId: String(guildId), userId: { $in: ids } }, { _id: 0, userId: 1, messages: 1, voice: 1 },).lean().catch(() => []);
-  for (const row of rows) {
-    map.set(String(row.userId), row);
+  for (const row of profileRows) {
+    map.set(String(row.userId), {
+      messages: {
+        weekly: Number(row?.totals?.messagesWeekly || 0),
+      },
+      voice: {
+        weeklySeconds: Number(row?.totals?.voiceWeeklySeconds || 0),
+      },
+    });
   }
   return map;
 }

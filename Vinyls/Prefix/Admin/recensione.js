@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { ReviewReward } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, addExpWithLevel, } = require("../../Services/Community/expService");
 const{getGuildChannelCached,getUserCached,}=require("../../Utils/Interaction/interactionEntityCache");
@@ -85,15 +85,7 @@ module.exports = {
     }
 
     const profile = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("exp.totalExp").lean().catch(() => null);
-    let doc = null;
-    if (!profile) {
-      doc = await ExpUser.findOne({ guildId, userId: target.id });
-      if (!doc) {
-        doc = new ExpUser({ guildId, userId: target.id });
-      }
-    }
-
-    const currentExp = Number(profile ? profile?.exp?.totalExp : doc.totalExp || 0);
+    const currentExp = Number(profile?.exp?.totalExp || 0);
     const currentLevel = getLevelInfo(currentExp).level;
     const targetLevel = currentLevel + LEVELS_TO_ADD;
     const targetExp = getTotalExpForLevel(targetLevel);

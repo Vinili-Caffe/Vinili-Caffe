@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const ROLE_COOLDOWN_BYPASS = IDs.roles.Staff;
 const ROLE_LEVEL_30 = IDs.roles.Level30;
@@ -53,11 +53,7 @@ async function getUserCommandCooldownSeconds({ guildId, userId, member }) {
       const profile = await ActivityUserProfile.findOne({ guildId, userId })
         .select("exp.level")
         .lean();
-      if (profile) level = Number(profile?.exp?.level || 0);
-      else {
-        const user = await ExpUser.findOne({ guildId, userId }).select("level").lean();
-        level = Number(user?.level || 0);
-      }
+      level = Number(profile?.exp?.level || 0);
     } catch {
       level = 0;
     }

@@ -1,4 +1,4 @@
-const { ActivityEventReward, ActivityUserProfile, ExpUser, EventUserExpSnapshot, EventWeekWinner, VoteRole } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, VoteRole } = require("../../Schemas/Community/communitySchemas");
 const { getGuildExpSettings, addExp, getTotalExpForLevel, getLevelInfo, recordLevelHistory, isEventStaffMember, scheduleEventLevelUpMessage, syncLevelRolesForMember } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const { sendEventRewardLog, sendEventRewardSkippedLog, sendEventRewardDm } = require("./eventRewardLogService");
@@ -103,10 +103,11 @@ async function grantEventLevels(guildId, userId, levels, note = null, member = n
   const active = await isEventActive(guildId);
   if (!active) return null;
 
-  const { ExpUser } = require("../../Schemas/Community/communitySchemas");
-  let doc = await ExpUser.findOne({ guildId, userId });
-  if (!doc) doc = new ExpUser({ guildId, userId });
-  const currentExp = Math.max(0, Math.floor(Number(doc.totalExp || 0)));
+  const profile = await ActivityUserProfile.findOne({ guildId, userId })
+    .select("exp.totalExp")
+    .lean()
+    .catch(() => null);
+  const currentExp = Math.max(0, Math.floor(Number(profile?.exp?.totalExp || 0)));
   const currentLevel = getLevelInfo(currentExp).level;
   const targetLevel = currentLevel + Math.floor(Number(levels));
   const expToAdd = Math.max(0, getTotalExpForLevel(targetLevel) - getTotalExpForLevel(currentLevel),);
@@ -123,7 +124,7 @@ async function grantEventLevels(guildId, userId, levels, note = null, member = n
     if (guild) {
       await syncLevelRolesForMember(guild, userId, currentLevel).catch(() => {});
     }
-    return { doc, added: 0, level: currentLevel };
+    return { doc: null, added: 0, level: currentLevel };
   }
 
   const result = await addExp(guildId, userId, expToAdd, false, null);
@@ -155,6 +156,13 @@ async function grantEventLevels(guildId, userId, levels, note = null, member = n
   return result;
 }
 
+function eventRewardEntryMatches(entry, rewardTypeStr, tierVal) {
+  if (!entry || String(entry.rewardType) !== rewardTypeStr) return false;
+  const t = entry.tier;
+  if (tierVal == null) return t == null || t === undefined;
+  return Number(t) === Number(tierVal);
+}
+
 async function grantEventRewardOnce(guildId, userId, rewardType, options = {}) {
   if (!guildId || !userId || !rewardType) return null;
   const active = await isEventActive(guildId);
@@ -168,36 +176,43 @@ async function grantEventRewardOnce(guildId, userId, rewardType, options = {}) {
   const tierVal = tier != null ? tier : null;
   const labelMap = { supporter: "Ruolo Supporter", verificato: "Ruolo Verificato/Verificata", guilded: "Ruolo Guilded", invite: "Inviti (soglia raggiunta)", voter: "Voto Discadia", recensione: "Recensione DISBOARD", };
 
-  try {
-    await ActivityEventReward.create({
-      guildId,
-      userId,
-      rewardType: rewardTypeStr,
-      tier: tierVal,
-    });
-  } catch (err) {
-    if (err?.code === 11000) {
-      if (options.clientOrGuild && !options.suppressSkipLog) {
-        const client = options.clientOrGuild?.client ?? options.clientOrGuild;
-        sendEventRewardSkippedLog(client, {
-          userId,
-          guildId,
-          label: labelMap[rewardType] || rewardType,
-        }).catch(() => { });
-      }
-      return null;
+  const existing = await ActivityUserProfile.findOne({ guildId, userId }).select("eventRewards").lean().catch(() => null);
+  const already = (existing?.eventRewards || []).some((e) => eventRewardEntryMatches(e, rewardTypeStr, tierVal));
+  if (already) {
+    if (options.clientOrGuild && !options.suppressSkipLog) {
+      const client = options.clientOrGuild?.client ?? options.clientOrGuild;
+      sendEventRewardSkippedLog(client, {
+        userId,
+        guildId,
+        label: labelMap[rewardType] || rewardType,
+      }).catch(() => { });
     }
-    throw err;
+    return null;
   }
+
+  const seenAt = new Date();
+  await ActivityUserProfile.updateOne(
+    { guildId, userId },
+    {
+      $push: {
+        eventRewards: {
+          rewardType: rewardTypeStr,
+          tier: tierVal,
+          firstSeenAt: seenAt,
+          lastSeenAt: seenAt,
+        },
+      },
+      $setOnInsert: { guildId, userId },
+    },
+    { upsert: true },
+  ).catch(() => null);
 
   const result = await grantEventLevels(guildId, userId, levels, `Evento reward: ${rewardType}${tier != null ? ` tier ${tier}` : ""}`, options.member, options.clientOrGuild ?? null, { suppressLog: true, suppressDm: true, },);
   if (!result) {
-    await ActivityEventReward.deleteOne({
-      guildId,
-      userId,
-      rewardType: rewardTypeStr,
-      tier: tierVal,
-    }).catch(() => { });
+    await ActivityUserProfile.updateOne(
+      { guildId, userId },
+      { $pull: { eventRewards: { rewardType: rewardTypeStr, tier: tierVal } } },
+    ).catch(() => { });
     return null;
   }
 
@@ -220,10 +235,10 @@ async function addEventWeekWinner(guildId, userId, week) {
   if (!guildId || !userId || (week !== 2 && week !== 3)) return null;
   const g = String(guildId);
   const u = String(userId);
-  await EventWeekWinner.findOneAndUpdate(
-    { guildId: g, userId: u, week },
-    { guildId: g, userId: u, week },
-    { upsert: true, new: true },
+  await ActivityUserProfile.updateOne(
+    { guildId: g, userId: u },
+    { $addToSet: { eventWeekWinners: week }, $setOnInsert: { guildId: g, userId: u } },
+    { upsert: true },
   ).catch(() => null);
   return true;
 }
@@ -232,18 +247,8 @@ async function hasEventWeekWinnerGrant(guildId, userId, week) {
   if (!guildId || !userId || (week !== 2 && week !== 3)) return false;
   const g = String(guildId);
   const u = String(userId);
-  const doc = await EventWeekWinner.findOne({ guildId: g, userId: u, week }).lean().catch(() => null);
-  if (doc) return true;
-  const fallback = await EventWeekWinner.findOne({
-    $expr: {
-      $and: [
-        { $eq: [{ $toString: "$guildId" }, g] },
-        { $eq: [{ $toString: "$userId" }, u] },
-        { $in: ["$week", [2, 3]] },
-      ],
-    },
-  }).lean().catch(() => null);
-  return Boolean(fallback);
+  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select("eventWeekWinners").lean().catch(() => null);
+  return Array.isArray(doc?.eventWeekWinners) && doc.eventWeekWinners.includes(week);
 }
 
 async function grantEventRewardsForExistingRoleMembers(guild) {
@@ -435,12 +440,10 @@ async function getTop10ExpDuringEvent(guildId, limit = 10) {
   if (!guildId) return [];
   const cap = Math.max(1, Math.min(100, Number(limit) || 10));
   const profileUsers = await ActivityUserProfile.find({ guildId }).select("userId exp").lean().catch(() => []);
-  const users = profileUsers.length
-    ? profileUsers.map((row) => ({
-      userId: row?.userId,
-      activityExpTotal: Number(row?.exp?.activityExpTotal || 0),
-    }))
-    : await ExpUser.find({ guildId }).select("userId activityExpTotal").lean().catch(() => []);
+  const users = profileUsers.map((row) => ({
+    userId: row?.userId,
+    activityExpTotal: Number(row?.exp?.activityExpTotal || 0),
+  }));
   const withExp = users.map((d) => {
     const userId = String(d?.userId || "");
     const activityTotal = Math.max(0, Number(d?.activityExpTotal || 0));
@@ -473,8 +476,11 @@ async function getTop10ExpDuringEventExcludingStaff(guild, limit = 10) {
 
 async function clearActivityEventRewardsForGuild(guildId) {
   if (!guildId) return { deleted: 0 };
-  const result = await ActivityEventReward.deleteMany({ guildId: String(guildId) }).catch(() => null);
-  return { deleted: result?.deletedCount ?? 0 };
+  const result = await ActivityUserProfile.updateMany(
+    { guildId: String(guildId) },
+    { $set: { eventRewards: [] } },
+  ).catch(() => null);
+  return { deleted: result?.modifiedCount ?? 0 };
 }
 
 module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getTop10ExpDuringEvent };

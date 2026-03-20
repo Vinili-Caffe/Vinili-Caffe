@@ -2,7 +2,7 @@ const { AttachmentBuilder, ChannelType } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 const { getServerOverviewStats } = require("../../Services/Community/activityService");
-const { InviteTrack, ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { InviteTrack, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS } = require("../../Services/Community/expService");
 const { renderTopStatisticsCanvas, renderTopLeaderboardPageCanvas } = require("../../Utils/Render/activityCanvas");
 const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap } = require("../../Utils/Community/channelSnapshotUtils");
@@ -245,14 +245,7 @@ async function resolveTopExpEntries(guild, guildId, lookbackDays, limit = TOP_PA
     .select("userId exp.totalExp")
     .lean()
     .catch(() => []);
-  const docs = profileDocs.length
-    ? profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp }))
-    : await ExpUser.find({ guildId: safeGuildId })
-      .sort({ totalExp: -1 })
-      .limit(safeLimit * 2)
-      .select("userId totalExp")
-      .lean()
-      .catch(() => []);
+  const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp }));
   const out = [];
   for (const doc of docs) {
     const userId = String(doc?.userId || "").trim();
@@ -281,14 +274,7 @@ async function resolveTopLevelEntries(guild, guildId, _lookbackDays, limit = TOP
     .select("userId exp.totalExp exp.level")
     .lean()
     .catch(() => []);
-  const docs = profileDocs.length
-    ? profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }))
-    : await ExpUser.find({ guildId: safeGuildId })
-      .sort({ totalExp: -1 })
-      .limit(safeLimit * 2)
-      .select("userId totalExp level")
-      .lean()
-      .catch(() => []);
+  const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }));
   const withLevel = docs.map((doc) => {
     const totalExp = Math.max(0, Math.floor(Number(doc?.totalExp || 0)));
     const storedLevel = Math.max(0, Math.floor(Number(doc?.level || 0)));

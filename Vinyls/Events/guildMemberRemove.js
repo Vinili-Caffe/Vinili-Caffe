@@ -7,20 +7,10 @@ const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Ut
 const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
   InviteTrack,
-  ExpUser,
-  ActivityUser,
-  LevelHistoryUser,
-  ActivityDaily,
-  ActivityDailyCompact,
-  ActivityHourly,
-  ActivityHourlyCompact,
   ActivityUserProfile,
   VoteRole,
   VerificationTenure,
   InviteReminderState,
-  ActivityEventReward,
-  EventUserExpSnapshot,
-  EventWeekWinner,
   StaffEventPoints,
   StaffEventWeeklyReward,
   StaffEventRewardGiven,
@@ -390,49 +380,8 @@ async function sendMemberKickLog(member) {
   });
 }
 async function cleanupUserData(guildId, userId) {
-  const dailyMode = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
-  const hourlyMode = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
-  const useLegacyActivityDaily = dailyMode === "legacy" || dailyMode === "dual";
-  const useLegacyActivityHourly = hourlyMode === "legacy" || hourlyMode === "dual";
-  const compactDocs = await ActivityDailyCompact.find({ guildId })
-    .select("_id users")
-    .lean()
-    .catch(() => []);
-  const compactOps = [];
-  const compactHourlyDocs = await ActivityHourlyCompact.find({ guildId })
-    .select("_id users")
-    .lean()
-    .catch(() => []);
-  const compactHourlyOps = [];
-  for (const row of compactDocs) {
-    const users = row?.users && typeof row.users === "object" ? row.users : {};
-    if (!Object.prototype.hasOwnProperty.call(users, String(userId))) continue;
-    compactOps.push({
-      updateOne: {
-        filter: { _id: row._id },
-        update: { $unset: { [`users.${String(userId)}`]: 1 } },
-      },
-    });
-  }
-  for (const row of compactHourlyDocs) {
-    const users = row?.users && typeof row.users === "object" ? row.users : {};
-    if (!Object.prototype.hasOwnProperty.call(users, String(userId))) continue;
-    compactHourlyOps.push({
-      updateOne: {
-        filter: { _id: row._id },
-        update: { $unset: { [`users.${String(userId)}`]: 1 } },
-      },
-    });
-  }
   await Promise.allSettled([
-    ExpUser.deleteOne({ guildId, userId }),
-    ActivityUser.deleteOne({ guildId, userId }),
     ActivityUserProfile.deleteOne({ guildId, userId }),
-    useLegacyActivityDaily ? ActivityDaily.deleteMany({ guildId, userId }) : Promise.resolve(),
-    compactOps.length ? ActivityDailyCompact.bulkWrite(compactOps, { ordered: false }) : Promise.resolve(),
-    useLegacyActivityHourly ? ActivityHourly.deleteMany({ guildId, userId }) : Promise.resolve(),
-    compactHourlyOps.length ? ActivityHourlyCompact.bulkWrite(compactHourlyOps, { ordered: false }) : Promise.resolve(),
-    LevelHistoryUser.deleteOne({ guildId, userId }),
     MinigameUser.deleteOne({ guildId, userId }),
     AFK.deleteOne({ guildId, userId }),
     MentionReaction.deleteOne({ guildId, userId }),
@@ -450,9 +399,6 @@ async function cleanupUserData(guildId, userId) {
     VoteRole.deleteOne({ guildId, userId }),
     VerificationTenure.deleteOne({ guildId, userId }),
     InviteReminderState.deleteOne({ guildId, userId }),
-    ActivityEventReward.deleteMany({ guildId, userId }),
-    EventUserExpSnapshot.deleteOne({ guildId, userId }),
-    EventWeekWinner.deleteMany({ guildId, userId }),
     StaffEventPoints.deleteOne({ guildId, userId }),
     StaffEventWeeklyReward.deleteMany({ guildId, userId }),
     StaffEventRewardGiven.deleteMany({ guildId, userId }),

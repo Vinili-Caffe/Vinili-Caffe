@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityHourlyCompact, ActivityUser, ExpUser, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService");
@@ -11,24 +11,6 @@ const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
 const leaderboardCache = new Map();
-const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
-const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
-
-function useCompactDailyStorage() {
-  return ACTIVITY_DAILY_STORAGE_MODE === "compact" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
-}
-
-function useLegacyDailyStorage() {
-  return ACTIVITY_DAILY_STORAGE_MODE === "legacy" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
-}
-
-function useCompactHourlyStorage() {
-  return ACTIVITY_HOURLY_STORAGE_MODE === "compact" || ACTIVITY_HOURLY_STORAGE_MODE === "dual";
-}
-
-function useLegacyHourlyStorage() {
-  return ACTIVITY_HOURLY_STORAGE_MODE === "legacy" || ACTIVITY_HOURLY_STORAGE_MODE === "dual";
-}
 
 function getInvokedCommand(message) {
   const content = String(message?.content || "").trim();
@@ -249,29 +231,6 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
         }
       }
     }
-    if (useCompactHourlyStorage()) {
-      const compactDocs = await ActivityHourlyCompact.find({
-        guildId: guild.id,
-        hourKey: { $in: hourKeys },
-      }).select("users").lean().catch(() => []);
-      for (const doc of compactDocs) {
-        const users = toObjectMap(doc?.users || {});
-        for (const [userId, row] of Object.entries(users)) {
-          docs.push({
-            userId: String(userId || ""),
-            textCount: Number(row?.textCount || 0),
-            voiceSeconds: Number(row?.voiceSeconds || 0),
-          });
-        }
-      }
-    }
-    if (docs.length === 0 && useLegacyHourlyStorage()) {
-      const legacyRows = await ActivityHourly.find({
-        guildId: guild.id,
-        hourKey: { $in: hourKeys },
-      }).select("userId textCount voiceSeconds").lean().catch(() => []);
-      docs.push(...legacyRows);
-    }
 
     const perUser = new Map();
     for (const doc of docs) {
@@ -333,61 +292,11 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
       }
     }
   }
-  if (perUser.size === 0 && useLegacyDailyStorage()) {
-    const cursor = ActivityDaily.find(filter).select("userId textChannels voiceChannels").lean().cursor();
-    for await (const row of cursor) {
-      const userId = String(row?.userId || "");
-      if (!userId) continue;
-      let textCount = 0;
-      let voiceSeconds = 0;
-      for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
-        if (!eligibleChannels.has(String(channelId))) continue;
-        textCount += Math.max(0, Number(value || 0));
-      }
-      for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
-        if (!eligibleChannels.has(String(channelId))) continue;
-        voiceSeconds += Math.max(0, Number(value || 0));
-      }
-      if (textCount <= 0 && voiceSeconds <= 0) continue;
-      const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
-      current.textCount += textCount;
-      current.voiceSeconds += voiceSeconds;
-      perUser.set(userId, current);
-    }
-  }
-  if (perUser.size === 0 && useCompactDailyStorage()) {
-    const compactCursor = ActivityDailyCompact.find(filter).select("users").lean().cursor();
-    for await (const doc of compactCursor) {
-      const users = toObjectMap(doc?.users || {});
-      for (const [userIdRaw, valueRaw] of Object.entries(users)) {
-        const userId = String(userIdRaw || "");
-        if (!userId) continue;
-        const value = valueRaw && typeof valueRaw === "object" ? valueRaw : {};
-        let textCount = 0;
-        let voiceSeconds = 0;
-        for (const [channelId, amount] of extractChannelEntries(toObjectMap(value?.textChannels || {}))) {
-          if (!eligibleChannels.has(String(channelId))) continue;
-          textCount += Math.max(0, Number(amount || 0));
-        }
-        for (const [channelId, amount] of extractChannelEntries(toObjectMap(value?.voiceChannels || {}))) {
-          if (!eligibleChannels.has(String(channelId))) continue;
-          voiceSeconds += Math.max(0, Number(amount || 0));
-        }
-        if (textCount <= 0 && voiceSeconds <= 0) continue;
-        const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
-        current.textCount += textCount;
-        current.voiceSeconds += voiceSeconds;
-        perUser.set(userId, current);
-      }
-    }
-  }
 
   const rows = Array.from(perUser.values()).map((entry) => { const baseExpFromText = entry.textCount * MESSAGE_EXP; const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60,); const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice)); return { userId: entry.userId, exp, level: getLevelInfo(exp).level, }; }).filter((entry) => entry.exp > 0).sort((a, b) => b.exp - a.exp).slice(0, Math.max(TOP_LIMIT * 5, maxCandidates)); if (mode === "alltime" && rows.length > 0) {
     const userIds = rows.map((r) => r.userId);
     const profileExpUsers = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: userIds } }).select("userId exp.totalExp exp.level").lean().catch(() => []);
-    const expUsers = profileExpUsers.length
-      ? profileExpUsers.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }))
-      : await ExpUser.find({ guildId: guild.id, userId: { $in: userIds }, }).select("userId totalExp level").lean();
+    const expUsers = profileExpUsers.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }));
     const expByUser = new Map(expUsers.map((d) => [String(d.userId), { totalExp: Number(d.totalExp || 0), level: Number(d.level || 0) }]),);
     for (const row of rows) {
       const eu = expByUser.get(row.userId);
@@ -423,23 +332,12 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
       .limit(cap)
       .lean()
       .catch(() => []);
-    const docs = profileDocs.length
-      ? profileDocs.map((d) => ({
-        userId: d?.userId,
-        weeklyExp: d?.exp?.weeklyExp,
-        level: d?.exp?.level,
-        totalExp: d?.exp?.totalExp,
-      }))
-      : await ExpUser.find({
-        guildId: guild.id,
-        weeklyKey: weekKey,
-        weeklyExp: { $gt: 0 },
-      })
-        .select("userId weeklyExp level totalExp")
-        .sort({ weeklyExp: -1 })
-        .limit(cap)
-        .lean()
-        .catch(() => []);
+    const docs = profileDocs.map((d) => ({
+      userId: d?.userId,
+      weeklyExp: d?.exp?.weeklyExp,
+      level: d?.exp?.level,
+      totalExp: d?.exp?.totalExp,
+    }));
     rows = docs.map((d) => ({
       userId: String(d.userId || ""),
       exp: Math.max(0, Math.floor(Number(d.weeklyExp || 0))),
@@ -452,14 +350,7 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
       .limit(cap)
       .lean()
       .catch(() => []);
-    const docs = profileDocs.length
-      ? profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }))
-      : await ExpUser.find({ guildId: guild.id, totalExp: { $gt: 0 } })
-        .select("userId totalExp level")
-        .sort({ totalExp: -1 })
-        .limit(cap)
-        .lean()
-        .catch(() => []);
+    const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }));
     rows = docs.map((d) => ({
       userId: String(d.userId || ""),
       exp: Math.max(0, Math.floor(Number(d.totalExp || 0))),

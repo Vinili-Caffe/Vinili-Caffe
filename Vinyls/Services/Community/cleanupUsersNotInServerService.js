@@ -1,18 +1,8 @@
 const {
-  ExpUser,
-  ActivityUser,
-  ActivityDaily,
-  ActivityDailyCompact,
-  ActivityHourly,
-  ActivityHourlyCompact,
   ActivityUserProfile,
-  LevelHistoryUser,
   VoteRole,
   VerificationTenure,
   InviteReminderState,
-  ActivityEventReward,
-  EventUserExpSnapshot,
-  EventWeekWinner,
   StaffEventPoints,
   StaffEventWeeklyReward,
   StaffEventRewardGiven,
@@ -40,18 +30,8 @@ const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema")
 const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 
-const ACTIVITY_DAILY_STORAGE_MODE_CLEANUP = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
-const ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
-const includeLegacyActivityDaily = ACTIVITY_DAILY_STORAGE_MODE_CLEANUP === "legacy" || ACTIVITY_DAILY_STORAGE_MODE_CLEANUP === "dual";
-const includeLegacyActivityHourly = ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP === "legacy" || ACTIVITY_HOURLY_STORAGE_MODE_CLEANUP === "dual";
-
 const guildScoped = [
-  [ExpUser, "ExpUser"],
-  [ActivityUser, "ActivityUser"],
   [ActivityUserProfile, "ActivityUserProfile"],
-  ...(includeLegacyActivityDaily ? [[ActivityDaily, "ActivityDaily"]] : []),
-  ...(includeLegacyActivityHourly ? [[ActivityHourly, "ActivityHourly"]] : []),
-  [LevelHistoryUser, "LevelHistoryUser"],
   [MinigameUser, "MinigameUser"],
   [AFK, "AFK"],
   [MentionReaction, "MentionReaction"],
@@ -69,9 +49,6 @@ const guildScoped = [
   [VoteRole, "VoteRole"],
   [VerificationTenure, "VerificationTenure"],
   [InviteReminderState, "InviteReminderState"],
-  [ActivityEventReward, "ActivityEventReward"],
-  [EventUserExpSnapshot, "EventUserExpSnapshot"],
-  [EventWeekWinner, "EventWeekWinner"],
   [StaffEventPoints, "StaffEventPoints"],
   [StaffEventWeeklyReward, "StaffEventWeeklyReward"],
   [StaffEventRewardGiven, "StaffEventRewardGiven"],
@@ -109,61 +86,6 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
       total += n;
       details.push({ name, count: n });
     }
-  }
-  const compactMatch = await ActivityDailyCompact.find({ guildId: String(guildId) })
-    .select("users")
-    .lean()
-    .catch(() => []);
-  let compactStaleUsers = 0;
-  const staleByDateKey = new Map();
-  const keep = new Set((memberIds || []).map(String));
-  for (const row of compactMatch) {
-    const users = row?.users && typeof row.users === "object" ? row.users : {};
-    const staleUserIds = Object.keys(users).filter((id) => id && !keep.has(String(id)));
-    if (!staleUserIds.length) continue;
-    compactStaleUsers += staleUserIds.length;
-    staleByDateKey.set(String(row.dateKey || ""), staleUserIds);
-  }
-  if (compactStaleUsers > 0) {
-    if (!dryRun) {
-      for (const [dateKey, staleUserIds] of staleByDateKey.entries()) {
-        const unset = {};
-        for (const userId of staleUserIds) unset[`users.${userId}`] = 1;
-        await ActivityDailyCompact.updateOne(
-          { guildId: String(guildId), dateKey: String(dateKey) },
-          { $unset: unset },
-        ).catch(() => ({ modifiedCount: 0 }));
-      }
-    }
-    total += compactStaleUsers;
-    details.push({ name: "ActivityDailyCompact(users)", count: compactStaleUsers });
-  }
-  const compactHourlyRows = await ActivityHourlyCompact.find({ guildId: String(guildId) })
-    .select("hourKey users")
-    .lean()
-    .catch(() => []);
-  let compactHourlyStaleUsers = 0;
-  const staleHourlyByKey = new Map();
-  for (const row of compactHourlyRows) {
-    const users = row?.users && typeof row.users === "object" ? row.users : {};
-    const staleUserIds = Object.keys(users).filter((id) => id && !keep.has(String(id)));
-    if (!staleUserIds.length) continue;
-    compactHourlyStaleUsers += staleUserIds.length;
-    staleHourlyByKey.set(String(row.hourKey || ""), staleUserIds);
-  }
-  if (compactHourlyStaleUsers > 0) {
-    if (!dryRun) {
-      for (const [hourKey, staleUserIds] of staleHourlyByKey.entries()) {
-        const unset = {};
-        for (const userId of staleUserIds) unset[`users.${userId}`] = 1;
-        await ActivityHourlyCompact.updateOne(
-          { guildId: String(guildId), hourKey: String(hourKey) },
-          { $unset: unset },
-        ).catch(() => ({ modifiedCount: 0 }));
-      }
-    }
-    total += compactHourlyStaleUsers;
-    details.push({ name: "ActivityHourlyCompact(users)", count: compactHourlyStaleUsers });
   }
   if (includeUserScoped) {
     for (const [Model, name] of userScoped) {

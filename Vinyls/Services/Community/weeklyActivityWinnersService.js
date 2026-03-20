@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const cron = require("node-cron");
-const { ActivityUser, ActivityDaily, ActivityDailyCompact, ActivityHourly, ActivityHourlyCompact, ActivityUserProfile, ExpUser, GlobalSettings, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
 const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("./staffEventService");
@@ -28,62 +28,12 @@ const EVENT_WEEK3_SKIP_ROLE_IDS = [
   IDs.roles.Level50,
   IDs.roles.Level70,
 ].filter(Boolean).map(String);
-const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
-const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
-
-function useCompactDailyStorage() {
-  return ACTIVITY_DAILY_STORAGE_MODE === "compact" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
-}
-
-function useLegacyDailyStorage() {
-  return ACTIVITY_DAILY_STORAGE_MODE === "legacy" || ACTIVITY_DAILY_STORAGE_MODE === "dual";
-}
-
-function useCompactHourlyStorage() {
-  return ACTIVITY_HOURLY_STORAGE_MODE === "compact" || ACTIVITY_HOURLY_STORAGE_MODE === "dual";
-}
-
-function useLegacyHourlyStorage() {
-  return ACTIVITY_HOURLY_STORAGE_MODE === "legacy" || ACTIVITY_HOURLY_STORAGE_MODE === "dual";
-}
 
 function toObjectMap(raw) {
   if (!raw) return {};
   if (raw instanceof Map) return Object.fromEntries(raw.entries());
   if (typeof raw === "object") return raw;
   return {};
-}
-
-function compactRowsToUserRows(docs = []) {
-  const out = [];
-  for (const doc of docs) {
-    const users = toObjectMap(doc?.users || {});
-    for (const [userId, value] of Object.entries(users)) {
-      if (!userId) continue;
-      out.push({
-        userId: String(userId),
-        textChannels: toObjectMap(value?.textChannels || {}),
-        voiceChannels: toObjectMap(value?.voiceChannels || {}),
-      });
-    }
-  }
-  return out;
-}
-
-function compactHourlyRowsToUserRows(docs = []) {
-  const out = [];
-  for (const doc of docs) {
-    const users = toObjectMap(doc?.users || {});
-    for (const [userId, value] of Object.entries(users)) {
-      if (!userId) continue;
-      out.push({
-        userId: String(userId),
-        textChannels: toObjectMap(value?.textChannels || {}),
-        voiceChannels: toObjectMap(value?.voiceChannels || {}),
-      });
-    }
-  }
-  return out;
 }
 
 function pad2(value) {
@@ -182,20 +132,6 @@ async function loadActivityRowsFromDateKeys(guild, dateKeys) {
         });
       }
     }
-  }
-  if (useLegacyDailyStorage()) {
-    const legacyRows = await ActivityDaily.find({ guildId: guild.id, dateKey: { $in: dateKeys }, })
-      .select("userId textChannels voiceChannels")
-      .lean()
-      .catch(() => []);
-    rows.push(...legacyRows);
-  }
-  if (useCompactDailyStorage()) {
-    const compactDocs = await ActivityDailyCompact.find({ guildId: guild.id, dateKey: { $in: dateKeys }, })
-      .select("users")
-      .lean()
-      .catch(() => []);
-    rows.push(...compactRowsToUserRows(compactDocs));
   }
   for (const row of rows) {
     const userId = String(row?.userId || "");
@@ -465,20 +401,6 @@ async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
         });
       }
     }
-  }
-  if (useCompactHourlyStorage()) {
-    const compactDocs = await ActivityHourlyCompact.find({
-      guildId: guild.id,
-      hourKey: { $in: hourKeys },
-    }).select("users").lean().catch(() => []);
-    rows.push(...compactHourlyRowsToUserRows(compactDocs));
-  }
-  if (rows.length === 0 && useLegacyHourlyStorage()) {
-    const legacyRows = await ActivityHourly.find({
-      guildId: guild.id,
-      hourKey: { $in: hourKeys },
-    }).lean().catch(() => []);
-    rows.push(...legacyRows);
   }
 
   const perUser = new Map();
@@ -975,26 +897,6 @@ async function resetWeeklyActivityCounters(client, options = {}) {
         },
       },
     ),
-    ActivityUser.updateMany(
-      { guildId },
-      {
-        $set: {
-          "messages.weekly": 0,
-          "messages.weeklyKey": nextWeekKey,
-          "voice.weeklySeconds": 0,
-          "voice.weeklyKey": nextWeekKey,
-        },
-      },
-    ),
-    ExpUser.updateMany(
-      { guildId },
-      {
-        $set: {
-          weeklyExp: 0,
-          weeklyKey: nextWeekKey,
-        },
-      },
-    ),
   ]);
 }
 
@@ -1038,8 +940,7 @@ function startWeeklyActivityWinnersLoop(client) {
     if (!guildId) return;
     const currentWeekKey = getWeekKey(now);
     const alreadyReset =
-      await ActivityUserProfile.exists({ guildId, "totals.messagesWeeklyKey": currentWeekKey }).catch(() => false) ||
-      await ActivityUser.exists({ guildId, "messages.weeklyKey": currentWeekKey, }).catch(() => false);
+      await ActivityUserProfile.exists({ guildId, "totals.messagesWeeklyKey": currentWeekKey }).catch(() => false);
     if (alreadyReset) return;
     const previousWeekKey = getLastCompletedWeekKey(now);
     if (previousWeekKey === currentWeekKey) return;
@@ -1057,7 +958,7 @@ function startWeeklyActivityWinnersLoop(client) {
 }
 
 /**
- * Diagnostica per l'evento: settimana corrente, date usate, righe ActivityDaily, canali eleggibili.
+ * Diagnostica per l'evento: settimana corrente, date usate, righe profilo activity, canali eleggibili.
  * Utile per capire perché "nessuno viene calcolato".
  */
 async function getEventDiagnostics(guild) {
@@ -1070,21 +971,10 @@ async function getEventDiagnostics(guild) {
   if (eventWeek >= 1 && eventWeek <= 4 && settings?.eventStartedAt) {
     dateKeys = getEventWeekDateKeys(settings, eventWeek);
     if (dateKeys.length) {
-      const [legacyCount, compactCount] = await Promise.all([
-        useLegacyDailyStorage()
-          ? ActivityDaily.countDocuments({
-            guildId: guild.id,
-            dateKey: { $in: dateKeys },
-          }).catch(() => 0)
-          : Promise.resolve(0),
-        useCompactDailyStorage()
-          ? ActivityDailyCompact.countDocuments({
-            guildId: guild.id,
-            dateKey: { $in: dateKeys },
-          }).catch(() => 0)
-          : Promise.resolve(0),
-      ]);
-      activityDailyCount = Number(legacyCount || 0) + Number(compactCount || 0);
+      activityDailyCount = await ActivityUserProfile.countDocuments({
+        guildId: guild.id,
+        $or: dateKeys.map((k) => ({ [`daily.${String(k)}`]: { $exists: true } })),
+      }).catch(() => 0);
     }
   }
   return {

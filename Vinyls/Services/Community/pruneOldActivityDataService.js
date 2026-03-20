@@ -1,34 +1,41 @@
-const {
-  ActivityDaily,
-  ActivityDailyCompact,
-  ActivityHourly,
-  ActivityHourlyCompact,
-} = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
-function pad2(n) {
-  return String(Number(n)).padStart(2, "0");
+const TIME_ZONE = "Europe/Rome";
+
+function getRomeDayKey(date) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const map = {};
+  for (const p of parts) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+  return `${map.year}-${map.month}-${map.day}`;
 }
 
-function getDayKey(date) {
-  const d = new Date(date);
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  return `${y}-${pad2(m)}-${pad2(day)}`;
-}
-
-function getHourKey(date) {
-  const d = new Date(date);
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const h = d.getHours();
-  return `${y}-${pad2(m)}-${pad2(day)}T${pad2(h)}`;
+function getRomeHourKey(date) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const map = {};
+  for (const p of parts) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+  return `${map.year}-${map.month}-${map.day}T${map.hour}`;
 }
 
 /**
- * Elimina documenti ActivityDaily con dateKey precedente alla retention (giorni).
- * Elimina documenti ActivityHourly con hourKey precedente alla retention (giorni).
+ * Rimuove chiavi `daily` / `hourly` scadute dai profili (retention giorni, confronto stringa su dateKey/hourKey Roma).
  * @param {{ retentionDaysDaily?: number, retentionDaysHourly?: number }} options - default 90 e 60 giorni
  * @returns {{ dailyDeleted: number, hourlyDeleted: number }}
  */
@@ -38,16 +45,49 @@ async function pruneOldActivityData(options = {}) {
   const now = new Date();
   const cutoffDaily = new Date(now.getTime() - retentionDaily * 24 * 60 * 60 * 1000);
   const cutoffHourly = new Date(now.getTime() - retentionHourly * 24 * 60 * 60 * 1000);
-  const cutoffDateKey = getDayKey(cutoffDaily);
-  const cutoffHourKey = getHourKey(cutoffHourly);
+  const cutoffDateKey = getRomeDayKey(cutoffDaily);
+  const cutoffHourKey = getRomeHourKey(cutoffHourly);
 
-  const [dailyResult, hourlyResult, hourlyCompactResult] = await Promise.all([
-    ActivityDaily.deleteMany({ dateKey: { $lt: cutoffDateKey } }).catch(() => ({ deletedCount: 0 })),
-    ActivityHourly.deleteMany({ hourKey: { $lt: cutoffHourKey } }).catch(() => ({ deletedCount: 0 })),
-    ActivityHourlyCompact.deleteMany({ hourKey: { $lt: cutoffHourKey } }).catch(() => ({ deletedCount: 0 })),
-  ]);
-  const dailyDeleted = dailyResult?.deletedCount ?? 0;
-  const hourlyDeleted = (hourlyResult?.deletedCount ?? 0) + (hourlyCompactResult?.deletedCount ?? 0);
+  let dailyDeleted = 0;
+  let hourlyDeleted = 0;
+  const batch = [];
+  const cursor = ActivityUserProfile.find({}).select("_id daily hourly").cursor();
+
+  for await (const doc of cursor) {
+    const daily = { ...(doc.daily && typeof doc.daily === "object" ? doc.daily : {}) };
+    const hourly = { ...(doc.hourly && typeof doc.hourly === "object" ? doc.hourly : {}) };
+    let changed = false;
+    for (const k of Object.keys(daily)) {
+      if (k < cutoffDateKey) {
+        delete daily[k];
+        changed = true;
+        dailyDeleted += 1;
+      }
+    }
+    for (const k of Object.keys(hourly)) {
+      if (k < cutoffHourKey) {
+        delete hourly[k];
+        changed = true;
+        hourlyDeleted += 1;
+      }
+    }
+    if (changed) {
+      batch.push({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: { daily, hourly } },
+        },
+      });
+    }
+    if (batch.length >= 200) {
+      await ActivityUserProfile.bulkWrite(batch, { ordered: false }).catch(() => null);
+      batch.length = 0;
+    }
+  }
+  if (batch.length) {
+    await ActivityUserProfile.bulkWrite(batch, { ordered: false }).catch(() => null);
+  }
+
   return { dailyDeleted, hourlyDeleted, retentionDaysDaily: retentionDaily, retentionDaysHourly: retentionHourly };
 }
 
@@ -66,7 +106,7 @@ function startPruneActivityLoop(client, options = {}) {
       retentionDaysHourly: retentionHourly,
     });
     if (dailyDeleted > 0 || hourlyDeleted > 0) {
-      global.logger?.info?.("[PRUNE ACTIVITY] Rimossi " + dailyDeleted + " documenti activity daily (>" + retentionDaily + " gg), " + hourlyDeleted + " activity hourly (>" + retentionHourly + " gg).");
+      global.logger?.info?.("[PRUNE ACTIVITY] Rimossi " + dailyDeleted + " bucket daily embedded (>" + retentionDaily + " gg), " + hourlyDeleted + " bucket hourly embedded (>" + retentionHourly + " gg).");
     }
   };
 
