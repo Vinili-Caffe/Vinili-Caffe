@@ -139,6 +139,10 @@ const activityUserProfileSchema = new Schema(
       expAwardedSeconds: { type: Number, default: 0 },
       /** Secondi della sessione vocale aperta già riversati in daily/hourly (flush periodico + chiusura). */
       voiceActivityBucketFlushSeconds: { type: Number, default: 0 },
+      /** Ultimo dateKey (Europe/Rome) aggiornato negli embedded `daily` — comodo in Compass. */
+      lastEmbedDailyKey: { type: String, default: "" },
+      /** Ultimo hourKey aggiornato negli embedded `hourly`. */
+      lastEmbedHourlyKey: { type: String, default: "" },
     },
     daily: { type: Schema.Types.Mixed, default: {} },
     hourly: { type: Schema.Types.Mixed, default: {} },

@@ -324,6 +324,7 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
+        $set: { "totals.lastEmbedDailyKey": dateKey },
         $inc: {
           [`daily.${dateKey}.textCount`]: inc,
           [`daily.${dateKey}.textChannels.${cid}`]: inc,
@@ -365,6 +366,7 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
+        $set: { "totals.lastEmbedHourlyKey": hourKey },
         $inc: {
           [`hourly.${hourKey}.textCount`]: inc,
           [`hourly.${hourKey}.textChannels.${cid}`]: inc,
@@ -401,6 +403,7 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
+        $set: { "totals.lastEmbedDailyKey": dateKey },
         $inc: {
           [`daily.${dateKey}.voiceSeconds`]: inc,
           [`daily.${dateKey}.voiceChannels.${cid}`]: inc,
@@ -434,6 +437,7 @@ async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
+        $set: { "totals.lastEmbedHourlyKey": hourKey },
         $inc: {
           [`hourly.${hourKey}.voiceSeconds`]: inc,
           [`hourly.${hourKey}.voiceChannels.${cid}`]: inc,
