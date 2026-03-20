@@ -456,14 +456,12 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
       command.subcommandAliases[cmd] &&
       String(command.subcommandAliases[cmd]).toLowerCase() !== String(cmd).toLowerCase(),
   );
-  const hasSubcommandMetadata = Boolean(
-    (Array.isArray(command?.subcommands) && command.subcommands.length > 0) ||
-      (command?.subcommandAliases &&
-        typeof command.subcommandAliases === "object" &&
-        Object.keys(command.subcommandAliases).length > 0),
+  const hasExplicitSubcommandMetadata = Boolean(
+    Array.isArray(command?.canonicalSubcommands) &&
+      command.canonicalSubcommands.length > 0,
   );
   if (
-    hasSubcommandMetadata &&
+    hasExplicitSubcommandMetadata &&
     rawPrefixSubcommandArg &&
     !aliasInvokesSubcommand &&
     !hasKnownSubcommand(command, rawPrefixSubcommandArg, prefixSubcommand)
