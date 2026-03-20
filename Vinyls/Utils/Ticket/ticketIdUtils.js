@@ -82,12 +82,7 @@ async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries
       if (!isTicketNumberDuplicate(err)) throw err;
       if (!reseedAttempted) {
         reseedAttempted = true;
-        const reseededTo = await reseedCounterFromTickets(TicketModel).catch(
-          () => null,
-        );
-        global.logger?.warn?.(
-          `[ticket-open-debug] ticket counter reseeded after duplicate ticketNumber to=${reseededTo}`,
-        );
+        await reseedCounterFromTickets(TicketModel).catch(() => null);
       }
     }
   }

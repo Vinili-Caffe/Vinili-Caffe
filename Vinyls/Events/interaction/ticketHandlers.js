@@ -263,9 +263,6 @@ async function handleTicketInteraction(interaction) {
         }
         interaction.client.ticketOpenLocks.add(ticketLockKey);
         try {
-          global.logger?.info?.(
-            `[ticket-open-debug] standard open start guild=${interaction.guild?.id} user=${interaction.user?.id} action=${ticketActionId}`,
-          );
           let memOpen = interaction.member;
           if (
             interaction.guild &&
@@ -320,9 +317,6 @@ async function handleTicketInteraction(interaction) {
             interaction.guild,
           );
           if (existing) {
-            global.logger?.warn?.(
-              `[ticket-open-debug] standard blocked by existing open ticket id=${existing?._id} channel=${existing?.channelId}`,
-            );
             await safeReply(interaction, {
               embeds: [
                 new EmbedBuilder()
@@ -350,9 +344,6 @@ async function handleTicketInteraction(interaction) {
             return true;
           }
           const channel = await interaction.guild.channels.create({ name: buildTicketChannelName(config, interaction.user?.username, interaction.user?.id || "utente"), type: 0, parent: ticketsCategory.id, permissionOverwrites: [{ id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel], }, { id: interaction.user.id, allow: TICKET_PERMISSIONS, }, ...(config.type === "supporto" ? [{ id: ROLE_STAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_HIGHSTAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel], },] : []), ...(config.type === "partnership" ? [{ id: ROLE_PARTNERMANAGER, allow: TICKET_PERMISSIONS, }, { id: ROLE_HIGHSTAFF, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory,], deny: [], }, { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel], },] : []), ...(config.type === "high" ? [{ id: ROLE_HIGHSTAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel], }, { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel], },] : []),], }).catch((err) => { global.logger.error(err); return null; });
-          global.logger?.info?.(
-            `[ticket-open-debug] standard channel create result channel=${channel?.id || "null"} user=${interaction.user?.id} type=${config?.type}`,
-          );
           if (!channel) {
             await safeReply(interaction, {
               embeds: [
@@ -383,18 +374,9 @@ async function handleTicketInteraction(interaction) {
               descriptionSubmitted: false,
             });
             ticketCreated = true;
-            global.logger?.info?.(
-              `[ticket-open-debug] standard db create success channel=${channel.id} user=${interaction.user?.id} type=${config?.type}`,
-            );
           } catch (err) {
-            global.logger?.error?.(
-              `[ticket-open-debug] standard db create failed channel=${channel?.id} user=${interaction.user?.id} type=${config?.type} err=${err?.message || err}`,
-            );
             const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
             if (isDuplicate) {
-              global.logger?.warn?.(
-                `[ticket-open-debug] standard duplicate detected, deleting newly created channel=${channel?.id}`,
-              );
               await channel.delete().catch(() => { });
               const other = await runtimeFindOpenTicketByUser(
                 interaction.guild.id,
@@ -417,9 +399,6 @@ async function handleTicketInteraction(interaction) {
             global.logger.error(err);
           }
           if (!ticketCreated) {
-            global.logger?.warn?.(
-              `[ticket-open-debug] standard ticketCreated=false, deleting channel=${channel?.id}`,
-            );
             await channel.delete().catch(() => { });
             await safeEditReply(interaction, {
               embeds: [

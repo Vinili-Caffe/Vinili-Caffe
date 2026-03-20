@@ -266,7 +266,7 @@ function numberToWordsItalian(n) {
     if (ones === 0) return NUMBERS_IT_TENS[tens];
     if (ones === 1) return NUMBERS_IT_TENS[tens].slice(0, -1) + "uno";
     if (ones === 8) return NUMBERS_IT_TENS[tens].slice(0, -1) + "otto";
-    return NUMBERS_IT_TENS[tens].slice(0, -1) + NUMBERS_IT_0_19[ones];
+    return NUMBERS_IT_TENS[tens] + NUMBERS_IT_0_19[ones];
   }
   if (num < 200) return num === 100 ? "cento" : "cento" + numberToWordsItalian(num - 100);
   if (num < 1000) {
