@@ -1238,53 +1238,55 @@ module.exports = {
         return;
       }
 
-      const welcomeChannelId = IDs.channels.chat;
-      let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
-      if (!welcomeChannel && member.client && String(member.guild?.id) === String(IDs.guilds?.main)) {
-        const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
-        welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
-      }
-      if (!welcomeChannel) {
-        const detail = {
-          guildId: String(member.guild?.id || ""),
-          channelId: String(welcomeChannelId || ""),
-          cached: Boolean(member.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
-        };
-        try {
-          const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
-            const code = err?.code || err?.rawError?.code || null;
-            global.logger?.warn?.("[guildMemberAdd] Welcome channel fetch failed:", {
-              ...detail,
-              code,
-              status: err?.status ?? err?.statusCode ?? null,
-              message: String(err?.message || ""),
-              missingAccess: code === 50001 || code === 50013,
-            });
-            return null;
-          });
-          if (fetched?.isTextBased?.()) {
-            welcomeChannel = fetched;
-          } else {
-            global.logger?.warn?.("[guildMemberAdd] Welcome channel not found:", detail);
-          }
-        } catch (e) {
-          global.logger?.warn?.("[guildMemberAdd] Welcome channel not found:", detail, e?.message || e);
-        }
-      }
-
       let info = null;
-      if (welcomeChannel) {
-        await welcomeChannel
-          .send(applyDefaultFooterToEmbeds({
-            content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
-            embeds: [buildWelcomeEmbed(member)],
-          }, member.guild))
-          .catch(() => {});
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        const welcomeChannelId = IDs.channels.chat;
+        let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
+        if (!welcomeChannel && member.client) {
+          const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
+          welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
+        }
+        if (!welcomeChannel) {
+          const detail = {
+            guildId: String(member.guild?.id || ""),
+            channelId: String(welcomeChannelId || ""),
+            cached: Boolean(member.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
+          };
+          try {
+            const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
+              const code = err?.code || err?.rawError?.code || null;
+              global.logger?.warn?.("[guildMemberAdd] Welcome channel fetch failed:", {
+                ...detail,
+                code,
+                status: err?.status ?? err?.statusCode ?? null,
+                message: String(err?.message || ""),
+                missingAccess: code === 50001 || code === 50013,
+              });
+              return null;
+            });
+            if (fetched?.isTextBased?.()) {
+              welcomeChannel = fetched;
+            } else {
+              global.logger?.warn?.("[guildMemberAdd] Welcome channel not found:", detail);
+            }
+          } catch (e) {
+            global.logger?.warn?.("[guildMemberAdd] Welcome channel not found:", detail, e?.message || e);
+          }
+        }
 
-        if (member.client) setWelcomeContextActive(member.guild.id, member.client);
+        if (welcomeChannel) {
+          await welcomeChannel
+            .send(applyDefaultFooterToEmbeds({
+              content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+              embeds: [buildWelcomeEmbed(member)],
+            }, member.guild))
+            .catch(() => {});
 
-        info = await resolveInviteInfo(member).catch(() => null);
-        await announceInviteInfo(member, welcomeChannel, info);
+          if (member.client) setWelcomeContextActive(member.guild.id, member.client);
+
+          info = await resolveInviteInfo(member).catch(() => null);
+          await announceInviteInfo(member, welcomeChannel, info);
+        }
       }
 
       setImmediate(() => {
