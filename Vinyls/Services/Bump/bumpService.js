@@ -10,6 +10,13 @@ const BUMP_REMINDER_CHANNEL_BY_KEY = { disboard: IDs.channels.commands, discadia
 const DISBOARD_BUMP_USER_ID = "__disboard_bump__";
 const DISCADIA_BUMP_USER_ID = "__discadia_bump__";
 
+async function resolveLean(queryOrValue) {
+  if (queryOrValue && typeof queryOrValue.lean === "function") {
+    return queryOrValue.lean();
+  }
+  return queryOrValue;
+}
+
 function buildBumpStateModel(kind, stateUserId) {
   const lastBumpAtPath = `bumpState.${kind}.lastBumpAt`;
   const lastBumpUserIdPath = `bumpState.${kind}.lastBumpUserId`;
@@ -198,7 +205,7 @@ function createBumpReminderService(options) {
     let previousLastBumpUserId = null;
     let previousReminderSentAt = null;
     try {
-      const before = await model.findOne({ guildId }).lean().catch(() => null);
+      const before = await resolveLean(model.findOne({ guildId })).catch(() => null);
       if (before?.lastBumpAt) previousLastBumpAt = new Date(before.lastBumpAt);
       if (before?.lastBumpUserId) previousLastBumpUserId = String(before.lastBumpUserId);
       if (before?.reminderSentAt) previousReminderSentAt = new Date(before.reminderSentAt);
@@ -356,7 +363,7 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
   lastVoteFallbackSentAt.set(key, now);
 }
 
-async function recordDiscadiaVote(client, guildId, userId) {
+async function recordDiscadiaVote(client, guildId, userId, reportedVoteCount = null) {
   const now = new Date();
   const mainGuildId = IDs.guilds.main;
   guildId = mainGuildId;
@@ -366,15 +373,33 @@ async function recordDiscadiaVote(client, guildId, userId) {
     .lean()
     .catch(() => null);
   if (before?.discadiaVote?.lastVoteAt) previousLastVoteAt = new Date(before.discadiaVote.lastVoteAt);
-  const doc = await ActivityUserProfile.findOneAndUpdate(
-    { guildId: IDs.guilds.main, userId },
-    {
-      $setOnInsert: { guildId: IDs.guilds.main, userId },
-      $set: { "discadiaVote.lastVoteAt": now },
-      $inc: { "discadiaVote.voteCount": 1 },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch(() => null);
+  let doc = null;
+  const normalizedReportedCount = Number.isFinite(Number(reportedVoteCount))
+    ? Math.max(1, Math.floor(Number(reportedVoteCount)))
+    : null;
+  if (normalizedReportedCount != null) {
+    doc = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: IDs.guilds.main, userId },
+      {
+        $setOnInsert: { guildId: IDs.guilds.main, userId },
+        $set: {
+          "discadiaVote.lastVoteAt": now,
+          "discadiaVote.voteCount": normalizedReportedCount,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).catch(() => null);
+  } else {
+    doc = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: IDs.guilds.main, userId },
+      {
+        $setOnInsert: { guildId: IDs.guilds.main, userId },
+        $set: { "discadiaVote.lastVoteAt": now },
+        $inc: { "discadiaVote.voteCount": 1 },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).catch(() => null);
+  }
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now);
   return { voteCount: Number(doc?.discadiaVote?.voteCount || 1), previousLastVoteAt };

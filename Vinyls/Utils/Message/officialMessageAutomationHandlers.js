@@ -255,7 +255,12 @@ async function handleVoteManagerMessage(message, client) {
   const voteRewardExtras = [];
   if (user?.id && message.guild?.id) {
     try {
-      const result = await recordDiscadiaVote(message.client, message.guild.id, user.id);
+      const result = await recordDiscadiaVote(
+        message.client,
+        message.guild.id,
+        user.id,
+        voteCount,
+      );
       if (result && typeof result.voteCount === "number") {
         resolvedVoteCount = result.voteCount;
       }
@@ -426,9 +431,8 @@ async function handleDiscadiaBump(message, client) {
   const looksLikeDiscadiaSource = isFromDiscadiaBot || /\bdiscadia\b/i.test(sourceFingerprint) || hasDiscadiaWord || hasDiscadiaDomain;
   const looksLikeDisboardSource = /\bdisboard\b/i.test(sourceFingerprint);
   const hasBumpSuccessText = hasPattern || hasSuccessWord;
-  const isSuccessInCommandChannel = isLikelyCommandChannel && !hasFailureWord && (hasBumpSuccessText || (isBumpInteraction && hasBumpWord));
-  const isBumpFromDiscadiaInCommands = isFromDiscadiaBot && isLikelyCommandChannel && (isBumpInteraction || hasBumpWord) && !hasFailureWord;
-  const isBump = !hasFailureWord && (isBumpFromDiscadiaInCommands || isSuccessInCommandChannel || (looksLikeDiscadiaSource && (hasBumpSuccessText || (isBumpInteraction && hasBumpWord))) || (isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText));
+  const isStrictDiscadiaSource = isFromDiscadiaBot || (isAutomatedSource && looksLikeDiscadiaSource && !looksLikeDisboardSource);
+  const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource && (isLikelyCommandChannel || isBumpInteraction || hasDiscadiaDomain || hasDiscadiaWord);
   if (!isBump) return false;
   const guildThanksKey = `discadia_thanks:${message.guild.id}`;
   if (shouldSkipProcessedBump(guildThanksKey, 90_000)) {

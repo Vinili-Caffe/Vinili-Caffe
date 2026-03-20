@@ -114,6 +114,29 @@ function resolveSubcommandState(command, cmd, args) {
   return prefixSubcommand;
 }
 
+function hasKnownSubcommand(command, rawSubcommandArg, resolvedSubcommand) {
+  const raw = String(rawSubcommandArg || "").trim().toLowerCase();
+  const resolved = String(resolvedSubcommand || "").trim().toLowerCase();
+  if (!raw && !resolved) return true;
+  const known = new Set();
+  if (Array.isArray(command?.subcommands)) {
+    for (const sub of command.subcommands) {
+      const normalized = String(sub || "").trim().toLowerCase();
+      if (normalized) known.add(normalized);
+    }
+  }
+  if (command?.subcommandAliases && typeof command.subcommandAliases === "object") {
+    for (const [alias, target] of Object.entries(command.subcommandAliases)) {
+      const aliasNormalized = String(alias || "").trim().toLowerCase();
+      const targetNormalized = String(target || "").trim().toLowerCase();
+      if (aliasNormalized) known.add(aliasNormalized);
+      if (targetNormalized) known.add(targetNormalized);
+    }
+  }
+  if (!known.size) return true;
+  return known.has(raw) || known.has(resolved);
+}
+
 async function executePrefixCommandRuntime({
   payload,
   resolvedClient,
@@ -419,7 +442,33 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     return;
   }
 
+  const rawPrefixSubcommandArg = args[0] ? String(args[0]).toLowerCase() : null;
   const prefixSubcommand = resolveSubcommandState(command, cmd, args);
+  const hasSubcommandMetadata = Boolean(
+    (Array.isArray(command?.subcommands) && command.subcommands.length > 0) ||
+      (command?.subcommandAliases &&
+        typeof command.subcommandAliases === "object" &&
+        Object.keys(command.subcommandAliases).length > 0),
+  );
+  if (
+    hasSubcommandMetadata &&
+    rawPrefixSubcommandArg &&
+    !hasKnownSubcommand(command, rawPrefixSubcommandArg, prefixSubcommand)
+  ) {
+    const shown = await showPrefixUsageGuide({
+      message,
+      command,
+      prefix: usedPrefix || "+",
+      deleteCommandMessage: null,
+      requestedSubcommand: rawPrefixSubcommandArg,
+    });
+    if (!shown) {
+      const embed = buildMissingArgumentsErrorEmbed();
+      await deleteCommandMessage();
+      await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
+    }
+    return;
+  }
   const permissionResult = await resolveWithTimeout(() => checkPrefixPermission(message, command.name, prefixSubcommand, { returnDetails: true, }), { allowed: true, reason: null, requiredRoles: null, channels: null }, `permission precheck for ${command.name}`,
   );
   if (!permissionResult?.allowed) {

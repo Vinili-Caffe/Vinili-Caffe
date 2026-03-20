@@ -6,6 +6,7 @@ const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Commun
 
 const CUSTOM_VOICE_CATEGORY_ID = "1442569078379118755";
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const MEMBER_ROLE_ID = IDs.roles.Member;
 
 function sanitizeVoiceBaseName(name) {
   const clean=String(name||"").replace(/[^\p{L}\p{N}_ ',.!?\-]/gu, "").replace(/\s+/g," ").trim();
@@ -243,7 +244,7 @@ module.exports = {
     if (existing) {
       const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:existing.id},);
 
-      await Promise.allSettled([
+      const existingPermissionOps = [
         existing.permissionOverwrites
           .edit(message.guild.roles.everyone.id, {
             deny: [
@@ -255,6 +256,18 @@ module.exports = {
             ].filter(Boolean),
           })
           .catch(() => null),
+      ];
+      if (MEMBER_ROLE_ID) {
+        existingPermissionOps.push(
+          existing.permissionOverwrites
+            .edit(MEMBER_ROLE_ID, {
+              allow: [PermissionsBitField.Flags.ViewChannel].filter(Boolean),
+              deny: [PermissionsBitField.Flags.Connect].filter(Boolean),
+            })
+            .catch(() => null),
+        );
+      }
+      existingPermissionOps.push(
         existing.permissionOverwrites
           .edit(customRole.id, {
             allow: [
@@ -266,7 +279,8 @@ module.exports = {
             ].filter(Boolean),
           })
           .catch(() => null),
-      ]);
+      );
+      await Promise.allSettled(existingPermissionOps);
 
       const linkedTextChannel = await waitForLinkedTextChannel(message.guild, existing).catch(() => null);
       await applyCustomTextPermissions(message.guild, linkedTextChannel, customRole.id);
@@ -299,6 +313,15 @@ module.exports = {
               PermissionsBitField.Flags.Stream,
             ],
           },
+          ...(MEMBER_ROLE_ID
+            ? [
+                {
+                  id: MEMBER_ROLE_ID,
+                  allow: [PermissionsBitField.Flags.ViewChannel],
+                  deny: [PermissionsBitField.Flags.Connect],
+                },
+              ]
+            : []),
           {
             id: customRole.id,
             allow: [

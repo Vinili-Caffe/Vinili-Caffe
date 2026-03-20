@@ -9,7 +9,6 @@ const {
 const VoiceDisconnectCounter = require("../../Schemas/Voice/voiceDisconnectCounterSchema");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
-const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 
 const guildScoped = [
@@ -24,7 +23,6 @@ const guildScoped = [
   [QuotePrivacy, "QuotePrivacy"],
 ];
 const userScoped = [
-  [OneTimeReminder, "OneTimeReminder"],
   [AutoModBadUser, "AutoModBadUser"],
 ];
 

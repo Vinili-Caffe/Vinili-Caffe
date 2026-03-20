@@ -56,6 +56,7 @@ function shouldWarnOnce(key) {
 async function safeLoadImage(source, opts = {}) {
   if (!source) return null;
   const timeoutMs = Math.max(1000, Math.min(15_000, Number(opts.timeoutMs || 8000)));
+  const suppressWarning = Boolean(opts.suppressWarning);
   const canvas = getCanvas();
   const loadImage = canvas?.loadImage;
   if (typeof loadImage !== "function") return null;
@@ -127,7 +128,7 @@ async function safeLoadImage(source, opts = {}) {
     const msg = err?.message || err?.code || err;
     const host = isHttpUrl(src) ? safeHost(src) : "non-http";
     const warnKey = `${host}:${String(status || msg)}`;
-    if (global.logger?.warn && shouldWarnOnce(warnKey)) {
+    if (!suppressWarning && global.logger?.warn && shouldWarnOnce(warnKey)) {
       const rewritten = isHttpUrl(src) && /cdn\.discordapp\.com$/i.test(host) ? rewriteDiscordCdnUrl(src) : null;
       global.logger.warn("[canvas] safeLoadImage failed:", {
         host,

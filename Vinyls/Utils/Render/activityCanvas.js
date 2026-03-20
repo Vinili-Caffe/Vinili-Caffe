@@ -258,7 +258,10 @@ async function getEmojiImage(token) {
     }
     const sources = emojiToTwemojiUrls(token);
     for (const sourceUrl of sources) {
-      const img = await safeLoadImage(sourceUrl, { timeoutMs: 10000 }).catch(() => null);
+      const img = await safeLoadImage(sourceUrl, {
+        timeoutMs: 10000,
+        suppressWarning: true,
+      }).catch(() => null);
       if (img) return img;
     }
     return null;

@@ -26,6 +26,15 @@ function isTicketNumberDuplicate(err) {
   return msg.includes("ticketNumber");
 }
 
+function isCounterUnavailableError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    msg.includes("mongodb connection not ready for ticket counter") ||
+    msg.includes("topology is closed") ||
+    msg.includes("client must be connected")
+  );
+}
+
 async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries = 5) {
   let lastError = null;
   for (let i = 0; i < maxRetries; i += 1) {
@@ -37,6 +46,10 @@ async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries
       lastError = err;
       if (!isTicketNumberDuplicate(err)) throw err;
     }
+  }
+  if (isCounterUnavailableError(lastError)) {
+    // Fallback: create ticket without number; will be backfilled later.
+    return TicketModel.create({ ...payload });
   }
   throw lastError || new Error("Unable to allocate unique ticketNumber");
 }
