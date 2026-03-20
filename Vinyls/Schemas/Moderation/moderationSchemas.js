@@ -59,16 +59,27 @@ const ModConfig = models.mod_config || model("mod_config", modConfigSchema);
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "";
 const MOD_CASE_USER_COLLECTION = process.env.MOD_CASE_USER_COLLECTION ? String(process.env.MOD_CASE_USER_COLLECTION).trim() : "";
+const RESOLVED_MOD_CASE_COLLECTION = MOD_CASE_COLLECTION || "mod_cases";
+const RESOLVED_MOD_CASE_USER_COLLECTION = MOD_CASE_USER_COLLECTION || "mod_case_users";
+
+if (
+  models.mod_case &&
+  models.mod_case.collection?.name !== RESOLVED_MOD_CASE_COLLECTION
+) {
+  mongoose.deleteModel("mod_case");
+}
+if (
+  models.mod_case_user &&
+  models.mod_case_user.collection?.name !== RESOLVED_MOD_CASE_USER_COLLECTION
+) {
+  mongoose.deleteModel("mod_case_user");
+}
 
 const ModCase = models.mod_case
   ? models.mod_case
-  : MOD_CASE_COLLECTION
-    ? model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)
-    : model("mod_case", modCaseSchema);
+  : model("mod_case", modCaseSchema, RESOLVED_MOD_CASE_COLLECTION);
 const ModCaseUser = models.mod_case_user
   ? models.mod_case_user
-  : MOD_CASE_USER_COLLECTION
-    ? model("mod_case_user", modCaseUserSchema, MOD_CASE_USER_COLLECTION)
-    : model("mod_case_user", modCaseUserSchema);
+  : model("mod_case_user", modCaseUserSchema, RESOLVED_MOD_CASE_USER_COLLECTION);
 
 module.exports = { ModConfig, ModCase, ModCaseUser };

@@ -74,9 +74,6 @@ const personalityPanelSchema=new Schema({guildId:{type:String,required:true},cha
 personalityPanelSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
 
 
-const inviteReminderStateSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},inviteNearTargets:{type:[Number],default:[]},},{timestamps:true},);
-inviteReminderStateSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
 const activityEventRewardSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardType:{type:String,required:true,index:true},tier:{type:Number,default:null},},{timestamps:true},);
 activityEventRewardSchema.index(
   { guildId: 1, userId: 1, rewardType: 1, tier: 1 },
@@ -232,6 +229,9 @@ const activityUserProfileSchema = new Schema(
         joinedAt: { type: Date, default: null },
         leftAt: { type: Date, default: null },
       },
+      inviteReminderState: {
+        inviteNearTargets: { type: [Number], default: [] },
+      },
       noDmPreference: {
         categories: { type: [String], default: null },
       },
@@ -301,7 +301,6 @@ const ReviewReward = {
 };
 const PersonalityPanel=models.PersonalityPanel||model("PersonalityPanel",personalityPanelSchema);
 const LegacyInviteTrack = null;
-const InviteReminderState=models.InviteReminderState||model("InviteReminderState",inviteReminderStateSchema);
 function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null }) {
   return {
     async findOne(filter) {
@@ -405,6 +404,84 @@ const InviteTrack = {
   },
   async deleteOne(filter) {
     return ActivityUserProfile.updateOne(filter, { $set: { "profile.inviteTrack.active": false, "profile.inviteTrack.leftAt": new Date() } }).catch(() => ({ modifiedCount: 0 }));
+  },
+};
+const InviteReminderState = {
+  findOne(filter = {}) {
+    const run = async () => {
+      const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.inviteReminderState").lean().catch(() => null);
+      if (!doc) return null;
+      return {
+        guildId: String(doc.guildId || filter.guildId || ""),
+        userId: String(doc.userId || filter.userId || ""),
+        inviteNearTargets: Array.isArray(doc?.profile?.inviteReminderState?.inviteNearTargets)
+          ? doc.profile.inviteReminderState.inviteNearTargets.map((x) => Number(x)).filter(Number.isFinite)
+          : [],
+      };
+    };
+    const queryLike = {
+      lean() {
+        return run();
+      },
+      then(resolve, reject) {
+        return run().then(resolve, reject);
+      },
+      catch(reject) {
+        return run().catch(reject);
+      },
+    };
+    return queryLike;
+  },
+  async updateOne(filter = {}, update = {}, options = {}) {
+    const addToSet = update?.$addToSet || {};
+    const set = update?.$set || {};
+    const ops = {
+      $setOnInsert: {
+        guildId: String(filter?.guildId || ""),
+        userId: String(filter?.userId || ""),
+      },
+      $set: {},
+    };
+    if (Array.isArray(set?.inviteNearTargets)) {
+      ops.$set["profile.inviteReminderState.inviteNearTargets"] = set.inviteNearTargets.map((x) => Number(x)).filter(Number.isFinite);
+    }
+    if (addToSet?.inviteNearTargets != null) {
+      return ActivityUserProfile.updateOne(
+        filter,
+        {
+          ...ops,
+          $addToSet: {
+            "profile.inviteReminderState.inviteNearTargets": Number(addToSet.inviteNearTargets),
+          },
+        },
+        { upsert: Boolean(options?.upsert) },
+      ).catch(() => ({ modifiedCount: 0 }));
+    }
+    return ActivityUserProfile.updateOne(
+      filter,
+      ops,
+      { upsert: Boolean(options?.upsert) },
+    ).catch(() => ({ modifiedCount: 0 }));
+  },
+  async deleteOne(filter = {}) {
+    return ActivityUserProfile.updateOne(
+      filter,
+      { $set: { "profile.inviteReminderState.inviteNearTargets": [] } },
+    ).catch(() => ({ modifiedCount: 0 }));
+  },
+  async deleteMany(filter = {}) {
+    return ActivityUserProfile.updateMany(
+      filter,
+      { $set: { "profile.inviteReminderState.inviteNearTargets": [] } },
+    ).catch(() => ({ modifiedCount: 0 }));
+  },
+  async countDocuments(filter = {}) {
+    const q = { guildId: filter?.guildId, userId: filter?.userId };
+    if (q.guildId == null) delete q.guildId;
+    if (q.userId == null) delete q.userId;
+    if (filter?.userId?.$nin) q.userId = { $nin: filter.userId.$nin };
+    q["profile.inviteReminderState.inviteNearTargets.0"] = { $exists: true };
+    return ActivityUserProfile.countDocuments(q).catch(() => 0);
   },
 };
 const CustomRole = {

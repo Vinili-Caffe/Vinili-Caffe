@@ -15,7 +15,6 @@ const {
 } = require("../Schemas/Community/communitySchemas");
 const VoiceDisconnectCounter = require("../Schemas/Voice/voiceDisconnectCounterSchema");
 const SuspiciousAccount = require("../Schemas/Moderation/suspiciousAccountSchema");
-const OneTimeReminder = require("../Schemas/Reminders/oneTimeReminderSchema");
 const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -401,7 +400,6 @@ async function cleanupUserData(guildId, userId) {
         },
       },
     ),
-    OneTimeReminder.deleteMany({ userId }),
     ActivityUserProfile.updateOne(
       { guildId: "__global__", userId },
       { $set: { "profile.globalOneTimeReminder.entries": [] } },

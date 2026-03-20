@@ -1,9 +1,16 @@
-const { TicketCounter } = require("../../Schemas/Ticket/ticketSchema");
+const mongoose = require("mongoose");
 const TICKET_COUNTER_KEY = "global_ticket_id";
+const COUNTER_COLLECTION = "globalsettings";
 
 async function getNextTicketId() {
-  const counter = await TicketCounter.findOneAndUpdate({ key: TICKET_COUNTER_KEY }, { $inc: { value: 1 } }, { new: true, upsert: true, setDefaultsOnInsert: true },);
-  return Number(counter?.value || 0);
+  const db = mongoose.connection?.db;
+  if (!db) throw new Error("MongoDB connection not ready for ticket counter");
+  const counter = await db.collection(COUNTER_COLLECTION).findOneAndUpdate(
+    { _counterKey: TICKET_COUNTER_KEY },
+    { $inc: { _counterValue: 1 } },
+    { upsert: true, returnDocument: "after" },
+  );
+  return Number(counter?.value?._counterValue || 0);
 }
 
 function isDuplicateKeyError(err) {

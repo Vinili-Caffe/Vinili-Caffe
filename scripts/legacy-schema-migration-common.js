@@ -4,9 +4,7 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const MONGO_URL =
   process.env.MONGO_URL_LOCAL ||
-  process.env.MONGODB_URI_LOCAL ||
-  process.env.MONGO_URL ||
-  process.env.MONGODB_URI;
+  process.env.MONGODB_URI_LOCAL;
 
 const LEGACY = {
   staffEventPoints: "staffeventpoints",
@@ -28,6 +26,7 @@ const LEGACY = {
   birthdayProfiles: "birthdayprofiles",
   customRoles: "customroles",
   inviteTracks: "invitetracks",
+  inviteReminderStates: "invitereminderstates",
   noDmPreferences: "nodmpreferences",
   rolePersistUsers: "rolepersistusers",
   temporaryRoleGrants: "temporary_role_grants",
@@ -327,6 +326,257 @@ async function migrateAll(db, apply) {
     const res = await profiles.bulkWrite(ops, { ordered: false });
     report.mentionReactions.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
   }
+  const avatarDocs = await db.collection(LEGACY.avatarPrivacies).find({}, { projection: { guildId: 1, userId: 1, blocked: 1, views: 1 } }).toArray();
+  report.avatarPrivacies = { found: avatarDocs.length, migrated: 0 };
+  if (apply && avatarDocs.length) {
+    const ops = avatarDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.privacy.avatar.blocked": Boolean(d.blocked),
+            "profile.privacy.avatar.views": Math.max(0, Number(d.views || 0)),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.avatarPrivacies.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const bannerDocs = await db.collection(LEGACY.bannerPrivacies).find({}, { projection: { guildId: 1, userId: 1, blocked: 1, views: 1 } }).toArray();
+  report.bannerPrivacies = { found: bannerDocs.length, migrated: 0 };
+  if (apply && bannerDocs.length) {
+    const ops = bannerDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.privacy.banner.blocked": Boolean(d.blocked),
+            "profile.privacy.banner.views": Math.max(0, Number(d.views || 0)),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.bannerPrivacies.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const quoteDocs = await db.collection(LEGACY.quotePrivacies).find({}, { projection: { guildId: 1, userId: 1, blocked: 1 } }).toArray();
+  report.quotePrivacies = { found: quoteDocs.length, migrated: 0 };
+  if (apply && quoteDocs.length) {
+    const ops = quoteDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: { "profile.privacy.quote.blocked": Boolean(d.blocked) },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.quotePrivacies.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const birthdayDocs = await db.collection(LEGACY.birthdayProfiles).find({}, { projection: { guildId: 1, userId: 1, day: 1, month: 1, birthYear: 1, showAge: 1, lastCelebratedYear: 1, registrationMessageId: 1, registrationChannelId: 1 } }).toArray();
+  report.birthdayProfiles = { found: birthdayDocs.length, migrated: 0 };
+  if (apply && birthdayDocs.length) {
+    const ops = birthdayDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.birthday.day": d.day == null ? null : Number(d.day),
+            "profile.birthday.month": d.month == null ? null : Number(d.month),
+            "profile.birthday.birthYear": d.birthYear == null ? null : Number(d.birthYear),
+            "profile.birthday.showAge": d.showAge == null ? true : Boolean(d.showAge),
+            "profile.birthday.lastCelebratedYear": d.lastCelebratedYear == null ? null : Number(d.lastCelebratedYear),
+            "profile.birthday.registrationMessageId": d.registrationMessageId == null ? null : String(d.registrationMessageId),
+            "profile.birthday.registrationChannelId": d.registrationChannelId == null ? null : String(d.registrationChannelId),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.birthdayProfiles.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const customRoleDocs = await db.collection(LEGACY.customRoles).find({}, { projection: { guildId: 1, userId: 1, roleId: 1, customVocEmoji: 1, customVocChannelId: 1, customVocEligibilityLostAt: 1, customRoleEligibilityLostAt: 1, expiresAt: 1 } }).toArray();
+  report.customRoles = { found: customRoleDocs.length, migrated: 0 };
+  if (apply && customRoleDocs.length) {
+    const ops = customRoleDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.customRole.roleId": d.roleId == null ? null : String(d.roleId),
+            "profile.customRole.customVocEmoji": d.customVocEmoji == null ? null : String(d.customVocEmoji),
+            "profile.customRole.customVocChannelId": d.customVocChannelId == null ? null : String(d.customVocChannelId),
+            "profile.customRole.customVocEligibilityLostAt": toDate(d.customVocEligibilityLostAt),
+            "profile.customRole.customRoleEligibilityLostAt": toDate(d.customRoleEligibilityLostAt),
+            "profile.customRole.expiresAt": toDate(d.expiresAt),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.customRoles.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const inviteDocs = await db.collection(LEGACY.inviteTracks).find({}, { projection: { guildId: 1, userId: 1, inviterId: 1, active: 1, joinedAt: 1, leftAt: 1 } }).toArray();
+  report.inviteTracks = { found: inviteDocs.length, migrated: 0 };
+  if (apply && inviteDocs.length) {
+    const ops = inviteDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.inviteTrack.inviterId": d.inviterId == null ? null : String(d.inviterId),
+            "profile.inviteTrack.active": d.active == null ? true : Boolean(d.active),
+            "profile.inviteTrack.joinedAt": toDate(d.joinedAt),
+            "profile.inviteTrack.leftAt": toDate(d.leftAt),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.inviteTracks.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const inviteReminderDocs = await db.collection(LEGACY.inviteReminderStates).find({}, { projection: { guildId: 1, userId: 1, inviteNearTargets: 1 } }).toArray();
+  report.inviteReminderStates = { found: inviteReminderDocs.length, migrated: 0 };
+  if (apply && inviteReminderDocs.length) {
+    const ops = inviteReminderDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.inviteReminderState.inviteNearTargets": Array.isArray(d.inviteNearTargets)
+              ? d.inviteNearTargets.map((x) => Number(x)).filter(Number.isFinite)
+              : [],
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.inviteReminderStates.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const noDmDocs = await db.collection(LEGACY.noDmPreferences).find({}, { projection: { guildId: 1, userId: 1, categories: 1 } }).toArray();
+  report.noDmPreferences = { found: noDmDocs.length, migrated: 0 };
+  if (apply && noDmDocs.length) {
+    const ops = noDmDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.noDmPreference.categories": Array.isArray(d.categories) ? d.categories.map((x) => String(x)) : null,
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.noDmPreferences.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const rolePersistDocs = await db.collection(LEGACY.rolePersistUsers).find({}, { projection: { guildId: 1, userId: 1, roles: 1 } }).toArray();
+  report.rolePersistUsers = { found: rolePersistDocs.length, migrated: 0 };
+  if (apply && rolePersistDocs.length) {
+    const ops = rolePersistDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.rolePersist.roles": Array.isArray(d.roles) ? d.roles : [],
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.rolePersistUsers.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const temporaryRoleDocs = await db.collection(LEGACY.temporaryRoleGrants).find({}, { projection: { guildId: 1, userId: 1, grants: 1 } }).toArray();
+  report.temporaryRoleGrants = { found: temporaryRoleDocs.length, migrated: 0 };
+  if (apply && temporaryRoleDocs.length) {
+    const ops = temporaryRoleDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.temporaryRoleGrants.grants": Array.isArray(d.grants) ? d.grants : [],
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.temporaryRoleGrants.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const temporaryPermissionDocs = await db.collection(LEGACY.temporaryCommandPermissions).find({}, { projection: { guildId: 1, userId: 1, permissions: 1 } }).toArray();
+  report.temporaryCommandPermissions = { found: temporaryPermissionDocs.length, migrated: 0 };
+  if (apply && temporaryPermissionDocs.length) {
+    const ops = temporaryPermissionDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.temporaryCommandPermissions.permissions": Array.isArray(d.permissions) ? d.permissions : [],
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.temporaryCommandPermissions.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const verificationDocs = await db.collection(LEGACY.verificationTenures).find({}, { projection: { guildId: 1, userId: 1, verifiedAt: 1, stage: 1 } }).toArray();
+  report.verificationTenures = { found: verificationDocs.length, migrated: 0 };
+  if (apply && verificationDocs.length) {
+    const ops = verificationDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "profile.verificationTenure.verifiedAt": toDate(d.verifiedAt),
+            "profile.verificationTenure.stage": d.stage == null ? 1 : Number(d.stage),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.verificationTenures.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+  const oneTimeUserDocs = await db.collection(LEGACY.oneTimeReminderUsers).find({}, { projection: { userId: 1, entries: 1 } }).toArray();
+  report.oneTimeReminderUsers = { found: oneTimeUserDocs.length, migrated: 0 };
+  if (apply && oneTimeUserDocs.length) {
+    const ops = oneTimeUserDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: "__global__", userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: "__global__", userId: String(d.userId || "") },
+          $set: {
+            "profile.globalOneTimeReminder.entries": Array.isArray(d.entries) ? d.entries : [],
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.oneTimeReminderUsers.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
   return report;
 }
 
@@ -449,6 +699,123 @@ async function verifyAll(db) {
     if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
   }
   out.mentionReactions = { total: mentionDocs.length, mismatches };
+  mismatches = 0;
+  const avatarDocs = await db.collection(LEGACY.avatarPrivacies).find({}).toArray();
+  for (const d of avatarDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.privacy.avatar": 1 } });
+    const s = t?.profile?.privacy?.avatar || {};
+    if (Boolean(s.blocked) !== Boolean(d.blocked) || Number(s.views || 0) !== Number(d.views || 0)) mismatches += 1;
+  }
+  out.avatarPrivacies = { total: avatarDocs.length, mismatches };
+  mismatches = 0;
+  const bannerDocs = await db.collection(LEGACY.bannerPrivacies).find({}).toArray();
+  for (const d of bannerDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.privacy.banner": 1 } });
+    const s = t?.profile?.privacy?.banner || {};
+    if (Boolean(s.blocked) !== Boolean(d.blocked) || Number(s.views || 0) !== Number(d.views || 0)) mismatches += 1;
+  }
+  out.bannerPrivacies = { total: bannerDocs.length, mismatches };
+  mismatches = 0;
+  const quoteDocs = await db.collection(LEGACY.quotePrivacies).find({}).toArray();
+  for (const d of quoteDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.privacy.quote": 1 } });
+    const s = t?.profile?.privacy?.quote || {};
+    if (Boolean(s.blocked) !== Boolean(d.blocked)) mismatches += 1;
+  }
+  out.quotePrivacies = { total: quoteDocs.length, mismatches };
+  mismatches = 0;
+  const birthdayDocs = await db.collection(LEGACY.birthdayProfiles).find({}).toArray();
+  for (const d of birthdayDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.birthday": 1 } });
+    const s = t?.profile?.birthday || {};
+    if (Number(s.day || 0) !== Number(d.day || 0) || Number(s.month || 0) !== Number(d.month || 0) || Number(s.birthYear || 0) !== Number(d.birthYear || 0)) mismatches += 1;
+  }
+  out.birthdayProfiles = { total: birthdayDocs.length, mismatches };
+  mismatches = 0;
+  const customRoleDocs = await db.collection(LEGACY.customRoles).find({}).toArray();
+  for (const d of customRoleDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.customRole": 1 } });
+    const s = t?.profile?.customRole || {};
+    if (String(s.roleId || "") !== String(d.roleId || "") || String(s.customVocChannelId || "") !== String(d.customVocChannelId || "") || !sameDate(s.expiresAt, d.expiresAt)) mismatches += 1;
+  }
+  out.customRoles = { total: customRoleDocs.length, mismatches };
+  mismatches = 0;
+  const inviteDocs = await db.collection(LEGACY.inviteTracks).find({}).toArray();
+  for (const d of inviteDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.inviteTrack": 1 } });
+    const s = t?.profile?.inviteTrack || {};
+    if (String(s.inviterId || "") !== String(d.inviterId || "") || Boolean(s.active) !== Boolean(d.active) || !sameDate(s.joinedAt, d.joinedAt) || !sameDate(s.leftAt, d.leftAt)) mismatches += 1;
+  }
+  out.inviteTracks = { total: inviteDocs.length, mismatches };
+  mismatches = 0;
+  const inviteReminderDocs = await db.collection(LEGACY.inviteReminderStates).find({}).toArray();
+  for (const d of inviteReminderDocs) {
+    const t = await profiles.findOne(
+      { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+      { projection: { "profile.inviteReminderState.inviteNearTargets": 1 } },
+    );
+    const arr = Array.isArray(t?.profile?.inviteReminderState?.inviteNearTargets)
+      ? t.profile.inviteReminderState.inviteNearTargets.map((x) => Number(x)).filter(Number.isFinite)
+      : [];
+    const src = Array.isArray(d.inviteNearTargets)
+      ? d.inviteNearTargets.map((x) => Number(x)).filter(Number.isFinite)
+      : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.inviteReminderStates = { total: inviteReminderDocs.length, mismatches };
+  mismatches = 0;
+  const noDmDocs = await db.collection(LEGACY.noDmPreferences).find({}).toArray();
+  for (const d of noDmDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.noDmPreference.categories": 1 } });
+    const arr = Array.isArray(t?.profile?.noDmPreference?.categories) ? t.profile.noDmPreference.categories.map((x) => String(x)) : [];
+    const src = Array.isArray(d.categories) ? d.categories.map((x) => String(x)) : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.noDmPreferences = { total: noDmDocs.length, mismatches };
+  mismatches = 0;
+  const rolePersistDocs = await db.collection(LEGACY.rolePersistUsers).find({}).toArray();
+  for (const d of rolePersistDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.rolePersist.roles": 1 } });
+    const arr = Array.isArray(t?.profile?.rolePersist?.roles) ? t.profile.rolePersist.roles : [];
+    const src = Array.isArray(d.roles) ? d.roles : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.rolePersistUsers = { total: rolePersistDocs.length, mismatches };
+  mismatches = 0;
+  const temporaryRoleDocs = await db.collection(LEGACY.temporaryRoleGrants).find({}).toArray();
+  for (const d of temporaryRoleDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.temporaryRoleGrants.grants": 1 } });
+    const arr = Array.isArray(t?.profile?.temporaryRoleGrants?.grants) ? t.profile.temporaryRoleGrants.grants : [];
+    const src = Array.isArray(d.grants) ? d.grants : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.temporaryRoleGrants = { total: temporaryRoleDocs.length, mismatches };
+  mismatches = 0;
+  const temporaryPermissionDocs = await db.collection(LEGACY.temporaryCommandPermissions).find({}).toArray();
+  for (const d of temporaryPermissionDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.temporaryCommandPermissions.permissions": 1 } });
+    const arr = Array.isArray(t?.profile?.temporaryCommandPermissions?.permissions) ? t.profile.temporaryCommandPermissions.permissions : [];
+    const src = Array.isArray(d.permissions) ? d.permissions : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.temporaryCommandPermissions = { total: temporaryPermissionDocs.length, mismatches };
+  mismatches = 0;
+  const verificationDocs = await db.collection(LEGACY.verificationTenures).find({}).toArray();
+  for (const d of verificationDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { "profile.verificationTenure": 1 } });
+    const s = t?.profile?.verificationTenure || {};
+    if (Number(s.stage || 1) !== Number(d.stage || 1) || !sameDate(s.verifiedAt, d.verifiedAt)) mismatches += 1;
+  }
+  out.verificationTenures = { total: verificationDocs.length, mismatches };
+  mismatches = 0;
+  const oneTimeUserDocs = await db.collection(LEGACY.oneTimeReminderUsers).find({}).toArray();
+  for (const d of oneTimeUserDocs) {
+    const t = await profiles.findOne({ guildId: "__global__", userId: String(d.userId || "") }, { projection: { "profile.globalOneTimeReminder.entries": 1 } });
+    const arr = Array.isArray(t?.profile?.globalOneTimeReminder?.entries) ? t.profile.globalOneTimeReminder.entries : [];
+    const src = Array.isArray(d.entries) ? d.entries : [];
+    if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;
+  }
+  out.oneTimeReminderUsers = { total: oneTimeUserDocs.length, mismatches };
 
   out.totalMismatches = Object.values(out).reduce((acc, row) => acc + Number(row?.mismatches || 0), 0);
   return out;

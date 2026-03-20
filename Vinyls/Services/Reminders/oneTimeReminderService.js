@@ -1,4 +1,3 @@
-const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
 const ONE_TIME_REMINDER_STORAGE_MODE = String(
@@ -10,6 +9,7 @@ const ONE_TIME_REMINDER_MAX_ENTRIES_PER_USER = Math.max(
   50,
   Number(process.env.ONE_TIME_REMINDER_MAX_ENTRIES_PER_USER) || 500,
 );
+let legacyOneTimeReminderModel = null;
 
 function useCompactReminderStorage() {
   return (
@@ -23,6 +23,14 @@ function useLegacyReminderStorage() {
     ONE_TIME_REMINDER_STORAGE_MODE === "legacy" ||
     ONE_TIME_REMINDER_STORAGE_MODE === "dual"
   );
+}
+
+function getLegacyOneTimeReminderModel() {
+  if (!useLegacyReminderStorage()) return null;
+  if (!legacyOneTimeReminderModel) {
+    legacyOneTimeReminderModel = require("../../Schemas/Reminders/oneTimeReminderSchema");
+  }
+  return legacyOneTimeReminderModel;
 }
 
 async function ensureOneTimeReminderCompact({ key, userId, message, sendAt }) {
@@ -73,6 +81,7 @@ async function ensureOneTimeReminder({ key, userId, message, sendAt }) {
   if (!key || !userId || !message || !sendAt) return null;
   let pending = null;
   if (useLegacyReminderStorage()) {
+    const OneTimeReminder = getLegacyOneTimeReminderModel();
     pending = await OneTimeReminder.findOneAndUpdate(
       { key, sentAt: null },
       { $set: { userId, message, sendAt } },
@@ -163,6 +172,7 @@ async function runDueOneTimeReminders(client) {
     due = await loadDueCompactReminders(now, 100);
   }
   if (!due.length && useLegacyReminderStorage()) {
+    const OneTimeReminder = getLegacyOneTimeReminderModel();
     due = await OneTimeReminder.find({ sentAt: null, sendAt: { $lte: now } })
       .sort({ sendAt: 1 })
       .limit(100)
@@ -175,6 +185,7 @@ async function runDueOneTimeReminders(client) {
       claimed = await claimCompactReminder(row, now);
     }
     if (!claimed && useLegacyReminderStorage() && row?._id) {
+      const OneTimeReminder = getLegacyOneTimeReminderModel();
       claimed = await OneTimeReminder.findOneAndUpdate(
         { _id: row._id, sentAt: null },
         { $set: { sentAt: now } },
@@ -189,6 +200,7 @@ async function runDueOneTimeReminders(client) {
       if (!user) {
         if (useCompactReminderStorage()) await revertCompactReminder(claimed);
         if (useLegacyReminderStorage() && claimed?._id) {
+          const OneTimeReminder = getLegacyOneTimeReminderModel();
           await OneTimeReminder.updateOne(
             { _id: claimed._id },
             { $set: { sentAt: null } },
@@ -201,6 +213,7 @@ async function runDueOneTimeReminders(client) {
       global.logger?.error?.("[REMINDER] Failed to send reminder", error);
       if (useCompactReminderStorage()) await revertCompactReminder(claimed);
       if (useLegacyReminderStorage() && claimed?._id) {
+        const OneTimeReminder = getLegacyOneTimeReminderModel();
         await OneTimeReminder.updateOne(
           { _id: claimed._id },
           { $set: { sentAt: null } },

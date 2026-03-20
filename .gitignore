@@ -163,3 +163,6 @@ restart.json
 # Lavalink (jar binario + plugin scaricati a runtime)
 Lavalink/Lavalink.jar
 Lavalink/plugins/
+
+# Deploy
+.deploy/tools/
