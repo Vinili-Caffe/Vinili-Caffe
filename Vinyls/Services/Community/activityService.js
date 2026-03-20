@@ -320,7 +320,7 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
     return;
   }
   try {
-    const res = await col.updateOne(
+    await col.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -332,9 +332,6 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
       },
       { upsert: true },
     );
-    if (process.env.ACTIVITY_DEBUG === "1") {
-      console.error("[ACTIVITY] bumpDailyText ok", { dateKey, matched: res.matchedCount, modified: res.modifiedCount, upserted: res.upsertedCount });
-    }
   } catch (err) {
     logActivityBumpError("bumpDailyText", err);
   }
@@ -362,7 +359,7 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
     return;
   }
   try {
-    const res = await col.updateOne(
+    await col.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -374,9 +371,6 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
       },
       { upsert: true },
     );
-    if (process.env.ACTIVITY_DEBUG === "1") {
-      console.error("[ACTIVITY] bumpHourlyText ok", { hourKey, matched: res.matchedCount, modified: res.modifiedCount, upserted: res.upsertedCount });
-    }
   } catch (err) {
     logActivityBumpError("bumpHourlyText", err);
   }
