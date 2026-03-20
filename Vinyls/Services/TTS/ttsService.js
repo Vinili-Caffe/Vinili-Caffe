@@ -256,7 +256,7 @@ function normalizePausesForTts(text) {
 }
 
 const NUMBERS_IT_0_19 = "zero uno due tre quattro cinque sei sette otto nove dieci undici dodici tredici quattordici quindici sedici diciassette diciotto diciannove".split(" ");
-const NUMBERS_IT_TENS = " zero dieci venti trenta quaranta cinquanta sessanta settanta ottanta novanta".split(" ");
+const NUMBERS_IT_TENS = "zero dieci venti trenta quaranta cinquanta sessanta settanta ottanta novanta".split(" ");
 function numberToWordsItalian(n) {
   const num = Math.floor(Number(n));
   if (!Number.isFinite(num) || num < 0 || num > 999999) return String(n);
