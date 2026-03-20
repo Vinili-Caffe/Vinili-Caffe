@@ -51,7 +51,7 @@ function resolveRestoreCommand(toolsBin) {
 }
 
 function runRestoreWithDocker(localUri, dbName, collections, dumpRoot) {
-  const args = ["run", "--rm", "-v", `${dumpRoot}:/dump`, "mongo:7", "mongorestore", "--uri", localUri, "--drop", "/dump"];
+  const args = ["run", "--rm", "-v", `${dumpRoot}:/dump`, "mongo:7", "mongorestore", "--uri", localUri, "--drop", "--dir", "/dump"];
   for (const c of collections) {
     args.push("--nsInclude", `${dbName}.${c}`);
   }
@@ -85,7 +85,7 @@ function main() {
         .filter(Boolean)
     : DEFAULT_COLLECTIONS;
 
-  const args = ["--uri", localUri, "--drop", dumpRoot];
+  const args = ["--uri", localUri, "--drop", "--dir", dumpRoot];
   for (const c of collections) {
     args.push("--nsInclude", `${dbName}.${c}`);
   }
