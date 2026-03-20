@@ -67,21 +67,12 @@ levelHistoryUserSchema.index({ guildId: 1, "entries.createdAt": -1 });
 
 const globalSettingsSchema=new Schema({guildId:{type:String,required:true,unique:true,index:true},expMultiplier:{type:Number,default:2},expEventMultiplier:{type:Number,default:1},expEventMultiplierExpiresAt:{type:Date,default:null},expEventRoleOverrides:{type:Schema.Types.Mixed,default:null},expEventExtraMultiplierRoleIds:{type:[String],default:[]},expEventStartedAt:{type:Date,default:null},expEventEndAnnouncementSentForExpiresAt:{type:Date,default:null},staffEventExpiresAt:{type:Date,default:null},staffEventStartedAt:{type:Date,default:null},expLockedChannelIds:{type:[String],default:[]},expIgnoredRoleIds:{type:[String],default:[]},},{timestamps:true},);
 
-const verificationTenureSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},verifiedAt:{type:Date,required:true},stage:{type:Number,default:1},});
-verificationTenureSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
 const skullboardPostSchema=new Schema({guildId:{type:String,required:true},messageId:{type:String,required:true,index:true},postMessageId:{type:String,default:null},});
 skullboardPostSchema.index({ guildId: 1, messageId: 1 }, { unique: true });
-
-const reviewRewardSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardedBy:{type:String,default:null},rewardedAt:{type:Date,default:Date.now},},{timestamps:true},);
-reviewRewardSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
 const personalityPanelSchema=new Schema({guildId:{type:String,required:true},channelId:{type:String,required:true},personalityMessageId:{type:String,default:null},mentionsMessageId:{type:String,default:null},colorsMessageId:{type:String,default:null},plusColorsMessageId:{type:String,default:null},infoMessageId1:{type:String,default:null},infoMessageId2:{type:String,default:null},verifyInfoMessageId:{type:String,default:null},verifyPanelMessageId:{type:String,default:null},ticketInfoMessageId:{type:String,default:null},ticketPanelMessageId:{type:String,default:null},sponsorTicketPanelMessageId:{type:String,default:null},});
 personalityPanelSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
 
-const inviteTrackSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},inviterId:{type:String,required:true,index:true},active:{type:Boolean,default:true,index:true},joinedAt:{type:Date,default:Date.now},leftAt:{type:Date,default:null},},{timestamps:true},);
-inviteTrackSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-inviteTrackSchema.index({ guildId: 1, inviterId: 1 });
 
 const inviteReminderStateSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},inviteNearTargets:{type:[Number],default:[]},},{timestamps:true},);
 inviteReminderStateSchema.index({ guildId: 1, userId: 1 }, { unique: true });
@@ -282,35 +273,34 @@ eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
 eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
 
-const customRoleSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true},roleId:{type:String,required:true},customVocEmoji:{type:String,default:null},customVocChannelId:{type:String,default:null,index:true},customVocEligibilityLostAt:{type:Date,default:null,index:true},customRoleEligibilityLostAt:{type:Date,default:null,index:true},expiresAt:{type:Date,default:null},},{timestamps:true},);
-customRoleSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-customRoleSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
-const avatarPrivacySchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},blocked:{type:Boolean,default:false},views:{type:Number,default:0},},{timestamps:true},);
-avatarPrivacySchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-const bannerPrivacySchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},blocked:{type:Boolean,default:false},views:{type:Number,default:0},},{timestamps:true},);
-bannerPrivacySchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-const quotePrivacySchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},blocked:{type:Boolean,default:false},},{timestamps:true},);
-quotePrivacySchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
 const channelSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},channelId:{type:String,required:true,index:true},name:{type:String,default:""},type:{type:Number,default:null},parentId:{type:String,default:null},deletedAt:{type:Date,default:null,index:true},},{timestamps:true},);
 channelSnapshotSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
 
-const ActivityUser=models.ActivityUser||model("ActivityUser",activityUserSchema);
-const ExpUser = models.ExpUser || model("ExpUser", expUserSchema);
-const ActivityDaily=models.ActivityDaily||model("ActivityDaily",activityDailySchema);
-const ActivityDailyCompact = models.ActivityDailyCompact || model("ActivityDailyCompact", activityDailyCompactSchema, "activitydailycompact");
-const ActivityHourly=models.ActivityHourly||model("ActivityHourly",activityHourlySchema);
-const ActivityHourlyCompact = models.ActivityHourlyCompact || model("ActivityHourlyCompact", activityHourlyCompactSchema, "activityhourlycompact");
-const LevelHistoryUser = models.LevelHistoryUser || model("LevelHistoryUser", levelHistoryUserSchema, "levelhistoryusers");
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
-const LegacyVerificationTenure=models.VerificationTenure||model("VerificationTenure",verificationTenureSchema);
+const LegacyVerificationTenure = null;
 const SkullboardPost=models.SkullboardPost||model("SkullboardPost",skullboardPostSchema);
-const ReviewReward=models.ReviewReward||model("ReviewReward",reviewRewardSchema);
+const ReviewReward = {
+  async findOne(filter) {
+    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId reviewReward").lean().catch(() => null);
+    if (!doc?.reviewReward?.rewardedAt) return null;
+    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.reviewReward.rewardedBy || null, rewardedAt: doc.reviewReward.rewardedAt || null };
+  },
+  async create(payload = {}) {
+    return ActivityUserProfile.findOneAndUpdate(
+      { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
+      {
+        $setOnInsert: { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
+        $set: {
+          "reviewReward.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
+          "reviewReward.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).catch(() => null);
+  },
+};
 const PersonalityPanel=models.PersonalityPanel||model("PersonalityPanel",personalityPanelSchema);
-const LegacyInviteTrack=models.InviteTrack||model("InviteTrack",inviteTrackSchema);
+const LegacyInviteTrack = null;
 const InviteReminderState=models.InviteReminderState||model("InviteReminderState",inviteReminderStateSchema);
 function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null }) {
   return {
@@ -417,7 +407,71 @@ const InviteTrack = {
     return ActivityUserProfile.updateOne(filter, { $set: { "profile.inviteTrack.active": false, "profile.inviteTrack.leftAt": new Date() } }).catch(() => ({ modifiedCount: 0 }));
   },
 };
-const CustomRole = models.CustomRole || model("CustomRole", customRoleSchema);
+const CustomRole = {
+  async findOne(filter) {
+    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.customRole").lean().catch(() => null);
+    const s = doc?.profile?.customRole;
+    if (!s?.roleId && !s?.customVocChannelId && !s?.expiresAt) return null;
+    return { guildId: doc.guildId, userId: doc.userId, ...s };
+  },
+  async find(filter = {}) {
+    const docs = await ActivityUserProfile.find(filter).select("guildId userId profile.customRole").lean().catch(() => []);
+    return docs
+      .map((doc) => ({ guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
+      .filter((x) => x.roleId || x.customVocChannelId || x.expiresAt);
+  },
+  async findOneAndUpdate(filter, update = {}, options = {}) {
+    const setPayload = update?.$set || {};
+    const setOnInsert = update?.$setOnInsert || {};
+    const doc = await ActivityUserProfile.findOneAndUpdate(
+      filter,
+      {
+        $setOnInsert: { guildId: String(filter?.guildId || setOnInsert?.guildId || ""), userId: String(filter?.userId || setOnInsert?.userId || "") },
+        $set: {
+          ...(setPayload?.roleId !== undefined ? { "profile.customRole.roleId": setPayload.roleId } : {}),
+          ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
+          ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
+          ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
+          ...(setPayload?.customRoleEligibilityLostAt !== undefined ? { "profile.customRole.customRoleEligibilityLostAt": setPayload.customRoleEligibilityLostAt } : {}),
+          ...(setPayload?.expiresAt !== undefined ? { "profile.customRole.expiresAt": setPayload.expiresAt } : {}),
+        },
+      },
+      { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
+    ).lean().catch(() => null);
+    if (!doc) return null;
+    return { guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) };
+  },
+  async updateOne(filter, update = {}, options = {}) {
+    const setPayload = update?.$set || {};
+    return ActivityUserProfile.updateOne(
+      filter,
+      {
+        $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || "") },
+        $set: {
+          ...(setPayload?.roleId !== undefined ? { "profile.customRole.roleId": setPayload.roleId } : {}),
+          ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
+          ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
+          ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
+          ...(setPayload?.customRoleEligibilityLostAt !== undefined ? { "profile.customRole.customRoleEligibilityLostAt": setPayload.customRoleEligibilityLostAt } : {}),
+          ...(setPayload?.expiresAt !== undefined ? { "profile.customRole.expiresAt": setPayload.expiresAt } : {}),
+        },
+      },
+      { upsert: Boolean(options?.upsert) },
+    ).catch(() => ({ modifiedCount: 0 }));
+  },
+  async deleteOne(filter) {
+    return ActivityUserProfile.updateOne(filter, {
+      $set: {
+        "profile.customRole.roleId": null,
+        "profile.customRole.customVocEmoji": null,
+        "profile.customRole.customVocChannelId": null,
+        "profile.customRole.customVocEligibilityLostAt": null,
+        "profile.customRole.customRoleEligibilityLostAt": null,
+        "profile.customRole.expiresAt": null,
+      },
+    }).catch(() => ({ modifiedCount: 0 }));
+  },
+};
 const AvatarPrivacy = buildProfileSubdocModel({
   selectPath: "guildId userId profile.privacy.avatar",
   mapDoc: (doc, filter) => ({ guildId: String(doc?.guildId || filter?.guildId || ""), userId: String(doc?.userId || filter?.userId || ""), blocked: Boolean(doc?.profile?.privacy?.avatar?.blocked), views: Number(doc?.profile?.privacy?.avatar?.views || 0) }),
@@ -445,18 +499,8 @@ const QuotePrivacy = buildProfileSubdocModel({
   clearSet: { "profile.privacy.quote.blocked": false },
 });
 const ChannelSnapshot=models.ChannelSnapshot||model("ChannelSnapshot",channelSnapshotSchema);
-const ActivityEventReward=models.ActivityEventReward||model("ActivityEventReward",activityEventRewardSchema);
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
-const EventUserExpSnapshot=models.EventUserExpSnapshot||model("EventUserExpSnapshot",eventUserExpSnapshotSchema);
-const EventWeekWinner=models.EventWeekWinner||model("EventWeekWinner",eventWeekWinnerSchema);
 module.exports = {
-  ActivityUser,
-  ExpUser,
-  ActivityDaily,
-  ActivityDailyCompact,
-  ActivityHourly,
-  ActivityHourlyCompact,
-  LevelHistoryUser,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
   VerificationTenure,
@@ -465,10 +509,7 @@ module.exports = {
   PersonalityPanel,
   InviteTrack,
   InviteReminderState,
-  ActivityEventReward,
   ActivityUserProfile,
-  EventUserExpSnapshot,
-  EventWeekWinner,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,
