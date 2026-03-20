@@ -85,7 +85,13 @@ function main() {
         .filter(Boolean)
     : DEFAULT_COLLECTIONS;
 
+  const dumpDirCandidate = path.join(dumpRoot, dbName);
+  const effectiveDumpDir = fs.existsSync(dumpDirCandidate)
+    ? dumpDirCandidate
+    : dumpRoot;
+
   const args = ["--uri", localUri, "--drop", "--dir", dumpRoot];
+  args[args.indexOf(dumpRoot)] = effectiveDumpDir;
   for (const c of collections) {
     args.push("--nsInclude", `${dbName}.${c}`);
   }
@@ -93,6 +99,7 @@ function main() {
   console.log("[import-local] restore mode:", restore.mode);
   console.log("[import-local] restore command:", restore.command);
   console.log("[import-local] dump root:", dumpRoot);
+  console.log("[import-local] dump dir:", effectiveDumpDir);
   console.log("[import-local] db:", dbName);
   console.log("[import-local] collections:", collections.join(", "));
 
