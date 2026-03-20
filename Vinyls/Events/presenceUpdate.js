@@ -1,7 +1,7 @@
 const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const mongoose = require("mongoose");
-const SupporterStatus = require("../Schemas/Supporter/supporterStatusSchema");
+const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -309,9 +309,16 @@ function scheduleRemovalConfirm(member, channel) {
 async function persistStatus(guildId, userId, payload) {
   if (!isDbReady()) return;
   try {
-    await SupporterStatus.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId, userId },
-      { $set: payload, $setOnInsert: { guildId, userId } },
+      {
+        $setOnInsert: { guildId, userId },
+        $set: {
+          "supporterStatus.hasLink": Boolean(payload?.hasLink),
+          "supporterStatus.lastMessageId": payload?.lastMessageId || null,
+          ...(payload?.lastSentAt ? { "supporterStatus.lastSentAt": payload.lastSentAt } : {}),
+        },
+      },
       { upsert: true },
     );
   } catch (error) {
@@ -327,7 +334,10 @@ async function persistStatus(guildId, userId, payload) {
 async function clearPersistedStatus(guildId, userId) {
   if (!isDbReady()) return;
   try {
-    await SupporterStatus.deleteOne({ guildId, userId });
+    await ActivityUserProfile.updateOne(
+      { guildId, userId },
+      { $set: { "supporterStatus.hasLink": false, "supporterStatus.lastMessageId": null, "supporterStatus.lastSentAt": null } },
+    );
   } catch (error) {
     const isMongoNetwork = error?.name === "MongoNetworkTimeoutError" || error?.name === "MongoServerSelectionError";
     if (isMongoNetwork) {
@@ -341,7 +351,15 @@ async function clearPersistedStatus(guildId, userId) {
 async function getPersistedStatus(guildId, userId) {
   if (!isDbReady() || !guildId || !userId) return null;
   try {
-    return await SupporterStatus.findOne({ guildId, userId }).lean();
+    const doc = await ActivityUserProfile.findOne({ guildId, userId })
+      .select("supporterStatus")
+      .lean();
+    if (!doc?.supporterStatus) return null;
+    return {
+      hasLink: Boolean(doc.supporterStatus.hasLink),
+      lastMessageId: doc.supporterStatus.lastMessageId || null,
+      lastSentAt: doc.supporterStatus.lastSentAt || null,
+    };
   } catch {
     return null;
   }
@@ -430,7 +448,15 @@ async function bootstrapSupporter(client) {
     let persisted = [];
     if (isDbReady()) {
       try {
-        persisted = await SupporterStatus.find({ guildId }).lean();
+        persisted = await ActivityUserProfile.find({
+          guildId,
+          $or: [
+            { "supporterStatus.hasLink": true },
+            { "supporterStatus.lastMessageId": { $ne: null } },
+          ],
+        })
+          .select("userId supporterStatus")
+          .lean();
       } catch {
         persisted = [];
       }
@@ -441,9 +467,9 @@ async function bootstrapSupporter(client) {
       const userId = String(doc.userId);
       bootstrappedUsers.add(getBootstrapKey(guildId, userId));
       setCachedState(guildId, userId, {
-        hasLink: Boolean(doc.hasLink),
-        lastAnnounced: doc.lastSentAt ? new Date(doc.lastSentAt).getTime() : 0,
-        lastMessageId: doc.lastMessageId || null,
+        hasLink: Boolean(doc?.supporterStatus?.hasLink),
+        lastAnnounced: doc?.supporterStatus?.lastSentAt ? new Date(doc.supporterStatus.lastSentAt).getTime() : 0,
+        lastMessageId: doc?.supporterStatus?.lastMessageId || null,
         lastSeenOnlineAt: 0,
       });
     }

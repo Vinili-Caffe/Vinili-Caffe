@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { MinigameUser } = require("../../Schemas/Minigames/minigameSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 
 const MSTATS_CACHE_TTL_MS = 45 * 1000;
@@ -39,18 +39,20 @@ module.exports = {
     const now = Date.now();
     const cached = mstatsCache.get(cacheKey);
     if (cached && now < (cached.expiresAt || 0)) {
-      totalExp = Number(cached.doc?.totalExp || 0);
-      currentStreak = Number(cached.doc?.currentStreak ?? 0);
-      bestStreak = Number(cached.doc?.bestStreak ?? 0);
+      totalExp = Number(cached.doc?.minigame?.totalExp || 0);
+      currentStreak = Number(cached.doc?.minigame?.currentStreak ?? 0);
+      bestStreak = Number(cached.doc?.minigame?.bestStreak ?? 0);
     } else {
       try {
-        const doc = await MinigameUser.findOne({ guildId: message.guild.id, userId: targetUser.id }).lean();
-        totalExp = Number(doc?.totalExp || 0);
-        currentStreak = Number(doc?.currentStreak ?? 0);
-        bestStreak = Number(doc?.bestStreak ?? 0);
+        const doc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
+          .select("minigame")
+          .lean();
+        totalExp = Number(doc?.minigame?.totalExp || 0);
+        currentStreak = Number(doc?.minigame?.currentStreak ?? 0);
+        bestStreak = Number(doc?.minigame?.bestStreak ?? 0);
         mstatsCache.set(cacheKey, { doc: doc || {}, expiresAt: now + MSTATS_CACHE_TTL_MS });
       } catch (err) {
-        global.logger?.warn?.("[mstats] MinigameUser find:", err?.message || err);
+        global.logger?.warn?.("[mstats] ActivityUserProfile find:", err?.message || err);
       }
     }
 

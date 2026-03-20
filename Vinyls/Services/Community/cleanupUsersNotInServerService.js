@@ -10,13 +10,11 @@ const {
 } = require("../../Schemas/Community/communitySchemas");
 const BirthdayProfile = require("../../Schemas/Community/birthdayProfileSchema");
 const NoDmPreference = require("../../Schemas/Community/noDmPreferenceSchema");
-const { MinigameUser } = require("../../Schemas/Minigames/minigameSchema");
 const AFK = require("../../Schemas/Afk/afkSchema");
 const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
 const { RolePersistUser } = require("../../Schemas/Moderation/rolePersistSchema");
 const TemporaryRoleGrant = require("../../Schemas/Moderation/temporaryRoleGrantSchema");
 const TemporaryCommandPermission = require("../../Schemas/Moderation/temporaryCommandPermissionSchema");
-const SupporterStatus = require("../../Schemas/Supporter/supporterStatusSchema");
 const VoiceDisconnectCounter = require("../../Schemas/Voice/voiceDisconnectCounterSchema");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
@@ -26,13 +24,11 @@ const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 
 const guildScoped = [
   [ActivityUserProfile, "ActivityUserProfile"],
-  [MinigameUser, "MinigameUser"],
   [AFK, "AFK"],
   [MentionReaction, "MentionReaction"],
   [RolePersistUser, "RolePersistUser"],
   [TemporaryRoleGrant, "TemporaryRoleGrant"],
   [TemporaryCommandPermission, "TemporaryCommandPermission"],
-  [SupporterStatus, "SupporterStatus"],
   [VoiceDisconnectCounter, "VoiceDisconnectCounter"],
   [Staff, "Staff"],
   [SuspiciousAccount, "SuspiciousAccount"],

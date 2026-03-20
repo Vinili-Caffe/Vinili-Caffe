@@ -182,6 +182,20 @@ const activityUserProfileSchema = new Schema(
       },
     },
     bumpVoteRewards: { type: Schema.Types.Mixed, default: {} },
+    minigame: {
+      totalExp: { type: Number, default: 0 },
+      currentStreak: { type: Number, default: 0 },
+      bestStreak: { type: Number, default: 0 },
+    },
+    supporterStatus: {
+      lastMessageId: { type: String, default: null },
+      lastSentAt: { type: Date, default: null },
+      hasLink: { type: Boolean, default: false },
+    },
+    reviewReward: {
+      rewardedBy: { type: String, default: null },
+      rewardedAt: { type: Date, default: null },
+    },
     levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
   },
   { timestamps: true },

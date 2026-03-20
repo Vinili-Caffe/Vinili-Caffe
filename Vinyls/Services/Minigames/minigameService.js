@@ -70,7 +70,8 @@ const canvasModule = require("canvas");
 const { createCanvas, loadImage } = canvasModule;
 const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Utils/Render/canvasFonts");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder, } = require("discord.js");
-const { MinigameUser, MinigameState, MinigameRotation, } = require("../../Schemas/Minigames/minigameSchema");
+const { MinigameState, MinigameRotation, } = require("../../Schemas/Minigames/minigameSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
@@ -5963,27 +5964,34 @@ async function awardWinAndReply(message, rewardExp, game = null) {
   const streakCfg = cfg?.streak ?? {};
   const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;
   const maxBonusPercent = Number(streakCfg.maxBonusPercent ?? 50) || 0;
-  let doc = await MinigameUser.findOne({ guildId: message.guild.id, userId: message.author.id }).lean().catch(() => null);
-  const prevStreak = Number(doc?.currentStreak ?? 0);
-  const prevBest = Number(doc?.bestStreak ?? 0);
+  let doc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: message.author.id })
+    .select("minigame")
+    .lean()
+    .catch(() => null);
+  const prevStreak = Number(doc?.minigame?.currentStreak ?? 0);
+  const prevBest = Number(doc?.minigame?.bestStreak ?? 0);
   const newStreak = prevStreak + 1;
   const bestStreak = Math.max(prevBest, newStreak);
   const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;
   const streakBonus = Math.round(baseExp * streakBonusPercent / 100);
   const effectiveExp = baseExp + fastBonus + streakBonus;
   try {
-    doc = await MinigameUser.findOneAndUpdate(
+    doc = await ActivityUserProfile.findOneAndUpdate(
       { guildId: message.guild.id, userId: message.author.id },
-      { $inc: { totalExp: effectiveExp }, $set: { currentStreak: newStreak, bestStreak } },
+      {
+        $setOnInsert: { guildId: message.guild.id, userId: message.author.id },
+        $inc: { "minigame.totalExp": effectiveExp },
+        $set: { "minigame.currentStreak": newStreak, "minigame.bestStreak": bestStreak },
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
     warnMinigame(err);
   }
-  const nextTotal = Number(doc?.totalExp ?? 0);
-  MinigameUser.updateMany(
+  const nextTotal = Number(doc?.minigame?.totalExp ?? 0);
+  ActivityUserProfile.updateMany(
     { guildId: message.guild.id, userId: { $ne: message.author.id } },
-    { $set: { currentStreak: 0 } },
+    { $set: { "minigame.currentStreak": 0 } },
   ).catch((err) => warnMinigame(err));
   const member = message.member || (await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000 }));
   const ignoreExp = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
@@ -6822,27 +6830,34 @@ ${game.previewUrl}`,
   const streakCfg = cfg?.streak ?? {};
   const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;
   const maxBonusPercent = Number(streakCfg.maxBonusPercent ?? 50) || 0;
-  let doc = await MinigameUser.findOne({ guildId: interaction.guild.id, userId: interaction.user.id }).lean().catch(() => null);
-  const prevStreak = Number(doc?.currentStreak ?? 0);
-  const prevBest = Number(doc?.bestStreak ?? 0);
+  let doc = await ActivityUserProfile.findOne({ guildId: interaction.guild.id, userId: interaction.user.id })
+    .select("minigame")
+    .lean()
+    .catch(() => null);
+  const prevStreak = Number(doc?.minigame?.currentStreak ?? 0);
+  const prevBest = Number(doc?.minigame?.bestStreak ?? 0);
   const newStreak = prevStreak + 1;
   const bestStreak = Math.max(prevBest, newStreak);
   const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;
   const streakBonus = Math.round(baseExp * streakBonusPercent / 100);
   const effectiveExp = baseExp + fastBonus + streakBonus;
   try {
-    doc = await MinigameUser.findOneAndUpdate(
+    doc = await ActivityUserProfile.findOneAndUpdate(
       { guildId: interaction.guild.id, userId: interaction.user.id },
-      { $inc: { totalExp: effectiveExp }, $set: { currentStreak: newStreak, bestStreak } },
+      {
+        $setOnInsert: { guildId: interaction.guild.id, userId: interaction.user.id },
+        $inc: { "minigame.totalExp": effectiveExp },
+        $set: { "minigame.currentStreak": newStreak, "minigame.bestStreak": bestStreak },
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
     warnMinigame(err);
   }
-  const nextTotal = Number(doc?.totalExp ?? 0);
-  MinigameUser.updateMany(
+  const nextTotal = Number(doc?.minigame?.totalExp ?? 0);
+  ActivityUserProfile.updateMany(
     { guildId: interaction.guild.id, userId: { $ne: interaction.user.id } },
-    { $set: { currentStreak: 0 } },
+    { $set: { "minigame.currentStreak": 0 } },
   ).catch((err) => warnMinigame(err));
   const member =
     interaction.member ||

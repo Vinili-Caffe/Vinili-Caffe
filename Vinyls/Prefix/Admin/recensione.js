@@ -2,7 +2,6 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { ReviewReward } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, addExpWithLevel, } = require("../../Services/Community/expService");
 const{getGuildChannelCached,getUserCached,}=require("../../Utils/Interaction/interactionEntityCache");
 
@@ -71,7 +70,10 @@ module.exports = {
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    const alreadyRewarded=await ReviewReward.findOne({guildId,userId:target.id,}).lean().catch(() => null);
+    const alreadyRewarded=await ActivityUserProfile.findOne({ guildId, userId: target.id, "reviewReward.rewardedAt": { $ne: null } })
+      .select("_id")
+      .lean()
+      .catch(() => null);
     if (alreadyRewarded) {
       const blocked = new EmbedBuilder()
         .setColor("Red")
@@ -105,12 +107,17 @@ module.exports = {
 
     const levelResult=await addExpWithLevel(message.guild,target.id,addedExp,false,false,);
     const finalLevel=Number(levelResult?.levelInfo?.level??getLevelInfo(finalExp).level,);
-    await ReviewReward.create({
-      guildId,
-      userId: target.id,
-      rewardedBy: message.author.id,
-      rewardedAt: new Date(),
-    }).catch(() => {});
+    await ActivityUserProfile.updateOne(
+      { guildId, userId: target.id },
+      {
+        $setOnInsert: { guildId, userId: target.id },
+        $set: {
+          "reviewReward.rewardedBy": message.author.id,
+          "reviewReward.rewardedAt": new Date(),
+        },
+      },
+      { upsert: true },
+    ).catch(() => {});
 
     const reviewChannel=message.guild.channels.cache.get(REVIEW_CHANNEL_ID)||(await getGuildChannelCached(message.guild,REVIEW_CHANNEL_ID));
     if (reviewChannel) {

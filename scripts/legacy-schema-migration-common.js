@@ -17,6 +17,9 @@ const LEGACY = {
   discadiaBumps: "discadiabumps",
   disboardBumps: "disboardbumps",
   bumpVoteRewards: "bumpvoterewards",
+  minigameUsers: "minigameusers",
+  supporterStatuses: "supporterstatuses",
+  reviewRewards: "reviewrewards",
 };
 
 const TARGET = {
@@ -212,6 +215,68 @@ async function migrateAll(db, apply) {
     const res = await profiles.bulkWrite(ops, { ordered: false });
     report.bumpVoteRewards.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
   }
+
+  const minigameDocs = await db.collection(LEGACY.minigameUsers).find({}, { projection: { guildId: 1, userId: 1, totalExp: 1, currentStreak: 1, bestStreak: 1 } }).toArray();
+  report.minigameUsers = { found: minigameDocs.length, migrated: 0 };
+  if (apply && minigameDocs.length) {
+    const ops = minigameDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "minigame.totalExp": Math.max(0, Number(d.totalExp || 0)),
+            "minigame.currentStreak": Math.max(0, Number(d.currentStreak || 0)),
+            "minigame.bestStreak": Math.max(0, Number(d.bestStreak || 0)),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.minigameUsers.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+
+  const supporterDocs = await db.collection(LEGACY.supporterStatuses).find({}, { projection: { guildId: 1, userId: 1, lastMessageId: 1, lastSentAt: 1, hasLink: 1 } }).toArray();
+  report.supporterStatuses = { found: supporterDocs.length, migrated: 0 };
+  if (apply && supporterDocs.length) {
+    const ops = supporterDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "supporterStatus.lastMessageId": d.lastMessageId ? String(d.lastMessageId) : null,
+            "supporterStatus.lastSentAt": toDate(d.lastSentAt),
+            "supporterStatus.hasLink": Boolean(d.hasLink),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.supporterStatuses.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
+
+  const reviewDocs = await db.collection(LEGACY.reviewRewards).find({}, { projection: { guildId: 1, userId: 1, rewardedBy: 1, rewardedAt: 1 } }).toArray();
+  report.reviewRewards = { found: reviewDocs.length, migrated: 0 };
+  if (apply && reviewDocs.length) {
+    const ops = reviewDocs.map((d) => ({
+      updateOne: {
+        filter: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+        update: {
+          $setOnInsert: { guildId: String(d.guildId || ""), userId: String(d.userId || "") },
+          $set: {
+            "reviewReward.rewardedBy": d.rewardedBy ? String(d.rewardedBy) : null,
+            "reviewReward.rewardedAt": toDate(d.rewardedAt),
+          },
+        },
+        upsert: true,
+      },
+    }));
+    const res = await profiles.bulkWrite(ops, { ordered: false });
+    report.reviewRewards.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+  }
   return report;
 }
 
@@ -290,6 +355,33 @@ async function verifyAll(db) {
     if (Number(s.currentStreak || 0) !== Number(d.currentStreak || 0) || Number(s.bestStreak || 0) !== Number(d.bestStreak || 0) || Number(s.totalExpAwarded || 0) !== Number(d.totalExpAwarded || 0)) mismatches += 1;
   }
   out.bumpVoteRewards = { total: rewardDocs.length, mismatches };
+
+  mismatches = 0;
+  const minigameDocs = await db.collection(LEGACY.minigameUsers).find({}).toArray();
+  for (const d of minigameDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { minigame: 1 } });
+    const s = t?.minigame || {};
+    if (Number(s.totalExp || 0) !== Number(d.totalExp || 0) || Number(s.currentStreak || 0) !== Number(d.currentStreak || 0) || Number(s.bestStreak || 0) !== Number(d.bestStreak || 0)) mismatches += 1;
+  }
+  out.minigameUsers = { total: minigameDocs.length, mismatches };
+
+  mismatches = 0;
+  const supporterDocs = await db.collection(LEGACY.supporterStatuses).find({}).toArray();
+  for (const d of supporterDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { supporterStatus: 1 } });
+    const s = t?.supporterStatus || {};
+    if (Boolean(s.hasLink) !== Boolean(d.hasLink) || String(s.lastMessageId || "") !== String(d.lastMessageId || "") || !sameDate(s.lastSentAt, d.lastSentAt)) mismatches += 1;
+  }
+  out.supporterStatuses = { total: supporterDocs.length, mismatches };
+
+  mismatches = 0;
+  const reviewDocs = await db.collection(LEGACY.reviewRewards).find({}).toArray();
+  for (const d of reviewDocs) {
+    const t = await profiles.findOne({ guildId: String(d.guildId || ""), userId: String(d.userId || "") }, { projection: { reviewReward: 1 } });
+    const s = t?.reviewReward || {};
+    if (String(s.rewardedBy || "") !== String(d.rewardedBy || "") || !sameDate(s.rewardedAt, d.rewardedAt)) mismatches += 1;
+  }
+  out.reviewRewards = { total: reviewDocs.length, mismatches };
 
   out.totalMismatches = Object.values(out).reduce((acc, row) => acc + Number(row?.mismatches || 0), 0);
   return out;

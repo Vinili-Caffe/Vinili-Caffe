@@ -227,10 +227,17 @@ function createBumpReminderService(options) {
   }
 
   async function restorePendingReminders(client) {
-    const docs = await model.find(
+    const baseFind = model.find(
       { reminderSentAt: null, lastBumpAt: { $exists: true } },
       { guildId: 1, lastBumpAt: 1 },
-    ).limit(500).lean();
+    );
+    let docs = [];
+    if (baseFind && typeof baseFind.limit === "function" && typeof baseFind.lean === "function") {
+      docs = await baseFind.limit(500).lean();
+    } else {
+      const resolved = await baseFind;
+      docs = Array.isArray(resolved) ? resolved.slice(0, 500) : [];
+    }
     if (docs.length > 0 && !suppressInfoLogs) {
       global.logger?.info?.(
         `${logTag} restoring ${docs.length} pending reminder(s)`,
