@@ -42,6 +42,24 @@ function isTicketNumberDuplicate(err) {
   return msg.includes("ticketNumber");
 }
 
+async function reseedCounterFromTickets(TicketModel) {
+  const db = mongoose.connection?.db;
+  if (!db) throw new Error("MongoDB connection not ready for ticket counter reseed");
+  const top = await TicketModel.findOne({ ticketNumber: { $type: "number" } })
+    .sort({ ticketNumber: -1 })
+    .select({ ticketNumber: 1 })
+    .lean()
+    .catch(() => null);
+  const maxTicketNumber = Number(top?.ticketNumber || 0);
+  const baseline = Number.isFinite(maxTicketNumber) && maxTicketNumber > 0 ? maxTicketNumber : 0;
+  await db.collection(COUNTER_COLLECTION).updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    { $set: { _counterValue: baseline } },
+    { upsert: true },
+  );
+  return baseline;
+}
+
 function isCounterUnavailableError(err) {
   const msg = String(err?.message || "").toLowerCase();
   return (
@@ -51,8 +69,9 @@ function isCounterUnavailableError(err) {
   );
 }
 
-async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries = 5) {
+async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries = 12) {
   let lastError = null;
+  let reseedAttempted = false;
   for (let i = 0; i < maxRetries; i += 1) {
     try {
       const ticketNumber = await getNextTicketId();
@@ -61,6 +80,15 @@ async function createTicketDocWithGlobalId(TicketModel, payload = {}, maxRetries
     } catch (err) {
       lastError = err;
       if (!isTicketNumberDuplicate(err)) throw err;
+      if (!reseedAttempted) {
+        reseedAttempted = true;
+        const reseededTo = await reseedCounterFromTickets(TicketModel).catch(
+          () => null,
+        );
+        global.logger?.warn?.(
+          `[ticket-open-debug] ticket counter reseeded after duplicate ticketNumber to=${reseededTo}`,
+        );
+      }
     }
   }
   if (isCounterUnavailableError(lastError)) {
