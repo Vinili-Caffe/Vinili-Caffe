@@ -73,12 +73,25 @@ function getHourKey(date) {
 }
 
 function logActivityBumpError(label, err) {
-  global.logger?.warn?.(`[ACTIVITY] ${label}:`, err?.message || err);
+  const msg = err instanceof Error ? err.stack || err.message : String(err);
+  const line = `[ACTIVITY] ${label}: ${msg}`;
+  try {
+    console.error(line);
+  } catch {
+    /* ignore */
+  }
+  try {
+    global.logger?.warn?.(`[ACTIVITY] ${label}:`, err?.message || err);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Update su `activityuserprofiles` via driver Mongo (no casting Mongoose su Mixed + path dinamici). */
 function profileActivityCollection() {
-  return ActivityUserProfile.collection;
+  const db = mongoose.connection?.db;
+  if (!db) return null;
+  return db.collection("activityuserprofiles");
 }
 
 function getLastNDaysKeys(days) {
@@ -287,7 +300,12 @@ async function ensureHourlyBackfillForGuild(guildId) {
 
 async function bumpDailyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
-  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) {
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      console.error("[ACTIVITY] bumpDailyText skip", { guildId, userId, channelId, typeofChannelId: typeof channelId });
+    }
+    return;
+  }
   const dateKey = getDayKey(new Date());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
     logActivityBumpError("bumpDailyText invalid dateKey", new Error(String(dateKey)));
@@ -296,8 +314,13 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
   const gid = String(guildId);
   const uid = String(userId);
   const cid = String(channelId);
+  const col = profileActivityCollection();
+  if (!col) {
+    logActivityBumpError("bumpDailyText", new Error("mongoose.connection.db non disponibile"));
+    return;
+  }
   try {
-    await profileActivityCollection().updateOne(
+    const res = await col.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -308,6 +331,9 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
       },
       { upsert: true },
     );
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      console.error("[ACTIVITY] bumpDailyText ok", { dateKey, matched: res.matchedCount, modified: res.modifiedCount, upserted: res.upsertedCount });
+    }
   } catch (err) {
     logActivityBumpError("bumpDailyText", err);
   }
@@ -315,7 +341,12 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
 
 async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
   const inc = Math.max(0, Number(amount || 0));
-  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) {
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      console.error("[ACTIVITY] bumpHourlyText skip", { guildId, userId, channelId, typeofChannelId: typeof channelId });
+    }
+    return;
+  }
   const hourKey = getHourKey(new Date());
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hourKey)) {
     logActivityBumpError("bumpHourlyText invalid hourKey", new Error(String(hourKey)));
@@ -324,8 +355,13 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
   const gid = String(guildId);
   const uid = String(userId);
   const cid = String(channelId);
+  const col = profileActivityCollection();
+  if (!col) {
+    logActivityBumpError("bumpHourlyText", new Error("mongoose.connection.db non disponibile"));
+    return;
+  }
   try {
-    await profileActivityCollection().updateOne(
+    const res = await col.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -336,6 +372,9 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
       },
       { upsert: true },
     );
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      console.error("[ACTIVITY] bumpHourlyText ok", { hourKey, matched: res.matchedCount, modified: res.modifiedCount, upserted: res.upsertedCount });
+    }
   } catch (err) {
     logActivityBumpError("bumpHourlyText", err);
   }
@@ -352,8 +391,13 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
   const gid = String(guildId);
   const uid = String(userId);
   const cid = String(channelId);
+  const col = profileActivityCollection();
+  if (!col) {
+    logActivityBumpError("bumpDailyVoice", new Error("mongoose.connection.db non disponibile"));
+    return;
+  }
   try {
-    await profileActivityCollection().updateOne(
+    await col.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -380,8 +424,13 @@ async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
   const gid = String(guildId);
   const uid = String(userId);
   const cid = String(channelId);
+  const col = profileActivityCollection();
+  if (!col) {
+    logActivityBumpError("bumpHourlyVoice", new Error("mongoose.connection.db non disponibile"));
+    return;
+  }
   try {
-    await profileActivityCollection().updateOne(
+    await col.updateOne(
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
@@ -452,12 +501,23 @@ async function getOrCreateActivityUser(guildId, userId) {
 }
 
 async function recordMessageActivity(message) {
-  if (mongoose.connection?.readyState !== 1) return;
+  if (mongoose.connection?.readyState !== 1) {
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      console.error("[ACTIVITY] recordMessageActivity skip: mongoose non connesso", mongoose.connection?.readyState);
+    }
+    return;
+  }
   if (!message?.guild || !message.author || message.author.bot) return;
   if (isExcludedActivityChannel(message.channel)) return;
   const now = new Date();
+  const channelIdResolved = String(message.channelId ?? message.channel?.id ?? "").trim();
   const doc = await getOrCreateActivityUser(message.guild.id, message.author.id);
-  if (!doc) return;
+  if (!doc) {
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      logActivityBumpError("recordMessageActivity getOrCreateActivityUser null", new Error(`guild=${message.guild?.id} user=${message.author?.id}`));
+    }
+    return;
+  }
   if (!doc.totals) doc.totals = {};
   ensureMessageKeys(doc, now);
   doc.totals.messagesTotal = Number(doc.totals.messagesTotal || 0) + 1;
@@ -467,13 +527,13 @@ async function recordMessageActivity(message) {
   await bumpDailyText(
     message.guild.id,
     message.author.id,
-    message.channelId,
+    channelIdResolved,
     1,
   );
   await bumpHourlyText(
     message.guild.id,
     message.author.id,
-    message.channelId,
+    channelIdResolved,
     1,
   );
   const member = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
@@ -533,6 +593,7 @@ async function handleVoiceActivity(oldState, newState) {
 
   if (wasInVoice && !isInVoice) {
     const oldChannel = oldState?.channel || oldState?.guild?.channels?.cache?.get(oldState.channelId);
+    const flushedBefore = Math.max(0, Number(doc.totals?.voiceActivityBucketFlushSeconds || 0));
     let elapsedSeconds = 0;
     if (wasCountable) {
       const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId: oldChannel?.id || null, });
@@ -548,16 +609,20 @@ async function handleVoiceActivity(oldState, newState) {
       doc.totals.sessionChannelId = null;
       doc.totals.expAwardedSeconds = 0;
     }
-    if (oldChannel?.id) {
-      await bumpDailyVoice(guildId, userId, oldChannel.id, elapsedSeconds);
-      await bumpHourlyVoice(guildId, userId, oldChannel.id, elapsedSeconds);
+    const remainingBucket = Math.max(0, elapsedSeconds - flushedBefore);
+    if (oldChannel?.id && remainingBucket > 0) {
+      await bumpDailyVoice(guildId, userId, oldChannel.id, remainingBucket);
+      await bumpHourlyVoice(guildId, userId, oldChannel.id, remainingBucket);
     }
+    if (!doc.totals) doc.totals = {};
+    doc.totals.voiceActivityBucketFlushSeconds = 0;
     await doc.save();
     return;
   }
 
   if (wasInVoice && isInVoice && oldState.channelId !== newState.channelId) {
     const oldChannel = oldState?.channel || oldState?.guild?.channels?.cache?.get(oldState.channelId);
+    const flushedBefore = Math.max(0, Number(doc.totals?.voiceActivityBucketFlushSeconds || 0));
     let elapsedSeconds = 0;
     if (wasCountable) {
       const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId: oldChannel?.id || null, });
@@ -573,9 +638,10 @@ async function handleVoiceActivity(oldState, newState) {
       doc.totals.sessionChannelId = null;
       doc.totals.expAwardedSeconds = 0;
     }
-    if (oldChannel?.id) {
-      await bumpDailyVoice(guildId, userId, oldChannel.id, elapsedSeconds);
-      await bumpHourlyVoice(guildId, userId, oldChannel.id, elapsedSeconds);
+    const remainingMove = Math.max(0, elapsedSeconds - flushedBefore);
+    if (oldChannel?.id && remainingMove > 0) {
+      await bumpDailyVoice(guildId, userId, oldChannel.id, remainingMove);
+      await bumpHourlyVoice(guildId, userId, oldChannel.id, remainingMove);
     }
     if (!doc.totals) doc.totals = {};
     doc.totals.sessionStartedAt = isCountable ? now : null;
@@ -583,6 +649,7 @@ async function handleVoiceActivity(oldState, newState) {
       ? String(newState?.channelId || "")
       : null;
     doc.totals.expAwardedSeconds = 0;
+    doc.totals.voiceActivityBucketFlushSeconds = 0;
     await doc.save();
     return;
   }
@@ -590,12 +657,16 @@ async function handleVoiceActivity(oldState, newState) {
   if (wasInVoice && isInVoice && oldState.channelId === newState.channelId) {
     if (wasCountable && !isCountable) {
       const channel = oldState?.channel || newState?.channel || newState?.guild?.channels?.cache?.get(newState.channelId);
+      const flushedBefore = Math.max(0, Number(doc.totals?.voiceActivityBucketFlushSeconds || 0));
       const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId: channel?.id || null, });
       const elapsedSeconds = await recordVoiceSessionEnd(doc, now, member.guild, ignored,);
-      if (channel?.id) {
-        await bumpDailyVoice(guildId, userId, channel.id, elapsedSeconds);
-        await bumpHourlyVoice(guildId, userId, channel.id, elapsedSeconds);
+      const remainingMute = Math.max(0, elapsedSeconds - flushedBefore);
+      if (channel?.id && remainingMute > 0) {
+        await bumpDailyVoice(guildId, userId, channel.id, remainingMute);
+        await bumpHourlyVoice(guildId, userId, channel.id, remainingMute);
       }
+      if (!doc.totals) doc.totals = {};
+      doc.totals.voiceActivityBucketFlushSeconds = 0;
       await doc.save();
       return;
     }
@@ -605,6 +676,7 @@ async function handleVoiceActivity(oldState, newState) {
       doc.totals.sessionStartedAt = now;
       doc.totals.sessionChannelId = String(newState?.channelId || "");
       doc.totals.expAwardedSeconds = 0;
+      doc.totals.voiceActivityBucketFlushSeconds = 0;
       await doc.save();
       return;
     }
@@ -617,6 +689,7 @@ async function handleVoiceActivity(oldState, newState) {
       ? String(newState?.channelId || "")
       : null;
     doc.totals.expAwardedSeconds = 0;
+    doc.totals.voiceActivityBucketFlushSeconds = 0;
     await doc.save();
     return;
   }
@@ -1304,6 +1377,7 @@ async function syncLiveVoiceSessionsFromGateway(client) {
             "totals.sessionStartedAt": now,
             "totals.sessionChannelId": String(state.channelId || ""),
             "totals.expAwardedSeconds": 0,
+            "totals.voiceActivityBucketFlushSeconds": 0,
           },
           $setOnInsert: { guildId, userId },
         },
@@ -1335,6 +1409,7 @@ async function syncLiveVoiceSessionsFromGateway(client) {
             "totals.sessionStartedAt": null,
             "totals.sessionChannelId": null,
             "totals.expAwardedSeconds": 0,
+            "totals.voiceActivityBucketFlushSeconds": 0,
           },
         },
       ).catch(() => { });
@@ -1342,13 +1417,15 @@ async function syncLiveVoiceSessionsFromGateway(client) {
   }
 }
 
-const LIVE_VOICE_EXP_BATCH_SIZE = Math.max(10, Math.min(100, Number(process.env.LIVE_VOICE_EXP_BATCH_SIZE) || 40));
+const LIVE_VOICE_EXP_BATCH_SIZE = Math.max(10, Math.min(200, Number(process.env.LIVE_VOICE_EXP_BATCH_SIZE) || 80));
+/** Minimo secondi “live” prima di scrivere daily/hourly mentre sei ancora in vocale (default 15). */
+const VOICE_ACTIVITY_BUCKET_FLUSH_SEC = Math.max(5, Math.min(120, Number(process.env.VOICE_ACTIVITY_BUCKET_FLUSH_SEC) || 15));
 
 async function runLiveVoiceExpTick(client) {
   if (!client?.guilds?.cache) return;
   const nowMs = Date.now();
   const rows = await ActivityUserProfile.find({ "totals.sessionStartedAt": { $ne: null } })
-    .select("guildId userId totals.sessionStartedAt totals.sessionChannelId totals.expAwardedSeconds")
+    .select("guildId userId totals.sessionStartedAt totals.sessionChannelId totals.expAwardedSeconds totals.voiceActivityBucketFlushSeconds")
     .sort({ "totals.sessionStartedAt": 1 })
     .limit(LIVE_VOICE_EXP_BATCH_SIZE)
     .lean()
@@ -1368,6 +1445,20 @@ async function runLiveVoiceExpTick(client) {
     if (!member || member.user?.bot) continue;
 
     const elapsedSeconds = Math.max(0, Math.floor((nowMs - new Date(startedAt).getTime()) / 1000),);
+    const flushed = Math.max(0, Math.floor(Number(row?.totals?.voiceActivityBucketFlushSeconds || 0)));
+    const pendingBucket = Math.max(0, elapsedSeconds - flushed);
+    if (pendingBucket >= VOICE_ACTIVITY_BUCKET_FLUSH_SEC && isValidGuildUserIdChannelId(guildId, userId, channelId)) {
+      await bumpDailyVoice(guildId, userId, channelId, pendingBucket);
+      await bumpHourlyVoice(guildId, userId, channelId, pendingBucket);
+      const rowId = row?._id;
+      if (rowId) {
+        await ActivityUserProfile.updateOne(
+          { _id: rowId },
+          { $inc: { "totals.voiceActivityBucketFlushSeconds": pendingBucket } },
+        ).catch(() => { });
+      }
+    }
+
     const alreadyAwardedSeconds = Math.max(0, Number(row?.totals?.expAwardedSeconds || 0),);
     const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
     const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);

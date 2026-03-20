@@ -316,7 +316,15 @@ function logEventError(client, label, error) {
       client.logs.error(payload);
       return;
     }
-    global.logger?.error?.(payload);
+    if (global.logger?.error) {
+      global.logger.error(payload);
+      return;
+    }
+    try {
+      console.error(payload);
+    } catch {
+      /* ignore */
+    }
   });
 }
 

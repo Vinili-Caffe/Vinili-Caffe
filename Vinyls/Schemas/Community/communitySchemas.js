@@ -137,6 +137,8 @@ const activityUserProfileSchema = new Schema(
       sessionStartedAt: { type: Date, default: null },
       sessionChannelId: { type: String, default: null },
       expAwardedSeconds: { type: Number, default: 0 },
+      /** Secondi della sessione vocale aperta già riversati in daily/hourly (flush periodico + chiusura). */
+      voiceActivityBucketFlushSeconds: { type: Number, default: 0 },
     },
     daily: { type: Schema.Types.Mixed, default: {} },
     hourly: { type: Schema.Types.Mixed, default: {} },
