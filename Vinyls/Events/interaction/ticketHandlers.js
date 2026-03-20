@@ -930,6 +930,66 @@ async function handleTicketInteraction(interaction) {
             });
             return true;
           }
+          if (interaction.channel) {
+            if (unclaimedTicket.ticketType === "supporto") {
+              if (ROLE_STAFF) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_STAFF,
+                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
+                ).catch(() => {});
+              }
+              if (ROLE_HIGHSTAFF) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_HIGHSTAFF,
+                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
+                ).catch(() => {});
+              }
+              if (ROLE_PARTNERMANAGER) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_PARTNERMANAGER,
+                  { ViewChannel: false },
+                ).catch(() => {});
+              }
+            } else if (unclaimedTicket.ticketType === "partnership") {
+              if (ROLE_PARTNERMANAGER) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_PARTNERMANAGER,
+                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
+                ).catch(() => {});
+              }
+              if (ROLE_HIGHSTAFF) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_HIGHSTAFF,
+                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
+                ).catch(() => {});
+              }
+              if (ROLE_STAFF) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_STAFF,
+                  { ViewChannel: false },
+                ).catch(() => {});
+              }
+            } else if (unclaimedTicket.ticketType === "high") {
+              if (ROLE_HIGHSTAFF) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_HIGHSTAFF,
+                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
+                ).catch(() => {});
+              }
+              if (ROLE_STAFF) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_STAFF,
+                  { ViewChannel: false },
+                ).catch(() => {});
+              }
+              if (ROLE_PARTNERMANAGER) {
+                await interaction.channel.permissionOverwrites.edit(
+                  ROLE_PARTNERMANAGER,
+                  { ViewChannel: false },
+                ).catch(() => {});
+              }
+            }
+          }
           try {
             if (interaction.channel && unclaimedTicket.messageId) {
               const msg = await interaction.channel.messages.fetch(unclaimedTicket.messageId).catch(() => null);
@@ -942,6 +1002,14 @@ async function handleTicketInteraction(interaction) {
                   .send({
                     embeds: [fallback],
                     components: [ticketButtonsOriginal],
+                  })
+                  .then(async (sent) => {
+                    if (sent?.id) {
+                      await Ticket.updateOne(
+                        { _id: unclaimedTicket._id },
+                        { $set: { messageId: sent.id } },
+                      ).catch(() => {});
+                    }
                   })
                   .catch(() => { });
               } else {

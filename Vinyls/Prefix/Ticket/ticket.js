@@ -901,7 +901,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
         return;
       }
 
-      if (ticketDoc.claimedBy) {
+      if (String(ticketDoc.claimedBy || "").trim()) {
         await safeMessageReply(message, {
           embeds: [
             new EmbedBuilder()
@@ -938,6 +938,11 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
         SendMessages: true,
       });
 
+      const originalButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
+      );
       const msg = await fetchTicketMessage(message.channel, ticketDoc.messageId,);
       if (!msg) {
         await safeMessageReply(message, {
@@ -991,7 +996,7 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
         return;
       }
 
-      if (!ticketDoc.claimedBy) {
+      if (!String(ticketDoc.claimedBy || "").trim()) {
         await safeMessageReply(message, {
           embeds: [
             new EmbedBuilder()
@@ -1027,30 +1032,76 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
       await message.channel.permissionOverwrites
         .delete(oldClaimer)
         .catch(() => { });
+      if (ticketDoc.ticketType === "supporto") {
+        await message.channel.permissionOverwrites
+          .edit(STAFF_ROLE_ID, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          })
+          .catch(() => {});
+        await message.channel.permissionOverwrites
+          .edit(HIGHSTAFF_ROLE_ID, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          })
+          .catch(() => {});
+        await message.channel.permissionOverwrites
+          .edit(PARTNERMANAGER_ROLE_ID, { ViewChannel: false })
+          .catch(() => {});
+      } else if (ticketDoc.ticketType === "partnership") {
+        await message.channel.permissionOverwrites
+          .edit(PARTNERMANAGER_ROLE_ID, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          })
+          .catch(() => {});
+        await message.channel.permissionOverwrites
+          .edit(HIGHSTAFF_ROLE_ID, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          })
+          .catch(() => {});
+        await message.channel.permissionOverwrites
+          .edit(STAFF_ROLE_ID, { ViewChannel: false })
+          .catch(() => {});
+      } else if (ticketDoc.ticketType === "high") {
+        await message.channel.permissionOverwrites
+          .edit(HIGHSTAFF_ROLE_ID, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+          })
+          .catch(() => {});
+        await message.channel.permissionOverwrites
+          .edit(STAFF_ROLE_ID, { ViewChannel: false })
+          .catch(() => {});
+        await message.channel.permissionOverwrites
+          .edit(PARTNERMANAGER_ROLE_ID, { ViewChannel: false })
+          .catch(() => {});
+      }
 
       const msg = await fetchTicketMessage(message.channel, ticketDoc.messageId,);
       if (!msg) {
-        await safeMessageReply(message, {
+        const fallback = await message.channel.send({
           embeds: [
             new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non riesco a trovare il messaggio principale del ticket.",
-              )
-              .setColor("Red"),
+              .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
+              .setColor("#6f4e37"),
           ],
-          allowedMentions: { repliedUser: false },
-        });
+          components: [originalButtons],
+        }).catch(() => null);
+        if (fallback?.id) {
+          ticketDoc.messageId = fallback.id;
+          await ticketDoc.save().catch(() => {});
+        }
         return;
       }
 
       const originalEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
-      const originalButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
-      );
-
       await msg.edit({
         embeds: [originalEmbed],
         components: [originalButtons],

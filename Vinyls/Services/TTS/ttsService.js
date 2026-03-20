@@ -18,6 +18,7 @@ const TTS_RESTORE_CONCURRENCY = 3;
 const ttsStates = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
+const ttsJoinWarnCache = new Map();
 let emojiNameMap = null;
 let nodeEmoji = null;
 const userLangs = new Map();
@@ -522,6 +523,15 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+function shouldLogTtsJoinWarning(guildId, channelId, errMessage, ttlMs = 30000) {
+  const key = `${String(guildId || "")}:${String(channelId || "")}:${String(errMessage || "")}`;
+  const now = Date.now();
+  const lastAt = Number(ttsJoinWarnCache.get(key) || 0);
+  if (now - lastAt < ttlMs) return false;
+  ttsJoinWarnCache.set(key, now);
+  return true;
+}
 async function destroyGuildVoiceConnection(guildId) {
   const gid = String(guildId || "");
   if (!gid) return;
@@ -596,7 +606,19 @@ async function ensureConnection(state, voiceChannel) {
       await destroyGuildVoiceConnection(voiceChannel.guild.id);
       if (isIpDiscoveryError(err) && attempt < maxAttempts) {
         const waitMs = Math.min(1500 * attempt, 8000);
-        global.logger?.warn?.("[TTS] IP discovery / socket closed, retry in " + waitMs + "ms:", err?.message || err);
+        const errMessage = String(err?.message || err);
+        if (
+          shouldLogTtsJoinWarning(
+            voiceChannel.guild?.id,
+            voiceChannel.id,
+            errMessage,
+          )
+        ) {
+          global.logger?.warn?.(
+            "[TTS] IP discovery / socket closed, retry in " + waitMs + "ms:",
+            errMessage,
+          );
+        }
         await sleep(waitMs);
         continue;
       }
