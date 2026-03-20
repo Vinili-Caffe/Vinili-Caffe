@@ -12,6 +12,9 @@ const TICKET_PERMISSIONS_SPONSOR = [PermissionFlagsBits.ViewChannel, PermissionF
 async function handleSponsorTicketOpen(interaction) {
   const guild = interaction.guild;
   const userId = interaction.user.id;
+  global.logger?.info?.(
+    `[ticket-open-debug] sponsor open start guild=${guild?.id} user=${userId}`,
+  );
   if (!interaction.deferred && !interaction.replied) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => null);
   }
@@ -40,6 +43,9 @@ async function handleSponsorTicketOpen(interaction) {
   try {
     const existing = await findOpenTicketByUser(guild.id, userId, guild);
     if (existing) {
+      global.logger?.warn?.(
+        `[ticket-open-debug] sponsor blocked by existing open ticket id=${existing?._id} channel=${existing?.channelId}`,
+      );
       await safeEditReplyHelper(interaction, {
         embeds: [
           new EmbedBuilder()
@@ -97,6 +103,9 @@ async function handleSponsorTicketOpen(interaction) {
       parent: category.id,
       permissionOverwrites: overwrites,
     }).catch(() => null);
+    global.logger?.info?.(
+      `[ticket-open-debug] sponsor channel create result channel=${channel?.id || "null"} user=${userId}`,
+    );
 
     if (!channel) {
       await safeEditReplyHelper(interaction, {
@@ -135,9 +144,18 @@ async function handleSponsorTicketOpen(interaction) {
         descriptionPromptMessageId: null,
         descriptionSubmitted: false,
       });
+      global.logger?.info?.(
+        `[ticket-open-debug] sponsor db create success channel=${channel.id} user=${userId}`,
+      );
     } catch (err) {
+      global.logger?.error?.(
+        `[ticket-open-debug] sponsor db create failed channel=${channel?.id} user=${userId} err=${err?.message || err}`,
+      );
       const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
       if (isDuplicate) {
+        global.logger?.warn?.(
+          `[ticket-open-debug] sponsor duplicate detected, deleting newly created channel=${channel?.id}`,
+        );
         await channel.delete().catch(() => { });
         const other = await findOpenTicketByUser(guild.id, userId, guild);
         await safeEditReplyHelper(interaction, {
@@ -152,6 +170,9 @@ async function handleSponsorTicketOpen(interaction) {
         return true;
       }
       global.logger.error(err);
+      global.logger?.warn?.(
+        `[ticket-open-debug] sponsor generic create failure, deleting channel=${channel?.id}`,
+      );
       await channel.delete().catch(() => null);
       await safeEditReplyHelper(interaction, {
         embeds: [

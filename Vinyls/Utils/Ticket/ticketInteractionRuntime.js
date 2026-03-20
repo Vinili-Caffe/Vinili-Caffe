@@ -39,17 +39,31 @@ async function warmGuildChannels(guild) {
 }
 
 async function findOpenTicketByUser(guildId, userId, guild = null) {
+  global.logger?.info?.(
+    `[ticket-open-debug] findOpenTicketByUser start guild=${guildId} user=${userId} withGuild=${Boolean(guild)}`,
+  );
   const existing = await Ticket.findOne({ guildId, userId, open: true }).catch(
     () => null,
   );
   if (!existing) return null;
+  global.logger?.info?.(
+    `[ticket-open-debug] open ticket found id=${existing?._id} channel=${existing?.channelId} type=${existing?.ticketType}`,
+  );
   if (!guild || !existing.channelId) return existing;
 
   await warmGuildChannels(guild).catch(() => null);
   const liveChannel =
     guild.channels?.cache?.get?.(String(existing.channelId)) ||
     (await getGuildChannelCached(guild, existing.channelId).catch(() => null));
-  if (liveChannel) return existing;
+  if (liveChannel) {
+    global.logger?.info?.(
+      `[ticket-open-debug] existing open ticket channel still exists channel=${existing.channelId}`,
+    );
+    return existing;
+  }
+  global.logger?.warn?.(
+    `[ticket-open-debug] stale open ticket detected, channel missing. closing stale id=${existing?._id} channel=${existing?.channelId}`,
+  );
 
   await Ticket.updateOne(
     { _id: existing._id, open: true },
