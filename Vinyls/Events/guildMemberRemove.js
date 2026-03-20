@@ -8,12 +8,8 @@ const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
   InviteTrack,
   ActivityUserProfile,
-  VoteRole,
   VerificationTenure,
   InviteReminderState,
-  StaffEventPoints,
-  StaffEventWeeklyReward,
-  StaffEventRewardGiven,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,
@@ -30,8 +26,6 @@ const VoiceDisconnectCounter = require("../Schemas/Voice/voiceDisconnectCounterS
 const SuspiciousAccount = require("../Schemas/Moderation/suspiciousAccountSchema");
 const BirthdayProfile = require("../Schemas/Community/birthdayProfileSchema");
 const NoDmPreference = require("../Schemas/Community/noDmPreferenceSchema");
-const BumpVoteReward = require("../Schemas/Bump/bumpVoteRewardSchema");
-const { DiscadiaVoter } = require("../Schemas/Discadia/discadiaSchemas");
 const OneTimeReminder = require("../Schemas/Reminders/oneTimeReminderSchema");
 const OneTimeReminderUser = require("../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
@@ -394,14 +388,8 @@ async function cleanupUserData(guildId, userId) {
     SuspiciousAccount.deleteMany({ guildId, userId }),
     BirthdayProfile.deleteOne({ guildId, userId }),
     NoDmPreference.deleteOne({ guildId, userId }),
-    BumpVoteReward.deleteMany({ guildId, userId }),
-    DiscadiaVoter.deleteOne({ guildId, userId }),
-    VoteRole.deleteOne({ guildId, userId }),
     VerificationTenure.deleteOne({ guildId, userId }),
     InviteReminderState.deleteOne({ guildId, userId }),
-    StaffEventPoints.deleteOne({ guildId, userId }),
-    StaffEventWeeklyReward.deleteMany({ guildId, userId }),
-    StaffEventRewardGiven.deleteMany({ guildId, userId }),
     CustomRole.deleteOne({ guildId, userId }),
     AvatarPrivacy.deleteOne({ guildId, userId }),
     BannerPrivacy.deleteOne({ guildId, userId }),

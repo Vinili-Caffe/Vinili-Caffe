@@ -6424,10 +6424,43 @@ async function handleMinigameMessage(message, client) {
     const guessText = guessParts[0];
     const wordNorm = normalizeCountryName(String(game.word || ""));
 
+    const updateHangmanBoard = async (shownWord) => {
+      const channel = message.channel;
+      const gameMsg = game.gameMessageId && channel
+        ? await channel.messages.fetch(game.gameMessageId).catch(() => null)
+        : null;
+      if (!gameMsg) return;
+      const hangmanSolvedAttachment = buildPromptImageAttachment(
+        "Impiccato",
+        [shownWord, `Errori: ${Number(game.misses || 0)}/${Number(game.maxMisses || 7)}`],
+        "hangman",
+      );
+      const hangmanSolvedEmbed = buildHangmanEmbed(
+        shownWord,
+        Number(game.misses || 0),
+        Number(game.maxMisses || 7),
+        game.rewardExp,
+        Math.max(1000, game.endsAt - Date.now()),
+      );
+      if (hangmanSolvedAttachment) {
+        hangmanSolvedEmbed.setImage(`attachment://${hangmanSolvedAttachment.name}`);
+      }
+      await gameMsg
+        .edit({
+          embeds: [hangmanSolvedEmbed],
+          files: hangmanSolvedAttachment ? [hangmanSolvedAttachment] : [],
+        })
+        .catch(() => {});
+    };
+
     if (
       wordNorm &&
       (guessText === wordNorm || compactNoSpaces(guessText) === compactNoSpaces(wordNorm))
     ) {
+      const fullWordShown = String(game.word || "")
+        .split("")
+        .join(" ");
+      await updateHangmanBoard(fullWordShown);
       clearTimeout(game.timeout);
       if (game.hintTimeout) clearTimeout(game.hintTimeout);
       activeGames.delete(cfg.channelId);
@@ -6470,6 +6503,10 @@ async function handleMinigameMessage(message, client) {
 
     const solved = wordNorm && wordNorm.split("").every((ch) => guessed.has(ch));
     if (solved) {
+      const fullWordShown = String(game.word || "")
+        .split("")
+        .join(" ");
+      await updateHangmanBoard(fullWordShown);
       clearTimeout(game.timeout);
       if (game.hintTimeout) clearTimeout(game.hintTimeout);
       activeGames.delete(cfg.channelId);

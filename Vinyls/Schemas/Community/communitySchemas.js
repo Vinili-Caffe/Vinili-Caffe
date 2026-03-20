@@ -162,6 +162,30 @@ const activityUserProfileSchema = new Schema(
       sourceUpdatedAt: { type: Date, default: null },
     },
     eventWeekWinners: { type: [Number], default: [] },
+    voteRole: {
+      expiresAt: { type: Date, default: null },
+      grantedAt: { type: Date, default: null },
+    },
+    discadiaVote: {
+      lastVoteAt: { type: Date, default: null },
+      lastRemindedAt: { type: Date, default: null },
+      voteCount: { type: Number, default: 0 },
+      voteMilestoneGranted: { type: [Number], default: [] },
+      voteMilestoneNearReminded: { type: [Number], default: [] },
+    },
+    bumpState: {
+      disboard: {
+        lastBumpAt: { type: Date, default: null },
+        lastBumpUserId: { type: String, default: null },
+        reminderSentAt: { type: Date, default: null },
+      },
+      discadia: {
+        lastBumpAt: { type: Date, default: null },
+        lastBumpUserId: { type: String, default: null },
+        reminderSentAt: { type: Date, default: null },
+      },
+    },
+    bumpVoteRewards: { type: Schema.Types.Mixed, default: {} },
     levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
   },
   { timestamps: true },

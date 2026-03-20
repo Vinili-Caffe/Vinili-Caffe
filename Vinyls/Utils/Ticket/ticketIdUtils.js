@@ -1,4 +1,4 @@
-const TicketCounter = require("../../Schemas/Ticket/ticketCounterSchema");
+const { TicketCounter } = require("../../Schemas/Ticket/ticketSchema");
 const TICKET_COUNTER_KEY = "global_ticket_id";
 
 async function getNextTicketId() {

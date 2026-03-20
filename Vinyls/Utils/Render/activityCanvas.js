@@ -211,9 +211,37 @@ function tokenizeEmojiText(text) {
   return tokens.length ? tokens : [{ type: "text", value: "" }];
 }
 
-function emojiToTwemojiUrl(emoji) {
-  const codepoints = Array.from(emoji).map((ch) => ch.codePointAt(0).toString(16)).filter((cp) => cp !== "fe0f").join("-");
-  return `https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/${codepoints}.png`;
+function twemojiUrlFromCodepoints(codepoints) {
+  return `https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/${codepoints.join("-")}.png`;
+}
+
+function emojiToTwemojiUrls(emoji) {
+  const cps = Array.from(String(emoji || "")).map((ch) => ch.codePointAt(0).toString(16).toLowerCase());
+  if (!cps.length) return [];
+  const urls = [];
+  const pushByCps = (list) => {
+    if (!Array.isArray(list) || !list.length) return;
+    const url = twemojiUrlFromCodepoints(list);
+    if (!urls.includes(url)) urls.push(url);
+  };
+
+  // First try exact codepoints (keeps FE0F when present).
+  pushByCps(cps);
+
+  // Fallback: some sequences are also served without FE0F.
+  const withoutVariation = cps.filter((cp) => cp !== "fe0f");
+  pushByCps(withoutVariation);
+
+  // Extra fallback: single symbol emojis in dingbats often need FE0F on CDN.
+  const hasVariation = cps.includes("fe0f");
+  if (!hasVariation && cps.length === 1) {
+    const cpNum = Number.parseInt(cps[0], 16);
+    if (Number.isFinite(cpNum) && cpNum >= 0x2600 && cpNum <= 0x27bf) {
+      pushByCps([cps[0], "fe0f"]);
+    }
+  }
+
+  return urls;
 }
 
 function customEmojiUrl(id, animated = false) {
@@ -224,8 +252,17 @@ function customEmojiUrl(id, animated = false) {
 async function getEmojiImage(token) {
   const key = typeof token === "string" ? token : `custom:${token.id}:${token.animated ? 1 : 0}`;
   if (emojiImageCache.has(key)) return emojiImageCache.get(key);
-  const sourceUrl = typeof token === "string" ? emojiToTwemojiUrl(token) : customEmojiUrl(token.id, false);
-  const promise = safeLoadImage(sourceUrl, { timeoutMs: 10000 }).catch(() => null);
+  const promise = (async () => {
+    if (typeof token !== "string") {
+      return safeLoadImage(customEmojiUrl(token.id, false), { timeoutMs: 10000 }).catch(() => null);
+    }
+    const sources = emojiToTwemojiUrls(token);
+    for (const sourceUrl of sources) {
+      const img = await safeLoadImage(sourceUrl, { timeoutMs: 10000 }).catch(() => null);
+      if (img) return img;
+    }
+    return null;
+  })();
   emojiImageCache.set(key, promise);
   return promise;
 }

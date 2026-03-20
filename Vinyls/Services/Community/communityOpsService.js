@@ -1,6 +1,6 @@
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { VoteRole, VerificationTenure, } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, VerificationTenure, } = require("../../Schemas/Community/communitySchemas");
 const SponsorMainLeave = require("../../Schemas/Tags/tagsSchema");
 const IDs = require("../../Utils/Config/ids");
 const VOTE_ROLE_ID = IDs.roles.Voter;
@@ -27,29 +27,40 @@ const SPONSOR_KICK_INTERVAL_MS = 15 * 60 * 1000;
 
 async function upsertVoteRole(guildId, userId, expiresAt) {
   if (!guildId || !userId || !expiresAt) return null;
-  return VoteRole.findOneAndUpdate(
+  return ActivityUserProfile.findOneAndUpdate(
     { guildId, userId },
-    { $set: { expiresAt } },
+    {
+      $setOnInsert: { guildId, userId },
+      $set: { "voteRole.expiresAt": expiresAt, "voteRole.grantedAt": new Date() },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 }
 
 async function removeExpiredVoteRoles(client) {
   const now = new Date();
-  const expired = await VoteRole.find({ expiresAt: { $lte: now } }).lean();
+  const expired = await ActivityUserProfile.find({ "voteRole.expiresAt": { $lte: now } })
+    .select("guildId userId voteRole.expiresAt")
+    .lean();
   if (!expired.length) return;
 
   for (const item of expired) {
     const guild = client.guilds.cache.get(item.guildId) || (await client.guilds.fetch(item.guildId).catch(() => null));
     if (!guild) {
-      await VoteRole.deleteOne({ guildId: item.guildId, userId: item.userId });
+      await ActivityUserProfile.updateOne(
+        { guildId: item.guildId, userId: item.userId },
+        { $set: { "voteRole.expiresAt": null } },
+      );
       continue;
     }
     const member = guild.members.cache.get(item.userId) || (await guild.members.fetch(item.userId).catch(() => null));
     if (member?.roles?.cache?.has(VOTE_ROLE_ID)) {
       await member.roles.remove(VOTE_ROLE_ID).catch(() => { });
     }
-    await VoteRole.deleteOne({ guildId: item.guildId, userId: item.userId });
+    await ActivityUserProfile.updateOne(
+      { guildId: item.guildId, userId: item.userId },
+      { $set: { "voteRole.expiresAt": null } },
+    );
   }
 }
 

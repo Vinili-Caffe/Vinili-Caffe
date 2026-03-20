@@ -1,4 +1,4 @@
-const { ActivityUserProfile, VoteRole } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getGuildExpSettings, addExp, getTotalExpForLevel, getLevelInfo, recordLevelHistory, isEventStaffMember, scheduleEventLevelUpMessage, syncLevelRolesForMember } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const { sendEventRewardLog, sendEventRewardSkippedLog, sendEventRewardDm } = require("./eventRewardLogService");
@@ -351,7 +351,10 @@ async function grantEventRewardsForSameDayReviewAndVote(guild, eventStartDate) {
   const { startRome, endRome } = getRomeDayBoundsForDate(eventStartDate instanceof Date ? eventStartDate : new Date(eventStartDate),);
   await guild.members.fetch().catch(() => null);
 
-  const voteDocs = await VoteRole.find({ guildId: guild.id, createdAt: { $gte: startRome, $lt: endRome }, }).select("userId").lean().catch(() => []);
+  const voteDocs = await ActivityUserProfile.find({
+    guildId: guild.id,
+    "voteRole.grantedAt": { $gte: startRome, $lt: endRome },
+  }).select("userId").lean().catch(() => []);
   const membersCache = await guild.members.fetch().catch(() => null) || guild.members.cache;
   for (const doc of voteDocs) {
     const userId = String(doc?.userId || "");

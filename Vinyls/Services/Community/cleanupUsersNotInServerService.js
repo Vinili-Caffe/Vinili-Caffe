@@ -1,11 +1,7 @@
 const {
   ActivityUserProfile,
-  VoteRole,
   VerificationTenure,
   InviteReminderState,
-  StaffEventPoints,
-  StaffEventWeeklyReward,
-  StaffEventRewardGiven,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,
@@ -24,8 +20,6 @@ const SupporterStatus = require("../../Schemas/Supporter/supporterStatusSchema")
 const VoiceDisconnectCounter = require("../../Schemas/Voice/voiceDisconnectCounterSchema");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
-const BumpVoteReward = require("../../Schemas/Bump/bumpVoteRewardSchema");
-const { DiscadiaVoter } = require("../../Schemas/Discadia/discadiaSchemas");
 const OneTimeReminder = require("../../Schemas/Reminders/oneTimeReminderSchema");
 const OneTimeReminderUser = require("../../Schemas/Reminders/oneTimeReminderUserSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
@@ -44,14 +38,8 @@ const guildScoped = [
   [SuspiciousAccount, "SuspiciousAccount"],
   [BirthdayProfile, "BirthdayProfile"],
   [NoDmPreference, "NoDmPreference"],
-  [BumpVoteReward, "BumpVoteReward"],
-  [DiscadiaVoter, "DiscadiaVoter"],
-  [VoteRole, "VoteRole"],
   [VerificationTenure, "VerificationTenure"],
   [InviteReminderState, "InviteReminderState"],
-  [StaffEventPoints, "StaffEventPoints"],
-  [StaffEventWeeklyReward, "StaffEventWeeklyReward"],
-  [StaffEventRewardGiven, "StaffEventRewardGiven"],
   [CustomRole, "CustomRole"],
   [AvatarPrivacy, "AvatarPrivacy"],
   [BannerPrivacy, "BannerPrivacy"],
