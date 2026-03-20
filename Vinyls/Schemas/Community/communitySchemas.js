@@ -67,10 +67,6 @@ levelHistoryUserSchema.index({ guildId: 1, "entries.createdAt": -1 });
 
 const globalSettingsSchema=new Schema({guildId:{type:String,required:true,unique:true,index:true},expMultiplier:{type:Number,default:2},expEventMultiplier:{type:Number,default:1},expEventMultiplierExpiresAt:{type:Date,default:null},expEventRoleOverrides:{type:Schema.Types.Mixed,default:null},expEventExtraMultiplierRoleIds:{type:[String],default:[]},expEventStartedAt:{type:Date,default:null},expEventEndAnnouncementSentForExpiresAt:{type:Date,default:null},staffEventExpiresAt:{type:Date,default:null},staffEventStartedAt:{type:Date,default:null},expLockedChannelIds:{type:[String],default:[]},expIgnoredRoleIds:{type:[String],default:[]},},{timestamps:true},);
 
-const voteRoleSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},expiresAt:{type:Date,required:true},},{timestamps:true},);
-voteRoleSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-voteRoleSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
 const verificationTenureSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true,index:true},verifiedAt:{type:Date,required:true},stage:{type:Number,default:1},});
 verificationTenureSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
@@ -201,15 +197,6 @@ eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
 eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
 
-const staffEventPointsSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},points:{type:Number,default:0},},{timestamps:true},);
-staffEventPointsSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-const staffEventWeeklyRewardSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
-staffEventWeeklyRewardSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
-
-const staffEventRewardGivenSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardType:{type:String,required:true},},{timestamps:true},);
-staffEventRewardGivenSchema.index({ guildId: 1, userId: 1, rewardType: 1 }, { unique: true });
-
 const customRoleSchema=new Schema({guildId:{type:String,required:true},userId:{type:String,required:true},roleId:{type:String,required:true},customVocEmoji:{type:String,default:null},customVocChannelId:{type:String,default:null,index:true},customVocEligibilityLostAt:{type:Date,default:null,index:true},customRoleEligibilityLostAt:{type:Date,default:null,index:true},expiresAt:{type:Date,default:null},},{timestamps:true},);
 customRoleSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 customRoleSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -234,7 +221,6 @@ const ActivityHourly=models.ActivityHourly||model("ActivityHourly",activityHourl
 const ActivityHourlyCompact = models.ActivityHourlyCompact || model("ActivityHourlyCompact", activityHourlyCompactSchema, "activityhourlycompact");
 const LevelHistoryUser = models.LevelHistoryUser || model("LevelHistoryUser", levelHistoryUserSchema, "levelhistoryusers");
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
-const VoteRole = models.VoteRole || model("VoteRole", voteRoleSchema);
 const VerificationTenure=models.VerificationTenure||model("VerificationTenure",verificationTenureSchema);
 const SkullboardPost=models.SkullboardPost||model("SkullboardPost",skullboardPostSchema);
 const ReviewReward=models.ReviewReward||model("ReviewReward",reviewRewardSchema);
@@ -250,10 +236,6 @@ const ActivityEventReward=models.ActivityEventReward||model("ActivityEventReward
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const EventUserExpSnapshot=models.EventUserExpSnapshot||model("EventUserExpSnapshot",eventUserExpSnapshotSchema);
 const EventWeekWinner=models.EventWeekWinner||model("EventWeekWinner",eventWeekWinnerSchema);
-const StaffEventPoints=models.StaffEventPoints||model("StaffEventPoints",staffEventPointsSchema);
-const StaffEventWeeklyReward=models.StaffEventWeeklyReward||model("StaffEventWeeklyReward",staffEventWeeklyRewardSchema);
-const StaffEventRewardGiven=models.StaffEventRewardGiven||model("StaffEventRewardGiven",staffEventRewardGivenSchema);
-
 module.exports = {
   ActivityUser,
   ExpUser,
@@ -264,7 +246,6 @@ module.exports = {
   LevelHistoryUser,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
-  VoteRole,
   VerificationTenure,
   SkullboardPost,
   ReviewReward,
@@ -275,9 +256,6 @@ module.exports = {
   ActivityUserProfile,
   EventUserExpSnapshot,
   EventWeekWinner,
-  StaffEventPoints,
-  StaffEventWeeklyReward,
-  StaffEventRewardGiven,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,

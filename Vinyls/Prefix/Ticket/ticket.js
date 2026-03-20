@@ -369,7 +369,6 @@ module.exports = {
     const subcommand = String(directAliasSub || args[0] || "").toLowerCase();
     const rest = directAliasSub ? args : args.slice(1);
     const normalizedRest = Array.isArray(rest) ? (() => { if (!rest.length) return rest; const first = String(rest[0] || "").toLowerCase(); if (first === subcommand) return rest.slice(1); return rest; })() : [];
-    const inTicketCategory = Boolean(message.channel && isChannelInTicketCategory(message.channel));
     const effectiveChannelId = message.channel?.isThread?.() ? message.channel?.parentId || message.channel?.id : message.channel?.id;
     const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
 const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channelId: effectiveChannelId, open: true }, { _id: 1 }).lean().catch(() => null) : null;
@@ -387,13 +386,13 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
       });
       return;
     }
-    if (subcommand !== "reopen" && (!inTicketCategory || !activeTicketInChannel)) {
+    if (subcommand !== "reopen" && !activeTicketInChannel) {
       await safeMessageReply(message, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> I comandi ticket possono essere usati solo dentro un canale ticket.",
+              "<:vegax:1443934876440068179> I comandi ticket possono essere usati solo dentro un ticket aperto.",
             ),
         ],
         allowedMentions: { repliedUser: false },
