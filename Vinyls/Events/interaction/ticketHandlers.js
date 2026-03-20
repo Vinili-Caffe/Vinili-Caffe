@@ -8,6 +8,7 @@ const { buildTicketChannelName } = require("../../Utils/Ticket/ticketNamingRunti
 const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosableTicketOrReply: runtimeEnsureClosableTicketOrReply, findOpenTicketByUser: runtimeFindOpenTicketByUser, findTicketByChannel: runtimeFindTicketByChannel, getClientGuildCached: runtimeGetClientGuildCached, getGuildChannelCached: runtimeGetGuildChannelCached, getSelectedTicketAction: runtimeGetSelectedTicketAction, hasActiveTicketClaimer: runtimeHasActiveTicketClaimer, isHandledTicketInteraction: runtimeIsHandledTicketInteraction, isSponsorGuild: runtimeIsSponsorGuild, isTicketRatingButton: runtimeIsTicketRatingButton, isTicketTranscriptButton: runtimeIsTicketTranscriptButton, loadTicketForChannelOrReply: runtimeLoadTicketForChannelOrReply, } = require("../../Utils/Ticket/ticketInteractionRuntime");
 const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRatingRows: runtimeBuildTicketRatingRows, closeTicket: runtimeCloseTicket, } = require("../../Utils/Ticket/ticketCloseRuntime");
 const { createTicketsCategory: runtimeCreateTicketsCategory, handleSponsorTicketOpen: runtimeHandleSponsorTicketOpen, } = require("../../Utils/Ticket/ticketOpenRuntime");
+const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtils");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -358,7 +359,7 @@ async function handleTicketInteraction(interaction) {
           }
           let ticketCreated = false;
           try {
-            await Ticket.create({
+            await createTicketDocWithGlobalId(Ticket, {
               guildId: interaction.guild.id,
               userId: interaction.user.id,
               channelId: channel.id,

@@ -408,17 +408,72 @@ const InviteTrack = {
   },
 };
 const CustomRole = {
-  async findOne(filter) {
-    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.customRole").lean().catch(() => null);
-    const s = doc?.profile?.customRole;
-    if (!s?.roleId && !s?.customVocChannelId && !s?.expiresAt) return null;
-    return { guildId: doc.guildId, userId: doc.userId, ...s };
+  findOne(filter = {}, projection = null) {
+    const run = async () => {
+      const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.customRole").lean().catch(() => null);
+      const s = doc?.profile?.customRole;
+      if (!s?.roleId && !s?.customVocChannelId && !s?.expiresAt) return null;
+      const out = { guildId: doc.guildId, userId: doc.userId, ...s };
+      if (!projection || typeof projection !== "object") return out;
+      const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+      if (!keys.length) return out;
+      const picked = {};
+      for (const key of keys) picked[key] = out[key];
+      return picked;
+    };
+    const queryLike = {
+      lean() {
+        return run();
+      },
+      then(resolve, reject) {
+        return run().then(resolve, reject);
+      },
+      catch(reject) {
+        return run().catch(reject);
+      },
+    };
+    return queryLike;
   },
-  async find(filter = {}) {
-    const docs = await ActivityUserProfile.find(filter).select("guildId userId profile.customRole").lean().catch(() => []);
-    return docs
-      .map((doc) => ({ guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
-      .filter((x) => x.roleId || x.customVocChannelId || x.expiresAt);
+  find(filter = {}, projection = null) {
+    let sortSpec = null;
+    let limitValue = null;
+    const run = async () => {
+      let q = ActivityUserProfile.find(filter).select("guildId userId profile.customRole").lean();
+      if (sortSpec) q = q.sort(sortSpec);
+      if (Number.isFinite(limitValue) && limitValue > 0) q = q.limit(limitValue);
+      const docs = await q.catch(() => []);
+      const mapped = docs
+        .map((doc) => ({ guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
+        .filter((x) => x.roleId || x.customVocChannelId || x.expiresAt);
+      if (!projection || typeof projection !== "object") return mapped;
+      const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+      if (!keys.length) return mapped;
+      return mapped.map((row) => {
+        const out = {};
+        for (const key of keys) out[key] = row[key];
+        return out;
+      });
+    };
+    const queryLike = {
+      sort(spec) {
+        sortSpec = spec;
+        return queryLike;
+      },
+      limit(n) {
+        limitValue = Number(n);
+        return queryLike;
+      },
+      lean() {
+        return run();
+      },
+      then(resolve, reject) {
+        return run().then(resolve, reject);
+      },
+      catch(reject) {
+        return run().catch(reject);
+      },
+    };
+    return queryLike;
   },
   async findOneAndUpdate(filter, update = {}, options = {}) {
     const setPayload = update?.$set || {};

@@ -8,6 +8,14 @@ let expiryLoopHandle = null;
 const CUSTOM_VOC_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
 const CUSTOM_ROLE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
 
+async function execLean(queryOrValue, fallback = null) {
+  if (queryOrValue && typeof queryOrValue.lean === "function") {
+    return queryOrValue.lean();
+  }
+  const value = await queryOrValue;
+  return value ?? fallback;
+}
+
 function findVoiceByRole(guild, roleId) {
   if (!guild || !roleId) return null;
   return (
@@ -115,17 +123,23 @@ async function processExpiredCustomRole(client, doc) {
 async function runExpiredCustomRolesSweep(client) {
   if (!client) return;
   const now = new Date();
-  const rows = await CustomRole.find({ expiresAt: { $ne: null, $lte: now }, }).lean().catch(() => []);
+  const rows = await execLean(
+    CustomRole.find({ expiresAt: { $ne: null, $lte: now } }),
+    [],
+  ).catch(() => []);
 
   for (const row of rows) {
     await processExpiredCustomRole(client, row).catch(() => { });
   }
 
   const cutoff = new Date(Date.now() - CUSTOM_VOC_GRACE_MS);
-  const staleVoc = await CustomRole.find({
-    customVocChannelId: { $ne: null },
-    customVocEligibilityLostAt: { $ne: null, $lte: cutoff },
-  }).lean().catch(() => []);
+  const staleVoc = await execLean(
+    CustomRole.find({
+      customVocChannelId: { $ne: null },
+      customVocEligibilityLostAt: { $ne: null, $lte: cutoff },
+    }),
+    [],
+  ).catch(() => []);
   for (const doc of staleVoc) {
     try {
       const guild = client.guilds.cache.get(doc.guildId) || (await getClientGuildCached(client, doc.guildId));
@@ -146,10 +160,13 @@ async function runExpiredCustomRolesSweep(client) {
   }
 
   const roleCutoff = new Date(Date.now() - CUSTOM_ROLE_GRACE_MS);
-  const staleRole = await CustomRole.find({
-    roleId: { $ne: null },
-    customRoleEligibilityLostAt: { $ne: null, $lte: roleCutoff },
-  }).lean().catch(() => []);
+  const staleRole = await execLean(
+    CustomRole.find({
+      roleId: { $ne: null },
+      customRoleEligibilityLostAt: { $ne: null, $lte: roleCutoff },
+    }),
+    [],
+  ).catch(() => []);
   for (const doc of staleRole) {
     await processExpiredCustomRole(client, doc).catch(() => {});
   }

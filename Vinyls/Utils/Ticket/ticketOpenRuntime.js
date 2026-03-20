@@ -6,6 +6,7 @@ const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { findOpenTicketByUser, warmGuildChannels } = require("./ticketInteractionRuntime");
 const { buildTicketChannelName } = require("./ticketNamingRuntime");
+const { createTicketDocWithGlobalId } = require("./ticketIdUtils");
 const TICKET_PERMISSIONS_SPONSOR = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions,];
 
 async function handleSponsorTicketOpen(interaction) {
@@ -124,7 +125,7 @@ async function handleSponsorTicketOpen(interaction) {
     const mainMsg = await channel.send({ embeds: [sponsorEmbed], components: [row] }).catch(() => null);
 
     try {
-      await Ticket.create({
+      await createTicketDocWithGlobalId(Ticket, {
         guildId: guild.id,
         userId,
         channelId: channel.id,
