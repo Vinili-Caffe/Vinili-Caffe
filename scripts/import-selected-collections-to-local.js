@@ -27,12 +27,35 @@ function parseArg(name) {
   return hit ? hit.slice(prefix.length) : null;
 }
 
-function getRestoreExe(toolsBin) {
-  const win = path.join(toolsBin, "mongorestore.exe");
-  const unix = path.join(toolsBin, "mongorestore");
-  if (fs.existsSync(win)) return win;
-  if (fs.existsSync(unix)) return unix;
-  throw new Error(`mongorestore non trovato in: ${toolsBin}`);
+function isExecutable(filePath) {
+  try {
+    fs.accessSync(filePath, fs.constants.X_OK);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function resolveRestoreCommand(toolsBin) {
+  const candidates = [];
+  if (toolsBin) {
+    candidates.push(path.join(toolsBin, "mongorestore"));
+    candidates.push(path.join(toolsBin, "mongorestore.exe"));
+  }
+  for (const c of candidates) {
+    if (fs.existsSync(c) && isExecutable(c)) {
+      return { mode: "binary", command: c };
+    }
+  }
+  return { mode: "path", command: "mongorestore" };
+}
+
+function runRestoreWithDocker(localUri, dbName, collections, dumpRoot) {
+  const args = ["run", "--rm", "-v", `${dumpRoot}:/dump`, "mongo:7", "mongorestore", "--uri", localUri, "--drop", "/dump"];
+  for (const c of collections) {
+    args.push("--nsInclude", `${dbName}.${c}`);
+  }
+  return spawnSync("docker", args, { stdio: "inherit" });
 }
 
 function main() {
@@ -52,7 +75,7 @@ function main() {
   }
 
   const toolsBin = parseArg("--tools") || DEFAULT_TOOLS_BIN;
-  const restoreExe = getRestoreExe(toolsBin);
+  const restore = resolveRestoreCommand(toolsBin);
   const dbName = parseArg("--db") || "test";
   const collectionsArg = parseArg("--collections");
   const collections = collectionsArg
@@ -67,12 +90,21 @@ function main() {
     args.push("--nsInclude", `${dbName}.${c}`);
   }
 
-  console.log("[import-local] restore exe:", restoreExe);
+  console.log("[import-local] restore mode:", restore.mode);
+  console.log("[import-local] restore command:", restore.command);
   console.log("[import-local] dump root:", dumpRoot);
   console.log("[import-local] db:", dbName);
   console.log("[import-local] collections:", collections.join(", "));
 
-  const res = spawnSync(restoreExe, args, { stdio: "inherit" });
+  let res = spawnSync(restore.command, args, { stdio: "inherit" });
+  if (res.error && restore.mode === "path" && res.error.code === "ENOENT") {
+    console.log("[import-local] mongorestore non trovato nel PATH, provo con Docker...");
+    res = runRestoreWithDocker(localUri, dbName, collections, dumpRoot);
+  } else if (res.error && res.error.code === "EACCES") {
+    console.log("[import-local] binario non eseguibile, provo con Docker...");
+    res = runRestoreWithDocker(localUri, dbName, collections, dumpRoot);
+  }
+
   if (res.error) throw res.error;
   if (res.status !== 0) {
     process.exit(res.status || 1);
