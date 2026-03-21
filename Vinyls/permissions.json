@@ -350,12 +350,12 @@
         "customreaction": {
             "roles": [
                 "roles.vip",
-                "roles.donator",
-                "roles.ServerBooster",
                 "roles.Level70"
             ],
             "channels": [
-                "channels.commands"
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds" 
             ],
             "subcommands": {
                 "show": [
