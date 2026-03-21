@@ -203,6 +203,29 @@ function resolveReactionForMessage(message, token) {
   return { key: value, value };
 }
 
+async function reactToMessageWithStoredToken(message, token) {
+  const value = resolveReactionToken(token);
+  if (!value) return;
+  const snowflake = /^\d{16,20}$/.test(value) ? value : null;
+  if (snowflake) {
+    const guild = message.guild;
+    const client = message.client;
+    let emoji =
+      guild?.emojis?.cache?.get(snowflake) ||
+      client?.emojis?.cache?.get(snowflake);
+    if (!emoji && guild?.emojis?.fetch) {
+      emoji = await guild.emojis.fetch(snowflake).catch(() => null);
+    }
+    if (emoji) {
+      await message.react(emoji).catch(() => {});
+      return;
+    }
+    await message.react({ id: snowflake, name: "emoji" }).catch(() => {});
+    return;
+  }
+  await message.react(value).catch(() => {});
+}
+
 async function handleMentionAutoReactions(message) {
   const mentionedUsers = message.mentions?.users;
   if (!mentionedUsers || mentionedUsers.size === 0) return;
@@ -213,8 +236,20 @@ async function handleMentionAutoReactions(message) {
   while ((match = mentionRegex.exec(content)) !== null) {
     explicitMentionIds.add(String(match[1]));
   }
-  if (!explicitMentionIds.size) return;
-  const targetIds = Array.from(new Set(mentionedUsers.filter((user) => !user.bot && explicitMentionIds.has(user.id)).map((user) => user.id),),);
+  let targetIds;
+  if (explicitMentionIds.size > 0) {
+    targetIds = Array.from(
+      new Set(
+        mentionedUsers
+          .filter((user) => !user.bot && explicitMentionIds.has(user.id))
+          .map((user) => user.id),
+      ),
+    );
+  } else {
+    targetIds = Array.from(
+      new Set(mentionedUsers.filter((user) => !user.bot).map((user) => user.id)),
+    );
+  }
   if (!targetIds.length) return;
   const docs = await listMentionReactions(message.guild.id, targetIds).catch(() => []);
   if (!Array.isArray(docs) || !docs.length) return;
@@ -228,9 +263,7 @@ async function handleMentionAutoReactions(message) {
     if (uniqueTokens.size >= 10) break;
   }
   for (const token of uniqueTokens) {
-    const emoji = resolveReactionToken(token);
-    if (!emoji) continue;
-    await message.react(emoji).catch(() => { });
+    await reactToMessageWithStoredToken(message, token);
   }
 }
 

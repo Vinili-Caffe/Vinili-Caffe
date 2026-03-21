@@ -302,27 +302,49 @@ const ReviewReward = {
 const PersonalityPanel=models.PersonalityPanel||model("PersonalityPanel",personalityPanelSchema);
 const LegacyInviteTrack = null;
 function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null }) {
+  function asQueryLike(run) {
+    return {
+      lean() {
+        return run();
+      },
+      then(resolve, reject) {
+        return run().then(resolve, reject);
+      },
+      catch(reject) {
+        return run().catch(reject);
+      },
+    };
+  }
   return {
-    async findOne(filter) {
-      const doc = await ActivityUserProfile.findOne(filter).select(selectPath).lean().catch(() => null);
-      return mapDoc(doc, filter) || null;
+    findOne(filter) {
+      const run = async () => {
+        const doc = await ActivityUserProfile.findOne(filter).select(selectPath).lean().catch(() => null);
+        return mapDoc(doc, filter) || null;
+      };
+      return asQueryLike(run);
     },
-    async find(filter = {}) {
-      const docs = await ActivityUserProfile.find(filter).select(selectPath).lean().catch(() => []);
-      return docs.map((doc) => mapDoc(doc, filter)).filter(Boolean);
+    find(filter = {}) {
+      const run = async () => {
+        const docs = await ActivityUserProfile.find(filter).select(selectPath).lean().catch(() => []);
+        return docs.map((doc) => mapDoc(doc, filter)).filter(Boolean);
+      };
+      return asQueryLike(run);
     },
-    async findOneAndUpdate(filter, update = {}, options = {}) {
-      const setPayload = update?.$set || {};
-      const setDoc = buildSet ? buildSet(setPayload) : setPayload;
-      const doc = await ActivityUserProfile.findOneAndUpdate(
-        filter,
-        {
-          $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || "") },
-          $set: setDoc,
-        },
-        { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
-      ).lean().catch(() => null);
-      return mapDoc(doc, filter) || null;
+    findOneAndUpdate(filter, update = {}, options = {}) {
+      const run = async () => {
+        const setPayload = update?.$set || {};
+        const setDoc = buildSet ? buildSet(setPayload) : setPayload;
+        const doc = await ActivityUserProfile.findOneAndUpdate(
+          filter,
+          {
+            $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || "") },
+            $set: setDoc,
+          },
+          { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
+        ).lean().catch(() => null);
+        return mapDoc(doc, filter) || null;
+      };
+      return asQueryLike(run);
     },
     async updateOne(filter, update = {}, options = {}) {
       const setPayload = update?.$set || {};

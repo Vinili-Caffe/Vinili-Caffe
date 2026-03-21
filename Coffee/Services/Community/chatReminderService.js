@@ -89,13 +89,13 @@ const reminderPool = [
         '<:VC_Link:1482460590894088222> Basta mettere ".gg/viniliecaffe" nello stato, boostare il server o arrivare al Livello 10 per sbloccarli velocemente.',
         `> <a:VC_Arrow:1482706699365257397> Scopri tutte le ricompense di boost & livelli su: <#1442569111119990887>`,
       ].join("\n")),
-  () =>
+  /*() =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<:VC_Pokeball:1479444536227926107> Pokémon: ce la farai a prenderli tutti?")
       .setDescription([
         "<a:VC_PikaWave:1331622011004260354> Se ami i Pokémon, vieni nel canale <#1442569184281362552> e cattura i tuoi preferiti insieme agli altri membri!",
-      ].join("\n")),
+      ].join("\n")),*/
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
@@ -260,13 +260,13 @@ const reminderPool = [
       .setDescription([
         "<a:VC_Rocket:1468544312475123753> Hai un'idea o vuoi proporre qualcosa di nuovo? Scrivilo subito in <#1442569147559973094> e aiutaci a rendere Vinili & Caffè sempre migliore!",
       ].join("\n")),
-  () =>
+  /*() =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<a:VC_PandaWeee:1331604262152835115> Mudae: colleziona anime e divertiti!")
       .setDescription([
         "<a:VC_Please:1448671483575533620> Se ami gli anime, prova <#1442569182825681077>: colleziona i tuoi personaggi preferiti e sfida gli altri appassionati!",
-      ].join("\n")),
+      ].join("\n")),*/
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
@@ -309,7 +309,7 @@ function getEventReminderEmbed() {
 async function isActivityEventActive(guildId) {
   if (!guildId) return false;
   try {
-    const { getGuildExpSettings } = require("../../Vinyls/Services/Community/expService");
+    const { getGuildExpSettings } = require("../../../Vinyls/Services/Community/expService");
     const settings = await getGuildExpSettings(guildId);
     return settings?.eventExpiresAt != null && new Date(settings.eventExpiresAt).getTime() > Date.now();
   } catch (err) {

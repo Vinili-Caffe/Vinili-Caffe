@@ -355,7 +355,25 @@
                 "roles.Level70"
             ],
             "channels": [
-                "channels.commands"
+                "channels.commands",
+                "channels.chat",
+                "channels.media",
+                "channels.forum",
+                "channels.news",
+                "channels.eventAnnouncements",
+                "channels.suggestions",
+                "channels.supporters",
+                "channels.ship",
+                "channels.polls",
+                "channels.quotes",
+                "channels.birthday",
+                "channels.staffChat",
+                "channels.partnersChat",
+                "channels.highChat",
+                "channels.midChat",
+                "channels.staffCmds",
+                "channels.highCmds",
+                "channels.partnerships"
             ]
         },
         "description": [

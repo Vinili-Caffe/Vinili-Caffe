@@ -80,7 +80,7 @@ module.exports = {
     }
 
     try {
-      const privacy=await QuotePrivacy.findOne({guildId:message.guild.id,userId:author.id,}).lean();
+      const privacy=await QuotePrivacy.findOne({guildId:message.guild.id,userId:author.id,});
       if (privacy?.blocked) {
         const dateText=new Date().toLocaleString("it-IT",{timeZone:"Europe/Rome",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",});
         return safeMessageReply(message, {

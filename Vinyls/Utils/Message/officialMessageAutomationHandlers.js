@@ -394,6 +394,16 @@ async function handleDisboardBump(message, client) {
 async function handleDiscadiaBump(message, client) {
   const discadia = client?.config?.discadia;
   if (!discadia || !message.guild) return false;
+  const discadiaBotIds = new Set(
+    [
+      IDs.bots?.Discadia,
+      IDs.roles?.Discadia,
+      discadia?.botId,
+      ...(Array.isArray(discadia?.botIds) ? discadia.botIds : []),
+    ]
+      .filter(Boolean)
+      .map((id) => String(id)),
+  );
   const authorName = String(message.author?.globalName || message.author?.username || "",);
   const sourceName = String([message.author?.globalName || "", message.author?.username || "", message.author?.tag || "", message.author?.id || "", message.applicationId || "",].filter(Boolean).join(" "),);
   const isAutomatedSource = Boolean(message.author?.bot || message.applicationId || message.webhookId,);
@@ -426,12 +436,14 @@ async function handleDiscadiaBump(message, client) {
   const interactionCommandName = String(message.interaction?.commandName || message.interactionMetadata?.name || "",).trim().toLowerCase();
   const isBumpInteraction = interactionCommandName === "bump";
   const isLikelyCommandChannel = String(message.channelId || "") === String(IDs.channels.commands || "");
-  const isFromDiscadiaBot = String(message.author?.id) === String(IDs.bots?.Discadia || "");
+  const authorId = String(message.author?.id || "");
+  const isFromDiscadiaBot = Boolean(authorId && discadiaBotIds.has(authorId));
   const sourceFingerprint = `${authorName} ${sourceName}`.toLowerCase();
   const looksLikeDiscadiaSource = isFromDiscadiaBot || /\bdiscadia\b/i.test(sourceFingerprint) || hasDiscadiaWord || hasDiscadiaDomain;
   const looksLikeDisboardSource = /\bdisboard\b/i.test(sourceFingerprint);
   const hasBumpSuccessText = hasPattern || hasSuccessWord;
-  const isStrictDiscadiaSource = isFromDiscadiaBot || (isAutomatedSource && looksLikeDiscadiaSource && !looksLikeDisboardSource);
+  const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
+  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation;
   const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource && (isLikelyCommandChannel || isBumpInteraction || hasDiscadiaDomain || hasDiscadiaWord);
   if (!isBump) return false;
   const guildThanksKey = `discadia_thanks:${message.guild.id}`;
