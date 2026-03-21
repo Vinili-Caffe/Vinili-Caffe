@@ -1,5 +1,13 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionsBitField, ChannelType, } = require("discord.js");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
+const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
+const {
+  MAX_REACTIONS,
+  parseReactionTokens,
+  toDisplay,
+  buildCustomReactionPanelEmbed,
+  buildCustomReactionPanelRows,
+} = require("../../Utils/Community/mentionReactionPanelUtils");
 const axios = require("axios");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
@@ -1007,6 +1015,216 @@ async function handleAddRemoveSelectMenus(interaction) {
   return false;
 }
 
+async function handleCustomReactionButton(interaction) {
+  if (!interaction.isButton()) return false;
+  const id = String(interaction.customId || "");
+  const match = id.match(/^customreaction_(add|remove|clear):(\d{16,20})$/);
+  if (!match) return false;
+  const [, action, ownerId] = match;
+  if (!(await checkOwnership(interaction, ownerId))) return true;
+
+  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  if (!ownerState.ok) return true;
+
+  const guildId = interaction.guild?.id;
+  if (!guildId) return true;
+
+  if (action === "add") {
+    const modal = new ModalBuilder()
+      .setCustomId(`customreaction_modal_add:${ownerId}`)
+      .setTitle("Aggiungi reaction");
+    const input = new TextInputBuilder()
+      .setCustomId("value")
+      .setLabel("Emoji (max 3, separati da spazio)")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true)
+      .setPlaceholder("Es. 😀 😂 <:nome:id>")
+      .setMaxLength(200);
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
+    if (!shown) {
+      await replyEphemeral(interaction, {
+        content:
+          "<:VC_Attention:1482534443632558151> Impossibile aprire il modulo, riprova.",
+        flags: PRIVATE_FLAG,
+      });
+    }
+    return true;
+  }
+
+  if (action === "clear") {
+    await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
+    const embed = buildCustomReactionPanelEmbed([]);
+    const rows = buildCustomReactionPanelRows(ownerId);
+    await interaction.update({ embeds: [embed], components: rows }).catch(() => {});
+    return true;
+  }
+
+  if (action === "remove") {
+    const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).lean().catch(() => null);
+    const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
+    if (!current.length) {
+      await replyEphemeral(interaction, {
+        content: "<:vegax:1443934876440068179> Non hai reaction da rimuovere.",
+        flags: PRIVATE_FLAG,
+      });
+      return true;
+    }
+    const panelMessageId = interaction.message?.id;
+    if (!panelMessageId) {
+      await replyEphemeral(interaction, {
+        content: "<:vegax:1443934876440068179> Messaggio pannello non trovato.",
+        flags: PRIVATE_FLAG,
+      });
+      return true;
+    }
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`customreaction_remove_pick:${ownerId}:${panelMessageId}`)
+      .setPlaceholder("Quale reaction togliere?");
+    for (const token of current.slice(0, 25)) {
+      const label = String(toDisplay(token)).replace(/\n/g, " ").slice(0, 100);
+      const value = String(token).slice(0, 100);
+      if (!value) continue;
+      select.addOptions({ label: label || value, value });
+    }
+    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+    if (!deferred) return true;
+    await interaction.followUp({
+      content: "Scegli la reaction da rimuovere:",
+      components: [new ActionRowBuilder().addComponents(select)],
+      flags: PRIVATE_FLAG,
+    }).catch(() => {});
+    return true;
+  }
+
+  return false;
+}
+
+async function handleCustomReactionModal(interaction) {
+  if (!interaction.isModalSubmit()) return false;
+  const customId = String(interaction.customId || "");
+  if (!customId.startsWith("customreaction_modal_add:")) return false;
+  const parts = customId.split(":");
+  const ownerId = parts[1];
+  if (!ownerId) return true;
+  if (interaction.user.id !== ownerId) {
+    await replyEphemeral(interaction, {
+      content:
+        "<:VC_Attention:1482534443632558151> Non puoi modificare queste impostazioni.",
+      flags: PRIVATE_FLAG,
+    });
+    return true;
+  }
+
+  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  if (!ownerState.ok) return true;
+
+  await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
+
+  const raw = interaction.fields.getTextInputValue("value") || "";
+  const tokens = parseReactionTokens(raw, MAX_REACTIONS);
+  if (!tokens.length) {
+    await interaction.editReply({
+      content:
+        "<:vegax:1443934876440068179> Nessuna reaction valida. Usa emoji unicode o `<:nome:id>`.",
+    }).catch(() => {});
+    return true;
+  }
+
+  const guildId = interaction.guild?.id;
+  if (!guildId) {
+    await interaction.editReply({ content: "<:vegax:1443934876440068179> Errore server." }).catch(() => {});
+    return true;
+  }
+
+  const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).lean().catch(() => null);
+  const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
+  const next = Array.from(new Set([...current, ...tokens])).slice(0, MAX_REACTIONS);
+
+  if (!next.length) {
+    await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
+  } else {
+    await MentionReaction.findOneAndUpdate(
+      { guildId, userId: ownerId },
+      { $set: { reactions: next } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).catch(() => {});
+  }
+
+  await interaction.editReply({
+    content: "<:vegacheckmark:1443666279058772028> Reaction aggiornate.",
+  }).catch(() => {});
+
+  if (interaction.message) {
+    const embed = buildCustomReactionPanelEmbed(next);
+    const rows = buildCustomReactionPanelRows(ownerId);
+    await interaction.message.edit({ embeds: [embed], components: rows }).catch(() => {});
+  }
+  return true;
+}
+
+async function handleCustomReactionSelect(interaction) {
+  if (!interaction.isStringSelectMenu()) return false;
+  const id = String(interaction.customId || "");
+  const prefix = "customreaction_remove_pick:";
+  if (!id.startsWith(prefix)) return false;
+  const rest = id.slice(prefix.length);
+  const seg = rest.split(":");
+  if (seg.length < 2) return false;
+  const ownerId = seg[0];
+  const panelMessageId = seg[1];
+  if (interaction.user.id !== ownerId) {
+    await replyEphemeral(interaction, {
+      content:
+        "<:VC_Attention:1482534443632558151> Non puoi modificare queste impostazioni.",
+      flags: PRIVATE_FLAG,
+    });
+    return true;
+  }
+
+  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  if (!ownerState.ok) return true;
+
+  const token = interaction.values?.[0];
+  if (!token) {
+    await interaction.update({ content: "<:vegax:1443934876440068179> Selezione non valida.", components: [] }).catch(() => {});
+    return true;
+  }
+
+  const guildId = interaction.guild?.id;
+  if (!guildId) return true;
+
+  const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).lean().catch(() => null);
+  const list = Array.isArray(doc?.reactions) ? [...doc.reactions] : [];
+  const next = list.filter((t) => String(t) !== String(token));
+
+  if (!next.length) {
+    await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
+  } else {
+    await MentionReaction.findOneAndUpdate(
+      { guildId, userId: ownerId },
+      { $set: { reactions: next } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).catch(() => {});
+  }
+
+  await interaction.update({
+    content: "<:vegacheckmark:1443666279058772028> Reaction rimossa.",
+    components: [],
+  }).catch(() => {});
+
+  const ch = interaction.channel;
+  if (ch?.messages?.fetch) {
+    const panelMessage = await ch.messages.fetch(panelMessageId).catch(() => null);
+    if (panelMessage) {
+      const embed = buildCustomReactionPanelEmbed(next);
+      const rows = buildCustomReactionPanelRows(ownerId);
+      await panelMessage.edit({ embeds: [embed], components: rows }).catch(() => {});
+    }
+  }
+  return true;
+}
+
 async function handleCustomVocButton(interaction) {
   if (!interaction.isButton()) return false;
   const parsed = parseVoiceActionId(interaction.customId);
@@ -1403,6 +1621,9 @@ async function handleGrantButtons(interaction) {
 }
 
 async function handleCustomRoleInteraction(interaction) {
+  if (await handleCustomReactionButton(interaction)) return true;
+  if (await handleCustomReactionModal(interaction)) return true;
+  if (await handleCustomReactionSelect(interaction)) return true;
   if (await handleCustomVocButton(interaction)) return true;
   if (await handleCustomVocModal(interaction)) return true;
   if (await handleAddRemoveSelectMenus(interaction)) return true;

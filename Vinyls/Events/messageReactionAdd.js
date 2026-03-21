@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js");
 const communitySchemas = require("../Schemas/Community/communitySchemas");
 const SkullboardPost = communitySchemas?.SkullboardPost;
 const IDs = require("../Utils/Config/ids");
@@ -8,6 +8,33 @@ const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
 const SKULL_EMOJI = "\u{1F480}";
 const SKULLBOARD_CHANNEL_ID = IDs.channels.quotes;
 const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set(["1442569130573303898","1442569136067575809","1442569138114662490","1442569141717438495",]);
+
+function isSkullboardSourceChannel(channel) {
+  if (!channel) return false;
+  const id = String(channel.id || "");
+  if (SKULL_SOURCE_WHITELIST_CHANNEL_IDS.has(id)) return true;
+
+  const privateVoiceCategoryId = String(IDs.categories?.categoryPrivate || "");
+  const target = channel.isThread?.() ? channel.parent : channel;
+  if (!target) return false;
+
+  const targetId = String(target.id || "");
+  if (SKULL_SOURCE_WHITELIST_CHANNEL_IDS.has(targetId)) return true;
+
+  if (target.type === ChannelType.GuildVoice || target.type === ChannelType.GuildStageVoice) {
+    return typeof target.isTextBased !== "function" || target.isTextBased();
+  }
+
+  if (
+    privateVoiceCategoryId &&
+    (target.type === ChannelType.GuildText || target.type === ChannelType.GuildAnnouncement) &&
+    String(target.parentId || "") === privateVoiceCategoryId
+  ) {
+    return true;
+  }
+
+  return false;
+}
 const MAX_REPLY_CONTENT_LENGTH = 100;
 const MAX_DISPLAY_NAME_LENGTH = 80;
 
@@ -207,7 +234,7 @@ module.exports = {
 
       const message = await resolveReactionMessage(reaction);
       if (!message || !message.guild || !message.author) return;
-      if (!SKULL_SOURCE_WHITELIST_CHANNEL_IDS.has(String(message.channel?.id || ""))) {
+      if (!isSkullboardSourceChannel(message.channel)) {
         return;
       }
       if (message.channel?.id === SKULLBOARD_CHANNEL_ID) return;

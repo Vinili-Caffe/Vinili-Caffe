@@ -350,93 +350,13 @@
         "customreaction": {
             "roles": [
                 "roles.vip",
+                "roles.donator",
+                "roles.ServerBooster",
                 "roles.Level70"
             ],
             "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds" 
-            ],
-            "subcommands": {
-                "show": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "set": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "add": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "remove": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "clear": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "help": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "list": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "view": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "del": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "rm": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "delete": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "off": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ],
-                "reset": [
-                    "roles.vip",
-                    "roles.donator",
-                    "roles.ServerBooster",
-                    "roles.Level70"
-                ]
-            }
+                "channels.commands"
+            ]
         },
         "description": [
             "roles.PartnerManager"
@@ -1427,6 +1347,15 @@
         "customvoc_name:*": {
             "ownerSegment": 1
         },
+        "customreaction_add:*": {
+            "ownerSegment": 1
+        },
+        "customreaction_remove:*": {
+            "ownerSegment": 1
+        },
+        "customreaction_clear:*": {
+            "ownerSegment": 1
+        },
         "downv": [
             "roles.Member"
         ],
@@ -1809,6 +1738,9 @@
         "customrole_remove_select:*": {
             "ownerSegment": 1
         },
+        "customreaction_remove_pick:*": {
+            "ownerSegment": 1
+        },
         "backup_list_select:*": {
             "ownerSegment": 1
         },
@@ -1861,6 +1793,9 @@
             "ownerSegment": 1
         },
         "customvoc_modal_*": {
+            "ownerSegment": 1
+        },
+        "customreaction_modal_*": {
             "ownerSegment": 1
         },
         "dm_broadcast:*": {
