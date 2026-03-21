@@ -1061,7 +1061,7 @@ async function handleCustomReactionButton(interaction) {
   }
 
   if (action === "remove") {
-    const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).lean().catch(() => null);
+    const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
     const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
     if (!current.length) {
       await replyEphemeral(interaction, {
@@ -1137,7 +1137,7 @@ async function handleCustomReactionModal(interaction) {
     return true;
   }
 
-  const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).lean().catch(() => null);
+  const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
   const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
   const next = Array.from(new Set([...current, ...tokens])).slice(0, MAX_REACTIONS);
 
@@ -1194,7 +1194,7 @@ async function handleCustomReactionSelect(interaction) {
   const guildId = interaction.guild?.id;
   if (!guildId) return true;
 
-  const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).lean().catch(() => null);
+  const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
   const list = Array.isArray(doc?.reactions) ? [...doc.reactions] : [];
   const next = list.filter((t) => String(t) !== String(token));
 
