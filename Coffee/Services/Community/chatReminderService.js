@@ -10,6 +10,7 @@ const REMINDER_FIXED_INTERVAL_MINUTES = 45;
 const REMINDER_EVENT_INTERVAL_MINUTES = 15;
 const EVENT_REMINDER_MIN_GAP_MS = 10 * 60 * 1000;
 const DEFAULT_MIN_GAP_MS = 30 * 60 * 1000;
+const SEND_ONLY_EVENT_REMINDERS = false;
 const scheduledHours = new Map();
 const scheduledTimeouts = new Map();
 let lastReminderSlotKey = null;
@@ -745,6 +746,8 @@ function startHourlyReminderLoop(client) {
       }
     }
 
+    // Modalita evento-only: disabilita reminder normali.
+    if (SEND_ONLY_EVENT_REMINDERS) return;
     // Reminder normale: slot fissi ogni 45 min
     if (!isReminderFixedSlot(parts, client)) return;
     if (slotKey === lastReminderSlotKey) return;
