@@ -1,52 +1,7 @@
-const mongoose = require("mongoose");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const VALID_TYPES = new Set(["prefix", "slash", "any"]);
-
-function isDbReady() {
-  return mongoose.connection?.readyState === 1;
-}
-
-function normalizeToken(raw) {
-  const input=String(raw||"").trim().toLowerCase();
-  if (!input) return null;
-
-  const typed = input.match(/^(prefix|slash|any):(.+)$/);
-  if (typed) {
-    const type = typed[1];
-    const key=String(typed[2]||"").trim().replace(/\s+/g,"");
-    if (!key) return null;
-    return `${type}:${key}`;
-  }
-
-  const withoutPrefix = input.replace(/^[+/?-]+/, "").trim();
-  if (!withoutPrefix) return null;
-  return `any:${withoutPrefix}`;
-}
-
-function parseCommandTokenList(rawText) {
-  const parts=String(rawText||"").split(/[,\s]+/g).map((chunk) => normalizeToken(chunk)).filter(Boolean);
-  return Array.from(new Set(parts));
-}
-
-function expandRevokeToken(token) {
-  const normalized = normalizeToken(token);
-  if (!normalized) return [];
-  const [type, key] = normalized.split(":");
-  if (!type || !key) return [];
-  if (VALID_TYPES.has(type) && type !== "any") return [normalized];
-  return [`any:${key}`, `prefix:${key}`, `slash:${key}`];
-}
-
-function parseRevokeTokenList(rawText) {
-  const chunks=String(rawText||"").split(/[,\s]+/g).map((value) => String(value||"").trim()).filter(Boolean);
-  const keys = chunks.flatMap((token) => expandRevokeToken(token));
-  return Array.from(new Set(keys));
-}
-
 function buildPrefixLookupKeys(commandName, subcommandName = null) {
-  const command=String(commandName||"").trim().toLowerCase();
+  const command = String(commandName || "").trim().toLowerCase();
   if (!command) return [];
-  const sub=String(subcommandName||"").trim().toLowerCase();
+  const sub = String(subcommandName || "").trim().toLowerCase();
   const keys = [];
   if (sub) {
     keys.push(`prefix:${command}.${sub}`, `any:${command}.${sub}`);
@@ -56,10 +11,10 @@ function buildPrefixLookupKeys(commandName, subcommandName = null) {
 }
 
 function buildSlashLookupKeys(commandName, groupName = null, subcommandName = null) {
-  const command=String(commandName||"").trim().toLowerCase();
+  const command = String(commandName || "").trim().toLowerCase();
   if (!command) return [];
-  const group=String(groupName||"").trim().toLowerCase();
-  const sub=String(subcommandName||"").trim().toLowerCase();
+  const group = String(groupName || "").trim().toLowerCase();
+  const sub = String(subcommandName || "").trim().toLowerCase();
   const keys = [];
 
   if (group && sub) {
@@ -76,145 +31,4 @@ function buildSlashLookupKeys(commandName, groupName = null, subcommandName = nu
   return Array.from(new Set(keys));
 }
 
-async function hasTemporaryCommandPermission({ guildId, userId, keys }) {
-  if (!guildId || !userId || !Array.isArray(keys) || !keys.length) return false;
-  if (!isDbReady()) return false;
-  const now = new Date();
-  try {
-    const row = await ActivityUserProfile.findOne({
-      guildId: String(guildId),
-      userId: String(userId),
-      "profile.temporaryCommandPermissions.permissions": {
-        $elemMatch: {
-          commandKey: { $in: keys.map((key) => String(key).toLowerCase()) },
-          expiresAt: { $gt: now },
-        },
-      },
-    }).select("_id").lean();
-    return Boolean(row?._id);
-  } catch {
-    return false;
-  }
-}
-
-const PERMANENT_EXPIRY_MS = 100 * 365.25 * 24 * 60 * 60 * 1000;
-
-async function grantTemporaryCommandPermissions({ guildId, userId, grantedBy = null, commandKeys = [], durationMs, permanent = false }) {
-  const permanentGrant = permanent || durationMs == null || durationMs === "";
-  const safeDuration = permanentGrant ? 0 : Number(durationMs || 0);
-  if (
-    !guildId ||
-    !userId ||
-    !Array.isArray(commandKeys) ||
-    !commandKeys.length ||
-    (!permanentGrant && (!Number.isFinite(safeDuration) || safeDuration <= 0))
-  ) {
-    return { upserted: 0, modified: 0, expiresAt: null };
-  }
-  if (!isDbReady()) {
-    return { upserted: 0, modified: 0, expiresAt: null };
-  }
-
-  const expiresAt=permanentGrant?new Date(Date.now()+PERMANENT_EXPIRY_MS):new Date(Date.now()+safeDuration);
-  const ops = commandKeys.map((rawKey) => ({
-    updateOne: {
-      filter: {
-        guildId: String(guildId),
-        userId: String(userId),
-        "profile.temporaryCommandPermissions.permissions.commandKey": String(rawKey).toLowerCase(),
-      },
-      update: {
-        $setOnInsert: { guildId: String(guildId), userId: String(userId) },
-        $set: {
-          "profile.temporaryCommandPermissions.permissions.$.grantedBy": grantedBy ? String(grantedBy) : null,
-          "profile.temporaryCommandPermissions.permissions.$.expiresAt": expiresAt,
-        },
-      },
-      upsert: false,
-    },
-  }));
-
-  try {
-    const result = await ActivityUserProfile.bulkWrite(ops, { ordered: false });
-    await ActivityUserProfile.updateOne(
-      { guildId: String(guildId), userId: String(userId) },
-      {
-        $setOnInsert: { guildId: String(guildId), userId: String(userId) },
-        $addToSet: {
-          "profile.temporaryCommandPermissions.permissions": {
-            $each: commandKeys.map((rawKey) => ({
-              commandKey: String(rawKey).toLowerCase(),
-              grantedBy: grantedBy ? String(grantedBy) : null,
-              expiresAt,
-            })),
-          },
-        },
-      },
-      { upsert: true },
-    ).catch(() => {});
-    return {
-      upserted: Number(result?.upsertedCount || 0),
-      modified: Number(result?.modifiedCount || 0),
-      expiresAt,
-    };
-  } catch {
-    return { upserted: 0, modified: 0, expiresAt };
-  }
-}
-
-async function revokeTemporaryCommandPermissions({ guildId, userId, commandKeys = [] }) {
-  if (!guildId || !userId || !Array.isArray(commandKeys) || !commandKeys.length)
-    return 0;
-  if (!isDbReady()) return 0;
-  try {
-    await ActivityUserProfile.updateOne(
-      { guildId: String(guildId), userId: String(userId) },
-      {
-        $pull: {
-          "profile.temporaryCommandPermissions.permissions": {
-            commandKey: { $in: commandKeys.map((key) => String(key).toLowerCase()) },
-          },
-        },
-      },
-    );
-    return commandKeys.length;
-  } catch {
-    return 0;
-  }
-}
-
-async function clearTemporaryCommandPermissionsForUser({ guildId, userId }) {
-  if (!guildId || !userId) return 0;
-  if (!isDbReady()) return 0;
-  try {
-    await ActivityUserProfile.updateOne(
-      { guildId: String(guildId), userId: String(userId) },
-      { $set: { "profile.temporaryCommandPermissions.permissions": [] } },
-    );
-    return 1;
-  } catch {
-    return 0;
-  }
-}
-
-async function listTemporaryCommandPermissionsForUser({ guildId, userId }) {
-  if (!guildId || !userId) return [];
-  if (!isDbReady()) return [];
-  const now = new Date();
-  try {
-    const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
-      .select("profile.temporaryCommandPermissions.permissions")
-      .lean();
-    const list = Array.isArray(doc?.profile?.temporaryCommandPermissions?.permissions)
-      ? doc.profile.temporaryCommandPermissions.permissions
-      : [];
-    return list
-      .filter((x) => new Date(x?.expiresAt || 0) > now)
-      .sort((a, b) => new Date(a?.expiresAt || 0).getTime() - new Date(b?.expiresAt || 0).getTime())
-      .slice(0, 200);
-  } catch {
-    return [];
-  }
-}
-
-module.exports = { parseCommandTokenList, parseRevokeTokenList, buildPrefixLookupKeys, buildSlashLookupKeys, hasTemporaryCommandPermission, grantTemporaryCommandPermissions, revokeTemporaryCommandPermissions, clearTemporaryCommandPermissionsForUser, listTemporaryCommandPermissionsForUser };
+module.exports = { buildPrefixLookupKeys, buildSlashLookupKeys };

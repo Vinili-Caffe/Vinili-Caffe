@@ -2,10 +2,8 @@ const path = require("path");
 const mongoose = require("mongoose");
 const { EmbedBuilder } = require("discord.js");
 const { inspect } = require("node:util");
-const { AutoResponder } = require("../../Schemas/Community/autoInteractionSchemas");
 const countschema = require("../../Schemas/Counting/countingSchema");
 const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
-const { getGuildAutoResponderCache, setGuildAutoResponderCache } = require("../Community/autoResponderCache");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, EPHEMERAL_TTL_LONG_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
@@ -72,6 +70,47 @@ function containsWholeWord(haystack, word) {
   const trailingRepeat = lastChar ? `${escapeRegex(lastChar)}*` : "";
   const pattern = new RegExp(`(?:^|[\\s\\p{P}])(?:${escapeRegex(w)})${trailingRepeat}(?:[\\s\\p{P}]|$)`, "iu");
   return pattern.test(haystack);
+}
+
+function stripLeadingNoiseForGreeting(text) {
+  let s = String(text || "").trim().toLowerCase();
+  if (!s) return "";
+  for (let i = 0; i < 8; i += 1) {
+    const before = s;
+    s = s.replace(/^<@[^>]+>\s*/u, "");
+    s = s.replace(/^<#\d{16,20}>\s*/u, "");
+    s = s.replace(/^<a?:[a-zA-Z0-9_]{2,}:\d{16,20}>\s*/u, "");
+    s = s.replace(/^[\s\p{P}#]+/u, "");
+    if (s === before) break;
+  }
+  return s;
+}
+
+function matchesAtMessageStart(haystack, wordOrPhrase) {
+  const h = stripLeadingNoiseForGreeting(haystack);
+  const needle = String(wordOrPhrase || "").trim().toLowerCase();
+  if (!needle || !h) return false;
+  if (needle.includes(" ")) {
+    return (
+      h.startsWith(needle) &&
+      (h.length === needle.length || /^[\s\p{P}]/.test(h.slice(needle.length)))
+    );
+  }
+  const firstToken = h.match(/^([^\s]+)/u);
+  if (!firstToken) return false;
+  const raw = firstToken[1];
+  const first = raw.replace(/[\p{P}]+$/gu, "").toLowerCase();
+  if (first === needle) return true;
+  if (h.startsWith(needle) && (h.length === needle.length || /^[\s\p{P}]/.test(h[needle.length]))) return true;
+  return false;
+}
+
+function isLoneWordMessage(normalized, word) {
+  const w = String(word || "").trim().toLowerCase();
+  if (!w) return false;
+  let s = stripLeadingNoiseForGreeting(normalized);
+  s = s.replace(/[\p{P}\s]+$/gu, "").trim();
+  return s === w;
 }
 
 function getWordReactionsConfig() {
@@ -164,77 +203,6 @@ function resolveReactionForMessage(message, token) {
   return { key: value, value };
 }
 
-function normalizeForTriggerMatch(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function getGuildAutoResponders(guildId) {
-  if (!guildId) return [];
-  const cached = getGuildAutoResponderCache(guildId);
-  if (cached) return cached;
-  const docs = await AutoResponder.find({ guildId, enabled: true }).lean().catch(() => []);
-  const rules = Array.isArray(docs) ? docs.map((doc) => ({ triggerLower: String(doc?.triggerLower || "").trim().toLowerCase(), triggerLoose: normalizeForTriggerMatch(doc?.triggerLower || doc?.trigger || "",), triggerTokens: normalizeForTriggerMatch(doc?.triggerLower || doc?.trigger || "",).split(/\s+/).filter((token) => token.length >= 3), response: String(doc?.response || ""), reactions: Array.isArray(doc?.reactions) ? doc.reactions : [], })).filter((doc) => Boolean(doc.triggerLower)).sort((a, b) => b.triggerLower.length - a.triggerLower.length) : [];
-  setGuildAutoResponderCache(guildId, rules);
-  return rules;
-}
-
-function containsWholeLoosePhrase(normalizedLooseText, normalizedLooseNeedle) {
-  const haystack = String(normalizedLooseText || "").trim();
-  const needle = String(normalizedLooseNeedle || "").trim();
-  if (!haystack || !needle) return false;
-  return ` ${haystack} `.includes(` ${needle} `);
-}
-
-function ruleMatchesMessage(normalizedText, normalizedLoose, rule) {
-  void normalizedText;
-  if (!rule) return false;
-  if (
-    rule.triggerLoose &&
-    containsWholeLoosePhrase(normalizedLoose, rule.triggerLoose)
-  ) return true;
-  return false;
-}
-
-async function handleAutoResponders(message) {
-  const guildId = message.guild?.id;
-  if (!guildId) return;
-  const normalized = String(message.content || "").toLowerCase().trim();
-  if (!normalized) return;
-  if (normalized.startsWith("+")) return;
-  const normalizedLoose = normalizeForTriggerMatch(message.content || "");
-
-  const rules = await getGuildAutoResponders(guildId);
-  if (!Array.isArray(rules) || !rules.length) return;
-
-  const matched = rules.find((rule) => ruleMatchesMessage(normalized, normalizedLoose, rule),);
-  if (!matched) return;
-
-  const response = String(matched.response || "").trim();
-  if (response) {
-    await message.channel
-      .send({
-        content: response,
-        allowedMentions: { repliedUser: false },
-      })
-      .catch(() => { });
-  }
-
-  const seen = new Set();
-  const list = Array.isArray(matched.reactions) ? matched.reactions : [];
-  for (const token of list) {
-    const emoji = resolveReactionToken(token);
-    if (!emoji || seen.has(emoji)) continue;
-    seen.add(emoji);
-    await message.react(emoji).catch(() => { });
-  }
-}
-
 async function handleMentionAutoReactions(message) {
   const mentionedUsers = message.mentions?.users;
   if (!mentionedUsers || mentionedUsers.size === 0) return;
@@ -291,8 +259,26 @@ async function handleWordReactions(message) {
       if (!inAllowedChannel || !isWelcomeContextActive(message.channelId)) continue;
     }
     const words = Array.isArray(rule.words) ? rule.words : [];
+    const loneWords = Array.isArray(rule.loneWords) ? rule.loneWords : [];
     const reactions = Array.isArray(rule.reactions) ? rule.reactions : [];
-    const match = words.some((w) => containsWholeWord(normalized, w));
+    const matchAtStart = rule.matchAtStart === true;
+    let match = false;
+    for (const w of words) {
+      const term = String(w || "").trim();
+      if (!term) continue;
+      if (matchAtStart) {
+        if (matchesAtMessageStart(normalized, term)) {
+          match = true;
+          break;
+        }
+      } else if (containsWholeWord(normalized, term)) {
+        match = true;
+        break;
+      }
+    }
+    if (!match && loneWords.length) {
+      match = loneWords.some((lw) => isLoneWordMessage(normalized, lw));
+    }
     if (!match) continue;
     for (const token of reactions) {
       const resolved = resolveReactionForMessage(message, token);
@@ -452,4 +438,4 @@ async function processPendingCountingMessages(client) {
   }
 }
 
-module.exports = { handleAfk, handleAutoResponders, handleCounting, handleMentionAutoReactions, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive };
+module.exports = { handleAfk, handleCounting, handleMentionAutoReactions, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive };

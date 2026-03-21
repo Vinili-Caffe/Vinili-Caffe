@@ -347,6 +347,97 @@
                 "channels.commands"
             ]
         },
+        "customreaction": {
+            "roles": [
+                "roles.vip",
+                "roles.donator",
+                "roles.ServerBooster",
+                "roles.Level70"
+            ],
+            "channels": [
+                "channels.commands"
+            ],
+            "subcommands": {
+                "show": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "set": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "add": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "remove": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "clear": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "help": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "list": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "view": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "del": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "rm": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "delete": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "off": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ],
+                "reset": [
+                    "roles.vip",
+                    "roles.donator",
+                    "roles.ServerBooster",
+                    "roles.Level70"
+                ]
+            }
+        },
         "description": [
             "roles.PartnerManager"
         ],
@@ -627,40 +718,6 @@
                 "channels.highCmds"
             ]
         },
-        "perms": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "grant": [
-                    "roles.HighStaff"
-                ],
-                "revoke": [
-                    "roles.HighStaff"
-                ],
-                "list": [
-                    "roles.HighStaff"
-                ],
-                "clear": [
-                    "roles.HighStaff"
-                ],
-                "permgrant": [
-                    "roles.HighStaff"
-                ],
-                "permrevoke": [
-                    "roles.HighStaff"
-                ],
-                "permlist": [
-                    "roles.HighStaff"
-                ],
-                "permclear": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
         "ping": {
             "roles": [
                 "roles.Member"
@@ -717,38 +774,6 @@
                 "channels.highCmds"
             ]
         },
-        "reaction": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "mention": [
-                    "roles.HighStaff"
-                ],
-                "auto": [
-                    "roles.HighStaff"
-                ],
-                "mentions": [
-                    "roles.HighStaff"
-                ],
-                "me": [
-                    "roles.HighStaff"
-                ],
-                "mine": [
-                    "roles.HighStaff"
-                ],
-                "autoresponder": [
-                    "roles.HighStaff"
-                ],
-                "ar": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
         "recensione": {
             "roles": [
                 "roles.HighStaff"
@@ -757,8 +782,7 @@
         "blacklist": {
             "roles": [
                 "roles.HighStaff",
-                "roles.PartnerManager",
-                "roles.Manager"
+                "roles.PartnerManager"
             ],
             "channels": [
                 "channels.staffCmds",
