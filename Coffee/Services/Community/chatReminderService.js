@@ -11,6 +11,7 @@ const REMINDER_EVENT_INTERVAL_MINUTES = 15;
 const EVENT_REMINDER_MIN_GAP_MS = 10 * 60 * 1000;
 const DEFAULT_MIN_GAP_MS = 30 * 60 * 1000;
 const SEND_ONLY_EVENT_REMINDERS = false;
+const EVENT_REMINDER_EVERY_NORMAL = 3;
 const scheduledHours = new Map();
 const scheduledTimeouts = new Map();
 let lastReminderSlotKey = null;
@@ -20,6 +21,7 @@ let rotationDate = null;
 let rotationQueue = [];
 let rotationGuildId = null;
 let lastSentAt = null;
+let normalRemindersSinceEvent = 0;
 const reminderActivity = new Map();
 let hourlyLoopHandle = null;
 
@@ -377,6 +379,7 @@ async function saveRotationState() {
         dateKey: rotationDate,
         queue: rotationQueue,
         lastSentAt: lastSentAt ? new Date(lastSentAt) : null,
+        normalRemindersSinceEvent: Number(normalRemindersSinceEvent || 0),
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -410,6 +413,7 @@ async function loadRotationState(guildId, dateKey) {
     if (queueHasAllReminderIndices(rotationQueue)) {
       rotationDate = doc.dateKey;
       lastSentAt = doc.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
+      normalRemindersSinceEvent = Number(doc.normalRemindersSinceEvent || 0);
       rotationQueue = shuffleArray(rotationQueue);
       return;
     }
@@ -417,6 +421,7 @@ async function loadRotationState(guildId, dateKey) {
   rotationDate = normDate;
   rotationQueue = [];
   lastSentAt = doc?.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
+  normalRemindersSinceEvent = Number(doc?.normalRemindersSinceEvent || 0);
   await saveRotationState();
 }
 
@@ -424,6 +429,12 @@ async function nextReminderEmbed(parts, guildId) {
   const key = getDateKey(parts);
   const gid = guildId || rotationGuildId;
   if (gid) await loadRotationState(gid, key);
+  const eventActive = gid ? await isActivityEventActive(gid) : false;
+  if (eventActive && normalRemindersSinceEvent >= EVENT_REMINDER_EVERY_NORMAL) {
+    normalRemindersSinceEvent = 0;
+    await saveRotationState();
+    return getEventReminderEmbed();
+  }
 
   if (rotationDate !== key || rotationQueue.length === 0) {
     rotationDate = key;
@@ -437,6 +448,7 @@ async function nextReminderEmbed(parts, guildId) {
   const pos = randomInt(0, rotationQueue.length);
   const index = rotationQueue[pos];
   rotationQueue.splice(pos, 1);
+  normalRemindersSinceEvent = eventActive ? normalRemindersSinceEvent + 1 : 0;
   await saveRotationState();
   const next = Number.isFinite(index) ? reminderPool[index] : reminderPool[0];
   return next ? next() : null;
@@ -738,13 +750,7 @@ function startHourlyReminderLoop(client) {
     const slotKey = `${getDateKey(parts)}_${parts.hour}_${parts.minute}`;
     const guildId = client.guilds.cache.first()?.id || null;
 
-    // Reminder evento in corso: ogni 15 min, più spesso degli altri
-    if (guildId && isEventReminderSlot(parts, client) && slotKey !== lastEventReminderSlotKey) {
-      const eventActive = await isActivityEventActive(guildId);
-      if (eventActive) {
-        await sendEventReminderAtSlot(client, parts, slotKey);
-      }
-    }
+    // Reminder evento: gestito nella rotazione normale con peso maggiore.
 
     // Modalita evento-only: disabilita reminder normali.
     if (SEND_ONLY_EVENT_REMINDERS) return;
