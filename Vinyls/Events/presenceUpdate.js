@@ -6,6 +6,7 @@ const IDs = require("../Utils/Config/ids");
 const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 
+const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Supporter;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const CHANNEL_ID = IDs.channels.supporters;
@@ -439,54 +440,55 @@ async function startPendingFlow(member, channel) {
 async function bootstrapSupporter(client) {
   if (bootstrapRan) return;
   bootstrapRan = true;
+  if (!MAIN_GUILD_ID) return;
+  const guild = client.guilds.cache.get(MAIN_GUILD_ID) || (await client.guilds.fetch(MAIN_GUILD_ID).catch(() => null));
+  if (!guild) return;
 
-  for (const guild of client.guilds.cache.values()) {
-    const guildId = guild.id;
-    const channel = await resolveSupportersChannel(guild);
-    if (!channel) continue;
+  const guildId = guild.id;
+  const channel = await resolveSupportersChannel(guild);
+  if (!channel) return;
 
-    let persisted = [];
-    if (isDbReady()) {
-      try {
-        persisted = await ActivityUserProfile.find({
-          guildId,
-          $or: [
-            { "supporterStatus.hasLink": true },
-            { "supporterStatus.lastMessageId": { $ne: null } },
-          ],
-        })
-          .select("userId supporterStatus")
-          .lean();
-      } catch {
-        persisted = [];
-      }
+  let persisted = [];
+  if (isDbReady()) {
+    try {
+      persisted = await ActivityUserProfile.find({
+        guildId,
+        $or: [
+          { "supporterStatus.hasLink": true },
+          { "supporterStatus.lastMessageId": { $ne: null } },
+        ],
+      })
+        .select("userId supporterStatus")
+        .lean();
+    } catch {
+      persisted = [];
     }
+  }
 
-    for (const doc of persisted) {
-      if (!doc?.userId) continue;
-      const userId = String(doc.userId);
-      bootstrappedUsers.add(getBootstrapKey(guildId, userId));
-      setCachedState(guildId, userId, {
-        hasLink: Boolean(doc?.supporterStatus?.hasLink),
-        lastAnnounced: doc?.supporterStatus?.lastSentAt ? new Date(doc.supporterStatus.lastSentAt).getTime() : 0,
-        lastMessageId: doc?.supporterStatus?.lastMessageId || null,
-        lastSeenOnlineAt: 0,
-      });
-    }
+  for (const doc of persisted) {
+    if (!doc?.userId) continue;
+    const userId = String(doc.userId);
+    bootstrappedUsers.add(getBootstrapKey(guildId, userId));
+    setCachedState(guildId, userId, {
+      hasLink: Boolean(doc?.supporterStatus?.hasLink),
+      lastAnnounced: doc?.supporterStatus?.lastSentAt ? new Date(doc.supporterStatus.lastSentAt).getTime() : 0,
+      lastMessageId: doc?.supporterStatus?.lastMessageId || null,
+      lastSeenOnlineAt: 0,
+    });
+  }
 
-    await guild.members.fetch({ withPresences: true }).catch(() => null);
-    for (const member of guild.members.cache.values()) {
-      if (member.user?.bot) continue;
-      if (isOfflinePresence(member.presence)) continue;
-      if (!hasInvite(member.presence)) continue;
-      if (member.roles.cache.has(ROLE_ID)) continue;
-      if (hasPendingState(guildId, member.id)) continue;
+  await guild.members.fetch({ withPresences: true }).catch(() => null);
+  for (const member of guild.members.cache.values()) {
+    if (member.user?.bot) continue;
+    if (isOfflinePresence(member.presence)) continue;
+    if (!hasInvite(member.presence)) continue;
+    if (member.roles.cache.has(ROLE_ID)) continue;
+    if (hasPendingState(guildId, member.id)) continue;
 
-      const existing = getCachedState(guildId, member.id);
-      if (existing?.lastMessageId) continue;
+    const existing = getCachedState(guildId, member.id);
+    if (existing?.lastMessageId) continue;
 
-      await startPendingFlow(member, channel);
-    }
+    await startPendingFlow(member, channel);
   }
 }
 
@@ -625,6 +627,7 @@ module.exports = {
     try {
       const member = newPresence?.member || oldPresence?.member;
       if (!member || member.user?.bot) return;
+      if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
 
       startCleanupClock(member.client, member.guild.id);
 

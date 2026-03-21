@@ -94,8 +94,39 @@ async function resolveWithTimeout(task, fallbackValue, label, timeoutMs = PREFIX
   }
 }
 
+function buildSubcommandKeywordSet(command) {
+  const known = new Set();
+  if (Array.isArray(command?.subcommands)) {
+    for (const sub of command.subcommands) {
+      const normalized = String(sub || "").trim().toLowerCase();
+      if (normalized) known.add(normalized);
+    }
+  }
+  if (command?.subcommandAliases && typeof command.subcommandAliases === "object") {
+    for (const [alias, target] of Object.entries(command.subcommandAliases)) {
+      const aliasNormalized = String(alias || "").trim().toLowerCase();
+      const targetNormalized = String(target || "").trim().toLowerCase();
+      if (aliasNormalized) known.add(aliasNormalized);
+      if (targetNormalized) known.add(targetNormalized);
+    }
+  }
+  return known;
+}
+
+function tokenIsKnownSubcommand(command, rawToken) {
+  if (!rawToken) return false;
+  const raw = String(rawToken).trim().toLowerCase();
+  const known = buildSubcommandKeywordSet(command);
+  if (!known.size) return false;
+  return known.has(raw);
+}
+
 function resolveSubcommandState(command, cmd, args) {
   const rawPrefixSubcommandArg = args[0] ? String(args[0]).toLowerCase() : null;
+  const keywordSet = buildSubcommandKeywordSet(command);
+  if (rawPrefixSubcommandArg && keywordSet.size > 0 && !keywordSet.has(rawPrefixSubcommandArg)) {
+    return null;
+  }
   const prefixSubcommandFromArgs = rawPrefixSubcommandArg && command?.subcommandAliases ? command.subcommandAliases[rawPrefixSubcommandArg] || rawPrefixSubcommandArg : rawPrefixSubcommandArg;
   const prefixSubcommandFromAlias = command?.subcommandAliases ? command.subcommandAliases[cmd] || null : null;
   const shouldPreferAliasSubcommand =
@@ -124,21 +155,7 @@ function hasKnownSubcommand(command, rawSubcommandArg, resolvedSubcommand) {
   const raw = String(rawSubcommandArg || "").trim().toLowerCase();
   const resolved = String(resolvedSubcommand || "").trim().toLowerCase();
   if (!raw && !resolved) return true;
-  const known = new Set();
-  if (Array.isArray(command?.subcommands)) {
-    for (const sub of command.subcommands) {
-      const normalized = String(sub || "").trim().toLowerCase();
-      if (normalized) known.add(normalized);
-    }
-  }
-  if (command?.subcommandAliases && typeof command.subcommandAliases === "object") {
-    for (const [alias, target] of Object.entries(command.subcommandAliases)) {
-      const aliasNormalized = String(alias || "").trim().toLowerCase();
-      const targetNormalized = String(target || "").trim().toLowerCase();
-      if (aliasNormalized) known.add(aliasNormalized);
-      if (targetNormalized) known.add(targetNormalized);
-    }
-  }
+  const known = buildSubcommandKeywordSet(command);
   if (!known.size) return true;
   return known.has(raw) || known.has(resolved);
 }
@@ -460,10 +477,14 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     Array.isArray(command?.canonicalSubcommands) &&
       command.canonicalSubcommands.length > 0,
   );
+  const firstTokenLooksLikeSubcommand = Boolean(
+    rawPrefixSubcommandArg && tokenIsKnownSubcommand(command, rawPrefixSubcommandArg),
+  );
   if (
     hasExplicitSubcommandMetadata &&
     rawPrefixSubcommandArg &&
     !aliasInvokesSubcommand &&
+    firstTokenLooksLikeSubcommand &&
     !hasKnownSubcommand(command, rawPrefixSubcommandArg, prefixSubcommand)
   ) {
     const shown = await showPrefixUsageGuide({

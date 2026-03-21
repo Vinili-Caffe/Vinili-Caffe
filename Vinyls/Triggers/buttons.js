@@ -1,7 +1,7 @@
 const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter");
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
-const { AvatarPrivacy, BannerPrivacy, } = require("../Schemas/Community/communitySchemas");
+const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
@@ -402,10 +402,14 @@ async function sendPrivacyViewsLeaderboard(interaction, Model, title) {
   const lines = [];
   let idx = 1;
   for (const entry of top) {
+    const views =
+      kind === "banner"
+        ? Number(entry?.profile?.privacy?.banner?.views ?? 0)
+        : Number(entry?.profile?.privacy?.avatar?.views ?? 0);
     const label = await resolveMentionLabel(interaction, entry.userId);
     const rank = rankEmojis[idx - 1] || `${idx}.`;
     lines.push(
-      `${rank} ${label} <a:VC_Arrow:1482706699365257397> **${entry.views}** visualizzazioni`,
+      `${rank} ${label} <a:VC_Arrow:1482706699365257397> **${views}** visualizzazioni`,
     );
     idx += 1;
   }
@@ -1152,7 +1156,7 @@ module.exports = {
     if (interaction.customId == "avatar_views") {
       return sendPrivacyViewsLeaderboard(
         interaction,
-        AvatarPrivacy,
+        "avatar",
         "<a:VC_CrownYellow:1482706085440651428> Classifica Visualizzazioni Avatar",
       );
     }
@@ -1160,7 +1164,7 @@ module.exports = {
     if (interaction.customId == "banner_views") {
       return sendPrivacyViewsLeaderboard(
         interaction,
-        BannerPrivacy,
+        "banner",
         "<a:VC_CrownYellow:1482706085440651428> Classifica Visualizzazioni Banner",
       );
     }

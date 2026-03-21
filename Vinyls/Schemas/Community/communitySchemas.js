@@ -537,10 +537,10 @@ const CustomRole = {
     let sortSpec = null;
     let limitValue = null;
     const run = async () => {
-      let q = ActivityUserProfile.find(filter).select("guildId userId profile.customRole").lean();
+      let q = ActivityUserProfile.find(filter).select("guildId userId profile.customRole");
       if (sortSpec) q = q.sort(sortSpec);
       if (Number.isFinite(limitValue) && limitValue > 0) q = q.limit(limitValue);
-      const docs = await q.catch(() => []);
+      const docs = await q.lean().catch(() => []);
       const mapped = docs
         .map((doc) => ({ guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
         .filter((x) => x.roleId || x.customVocChannelId || x.expiresAt);
