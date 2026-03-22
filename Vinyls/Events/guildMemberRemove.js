@@ -13,7 +13,7 @@ const {
   BannerPrivacy,
   QuotePrivacy,
 } = require("../Schemas/Community/communitySchemas");
-const { automodBadUser, sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
+const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
@@ -374,43 +374,52 @@ async function sendMemberKickLog(member) {
     targetId,
   });
 }
+
+/**
+ * In uscita dal server: se esiste `moderation` (non null) e/o `eventWeekWinners` con almeno una
+ * settimana, il documento viene sostituito con uno minimale che conserva solo quei campi
+ * (+ guildId/userId/timestamp). Altrimenti il documento viene eliminato.
+ */
+async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
+  const gid = String(guildId);
+  const uid = String(userId);
+  const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .lean()
+    .catch(() => null);
+  if (!doc) return;
+
+  const keepModeration =
+    doc.moderation != null && typeof doc.moderation === "object";
+  const keepEventWeekWinners =
+    Array.isArray(doc.eventWeekWinners) && doc.eventWeekWinners.length > 0;
+
+  if (keepModeration || keepEventWeekWinners) {
+    const payload = {
+      _id: doc._id,
+      guildId: gid,
+      userId: uid,
+      updatedAt: new Date(),
+    };
+    if (doc.createdAt) payload.createdAt = doc.createdAt;
+    if (keepModeration) payload.moderation = doc.moderation;
+    if (keepEventWeekWinners) payload.eventWeekWinners = doc.eventWeekWinners;
+    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => {});
+  } else {
+    await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => {});
+  }
+}
+
 async function cleanupUserData(guildId, userId) {
+  const gid = String(guildId);
+  const uid = String(userId);
   await Promise.allSettled([
-    ActivityUserProfile.deleteOne({ guildId, userId }),
-    Staff.deleteOne({ guildId, userId }),
-    InviteReminderState.deleteOne({ guildId, userId }),
-    CustomRole.deleteOne({ guildId, userId }),
-    AvatarPrivacy.deleteOne({ guildId, userId }),
-    BannerPrivacy.deleteOne({ guildId, userId }),
-    QuotePrivacy.deleteOne({ guildId, userId }),
-    ActivityUserProfile.updateOne(
-      { guildId, userId },
-      {
-        $set: {
-          "profile.afk.message": null,
-          "profile.mentionReaction.reactions": [],
-          "profile.birthday.day": null,
-          "profile.birthday.month": null,
-          "profile.birthday.birthYear": null,
-          "profile.noDmPreference.categories": null,
-          "profile.inviteTrack.active": false,
-          "profile.inviteTrack.leftAt": new Date(),
-          "profile.verificationTenure.verifiedAt": null,
-          "profile.verificationTenure.stage": 1,
-          "profile.rolePersist.roles": [],
-          "profile.temporaryRoleGrants.grants": [],
-          "profile.temporaryCommandPermissions.permissions": [],
-        },
-      },
-    ),
-    ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
-      { $set: { "profile.globalOneTimeReminder.entries": [] } },
-    ),
-    ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
-      { $unset: { [automodBadUser()]: "" } },
-    ),
+    cleanupActivityUserProfileOnGuildLeave(gid, uid),
+    Staff.deleteOne({ guildId: gid, userId: uid }),
+    InviteReminderState.deleteOne({ guildId: gid, userId: uid }),
+    CustomRole.deleteOne({ guildId: gid, userId: uid }),
+    AvatarPrivacy.deleteOne({ guildId: gid, userId: uid }),
+    BannerPrivacy.deleteOne({ guildId: gid, userId: uid }),
+    QuotePrivacy.deleteOne({ guildId: gid, userId: uid }),
   ]);
 }
 

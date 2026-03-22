@@ -177,7 +177,26 @@ module.exports = {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);
     }
 
-    if (message.author.bot || !message.guild || message.system || message.webhookId) {
+    if (message.author.bot || message.system || message.webhookId) {
+      return;
+    }
+
+    if (!message.guild) {
+      if (String(message.content || "").startsWith(defaultPrefix)) {
+        try {
+          await handleOfficialPrefixMessage({
+            message,
+            resolvedClient,
+            defaultPrefix,
+            overrideCommand: null,
+            maybeSendWrongPrefixHint,
+            getCachedOrFetchMember,
+            hasAnyStaffBypassPermission,
+          });
+        } catch (error) {
+          logEventError(resolvedClient, "PREFIX DM ERROR", error);
+        }
+      }
       return;
     }
 

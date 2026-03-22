@@ -184,7 +184,8 @@ async function getNoDmPreferences(guildId, userId) {
     const doc = await getNoDmPreference(key, uid);
     if (!doc) return { blockAll: false, disabled: new Set() };
     const cat = doc.categories;
-    if (!cat || !Array.isArray(cat) || cat.length === 0) return { blockAll: true, disabled: new Set([DM_CATEGORY_ALL]) };
+    if (cat == null) return { blockAll: false, disabled: new Set() };
+    if (!Array.isArray(cat) || cat.length === 0) return { blockAll: true, disabled: new Set([DM_CATEGORY_ALL]) };
     if (cat.includes(DM_CATEGORY_ALL)) return { blockAll: true, disabled: new Set([DM_CATEGORY_ALL]) };
     return { blockAll: false, disabled: new Set(cat) };
   }

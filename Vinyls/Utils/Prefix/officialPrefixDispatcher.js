@@ -367,6 +367,14 @@ async function drainPrefixQueue(lockId, resolvedClient) {
   }
 }
 
+function normalizePrefixCommandToken(raw) {
+  return String(raw || "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
+    .trim()
+    .toLowerCase();
+}
+
 function rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix) {
   const text = String(message?.content || "");
   const lower = text.toLowerCase();
@@ -423,11 +431,15 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   const usedPrefix = defaultPrefix;
   const args = message.content.slice(usedPrefix.length).trim().split(/\s+/).filter(Boolean);
-  const cmd = overrideCommand ? overrideCommand.name : args.shift()?.toLowerCase();
+  const rawCmd = overrideCommand ? overrideCommand.name : args.shift();
+  const cmd = normalizePrefixCommandToken(rawCmd);
   if (!cmd) return;
 
   const command = overrideCommand || resolvedClient.pcommands.get(cmd) || resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd));
-  if (!command) return;
+  if (!command) {
+    global.logger?.debug?.(`[PREFIX] comando non trovato: "${cmd}"`);
+    return;
+  }
 
   const isAntiNukeRecoveryCommand = ["antinuke", "security"].includes(String(command?.name || "").toLowerCase(),);
   const securityLockState = await resolveWithTimeout(() => getSecurityLockState(message.guild), { active: false, joinLockActive: false, commandLockActive: false, sources: [], commandSources: [], }, "security lock precheck",);
