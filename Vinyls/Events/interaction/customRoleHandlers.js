@@ -518,7 +518,10 @@ async function handleRoleActionModal(interaction) {
     return true;
   }
 
-  const value = interaction.fields.getTextInputValue("value")?.trim() || "";
+  let value = "";
+  try {
+    value = interaction.fields.getTextInputValue("value")?.trim() || "";
+  } catch (err) {}
 
   async function confirmRoleState(checkFn) {
     const refreshedRole = await fetchRole(interaction, roleId);
