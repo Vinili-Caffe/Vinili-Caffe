@@ -25,6 +25,10 @@ async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
     guildId: ACTIVITY_MAIN_GUILD_ID,
     userId: { $nin: memberIds },
     [automodBadUser()]: { $exists: true },
+    $and: [
+      { "moderation.modCases": { $exists: true, $size: 0 } },
+      { "moderation.automodBadUser.totalTriggers": { $lte: 0 } },
+    ],
   };
   if (dryRun) {
     const n = await ActivityUserProfile.countDocuments(filter).catch(() => 0);
@@ -52,9 +56,9 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
     const filterGuild = { guildId: String(guildId), userId: { $nin: memberIds } };
     
     if (name === "ActivityUserProfile") {
-      filterGuild.$or = [
-        { moderation: { $exists: false } },
-        { moderation: { $size: 0 } },
+      filterGuild.$and = [
+        { "moderation.modCases": { $exists: true, $size: 0 } },
+        { "moderation.automodBadUser.totalTriggers": { $lte: 0 } },
       ];
     }
     
@@ -80,7 +84,7 @@ async function runCleanupUserScopedNotInAnyServer(memberIds, { dryRun = false } 
   const keep = Array.from(new Set((Array.isArray(memberIds) ? memberIds : []).map((id) => String(id).trim()).filter(Boolean)));
   const n = await clearGlobalAutomodBadUserForUsersNotIn(keep, dryRun);
   const total = n;
-  const details = n > 0 ? [{ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_MAIN_GUILD_ID})`, count: n }] : [];
+  const details = n > 0 ? [{ name: `ActivityUserProfile.${automodBadUser()}(flag ripuliti)`, count: n }] : [];
   return { total, details };
 }
 

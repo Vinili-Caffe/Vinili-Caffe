@@ -88,7 +88,6 @@ function getInviteState(presence) {
   if (isOfflinePresence(presence)) return null;
   if (hasInvite(presence)) return true;
   if (hasCustomActivity(presence)) return false;
-  if ((presence.activities?.length || 0) > 0) return false;
   return null;
 }
 

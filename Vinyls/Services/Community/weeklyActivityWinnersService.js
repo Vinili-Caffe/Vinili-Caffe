@@ -51,6 +51,7 @@ function getTimeParts(date) {
     year: Number(map.year),
     month: Number(map.month),
     day: Number(map.day),
+    hour: Number(map.hour),
   };
 }
 
