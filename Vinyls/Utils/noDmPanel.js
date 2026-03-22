@@ -16,7 +16,13 @@ async function _reply(message, payload) {
     if (e && e.code === 50035 && e.rawError && e.rawError.errors && e.rawError.errors.message_reference) {
       return message.channel.send(_stripRef(payload)).catch(() => null);
     }
-    return null;
+    const sent = message.channel && message.channel.send
+      ? await message.channel.send(_stripRef(payload)).catch(() => null)
+      : null;
+    if (!sent) {
+      global.logger?.warn?.("[noDmPanel] reply/send failed:", e?.code || e?.message || e);
+    }
+    return sent;
   }
 }
 const PREFIX = "nodm_panel_";

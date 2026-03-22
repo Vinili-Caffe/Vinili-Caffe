@@ -295,7 +295,7 @@ async function checkSlashPermission(interaction) {
   const group = interaction.options?.getSubcommandGroup?.(false) || null;
   const sub = interaction.options?.getSubcommand?.(false) || null;
   const channelPolicy = resolveCommandChannelPolicy(data,buildSlashLookupKeys(interaction.commandName,group,sub),);
-  if (isOfficialMainGuild(guildId) && Array.isArray(channelPolicy)) {
+  if (isOfficialMainGuild(guildId) && Array.isArray(channelPolicy) && channelPolicy.length > 0) {
     const channelId = interaction?.channelId || interaction?.channel?.id || null;
     if (!channelId || !channelPolicy.includes(String(channelId))) return false;
   }
@@ -321,7 +321,7 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
 
   const data = loadPermissions();
   const channelPolicy = resolveCommandChannelPolicy(data,buildPrefixLookupKeys(commandName,subcommandName),);
-  if (isOfficialMainGuild(guildId) && Array.isArray(channelPolicy)) {
+  if (isOfficialMainGuild(guildId) && Array.isArray(channelPolicy) && channelPolicy.length > 0) {
     const channelId = message?.channelId || message?.channel?.id || null;
     if (!channelId || !channelPolicy.includes(String(channelId))) return false;
   }

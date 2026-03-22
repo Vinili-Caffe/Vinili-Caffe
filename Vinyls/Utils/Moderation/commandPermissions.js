@@ -271,9 +271,15 @@ function resolveChannelReference(value) {
 
 function normalizeChannelList(channelIds) {
   if (!Array.isArray(channelIds)) return channelIds;
-  return channelIds
-    .map((value) => resolveChannelReference(value))
-    .filter(Boolean);
+  const resolved = channelIds.map((value) => resolveChannelReference(value));
+  const filtered = resolved.filter(Boolean);
+  if (filtered.length === 0 && channelIds.length > 0) {
+    global.logger?.warn?.(
+      "[commandPermissions] Lista canali risolta vuota (verifica ids / permissions):",
+      channelIds,
+    );
+  }
+  return filtered;
 }
 
 function resolveCommandChannelPolicy(data, keys) {
@@ -676,7 +682,7 @@ async function checkSlashPermission(interaction, options = {}) {
   const sub = interaction.options?.getSubcommand?.(false) || null;
   const channelPolicy = resolveSlashCommandChannels(data, String(interaction.commandName || "").toLowerCase(), group, sub) ?? resolveCommandChannelPolicy(data, buildSlashLookupKeys(interaction.commandName, group, sub));
   const bypassChannelPolicyForAntiNuke = String(interaction?.commandName || "").toLowerCase() === "antinuke";
-  if (Array.isArray(channelPolicy) && !bypassChannelPolicyForAntiNuke) {
+  if (Array.isArray(channelPolicy) && channelPolicy.length > 0 && !bypassChannelPolicyForAntiNuke) {
     const channelId = interaction?.channelId || interaction?.channel?.id || null;
     const allowed = Boolean(channelId) && channelPolicy.includes(String(channelId));
     if (!allowed) {
@@ -767,7 +773,7 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   const data = loadPermissions();
   const channelPolicy = resolvePrefixCommandChannels(data, safeCommand, subcommandName) ?? resolveCommandChannelPolicy(data, buildPrefixLookupKeys(commandName, subcommandName));
   const bypassChannelPolicyForAntiNuke = safeCommand === "antinuke";
-  if (Array.isArray(channelPolicy) && !bypassChannelPolicyForAntiNuke) {
+  if (Array.isArray(channelPolicy) && channelPolicy.length > 0 && !bypassChannelPolicyForAntiNuke) {
     const channelId = message?.channelId || message?.channel?.id || null;
     const allowed = Boolean(channelId) && channelPolicy.includes(String(channelId));
     if (!allowed) {
