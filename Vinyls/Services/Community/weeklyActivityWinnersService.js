@@ -7,6 +7,13 @@ const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, filterStaffEvent
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
 const { isEventStaffMember } = require("./expService");
 const { loadLiveVoiceSessions, secondsInDateKeys } = require("./activityService");
+const BACKFILL_HOUR_SUFFIX = "T12";
+function shouldSkipBackfillRow(hourKey, hourSet) {
+  if (!hourKey || typeof hourKey !== "string") return false;
+  if (!hourKey.endsWith(BACKFILL_HOUR_SUFFIX)) return false;
+  const dateKey = hourKey.slice(0, -BACKFILL_HOUR_SUFFIX.length);
+  return [...hourSet].some((k) => k.startsWith(`${dateKey}T`) && k !== hourKey);
+}
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -180,6 +187,7 @@ async function loadActivityRowsFromHourKeys(guild, hourKeys) {
       if (!userId) continue;
       for (const [key, value] of Object.entries(hourly)) {
         if (!wanted.has(String(key))) continue;
+        if (shouldSkipBackfillRow(String(key), wanted)) continue;
         rows.push({
           userId,
           textChannels: toObjectMap(value?.textChannels || {}),
@@ -467,6 +475,7 @@ async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
       if (!userId) continue;
       for (const [hourKey, value] of Object.entries(hourly)) {
         if (!wanted.has(String(hourKey))) continue;
+        if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
         rows.push({
           userId,
           textChannels: toObjectMap(value?.textChannels || {}),
@@ -928,7 +937,6 @@ _ _`,
       embeds: [embed],
       components: [button],
     });
-    global.logger?.info?.("[WEEKLY ACTIVITY] Winners message sent successfully.", { weekKey: currentWeekKey, eventPayoutWeek });
   } catch (error) {
     global.logger.error("[WEEKLY ACTIVITY] Failed to send winners message:", error);
   }
