@@ -1086,26 +1086,72 @@ async function handleCustomReactionButton(interaction) {
   const guildId = interaction.guild?.id;
   if (!guildId) return true;
 
-  if (action === "add") {
-    const modal = new ModalBuilder()
-      .setCustomId(`customreaction_modal_add:${ownerId}`)
-      .setTitle("Aggiungi reaction");
-    const input = new TextInputBuilder()
-      .setCustomId("value")
-      .setLabel("Emoji (max 3, separati da spazio)")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setPlaceholder("Es. 😀 😂 <:nome:id>")
-      .setMaxLength(200);
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    const shown = await interaction.showModal(modal).then(() => true).catch(() => false);
-    if (!shown) {
-      await replyEphemeral(interaction, {
-        content:
-          "<:VC_Attention:1482534443632558151> Impossibile aprire il modulo, riprova.",
-        flags: PRIVATE_FLAG,
-      });
-    }
+  if (action === "add" || action === "remove") {
+    const isAdd = action === "add";
+    const promptText = isAdd 
+      ? "<:VC_Mention:1482526855289634997> Manda da 1 a 3 emoji che vuoi **aggiungere**:" 
+      : "<:VC_Mention:1482526855289634997> Manda da 1 a 3 emoji che vuoi **rimuovere**:";
+
+    await interaction.reply({
+      content: promptText,
+      flags: PRIVATE_FLAG,
+    }).catch(() => {});
+
+    const filter = (m) => m.author.id === interaction.user.id;
+    const collector = interaction.channel.createMessageCollector({ filter, time: 30000, max: 1 });
+
+    collector.on("collect", async (m) => {
+      const tokens = parseReactionTokens(m.content, MAX_REACTIONS, interaction.guild);
+      
+      if (!tokens.length) {
+        await interaction.followUp({
+          content: "<:vegax:1443934876440068179> Nessuna emoji valida trovata. Riprova cliccando di nuovo il bottone.",
+          flags: PRIVATE_FLAG,
+        }).catch(() => {});
+        return;
+      }
+
+      const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
+      let current = Array.isArray(doc?.reactions) ? doc.reactions : [];
+      let next;
+
+      if (isAdd) {
+        next = Array.from(new Set([...current, ...tokens])).slice(0, MAX_REACTIONS);
+      } else {
+        const toRemove = new Set(tokens);
+        next = current.filter(t => !toRemove.has(t));
+      }
+
+      if (next.length === 0 && !isAdd) {
+        await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
+      } else {
+        await MentionReaction.findOneAndUpdate(
+          { guildId, userId: ownerId },
+          { $set: { reactions: next } },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        ).catch(() => {});
+      }
+
+      // Update Panel
+      if (interaction.message) {
+        const embed = buildCustomReactionPanelEmbed(next);
+        const rows = buildCustomReactionPanelRows(ownerId);
+        await interaction.message.edit({ embeds: [embed], components: rows }).catch(() => {});
+      }
+
+      // Cleanup
+      await m.delete().catch(() => {});
+      await interaction.deleteReply().catch(() => {});
+    });
+
+    collector.on("end", async (collected, reason) => {
+      if (reason === "time" && collected.size === 0) {
+        await interaction.editReply({
+          content: "<:VC_Clock:1473359204189474886> Tempo scaduto. Clicca di nuovo il bottone per riprovare.",
+        }).catch(() => {});
+      }
+    });
+
     return true;
   }
 
@@ -1114,43 +1160,6 @@ async function handleCustomReactionButton(interaction) {
     const embed = buildCustomReactionPanelEmbed([]);
     const rows = buildCustomReactionPanelRows(ownerId);
     await interaction.update({ embeds: [embed], components: rows }).catch(() => {});
-    return true;
-  }
-
-  if (action === "remove") {
-    const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
-    const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
-    if (!current.length) {
-      await replyEphemeral(interaction, {
-        content: "<:vegax:1443934876440068179> Non hai reaction da rimuovere.",
-        flags: PRIVATE_FLAG,
-      });
-      return true;
-    }
-    const panelMessageId = interaction.message?.id;
-    if (!panelMessageId) {
-      await replyEphemeral(interaction, {
-        content: "<:vegax:1443934876440068179> Messaggio pannello non trovato.",
-        flags: PRIVATE_FLAG,
-      });
-      return true;
-    }
-    const select = new StringSelectMenuBuilder()
-      .setCustomId(`customreaction_remove_pick:${ownerId}:${panelMessageId}`)
-      .setPlaceholder("Quale reaction togliere?");
-    for (const token of current.slice(0, 25)) {
-      const label = String(toDisplay(token)).replace(/\n/g, " ").slice(0, 100);
-      const value = String(token).slice(0, 100);
-      if (!value) continue;
-      select.addOptions({ label: label || value, value });
-    }
-    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
-    if (!deferred) return true;
-    await interaction.followUp({
-      content: "Scegli la reaction da rimuovere:",
-      components: [new ActionRowBuilder().addComponents(select)],
-      flags: PRIVATE_FLAG,
-    }).catch(() => {});
     return true;
   }
 

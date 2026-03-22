@@ -238,20 +238,14 @@ async function handleMentionAutoReactions(message) {
       explicitMentionIds.add(String(match[1]));
     }
 
-    let targetIds;
-    if (explicitMentionIds.size > 0) {
-      targetIds = Array.from(
-        new Set(
-          mentionedUsers
-            .filter((user) => !user.bot && explicitMentionIds.has(user.id))
-            .map((user) => user.id),
-        ),
-      );
-    } else {
-      targetIds = Array.from(
-        new Set(mentionedUsers.filter((user) => !user.bot).map((user) => user.id)),
-      );
-    }
+    if (explicitMentionIds.size === 0) return;
+    const targetIds = Array.from(
+      new Set(
+        mentionedUsers
+          .filter((user) => !user.bot && explicitMentionIds.has(user.id))
+          .map((user) => user.id),
+      ),
+    );
 
     if (!targetIds.length) return;
 
