@@ -1,7 +1,11 @@
 /**
  * Migra la collezione `mod_case_users` in `activityuserprofiles.moderation.modCases`.
  * Upsert su (guildId, userId): crea il profilo se non esiste.
- * Unisce per `caseId` se il profilo ha già `moderation.modCases` (mantiene la copia con updatedAt più recente).
+ * Copia **tutti** i campi di ogni case (nessun pick): l’array `cases` viene importato per intero.
+ * Unisce per `caseId` se il profilo ha già `moderation.modCases` (vince la copia con updatedAt più recente).
+ *
+ * Se su Linux vedi "Cannot find module ... migrate-mod-case-users-into-activityuserprofiles.js",
+ * aggiorna il codice sul server (`git pull`) o copia questo file in `scripts/`.
  *
  *   node scripts/migrate-mod-case-users-into-activityuserprofiles.js
  *   node scripts/migrate-mod-case-users-into-activityuserprofiles.js --apply
@@ -10,9 +14,12 @@
  * Richiede .env: MONGO_URL_LOCAL | MONGODB_URI_LOCAL | MONGO_URL | MONGODB_URI
  */
 const path = require("path");
-require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
-
 const mongoose = require("mongoose");
+const { loadEnvFiles } = require("../shared/runtime/fsRuntime");
+
+const APP_ROOT = path.join(__dirname, "..");
+loadEnvFiles(APP_ROOT);
+
 const { ActivityUserProfile } = require("../Vinyls/Schemas/Community/communitySchemas");
 const { MOD_CASES_PATH } = require("../Vinyls/Utils/Community/activityUserProfilePaths");
 
@@ -27,7 +34,20 @@ function legacyModCaseUsersCollectionName() {
   if (!raw || raw === "mod_case_user") return "mod_case_users";
   return raw;
 }
-const LEGACY_COLLECTION = legacyModCaseUsersCollectionName();
+
+async function resolveCollection(db, candidates) {
+  const all = await db.listCollections().toArray();
+  const names = new Set(all.map((x) => x.name));
+  for (const c of candidates) {
+    if (names.has(c)) return c;
+  }
+  const byLower = new Map(all.map((x) => [String(x.name).toLowerCase(), x.name]));
+  for (const c of candidates) {
+    const f = byLower.get(String(c).toLowerCase());
+    if (f) return f;
+  }
+  return null;
+}
 
 function argHas(flag) {
   return process.argv.includes(flag);
@@ -39,6 +59,12 @@ function toId(v) {
     return String(v.toString()).trim();
   }
   return String(v).trim();
+}
+
+function casesArrayFromLegacyDoc(doc) {
+  if (!doc || typeof doc !== "object") return [];
+  const a = doc.cases ?? doc.modCases;
+  return Array.isArray(a) ? a : [];
 }
 
 function ts(c) {
@@ -85,23 +111,41 @@ async function main() {
   await mongoose.connect(MONGO_URL);
   const db = mongoose.connection.db;
 
-  const exists = await db.listCollections({ name: LEGACY_COLLECTION }).toArray();
-  if (!exists.length) {
-    console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", skipped: true, reason: "collection_missing", name: LEGACY_COLLECTION }, null, 2));
+  const preferred = legacyModCaseUsersCollectionName();
+  const collName = await resolveCollection(db, [preferred, "mod_case_users", "mod_case_user", "ModCaseUser"]);
+  if (!collName) {
+    console.log(
+      JSON.stringify(
+        {
+          mode: apply ? "apply" : "dry-run",
+          skipped: true,
+          reason: "collection_missing",
+          tried: [preferred, "mod_case_users", "mod_case_user", "ModCaseUser"],
+        },
+        null,
+        2,
+      ),
+    );
     await mongoose.disconnect();
     return;
   }
 
-  const coll = db.collection(LEGACY_COLLECTION);
+  const coll = db.collection(collName);
   const rows = await coll.find({}).toArray();
   let processed = 0;
   let merged = 0;
+  let skippedNoIds = 0;
+  let totalCases = 0;
 
   for (const doc of rows) {
-    const guildId = toId(doc.guildId);
-    const userId = toId(doc.userId);
-    const incoming = Array.isArray(doc.cases) ? doc.cases : [];
-    if (!guildId || !userId) continue;
+    const guildId = toId(doc.guildId ?? doc.GuildId);
+    const userId = toId(doc.userId ?? doc.UserId);
+    const incoming = casesArrayFromLegacyDoc(doc);
+    totalCases += incoming.length;
+    if (!guildId || !userId) {
+      skippedNoIds += 1;
+      continue;
+    }
     processed += 1;
     if (!apply) continue;
 
@@ -115,7 +159,7 @@ async function main() {
 
     await ActivityUserProfile.updateOne(
       { guildId, userId },
-      { $set: { [`${MOD_CASES_PATH}`]: next } },
+      { $set: { [MOD_CASES_PATH]: next } },
       { upsert: true, setDefaultsOnInsert: true },
     ).catch(() => null);
   }
@@ -124,9 +168,11 @@ async function main() {
     JSON.stringify(
       {
         mode: apply ? "apply" : "dry-run",
-        legacyCollection: LEGACY_COLLECTION,
+        legacyCollection: collName,
         legacyRows: rows.length,
         processed,
+        skippedNoGuildOrUser: skippedNoIds,
+        totalCaseEntriesInLegacy: totalCases,
         profilesWithMerge: merged,
       },
       null,
@@ -135,8 +181,8 @@ async function main() {
   );
 
   if (apply && dropLegacy) {
-    await db.dropCollection(LEGACY_COLLECTION);
-    console.log("Dropped collection:", LEGACY_COLLECTION);
+    await db.dropCollection(collName);
+    console.log("Dropped collection:", collName);
   }
 
   await mongoose.disconnect();

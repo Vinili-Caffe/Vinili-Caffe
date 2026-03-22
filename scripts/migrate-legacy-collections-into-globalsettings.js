@@ -6,9 +6,16 @@
  * - skullboardposts → skullboardPosts[]
  * - partnershipblacklistguilds → bucket.partnershipBlacklistGuilds[]
  *
+ * Di default **unisce** (merge) con i documenti GlobalSettings già presenti (stesso guildId),
+ * così non perdi dati già migrati o scritti dal bot. I valori legacy hanno priorità sulle stesse chiavi.
+ *
  * Uso:
  *   node scripts/migrate-legacy-collections-into-globalsettings.js
  *   node scripts/migrate-legacy-collections-into-globalsettings.js --apply
+ *   node scripts/migrate-legacy-collections-into-globalsettings.js --apply --replace-from-legacy
+ *
+ * `--replace-from-legacy`: comportamento vecchio — gli array legacy sostituiscono del tutto
+ * personalityPanels / channelSnapshots / skullboardPosts (solo dati legacy per quella guild).
  */
 const path = require("path");
 const mongoose = require("mongoose");
@@ -26,6 +33,7 @@ const {
 } = require("../Vinyls/Utils/Global/globalSettingsBucket");
 
 const APPLY = process.argv.includes("--apply");
+const REPLACE_FROM_LEGACY = process.argv.includes("--replace-from-legacy");
 
 function pick(o, keys) {
   const out = {};
@@ -33,19 +41,152 @@ function pick(o, keys) {
   return out;
 }
 
+function toGuildId(r) {
+  const v = r.guildId ?? r.GuildId ?? r.guild_id;
+  return v != null ? String(v).trim() : "";
+}
+
+async function resolveCollection(db, candidates) {
+  const all = await db.listCollections().toArray();
+  const names = new Set(all.map((x) => x.name));
+  for (const c of candidates) {
+    if (names.has(c)) return c;
+  }
+  const byLower = new Map(all.map((x) => [String(x.name).toLowerCase(), x.name]));
+  for (const c of candidates) {
+    const f = byLower.get(String(c).toLowerCase());
+    if (f) return f;
+  }
+  return null;
+}
+
+function normalizeModConfigShape(m) {
+  if (!m || typeof m !== "object") return {};
+  return {
+    logChannelId: m.logChannelId ?? m.log_channel_id ?? null,
+    dmOnAction: m.dmOnAction !== false,
+    caseCounter: Number(m.caseCounter ?? m.case_counter ?? 0),
+    exemptRoles: Array.isArray(m.exemptRoles) ? m.exemptRoles : [],
+    exemptChannels: Array.isArray(m.exemptChannels) ? m.exemptChannels : [],
+  };
+}
+
+/** Solo chiavi presenti nel documento legacy (flat o dentro `modConfig`), così il merge non azzera campi mancanti. */
+function extractModConfigFieldsPresent(r) {
+  const flat = pick(r, ["logChannelId", "dmOnAction", "caseCounter", "exemptRoles", "exemptChannels"]);
+  const nested = r.modConfig && typeof r.modConfig === "object" ? r.modConfig : {};
+  const raw = { ...nested, ...flat };
+  if (raw.log_channel_id !== undefined && raw.logChannelId === undefined) raw.logChannelId = raw.log_channel_id;
+  if (raw.case_counter !== undefined && raw.caseCounter === undefined) raw.caseCounter = raw.case_counter;
+  const keys = ["logChannelId", "dmOnAction", "caseCounter", "exemptRoles", "exemptChannels"];
+  const partial = {};
+  for (const k of keys) {
+    if (raw[k] !== undefined) partial[k] = raw[k];
+  }
+  return Object.keys(partial).length ? partial : null;
+}
+
+function applyPartialModConfig(base, partial) {
+  const next = { ...base };
+  for (const k of Object.keys(partial)) {
+    if (k === "logChannelId") next.logChannelId = partial[k] ?? null;
+    else if (k === "dmOnAction") next.dmOnAction = partial[k] !== false;
+    else if (k === "caseCounter") next.caseCounter = Number(partial[k] ?? 0);
+    else if (k === "exemptRoles") next.exemptRoles = Array.isArray(partial[k]) ? partial[k] : [];
+    else if (k === "exemptChannels") next.exemptChannels = Array.isArray(partial[k]) ? partial[k] : [];
+  }
+  return next;
+}
+
+function personalityEntryFromLegacy(r) {
+  const channelId = String(r.channelId ?? r.channel_id ?? "").trim();
+  if (!channelId) return null;
+  return {
+    channelId,
+    personalityMessageId: r.personalityMessageId ?? r.personality_message_id ?? null,
+    mentionsMessageId: r.mentionsMessageId ?? null,
+    colorsMessageId: r.colorsMessageId ?? null,
+    plusColorsMessageId: r.plusColorsMessageId ?? null,
+    infoMessageId1: r.infoMessageId1 ?? null,
+    infoMessageId2: r.infoMessageId2 ?? null,
+    verifyInfoMessageId: r.verifyInfoMessageId ?? null,
+    verifyPanelMessageId: r.verifyPanelMessageId ?? null,
+    ticketInfoMessageId: r.ticketInfoMessageId ?? null,
+    ticketPanelMessageId: r.ticketPanelMessageId ?? null,
+    sponsorTicketPanelMessageId: r.sponsorTicketPanelMessageId ?? null,
+  };
+}
+
+function channelSnapshotFromLegacy(r) {
+  const channelId = String(r.channelId ?? r.channel_id ?? "").trim();
+  if (!channelId) return null;
+  let deletedAt = r.deletedAt ?? r.deleted_at;
+  if (deletedAt != null && !(deletedAt instanceof Date)) deletedAt = new Date(deletedAt);
+  return {
+    channelId,
+    name: r.name != null ? String(r.name) : "",
+    type: r.type != null ? Number(r.type) : null,
+    parentId: r.parentId != null ? String(r.parentId) : r.parent_id != null ? String(r.parent_id) : null,
+    deletedAt: deletedAt || null,
+  };
+}
+
+function skullboardEntryFromLegacy(r) {
+  const messageId = String(r.messageId ?? r.message_id ?? "").trim();
+  if (!messageId) return null;
+  const postMessageId = r.postMessageId ?? r.post_message_id;
+  return {
+    messageId,
+    postMessageId: postMessageId != null ? String(postMessageId) : null,
+  };
+}
+
+function mergeByKey(existing, incoming, keyFn) {
+  const map = new Map();
+  for (const x of existing || []) {
+    const k = keyFn(x);
+    if (k) map.set(k, { ...x });
+  }
+  for (const x of incoming || []) {
+    const k = keyFn(x);
+    if (!k) continue;
+    const prev = map.get(k);
+    map.set(k, prev ? { ...prev, ...x } : { ...x });
+  }
+  return [...map.values()];
+}
+
 async function migrateModConfigs(db) {
-  const coll = db.collection("mod_config");
+  const collName = await resolveCollection(db, ["mod_config", "modconfigs", "ModConfig"]);
+  if (!collName) return { name: "mod_config", collection: null, count: 0, skipped: 0 };
+  const coll = db.collection(collName);
   const n = await coll.countDocuments().catch(() => 0);
-  if (!n) return { name: "mod_config", count: 0 };
+  if (!n) return { name: "mod_config", collection: collName, count: 0, skipped: 0 };
   const rows = await coll.find({}).toArray();
   let merged = 0;
+  let skipped = 0;
   for (const r of rows) {
-    const guildId = String(r.guildId || "");
-    if (!guildId) continue;
-    const modConfig = pick(r, ["logChannelId", "dmOnAction", "caseCounter", "exemptRoles", "exemptChannels"]);
+    const guildId = toGuildId(r);
+    if (!guildId) {
+      skipped += 1;
+      continue;
+    }
+    const partial = extractModConfigFieldsPresent(r);
+    if (!partial) {
+      skipped += 1;
+      continue;
+    }
     if (!APPLY) {
       merged += 1;
       continue;
+    }
+    let modConfig;
+    if (REPLACE_FROM_LEGACY) {
+      modConfig = normalizeModConfigShape({ ...{}, ...partial });
+    } else {
+      const existing = await GlobalSettings.findOne({ guildId }).select("modConfig").lean().catch(() => null);
+      const base = normalizeModConfigShape(existing?.modConfig || {});
+      modConfig = applyPartialModConfig(base, partial);
     }
     await GlobalSettings.updateOne(
       { guildId },
@@ -57,124 +198,153 @@ async function migrateModConfigs(db) {
     ).catch(() => null);
     merged += 1;
   }
-  return { name: "mod_config", count: merged };
+  return { name: "mod_config", collection: collName, count: merged, skipped };
 }
 
 async function migratePersonalityPanels(db) {
-  const coll = db.collection("personalitypanels");
+  const collName = await resolveCollection(db, ["personalitypanels", "personalityPanels", "PersonalityPanel"]);
+  if (!collName) return { name: "personalitypanels", collection: null, count: 0, skipped: 0 };
+  const coll = db.collection(collName);
   const n = await coll.countDocuments().catch(() => 0);
-  if (!n) return { name: "personalitypanels", count: 0 };
+  if (!n) return { name: "personalitypanels", collection: collName, count: 0, skipped: 0 };
   const rows = await coll.find({}).toArray();
   const byGuild = new Map();
+  let skipped = 0;
   for (const r of rows) {
-    const gid = String(r.guildId || "");
-    if (!gid) continue;
-    const entry = pick(r, [
-      "channelId",
-      "personalityMessageId",
-      "mentionsMessageId",
-      "colorsMessageId",
-      "plusColorsMessageId",
-      "infoMessageId1",
-      "infoMessageId2",
-      "verifyInfoMessageId",
-      "verifyPanelMessageId",
-      "ticketInfoMessageId",
-      "ticketPanelMessageId",
-      "sponsorTicketPanelMessageId",
-    ]);
-    if (!entry.channelId) continue;
+    const gid = toGuildId(r);
+    if (!gid) {
+      skipped += 1;
+      continue;
+    }
+    const entry = personalityEntryFromLegacy(r);
+    if (!entry) {
+      skipped += 1;
+      continue;
+    }
     if (!byGuild.has(gid)) byGuild.set(gid, []);
     byGuild.get(gid).push(entry);
   }
   let merged = 0;
-  for (const [guildId, personalityPanels] of byGuild) {
+  for (const [guildId, incoming] of byGuild) {
     if (!APPLY) {
-      merged += personalityPanels.length;
+      merged += incoming.length;
       continue;
+    }
+    let personalityPanels = incoming;
+    if (!REPLACE_FROM_LEGACY) {
+      const existing = await GlobalSettings.findOne({ guildId }).select("personalityPanels").lean().catch(() => null);
+      personalityPanels = mergeByKey(existing?.personalityPanels || [], incoming, (x) => String(x.channelId || ""));
     }
     await GlobalSettings.updateOne(
       { guildId },
       { $set: { personalityPanels }, $setOnInsert: { guildId } },
       { upsert: true },
     ).catch(() => null);
-    merged += personalityPanels.length;
+    merged += incoming.length;
   }
-  return { name: "personalitypanels", count: merged };
+  return { name: "personalitypanels", collection: collName, count: merged, skipped };
 }
 
 async function migrateChannelSnapshots(db) {
-  const coll = db.collection("channelsnapshots");
+  const collName = await resolveCollection(db, ["channelsnapshots", "channelSnapshots", "ChannelSnapshot"]);
+  if (!collName) return { name: "channelsnapshots", collection: null, count: 0, skipped: 0 };
+  const coll = db.collection(collName);
   const n = await coll.countDocuments().catch(() => 0);
-  if (!n) return { name: "channelsnapshots", count: 0 };
+  if (!n) return { name: "channelsnapshots", collection: collName, count: 0, skipped: 0 };
   const rows = await coll.find({}).toArray();
   const byGuild = new Map();
+  let skipped = 0;
   for (const r of rows) {
-    const gid = String(r.guildId || "");
-    const cid = String(r.channelId || "");
-    if (!gid || !cid) continue;
-    const entry = pick(r, ["channelId", "name", "type", "parentId", "deletedAt"]);
+    const gid = toGuildId(r);
+    const entry = channelSnapshotFromLegacy(r);
+    if (!gid || !entry) {
+      skipped += 1;
+      continue;
+    }
     if (!byGuild.has(gid)) byGuild.set(gid, []);
     byGuild.get(gid).push(entry);
   }
   let merged = 0;
-  for (const [guildId, channelSnapshots] of byGuild) {
+  for (const [guildId, incoming] of byGuild) {
     if (!APPLY) {
-      merged += channelSnapshots.length;
+      merged += incoming.length;
       continue;
+    }
+    let channelSnapshots = incoming;
+    if (!REPLACE_FROM_LEGACY) {
+      const existing = await GlobalSettings.findOne({ guildId }).select("channelSnapshots").lean().catch(() => null);
+      channelSnapshots = mergeByKey(existing?.channelSnapshots || [], incoming, (x) => String(x.channelId || ""));
     }
     await GlobalSettings.updateOne(
       { guildId },
       { $set: { channelSnapshots }, $setOnInsert: { guildId } },
       { upsert: true },
     ).catch(() => null);
-    merged += channelSnapshots.length;
+    merged += incoming.length;
   }
-  return { name: "channelsnapshots", count: merged };
+  return { name: "channelsnapshots", collection: collName, count: merged, skipped };
 }
 
 async function migrateSkullboardPosts(db) {
-  const coll = db.collection("skullboardposts");
+  const collName = await resolveCollection(db, ["skullboardposts", "skullboardPosts", "SkullboardPost"]);
+  if (!collName) return { name: "skullboardposts", collection: null, count: 0, skipped: 0 };
+  const coll = db.collection(collName);
   const n = await coll.countDocuments().catch(() => 0);
-  if (!n) return { name: "skullboardposts", count: 0 };
+  if (!n) return { name: "skullboardposts", collection: collName, count: 0, skipped: 0 };
   const rows = await coll.find({}).toArray();
   const byGuild = new Map();
+  let skipped = 0;
   for (const r of rows) {
-    const gid = String(r.guildId || "");
-    const mid = String(r.messageId || "");
-    if (!gid || !mid) continue;
-    const entry = { messageId: mid, postMessageId: r.postMessageId != null ? String(r.postMessageId) : null };
+    const gid = toGuildId(r);
+    const entry = skullboardEntryFromLegacy(r);
+    if (!gid || !entry) {
+      skipped += 1;
+      continue;
+    }
     if (!byGuild.has(gid)) byGuild.set(gid, []);
     byGuild.get(gid).push(entry);
   }
   let merged = 0;
-  for (const [guildId, skullboardPosts] of byGuild) {
+  for (const [guildId, incoming] of byGuild) {
     if (!APPLY) {
-      merged += skullboardPosts.length;
+      merged += incoming.length;
       continue;
+    }
+    let skullboardPosts = incoming;
+    if (!REPLACE_FROM_LEGACY) {
+      const existing = await GlobalSettings.findOne({ guildId }).select("skullboardPosts").lean().catch(() => null);
+      skullboardPosts = mergeByKey(existing?.skullboardPosts || [], incoming, (x) => String(x.messageId || ""));
     }
     await GlobalSettings.updateOne(
       { guildId },
       { $set: { skullboardPosts }, $setOnInsert: { guildId } },
       { upsert: true },
     ).catch(() => null);
-    merged += skullboardPosts.length;
+    merged += incoming.length;
   }
-  return { name: "skullboardposts", count: merged };
+  return { name: "skullboardposts", collection: collName, count: merged, skipped };
 }
 
 async function migratePartnershipBlacklist(db) {
-  const coll = db.collection("partnershipblacklistguilds");
+  const collName = await resolveCollection(db, [
+    "partnershipblacklistguilds",
+    "partnershipBlacklistGuilds",
+    "PartnershipBlacklistGuild",
+  ]);
+  if (!collName) return { name: "partnershipblacklistguilds", collection: null, count: 0 };
+  const coll = db.collection(collName);
   const n = await coll.countDocuments().catch(() => 0);
-  if (!n) return { name: "partnershipblacklistguilds", count: 0 };
+  if (!n) return { name: "partnershipblacklistguilds", collection: collName, count: 0 };
   const rows = await coll.find({}).toArray();
-  const next = rows.map((r) => ({
-    guildId: String(r.guildId || ""),
-    addedBy: r.addedBy != null ? String(r.addedBy) : null,
-    note: String(r.note || "").slice(0, 500),
-    addedAt: r.addedAt ? new Date(r.addedAt) : new Date(),
-  })).filter((x) => /^\d{16,20}$/.test(x.guildId));
-  if (!APPLY) return { name: "partnershipblacklistguilds", count: next.length };
+  const next = rows
+    .map((r) => ({
+      guildId: toGuildId(r) || String(r.guildId || ""),
+      addedBy: r.addedBy != null ? String(r.addedBy) : r.added_by != null ? String(r.added_by) : null,
+      note: String(r.note || "").slice(0, 500),
+      addedAt: r.addedAt ? new Date(r.addedAt) : r.added_at ? new Date(r.added_at) : new Date(),
+    }))
+    .filter((x) => /^\d{16,20}$/.test(x.guildId));
+  if (!APPLY) return { name: "partnershipblacklistguilds", collection: collName, count: next.length };
   const gcoll = db.collection("globalsettings");
   await gcoll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
@@ -193,9 +363,9 @@ async function migratePartnershipBlacklist(db) {
   const existing = await getPartnershipBlacklistEntries();
   const map = new Map();
   for (const x of existing) map.set(String(x.guildId), x);
-  for (const x of next) map.set(x.guildId, x);
+  for (const x of next) map.set(x.guildId, { ...map.get(x.guildId), ...x });
   await setPartnershipBlacklistEntries([...map.values()]);
-  return { name: "partnershipblacklistguilds", count: next.length };
+  return { name: "partnershipblacklistguilds", collection: collName, count: next.length };
 }
 
 async function main() {
@@ -210,12 +380,15 @@ async function main() {
   }
   await mongoose.connect(uri);
   const db = mongoose.connection.db;
-  const report = [];
-  report.push(await migrateModConfigs(db));
-  report.push(await migratePersonalityPanels(db));
-  report.push(await migrateChannelSnapshots(db));
-  report.push(await migrateSkullboardPosts(db));
-  report.push(await migratePartnershipBlacklist(db));
+  const report = {
+    mergeMode: REPLACE_FROM_LEGACY ? "replace-from-legacy" : "merge-with-existing",
+    steps: [],
+  };
+  report.steps.push(await migrateModConfigs(db));
+  report.steps.push(await migratePersonalityPanels(db));
+  report.steps.push(await migrateChannelSnapshots(db));
+  report.steps.push(await migrateSkullboardPosts(db));
+  report.steps.push(await migratePartnershipBlacklist(db));
   console.log(APPLY ? "APPLY — risultato:" : "DRY-RUN (nessuna scrittura):");
   console.log(JSON.stringify(report, null, 2));
   if (!APPLY) {
