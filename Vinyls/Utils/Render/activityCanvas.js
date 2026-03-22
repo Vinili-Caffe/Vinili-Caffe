@@ -1035,10 +1035,7 @@ async function renderUserActivityCanvas({ guildName, userTag, displayName, avata
 
   await drawAvatarCircle(ctx, avatarUrl, 28, 24, 80);
   const displayFull = String(displayName || userTag || "").trim() || "—";
-  const displayMaxWidth = 560;
-  // Lower minSize to 8 to fit very long names on one line
-  const displaySize = getFittedFontSize(ctx, displayFull, displayMaxWidth, 52, 8, "700");
-  
+  const displaySize = getFittedFontSize(ctx, displayFull, 560, 52, 14, "700");
   await drawLabelWithEmoji(
     ctx,
     displayFull,
