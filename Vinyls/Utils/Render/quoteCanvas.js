@@ -7,13 +7,37 @@ function wrapLines(ctx, text, maxWidth, maxLines = Infinity) {
   const lines = [];
   const words = String(text || "").split(/\s+/).filter(Boolean);
   let line = "";
+
+  const flushLine = (l) => {
+    if (l) lines.push(l);
+    return "";
+  };
+
   for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width <= maxWidth) {
-      line = test;
+    // If the word itself is wider than maxWidth, we must break it
+    if (ctx.measureText(word).width > maxWidth) {
+      if (line) line = flushLine(line);
+      
+      let subline = "";
+      for (const char of Array.from(word)) {
+        const test = subline + char;
+        if (ctx.measureText(test).width <= maxWidth) {
+          subline = test;
+        } else {
+          lines.push(subline);
+          subline = char;
+        }
+        if (lines.length >= maxLines) break;
+      }
+      line = subline;
     } else {
-      if (line) lines.push(line);
-      line = word;
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width <= maxWidth) {
+        line = test;
+      } else {
+        if (line) lines.push(line);
+        line = word;
+      }
     }
     if (lines.length >= maxLines) break;
   }
@@ -63,19 +87,26 @@ module.exports = async function renderQuoteCanvas({ avatarUrl, message, username
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 
-  const mainText = String(message || "").toUpperCase();
-  let fontSize = 30;
+  const mainText = String(message || "").trim().toUpperCase();
+  let fontSize = 34;
   let lines = [];
-  let lineHeight = 36;
+  let lineHeight = 40;
   const topMargin = 100;
   const bottomMargin = 80;
   const maxBlockHeight = height - topMargin - bottomMargin;
-  while (fontSize >= 14) {
+
+  // New logic: Shrink font if lines are too many OR if we are forced to break a single long word
+  while (fontSize >= 10) {
     ctx.font = fontStack(fontSize, "600");
     lines = wrapLines(ctx, mainText, maxTextWidth);
-    lineHeight = Math.round(fontSize * 1.2);
+    lineHeight = Math.round(fontSize * 1.25);
     const blockHeight = lines.length * lineHeight;
-    if (blockHeight <= maxBlockHeight) break;
+    
+    // Check if it fits vertically AND if all individual words fit horizontally
+    const words = mainText.split(/\s+/);
+    const allWordsFit = words.every(w => ctx.measureText(w).width <= maxTextWidth);
+
+    if (blockHeight <= maxBlockHeight && allWordsFit) break;
     fontSize -= 2;
   }
   const blockHeight = lines.length * lineHeight;
