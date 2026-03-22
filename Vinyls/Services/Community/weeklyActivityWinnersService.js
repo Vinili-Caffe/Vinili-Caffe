@@ -768,9 +768,10 @@ async function trySendEventEndAnnouncementToNews(client) {
 }
 
 async function publishWeeklyActivityWinners(client, options = {}) {
-  const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
+  const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+  const channel = client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
   if (!channel) {
-    global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: channel not found.", TARGET_CHANNEL_ID);
+    global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: channel not found.", channelIdToUse);
     return;
   }
   if (!channel.guild) {
