@@ -702,8 +702,7 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
     .setThumbnail(guild.iconURL({ size: 256 }) || null)
     .setFooter({ text: `Settimana ${eventWeek} di ${eventWeek === 1 ? "evento" : "evento"} • Premi assegnati ai vincitori` }).setTimestamp();
   await eventChannel.send({
-    content: `<@&1442568949605597264>
-<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori dell'Activity Event EXP della settimana ${eventWeek}
+    content: `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori dell'Activity Event EXP della settimana ${eventWeek}
 
 <:VC_EXP:1482534670896730143> Avete ricevuto __${getEventWeeklyRewardLabel(eventWeek)}__ come ricompensa di questa settimana
 
@@ -928,8 +927,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
 
   try {
     await channel.send({
-      content: `<@&${IDs.roles.Member}>
-<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.
+      content: `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.
 
 <a:VC_Arrow:1482706699365257397> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
 <a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.
