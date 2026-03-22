@@ -1,7 +1,6 @@
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const SponsorMainLeave = require("../../Schemas/Tags/tagsSchema");
+const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const CHECK_INTERVAL_MS = 60 * 1000;
@@ -333,7 +332,13 @@ async function runSponsorKickAfter24h(client) {
   if (!mainGuildId || !sponsorGuildIds.length) return;
 
   const now = new Date();
-  const toProcess = await SponsorMainLeave.find({ kickAt: { $lte: now } }).lean().catch(() => []);
+  const toProcess = await ActivityUserProfile.find({
+    guildId: ACTIVITY_GLOBAL_GUILD_ID,
+    "profile.sponsorMainLeave.kickAt": { $lte: now },
+  })
+    .select("userId profile.sponsorMainLeave")
+    .lean()
+    .catch(() => []);
   if (!toProcess.length) return;
 
   const mainGuild = await getClientGuildCached(client, mainGuildId);
@@ -342,12 +347,18 @@ async function runSponsorKickAfter24h(client) {
   for (const doc of toProcess) {
     const userId = doc?.userId;
     if (!userId) {
-      await SponsorMainLeave.deleteOne({ _id: doc._id }).catch(() => { });
+      await ActivityUserProfile.deleteOne({
+        guildId: ACTIVITY_GLOBAL_GUILD_ID,
+        _id: doc._id,
+      }).catch(() => { });
       continue;
     }
     const inMain = await getGuildMemberCached(mainGuild, userId);
     if (inMain) {
-      await SponsorMainLeave.deleteOne({ userId }).catch(() => { });
+      await ActivityUserProfile.updateOne(
+        { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+        { $unset: { "profile.sponsorMainLeave": "" } },
+      ).catch(() => { });
       continue;
     }
     for (const gid of sponsorGuildIds) {
@@ -360,7 +371,10 @@ async function runSponsorKickAfter24h(client) {
         });
       }
     }
-    await SponsorMainLeave.deleteOne({ userId }).catch(() => { });
+    await ActivityUserProfile.updateOne(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { $unset: { "profile.sponsorMainLeave": "" } },
+    ).catch(() => { });
   }
 }
 

@@ -1,5 +1,6 @@
 const {
   ActivityUserProfile,
+  ACTIVITY_GLOBAL_GUILD_ID,
   InviteReminderState,
   CustomRole,
   AvatarPrivacy,
@@ -7,22 +8,32 @@ const {
   QuotePrivacy,
 } = require("../../Schemas/Community/communitySchemas");
 const Staff = require("../../Schemas/Staff/staffSchema");
-const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
-const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 
 const guildScoped = [
   [ActivityUserProfile, "ActivityUserProfile"],
   [Staff, "Staff"],
-  [SuspiciousAccount, "SuspiciousAccount"],
   [InviteReminderState, "InviteReminderState"],
   [CustomRole, "CustomRole"],
   [AvatarPrivacy, "AvatarPrivacy"],
   [BannerPrivacy, "BannerPrivacy"],
   [QuotePrivacy, "QuotePrivacy"],
 ];
-const userScoped = [
-  [AutoModBadUser, "AutoModBadUser"],
-];
+
+async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
+  const filter = {
+    guildId: ACTIVITY_GLOBAL_GUILD_ID,
+    userId: { $nin: memberIds },
+    "moderation.automodBadUser": { $exists: true },
+  };
+  if (dryRun) {
+    const n = await ActivityUserProfile.countDocuments(filter).catch(() => 0);
+    return n;
+  }
+  const res = await ActivityUserProfile.updateMany(filter, {
+    $unset: { "moderation.automodBadUser": "" },
+  }).catch(() => ({ modifiedCount: 0 }));
+  return res?.modifiedCount ?? 0;
+}
 
 /**
  * Elimina (o conta in dryRun) i documenti di utenti non presenti in memberIds per la guild indicata.
@@ -33,7 +44,6 @@ const userScoped = [
  */
 async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, includeUserScoped = true } = {}) {
   const filterGuild = { guildId: String(guildId), userId: { $nin: memberIds } };
-  const filterUser = { userId: { $nin: memberIds } };
   let total = 0;
   const details = [];
 
@@ -48,15 +58,10 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
     }
   }
   if (includeUserScoped) {
-    for (const [Model, name] of userScoped) {
-      if (!Model?.countDocuments) continue;
-      const n = dryRun
-        ? await Model.countDocuments(filterUser).catch(() => 0)
-        : (await Model.deleteMany(filterUser).catch(() => ({ deletedCount: 0 })))?.deletedCount ?? 0;
-      if (n > 0) {
-        total += n;
-        details.push({ name, count: n });
-      }
+    const n = await clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun);
+    if (n > 0) {
+      total += n;
+      details.push({ name: "ActivityUserProfile.moderation.automodBadUser(__global__)", count: n });
     }
   }
   return { total, details };
@@ -64,19 +69,9 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
 
 async function runCleanupUserScopedNotInAnyServer(memberIds, { dryRun = false } = {}) {
   const keep = Array.from(new Set((Array.isArray(memberIds) ? memberIds : []).map((id) => String(id).trim()).filter(Boolean)));
-  const filterUser = { userId: { $nin: keep } };
-  let total = 0;
-  const details = [];
-  for (const [Model, name] of userScoped) {
-    if (!Model?.countDocuments) continue;
-    const n = dryRun
-      ? await Model.countDocuments(filterUser).catch(() => 0)
-      : (await Model.deleteMany(filterUser).catch(() => ({ deletedCount: 0 })))?.deletedCount ?? 0;
-    if (n > 0) {
-      total += n;
-      details.push({ name, count: n });
-    }
-  }
+  const n = await clearGlobalAutomodBadUserForUsersNotIn(keep, dryRun);
+  const total = n;
+  const details = n > 0 ? [{ name: "ActivityUserProfile.moderation.automodBadUser(__global__)", count: n }] : [];
   return { total, details };
 }
 

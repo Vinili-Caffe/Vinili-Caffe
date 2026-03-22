@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
 
+/** Profilo activity "globale" per utente (automod, sponsor leave, promemoria globali). */
+const ACTIVITY_GLOBAL_GUILD_ID = "__global__";
+
 const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
 const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
 const ACTIVITY_LEGACY_DAILY_DISABLED = ACTIVITY_DAILY_STORAGE_MODE === "compact";
@@ -177,6 +180,27 @@ const activityUserProfileSchema = new Schema(
       currentStreak: { type: Number, default: 0 },
       bestStreak: { type: Number, default: 0 },
     },
+    moderation: {
+      joinGateSuspicious: {
+        source: { type: String, default: "joingate" },
+        reason: { type: String, default: "" },
+        markedAt: { type: Date, default: null },
+        expiresAt: { type: Date, default: null },
+      },
+      automodBadUser: {
+        totalTriggers: { type: Number, default: 0 },
+        warnPoints: { type: Number, default: 0 },
+        activeStrikes: { type: Number, default: 0 },
+        timeoutActions: { type: Number, default: 0 },
+        lastTriggerAt: { type: Date, default: null },
+        lastActionAt: { type: Date, default: null },
+        lastGuildId: { type: String, default: null },
+        lastHeat: { type: Number, default: 0 },
+        lastAction: { type: String, default: null },
+        activeStrikeReasons: { type: [String], default: [] },
+        reasons: { type: [String], default: [] },
+      },
+    },
     supporterStatus: {
       lastMessageId: { type: String, default: null },
       lastSentAt: { type: Date, default: null },
@@ -253,6 +277,12 @@ const activityUserProfileSchema = new Schema(
       globalOneTimeReminder: {
         entries: { type: [Schema.Types.Mixed], default: [] },
       },
+      sponsorMainLeave: {
+        leftAt: { type: Date, default: null },
+        kickAt: { type: Date, default: null },
+        dmSent: { type: Boolean, default: false },
+        dmFailed: { type: Boolean, default: false },
+      },
     },
     levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
   },
@@ -267,6 +297,8 @@ activityUserProfileSchema.index({ "profile.temporaryRoleGrants.grants.expiresAt"
 activityUserProfileSchema.index({ "profile.temporaryCommandPermissions.permissions.expiresAt": 1 });
 activityUserProfileSchema.index({ userId: 1, "profile.globalOneTimeReminder.entries.key": 1 });
 activityUserProfileSchema.index({ "profile.globalOneTimeReminder.entries.sendAt": 1, "profile.globalOneTimeReminder.entries.sentAt": 1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.sponsorMainLeave.kickAt": 1 });
+activityUserProfileSchema.index({ guildId: 1, "moderation.joinGateSuspicious.expiresAt": 1 });
 
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
@@ -657,6 +689,7 @@ const QuotePrivacy = buildProfileSubdocModel({
 const ChannelSnapshot=models.ChannelSnapshot||model("ChannelSnapshot",channelSnapshotSchema);
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 module.exports = {
+  ACTIVITY_GLOBAL_GUILD_ID,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
   VerificationTenure,

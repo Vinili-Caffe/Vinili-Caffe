@@ -4,9 +4,9 @@ const path = require("path");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const IDs = require("../../Utils/Config/ids");
-const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, } = require("./securityProfilesService");
+const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, isExtraOwner, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./suspiciousAccountService");
-const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
+const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -1008,7 +1008,19 @@ async function getBadUserProfile(userId, guildId = "") {
       : null;
   }
   try {
-    const row = await AutoModBadUser.findOne({ userId: String(userId) }, { _id: 0, userId: 1, totalTriggers: 1, warnPoints: 1, activeStrikes: 1, timeoutActions: 1, activeStrikeReasons: 1, lastTriggerAt: 1, lastActionAt: 1, lastAction: 1, },).lean();
+    const doc = await ActivityUserProfile.findOne(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(userId) },
+      {
+        _id: 0,
+        userId: 1,
+        "moderation.automodBadUser": 1,
+      },
+    )
+      .lean()
+      .catch(() => null);
+    const row = doc?.moderation?.automodBadUser
+      ? { userId: doc.userId, ...doc.moderation.automodBadUser }
+      : null;
     if (!row) {
       setCachedBadUser(userId, null, 15_000);
       const joinGateSuspicious = guildId ? await isJoinGateSuspiciousAccount(guildId, userId) : false;
@@ -1028,14 +1040,18 @@ async function getBadUserProfile(userId, guildId = "") {
     const stale = isBadUserProfileStale(row, at);
     const normalized = { ...row, warnPoints: stale ? 0 : Math.max(0, Number(row.warnPoints || 0)), activeStrikes: stale ? 0 : Math.max(0, Number(row.activeStrikes || 0)), activeStrikeReasons: stale ? [] : (Array.isArray(row.activeStrikeReasons) ? row.activeStrikeReasons : []), };
 
-    if (stale && (Number(row.warnPoints || 0) > 0 || Number(row.activeStrikes || 0) > 0)) {
-      AutoModBadUser.updateOne(
-        { userId: String(userId) },
+    if (
+      stale &&
+      (Number(row.warnPoints || 0) > 0 || Number(row.activeStrikes || 0) > 0) &&
+      (!guildId || !isExtraOwner(String(guildId), String(userId)))
+    ) {
+      ActivityUserProfile.updateOne(
+        { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(userId) },
         {
           $set: {
-            warnPoints: 0,
-            activeStrikes: 0,
-            activeStrikeReasons: [],
+            "moderation.automodBadUser.warnPoints": 0,
+            "moderation.automodBadUser.activeStrikes": 0,
+            "moderation.automodBadUser.activeStrikeReasons": [],
           },
         },
       ).catch(() => { });
@@ -1056,19 +1072,20 @@ async function markBadUserTrigger(message, violations, heatValue) {
   if (!isDbReady()) return;
   const userId = String(message.author?.id || "");
   if (!userId) return;
+  if (shouldSkipAutomodBadUserDbWrite(message)) return;
   const reasons = [...new Set((violations || []).map((v) => String(v?.key || "").trim()).filter(Boolean))].slice(0, 10);
   try {
-    await AutoModBadUser.updateOne(
-      { userId },
+    await ActivityUserProfile.updateOne(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
       {
         $set: {
-          lastTriggerAt: new Date(),
-          lastGuildId: String(message.guildId || ""),
-          lastHeat: Number(heatValue || 0),
-          reasons,
+          "moderation.automodBadUser.lastTriggerAt": new Date(),
+          "moderation.automodBadUser.lastGuildId": String(message.guildId || ""),
+          "moderation.automodBadUser.lastHeat": Number(heatValue || 0),
+          "moderation.automodBadUser.reasons": reasons,
         },
       },
-      { upsert: true },
+      { upsert: true, setDefaultsOnInsert: true },
     );
     BAD_USER_CACHE.delete(userId);
   } catch (err) {
@@ -1080,6 +1097,7 @@ async function markBadUserAction(message, action, violations = []) {
   if (!isDbReady()) return;
   const userId = String(message?.author?.id || "");
   if (!userId) return;
+  if (shouldSkipAutomodBadUserDbWrite(message)) return;
   const normalizedAction = String(action || "").trim().toLowerCase();
   const inc = { totalTriggers: 1, activeStrikes: 0, warnPoints: 0 };
   if (normalizedAction === "warn") inc.warnPoints = 1;
@@ -1091,15 +1109,27 @@ async function markBadUserAction(message, action, violations = []) {
     inc.activeStrikes = 1;
   }
   const strikeReasons = (Array.isArray(violations) ? violations : []).map((v) => firstViolationLabel([v])).filter(Boolean).slice(0, 5);
-  const update = { $set: { lastActionAt: new Date(), lastAction: normalizedAction || null, }, $inc: inc, };
+  const update = {
+    $set: {
+      "moderation.automodBadUser.lastActionAt": new Date(),
+      "moderation.automodBadUser.lastAction": normalizedAction || null,
+    },
+    $inc: {
+      "moderation.automodBadUser.totalTriggers": inc.totalTriggers,
+      "moderation.automodBadUser.warnPoints": inc.warnPoints,
+      "moderation.automodBadUser.activeStrikes": inc.activeStrikes,
+    },
+  };
   if (strikeReasons.length) {
-    update.$push = { activeStrikeReasons: { $each: strikeReasons, $slice: -40 } };
+    update.$push = {
+      "moderation.automodBadUser.activeStrikeReasons": { $each: strikeReasons, $slice: -40 },
+    };
   }
   try {
-    await AutoModBadUser.updateOne(
-      { userId },
+    await ActivityUserProfile.updateOne(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
       update,
-      { upsert: true },
+      { upsert: true, setDefaultsOnInsert: true },
     );
     BAD_USER_CACHE.delete(userId);
   } catch (err) {
@@ -1112,9 +1142,30 @@ async function registerAutoModTimeoutStrike(message) {
   const userId = String(message?.author?.id || "");
   if (!userId) return { ok: false, timeoutActions: 0, escalate1h: false };
   try {
-    const updated = await AutoModBadUser.findOneAndUpdate({ userId }, { $inc: { timeoutActions: 1 }, $set: { lastActionAt: new Date(), lastAction: "timeout", lastGuildId: String(message?.guildId || ""), }, }, { upsert: true, new: true, setDefaultsOnInsert: true, projection: { _id: 0, timeoutActions: 1 }, },).lean();
+    const updated = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      {
+        $inc: { "moderation.automodBadUser.timeoutActions": 1 },
+        $set: {
+          "moderation.automodBadUser.lastActionAt": new Date(),
+          "moderation.automodBadUser.lastAction": "timeout",
+          "moderation.automodBadUser.lastGuildId": String(message?.guildId || ""),
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+        projection: { _id: 0, "moderation.automodBadUser.timeoutActions": 1 },
+      },
+    )
+      .lean()
+      .catch(() => null);
     BAD_USER_CACHE.delete(userId);
-    const timeoutActions = Math.max(0, Number(updated?.timeoutActions || 0));
+    const timeoutActions = Math.max(
+      0,
+      Number(updated?.moderation?.automodBadUser?.timeoutActions || 0),
+    );
     return {
       ok: true,
       timeoutActions,
@@ -1129,9 +1180,18 @@ async function shouldEscalateNextAutoTimeout(message) {
   if (!isDbReady()) return false;
   const userId = String(message?.author?.id || "");
   if (!userId) return false;
+  if (shouldSkipAutomodBadUserDbWrite(message)) return false;
   try {
-    const row = await AutoModBadUser.findOne({ userId }, { _id: 0, timeoutActions: 1 },).lean();
-    const current = Math.max(0, Number(row?.timeoutActions || 0));
+    const row = await ActivityUserProfile.findOne(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { _id: 0, "moderation.automodBadUser.timeoutActions": 1 },
+    )
+      .lean()
+      .catch(() => null);
+    const current = Math.max(
+      0,
+      Number(row?.moderation?.automodBadUser?.timeoutActions || 0),
+    );
     const next = current + 1;
     return next > 0 && next % 5 === 0;
   } catch {

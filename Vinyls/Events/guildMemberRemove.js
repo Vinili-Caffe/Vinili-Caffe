@@ -1,20 +1,18 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
 const Staff = require("../Schemas/Staff/staffSchema");
 const Ticket = require("../Schemas/Ticket/ticketSchema");
-const SponsorMainLeave = require("../Schemas/Tags/tagsSchema");
 const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
 const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
 const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
   ActivityUserProfile,
+  ACTIVITY_GLOBAL_GUILD_ID,
   InviteReminderState,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
 } = require("../Schemas/Community/communitySchemas");
-const SuspiciousAccount = require("../Schemas/Moderation/suspiciousAccountSchema");
-const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
@@ -72,17 +70,24 @@ async function isUserInAnySponsorGuild(client, userId) {
 }
 
 async function upsertSponsorLeaveRecord(userId, leftAt, kickAt) {
-  await SponsorMainLeave.updateOne(
-    { userId },
-    { $set: { userId, leftAt, kickAt, dmSent: false, dmFailed: false } },
-    { upsert: true },
+  await ActivityUserProfile.updateOne(
+    { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+    {
+      $set: {
+        "profile.sponsorMainLeave.leftAt": leftAt,
+        "profile.sponsorMainLeave.kickAt": kickAt,
+        "profile.sponsorMainLeave.dmSent": false,
+        "profile.sponsorMainLeave.dmFailed": false,
+      },
+    },
+    { upsert: true, setDefaultsOnInsert: true },
   ).catch(() => { });
 }
 
 async function markSponsorDmResult(userId, dmOk) {
-  await SponsorMainLeave.updateOne(
-    { userId },
-    { $set: dmOk ? { dmSent: true } : { dmFailed: true } },
+  await ActivityUserProfile.updateOne(
+    { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+    { $set: dmOk ? { "profile.sponsorMainLeave.dmSent": true } : { "profile.sponsorMainLeave.dmFailed": true } },
   ).catch(() => { });
 }
 
@@ -372,7 +377,6 @@ async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     ActivityUserProfile.deleteOne({ guildId, userId }),
     Staff.deleteOne({ guildId, userId }),
-    SuspiciousAccount.deleteMany({ guildId, userId }),
     InviteReminderState.deleteOne({ guildId, userId }),
     CustomRole.deleteOne({ guildId, userId }),
     AvatarPrivacy.deleteOne({ guildId, userId }),
@@ -399,10 +403,13 @@ async function cleanupUserData(guildId, userId) {
       },
     ),
     ActivityUserProfile.updateOne(
-      { guildId: "__global__", userId },
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
       { $set: { "profile.globalOneTimeReminder.entries": [] } },
     ),
-    AutoModBadUser.deleteOne({ userId }),
+    ActivityUserProfile.updateOne(
+      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { $unset: { "moderation.automodBadUser": "" } },
+    ),
   ]);
 }
 

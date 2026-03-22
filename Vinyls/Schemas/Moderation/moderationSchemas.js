@@ -13,7 +13,7 @@ function normalizeModCaseUserCollection(envValue) {
   return t;
 }
 
-const RESOLVED_MOD_CASE_COLLECTION = MOD_CASE_COLLECTION || "mod_cases";
+const RESOLVED_MOD_CASE_COLLECTION = MOD_CASE_COLLECTION || "mod_case_users";
 const RESOLVED_MOD_CASE_USER_COLLECTION = normalizeModCaseUserCollection(MOD_CASE_USER_COLLECTION);
 
 const modConfigSchema=new Schema({guildId:{type:String,required:true,unique:true},logChannelId:{type:String,default:null},dmOnAction:{type:Boolean,default:true},caseCounter:{type:Number,default:0},exemptRoles:{type:[String],default:[]},exemptChannels:{type:[String],default:[]},},{timestamps:true,autoCreate:false},);

@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const CACHE = new Map();
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60_000;
 
@@ -62,17 +62,17 @@ async function markJoinGateSuspiciousAccount(
   if (!isDbReady()) return { ok: true, persisted: false };
 
   try {
-    await SuspiciousAccount.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
       {
         $set: {
-          source,
-          reason,
-          markedAt,
-          expiresAt,
+          "moderation.joinGateSuspicious.source": source,
+          "moderation.joinGateSuspicious.reason": reason,
+          "moderation.joinGateSuspicious.markedAt": markedAt,
+          "moderation.joinGateSuspicious.expiresAt": expiresAt,
         },
       },
-      { upsert: true },
+      { upsert: true, setDefaultsOnInsert: true },
     );
     return { ok: true, persisted: true };
   } catch {
@@ -90,21 +90,40 @@ async function isJoinGateSuspiciousAccount(guildId, userId) {
 
   try {
     const now = new Date();
-    const row = await SuspiciousAccount.findOne({ guildId: gid, userId: uid, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }], }, { _id: 0, source: 1, reason: 1, expiresAt: 1 },).lean().catch(() => null);
-    if (!row) {
+    const row = await ActivityUserProfile.findOne(
+      {
+        guildId: gid,
+        userId: uid,
+        "moderation.joinGateSuspicious.markedAt": { $exists: true },
+        $or: [
+          { "moderation.joinGateSuspicious.expiresAt": null },
+          { "moderation.joinGateSuspicious.expiresAt": { $gt: now } },
+        ],
+      },
+      {
+        _id: 0,
+        "moderation.joinGateSuspicious.source": 1,
+        "moderation.joinGateSuspicious.reason": 1,
+        "moderation.joinGateSuspicious.expiresAt": 1,
+      },
+    )
+      .lean()
+      .catch(() => null);
+    const sub = row?.moderation?.joinGateSuspicious;
+    if (!sub) {
       setCache(gid, uid, { suspicious: false }, 30_000);
       return false;
     }
-    const expiresTs = row?.expiresAt ? new Date(row.expiresAt).getTime() : nowMs() + 60_000;
+    const expiresTs = sub.expiresAt ? new Date(sub.expiresAt).getTime() : nowMs() + 60_000;
     const remaining = Math.max(30_000, expiresTs - nowMs());
     setCache(
       gid,
       uid,
       {
         suspicious: true,
-        source: String(row.source || "joingate"),
-        reason: String(row.reason || ""),
-        expiresAt: row.expiresAt || null,
+        source: String(sub.source || "joingate"),
+        reason: String(sub.reason || ""),
+        expiresAt: sub.expiresAt || null,
       },
       remaining,
     );
