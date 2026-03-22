@@ -147,9 +147,7 @@ async function updateCustomRoleData(
     { guildId, userId },
     { $set: setData },
     { new: true },
-  )
-    .lean()
-    .catch(() => null);
+  ).catch(() => null);
 }
 
 module.exports = {

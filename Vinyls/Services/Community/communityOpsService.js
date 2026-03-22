@@ -1,6 +1,6 @@
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../../Utils/Community/activityUserProfilePaths");
 const IDs = require("../../Utils/Config/ids");
 const VOTE_ROLE_ID = IDs.roles.Voter;
@@ -334,7 +334,7 @@ async function runSponsorKickAfter24h(client) {
 
   const now = new Date();
   const toProcess = await ActivityUserProfile.find({
-    guildId: ACTIVITY_GLOBAL_GUILD_ID,
+    guildId: ACTIVITY_MAIN_GUILD_ID,
     [sponsorMainLeave("kickAt")]: { $lte: now },
   })
     .select(`userId ${sponsorMainLeave()}`)
@@ -349,7 +349,7 @@ async function runSponsorKickAfter24h(client) {
     const userId = doc?.userId;
     if (!userId) {
       await ActivityUserProfile.deleteOne({
-        guildId: ACTIVITY_GLOBAL_GUILD_ID,
+        guildId: ACTIVITY_MAIN_GUILD_ID,
         _id: doc._id,
       }).catch(() => { });
       continue;
@@ -357,7 +357,7 @@ async function runSponsorKickAfter24h(client) {
     const inMain = await getGuildMemberCached(mainGuild, userId);
     if (inMain) {
       await ActivityUserProfile.updateOne(
-        { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+        { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
         { $unset: { [sponsorMainLeave()]: "" } },
       ).catch(() => { });
       continue;
@@ -373,7 +373,7 @@ async function runSponsorKickAfter24h(client) {
       }
     }
     await ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       { $unset: { [sponsorMainLeave()]: "" } },
     ).catch(() => { });
   }

@@ -1,6 +1,6 @@
 const {
   ActivityUserProfile,
-  ACTIVITY_GLOBAL_GUILD_ID,
+  ACTIVITY_MAIN_GUILD_ID,
   InviteReminderState,
   CustomRole,
   AvatarPrivacy,
@@ -22,7 +22,7 @@ const guildScoped = [
 
 async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
   const filter = {
-    guildId: ACTIVITY_GLOBAL_GUILD_ID,
+    guildId: ACTIVITY_MAIN_GUILD_ID,
     userId: { $nin: memberIds },
     [automodBadUser()]: { $exists: true },
   };
@@ -62,7 +62,7 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
     const n = await clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun);
     if (n > 0) {
       total += n;
-      details.push({ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_GLOBAL_GUILD_ID})`, count: n });
+      details.push({ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_MAIN_GUILD_ID})`, count: n });
     }
   }
   return { total, details };
@@ -72,7 +72,7 @@ async function runCleanupUserScopedNotInAnyServer(memberIds, { dryRun = false } 
   const keep = Array.from(new Set((Array.isArray(memberIds) ? memberIds : []).map((id) => String(id).trim()).filter(Boolean)));
   const n = await clearGlobalAutomodBadUserForUsersNotIn(keep, dryRun);
   const total = n;
-  const details = n > 0 ? [{ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_GLOBAL_GUILD_ID})`, count: n }] : [];
+  const details = n > 0 ? [{ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_MAIN_GUILD_ID})`, count: n }] : [];
   return { total, details };
 }
 

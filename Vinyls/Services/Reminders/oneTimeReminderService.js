@@ -1,4 +1,4 @@
-const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 
 const ONE_TIME_REMINDER_STORAGE_MODE = String(
   process.env.ONE_TIME_REMINDER_STORAGE_MODE || "compact",
@@ -37,7 +37,7 @@ async function ensureOneTimeReminderCompact({ key, userId, message, sendAt }) {
   const userIdStr = String(userId);
   const touchExisting = await ActivityUserProfile.updateOne(
     {
-      guildId: ACTIVITY_GLOBAL_GUILD_ID,
+      guildId: ACTIVITY_MAIN_GUILD_ID,
       userId: userIdStr,
       "profile.globalOneTimeReminder.entries": { $elemMatch: { key: String(key), sentAt: null } },
     },
@@ -54,9 +54,9 @@ async function ensureOneTimeReminderCompact({ key, userId, message, sendAt }) {
   }
 
   await ActivityUserProfile.findOneAndUpdate(
-    { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: userIdStr },
+    { guildId: ACTIVITY_MAIN_GUILD_ID, userId: userIdStr },
     {
-      $setOnInsert: { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: userIdStr },
+      $setOnInsert: { guildId: ACTIVITY_MAIN_GUILD_ID, userId: userIdStr },
       $push: {
         "profile.globalOneTimeReminder.entries": {
           $each: [
@@ -103,7 +103,7 @@ async function ensureOneTimeReminder({ key, userId, message, sendAt }) {
 
 async function loadDueCompactReminders(now, limit = 100) {
   return ActivityUserProfile.aggregate([
-    { $match: { guildId: ACTIVITY_GLOBAL_GUILD_ID } },
+    { $match: { guildId: ACTIVITY_MAIN_GUILD_ID } },
     { $unwind: "$profile.globalOneTimeReminder.entries" },
     {
       $match: {
@@ -129,7 +129,7 @@ async function claimCompactReminder(row, now) {
   if (!row?.userId || !row?.key || !row?.sendAt) return null;
   const claim = await ActivityUserProfile.findOneAndUpdate(
     {
-      guildId: ACTIVITY_GLOBAL_GUILD_ID,
+      guildId: ACTIVITY_MAIN_GUILD_ID,
       userId: String(row.userId),
       "profile.globalOneTimeReminder.entries": {
         $elemMatch: {
@@ -151,7 +151,7 @@ async function revertCompactReminder(row) {
   if (!row?.userId || !row?.key) return;
   await ActivityUserProfile.updateOne(
     {
-      guildId: ACTIVITY_GLOBAL_GUILD_ID,
+      guildId: ACTIVITY_MAIN_GUILD_ID,
       userId: String(row.userId),
       "profile.globalOneTimeReminder.entries": {
         $elemMatch: {

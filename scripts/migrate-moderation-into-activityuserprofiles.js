@@ -1,8 +1,8 @@
 /**
  * Importa in `activityuserprofiles` (ActivityUserProfile):
- * - `automodbadusers` → doc con guildId ACTIVITY_GLOBAL_GUILD_ID e `moderation.automodBadUser`
+ * - `automodbadusers` → doc con guildId ACTIVITY_MAIN_GUILD_ID (guild principale) e `moderation.automodBadUser`
  * - `suspiciousaccounts` → `moderation.joinGateSuspicious` sul doc (guildId + userId)
- * - `sponsormainleaves` → doc globale e `profile.sponsorMainLeave`
+ * - `sponsormainleaves` → stesso doc principale e `profile.sponsorMainLeave`
  *
  * Uso:
  *   node scripts/migrate-moderation-into-activityuserprofiles.js
@@ -15,7 +15,7 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const mongoose = require("mongoose");
-const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../Vinyls/Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../Vinyls/Schemas/Community/communitySchemas");
 const { automodBadUser, joinGateSuspicious, sponsorMainLeave } = require("../Vinyls/Utils/Community/activityUserProfilePaths");
 
 const MONGO_URL =
@@ -72,7 +72,7 @@ async function migrateAutomod(db, apply) {
       reasons: Array.isArray(rest.reasons) ? rest.reasons : [],
     };
     await ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       { $set: { [automodBadUser()]: sub } },
       { upsert: true, setDefaultsOnInsert: true },
     ).catch(() => null);
@@ -121,7 +121,7 @@ async function migrateSponsor(db, apply) {
     processed += 1;
     if (!apply) continue;
     await ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       {
         $set: {
           [sponsorMainLeave("leftAt")]: rest.leftAt,
@@ -142,6 +142,13 @@ async function main() {
 
   if (!MONGO_URL) {
     console.error("Missing MONGO_URL_LOCAL|MONGODB_URI_LOCAL|MONGO_URL|MONGODB_URI in .env");
+    process.exit(1);
+  }
+
+  if (!ACTIVITY_MAIN_GUILD_ID || ACTIVITY_MAIN_GUILD_ID === "__global__") {
+    console.error(
+      "ACTIVITY_MAIN_GUILD_ID mancante o __global__ (usa ids.guilds.main o env ACTIVITY_MAIN_GUILD_ID)",
+    );
     process.exit(1);
   }
 

@@ -1,8 +1,13 @@
 const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
+const IDs = require("../../Utils/Config/ids");
 
-/** Profilo activity "globale" per utente (automod, sponsor leave, promemoria globali). */
-const ACTIVITY_GLOBAL_GUILD_ID = "__global__";
+/**
+ * Guild principale: un solo documento `activityuserprofiles` per (guildId, userId).
+ * Automod, sponsor leave e `profile.globalOneTimeReminder` vivono sullo stesso doc del resto (exp, totals, ecc.).
+ * Override: env `ACTIVITY_MAIN_GUILD_ID` (es. istanza di test).
+ */
+const ACTIVITY_MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
 
 const ACTIVITY_DAILY_STORAGE_MODE = String(process.env.ACTIVITY_DAILY_STORAGE_MODE || "dual").trim().toLowerCase();
 const ACTIVITY_HOURLY_STORAGE_MODE = String(process.env.ACTIVITY_HOURLY_STORAGE_MODE || "dual").trim().toLowerCase();
@@ -689,7 +694,7 @@ const QuotePrivacy = buildProfileSubdocModel({
 const ChannelSnapshot=models.ChannelSnapshot||model("ChannelSnapshot",channelSnapshotSchema);
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 module.exports = {
-  ACTIVITY_GLOBAL_GUILD_ID,
+  ACTIVITY_MAIN_GUILD_ID,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
   VerificationTenure,

@@ -2,7 +2,7 @@
  * Path Mongo/Mongoose per campi dentro `activityuserprofiles` (ActivityUserProfile).
  * Evita stringhe duplicate e nomi di collection legacy.
  */
-const { ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
+const { ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 
 function automodBadUser(...parts) {
   return ["moderation", "automodBadUser", ...parts].join(".");
@@ -21,7 +21,7 @@ function totals(...parts) {
 }
 
 module.exports = {
-  ACTIVITY_GLOBAL_GUILD_ID,
+  ACTIVITY_MAIN_GUILD_ID,
   automodBadUser,
   joinGateSuspicious,
   sponsorMainLeave,

@@ -6,7 +6,7 @@ const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Ut
 const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
   ActivityUserProfile,
-  ACTIVITY_GLOBAL_GUILD_ID,
+  ACTIVITY_MAIN_GUILD_ID,
   InviteReminderState,
   CustomRole,
   AvatarPrivacy,
@@ -72,7 +72,7 @@ async function isUserInAnySponsorGuild(client, userId) {
 
 async function upsertSponsorLeaveRecord(userId, leftAt, kickAt) {
   await ActivityUserProfile.updateOne(
-    { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+    { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
     {
       $set: {
         [sponsorMainLeave("leftAt")]: leftAt,
@@ -87,7 +87,7 @@ async function upsertSponsorLeaveRecord(userId, leftAt, kickAt) {
 
 async function markSponsorDmResult(userId, dmOk) {
   await ActivityUserProfile.updateOne(
-    { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+    { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
     { $set: dmOk ? { [sponsorMainLeave("dmSent")]: true } : { [sponsorMainLeave("dmFailed")]: true } },
   ).catch(() => { });
 }
@@ -404,11 +404,11 @@ async function cleanupUserData(guildId, userId) {
       },
     ),
     ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       { $set: { "profile.globalOneTimeReminder.entries": [] } },
     ),
     ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       { $unset: { [automodBadUser()]: "" } },
     ),
   ]);

@@ -6,7 +6,7 @@ const axios = require("axios");
 const IDs = require("../../Utils/Config/ids");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, isExtraOwner, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
-const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
@@ -1010,7 +1010,7 @@ async function getBadUserProfile(userId, guildId = "") {
   }
   try {
     const doc = await ActivityUserProfile.findOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(userId) },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId: String(userId) },
       {
         _id: 0,
         userId: 1,
@@ -1048,7 +1048,7 @@ async function getBadUserProfile(userId, guildId = "") {
       (!guildId || !isExtraOwner(String(guildId), String(userId)))
     ) {
       ActivityUserProfile.updateOne(
-        { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(userId) },
+        { guildId: ACTIVITY_MAIN_GUILD_ID, userId: String(userId) },
         {
           $set: {
             [automodBadUser("warnPoints")]: 0,
@@ -1078,7 +1078,7 @@ async function markBadUserTrigger(message, violations, heatValue) {
   const reasons = [...new Set((violations || []).map((v) => String(v?.key || "").trim()).filter(Boolean))].slice(0, 10);
   try {
     await ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       {
         $set: {
           [automodBadUser("lastTriggerAt")]: new Date(),
@@ -1129,7 +1129,7 @@ async function markBadUserAction(message, action, violations = []) {
   }
   try {
     await ActivityUserProfile.updateOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       update,
       { upsert: true, setDefaultsOnInsert: true },
     );
@@ -1146,7 +1146,7 @@ async function registerAutoModTimeoutStrike(message) {
   if (shouldSkipAutomodBadUserDbWrite(message)) return { ok: false, timeoutActions: 0, escalate1h: false };
   try {
     const updated = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       {
         $inc: { [automodBadUser("timeoutActions")]: 1 },
         $set: {
@@ -1186,7 +1186,7 @@ async function shouldEscalateNextAutoTimeout(message) {
   if (shouldSkipAutomodBadUserDbWrite(message)) return false;
   try {
     const row = await ActivityUserProfile.findOne(
-      { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId },
       { _id: 0, [automodBadUser("timeoutActions")]: 1 },
     )
       .lean()
