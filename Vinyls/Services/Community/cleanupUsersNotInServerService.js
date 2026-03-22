@@ -28,6 +28,8 @@ async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
     $and: [
       { "moderation.modCases": { $exists: true, $size: 0 } },
       { "moderation.automodBadUser.totalTriggers": { $lte: 0 } },
+      { "profile.privacy.avatar.views": { $not: { $gt: 0 } } },
+      { "profile.privacy.banner.views": { $not: { $gt: 0 } } },
     ],
   };
   if (dryRun) {
@@ -59,6 +61,8 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
       filterGuild.$and = [
         { "moderation.modCases": { $exists: true, $size: 0 } },
         { "moderation.automodBadUser.totalTriggers": { $lte: 0 } },
+        { "profile.privacy.avatar.views": { $not: { $gt: 0 } } },
+        { "profile.privacy.banner.views": { $not: { $gt: 0 } } },
       ];
     }
     
