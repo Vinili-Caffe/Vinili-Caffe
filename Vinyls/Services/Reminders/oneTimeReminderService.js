@@ -1,7 +1,7 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
 const ONE_TIME_REMINDER_STORAGE_MODE = String(
-  process.env.ONE_TIME_REMINDER_STORAGE_MODE || "dual",
+  process.env.ONE_TIME_REMINDER_STORAGE_MODE || "compact",
 )
   .trim()
   .toLowerCase();

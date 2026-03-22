@@ -5,7 +5,11 @@ const { leaveTtsGuild, clearGuildTtsLock } = require("../TTS/ttsService");
 const { resolvePlayableRadioUrl } = require("./radioService");
 const { getVoiceSession, setVoiceSession, clearVoiceSession, } = require("../Voice/voiceSessionService");
 const mongoose = require("mongoose");
-const MusicQueueState = require("../../Schemas/musicQueueStateSchema");
+const {
+  musicQueueFindOneAndUpdate,
+  musicQueueDeleteOne,
+  musicQueueFindAllLean,
+} = require("../../Utils/BotState/domainStatesStore");
 
 let Shoukaku = null;
 let Connectors = null;
@@ -581,7 +585,7 @@ async function persistMusicQueueState(queue) {
   const currentTrackState = serializeTrackForState(queue.currentTrack);
 
   if (!currentTrackState) {
-    await MusicQueueState.deleteOne({ guildId }).catch(() => null);
+    await musicQueueDeleteOne({ guildId }).catch(() => null);
     return;
   }
 
@@ -593,7 +597,7 @@ async function persistMusicQueueState(queue) {
 
   const textChannelId = String(queue?.metadata?.channel?.id || "");
 
-  await MusicQueueState.findOneAndUpdate(
+  await musicQueueFindOneAndUpdate(
     { guildId },
     {
       $set: {
@@ -796,7 +800,7 @@ async function destroyQueue(guildId, { manual = false } = {}) {
   queue.tracks = [];
   queue.currentTrack = null;
   await queue.player.destroy().catch(() => { });
-  await MusicQueueState.deleteOne({ guildId: key }).catch(() => null);
+  await musicQueueDeleteOne({ guildId: key }).catch(() => null);
   clearGuildTtsLock(key);
   return true;
 }
@@ -1017,7 +1021,7 @@ async function restoreMusicSessions(client) {
   if (mongoose.connection?.readyState !== 1) return;
   if (!client?.user?.id) return;
 
-  const docs = await MusicQueueState.find({}).lean().catch(() => []);
+  const docs = await musicQueueFindAllLean().catch(() => []);
   if (!Array.isArray(docs) || docs.length === 0) return;
 
   await getPlayer(client, { waitForTcpMs: 3000 }).catch(() => null);
@@ -1088,7 +1092,7 @@ async function restoreMusicSessions(client) {
       ) {
         queue.positionMs = actualPos;
         queue.paused = Boolean(queue.player?.paused);
-        await MusicQueueState.deleteOne({ guildId }).catch(() => null);
+        await musicQueueDeleteOne({ guildId }).catch(() => null);
         restoredCount += 1;
         continue;
       }
@@ -1118,7 +1122,7 @@ async function restoreMusicSessions(client) {
       false,
     );
 
-    await MusicQueueState.deleteOne({ guildId }).catch(() => null);
+    await musicQueueDeleteOne({ guildId }).catch(() => null);
     restoredCount += 1;
   }
 }

@@ -70,7 +70,16 @@ const canvasModule = require("canvas");
 const { createCanvas, loadImage } = canvasModule;
 const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Utils/Render/canvasFonts");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder, } = require("discord.js");
-const { MinigameState, MinigameRotation, } = require("../../Schemas/Minigames/minigameSchema");
+const {
+  minigameStateFindOneLean,
+  minigameStateFindOneAndUpdate,
+  minigameStateDeleteOne,
+  minigameStateDeleteMany,
+  minigameRotationFindOneLean,
+  minigameRotationFindOneAndUpdate,
+  minigameRotationDeleteOne,
+  minigameRotationDeleteMany,
+} = require("../../Utils/BotState/domainStatesStore");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
 const IDs = require("../../Utils/Config/ids");
@@ -461,7 +470,7 @@ async function saveActiveGame(client, cfg, payload) {
     guildId = channel?.guild?.id || null;
   }
   if (!guildId) return;
-  await MinigameState.findOneAndUpdate(
+  await minigameStateFindOneAndUpdate(
     { guildId, channelId },
     { $set: { guildId, channelId, ...payload } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -477,7 +486,7 @@ async function clearActiveGame(client, cfg) {
     guildId = channel?.guild?.id || null;
   }
   if (!guildId) return;
-  await MinigameState.deleteOne({ guildId, channelId }).catch(() => { });
+  await minigameStateDeleteOne({ guildId, channelId }).catch(() => { });
 }
 
 function randomBetween(min, max) {
@@ -3849,7 +3858,7 @@ async function loadRotationState(client, cfg, guildIdOverride = null) {
   const guildId = guildIdOverride ?? cfg?.guildId ?? (await getChannelCached(client, channelId))?.guild?.id ?? null;
   if (!guildId) return;
   const dateKey = getRomeDateKey(new Date());
-  const doc = await MinigameRotation.findOne({ guildId, channelId }).lean().catch(() => null);
+  const doc = await minigameRotationFindOneLean({ guildId, channelId }).catch(() => null);
   if (doc && Array.isArray(doc.queue) && doc.dateKey === dateKey) {
     rotationDate = doc.dateKey;
     rotationQueue = shuffleArray(doc.queue.slice());
@@ -3857,7 +3866,7 @@ async function loadRotationState(client, cfg, guildIdOverride = null) {
   }
   rotationDate = dateKey;
   rotationQueue = [];
-  await MinigameRotation.findOneAndUpdate(
+  await minigameRotationFindOneAndUpdate(
     { guildId, channelId },
     { $set: { dateKey, queue: [] } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -3870,7 +3879,7 @@ async function saveRotationState(client, cfg, guildIdOverride = null) {
   const guildId = guildIdOverride ?? cfg?.guildId ?? (await getChannelCached(client, channelId))?.guild?.id ?? null;
   if (!guildId) return;
   const dateKey = rotationDate || getRomeDateKey(new Date());
-  await MinigameRotation.findOneAndUpdate(
+  await minigameRotationFindOneAndUpdate(
     { guildId, channelId },
     { $set: { dateKey, queue: rotationQueue } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -6909,7 +6918,7 @@ async function restoreActiveGames(client) {
   const guildId = channel?.guild?.id || null;
   if (!guildId) return;
   await loadRotationState(client, cfg);
-  const state = await MinigameState.findOne({ guildId, channelId: cfg.channelId, }).lean().catch(() => null);
+  const state = await minigameStateFindOneLean({ guildId, channelId: cfg.channelId, }).catch(() => null);
   if (!state) return;
   const now = Date.now();
   const endsAt = new Date(state.endsAt).getTime();
@@ -7195,7 +7204,7 @@ async function restoreActiveGames(client) {
         .send({ embeds: [buildTimeoutGuessCityEmbed(landmark, city)] })
         .catch(() => { });
     }
-    await MinigameState.deleteOne({ guildId, channelId: cfg.channelId }).catch(
+    await minigameStateDeleteOne({ guildId, channelId: cfg.channelId }).catch(
       () => { },
     );
     return;
@@ -7718,16 +7727,16 @@ function clearGameForChannel(channelId, client = null, guildId = null) {
       startingChannels.delete(mainChId);
       const gid = guildId || g.guildId || null;
       if (gid)
-        MinigameState.deleteOne({ guildId: String(gid), channelId: mainChId }).catch(() => {});
+        minigameStateDeleteOne({ guildId: String(gid), channelId: mainChId }).catch(() => {});
       break;
     }
   }
   if (guildId) {
-    MinigameState.deleteOne({ guildId, channelId: id }).catch(() => { });
-    MinigameRotation.deleteOne({ guildId, channelId: id }).catch(() => { });
+    minigameStateDeleteOne({ guildId, channelId: id }).catch(() => { });
+    minigameRotationDeleteOne({ guildId, channelId: id }).catch(() => { });
   } else {
-    MinigameState.deleteMany({ channelId: id }).catch(() => { });
-    MinigameRotation.deleteMany({ channelId: id }).catch(() => { });
+    minigameStateDeleteMany({ channelId: id }).catch(() => { });
+    minigameRotationDeleteMany({ channelId: id }).catch(() => { });
   }
 }
 

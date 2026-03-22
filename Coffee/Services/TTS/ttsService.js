@@ -4,7 +4,12 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const axios = require("axios");
-const VoiceState = require("../../Schemas/Voice/voiceStateSchema");
+const {
+  voiceFindOneAndUpdate,
+  voiceDeleteOne,
+  voiceDeleteManyInGuildIds,
+  voiceFindManyLean,
+} = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, } = require("../../Utils/Interaction/entityCache");
 const MAX_TTS_QUEUE = 30;
@@ -771,7 +776,7 @@ async function saveVoiceState(guildId, channelId) {
   if (lastSavedChannels.get(guildId) === channelId) return;
   lastSavedChannels.set(guildId, channelId);
   try {
-    await VoiceState.findOneAndUpdate(
+    await voiceFindOneAndUpdate(
       { guildId },
       { $set: { guildId, channelId, updatedAt: new Date() } },
       { upsert: true, new: true },
@@ -785,7 +790,7 @@ async function clearVoiceState(guildId) {
   if (!guildId) return;
   lastSavedChannels.delete(guildId);
   try {
-    await VoiceState.deleteOne({ guildId });
+    await voiceDeleteOne({ guildId });
   } catch (error) {
     global.logger?.error?.("[TTS] Failed to clear voice state", error);
   }
@@ -797,11 +802,11 @@ async function restoreTtsConnections(client) {
     if (!autojoinEnabled) {
       const guildIds = [...(client?.guilds?.cache?.keys?.() || [])];
       if (guildIds.length)
-        await VoiceState.deleteMany({ guildId: { $in: guildIds } }).catch(() => null);
+        await voiceDeleteManyInGuildIds(guildIds).catch(() => null);
       return;
     }
     await sleep(4500);
-    const states = await VoiceState.find({});
+    const states = await voiceFindManyLean();
     for (const entry of states) {
       const channel = await getClientChannelCached(client, entry.channelId, { ttlMs: 30_000, });
       if (!channel || !channel.isVoiceBased?.()) continue;

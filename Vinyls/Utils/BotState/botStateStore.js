@@ -1,9 +1,19 @@
 const BotState = require("../../Schemas/BotState/botStateSchema");
 
+const { COMPACT_BOTSTATE_KEY } = BotState;
+
 async function getBotState(key, fallback = null) {
+  const k = String(key);
   try {
-    const doc = await BotState.findOne({ key: String(key) }).lean();
-    return doc?.value !== undefined ? doc.value : fallback;
+    const compact = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
+    if (
+      compact?.value &&
+      Object.prototype.hasOwnProperty.call(compact.value, k)
+    ) {
+      return compact.value[k];
+    }
+    const legacy = await BotState.findOne({ key: k }).lean();
+    return legacy?.value !== undefined ? legacy.value : fallback;
   } catch (err) {
     global.logger?.warn?.("[botState] get:", key, err?.message ?? err);
     return fallback;
@@ -11,9 +21,18 @@ async function getBotState(key, fallback = null) {
 }
 
 async function setBotState(key, value) {
+  const k = String(key);
   try {
+    const compact = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
+    if (compact) {
+      await BotState.updateOne(
+        { key: COMPACT_BOTSTATE_KEY },
+        { $set: { [`value.${k}`]: value } },
+      );
+      return;
+    }
     await BotState.findOneAndUpdate(
-      { key: String(key) },
+      { key: k },
       { $set: { value } },
       { upsert: true },
     );

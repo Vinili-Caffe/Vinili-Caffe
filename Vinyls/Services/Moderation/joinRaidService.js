@@ -3,7 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const IDs = require("../../Utils/Config/ids");
-const JoinRaidState = require("../../Schemas/Moderation/joinRaidStateSchema");
+const {
+  joinRaidFindOneLean,
+  joinRaidUpdateOneUpsert,
+} = require("../../Utils/BotState/domainStatesStore");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./suspiciousAccountService");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -251,7 +254,7 @@ async function loadGuildState(guildId) {
     await existingLoad;
     return;
   }
-  const loader = (async () => { try { if (CLEARED_GUILDS.has(key)) return; const row = await JoinRaidState.findOne({ guildId: key }).lean(); if (CLEARED_GUILDS.has(key)) return; if (row) { GUILD_STATE.set(key, { samples: Array.isArray(row.samples) ? row.samples : [], flagged: Array.isArray(row.flagged) ? row.flagged : [], tempBans: Array.isArray(row.tempBans) ? row.tempBans : [], raidUntil: Number(row.raidUntil || 0), raidCaseCode: String(row.raidCaseCode || ""), raidStartedAt: Number(row.raidStartedAt || 0), raidInitialFlaggedUserIds: Array.isArray(row.raidInitialFlaggedUserIds) ? row.raidInitialFlaggedUserIds.map((x) => String(x || "")).filter(Boolean) : [], raidCaughtUserIds: Array.isArray(row.raidCaughtUserIds) ? row.raidCaughtUserIds.map((x) => String(x || "")).filter(Boolean) : [], }); } if (!CLEARED_GUILDS.has(key)) LOAD_SUCCEEDED_GUILDS.add(key); } catch (err) { global.logger?.warn?.("[joinRaid] loadGuildState failed:", key, err?.message || err); } finally { if (!CLEARED_GUILDS.has(key)) LOADED_GUILDS.add(key); LOAD_GUILD_PROMISES.delete(key); } })();
+  const loader = (async () => { try { if (CLEARED_GUILDS.has(key)) return; const row = await joinRaidFindOneLean(key); if (CLEARED_GUILDS.has(key)) return; if (row) { GUILD_STATE.set(key, { samples: Array.isArray(row.samples) ? row.samples : [], flagged: Array.isArray(row.flagged) ? row.flagged : [], tempBans: Array.isArray(row.tempBans) ? row.tempBans : [], raidUntil: Number(row.raidUntil || 0), raidCaseCode: String(row.raidCaseCode || ""), raidStartedAt: Number(row.raidStartedAt || 0), raidInitialFlaggedUserIds: Array.isArray(row.raidInitialFlaggedUserIds) ? row.raidInitialFlaggedUserIds.map((x) => String(x || "")).filter(Boolean) : [], raidCaughtUserIds: Array.isArray(row.raidCaughtUserIds) ? row.raidCaughtUserIds.map((x) => String(x || "")).filter(Boolean) : [], }); } if (!CLEARED_GUILDS.has(key)) LOAD_SUCCEEDED_GUILDS.add(key); } catch (err) { global.logger?.warn?.("[joinRaid] loadGuildState failed:", key, err?.message || err); } finally { if (!CLEARED_GUILDS.has(key)) LOADED_GUILDS.add(key); LOAD_GUILD_PROMISES.delete(key); } })();
   LOAD_GUILD_PROMISES.set(key, loader);
   await loader;
 }
@@ -262,7 +265,7 @@ function scheduleStateSave(guildId) {
   if (!LOAD_SUCCEEDED_GUILDS.has(key)) return;
   const old = SAVE_TIMERS.get(key);
   if (old) clearTimeout(old);
-  const timer = setTimeout(async () => { SAVE_TIMERS.delete(key); const state = getGuildState(key); pruneState(state, nowMs()); try { await JoinRaidState.updateOne({ guildId: key }, { $set: { raidUntil: Number(state.raidUntil || 0), samples: state.samples.slice(-300), flagged: state.flagged.slice(-300), tempBans: Array.isArray(state.tempBans) ? state.tempBans.slice(-300) : [], raidCaseCode: String(state.raidCaseCode || ""), raidStartedAt: Number(state.raidStartedAt || 0), raidInitialFlaggedUserIds: Array.isArray(state.raidInitialFlaggedUserIds) ? state.raidInitialFlaggedUserIds.slice(-80) : [], raidCaughtUserIds: Array.isArray(state.raidCaughtUserIds) ? state.raidCaughtUserIds.slice(-300) : [], }, }, { upsert: true },); } catch (err) { global.logger?.warn?.("[joinRaid] scheduleStateSave failed:", key, err?.message || err); } }, 1_500); timer.unref?.();
+  const timer = setTimeout(async () => { SAVE_TIMERS.delete(key); const state = getGuildState(key); pruneState(state, nowMs()); try { await joinRaidUpdateOneUpsert(key, { raidUntil: Number(state.raidUntil || 0), samples: state.samples.slice(-300), flagged: state.flagged.slice(-300), tempBans: Array.isArray(state.tempBans) ? state.tempBans.slice(-300) : [], raidCaseCode: String(state.raidCaseCode || ""), raidStartedAt: Number(state.raidStartedAt || 0), raidInitialFlaggedUserIds: Array.isArray(state.raidInitialFlaggedUserIds) ? state.raidInitialFlaggedUserIds.slice(-80) : [], raidCaughtUserIds: Array.isArray(state.raidCaughtUserIds) ? state.raidCaughtUserIds.slice(-300) : [], }); } catch (err) { global.logger?.warn?.("[joinRaid] scheduleStateSave failed:", key, err?.message || err); } }, 1_500); timer.unref?.();
   SAVE_TIMERS.set(key, timer);
 }
 

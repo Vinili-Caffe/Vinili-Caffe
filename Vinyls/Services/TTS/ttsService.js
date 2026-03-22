@@ -6,7 +6,11 @@ const os = require("os");
 const axios = require("axios");
 const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
-const VoiceState = require("../../Schemas/Voice/voiceStateSchema");
+const {
+  voiceFindOneAndUpdate,
+  voiceDeleteOne,
+  voiceFindManyLean,
+} = require("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { getVoiceSession } = require("../Voice/voiceSessionService");
@@ -899,7 +903,7 @@ async function saveVoiceState(guildId, channelId) {
   if (lastSavedChannels.get(guildId) === channelId) return;
   lastSavedChannels.set(guildId, channelId);
   try {
-    await VoiceState.findOneAndUpdate(
+    await voiceFindOneAndUpdate(
       { guildId },
       { $set: { guildId, channelId, updatedAt: new Date() } },
       { upsert: true, new: true },
@@ -913,7 +917,7 @@ async function clearVoiceState(guildId) {
   if (!guildId) return;
   lastSavedChannels.delete(guildId);
   try {
-    await VoiceState.deleteOne({ guildId });
+    await voiceDeleteOne({ guildId });
   } catch (error) {
     global.logger?.error?.("[TTS] Failed to clear voice state", error);
   }
@@ -926,7 +930,7 @@ async function saveTtsLastMessageProgress(guildId, channelId, messageId, created
   const mid = String(messageId);
   const ts = createdTimestamp ? new Date(Number(createdTimestamp)) : new Date();
   try {
-    await VoiceState.findOneAndUpdate(
+    await voiceFindOneAndUpdate(
       { guildId: gid },
       {
         $set: {
@@ -1001,7 +1005,7 @@ async function catchupTtsMessagesForChannel(
 async function restoreTtsConnections(client) {
   try {
     const prefix = String(client?.config?.prefix || "+");
-    const states = await VoiceState.find({}).lean().catch(() => []);
+    const states = await voiceFindManyLean().catch(() => []);
 
     for (let i = 0; i < states.length; i += TTS_RESTORE_CONCURRENCY) {
       const batch = states.slice(i, i + TTS_RESTORE_CONCURRENCY);
