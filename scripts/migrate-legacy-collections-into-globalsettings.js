@@ -399,6 +399,55 @@ async function migratePartnershipBlacklist(db) {
   return { name: "partnershipblacklistguilds", collection: collName, count: next.length, mongo };
 }
 
+async function mergeDuplicateGlobalSettings(db) {
+  const gcoll = db.collection("globalsettings");
+  const allDocs = await gcoll.find({ _counterKey: { $exists: false } }).toArray();
+  const byGuild = new Map();
+  for (const doc of allDocs) {
+    const gid = toGuildId(doc) || String(doc.guildId || "");
+    if (!gid) continue;
+    if (!byGuild.has(gid)) byGuild.set(gid, []);
+    byGuild.get(gid).push(doc);
+  }
+
+  const ops = [];
+  for (const [gid, docs] of byGuild) {
+    if (docs.length <= 1) continue; // No duplicates
+    console.log(`[MERGE] Merging ${docs.length} documents for guild ${gid}...`);
+    ops.push({ deleteMany: { filter: { guildId: gid } } });
+
+    const merged = {};
+    for (const d of docs) {
+      for (const [k, v] of Object.entries(d)) {
+        if (k === "_id" || k === "__v") continue;
+        if (v == null) continue;
+        if (Array.isArray(v)) {
+          merged[k] = [...(merged[k] || []), ...v];
+        } else if (typeof v === "object" && !(v instanceof Date)) {
+          merged[k] = { ...(merged[k] || {}), ...v };
+        } else {
+          merged[k] = v;
+        }
+      }
+    }
+
+    if (merged.personalityPanels) merged.personalityPanels = mergeByKey(merged.personalityPanels, [], x => x.channelId);
+    if (merged.channelSnapshots)  merged.channelSnapshots = mergeByKey(merged.channelSnapshots, [], x => x.channelId);
+    if (merged.skullboardPosts)   merged.skullboardPosts = mergeByKey(merged.skullboardPosts, [], x => x.messageId);
+
+    ops.push({ insertOne: { document: { ...merged, guildId: gid } } });
+  }
+
+  if (ops.length > 0) {
+    if (APPLY) {
+      await gcoll.bulkWrite(ops);
+      console.log(`[MERGE] Fixed duplicate globalsettings for ${ops.length / 2} guilds.`);
+    } else {
+      console.log(`[MERGE DRY-RUN] Would fix duplicate globalsettings for ${ops.length / 2} guilds.`);
+    }
+  }
+}
+
 async function main() {
   const uri =
     process.env.MONGO_URL_LOCAL ||
@@ -411,6 +460,9 @@ async function main() {
   }
   await mongoose.connect(uri);
   const db = mongoose.connection.db;
+  
+  await mergeDuplicateGlobalSettings(db);
+  
   const report = {
     mergeMode: REPLACE_FROM_LEGACY ? "replace-from-legacy" : "merge-with-existing",
     steps: [],
