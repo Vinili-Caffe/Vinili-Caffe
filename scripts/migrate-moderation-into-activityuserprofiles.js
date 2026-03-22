@@ -1,6 +1,6 @@
 /**
  * Importa in `activityuserprofiles` (ActivityUserProfile):
- * - `automodbadusers` → doc con guildId "__global__" e `moderation.automodBadUser`
+ * - `automodbadusers` → doc con guildId ACTIVITY_GLOBAL_GUILD_ID e `moderation.automodBadUser`
  * - `suspiciousaccounts` → `moderation.joinGateSuspicious` sul doc (guildId + userId)
  * - `sponsormainleaves` → doc globale e `profile.sponsorMainLeave`
  *
@@ -16,6 +16,7 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const mongoose = require("mongoose");
 const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../Vinyls/Schemas/Community/communitySchemas");
+const { automodBadUser, joinGateSuspicious, sponsorMainLeave } = require("../Vinyls/Utils/Community/activityUserProfilePaths");
 
 const MONGO_URL =
   process.env.MONGO_URL_LOCAL ||
@@ -72,7 +73,7 @@ async function migrateAutomod(db, apply) {
     };
     await ActivityUserProfile.updateOne(
       { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
-      { $set: { "moderation.automodBadUser": sub } },
+      { $set: { [automodBadUser()]: sub } },
       { upsert: true, setDefaultsOnInsert: true },
     ).catch(() => null);
   }
@@ -100,7 +101,7 @@ async function migrateSuspicious(db, apply) {
     };
     await ActivityUserProfile.updateOne(
       { guildId, userId },
-      { $set: { "moderation.joinGateSuspicious": sub } },
+      { $set: { [joinGateSuspicious()]: sub } },
       { upsert: true, setDefaultsOnInsert: true },
     ).catch(() => null);
   }
@@ -123,10 +124,10 @@ async function migrateSponsor(db, apply) {
       { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
       {
         $set: {
-          "profile.sponsorMainLeave.leftAt": rest.leftAt,
-          "profile.sponsorMainLeave.kickAt": rest.kickAt,
-          "profile.sponsorMainLeave.dmSent": Boolean(rest.dmSent),
-          "profile.sponsorMainLeave.dmFailed": Boolean(rest.dmFailed),
+          [sponsorMainLeave("leftAt")]: rest.leftAt,
+          [sponsorMainLeave("kickAt")]: rest.kickAt,
+          [sponsorMainLeave("dmSent")]: Boolean(rest.dmSent),
+          [sponsorMainLeave("dmFailed")]: Boolean(rest.dmFailed),
         },
       },
       { upsert: true, setDefaultsOnInsert: true },

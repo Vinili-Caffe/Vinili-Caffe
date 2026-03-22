@@ -8,7 +8,7 @@ const {
   joinRaidUpdateOneUpsert,
 } = require("../../Utils/BotState/domainStatesStore");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./securityProfilesService");
-const { isJoinGateSuspiciousAccount, } = require("./suspiciousAccountService");
+const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";

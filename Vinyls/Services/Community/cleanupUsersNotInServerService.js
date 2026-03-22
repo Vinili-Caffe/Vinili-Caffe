@@ -7,6 +7,7 @@ const {
   BannerPrivacy,
   QuotePrivacy,
 } = require("../../Schemas/Community/communitySchemas");
+const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const Staff = require("../../Schemas/Staff/staffSchema");
 
 const guildScoped = [
@@ -23,14 +24,14 @@ async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
   const filter = {
     guildId: ACTIVITY_GLOBAL_GUILD_ID,
     userId: { $nin: memberIds },
-    "moderation.automodBadUser": { $exists: true },
+    [automodBadUser()]: { $exists: true },
   };
   if (dryRun) {
     const n = await ActivityUserProfile.countDocuments(filter).catch(() => 0);
     return n;
   }
   const res = await ActivityUserProfile.updateMany(filter, {
-    $unset: { "moderation.automodBadUser": "" },
+    $unset: { [automodBadUser()]: "" },
   }).catch(() => ({ modifiedCount: 0 }));
   return res?.modifiedCount ?? 0;
 }
@@ -61,7 +62,7 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
     const n = await clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun);
     if (n > 0) {
       total += n;
-      details.push({ name: "ActivityUserProfile.moderation.automodBadUser(__global__)", count: n });
+      details.push({ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_GLOBAL_GUILD_ID})`, count: n });
     }
   }
   return { total, details };
@@ -71,7 +72,7 @@ async function runCleanupUserScopedNotInAnyServer(memberIds, { dryRun = false } 
   const keep = Array.from(new Set((Array.isArray(memberIds) ? memberIds : []).map((id) => String(id).trim()).filter(Boolean)));
   const n = await clearGlobalAutomodBadUserForUsersNotIn(keep, dryRun);
   const total = n;
-  const details = n > 0 ? [{ name: "ActivityUserProfile.moderation.automodBadUser(__global__)", count: n }] : [];
+  const details = n > 0 ? [{ name: `ActivityUserProfile.${automodBadUser()}(${ACTIVITY_GLOBAL_GUILD_ID})`, count: n }] : [];
   return { total, details };
 }
 

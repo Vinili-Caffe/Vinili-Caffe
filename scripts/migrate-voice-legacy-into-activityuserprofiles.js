@@ -19,6 +19,7 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const mongoose = require("mongoose");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../Vinyls/Utils/DB/validateWriteIds");
 const { ActivityUserProfile } = require("../Vinyls/Schemas/Community/communitySchemas");
+const { totals } = require("../Vinyls/Utils/Community/activityUserProfilePaths");
 
 const MONGO_URL =
   process.env.MONGO_URL_LOCAL ||
@@ -118,9 +119,9 @@ async function migrateDisconnectCounters(db, apply) {
           $set: {
             guildId: { $literal: g },
             userId: { $literal: u },
-            "totals.voiceDisconnectCount": {
+            [totals("voiceDisconnectCount")]: {
               $max: [
-                { $toDouble: { $ifNull: ["$totals.voiceDisconnectCount", 0] } },
+                { $toDouble: { $ifNull: ["$" + totals("voiceDisconnectCount"), 0] } },
                 { $literal: count },
               ],
             },

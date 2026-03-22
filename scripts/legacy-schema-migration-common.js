@@ -1,6 +1,7 @@
 const path = require("path");
 const mongoose = require("mongoose");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+const { ACTIVITY_GLOBAL_GUILD_ID } = require("../Vinyls/Schemas/Community/communitySchemas");
 
 const MONGO_URL =
   process.env.MONGO_URL_LOCAL ||
@@ -564,9 +565,9 @@ async function migrateAll(db, apply) {
   if (apply && oneTimeUserDocs.length) {
     const ops = oneTimeUserDocs.map((d) => ({
       updateOne: {
-        filter: { guildId: "__global__", userId: String(d.userId || "") },
+        filter: { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(d.userId || "") },
         update: {
-          $setOnInsert: { guildId: "__global__", userId: String(d.userId || "") },
+          $setOnInsert: { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(d.userId || "") },
           $set: {
             "profile.globalOneTimeReminder.entries": Array.isArray(d.entries) ? d.entries : [],
           },
@@ -810,7 +811,7 @@ async function verifyAll(db) {
   mismatches = 0;
   const oneTimeUserDocs = await db.collection(LEGACY.oneTimeReminderUsers).find({}).toArray();
   for (const d of oneTimeUserDocs) {
-    const t = await profiles.findOne({ guildId: "__global__", userId: String(d.userId || "") }, { projection: { "profile.globalOneTimeReminder.entries": 1 } });
+    const t = await profiles.findOne({ guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(d.userId || "") }, { projection: { "profile.globalOneTimeReminder.entries": 1 } });
     const arr = Array.isArray(t?.profile?.globalOneTimeReminder?.entries) ? t.profile.globalOneTimeReminder.entries : [];
     const src = Array.isArray(d.entries) ? d.entries : [];
     if (JSON.stringify(arr) !== JSON.stringify(src)) mismatches += 1;

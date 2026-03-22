@@ -5,8 +5,9 @@ const mongoose = require("mongoose");
 const axios = require("axios");
 const IDs = require("../../Utils/Config/ids");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, isExtraOwner, } = require("./securityProfilesService");
-const { isJoinGateSuspiciousAccount, } = require("./suspiciousAccountService");
+const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
 const { ActivityUserProfile, ACTIVITY_GLOBAL_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
+const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -1013,14 +1014,15 @@ async function getBadUserProfile(userId, guildId = "") {
       {
         _id: 0,
         userId: 1,
-        "moderation.automodBadUser": 1,
+        [automodBadUser()]: 1,
       },
     )
       .lean()
       .catch(() => null);
-    const row = doc?.moderation?.automodBadUser
-      ? { userId: doc.userId, ...doc.moderation.automodBadUser }
-      : null;
+    const amSub = automodBadUser()
+      .split(".")
+      .reduce((acc, k) => acc?.[k], doc);
+    const row = amSub ? { userId: doc.userId, ...amSub } : null;
     if (!row) {
       setCachedBadUser(userId, null, 15_000);
       const joinGateSuspicious = guildId ? await isJoinGateSuspiciousAccount(guildId, userId) : false;
@@ -1049,9 +1051,9 @@ async function getBadUserProfile(userId, guildId = "") {
         { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId: String(userId) },
         {
           $set: {
-            "moderation.automodBadUser.warnPoints": 0,
-            "moderation.automodBadUser.activeStrikes": 0,
-            "moderation.automodBadUser.activeStrikeReasons": [],
+            [automodBadUser("warnPoints")]: 0,
+            [automodBadUser("activeStrikes")]: 0,
+            [automodBadUser("activeStrikeReasons")]: [],
           },
         },
       ).catch(() => { });
@@ -1079,10 +1081,10 @@ async function markBadUserTrigger(message, violations, heatValue) {
       { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
       {
         $set: {
-          "moderation.automodBadUser.lastTriggerAt": new Date(),
-          "moderation.automodBadUser.lastGuildId": String(message.guildId || ""),
-          "moderation.automodBadUser.lastHeat": Number(heatValue || 0),
-          "moderation.automodBadUser.reasons": reasons,
+          [automodBadUser("lastTriggerAt")]: new Date(),
+          [automodBadUser("lastGuildId")]: String(message.guildId || ""),
+          [automodBadUser("lastHeat")]: Number(heatValue || 0),
+          [automodBadUser("reasons")]: reasons,
         },
       },
       { upsert: true, setDefaultsOnInsert: true },
@@ -1111,18 +1113,18 @@ async function markBadUserAction(message, action, violations = []) {
   const strikeReasons = (Array.isArray(violations) ? violations : []).map((v) => firstViolationLabel([v])).filter(Boolean).slice(0, 5);
   const update = {
     $set: {
-      "moderation.automodBadUser.lastActionAt": new Date(),
-      "moderation.automodBadUser.lastAction": normalizedAction || null,
+      [automodBadUser("lastActionAt")]: new Date(),
+      [automodBadUser("lastAction")]: normalizedAction || null,
     },
     $inc: {
-      "moderation.automodBadUser.totalTriggers": inc.totalTriggers,
-      "moderation.automodBadUser.warnPoints": inc.warnPoints,
-      "moderation.automodBadUser.activeStrikes": inc.activeStrikes,
+      [automodBadUser("totalTriggers")]: inc.totalTriggers,
+      [automodBadUser("warnPoints")]: inc.warnPoints,
+      [automodBadUser("activeStrikes")]: inc.activeStrikes,
     },
   };
   if (strikeReasons.length) {
     update.$push = {
-      "moderation.automodBadUser.activeStrikeReasons": { $each: strikeReasons, $slice: -40 },
+      [automodBadUser("activeStrikeReasons")]: { $each: strikeReasons, $slice: -40 },
     };
   }
   try {
@@ -1141,22 +1143,23 @@ async function registerAutoModTimeoutStrike(message) {
   if (!isDbReady()) return { ok: false, timeoutActions: 0, escalate1h: false };
   const userId = String(message?.author?.id || "");
   if (!userId) return { ok: false, timeoutActions: 0, escalate1h: false };
+  if (shouldSkipAutomodBadUserDbWrite(message)) return { ok: false, timeoutActions: 0, escalate1h: false };
   try {
     const updated = await ActivityUserProfile.findOneAndUpdate(
       { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
       {
-        $inc: { "moderation.automodBadUser.timeoutActions": 1 },
+        $inc: { [automodBadUser("timeoutActions")]: 1 },
         $set: {
-          "moderation.automodBadUser.lastActionAt": new Date(),
-          "moderation.automodBadUser.lastAction": "timeout",
-          "moderation.automodBadUser.lastGuildId": String(message?.guildId || ""),
+          [automodBadUser("lastActionAt")]: new Date(),
+          [automodBadUser("lastAction")]: "timeout",
+          [automodBadUser("lastGuildId")]: String(message?.guildId || ""),
         },
       },
       {
         upsert: true,
         new: true,
         setDefaultsOnInsert: true,
-        projection: { _id: 0, "moderation.automodBadUser.timeoutActions": 1 },
+        projection: { _id: 0, [automodBadUser("timeoutActions")]: 1 },
       },
     )
       .lean()
@@ -1184,7 +1187,7 @@ async function shouldEscalateNextAutoTimeout(message) {
   try {
     const row = await ActivityUserProfile.findOne(
       { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
-      { _id: 0, "moderation.automodBadUser.timeoutActions": 1 },
+      { _id: 0, [automodBadUser("timeoutActions")]: 1 },
     )
       .lean()
       .catch(() => null);

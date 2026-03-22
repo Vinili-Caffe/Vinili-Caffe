@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { joinGateSuspicious } = require("../../Utils/Community/activityUserProfilePaths");
 const CACHE = new Map();
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60_000;
 
@@ -66,10 +67,10 @@ async function markJoinGateSuspiciousAccount(
       { guildId: gid, userId: uid },
       {
         $set: {
-          "moderation.joinGateSuspicious.source": source,
-          "moderation.joinGateSuspicious.reason": reason,
-          "moderation.joinGateSuspicious.markedAt": markedAt,
-          "moderation.joinGateSuspicious.expiresAt": expiresAt,
+          [joinGateSuspicious("source")]: source,
+          [joinGateSuspicious("reason")]: reason,
+          [joinGateSuspicious("markedAt")]: markedAt,
+          [joinGateSuspicious("expiresAt")]: expiresAt,
         },
       },
       { upsert: true, setDefaultsOnInsert: true },
@@ -94,17 +95,17 @@ async function isJoinGateSuspiciousAccount(guildId, userId) {
       {
         guildId: gid,
         userId: uid,
-        "moderation.joinGateSuspicious.markedAt": { $exists: true },
+        [joinGateSuspicious("markedAt")]: { $exists: true },
         $or: [
-          { "moderation.joinGateSuspicious.expiresAt": null },
-          { "moderation.joinGateSuspicious.expiresAt": { $gt: now } },
+          { [joinGateSuspicious("expiresAt")]: null },
+          { [joinGateSuspicious("expiresAt")]: { $gt: now } },
         ],
       },
       {
         _id: 0,
-        "moderation.joinGateSuspicious.source": 1,
-        "moderation.joinGateSuspicious.reason": 1,
-        "moderation.joinGateSuspicious.expiresAt": 1,
+        [joinGateSuspicious("source")]: 1,
+        [joinGateSuspicious("reason")]: 1,
+        [joinGateSuspicious("expiresAt")]: 1,
       },
     )
       .lean()

@@ -13,6 +13,7 @@ const {
   BannerPrivacy,
   QuotePrivacy,
 } = require("../Schemas/Community/communitySchemas");
+const { automodBadUser, sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
@@ -74,10 +75,10 @@ async function upsertSponsorLeaveRecord(userId, leftAt, kickAt) {
     { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
     {
       $set: {
-        "profile.sponsorMainLeave.leftAt": leftAt,
-        "profile.sponsorMainLeave.kickAt": kickAt,
-        "profile.sponsorMainLeave.dmSent": false,
-        "profile.sponsorMainLeave.dmFailed": false,
+        [sponsorMainLeave("leftAt")]: leftAt,
+        [sponsorMainLeave("kickAt")]: kickAt,
+        [sponsorMainLeave("dmSent")]: false,
+        [sponsorMainLeave("dmFailed")]: false,
       },
     },
     { upsert: true, setDefaultsOnInsert: true },
@@ -87,7 +88,7 @@ async function upsertSponsorLeaveRecord(userId, leftAt, kickAt) {
 async function markSponsorDmResult(userId, dmOk) {
   await ActivityUserProfile.updateOne(
     { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
-    { $set: dmOk ? { "profile.sponsorMainLeave.dmSent": true } : { "profile.sponsorMainLeave.dmFailed": true } },
+    { $set: dmOk ? { [sponsorMainLeave("dmSent")]: true } : { [sponsorMainLeave("dmFailed")]: true } },
   ).catch(() => { });
 }
 
@@ -408,7 +409,7 @@ async function cleanupUserData(guildId, userId) {
     ),
     ActivityUserProfile.updateOne(
       { guildId: ACTIVITY_GLOBAL_GUILD_ID, userId },
-      { $unset: { "moderation.automodBadUser": "" } },
+      { $unset: { [automodBadUser()]: "" } },
     ),
   ]);
 }
