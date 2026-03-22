@@ -429,6 +429,42 @@ function getEventWeekRomeDateKeys(settings, weekNum) {
   return keys;
 }
 
+function getEventWeekHourKeys(settings, weekNum) {
+  if (!settings?.eventStartedAt || !settings?.eventExpiresAt) return [];
+  if (weekNum < 1 || weekNum > 4) return [];
+  const startMs = new Date(settings.eventStartedAt).getTime();
+  const endMs = new Date(settings.eventExpiresAt).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) return [];
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const w1End = getFirstSunday21BoundaryAtOrAfter(startMs);
+  const weekStart = weekNum === 1 ? startMs : w1End + (weekNum - 2) * weekMs;
+  const weekEnd = Math.min(endMs, weekNum === 4 ? endMs : w1End + (weekNum - 1) * weekMs);
+  if (weekStart >= weekEnd) return [];
+  const seen = new Set();
+  const keys = [];
+  const step = 60 * 60 * 1000; // 1 hour steps
+  for (let t = weekStart; t < weekEnd; t += step) {
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: TIME_ZONE_ROME,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(new Date(t)).reduce((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+    const key = `${parts.year}-${pad2Event(parts.month)}-${pad2Event(parts.day)}T${pad2Event(parts.hour)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
 /**
  * Domenica 21:00 Roma: getEventWeekNumber passa subito alla settimana successiva.
  * I premi vanno alla settimana appena conclusa = rolling - 1 (mai erogare se rolling < 2).
@@ -486,4 +522,4 @@ async function clearActivityEventRewardsForGuild(guildId) {
   return { deleted: result?.modifiedCount ?? 0 };
 }
 
-module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getTop10ExpDuringEvent };
+module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getTop10ExpDuringEvent, getEventWeekHourKeys };

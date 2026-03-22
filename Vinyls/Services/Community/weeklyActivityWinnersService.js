@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require(
 const cron = require("node-cron");
 const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
-const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
+const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getEventWeekHourKeys } = require("./activityEventRewardsService");
 const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, filterStaffEventLeaderboardForDisplay } = require("./staffEventService");
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
 const { isEventStaffMember } = require("./expService");
@@ -110,6 +110,11 @@ function getEventWeekDateKeys(settings, weekNum) {
   return getEventWeekRomeDateKeys(settings, weekNum);
 }
 
+function getEventWeekHourKeysFallback(settings, weekNum) {
+  if (!settings?.eventStartedAt || !settings?.eventExpiresAt) return [];
+  return getEventWeekHourKeys(settings, weekNum);
+}
+
 async function loadActivityRowsFromDateKeys(guild, dateKeys) {
   if (!dateKeys?.length) return [];
   const eligible = await getEligibleChannelSets(guild);
@@ -159,21 +164,80 @@ async function loadActivityRowsFromDateKeys(guild, dateKeys) {
   }));
 }
 
+async function loadActivityRowsFromHourKeys(guild, hourKeys) {
+  if (!hourKeys?.length) return [];
+  const eligible = await getEligibleChannelSets(guild);
+  if (!eligible.text.size && !eligible.voice.size) return [];
+  const perUser = new Map();
+  const rows = [];
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId hourly").lean().catch(() => []);
+  if (profileDocs.length) {
+    const wanted = new Set(hourKeys.map(String));
+    for (const doc of profileDocs) {
+      const userId = String(doc?.userId || "");
+      const hourly = toObjectMap(doc?.hourly || {});
+      if (!userId) continue;
+      for (const [key, value] of Object.entries(hourly)) {
+        if (!wanted.has(String(key))) continue;
+        rows.push({
+          userId,
+          textChannels: toObjectMap(value?.textChannels || {}),
+          voiceChannels: toObjectMap(value?.voiceChannels || {}),
+        });
+      }
+    }
+  }
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    if (!userId) continue;
+    let messageCount = 0;
+    let voiceSeconds = 0;
+    for (const [channelId, value] of extractMapEntries(row?.textChannels)) {
+      if (!eligible.text.has(String(channelId))) continue;
+      messageCount += Math.max(0, Number(value || 0));
+    }
+    for (const [channelId, value] of extractMapEntries(row?.voiceChannels)) {
+      if (!eligible.voice.has(String(channelId))) continue;
+      voiceSeconds += Math.max(0, Number(value || 0));
+    }
+    if (messageCount <= 0 && voiceSeconds <= 0) continue;
+    const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
+    current.messageCount += messageCount;
+    current.voiceSeconds += voiceSeconds;
+    perUser.set(userId, current);
+  }
+  return Array.from(perUser.values()).map((row) => ({
+    userId: row.userId,
+    messageCount: Math.max(0, Math.floor(row.messageCount)),
+    voiceSeconds: Math.max(0, Math.floor(row.voiceSeconds)),
+  }));
+}
+
 async function getEventWeekTopThreeTextAndVoice(guild, eventWeekNum) {
   if (!guild?.id || !Number.isFinite(eventWeekNum) || eventWeekNum < 1 || eventWeekNum > 4)
     return { topMessages: [], topVoice: [] };
   const settings = await getGuildExpSettings(guild.id).catch(() => null);
   if (!settings?.eventStartedAt) return { topMessages: [], topVoice: [] };
-  const dateKeys = getEventWeekDateKeys(settings, eventWeekNum);
-  if (!dateKeys.length) return { topMessages: [], topVoice: [] };
-  const rows = await loadActivityRowsFromDateKeys(guild, dateKeys);
+  const hourKeys = getEventWeekHourKeysFallback(settings, eventWeekNum);
+  if (!hourKeys.length) return { topMessages: [], topVoice: [] };
+  const rows = await loadActivityRowsFromHourKeys(guild, hourKeys);
   const eligible = await getEligibleChannelSets(guild);
   const liveSessions = await loadLiveVoiceSessions(guild.id).catch(() => []);
   const rowsByUser = new Map(rows.map((r) => [r.userId, { userId: r.userId, messageCount: r.messageCount || 0, voiceSeconds: r.voiceSeconds || 0 }]));
   for (const session of liveSessions) {
     const channelId = String(session?.voice?.sessionChannelId || "");
     if (!channelId || !eligible.voice.has(channelId)) continue;
-    const add = secondsInDateKeys(session.voice?.sessionStartedAt, dateKeys);
+    const sStart = session.voice?.sessionStartedAt ? new Date(session.voice.sessionStartedAt) : null;
+    if (!sStart || Number.isNaN(sStart.getTime())) continue;
+    
+    // Convert session started at to hour key approximation
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
+    const p = fmt.formatToParts(sStart).reduce((a,x) => { if(x.type!=="literal") a[x.type]=x.value; return a; }, {});
+    const hk = `${p.year}-${p.month}-${p.day}T${p.hour}`;
+    
+    if (!hourKeys.includes(hk)) continue;
+    
+    const add = Math.max(0, Math.floor((Date.now() - sStart.getTime()) / 1000));
     if (add <= 0) continue;
     const userId = String(session?.userId || "");
     if (!userId) continue;
@@ -214,17 +278,25 @@ async function getEventWeekTopNTextAndVoice(guild, eventWeekNum, limit = 10) {
     return { topMessages: [], topVoice: [] };
   const settings = await getGuildExpSettings(guild.id).catch(() => null);
   if (!settings?.eventStartedAt) return { topMessages: [], topVoice: [] };
-  const dateKeys = getEventWeekDateKeys(settings, eventWeekNum);
-  if (!dateKeys.length) return { topMessages: [], topVoice: [] };
+  const hourKeys = getEventWeekHourKeysFallback(settings, eventWeekNum);
+  if (!hourKeys.length) return { topMessages: [], topVoice: [] };
   const cap = Math.max(1, Math.min(25, Number(limit) || 10));
-  const rows = await loadActivityRowsFromDateKeys(guild, dateKeys);
+  const rows = await loadActivityRowsFromHourKeys(guild, hourKeys);
   const eligible = await getEligibleChannelSets(guild);
   const liveSessions = await loadLiveVoiceSessions(guild.id).catch(() => []);
   const rowsByUser = new Map(rows.map((r) => [r.userId, { userId: r.userId, messageCount: r.messageCount || 0, voiceSeconds: r.voiceSeconds || 0 }]));
   for (const session of liveSessions) {
     const channelId = String(session?.voice?.sessionChannelId || "");
     if (!channelId || !eligible.voice.has(channelId)) continue;
-    const add = secondsInDateKeys(session.voice?.sessionStartedAt, dateKeys);
+    
+    const sStart = session.voice?.sessionStartedAt ? new Date(session.voice.sessionStartedAt) : null;
+    if (!sStart || Number.isNaN(sStart.getTime())) continue;
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
+    const p = fmt.formatToParts(sStart).reduce((a,x) => { if(x.type!=="literal") a[x.type]=x.value; return a; }, {});
+    const hk = `${p.year}-${p.month}-${p.day}T${p.hour}`;
+    if (!hourKeys.includes(hk)) continue;
+
+    const add = Math.max(0, Math.floor((Date.now() - sStart.getTime()) / 1000));
     if (add <= 0) continue;
     const userId = String(session?.userId || "");
     if (!userId) continue;
@@ -735,17 +807,9 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 10);
   const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 10);
 
-  const useEventTop = eventPayoutWeek >= 1 && eventPayoutWeek <= 4;
-  let displayTopMessages;
-  let displayTopVoice;
-  if (useEventTop) {
-    displayTopMessages = eventTopMessages.map((item) => ({ userId: item.userId, value: Number(item.messageCount || 0) }));
-    displayTopVoice = eventTopVoice.map((item) => ({ userId: item.userId, value: Math.floor((Math.max(0, Number(item.voiceSeconds || 0)) / 60) * VOICE_EXP_PER_MINUTE), }));
-  } else {
-    const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
-    displayTopMessages = dedupe.listA;
-    displayTopVoice = dedupe.listB;
-  }
+  const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
+  const displayTopMessages = dedupe.listA;
+  const displayTopVoice = dedupe.listB;
 
   const messageRows = displayTopMessages.length ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"),
   )
@@ -985,4 +1049,4 @@ async function getEventDiagnostics(guild) {
   };
 }
 
-module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getEventWeekDateKeys, loadActivityRowsFromDateKeys, getEventDiagnostics, getEventWeekTopThreeTextAndVoice, getEventWeekTopNTextAndVoice };
+module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getEventWeekDateKeys, loadActivityRowsFromDateKeys, getEventDiagnostics, getEventWeekTopThreeTextAndVoice, getEventWeekTopNTextAndVoice, loadActivityRowsFromHourKeys, sendEventWeekAnnouncementToNews, deduplicateTopTwoLists, filterEventTopForWeek };

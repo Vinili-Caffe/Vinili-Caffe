@@ -392,10 +392,10 @@ async function resolveMentionLabel(interaction, userId) {
   return label;
 }
 
-async function sendPrivacyViewsLeaderboard(interaction, Model, title) {
+async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
   await interaction.deferReply({ flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
   const guildId = interaction.guild.id;
-  const top = await Model.find({ guildId }).sort({ views: -1 }).limit(10).lean().catch((err) => { logButtonErr(err, { warn: true }); return []; });
+  const top = await ActivityUserProfile.find({ guildId }).sort({ [`profile.privacy.${kind}.views`]: -1 }).limit(10).lean().catch((err) => { logButtonErr(err, { warn: true }); return []; });
 
   const rankEmojis = ["<:VC_1:1482706338021642333>", "<:VC_2:1482706376525611090>", "<:VC_3:1482706404773990460>", "<:VC_4:1482706432347344916>", "<:VC_5:1482706459765637272>", "<:VC_6:1482706490769801327>", "<:VC_7:1482706523330183218>", "<:VC_8:1482706553281708092>", "<:VC_9:1482706583438889051>", "<:VC_10:1482706613663174707>",];
 

@@ -44,12 +44,20 @@ async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
  * @returns {{ total: number, details: Array<{ name: string, count: number }> }}
  */
 async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, includeUserScoped = true } = {}) {
-  const filterGuild = { guildId: String(guildId), userId: { $nin: memberIds } };
   let total = 0;
   const details = [];
 
   for (const [Model, name] of guildScoped) {
     if (!Model?.countDocuments) continue;
+    const filterGuild = { guildId: String(guildId), userId: { $nin: memberIds } };
+    
+    if (name === "ActivityUserProfile") {
+      filterGuild.$or = [
+        { moderation: { $exists: false } },
+        { moderation: { $size: 0 } },
+      ];
+    }
+    
     const n = dryRun
       ? await Model.countDocuments(filterGuild).catch(() => 0)
       : (await Model.deleteMany(filterGuild).catch(() => ({ deletedCount: 0 })))?.deletedCount ?? 0;

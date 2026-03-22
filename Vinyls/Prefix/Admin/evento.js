@@ -66,8 +66,8 @@ function fmtDateWithTime(dateValue) {
 module.exports = {
   name: "evento",
   aliases: [],
-  subcommands: ["start", "stop", "info", "classifica", "staff"],
-  subcommandAliases: { start: "start", stop: "stop", info: "info", classifica: "classifica", staff: "staff" },
+  subcommands: ["start", "stop", "info", "classifica", "staff", "forza-annuncio"],
+  subcommandAliases: { start: "start", stop: "stop", info: "info", classifica: "classifica", staff: "staff", "forza-annuncio": "forza-annuncio" },
 
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => { });
@@ -75,11 +75,11 @@ module.exports = {
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    if (!sub || !["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "staff"].includes(sub)) {
+    if (!sub || !["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "staff", "forza-annuncio"].includes(sub)) {
       const usage = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("Comando evento")
-        .setDescription(["`+evento start` – Avvia l’evento Activity EXP.", "`+evento stop` – Termina l’evento e ripristina i moltiplicatori.", "`+evento info` – Mostra stato e configurazione evento.", "`+evento assegna-ruoli` – Assegna i livelli a chi ha già Supporter/Verificato/Guilded/Promoter/Propulsor/Catalyst (evento attivo).", "`+evento reset-premi` – Cancella i premi già registrati e riassegna a tutti (senza annuncio).", "`+evento classifica` – Classifica per settimana.", "`+evento classifica staff` – Classifica punti evento staff.", "`+evento staff start | stop | addpoints` – Gestione evento staff.",
+        .setDescription(["`+evento start` – Avvia l’evento Activity EXP.", "`+evento stop` – Termina l’evento e ripristina i moltiplicatori.", "`+evento info` – Mostra stato e configurazione evento.", "`+evento assegna-ruoli` – Assegna i livelli a chi ha già Supporter/Verificato/Guilded/Promoter/Propulsor/Catalyst (evento attivo).", "`+evento reset-premi` – Cancella i premi già registrati e riassegna a tutti (senza annuncio).", "`+evento classifica` – Classifica per settimana.", "`+evento classifica staff` – Classifica punti evento staff.", "`+evento staff start | stop | addpoints` – Gestione evento staff.", "`+evento forza-annuncio <settimana>` – Invia immediatamente l'annuncio della Top 3 della settimana evento inserita (1-4).",
         ].join("\n"));
       await safeMessageReply(message, {
         embeds: [usage],
@@ -156,6 +156,37 @@ module.exports = {
           }).catch(() => {});
         }
       })();
+      return;
+    }
+
+    if (sub === "forza-annuncio") {
+      const weekArg = Number(args[1] || "1");
+      if (![1, 2, 3, 4].includes(weekArg)) {
+        return safeMessageReply(message, { content: "<:vegax:1443934876440068179> Specifica una settimana valida (1-4). Es: `+evento forza-annuncio 1`", allowedMentions: { repliedUser: false } });
+      }
+      
+      const { getEventWeekTopNTextAndVoice, sendEventWeekAnnouncementToNews, filterEventTopForWeek, deduplicateTopTwoLists } = require("../../Services/Community/weeklyActivityWinnersService");
+      
+      await safeMessageReply(message, { content: `<:VC_EXP:1482534670896730143> Calcolando la top settimanale evento (Settimana ${weekArg})...`, allowedMentions: { repliedUser: false } });
+      
+      try {
+        const pool = await getEventWeekTopNTextAndVoice(message.guild, weekArg, 20);
+        const filtered = await filterEventTopForWeek(message.guild, weekArg, pool.topMessages || [], pool.topVoice || []);
+        
+        const deduped = deduplicateTopTwoLists(
+          (filtered.topMessages || []).slice(0, 3),
+          (filtered.topVoice || []).slice(0, 3),
+          filtered.topMessages || [],
+          filtered.topVoice || [],
+          3,
+        );
+        
+        await sendEventWeekAnnouncementToNews(message.client, message.guild, weekArg, deduped.listA || [], deduped.listB || []);
+        await message.channel.send({ content: `<:vegacheckmark:1443666279058772028> Annuncio top evento **Settimana ${weekArg}** inviato correttamente nel canale dedicato ai news! (I punteggi sono ora allineati dalle 21:00 esatte della domenica antecedente)` });
+      } catch (err) {
+        global.logger?.error?.("[evento forza-annuncio] Error:", err);
+        await message.channel.send({ content: "<:vegax:1443934876440068179> Errore durante l'invio dell'annuncio. Controlla i log." });
+      }
       return;
     }
 
