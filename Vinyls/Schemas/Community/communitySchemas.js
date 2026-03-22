@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
 const IDs = require("../../Utils/Config/ids");
+const { modCaseEntrySchema } = require("../Moderation/modCaseEmbeddedSchemas");
 
 /**
  * Guild principale: un solo documento `activityuserprofiles` per (guildId, userId).
@@ -263,6 +264,8 @@ const activityUserProfileSchema = new Schema(
         activeStrikeReasons: { type: [String], default: [] },
         reasons: { type: [String], default: [] },
       },
+      /** Storico case compact (ex collezione `mod_case_users`). */
+      modCases: { type: [modCaseEntrySchema], default: [] },
     },
     supporterStatus: {
       lastMessageId: { type: String, default: null },
@@ -362,6 +365,7 @@ activityUserProfileSchema.index({ userId: 1, "profile.globalOneTimeReminder.entr
 activityUserProfileSchema.index({ "profile.globalOneTimeReminder.entries.sendAt": 1, "profile.globalOneTimeReminder.entries.sentAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.sponsorMainLeave.kickAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.joinGateSuspicious.expiresAt": 1 });
+activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 });
 
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });

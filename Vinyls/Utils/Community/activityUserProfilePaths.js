@@ -16,6 +16,9 @@ function sponsorMainLeave(...parts) {
   return ["profile", "sponsorMainLeave", ...parts].join(".");
 }
 
+/** Path root per array case compact in ActivityUserProfile (ex `mod_case_users`). */
+const MOD_CASES_PATH = "moderation.modCases";
+
 function totals(...parts) {
   return ["totals", ...parts].join(".");
 }
@@ -26,4 +29,5 @@ module.exports = {
   joinGateSuspicious,
   sponsorMainLeave,
   totals,
+  MOD_CASES_PATH,
 };

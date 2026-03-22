@@ -379,7 +379,7 @@ async function sendMemberKickLog(member) {
 /**
  * In uscita dal server: se esiste `moderation` (non null) e/o `eventWeekWinners` con almeno una
  * settimana, il documento viene sostituito con uno minimale che conserva solo quei campi
- * (+ guildId/userId/timestamp). Altrimenti il documento viene eliminato.
+ * (+ guildId/userId/timestamp), incluso `moderation.modCases` (storico case). Altrimenti il documento viene eliminato.
  */
 async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
   const gid = String(guildId);

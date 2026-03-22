@@ -1,5 +1,6 @@
-const { ModCase, ModCaseUser } = require("../../Schemas/Moderation/moderationSchemas");
-const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
+const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
+const { GlobalSettings, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { MOD_CASES_PATH } = require("../Community/activityUserProfilePaths");
 const { normalizeModConfigFromGlobal } = require("../Global/globalSettingsGuildStores");
 const IDs = require("../Config/ids");
 
@@ -60,9 +61,12 @@ function plainFromCompactCase(guildId, userId, c) {
 }
 
 async function loadCompactUserDoc(guildId, userId) {
-  return ModCaseUser.findOne({ guildId: String(guildId), userId: String(userId) })
+  const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select(MOD_CASES_PATH)
     .lean()
     .catch(() => null);
+  const cases = Array.isArray(doc?.moderation?.modCases) ? doc.moderation.modCases : [];
+  return { cases };
 }
 
 function findDuplicateInCompactCases(cases, params) {
@@ -117,12 +121,12 @@ async function createCompactCaseEntry(guildId, userId, payload) {
     createdAt: payload.createdAt || new Date(),
     updatedAt: new Date(),
   };
-  await ModCaseUser.findOneAndUpdate(
+  await ActivityUserProfile.findOneAndUpdate(
     { guildId: String(guildId), userId: String(userId) },
     {
       $setOnInsert: { guildId: String(guildId), userId: String(userId) },
       $push: {
-        cases: {
+        [MOD_CASES_PATH]: {
           $each: [entry],
           $slice: -MOD_CASE_MAX_CASES_PER_USER,
         },
@@ -136,12 +140,16 @@ async function resolveCaseByGuildCaseId(guildId, caseId) {
   const n = Number(caseId);
   if (!Number.isFinite(n) || n <= 0) return null;
   if (useCompactModCase()) {
-    const parent = await ModCaseUser.findOne({
+    const parent = await ActivityUserProfile.findOne({
       guildId: String(guildId),
-      cases: { $elemMatch: { caseId: n } },
-    }).catch(() => null);
+      [MOD_CASES_PATH]: { $elemMatch: { caseId: n } },
+    })
+      .select(`userId ${MOD_CASES_PATH}`)
+      .lean()
+      .catch(() => null);
     if (parent) {
-      const c = (parent.cases || []).find((x) => Number(x.caseId) === n);
+      const list = parent.moderation?.modCases || [];
+      const c = list.find((x) => Number(x.caseId) === n);
       if (c) {
         return {
           source: "compact",
@@ -387,14 +395,14 @@ async function closeCaseByRef(guildId, userId, caseId, closeReason) {
   const reason = closeReason ? String(closeReason).slice(0, 300) : null;
   const now = new Date();
   if (useCompactModCase()) {
-    await ModCaseUser.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: String(guildId), userId: String(userId) },
       {
         $set: {
-          "cases.$[c].active": false,
-          "cases.$[c].closedAt": now,
-          "cases.$[c].closeReason": reason,
-          "cases.$[c].updatedAt": now,
+          [`${MOD_CASES_PATH}.$[c].active`]: false,
+          [`${MOD_CASES_PATH}.$[c].closedAt`]: now,
+          [`${MOD_CASES_PATH}.$[c].closeReason`]: reason,
+          [`${MOD_CASES_PATH}.$[c].updatedAt`]: now,
         },
       },
       { arrayFilters: [{ "c.caseId": n }] },
@@ -483,9 +491,9 @@ async function findActiveModerations(guildId, targetUserId, limit) {
   if (useCompactModCase()) {
     const match = { guildId: String(guildId) };
     if (targetUserId) match.userId = String(targetUserId);
-    const parents = await ModCaseUser.find(match).lean().catch(() => []);
+    const parents = await ActivityUserProfile.find(match).select(`guildId userId ${MOD_CASES_PATH}`).lean().catch(() => []);
     for (const p of parents) {
-      for (const c of p.cases || []) {
+      for (const c of p.moderation?.modCases || []) {
         if (!["MUTE", "BAN"].includes(String(c.action || "").toUpperCase())) continue;
         if (c.active === false) continue;
         const exp = c.expiresAt ? new Date(c.expiresAt) : null;
@@ -568,9 +576,9 @@ async function countModActionsByMod(guildId, modId, action, since) {
   const seen = new Set();
   let n = 0;
   if (useCompactModCase()) {
-    const parents = await ModCaseUser.find({ guildId: String(guildId) }).lean().catch(() => []);
+    const parents = await ActivityUserProfile.find({ guildId: String(guildId) }).select(MOD_CASES_PATH).lean().catch(() => []);
     for (const p of parents) {
-      for (const c of p.cases || []) {
+      for (const c of p.moderation?.modCases || []) {
         if (String(c.modId || "") !== String(modId)) continue;
         if (String(c.action || "") !== act) continue;
         if (since && new Date(c.createdAt || 0) < since) continue;
@@ -600,9 +608,9 @@ async function aggregateSanctionsByModInWeek(guildId, weekStart, weekEnd, sancti
   const map = new Map();
   const seenCaseIds = new Set();
   if (useCompactModCase()) {
-    const parents = await ModCaseUser.find({ guildId: String(guildId) }).lean().catch(() => []);
+    const parents = await ActivityUserProfile.find({ guildId: String(guildId) }).select(MOD_CASES_PATH).lean().catch(() => []);
     for (const p of parents) {
-      for (const c of p.cases || []) {
+      for (const c of p.moderation?.modCases || []) {
         if (!actions.includes(String(c.action || "").toUpperCase())) continue;
         const when = new Date(c.createdAt || 0);
         if (when < weekStart || when > weekEnd) continue;
@@ -638,9 +646,9 @@ async function findLifecycleCandidates(action, now, limit, extraMatch = {}) {
   const act = normalizeAction(action);
   const rows = [];
   if (useCompactModCase()) {
-    const parents = await ModCaseUser.find({
+    const parents = await ActivityUserProfile.find({
       ...extraMatch,
-      cases: {
+      [MOD_CASES_PATH]: {
         $elemMatch: {
           action: act,
           active: true,
@@ -649,9 +657,11 @@ async function findLifecycleCandidates(action, now, limit, extraMatch = {}) {
       },
     })
       .limit(limit * 3)
+      .select(`guildId userId ${MOD_CASES_PATH}`)
+      .lean()
       .catch(() => []);
     for (const p of parents) {
-      for (const c of p.cases || []) {
+      for (const c of p.moderation?.modCases || []) {
         if (String(c.action || "") !== act) continue;
         if (c.active === false) continue;
         const exp = c.expiresAt ? new Date(c.expiresAt) : null;
@@ -704,11 +714,11 @@ async function appendCaseEditStore(guildId, userId, caseId, field, previous, nex
     editedAt: new Date(),
   };
   if (useCompactModCase()) {
-    await ModCaseUser.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: String(guildId), userId: String(userId) },
       {
-        $push: { "cases.$[c].edits": entry },
-        $set: { "cases.$[c].updatedAt": new Date() },
+        $push: { [`${MOD_CASES_PATH}.$[c].edits`]: entry },
+        $set: { [`${MOD_CASES_PATH}.$[c].updatedAt`]: new Date() },
       },
       { arrayFilters: [{ "c.caseId": n }] },
     ).catch(() => null);
@@ -724,12 +734,12 @@ async function appendCaseEditStore(guildId, userId, caseId, field, previous, nex
 async function setCaseReasonStore(guildId, userId, caseId, nextReason) {
   const n = Number(caseId);
   if (useCompactModCase()) {
-    await ModCaseUser.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: String(guildId), userId: String(userId) },
       {
         $set: {
-          "cases.$[c].reason": String(nextReason).slice(0, 512),
-          "cases.$[c].updatedAt": new Date(),
+          [`${MOD_CASES_PATH}.$[c].reason`]: String(nextReason).slice(0, 512),
+          [`${MOD_CASES_PATH}.$[c].updatedAt`]: new Date(),
         },
       },
       { arrayFilters: [{ "c.caseId": n }] },
@@ -746,14 +756,14 @@ async function setCaseReasonStore(guildId, userId, caseId, nextReason) {
 async function setCaseDurationStore(guildId, userId, caseId, durationMs, expiresAt) {
   const n = Number(caseId);
   if (useCompactModCase()) {
-    await ModCaseUser.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: String(guildId), userId: String(userId) },
       {
         $set: {
-          "cases.$[c].durationMs": durationMs,
-          "cases.$[c].expiresAt": expiresAt,
-          "cases.$[c].active": true,
-          "cases.$[c].updatedAt": new Date(),
+          [`${MOD_CASES_PATH}.$[c].durationMs`]: durationMs,
+          [`${MOD_CASES_PATH}.$[c].expiresAt`]: expiresAt,
+          [`${MOD_CASES_PATH}.$[c].active`]: true,
+          [`${MOD_CASES_PATH}.$[c].updatedAt`]: new Date(),
         },
       },
       { arrayFilters: [{ "c.caseId": n }] },
