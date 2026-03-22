@@ -625,7 +625,7 @@ module.exports = {
       },
         {
           name: "Data rimozione",
-          value: `${dateStr}${timeStr}`,
+          value: `${dateStr} ${timeStr}`,
           inline: true,
         },
       )
