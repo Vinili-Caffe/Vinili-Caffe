@@ -1,6 +1,6 @@
 const path = require("path");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
-const { PersonalityPanel } = require("../Schemas/Community/communitySchemas");
+const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 
@@ -87,7 +87,7 @@ async function run(client) {
   if (!guildId) return;
   let panel = null;
   try {
-    panel = await PersonalityPanel.findOneAndUpdate(
+    panel = await personalityPanelFindOneAndUpdate(
       { guildId, channelId: INFO_CHANNEL_ID },
       { $setOnInsert: { guildId, channelId: INFO_CHANNEL_ID } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -118,7 +118,7 @@ async function run(client) {
   }
 
   if (msg1?.id || msg2?.id) {
-    await PersonalityPanel.updateOne(
+    await personalityPanelUpdateOne(
       { guildId, channelId: INFO_CHANNEL_ID },
       {
         $set: {

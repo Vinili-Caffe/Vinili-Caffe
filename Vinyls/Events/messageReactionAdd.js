@@ -1,6 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js");
-const communitySchemas = require("../Schemas/Community/communitySchemas");
-const SkullboardPost = communitySchemas?.SkullboardPost;
+const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
@@ -212,7 +211,7 @@ function buildSkullEmbed(user, message, postImageName) {
 async function maybeBuildReplyReference(message, skullboardChannel) {
   if (!message.reference?.messageId) return null;
 
-  const mirroredReply=await SkullboardPost.findOne({guildId:message.guild.id,messageId:message.reference.messageId,}).lean().catch(() => null);
+  const mirroredReply = await skullboardFindOneLean(message.guild.id, message.reference.messageId).catch(() => null);
   if (!mirroredReply?.postMessageId) return null;
 
   const mirroredMsg=await skullboardChannel.messages.fetch(mirroredReply.postMessageId).catch(() => null);
@@ -228,7 +227,6 @@ module.exports = {
     let inFlightKey = null;
     let inFlightSet = null;
     try {
-      if (!SkullboardPost) return;
       if (user?.bot) return;
       if (!isSkullReaction(reaction)) return;
 
@@ -249,7 +247,7 @@ module.exports = {
         inFlightSet.add(inFlightKey);
       }
 
-      const existing=await SkullboardPost.findOne({guildId:message.guild.id,messageId:message.id,}).lean().catch(() => null);
+      const existing = await skullboardFindOneLean(message.guild.id, message.id).catch(() => null);
       if (existing?.postMessageId) return;
 
       const skullboardChannel = await findSkullboardChannel(message.guild);
@@ -297,11 +295,7 @@ module.exports = {
 
       await postMessage.react(SKULL_EMOJI).catch(() => {});
 
-      await SkullboardPost.findOneAndUpdate(
-        { guildId: message.guild.id, messageId: message.id },
-        { $set: { postMessageId: postMessage.id } },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
+      await skullboardUpsert(message.guild.id, message.id, postMessage.id).catch(() => null);
 
       const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`Il messaggio è stato pubblicato nella <#${SKULLBOARD_CHANNEL_ID}>.`,
         );

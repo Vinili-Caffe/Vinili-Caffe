@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const IDs = require("../Utils/Config/ids");
+const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { getGuildChannelCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 
 const SPONSOR_PANEL_COLOR = "#6f4e37";
@@ -93,8 +94,7 @@ async function sponsorFindFallbackTicketChannel(guild) {
 }
 
 async function sponsorGetOrCreatePanelDoc(guildId, channelId) {
-  const { PersonalityPanel } = require("../Schemas/Community/communitySchemas");
-  return PersonalityPanel.findOneAndUpdate({ guildId, channelId }, { $setOnInsert: { guildId, channelId } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+  return personalityPanelFindOneAndUpdate({ guildId, channelId }, { $setOnInsert: { guildId, channelId } }, { upsert: true, new: true, setDefaultsOnInsert: true });
 }
 
 function sponsorMaybeAttachment(filePath, fileName, logLabel) {
@@ -110,7 +110,6 @@ function sponsorMaybeAttachment(filePath, fileName, logLabel) {
 
 async function processOneGuildTagPanel(client, guildId, config) {
   const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-  const { PersonalityPanel } = require("../Schemas/Community/communitySchemas");
 
   const guild = await sponsorFetchGuild(client, guildId);
   if (!guild) {
@@ -140,9 +139,9 @@ async function processOneGuildTagPanel(client, guildId, config) {
   const messagePayload = { messageId: panelDoc.infoMessageId1 || null, embeds: [embed], components: [], ...(attachment ? { files: [attachment], attachmentName: TAG_IMAGE_NAME } : {}) };
   const sentMessage = await upsertPanelMessage(channel, client, messagePayload);
   if (sentMessage?.id) {
-    await PersonalityPanel.updateOne({ guildId, channelId: config.channelId }, { $set: { infoMessageId1: sentMessage.id } }).catch(() => {});
+    await personalityPanelUpdateOne({ guildId, channelId: config.channelId }, { $set: { infoMessageId1: sentMessage.id } }).catch(() => {});
   } else if (messagePayload.messageId) {
-    await PersonalityPanel.updateOne({ guildId, channelId: config.channelId }, { $set: { infoMessageId1: null } }).catch(() => {});
+    await personalityPanelUpdateOne({ guildId, channelId: config.channelId }, { $set: { infoMessageId1: null } }).catch(() => {});
   }
 }
 
@@ -172,8 +171,6 @@ async function runSponsorPanel(client) {
 async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
   const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-  const { PersonalityPanel } = require("../Schemas/Community/communitySchemas");
-
   const guild = await sponsorFetchGuild(client, guildId);
   if (!guild) {
     global.logger.warn("[SPONSOR] Verify panel: guild non trovata:", guildId);
@@ -207,9 +204,9 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
   const verifyPayload = { messageId: panelDoc.verifyPanelMessageId || null, embeds: [verifyEmbed], components: [verifyRow] };
   const panelMessage = await upsertPanelMessage(channel, client, verifyPayload);
   if (panelMessage?.id) {
-    await PersonalityPanel.updateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: panelMessage.id } }).catch(() => {});
+    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: panelMessage.id } }).catch(() => {});
   } else if (verifyPayload.messageId) {
-    await PersonalityPanel.updateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: null } }).catch(() => {});
+    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: null } }).catch(() => {});
   }
   return panelMessage?.id ? 1 : 0;
 }
@@ -241,8 +238,6 @@ async function runSponsorVerifyPanels(client) {
 
 async function processOneSponsorTicketPanel(client, guildId, config) {
   const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-  const { PersonalityPanel } = require("../Schemas/Community/communitySchemas");
-
   const guild = await sponsorFetchGuild(client, guildId);
   if (!guild) return;
   await sponsorEnsureChannelsFetched(guild);
@@ -260,9 +255,9 @@ async function processOneSponsorTicketPanel(client, guildId, config) {
   const ticketPayload = { messageId: panelDoc?.sponsorTicketPanelMessageId || null, embeds: [embed], components: [ticketRow], ...(attachment ? { files: [attachment], attachmentName: TICKET_IMAGE_NAME } : {}) };
   const sentMessage = await upsertPanelMessage(channel, client, ticketPayload);
   if (sentMessage?.id) {
-    await PersonalityPanel.updateOne({ guildId, channelId: channel.id }, { $set: { sponsorTicketPanelMessageId: sentMessage.id } }).catch(() => {});
+    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { sponsorTicketPanelMessageId: sentMessage.id } }).catch(() => {});
   } else if (ticketPayload.messageId) {
-    await PersonalityPanel.updateOne({ guildId, channelId: channel.id }, { $set: { sponsorTicketPanelMessageId: null } }).catch(() => {});
+    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { sponsorTicketPanelMessageId: null } }).catch(() => {});
   }
 }
 

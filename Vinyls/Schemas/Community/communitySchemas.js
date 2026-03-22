@@ -73,13 +73,71 @@ const levelHistoryUserSchema = new Schema({
 levelHistoryUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 levelHistoryUserSchema.index({ guildId: 1, "entries.createdAt": -1 });
 
-const globalSettingsSchema=new Schema({guildId:{type:String,required:true,unique:true,index:true},expMultiplier:{type:Number,default:2},expEventMultiplier:{type:Number,default:1},expEventMultiplierExpiresAt:{type:Date,default:null},expEventRoleOverrides:{type:Schema.Types.Mixed,default:null},expEventExtraMultiplierRoleIds:{type:[String],default:[]},expEventStartedAt:{type:Date,default:null},expEventEndAnnouncementSentForExpiresAt:{type:Date,default:null},staffEventExpiresAt:{type:Date,default:null},staffEventStartedAt:{type:Date,default:null},expLockedChannelIds:{type:[String],default:[]},expIgnoredRoleIds:{type:[String],default:[]},},{timestamps:true},);
-
-const skullboardPostSchema=new Schema({guildId:{type:String,required:true},messageId:{type:String,required:true,index:true},postMessageId:{type:String,default:null},});
-skullboardPostSchema.index({ guildId: 1, messageId: 1 }, { unique: true });
-
-const personalityPanelSchema=new Schema({guildId:{type:String,required:true},channelId:{type:String,required:true},personalityMessageId:{type:String,default:null},mentionsMessageId:{type:String,default:null},colorsMessageId:{type:String,default:null},plusColorsMessageId:{type:String,default:null},infoMessageId1:{type:String,default:null},infoMessageId2:{type:String,default:null},verifyInfoMessageId:{type:String,default:null},verifyPanelMessageId:{type:String,default:null},ticketInfoMessageId:{type:String,default:null},ticketPanelMessageId:{type:String,default:null},sponsorTicketPanelMessageId:{type:String,default:null},});
-personalityPanelSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
+const modConfigEmbeddedSchema = new Schema(
+  {
+    logChannelId: { type: String, default: null },
+    dmOnAction: { type: Boolean, default: true },
+    caseCounter: { type: Number, default: 0 },
+    exemptRoles: { type: [String], default: [] },
+    exemptChannels: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+const personalityPanelEntrySchema = new Schema(
+  {
+    channelId: { type: String, required: true },
+    personalityMessageId: { type: String, default: null },
+    mentionsMessageId: { type: String, default: null },
+    colorsMessageId: { type: String, default: null },
+    plusColorsMessageId: { type: String, default: null },
+    infoMessageId1: { type: String, default: null },
+    infoMessageId2: { type: String, default: null },
+    verifyInfoMessageId: { type: String, default: null },
+    verifyPanelMessageId: { type: String, default: null },
+    ticketInfoMessageId: { type: String, default: null },
+    ticketPanelMessageId: { type: String, default: null },
+    sponsorTicketPanelMessageId: { type: String, default: null },
+  },
+  { _id: false },
+);
+const channelSnapshotEntrySchema = new Schema(
+  {
+    channelId: { type: String, required: true },
+    name: { type: String, default: "" },
+    type: { type: Number, default: null },
+    parentId: { type: String, default: null },
+    deletedAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+const skullboardPostEntrySchema = new Schema(
+  {
+    messageId: { type: String, required: true },
+    postMessageId: { type: String, default: null },
+  },
+  { _id: false },
+);
+const globalSettingsSchema = new Schema(
+  {
+    guildId: { type: String, required: true, unique: true, index: true },
+    expMultiplier: { type: Number, default: 2 },
+    expEventMultiplier: { type: Number, default: 1 },
+    expEventMultiplierExpiresAt: { type: Date, default: null },
+    expEventRoleOverrides: { type: Schema.Types.Mixed, default: null },
+    expEventExtraMultiplierRoleIds: { type: [String], default: [] },
+    expEventStartedAt: { type: Date, default: null },
+    expEventEndAnnouncementSentForExpiresAt: { type: Date, default: null },
+    staffEventExpiresAt: { type: Date, default: null },
+    staffEventStartedAt: { type: Date, default: null },
+    expLockedChannelIds: { type: [String], default: [] },
+    expIgnoredRoleIds: { type: [String], default: [] },
+    modConfig: { type: modConfigEmbeddedSchema, default: () => ({}) },
+    personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
+    channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
+    skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
+  },
+  { timestamps: true },
+);
 
 
 const activityEventRewardSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardType:{type:String,required:true,index:true},tier:{type:Number,default:null},},{timestamps:true},);
@@ -312,12 +370,8 @@ eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
 eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
 
-const channelSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},channelId:{type:String,required:true,index:true},name:{type:String,default:""},type:{type:Number,default:null},parentId:{type:String,default:null},deletedAt:{type:Date,default:null,index:true},},{timestamps:true},);
-channelSnapshotSchema.index({ guildId: 1, channelId: 1 }, { unique: true });
-
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
 const LegacyVerificationTenure = null;
-const SkullboardPost=models.SkullboardPost||model("SkullboardPost",skullboardPostSchema);
 const ReviewReward = {
   async findOne(filter) {
     const doc = await ActivityUserProfile.findOne(filter).select("guildId userId reviewReward").lean().catch(() => null);
@@ -338,7 +392,6 @@ const ReviewReward = {
     ).catch(() => null);
   },
 };
-const PersonalityPanel=models.PersonalityPanel||model("PersonalityPanel",personalityPanelSchema);
 const LegacyInviteTrack = null;
 function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null }) {
   function asQueryLike(run) {
@@ -691,16 +744,13 @@ const QuotePrivacy = buildProfileSubdocModel({
   }),
   clearSet: { "profile.privacy.quote.blocked": false },
 });
-const ChannelSnapshot=models.ChannelSnapshot||model("ChannelSnapshot",channelSnapshotSchema);
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 module.exports = {
   ACTIVITY_MAIN_GUILD_ID,
   LEVEL_HISTORY_MAX_ENTRIES,
   GlobalSettings,
   VerificationTenure,
-  SkullboardPost,
   ReviewReward,
-  PersonalityPanel,
   InviteTrack,
   InviteReminderState,
   ActivityUserProfile,
@@ -708,5 +758,4 @@ module.exports = {
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
-  ChannelSnapshot,
 };

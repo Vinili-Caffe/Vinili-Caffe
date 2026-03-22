@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
-const { PersonalityPanel } = require("../Schemas/Community/communitySchemas");
+const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
@@ -223,7 +223,7 @@ async function run(client) {
 
   let panel = null;
   try {
-    panel = await PersonalityPanel.findOneAndUpdate(
+    panel = await personalityPanelFindOneAndUpdate(
       { guildId, channelId: CHANNEL_ID },
       { $setOnInsert: { guildId, channelId: CHANNEL_ID } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -234,7 +234,7 @@ async function run(client) {
 
   const updatePanel = async (personalityMessageId, mentionsMessageId, colorsMessageId, plusColorsMessageId) => {
     try {
-      await PersonalityPanel.updateOne({ guildId, channelId: CHANNEL_ID }, { $set: { personalityMessageId, mentionsMessageId, colorsMessageId, plusColorsMessageId } });
+      await personalityPanelUpdateOne({ guildId, channelId: CHANNEL_ID }, { $set: { personalityMessageId, mentionsMessageId, colorsMessageId, plusColorsMessageId } });
     } catch (err) {
       global.logger?.warn?.("[embeds] updatePanel:", err?.message || err);
     }

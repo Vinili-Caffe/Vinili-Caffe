@@ -2,7 +2,7 @@ const path = require("path");
 const IDs = require("../Utils/Config/ids");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, AttachmentBuilder } = require("discord.js");
-const { PersonalityPanel: Panel } = require("../Schemas/Community/communitySchemas");
+const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 
 const TICKET_CHANNEL_ID = IDs.channels.ticket;
@@ -61,7 +61,7 @@ async function run(client) {
 
   let panelDoc = null;
   try {
-    panelDoc = await Panel.findOneAndUpdate(
+    panelDoc = await personalityPanelFindOneAndUpdate(
       { guildId, channelId: TICKET_CHANNEL_ID },
       { $setOnInsert: { guildId, channelId: TICKET_CHANNEL_ID } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -74,7 +74,7 @@ async function run(client) {
   const panelMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketPanelMessageId || null, embeds: [ticketPanelEmbed], components: [ticketSelectRow] });
 
   if (infoMessage?.id || panelMessage?.id) {
-    await Panel.updateOne(
+    await personalityPanelUpdateOne(
       { guildId, channelId: TICKET_CHANNEL_ID },
       {
         $set: {

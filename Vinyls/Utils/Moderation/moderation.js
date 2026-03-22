@@ -1,15 +1,18 @@
 const { EmbedBuilder } = require("discord.js");
-const { ModConfig } = require("../../Schemas/Moderation/moderationSchemas");
+const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
+const { normalizeModConfigFromGlobal } = require("../Global/globalSettingsGuildStores");
 const { sendStaffActionToModLogs } = require("../Logging/modAuditLogUtils");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { createModCaseStore, closeCaseByRef } = require("./modCaseStore");
 
 async function getModConfig(guildId) {
-  return ModConfig.findOneAndUpdate(
-    { guildId },
-    { $setOnInsert: { guildId } },
+  const g = String(guildId || "");
+  const doc = await GlobalSettings.findOneAndUpdate(
+    { guildId: g },
+    { $setOnInsert: { guildId: g } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
+  return normalizeModConfigFromGlobal(doc);
 }
 
 function isExempt(member, config, channelId) {

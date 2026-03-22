@@ -2,7 +2,7 @@ const path = require("path");
 const IDs = require("../Utils/Config/ids");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require("discord.js");
-const { PersonalityPanel: Panel } = require("../Schemas/Community/communitySchemas");
+const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 
 const VERIFY_CHANNEL_ID = IDs.channels.verify;
@@ -46,7 +46,7 @@ async function run(client) {
 
   let panelDoc = null;
   try {
-    panelDoc = await Panel.findOneAndUpdate(
+    panelDoc = await personalityPanelFindOneAndUpdate(
       { guildId, channelId: VERIFY_CHANNEL_ID },
       { $setOnInsert: { guildId, channelId: VERIFY_CHANNEL_ID } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -59,7 +59,7 @@ async function run(client) {
   const panelMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.verifyPanelMessageId || null, embeds: [verifyPanelEmbed], components: [verifyRow] });
 
   if (infoMessage?.id || panelMessage?.id) {
-    await Panel.updateOne(
+    await personalityPanelUpdateOne(
       { guildId, channelId: VERIFY_CHANNEL_ID },
       {
         $set: {

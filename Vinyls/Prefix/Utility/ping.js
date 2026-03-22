@@ -1,7 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
-const mongoose = require("mongoose");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const ping = require("../../Schemas/Ping/pingSchema");
+const { pingDbLatencyMs } = require("../../Utils/Global/globalSettingsBucket");
 
 function formatUptime(uptime) {
   const minutes = Math.floor((uptime / 60) % 60);
@@ -27,7 +26,11 @@ module.exports = {
       const shardLabel = getShardLabel(message.client);
       const uptime = process.uptime();
       const uptimeString = formatUptime(uptime);
-      const getDatabasePing=async() => {if(mongoose.connection?.readyState!==1)return null;const Now=Date.now();await ping.findOne().select("_id").lean();return~~(Date.now()-Now);};
+      const getDatabasePing = async () => {
+        if (typeof pingDbLatencyMs !== "function") return null;
+        const ms = await pingDbLatencyMs();
+        return Number.isFinite(ms) ? ms : null;
+      };
       const databasePing = await getDatabasePing();
       const databaseLabel=Number.isFinite(databasePing)&&databasePing>=0?`\`${databasePing}ms\``:"`offline`";
       const empty = "​";

@@ -1,4 +1,6 @@
-const { ModCase, ModCaseUser, ModConfig } = require("../../Schemas/Moderation/moderationSchemas");
+const { ModCase, ModCaseUser } = require("../../Schemas/Moderation/moderationSchemas");
+const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
+const { normalizeModConfigFromGlobal } = require("../Global/globalSettingsGuildStores");
 const IDs = require("../Config/ids");
 
 const BOT_MODERATOR_IDS = new Set(
@@ -177,11 +179,12 @@ async function createModCaseStore({
   dedupe,
 }) {
   if (modId != null && BOT_MODERATOR_IDS.has(String(modId))) {
-    const cfg = await ModConfig.findOneAndUpdate(
+    const cfgDoc = await GlobalSettings.findOneAndUpdate(
       { guildId },
       { $setOnInsert: { guildId } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).catch(() => null);
+    const cfg = normalizeModConfigFromGlobal(cfgDoc);
     return {
       doc: null,
       config: cfg,
@@ -216,11 +219,12 @@ async function createModCaseStore({
           .sort({ createdAt: -1 })
           .catch(() => null);
         if (existingByMessage) {
-          const cfgExisting = await ModConfig.findOneAndUpdate(
+          const cfgDocExisting = await GlobalSettings.findOneAndUpdate(
             { guildId },
             { $setOnInsert: { guildId } },
             { upsert: true, new: true, setDefaultsOnInsert: true },
           ).catch(() => null);
+          const cfgExisting = normalizeModConfigFromGlobal(cfgDocExisting);
           return {
             doc: plainFromLegacyDoc(existingByMessage),
             config: cfgExisting,
@@ -243,11 +247,12 @@ async function createModCaseStore({
           durationMs: normalizedDurationMs,
         });
         if (dupMsg) {
-          const cfgExisting = await ModConfig.findOneAndUpdate(
+          const cfgDocExisting = await GlobalSettings.findOneAndUpdate(
             { guildId },
             { $setOnInsert: { guildId } },
             { upsert: true, new: true, setDefaultsOnInsert: true },
           ).catch(() => null);
+          const cfgExisting = normalizeModConfigFromGlobal(cfgDocExisting);
           return {
             doc: plainFromCompactCase(guildId, userId, dupMsg),
             config: cfgExisting,
@@ -271,11 +276,12 @@ async function createModCaseStore({
         durationMs: normalizedDurationMs,
       });
       if (dupC) {
-        const cfgExisting = await ModConfig.findOneAndUpdate(
+        const cfgDocExisting = await GlobalSettings.findOneAndUpdate(
           { guildId },
           { $setOnInsert: { guildId } },
           { upsert: true, new: true, setDefaultsOnInsert: true },
         ).catch(() => null);
+        const cfgExisting = normalizeModConfigFromGlobal(cfgDocExisting);
         return {
           doc: plainFromCompactCase(guildId, userId, dupC),
           config: cfgExisting,
@@ -303,11 +309,12 @@ async function createModCaseStore({
         .sort({ createdAt: -1 })
         .catch(() => null);
       if (existingRecent) {
-        const cfgExisting = await ModConfig.findOneAndUpdate(
+        const cfgDocExisting = await GlobalSettings.findOneAndUpdate(
           { guildId },
           { $setOnInsert: { guildId } },
           { upsert: true, new: true, setDefaultsOnInsert: true },
         ).catch(() => null);
+        const cfgExisting = normalizeModConfigFromGlobal(cfgDocExisting);
         return {
           doc: plainFromLegacyDoc(existingRecent),
           config: cfgExisting,
@@ -318,11 +325,12 @@ async function createModCaseStore({
     }
   }
 
-  const cfg = await ModConfig.findOneAndUpdate(
+  const cfgDoc = await GlobalSettings.findOneAndUpdate(
     { guildId },
-    { $inc: { caseCounter: 1 }, $setOnInsert: { guildId } },
+    { $inc: { "modConfig.caseCounter": 1 }, $setOnInsert: { guildId } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
+  const cfg = normalizeModConfigFromGlobal(cfgDoc);
   const caseId = cfg.caseCounter;
   const expiresAt = normalizedDurationMs ? new Date(Date.now() + normalizedDurationMs) : null;
 

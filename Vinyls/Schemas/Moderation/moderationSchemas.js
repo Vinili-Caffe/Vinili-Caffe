@@ -16,8 +16,6 @@ function normalizeModCaseUserCollection(envValue) {
 const RESOLVED_MOD_CASE_COLLECTION = MOD_CASE_COLLECTION || "mod_case_users";
 const RESOLVED_MOD_CASE_USER_COLLECTION = normalizeModCaseUserCollection(MOD_CASE_USER_COLLECTION);
 
-const modConfigSchema=new Schema({guildId:{type:String,required:true,unique:true},logChannelId:{type:String,default:null},dmOnAction:{type:Boolean,default:true},caseCounter:{type:Number,default:0},exemptRoles:{type:[String],default:[]},exemptChannels:{type:[String],default:[]},},{timestamps:true,autoCreate:false},);
-
 const modCaseSchema=new Schema({guildId:{type:String,required:true},caseId:{type:Number,required:true,index:true},action:{type:String,required:true},userId:{type:String,required:true,index:true},modId:{type:String,required:true},reason:{type:String,default:"Nessun motivo fornito"},durationMs:{type:Number,default:null},expiresAt:{type:Date,default:null},active:{type:Boolean,default:true},context:{channelId:{type:String,default:null},messageId:{type:String,default:null},},edits:{type:[{field:{type:String,required:true},previous:{type:String,default:""},next:{type:String,default:""},editedBy:{type:String,default:null},editedAt:{type:Date,default:Date.now},},],default:[],},closedAt:{type:Date,default:null},closeReason:{type:String,default:null},},{timestamps:true,autoCreate:false},);
 modCaseSchema.index({ guildId: 1, caseId: 1 }, { unique: true });
 modCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
@@ -74,8 +72,6 @@ const modCaseUserSchema = new Schema(
 modCaseUserSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 modCaseUserSchema.index({ guildId: 1, "cases.caseId": 1 }, { unique: true });
 
-const ModConfig = models.mod_config || model("mod_config", modConfigSchema);
-
 if (
   models.mod_case &&
   models.mod_case.collection?.name !== RESOLVED_MOD_CASE_COLLECTION
@@ -96,4 +92,4 @@ const ModCaseUser = models.mod_case_user
   ? models.mod_case_user
   : model("mod_case_user", modCaseUserSchema);
 
-module.exports = { ModConfig, ModCase, ModCaseUser };
+module.exports = { ModCase, ModCaseUser };

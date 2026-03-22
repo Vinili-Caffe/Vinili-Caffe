@@ -27,8 +27,78 @@ async function ensureBucketArrays() {
       _counterKey: TICKET_COUNTER_KEY,
       countschemas: { $exists: false },
     },
-    { $set: { countschemas: [], quotecounts: [] } },
+    { $set: { countschemas: [], quotecounts: [], partnershipBlacklistGuilds: [] } },
   );
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY, partnershipBlacklistGuilds: { $exists: false } },
+    { $set: { partnershipBlacklistGuilds: [] } },
+  );
+}
+
+async function pingDbLatencyMs() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) return null;
+  const t = Date.now();
+  await coll.findOne({ _counterKey: TICKET_COUNTER_KEY }, { projection: { _id: 1 } });
+  return Math.max(0, Date.now() - t);
+}
+
+async function getPartnershipBlacklistEntries() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) return [];
+  await ensureBucketArrays();
+  const doc = await coll.findOne({ _counterKey: TICKET_COUNTER_KEY });
+  return Array.isArray(doc?.partnershipBlacklistGuilds) ? doc.partnershipBlacklistGuilds : [];
+}
+
+async function setPartnershipBlacklistEntries(rows) {
+  const coll = getCollection();
+  if (!coll) return;
+  await ensureBucketArrays();
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    { $set: { partnershipBlacklistGuilds: Array.isArray(rows) ? rows : [] } },
+  );
+}
+
+async function isPartnershipGuildBlacklistedBucket(guildId) {
+  const g = String(guildId || "").trim();
+  if (!/^\d{16,20}$/.test(g)) return false;
+  const arr = await getPartnershipBlacklistEntries();
+  return arr.some((x) => String(x?.guildId) === g);
+}
+
+async function addPartnershipBlacklistGuildBucket(guildId, addedBy, note = "") {
+  const g = String(guildId || "").trim();
+  if (!/^\d{16,20}$/.test(g)) return { ok: false, reason: "invalid_id" };
+  const arr = await getPartnershipBlacklistEntries();
+  const next = arr.filter((x) => String(x?.guildId) !== g);
+  next.push({
+    guildId: g,
+    addedBy: String(addedBy || ""),
+    note: String(note || "").slice(0, 500),
+    addedAt: new Date(),
+  });
+  await setPartnershipBlacklistEntries(next);
+  return { ok: true, guildId: g };
+}
+
+async function removePartnershipBlacklistGuildBucket(guildId) {
+  const g = String(guildId || "").trim();
+  if (!/^\d{16,20}$/.test(g)) return { ok: false, reason: "invalid_id" };
+  const arr = await getPartnershipBlacklistEntries();
+  const before = arr.length;
+  const next = arr.filter((x) => String(x?.guildId) !== g);
+  await setPartnershipBlacklistEntries(next);
+  return { ok: true, deleted: before > next.length, guildId: g };
+}
+
+async function listPartnershipBlacklistGuildsBucket(limit = 50) {
+  const safe = Math.max(1, Math.min(100, Number(limit) || 50));
+  const arr = await getPartnershipBlacklistEntries();
+  return [...arr]
+    .sort((a, b) => new Date(b?.addedAt || 0) - new Date(a?.addedAt || 0))
+    .slice(0, safe);
 }
 
 async function pullQuoteFromLegacy(guildId) {
@@ -194,4 +264,11 @@ module.exports = {
   getCountingConfigFromBucket,
   nextQuoteCount,
   decrementQuoteCount,
+  pingDbLatencyMs,
+  getPartnershipBlacklistEntries,
+  setPartnershipBlacklistEntries,
+  isPartnershipGuildBlacklistedBucket,
+  addPartnershipBlacklistGuildBucket,
+  removePartnershipBlacklistGuildBucket,
+  listPartnershipBlacklistGuildsBucket,
 };
