@@ -41,7 +41,7 @@ function pad2(value) {
 }
 
 function getTimeParts(date) {
-  const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", });
+  const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
   const parts = formatter.formatToParts(date);
   const map = {};
   for (const part of parts) {
@@ -782,7 +782,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   const currentWeekKey = options.weekKey != null ? options.weekKey : getWeekKey(now);
 
   const settings = await getGuildExpSettings(guild.id).catch(() => null);
-  const eventPayoutWeek = settings ? getCompletedEventWeekForSundayPayout(settings) : 0;
+  const eventPayoutWeek = (settings && !options.skipEvent) ? getCompletedEventWeekForSundayPayout(settings) : 0;
   let eventTopMessages = [];
   let eventTopVoice = [];
   if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4) {

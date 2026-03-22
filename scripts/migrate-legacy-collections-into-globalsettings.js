@@ -79,9 +79,8 @@ function normalizeModConfigShape(m) {
 
 /** Solo chiavi presenti nel documento legacy (flat o dentro `modConfig`), così il merge non azzera campi mancanti. */
 function extractModConfigFieldsPresent(r) {
-  const flat = pick(r, ["logChannelId", "dmOnAction", "caseCounter", "exemptRoles", "exemptChannels"]);
   const nested = r.modConfig && typeof r.modConfig === "object" ? r.modConfig : {};
-  const raw = { ...nested, ...flat };
+  const raw = { ...r, ...nested };
   if (raw.log_channel_id !== undefined && raw.logChannelId === undefined) raw.logChannelId = raw.log_channel_id;
   if (raw.case_counter !== undefined && raw.caseCounter === undefined) raw.caseCounter = raw.case_counter;
   const keys = ["logChannelId", "dmOnAction", "caseCounter", "exemptRoles", "exemptChannels"];
@@ -178,7 +177,7 @@ function mergeByKey(existing, incoming, keyFn) {
 }
 
 async function migrateModConfigs(db) {
-  const collName = await resolveCollection(db, ["mod_config", "modconfigs", "ModConfig"]);
+  const collName = await resolveCollection(db, ["mod_config", "mod_configs", "modconfigs", "ModConfig"]);
   if (!collName) return { name: "mod_config", collection: null, count: 0, skipped: 0 };
   const coll = db.collection(collName);
   const n = await coll.countDocuments().catch(() => 0);
