@@ -22,10 +22,10 @@ const ROLE_UP = {
 let weeklyStaffResocontoTask = null;
 const BOT_STATE_KEY_LAST_RESOCONTO = "lastResocontoRun";
 
-function getLastSunday15RomeUtc(now = new Date()) {
+function getLastSunday20RomeUtc(now = new Date()) {
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const romeParts = getRomeDateParts(yesterday);
-  return createUtcFromRomeLocal(romeParts.year, romeParts.month, romeParts.day, 15, 0, 0);
+  return createUtcFromRomeLocal(romeParts.year, romeParts.month, romeParts.day, 20, 0, 0);
 }
 
 async function readLastResocontoRun() {
@@ -102,7 +102,7 @@ function getPmResocontoWindow(now = new Date()) {
   const sundayM = sundayNoonUtc.getUTCMonth() + 1;
   const sundayD = sundayNoonUtc.getUTCDate();
 
-  const thisSundayStart = createUtcFromRomeLocal(sundayY, sundayM, sundayD, 15, 1, 0,);
+  const thisSundayStart = createUtcFromRomeLocal(sundayY, sundayM, sundayD, 20, 1, 0,);
   const weekStart = now.getTime() < thisSundayStart.getTime() ? new Date(thisSundayStart.getTime() - 7 * 24 * 60 * 60 * 1000) : thisSundayStart;
   const scheduledEnd = new Date(weekStart.getTime() + (7 * 24 * 60 * 60 * 1000 - 2 * 60 * 1000),);
   const weekEnd = now.getTime() < scheduledEnd.getTime() ? now : scheduledEnd;
@@ -533,7 +533,7 @@ async function runPreResocontoReminders(client) {
   const staffOnlyIds = reminderMembers.filter(hasStaffRole).map((m) => m.id);
   const overviewResults = await Promise.all(staffOnlyIds.map((uid) => getUserOverviewStats(guildId, uid, 7)));
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
-  const resocontoTime = "**domenica alle 15:00**";
+  const resocontoTime = "**domenica alle 20:00**";
   const reminderWindow = getPmResocontoWindow(new Date());
 
   for (const member of reminderMembers) {
@@ -609,12 +609,12 @@ function startWeeklyStaffResocontoLoop(client) {
     const wd = getRomeWeekdayShort(new Date());
     if (wd !== "Mon") return;
     const lastRunAt = await readLastResocontoRun();
-    const lastSunday15 = getLastSunday15RomeUtc(new Date());
+    const lastSunday20 = getLastSunday20RomeUtc(new Date());
     const twoHoursMs = 2 * 60 * 60 * 1000;
-    if (lastRunAt != null && lastRunAt >= lastSunday15.getTime() - twoHoursMs) {
+    if (lastRunAt != null && lastRunAt >= lastSunday20.getTime() - twoHoursMs) {
       return;
     }
-    global.logger?.info?.("[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto (bot was likely offline Sunday 15:00).");
+    global.logger?.info?.("[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto (bot was likely offline Sunday 20:00).");
     runWeeklyStaffResoconti(client).catch((err) => global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err));
   });
 
