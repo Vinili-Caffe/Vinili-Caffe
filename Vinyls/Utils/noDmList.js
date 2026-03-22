@@ -144,7 +144,7 @@ const DM_CATEGORIES = Object.freeze(["weekly", "bump", "broadcast", "invites", "
 const DM_CATEGORY_ALL = "all";
 const DM_CATEGORY_LABELS = Object.freeze({
   weekly: "Promemoria settimanali",
-  bump: "Avvisi Bump",
+  bump: "Avvisi Voto Discadia",
   broadcast: "Avvisi dallo staff",
   invites: "Inviti",
   perks: "Livelli e perk",
