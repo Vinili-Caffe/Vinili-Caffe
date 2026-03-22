@@ -53,7 +53,7 @@ function stripV(x) {
   if (x instanceof Date) return x;
   const o = {};
   for (const [k, v] of Object.entries(x)) {
-    if (k === "__v") continue;
+    if (k === "__v" || k === "_id") continue;
     o[k] =
       v != null && typeof v === "object" && !(v instanceof Date)
         ? stripV(v)
@@ -63,9 +63,9 @@ function stripV(x) {
 }
 
 function normalizeChatReminderScheduleDoc(d) {
+  const idFromLegacy = d?._id != null ? String(d._id) : "";
   const base = stripV(d);
-  const scheduleId =
-    base.scheduleId || (base._id != null ? String(base._id) : "");
+  const scheduleId = base.scheduleId || idFromLegacy;
   if (!scheduleId) return null;
   const o = {
     scheduleId,

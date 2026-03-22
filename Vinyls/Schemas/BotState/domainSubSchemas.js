@@ -118,7 +118,7 @@ const chatReminderRotationEmbedSchema = new Schema(
     lastSentAt: { type: Date, default: null },
     normalRemindersSinceEvent: { type: Number, default: 0 },
   },
-  { timestamps: true },
+  { timestamps: true, _id: false },
 );
 
 const chatReminderScheduleEmbedSchema = new Schema(
@@ -128,7 +128,7 @@ const chatReminderScheduleEmbedSchema = new Schema(
     fireAt: { type: Date, required: true },
     kind: { type: String, default: "first" },
   },
-  { timestamps: true },
+  { timestamps: true, _id: false },
 );
 
 module.exports = {
