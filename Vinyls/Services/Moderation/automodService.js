@@ -1591,6 +1591,17 @@ function isExempt(message) {
   return Boolean(profile?.exempt);
 }
 
+function shouldSkipAutomodBadUserDbWrite(message) {
+  if (!message) return true;
+  if (message.author?.bot || message.system) return true;
+  const guildId = String(message.guildId || message.guild?.id || "");
+  const userId = String(message.author?.id || "");
+  if (!userId) return true;
+  if (guildId && isExtraOwner(guildId, userId)) return true;
+  if (isExempt(message)) return true;
+  return false;
+}
+
 async function isVerifiedBotMessage(message) {
   if (!message) return false;
   const authorId = String(message.author?.id || "");
