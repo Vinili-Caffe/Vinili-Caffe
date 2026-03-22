@@ -1,3 +1,15 @@
+/**
+ * Migra le collezioni legacy (staff event, vote, bump, profili, ecc.) verso `staffs` e `activityuserprofiles`.
+ *
+ *   node scripts/migrate-legacy-schemas.js              # dry-run: solo report
+ *   node scripts/migrate-legacy-schemas.js --apply      # scrive sul DB
+ *
+ * Il report `migrated` usa matchedCount+upsertedCount: al secondo `--apply`, se i dati erano già
+ * importati, `modifiedCount` Mongo può essere 0 ma `migrated` riflette comunque i documenti matchati
+ * (l’update è stato eseguito; valori identici = nessuna modifica effettiva).
+ *
+ * Connessione: MONGO_URL_LOCAL | MONGODB_URI_LOCAL | MONGO_URL | MONGODB_URI (come gli altri script).
+ */
 const { connectDb, migrateAll, verifyAll } = require("./legacy-schema-migration-common");
 
 const apply = process.argv.includes("--apply");

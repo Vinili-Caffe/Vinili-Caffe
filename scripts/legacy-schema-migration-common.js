@@ -1,11 +1,14 @@
 const path = require("path");
 const mongoose = require("mongoose");
-require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+const { loadEnvFiles } = require("../shared/runtime/fsRuntime");
+loadEnvFiles(path.join(__dirname, ".."));
 const { ACTIVITY_MAIN_GUILD_ID } = require("../Vinyls/Schemas/Community/communitySchemas");
 
 const MONGO_URL =
   process.env.MONGO_URL_LOCAL ||
-  process.env.MONGODB_URI_LOCAL;
+  process.env.MONGODB_URI_LOCAL ||
+  process.env.MONGO_URL ||
+  process.env.MONGODB_URI;
 
 const LEGACY = {
   staffEventPoints: "staffeventpoints",
@@ -59,9 +62,15 @@ function sameDate(a, b) {
 }
 
 async function connectDb() {
-  if (!MONGO_URL) throw new Error("MONGO_URL/MONGODB_URI mancante in .env");
+  if (!MONGO_URL) throw new Error("MONGO_URL_LOCAL|MONGODB_URI_LOCAL|MONGO_URL|MONGODB_URI mancante in .env");
   await mongoose.connect(MONGO_URL);
   return mongoose.connection.db;
+}
+
+/** Documenti con cui l’update ha fatto match o upsert. Usare questo nel report, non solo modifiedCount: se i dati erano già uguali, modifiedCount=0 ma matchedCount>0. */
+function countBulkWriteApplied(res) {
+  if (!res) return 0;
+  return Number(res.matchedCount || 0) + Number(res.upsertedCount || 0);
 }
 
 async function migrateAll(db, apply) {
@@ -83,7 +92,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await staff.bulkWrite(ops, { ordered: false });
-    report.staffEventPoints.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.staffEventPoints.migrated = countBulkWriteApplied(res);
   }
 
   const weeklyDocs = await db.collection(LEGACY.staffEventWeeklyRewards).find({}, { projection: { guildId: 1, userId: 1, week: 1 } }).toArray();
@@ -100,7 +109,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await staff.bulkWrite(ops, { ordered: false });
-    report.staffEventWeeklyRewards.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.staffEventWeeklyRewards.migrated = countBulkWriteApplied(res);
   }
 
   const givenDocs = await db.collection(LEGACY.staffEventRewardGivens).find({}, { projection: { guildId: 1, userId: 1, rewardType: 1 } }).toArray();
@@ -117,7 +126,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await staff.bulkWrite(ops, { ordered: false });
-    report.staffEventRewardGivens.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.staffEventRewardGivens.migrated = countBulkWriteApplied(res);
   }
 
   const voteRoleDocs = await db.collection(LEGACY.voteRoles).find({}, { projection: { guildId: 1, userId: 1, expiresAt: 1, createdAt: 1 } }).toArray();
@@ -137,7 +146,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.voteRoles.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.voteRoles.migrated = countBulkWriteApplied(res);
   }
 
   const voterDocs = await db.collection(LEGACY.discadiaVoters).find({}, { projection: { guildId: 1, userId: 1, lastVoteAt: 1, lastRemindedAt: 1, voteCount: 1, voteMilestoneGranted: 1, voteMilestoneNearReminded: 1 } }).toArray();
@@ -160,7 +169,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.discadiaVoters.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.discadiaVoters.migrated = countBulkWriteApplied(res);
   }
 
   const disboardDocs = await db.collection(LEGACY.disboardBumps).find({}, { projection: { guildId: 1, lastBumpAt: 1, lastBumpUserId: 1, reminderSentAt: 1 } }).toArray();
@@ -181,7 +190,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.disboardBumps.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.disboardBumps.migrated = countBulkWriteApplied(res);
   }
 
   const discadiaBumpDocs = await db.collection(LEGACY.discadiaBumps).find({}, { projection: { guildId: 1, lastBumpAt: 1, lastBumpUserId: 1, reminderSentAt: 1 } }).toArray();
@@ -202,7 +211,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.discadiaBumps.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.discadiaBumps.migrated = countBulkWriteApplied(res);
   }
 
   const bumpRewardDocs = await db.collection(LEGACY.bumpVoteRewards).find({}, { projection: { guildId: 1, userId: 1, source: 1, lastActionAt: 1, currentStreak: 1, bestStreak: 1, totalExpAwarded: 1 } }).toArray();
@@ -227,7 +236,7 @@ async function migrateAll(db, apply) {
       };
     });
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.bumpVoteRewards.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.bumpVoteRewards.migrated = countBulkWriteApplied(res);
   }
 
   const minigameDocs = await db.collection(LEGACY.minigameUsers).find({}, { projection: { guildId: 1, userId: 1, totalExp: 1, currentStreak: 1, bestStreak: 1 } }).toArray();
@@ -248,7 +257,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.minigameUsers.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.minigameUsers.migrated = countBulkWriteApplied(res);
   }
 
   const supporterDocs = await db.collection(LEGACY.supporterStatuses).find({}, { projection: { guildId: 1, userId: 1, lastMessageId: 1, lastSentAt: 1, hasLink: 1 } }).toArray();
@@ -269,7 +278,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.supporterStatuses.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.supporterStatuses.migrated = countBulkWriteApplied(res);
   }
 
   const reviewDocs = await db.collection(LEGACY.reviewRewards).find({}, { projection: { guildId: 1, userId: 1, rewardedBy: 1, rewardedAt: 1 } }).toArray();
@@ -289,7 +298,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.reviewRewards.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.reviewRewards.migrated = countBulkWriteApplied(res);
   }
   const afkDocs = await db.collection(LEGACY.afks).find({}, { projection: { guildId: 1, userId: 1, message: 1, timestamp: 1, originalName: 1 } }).toArray();
   report.afks = { found: afkDocs.length, migrated: 0 };
@@ -309,7 +318,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.afks.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.afks.migrated = countBulkWriteApplied(res);
   }
   const mentionDocs = await db.collection(LEGACY.mentionReactions).find({}, { projection: { guildId: 1, userId: 1, reactions: 1 } }).toArray();
   report.mentionReactions = { found: mentionDocs.length, migrated: 0 };
@@ -325,7 +334,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.mentionReactions.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.mentionReactions.migrated = countBulkWriteApplied(res);
   }
   const avatarDocs = await db.collection(LEGACY.avatarPrivacies).find({}, { projection: { guildId: 1, userId: 1, blocked: 1, views: 1 } }).toArray();
   report.avatarPrivacies = { found: avatarDocs.length, migrated: 0 };
@@ -344,7 +353,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.avatarPrivacies.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.avatarPrivacies.migrated = countBulkWriteApplied(res);
   }
   const bannerDocs = await db.collection(LEGACY.bannerPrivacies).find({}, { projection: { guildId: 1, userId: 1, blocked: 1, views: 1 } }).toArray();
   report.bannerPrivacies = { found: bannerDocs.length, migrated: 0 };
@@ -363,7 +372,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.bannerPrivacies.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.bannerPrivacies.migrated = countBulkWriteApplied(res);
   }
   const quoteDocs = await db.collection(LEGACY.quotePrivacies).find({}, { projection: { guildId: 1, userId: 1, blocked: 1 } }).toArray();
   report.quotePrivacies = { found: quoteDocs.length, migrated: 0 };
@@ -379,7 +388,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.quotePrivacies.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.quotePrivacies.migrated = countBulkWriteApplied(res);
   }
   const birthdayDocs = await db.collection(LEGACY.birthdayProfiles).find({}, { projection: { guildId: 1, userId: 1, day: 1, month: 1, birthYear: 1, showAge: 1, lastCelebratedYear: 1, registrationMessageId: 1, registrationChannelId: 1 } }).toArray();
   report.birthdayProfiles = { found: birthdayDocs.length, migrated: 0 };
@@ -403,7 +412,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.birthdayProfiles.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.birthdayProfiles.migrated = countBulkWriteApplied(res);
   }
   const customRoleDocs = await db.collection(LEGACY.customRoles).find({}, { projection: { guildId: 1, userId: 1, roleId: 1, customVocEmoji: 1, customVocChannelId: 1, customVocEligibilityLostAt: 1, customRoleEligibilityLostAt: 1, expiresAt: 1 } }).toArray();
   report.customRoles = { found: customRoleDocs.length, migrated: 0 };
@@ -426,7 +435,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.customRoles.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.customRoles.migrated = countBulkWriteApplied(res);
   }
   const inviteDocs = await db.collection(LEGACY.inviteTracks).find({}, { projection: { guildId: 1, userId: 1, inviterId: 1, active: 1, joinedAt: 1, leftAt: 1 } }).toArray();
   report.inviteTracks = { found: inviteDocs.length, migrated: 0 };
@@ -447,7 +456,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.inviteTracks.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.inviteTracks.migrated = countBulkWriteApplied(res);
   }
   const inviteReminderDocs = await db.collection(LEGACY.inviteReminderStates).find({}, { projection: { guildId: 1, userId: 1, inviteNearTargets: 1 } }).toArray();
   report.inviteReminderStates = { found: inviteReminderDocs.length, migrated: 0 };
@@ -467,7 +476,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.inviteReminderStates.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.inviteReminderStates.migrated = countBulkWriteApplied(res);
   }
   const noDmDocs = await db.collection(LEGACY.noDmPreferences).find({}, { projection: { guildId: 1, userId: 1, categories: 1 } }).toArray();
   report.noDmPreferences = { found: noDmDocs.length, migrated: 0 };
@@ -485,7 +494,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.noDmPreferences.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.noDmPreferences.migrated = countBulkWriteApplied(res);
   }
   const rolePersistDocs = await db.collection(LEGACY.rolePersistUsers).find({}, { projection: { guildId: 1, userId: 1, roles: 1 } }).toArray();
   report.rolePersistUsers = { found: rolePersistDocs.length, migrated: 0 };
@@ -503,7 +512,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.rolePersistUsers.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.rolePersistUsers.migrated = countBulkWriteApplied(res);
   }
   const temporaryRoleDocs = await db.collection(LEGACY.temporaryRoleGrants).find({}, { projection: { guildId: 1, userId: 1, grants: 1 } }).toArray();
   report.temporaryRoleGrants = { found: temporaryRoleDocs.length, migrated: 0 };
@@ -521,7 +530,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.temporaryRoleGrants.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.temporaryRoleGrants.migrated = countBulkWriteApplied(res);
   }
   const temporaryPermissionDocs = await db.collection(LEGACY.temporaryCommandPermissions).find({}, { projection: { guildId: 1, userId: 1, permissions: 1 } }).toArray();
   report.temporaryCommandPermissions = { found: temporaryPermissionDocs.length, migrated: 0 };
@@ -539,7 +548,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.temporaryCommandPermissions.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.temporaryCommandPermissions.migrated = countBulkWriteApplied(res);
   }
   const verificationDocs = await db.collection(LEGACY.verificationTenures).find({}, { projection: { guildId: 1, userId: 1, verifiedAt: 1, stage: 1 } }).toArray();
   report.verificationTenures = { found: verificationDocs.length, migrated: 0 };
@@ -558,7 +567,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.verificationTenures.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.verificationTenures.migrated = countBulkWriteApplied(res);
   }
   const oneTimeUserDocs = await db.collection(LEGACY.oneTimeReminderUsers).find({}, { projection: { userId: 1, entries: 1 } }).toArray();
   report.oneTimeReminderUsers = { found: oneTimeUserDocs.length, migrated: 0 };
@@ -576,7 +585,7 @@ async function migrateAll(db, apply) {
       },
     }));
     const res = await profiles.bulkWrite(ops, { ordered: false });
-    report.oneTimeReminderUsers.migrated = Number(res.modifiedCount || 0) + Number(res.upsertedCount || 0);
+    report.oneTimeReminderUsers.migrated = countBulkWriteApplied(res);
   }
   return report;
 }

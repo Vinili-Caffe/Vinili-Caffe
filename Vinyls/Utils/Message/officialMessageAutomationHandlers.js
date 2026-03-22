@@ -61,17 +61,6 @@ function getRandomExp() {
   return min + Math.floor(Math.random() * count) * step;
 }
 
-function extractVoteCountFromText(text) {
-  const cleaned = (text || "").replace(/\*\*/g, "");
-  const match = cleaned.match(/(?:have\s+)?got\s+(\d+)\s+votes?/i);
-  if (match) return Number(match[1]);
-  const matchHave = cleaned.match(/have\s+(\d+)\s+votes?/i);
-  if (matchHave) return Number(matchHave[1]);
-  const matchAlt = cleaned.match(/(\d+)\s+(?:votes?|voti)/i);
-  if (matchAlt) return Number(matchAlt[1]);
-  return null;
-}
-
 function extractUserIdFromText(text) {
   if (!text) return null;
   const match = text.match(/<@!?(\d+)>/);
@@ -244,26 +233,13 @@ async function handleVoteManagerMessage(message, client) {
   const nameRaw = extractNameFromText(content) || extractNameFromText(embedText) || extractNameFromText(embedTitle) || extractNameFromText(fieldsText);
   const nameClean = sanitizeName(nameRaw) || "Utente";
 
-  const fullText = `${content} ${embedText} ${embedTitle} ${fieldsText}`;
-  const voteCount = extractVoteCountFromText(content) || extractVoteCountFromText(embedText) || extractVoteCountFromText(embedTitle) || extractVoteCountFromText(fieldsText) || extractVoteCountFromText(fullText);
-  if (voteCount === null) {
-    global.logger.warn("[VOTE EMBED] Vote count not found. Text:", fullText);
-  }
-
   let expValue = 0;
-  let resolvedVoteCount = voteCount;
+  let resolvedVoteCount = null;
   const voteRewardExtras = [];
   if (user?.id && message.guild?.id) {
     try {
-      const result = await recordDiscadiaVote(
-        message.client,
-        message.guild.id,
-        user.id,
-        voteCount,
-      );
-      if (result && typeof result.voteCount === "number") {
-        resolvedVoteCount = result.voteCount;
-      }
+      const result = await recordDiscadiaVote(message.client, message.guild.id, user.id);
+      if (result && typeof result.voteCount === "number") resolvedVoteCount = result.voteCount;
       const baseExpRandom = resolvedVoteCount === 1 ? 250 : getRandomExp();
       const voteCooldownMs = getVoteCooldownMs(message.client);
       const reward = await awardBumpVoteExp(message.client, message.guild, user.id, "discadia_vote", result?.previousLastVoteAt ?? null, voteCooldownMs, baseExpRandom);

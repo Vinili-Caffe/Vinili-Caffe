@@ -363,7 +363,11 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
   lastVoteFallbackSentAt.set(key, now);
 }
 
-async function recordDiscadiaVote(client, guildId, userId, reportedVoteCount = null) {
+/**
+ * Registra un voto Discadia per utente. `discadiaVote.voteCount` è sempre incrementato sul profilo
+ * (1 voto = +1), mai preso dal testo del messaggio: Discadia espone spesso il totale voti del server.
+ */
+async function recordDiscadiaVote(client, guildId, userId) {
   const now = new Date();
   const mainGuildId = IDs.guilds.main;
   guildId = mainGuildId;
@@ -373,33 +377,15 @@ async function recordDiscadiaVote(client, guildId, userId, reportedVoteCount = n
     .lean()
     .catch(() => null);
   if (before?.discadiaVote?.lastVoteAt) previousLastVoteAt = new Date(before.discadiaVote.lastVoteAt);
-  let doc = null;
-  const normalizedReportedCount = Number.isFinite(Number(reportedVoteCount))
-    ? Math.max(1, Math.floor(Number(reportedVoteCount)))
-    : null;
-  if (normalizedReportedCount != null) {
-    doc = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: IDs.guilds.main, userId },
-      {
-        $setOnInsert: { guildId: IDs.guilds.main, userId },
-        $set: {
-          "discadiaVote.lastVoteAt": now,
-          "discadiaVote.voteCount": normalizedReportedCount,
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).catch(() => null);
-  } else {
-    doc = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: IDs.guilds.main, userId },
-      {
-        $setOnInsert: { guildId: IDs.guilds.main, userId },
-        $set: { "discadiaVote.lastVoteAt": now },
-        $inc: { "discadiaVote.voteCount": 1 },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).catch(() => null);
-  }
+  const doc = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: IDs.guilds.main, userId },
+    {
+      $setOnInsert: { guildId: IDs.guilds.main, userId },
+      $set: { "discadiaVote.lastVoteAt": now },
+      $inc: { "discadiaVote.voteCount": 1 },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now);
   return { voteCount: Number(doc?.discadiaVote?.voteCount || 1), previousLastVoteAt };
