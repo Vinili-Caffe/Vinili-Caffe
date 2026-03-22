@@ -2,7 +2,7 @@ const path = require("path");
 const mongoose = require("mongoose");
 const { EmbedBuilder } = require("discord.js");
 const { inspect } = require("node:util");
-const countschema = require("../../Schemas/Counting/countingSchema");
+const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket");
 const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
@@ -136,7 +136,7 @@ async function getCountingConfig(guildId) {
   if (cached?.value && now < Number(cached.expiresAt || 0)) {
     return cached.value;
   }
-  const doc = await countschema.findOne({ Guild: key }).catch(() => null);
+  const doc = await getCountingConfigFromBucket(key).catch(() => null);
   countingConfigCache.set(key, {
     value: doc || null,
     expiresAt: now + COUNTING_CACHE_TTL_MS,

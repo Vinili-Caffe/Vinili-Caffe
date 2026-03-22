@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
-const TICKET_COUNTER_KEY = "global_ticket_id";
-const COUNTER_COLLECTION = "globalsettings";
+const {
+  TICKET_COUNTER_KEY,
+  COUNTER_COLLECTION,
+} = require("../Global/globalSettingsBucket");
 
 async function getNextTicketId() {
   const db = mongoose.connection?.db;
@@ -8,7 +10,10 @@ async function getNextTicketId() {
   const collection = db.collection(COUNTER_COLLECTION);
   const counter = await collection.findOneAndUpdate(
     { _counterKey: TICKET_COUNTER_KEY },
-    { $inc: { _counterValue: 1 } },
+    {
+      $inc: { _counterValue: 1 },
+      $setOnInsert: { countschemas: [], quotecounts: [] },
+    },
     { upsert: true, returnDocument: "after" },
   );
   const fromResult = Number(counter?.value?._counterValue);
@@ -54,7 +59,10 @@ async function reseedCounterFromTickets(TicketModel) {
   const baseline = Number.isFinite(maxTicketNumber) && maxTicketNumber > 0 ? maxTicketNumber : 0;
   await db.collection(COUNTER_COLLECTION).updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
-    { $set: { _counterValue: baseline } },
+    {
+      $set: { _counterValue: baseline },
+      $setOnInsert: { countschemas: [], quotecounts: [] },
+    },
     { upsert: true },
   );
   return baseline;
