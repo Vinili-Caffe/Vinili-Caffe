@@ -16,11 +16,20 @@ async function _reply(message, payload) {
     if (e && e.code === 50035 && e.rawError && e.rawError.errors && e.rawError.errors.message_reference) {
       return message.channel.send(_stripRef(payload)).catch(() => null);
     }
+    let sendErr = null;
     const sent = message.channel && message.channel.send
-      ? await message.channel.send(_stripRef(payload)).catch(() => null)
+      ? await message.channel.send(_stripRef(payload)).catch((err) => {
+        sendErr = err;
+        return null;
+      })
       : null;
     if (!sent) {
-      global.logger?.warn?.("[noDmPanel] reply/send failed:", e?.code || e?.message || e);
+      const replyDetail = e?.rawError?.errors ? JSON.stringify(e.rawError.errors) : e?.message || e;
+      global.logger?.warn?.("[noDmPanel] reply failed:", e?.code, replyDetail);
+      if (sendErr) {
+        const sendDetail = sendErr?.rawError?.errors ? JSON.stringify(sendErr.rawError.errors) : sendErr?.message || sendErr;
+        global.logger?.warn?.("[noDmPanel] channel.send failed:", sendErr?.code, sendDetail);
+      }
     }
     return sent;
   }
@@ -28,6 +37,18 @@ async function _reply(message, payload) {
 const PREFIX = "nodm_panel_";
 const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
 const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
+/**
+ * Solo snowflake in setEmoji() può generare payload emoji non valido (50035).
+ * Preferiamo nome/id dalla cache del bot se l’emoji è nel server.
+ */
+function resolveButtonEmoji(client, idStr, fallbackName) {
+  const id = String(idStr);
+  const known = client?.emojis?.cache?.get(id);
+  if (known && known.name) {
+    return { id: known.id, name: known.name, animated: Boolean(known.animated) };
+  }
+  return { id, name: fallbackName };
+}
 
 function buildPanelEmbed(prefs, mode = "disable") {
   const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
@@ -62,9 +83,11 @@ function buildPanelEmbed(prefs, mode = "disable") {
     .setFooter({ text: footerText });
 }
 
-function buildRows(prefs, uniqueKey) {
+function buildRows(prefs, uniqueKey, client) {
   const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
   const row1 = new ActionRowBuilder();
+  const emOff = resolveButtonEmoji(client, "1472011150081130751", "VC_OfflineDot");
+  const emOn = resolveButtonEmoji(client, "1472011187569950751", "VC_OnlineDot");
   for (const key of DM_CATEGORIES) {
     const off = isAll || prefs.disabled.has(key);
     row1.addComponents(
@@ -72,7 +95,7 @@ function buildRows(prefs, uniqueKey) {
         .setCustomId(`${PREFIX}toggle_${key}_${uniqueKey}`)
         .setLabel(String(DM_CATEGORY_LABELS[key]).slice(0, 80))
         .setStyle(off ? ButtonStyle.Secondary : ButtonStyle.Success)
-        .setEmoji(off ? "1472011150081130751" : "1472011187569950751"),
+        .setEmoji(off ? emOff : emOn),
     );
   }
   const row2 = new ActionRowBuilder().addComponents(
@@ -108,7 +131,7 @@ async function runNoDmPanel(message, options = {}) {
   const uniqueKey = `${Date.now()}_${Math.floor(Math.random() * 9999)}`;
 
   const embed = buildPanelEmbed(prefs, mode);
-  const components = buildRows(prefs, uniqueKey);
+  const components = buildRows(prefs, uniqueKey, message.client);
 
   const promptMessage = await _reply(message, {
     embeds: [embed],
@@ -152,7 +175,7 @@ async function runNoDmPanel(message, options = {}) {
       await interaction
         .update({
           embeds: [buildPanelEmbed(prefs3, mode)],
-          components: buildRows(prefs3, uniqueKey),
+          components: buildRows(prefs3, uniqueKey, message.client),
         })
         .catch(() => { });
       return;
@@ -163,7 +186,7 @@ async function runNoDmPanel(message, options = {}) {
       await interaction
         .update({
           embeds: [buildPanelEmbed(prefs2, mode)],
-          components: buildRows(prefs2, uniqueKey),
+          components: buildRows(prefs2, uniqueKey, message.client),
         })
         .catch(() => { });
       return;
@@ -174,7 +197,7 @@ async function runNoDmPanel(message, options = {}) {
       await interaction
         .update({
           embeds: [buildPanelEmbed(prefs2, mode)],
-          components: buildRows(prefs2, uniqueKey),
+          components: buildRows(prefs2, uniqueKey, message.client),
         })
         .catch(() => { });
       return;
@@ -200,7 +223,7 @@ async function runNoDmPanel(message, options = {}) {
   collector.on("end", async (_, reason) => {
     if (reason === "done") return;
     try {
-      const rows = buildRows(await getNoDmPreferences(guildId, userId), uniqueKey);
+      const rows = buildRows(await getNoDmPreferences(guildId, userId), uniqueKey, message.client);
       const disabledRows = rows.map((row) =>
         new ActionRowBuilder().addComponents(
           ...row.components.map((c) => ButtonBuilder.from(c).setDisabled(true)),

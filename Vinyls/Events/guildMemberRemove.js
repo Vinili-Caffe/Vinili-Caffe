@@ -229,7 +229,8 @@ async function handleTrackedStaffLeave(member) {
     const roleLabel = highestTrackedRole?.name || "Staff/PM";
     const userRole = guild.roles.cache.get(IDs.roles.Member);
     const userRoleLabel = userRole?.name || "User";
-    const content = `**<a:laydowntorest:1444006796661358673> DEPEX** ${member.user}<:member_role_icon:1330530086792728618>\`${roleLabel}\` <a:vegarightarrow:1443673039156936837> \`${userRoleLabel}\`
+    const content = `**<a:laydowntorest:1444006796661358673> DEPEX** ${member.user}
+    <:member_role_icon:1330530086792728618>\`${roleLabel}\` <a:vegarightarrow:1443673039156936837> \`${userRoleLabel}\`
 <:discordstaff:1443651872258003005> __Dimissioni (Esce dal server)__`;
     await resignChannel.send({ content }).catch(() => { });
   }
@@ -355,16 +356,16 @@ async function sendMemberKickLog(member) {
   const responsible = formatActor(entry.executor);
   const nowTs = Math.floor(Date.now() / 1000);
   const embed = new EmbedBuilder()
-  .setColor("#ED4245")
-  .setTitle("Member Kick")
-  .setDescription([`${ARROW} **Responsible:** ${responsible}`,
+    .setColor("#ED4245")
+    .setTitle("Member Kick")
+    .setDescription([`${ARROW} **Responsible:** ${responsible}`,
     `${ARROW} **Target:** ${member.user}\`${member.user.id}\``,
     `${ARROW} <t:${nowTs}:F>`,
     entry.reason ? `${ARROW} **Reason:** ${entry.reason}` : null,
     ...buildAuditExtraLines(entry, ["reason"]),
-  ]
-    .filter(Boolean)
-    .join("\n"));
+    ]
+      .filter(Boolean)
+      .join("\n"));
 
   await logChannel.send({ embeds: [embed] }).catch(() => { });
   await antiNukeHandleKickBanAction({
@@ -403,9 +404,9 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
     if (doc.createdAt) payload.createdAt = doc.createdAt;
     if (keepModeration) payload.moderation = doc.moderation;
     if (keepEventWeekWinners) payload.eventWeekWinners = doc.eventWeekWinners;
-    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => {});
+    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
   } else {
-    await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => {});
+    await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
   }
 }
 
