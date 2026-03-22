@@ -1,6 +1,9 @@
 /**
  * Migra le collezioni legacy (staff event, vote, bump, profili, ecc.) verso `staffs` e `activityuserprofiles`.
  *
+ * Per **mod_config**, personality panels, channel snapshots, skullboard, partnership blacklist su
+ * `GlobalSettings` / bucket → usa `migrate-legacy-collections-into-globalsettings.js` (altro script).
+ *
  *   node scripts/migrate-legacy-schemas.js              # dry-run: solo report
  *   node scripts/migrate-legacy-schemas.js --apply      # scrive sul DB
  *

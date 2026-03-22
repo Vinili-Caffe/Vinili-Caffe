@@ -6,8 +6,14 @@
  * - skullboardposts → skullboardPosts[]
  * - partnershipblacklistguilds → bucket.partnershipBlacklistGuilds[]
  *
+ * **Non** è `migrate-legacy-schemas.js`: quello importa staff/event/minigame/profile verso `staffs` e
+ * `activityuserprofiles`. Questo script è solo per la config globale per-guild + bucket ticket/quote.
+ *
  * Di default **unisce** (merge) con i documenti GlobalSettings già presenti (stesso guildId),
  * così non perdi dati già migrati o scritti dal bot. I valori legacy hanno priorità sulle stesse chiavi.
+ *
+ * Con `--apply`, il report include `mongo`: `touched` = matchedCount+upsertedCount per update.
+ * Un secondo run con dati già allineati può dare `modifiedCount: 0` ma `touched > 0` (match senza cambiamenti).
  *
  * Uso:
  *   node scripts/migrate-legacy-collections-into-globalsettings.js
@@ -141,6 +147,21 @@ function skullboardEntryFromLegacy(r) {
   };
 }
 
+function emptyMongoStats() {
+  return { matched: 0, modified: 0, upserted: 0, touched: 0 };
+}
+
+function addMongoStats(stats, res) {
+  if (!stats || !res) return;
+  const m = Number(res.matchedCount ?? 0);
+  const mod = Number(res.modifiedCount ?? 0);
+  const u = Number(res.upsertedCount ?? 0);
+  stats.matched += m;
+  stats.modified += mod;
+  stats.upserted += u;
+  stats.touched += m + u;
+}
+
 function mergeByKey(existing, incoming, keyFn) {
   const map = new Map();
   for (const x of existing || []) {
@@ -165,6 +186,7 @@ async function migrateModConfigs(db) {
   const rows = await coll.find({}).toArray();
   let merged = 0;
   let skipped = 0;
+  const mongo = emptyMongoStats();
   for (const r of rows) {
     const guildId = toGuildId(r);
     if (!guildId) {
@@ -188,7 +210,7 @@ async function migrateModConfigs(db) {
       const base = normalizeModConfigShape(existing?.modConfig || {});
       modConfig = applyPartialModConfig(base, partial);
     }
-    await GlobalSettings.updateOne(
+    const ur = await GlobalSettings.updateOne(
       { guildId },
       {
         $set: { modConfig },
@@ -196,9 +218,10 @@ async function migrateModConfigs(db) {
       },
       { upsert: true },
     ).catch(() => null);
+    addMongoStats(mongo, ur);
     merged += 1;
   }
-  return { name: "mod_config", collection: collName, count: merged, skipped };
+  return { name: "mod_config", collection: collName, count: merged, skipped, ...(APPLY ? { mongo } : {}) };
 }
 
 async function migratePersonalityPanels(db) {
@@ -225,6 +248,7 @@ async function migratePersonalityPanels(db) {
     byGuild.get(gid).push(entry);
   }
   let merged = 0;
+  const mongo = emptyMongoStats();
   for (const [guildId, incoming] of byGuild) {
     if (!APPLY) {
       merged += incoming.length;
@@ -235,14 +259,15 @@ async function migratePersonalityPanels(db) {
       const existing = await GlobalSettings.findOne({ guildId }).select("personalityPanels").lean().catch(() => null);
       personalityPanels = mergeByKey(existing?.personalityPanels || [], incoming, (x) => String(x.channelId || ""));
     }
-    await GlobalSettings.updateOne(
+    const ur = await GlobalSettings.updateOne(
       { guildId },
       { $set: { personalityPanels }, $setOnInsert: { guildId } },
       { upsert: true },
     ).catch(() => null);
+    addMongoStats(mongo, ur);
     merged += incoming.length;
   }
-  return { name: "personalitypanels", collection: collName, count: merged, skipped };
+  return { name: "personalitypanels", collection: collName, count: merged, skipped, ...(APPLY ? { mongo } : {}) };
 }
 
 async function migrateChannelSnapshots(db) {
@@ -265,6 +290,7 @@ async function migrateChannelSnapshots(db) {
     byGuild.get(gid).push(entry);
   }
   let merged = 0;
+  const mongo = emptyMongoStats();
   for (const [guildId, incoming] of byGuild) {
     if (!APPLY) {
       merged += incoming.length;
@@ -275,14 +301,15 @@ async function migrateChannelSnapshots(db) {
       const existing = await GlobalSettings.findOne({ guildId }).select("channelSnapshots").lean().catch(() => null);
       channelSnapshots = mergeByKey(existing?.channelSnapshots || [], incoming, (x) => String(x.channelId || ""));
     }
-    await GlobalSettings.updateOne(
+    const ur = await GlobalSettings.updateOne(
       { guildId },
       { $set: { channelSnapshots }, $setOnInsert: { guildId } },
       { upsert: true },
     ).catch(() => null);
+    addMongoStats(mongo, ur);
     merged += incoming.length;
   }
-  return { name: "channelsnapshots", collection: collName, count: merged, skipped };
+  return { name: "channelsnapshots", collection: collName, count: merged, skipped, ...(APPLY ? { mongo } : {}) };
 }
 
 async function migrateSkullboardPosts(db) {
@@ -305,6 +332,7 @@ async function migrateSkullboardPosts(db) {
     byGuild.get(gid).push(entry);
   }
   let merged = 0;
+  const mongo = emptyMongoStats();
   for (const [guildId, incoming] of byGuild) {
     if (!APPLY) {
       merged += incoming.length;
@@ -315,14 +343,15 @@ async function migrateSkullboardPosts(db) {
       const existing = await GlobalSettings.findOne({ guildId }).select("skullboardPosts").lean().catch(() => null);
       skullboardPosts = mergeByKey(existing?.skullboardPosts || [], incoming, (x) => String(x.messageId || ""));
     }
-    await GlobalSettings.updateOne(
+    const ur = await GlobalSettings.updateOne(
       { guildId },
       { $set: { skullboardPosts }, $setOnInsert: { guildId } },
       { upsert: true },
     ).catch(() => null);
+    addMongoStats(mongo, ur);
     merged += incoming.length;
   }
-  return { name: "skullboardposts", collection: collName, count: merged, skipped };
+  return { name: "skullboardposts", collection: collName, count: merged, skipped, ...(APPLY ? { mongo } : {}) };
 }
 
 async function migratePartnershipBlacklist(db) {
@@ -346,7 +375,8 @@ async function migratePartnershipBlacklist(db) {
     .filter((x) => /^\d{16,20}$/.test(x.guildId));
   if (!APPLY) return { name: "partnershipblacklistguilds", collection: collName, count: next.length };
   const gcoll = db.collection("globalsettings");
-  await gcoll.updateOne(
+  const mongo = emptyMongoStats();
+  const urBucket = await gcoll.updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
     {
       $setOnInsert: {
@@ -358,14 +388,15 @@ async function migratePartnershipBlacklist(db) {
       },
     },
     { upsert: true },
-  );
+  ).catch(() => null);
+  addMongoStats(mongo, urBucket);
   await ensureBucketArrays();
   const existing = await getPartnershipBlacklistEntries();
   const map = new Map();
   for (const x of existing) map.set(String(x.guildId), x);
   for (const x of next) map.set(x.guildId, { ...map.get(x.guildId), ...x });
   await setPartnershipBlacklistEntries([...map.values()]);
-  return { name: "partnershipblacklistguilds", collection: collName, count: next.length };
+  return { name: "partnershipblacklistguilds", collection: collName, count: next.length, mongo };
 }
 
 async function main() {
