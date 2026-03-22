@@ -6,14 +6,12 @@ const {
   BannerPrivacy,
   QuotePrivacy,
 } = require("../../Schemas/Community/communitySchemas");
-const VoiceDisconnectCounter = require("../../Schemas/Voice/voiceDisconnectCounterSchema");
 const Staff = require("../../Schemas/Staff/staffSchema");
 const SuspiciousAccount = require("../../Schemas/Moderation/suspiciousAccountSchema");
 const AutoModBadUser = require("../../Schemas/Moderation/autoModBadUserSchema");
 
 const guildScoped = [
   [ActivityUserProfile, "ActivityUserProfile"],
-  [VoiceDisconnectCounter, "VoiceDisconnectCounter"],
   [Staff, "Staff"],
   [SuspiciousAccount, "SuspiciousAccount"],
   [InviteReminderState, "InviteReminderState"],

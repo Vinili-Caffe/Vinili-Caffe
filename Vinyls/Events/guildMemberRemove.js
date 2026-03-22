@@ -13,7 +13,6 @@ const {
   BannerPrivacy,
   QuotePrivacy,
 } = require("../Schemas/Community/communitySchemas");
-const VoiceDisconnectCounter = require("../Schemas/Voice/voiceDisconnectCounterSchema");
 const SuspiciousAccount = require("../Schemas/Moderation/suspiciousAccountSchema");
 const AutoModBadUser = require("../Schemas/Moderation/autoModBadUserSchema");
 const IDs = require("../Utils/Config/ids");
@@ -372,7 +371,6 @@ async function sendMemberKickLog(member) {
 async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     ActivityUserProfile.deleteOne({ guildId, userId }),
-    VoiceDisconnectCounter.deleteOne({ guildId, userId }),
     Staff.deleteOne({ guildId, userId }),
     SuspiciousAccount.deleteMany({ guildId, userId }),
     InviteReminderState.deleteOne({ guildId, userId }),
