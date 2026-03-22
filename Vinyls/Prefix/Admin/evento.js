@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings, setActivityEvent, clearActivityEvent, setStaffEvent, clearStaffEvent, getStaffEventSettings, invalidateSettingsCache } = require("../../Services/Community/expService");
 const { grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, getEventWeekNumber } = require("../../Services/Community/activityEventRewardsService");
-const { givePmStaff15PointsAtStart, giveExistingInvitesPointsAtStart, addStaffEventPoints, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("../../Services/Community/staffEventService");
+const { givePmStaff15PointsAtStart, giveExistingInvitesPointsAtStart, addStaffEventPoints, getStaffEventLeaderboard, filterStaffEventLeaderboardForDisplay, isStaffButNotHighStaff } = require("../../Services/Community/staffEventService");
 const { buildEventoClassificaPayload } = require("../../Services/Community/eventoClassificaService");
 const { getEventDiagnostics } = require("../../Services/Community/weeklyActivityWinnersService");
 const IDs = require("../../Utils/Config/ids");
@@ -172,11 +172,7 @@ module.exports = {
         }
         const rawLeaderboard = await getStaffEventLeaderboard(guildId);
         await message.guild.members.fetch().catch(() => null);
-        const allowedIds = new Set();
-        for (const [, member] of message.guild.members.cache) {
-          if (member?.user?.id && isStaffButNotHighStaff(member)) allowedIds.add(member.id);
-        }
-        const leaderboard = rawLeaderboard.filter((r) => allowedIds.has(r.userId)).slice(0, 25);
+        const leaderboard = (await filterStaffEventLeaderboardForDisplay(message.guild, rawLeaderboard)).slice(0, 25);
         const lines = leaderboard.length
           ? leaderboard.map((r, i) => `${i + 1}. <@${r.userId}> — **${r.points}** pt`)
           : ["Nessun punteggio registrato per l'evento staff."];

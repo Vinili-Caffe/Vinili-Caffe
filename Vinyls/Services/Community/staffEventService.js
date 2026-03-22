@@ -62,6 +62,128 @@ async function getStaffEventLeaderboard(guildId) {
     .filter((d) => d.userId && d.points > 0);
 }
 
+const MEMBER_ROLE_ID = String(IDs.roles.Member || "");
+const STAFF_EVENT_LADDER_ROLE_IDS = new Set(
+  [
+    IDs.roles.Helper,
+    IDs.roles.Mod,
+    IDs.roles.Coordinator,
+    IDs.roles.Supervisor,
+    IDs.roles.Admin,
+    IDs.roles.Manager,
+    IDs.roles.CoFounder,
+    IDs.roles.Founder,
+  ]
+    .filter(Boolean)
+    .map(String),
+);
+const ROME_TZ = "Europe/Rome";
+
+function getRomeCalendarParts(date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: ROME_TZ,
+    weekday: "long",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date).reduce((acc, p) => {
+    if (p.type !== "literal") acc[p.type] = p.value;
+    return acc;
+  }, {});
+  return {
+    weekday: String(parts.weekday || ""),
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+  };
+}
+
+function getRomeDateString(date) {
+  const p = getRomeCalendarParts(date);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+}
+
+function getRomeSundayDateStringForClassifica(now) {
+  for (let i = 0; i < 8; i += 1) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const p = getRomeCalendarParts(d);
+    if (p.weekday === "Sunday") {
+      return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+    }
+  }
+  return null;
+}
+
+function isStaffLadderRemovalToMember(row) {
+  const oldRole = String(row?.oldRole || "");
+  const newRole = String(row?.newRole || "");
+  if (!oldRole) return false;
+  if (oldRole === String(IDs.roles.PartnerManager)) return false;
+  if (!STAFF_EVENT_LADDER_ROLE_IDS.has(oldRole)) return false;
+  if (newRole !== MEMBER_ROLE_ID && newRole !== "") return false;
+  return true;
+}
+
+function rolesHistoryAllowsStaffLeaderboardDespiteNoStaff(rolesHistory, now) {
+  const history = Array.isArray(rolesHistory) ? [...rolesHistory] : [];
+  history.sort((a, b) => new Date(b?.date || 0) - new Date(a?.date || 0));
+  for (const row of history) {
+    if (!isStaffLadderRemovalToMember(row)) continue;
+    const when = row.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) continue;
+    const p = getRomeCalendarParts(when);
+    if (p.weekday === "Friday" || p.weekday === "Saturday") return false;
+    if (p.weekday === "Sunday" && p.hour < 21) {
+      const sundayStr = getRomeDateString(when);
+      const classificaSundayStr = getRomeSundayDateStringForClassifica(now);
+      if (classificaSundayStr && sundayStr === classificaSundayStr) return true;
+      return false;
+    }
+    return false;
+  }
+  return false;
+}
+
+async function filterStaffEventLeaderboardForDisplay(guild, rawLeaderboard, now = new Date()) {
+  if (!guild?.id || !Array.isArray(rawLeaderboard)) return [];
+  const allowed = new Set();
+  for (const [, member] of guild.members.cache) {
+    if (member?.user?.id && isStaffButNotHighStaff(member)) allowed.add(member.id);
+  }
+  const guildId = String(guild.id);
+  const needIds = [];
+  for (const row of rawLeaderboard) {
+    const uid = String(row?.userId || "");
+    if (!uid || allowed.has(uid)) continue;
+    needIds.push(uid);
+  }
+  const uniqueNeed = [...new Set(needIds)];
+  let docsByUser = new Map();
+  if (uniqueNeed.length) {
+    const docs = await Staff.find({ guildId, userId: { $in: uniqueNeed } })
+      .select("userId rolesHistory")
+      .lean()
+      .catch(() => []);
+    docsByUser = new Map((docs || []).map((d) => [String(d?.userId || ""), d]));
+  }
+  const out = [];
+  for (const row of rawLeaderboard) {
+    const uid = String(row?.userId || "");
+    if (!uid) continue;
+    if (allowed.has(uid)) {
+      out.push(row);
+      continue;
+    }
+    const doc = docsByUser.get(uid);
+    if (doc && rolesHistoryAllowsStaffLeaderboardDespiteNoStaff(doc.rolesHistory, now)) out.push(row);
+  }
+  return out;
+}
+
 async function giveExistingInvitesPointsAtStart(guild) {
   if (!guild?.id) return;
   const active = await isStaffEventActive(guild.id);
@@ -206,6 +328,7 @@ module.exports = {
   isStaffButNotHighStaff,
   addStaffEventPoints,
   getStaffEventLeaderboard,
+  filterStaffEventLeaderboardForDisplay,
   givePmStaff15PointsAtStart,
   giveExistingInvitesPointsAtStart,
   giveWeekly20PointsIfEligible,

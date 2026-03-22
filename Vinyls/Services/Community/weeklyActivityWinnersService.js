@@ -3,7 +3,7 @@ const cron = require("node-cron");
 const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff } = require("./activityEventRewardsService");
-const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, isStaffButNotHighStaff } = require("./staffEventService");
+const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, filterStaffEventLeaderboardForDisplay } = require("./staffEventService");
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
 const { isEventStaffMember } = require("./expService");
 const { loadLiveVoiceSessions, secondsInDateKeys } = require("./activityService");
@@ -675,11 +675,7 @@ async function trySendEventEndAnnouncementToNews(client) {
   if (doc.staffEventExpiresAt && new Date(doc.staffEventExpiresAt).getTime() <= Date.now()) {
     const leaderboard = await getStaffEventLeaderboard(mainGuildId);
     await guild.members.fetch().catch(() => null);
-    const staffIds = new Set();
-    for (const [, member] of guild.members.cache) {
-      if (isStaffButNotHighStaff(member)) staffIds.add(member.id);
-    }
-    const filtered = leaderboard.filter((r) => staffIds.has(r.userId));
+    const filtered = await filterStaffEventLeaderboardForDisplay(guild, leaderboard);
     const first = filtered[0];
     const last = filtered.length > 1 ? filtered[filtered.length - 1] : null;
     const staffEndLines = [];
