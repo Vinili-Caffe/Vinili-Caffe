@@ -1036,40 +1036,16 @@ async function renderUserActivityCanvas({ guildName, userTag, displayName, avata
   await drawAvatarCircle(ctx, avatarUrl, 28, 24, 80);
   const displayFull = String(displayName || userTag || "").trim() || "—";
   const displayMaxWidth = 560;
-  const displaySize = getFittedFontSize(ctx, displayFull, displayMaxWidth, 52, 18, "700");
+  // Lower minSize to 8 to fit very long names on one line
+  const displaySize = getFittedFontSize(ctx, displayFull, displayMaxWidth, 52, 8, "700");
   
-  // Basic wrapping logic for long names without spaces (overflow prevention)
-  const words = displayFull.split(" ");
-  const lines = [];
-  let currentLine = "";
-  
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (textWidth(ctx, testLine, displaySize, "700") <= displayMaxWidth) {
-      currentLine = testLine;
-    } else {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
-    }
-  }
-  lines.push(currentLine);
-
-  // If we still have an overflow (single long word), we force a truncation or split
-  const finalLines = [];
-  for (const l of lines.slice(0, 2)) {
-    finalLines.push(fitText(ctx, l, displayMaxWidth, displaySize, "700"));
-  }
-
-  const startY = finalLines.length > 1 ? 40 : 52;
-  for (let i = 0; i < finalLines.length; i++) {
-    await drawLabelWithEmoji(
-      ctx,
-      finalLines[i],
-      124,
-      startY + i * (displaySize * 1.1),
-      { size: displaySize, weight: "700", color: "#eef3fb", forcePrimaryFont: true },
-    );
-  }
+  await drawLabelWithEmoji(
+    ctx,
+    displayFull,
+    124,
+    52,
+    { size: displaySize, weight: "700", color: "#eef3fb", forcePrimaryFont: true },
+  );
   const guildLine = `${guildName || "Server"} / My Activity`;
   drawLabelFull(ctx, guildLine, 124, 88, 560, 28, {
     weight: "600",
