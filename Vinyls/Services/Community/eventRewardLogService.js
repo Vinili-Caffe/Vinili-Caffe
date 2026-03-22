@@ -72,7 +72,7 @@ async function sendEventRewardSkippedLog(client, data) {
 
 /**
  * Invia in DM all'utente un messaggio per il premio evento ricevuto.
- * Non rispetta +dm-disable (bypassNoDm: true) perché sono comunicazioni importanti sui premi.
+ * Non rispetta +dm-filters (bypassNoDm: true) perché sono comunicazioni importanti sui premi.
  * @param {import("discord.js").Client} client
  * @param {string} userId
  * @param {string} guildId

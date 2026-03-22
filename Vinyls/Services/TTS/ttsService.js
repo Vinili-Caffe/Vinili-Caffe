@@ -188,15 +188,15 @@ const TTS_ABBREVIATIONS_EN = {
   g2g: "got to go", atm: "at the moment", rn: "right now", irl: "in real life",
   idc: "I don't care", smh: "shaking my head", imho: "in my humble opinion",
   tbf: "to be fair", afaik: "as far as I know", fyi: "for your information",
-  lol: "laugh out loud", lmao: "laughing my ass off", omg: "oh my god", ez: "easy",
+  lmao: "laughing my ass off", omg: "oh my god", ez: "easy",
   gl: "good luck", hf: "have fun", bbl: "be back later", bbs: "be back soon",
   cya: "see you", gn: "good night", gm: "good morning", tc: "take care",
-  bday: "birthday", msg: "message", pic: "picture", vid: "video", aka: "also known as",
+  bday: "birthday", msg: "message", pic: "picture", vid: "video",
   asap: "as soon as possible", fr: "for real",
   rofl: "rolling on the floor laughing", roflmao: "rolling on the floor laughing my ass off",
-  lmfao: "laughing my freaking ass off", wtf: "what the heck", wth: "what the hell",
+  lmfao: "laughing my freaking ass off",
   omfg: "oh my god", ngl: "not gonna lie", lowkey: "kind of", highkey: "really",
-  bet: "bet", "no-cap": "no cap", cap: "lie", slay: "slay", bussin: "really good",
+  bet: "bet", slay: "slay", bussin: "really good",
   yeet: "yeet", vibe: "vibe", vibes: "vibes", sus: "suspicious", based: "based",
   cringe: "cringe", stan: "stalker fan", simp: "simp", drip: "style", flex: "flex",
   salty: "salty", tilted: "tilted", af: "as heck", asf: "as heck", istg: "I swear to god",
@@ -221,17 +221,15 @@ const TTS_ABBREVIATIONS_EN = {
   stfu: "be quiet", ig: "I guess", hmu: "hit me up", lmk: "let me know", ttyl: "talk to you later",
   ttys: "talk to you soon", ttfn: "ta ta for now", bfn: "bye for now", otw: "on the way",
   brt: "be right there", etc: "et cetera", vs: "versus", approx: "approximately",
-  afk: "away from keyboard", vc: "voice chat", ggwp: "good game well played",
+  vc: "voice chat", ggwp: "good game well played",
   ggez: "good game easy", nt: "nice try", ns: "nice shot", glhf: "good luck have fun",
-  rip: "rest in peace", oof: "oof", yolo: "you only live once", fomo: "fear of missing out",
-  bae: "babe", bestie: "bestie", bff: "best friends forever", goat: "greatest of all time",
-  mvp: "most valuable player", pog: "play of the game", poggers: "poggers", kek: "kek",
+  oof: "oof", yolo: "you only live once", fomo: "fear of missing out",
+  bae: "babe", bestie: "bestie", poggers: "poggers", kek: "kek",
   rekt: "wrecked", pwnd: "owned", noob: "newbie", newb: "newbie", pro: "professional",
-  op: "overpowered", nerf: "nerf", buff: "buff", dlc: "downloadable content",
-  f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random",
+  op: "overpowered", nerf: "nerf", buff: "buff", f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random",
   dps: "damage per second", main: "main", alt: "alt", smurf: "smurf", carry: "carry",
   tilt: "tilt", tilted: "tilted", toxic: "toxic", ff: "forfeit", inv: "invite",
-  dc: "disconnect", mod: "moderator", ratio: "ratio", copium: "copium", periodt: "period",
+  dc: "disconnect", ratio: "ratio", copium: "copium", periodt: "period",
   slay: "slay", tea: "tea", hc: "headcanon", fic: "fanfiction", fanfic: "fanfiction",
   collab: "collaboration", colab: "collaboration", promo: "promotion", hmu: "hit me up",
   o7: "salute", re: "regarding", fwd: "forward", cc: "carbon copy", nm: "never mind",
@@ -242,10 +240,9 @@ const TTS_ABBREVIATIONS_EN = {
   iconic: "iconic", legend: "legend", legendary: "legendary", king: "king", queen: "queen",
   ship: "ship", shipping: "shipping", otp: "one true pairing", au: "alternate universe",
   cosplay: "cosplay", merch: "merchandise", sponsored: "sponsored",
-  wfh: "work from home", f2f: "face to face", ping: "ping", fps: "frames per second",
+  wfh: "work from home", f2f: "face to face", ping: "ping",
   rpg: "role playing game", mmo: "massively multiplayer online", pvp: "player versus player",
-  pve: "player versus environment", npc: "non player character", mob: "mob", boss: "boss",
-  tryhard: "tryhard", sweat: "sweat", sweaty: "sweaty", patch: "patch", update: "update",
+  mob: "mob", boss: "boss", tryhard: "tryhard", sweat: "sweat", sweaty: "sweaty", patch: "patch", update: "update",
   ea: "early access", farm: "farm", farming: "farming", drop: "drop", crit: "critical",
   tank: "tank", healer: "healer", support: "support", boost: "boost", fed: "fed",
   report: "report", int: "intentional", surrender: "surrender", remake: "remake",
@@ -523,7 +520,7 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
   const newState = ttsStates.get(newId) || null;
 
   if (newState && newState !== oldState) {
-    try { if (newState.connection) newState.connection.destroy(); } catch (_) {}
+    try { if (newState.connection) newState.connection.destroy(); } catch (_) { }
     ttsStates.delete(newId);
   }
 
@@ -532,9 +529,9 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
     oldState.guildId = guildId;
     oldState.channelId = newId;
     if (oldState.connection?.joinConfig) {
-      try { oldState.connection.joinConfig.channelId = newId; } catch (_) {}
+      try { oldState.connection.joinConfig.channelId = newId; } catch (_) { }
     }
-    try { oldState.connection?.subscribe?.(oldState.player); } catch (_) {}
+    try { oldState.connection?.subscribe?.(oldState.player); } catch (_) { }
     ttsStates.set(newId, oldState);
   }
 
@@ -1020,7 +1017,7 @@ async function restoreTtsConnections(client) {
             const guild = client.guilds.cache.get(String(entry?.guildId || ""));
             const botVc = guild?.members?.me?.voice?.channel;
             if (q && botVc) return;
-          } catch (_) {}
+          } catch (_) { }
 
           await joinTtsChannel(channel).catch((e) =>
             global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),

@@ -295,7 +295,7 @@ function buildVoteReminderEmbed(client) {
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setDescription(description)
     .setFooter({
-      text: "Per non ricevere più DM automatici usa +dm-disable (blocca anche avvisi importanti).",
+      text: "Per gestire o disattivare i DM automatici usa +dm-filters (blocca anche avvisi importanti).",
     });
 
   const components = [];

@@ -61,8 +61,14 @@ const MentionReaction = {
           $set: { "profile.mentionReaction.reactions": Array.isArray(setPayload?.reactions) ? setPayload.reactions : [] },
         },
         { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
-      ).lean().catch(() => null);
-      if (!doc) return null;
+      ).lean().catch((err) => {
+        global.logger?.error?.("[MentionReaction-DB] findOneAndUpdate error:", err);
+        return null;
+      });
+      if (!doc) {
+        global.logger?.warn?.("[MentionReaction-DB] findOneAndUpdate returned null", { filter: safeFilter });
+        return null;
+      }
       return {
         guildId: doc.guildId,
         userId: doc.userId,

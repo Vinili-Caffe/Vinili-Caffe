@@ -11,10 +11,18 @@ function parseReactionTokens(input, max = MAX_REACTIONS) {
   while ((match = customRegex.exec(text)) !== null) {
     out.push(`custom:${match[1]}`);
   }
-  const cleaned = text.replace(customRegex, " ");
+  const cleaned = text.replace(customRegex, " ").trim();
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
   for (const part of cleaned.split(/\s+/).filter(Boolean)) {
-    if (/^\d{16,20}$/.test(part)) out.push(`custom:${part}`);
-    else out.push(`unicode:${part}`);
+    if (/^\d{16,20}$/.test(part)) {
+      out.push(`custom:${part}`);
+    } else {
+      for (const seg of segments.segment(part)) {
+        const char = seg.segment.trim();
+        if (char) out.push(`unicode:${char}`);
+      }
+    }
   }
   return Array.from(new Set(out)).slice(0, max);
 }

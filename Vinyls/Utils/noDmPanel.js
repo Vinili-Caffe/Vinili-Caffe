@@ -46,14 +46,8 @@ function buildPanelEmbed(prefs, mode = "disable") {
     const off = isAll || prefs.disabled.has(key);
     return `• **${DM_CATEGORY_LABELS[key]}**: ${off ? `${EMOJI_OFF} Disattivato` : `${EMOJI_ON} Attivo`}`;
   });
-  const intro =
-    mode === "enable"
-      ? "<:VC_PinkQuestionMark:1471892611026391306> Scegli **quali DM** attivare. Clicca un pulsante per attivare/disattivare quella categoria."
-      : "<:VC_PinkQuestionMark:1471892611026391306> Scegli **quali DM** disattivare. Clicca un pulsante per attivare/disattivare quella categoria.";
-  const footerText =
-    mode === "enable"
-      ? "Usa +dm-disable per disattivare categorie."
-      : "Usa +dm-enable per riattivare tutto.";
+  const intro = "<:VC_PinkQuestionMark:1471892611026391306> Configura le tue **preferenze DM**. Clicca un pulsante per attivare/disattivare una categoria.";
+  const footerText = "Usa +dm-filters per gestire i tuoi avvisi in DM.";
   const desc = [
     `${intro}`,
     "",
@@ -109,10 +103,10 @@ function buildRows(prefs, uniqueKey) {
 /**
  * Mostra il pannello interattivo preferenze DM e gestisce i click.
  * @param {import("discord.js").Message} message - Messaggio del comando
- * @param {{ mode?: 'enable' | 'disable' }} options - mode: 'enable' per +dm-enable (testo footer diverso)
+ * @param {{ mode?: string }} options - opzioni (non più usate per differenziare enable/disable)
  */
 async function runNoDmPanel(message, options = {}) {
-  const mode = options.mode === "enable" ? "enable" : "disable";
+  const mode = "filters";
   const guildId = message.guild.id;
   const userId = message.author.id;
   const prefs = await getNoDmPreferences(guildId, userId);
@@ -199,7 +193,7 @@ async function runNoDmPanel(message, options = {}) {
               .setColor("#6f4e37")
               .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
               .setDescription(
-                "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate. Usa `+dm-disable` o `+dm-enable` per modificarle.",
+                "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa `+dm-filters` per modificarle in futuro.",
               ),
           ],
           components: [],

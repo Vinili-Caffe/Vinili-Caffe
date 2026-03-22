@@ -225,45 +225,54 @@ async function reactToMessageWithStoredToken(message, token) {
   }
   await message.react(value).catch(() => {});
 }
-
 async function handleMentionAutoReactions(message) {
-  const mentionedUsers = message.mentions?.users;
-  if (!mentionedUsers || mentionedUsers.size === 0) return;
-  const explicitMentionIds = new Set();
-  const mentionRegex = /<@!?(\d{16,20})>/g;
-  let match = null;
-  const content = String(message.content || "");
-  while ((match = mentionRegex.exec(content)) !== null) {
-    explicitMentionIds.add(String(match[1]));
-  }
-  let targetIds;
-  if (explicitMentionIds.size > 0) {
-    targetIds = Array.from(
-      new Set(
-        mentionedUsers
-          .filter((user) => !user.bot && explicitMentionIds.has(user.id))
-          .map((user) => user.id),
-      ),
-    );
-  } else {
-    targetIds = Array.from(
-      new Set(mentionedUsers.filter((user) => !user.bot).map((user) => user.id)),
-    );
-  }
-  if (!targetIds.length) return;
-  const docs = await listMentionReactions(message.guild.id, targetIds).catch(() => []);
-  if (!Array.isArray(docs) || !docs.length) return;
-  const uniqueTokens = new Set();
-  for (const doc of docs) {
-    const list = Array.isArray(doc?.reactions) ? doc.reactions : [];
-    for (const token of list) {
-      if (token) uniqueTokens.add(String(token));
+  try {
+    const mentionedUsers = message.mentions?.users;
+    if (!mentionedUsers || mentionedUsers.size === 0) return;
+
+    const explicitMentionIds = new Set();
+    const mentionRegex = /<@!?(\d{16,20})>/g;
+    let match = null;
+    const content = String(message.content || "");
+    while ((match = mentionRegex.exec(content)) !== null) {
+      explicitMentionIds.add(String(match[1]));
+    }
+
+    let targetIds;
+    if (explicitMentionIds.size > 0) {
+      targetIds = Array.from(
+        new Set(
+          mentionedUsers
+            .filter((user) => !user.bot && explicitMentionIds.has(user.id))
+            .map((user) => user.id),
+        ),
+      );
+    } else {
+      targetIds = Array.from(
+        new Set(mentionedUsers.filter((user) => !user.bot).map((user) => user.id)),
+      );
+    }
+
+    if (!targetIds.length) return;
+
+    const docs = await listMentionReactions(message.guild.id, targetIds).catch(() => []);
+    if (!Array.isArray(docs) || !docs.length) return;
+
+    const uniqueTokens = new Set();
+    for (const doc of docs) {
+      const list = Array.isArray(doc?.reactions) ? doc.reactions : [];
+      for (const token of list) {
+        if (token) uniqueTokens.add(String(token));
+        if (uniqueTokens.size >= 10) break;
+      }
       if (uniqueTokens.size >= 10) break;
     }
-    if (uniqueTokens.size >= 10) break;
-  }
-  for (const token of uniqueTokens) {
-    await reactToMessageWithStoredToken(message, token);
+
+    for (const token of uniqueTokens) {
+      await reactToMessageWithStoredToken(message, token);
+    }
+  } catch (error) {
+    global.logger?.error?.("[MENTION-REACTION] Fatal error:", error);
   }
 }
 

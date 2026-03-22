@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionsBitField, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const{createCustomRoleGrantRequest,}=require("../../Events/interaction/customRoleHandlers");
+const { createCustomRoleGrantRequest, } = require("../../Events/interaction/customRoleHandlers");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
@@ -25,14 +25,14 @@ function buildUsageEmbed() {
 }
 
 function trimRoleName(name) {
-  const clean=String(name||"").replace(/\s+/g," ").trim();
+  const clean = String(name || "").replace(/\s+/g, " ").trim();
   const base = clean || "Custom Role";
   const prefixed = base.startsWith("༄") ? base : `༄ ${base}`;
   return prefixed.slice(0, 32).trim();
 }
 
 async function resolveActiveCustomRole(message) {
-  const state=await resolveCustomRoleState({guild:message.guild,userId:message.author.id,client:message.client,cleanupExpired:true,});
+  const state = await resolveCustomRoleState({ guild: message.guild, userId: message.author.id, client: message.client, cleanupExpired: true, });
 
   if (state.status === "none") {
     await safeMessageReply(message, {
@@ -84,30 +84,45 @@ async function resolveActiveCustomRole(message) {
 }
 
 function buildPanelRows(ownerId, roleId) {
-  const row1=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${roleId}`)
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`customrole_name:${ownerId}:${roleId}`)
       .setLabel("Modifica Nome")
+      .setEmoji(`<:VC_Modifica:1478859646587633717>`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`customrole_color:${ownerId}:${roleId}`)
       .setLabel("Modifica Colore")
+      .setEmoji(`<:VC_Color:1482532543273238569>`)
       .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`customrole_emoji:${ownerId}:${roleId}`)
+      .setLabel("Modifica Icona")
+      .setEmoji(`<:VC_emoji:1485419161168511036>`)
+      .setStyle(ButtonStyle.Primary),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`customrole_members:${ownerId}:${roleId}`)
       .setLabel("Aggiungi Utenti")
-      .setStyle(ButtonStyle.Primary),
-  );
-  const row2=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${roleId}`)
-      .setLabel("Aggiungi Icona")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId}`)
+      .setEmoji(`<:VC_addperson:1485419347068588073>`)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`customrole_members_remove:${ownerId}:${roleId}`)
+      .setLabel("Rimuovi Utenti")
+      .setEmoji(`<:VC_addperson:1485419347068588073>`)
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`customrole_delete:${ownerId}:${roleId}`)
       .setLabel("Elimina Ruolo")
+      .setEmoji(`<:VC_delete:1485421886589501511>`)
       .setStyle(ButtonStyle.Danger),
   );
   return [row1, row2];
 }
 
 function buildCreatePanelEmbed(role, guild, doc) {
-  const lines=["<a:VC_Flowers:1468687836055212174> Il tuo ruolo è stato creato/aggiornato. Personalizzalo con i bottoni sotto.","Altri comandi li trovi con `+help`.","","**Ruolo:**",`${role}`,
+  const lines = ["<a:VC_Flowers:1468687836055212174> Il tuo ruolo è stato creato/aggiornato. Personalizzalo con i bottoni sotto.", "Altri comandi li trovi con `+help`.", "", "**Ruolo:**", `${role}`,
   ];
 
   const embed = new EmbedBuilder()
@@ -129,7 +144,7 @@ function buildCreatePanelEmbed(role, guild, doc) {
     });
   }
 
-  const guildIcon=guild?.iconURL?.({extension:"png",size:256,forceStatic:false})||null;
+  const guildIcon = guild?.iconURL?.({ extension: "png", size: 256, forceStatic: false }) || null;
   if (guildIcon) embed.setThumbnail(guildIcon);
   return embed;
 }
@@ -139,23 +154,23 @@ function buildModifyPanelEmbed(role, guild, doc) {
     .setColor("#6f4e37")
     .setTitle("Modifica Ruolo")
     .setDescription(["<a:VC_Flowers:1468687836055212174> Modifica il tuo ruolo personalizzato.", "Altri comandi li trovi con `+help`.", "Puoi configurarlo con i pulsanti qui sotto.", "", "**Ruolo:**", `${role}`,
-        "",
-        `**Scadenza:** ${buildExpiryText(doc)}`,
-      ].join("\n"));
+      "",
+      `**Scadenza:** ${buildExpiryText(doc)}`,
+    ].join("\n"));
 
-  const guildIcon=guild?.iconURL?.({extension:"png",size:256,forceStatic:false})||null;
+  const guildIcon = guild?.iconURL?.({ extension: "png", size: 256, forceStatic: false }) || null;
   if (guildIcon) embed.setThumbnail(guildIcon);
   return embed;
 }
 
 async function resolveOrCreateRole(message) {
   const guild = message.guild;
-  const me=guild.members.me||guild.members.cache.get(message.client.user.id);
+  const me = guild.members.me || guild.members.cache.get(message.client.user.id);
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageRoles)) {
     return { error: "Mi serve il permesso `Gestisci Ruoli`." };
   }
 
-  const state=await resolveCustomRoleState({guild,userId:message.author.id,client:message.client,cleanupExpired:true,});
+  const state = await resolveCustomRoleState({ guild, userId: message.author.id, client: message.client, cleanupExpired: true, });
 
   let doc = state.status === "active" ? state.doc : null;
   let role = state.status === "active" ? state.role : null;
@@ -170,7 +185,7 @@ async function resolveOrCreateRole(message) {
   }
 
   if (!role) {
-    const roleName=trimRoleName(message.member?.displayName||message.author.username,);
+    const roleName = trimRoleName(message.member?.displayName || message.author.username,);
     role = await guild.roles
       .create({
         name: roleName,
@@ -187,7 +202,7 @@ async function resolveOrCreateRole(message) {
       };
     }
 
-    const anchor=guild.roles.cache.get(ANCHOR_ROLE_ID)||(await guild.roles.fetch(ANCHOR_ROLE_ID).catch(() => null));
+    const anchor = guild.roles.cache.get(ANCHOR_ROLE_ID) || (await guild.roles.fetch(ANCHOR_ROLE_ID).catch(() => null));
     if (anchor) {
       const docs = await CustomRole.find({ guildId: String(guild.id) }, { roleId: 1, _id: 0 }).lean().catch(() => []);
       const existingRoleIds = new Set((Array.isArray(docs) ? docs : []).map((d) => String(d?.roleId || "")).filter(Boolean));
@@ -209,15 +224,15 @@ async function resolveOrCreateRole(message) {
 
   await message.member.roles.add(role.id).catch(() => { });
 
-  const update={guildId:guild.id,userId:message.author.id,roleId:role.id,expiresAt:null,};
+  const update = { guildId: guild.id, userId: message.author.id, roleId: role.id, expiresAt: null, };
 
-  const updatedDoc=await CustomRole.findOneAndUpdate({guildId:guild.id,userId:message.author.id},{$set:update},{upsert:true,new:true,setDefaultsOnInsert:true},).catch(() => null);
+  const updatedDoc = await CustomRole.findOneAndUpdate({ guildId: guild.id, userId: message.author.id }, { $set: update }, { upsert: true, new: true, setDefaultsOnInsert: true },).catch(() => null);
 
   return { role, doc: updatedDoc || doc || null };
 }
 
 async function handleCreate(message, args) {
-  const{role,doc,error}=await resolveOrCreateRole(message);
+  const { role, doc, error } = await resolveOrCreateRole(message);
   if (error) {
     await safeMessageReply(message, {
       embeds: [
@@ -272,7 +287,7 @@ async function handleAdd(message) {
   const state = await resolveActiveCustomRole(message);
   if (!state) return;
 
-  const started=await createCustomRoleGrantRequest({client:message.client,guildId:message.guild.id,channelId:message.channel.id,requesterId:message.author.id,targetId:target.id,roleId:state.role.id,timeoutMs:REQUEST_TIMEOUT_MS,});
+  const started = await createCustomRoleGrantRequest({ client: message.client, guildId: message.guild.id, channelId: message.channel.id, requesterId: message.author.id, targetId: target.id, roleId: state.role.id, timeoutMs: REQUEST_TIMEOUT_MS, });
 
   if (!started?.ok) {
     await safeMessageReply(message, {
@@ -293,7 +308,7 @@ async function handleRemove(message) {
   if (!state) return;
 
   const role = state.role;
-  const me=message.guild.members.me||message.guild.members.cache.get(message.client.user.id);
+  const me = message.guild.members.me || message.guild.members.cache.get(message.client.user.id);
   if (
     !me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) ||
     role.position >= me.roles.highest.position
@@ -312,7 +327,7 @@ async function handleRemove(message) {
   }
 
   await message.guild.members.fetch().catch(() => { });
-  const membersWithRole=Array.from(role.members.values()).filter((m) => !m.user?.bot&&m.id!==message.author.id).slice(0,25);
+  const membersWithRole = Array.from(role.members.values()).filter((m) => !m.user?.bot && m.id !== message.author.id).slice(0, 25);
 
   if (!membersWithRole.length) {
     await safeMessageReply(message, {
@@ -329,17 +344,17 @@ async function handleRemove(message) {
     return;
   }
 
-  const row=new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`customrole_remove_select:${message.author.id}:${role.id}`)
-      .setPlaceholder("Seleziona un utente")
-      .setMinValues(1)
-      .setMaxValues(1)
-      .addOptions(
-        membersWithRole.slice(0, 25).map((member) => ({
-          label: String(member.user?.username || member.id).slice(0, 100),
-          value: String(member.id).slice(0, 100),
-          description: String(member.displayName || member.user?.username || "").slice(0, 100),
-        })),
-      ),
+  const row = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`customrole_remove_select:${message.author.id}:${role.id}`)
+    .setPlaceholder("Seleziona un utente")
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      membersWithRole.slice(0, 25).map((member) => ({
+        label: String(member.user?.username || member.id).slice(0, 100),
+        value: String(member.id).slice(0, 100),
+        description: String(member.displayName || member.user?.username || "").slice(0, 100),
+      })),
+    ),
   );
 
   await safeMessageReply(message, {
@@ -366,7 +381,7 @@ module.exports = {
 
   async execute(message, args = []) {
     if (!message.guild || !message.member) return;
-    const subcommand=String(args[0]||"").trim().toLowerCase();
+    const subcommand = String(args[0] || "").trim().toLowerCase();
 
     if (!VALID_SUBCOMMANDS.has(subcommand)) {
       await safeMessageReply(message, {

@@ -2,10 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
 const { resolveCustomRoleState, buildExpiryText } = require("../../Utils/Community/customRoleState");
-const {
-  buildCustomReactionPanelEmbed,
-  buildCustomReactionPanelRows,
-} = require("../../Utils/Community/mentionReactionPanelUtils");
+const { buildCustomReactionPanelEmbed, buildCustomReactionPanelRows, } = require("../../Utils/Community/mentionReactionPanelUtils");
 
 async function ensureActiveCustomRole(message) {
   const state = await resolveCustomRoleState({
@@ -87,7 +84,7 @@ module.exports = {
     const ok = await ensureActiveCustomRole(message);
     if (!ok) return;
 
-    await message.channel.sendTyping().catch(() => {});
+    await message.channel.sendTyping().catch(() => { });
 
     const guildId = message.guild.id;
     const userId = message.author.id;

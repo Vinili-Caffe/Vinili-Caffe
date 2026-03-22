@@ -387,6 +387,51 @@ async function handleRoleActionButton(interaction) {
     return true;
   }
 
+  if (head === "customrole_members_remove") {
+    const role = await fetchRole(interaction, roleId);
+    if (!role) return true;
+
+    await interaction.guild.members.fetch().catch(() => { });
+    const membersWithRole = Array.from(role.members.values())
+      .filter((m) => !m.user?.bot && m.id !== ownerId)
+      .slice(0, 25);
+
+    if (!membersWithRole.length) {
+      await interaction.reply({
+        content: "<:vegax:1443934876440068179> Nessun utente (diverso da te) ha attualmente questo ruolo.",
+        flags: 1 << 6,
+      }).catch(() => { });
+      return true;
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`customrole_remove_select:${ownerId}:${roleId}`)
+        .setPlaceholder("Seleziona un utente da rimuovere")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(
+          membersWithRole.map((m) => ({
+            label: String(m.user?.username || m.id).slice(0, 100),
+            value: m.id,
+            description: String(m.displayName || m.user?.username || "").slice(0, 100),
+          }))
+        ),
+    );
+
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setTitle("<:VC_Mention:1482526855289634997> Rimuovi Utenti")
+          .setDescription("<:VC_InactiveStatus:1482526984234860574> Seleziona l'utente da rimuovere dal tuo ruolo personalizzato."),
+      ],
+      components: [row],
+      flags: 1 << 6,
+    }).catch(() => { });
+    return true;
+  }
+
   if (head === "customrole_color") {
     const panelMessageId = interaction.message?.id || "";
     const menu = new StringSelectMenuBuilder()
@@ -999,6 +1044,15 @@ async function handleAddRemoveSelectMenus(interaction) {
     await targetMember.roles
       .remove(role.id, `Custom role member removal by ${interaction.user.tag}`)
       .catch(() => { });
+
+    await targetMember.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#e74c3c")
+          .setTitle("<:VC_Attention:1482534443632558151> Ruolo Rimosso")
+          .setDescription(`Sei stato rimosso dal ruolo personalizzato **${role.name}** in **${interaction.guild.name}**.`),
+      ],
+    }).catch(() => { });
     await interaction
       .update({
         embeds: [

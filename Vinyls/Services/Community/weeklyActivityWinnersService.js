@@ -976,10 +976,10 @@ function startWeeklyActivityWinnersLoop(client) {
     "0 21 * * 0",
     async () => {
       try {
-        global.logger?.info?.("[WEEKLY ACTIVITY] Cron triggered (Sunday 21:00). Publishing winners...");
+
         await publishWeeklyActivityWinners(client);
         await resetWeeklyActivityCounters(client);
-        global.logger?.info?.("[WEEKLY ACTIVITY] Cron run completed.");
+
       } catch (error) {
         global.logger.error("[WEEKLY ACTIVITY] Scheduled execution failed:", error);
       }

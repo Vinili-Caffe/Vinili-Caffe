@@ -9,7 +9,7 @@ const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEn
 const MEMBER_ROLE_ID = IDs.roles.Member;
 
 function sanitizeVoiceBaseName(name) {
-  const clean=String(name||"").replace(/[^\p{L}\p{N}_ ',.!?\-]/gu, "").replace(/\s+/g," ").trim();
+  const clean = String(name || "").replace(/[^\p{L}\p{N}_ ',.!?\-]/gu, "").replace(/\s+/g, " ").trim();
   if (!clean) return "privata";
   return clean;
 }
@@ -128,10 +128,12 @@ function buildVoicePanelRow(ownerId, channelId) {
     new ButtonBuilder()
       .setCustomId(`customvoc_name:${ownerId}:${channelId}`)
       .setLabel("Modifica Nome")
+      .setEmoji(`<:VC_Modifica:1478859646587633717>`)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`customvoc_emoji:${ownerId}:${channelId}`)
-      .setLabel("Aggiungi Emoji")
+      .setLabel("Modifica Emoji")
+      .setEmoji(`<:VC_emoji:1485419161168511036>`)
       .setStyle(ButtonStyle.Secondary),
   );
 }
@@ -157,7 +159,7 @@ module.exports = {
   async execute(message, args = []) {
     if (!message.guild || !message.member) return;
 
-    const state=await resolveCustomRoleState({guild:message.guild,userId:message.author.id,client:message.client,cleanupExpired:true,});
+    const state = await resolveCustomRoleState({ guild: message.guild, userId: message.author.id, client: message.client, cleanupExpired: true, });
 
     if (state.status === "none") {
       await safeMessageReply(message, {
@@ -208,7 +210,7 @@ module.exports = {
     const customRole = state.role;
     const customRoleDoc = state.doc;
 
-    const me=message.guild.members.me||message.guild.members.cache.get(message.client.user.id);
+    const me = message.guild.members.me || message.guild.members.cache.get(message.client.user.id);
     if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) {
       await safeMessageReply(message, {
         embeds: [
@@ -240,7 +242,7 @@ module.exports = {
 
     const existing = findExistingVoiceChannel(message.guild, customRole.id);
     if (existing) {
-      const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:existing.id},);
+      const updatedDoc = await updateCustomRoleData(message.guild.id, message.author.id, { customVocChannelId: existing.id },);
 
       const existingPermissionOps = [
         existing.permissionOverwrites
@@ -297,51 +299,52 @@ module.exports = {
       return;
     }
 
-    const channelName=buildCustomVocName(customRoleDoc?.customVocEmoji||customRole.unicodeEmoji||"\uD83C\uDFA7",message.member.displayName||message.author.username,);
+    const channelName = buildCustomVocName(customRoleDoc?.customVocEmoji || customRole.unicodeEmoji || "\uD83C\uDFA7", message.member.displayName || message.author.username,);
 
-    const channel=await message.guild.channels.create({name:channelName,type:ChannelType.GuildVoice,parent:CUSTOM_VOICE_CATEGORY_ID,reason:`Private voice channel for ${message.author.tag}`,
-        permissionOverwrites: [
-          {
-            id: message.guild.roles.everyone.id,
-            deny: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.Connect,
-              PermissionsBitField.Flags.Speak,
-              PermissionsBitField.Flags.UseVAD,
-              PermissionsBitField.Flags.Stream,
-            ],
-          },
-          ...(MEMBER_ROLE_ID
-            ? [
-                {
-                  id: MEMBER_ROLE_ID,
-                  allow: [PermissionsBitField.Flags.ViewChannel],
-                  deny: [PermissionsBitField.Flags.Connect],
-                },
-              ]
-            : []),
-          {
-            id: customRole.id,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.Connect,
-              PermissionsBitField.Flags.Speak,
-              PermissionsBitField.Flags.UseVAD,
-              PermissionsBitField.Flags.Stream,
-            ],
-          },
-          {
-            id: message.client.user.id,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.Connect,
-              PermissionsBitField.Flags.Speak,
-              PermissionsBitField.Flags.ManageChannels,
-              PermissionsBitField.Flags.MoveMembers,
-            ],
-          },
-        ],
-      })
+    const channel = await message.guild.channels.create({
+      name: channelName, type: ChannelType.GuildVoice, parent: CUSTOM_VOICE_CATEGORY_ID, reason: `Private voice channel for ${message.author.tag}`,
+      permissionOverwrites: [
+        {
+          id: message.guild.roles.everyone.id,
+          deny: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.UseVAD,
+            PermissionsBitField.Flags.Stream,
+          ],
+        },
+        ...(MEMBER_ROLE_ID
+          ? [
+            {
+              id: MEMBER_ROLE_ID,
+              allow: [PermissionsBitField.Flags.ViewChannel],
+              deny: [PermissionsBitField.Flags.Connect],
+            },
+          ]
+          : []),
+        {
+          id: customRole.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.UseVAD,
+            PermissionsBitField.Flags.Stream,
+          ],
+        },
+        {
+          id: message.client.user.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.ManageChannels,
+            PermissionsBitField.Flags.MoveMembers,
+          ],
+        },
+      ],
+    })
       .catch(() => null);
 
     if (!channel) {
@@ -368,9 +371,9 @@ module.exports = {
       if (maxPos != null && Number.isFinite(maxPos)) {
         await channel.setPosition(maxPos + 1).catch(() => { });
       }
-    } catch (_) {}
+    } catch (_) { }
 
-    const updatedDoc=await updateCustomRoleData(message.guild.id,message.author.id,{customVocChannelId:channel.id},);
+    const updatedDoc = await updateCustomRoleData(message.guild.id, message.author.id, { customVocChannelId: channel.id },);
 
     const linkedTextChannel = await waitForLinkedTextChannel(message.guild, channel).catch(() => null);
     await applyCustomTextPermissions(message.guild, linkedTextChannel, customRole.id);

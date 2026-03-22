@@ -124,7 +124,7 @@ async function handleDmBroadcastModal(interaction, client) {
 
   const content = message.replace(/@everyone|@here/g, "@​everyone");
   const parts = splitMessage(content);
-  const footerText = "Se non vuoi ricevere più questi avvisi tramite DM fai il comando +dm-disable nel server";
+  const footerText = "Se non vuoi ricevere più questi avvisi tramite DM fai il comando +dm-filters nel server";
 
   let sent = 0;
   let failed = 0;

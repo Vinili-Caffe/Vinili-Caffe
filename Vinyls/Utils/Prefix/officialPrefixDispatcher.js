@@ -437,7 +437,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
 
   const command = overrideCommand || resolvedClient.pcommands.get(cmd) || resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd));
   if (!command) {
-    global.logger?.debug?.(`[PREFIX] comando non trovato: "${cmd}"`);
+
     return;
   }
 

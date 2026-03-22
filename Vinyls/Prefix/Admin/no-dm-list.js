@@ -37,7 +37,7 @@ module.exports = {
     const list = await getAllNoDmPreferences(guildId);
     if (!list.length) {
       await safeMessageReply(message, {
-        content: "Nessun utente con preferenze DM in lista `+dm-disable`.",
+        content: "Nessun utente con preferenze DM in lista `+dm-filters`.",
         allowedMentions: { repliedUser: false },
       });
       return;

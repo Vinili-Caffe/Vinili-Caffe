@@ -2,7 +2,8 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { runNoDmPanel } = require("../../Utils/noDmPanel");
 
 module.exports = {
-  name: "dm-enable",
+  name: "dm-filters",
+  aliases: ["no-dm"],
   allowEmptyArgs: true,
   async execute(message) {
     if (!message.guild) {
@@ -12,6 +13,6 @@ module.exports = {
       });
       return;
     }
-    await runNoDmPanel(message, { mode: "enable" });
+    await runNoDmPanel(message);
   },
 };

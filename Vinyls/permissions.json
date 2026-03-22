@@ -379,23 +379,7 @@
         "description": [
             "roles.PartnerManager"
         ],
-        "dm-disable": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "dm-enable": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "no-dm": {
+        "dm-filters": {
             "roles": [
                 "roles.Member"
             ],
