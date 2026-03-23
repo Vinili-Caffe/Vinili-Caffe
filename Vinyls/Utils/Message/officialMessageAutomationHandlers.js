@@ -420,46 +420,38 @@ async function handleDiscadiaBump(message, client) {
   const hasBumpSuccessText = hasPattern || hasSuccessWord;
   const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
   const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation;
-  const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource && (isLikelyCommandChannel || isBumpInteraction || hasDiscadiaDomain || hasDiscadiaWord);
+  const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource;
   if (!isBump) return false;
-  const guildThanksKey = `discadia_thanks:${message.guild.id}`;
-  if (shouldSkipProcessedBump(guildThanksKey, 90_000)) {
-    return true;
-  }
+
   const dedupeKey = `discadia:${message.guild.id}:${message.id}`;
   if (shouldSkipProcessedBump(dedupeKey)) return true;
   const bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   const discadiaCooldownMs = (client?.config?.discadia?.cooldownMinutes ?? 1440) * 60 * 1000;
   const recordResult = await recordDiscadiaBump(client, message.guild.id, bumpUserId);
-  let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server su Discadia!__**\n" +
+  let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
     "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" +
     bumpMention;
   if (bumpUserId && recordResult?.previousLastBumpAt !== undefined) {
     const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "discadia_bump", recordResult.previousLastBumpAt, discadiaCooldownMs, undefined, recordResult?.previousReminderSentAt || null, recordResult?.previousLastBumpUserId || null).catch(() => null);
     if (reward?.effectiveExp != null) {
-      const parts = ["<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server su Discadia!__**", "<:VC_EXP:1482534670896730143> **" + reward.effectiveExp + " exp** guadagnati!"];
+      const parts = ["<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**", "<:VC_EXP:1482534670896730143> **" + reward.effectiveExp + " exp** guadagnati!"];
       if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Risposta rapida +" + reward.fastBonus + " exp");
       if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
       parts.push("<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" + bumpMention);
       thanksMessage = parts.join("\n");
     }
   }
-  const commandsChannelId = IDs.channels.commands || null;
-  const targetChannel =
-    commandsChannelId
-      ? (message.guild.channels.cache.get(commandsChannelId) || (await getGuildChannelCached(message.guild, commandsChannelId)))
-      : (message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null));
-  if (targetChannel?.isTextBased?.()) {
-    if (hasExistingBumpThanksReply(targetChannel, message.id, client.user?.id)) return true;
-    const isInCommands = String(message.channelId) === String(commandsChannelId);
+  const channel = message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null);
+  if (channel?.isTextBased?.()) {
+    if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;
     try {
-      await targetChannel.send({
+      await channel.send({
         content: thanksMessage.trim(),
-        reply: isInCommands ? { messageReference: message.id, failIfNotExists: false } : undefined,
+        reply: { messageReference: message.id, failIfNotExists: false },
       });
     } catch {
-      await targetChannel.send({ content: thanksMessage.trim() }).catch(() => { });
+      await channel.send({ content: thanksMessage.trim() }).catch(() => { });
     }
   }
   return true;
