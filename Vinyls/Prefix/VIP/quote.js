@@ -111,7 +111,7 @@ module.exports = {
     try {
       const footerText = String(message.client?.config?.botServerInvite || "").replace(/^https?:\/\//i, "").trim();
       buffer = await renderQuoteCanvas({
-        avatarUrl: (typeof member !== 'undefined' && member ? member : author).displayAvatarURL({ extension: "png", size: 512 }),
+        avatarUrl: author.displayAvatarURL({ extension: "png", size: 512 }),
         message: text,
         username: displayName || author.username,
         footerText,
