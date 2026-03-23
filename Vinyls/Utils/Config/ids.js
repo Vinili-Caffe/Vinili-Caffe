@@ -23,27 +23,27 @@ const catalogList = {
 const fullCatalog = {
   categories: Array.isArray(catalog?.entries?.categories)
     ? catalog.entries.categories.map((x) => ({
-        name: String(x?.name || ""),
-        id: String(x?.id || ""),
-      }))
+      name: String(x?.name || ""),
+      id: String(x?.id || ""),
+    }))
     : [],
   channels: Array.isArray(catalog?.entries?.channels)
     ? catalog.entries.channels.map((x) => ({
-        name: String(x?.name || ""),
-        id: String(x?.id || ""),
-      }))
+      name: String(x?.name || ""),
+      id: String(x?.id || ""),
+    }))
     : [],
   roles: Array.isArray(catalog?.entries?.roles)
     ? catalog.entries.roles.map((x) => ({
-        name: String(x?.name || ""),
-        id: String(x?.id || ""),
-      }))
+      name: String(x?.name || ""),
+      id: String(x?.id || ""),
+    }))
     : [],
   bots: Array.isArray(catalog?.entries?.bots)
     ? catalog.entries.bots.map((x) => ({
-        name: String(x?.name || ""),
-        id: String(x?.id || ""),
-      }))
+      name: String(x?.name || ""),
+      id: String(x?.id || ""),
+    }))
     : [],
 };
 
@@ -440,37 +440,37 @@ ids.sponsorRoles = {
 ids.sponsorGuildTagConfig = {
   [ids.guilds.luna]: {
     channelId: ids.sponsorChannels.lunaTag,
-    tagName: "Luna",
+    tagName: "ʟᴜɴᴀ",
     emoji: "🌙",
     boosterRoleId: ids.sponsorRoles.lunaBooster,
   },
   [ids.guilds.cash]: {
     channelId: ids.sponsorChannels.cashTag,
-    tagName: "Cash",
+    tagName: "ᴄᴀꜱʜ",
     emoji: "💸",
     boosterRoleId: ids.sponsorRoles.cashBooster,
   },
   [ids.guilds.porn]: {
     channelId: ids.sponsorChannels.pornTag,
-    tagName: "Porn",
+    tagName: "ᴘღʀɴ",
     emoji: "🔞",
     boosterRoleId: ids.sponsorRoles.pornBooster,
   },
   [ids.guilds[69]]: {
     channelId: ids.sponsorChannels["69Tag"],
-    tagName: "69",
+    tagName: "𝟨𝟫",
     emoji: "😈",
     boosterRoleId: ids.sponsorRoles["69Booster"],
   },
   [ids.guilds.weed]: {
     channelId: ids.sponsorChannels.weedTag,
-    tagName: "Weed",
+    tagName: "ᴡᴇᴇᴅ",
     emoji: "🍃",
     boosterRoleId: ids.sponsorRoles.weedBooster,
   },
   [ids.guilds.figa]: {
     channelId: ids.sponsorChannels.figaTag,
-    tagName: "Figa",
+    tagName: "ꜰɪɢᴀ",
     emoji: "🍑",
     boosterRoleId: ids.sponsorRoles.figaBooster,
   },

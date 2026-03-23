@@ -10,26 +10,52 @@ const MAIN_SERVER_TAG = "V&C";
  * Checks if a user has any monitored clan tags and updates their roles accordingly.
  * @param {import("discord.js").GuildMember} member 
  */
+
+function hasMatchingTag(member) {
+  if (!member?.user) return null;
+
+  const guildTagConfig = IDs.sponsorGuildTagConfig || {};
+  const mainTagNormalized = String(MAIN_SERVER_TAG || "").trim().toLowerCase();
+
+  const nativeTag = member.user.clan?.tag;
+  if (nativeTag) {
+    const tagLower = String(nativeTag).trim().toLowerCase();
+    if (tagLower === mainTagNormalized) return { type: "native", tag: nativeTag };
+    const sponsor = Object.values(guildTagConfig).find(cfg => String(cfg.tagName || "").toLowerCase() === tagLower);
+    if (sponsor) return { type: "native", tag: nativeTag };
+  }
+
+  const name = String(member.displayName || member.user.username || "").toLowerCase();
+
+  if (name.includes(`[${mainTagNormalized}]`) || name.startsWith(`${mainTagNormalized} |`) || name.startsWith(`${mainTagNormalized} -`)) {
+    return { type: "name", tag: MAIN_SERVER_TAG };
+  }
+  for (const cfg of Object.values(guildTagConfig)) {
+    const sTag = String(cfg.tagName || "").toLowerCase();
+    if (!sTag) continue;
+    if (name.includes(`[${sTag}]`) || name.startsWith(`${sTag} |`) || name.startsWith(`${sTag} -`)) {
+      return { type: "name", tag: cfg.tagName };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Checks if a user has any monitored clan tags and updates their roles accordingly.
+ * @param {import("discord.js").GuildMember} member 
+ */
 async function syncClanTagRoles(member) {
   if (!member || member.user?.bot) return;
   if (member.guild.id !== MAIN_GUILD_ID) return;
 
-  const user = member.user;
-  const clanTagRaw = user.clan?.tag;
-  if (!clanTagRaw) return;
+  const match = hasMatchingTag(member);
+  if (!match) return;
 
-  const clanTag = String(clanTagRaw).trim();
-  const guildTagConfig = IDs.sponsorGuildTagConfig || {};
-
-  const isMainTag = clanTag === MAIN_SERVER_TAG;
-  const sponsorMatch = Object.values(guildTagConfig).find(cfg => cfg.tagName === clanTag);
-
-  if (isMainTag || sponsorMatch) {
-    if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
-      const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
-      if (added) {
-        await announceNewGuildedMember(member, clanTag);
-      }
+  if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+    const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
+    if (added) {
+      await announceNewGuildedMember(member, match.tag);
     }
   }
 }
@@ -80,34 +106,35 @@ async function syncAllMembersClanTags(client) {
   if (!guild) return;
 
   try {
-    const members = await guild.members.fetch().catch(() => guild.members.cache);
+    // We fetch with presences because clan tags are often tied to the latest user state in the gateway
+    const members = await guild.members.fetch({ withPresences: true }).catch(() => guild.members.cache);
     let count = 0;
+    const guildTagConfig = IDs.sponsorGuildTagConfig || {};
+    const mainTagNormalized = String(MAIN_SERVER_TAG || "").trim().toLowerCase();
 
     for (const member of members.values()) {
       if (member.user.bot) continue;
 
-      const clanTagRaw = member.user.clan?.tag;
-      if (!clanTagRaw) continue;
+      const match = hasMatchingTag(member);
+      if (!match) continue;
 
-      const clanTag = String(clanTagRaw).trim();
-      const isMainTag = clanTag === MAIN_SERVER_TAG;
-      const guildTagConfig = IDs.sponsorGuildTagConfig || {};
-      const sponsorMatch = Object.values(guildTagConfig).find(cfg => cfg.tagName === clanTag);
+      // Debug: Log matches found during startup
+      global.logger?.info?.(`[ClanTagDebug] Match found for ${member.user.username}: ${match.tag} (${match.type})`);
 
-      if (isMainTag || sponsorMatch) {
-        if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
-          const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
-          if (added) {
-            count++;
-            await announceNewGuildedMember(member, clanTag);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+      if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+        const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
+        if (added) {
+          count++;
+          await announceNewGuildedMember(member, match.tag);
+          await new Promise(resolve => setTimeout(resolve, 750));
         }
       }
     }
 
     if (count > 0) {
       global.logger?.info?.(`[ClanTagService] Startup sync complete. Added Guilded role to ${count} members.`);
+    } else {
+      global.logger?.info?.(`[ClanTagService] Startup sync finished. No new members found with matching tags (Total members scanned: ${members.size}).`);
     }
   } catch (error) {
     global.logger?.error?.("[ClanTagService] Startup sync failed:", error);

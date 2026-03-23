@@ -478,15 +478,19 @@ async function bootstrapSupporter(client) {
   await guild.members.fetch({ withPresences: true }).catch(() => null);
   for (const member of guild.members.cache.values()) {
     if (member.user?.bot) continue;
-    if (isOfflinePresence(member.presence)) continue;
-    if (!hasInvite(member.presence)) continue;
-    if (member.roles.cache.has(ROLE_ID)) continue;
-    if (hasPendingState(guildId, member.id)) continue;
+    const freshMember = await getGuildMemberCached(guild, member.id, { preferFresh: true }).catch(() => member);
+    if (!freshMember || freshMember.user?.bot) continue;
+    
+    // Safety check: only proceed if they are actually online and have the invite link
+    if (isOfflinePresence(freshMember.presence) || !hasInvite(freshMember.presence)) continue;
 
-    const existing = getCachedState(guildId, member.id);
+    if (freshMember.roles.cache.has(ROLE_ID)) continue;
+    if (hasPendingState(guildId, freshMember.id)) continue;
+
+    const existing = getCachedState(guildId, freshMember.id);
     if (existing?.lastMessageId) continue;
 
-    await startPendingFlow(member, channel);
+    await startPendingFlow(freshMember, channel);
   }
 }
 
