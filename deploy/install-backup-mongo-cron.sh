@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 LOGFILE="$DIR/backups/cron-backup.log"
 mkdir -p "$DIR/backups"
 # Redirect su file così vedi eventuali errori (docker non trovato, container spento, ecc.)
-JOB="CRON_TZ=Europe/Rome 0 0 * * * $DIR/backup-mongo.sh >> \"$LOGFILE\" 2>&1 # vc-local-mongo-backup"
+JOB="0 0 * * * TZ=Europe/Rome bash $DIR/backup-mongo.sh >> \"$LOGFILE\" 2>&1 # vc-local-mongo-backup"
 
 if [[ ! -x "$DIR/backup-mongo.sh" ]]; then
   echo "Manca o non è eseguibile: $DIR/backup-mongo.sh"
