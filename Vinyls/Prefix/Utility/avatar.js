@@ -108,7 +108,7 @@ module.exports = {
 
     if (sub === "server") {
       const memberAvatar = member.displayAvatarURL();
-      const userAvatar = (typeof member !== 'undefined' && member ? member : user).displayAvatarURL();
+      const userAvatar = user.displayAvatarURL();
       if (memberAvatar === userAvatar) {
         return safeChannelSend(message.channel, {
           embeds: [
@@ -137,14 +137,14 @@ module.exports = {
     const isUser = sub === "user";
     const title = isUser ? "User Avatar" : "Server Avatar";
     const imageUrl = isUser
-      ? (typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ extension: "png", size: 4096, forceStatic: true })
+      ? user.displayAvatarURL({ extension: "png", size: 4096, forceStatic: true })
       : member.displayAvatarURL({ extension: "png", size: 4096, forceStatic: true });
     const authorLabel=member?.displayName||member?.user?.username||user.tag;
 
     const embed = new EmbedBuilder()
         .setTitle(title)
         .setImage(imageUrl)
-        .setAuthor({ name: authorLabel, iconURL: (typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ extension: "png", size: 256, forceStatic: true }) })
+        .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL({ extension: "png", size: 256, forceStatic: true }) })
         .setColor("#6f4e37")
         .setFooter({
           text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il comando ?blockav.\n${totalViews} Views 👁️`,

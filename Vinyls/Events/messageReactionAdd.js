@@ -140,7 +140,7 @@ async function prepareReplyData(message) {
     content: String(replied.content || "").slice(0, MAX_REPLY_CONTENT_LENGTH),
     author: sanitizeUsername(repliedMember, replied.author),
     nameColor: getNameColor(repliedMember),
-    avatarUrl: replied.(typeof member !== 'undefined' && member ? member : author).displayAvatarURL({ extension: "png", size: 64 }),
+    avatarUrl: (repliedMember || replied.author).displayAvatarURL({ extension: "png", size: 64 }),
     roleIconUrl: await getRoleIcon(repliedMember),
   };
 }
@@ -172,7 +172,7 @@ async function renderSkullCanvas(
   hasEmbedOnly,
 ) {
   return renderSkullboardCanvas({
-    avatarUrl: message.(typeof member !== 'undefined' && member ? member : author).displayAvatarURL({ extension: "png", size: 256 }),
+    avatarUrl: (member || message.author).displayAvatarURL({ extension: "png", size: 256 }),
     username: sanitizeUsername(member, message.author),
     message: content || "[Messaggio vuoto]",
     nameColor: getNameColor(member),
@@ -193,7 +193,7 @@ function buildSkullEmbed(user, message, postImageName) {
     .setColor("#6f4e37")
     .setAuthor({
       name: user.username,
-      iconURL: (typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ extension: "png", size: 64 }),
+      iconURL: user.displayAvatarURL({ extension: "png", size: 64 }),
     })
     .setDescription(
       `Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard`,

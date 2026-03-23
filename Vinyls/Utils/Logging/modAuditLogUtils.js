@@ -150,7 +150,7 @@ async function sendModCommandUsageToModLogs(guild, message, commandName) {
     .setColor(0x3498db)
     .setAuthor({
       name: message.author.username,
-      iconURL: message.(typeof member !== 'undefined' && member ? member : author).displayAvatarURL({ size: 32 }),
+      iconURL: (message.member || message.author).displayAvatarURL({ size: 32 }),
     })
     .setDescription(`Used \`${commandName}\` command in ${channelLabel}\n\n\`${fullCommand}\``)
     .setFooter({ text: timestamp });

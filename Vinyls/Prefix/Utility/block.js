@@ -111,7 +111,7 @@ module.exports = {
         .setDescription(["Le quote dei tuoi messaggi sono state bloccate con successo!", "", "**Cosa significa?**", "Gli altri utenti non potranno più creare quote dei tuoi messaggi.", "", "**Per sbloccare**", "Usa il comando `?unblock quotes` quando vuoi riattivare le quote.",].join("\n"),)
         .setFooter({
           text: `Bloccate il ${date} - Oggi alle ${time}`,
-          iconURL: message.(typeof member !== 'undefined' && member ? member : author).displayAvatarURL(),
+          iconURL: (message.member || message.author).displayAvatarURL(),
         });
 
       return safeChannelSend(message.channel, { embeds: [embed] });

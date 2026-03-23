@@ -97,7 +97,7 @@ module.exports = {
         )
         .setFooter({
           text: `Sbloccate il ${date} - Oggi alle ${time}`,
-          iconURL: message.(typeof member !== 'undefined' && member ? member : author).displayAvatarURL(),
+          iconURL: (message.member || message.author).displayAvatarURL(),
         });
 
       return safeChannelSend(message.channel, { embeds: [embed] });
