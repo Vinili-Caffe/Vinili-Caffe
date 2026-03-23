@@ -10,7 +10,7 @@ const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Supporter;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const CHANNEL_ID = IDs.channels.supporters;
-const INVITE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:discord\.(?:gg|com\/invite)\/|\.gg\/)viniliecaffe|discord\.gg\s*\/\s*viniliecaffe|\.gg\s*\/\s*viniliecaffe/i;
+const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
 
 const statusCache = new Map();
 const pendingChecks = new Map();
@@ -20,7 +20,7 @@ const bootstrappedUsers = new Set();
 const PENDING_MS = 3 * 60 * 1000;
 const CLEANUP_MS = 60 * 1000;
 const LINK_WARMUP_MS = 2 * 60 * 1000;
-const REMOVE_CONFIRM_MS = 2 * 60 * 1000;
+const REMOVE_CONFIRM_MS = 5 * 60 * 1000;
 const ANNOUNCE_COOLDOWN_MS = 30 * 60 * 1000;
 
 let bootstrapRan = false;
@@ -87,8 +87,7 @@ function getInviteState(presence) {
   if (!presence) return null;
   if (isOfflinePresence(presence)) return null;
   if (hasInvite(presence)) return true;
-  if (hasCustomActivity(presence)) return false;
-  return null;
+  return false;
 }
 
 function resolveInviteState(presence, fallback = false) {
