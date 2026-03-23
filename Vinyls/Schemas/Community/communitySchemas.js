@@ -262,7 +262,7 @@ const activityUserProfileSchema = new Schema(
         activeStrikeReasons: { type: [String], default: [] },
         reasons: { type: [String], default: [] },
       },
-      /** Storico case compact (ex collezione `mod_case_users`). */
+      /** Storico case compact. */
       modCases: { type: [modCaseEntrySchema], default: [] },
     },
     supporterStatus: {
