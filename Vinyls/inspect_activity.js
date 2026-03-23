@@ -5,10 +5,12 @@ require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 async function run() {
   await mongoose.connect(process.env.MONGO_URL);
   const db = mongoose.connection.db;
-  const col = db.collection("activityuserprofiles");
-  const d = await col.findOne({ "voteDiscadia": { $exists: true } });
-  if (d) console.log("FOUND VOTE_DISCADIA field at root!");
-  else console.log("No VOTE_DISCADIA field at root.");
+  const collections = await db.listCollections().toArray();
+  for (const c of collections) {
+     const n = c.name;
+     const count = await db.collection(n).countDocuments();
+     console.log(`${n}: ${count}`);
+  }
   await mongoose.disconnect();
 }
 run();
