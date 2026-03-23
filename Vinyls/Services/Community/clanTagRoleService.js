@@ -24,14 +24,29 @@ function normalizeForMatch(text) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function hasMatchingTag(member) {
+/**
+ * Helper to check if a member has a matching clan tag (native).
+ * Now includes a REST fallback because d.js v14 often misses the property in cache.
+ */
+async function hasMatchingTag(member, client) {
   if (!member?.user) return null;
 
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
-  // Check ONLY native Discord Clan Tag
-  const nativeTag = member.user.clan?.tag;
+  // 1. Prova a leggerlo dalla cache (veloce)
+  let nativeTag = member.user.clan?.tag;
+
+  // 2. Fallback REST se la cache è vuota (preciso)
+  if (!nativeTag && client) {
+    try {
+      const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
+      nativeTag = raw.user?.clan?.tag;
+    } catch (e) {
+      // Silenzioso, probabilmente rate limit o errore di rete
+    }
+  }
+
   if (nativeTag) {
     const tagNorm = normalizeForMatch(nativeTag);
     if (tagNorm === mainTagNorm) return { type: "native", tag: nativeTag };
@@ -49,13 +64,20 @@ async function syncClanTagRoles(member) {
   if (!member || member.user?.bot) return;
   if (member.guild.id !== MAIN_GUILD_ID) return;
 
-  const match = hasMatchingTag(member);
-  if (!match) return;
-
-  if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
-    const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
-    if (added) {
-      await announceNewGuildedMember(member, match.tag);
+  const match = await hasMatchingTag(member, member.client);
+  
+  if (match) {
+    // Aggiunta se ha la tag
+    if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+      const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
+      if (added) {
+        await announceNewGuildedMember(member, match.tag);
+      }
+    }
+  } else {
+    // RIMOZIONE se non ha la tag (es. se la toglie dal profilo)
+    if (GLOBAL_GUILDED_ROLE_ID && member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+      await member.roles.remove(GLOBAL_GUILDED_ROLE_ID).catch(() => { });
     }
   }
 }
@@ -128,13 +150,22 @@ async function syncAllMembersClanTags(client) {
     for (const member of members.values()) {
       if (member.user.bot) continue;
 
-      // Log di debug per i primi 30 membri per vedere cosa legge il bot dal profilo
-      if (logged < 30) {
-        global.logger?.info?.(`[ClanTagLog] ${member.user.username} | NativeTag: ${member.user.clan?.tag || "NULL"}`);
+      // Log RAW data per i primi 3 per capire dove Discord mette la tag
+      if (logged < 3) {
+        try {
+          const rawData = await client.rest.get(`/guilds/${mainGuildId}/members/${member.id}`);
+          if (rawData.user?.clan) {
+            global.logger?.info?.(`[RawDebug] CLAN TROVATO per ${member.user.username}! Tag: ${rawData.user.clan.tag}`);
+          } else {
+             global.logger?.info?.(`[RawDebug] Nessun clan RAW trovato per ${member.user.username}.`);
+          }
+        } catch (e) {
+          global.logger?.error?.(`[RawDebug] Errore raw ${member.user.username}: ${e.message}`);
+        }
         logged++;
       }
 
-      const match = hasMatchingTag(member);
+      const match = await hasMatchingTag(member, client);
       
       if (match) {
         // Se ha la tag e NON ha ancora il ruolo -> DAGLIELO
