@@ -58,7 +58,7 @@ function makeLogEmbed(
       iconURL: (interaction.member || interaction.user).displayAvatarURL(),
     })
     .setTitle(title)
-    .setThumbnail((typeof member !== 'undefined' && member ? member : user).displayAvatarURL())
+    .setThumbnail(user.displayAvatarURL())
     .setDescription(
       [
         `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${user}`,

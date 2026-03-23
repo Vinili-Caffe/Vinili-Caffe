@@ -145,7 +145,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setTitle("User Banner")
       .setImage(bannerUrl)
-      .setAuthor({ name: authorLabel, iconURL: (typeof member !== 'undefined' && member ? member : user).displayAvatarURL() })
+      .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL() })
       .setColor("#6f4e37")
       .setFooter({
         text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando ?blockbn.\n${totalViews} Views 👁️`,

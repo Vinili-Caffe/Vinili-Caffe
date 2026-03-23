@@ -157,7 +157,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(member.displayHexColor && member.displayHexColor !== "#000000" ? member.displayHexColor : "#6f4e37")
       .setTitle(`Who is ${member.displayName}?`)
-      .setThumbnail((typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ size: 256 }))
+      .setThumbnail(member.displayAvatarURL({ size: 256 }))
       .setDescription(
         [
           "**General Informations:**",

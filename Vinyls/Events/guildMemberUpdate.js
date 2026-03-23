@@ -603,7 +603,7 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
             `${ARROW} **Member Punished?** ${punished?"Yes":"No"}`,
           ].join("\n"),
         )
-        .setThumbnail(newMember.(typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ size: 256 }))
+        .setThumbnail(newMember.displayAvatarURL({ size: 256 }))
         .setFooter({ text: "© 2025 Vinili & Caffè. Tutti i diritti riservati." })
     : buildJoinGateTriggeredEmbed(
         newMember,

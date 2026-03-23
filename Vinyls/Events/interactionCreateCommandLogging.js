@@ -40,7 +40,7 @@ module.exports = {
         user: user.tag || user.username || "unknown",
         userId: user.id || "unknown",
         content: getCommandContent(interaction),
-        userAvatarUrl: (typeof member !== 'undefined' && member ? member : user).displayAvatarURL?.({ size: 128 }),
+        userAvatarUrl: (interaction.member || interaction.user).displayAvatarURL?.({ size: 128 }),
       });
     } catch (error) {
       global.logger?.error?.(
