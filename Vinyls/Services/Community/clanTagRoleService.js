@@ -30,30 +30,13 @@ function hasMatchingTag(member) {
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
-  // 1. Check native Discord Clan Tag
+  // Check ONLY native Discord Clan Tag
   const nativeTag = member.user.clan?.tag;
   if (nativeTag) {
     const tagNorm = normalizeForMatch(nativeTag);
     if (tagNorm === mainTagNorm) return { type: "native", tag: nativeTag };
     const sponsor = Object.values(guildTagConfig).find(cfg => normalizeForMatch(cfg.tagName) === tagNorm);
     if (sponsor) return { type: "native", tag: nativeTag };
-  }
-
-  // 2. Fallback: Check Display Name / Username
-  const nameNorm = normalizeForMatch(member.displayName || member.user.username);
-
-  // Match main tag
-  if (nameNorm.includes(mainTagNorm)) {
-    return { type: "name", tag: MAIN_SERVER_TAG };
-  }
-
-  // Match sponsor tags
-  for (const cfg of Object.values(guildTagConfig)) {
-    const sTagNorm = normalizeForMatch(cfg.tagName);
-    if (!sTagNorm) continue;
-    if (nameNorm.includes(sTagNorm)) {
-      return { type: "name", tag: cfg.tagName };
-    }
   }
 
   return null;
@@ -117,40 +100,61 @@ async function announceNewGuildedMember(member, tag) {
 }
 
 async function syncAllMembersClanTags(client) {
-  if (!client) return;
-  // Use the bot ID restriction to prevent dual bot execution if needed
-  if (client.user.id !== MAIN_BOT_ID && !process.env.DEBUG_CLANTAG) return;
+  if (!client?.user) return;
+  
+  const mainBotId = "1329118940110127204"; // ID di Vinili & Caffè Bot
+  global.logger?.info?.(`[ClanTagDebug] Tentativo di sync da parte del bot: ${client.user.id} (${client.user.username})`);
+
+  if (client.user.id !== mainBotId) {
+    global.logger?.info?.(`[ClanTagDebug] Bot scartato perché non è quello principale.`);
+    return;
+  }
 
   const mainGuildId = IDs.guilds.main;
   const guild = client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));
-  if (!guild) return;
+  if (!guild) {
+    global.logger?.warn?.("[ClanTagDebug] Guild principale non trovata.");
+    return;
+  }
 
   try {
-    // Force a full fetch including presences to get the latest Clan Tag state
+    global.logger?.info?.("[ClanTagDebug] Inizio fetch membri con presenze...");
     const members = await guild.members.fetch({ withPresences: true, force: true }).catch(() => guild.members.cache);
+    global.logger?.info?.(`[ClanTagDebug] Fetch completato. Scansiono ${members.size} membri.`);
+
     let count = 0;
+    let logged = 0;
 
     for (const member of members.values()) {
       if (member.user.bot) continue;
 
-      const match = hasMatchingTag(member);
-      if (!match) continue;
+      // Log di debug per i primi 30 membri per vedere cosa legge il bot dal profilo
+      if (logged < 30) {
+        global.logger?.info?.(`[ClanTagLog] ${member.user.username} | NativeTag: ${member.user.clan?.tag || "NULL"}`);
+        logged++;
+      }
 
-      if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
-        const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
-        if (added) {
-          count++;
-          await announceNewGuildedMember(member, match.tag);
-          await new Promise(resolve => setTimeout(resolve, 750));
+      const match = hasMatchingTag(member);
+      
+      if (match) {
+        // Se ha la tag e NON ha ancora il ruolo -> DAGLIELO
+        if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+          const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
+          if (added) {
+            count++;
+            await announceNewGuildedMember(member, match.tag);
+            await new Promise(resolve => setTimeout(resolve, 750));
+          }
+        }
+      } else {
+        // SE NON HA LA TAG ma ha ancora il ruolo -> TOGLIELO (Pulizia automatica)
+        if (GLOBAL_GUILDED_ROLE_ID && member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+          await member.roles.remove(GLOBAL_GUILDED_ROLE_ID).catch(() => { });
         }
       }
     }
 
-    if (count > 0) {
-      global.logger?.info?.(`[ClanTagService] Startup sync complete. Added Guilded role to ${count} members.`);
-    } else {
-      global.logger?.info?.(`[ClanTagService] Startup sync finished. Scanned ${members.size} members.`);
-    }
+    global.logger?.info?.(`[ClanTagService] Scansione finita. Totale nuovi trovati: ${count}`);
   } catch (error) {
     global.logger?.error?.("[ClanTagService] Startup sync failed:", error);
   }
