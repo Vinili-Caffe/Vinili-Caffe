@@ -1622,6 +1622,9 @@
         "apply_pex:*": [
             "roles.HighStaff"
         ],
+        "apply_reject:*": [
+            "roles.HighStaff"
+        ],
         "candidature_premi_partner": [
             "roles.Member"
         ],

@@ -223,8 +223,6 @@ const activityUserProfileSchema = new Schema(
       lastVoteAt: { type: Date, default: null },
       lastRemindedAt: { type: Date, default: null },
       voteCount: { type: Number, default: 0 },
-      voteMilestoneGranted: { type: [Number], default: [] },
-      voteMilestoneNearReminded: { type: [Number], default: [] },
     },
     bumpState: {
       disboard: {
@@ -333,12 +331,6 @@ const activityUserProfileSchema = new Schema(
       },
       rolePersist: {
         roles: { type: [Schema.Types.Mixed], default: [] },
-      },
-      temporaryRoleGrants: {
-        grants: { type: [Schema.Types.Mixed], default: [] },
-      },
-      temporaryCommandPermissions: {
-        permissions: { type: [Schema.Types.Mixed], default: [] },
       },
       globalOneTimeReminder: {
         entries: { type: [Schema.Types.Mixed], default: [] },

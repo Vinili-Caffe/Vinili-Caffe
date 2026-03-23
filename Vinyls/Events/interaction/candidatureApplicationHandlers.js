@@ -16,6 +16,7 @@ const APPLY_PAGE_PREFIX = "apply_page";
 const MODAL_PREFIX = "apply_form";
 const APPLY_PEX_PREFIX = "apply_pex";
 const APPLY_PEX_MODAL_PREFIX = "apply_pex_modal";
+const APPLY_REJECT_PREFIX = "apply_reject";
 const APPLY_PEX_REASON_INPUT_ID = "apply_pex_reason";
 const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -374,12 +375,16 @@ function buildFinalThanksEmbed(untilTs, type) {
     );
 }
 
-function buildCandidatePexRow(type, userId) {
+function buildCandidateActionRow(type, userId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${APPLY_PEX_PREFIX}:${type}:${userId}`)
       .setEmoji("<:success:1461731530333229226>")
       .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`${APPLY_REJECT_PREFIX}:${type}:${userId}`)
+      .setEmoji("<:cancel:1461730653677551691>")
+      .setStyle(ButtonStyle.Danger),
   );
 }
 
@@ -585,7 +590,7 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
 
   const highStaffRoleId = IDs.roles.HighStaff;
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
-  const sent = await channel.send({ content: mention || undefined, embeds: [embed], components: [buildCandidatePexRow(type, user.id)], }).catch(() => null);
+  const sent = await channel.send({ content: mention || undefined, embeds: [embed], components: [buildCandidateActionRow(type, user.id)], }).catch(() => null);
   if (!sent) {
     await interaction.reply({
       content:
@@ -879,6 +884,21 @@ async function handleCandidatureApplicationInteraction(interaction) {
       const reasonInput = new TextInputBuilder().setCustomId(APPLY_PEX_REASON_INPUT_ID).setLabel("Motivo").setStyle(TextInputStyle.Paragraph).setRequired(true).setMinLength(3).setMaxLength(500);
       modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
       await interaction.showModal(modal).catch(() => null);
+      return true;
+    }
+    if (String(interaction.customId || "").startsWith(`${APPLY_REJECT_PREFIX}:`)) {
+      if (!hasHighStaffRole(interaction)) {
+        await interaction.reply({
+          content: "<a:VC_Alert:1482706673176150077> Questo bottone è riservato all'High Staff.",
+          flags: 1 << 6,
+        }).catch(() => null);
+        return true;
+      }
+      if (interaction.message) {
+        await interaction.message.edit({ components: [] }).catch(() => null);
+        await deleteThreadForMessage(interaction.guild, interaction.message);
+      }
+      await interaction.reply({ content: "<:cancel:1461730653677551691> Candidatura rifiutata.", flags: 1 << 6 }).catch(() => null);
       return true;
     }
 

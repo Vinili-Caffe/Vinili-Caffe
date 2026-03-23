@@ -723,9 +723,18 @@ async function trySendEventEndAnnouncementToNews(client) {
   const doc = await GlobalSettings.findOne({ guildId: mainGuildId }).lean().catch(() => null);
   if (!doc?.expEventMultiplierExpiresAt) return;
   const expiresAt = new Date(doc.expEventMultiplierExpiresAt).getTime();
-  if (expiresAt > Date.now()) return;
   const sentFor = doc.expEventEndAnnouncementSentForExpiresAt ? new Date(doc.expEventEndAnnouncementSentForExpiresAt).getTime() : null;
-  if (sentFor !== null && sentFor === expiresAt) return;
+
+  if (sentFor !== null && sentFor === expiresAt) {
+    // Annuncio già inviato (magari ieri). Verifichiamo se è passata almeno una giornata intera (24h) dalla fine dell'evento per la pulizia.
+    if (Date.now() > expiresAt + 24 * 60 * 60 * 1000) {
+      await performEndOfEventCleanup(client, mainGuildId);
+    }
+    return;
+  }
+
+  if (expiresAt > Date.now()) return;
+
   const top3 = await getTop3ExpDuringEventExcludingStaff(guild);
   const lines = top3.length ? top3.map((item, i) => {
     const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}>—**${item.expDuringEvent.toLocaleString("it-IT")}** <:VC_EXP:1482534670896730143>`;
@@ -773,6 +782,57 @@ async function trySendEventEndAnnouncementToNews(client) {
         global.logger?.error?.("[WEEKLY ACTIVITY] Staff event end announcement to newsstaff failed:", err);
       });
     }
+  }
+}
+
+/**
+ * Pulisce i dati degli eventi (Staff e Activity EXP) dopo che sono terminati e l'annuncio è stato inviato.
+ * Esegue la pulizia solo 24 ore dopo la fine dell'evento.
+ */
+async function performEndOfEventCleanup(client, guildId) {
+  global.logger?.info(`[EVENT_CLEANUP] Avvio pulizia post-evento per g:${guildId}`);
+
+  try {
+    // 1. Pulizia GlobalSettings: cancella i campi indicati dall'utente
+    await GlobalSettings.updateOne(
+      { guildId },
+      {
+        $unset: {
+          expEventEndAnnouncementSentForExpiresAt: "",
+          expEventExtraMultiplierRoleIds: "",
+          expEventMultiplierExpiresAt: "",
+          expEventRoleOverrides: "",
+          expEventStartedAt: "",
+          staffEventExpiresAt: "",
+          staffEventStartedAt: "",
+        },
+        $set: {
+          expEventMultiplier: 1, // Riporta il moltiplicatore base a 1 (scema default: 1)
+        },
+      },
+    );
+
+    // 2. Pulizia ActivityUserProfile (per tutti gli utenti del server principale)
+    // eventRewards e eventExpSnapshot vengono sempre cancellati
+    await ActivityUserProfile.updateMany(
+      { guildId },
+      {
+        $unset: {
+          eventRewards: "",
+          eventExpSnapshot: "",
+        },
+      },
+    );
+
+    // eventWeekWinners viene cancellato SOLO SE l'array è vuoto (sennò rimane lo storico dei vincitori)
+    await ActivityUserProfile.updateMany(
+      { guildId, eventWeekWinners: { $size: 0 } },
+      { $unset: { eventWeekWinners: "" } },
+    );
+
+    global.logger?.info("[EVENT_CLEANUP] Pulizia completata con successo.");
+  } catch (err) {
+    global.logger?.error("[EVENT_CLEANUP] Errore durante la pulizia post-evento:", err);
   }
 }
 

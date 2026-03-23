@@ -1,4 +1,4 @@
-const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
+const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlagsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
@@ -115,6 +115,12 @@ async function sendRaw(channel, payload) {
 
 async function sendMessageEditLog(previous, updated) {
   if (!updated?.guild || !updated?.author) return;
+  if (
+    updated.flags?.has(MessageFlagsBitField.Flags.Ephemeral) ||
+    updated.flags?.has(MessageFlagsBitField.Flags.Loading)
+  ) {
+    return;
+  }
   if (
     VERIFICATION_EXCLUDED_CHANNEL_IDS.has(
       String(updated?.channelId || updated?.channel?.id || ""),

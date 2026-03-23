@@ -139,7 +139,7 @@ function buildCostanzaLines(overview) {
   });
   const activeDays = points.filter((p) => (Number(p?.text ?? 0) > 0) || (Number(p?.voiceSeconds ?? 0) >= 600)).length;
   const labels = points.map((p) => dayKeyToWeekdayLabel(p?.dayKey)).join(" ");
-  const barLine = bars.join(" ");
+  const barLine = bars.map((b) => ` ${b} `).join(" ");
   return [
     `<:VC_Clock:1473359204189474886> **Costanza:** __${activeDays}/${points.length}__ giorni attivi`,
     `\`${labels}\``,
