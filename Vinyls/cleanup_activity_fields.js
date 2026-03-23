@@ -1,48 +1,44 @@
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require("fs");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
-const mongoURL = process.env.MONGO_URL;
-
-if (!mongoURL) {
-  console.error("URL MongoDB non trovato nelle variabili d'ambiente (.env).");
-  process.exit(1);
-}
+const MONGO_URL = process.env.MONGO_URL_LOCAL || process.env.MONGO_URL;
 
 async function run() {
   try {
-    console.log("Connessione a MongoDB...");
-    await mongoose.connect(mongoURL);
-    console.log("Connesso!");
+    console.log("Connessione...");
+    await mongoose.connect(MONGO_URL);
+    
+    const { databases } = await mongoose.connection.db.admin().listDatabases();
+    
+    for (const dbInfo of databases) {
+      const dbName = dbInfo.name;
+      if (["admin", "local", "config"].includes(dbName)) continue;
 
-    const db = mongoose.connection.db;
-    const collection = db.collection("activityuserprofiles");
-
-    console.log("Avvio pulizia collezione activityuserprofiles...");
-
-    const result = await collection.updateMany(
-      {},
-      {
-        $unset: {
-          "discadiaVote.voteMilestoneGranted": "",
-          "discadiaVote.voteMilestoneNearReminded": "",
-          "profile.temporaryCommandPermissions": "",
-          "profile.temporaryRoleGrants": ""
-        }
+      const db = mongoose.connection.useDb(dbName);
+      const allCols = await db.listCollections().toArray();
+      const targets = allCols.map(c => c.name).filter(n => n.toLowerCase().includes("userprofile"));
+      
+      for (const colName of targets) {
+        console.log(`Pulizia ${dbName}.${colName}...`);
+        const res = await db.collection(colName).updateMany({}, {
+          $unset: {
+            "discadiaVote.voteMilestoneGranted": "",
+            "discadiaVote.voteMilestoneNearReminded": "",
+            "voteDiscadia": "",
+            "profile.temporaryRoleGrants": "",
+            "profile.temporaryCommandPermissions": "",
+            "bumpState.discadia": ""
+          }
+        });
+        console.log(` -> Modificati: ${res.modifiedCount}`);
       }
-    );
-
-    console.log(`Pulizia completata!`);
-    console.log(`Documenti modificati: ${result.modifiedCount}`);
-
+    }
     await mongoose.disconnect();
-    console.log("Disconnesso.");
     process.exit(0);
   } catch (err) {
-    console.error("Errore durante l'esecuzione dello script:", err);
+    console.error(err);
     process.exit(1);
   }
 }
-
 run();
