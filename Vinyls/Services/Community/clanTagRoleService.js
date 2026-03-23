@@ -116,50 +116,22 @@ async function syncAllMembersClanTags(client) {
   if (!client?.user) return;
 
   const mainBotId = "1329118940110127204"; // ID di Vinili & Caffè Bot
-  global.logger?.info?.(`[ClanTagDebug] Tentativo di sync da parte del bot: ${client.user.id} (${client.user.username})`);
-
-  if (client.user.id !== mainBotId) {
-    global.logger?.info?.(`[ClanTagDebug] Bot scartato perché non è quello principale.`);
-    return;
-  }
+  if (client.user.id !== mainBotId) return;
 
   const mainGuildId = IDs.guilds.main;
   const guild = client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));
-  if (!guild) {
-    global.logger?.warn?.("[ClanTagDebug] Guild principale non trovata.");
-    return;
-  }
+  if (!guild) return;
 
   try {
-    global.logger?.info?.("[ClanTagDebug] Inizio fetch membri con presenze...");
     const members = await guild.members.fetch({ withPresences: true, force: true }).catch(() => guild.members.cache);
-    global.logger?.info?.(`[ClanTagDebug] Fetch completato. Scansiono ${members.size} membri.`);
-
     let count = 0;
-    let logged = 0;
 
     for (const member of members.values()) {
       if (member.user.bot) continue;
 
-      // Log RAW data per i primi 3 per capire dove Discord mette la tag
-      if (logged < 3) {
-        try {
-          const rawData = await client.rest.get(`/guilds/${mainGuildId}/members/${member.id}`);
-          if (rawData.user?.clan) {
-            global.logger?.info?.(`[RawDebug] CLAN TROVATO per ${member.user.username}! Tag: ${rawData.user.clan.tag}`);
-          } else {
-            global.logger?.info?.(`[RawDebug] Nessun clan RAW trovato per ${member.user.username}.`);
-          }
-        } catch (e) {
-          global.logger?.error?.(`[RawDebug] Errore raw ${member.user.username}: ${e.message}`);
-        }
-        logged++;
-      }
-
       const match = await hasMatchingTag(member, client);
 
       if (match) {
-        // Se ha la tag e NON ha ancora il ruolo -> DAGLIELO
         if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
           const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
           if (added) {
@@ -169,14 +141,15 @@ async function syncAllMembersClanTags(client) {
           }
         }
       } else {
-        // SE NON HA LA TAG ma ha ancora il ruolo -> TOGLIELO (Pulizia automatica)
         if (GLOBAL_GUILDED_ROLE_ID && member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
           await member.roles.remove(GLOBAL_GUILDED_ROLE_ID).catch(() => { });
         }
       }
     }
 
-    global.logger?.info?.(`[ClanTagService] Scansione finita. Totale nuovi trovati: ${count}`);
+    if (count > 0) {
+       global.logger?.info?.(`[ClanTagService] Scansione completata. Assegnati ${count} nuovi ruoli.`);
+    }
   } catch (error) {
     global.logger?.error?.("[ClanTagService] Startup sync failed:", error);
   }
