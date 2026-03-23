@@ -4,13 +4,13 @@ const { GlobalSettings } = require("../Vinyls/Schemas/Community/communitySchemas
 
 async function runMigration() {
   try {
-    const mongoUrl = process.env.MONGO_URL;
+    const mongoUrl = process.env.MONGO_URL_LOCAL || process.env.MONGO_URL;
     if (!mongoUrl) {
-      console.error("MONGO_URL non è definito nel file .env");
+      console.error("MONGO_URL_LOCAL o MONGO_URL non sono definiti nel file .env");
       process.exit(1);
     }
 
-    console.log("Connessione al database...");
+    console.log(`Connessione al database in corso all'URL: ${mongoUrl.replace(/:[^:@]+@/, ":****@")}`);
     await mongoose.connect(mongoUrl);
     console.log("Connesso con successo al database.");
 
