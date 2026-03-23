@@ -31,6 +31,7 @@ const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceS
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
+const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 
@@ -181,6 +182,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "primary heavy tasks",
       enabled: primaryScheduler,
       run: () => runPrimaryHeavyTasks(client, engagementTick),
+    },
+    {
+      label: "startup sync clan tag roles",
+      enabled: primaryScheduler,
+      run: () => syncAllMembersClanTags(client),
     },
     {
       label: "startup sync queue",

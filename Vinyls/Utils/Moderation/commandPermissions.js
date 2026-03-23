@@ -852,7 +852,8 @@ async function checkButtonPermission(interaction) {
   }
 
   if (isSponsorGuild(guildId) && SPONSOR_STAFF_TICKET_BUTTON_IDS.has(customId)) {
-    if (!hasSponsorStaffRole(interaction?.member, guildId)) {
+    const isAdmin = await isGuildOwnerOrAdmin(interaction);
+    if (!isAdmin && !hasSponsorStaffRole(interaction?.member, guildId)) {
       const sponsorStaffRoleId = IDs.roles?.sponsorStaffRoleIds?.[guildId] || IDs.roles?.Staff;
       return {
         allowed: false,
@@ -1033,7 +1034,8 @@ async function checkStringSelectPermission(interaction) {
     };
   }
   if (isSponsorGuild(guildId) && customId === "ticket_open_menu") {
-    if (!hasVerificatoRole(interaction?.member, guildId)) {
+    const isAdmin = await isGuildOwnerOrAdmin(interaction);
+    if (!isAdmin && !hasVerificatoRole(interaction?.member, guildId)) {
       return {
         allowed: false,
         reason: "missing_role",

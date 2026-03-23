@@ -54,7 +54,7 @@ function makeLogEmbed(
 ) {
   return new EmbedBuilder()
     .setAuthor({
-      name: `<:success:1461731530333229226> Valutazione eseguita da ${interaction.user.username}`,
+      name: `Valutazione eseguita da ${interaction.user.username}`,
       iconURL: (interaction.member || interaction.user).displayAvatarURL(),
     })
     .setTitle(title)

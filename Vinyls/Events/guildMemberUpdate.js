@@ -15,6 +15,7 @@ const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("
 const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { syncClanTagRoles } = require("../Services/Community/clanTagRoleService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -332,6 +333,14 @@ async function sendMemberRoleUpdateLog(oldMember, newMember) {
         grantEventRewardOnce(guildId, userId, "verificato", { levels: 5, member: newMember, clientOrGuild: newMember.guild }).catch(() => {});
       } else if (rid === IDs.roles.Guilded) {
         grantEventRewardOnce(guildId, userId, "guilded", { levels: 10, member: newMember, clientOrGuild: newMember.guild }).catch(() => {});
+        const announceChannelId = IDs.channels.supporters;
+        const announceChannel = announceChannelId ? (guild.channels.cache.get(announceChannelId) || (await getGuildChannelCached(guild, announceChannelId))) : null;
+        if (announceChannel?.isTextBased?.()) {
+          announceChannel.send({
+            content: `<@${userId}>`,
+            embeds: [buildGuildedEmbed(newMember)],
+          }).catch(() => {});
+        }
       }
     }
   }
@@ -359,6 +368,28 @@ async function addPerkRoleIfPossible(member) {
   if (!refreshedMember?.roles?.cache?.has(PERK_ROLE_ID)) {
     global.logger?.warn?.("[guildMemberUpdate] Failed to add perk role:", member.guild.id, member.id, PERK_ROLE_ID);
   }
+}
+
+function buildGuildedEmbed(member) {
+  const avatarUrl = member?.displayAvatarURL
+    ? member.displayAvatarURL({ extension: "png", size: 256, forceStatic: false })
+    : null;
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
+    .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
+    .setDescription(
+      [
+        `<@${member.id}>, \`hai sbloccato:\``,
+        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${IDs.roles.Guilded}>!`,
+        "<a:VC_Coffe:1448695567244066827> - Accesso ai vantaggi esclusivi **Guilded**",
+        "",
+        "<a:VC_Arrow:1482706699365257397> Grazie per aver unito il tuo account!",
+      ].join("\n"),
+    )
+    .setThumbnail(avatarUrl || null)
+    .setFooter({ text: "Grazie per il tuo supporto!" })
+    .setImage(DIVIDER_URL);
 }
 
 async function removePlusColorsIfNotEligible(member) {
@@ -1065,6 +1096,7 @@ module.exports = {
       await sendMemberUpdateLog(oldMember, newMember);
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);
+      await syncClanTagRoles(newMember);
 
       if (newMember?.guild?.id === IDs.guilds.main && client) {
         if (didStaffMembershipChange(oldMember, newMember) || didStaffRolesChange(oldMember, newMember)) {

@@ -12,6 +12,7 @@ const {
   isSecurityProfileImmune,
   hasAdminsProfileCapability,
 } = require("../Services/Moderation/securityProfilesService");
+const { syncClanTagRoles } = require("../Services/Community/clanTagRoleService");
 
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const CORE_EXEMPT_USER_IDS = new Set(["1466495522474037463", "1329118940110127204"]);
@@ -79,7 +80,21 @@ module.exports = {
       const globalNameChanged = oldUser?.globalName !== newUser?.globalName;
 
       if (!newUser?.bot) {
-        if (!usernameChanged && !globalNameChanged) return;
+        const clanTagChanged = oldUser?.clan?.tag !== newUser?.clan?.tag;
+        if (!usernameChanged && !globalNameChanged && !clanTagChanged) return;
+
+        // Clan Tag Auto-Role
+        if (clanTagChanged) {
+          const mainGuildId = IDs.guilds.main;
+          const mainGuild = resolvedClient.guilds.cache.get(mainGuildId);
+          if (mainGuild) {
+            const member = mainGuild.members.cache.get(newUser.id) || (await getGuildMemberCached(mainGuild, newUser.id));
+            if (member) {
+              await syncClanTagRoles(member);
+            }
+          }
+        }
+
         const cfg = getJoinGateConfigSnapshot();
         if (
           !cfg?.enabled ||
