@@ -55,10 +55,10 @@ function makeLogEmbed(
   return new EmbedBuilder()
     .setAuthor({
       name: `<:success:1461731530333229226> Valutazione eseguita da ${interaction.user.username}`,
-      iconURL: interaction.user.displayAvatarURL(),
+      iconURL: (interaction.member || interaction.user).displayAvatarURL(),
     })
     .setTitle(title)
-    .setThumbnail(user.displayAvatarURL())
+    .setThumbnail((typeof member !== 'undefined' && member ? member : user).displayAvatarURL())
     .setDescription(
       [
         `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${user}`,
@@ -81,7 +81,7 @@ function makeRemovalEmbed(
   return new EmbedBuilder()
     .setAuthor({
       name: `<:cancel:1461730653677551691> Valutazione rimossa da ${interaction.user.username}`,
-      iconURL: interaction.user.displayAvatarURL(),
+      iconURL: (interaction.member || interaction.user).displayAvatarURL(),
     })
     .setTitle(title)
     .setDescription(description.replace("{user}", user.toString()))
@@ -185,7 +185,7 @@ async function handleNegativeAdd(
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
     const warnEmbed = new EmbedBuilder()
-      .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
+      .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${interaction.user.username}`, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
       .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
       .setThumbnail(staffUser.displayAvatarURL())
       .setDescription(`${staffUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 400)}__`)

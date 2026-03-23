@@ -26,7 +26,7 @@ module.exports = {
     const weeklyText=stats.level===0?"Fuori dalla classifica":`#${weeklyRank}`;
     const allTimeText=stats.level===0?"Fuori dalla classifica":`#${allTimeRank}`;
 
-    const card=await renderRankCanvas({username:targetUser.username,avatarUrl:targetUser.displayAvatarURL({extension:"png",size:256}),level:stats.level,totalExp:stats.totalExp,currentLevelExp:stats.currentLevelExp,nextLevelExp:stats.nextLevelExp,progressPercent:stats.progressPercent,weeklyRank,allTimeRank,});
+    const card=await renderRankCanvas({username:targetUser.username,avatarUrl:(typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL({extension:"png",size:256}),level:stats.level,totalExp:stats.totalExp,currentLevelExp:stats.currentLevelExp,nextLevelExp:stats.nextLevelExp,progressPercent:stats.progressPercent,weeklyRank,allTimeRank,});
     const file=new AttachmentBuilder(card,{name:`rank-${targetUser.id}.png`});
     const embed = new EmbedBuilder()
     .setColor("#6f4e37")

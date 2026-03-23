@@ -112,7 +112,7 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
       iconURL: actor.displayAvatarURL(),
     })
     .setTitle(title)
-    .setThumbnail(targetUser.displayAvatarURL())
+    .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL())
     .setDescription(
       [
         `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> <@${targetUser.id}>`,
@@ -268,7 +268,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
         const warnLogEmbed = new EmbedBuilder()
           .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${actor.username}`, iconURL: actor.displayAvatarURL() })
           .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
-          .setThumbnail(targetUser.displayAvatarURL())
+          .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL())
           .setDescription(`<@${payload.userId}>\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 400)}__`)
           .setColor("#E74C3C");
         await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [warnLogEmbed] }).catch(() => null);
@@ -281,7 +281,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
               "**Depex ora** = un livello in basso (Mod → depex completo; Coord → Mod; Super → Coord; Admin → Super; …).\n" +
               "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo** (ruolo + staff).",
             )
-            .setThumbnail(targetUser.displayAvatarURL());
+            .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL());
           const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),

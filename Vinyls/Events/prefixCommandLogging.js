@@ -77,7 +77,7 @@ module.exports = {
         user: message.author.tag || message.author.username || "unknown",
         userId: message.author.id,
         content: message.content,
-        userAvatarUrl: message.author.displayAvatarURL?.({ size: 128 }),
+        userAvatarUrl: message.(typeof member !== 'undefined' && member ? member : author).displayAvatarURL?.({ size: 128 }),
       });
     } catch (error) {
       global.logger?.error?.("[prefixCommandLogging] failed:", error);

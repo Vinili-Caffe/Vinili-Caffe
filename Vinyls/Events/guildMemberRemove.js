@@ -114,7 +114,7 @@ async function sendLeaveLog(member) {
     .setDescription([`${member.user} ${member.user.tag}.`, ""].join("\n"))
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
-    .setThumbnail(member.user.displayAvatarURL({ extension: "png", size: 256 }));
+    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }));
 
   await channel.send({ embeds: [embed] }).catch((err) => {
     global.logger.error("[guildMemberRemove] Failed to send leave log:", err);

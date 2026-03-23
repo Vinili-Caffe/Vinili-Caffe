@@ -71,7 +71,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setAuthor({ name: targetUser.username, iconURL: targetUser.displayAvatarURL() })
+      .setAuthor({ name: targetUser.username, iconURL: (typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL() })
       .setTitle(`Le statistiche nei Minigames di ${targetUser.username} <a:VC_Flowers:1468687836055212174>`)
       .setDescription(descLines.join("\n"));
 

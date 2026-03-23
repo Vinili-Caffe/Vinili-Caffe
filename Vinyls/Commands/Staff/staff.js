@@ -513,10 +513,10 @@ module.exports = {
 
         const warnEmbed = new EmbedBuilder().setAuthor({
           name: `<:success:1461731530333229226> Warn eseguito da ${interaction.user.username}`,
-          iconURL: interaction.user.displayAvatarURL(),
+          iconURL: (interaction.member || interaction.user).displayAvatarURL(),
         })
           .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${staffDoc.warnCount}\``,)
-          .setThumbnail(targetUser.displayAvatarURL())
+          .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL())
           .setDescription(`<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${targetUser} 
             <:VC_reason:1478517122929004544> __${reason}__ 
             <:VC_id:1478517313618575419> **ID Valutazione:** __\`${staffDoc.idCount}\`__`,)

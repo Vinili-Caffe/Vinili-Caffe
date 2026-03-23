@@ -503,7 +503,7 @@ function getRoleMultiplier(member, settings = null) {
 function buildLevelUpEmbed(member, level) {
   const avatarUrl =
     member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
-    member?.user?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
+    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
     null;
   return {
     embeds: [
@@ -541,7 +541,7 @@ async function sendLevelUpAnnouncement(guild, member, level) {
 function buildPerksLevelEmbed(member, level, roleId) {
   const avatarUrl =
     member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
-    member?.user?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
+    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
     null;
   return {
     embeds: [
@@ -576,7 +576,7 @@ function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
         color: 0x6f4e37,
         title: "<:VC_InactiveStatus:1482526984234860574> Sei vicino a un nuovo perk!",
         thumbnail: {
-          url: member?.user?.displayAvatarURL({ size: 256 }),
+          url: member?.displayAvatarURL({ size: 256 }),
         },
         description: [
           `<a:VC_PandaClap:1331620157398712330> ${member}, ci sei quasi!`,

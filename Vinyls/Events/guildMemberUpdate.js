@@ -46,7 +46,7 @@ function buildJoinGateTriggeredEmbed(member, reason) {
         `${ARROW} **Reason:** ${reason}`,
       ].join("\n"),
     )
-    .setThumbnail(member.user.displayAvatarURL({ size: 256 }));
+    .setThumbnail(member.displayAvatarURL({ size: 256 }));
 }
 
 function toDiscordTimestamp(value = new Date(), style = "F") {
@@ -390,8 +390,8 @@ async function removePlusColorsIfNotEligible(member) {
 }
 
 function buildBoostEmbed(member, boostCount) {
-  const avatarUrl = member?.user?.displayAvatarURL
-    ? member.user.displayAvatarURL({ extension: "png", size: 256, forceStatic: true })
+  const avatarUrl = member?.displayAvatarURL
+    ? member.displayAvatarURL({ extension: "png", size: 256, forceStatic: true })
     : null;
   return new EmbedBuilder()
     .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
@@ -603,7 +603,7 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
             `${ARROW} **Member Punished?** ${punished?"Yes":"No"}`,
           ].join("\n"),
         )
-        .setThumbnail(newMember.user.displayAvatarURL({ size: 256 }))
+        .setThumbnail(newMember.(typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ size: 256 }))
         .setFooter({ text: "© 2025 Vinili & Caffè. Tutti i diritti riservati." })
     : buildJoinGateTriggeredEmbed(
         newMember,

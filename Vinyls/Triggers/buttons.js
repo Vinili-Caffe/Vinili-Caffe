@@ -418,7 +418,7 @@ async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", });
   const footerText = `Classifica richiesta da ${interaction.user.username} \u2022 Oggi alle ${time}`;
 
-  const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle(title).setDescription(description).setFooter({ text: footerText, iconURL: interaction.user.displayAvatarURL(), });
+  const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle(title).setDescription(description).setFooter({ text: footerText, iconURL: (interaction.member || interaction.user).displayAvatarURL(), });
 
   if (interaction.deferred) return interaction.editReply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
   return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });

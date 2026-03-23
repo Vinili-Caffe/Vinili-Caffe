@@ -28,7 +28,7 @@ function buildJoinGateTriggeredEmbed(member, reason) {
         `${ARROW} **Reason:** ${reason}`,
       ].join("\n"),
     )
-    .setThumbnail(member.user.displayAvatarURL({ size: 256 }));
+    .setThumbnail(member.displayAvatarURL({ size: 256 }));
 }
 
 function makeUserUpdateDedupeKey(guildId, userId, match) {

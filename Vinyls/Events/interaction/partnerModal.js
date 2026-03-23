@@ -208,7 +208,7 @@ async function handlePartnerModal(interaction) {
   }
   if (inviteCode.toLowerCase().includes("viniliecaffe")) {
     const embed = new EmbedBuilder()
-      .setAuthor({ name: interaction.user.username, iconURL: interaction.user.displayAvatarURL() })
+      .setAuthor({ name: interaction.user.username, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
       .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${interaction.user.username}**`)
       .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
       .setFooter({ text: serverName, iconURL: serverIcon })
@@ -270,7 +270,7 @@ async function handlePartnerModal(interaction) {
     const totalPartners = staffDoc.partnerCount;
 
     const embed = new EmbedBuilder()
-      .setAuthor({ name: interaction.user.username, iconURL: interaction.user.displayAvatarURL() })
+      .setAuthor({ name: interaction.user.username, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
       .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
       .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
     <:mariolevelup:1443679595084910634> Ora sei a **\`${totalPartners}\`** partner!

@@ -261,7 +261,7 @@ module.exports = {
                     `<:VC_Space:1482459974667075685><:success:1461731530333229226> \`${safeUsername}\` has passed verification successfully.\n` +
                     "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",
                 )
-                .setThumbnail(user.displayAvatarURL({ dynamic: true }));
+                .setThumbnail((typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ dynamic: true }));
               await logChannel.send({ embeds: [resultEmbed] }).catch(() => {});
             }
           } else if (validVerifyRoleIds.every((id) => cache.has(id))) {

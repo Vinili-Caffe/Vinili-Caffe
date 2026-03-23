@@ -99,7 +99,7 @@ async function finalizeVerification(interaction, member) {
       `<:info:1466070288554004604> **Server**: ${sanitizeEmbedText(serverName)}\n\n` +
       `<:info:1466070288554004604> Status:\n` +
       `<:VC_Space:1482459974667075685><:success:1461731530333229226>\`${safeUsername}\` has passed verification successfully.\n` + "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",)
-      .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }));
+      .setThumbnail((interaction.member || interaction.user).displayAvatarURL({ dynamic: true }));
 
     await logChannel.send({ embeds: [logEmbed] }).catch((err) => {
       global.logger?.warn?.("[VERIFY] Failed to send verification log:", err);

@@ -267,7 +267,7 @@ function buildWelcomeEmbed(member) {
   return new EmbedBuilder()
     .setAuthor({
       name: member.user.username,
-      iconURL: member.user.displayAvatarURL({ size: 128 }),
+      iconURL: member.displayAvatarURL({ size: 128 }),
     })
     .setTitle(
       "<a:VC_HeartsPink:1468685897389052008> Benvenuto/a su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>",
@@ -276,7 +276,7 @@ function buildWelcomeEmbed(member) {
       `__${member.displayName}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
         "Passa su <#1469429150669602961> per **abbellire il tuo profilo** con i ruoli & colori.",
     )
-    .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+    .setThumbnail(member.displayAvatarURL({ size: 256 }))
     .setImage(DIVIDER_URL)
     .setColor("#6f4e37")
     .setFooter({ text: `Ora siamo in ${member.guild.memberCount} membri` });
@@ -796,7 +796,7 @@ function buildJoinGateTriggeredEmbed(member, reason) {
         `${ARROW} **Reason:** ${reason}`,
       ].join("\n"),
     )
-    .setThumbnail(member.user.displayAvatarURL({ size: 256 }));
+    .setThumbnail(member.displayAvatarURL({ size: 256 }));
 }
 
 async function kickForJoinGate(member, reason, extraLines = [], action = "kick") {
@@ -917,7 +917,7 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
             ].join("\n"),
           )
           .setFooter({ text: "© 2025 Vinili & Caffè. Tutti i diritti riservati." })
-          .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+          .setThumbnail(member.displayAvatarURL({ size: 256 }))
       : buildJoinGateTriggeredEmbed(member, reason);
     await logChannel.send({ embeds: [embed] }).catch(() => {});
   }
@@ -993,7 +993,7 @@ async function sendJoinLog(member) {
     )
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
-    .setThumbnail(member.user.displayAvatarURL({ extension: "png", size: 256 }));
+    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }));
 
   await joinLeaveLogChannel.send({ embeds: [joinLogEmbed] }).catch((err) => {
     global.logger.error("[guildMemberAdd] Failed to send join log:", err);

@@ -369,10 +369,10 @@ function buildPendingEmbed(member) {
     .setColor("#6f4e37")
     .setAuthor({
       name: member.user.username,
-      iconURL: member.user.displayAvatarURL({ size: 256 }),
+      iconURL: member.displayAvatarURL({ size: 256 }),
     })
     .setTitle("Nuovx sostenitore <a:VC_StarPink:1330194976440848500>")
-    .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+    .setThumbnail(member.displayAvatarURL({ size: 256 }))
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,

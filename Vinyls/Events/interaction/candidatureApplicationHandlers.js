@@ -580,7 +580,7 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   const applicationNumber = await nextApplicationNumber(type);
   const embed = new EmbedBuilder()
     .setColor("#3498DB")
-    .setAuthor({ name: user.username, iconURL: user.displayAvatarURL({ size: 128 }) })
+    .setAuthor({ name: user.username, iconURL: (typeof member !== 'undefined' && member ? member : user).displayAvatarURL({ size: 128 }) })
     .setTitle(`<:VC_Poll:1482535102436216832> CANDIDATURA ${cfg.label.toUpperCase()} (#${applicationNumber})`)
     .setDescription(formatApplicationDescription(type, state.answers))
     .setFooter({

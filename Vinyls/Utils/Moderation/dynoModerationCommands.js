@@ -643,7 +643,7 @@ async function runNamed(name, message, args, client) {
     }
     const warningEmbed = new EmbedBuilder().setColor("#ED4245").setTitle(String(`${titleCount}per ${targetUser?.username || userId}(${userId})`).slice(0, 256))
       .setDescription(String(lines.join("\n\n")).slice(0, 4096))
-      .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null);
+      .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL?.({ size: 128 }) || null);
     return message.channel.send({ embeds: [warningEmbed] }).catch(() => null);
   }
 
@@ -1035,7 +1035,7 @@ async function runNamed(name, message, args, client) {
         .catch(() => null);
     }
     const hh = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false, });
-    const statsEmbed = new EmbedBuilder().setColor("#3498DB").setTitle("Moderation Statistics").setThumbnail(modUser?.displayAvatarURL({ size: 256 }) || null).setAuthor({ name: modUser?.username || String(modId), iconURL: modUser?.displayAvatarURL({ size: 128 }) || null, }).addFields({
+    const statsEmbed = new EmbedBuilder().setColor("#3498DB").setTitle("Moderation Statistics").setThumbnail((typeof modMember !== "undefined" && modMember ? modMember : modUser)?.displayAvatarURL({ size: 256 }) || null).setAuthor({ name: modUser?.username || String(modId), iconURL: (typeof modMember !== "undefined" && modMember ? modMember : modUser)?.displayAvatarURL({ size: 128 }) || null, }).addFields({
       name: "Last 7 days", value: `Mutes: ${m7}\nBans: ${b7}\nKicks: ${k7}\nWarns: ${w7}\n**Total: ${t7}**`,
       inline: true,
     },
