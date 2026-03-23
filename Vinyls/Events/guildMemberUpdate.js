@@ -332,15 +332,7 @@ async function sendMemberRoleUpdateLog(oldMember, newMember) {
       if (rid === IDs.roles.Verificato || rid === IDs.roles.Verificata) {
         grantEventRewardOnce(guildId, userId, "verificato", { levels: 5, member: newMember, clientOrGuild: newMember.guild }).catch(() => {});
       } else if (rid === IDs.roles.Guilded) {
-        grantEventRewardOnce(guildId, userId, "guilded", { levels: 10, member: newMember, clientOrGuild: newMember.guild }).catch(() => {});
-        const announceChannelId = IDs.channels.supporters;
-        const announceChannel = announceChannelId ? (guild.channels.cache.get(announceChannelId) || (await getGuildChannelCached(guild, announceChannelId))) : null;
-        if (announceChannel?.isTextBased?.()) {
-          announceChannel.send({
-            content: `<@${userId}>`,
-            embeds: [buildGuildedEmbed(newMember)],
-          }).catch(() => {});
-        }
+        grantEventRewardOnce(guildId, userId, "guilded", { levels: 10, member: newMember, clientOrGuild: newMember.guild }).catch(() => { });
       }
     }
   }

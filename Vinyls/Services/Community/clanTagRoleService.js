@@ -34,24 +34,32 @@ async function hasMatchingTag(member, client) {
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
-  // 1. Prova a leggerlo dalla cache (veloce)
-  let nativeTag = member.user.clan?.tag;
-
-  // 2. Fallback REST se la cache è vuota (preciso)
-  if (!nativeTag && client) {
+  // 1&2. Ottieni i dati del Clan (Cache o REST)
+  let clan = member.user.clan;
+  if (!clan && client) {
     try {
       const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
-      nativeTag = raw.user?.clan?.tag;
-    } catch (e) {
-      // Silenzioso, probabilmente rate limit o errore di rete
-    }
+      clan = raw.user?.clan;
+    } catch (e) { }
   }
 
-  if (nativeTag) {
-    const tagNorm = normalizeForMatch(nativeTag);
-    if (tagNorm === mainTagNorm) return { type: "native", tag: nativeTag };
-    const sponsor = Object.values(guildTagConfig).find(cfg => normalizeForMatch(cfg.tagName) === tagNorm);
-    if (sponsor) return { type: "native", tag: nativeTag };
+  if (clan?.tag) {
+    const tagNorm = normalizeForMatch(clan.tag);
+    const clanGuildId = clan.identity_guild_id || clan.identityGuildId;
+
+    // Verifichiamo se l'ID del server della tag corrisponde ai nostri server autorizzati
+    const isMainGuild = clanGuildId === MAIN_GUILD_ID;
+    const sponsorGuild = clanGuildId ? guildTagConfig[clanGuildId] : null;
+
+    // Caso 1: Tag del server principale
+    if (isMainGuild && tagNorm === mainTagNorm) {
+      return { type: "native", tag: clan.tag };
+    }
+
+    // Caso 2: Tag degli sponsor (devono venire dal server sponsor corretto)
+    if (sponsorGuild && normalizeForMatch(sponsorGuild.tagName) === tagNorm) {
+      return { type: "native", tag: clan.tag };
+    }
   }
 
   return null;
