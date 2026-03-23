@@ -7,34 +7,26 @@ const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
 const MAIN_SERVER_TAG = "V&C";
 const MAIN_BOT_ID = IDs.bots.ViniliCaffeBot || "1329118940110127204";
 
-
 function normalizeForMatch(text) {
   if (!text) return "";
   return String(text)
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    // Mapping Small Caps & Fancy Numbers (Small Caps ʟ, ᴜ, ɴ, ᴀ, etc. are NOT handled by toLowerCase)
     .replace(/ʟ/g, "l").replace(/ᴜ/g, "u").replace(/ɴ/g, "n").replace(/ᴀ/g, "a")
     .replace(/ᴄ/g, "c").replace(/ꜱ/g, "s").replace(/ʜ/g, "h").replace(/ᴘ/g, "p")
     .replace(/ᴡ/g, "w").replace(/ᴇ/g, "e").replace(/ᴅ/g, "d").replace(/ꜰ/g, "f")
     .replace(/ɪ/g, "i").replace(/ɢ/g, "g").replace(/ღ/g, "o")
     .replace(/𝟨/g, "6").replace(/𝟫/g, "9")
-    // Keep only alphanumeric for a clean comparison
     .replace(/[^a-z0-9]/g, "");
 }
 
-/**
- * Helper to check if a member has a matching clan tag (native).
- * Now includes a REST fallback because d.js v14 often misses the property in cache.
- */
 async function hasMatchingTag(member, client) {
   if (!member?.user) return null;
 
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
-  // 1&2. Ottieni i dati del Clan (Cache o REST)
   let clan = member.user.clan;
   if (!clan && client) {
     try {
@@ -47,16 +39,13 @@ async function hasMatchingTag(member, client) {
     const tagNorm = normalizeForMatch(clan.tag);
     const clanGuildId = clan.identity_guild_id || clan.identityGuildId;
 
-    // Verifichiamo se l'ID del server della tag corrisponde ai nostri server autorizzati
     const isMainGuild = clanGuildId === MAIN_GUILD_ID;
     const sponsorGuild = clanGuildId ? guildTagConfig[clanGuildId] : null;
 
-    // Caso 1: Tag del server principale
     if (isMainGuild && tagNorm === mainTagNorm) {
       return { type: "native", tag: clan.tag };
     }
 
-    // Caso 2: Tag degli sponsor (devono venire dal server sponsor corretto)
     if (sponsorGuild && normalizeForMatch(sponsorGuild.tagName) === tagNorm) {
       return { type: "native", tag: clan.tag };
     }
@@ -65,17 +54,13 @@ async function hasMatchingTag(member, client) {
   return null;
 }
 
-/**
- * Checks if a user has any monitored clan tags and updates their roles accordingly.
- */
 async function syncClanTagRoles(member) {
   if (!member || member.user?.bot) return;
   if (member.guild.id !== MAIN_GUILD_ID) return;
 
   const match = await hasMatchingTag(member, member.client);
-  
+
   if (match) {
-    // Aggiunta se ha la tag
     if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
       const added = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
       if (added) {
@@ -83,7 +68,6 @@ async function syncClanTagRoles(member) {
       }
     }
   } else {
-    // RIMOZIONE se non ha la tag (es. se la toglie dal profilo)
     if (GLOBAL_GUILDED_ROLE_ID && member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
       await member.roles.remove(GLOBAL_GUILDED_ROLE_ID).catch(() => { });
     }
@@ -108,7 +92,6 @@ async function announceNewGuildedMember(member, tag) {
       [
         `<a:VC_Arrow:1482706699365257397><@${member.id}>`,
         "",
-        "",
         `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${GLOBAL_GUILDED_ROLE_ID}>!`,
         `Mettendo una delle nostre **Guild-TAGs**`,
         "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
@@ -131,7 +114,7 @@ async function announceNewGuildedMember(member, tag) {
 
 async function syncAllMembersClanTags(client) {
   if (!client?.user) return;
-  
+
   const mainBotId = "1329118940110127204"; // ID di Vinili & Caffè Bot
   global.logger?.info?.(`[ClanTagDebug] Tentativo di sync da parte del bot: ${client.user.id} (${client.user.username})`);
 
@@ -165,7 +148,7 @@ async function syncAllMembersClanTags(client) {
           if (rawData.user?.clan) {
             global.logger?.info?.(`[RawDebug] CLAN TROVATO per ${member.user.username}! Tag: ${rawData.user.clan.tag}`);
           } else {
-             global.logger?.info?.(`[RawDebug] Nessun clan RAW trovato per ${member.user.username}.`);
+            global.logger?.info?.(`[RawDebug] Nessun clan RAW trovato per ${member.user.username}.`);
           }
         } catch (e) {
           global.logger?.error?.(`[RawDebug] Errore raw ${member.user.username}: ${e.message}`);
@@ -174,7 +157,7 @@ async function syncAllMembersClanTags(client) {
       }
 
       const match = await hasMatchingTag(member, client);
-      
+
       if (match) {
         // Se ha la tag e NON ha ancora il ruolo -> DAGLIELO
         if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
