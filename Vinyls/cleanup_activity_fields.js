@@ -15,7 +15,7 @@ async function run() {
       const dbName = dbInfo.name;
       if (["admin", "local", "config"].includes(dbName)) continue;
 
-      const db = mongoose.connection.useDb(dbName);
+      const db = mongoose.connection.client.db(dbName);
       const allCols = await db.listCollections().toArray();
       const targets = allCols.map(c => c.name).filter(n => n.toLowerCase().includes("userprofile"));
       
