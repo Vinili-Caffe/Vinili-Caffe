@@ -26,6 +26,8 @@
     }
   },
   "discadia": {
+    "webhookPort": 3000,
+    "webhookSecret": "",
     "cooldownMinutes": 1440,
     "bumpSuccessPatterns": [
       "has been successfully bumped",

@@ -18,21 +18,14 @@ async function handleTicketInteraction(interaction) {
   const { isTicketButton, isTicketSelect, isTicketModal } = runtimeIsHandledTicketInteraction(interaction);
   if (!isTicketButton && !isTicketModal && !isTicketSelect) return false;
   if (sponsorGuild) {
-    if (
-      isTicketSelect &&
-      interaction.customId === "ticket_open_menu" &&
-      interaction.values?.[0] === "ticket_supporto"
-    ) {
-      return await runtimeHandleSponsorTicketOpen(interaction);
+    if (isTicketSelect && interaction.customId === "ticket_open_menu") {
+      await safeReply(interaction, {
+        content: "<a:VC_Alert:1482706673176150077> I ticket manuali per gli sponsor sono stati rimossi.\nIl ruolo **Guilded** viene ora assegnato **automaticamente** impostando la **Clan Tag** ufficiale del server nel tuo profilo Discord! 🏷️✨",
+        flags: 1 << 6
+      }).catch(() => { });
+      return true;
     }
-    if (
-      isTicketSelect ||
-      ticketActionId === "ticket_partnership" ||
-      ticketActionId === "ticket_highstaff" ||
-      ticketActionId === "ticket_supporto"
-    ) {
-      return false;
-    }
+    return false;
   }
   const LOG_CHANNEL = IDs.channels.ticketLogs;
   const ROLE_STAFF = IDs.roles.Staff;

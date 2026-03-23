@@ -262,16 +262,9 @@ async function processOneSponsorTicketPanel(client, guildId, config) {
 }
 
 async function runSponsorTicketPanels(client) {
-  const ticketConfig = IDs.sponsorTicketConfig || {};
-  const entries = Object.entries(ticketConfig);
-  for (let i = 0; i < entries.length; i += SPONSOR_BATCH_SIZE) {
-    const batch = entries.slice(i, i + SPONSOR_BATCH_SIZE);
-    await Promise.all(
-      batch.map(([guildId, config]) =>
-        processOneSponsorTicketPanel(client, guildId, config).catch((err) => global.logger.error("[SPONSOR TICKET] Error guild " + guildId, err)),
-      ),
-    );
-  }
+  // Funzione disabilitata: i ticket manuali per gli sponsor sono stati rimossi 
+  // in favore del sistema di riconoscimento automatico delle Clan Tag.
+  return;
 }
 
 module.exports = {

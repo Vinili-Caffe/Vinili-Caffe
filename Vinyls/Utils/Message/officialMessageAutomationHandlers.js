@@ -206,6 +206,96 @@ function getVoteManagerBotIds(client) {
   );
 }
 
+async function processDiscadiaVote(guild, user, client) {
+  if (!guild || !user || !client) return false;
+
+  const VOTE_CHANNEL_ID = IDs.channels.supporters;
+  const VOTE_ROLE_ID = IDs.roles.Voter;
+  const VOTE_URL = IDs.links.vote;
+  const VOTE_ROLE_DURATION_MS = 24 * 60 * 60 * 1000;
+
+  let expValue = 0;
+  let resolvedVoteCount = null;
+  const voteRewardExtras = [];
+
+  try {
+    const result = await recordDiscadiaVote(client, guild.id, user.id);
+    if (result && typeof result.voteCount === "number") resolvedVoteCount = result.voteCount;
+    const baseExpRandom = resolvedVoteCount === 1 ? 250 : getRandomExp();
+    const voteCooldownMs = getVoteCooldownMs(client);
+    const reward = await awardBumpVoteExp(client, guild, user.id, "discadia_vote", result?.previousLastVoteAt ?? null, voteCooldownMs, baseExpRandom);
+    if (reward?.effectiveExp != null) {
+      expValue = reward.effectiveExp;
+    }
+    if (reward?.fastBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Risposta rapida **+" + reward.fastBonus + " exp**");
+    if (reward?.streakBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " **+" + reward.streakBonus + " exp**");
+  } catch (err) {
+    global.logger?.warn?.("[processDiscadiaVote] ", err?.message || err);
+  }
+
+  try {
+    const expiresAt = new Date(Date.now() + VOTE_ROLE_DURATION_MS);
+    await upsertVoteRole(guild.id, user.id, expiresAt);
+    const member = await getCachedOrFetchMember(guild, user.id);
+    if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
+      await member.roles.add(VOTE_ROLE_ID).catch(() => { });
+    }
+    grantEventLevels(
+      guild.id,
+      user.id,
+      1,
+      "Evento: voto Discadia",
+      member || undefined,
+      client,
+    ).catch(() => { });
+  } catch (err) {
+    global.logger?.warn?.("[processDiscadiaVote] ", err?.message || err);
+  }
+
+  const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
+  const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
+  const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
+    : "<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per 24 ore";
+  const descriptionLines = [
+    `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su [Discadia](<${VOTE_URL || "https://discadia.com/"}>) il server!`,
+    "",
+    "`Hai guadagnato:`",
+    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto**` : "**voto**"}`,
+    ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
+    voteRoleText,
+    "",
+    "<:VC_update:1478721333096349817> Vota di nuovo tra __24 ore__ per ottenere **altri exp** dal **bottone sottostante**.",
+  ];
+
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("<a:VC_Vote:1482535223001485473> **Un nuovo voto!**")
+    .setDescription(descriptionLines.join("\n"))
+    .setFooter({ text: "Ogni volta che voterai il valore dell'exp guadagnata varierà: a volte sarà più alto, altre volte più basso, mentre altre ancora uguale al precedente", }).setImage(dividerUrl);
+
+  const components = [];
+  if (VOTE_URL) {
+    components.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setEmoji("<a:VC_HeartPink:1448673486603292685>")
+          .setLabel("Vota cliccando qui")
+          .setURL(VOTE_URL),
+      ),
+    );
+  }
+
+  const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || await getGuildChannelCached(guild, VOTE_CHANNEL_ID).catch(() => null);
+  if (channel?.isTextBased?.()) {
+    await channel.send({ content: `${user}`, embeds: [embed], components }).catch((error) => {
+      const detail = error?.message || error?.code || error;
+      global.logger?.error?.("[VOTE EMBED] Failed to send embed:", detail);
+    });
+  }
+  return true;
+}
+
 async function handleVoteManagerMessage(message, client) {
   if (!message.guild) return false;
   if (message.channel?.id !== VOTE_CHANNEL_ID) return false;
@@ -230,83 +320,10 @@ async function handleVoteManagerMessage(message, client) {
 
   let user = await resolveUserFromMessage(message);
   if (user?.bot) user = null;
-  const nameRaw = extractNameFromText(content) || extractNameFromText(embedText) || extractNameFromText(embedTitle) || extractNameFromText(fieldsText);
-  const nameClean = sanitizeName(nameRaw) || "Utente";
+  if (!user) return false;
 
-  let expValue = 0;
-  let resolvedVoteCount = null;
-  const voteRewardExtras = [];
-  if (user?.id && message.guild?.id) {
-    try {
-      const result = await recordDiscadiaVote(message.client, message.guild.id, user.id);
-      if (result && typeof result.voteCount === "number") resolvedVoteCount = result.voteCount;
-      const baseExpRandom = resolvedVoteCount === 1 ? 250 : getRandomExp();
-      const voteCooldownMs = getVoteCooldownMs(message.client);
-      const reward = await awardBumpVoteExp(message.client, message.guild, user.id, "discadia_vote", result?.previousLastVoteAt ?? null, voteCooldownMs, baseExpRandom);
-      if (reward?.effectiveExp != null) {
-        expValue = reward.effectiveExp;
-      }
-      if (reward?.fastBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Risposta rapida **+" + reward.fastBonus + " exp**");
-      if (reward?.streakBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " **+" + reward.streakBonus + " exp**");
-    } catch (err) {
-      global.logger?.warn?.("[officialMessageAutomation] ", err?.message || err);
-    }
-    try {
-      const expiresAt = new Date(Date.now() + VOTE_ROLE_DURATION_MS);
-      await upsertVoteRole(message.guild.id, user.id, expiresAt);
-      const member = await getCachedOrFetchMember(message.guild, user.id);
-      if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
-        await member.roles.add(VOTE_ROLE_ID).catch(() => { });
-      }
-      grantEventLevels(
-        message.guild.id,
-        user.id,
-        1,
-        "Evento: voto Discadia",
-        member || undefined,
-        message.client,
-      ).catch(() => { });
-    } catch (err) {
-      global.logger?.warn?.("[officialMessageAutomation] ", err?.message || err);
-    }
-  }
-
-  const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
-  const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
-  const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
-    : "<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per 24 ore";
-  const descriptionLines = [
-    `<a:VC_ThankYou:1330186319673950401> Grazie ${user ? `${user}` : nameClean} per aver votato su [Discadia](<https://discadia.com/server/viniliecaffe/>) il server!`,
-    "",
-    "`Hai guadagnato:`",
-    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto**` : "**voto**"}`,
-    ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
-    voteRoleText,
-    "",
-    "<:VC_update:1478721333096349817> Vota di nuovo tra __24 ore__ per ottenere **altri exp** dal **bottone sottostante**.",
-  ];
-  const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<a:VC_Vote:1482535223001485473> **Un nuovo voto!**")
-    .setDescription(descriptionLines.join("\n"))
-    .setFooter({ text: "Ogni volta che voterai il valore dell'exp guadagnata varierà: a volte sarà più alto, altre volte più basso, mentre altre ancora uguale al precedente", }).setImage(dividerUrl);
-
-  const components = [];
-  if (VOTE_URL) {
-    components.push(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Link)
-          .setEmoji("<a:VC_HeartPink:1448673486603292685>")
-          .setLabel("Vota cliccando qui")
-          .setURL(VOTE_URL),
-      ),
-    );
-  }
-
-  const mention = user ? `${user}` : "";
-  const sent = await message.channel.send({ content: mention, embeds: [embed], components, }).catch((error) => { const detail = error?.message || error?.code || error; global.logger?.error?.("[VOTE EMBED] Failed to send embed:", detail); return null; });
-  if (sent) {
+  const handled = await processDiscadiaVote(message.guild, user, client);
+  if (handled) {
     await message.delete().catch(() => { });
   }
   return true;
@@ -673,4 +690,4 @@ async function processAllRecentAutomationMessages(client) {
   await processRecentPauseChannelMessages(client);
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages };
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
