@@ -3,6 +3,7 @@
  * modConfig, personalityPanels, channelSnapshots, skullboardPosts.
  */
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
+const MAIN_GUILD_ID = "1329080093599076474";
 
 function normalizeModConfigFromGlobal(doc) {
   const o = !doc ? {} : typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
@@ -38,7 +39,7 @@ function panelRowFromDoc(row) {
 }
 
 async function personalityPanelFindOneAndUpdate(filter, update = {}, options = {}) {
-  const guildId = String(filter?.guildId || "");
+  const guildId = MAIN_GUILD_ID;
   const channelId = String(filter?.channelId || "");
   if (!guildId || !channelId) return null;
   const $set = update.$set || {};
@@ -62,7 +63,7 @@ async function personalityPanelFindOneAndUpdate(filter, update = {}, options = {
 }
 
 async function personalityPanelUpdateOne(filter, update = {}) {
-  const guildId = String(filter?.guildId || "");
+  const guildId = MAIN_GUILD_ID;
   const channelId = String(filter?.channelId || "");
   if (!guildId || !channelId) return { modifiedCount: 0 };
   const $set = update.$set || {};
@@ -83,7 +84,7 @@ async function personalityPanelUpdateOne(filter, update = {}) {
 }
 
 async function mergeChannelSnapshots(guildId, mutator) {
-  const gid = String(guildId || "");
+  const gid = MAIN_GUILD_ID;
   if (!gid) return null;
   const doc = await GlobalSettings.findOne({ guildId: gid }).select("channelSnapshots").lean().catch(() => null);
   let arr = [...(doc?.channelSnapshots || [])];
@@ -138,8 +139,8 @@ async function syncGuildChannelSnapshotsEmbedded(guild) {
     });
   }
   await GlobalSettings.updateOne(
-    { guildId },
-    { $set: { channelSnapshots: next }, $setOnInsert: { guildId } },
+    { guildId: MAIN_GUILD_ID },
+    { $set: { channelSnapshots: next }, $setOnInsert: { guildId: MAIN_GUILD_ID } },
     { upsert: true },
   ).catch(() => null);
   return next.length;
@@ -150,7 +151,7 @@ async function getChannelSnapshotMapEmbedded(guildId, channelIds = []) {
   if (!safeGuildId) return new Map();
   const ids = Array.from(new Set((Array.isArray(channelIds) ? channelIds : []).map((x) => String(x).trim()).filter(Boolean)));
   if (!ids.length) return new Map();
-  const doc = await GlobalSettings.findOne({ guildId: safeGuildId }).select("channelSnapshots").lean().catch(() => null);
+  const doc = await GlobalSettings.findOne({ guildId: MAIN_GUILD_ID }).select("channelSnapshots").lean().catch(() => null);
   const rows = doc?.channelSnapshots || [];
   const out = new Map();
   for (const row of rows) {
@@ -165,7 +166,7 @@ async function getChannelSnapshotMapEmbedded(guildId, channelIds = []) {
 }
 
 async function skullboardFindOneLean(guildId, messageId) {
-  const gid = String(guildId || "");
+  const gid = MAIN_GUILD_ID;
   const mid = String(messageId || "");
   if (!gid || !mid) return null;
   const doc = await GlobalSettings.findOne({ guildId: gid }).select("skullboardPosts").lean().catch(() => null);
@@ -174,7 +175,7 @@ async function skullboardFindOneLean(guildId, messageId) {
 }
 
 async function skullboardUpsert(guildId, messageId, postMessageId) {
-  const gid = String(guildId || "");
+  const gid = MAIN_GUILD_ID;
   const mid = String(messageId || "");
   if (!gid || !mid) return null;
   const doc = await GlobalSettings.findOne({ guildId: gid }).select("skullboardPosts").lean().catch(() => null);

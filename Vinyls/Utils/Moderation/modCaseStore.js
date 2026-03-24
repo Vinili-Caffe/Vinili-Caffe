@@ -1,5 +1,4 @@
-const { ModCase } = require("../../Schemas/Moderation/moderationSchemas");
-const { GlobalSettings, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ModCase, GlobalSettings, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { MOD_CASES_PATH } = require("../Community/activityUserProfilePaths");
 const { normalizeModConfigFromGlobal } = require("../Global/globalSettingsGuildStores");
 const IDs = require("../Config/ids");
@@ -188,8 +187,8 @@ async function createModCaseStore({
 }) {
   if (modId != null && BOT_MODERATOR_IDS.has(String(modId))) {
     const cfgDoc = await GlobalSettings.findOneAndUpdate(
-      { guildId },
-      { $setOnInsert: { guildId } },
+      { guildId: IDs.guilds.main },
+      { $setOnInsert: { guildId: IDs.guilds.main } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).catch(() => null);
     const cfg = normalizeModConfigFromGlobal(cfgDoc);
@@ -228,8 +227,8 @@ async function createModCaseStore({
           .catch(() => null);
         if (existingByMessage) {
           const cfgDocExisting = await GlobalSettings.findOneAndUpdate(
-            { guildId },
-            { $setOnInsert: { guildId } },
+            { guildId: IDs.guilds.main },
+            { $setOnInsert: { guildId: IDs.guilds.main } },
             { upsert: true, new: true, setDefaultsOnInsert: true },
           ).catch(() => null);
           const cfgExisting = normalizeModConfigFromGlobal(cfgDocExisting);
@@ -256,8 +255,8 @@ async function createModCaseStore({
         });
         if (dupMsg) {
           const cfgDocExisting = await GlobalSettings.findOneAndUpdate(
-            { guildId },
-            { $setOnInsert: { guildId } },
+            { guildId: IDs.guilds.main },
+            { $setOnInsert: { guildId: IDs.guilds.main } },
             { upsert: true, new: true, setDefaultsOnInsert: true },
           ).catch(() => null);
           const cfgExisting = normalizeModConfigFromGlobal(cfgDocExisting);
@@ -334,8 +333,8 @@ async function createModCaseStore({
   }
 
   const cfgDoc = await GlobalSettings.findOneAndUpdate(
-    { guildId },
-    { $inc: { "modConfig.caseCounter": 1 }, $setOnInsert: { guildId } },
+    { guildId: IDs.guilds.main },
+    { $inc: { "modConfig.caseCounter": 1 }, $setOnInsert: { guildId: IDs.guilds.main } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   const cfg = normalizeModConfigFromGlobal(cfgDoc);

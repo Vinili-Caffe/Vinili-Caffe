@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema, model, models } = mongoose;
 const IDs = require("../../Utils/Config/ids");
-const { modCaseEntrySchema } = require("../Moderation/modCaseEmbeddedSchemas");
 
 /**
  * Guild principale: un solo documento `activityuserprofiles` per (guildId, userId).
@@ -118,6 +117,41 @@ const skullboardPostEntrySchema = new Schema(
   },
   { _id: false },
 );
+
+// --- MODERATION EMBEDDED SCHEMAS ---
+const modCaseEditEntrySchema = new Schema(
+  {
+    field: { type: String, required: true },
+    previous: { type: String, default: "" },
+    next: { type: String, default: "" },
+    editedBy: { type: String, default: null },
+    editedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const modCaseEntrySchema = new Schema(
+  {
+    caseId: { type: Number, required: true },
+    action: { type: String, required: true },
+    userId: { type: String, required: true },
+    modId: { type: String, required: true },
+    reason: { type: String, default: "Nessun motivo fornito" },
+    durationMs: { type: Number, default: null },
+    expiresAt: { type: Date, default: null },
+    active: { type: Boolean, default: true },
+    context: {
+      channelId: { type: String, default: null },
+      messageId: { type: String, default: null },
+    },
+    edits: { type: [modCaseEditEntrySchema], default: [] },
+    closedAt: { type: Date, default: null },
+    closeReason: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
 const globalSettingsSchema = new Schema(
   {
     guildId: { type: String, required: true, unique: true, index: true },
@@ -136,6 +170,7 @@ const globalSettingsSchema = new Schema(
     personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
     skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
+    disboardReviewLog: { type: [Schema.Types.Mixed], default: [] }, // LOG GLOBALE RECENSIONI (IDs e Dettagli)
   },
   { timestamps: true },
 );
@@ -223,6 +258,7 @@ const activityUserProfileSchema = new Schema(
       lastVoteAt: { type: Date, default: null },
       lastRemindedAt: { type: Date, default: null },
       voteCount: { type: Number, default: 0 },
+      pendingVotes: { type: [Schema.Types.Mixed], default: [] }, // CODA VOTI PENDENTI
     },
     bumpState: {
       disboard: {
@@ -273,7 +309,10 @@ const activityUserProfileSchema = new Schema(
     reviewReward: {
       rewardedBy: { type: String, default: null },
       rewardedAt: { type: Date, default: null },
+      reviewId: { type: String, default: null }, // ID dell'ultima recensione
+      reviewBody: { type: String, default: null },
     },
+    reviewRewards: { type: [Schema.Types.Mixed], default: [] }, // LO STORICO REALE
     profile: {
       afk: {
         message: { type: String, default: null },
@@ -365,6 +404,35 @@ eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 /** Vincitori settimana evento 2 o 3: permesso ad personam permanente (equivalente Level50/Level70) senza ruolo. Nessuna scadenza: i vincitori mantengono per sempre l’accesso a +customrole, +customvoc, ecc. */
 const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
 eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
+
+
+// --- MODERATION MAIN MOD-CASE SCHEMA ---
+const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
+const modCaseSchema = new Schema(
+  {
+    guildId: { type: String, required: true },
+    caseId: { type: Number, required: true, index: true },
+    action: { type: String, required: true },
+    userId: { type: String, required: true, index: true },
+    modId: { type: String, required: true },
+    reason: { type: String, default: "Nessun motivo fornito" },
+    durationMs: { type: Number, default: null },
+    expiresAt: { type: Date, default: null },
+    active: { type: Boolean, default: true },
+    context: {
+      channelId: { type: String, default: null },
+      messageId: { type: String, default: null },
+    },
+    edits: { type: [modCaseEditEntrySchema], default: [] },
+    closedAt: { type: Date, default: null },
+    closeReason: { type: String, default: null },
+  },
+  { timestamps: true, autoCreate: false },
+);
+modCaseSchema.index({ guildId: 1, caseId: 1 }, { unique: true });
+modCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+modCaseSchema.index({ guildId: 1, modId: 1, createdAt: -1 });
+modCaseSchema.index({ guildId: 1, action: 1, active: 1, expiresAt: 1 });
 
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
 const LegacyVerificationTenure = null;
@@ -740,7 +808,10 @@ const QuotePrivacy = buildProfileSubdocModel({
   }),
   clearSet: { "profile.privacy.quote.blocked": false },
 });
+
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
+const ModCase = models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION);
+
 module.exports = {
   ACTIVITY_MAIN_GUILD_ID,
   LEVEL_HISTORY_MAX_ENTRIES,
@@ -750,6 +821,9 @@ module.exports = {
   InviteTrack,
   InviteReminderState,
   ActivityUserProfile,
+  ModCase,
+  modCaseEntrySchema,
+  modCaseEditEntrySchema,
   CustomRole,
   AvatarPrivacy,
   BannerPrivacy,

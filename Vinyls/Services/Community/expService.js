@@ -182,10 +182,11 @@ async function getGuildExpSettings(guildId) {
   if (cached && now - cached.at < MULTIPLIER_CACHE_TTL_MS) {
     return cached.value;
   }
+  const targetGuildId = IDs.guilds.main;
   let doc = null;
   try {
     doc = await GlobalSettings.findOneAndUpdate(
-      { guildId },
+      { guildId: targetGuildId },
       {
         $setOnInsert: {
           expMultiplier: DEFAULT_MULTIPLIER,
@@ -207,7 +208,7 @@ async function getGuildExpSettings(guildId) {
   ) {
     try {
       doc = await GlobalSettings.findOneAndUpdate(
-        { guildId },
+        { guildId: targetGuildId },
         {
           $set: {
             expEventMultiplier: 1,
@@ -241,7 +242,7 @@ async function setActivityEvent(guildId, options = {}) {
   const extraRoleIds = Array.isArray(options.extraMultiplierRoleIds) ? options.extraMultiplierRoleIds.filter(Boolean) : [];
   const startedAt = options.startedAt ? new Date(options.startedAt) : new Date();
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     {
       $set: {
         expEventMultiplier: eventMultiplier,
@@ -297,7 +298,7 @@ async function snapshotExpForEvent(guildId) {
 async function clearActivityEvent(guildId) {
   if (!guildId) return;
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     {
       $set: {
         expEventMultiplier: 1,
@@ -315,7 +316,7 @@ async function clearActivityEvent(guildId) {
 async function clearStaffEvent(guildId) {
   if (!guildId) return;
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     { $set: { staffEventExpiresAt: null, staffEventStartedAt: null } },
     { upsert: true, new: true },
   ).catch(() => null);
@@ -328,7 +329,7 @@ async function setStaffEvent(guildId, options = {}) {
   const startedAt = options.startedAt ? new Date(options.startedAt) : new Date();
   if (!Number.isFinite(end)) return null;
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     {
       $set: {
         staffEventExpiresAt: new Date(end),
@@ -857,7 +858,7 @@ async function setTemporaryEventMultiplier(guildId, multiplier, durationMs) {
   const safeDurationMs = Math.max(60 * 1000, Number(durationMs || 60 * 1000));
   const expiresAt = new Date(Date.now() + safeDurationMs);
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     {
       $set: {
         expEventMultiplier: value,
@@ -878,7 +879,7 @@ async function setLevelChannelLocked(guildId, channelId, locked = true) {
   else set.delete(channelId);
   const next = Array.from(set);
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     { $set: { expLockedChannelIds: next } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
@@ -894,7 +895,7 @@ async function setRoleIgnored(guildId, roleId, ignored = true) {
   else set.delete(roleId);
   const next = Array.from(set);
   await GlobalSettings.findOneAndUpdate(
-    { guildId },
+    { guildId: IDs.guilds.main },
     { $set: { expIgnoredRoleIds: next } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);

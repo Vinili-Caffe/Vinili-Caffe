@@ -1,4 +1,4 @@
-const DiscadiaVote = require("../../Schemas/Vote/discadiaVoteSchema");
+const { DiscadiaVote } = require("../../Schemas/Community/communitySchemas");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
 const IDs = require("../../Utils/Config/ids");
 
