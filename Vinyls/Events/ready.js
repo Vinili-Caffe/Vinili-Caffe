@@ -29,7 +29,6 @@ const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runCleanupUsersNotInServer, runCleanupUserScopedNotInAnyServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
-const { startReviewLoop } = require("../Services/Web/disboardReviewService");
 
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
@@ -532,7 +531,6 @@ function startPrimaryLoops(client, engagementTick) {
       client._giveawayScheduledEndInterval = timer;
     }],
     ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
-    ["[DISBOARD REVIEWS] Failed to start loop", () => startReviewLoop(client)],
   ];
 
 

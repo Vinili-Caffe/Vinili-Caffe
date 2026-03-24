@@ -5,7 +5,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { getLevelInfo, addExpWithLevel, } = require("../../Services/Community/expService");
 const{getGuildChannelCached,getUserCached,}=require("../../Utils/Interaction/interactionEntityCache");
 
-const REVIEW_CHANNEL_ID = IDs.channels.supporters;
+const FALLBACK_REVIEW_CHANNEL_ID = IDs.channels.supporters;
 const LEVELS_TO_ADD = 5;
 
 function roundToNearest50(value) {
@@ -119,17 +119,57 @@ module.exports = {
       { upsert: true },
     ).catch(() => {});
 
-    const reviewChannel=message.guild.channels.cache.get(REVIEW_CHANNEL_ID)||(await getGuildChannelCached(message.guild,REVIEW_CHANNEL_ID));
+    const dr = message.client.config?.disboardReviews || {};
+    const announceId = dr.channelId || FALLBACK_REVIEW_CHANNEL_ID;
+    const reviewPageUrl = String(
+      dr.reviewUrl || "https://disboard.org/it/server/reviews/1329080093599076474",
+    );
+    const reviewChannel =
+      message.guild.channels.cache.get(announceId) ||
+      (await getGuildChannelCached(message.guild, announceId));
     if (reviewChannel) {
+      const member =
+        message.guild.members.cache.get(target.id) ||
+        (await message.guild.members.fetch(target.id).catch(() => null));
+      const authorName = member?.displayName || target.globalName || target.username;
+      const avatarUrl =
+        target.displayAvatarURL({ size: 256 }) || "https://disboard.org/images/no-icon.png";
+      const ts = Math.floor(Date.now() / 1000);
       const reviewEmbed = new EmbedBuilder()
         .setColor("#6f4e37")
-        .setAuthor({ name: message.guild.name, iconURL: message.guild.iconURL({ size: 128 }) || undefined })
-        .setTitle("Grazie per la recensione su Disboard! <a:VC_StarPink:1330194976440848500>",)
-        .setDescription([`<a:VC_ThankYou:1330186319673950401> Grazie ${target} per aver lasciato una recensione su **Disboard**.`,
-            "",
-            "<:VC_LevelUp2:1482527047871107143> Ricompensa assegnata: **+5 livelli**",
-          ].join("\n"))
-        .setThumbnail(target.displayAvatarURL({ size: 256 }));
+        .setAuthor({
+          name: `Nuova recensione da ${authorName}`,
+          iconURL: avatarUrl,
+          url: reviewPageUrl,
+        })
+        .setTitle("Valutazione DISBOARD")
+        .setURL(reviewPageUrl)
+        .setThumbnail(avatarUrl)
+        .setDescription(
+          `**Valutazione:** ${"⭐".repeat(5)}\n\n> Recensione registrata dallo staff dopo verifica su DISBOARD.`,
+        )
+        .addFields(
+          {
+            name: "<:VC_Dot:1482532364222595303> Info",
+            value: `<:VC_bump:1482531857521311885> Registrata: **<t:${ts}:F>**`,
+            inline: true,
+          },
+          {
+            name: "<:VC_Dot:1482532364222595303> Link",
+            value: `[Vai alla recensione](<${reviewPageUrl}>)`,
+            inline: true,
+          },
+          {
+            name: "<:VC_LevelUp2:1482527047871107143> Ricompensa Automatica",
+            value: `<a:VC_StarPink:1330194976440848500> Grazie **<@${target.id}>**, ti sono stati assegnati **+5 livelli** per il tuo supporto!`,
+            inline: false,
+          },
+        )
+        .setFooter({
+          text: ".gg/viniliecaffe ⭑.ᐟ 💞 Grazie mille!",
+          iconURL: message.client.user.displayAvatarURL(),
+        })
+        .setTimestamp();
 
       await reviewChannel
         .send({ content: `${target}`, embeds: [reviewEmbed] })

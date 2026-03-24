@@ -80,17 +80,25 @@ module.exports = {
       const globalNameChanged = oldUser?.globalName !== newUser?.globalName;
 
       if (!newUser?.bot) {
-        const clanTagChanged = oldUser?.clan?.tag !== newUser?.clan?.tag;
-        if (!usernameChanged && !globalNameChanged && !clanTagChanged) return;
+        const oldClan = oldUser?.clan;
+        const newClan = newUser?.clan;
+        const oldClanGuild = String(oldClan?.identity_guild_id || oldClan?.identityGuildId || "");
+        const newClanGuild = String(newClan?.identity_guild_id || newClan?.identityGuildId || "");
+        const clanTagChanged = oldClan?.tag !== newClan?.tag;
+        const clanGuildChanged = oldClanGuild !== newClanGuild;
+        const clanPresenceChanged = Boolean(oldClan) !== Boolean(newClan);
+        const clanChanged = clanTagChanged || clanGuildChanged || clanPresenceChanged;
+        if (!usernameChanged && !globalNameChanged && !clanChanged) return;
 
-        // Clan Tag Auto-Role
-        if (clanTagChanged) {
+        if (clanChanged) {
           const mainGuildId = IDs.guilds.main;
           const mainGuild = resolvedClient.guilds.cache.get(mainGuildId);
           if (mainGuild) {
-            const member = mainGuild.members.cache.get(newUser.id) || (await getGuildMemberCached(mainGuild, newUser.id));
+            const member =
+              mainGuild.members.cache.get(newUser.id) ||
+              (await getGuildMemberCached(mainGuild, newUser.id, { preferFresh: true }));
             if (member) {
-              await syncClanTagRoles(member);
+              await syncClanTagRoles(member, { userForClan: newUser });
             }
           }
         }

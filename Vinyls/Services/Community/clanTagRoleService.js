@@ -21,13 +21,14 @@ function normalizeForMatch(text) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-async function hasMatchingTag(member, client) {
-  if (!member?.user) return null;
+async function hasMatchingTag(member, client, userForClan = null) {
+  const user = userForClan || member?.user;
+  if (!user) return null;
 
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
-  let clan = member.user.clan;
+  let clan = user.clan;
   if (!clan && client) {
     try {
       const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
@@ -54,11 +55,12 @@ async function hasMatchingTag(member, client) {
   return null;
 }
 
-async function syncClanTagRoles(member) {
+async function syncClanTagRoles(member, options = {}) {
   if (!member || member.user?.bot) return;
   if (member.guild.id !== MAIN_GUILD_ID) return;
 
-  const match = await hasMatchingTag(member, member.client);
+  const userForClan = options.userForClan || null;
+  const match = await hasMatchingTag(member, member.client, userForClan);
 
   if (match) {
     if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
@@ -69,7 +71,13 @@ async function syncClanTagRoles(member) {
     }
   } else {
     if (GLOBAL_GUILDED_ROLE_ID && member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
-      await member.roles.remove(GLOBAL_GUILDED_ROLE_ID).catch(() => { });
+      await member.roles.remove(GLOBAL_GUILDED_ROLE_ID).catch((err) => {
+        global.logger?.warn?.(
+          "[ClanTagService] Rimozione ruolo Guilded fallita",
+          member.id,
+          String(err?.message || err || "").slice(0, 120),
+        );
+      });
     }
   }
 }
@@ -129,7 +137,7 @@ async function syncAllMembersClanTags(client) {
     for (const member of members.values()) {
       if (member.user.bot) continue;
 
-      const match = await hasMatchingTag(member, client);
+      const match = await hasMatchingTag(member, client, null);
 
       if (match) {
         if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {

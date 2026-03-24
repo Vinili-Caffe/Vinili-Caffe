@@ -26,10 +26,8 @@
     }
   },
   "disboardReviews": {
-    "enabled": false,
     "channelId": "1442569123426074736",
-    "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474",
-    "checkIntervalMinutes": 15
+    "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474"
   },
   "discadia": {
     "webhookPort": 3000,

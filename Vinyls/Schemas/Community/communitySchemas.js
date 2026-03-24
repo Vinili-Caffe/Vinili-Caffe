@@ -170,7 +170,6 @@ const globalSettingsSchema = new Schema(
     personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },
     skullboardPosts: { type: [skullboardPostEntrySchema], default: [] },
-    disboardReviewLog: { type: [Schema.Types.Mixed], default: [] }, // LOG GLOBALE RECENSIONI (IDs e Dettagli)
   },
   { timestamps: true },
 );
@@ -309,10 +308,7 @@ const activityUserProfileSchema = new Schema(
     reviewReward: {
       rewardedBy: { type: String, default: null },
       rewardedAt: { type: Date, default: null },
-      reviewId: { type: String, default: null }, // ID dell'ultima recensione
-      reviewBody: { type: String, default: null },
     },
-    reviewRewards: { type: [Schema.Types.Mixed], default: [] }, // LO STORICO REALE
     profile: {
       afk: {
         message: { type: String, default: null },
