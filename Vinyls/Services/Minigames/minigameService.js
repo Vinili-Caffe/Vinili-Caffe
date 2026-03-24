@@ -454,7 +454,7 @@ function isFailsafeDue(cfg) {
   const channelId = cfg?.channelId;
   if (!channelId) return false;
   const lastSent = lastSentAtByChannel.get(channelId) || 0;
-  if (!lastSent) return false;
+  if (!lastSent) return true;
   if (Date.now() - lastSent < getFailsafeMs(cfg)) return false;
   const minActivityForFailsafe = Math.min(1, getMinMessages(cfg));
   if (getRecentCount(channelId, getActivityWindowMs(cfg)) < minActivityForFailsafe) return false;
@@ -3859,6 +3859,9 @@ async function loadRotationState(client, cfg, guildIdOverride = null) {
   if (!guildId) return;
   const dateKey = getRomeDateKey(new Date());
   const doc = await minigameRotationFindOneLean({ guildId, channelId }).catch(() => null);
+  if (doc?.lastSentAt) {
+    lastSentAtByChannel.set(channelId, doc.lastSentAt);
+  }
   if (doc && Array.isArray(doc.queue) && doc.dateKey === dateKey) {
     rotationDate = doc.dateKey;
     rotationQueue = shuffleArray(doc.queue.slice());
@@ -3881,7 +3884,7 @@ async function saveRotationState(client, cfg, guildIdOverride = null) {
   const dateKey = rotationDate || getRomeDateKey(new Date());
   await minigameRotationFindOneAndUpdate(
     { guildId, channelId },
-    { $set: { dateKey, queue: rotationQueue } },
+    { $set: { dateKey, queue: rotationQueue, lastSentAt: lastSentAtByChannel.get(channelId) || 0 } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => { });
 }
@@ -5906,6 +5909,7 @@ async function maybeStartRandomGame(client, force = false) {
           atMap.set(gameType, Date.now());
         }
         pendingGames.delete(cfg.channelId);
+        await saveRotationState(client, cfg);
         return;
       }
       if (result && result.skipToNext) {
