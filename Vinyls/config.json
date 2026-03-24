@@ -30,7 +30,7 @@
     "channelId": "1442569123426074736",
     "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474",
     "fetchEndpoint": "http://127.0.0.1:8787/disboard/reviews",
-    "fetchEndpointSecret": "METTI_LA_STESSA_CHIAVE_DI_DISBOARD_PROXY_API_KEY",
+    "fetchEndpointSecret": "cfe195c3e2688d3452668a53fcefd3f5bf28f77793d46b2ea357876cfdee091c",
     "cloudflareCookie": "",
     "checkIntervalMinutes": 15
   },
