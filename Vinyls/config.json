@@ -26,12 +26,9 @@
     }
   },
   "disboardReviews": {
-    "enabled": true,
+    "enabled": false,
     "channelId": "1442569123426074736",
     "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474",
-    "fetchEndpoint": "https://inns-book-hindu-extension.trycloudflare.com/disboard/reviews",
-    "fetchEndpointSecret": "cfe195c3e2688d3452668a53fcefd3f5bf28f77793d46b2ea357876cfdee091c",
-    "cloudflareCookie": "",
     "checkIntervalMinutes": 15
   },
   "discadia": {

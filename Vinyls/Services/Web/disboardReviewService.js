@@ -1,333 +1,196 @@
-
 const { EmbedBuilder } = require('discord.js');
 const { ActivityUserProfile, GlobalSettings } = require('../../Schemas/Community/communitySchemas');
 const { getLevelInfo, addExpWithLevel } = require('../../Services/Community/expService');
 
 let isChecking = false;
 let firstRun = true;
-let lastCloudflareWarnAt = 0;
-let reviewLoopSuspended = false;
 
-function extractErrorText(err) {
-    if (!err) return "";
-    const responseBody = err?.response?.body;
-    if (typeof responseBody === "string" && responseBody) return responseBody;
-    if (typeof err?.error === "string" && err.error) return err.error;
-    if (typeof err?.message === "string" && err.message) return err.message;
-    return String(err);
+async function fetchReviewPageHtml(reviewUrl) {
+  const res = await fetch(reviewUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8',
+      Referer: 'https://disboard.org/',
+    },
+  });
+  const text = await res.text().catch(() => '');
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`);
+    e.statusCode = res.status;
+    e.error = text;
+    throw e;
+  }
+  return text;
 }
 
-function looksLikeCloudflareBlock(status, text) {
-    if (status === 403 || status === 429 || status === 503) return true;
-    const body = String(text || "");
-    return /just a moment|cf_chl_opt|cloudflare|enable javascript and cookies|challenge-platform/i.test(body);
-}
-
-function getDefaultHeaders() {
-    return {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://disboard.org/'
-    };
-}
-
-function buildCookieHeader(config) {
-    const raw = String(config?.cloudflareCookie || '').trim();
-    if (!raw) return '';
-    if (raw.toLowerCase().includes('cf_clearance=')) return raw;
-    return `cf_clearance=${raw}`;
-}
-
-function hasRealCloudflareBypass(config) {
-    const hasCookie = Boolean(buildCookieHeader(config));
-    const hasEndpoint = Boolean(String(config?.fetchEndpoint || '').trim());
-    return hasCookie || hasEndpoint;
-}
-
-async function fetchViaNative(url, config) {
-    const cookie = buildCookieHeader(config);
-    const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-            ...getDefaultHeaders(),
-            ...(cookie ? { Cookie: cookie } : {})
-        }
-    });
-    const text = await res.text().catch(() => "");
-    if (!res.ok) {
-        const err = new Error(`HTTP ${res.status}`);
-        err.statusCode = res.status;
-        err.error = text;
-        throw err;
-    }
-    return text;
-}
-
-async function fetchViaMirrorEndpoint(config) {
-    const endpoint = String(config?.fetchEndpoint || '').trim();
-    if (!endpoint) return null;
-    const secret = String(config?.fetchEndpointSecret || '').trim();
-    const res = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            ...(secret ? { 'x-api-key': secret } : {})
-        }
-    });
-    const body = await res.text().catch(() => "");
-    if (!res.ok) {
-        const err = new Error(`Mirror endpoint HTTP ${res.status}`);
-        err.statusCode = res.status;
-        err.error = body;
-        throw err;
-    }
-    let parsed = null;
-    try { parsed = JSON.parse(body); } catch (e) {}
-    const html = typeof parsed?.html === 'string' ? parsed.html : '';
-    if (!html) {
-        const err = new Error('Mirror endpoint response missing html');
-        err.statusCode = 502;
-        err.error = body;
-        throw err;
-    }
-    return html;
-}
-
-async function fetchDisboardReviewsHtml(config) {
-    const errors = [];
-    const endpoint = String(config?.fetchEndpoint || '').trim();
-    if (endpoint) {
-        try {
-            const html = await fetchViaMirrorEndpoint(config);
-            if (html) return { html, source: 'mirror' };
-        } catch (e) {
-            errors.push(e);
-        }
-    }
-    try {
-        const html = await fetchViaNative(config.reviewUrl, config);
-        if (html) return { html, source: 'direct' };
-    } catch (e) { errors.push(e); }
-    try {
-        if (buildCookieHeader(config)) {
-            const html = await fetchViaNative(config.reviewUrl, config);
-            if (html) return { html, source: 'cookie' };
-        }
-    } catch (e) { errors.push(e); }
-    if (!endpoint) {
-        try {
-            const html = await fetchViaMirrorEndpoint(config);
-            if (html) return { html, source: 'mirror' };
-        } catch (e) { errors.push(e); }
-    }
-    throw errors[errors.length - 1] || new Error('Unable to fetch DISBOARD reviews');
-}
-
-/**
- * Funzione per estrarre le recensioni dall'HTML di DISBOARD.
- */
 function parseReviews(html) {
-    const reviews = [];
-    const blockRegex = /<div\s+class="review-card listing-card review-(\d+)/g;
-    let match;
+  const reviews = [];
+  const blockRegex = /<div\s+class="review-card listing-card review-(\d+)/g;
+  let match;
 
-    while ((match = blockRegex.exec(html)) !== null) {
-        const reviewId = match[1];
-        const startIdx = match.index;
-        const endIdx = html.indexOf('</div><!-- .review-card -->', startIdx);
-        if (endIdx === -1) continue;
-        const block = html.substring(startIdx, endIdx);
+  while ((match = blockRegex.exec(html)) !== null) {
+    const reviewId = match[1];
+    const startIdx = match.index;
+    const endIdx = html.indexOf('</div><!-- .review-card -->', startIdx);
+    if (endIdx === -1) continue;
+    const block = html.substring(startIdx, endIdx);
 
-        const authorNameMatch = block.match(/<span class="author-name">\s*([\s\S]*?)\s*<\/span>/);
-        const authorAvatarMatch = block.match(/<span class="author-icon avatar">[\s\S]*?<img\s*[^>]*data-src="([^"]+)"/);
-        const titleMatch = block.match(/<div class="review-title">[\s\S]*?<\/i>\s*([\s\S]*?)\s*<i/);
-        const bodyMatch = block.match(/<div class="review-body[\s\S]*?<div class="elastic-text-inner">([\s\S]*?)<\/div>/);
-        const starsMatch = block.match(/<div class="review-stars" title="(\d)\/5 ratings">/);
-        const dateMatch = block.match(/<div class="review-updated-at">\s*([\s\S]*?)\s*<\/div>/);
+    const authorNameMatch = block.match(/<span class="author-name">\s*([\s\S]*?)\s*<\/span>/);
+    const authorAvatarMatch = block.match(/<span class="author-icon avatar">[\s\S]*?<img\s*[^>]*data-src="([^"]+)"/);
+    const titleMatch = block.match(/<div class="review-title">[\s\S]*?<\/i>\s*([\s\S]*?)\s*<i/);
+    const bodyMatch = block.match(/<div class="review-body[\s\S]*?<div class="elastic-text-inner">([\s\S]*?)<\/div>/);
+    const starsMatch = block.match(/<div class="review-stars" title="(\d)\/5 ratings">/);
+    const dateMatch = block.match(/<div class="review-updated-at">\s*([\s\S]*?)\s*<\/div>/);
 
-        reviews.push({
-            reviewId,
-            authorName: authorNameMatch ? authorNameMatch[1].trim() : 'Anonimo',
-            authorAvatar: authorAvatarMatch ? authorAvatarMatch[1] : null,
-            title: titleMatch ? titleMatch[1].trim() : '',
-            body: bodyMatch ? bodyMatch[1].trim().replace(/<br\s*\/?>/gi, '\n') : '',
-            stars: starsMatch ? parseInt(starsMatch[1]) : 5,
-            postedAt: dateMatch ? dateMatch[1].trim() : ''
-        });
-    }
-    return reviews;
+    reviews.push({
+      reviewId,
+      authorName: authorNameMatch ? authorNameMatch[1].trim() : 'Anonimo',
+      authorAvatar: authorAvatarMatch ? authorAvatarMatch[1] : null,
+      title: titleMatch ? titleMatch[1].trim() : '',
+      body: bodyMatch ? bodyMatch[1].trim().replace(/<br\s*\/?>/gi, '\n') : '',
+      stars: starsMatch ? parseInt(starsMatch[1]) : 5,
+      postedAt: dateMatch ? dateMatch[1].trim() : ''
+    });
+  }
+  return reviews;
 }
 
-// ... rest of helpers unchanged ...
 function roundToNearest50(v) { return Math.round(v / 50) * 50; }
 function getLevelStep(l) {
-    const s = Math.max(1, Math.floor(Number(l || 1)));
-    let st = 90 + Math.floor(s * 12) + (s % 4) * 15;
-    if (s >= 10) { const o = s - 9; st += 120 + o * 28 + Math.floor(o * o * 1.3); }
-    if (s >= 30) { st += 120 + (s - 30) * 18; }
-    if (s >= 50) { st += 220 + (s - 50) * 25; }
-    return Math.max(110, st);
+  const s = Math.max(1, Math.floor(Number(l || 1)));
+  let st = 90 + Math.floor(s * 12) + (s % 4) * 15;
+  if (s >= 10) { const o = s - 9; st += 120 + o * 28 + Math.floor(o * o * 1.3); }
+  if (s >= 30) { st += 120 + (s - 30) * 18; }
+  if (s >= 50) { st += 220 + (s - 50) * 25; }
+  return Math.max(110, st);
 }
 function getTotalExpForLevel(l) {
-    const t = Math.max(0, Math.floor(Number(l || 0)));
-    if (t <= 0) return 0;
-    let th = 100;
-    for (let i = 1; i < t; i++) { th = roundToNearest50(th + Math.max(110, getLevelStep(i))); }
-    return th;
+  const t = Math.max(0, Math.floor(Number(l || 0)));
+  if (t <= 0) return 0;
+  let th = 100;
+  for (let i = 1; i < t; i++) { th = roundToNearest50(th + Math.max(110, getLevelStep(i))); }
+  return th;
 }
 
 async function findDiscordUser(guild, name) {
-    if (!name) return null;
-    const n = name.toLowerCase();
-    let m = guild.members.cache.find(mem => mem.user.username.toLowerCase() === n);
-    if (!m) m = guild.members.cache.find(mem => mem.displayName.toLowerCase() === n);
-    if (!m) {
-        try {
-            const f = await guild.members.search({ query: name, limit: 1 });
-            if (f.size > 0) m = f.first();
-        } catch (e) {}
-    }
-    return m;
+  if (!name) return null;
+  const n = name.toLowerCase();
+  let m = guild.members.cache.find(mem => mem.user.username.toLowerCase() === n);
+  if (!m) m = guild.members.cache.find(mem => mem.displayName.toLowerCase() === n);
+  if (!m) {
+    try {
+      const f = await guild.members.search({ query: name, limit: 1 });
+      if (f.size > 0) m = f.first();
+    } catch (e) {}
+  }
+  return m;
 }
 
 async function checkNewReviews(client) {
-    if (reviewLoopSuspended) return;
-    if (isChecking) return;
-    isChecking = true;
+  if (isChecking) return;
+  isChecking = true;
 
-    try {
-        const config = client.config.disboardReviews;
-        if (!config || !config.enabled) return isChecking = false;
+  try {
+    const config = client.config.disboardReviews;
+    if (!config || !config.enabled) return isChecking = false;
 
-        const { html, source } = await fetchDisboardReviewsHtml(config);
-        if (source === 'cookie') {
-            global.logger?.warn?.('[DISBOARD REVIEWS] Fetch eseguito via cloudflareCookie sul reviewUrl (consigliato: fetchEndpoint verso proxy PC).');
-        }
+    const html = await fetchReviewPageHtml(config.reviewUrl);
+    const reviews = parseReviews(html);
+    const mainGuildId = client.config.mainGuildId;
+    const mainGuild = client.guilds.cache.get(mainGuildId);
 
-        const reviews = parseReviews(html);
-        const mainGuildId = client.config.mainGuildId;
-        const mainGuild = client.guilds.cache.get(mainGuildId);
+    const settings = await GlobalSettings.findOne({ guildId: mainGuildId });
+    const processedIds = new Set((settings?.disboardReviewLog || []).map(r => r.reviewId));
 
-        // Carico log globale per duplicati
-        const settings = await GlobalSettings.findOne({ guildId: mainGuildId });
-        const processedIds = new Set((settings?.disboardReviewLog || []).map(r => r.reviewId));
+    const notify = !firstRun || (processedIds.size > 0);
 
-        const notify = !firstRun || (processedIds.size > 0);
+    for (const review of reviews) {
+      if (processedIds.has(review.reviewId)) continue;
 
-        for (const review of reviews) {
-            if (processedIds.has(review.reviewId)) continue;
+      await GlobalSettings.updateOne(
+        { guildId: mainGuildId },
+        { $push: { disboardReviewLog: { ...review, createdAt: new Date() } } },
+        { upsert: true }
+      );
 
-            // 1. Salvo nel Log Globale (GlobalSettings)
-            await GlobalSettings.updateOne(
-                { guildId: mainGuildId },
-                { $push: { disboardReviewLog: { ...review, createdAt: new Date() } } },
-                { upsert: true }
-            );
+      if (notify) {
+        let rewardResult = { success: false, user: null };
+        if (mainGuild) {
+          const member = await findDiscordUser(mainGuild, review.authorName);
+          if (member) {
+            const profile = await ActivityUserProfile.findOne({ guildId: mainGuildId, userId: member.id });
+            const alreadyDone = profile?.reviewRewards?.some(r => r.rewardedAt) || profile?.reviewReward?.rewardedAt;
 
-            if (notify) {
-                let rewardResult = { success: false, user: null };
-                if (mainGuild) {
-                    const member = await findDiscordUser(mainGuild, review.authorName);
-                    if (member) {
-                        const profile = await ActivityUserProfile.findOne({ guildId: mainGuildId, userId: member.id });
-                        const alreadyDone = profile?.reviewRewards?.some(r => r.rewardedAt) || profile?.reviewReward?.rewardedAt;
+            if (!alreadyDone) {
+              const currentExp = Number(profile?.exp?.totalExp || 0);
+              const currentLevel = getLevelInfo(currentExp).level;
+              const targetExp = getTotalExpForLevel(currentLevel + 5);
+              const addedExp = Math.max(0, targetExp - currentExp);
 
-                        if (!alreadyDone) {
-                            const currentExp = Number(profile?.exp?.totalExp || 0);
-                            const currentLevel = getLevelInfo(currentExp).level;
-                            const targetExp = getTotalExpForLevel(currentLevel + 5);
-                            const addedExp = Math.max(0, targetExp - currentExp);
-
-                            if (addedExp > 0) {
-                                await addExpWithLevel(mainGuild, member.id, addedExp, false, false);
-                                await ActivityUserProfile.updateOne(
-                                    { guildId: mainGuildId, userId: member.id },
-                                    { 
-                                        $push: { reviewRewards: { ...review, rewardedAt: new Date() } },
-                                        $set: { "reviewReward.rewardedAt": new Date(), "reviewReward.rewardedBy": client.user.id }
-                                    },
-                                    { upsert: true }
-                                );
-                                rewardResult = { success: true, user: member };
-                            }
-                        } else {
-                            rewardResult = { success: false, alreadyDone: true, user: member };
-                        }
-                    }
-                }
-                await sendReviewNotification(client, review, rewardResult);
+              if (addedExp > 0) {
+                await addExpWithLevel(mainGuild, member.id, addedExp, false, false);
+                await ActivityUserProfile.updateOne(
+                  { guildId: mainGuildId, userId: member.id },
+                  {
+                    $push: { reviewRewards: { ...review, rewardedAt: new Date() } },
+                    $set: { "reviewReward.rewardedAt": new Date(), "reviewReward.rewardedBy": client.user.id }
+                  },
+                  { upsert: true }
+                );
+                rewardResult = { success: true, user: member };
+              }
+            } else {
+              rewardResult = { success: false, alreadyDone: true, user: member };
             }
+          }
         }
-        if (firstRun) firstRun = false;
-    } catch (err) {
-        const status = err?.statusCode || err?.response?.status || null;
-        const body = extractErrorText(err);
-        const isCfBlock = looksLikeCloudflareBlock(status, body);
-        if (isCfBlock) {
-            const cfg = client.config?.disboardReviews || {};
-            if (!hasRealCloudflareBypass(cfg)) {
-                reviewLoopSuspended = true;
-                global.logger?.error?.('[DISBOARD REVIEWS] Bloccato da Cloudflare senza bypass configurato: loop sospeso. Imposta disboardReviews.cloudflareCookie oppure disboardReviews.fetchEndpoint e riavvia il bot.');
-                return;
-            }
-            const now = Date.now();
-            const throttleMs = Math.max(60_000, Number(client.config?.disboardReviews?.checkIntervalMinutes || 15) * 60_000);
-            if ((now - lastCloudflareWarnAt) >= throttleMs) {
-                lastCloudflareWarnAt = now;
-                const hasMirror = Boolean(String(cfg.fetchEndpoint || '').trim());
-                if (hasMirror) {
-                    global.logger?.warn?.('[DISBOARD REVIEWS] Il proxy sul PC ha ricevuto block/challenge da DISBOARD. Sul PC: aggiorna DISBOARD_CF_COOKIE (o DISBOARD_COOKIE_HEADER con tutti i cookie copiati da DevTools), tieni aperti cloudflared + proxy, riavvia lo script proxy.');
-                } else {
-                    global.logger?.warn?.(`[DISBOARD REVIEWS] Bloccato da Cloudflare (status: ${status || "n/a"}) — riprovo tra ${client.config?.disboardReviews?.checkIntervalMinutes || 15} min.`);
-                }
-            }
-        } else {
-            const compact = String(body || "").replace(/\s+/g, " ").slice(0, 240);
-            global.logger?.error?.('[DISBOARD REVIEWS] Unexpected error:', compact);
-        }
-    } finally { isChecking = false; }
+        await sendReviewNotification(client, review, rewardResult);
+      }
+    }
+    if (firstRun) firstRun = false;
+  } catch (err) {
+    const compact = String(err?.error || err?.message || err || '').replace(/\s+/g, ' ').slice(0, 200);
+    global.logger?.warn?.('[DISBOARD REVIEWS] Fetch fallito (DISBOARD spesso blocca i bot). disboardReviews.enabled=false in config per silenziare.', compact);
+  } finally { isChecking = false; }
 }
 
 async function sendReviewNotification(client, review, reward) {
-    try {
-        const config = client.config.disboardReviews;
-        const channel = client.channels.cache.get(config.channelId) || await client.channels.fetch(config.channelId).catch(() => null);
-        if (!channel) return;
+  try {
+    const config = client.config.disboardReviews;
+    const channel = client.channels.cache.get(config.channelId) || await client.channels.fetch(config.channelId).catch(() => null);
+    if (!channel) return;
 
-        const embed = new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setAuthor({ name: `Nuova recensione da ${review.authorName}`, iconURL: review.authorAvatar || "https://disboard.org/images/no-icon.png", url: config.reviewUrl })
-            .setTitle(review.title ? `"${review.title}"` : "Valutazione DISBOARD")
-            .setURL(config.reviewUrl)
-            .setThumbnail(review.authorAvatar || "https://disboard.org/images/no-icon.png")
-            .setDescription(`**Valutazione:** ${"⭐".repeat(review.stars)}\n\n> ${review.body.substring(0, 1500)}${review.body.length > 1500 ? '...' : ''}`)
-            .addFields(
-                { name: "<:VC_Dot:1482532364222595303> Info", value: `<:VC_bump:1482531857521311885> Inviata: **${review.postedAt}**`, inline: true },
-                { name: "<:VC_Dot:1482532364222595303> Link", value: `[Vai alla recensione](<${config.reviewUrl}>)`, inline: true }
-            );
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setAuthor({ name: `Nuova recensione da ${review.authorName}`, iconURL: review.authorAvatar || "https://disboard.org/images/no-icon.png", url: config.reviewUrl })
+      .setTitle(review.title ? `"${review.title}"` : "Valutazione DISBOARD")
+      .setURL(config.reviewUrl)
+      .setThumbnail(review.authorAvatar || "https://disboard.org/images/no-icon.png")
+      .setDescription(`**Valutazione:** ${"⭐".repeat(review.stars)}\n\n> ${review.body.substring(0, 1500)}${review.body.length > 1500 ? '...' : ''}`)
+      .addFields(
+        { name: "<:VC_Dot:1482532364222595303> Info", value: `<:VC_bump:1482531857521311885> Inviata: **${review.postedAt}**`, inline: true },
+        { name: "<:VC_Dot:1482532364222595303> Link", value: `[Vai alla recensione](<${config.reviewUrl}>)`, inline: true }
+      );
 
-        if (reward.success) {
-            embed.addFields({ name: "<:VC_LevelUp2:1482527047871107143> Ricompensa Automatica", value: `<a:VC_StarPink:1330194976440848500> Grazie **${reward.user}**, ti sono stati assegnati **+5 livelli** per il tuo supporto!`, inline: false });
-        } else if (reward.user && reward.alreadyDone) {
-            embed.addFields({ name: "<:VC_Dot:1482532364222595303> Supporto", value: `Bentornato/a **${reward.user}**! Grazie per essere passato/a a trovarci di nuovo!`, inline: false });
-        } else if (!reward.user) {
-            embed.addFields({ name: "<:VC_Dot:1482532364222595303> Ricompensa", value: `Non abbiamo trovato l'account Discord di **${review.authorName}**. Se sei tu, scrivi allo staff per i **+5 livelli**!`, inline: false });
-        }
+    if (reward.success) {
+      embed.addFields({ name: "<:VC_LevelUp2:1482527047871107143> Ricompensa Automatica", value: `<a:VC_StarPink:1330194976440848500> Grazie **${reward.user}**, ti sono stati assegnati **+5 livelli** per il tuo supporto!`, inline: false });
+    } else if (reward.user && reward.alreadyDone) {
+      embed.addFields({ name: "<:VC_Dot:1482532364222595303> Supporto", value: `Bentornato/a **${reward.user}**! Grazie per essere passato/a a trovarci di nuovo!`, inline: false });
+    } else if (!reward.user) {
+      embed.addFields({ name: "<:VC_Dot:1482532364222595303> Ricompensa", value: `Non abbiamo trovato l'account Discord di **${review.authorName}**. Se sei tu, scrivi allo staff per i **+5 livelli**!`, inline: false });
+    }
 
-        embed.setFooter({ text: "Vinili & Caffè • Feedback Community", iconURL: client.user.displayAvatarURL() }).setTimestamp();
-        await channel.send({ content: reward.user ? `${reward.user}` : `<a:VC_HeartBlue:1448673354751021190> **Nuova recensione!**`, embeds: [embed] });
-    } catch (err) {}
+    embed.setFooter({ text: "Vinili & Caffè • Feedback Community", iconURL: client.user.displayAvatarURL() }).setTimestamp();
+    await channel.send({ content: reward.user ? `${reward.user}` : `<a:VC_HeartBlue:1448673354751021190> **Nuova recensione!**`, embeds: [embed] });
+  } catch (err) {}
 }
 
 function startReviewLoop(client) {
-    if (!client.config.disboardReviews?.enabled) return;
-    checkNewReviews(client);
-    const i = setInterval(() => {
-        if (reviewLoopSuspended) return;
-        checkNewReviews(client);
-    }, (client.config.disboardReviews.checkIntervalMinutes || 2) * 60000);
-    if (i.unref) i.unref();
-    return i;
+  if (!client.config.disboardReviews?.enabled) return;
+  checkNewReviews(client);
+  const i = setInterval(() => checkNewReviews(client), (client.config.disboardReviews.checkIntervalMinutes || 2) * 60000);
+  if (i.unref) i.unref();
+  return i;
 }
 
 module.exports = { checkNewReviews, startReviewLoop };

@@ -12,9 +12,7 @@
     "start": "node --disable-warning=ExperimentalWarning loader.js",
     "start:official": "npm run start --workspace=Vinyls",
     "start:test": "npm run start --workspace=Coffee",
-    "install:bots": "npm install --legacy-peer-deps --prefix Vinyls && npm install --legacy-peer-deps --prefix Coffee",
-    "start:disboard-proxy": "node scripts/disboard-reviews-proxy.js",
-    "start:disboard-stack": "powershell -ExecutionPolicy Bypass -File scripts/start-disboard-reviews-stack.ps1"
+    "install:bots": "npm install --legacy-peer-deps --prefix Vinyls && npm install --legacy-peer-deps --prefix Coffee"
   },
   "dependencies": {
     "discord.js": "14.25.1"
