@@ -5,8 +5,113 @@ const { getLevelInfo, addExpWithLevel } = require('../../Services/Community/expS
 
 let isChecking = false;
 let firstRun = true;
+let lastCloudflareWarnAt = 0;
 
 const cloudscraper = require('cloudscraper');
+
+function extractErrorText(err) {
+    if (!err) return "";
+    const responseBody = err?.response?.body;
+    if (typeof responseBody === "string" && responseBody) return responseBody;
+    if (typeof err?.error === "string" && err.error) return err.error;
+    if (typeof err?.message === "string" && err.message) return err.message;
+    return String(err);
+}
+
+function looksLikeCloudflareBlock(status, text) {
+    if (status === 403 || status === 429 || status === 503) return true;
+    const body = String(text || "");
+    return /just a moment|cf_chl_opt|cloudflare|enable javascript and cookies|challenge-platform/i.test(body);
+}
+
+function getDefaultHeaders() {
+    return {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://disboard.org/'
+    };
+}
+
+function buildCookieHeader(config) {
+    const raw = String(config?.cloudflareCookie || '').trim();
+    if (!raw) return '';
+    if (raw.toLowerCase().includes('cf_clearance=')) return raw;
+    return `cf_clearance=${raw}`;
+}
+
+async function fetchViaCloudscraper(url) {
+    return cloudscraper.get({
+        url,
+        headers: getDefaultHeaders()
+    });
+}
+
+async function fetchViaNativeWithCookie(url, config) {
+    const cookie = buildCookieHeader(config);
+    if (!cookie) return null;
+    const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+            ...getDefaultHeaders(),
+            Cookie: cookie
+        }
+    });
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+        const err = new Error(`HTTP ${res.status}`);
+        err.statusCode = res.status;
+        err.error = text;
+        throw err;
+    }
+    return text;
+}
+
+async function fetchViaMirrorEndpoint(config) {
+    const endpoint = String(config?.fetchEndpoint || '').trim();
+    if (!endpoint) return null;
+    const secret = String(config?.fetchEndpointSecret || '').trim();
+    const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(secret ? { 'x-api-key': secret } : {})
+        }
+    });
+    const body = await res.text().catch(() => "");
+    if (!res.ok) {
+        const err = new Error(`Mirror endpoint HTTP ${res.status}`);
+        err.statusCode = res.status;
+        err.error = body;
+        throw err;
+    }
+    let parsed = null;
+    try { parsed = JSON.parse(body); } catch (e) {}
+    const html = typeof parsed?.html === 'string' ? parsed.html : '';
+    if (!html) {
+        const err = new Error('Mirror endpoint response missing html');
+        err.statusCode = 502;
+        err.error = body;
+        throw err;
+    }
+    return html;
+}
+
+async function fetchDisboardReviewsHtml(config) {
+    const errors = [];
+    try {
+        const html = await fetchViaCloudscraper(config.reviewUrl);
+        if (html) return { html, source: 'cloudscraper' };
+    } catch (e) { errors.push(e); }
+    try {
+        const html = await fetchViaNativeWithCookie(config.reviewUrl, config);
+        if (html) return { html, source: 'cookie' };
+    } catch (e) { errors.push(e); }
+    try {
+        const html = await fetchViaMirrorEndpoint(config);
+        if (html) return { html, source: 'mirror' };
+    } catch (e) { errors.push(e); }
+    throw errors[errors.length - 1] || new Error('Unable to fetch DISBOARD reviews');
+}
 
 /**
  * Funzione per estrarre le recensioni dall'HTML di DISBOARD.
@@ -83,15 +188,10 @@ async function checkNewReviews(client) {
         const config = client.config.disboardReviews;
         if (!config || !config.enabled) return isChecking = false;
 
-        // cloudscraper gestisce automaticamente i cookie, i ciphers e i challenge JS
-        const html = await cloudscraper.get({
-            url: config.reviewUrl,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Referer': 'https://disboard.org/'
-            }
-        });
+        const { html, source } = await fetchDisboardReviewsHtml(config);
+        if (source !== 'cloudscraper') {
+            global.logger?.warn?.(`[DISBOARD REVIEWS] Fetch eseguito via fallback: ${source}.`);
+        }
 
         const reviews = parseReviews(html);
         const mainGuildId = client.config.mainGuildId;
@@ -150,16 +250,18 @@ async function checkNewReviews(client) {
         if (firstRun) firstRun = false;
     } catch (err) {
         const status = err?.statusCode || err?.response?.status || null;
-        const body = typeof err?.error === 'string' ? err.error
-            : (typeof err?.message === 'string' ? err.message : String(err || ''));
-        const isCfBlock = status === 403 || status === 429
-            || body.includes('Just a moment')
-            || body.includes('cf_chl_opt')
-            || body.includes('Enable JavaScript and cookies');
+        const body = extractErrorText(err);
+        const isCfBlock = looksLikeCloudflareBlock(status, body);
         if (isCfBlock) {
-            global.logger?.warn?.(`[DISBOARD REVIEWS] Bloccato da Cloudflare (IP datacenter) — riprovo tra ${client.config?.disboardReviews?.checkIntervalMinutes || 15} min.`);
+            const now = Date.now();
+            const throttleMs = Math.max(60_000, Number(client.config?.disboardReviews?.checkIntervalMinutes || 15) * 60_000);
+            if ((now - lastCloudflareWarnAt) >= throttleMs) {
+                lastCloudflareWarnAt = now;
+                global.logger?.warn?.(`[DISBOARD REVIEWS] Bloccato da Cloudflare (status: ${status || "n/a"}) — riprovo tra ${client.config?.disboardReviews?.checkIntervalMinutes || 15} min.`);
+            }
         } else {
-            global.logger?.error?.('[DISBOARD REVIEWS] Unexpected error:', body.slice(0, 200));
+            const compact = String(body || "").replace(/\s+/g, " ").slice(0, 240);
+            global.logger?.error?.('[DISBOARD REVIEWS] Unexpected error:', compact);
         }
     } finally { isChecking = false; }
 }
