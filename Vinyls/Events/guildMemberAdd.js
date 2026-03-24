@@ -23,6 +23,82 @@ const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
 const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1468938195348754515",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
+const INVITE_MILESTONE_EMBED_COLOR = 0x9b59b6;
+
+function shortInviteLinkForFooter() {
+  const raw = String(IDs.links?.invite || "").trim();
+  if (!raw) return "Vinili & Caffè";
+  try {
+    const u = raw.startsWith("http") ? raw : `https://${raw}`;
+    const host = new URL(u).host.replace(/^www\./, "");
+    const path = new URL(u).pathname.replace(/\/$/, "");
+    return path && path !== "/" ? `${host}${path}` : host;
+  } catch {
+    return raw.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
+}
+
+function getInviteMilestoneTitle(target) {
+  if (target === 5) return "🎀✦ Nuovx Promoter!";
+  if (target === 25) return "✨ Nuovx Propulsor!";
+  if (target === 100) return "🏆 Nuovx Catalyst!";
+  return "🎉 Nuovo traguardo inviti!";
+}
+
+function getInviteTierDisplayName(target) {
+  if (target === 5) return "Promoter";
+  if (target === 25) return "Propulsor";
+  if (target === 100) return "Catalyst";
+  return "Reward inviti";
+}
+
+function nextInviteTierTargetAfter(currentTarget) {
+  const sorted = INVITE_REWARD_TIERS.map((t) => Number(t.target || 0)).filter((n) => n > 0).sort((a, b) => a - b);
+  const idx = sorted.indexOf(Number(currentTarget));
+  if (idx < 0 || idx >= sorted.length - 1) return null;
+  return sorted[idx + 1];
+}
+
+function splitAwardedRolesByTier(roleIdsAwarded) {
+  const added = new Set(roleIdsAwarded || []);
+  const out = [];
+  for (const tier of INVITE_REWARD_TIERS) {
+    const t = Number(tier.target || 0);
+    const roleIds = (tier.roleIds || []).filter((rid) => added.has(String(rid)));
+    if (roleIds.length) out.push({ target: t, roleIds });
+  }
+  return out.sort((a, b) => a.target - b.target);
+}
+
+function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
+  const list = Array.isArray(tierChunks) ? tierChunks : [];
+  if (!inviterMember || !list.length) return [];
+  const safeTotal = Math.max(0, Number(totalInvites || 0));
+  return list.map(({ target, roleIds }) => {
+    const rolesText = roleIds.map((id) => `<@&${id}>`).join(" ");
+    const tierName = getInviteTierDisplayName(target);
+    const nextT = nextInviteTierTargetAfter(target);
+    const body = [
+      `» <@${inviterMember.id}>`,
+      "",
+      `Hai ricevuto ${rolesText} — **${tierName}** 🎀 🔮`,
+      "",
+      nextT
+        ? `Per il prossimo ruolo raggiungi **${nextT} inviti** con il tuo link personalizzato 🌙`
+        : "Hai raggiunto la soglia massima degli inviti reward! 💞",
+      "",
+      `Ora hai **${safeTotal} inviti** registrati.`,
+      INFO_PERKS_CHANNEL_ID ? `\n<a:VC_Arrow:1482706699365257397> Dettagli perk: <#${INFO_PERKS_CHANNEL_ID}>` : "",
+    ].join("\n");
+    return new EmbedBuilder()
+      .setColor(INVITE_MILESTONE_EMBED_COLOR)
+      .setTitle(getInviteMilestoneTitle(target))
+      .setThumbnail(inviterMember.displayAvatarURL({ size: 256 }))
+      .setDescription(body)
+      .setFooter({ text: `${shortInviteLinkForFooter()} • Grazie! 💞` })
+      .setTimestamp();
+  });
+}
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder, IDs.roles.CoFounder,].filter(Boolean).map(String),);
@@ -1037,6 +1113,8 @@ async function maybeSendInviteReward(member, info) {
   if (!inviteChannel || !rewardResult?.awarded || !info?.inviterId) return;
 
   const inviterMember = await getGuildMemberCached(member.guild, info.inviterId);
+  if (!inviterMember) return;
+
   const levelsByTier = { 5: 5, 25: 10, 100: 25 };
   for (const tier of rewardResult.targets || []) {
     const levels = levelsByTier[tier];
@@ -1050,17 +1128,13 @@ async function maybeSendInviteReward(member, info) {
     }
   }
 
-  const rewardedRolesText = (rewardResult.roleIds || []).map((id) => `<@&${id}>`)
-    .join(", ");
+  const tierChunks = splitAwardedRolesByTier(rewardResult.roleIds);
+  const milestoneEmbeds = buildInviteMilestoneEmbeds(inviterMember, info.totalInvites, tierChunks);
+  if (!milestoneEmbeds.length) return;
 
-  const rewardEmbed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<a:ThankYou:1329504268369002507> Grazie per gli inviti!")
-    .setDescription(
-      `<@${info.inviterId}> hai raggiunto **${Math.max(...(rewardResult.targets || [0]))} inviti** e hai ottenuto ${rewardedRolesText || "nuovi ruoli"}.\n` +
-      `<a:Boost_Cycle:1329504283007385642> Controlla <#${INFO_PERKS_CHANNEL_ID}> per i nuovi vantaggi.`,
-    );
-  await inviteChannel.send(applyDefaultFooterToEmbeds({ embeds: [rewardEmbed] }, member.guild)).catch(() => { });
+  await inviteChannel
+    .send(applyDefaultFooterToEmbeds({ embeds: milestoneEmbeds.slice(0, 10) }, member.guild))
+    .catch(() => { });
 }
 
 async function maybeSendInviteNearRewardReminder(member, info) {

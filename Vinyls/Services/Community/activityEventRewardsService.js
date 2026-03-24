@@ -513,6 +513,22 @@ async function getTop10ExpDuringEventExcludingStaff(guild, limit = 10) {
   return out;
 }
 
+async function getTop10ExpDuringEventExcludingHighStaff(guild, limit = 10) {
+  if (!guild?.id) return [];
+  const cap = Math.max(1, Math.min(50, Number(limit) || 10));
+  const list = await getTop10ExpDuringEvent(guild.id, cap + 30);
+  const highStaffRoleId = String(IDs.roles.HighStaff || "");
+  const out = [];
+  for (const item of list) {
+    if (out.length >= cap) break;
+    const member = await guild.members.fetch(item.userId).catch(() => null);
+    if (!member) continue;
+    if (highStaffRoleId && member.roles.cache.has(highStaffRoleId)) continue;
+    out.push(item);
+  }
+  return out;
+}
+
 async function clearActivityEventRewardsForGuild(guildId) {
   if (!guildId) return { deleted: 0 };
   const result = await ActivityUserProfile.updateMany(
@@ -522,4 +538,4 @@ async function clearActivityEventRewardsForGuild(guildId) {
   return { deleted: result?.modifiedCount ?? 0 };
 }
 
-module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getTop10ExpDuringEvent, getEventWeekHourKeys };
+module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingHighStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getTop10ExpDuringEvent, getEventWeekHourKeys };

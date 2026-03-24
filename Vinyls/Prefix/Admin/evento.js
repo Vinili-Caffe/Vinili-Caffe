@@ -3,7 +3,7 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings, setActivityEvent, clearActivityEvent, setStaffEvent, clearStaffEvent, getStaffEventSettings, invalidateSettingsCache } = require("../../Services/Community/expService");
 const { grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, getEventWeekNumber } = require("../../Services/Community/activityEventRewardsService");
 const { givePmStaff15PointsAtStart, giveExistingInvitesPointsAtStart, addStaffEventPoints, getStaffEventLeaderboard, filterStaffEventLeaderboardForDisplay, isStaffButNotHighStaff } = require("../../Services/Community/staffEventService");
-const { buildEventoClassificaPayload } = require("../../Services/Community/eventoClassificaService");
+const { buildEventoClassificaPayload, buildEventoClassificaExpOnlyPayload } = require("../../Services/Community/eventoClassificaService");
 const { getEventDiagnostics } = require("../../Services/Community/weeklyActivityWinnersService");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -66,8 +66,8 @@ function fmtDateWithTime(dateValue) {
 module.exports = {
   name: "evento",
   aliases: [],
-  subcommands: ["start", "stop", "info", "classifica", "staff"],
-  subcommandAliases: { start: "start", stop: "stop", info: "info", classifica: "classifica", staff: "staff" },
+  subcommands: ["start", "stop", "info", "classifica", "classifica-exp", "staff"],
+  subcommandAliases: { start: "start", stop: "stop", info: "info", classifica: "classifica", "classifica-exp": "classifica-exp", staff: "staff" },
 
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => { });
@@ -75,11 +75,11 @@ module.exports = {
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    if (!sub || !["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "staff"].includes(sub)) {
+    if (!sub || !["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "classifica-exp", "staff"].includes(sub)) {
       const usage = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("Comando evento")
-        .setDescription(["`+evento start` – Avvia l’evento Activity EXP.", "`+evento stop` – Termina l’evento e ripristina i moltiplicatori.", "`+evento info` – Mostra stato e configurazione evento.", "`+evento assegna-ruoli` – Assegna i livelli a chi ha già Supporter/Verificato/Guilded/Promoter/Propulsor/Catalyst (evento attivo).", "`+evento reset-premi` – Cancella i premi già registrati e riassegna a tutti (senza annuncio).", "`+evento classifica` – Classifica per settimana.", "`+evento classifica staff` – Classifica punti evento staff.", "`+evento staff start | stop | addpoints` – Gestione evento staff.",
+        .setDescription(["`+evento start` – Avvia l’evento Activity EXP.", "`+evento stop` – Termina l’evento e ripristina i moltiplicatori.", "`+evento info` – Mostra stato e configurazione evento.", "`+evento assegna-ruoli` – Assegna i livelli a chi ha già Supporter/Verificato/Guilded/Promoter/Propulsor/Catalyst (evento attivo).", "`+evento reset-premi` – Cancella i premi già registrati e riassegna a tutti (senza annuncio).", "`+evento classifica` – Classifica per settimana.", "`+evento classifica-exp` – Solo classifica EXP (staff incluso, High Staff escluso).", "`+evento classifica staff` – Classifica punti evento staff.", "`+evento staff start | stop | addpoints` – Gestione evento staff.",
         ].join("\n"));
       await safeMessageReply(message, {
         embeds: [usage],
@@ -205,6 +205,23 @@ module.exports = {
       }
       const currentWeek = Math.max(1, Math.min(4, Number(getEventWeekNumber(settings) || 1)));
       const payload = await buildEventoClassificaPayload(message.guild, currentWeek, currentWeek);
+      await safeMessageReply(message, {
+        ...payload,
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+
+    if (sub === "classifica-exp") {
+      const settings = await getGuildExpSettings(guildId);
+      if (!settings?.eventExpiresAt || !settings?.eventStartedAt) {
+        await safeMessageReply(message, {
+          content: "<:vegax:1443934876440068179> Nessun evento attivo. Usa `+evento start` prima.",
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+      const payload = await buildEventoClassificaExpOnlyPayload(message.guild);
       await safeMessageReply(message, {
         ...payload,
         allowedMentions: { repliedUser: false },

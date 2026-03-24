@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } = require("discord.js");
 const { getGuildExpSettings } = require("../Services/Community/expService");
 const { getEventWeekTopNTextAndVoice } = require("../Services/Community/weeklyActivityWinnersService");
-const { getTop10ExpDuringEventExcludingStaff, getEventWeekNumber } = require("../Services/Community/activityEventRewardsService");
+const { getTop10ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingHighStaff, getEventWeekNumber } = require("../Services/Community/activityEventRewardsService");
 const EVENTO_CLASSIFICA_PREFIX = "evento_classifica:";
 const MAX_WEEKS = 4;
 const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>"];
@@ -111,4 +111,36 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
   return { embeds: [embed], components: [row] };
 }
 
-module.exports = { name: "eventoClassifica", order: 10, match, execute, EVENTO_CLASSIFICA_PREFIX, MAX_WEEKS, buildEventoClassificaPayload };
+async function buildEventoClassificaExpOnlyPayload(guild) {
+  const topExp = await getTop10ExpDuringEventExcludingHighStaff(guild, 10);
+
+  const expLines = topExp.length
+    ? topExp.map((item, i) => {
+        const value = Number(
+          item.activityExpDuringEvent != null
+            ? item.activityExpDuringEvent
+            : item.expDuringEvent,
+        );
+        return `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${value}** _EXP_`;
+      })
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP."];
+
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle(`<:VC_Leaderboard:1482534806314287387> Evento Activity EXP — Solo EXP`)
+    .setDescription(
+      [
+        "_Classifica cumulativa dell'evento (EXP da messaggi e vocale). Lo **Staff** è incluso; lo **High Staff** è escluso._",
+        "",
+        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
+        ...expLines,
+      ].join("\n")
+    )
+    .setThumbnail(guild.iconURL({ size: 256 }) || null)
+    .setFooter({ text: "Solo EXP · staff incluso, High Staff escluso" })
+    .setTimestamp();
+
+  return { embeds: [embed], components: [] };
+}
+
+module.exports = { name: "eventoClassifica", order: 10, match, execute, EVENTO_CLASSIFICA_PREFIX, MAX_WEEKS, buildEventoClassificaPayload, buildEventoClassificaExpOnlyPayload };

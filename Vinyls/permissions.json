@@ -584,6 +584,16 @@
                         "channels.highCmds"
                     ]
                 },
+                "classifica-exp": {
+                    "roles": [
+                        "roles.Member"
+                    ],
+                    "channels": [
+                        "channels.commands",
+                        "channels.staffCmds",
+                        "channels.highCmds"
+                    ]
+                },
                 "staff": [
                     "roles.Founder"
                 ]
