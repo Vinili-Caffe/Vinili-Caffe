@@ -1,0 +1,18 @@
+[Unit]
+Description=ViniliCaffe Disboard Reviews Proxy
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/bot
+EnvironmentFile=/opt/bot/scripts/disboard-proxy.env
+ExecStart=/usr/bin/node /opt/bot/scripts/disboard-reviews-proxy.js
+Restart=always
+RestartSec=3
+User=root
+Group=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

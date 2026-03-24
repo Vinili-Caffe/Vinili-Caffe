@@ -6,6 +6,7 @@ const { getLevelInfo, addExpWithLevel } = require('../../Services/Community/expS
 let isChecking = false;
 let firstRun = true;
 let lastCloudflareWarnAt = 0;
+let reviewLoopSuspended = false;
 
 function extractErrorText(err) {
     if (!err) return "";
@@ -35,6 +36,12 @@ function buildCookieHeader(config) {
     if (!raw) return '';
     if (raw.toLowerCase().includes('cf_clearance=')) return raw;
     return `cf_clearance=${raw}`;
+}
+
+function hasRealCloudflareBypass(config) {
+    const hasCookie = Boolean(buildCookieHeader(config));
+    const hasEndpoint = Boolean(String(config?.fetchEndpoint || '').trim());
+    return hasCookie || hasEndpoint;
 }
 
 async function fetchViaNative(url, config) {
@@ -173,6 +180,7 @@ async function findDiscordUser(guild, name) {
 }
 
 async function checkNewReviews(client) {
+    if (reviewLoopSuspended) return;
     if (isChecking) return;
     isChecking = true;
 
@@ -245,6 +253,12 @@ async function checkNewReviews(client) {
         const body = extractErrorText(err);
         const isCfBlock = looksLikeCloudflareBlock(status, body);
         if (isCfBlock) {
+            const cfg = client.config?.disboardReviews || {};
+            if (!hasRealCloudflareBypass(cfg)) {
+                reviewLoopSuspended = true;
+                global.logger?.error?.('[DISBOARD REVIEWS] Bloccato da Cloudflare senza bypass configurato: loop sospeso. Imposta disboardReviews.cloudflareCookie oppure disboardReviews.fetchEndpoint e riavvia il bot.');
+                return;
+            }
             const now = Date.now();
             const throttleMs = Math.max(60_000, Number(client.config?.disboardReviews?.checkIntervalMinutes || 15) * 60_000);
             if ((now - lastCloudflareWarnAt) >= throttleMs) {
@@ -292,7 +306,10 @@ async function sendReviewNotification(client, review, reward) {
 function startReviewLoop(client) {
     if (!client.config.disboardReviews?.enabled) return;
     checkNewReviews(client);
-    const i = setInterval(() => checkNewReviews(client), (client.config.disboardReviews.checkIntervalMinutes || 2) * 60000);
+    const i = setInterval(() => {
+        if (reviewLoopSuspended) return;
+        checkNewReviews(client);
+    }, (client.config.disboardReviews.checkIntervalMinutes || 2) * 60000);
     if (i.unref) i.unref();
     return i;
 }
