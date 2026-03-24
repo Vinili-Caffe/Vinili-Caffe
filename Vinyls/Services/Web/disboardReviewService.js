@@ -149,10 +149,17 @@ async function checkNewReviews(client) {
         }
         if (firstRun) firstRun = false;
     } catch (err) {
-        if (err.response?.status === 403 || err.response?.status === 429) {
-            global.logger?.warn?.(`[DISBOARD REVIEWS] Fetch failed: ${err.response.status} (Cloudflare Protection)`);
+        const status = err?.statusCode || err?.response?.status || null;
+        const body = typeof err?.error === 'string' ? err.error
+            : (typeof err?.message === 'string' ? err.message : String(err || ''));
+        const isCfBlock = status === 403 || status === 429
+            || body.includes('Just a moment')
+            || body.includes('cf_chl_opt')
+            || body.includes('Enable JavaScript and cookies');
+        if (isCfBlock) {
+            global.logger?.warn?.(`[DISBOARD REVIEWS] Bloccato da Cloudflare (IP datacenter) — riprovo tra ${client.config?.disboardReviews?.checkIntervalMinutes || 15} min.`);
         } else {
-            global.logger?.error?.("[DISBOARD REVIEWS] Unexpected error:", err.message || err);
+            global.logger?.error?.('[DISBOARD REVIEWS] Unexpected error:', body.slice(0, 200));
         }
     } finally { isChecking = false; }
 }
