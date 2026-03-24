@@ -7,8 +7,6 @@ let isChecking = false;
 let firstRun = true;
 let lastCloudflareWarnAt = 0;
 
-const cloudscraper = require('cloudscraper');
-
 function extractErrorText(err) {
     if (!err) return "";
     const responseBody = err?.response?.body;
@@ -39,21 +37,13 @@ function buildCookieHeader(config) {
     return `cf_clearance=${raw}`;
 }
 
-async function fetchViaCloudscraper(url) {
-    return cloudscraper.get({
-        url,
-        headers: getDefaultHeaders()
-    });
-}
-
-async function fetchViaNativeWithCookie(url, config) {
+async function fetchViaNative(url, config) {
     const cookie = buildCookieHeader(config);
-    if (!cookie) return null;
     const res = await fetch(url, {
         method: 'GET',
         headers: {
             ...getDefaultHeaders(),
-            Cookie: cookie
+            ...(cookie ? { Cookie: cookie } : {})
         }
     });
     const text = await res.text().catch(() => "");
@@ -99,12 +89,14 @@ async function fetchViaMirrorEndpoint(config) {
 async function fetchDisboardReviewsHtml(config) {
     const errors = [];
     try {
-        const html = await fetchViaCloudscraper(config.reviewUrl);
-        if (html) return { html, source: 'cloudscraper' };
+        const html = await fetchViaNative(config.reviewUrl, config);
+        if (html) return { html, source: 'direct' };
     } catch (e) { errors.push(e); }
     try {
-        const html = await fetchViaNativeWithCookie(config.reviewUrl, config);
-        if (html) return { html, source: 'cookie' };
+        if (buildCookieHeader(config)) {
+            const html = await fetchViaNative(config.reviewUrl, config);
+            if (html) return { html, source: 'cookie' };
+        }
     } catch (e) { errors.push(e); }
     try {
         const html = await fetchViaMirrorEndpoint(config);
@@ -189,7 +181,7 @@ async function checkNewReviews(client) {
         if (!config || !config.enabled) return isChecking = false;
 
         const { html, source } = await fetchDisboardReviewsHtml(config);
-        if (source !== 'cloudscraper') {
+        if (source !== 'direct') {
             global.logger?.warn?.(`[DISBOARD REVIEWS] Fetch eseguito via fallback: ${source}.`);
         }
 
