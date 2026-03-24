@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/bot
-EnvironmentFile=/opt/bot/scripts/disboard-proxy.env
+EnvironmentFile=/opt/bot/.env
 ExecStart=/usr/bin/node /opt/bot/scripts/disboard-reviews-proxy.js
 Restart=always
 RestartSec=3
