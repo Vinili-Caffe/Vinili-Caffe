@@ -80,7 +80,9 @@ Riavvia lo stack.
 2. **Un solo `.env`**: modifica quello nella **root del progetto** (stesso usato dallo script), non sul server.
 3. **Non usare due righe insieme male**: se imposti `DISBOARD_COOKIE_HEADER`, ha priorità su `DISBOARD_CF_COOKIE` — controlla che sia completa.
 4. Aggiungi anche **`__cf_bm`** nella stessa stringa cookie (DevTools → copia tutti i cookie rilevanti).
-5. Debug (senza esporre segreti): nel `.env` metti `DISBOARD_PROXY_DEBUG=1`, riavvia proxy, poi:
+5. Il proxy ora prova anche **`curl.exe`** se il `fetch` di Node riceve ancora la challenge (Cloudflare spesso differenzia i due). Riavvia il proxy dopo il pull.
+
+6. Debug (senza esporre segreti): nel `.env` metti `DISBOARD_PROXY_DEBUG=1`, riavvia proxy, poi:
    ```powershell
    curl -H "x-api-key: <API_KEY>" http://127.0.0.1:8787/debug/disboard
    ```
@@ -91,7 +93,13 @@ Riavvia lo stack.
 Locale:
 
 ```powershell
-curl http://127.0.0.1:8787/health
+curl.exe http://127.0.0.1:8787/health
+```
+
+Su PowerShell **non** usare `curl` senza `.exe`: è alias di `Invoke-WebRequest` e `-H` non va. Usa sempre `curl.exe` oppure:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8787/disboard/reviews" -Headers @{ "x-api-key" = "LA_TUA_CHIAVE" }
 ```
 
 Dal server (con API key):

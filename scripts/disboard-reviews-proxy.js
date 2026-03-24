@@ -1,6 +1,7 @@
 "use strict";
 
 const http = require("http");
+const { spawnSync } = require("child_process");
 
 const PORT = Number(process.env.DISBOARD_PROXY_PORT || 8787);
 const HOST = String(process.env.DISBOARD_PROXY_HOST || "0.0.0.0");
@@ -59,7 +60,7 @@ function checkApiKey(req) {
   return provided && provided === API_KEY;
 }
 
-async function fetchDisboardHtml() {
+async function fetchWithNode() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -80,6 +81,59 @@ async function fetchDisboardHtml() {
   } finally {
     clearTimeout(timer);
   }
+}
+
+function fetchWithCurl() {
+  if (String(process.env.DISBOARD_DISABLE_CURL || "").trim() === "1") return null;
+  const curlBin = process.platform === "win32" ? "curl.exe" : "curl";
+  const cookie = getCookieHeader().replace(/\r|\n/g, "");
+  const maxSec = String(Math.ceil(REQUEST_TIMEOUT_MS / 1000));
+  const args = [
+    "-sS",
+    "-L",
+    "--connect-timeout",
+    "10",
+    "--max-time",
+    maxSec,
+  ];
+  const h = browserLikeHeaders();
+  for (const [k, v] of Object.entries(h)) {
+    args.push("-H", `${k}: ${v}`);
+  }
+  if (cookie) {
+    args.push("-b", cookie);
+  }
+  args.push(REVIEW_URL);
+  const r = spawnSync(curlBin, args, {
+    encoding: "utf8",
+    maxBuffer: 15 * 1024 * 1024,
+    windowsHide: true,
+  });
+  if (r.error) {
+    console.warn("[DISBOARD PROXY] curl fallito:", r.error.message);
+    return null;
+  }
+  const html = r.stdout || "";
+  if (!html) {
+    return null;
+  }
+  if (looksLikeCloudflareChallenge(html)) {
+    return { ok: false, status: 403, html };
+  }
+  return { ok: true, status: 200, html };
+}
+
+async function fetchDisboardHtml() {
+  const first = await fetchWithNode();
+  if (first.ok && !looksLikeCloudflareChallenge(first.html)) {
+    return first;
+  }
+  console.warn("[DISBOARD PROXY] Node fetch bloccato/challenge, provo curl (spesso passa dove fetch no)...");
+  const second = fetchWithCurl();
+  if (second && second.ok) {
+    return second;
+  }
+  return first;
 }
 
 const server = http.createServer(async (req, res) => {
