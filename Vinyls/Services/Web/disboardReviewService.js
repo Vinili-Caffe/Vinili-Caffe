@@ -7,6 +7,9 @@ const { getLevelInfo, addExpWithLevel } = require('../../Services/Community/expS
 let isChecking = false;
 let firstRun = true;
 
+const https = require('https');
+const crypto = require('crypto');
+
 /**
  * Funzione per estrarre le recensioni dall'HTML di DISBOARD.
  */
@@ -42,7 +45,7 @@ function parseReviews(html) {
     return reviews;
 }
 
-// Helper per EXP (5 livelli)
+// ... rest of helpers unchanged ...
 function roundToNearest50(v) { return Math.round(v / 50) * 50; }
 function getLevelStep(l) {
     const s = Math.max(1, Math.floor(Number(l || 1)));
@@ -82,7 +85,12 @@ async function checkNewReviews(client) {
         const config = client.config.disboardReviews;
         if (!config || !config.enabled) return isChecking = false;
 
-        const res = await fetch(config.reviewUrl, { 
+        const res = await axios.get(config.reviewUrl, { 
+            httpsAgent: new https.Agent({
+                ciphers: 'TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384',
+                honorCipherOrder: true,
+                minVersion: 'TLSv1.2'
+            }),
             headers: { 
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -97,13 +105,9 @@ async function checkNewReviews(client) {
                 'Upgrade-Insecure-Requests': '1'
             } 
         });
-        if (!res.ok) {
-            global.logger?.warn?.(`[DISBOARD REVIEWS] Fetch failed: ${res.status} (Cloudflare Protection)`);
-            return isChecking = false;
-        }
+        if (res.status !== 200) return isChecking = false;
 
-        const html = await res.text();
-        const reviews = parseReviews(html);
+        const reviews = parseReviews(res.data);
         const mainGuildId = client.config.mainGuildId;
         const mainGuild = client.guilds.cache.get(mainGuildId);
 
