@@ -16,7 +16,6 @@ async function processVoteQueue(client) {
       const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
 
       if (!guild) {
-        global.logger?.error?.("[VOTE QUEUE] Main guild not found.");
         isProcessing = false;
         return;
       }
@@ -34,7 +33,7 @@ async function processVoteQueue(client) {
 
 async function processSingleVote(client, guild, voteDoc) {
   try {
-    if (voteDoc.processed) return;
+    if (!voteDoc || voteDoc.processed) return;
 
     const user = await client.users.fetch(voteDoc.userId).catch(() => null);
     if (!user) {
@@ -59,36 +58,15 @@ async function processSingleVote(client, guild, voteDoc) {
   }
 }
 
-function startVoteQueueLoop(client, intervalMs = 300000) { // Polling lento come backup (5 min)
-  global.logger?.info?.("[VOTE QUEUE] Starting real-time monitor (Change Streams)...");
+function startVoteQueueLoop(client, intervalMs = 10000) { // Polling ogni 10 secondi (Veloce e sicuro per standalone DB)
+  global.logger?.info?.(`[VOTE QUEUE] Starting background processing loop (interval: ${intervalMs}ms)...`);
   
   // Processa residui all'avvio
   processVoteQueue(client);
 
-  // Monitoraggio in TEMPO REALE
-  try {
-    const changeStream = DiscadiaVote.watch();
-    changeStream.on("change", async (change) => {
-      // Se viene inserito un NUOVO voto
-      if (change.operationType === "insert") {
-        const voteDoc = change.fullDocument;
-        if (!voteDoc || voteDoc.processed) return;
-        
-        const guildId = client.config.mainGuildId || IDs.guilds.main;
-        const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
-        if (guild) {
-          await processSingleVote(client, guild, voteDoc);
-        }
-      }
-    });
-    
-    changeStream.on("error", (err) => {
-      global.logger?.error?.("[VOTE QUEUE] Change Stream error, falling back to polling:", err);
-    });
-  } catch (err) {
-    global.logger?.error?.("[VOTE QUEUE] Could not start Change Stream:", err);
-  }
-
+  // Monitoraggio Change Streams disattivato perché non supportato da DB standalone
+  // Verrà usato solo il polling periodico veloce per stabilità massima
+  
   const interval = setInterval(() => processVoteQueue(client), intervalMs);
   if (interval.unref) interval.unref();
   
