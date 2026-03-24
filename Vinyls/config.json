@@ -29,7 +29,7 @@
     "enabled": true,
     "channelId": "1442569123426074736",
     "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474",
-    "checkIntervalMinutes": 2
+    "checkIntervalMinutes": 15
   },
   "discadia": {
     "webhookPort": 3000,
