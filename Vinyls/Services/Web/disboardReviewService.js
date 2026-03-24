@@ -95,6 +95,15 @@ async function fetchViaMirrorEndpoint(config) {
 
 async function fetchDisboardReviewsHtml(config) {
     const errors = [];
+    const endpoint = String(config?.fetchEndpoint || '').trim();
+    if (endpoint) {
+        try {
+            const html = await fetchViaMirrorEndpoint(config);
+            if (html) return { html, source: 'mirror' };
+        } catch (e) {
+            errors.push(e);
+        }
+    }
     try {
         const html = await fetchViaNative(config.reviewUrl, config);
         if (html) return { html, source: 'direct' };
@@ -105,10 +114,12 @@ async function fetchDisboardReviewsHtml(config) {
             if (html) return { html, source: 'cookie' };
         }
     } catch (e) { errors.push(e); }
-    try {
-        const html = await fetchViaMirrorEndpoint(config);
-        if (html) return { html, source: 'mirror' };
-    } catch (e) { errors.push(e); }
+    if (!endpoint) {
+        try {
+            const html = await fetchViaMirrorEndpoint(config);
+            if (html) return { html, source: 'mirror' };
+        } catch (e) { errors.push(e); }
+    }
     throw errors[errors.length - 1] || new Error('Unable to fetch DISBOARD reviews');
 }
 
@@ -189,8 +200,8 @@ async function checkNewReviews(client) {
         if (!config || !config.enabled) return isChecking = false;
 
         const { html, source } = await fetchDisboardReviewsHtml(config);
-        if (source !== 'direct') {
-            global.logger?.warn?.(`[DISBOARD REVIEWS] Fetch eseguito via fallback: ${source}.`);
+        if (source === 'cookie') {
+            global.logger?.warn?.('[DISBOARD REVIEWS] Fetch eseguito via cloudflareCookie sul reviewUrl (consigliato: fetchEndpoint verso proxy PC).');
         }
 
         const reviews = parseReviews(html);
@@ -263,7 +274,12 @@ async function checkNewReviews(client) {
             const throttleMs = Math.max(60_000, Number(client.config?.disboardReviews?.checkIntervalMinutes || 15) * 60_000);
             if ((now - lastCloudflareWarnAt) >= throttleMs) {
                 lastCloudflareWarnAt = now;
-                global.logger?.warn?.(`[DISBOARD REVIEWS] Bloccato da Cloudflare (status: ${status || "n/a"}) — riprovo tra ${client.config?.disboardReviews?.checkIntervalMinutes || 15} min.`);
+                const hasMirror = Boolean(String(cfg.fetchEndpoint || '').trim());
+                if (hasMirror) {
+                    global.logger?.warn?.('[DISBOARD REVIEWS] Il proxy sul PC ha ricevuto block/challenge da DISBOARD. Sul PC: aggiorna DISBOARD_CF_COOKIE (o DISBOARD_COOKIE_HEADER con tutti i cookie copiati da DevTools), tieni aperti cloudflared + proxy, riavvia lo script proxy.');
+                } else {
+                    global.logger?.warn?.(`[DISBOARD REVIEWS] Bloccato da Cloudflare (status: ${status || "n/a"}) — riprovo tra ${client.config?.disboardReviews?.checkIntervalMinutes || 15} min.`);
+                }
             }
         } else {
             const compact = String(body || "").replace(/\s+/g, " ").slice(0, 240);

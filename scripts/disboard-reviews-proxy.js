@@ -7,6 +7,7 @@ const HOST = String(process.env.DISBOARD_PROXY_HOST || "0.0.0.0");
 const API_KEY = String(process.env.DISBOARD_PROXY_API_KEY || "");
 const REVIEW_URL = String(process.env.DISBOARD_REVIEW_URL || "https://disboard.org/it/server/reviews/1329080093599076474");
 const CLOUDFLARE_COOKIE = String(process.env.DISBOARD_CF_COOKIE || "");
+const COOKIE_HEADER_OVERRIDE = String(process.env.DISBOARD_COOKIE_HEADER || "");
 const REQUEST_TIMEOUT_MS = Math.max(3000, Number(process.env.DISBOARD_PROXY_TIMEOUT_MS || 15000));
 
 function json(res, status, payload) {
@@ -20,10 +21,17 @@ function json(res, status, payload) {
 }
 
 function getCookieHeader() {
+  const override = COOKIE_HEADER_OVERRIDE.trim();
+  if (override) return override;
   const raw = CLOUDFLARE_COOKIE.trim();
   if (!raw) return "";
   if (/cf_clearance=/i.test(raw)) return raw;
   return `cf_clearance=${raw}`;
+}
+
+function looksLikeCloudflareChallenge(html) {
+  const h = String(html || "");
+  return /just a moment|cf_chl_opt|challenge-platform|enable javascript and cookies/i.test(h);
 }
 
 function checkApiKey(req) {
@@ -91,5 +99,8 @@ server.listen(PORT, HOST, () => {
   console.log(`[DISBOARD PROXY] Listening on http://${HOST}:${PORT}`);
   if (!API_KEY) {
     console.warn("[DISBOARD PROXY] DISBOARD_PROXY_API_KEY non impostata: endpoint senza auth.");
+  }
+  if (!getCookieHeader()) {
+    console.warn("[DISBOARD PROXY] Nessun cookie: imposta DISBOARD_CF_COOKIE oppure DISBOARD_COOKIE_HEADER nel .env, altrimenti DISBOARD risponde challenge/403.");
   }
 });

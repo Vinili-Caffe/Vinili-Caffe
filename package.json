@@ -13,7 +13,8 @@
     "start:official": "npm run start --workspace=Vinyls",
     "start:test": "npm run start --workspace=Coffee",
     "install:bots": "npm install --legacy-peer-deps --prefix Vinyls && npm install --legacy-peer-deps --prefix Coffee",
-    "start:disboard-proxy": "node scripts/disboard-reviews-proxy.js"
+    "start:disboard-proxy": "node scripts/disboard-reviews-proxy.js",
+    "start:disboard-stack": "powershell -ExecutionPolicy Bypass -File scripts/start-disboard-reviews-stack.ps1"
   },
   "dependencies": {
     "discord.js": "14.25.1"
