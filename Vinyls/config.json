@@ -26,7 +26,7 @@
     }
   },
   "disboardReviews": {
-    "enabled": true,
+    "enabled": false,
     "channelId": "1442569123426074736",
     "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474",
     "fetchEndpoint": "http://127.0.0.1:8787/disboard/reviews",
