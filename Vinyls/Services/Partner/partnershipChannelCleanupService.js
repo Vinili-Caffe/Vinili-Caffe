@@ -71,6 +71,17 @@ async function runPartnershipChannelCleanup(client) {
         oldestInBatch = Math.min(oldestInBatch, msg.createdTimestamp);
         if (msg.createdTimestamp >= dayStartMs) continue;
         if (msg.author?.id !== botId) continue;
+
+        // --- FILTRI DI PROTEZIONE 🛡️ ---
+        const content = msg.content || "";
+        const hasButtons = msg.components && msg.components.length > 0;
+        const reflectsStability = content.includes("# Benvenutx") || content.includes("# Regolamento") || (msg.embeds && msg.embeds.some(e => {
+          const t = (e.title || "").toLowerCase();
+          return t.includes("benvenuto") || t.includes("regolamento") || t.includes("info") || t.includes("guida");
+        }));
+
+        if (hasButtons || reflectsStability) continue;
+
         toDelete.push(msg);
       }
 
