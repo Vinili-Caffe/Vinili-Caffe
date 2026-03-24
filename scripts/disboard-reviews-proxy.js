@@ -8,7 +8,26 @@ const API_KEY = String(process.env.DISBOARD_PROXY_API_KEY || "");
 const REVIEW_URL = String(process.env.DISBOARD_REVIEW_URL || "https://disboard.org/it/server/reviews/1329080093599076474");
 const CLOUDFLARE_COOKIE = String(process.env.DISBOARD_CF_COOKIE || "");
 const COOKIE_HEADER_OVERRIDE = String(process.env.DISBOARD_COOKIE_HEADER || "");
+const DEBUG = String(process.env.DISBOARD_PROXY_DEBUG || "").trim() === "1";
 const REQUEST_TIMEOUT_MS = Math.max(3000, Number(process.env.DISBOARD_PROXY_TIMEOUT_MS || 15000));
+
+function browserLikeHeaders() {
+  return {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Upgrade-Insecure-Requests": "1",
+    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    Referer: "https://disboard.org/",
+  };
+}
 
 function json(res, status, payload) {
   const body = JSON.stringify(payload);
@@ -49,13 +68,14 @@ async function fetchDisboardHtml() {
       method: "GET",
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
-        Referer: "https://disboard.org/",
+        ...browserLikeHeaders(),
         ...(cookie ? { Cookie: cookie } : {}),
       },
     });
     const html = await res.text();
+    if (looksLikeCloudflareChallenge(html)) {
+      return { ok: false, status: 403, html };
+    }
     return { ok: res.ok, status: res.status, html };
   } finally {
     clearTimeout(timer);
@@ -69,6 +89,25 @@ const server = http.createServer(async (req, res) => {
 
     if (method === "GET" && url === "/health") {
       return json(res, 200, { ok: true, service: "disboard-reviews-proxy" });
+    }
+
+    if (DEBUG && method === "GET" && url === "/debug/disboard") {
+      if (!checkApiKey(req)) {
+        return json(res, 401, { ok: false, error: "Unauthorized" });
+      }
+      const cookie = getCookieHeader();
+      const mode = COOKIE_HEADER_OVERRIDE.trim()
+        ? "DISBOARD_COOKIE_HEADER"
+        : CLOUDFLARE_COOKIE.trim()
+          ? "DISBOARD_CF_COOKIE"
+          : "none";
+      return json(res, 200, {
+        ok: true,
+        reviewUrl: REVIEW_URL,
+        cookieMode: mode,
+        cookieChars: cookie.length,
+        hasCfClearance: /cf_clearance=/i.test(cookie),
+      });
     }
 
     if (method !== "GET" || !url.startsWith("/disboard/reviews")) {
@@ -100,7 +139,13 @@ server.listen(PORT, HOST, () => {
   if (!API_KEY) {
     console.warn("[DISBOARD PROXY] DISBOARD_PROXY_API_KEY non impostata: endpoint senza auth.");
   }
-  if (!getCookieHeader()) {
+  const ck = getCookieHeader();
+  if (!ck) {
     console.warn("[DISBOARD PROXY] Nessun cookie: imposta DISBOARD_CF_COOKIE oppure DISBOARD_COOKIE_HEADER nel .env, altrimenti DISBOARD risponde challenge/403.");
+  } else {
+    console.log(`[DISBOARD PROXY] Cookie caricato (${ck.length} caratteri). Se ancora 403: cookie scaduto, IP diverso dal browser, o serve anche __cf_bm in DISBOARD_COOKIE_HEADER.`);
+  }
+  if (DEBUG) {
+    console.log("[DISBOARD PROXY] Debug attivo: GET /debug/disboard con x-api-key");
   }
 });

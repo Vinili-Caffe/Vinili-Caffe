@@ -74,6 +74,18 @@ Riavvia lo stack.
 
 ---
 
+## Se aggiorni il cookie ma continua a dare errore
+
+1. **Riavvia** `start-disboard-reviews-stack.ps1` (o il proxy): il `.env` viene letto solo all’avvio.
+2. **Un solo `.env`**: modifica quello nella **root del progetto** (stesso usato dallo script), non sul server.
+3. **Non usare due righe insieme male**: se imposti `DISBOARD_COOKIE_HEADER`, ha priorità su `DISBOARD_CF_COOKIE` — controlla che sia completa.
+4. Aggiungi anche **`__cf_bm`** nella stessa stringa cookie (DevTools → copia tutti i cookie rilevanti).
+5. Debug (senza esporre segreti): nel `.env` metti `DISBOARD_PROXY_DEBUG=1`, riavvia proxy, poi:
+   ```powershell
+   curl -H "x-api-key: <API_KEY>" http://127.0.0.1:8787/debug/disboard
+   ```
+   Deve risultare `cookieChars` > 0 e `hasCfClearance: true`.
+
 ## Test
 
 Locale:

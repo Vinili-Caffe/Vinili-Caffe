@@ -133,7 +133,7 @@ async function checkNodeVersion(client) {
 
 async function checkAndInstallPackages(
   client,
-  ignorePackages = ["@discordjs/builders"],
+  ignorePackages = ["@discordjs/builders", "cloudscraper"],
 ) {
   try {
     const files = await getFiles(process.cwd());
