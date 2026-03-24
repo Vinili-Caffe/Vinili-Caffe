@@ -358,6 +358,27 @@ function isMinigameFixedSlot(rome) {
   return MINIGAME_SLOT_MINUTES.includes(minute);
 }
 
+function minigameSlotKeyFromRome(rome) {
+  return `${rome.year}-${String(rome.month).padStart(2, "0")}-${String(rome.day).padStart(2, "0")}_${rome.hour}_${rome.minute}`;
+}
+
+/** Millisecondi fino al prossimo tick all'inizio del minuto (secondo 0) su uno slot :00/:15/:30/:45 (Europe/Rome). Evita setInterval(60s) ancorato all'avvio processo (es. partite sempre al secondo 59). */
+function computeMsUntilNextRomeSlotStart(client) {
+  const now = Date.now();
+  const maxAhead = 4 * 60 * 60 * 1000;
+  for (let ms = 0; ms <= maxAhead; ms += 1000) {
+    const t = new Date(now + ms);
+    const rome = getMinigameRomeTime(t, client);
+    if (rome.second !== 0) continue;
+    if (!MINIGAME_SLOT_MINUTES.includes(rome.minute)) continue;
+    if (!isMinigameFixedSlot(rome)) continue;
+    const slotKey = minigameSlotKeyFromRome(rome);
+    if (slotKey === lastMinigameSlotKey) continue;
+    return ms;
+  }
+  return 60_000;
+}
+
 function getConfig(client) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
@@ -5935,7 +5956,7 @@ function startMinigameLoop(client) {
     if (!cfg?.enabled) return;
     const rome = getMinigameRomeTime(new Date(), client);
     if (!isMinigameFixedSlot(rome)) return;
-    const slotKey = `${rome.year}-${String(rome.month).padStart(2, "0")}-${String(rome.day).padStart(2, "0")}_${rome.hour}_${rome.minute}`;
+    const slotKey = minigameSlotKeyFromRome(rome);
     if (slotKey === lastMinigameSlotKey) return;
     lastMinigameSlotKey = slotKey;
     if (!pendingGames.has(cfg.channelId)) {
@@ -5946,10 +5967,21 @@ function startMinigameLoop(client) {
     await maybeStartRandomGame(client, false);
   };
 
-  const timer = setInterval(runAtSlot, 60 * 1000);
-  if (typeof timer.unref === "function") timer.unref();
-  loopIntervals.set(client, timer);
-  runAtSlot();
+  const scheduleNext = () => {
+    const ms = computeMsUntilNextRomeSlotStart(client);
+    const timer = setTimeout(async () => {
+      try {
+        await runAtSlot();
+      } catch (err) {
+        global.logger?.error?.("[MINIGAMES] runAtSlot", err);
+      }
+      scheduleNext();
+    }, ms);
+    if (typeof timer.unref === "function") timer.unref();
+    loopIntervals.set(client, timer);
+  };
+
+  scheduleNext();
 }
 
 async function forceStartMinigame(client) {
