@@ -1,5 +1,4 @@
 
-const axios = require('axios');
 const { EmbedBuilder } = require('discord.js');
 const { ActivityUserProfile, GlobalSettings } = require('../../Schemas/Community/communitySchemas');
 const { getLevelInfo, addExpWithLevel } = require('../../Services/Community/expService');
@@ -7,8 +6,7 @@ const { getLevelInfo, addExpWithLevel } = require('../../Services/Community/expS
 let isChecking = false;
 let firstRun = true;
 
-const https = require('https');
-const crypto = require('crypto');
+const cloudscraper = require('cloudscraper');
 
 /**
  * Funzione per estrarre le recensioni dall'HTML di DISBOARD.
@@ -85,29 +83,17 @@ async function checkNewReviews(client) {
         const config = client.config.disboardReviews;
         if (!config || !config.enabled) return isChecking = false;
 
-        const res = await axios.get(config.reviewUrl, { 
-            httpsAgent: new https.Agent({
-                ciphers: 'TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384',
-                honorCipherOrder: true,
-                minVersion: 'TLSv1.2'
-            }),
-            headers: { 
+        // cloudscraper gestisce automaticamente i cookie, i ciphers e i challenge JS
+        const html = await cloudscraper.get({
+            url: config.reviewUrl,
+            headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
-                'Referer': 'https://disboard.org/',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'same-origin',
-                'Sec-Fetch-User': '?1',
-                'Upgrade-Insecure-Requests': '1'
-            } 
+                'Referer': 'https://disboard.org/'
+            }
         });
-        if (res.status !== 200) return isChecking = false;
 
-        const reviews = parseReviews(res.data);
+        const reviews = parseReviews(html);
         const mainGuildId = client.config.mainGuildId;
         const mainGuild = client.guilds.cache.get(mainGuildId);
 
