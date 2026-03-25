@@ -9,11 +9,37 @@
  *
  * Richiede MONGODB_URI nel .env (o variabile d'ambiente).
  */
+const fs = require("fs");
 const path = require("path");
-const mongoose = require(path.join(__dirname, "../Vinyls/node_modules/mongoose"));
-require(path.join(__dirname, "../Vinyls/node_modules/dotenv")).config({
-  path: path.join(__dirname, "../.env"),
-});
+const { createRequire } = require("module");
+
+const root = path.join(__dirname, "..");
+
+function requireFromBotWorkspace(name) {
+  const vinylsPkg = path.join(root, "Vinyls", "package.json");
+  const rootPkg = path.join(root, "package.json");
+  const anchor = fs.existsSync(vinylsPkg) ? vinylsPkg : rootPkg;
+  if (!fs.existsSync(anchor)) {
+    return require(name);
+  }
+  return createRequire(anchor)(name);
+}
+
+let mongoose;
+try {
+  mongoose = requireFromBotWorkspace("mongoose");
+} catch (err) {
+  console.error(
+    "Impossibile caricare mongoose. Esegui `npm install` nella root del bot o in Vinyls (mongoose è una dipendenza di Vinyls).",
+  );
+  throw err;
+}
+
+try {
+  requireFromBotWorkspace("dotenv").config({ path: path.join(root, ".env") });
+} catch (_) {
+  /* .env opzionale se MONGODB_URI è già nell'ambiente */
+}
 
 async function main() {
   const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
