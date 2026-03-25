@@ -1,0 +1,114 @@
+const mongoose = require("mongoose");
+const { Schema, model, models } = mongoose;
+
+const pollEntrySchema = new Schema(
+  {
+    pollcount: { type: Number },
+    domanda: { type: String, default: null },
+    risposta1: String,
+    risposta2: String,
+    risposta3: String,
+    risposta4: String,
+    risposta5: String,
+    risposta6: String,
+    risposta7: String,
+    risposta8: String,
+    risposta9: String,
+    risposta10: String,
+    messageId: { type: String, default: null },
+    source: { type: String, default: "manual" },
+  },
+  { timestamps: true },
+);
+
+const suggestionEntrySchema = new Schema(
+  {
+    ChannelID: { type: String, required: true },
+    Msg: { type: String, required: true },
+    AuthorID: { type: String, required: true },
+    Upmembers: { type: [String], default: [] },
+    Downmembers: { type: [String], default: [] },
+    upvotes: { type: Number, default: 0 },
+    downvotes: { type: Number, default: 0 },
+    sID: { type: String, required: true },
+    count: { type: Number, default: 0 },
+  },
+  { timestamps: true },
+);
+
+const ticketEntrySchema = new Schema(
+  {
+    ticketNumber: { type: Number },
+    guildId: { type: String, default: null },
+    userId: { type: String, required: true },
+    channelId: { type: String, required: true },
+    ticketType: { type: String, default: "supporto" },
+    open: { type: Boolean, required: true, default: true },
+    claimedBy: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+    transcript: { type: String, default: "" },
+    transcriptHtmlPath: { type: String, default: null },
+    messageId: { type: String, default: null },
+    descriptionPromptMessageId: { type: String, default: null },
+    descriptionSubmitted: { type: Boolean, default: false },
+    descriptionText: { type: String, default: "" },
+    descriptionSubmittedAt: { type: Date, default: null },
+    autoClosePromptSentAt: { type: Date, default: null },
+    closeReason: { type: String, default: null },
+    closeRequestedBy: { type: String, default: null },
+    closeRequestedAt: { type: Date, default: null },
+    closedBy: { type: String, default: null },
+    closedAt: { type: Date, default: null },
+    closeLogChannelId: { type: String, default: null },
+    closeLogMessageId: { type: String, default: null },
+    ratingScore: { type: Number, default: null },
+    ratingBy: { type: String, default: null },
+    ratingAt: { type: Date, default: null },
+  },
+);
+
+const guildFeatureBucketSchema = new Schema(
+  {
+    guildId: { type: String, required: true, unique: true, index: true },
+    pollCounter: { type: Number, default: 0 },
+    polls: { type: [pollEntrySchema], default: [] },
+    suggestionCounter: { type: Number, default: 0 },
+    suggestions: { type: [suggestionEntrySchema], default: [] },
+    tickets: { type: [ticketEntrySchema], default: [] },
+  },
+  { timestamps: true },
+);
+
+guildFeatureBucketSchema.index({ "tickets.channelId": 1 }, { unique: true, sparse: true });
+guildFeatureBucketSchema.index({ "tickets.ticketNumber": 1 }, { unique: true, sparse: true });
+guildFeatureBucketSchema.index({ "tickets.open": 1, "tickets.createdAt": 1 });
+
+const GuildFeatureBucket =
+  models.GuildFeatureBucket || model("GuildFeatureBucket", guildFeatureBucketSchema);
+
+async function ensureGuildFeatureBucket(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) throw new Error("ensureGuildFeatureBucket: guildId required");
+  return GuildFeatureBucket.findOneAndUpdate(
+    { guildId: gid },
+    {
+      $setOnInsert: {
+        guildId: gid,
+        pollCounter: 0,
+        polls: [],
+        suggestionCounter: 0,
+        suggestions: [],
+        tickets: [],
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+}
+
+module.exports = {
+  GuildFeatureBucket,
+  ensureGuildFeatureBucket,
+  pollEntrySchema,
+  suggestionEntrySchema,
+  ticketEntrySchema,
+};

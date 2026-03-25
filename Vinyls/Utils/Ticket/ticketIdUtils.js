@@ -47,15 +47,26 @@ function isTicketNumberDuplicate(err) {
   return msg.includes("ticketNumber");
 }
 
-async function reseedCounterFromTickets(TicketModel) {
+async function reseedCounterFromTickets(_TicketModel) {
   const db = mongoose.connection?.db;
   if (!db) throw new Error("MongoDB connection not ready for ticket counter reseed");
-  const top = await TicketModel.findOne({ ticketNumber: { $type: "number" } })
-    .sort({ ticketNumber: -1 })
-    .select({ ticketNumber: 1 })
-    .lean()
-    .catch(() => null);
-  const maxTicketNumber = Number(top?.ticketNumber || 0);
+  const { GuildFeatureBucket } = require("../../Schemas/Guild/guildFeatureBucketSchema");
+  const agg = await GuildFeatureBucket.aggregate([
+    { $unwind: "$tickets" },
+    { $match: { "tickets.ticketNumber": { $type: "number" } } },
+    { $group: { _id: null, maxTicketNumber: { $max: "$tickets.ticketNumber" } } },
+  ]).catch(() => []);
+  let maxTicketNumber = Number(agg?.[0]?.maxTicketNumber || 0);
+  if (!maxTicketNumber) {
+    const legacy = await db
+      .collection("tickets")
+      .findOne(
+        { ticketNumber: { $type: "number" } },
+        { sort: { ticketNumber: -1 }, projection: { ticketNumber: 1 } },
+      )
+      .catch(() => null);
+    maxTicketNumber = Number(legacy?.ticketNumber || 0);
+  }
   const baseline = Number.isFinite(maxTicketNumber) && maxTicketNumber > 0 ? maxTicketNumber : 0;
   await db.collection(COUNTER_COLLECTION).updateOne(
     { _counterKey: TICKET_COUNTER_KEY },
