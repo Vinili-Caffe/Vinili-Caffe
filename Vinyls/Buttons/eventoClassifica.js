@@ -60,7 +60,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
   const week = selectedWeek ?? 1;
   const maxWeek = currentEventWeek ?? week;
   const { topMessages, topVoice } = await getEventWeekTopNTextAndVoice(guild, week, 10);
-  const topExp = await getTop10ExpDuringEventExcludingStaff(guild, 10);
+  const topExp = await getTop10ExpDuringEventExcludingHighStaff(guild, 10);
 
   const msgLines = topMessages.length
     ? topMessages.map((item, i) => `${rankLabel(i)} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.messageCount}** _messaggi_`)
@@ -90,7 +90,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
         "<a:VC_HeartsBlue:1468686100045369404> **Top 10 vocale**:",
         ...voiceLines,
         "",
-        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP (solo messaggi + vocale)**:",
+        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP (solo messaggi + vocale · staff incluso, High Staff escluso)**:",
         ...expLines,
       ].join("\n")
     )
