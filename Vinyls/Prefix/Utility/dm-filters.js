@@ -3,7 +3,6 @@ const { runNoDmPanel } = require("../../Utils/noDmPanel");
 
 module.exports = {
   name: "dm-filters",
-  aliases: ["no-dm"],
   allowEmptyArgs: true,
   async execute(message) {
     if (!message.guild) {

@@ -29,7 +29,6 @@ function formatBlockedLabel(entry) {
 
 module.exports = {
   name: "no-dm-list",
-  aliases: ["nodmlist"],
   allowEmptyArgs: true,
   async execute(message) {
     if (!message.guild) return;

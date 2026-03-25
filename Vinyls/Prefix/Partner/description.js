@@ -30,8 +30,7 @@ async function resolveTargetUser(message, rawArg) {
 }
 
 module.exports = {
-  name: "description",
-  aliases: ["desc"],
+  name: "desc",
   allowEmptyArgs: true,
 
   async execute(message, args = []) {

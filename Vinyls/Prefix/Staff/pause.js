@@ -34,11 +34,7 @@ async function resolveTargetUser(message, rawValue) {
 module.exports = {
   name: "pause",
   aliases: ["pausa"],
-  description: "Gestione pause staffer.",
   subcommands: ["list"],
-  subcommandDescriptions: {
-    list: "Mostra la lista pause dell'anno corrente per te stesso.",
-  },
   subcommandAliases: {
     list: "list",
   },

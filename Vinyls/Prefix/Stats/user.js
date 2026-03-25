@@ -5,7 +5,6 @@ module.exports = {
   name: userButton.name,
   aliases: ["user"],
   allowEmptyArgs: false,
-  description: "Mostra le statistiche attività di un utente (mention, ID o username).",
   usage: "+user <@utente | id | username> [1d | 7d | 14d | 21d | 30d]",
   examples: ["+user @Utente", "+user @Utente 30d", "+user 123456789012345678 7d", "+user NomeUtente 14d"],
   USER_REFRESH_CUSTOM_ID_PREFIX: userButton.USER_REFRESH_CUSTOM_ID_PREFIX,

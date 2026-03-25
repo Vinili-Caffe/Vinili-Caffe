@@ -66,8 +66,8 @@ function fmtDateWithTime(dateValue) {
 module.exports = {
   name: "evento",
   aliases: [],
-  subcommands: ["start", "stop", "info", "classifica", "classifica-exp", "staff"],
-  subcommandAliases: { start: "start", stop: "stop", info: "info", classifica: "classifica", "classifica-exp": "classifica-exp", staff: "staff" },
+  subcommands: ["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "classifica-exp", "staff"],
+  subcommandAliases: { start: "start", stop: "stop", info: "info", "assegna-ruoli": "assegna-ruoli", "reset-premi": "reset-premi", classifica: "classifica", "classifica-exp": "classifica-exp", staff: "staff" },
 
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => { });

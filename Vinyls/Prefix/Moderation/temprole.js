@@ -3,7 +3,6 @@ const { executeDynoModerationCommand } = require("../../Utils/Moderation/dynoMod
 module.exports = {
   name: "temprole",
   args: true,
-  description: "Assign/unassign a role that persists for a limited time.",
   usage: "+temprole [user] [time] [role], [optional reason]",
   subcommands: ["add", "remove"],
   async execute(message, args, client) {

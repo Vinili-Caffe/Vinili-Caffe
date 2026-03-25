@@ -325,7 +325,6 @@ module.exports = {
     "rename",
     "reopen",
   ],
-  description: "Gestione ticket.",
   subcommands: [
     "add",
     "remove",

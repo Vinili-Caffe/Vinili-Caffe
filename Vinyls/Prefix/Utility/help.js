@@ -21,8 +21,123 @@ const HELP_NEW_INVOKES = new Set([]);
 const HELP_NEW_CATEGORIES = new Set(["minigames", "tts", "stats", "level", "utility"]);
 const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
-const PREFIX_HELP_DESCRIPTIONS = { help: "Mostra tutti i comandi disponibili con il bot.", afk: "Imposta il tuo stato AFK con un messaggio personalizzato.", avatar: "Mostra l'avatar di un utente o l'icona del server.", banner: "Mostra il banner di un utente o del server.", block: "Blocca privacy contenuti: avatar, banner, quotes.", voices: "Mostra le voci TTS disponibili.", membercount: "Mostra il numero totale di membri del server.", "no-dm": "Pannello per attivare/disattivare le categorie di DM (promemoria, bump, broadcast, inviti, livelli).", "dm-filters": "Pannello per gestire le categorie di DM o attivare/disattivare tutto.", ping: "Mostra latenza bot, database e informazioni di uptime.", privacy: "Pannello per bloccare o sbloccare avatar, banner e quote in un solo posto (come +dm-filters).", set: "Impostazioni TTS: autojoin e voce personale.", ship: "Calcola la compatibilità tra due utenti.", snipe: "Recupera l'ultimo messaggio eliminato nel canale.", join: "Fa entrare il bot nel tuo canale vocale.", leave: "Fa uscire il bot dal canale vocale.", unblock: "Sblocca privacy contenuti: avatar, banner, quotes.", classifica: "Mostra la classifica livelli.", mstats: "Mostra statistiche minigiochi di un utente.", me: "Mostra le tue statistiche attività.", user: "Mostra le statistiche attività di un utente specifico.", server: "Mostra statistiche attività del server.", channel: "Mostra statistiche attività di un canale.", top: "Mostra la top completa utenti/canali.", rank: "Mostra livello, exp e posizione in classifica di un utente.", birthday: "Apre il pannello compleanno (imposta, modifica, rimuovi) con i pulsanti, come +customrole.", embed: "Apre il builder embed interattivo per creare e inviare embed personalizzati.", info: "Mostra una scheda completa di un utente: account, ruoli, permessi, strike e stato sicurezza.", customreaction: "Apre il pannello con pulsanti per le reaction alle menzioni (max 3), come +customvoc / +customrole.", description: "Invia nel ticket la descrizione ufficiale del server.", "no-dm-list": "Mostra la lista utenti con preferenze DM e cosa hanno disattivato (categorie o tutto).", purge: "Elimina messaggi da un canale.", ban: "Banna un utente.", unban: "Rimuove il ban di un utente.", kick: "Kicka un utente dal server.", mute: "Applica timeout a un utente.", unmute: "Rimuove il timeout da un utente.", warn: "Warna un utente.", warnings: "Mostra i warn attivi di un utente.", delwarn: "Rimuove un warn attivo da un utente.", clearwarn: "Rimuove tutti i warning attivi da un utente.", case: "Mostra una singola case moderazione.", reason: "Aggiorna il motivo di una case.", duration: "Aggiorna la durata di una case temporanea.", modlogs: "Mostra gli ultimi log moderazione di un utente.", moderations: "Mostra tutte le moderazioni temporanee attive (mute/ban). Senza utente: elenco globale; con utente: solo le sue.", modstats: "Mostra statistiche moderazione per staffer.", lock: "Blocca un canale.", unlock: "Sblocca un canale.", blacklist: "Aggiungi/rimuovi server (guild ID) con cui non si possono fare partnership.", recensione: "Premia una recensione assegnando livelli.", ticket: "Gestisce i ticket.", verify: "Verifica manualmente un utente.", temprole: "Assegna o rimuove ruoli temporanei agli utenti.", security: "Hub sicurezza: status globale e gestione panic.", level: "Configura il sistema EXP/livelli: imposta o modifica exp, blocca canali, moltiplicatori, ruoli ignorati.", customrole: "Crea o modifica il tuo ruolo personalizzato e gestisci chi può usarlo.", customvoc: "Crea e gestisce la tua vocale privata.", quote: "Genera una quote da un messaggio.", evento: "Mostra info e classifica sull'evento activity/exp in corso; i Founder possono avviare, fermare e gestire l'evento.", bh: "Alias per +birthday: stesso pannello interattivo per compleanno.", pause: "Gestione pause staffer (richieste, approvazioni, lista).", };
-const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = { "level.set": "Imposta EXP o livello a un valore preciso per un utente.", "level.add": "Aggiunge EXP a un utente.", "level.remove": "Rimuove EXP da un utente.", "level.reset": "Azzera EXP e livello di un utente.", "level.lock": "Blocca il guadagno EXP in un canale.", "level.unlock": "Sblocca il guadagno EXP in un canale.", "level.multiplier": "Imposta un moltiplicatore EXP temporaneo.", "level.gmulti": "Imposta il moltiplicatore globale EXP del server.", "level.config": "Mostra la configurazione EXP corrente del server.", "level.syncroles": "Allinea ruoli milestone/perks al livello EXP nel DB (utente o tutti).", "level.ignore": "Esclude un ruolo dal guadagno EXP.", "level.unignore": "Riabilita un ruolo al guadagno EXP.", "security.status": "Mostra un pannello paginato con lo stato dei sistemi sicurezza.", "security.enable": "Riattiva completamente i moduli sicurezza selezionati.", "security.disable": "Disabilita completamente i moduli sicurezza selezionati.", "security.panic": "Gestisce Panic Mode centralizzata.", "security.statics": "Configura ruoli, canali e utenti statici per la sicurezza.", "ticket.add": "Aggiunge uno o più utenti al ticket corrente.", "ticket.remove": "Rimuove uno o più utenti dal ticket corrente.", "ticket.closerequest": "Invia richiesta di chiusura ticket.", "ticket.close": "Chiude il ticket corrente.", "ticket.claim": "Claima un ticket.", "ticket.unclaim": "Unclaim un ticket.", "ticket.transfer": "Trasferisce il claim del ticket a un altro utente (solo claimer o High Staff).", "ticket.switchpanel": "Sposta il ticket a un pannello differente.", "ticket.rename": "Rinomina il canale ticket.", "ticket.reopen": "Riapre un ticket già chiuso.", "avatar.server": "Mostra l'avatar di un utente impostato per questo server.", "avatar.user": "Mostra l'avatar di un utente.", "avatar.guild": "Mostra l'icona del server.", "banner.user": "Mostra il banner di un utente.", "banner.server": "Mostra il banner di un utente impostato per questo server.", "banner.guild": "Mostra il banner del server.", "block.avatar": "Blocca la visualizzazione del tuo avatar.", "block.banner": "Blocca la visualizzazione del tuo banner.", "block.quotes": "Blocca la creazione di quote dei tuoi messaggi.", "unblock.avatar": "Sblocca la visualizzazione del tuo avatar.", "unblock.banner": "Sblocca la visualizzazione del tuo banner.", "unblock.quotes": "Sblocca la creazione di quote dei tuoi messaggi.", "classifica.alltime": "Mostra la classifica alltime.", "classifica.weekly": "Mostra la classifica settimanale.", "set.autojoin": "Attiva o disattiva autojoin TTS.", "set.voice": "Imposta la lingua TTS personale.", "embed.create": "Avvia il builder interattivo dell'embed con anteprima e invio finale.", "temprole.add": "Assegna un ruolo temporaneo a un utente.", "temprole.remove": "Rimuove un ruolo temporaneo da un utente.", "customrole.create": "Crea o aggiorna il tuo ruolo personalizzato.", "customrole.modify": "Apre il pannello di modifica del tuo ruolo personalizzato (nome, colore, icona, aggiungi/rimuovi utenti).", "customrole.add": "Tagga un utente per inviargli una richiesta di unione al tuo ruolo personalizzato.", "customrole.remove": "Apre un menu per rimuovere utenti dal tuo ruolo personalizzato.", "classifica.cs": "Alias per classifica settimanale.", "classifica.classificasettimanale": "Mostra la classifica livelli settimanale.", "evento.start": "Avvia un evento activity/exp (solo Founder).", "evento.stop": "Termina l'evento in corso (solo Founder).", "evento.info": "Mostra informazioni sull'evento in corso (solo Founder).", "evento.classifica": "Mostra la classifica dell'evento (exp o livelli).", "evento.assegna-ruoli": "Assegna i ruoli premio dell'evento (solo Founder).", "evento.reset-premi": "Resetta i premi assegnati per l'evento (solo Founder).", "evento.staff": "Pannello staff evento (solo Founder).", };
+const PREFIX_HELP_DESCRIPTIONS = {
+  help: "Mostra tutti i comandi disponibili con il bot.",
+  afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
+  avatar: "Mostra l'avatar di un utente o l'icona del server.",
+  banner: "Mostra il banner di un utente o del server.",
+  voices: "Mostra le voci TTS disponibili.",
+  membercount: "Mostra il numero totale di membri del server.",
+  "dm-filters": "Pannello per gestire le categorie di DM.",
+  ping: "Mostra latenza bot, database e informazioni di uptime.",
+  privacy: "Pannello per bloccare o sbloccare avatar, banner e quotes.",
+  set: "Impostazioni TTS: autojoin e voce personale.",
+  ship: "Calcola la compatibilità tra due utenti.",
+  snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
+  join: "Fa entrare il bot nel tuo canale vocale.",
+  leave: "Fa uscire il bot dal canale vocale.",
+  classifica: "Mostra la classifica livelli.",
+  mstats: "Mostra statistiche minigiochi di un utente.",
+  me: "Mostra le tue statistiche attività.",
+  user: "Mostra le statistiche attività di un utente (mention, ID o username).",
+  server: "Mostra statistiche attività del server.",
+  channel: "Mostra le statistiche attività di un canale (vocale o testo); senza canale usa quello corrente.",
+  top: "Mostra la top completa utenti/canali.",
+  rank: "Mostra livello, exp e posizione in classifica di un utente.",
+  birthday: "Apre il pannello compleanno (imposta, modifica, rimuovi) con i pulsanti, come +customrole.",
+  embed: "Apre il builder embed interattivo per creare e inviare embed personalizzati.",
+  info: "Mostra una scheda completa di un utente: account, ruoli, permessi, strike e stato sicurezza.",
+  customreaction: "Apre il pannello con pulsanti per le reaction alle menzioni.",
+  desc: "Invia nel ticket la descrizione ufficiale del server.",
+  "no-dm-list": "Mostra la lista utenti con preferenze DM e cosa hanno disattivato.",
+  purge: "Elimina messaggi da un canale.",
+  ban: "Banna un utente.",
+  unban: "Rimuove il ban di un utente.",
+  kick: "Kicka un utente dal server.",
+  mute: "Applica timeout a un utente.",
+  unmute: "Rimuove il timeout da un utente.",
+  warn: "Warna un utente.",
+  warnings: "Mostra i warn attivi di un utente.",
+  delwarn: "Rimuove un warn attivo da un utente.",
+  clearwarn: "Rimuove tutti i warning attivi da un utente.",
+  case: "Mostra una singola case moderazione.",
+  reason: "Aggiorna il motivo di una case.",
+  duration: "Aggiorna la durata di una case temporanea.",
+  modlogs: "Mostra gli ultimi log moderazione di un utente.",
+  moderations: "Mostra tutte le moderazioni temporanee attive.",
+  modstats: "Mostra statistiche moderazione per staffer.",
+  lock: "Blocca un canale.",
+  unlock: "Sblocca un canale.",
+  blacklist: "Gestisce la blacklist partnership: aggiungi, rimuovi o elenca server Discord bloccati.",
+  recensione: "Premia una recensione assegnando livelli.",
+  ticket: "Gestisce i ticket: partecipanti, claim, trasferimento, pannello, rinomina, chiusura e riapertura.",
+  verify: "Verifica manualmente un utente.",
+  temprole: "Assegna o rimuove ruoli temporanei agli utenti.",
+  security: "Hub sicurezza: status globale e gestione panic.",
+  level: "Configura il sistema EXP/livelli: imposta o modifica exp, blocca canali, moltiplicatori, ruoli ignorati.",
+  customrole: "Crea o modifica il tuo ruolo personalizzato e gestisci chi può usarlo.",
+  customvoc: "Crea e gestisce la tua vocale privata.",
+  quote: "Genera una quote da un messaggio.",
+  evento: "Mostra info e classifica sull'evento activity/exp in corso; i Founder possono avviare, fermare e gestire l'evento.",
+  pause: "Gestione pause staffer.",
+};
+
+const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
+  "level.set": "Imposta EXP o livello a un valore preciso per un utente.",
+  "level.add": "Aggiunge EXP a un utente.",
+  "level.remove": "Rimuove EXP da un utente.",
+  "level.reset": "Azzera EXP e livello di un utente.",
+  "level.lock": "Blocca il guadagno EXP in un canale.",
+  "level.unlock": "Sblocca il guadagno EXP in un canale.",
+  "level.multiplier": "Imposta un moltiplicatore EXP temporaneo.",
+  "level.gmulti": "Imposta il moltiplicatore globale EXP del server.",
+  "level.config": "Mostra la configurazione EXP corrente del server.",
+  "level.syncroles": "Allinea ruoli milestone/perks al livello EXP nel DB.",
+  "level.ignore": "Esclude un ruolo dal guadagno EXP.",
+  "level.unignore": "Riabilita un ruolo al guadagno EXP.",
+  "security.status": "Mostra un pannello paginato con lo stato dei sistemi sicurezza.",
+  "security.enable": "Riattiva completamente i moduli sicurezza selezionati.",
+  "security.disable": "Disabilita completamente i moduli sicurezza selezionati.",
+  "security.panic": "Gestisce Panic Mode centralizzata.",
+  "security.statics": "Configura ruoli, canali e utenti statici per la sicurezza.",
+  "ticket.add": "Aggiunge uno o più utenti al ticket corrente.",
+  "ticket.remove": "Rimuove uno o più utenti dal ticket corrente.",
+  "ticket.closerequest": "Invia richiesta di chiusura ticket.",
+  "ticket.close": "Chiude il ticket corrente.",
+  "ticket.claim": "Claima un ticket.",
+  "ticket.unclaim": "Unclaim un ticket.",
+  "ticket.transfer": "Trasferisce il claim del ticket a un altro utente.",
+  "ticket.switchpanel": "Sposta il ticket a un pannello differente.",
+  "ticket.rename": "Rinomina il canale ticket.",
+  "ticket.reopen": "Riapre un ticket già chiuso.",
+  "avatar.server": "Mostra l'avatar di un utente impostato per questo server.",
+  "avatar.user": "Mostra l'avatar di un utente.",
+  "avatar.guild": "Mostra l'icona del server.",
+  "banner.user": "Mostra il banner di un utente.",
+  "banner.server": "Mostra il banner di un utente impostato per questo server.",
+  "banner.guild": "Mostra il banner del server.",
+  "classifica.alltime": "Mostra la classifica alltime.",
+  "classifica.weekly": "Mostra la classifica settimanale.",
+  "set.autojoin": "Attiva o disattiva autojoin TTS.",
+  "set.voice": "Imposta la lingua TTS personale.",
+  "embed.create": "Avvia il builder interattivo dell'embed con anteprima e invio finale.",
+  "classifica.cs": "Alias per classifica settimanale.",
+  "classifica.classificasettimanale": "Mostra la classifica livelli settimanale.",
+  "evento.start": "Avvia un evento activity/exp.",
+  "evento.stop": "Termina l'evento in corso.",
+  "evento.info": "Mostra informazioni sull'evento in corso.",
+  "evento.classifica": "Mostra la classifica dell'evento.",
+  "evento.classifica-exp": "Mostra la classifica dell'evento basata sull'EXP guadagnata nel periodo.",
+  "evento.assegna-ruoli": "Assegna i ruoli premio dell'evento.",
+  "evento.reset-premi": "Resetta i premi assegnati per l'evento.",
+  "evento.staff": "Pannello staff evento.",
+  "temprole.add": "Assegna un ruolo temporaneo a un utente.",
+  "temprole.remove": "Rimuove un ruolo temporaneo da un utente.",
+  "pause.list": "Mostra la lista pause dell'anno corrente per te stesso o per lo staffer indicato.",
+  "blacklist.add": "Aggiunge un server alla blacklist partnership.",
+  "blacklist.remove": "Rimuove un server dalla blacklist.",
+  "blacklist.list": "Elenca i server attualmente in blacklist.",
+};
 const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };
 const CONTEXT_CATEGORY_OVERRIDES = { partnership: "partner", };
 const PERMISSIONS_CACHE_TTL_MS = 30_000;
@@ -172,8 +287,6 @@ function getPrefixDescription(command) {
   if (PREFIX_HELP_DESCRIPTIONS[commandName]) {
     return PREFIX_HELP_DESCRIPTIONS[commandName];
   }
-  const fromCommand = normalizeDescription(command?.description || command?.desc || command?.help || command?.usage, "",);
-  if (fromCommand) return fromCommand;
   return "Descrizione non disponibile.";
 }
 
@@ -191,12 +304,6 @@ function getPrefixSubcommandDescription(command, subcommandName) {
   const key = `${String(commandName || "").toLowerCase()}.${String(subcommandName || "").toLowerCase()}`;
   if (PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]) {
     return PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key];
-  }
-  const commandSubDesc = command?.subcommandDescriptions || command?.subcommandsDescriptions || command?.subcommandHelp || command?.subcommandsHelp || null;
-  if (commandSubDesc && typeof commandSubDesc === "object") {
-    const fromCommand = commandSubDesc[String(subcommandName || "").toLowerCase()] || commandSubDesc[String(subcommandName || "").trim()];
-    if (String(fromCommand || "").trim())
-      return normalizeDescription(fromCommand);
   }
   return "Descrizione non disponibile.";
 }
@@ -223,8 +330,6 @@ function resolveContextCategory(command, dataJson) {
 function extractPrefixSubcommands(command) {
   const fromMeta = Array.isArray(command?.subcommands) ? command.subcommands.map((s) => String(s || "").trim().toLowerCase(),).filter(Boolean) : [];
   const fromAliases = command?.subcommandAliases && typeof command.subcommandAliases === "object" ? Object.values(command.subcommandAliases).map((s) => String(s || "").trim().toLowerCase(),).filter(Boolean) : [];
-  const commandSubDesc = command?.subcommandDescriptions || command?.subcommandsDescriptions || command?.subcommandHelp || command?.subcommandsHelp || null;
-  const fromSubDesc = commandSubDesc && typeof commandSubDesc === "object" ? Object.keys(commandSubDesc).map((s) => String(s || "").trim().toLowerCase(),).filter(Boolean) : [];
 
   const src = String(command?.execute || "");
   const found = new Set();
@@ -244,7 +349,6 @@ function extractPrefixSubcommands(command) {
     new Set([
       ...fromMeta,
       ...fromAliases,
-      ...fromSubDesc,
       ...Array.from(found.values()),
     ]),
   );

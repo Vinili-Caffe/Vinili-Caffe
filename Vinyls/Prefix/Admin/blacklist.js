@@ -10,8 +10,8 @@ const {
 module.exports = {
   name: "blacklist",
   category: "admin",
-  description:
-    "Blacklist server Discord (guild ID) con cui non si possono fare partnership.",
+  subcommands: ["add", "remove", "list"],
+  subcommandAliases: { add: "add", remove: "remove", list: "list" },
   usage:
     "`+blacklist add <guildId> [nota]` — aggiungi\n`+blacklist remove <guildId>` — rimuovi\n`+blacklist remove this` — rimuovi il server corrente\n`+blacklist list` — elenco",
   examples: [

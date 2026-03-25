@@ -83,7 +83,7 @@ function buildPanelEmbed(states) {
     return `• **${LABELS[key]}**: ${hidden ? `${EMOJI_OFF} Nascosto / bloccato` : `${EMOJI_ON} Visibile`}`;
   });
   const desc = [
-    "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner e quote in questo server (stesso effetto di `+block` / `+unblock`).",
+    "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner e quote in questo server.",
     "",
     ...lines,
     "",

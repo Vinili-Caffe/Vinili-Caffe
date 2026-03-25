@@ -153,11 +153,6 @@
                 ]
             }
         },
-        "weeklywinners": {
-            "roles": [
-                "roles.HighStaff"
-            ]
-        },
         "valutazione": {
             "roles": [
                 "roles.HighStaff"
@@ -219,22 +214,6 @@
                     "roles.Member"
                 ],
                 "guild": [
-                    "roles.Member"
-                ]
-            }
-        },
-        "block": {
-            "roles": [
-                "roles.Member"
-            ],
-            "subcommands": {
-                "avatar": [
-                    "roles.Member"
-                ],
-                "banner": [
-                    "roles.Member"
-                ],
-                "quotes": [
                     "roles.Member"
                 ]
             }
@@ -301,15 +280,6 @@
                 "channels.commands"
             ]
         },
-        "customregister": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
         "customvoc": {
             "roles": [
                 "roles.vip",
@@ -330,27 +300,11 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.chat",
-                "channels.media",
-                "channels.forum",
-                "channels.news",
-                "channels.eventAnnouncements",
-                "channels.suggestions",
-                "channels.supporters",
-                "channels.ship",
-                "channels.polls",
-                "channels.quotes",
-                "channels.birthday",
-                "channels.staffChat",
-                "channels.partnersChat",
-                "channels.highChat",
-                "channels.midChat",
                 "channels.staffCmds",
-                "channels.highCmds",
-                "channels.partnerships"
+                "channels.highCmds"
             ]
         },
-        "description": [
+        "desc": [
             "roles.PartnerManager"
         ],
         "dm-filters": {
@@ -366,48 +320,20 @@
                 "roles.Member"
             ],
             "channels": [
-                "channels.commands"
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
             ]
-        },
-        "bh": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ],
-            "subcommands": {
-                "set": [
-                    "roles.Member"
-                ],
-                "edit": [
-                    "roles.Member"
-                ],
-                "remove": [
-                    "roles.Member"
-                ]
-            }
         },
         "birthday": {
             "roles": [
                 "roles.Member"
             ],
             "channels": [
-                "channels.commands"
-            ]
-        },
-        "embed": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
                 "channels.highCmds"
-            ],
-            "subcommands": {
-                "create": [
-                    "roles.HighStaff"
-                ]
-            }
+            ]
         },
         "help": {
             "roles": [
@@ -613,14 +539,6 @@
                 "channels.highCmds"
             ]
         },
-        "nodmlist": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ]
-        },
         "ping": {
             "roles": [
                 "roles.Member"
@@ -691,7 +609,21 @@
                 "channels.staffCmds",
                 "channels.highCmds",
                 "channels.partnersChat"
-            ]
+            ],
+            "subcommands": {
+                "add": [
+                    "roles.HighStaff",
+                    "roles.PartnerManager"
+                ],
+                "remove": [
+                    "roles.HighStaff",
+                    "roles.PartnerManager"
+                ],
+                "list": [
+                    "roles.HighStaff",
+                    "roles.PartnerManager"
+                ]
+            }
         },
         "server": {
             "roles": [
@@ -791,22 +723,6 @@
                 "channels.staffCmds",
                 "channels.highCmds"
             ]
-        },
-        "unblock": {
-            "roles": [
-                "roles.Member"
-            ],
-            "subcommands": {
-                "avatar": [
-                    "roles.Member"
-                ],
-                "banner": [
-                    "roles.Member"
-                ],
-                "quotes": [
-                    "roles.Member"
-                ]
-            }
         },
         "verify": {
             "roles": [

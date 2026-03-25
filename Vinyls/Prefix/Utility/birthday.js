@@ -66,7 +66,7 @@ function buildPanelEmbed(user, state, mode = "set") {
     .setColor(BRAND_COLOR)
     .setTitle(`Compleanno • ${modeLabel}`)
     .setDescription(
-      `<a:VC_Flowers:1468687836055212174> ${user}, configura il compleanno con i pulsanti qui sotto (stile \`+customrole\`).`,
+      `<a:VC_Flowers:1468687836055212174> ${user}, configura il compleanno con i pulsanti qui sotto.`,
     )
     .addFields(
       { name: "Data di nascita", value: formatDateLabel(state.day, state.month), inline: true },
@@ -492,7 +492,6 @@ async function openBirthdayPanel(message, client, initialState = null, mode = "s
 
 module.exports = {
   name: "birthday",
-  aliases: ["bh"],
 
   async execute(message, args = [], client) {
     if (!message?.guild) {
