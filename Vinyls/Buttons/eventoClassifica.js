@@ -127,17 +127,17 @@ async function buildEventoClassificaExpOnlyPayload(guild) {
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`<:VC_Leaderboard:1482534806314287387> Evento Activity EXP — Solo EXP`)
+    .setTitle(`<:VC_Leaderboard:1482534806314287387> Evento Activity EXP`)
     .setDescription(
       [
-        "_Classifica cumulativa dell'evento (EXP da messaggi e vocale). Lo **Staff** è incluso; lo **High Staff** è escluso._",
+        "_Classifica cumulativa dell'evento_",
         "",
         "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
         ...expLines,
       ].join("\n")
     )
     .setThumbnail(guild.iconURL({ size: 256 }) || null)
-    .setFooter({ text: "Solo EXP · staff incluso, High Staff escluso" })
+    .setFooter({ text: "Solo EXP" })
     .setTimestamp();
 
   return { embeds: [embed], components: [] };
