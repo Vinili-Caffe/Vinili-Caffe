@@ -7,7 +7,7 @@
  *   node scripts/migrate-staff-into-activityprofile.js
  *   node scripts/migrate-staff-into-activityprofile.js --drop-staff-collection
  *
- * Richiede MONGODB_URI nel .env (o variabile d'ambiente).
+ * URI: MONGODB_URI, MONGO_URI o MONGO_URL_LOCAL nel .env (o ambiente).
  */
 const fs = require("fs");
 const path = require("path");
@@ -38,13 +38,18 @@ try {
 try {
   requireFromBotWorkspace("dotenv").config({ path: path.join(root, ".env") });
 } catch (_) {
-  /* .env opzionale se MONGODB_URI è già nell'ambiente */
+  /* .env opzionale se l'URI è già nell'ambiente */
 }
 
 async function main() {
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  const uri =
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI ||
+    process.env.MONGO_URL_LOCAL;
   if (!uri) {
-    console.error("Manca MONGODB_URI (o MONGO_URI) nel .env.");
+    console.error(
+      "Manca una URI MongoDB: imposta MONGODB_URI, MONGO_URI o MONGO_URL_LOCAL nel .env.",
+    );
     process.exit(1);
   }
   const dry = process.argv.includes("--dry-run");
