@@ -147,6 +147,12 @@ async function checkAndInstallPackages(
     const missingPackages = [...requiredPackages].filter((pkg) => {
       if (ignorePackages.includes(pkg)) return false;
       if (installedPackages.has(pkg)) return false;
+      try {
+        require.resolve(pkg, {
+          paths: [process.cwd(), path.resolve(process.cwd(), ".."), __dirname],
+        });
+        return false;
+      } catch {}
       const modulePath = path.join("node_modules", ...pkg.split("/"));
       return !fsSync.existsSync(modulePath);
     });

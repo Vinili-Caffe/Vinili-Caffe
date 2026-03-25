@@ -404,6 +404,8 @@ eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true }
 
 // --- MODERATION MAIN MOD-CASE SCHEMA ---
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
+const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
+const USE_LEGACY_MOD_CASE_MODEL = MOD_CASE_STORAGE_MODE === "legacy" || MOD_CASE_STORAGE_MODE === "dual";
 const modCaseSchema = new Schema(
   {
     guildId: { type: String, required: true },
@@ -818,8 +820,7 @@ const QuotePrivacy = buildProfileSubdocModel({
 });
 
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
-const ModCase = models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION);
-const DiscadiaVote = models.DiscadiaVote || model("DiscadiaVote", disVotSchema, "discadia_votes");
+const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
   ACTIVITY_MAIN_GUILD_ID,
@@ -837,5 +838,4 @@ module.exports = {
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
-  DiscadiaVote,
 };

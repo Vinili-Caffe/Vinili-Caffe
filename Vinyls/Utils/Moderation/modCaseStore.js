@@ -9,7 +9,7 @@ const BOT_MODERATOR_IDS = new Set(
     .map((id) => String(id)),
 );
 
-const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "dual")
+const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact")
   .trim()
   .toLowerCase();
 const MOD_CASE_MAX_CASES_PER_USER = Math.max(
