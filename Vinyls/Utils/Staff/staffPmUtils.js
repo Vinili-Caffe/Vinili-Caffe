@@ -1,0 +1,65 @@
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const IDs = require("../Config/ids");
+const { memberHasStaffRole } = require("../Community/staffListUtils");
+
+const ROLE_PM = IDs.roles.PartnerManager;
+
+function memberHasPartnerManagerRole(member) {
+  return Boolean(ROLE_PM && member?.roles?.cache?.has?.(ROLE_PM));
+}
+
+/** Inizializza i campi DB legati al ruolo Partner Manager (solo quando l'utente ha il PM). */
+function initPartnerManagerFieldsIfMissing(staffObj) {
+  if (!staffObj) return;
+  if (staffObj.partnerCount === undefined) staffObj.partnerCount = 0;
+  if (!Array.isArray(staffObj.partnerActions)) staffObj.partnerActions = [];
+  if (staffObj.managerId === undefined) staffObj.managerId = null;
+}
+
+function buildStaffPartnerFieldsUnsetUpdate() {
+  return {
+    $unset: {
+      "staff.partnerCount": "",
+      "staff.partnerActions": "",
+      "staff.managerId": "",
+    },
+  };
+}
+
+/**
+ * Dopo un depex (o equivalente): se non resta nessun ruolo staff list → elimina tutto `staff`.
+ * Se resta staff ma non più PM → rimuove solo i campi partner (partnerCount, partnerActions, managerId).
+ */
+async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return;
+  if (!member) {
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid, staff: { $exists: true } },
+      { $unset: { staff: "" } },
+    ).catch(() => null);
+    return;
+  }
+  if (memberHasStaffRole(member)) {
+    if (!memberHasPartnerManagerRole(member)) {
+      await ActivityUserProfile.updateOne(
+        { guildId: gid, userId: uid },
+        buildStaffPartnerFieldsUnsetUpdate(),
+      ).catch(() => null);
+    }
+  } else {
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid, staff: { $exists: true } },
+      { $unset: { staff: "" } },
+    ).catch(() => null);
+  }
+}
+
+module.exports = {
+  ROLE_PM,
+  memberHasPartnerManagerRole,
+  initPartnerManagerFieldsIfMissing,
+  buildStaffPartnerFieldsUnsetUpdate,
+  applyStaffDatabaseAfterDepex,
+};

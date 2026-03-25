@@ -11,7 +11,26 @@
 const path = require("path");
 const ROOT = path.join(__dirname, "..");
 require("dotenv").config({ path: path.join(ROOT, ".env"), quiet: true });
-const mongoose = require(path.join(ROOT, "Vinyls", "node_modules", "mongoose"));
+
+function requireMongoose() {
+  const attempts = [
+    () => require("mongoose"),
+    () => require(path.join(ROOT, "node_modules", "mongoose")),
+    () => require(path.join(ROOT, "Vinyls", "node_modules", "mongoose")),
+  ];
+  for (const fn of attempts) {
+    try {
+      return fn();
+    } catch {
+      /* try next */
+    }
+  }
+  throw new Error(
+    "Mongoose non trovato. Installa le dipendenze del bot (es. nella root: npm ci / npm install, oppure in Vinyls) così che esista node_modules/mongoose.",
+  );
+}
+
+const mongoose = requireMongoose();
 
 const { GuildFeatureBucket } = require(path.join(ROOT, "Vinyls", "Schemas", "Guild", "guildFeatureBucketSchema.js"));
 

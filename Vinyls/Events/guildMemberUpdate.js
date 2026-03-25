@@ -3,6 +3,7 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
+const { memberHasPartnerManagerRole, buildStaffPartnerFieldsUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const { adjustPmStaffPointsOnRoleChange } = require("../Services/Community/staffEventService");
 const { sendEventRewardLog } = require("../Services/Community/eventRewardLogService");
@@ -1099,6 +1100,12 @@ module.exports = {
             await ActivityUserProfile.updateOne(
               { guildId: newMember.guild.id, userId: newMember.id, staff: { $exists: true } },
               { $unset: { staff: "" } },
+            ).catch(() => {});
+          }
+          if (memberHasStaffRole(newMember) && !memberHasPartnerManagerRole(newMember)) {
+            await ActivityUserProfile.updateOne(
+              { guildId: newMember.guild.id, userId: newMember.id },
+              buildStaffPartnerFieldsUnsetUpdate(),
             ).catch(() => {});
           }
         }

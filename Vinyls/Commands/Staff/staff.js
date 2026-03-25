@@ -1,7 +1,7 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
+const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
@@ -417,6 +417,11 @@ module.exports = {
           targetUser,
         );
 
+        const profileDoc = staffDoc;
+        const s = ensureStaff(profileDoc);
+        if (roleAfter.id === ROLE_PARTNER_MANAGER) {
+          initPartnerManagerFieldsIfMissing(s);
+        }
         if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
         s.rolesHistory.push({
           oldRole: roleBefore.id,
@@ -467,9 +472,11 @@ module.exports = {
         }
         await applyDepexSideEffects(baseRoleVerification.member, oldRole.id);
 
-        await ActivityUserProfile.updateOne(
-          { guildId: interaction.guild.id, userId: targetUser.id, staff: { $exists: true } },
-          { $unset: { staff: "" } },
+        const refreshedMember = await resolveMember(targetUser.id);
+        await applyStaffDatabaseAfterDepex(
+          interaction.guild.id,
+          targetUser.id,
+          refreshedMember,
         );
 
         await replySuccess(interaction);

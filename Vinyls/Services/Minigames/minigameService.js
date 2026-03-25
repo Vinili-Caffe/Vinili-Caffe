@@ -5904,6 +5904,14 @@ async function maybeStartRandomGame(client, force = false) {
     logMinigameDebug("skip: missing channelId");
     return;
   }
+  if (!cfg.guildId) {
+    const cachedCh = getChannelSafe(client, cfg.channelId);
+    if (cachedCh?.guild?.id) cfg.guildId = String(cachedCh.guild.id);
+    else {
+      const ch = await getChannelCached(client, cfg.channelId);
+      if (ch?.guild?.id) cfg.guildId = String(ch.guild.id);
+    }
+  }
   if (startingChannels.has(cfg.channelId)) {
     logMinigameDebug("skip: already-starting", { channelId: cfg.channelId });
     return;

@@ -156,6 +156,14 @@ module.exports = {
     }
 
     const guildId = interaction.guild.id;
+    const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+    if (!targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager)) {
+      return safeEditReply(interaction, {
+        content:
+          "<:vegax:1443934876440068179> I punti partner si gestiscono solo per utenti con il ruolo **Partner Manager**.",
+        flags: PRIVATE_FLAG,
+      });
+    }
 
     if (sub === "add") {
       const staffData = await addPartnerPoints(guildId, targetUser.id, amount);

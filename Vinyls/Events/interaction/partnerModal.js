@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const axios = require("axios");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
+const { initPartnerManagerFieldsIfMissing } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -49,16 +50,10 @@ function stripLinksFromDescription(text) {
 }
 
 async function getOrCreateStaffPartnerDoc(guildId, userId) {
-  const g = String(guildId ?? "").trim();
-  const u = String(userId ?? "").trim();
-  if (!g || !u) return null;
-  let staffDoc = await ActivityUserProfile.findOne({ guildId: g, userId: u });
-  if (!staffDoc) {
-    staffDoc = new ActivityUserProfile({ guildId: g, userId: u, staff: { partnerCount: 0, partnerActions: [] } });
-  }
-  if (!staffDoc.staff) staffDoc.staff = {};
-  if (!Array.isArray(staffDoc.staff.partnerActions)) staffDoc.staff.partnerActions = [];
-  if (typeof staffDoc.staff.partnerCount !== "number") staffDoc.staff.partnerCount = 0;
+  const staffDoc = await getOrCreateStaffDoc(guildId, userId);
+  if (!staffDoc) return null;
+  const s = ensureStaff(staffDoc);
+  initPartnerManagerFieldsIfMissing(s);
   return staffDoc;
 }
 

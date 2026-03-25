@@ -2,8 +2,8 @@ const { EmbedBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInpu
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
+const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const { addStaffWarnFromNegatives, applyFullDepex } = require("../../Services/Staff/staffWarnService");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
@@ -322,6 +322,9 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Pex applicato parzialmente: side-effect ruoli non completati.";
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
     const s = ensureStaff(profileDoc);
+    if (roleAfterId === ROLE_PARTNER_MANAGER) {
+      initPartnerManagerFieldsIfMissing(s);
+    }
     if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
     s.rolesHistory.push({
       oldRole: roleBeforeId,
@@ -343,10 +346,8 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
     const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
     if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
-    await ActivityUserProfile.updateOne(
-      { guildId: guild.id, userId: payload.userId, staff: { $exists: true } },
-      { $unset: { staff: "" } },
-    ).catch(() => null);
+    const memberAfterDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
+    await applyStaffDatabaseAfterDepex(guild.id, payload.userId, memberAfterDepex);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Depex applicato.";
   }
@@ -374,13 +375,8 @@ async function applyPmAction(guild, payload) {
     const memberRoleAdded = await ensureRoleAdded(guild, member, ROLE_MEMBER);
     if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
   }
-  const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-  const s = ensureStaff(profileDoc);
-  s.partnerCount = 0;
-  s.managerId = null;
-  s.partnerActions = [];
-  profileDoc.markModified("staff");
-  await profileDoc.save();
+  const memberAfterPmDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
+  await applyStaffDatabaseAfterDepex(guild.id, payload.userId, memberAfterPmDepex);
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
 }
 
