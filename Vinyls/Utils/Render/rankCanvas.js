@@ -27,7 +27,7 @@ module.exports = async function renderRankCanvas({
 }) {
   registerCanvasFonts(canvasModule);
   const width = 1100;
-  const height = 360;
+  const height = hideLeaderboardRanks ? 300 : 360;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
@@ -158,24 +158,26 @@ module.exports = async function renderRankCanvas({
     },
   );
 
-  const wr = hideLeaderboardRanks ? "—" : weeklyRank ? `#${weeklyRank}` : "-";
-  const ar = hideLeaderboardRanks ? "—" : allTimeRank ? `#${allTimeRank}` : "-";
-  drawTextWithSpecialFallback(ctx, `Weekly: ${wr}`, 280, 290, {
-    size: 28,
-    weight: "700",
-    color: "#ffffff",
-    align: "left",
-    baseline: "middle",
-    forcePrimaryFont: true,
-  });
-  drawTextWithSpecialFallback(ctx, `All Time: ${ar}`, 520, 290, {
-    size: 28,
-    weight: "700",
-    color: "#ffffff",
-    align: "left",
-    baseline: "middle",
-    forcePrimaryFont: true,
-  });
+  if (!hideLeaderboardRanks) {
+    const wr = weeklyRank ? `#${weeklyRank}` : "-";
+    const ar = allTimeRank ? `#${allTimeRank}` : "-";
+    drawTextWithSpecialFallback(ctx, `Weekly: ${wr}`, 280, 290, {
+      size: 28,
+      weight: "700",
+      color: "#ffffff",
+      align: "left",
+      baseline: "middle",
+      forcePrimaryFont: true,
+    });
+    drawTextWithSpecialFallback(ctx, `All Time: ${ar}`, 520, 290, {
+      size: 28,
+      weight: "700",
+      color: "#ffffff",
+      align: "left",
+      baseline: "middle",
+      forcePrimaryFont: true,
+    });
+  }
 
   return canvas.toBuffer("image/png");
 };

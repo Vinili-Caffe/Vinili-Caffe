@@ -160,6 +160,11 @@ module.exports = {
           message.channel?.parentId !== MEDIA_BLOCK_EXEMPT_CATEGORY_ID &&
           !MEDIA_BLOCK_EXEMPT_CHANNEL_IDS.has(message.channel?.id)
         ) {
+          setImmediate(() => {
+            recordMessageActivity(message).catch((err) =>
+              logEventError(resolvedClient, "ACTIVITY MESSAGE ERROR", err),
+            );
+          });
           await message.delete().catch(() => {});
           const embed = new EmbedBuilder()
             .setColor("#6f4e37")

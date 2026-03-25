@@ -30,16 +30,10 @@ module.exports = {
 
     const{stats,weeklyRank,allTimeRank}=await getUserRanks(message.guild.id,targetUser.id,);
     const multiplier = await getGlobalMultiplier(message.guild.id);
-    const weeklyText = hideLeaderboardRanks
-      ? "—"
-      : stats.level === 0
-        ? "Fuori dalla classifica"
-        : `#${weeklyRank}`;
-    const allTimeText = hideLeaderboardRanks
-      ? "—"
-      : stats.level === 0
-        ? "Fuori dalla classifica"
-        : `#${allTimeRank}`;
+    const weeklyText =
+      stats.level === 0 ? "Fuori dalla classifica" : `#${weeklyRank}`;
+    const allTimeText =
+      stats.level === 0 ? "Fuori dalla classifica" : `#${allTimeRank}`;
 
     const avatarUrl =
       targetMember?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
@@ -69,8 +63,20 @@ module.exports = {
     )
     .addFields(
       { name: "<a:VC_StarPink:1330194976440848500> **Livello:**", value: `**${stats.level}**`, inline: true },
-      { name: "<a:VC_StarBlue:1330194918043418674> **Weekly Top:**", value: `${weeklyText}`, inline: true },
-      { name: "<a:VC_StarPurple:1330195026688344156> **General Top:**", value: `${allTimeText}`, inline: true },
+      ...(hideLeaderboardRanks
+        ? []
+        : [
+            {
+              name: "<a:VC_StarBlue:1330194918043418674> **Weekly Top:**",
+              value: `${weeklyText}`,
+              inline: true,
+            },
+            {
+              name: "<a:VC_StarPurple:1330195026688344156> **General Top:**",
+              value: `${allTimeText}`,
+              inline: true,
+            },
+          ]),
     )
     .setFooter({ text: `Ti mancano ${stats.remainingToNext} exp per il prossimo livello` });
     const row = new ActionRowBuilder()
