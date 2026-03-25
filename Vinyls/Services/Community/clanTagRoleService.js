@@ -21,19 +21,31 @@ function normalizeForMatch(text) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-async function hasMatchingTag(member, client, userForClan = null) {
+async function hasMatchingTag(member, client, userForClan = null, options = {}) {
   const user = userForClan || member?.user;
   if (!user) return null;
 
   const guildTagConfig = IDs.sponsorGuildTagConfig || {};
   const mainTagNorm = normalizeForMatch(MAIN_SERVER_TAG);
 
-  let clan = user.clan;
-  if (!clan && client) {
+  let clan = null;
+  if (userForClan) {
+    clan = userForClan.clan ?? null;
+  } else if (options.refreshFromApi === true && client && member?.guild?.id) {
     try {
       const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
-      clan = raw.user?.clan;
-    } catch (e) { }
+      clan = raw.user?.clan ?? null;
+    } catch (e) {
+      clan = user.clan ?? null;
+    }
+  } else {
+    clan = user.clan ?? null;
+    if (!clan && client && member?.guild?.id) {
+      try {
+        const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
+        clan = raw.user?.clan ?? null;
+      } catch (e) { }
+    }
   }
 
   if (clan?.tag) {
@@ -60,7 +72,8 @@ async function syncClanTagRoles(member, options = {}) {
   if (member.guild.id !== MAIN_GUILD_ID) return;
 
   const userForClan = options.userForClan || null;
-  const match = await hasMatchingTag(member, member.client, userForClan);
+  const refreshFromApi = !userForClan;
+  const match = await hasMatchingTag(member, member.client, userForClan, { refreshFromApi });
 
   if (match) {
     if (GLOBAL_GUILDED_ROLE_ID && !member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {

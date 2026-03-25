@@ -1,6 +1,6 @@
 const path = require("path");
 const mongoose = require("mongoose");
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, escapeMarkdown } = require("discord.js");
 const { inspect } = require("node:util");
 const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket");
 const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
@@ -150,6 +150,44 @@ function invalidateCountingConfig(guildId) {
   countingConfigCache.delete(key);
 }
 
+const IT_ONE_UNIT_AGO = [
+  [/^1 minuto fa$/u, "un minuto fa"],
+  [/^1 ora fa$/u, "un'ora fa"],
+  [/^1 giorno fa$/u, "un giorno fa"],
+  [/^1 settimana fa$/u, "una settimana fa"],
+  [/^1 mese fa$/u, "un mese fa"],
+  [/^1 anno fa$/u, "un anno fa"],
+];
+
+function normalizeItalianUnitAgo(s) {
+  const t = String(s || "");
+  for (const [re, rep] of IT_ONE_UNIT_AGO) {
+    if (re.test(t)) return rep;
+  }
+  return t;
+}
+
+function formatItalianTimeAgo(dateLike) {
+  const thenMs = new Date(dateLike).getTime();
+  if (Number.isNaN(thenMs)) return "da poco";
+  let diffSec = Math.floor((Date.now() - thenMs) / 1000);
+  if (diffSec < 0) diffSec = 0;
+  const rtf = new Intl.RelativeTimeFormat("it", { numeric: "auto" });
+  if (diffSec < 45) return "da poco";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return normalizeItalianUnitAgo(rtf.format(-diffMin, "minute"));
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return normalizeItalianUnitAgo(rtf.format(-diffHr, "hour"));
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return normalizeItalianUnitAgo(rtf.format(-diffDay, "day"));
+  const diffWeek = Math.floor(diffDay / 7);
+  if (diffWeek < 5) return normalizeItalianUnitAgo(rtf.format(-diffWeek, "week"));
+  const diffMonth = Math.floor(diffDay / 30);
+  if (diffMonth < 12) return normalizeItalianUnitAgo(rtf.format(-diffMonth, "month"));
+  const diffYear = Math.max(1, Math.floor(diffDay / 365));
+  return normalizeItalianUnitAgo(rtf.format(-diffYear, "year"));
+}
+
 async function handleAfk(message) {
   if (mongoose.connection?.readyState !== 1) return;
   const guildId = message.guild?.id;
@@ -163,22 +201,40 @@ async function handleAfk(message) {
       await member.setNickname(originalName).catch(() => { });
     }
     await clearAfk(guildId, userId);
-    const msg = await safeMessageReply(message, `<:VC_PepeWave:1331589315175907412> Bentornato <@${userId}>! Ho rimosso il tuo stato AFK.`,
+    const msg = await safeMessageReply(
+      message,
+      `Bentornato <@${userId}>, ho rimosso il tuo AFK.`,
     );
     if (msg) scheduleMessageDeletion(msg, EPHEMERAL_TTL_LONG_MS);
   }
 
-  const mentions = message.mentions?.users;
-  if (!mentions || mentions.size === 0) return;
+  const afkCandidates = new Map();
+  const mentionUsers = message.mentions?.users;
+  if (mentionUsers) {
+    for (const [id, u] of mentionUsers) {
+      if (!u.bot) afkCandidates.set(id, u);
+    }
+  }
+  const repliedUser = message.mentions?.repliedUser;
+  if (repliedUser && !repliedUser.bot && !afkCandidates.has(repliedUser.id)) {
+    afkCandidates.set(repliedUser.id, repliedUser);
+  }
+  if (afkCandidates.size === 0) return;
 
-  for (const [mentionedId, mentionedUser] of mentions) {
-    if (mentionedUser.bot) continue;
+  for (const [mentionedId, mentionedUser] of afkCandidates) {
+    if (mentionedId === userId) continue;
     const targetAfk = await getAfk(guildId, mentionedId);
     if (!targetAfk) continue;
 
-    const reason = targetAfk.reason ? `\n <:VC_reason:1478517122929004544> Motivo: ${targetAfk.reason}` : "";
-    const msg = await safeMessageReply(message, `**${mentionedUser.username}** è AFK dal <t:${Math.floor(new Date(targetAfk.since || targetAfk.createdAt || Date.now()).getTime() / 1000,)}:R>.${reason}`,
-    );
+    const reason = String(targetAfk.message || "").trim();
+    const since = targetAfk.timestamp ? new Date(targetAfk.timestamp) : new Date();
+    const ago = formatItalianTimeAgo(since);
+    const safeName = escapeMarkdown(mentionedUser.username);
+    const safeReason = escapeMarkdown(reason);
+    const line = reason
+      ? `**${safeName}** è AFK: ${safeReason} - ${ago}`
+      : `**${safeName}** è AFK - ${ago}`;
+    const msg = await safeMessageReply(message, line);
     if (msg) scheduleMessageDeletion(msg, EPHEMERAL_TTL_NORMAL_MS);
   }
 }

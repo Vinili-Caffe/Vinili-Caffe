@@ -905,7 +905,8 @@ module.exports = {
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
           `Usa \`+customrole\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
-          "Poi usa \`+customvoc\` nello stesso canale per creare e configurare la vocale privata.",
+          `Usa \`+customvoc\` in <#${IDs.channels.commands}> per creare e configurare la vocale privata.`,
+          `Usa \`+customreaction\` in <#${IDs.channels.commands}> per creare e configurare le reaction da aggiunge quando ti menzionano.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
 
@@ -998,7 +999,8 @@ module.exports = {
 
       const howtoEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
         `Usa \`+customrole\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
-        "Poi usa \`+customvoc\` nello stesso canale per creare e configurare la vocale privata.",
+        `Usa \`+customvoc\` in <#${IDs.channels.commands}> per creare e configurare la vocale privata.`,
+        `Usa \`+customreaction\` in <#${IDs.channels.commands}> per creare e configurare le reaction da aggiunge quando ti menzionano.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 

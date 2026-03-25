@@ -361,6 +361,14 @@
                 "channels.commands"
             ]
         },
+        "privacy": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands"
+            ]
+        },
         "bh": {
             "roles": [
                 "roles.Member"
@@ -386,18 +394,7 @@
             ],
             "channels": [
                 "channels.commands"
-            ],
-            "subcommands": {
-                "set": [
-                    "roles.Member"
-                ],
-                "edit": [
-                    "roles.Member"
-                ],
-                "remove": [
-                    "roles.Member"
-                ]
-            }
+            ]
         },
         "embed": {
             "roles": [
@@ -1057,6 +1054,9 @@
         "bh_privacy:*": {
             "ownerSegment": 1
         },
+        "bh_profile_remove:*": {
+            "ownerSegment": 1
+        },
         "bh_remove_no:*": {
             "ownerSegment": 1
         },
@@ -1420,6 +1420,18 @@
             "ownerSegment": 1
         },
         "nodm_panel_toggle_*": {
+            "ownerSegment": 1
+        },
+        "privacy_panel_all*": {
+            "ownerSegment": 1
+        },
+        "privacy_panel_done*": {
+            "ownerSegment": 1
+        },
+        "privacy_panel_none*": {
+            "ownerSegment": 1
+        },
+        "privacy_panel_toggle_*": {
             "ownerSegment": 1
         },
         "quote_remove:*": {

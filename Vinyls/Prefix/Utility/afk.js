@@ -1,5 +1,5 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, escapeMarkdown } = require("discord.js");
 const { setAfk } = require("../../Services/Community/profileStore");
 
 module.exports = {
@@ -45,7 +45,7 @@ module.exports = {
       await member.setNickname(afkNickname).catch(() => {});
       safeMessageReply(
         message,
-        `<@${userId}> Ho impostato il tuo stato AFK: __**${afkMessage}**__`,
+        `Ho impostato il tuo AFK: ${escapeMarkdown(afkMessage)}`,
       );
     } catch (error) {
       global.logger.error(error);
