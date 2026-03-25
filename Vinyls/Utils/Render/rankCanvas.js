@@ -43,8 +43,11 @@ module.exports = async function renderRankCanvas({
 
   const avatar = await safeLoadImage(avatarUrl);
   const avatarSize = 180;
-  const avatarX = 52;
-  const avatarY = 90;
+  const textBlockX = 280;
+  const pad = 18;
+  const avatarCenterX = (pad + textBlockX) / 2;
+  const avatarX = avatarCenterX - avatarSize / 2;
+  const avatarY = height / 2 - avatarSize / 2;
   if (avatar) {
     ctx.save();
     ctx.beginPath();
@@ -57,7 +60,16 @@ module.exports = async function renderRankCanvas({
     );
     ctx.closePath();
     ctx.clip();
-    ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+    const iw = avatar.width;
+    const ih = avatar.height;
+    if (iw > 0 && ih > 0) {
+      const side = Math.min(iw, ih);
+      const sx = (iw - side) / 2;
+      const sy = (ih - side) / 2;
+      ctx.drawImage(avatar, sx, sy, side, side, avatarX, avatarY, avatarSize, avatarSize);
+    } else {
+      ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+    }
     ctx.restore();
   } else {
     ctx.beginPath();
@@ -85,7 +97,7 @@ module.exports = async function renderRankCanvas({
   ctx.strokeStyle = "#e7d6c8";
   ctx.stroke();
 
-  drawTextWithSpecialFallback(ctx, `Rank di ${username}`, 280, 76, {
+  drawTextWithSpecialFallback(ctx, `Rank di ${username}`, textBlockX, 76, {
     size: 44,
     weight: "700",
     color: "#ffffff",
@@ -97,7 +109,7 @@ module.exports = async function renderRankCanvas({
   drawTextWithSpecialFallback(
     ctx,
     `Livello ${level}  •  EXP Totale ${totalExp}`,
-    280,
+    textBlockX,
     126,
     {
       size: 30,
@@ -109,7 +121,7 @@ module.exports = async function renderRankCanvas({
     },
   );
 
-  const barX = 280;
+  const barX = textBlockX;
   const barY = 180;
   const barW = 760;
   const barH = 44;
@@ -161,7 +173,7 @@ module.exports = async function renderRankCanvas({
   if (!hideLeaderboardRanks) {
     const wr = weeklyRank ? `#${weeklyRank}` : "-";
     const ar = allTimeRank ? `#${allTimeRank}` : "-";
-    drawTextWithSpecialFallback(ctx, `Weekly: ${wr}`, 280, 290, {
+    drawTextWithSpecialFallback(ctx, `Weekly: ${wr}`, textBlockX, 290, {
       size: 28,
       weight: "700",
       color: "#ffffff",
