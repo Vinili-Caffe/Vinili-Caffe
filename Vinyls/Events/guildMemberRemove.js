@@ -300,7 +300,14 @@ function schedulePartnershipRollback(member, partnerships) {
 
 async function handlePartnershipOnLeave(member, client) {
   const mainGuildId = IDs.guilds.main;
-  const partnerships = await Staff.find({ guildId: mainGuildId, $or: [{ managerId: member.id }, { "partnerActions.managerId": member.id }], }).catch(() => []);
+  // In Vinyls la collezione Staff dedicata è stata rimossa: i dati PM/partnership stanno dentro `ActivityUserProfile.staff`.
+  const partnerships = await ActivityUserProfile.find({
+    guildId: mainGuildId,
+    $or: [
+      { "staff.managerId": member.id },
+      { "staff.partnerActions.managerId": member.id },
+    ],
+  }).catch(() => []);
 
   if (!partnerships.length) return;
 

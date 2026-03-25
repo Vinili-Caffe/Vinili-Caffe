@@ -67,6 +67,23 @@ const ticketEntrySchema = new Schema(
   },
 );
 
+const giveawayEntrySchema = new Schema(
+  {
+    guildId: { type: String, required: true },
+    channelId: { type: String, required: true },
+    messageId: { type: String, default: null },
+    prize: { type: String, required: true },
+    endAt: { type: Date, required: true },
+    winnerCount: { type: Number, required: true, default: 1 },
+    hostId: { type: String, required: true },
+    hostTag: { type: String, default: "" },
+    participants: { type: [String], default: [] },
+    ended: { type: Boolean, default: false },
+    winnerIds: { type: [String], default: [] },
+  },
+  { timestamps: true },
+);
+
 const guildFeatureBucketSchema = new Schema(
   {
     guildId: { type: String, required: true, unique: true, index: true },
@@ -75,6 +92,7 @@ const guildFeatureBucketSchema = new Schema(
     suggestionCounter: { type: Number, default: 0 },
     suggestions: { type: [suggestionEntrySchema], default: [] },
     tickets: { type: [ticketEntrySchema], default: [] },
+    giveaways: { type: [giveawayEntrySchema], default: [] },
   },
   { timestamps: true },
 );
@@ -82,6 +100,8 @@ const guildFeatureBucketSchema = new Schema(
 guildFeatureBucketSchema.index({ "tickets.channelId": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.ticketNumber": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.open": 1, "tickets.createdAt": 1 });
+guildFeatureBucketSchema.index({ "giveaways.messageId": 1 }, { unique: true, sparse: true });
+guildFeatureBucketSchema.index({ "giveaways.ended": 1, "giveaways.endAt": 1 });
 
 const GuildFeatureBucket =
   models.GuildFeatureBucket || model("GuildFeatureBucket", guildFeatureBucketSchema);
@@ -99,6 +119,7 @@ async function ensureGuildFeatureBucket(guildId) {
         suggestionCounter: 0,
         suggestions: [],
         tickets: [],
+        giveaways: [],
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -111,4 +132,5 @@ module.exports = {
   pollEntrySchema,
   suggestionEntrySchema,
   ticketEntrySchema,
+  giveawayEntrySchema,
 };

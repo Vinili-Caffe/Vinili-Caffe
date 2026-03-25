@@ -1,6 +1,13 @@
-const express = require("express");
 const IDs = require("../../Utils/Config/ids");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
+
+function tryRequireExpress() {
+  try {
+    return require("express");
+  } catch {
+    return null;
+  }
+}
 
 function shouldStartDiscadiaVoteHttpWebhook(client) {
   const env = String(process.env.DISCADIA_VOTE_HTTP_WEBHOOK || "").trim().toLowerCase();
@@ -43,6 +50,15 @@ function extractVoteWebhookUserId(body) {
 async function startWebhookServer(client) {
   if (client._discadiaVoteHttpServerStarted) return;
   if (!shouldStartDiscadiaVoteHttpWebhook(client)) return;
+
+  const express = tryRequireExpress();
+  if (!express) {
+    global.logger?.error?.(
+      "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot (es. `npm install` in Vinyls). HTTP Discadia disabilitato.",
+    );
+    return;
+  }
+
   client._discadiaVoteHttpServerStarted = true;
 
   const config = client.config?.discadia || {};

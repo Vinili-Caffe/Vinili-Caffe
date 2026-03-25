@@ -13,7 +13,18 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-module.exports = async function renderRankCanvas({ username, avatarUrl, level, totalExp, currentLevelExp, nextLevelExp, progressPercent, weeklyRank, allTimeRank }) {
+module.exports = async function renderRankCanvas({
+  username,
+  avatarUrl,
+  level,
+  totalExp,
+  currentLevelExp,
+  nextLevelExp,
+  progressPercent,
+  weeklyRank,
+  allTimeRank,
+  hideLeaderboardRanks = false,
+}) {
   registerCanvasFonts(canvasModule);
   const width = 1100;
   const height = 360;
@@ -147,8 +158,8 @@ module.exports = async function renderRankCanvas({ username, avatarUrl, level, t
     },
   );
 
-  const wr = weeklyRank ? `#${weeklyRank}` : "-";
-  const ar = allTimeRank ? `#${allTimeRank}` : "-";
+  const wr = hideLeaderboardRanks ? "—" : weeklyRank ? `#${weeklyRank}` : "-";
+  const ar = hideLeaderboardRanks ? "—" : allTimeRank ? `#${allTimeRank}` : "-";
   drawTextWithSpecialFallback(ctx, `Weekly: ${wr}`, 280, 290, {
     size: 28,
     weight: "700",

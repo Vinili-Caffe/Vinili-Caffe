@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getUserRanks, getGlobalMultiplier, } = require("../../Services/Community/expService");
+const IDs = require("../../Utils/Config/ids");
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 
 module.exports = {
@@ -21,12 +22,40 @@ module.exports = {
     const targetFromId=/^\d{16,20}$/.test(id)?await message.client.users.fetch(id).catch(() => null):null;
     const targetUser = targetFromMention || targetFromId || message.author;
 
+    const targetMember =
+      message.guild.members.cache.get(targetUser.id) ||
+      (await message.guild.members.fetch(targetUser.id).catch(() => null));
+    const staffRoleId = String(IDs.roles?.Staff || "").trim();
+    const hideLeaderboardRanks = Boolean(staffRoleId && targetMember?.roles?.cache?.has(staffRoleId));
+
     const{stats,weeklyRank,allTimeRank}=await getUserRanks(message.guild.id,targetUser.id,);
     const multiplier = await getGlobalMultiplier(message.guild.id);
-    const weeklyText=stats.level===0?"Fuori dalla classifica":`#${weeklyRank}`;
-    const allTimeText=stats.level===0?"Fuori dalla classifica":`#${allTimeRank}`;
+    const weeklyText = hideLeaderboardRanks
+      ? "—"
+      : stats.level === 0
+        ? "Fuori dalla classifica"
+        : `#${weeklyRank}`;
+    const allTimeText = hideLeaderboardRanks
+      ? "—"
+      : stats.level === 0
+        ? "Fuori dalla classifica"
+        : `#${allTimeRank}`;
 
-    const card=await renderRankCanvas({username:targetUser.username,avatarUrl:(typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL({extension:"png",size:256}),level:stats.level,totalExp:stats.totalExp,currentLevelExp:stats.currentLevelExp,nextLevelExp:stats.nextLevelExp,progressPercent:stats.progressPercent,weeklyRank,allTimeRank,});
+    const avatarUrl =
+      targetMember?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
+      targetUser.displayAvatarURL({ extension: "png", size: 256 });
+    const card = await renderRankCanvas({
+      username: targetUser.username,
+      avatarUrl,
+      level: stats.level,
+      totalExp: stats.totalExp,
+      currentLevelExp: stats.currentLevelExp,
+      nextLevelExp: stats.nextLevelExp,
+      progressPercent: stats.progressPercent,
+      weeklyRank,
+      allTimeRank,
+      hideLeaderboardRanks,
+    });
     const file=new AttachmentBuilder(card,{name:`rank-${targetUser.id}.png`});
     const embed = new EmbedBuilder()
     .setColor("#6f4e37")
