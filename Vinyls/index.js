@@ -135,9 +135,7 @@ initializeCommandCollections(client, { includeSnipes: true });
     const { getPlayer } = require("./Services/Music/musicService");
     void getPlayer(client).catch(() => {});
 
-    // Avvio del server Webhook spostato su proxy esterno (safeguard)
-    // const { startWebhookServer } = require("./Services/Web/webhookService");
-    // startWebhookServer(client).catch((err) => global.logger.error("[WEBHOOK] Impossibile avviare il server:", err));
+    // HTTP vote webhook Discadia: si avvia da Events/ready.js (dopo login) se discadia.httpVoteWebhookEnabled o DISCADIA_VOTE_HTTP_WEBHOOK=1
 
     client.login(client.config.token).catch((error) => {
       global.logger.error(

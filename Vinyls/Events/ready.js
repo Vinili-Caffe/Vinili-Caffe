@@ -29,6 +29,7 @@ const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runCleanupUsersNotInServer, runCleanupUserScopedNotInAnyServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
+const { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook } = require("../Services/Web/webhookService");
 
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
@@ -531,6 +532,13 @@ function startPrimaryLoops(client, engagementTick) {
       client._giveawayScheduledEndInterval = timer;
     }],
     ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
+    [
+      "[DISCADIA HTTP VOTE WEBHOOK] Failed to start",
+      () => {
+        if (!shouldStartDiscadiaVoteHttpWebhook(client)) return;
+        startWebhookServer(client).catch((err) => global.logger?.error?.("[DISCADIA HTTP VOTE WEBHOOK]", err));
+      },
+    ],
   ];
 
 

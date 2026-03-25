@@ -157,12 +157,15 @@ function flattenEmbedText(embed) {
 }
 
 function getMessageTextParts(message) {
-  const embed = message.embeds?.[0];
-  const embedText = flattenEmbedText(embed);
+  const embed0 = message.embeds?.[0];
+  let embedText = "";
+  if (Array.isArray(message.embeds) && message.embeds.length) {
+    embedText = message.embeds.map((e) => flattenEmbedText(e)).filter(Boolean).join("\n");
+  }
   return {
     content: message.content || "",
     embedText,
-    embedTitle: embed?.title || "",
+    embedTitle: embed0?.title || "",
     fieldsText: "",
   };
 }
@@ -194,12 +197,16 @@ async function resolveUserFromMessage(message) {
 }
 
 function getVoteManagerBotIds(client) {
+  const discadiaCfg = client?.config?.discadia || {};
+  const extraDiscadiaIds = Array.isArray(discadiaCfg.botIds) ? discadiaCfg.botIds : [];
   return new Set(
     [
       IDs.bots?.DISBOARD,
       IDs.bots?.Discadia,
+      IDs.bots?.VoteManager,
       client?.config?.disboard?.botId,
-      client?.config?.discadia?.botId,
+      discadiaCfg?.botId,
+      ...extraDiscadiaIds,
     ]
       .filter(Boolean)
       .map((id) => String(id)),
@@ -217,13 +224,17 @@ async function handleVoteManagerMessage(message, client) {
   const sourceName = String(`${message.author?.globalName || ""}${message.author?.username || ""}`,
   ).toLowerCase();
   const hasVoteLikeBotName = /(vote|discadia|disboard)/i.test(sourceName);
-  if (!isVoteManagerAuthor && !isVoteManagerApp && !hasVoteLikeBotName) {
+  const fromIncomingWebhook = Boolean(message.webhookId);
+  if (!isVoteManagerAuthor && !isVoteManagerApp && !hasVoteLikeBotName && !fromIncomingWebhook) {
     return false;
   }
 
   const { content, embedText, embedTitle, fieldsText } = getMessageTextParts(message);
   const voteText = `${content}${embedText}${embedTitle}${fieldsText}`.toLowerCase();
-  const looksLikeVote = /has voted|voted/i.test(voteText) || /ha votato|votato/i.test(voteText) || (voteText.includes("discadia") && /(vote|voto|votato)/i.test(voteText));
+  const looksLikeVote =
+    /has voted|voted for|just voted|cast (?:a )?vote|thank you for voting/i.test(voteText) ||
+    /ha votato|votato|ha espresso (?:il )?voto/i.test(voteText) ||
+    (voteText.includes("discadia") && /(vote|voto|votato|voting)/i.test(voteText));
   if (!looksLikeVote) return false;
   const looksLikeBumpSuccess = /(server has been bumped|has been successfully bumped|bump(?:ed)?\s*successfully|successfully bumped|bump complete|bump done|thanks for bumping|you can bump again)/i.test(voteText);
   if (looksLikeBumpSuccess) return false;

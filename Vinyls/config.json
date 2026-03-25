@@ -30,6 +30,7 @@
     "reviewUrl": "https://disboard.org/it/server/reviews/1329080093599076474"
   },
   "discadia": {
+    "httpVoteWebhookEnabled": true,
     "webhookPort": 3000,
     "webhookSecret": "",
     "cooldownMinutes": 1440,
