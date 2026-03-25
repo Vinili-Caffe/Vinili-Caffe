@@ -1,12 +1,23 @@
-const StaffModel = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
+
+function ensureStaff(profileDoc) {
+  if (!profileDoc) return null;
+  if (!profileDoc.staff) {
+    profileDoc.staff = {};
+  }
+  return profileDoc.staff;
+}
 
 async function getOrCreateStaffDoc(guildId, userId) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  let doc = await StaffModel.findOne({ guildId: g, userId: u });
-  if (!doc) doc = new StaffModel({ guildId: g, userId: u });
+  let doc = await ActivityUserProfile.findOne({ guildId: g, userId: u });
+  if (!doc) {
+    doc = new ActivityUserProfile({ guildId: g, userId: u });
+  }
+  ensureStaff(doc);
   return doc;
 }
 
@@ -21,4 +32,4 @@ async function deleteThreadForMessage(guild, messageIdOrMessage) {
   }
 }
 
-module.exports = { getOrCreateStaffDoc, deleteThreadForMessage };
+module.exports = { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff };

@@ -1,6 +1,6 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
-const PartnershipCount = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const PARTNERS_PER_PAGE = 10;
 const EPHEMERAL_FLAG = 1 << 6;
 const TIME_ZONE = "Europe/Rome";
@@ -178,17 +178,18 @@ module.exports = {
     const isWeekly = tipo === "settimanale";
     const weekWindow = getCurrentWeekWindow(new Date());
 
-    const allStaff = await PartnershipCount.find({ guildId: interaction.guild.id, }).lean();
-    const partners = allStaff.map((staff) => {
+    const allStaff = await ActivityUserProfile.find({ guildId: interaction.guild.id }).select("userId staff.partnerCount staff.partnerActions").lean();
+    const partners = allStaff.map((row) => {
+      const staff = row.staff || {};
       if (!isWeekly) {
         const totalCount = Number(staff.partnerCount);
         const fromActions = countValidAllTimePartners(Array.isArray(staff.partnerActions) ? staff.partnerActions : []);
         const score = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : fromActions;
-        return { userId: staff.userId, score };
+        return { userId: row.userId, score };
       }
       const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : [];
       const weeklyCount = actions.reduce((total, action) => isActionInWeeklyWindow(action, weekWindow.weekStart, weekWindow.weekEnd) ? total + 1 : total, 0);
-      return { userId: staff.userId, score: weeklyCount };
+      return { userId: row.userId, score: weeklyCount };
     }).filter((staff) => staff.score > 0).sort((a, b) => b.score - a.score); if (!partners.length) { return safeEditReply(interaction, { embeds: [buildNoDataEmbed(isWeekly)], }); } const totalPages = Math.ceil(partners.length / PARTNERS_PER_PAGE);
     let currentPage = 1;
     let row = buildPaginationRow(currentPage, totalPages);

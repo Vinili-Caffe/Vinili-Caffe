@@ -3,8 +3,7 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
-const Staff = require("../Schemas/Staff/staffSchema");
-const { CustomRole } = require("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const { adjustPmStaffPointsOnRoleChange } = require("../Services/Community/staffEventService");
 const { sendEventRewardLog } = require("../Services/Community/eventRewardLogService");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
@@ -1097,7 +1096,10 @@ module.exports = {
             setWelcomeContextActive(newMember.guild.id, client);
           }
           if (memberHasStaffRole(oldMember) && !memberHasStaffRole(newMember)) {
-            await Staff.deleteOne({ guildId: newMember.guild.id, userId: newMember.id }).catch(() => {});
+            await ActivityUserProfile.updateOne(
+              { guildId: newMember.guild.id, userId: newMember.id, staff: { $exists: true } },
+              { $unset: { staff: "" } },
+            ).catch(() => {});
           }
         }
         const pmChange = await adjustPmStaffPointsOnRoleChange(oldMember, newMember).catch(() => null);

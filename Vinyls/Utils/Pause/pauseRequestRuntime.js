@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils");
 const IDs = require("../Config/ids");
 const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek } = require("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
@@ -97,16 +97,6 @@ function buildPauseRequestButtonsRow(userId, pauseId) {
   );
 }
 
-async function getOrCreateStaffDoc(guildId, userId) {
-  const g = String(guildId ?? "").trim();
-  const u = String(userId ?? "").trim();
-  if (!g || !u) return null;
-  let stafferDoc = await Staff.findOne({ guildId: g, userId: u });
-  if (!stafferDoc) stafferDoc = new Staff({ guildId: g, userId: u });
-  if (!Array.isArray(stafferDoc.pauses)) stafferDoc.pauses = [];
-  return stafferDoc;
-}
-
 async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null }) {
   const guildId = String(guild?.id ?? "").trim();
   const uid = String(userId ?? "").trim();
@@ -128,21 +118,23 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     global.logger?.error?.("[createPauseRequest] getOrCreateStaffDoc returned null", { guildId, userId: uid });
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff (guild/user non validi)." };
   }
-  stafferDoc.pauses.push({
+  if (!stafferDoc.staff) stafferDoc.staff = {};
+  if (!Array.isArray(stafferDoc.staff.pauses)) stafferDoc.staff.pauses = [];
+  stafferDoc.staff.pauses.push({
     dataRichiesta: normalized.dataRichiesta,
     dataRitorno: normalized.dataRitorno,
     motivazione: reason,
     status: "pending",
     createdAt: new Date(),
   });
-  stafferDoc.markModified("pauses");
+  stafferDoc.markModified("staff");
   try {
     await stafferDoc.save();
   } catch (err) {
     global.logger?.error?.("[createPauseRequest] save failed", err);
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Errore nel salvataggio della richiesta pausa. Riprova o contatta chi gestisce il bot." };
   }
-  const createdPause = stafferDoc.pauses[stafferDoc.pauses.length - 1];
+  const createdPause = stafferDoc.staff.pauses[stafferDoc.staff.pauses.length - 1];
   const pauseId = String(createdPause?._id || "");
 
   const requisitiNonRispettati = [];
@@ -166,13 +158,13 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   }).catch(() => null);
   if (!posted) {
     createdPause.status = "cancelled";
-    stafferDoc.markModified("pauses");
+    stafferDoc.markModified("staff");
     await stafferDoc.save().catch(() => null);
     return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la richiesta nel canale." };
   }
   createdPause.requestChannelId = String(pauseChannel.id ?? "").trim();
   createdPause.requestMessageId = posted.id ? String(posted.id) : null;
-  stafferDoc.markModified("pauses");
+  stafferDoc.markModified("staff");
   try {
     await stafferDoc.save();
   } catch (err) {
@@ -204,7 +196,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     await thread.send({ content: warningBlock.trim() }).catch(() => null);
   }
   createdPause.requestThreadId = String(thread.id ?? "").trim();
-  stafferDoc.markModified("pauses");
+  stafferDoc.markModified("staff");
   try {
     await stafferDoc.save();
   } catch (err) {

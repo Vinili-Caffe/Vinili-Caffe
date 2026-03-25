@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const mongoose = require("mongoose");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -185,13 +185,13 @@ async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeSta
 
   const g = String(guildId ?? "").trim();
   if (!g) return 0;
-  const docs = await Staff.find({ guildId: g }, { userId: 1, pauses: 1 })
+  const docs = await ActivityUserProfile.find({ guildId: g, staff: { $exists: true } }, { userId: 1, "staff.pauses": 1 })
     .lean()
     .catch(() => []);
   const userIds = new Set();
 
   for (const doc of docs) {
-    const pauses = Array.isArray(doc?.pauses) ? doc.pauses : [];
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
     const hasOverlap = pauses.some((pause) => {
       if (!pause || pause.status !== "accepted") return false;
       if ((pause.ruolo || "").trim() !== roleLabel) return false;
@@ -209,7 +209,7 @@ async function getStaffPauseRecord(guildId, userId) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  return Staff.findOne({ guildId: g, userId: u });
+  return ActivityUserProfile.findOne({ guildId: g, userId: u });
 }
 
 /** Cerca Staff e pausa per requestMessageId (fallback quando il pulsante ha un pauseId vecchio/sbagliato). */
@@ -217,9 +217,9 @@ async function getStaffAndPauseByRequestMessageId(guildId, messageId) {
   const g = String(guildId ?? "").trim();
   const msgId = String(messageId ?? "").trim();
   if (!g || !msgId) return null;
-  const doc = await Staff.findOne({ guildId: g, "pauses.requestMessageId": msgId });
-  if (!doc || !Array.isArray(doc.pauses)) return null;
-  const pause = doc.pauses.find((p) => String(p?.requestMessageId) === msgId);
+  const doc = await ActivityUserProfile.findOne({ guildId: g, "staff.pauses.requestMessageId": msgId });
+  if (!doc || !Array.isArray(doc.staff?.pauses)) return null;
+  const pause = doc.staff.pauses.find((p) => String(p?.requestMessageId) === msgId);
   return pause ? { stafferRecord: doc, pause } : null;
 }
 
@@ -239,13 +239,13 @@ async function updatePauseInDb(guildId, userId, pauseId, setFields) {
   if (!g || !u || !pauseId || !setFields || typeof setFields !== "object") return { ok: false };
   const updates = {};
   for (const [key, value] of Object.entries(setFields)) {
-    if (key && value !== undefined) updates[`pauses.$.${key}`] = value;
+    if (key && value !== undefined) updates[`staff.pauses.$.${key}`] = value;
   }
   if (Object.keys(updates).length === 0) return { ok: true };
   const pauseIdQuery = normalizePauseIdForQuery(pauseId);
   if (!pauseIdQuery) return { ok: false };
-  const result = await Staff.updateOne(
-    { guildId: g, userId: u, "pauses._id": pauseIdQuery },
+  const result = await ActivityUserProfile.updateOne(
+    { guildId: g, userId: u, "staff.pauses._id": pauseIdQuery },
     { $set: updates },
   ).catch(() => null);
   return { ok: Boolean(result?.modifiedCount === 1 || result?.matchedCount === 1) };
@@ -340,7 +340,7 @@ function getMonthKeyForPauseCount(dataRichiesta, dataRitorno) {
 }
 
 function getOnePausePerMonthWarning(staffDoc, normalized) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : [];
   const newCountKey = getMonthKeyForPauseCount(normalized?.dataRichiesta, normalized?.dataRitorno);
   if (!newCountKey) return null;
   const excludeId = normalized?.excludePauseId;
@@ -355,7 +355,7 @@ function getOnePausePerMonthWarning(staffDoc, normalized) {
 }
 
 function getOneWeekBetweenWarning(staffDoc, excludePauseId = null) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : [];
   const withDate = pauses
     .filter((p) => p && (p.createdAt || p._id) && String(p._id) !== String(excludePauseId))
     .map((p) => ({ ...p, at: p.createdAt ? new Date(p.createdAt).getTime() : 0 }))
@@ -384,7 +384,7 @@ function getSpanTwoMonthsFiveDaysWarning(normalized) {
 
 function isHelperFirstWeek(member, staffDoc) {
   if (!member?.roles?.cache?.has(IDs.roles.Helper)) return false;
-  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  const history = Array.isArray(staffDoc?.staff?.rolesHistory) ? staffDoc.staff.rolesHistory : [];
   const helperRoleId = String(IDs.roles.Helper || "");
   const promotedAt = history
     .filter((r) => String(r?.newRole || "") === helperRoleId)

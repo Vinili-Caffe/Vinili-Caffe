@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { MS_PER_DAY, countOverlapDays, countEffectiveOverlapDays, getPauseReasonFromMessage, filterPausesByMonth } = require("./pauseHandlersUtils");
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
@@ -156,8 +156,8 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     const y = getCurrentYearBoundsUtc().yearStart.getUTCFullYear();
     return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], components: buildPauseListMonthRows(u, y) };
   }
-  const stafferRecord = await Staff.findOne({ guildId: g, userId: u }, { pauses: 1 }).lean().catch(() => null);
-  let pauses = Array.isArray(stafferRecord?.pauses) ? stafferRecord.pauses : [];
+  const stafferRecord = await ActivityUserProfile.findOne({ guildId: g, userId: u }, { "staff.pauses": 1 }).lean().catch(() => null);
+  let pauses = Array.isArray(stafferRecord?.staff?.pauses) ? stafferRecord.staff.pauses : [];
   const todayUtc = getTodayUtc();
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
   const currentYear = yearStart.getUTCFullYear();

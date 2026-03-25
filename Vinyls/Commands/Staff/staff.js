@@ -1,6 +1,7 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const StaffModel = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
@@ -118,17 +119,6 @@ async function ensureNotSelf(interaction, targetUser) {
     "<:VC_Attention:1482534443632558151> Non puoi usare questo comando su te stesso.",
   );
   return false;
-}
-
-async function getOrCreateStaffDoc(guildId, userId) {
-  const g = String(guildId ?? "").trim();
-  const u = String(userId ?? "").trim();
-  if (!g || !u) return null;
-  let staffDoc = await StaffModel.findOne({ guildId: g, userId: u });
-  if (!staffDoc) {
-    staffDoc = new StaffModel({ guildId: g, userId: u });
-  }
-  return staffDoc;
 }
 
 async function sendPartnerManagerWelcome(pmChannel, user) {
@@ -427,14 +417,15 @@ module.exports = {
           targetUser,
         );
 
-        if (!Array.isArray(staffDoc.rolesHistory)) staffDoc.rolesHistory = [];
-        staffDoc.rolesHistory.push({
+        if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+        s.rolesHistory.push({
           oldRole: roleBefore.id,
           newRole: roleAfter.id,
           reason,
           date: new Date(),
         });
-        await staffDoc.save();
+        profileDoc.markModified("staff");
+        await profileDoc.save();
 
         await replySuccess(interaction);
 
@@ -476,10 +467,10 @@ module.exports = {
         }
         await applyDepexSideEffects(baseRoleVerification.member, oldRole.id);
 
-        await StaffModel.deleteOne({
-          guildId: interaction.guild.id,
-          userId: targetUser.id,
-        });
+        await ActivityUserProfile.updateOne(
+          { guildId: interaction.guild.id, userId: targetUser.id, staff: { $exists: true } },
+          { $unset: { staff: "" } },
+        );
 
         await replySuccess(interaction);
 
@@ -501,25 +492,27 @@ module.exports = {
         const reason = interaction.options.getString("motivo");
         const warnChannel = interaction.guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(interaction.guild, IDs.channels?.warnStaff)) || (await getClientChannelCached(interaction.client, IDs.channels?.warnStaff));
 
-        const staffDoc = await getOrCreateStaffDoc(interaction.guild.id, targetUser.id,);
-        if (!staffDoc.idCount) staffDoc.idCount = 0;
-        if (!staffDoc.warnCount) staffDoc.warnCount = 0;
-        if (!staffDoc.warnReasons) staffDoc.warnReasons = [];
+        const profileDoc = await getOrCreateStaffDoc(interaction.guild.id, targetUser.id);
+        const s = ensureStaff(profileDoc);
+        if (!s.idCount) s.idCount = 0;
+        if (!s.warnCount) s.warnCount = 0;
+        if (!s.warnReasons) s.warnReasons = [];
 
-        staffDoc.idCount++;
-        staffDoc.warnCount++;
-        staffDoc.warnReasons.push(reason);
-        await staffDoc.save();
+        s.idCount++;
+        s.warnCount++;
+        s.warnReasons.push(reason);
+        profileDoc.markModified("staff");
+        await profileDoc.save();
 
         const warnEmbed = new EmbedBuilder().setAuthor({
           name: `<:success:1461731530333229226> Warn eseguito da ${interaction.user.username}`,
           iconURL: (interaction.member || interaction.user).displayAvatarURL(),
         })
-          .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${staffDoc.warnCount}\``,)
+          .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``,)
           .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL())
           .setDescription(`<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${targetUser} 
             <:VC_reason:1478517122929004544> __${reason}__ 
-            <:VC_id:1478517313618575419> **ID Valutazione:** __\`${staffDoc.idCount}\`__`,)
+            <:VC_id:1478517313618575419> **ID Valutazione:** __\`${s.idCount}\`__`,)
           .setColor(SUCCESS_COLOR);
 
         if (warnChannel) {

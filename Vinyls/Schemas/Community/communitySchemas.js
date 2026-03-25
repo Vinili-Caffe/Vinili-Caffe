@@ -204,6 +204,77 @@ const activityUserProfileLevelHistoryEntrySchema = new Schema(
   },
   { _id: false },
 );
+
+const staffRolesHistoryEntrySchema = new Schema(
+  {
+    oldRole: String,
+    newRole: String,
+    reason: String,
+    date: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+const staffPartnerActionSchema = new Schema(
+  {
+    action: String,
+    partner: String,
+    invite: String,
+    managerId: String,
+    partnershipChannelId: String,
+    partnerMessageIds: { type: [String], default: [] },
+    auditPenaltyDates: { type: [String], default: [] },
+    date: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+const staffPauseEntrySchema = new Schema(
+  {
+    dataRichiesta: String,
+    dataRitorno: String,
+    motivazione: String,
+    giorniUsati: { type: Number, default: 0 },
+    giorniAggiuntivi: { type: Number, default: 0 },
+    ruolo: String,
+    stafferInPausa: { type: Number, default: 0 },
+    status: { type: String, default: "pending" },
+    cancelledAt: { type: Date, default: null },
+    createdAt: { type: Date, default: Date.now },
+    requestChannelId: { type: String, default: null },
+    requestMessageId: { type: String, default: null },
+    requestThreadId: { type: String, default: null },
+  },
+  { _id: true },
+);
+const staffEventEmbeddedSchema = new Schema(
+  {
+    points: { type: Number, default: 0 },
+    weeklyRewards: { type: [Number], default: [] },
+    rewardGivenTypes: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+/** Ex-dedicated `Staff` collection: dati staff/PM/pause/event incastonati nel profilo activity. */
+const staffEmbeddedSchema = new Schema(
+  {
+    rolesHistory: { type: [staffRolesHistoryEntrySchema], default: [] },
+    idCount: { type: Number, default: 0 },
+    warnCount: { type: Number, default: 0 },
+    warnReasons: { type: [String], default: [] },
+    firstWarnStaffAt: { type: Date, default: null },
+    positiveCount: { type: Number, default: 0 },
+    negativeCount: { type: Number, default: 0 },
+    positiveReasons: { type: [String], default: [] },
+    negativeReasons: { type: [String], default: [] },
+    valutazioniCount: { type: Number, default: 0 },
+    partnerCount: { type: Number, default: 0 },
+    managerId: { type: String, default: null },
+    partnerActions: { type: [staffPartnerActionSchema], default: [] },
+    pauses: { type: [staffPauseEntrySchema], default: [] },
+    staffEvent: { type: staffEventEmbeddedSchema, default: () => ({}) },
+  },
+  { _id: false },
+);
+
 const activityUserProfileSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
@@ -378,6 +449,7 @@ const activityUserProfileSchema = new Schema(
       },
     },
     levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
+    staff: { type: staffEmbeddedSchema },
   },
   { timestamps: true },
 );
@@ -393,6 +465,9 @@ activityUserProfileSchema.index({ "profile.globalOneTimeReminder.entries.sendAt"
 activityUserProfileSchema.index({ guildId: 1, "profile.sponsorMainLeave.kickAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.joinGateSuspicious.expiresAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 });
+activityUserProfileSchema.index({ guildId: 1, "staff.staffEvent.points": -1 });
+activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
+activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });

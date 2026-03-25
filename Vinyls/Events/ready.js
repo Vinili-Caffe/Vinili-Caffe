@@ -25,7 +25,7 @@ const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weekly
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
-const { runCleanupUsersNotInServer, runCleanupUserScopedNotInAnyServer } = require("../Services/Community/cleanupUsersNotInServerService");
+const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
 const { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook } = require("../Services/Web/webhookService");
@@ -42,6 +42,12 @@ const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 90 * 1000;
+const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => {
+  const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS;
+  if (v === undefined || v === "") return 24 * 60 * 60 * 1000;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;
+})();
 
 function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();
@@ -684,40 +690,20 @@ module.exports = {
     const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";
     if (!cleanupDisabled) {
       const t = setTimeout(() => {
-        runStartupCleanupUsersNotInServer(client).catch((err) => {
+        runFullCleanupUsersNotInServer(client).catch((err) => {
           global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err?.message || err);
         });
       }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
       if (t?.unref) t.unref();
     }
+    if (CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS > 0) {
+      const iv = setInterval(() => {
+        runFullCleanupUsersNotInServer(client).catch((err) => {
+          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Periodic cleanup failed:", err?.message || err);
+        });
+      }, CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS);
+      if (iv?.unref) iv.unref();
+    }
 
   },
 };
-
-async function runStartupCleanupUsersNotInServer(client) {
-  const guilds = Array.from(client.guilds?.cache?.values() ?? []);
-  if (!guilds.length) return;
-  let grandTotal = 0;
-  const allMemberIds = new Set();
-  for (const guild of guilds) {
-    const guildId = guild?.id;
-    if (!guildId) continue;
-    await guild.members.fetch().catch(() => null);
-    const memberIds = Array.from(guild.members?.cache?.values() ?? []).map((m) => m?.id).filter(Boolean);
-    for (const memberId of memberIds) allMemberIds.add(String(memberId));
-    const { total, details } = await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
-    if (total > 0) {
-      grandTotal += total;
-      const guildLabel = guild.name ? `${guild.name} (${guildId})` : guildId;
-      global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] " + guildLabel + ": rimossi " + total + " documenti. " + details.map((d) => d.name + " " + d.count).join(", "));
-    }
-  }
-  const userScopedCleanup = await runCleanupUserScopedNotInAnyServer(Array.from(allMemberIds), { dryRun: false });
-  if (userScopedCleanup.total > 0) {
-    grandTotal += userScopedCleanup.total;
-    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] User-scoped global cleanup: rimossi " + userScopedCleanup.total + " documenti. " + userScopedCleanup.details.map((d) => d.name + " " + d.count).join(", "));
-  }
-  if (grandTotal > 0) {
-    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] Totale rimossi: " + grandTotal + " documenti in " + guilds.length + " server.");
-  }
-}

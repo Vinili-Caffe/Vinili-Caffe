@@ -1,9 +1,9 @@
 const { EmbedBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
-const { getOrCreateStaffDoc, deleteThreadForMessage } = require("../../Utils/Staff/staffDocUtils");
+const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { addStaffWarnFromNegatives, applyFullDepex } = require("../../Services/Staff/staffWarnService");
-const StaffModel = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
@@ -126,19 +126,21 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
 
 async function applyAutomaticValutazione(guild, client, targetUser, positive, reason) {
   if (!guild || !client?.user || !targetUser?.id) return;
-  const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const s = ensureStaff(profileDoc);
   const reasonStr = String(reason || "").trim() || (positive ? "Limite sanzioni settimanale completato" : "Limite sanzioni settimanale non completato");
-  staffDoc.valutazioniCount = Math.max(0, Number(staffDoc.valutazioniCount || 0)) + 1;
+  s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
   if (positive) {
-    staffDoc.positiveCount = Math.max(0, Number(staffDoc.positiveCount || 0)) + 1;
-    if (!Array.isArray(staffDoc.positiveReasons)) staffDoc.positiveReasons = [];
-    staffDoc.positiveReasons.push(reasonStr);
+    s.positiveCount = Math.max(0, Number(s.positiveCount || 0)) + 1;
+    if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
+    s.positiveReasons.push(reasonStr);
   } else {
-    staffDoc.negativeCount = Math.max(0, Number(staffDoc.negativeCount || 0)) + 1;
-    if (!Array.isArray(staffDoc.negativeReasons)) staffDoc.negativeReasons = [];
-    staffDoc.negativeReasons.push(reasonStr);
+    s.negativeCount = Math.max(0, Number(s.negativeCount || 0)) + 1;
+    if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
+    s.negativeReasons.push(reasonStr);
   }
-  await staffDoc.save();
+  profileDoc.markModified("staff");
+  await profileDoc.save();
   await sendValutazioneLogEmbed(guild, client.user, targetUser, reasonStr, positive);
 }
 
@@ -240,28 +242,32 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
 
   const targetUser = member.user;
   if (payload.actionKey === "vp") {
-    const staffDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const s = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || "<:success:1461731530333229226> Limiti settimanali rispettati";
-    staffDoc.valutazioniCount = Math.max(0, Number(staffDoc.valutazioniCount || 0)) + 1;
-    staffDoc.positiveCount = Math.max(0, Number(staffDoc.positiveCount || 0)) + 1;
-    if (!Array.isArray(staffDoc.positiveReasons)) staffDoc.positiveReasons = [];
-    staffDoc.positiveReasons.push(reason);
-    await staffDoc.save();
+    s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
+    s.positiveCount = Math.max(0, Number(s.positiveCount || 0)) + 1;
+    if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
+    s.positiveReasons.push(reason);
+    profileDoc.markModified("staff");
+    await profileDoc.save();
     await sendValutazioneLogEmbed(guild, actor, targetUser, reason, true);
     return "<:thumbsup:1471292172145004768> Registrata Valutazione Positiva.";
   }
 
   if (payload.actionKey === "vn") {
-    const staffDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const s = ensureStaff(profileDoc);
     const reason = String(reasonOverride || "").trim() || "<:cancel:1461730653677551691> Limiti settimanali non rispettati";
-    staffDoc.valutazioniCount = Math.max(0, Number(staffDoc.valutazioniCount || 0)) + 1;
-    staffDoc.negativeCount = Math.max(0, Number(staffDoc.negativeCount || 0)) + 1;
-    if (!Array.isArray(staffDoc.negativeReasons)) staffDoc.negativeReasons = [];
-    staffDoc.negativeReasons.push(reason);
-    await staffDoc.save();
+    s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
+    s.negativeCount = Math.max(0, Number(s.negativeCount || 0)) + 1;
+    if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
+    s.negativeReasons.push(reason);
+    profileDoc.markModified("staff");
+    await profileDoc.save();
     await sendValutazioneLogEmbed(guild, actor, targetUser, reason, false);
 
-    const warnResult = await addStaffWarnFromNegatives(guild.id, payload.userId, staffDoc.negativeCount, reason);
+    const warnResult = await addStaffWarnFromNegatives(guild.id, payload.userId, s.negativeCount, reason);
     if (warnResult.added) {
       const warnChannel = await getGuildChannelCached(guild, IDs.channels?.warnStaff);
       if (warnChannel?.isTextBased?.()) {
@@ -314,15 +320,17 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (!roleAdded) return "<a:VC_Alert:1482706673176150077> Pex non applicato: impossibile assegnare il ruolo successivo.";
     const sideEffectsApplied = await applyPexSideEffects(guild, member, roleAfterId);
     if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Pex applicato parzialmente: side-effect ruoli non completati.";
-    const staffDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-    if (!Array.isArray(staffDoc.rolesHistory)) staffDoc.rolesHistory = [];
-    staffDoc.rolesHistory.push({
+    const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const s = ensureStaff(profileDoc);
+    if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+    s.rolesHistory.push({
       oldRole: roleBeforeId,
       newRole: roleAfterId,
       reason,
       date: new Date(),
     });
-    await staffDoc.save();
+    profileDoc.markModified("staff");
+    await profileDoc.save();
     await sendPexDepexLog(guild, "pex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Pex applicato.";
   }
@@ -335,7 +343,10 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
     const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
     if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
-    await StaffModel.deleteOne({ guildId: guild.id, userId: payload.userId }).catch(() => null);
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId: payload.userId, staff: { $exists: true } },
+      { $unset: { staff: "" } },
+    ).catch(() => null);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Depex applicato.";
   }
@@ -363,11 +374,13 @@ async function applyPmAction(guild, payload) {
     const memberRoleAdded = await ensureRoleAdded(guild, member, ROLE_MEMBER);
     if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
   }
-  const staffDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
-  staffDoc.partnerCount = 0;
-  staffDoc.managerId = null;
-  staffDoc.partnerActions = [];
-  await staffDoc.save();
+  const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+  const s = ensureStaff(profileDoc);
+  s.partnerCount = 0;
+  s.managerId = null;
+  s.partnerActions = [];
+  profileDoc.markModified("staff");
+  await profileDoc.save();
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
 }
 

@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
-const StaffModel = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCaseStore");
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazione } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
@@ -419,7 +419,7 @@ async function runWeeklyStaffResoconti(client) {
   }
   if (!candidateMembers.length) return;
 
-  const staffMap = new Map((Array.isArray(staffDocs) ? staffDocs : []).map((row) => [String(row.userId), row,]),);
+  const staffMap = new Map((Array.isArray(staffDocs) ? staffDocs : []).map((row) => [String(row.userId), row.staff || {}]));
 
   const staffUserIds = candidateMembers.filter((m) => resolveStaffRole(m)).map((m) => String(m.id));
   const overviewResults = await Promise.all(staffUserIds.map((uid) => getUserOverviewStats(guildId, uid, 7)),);
@@ -529,7 +529,7 @@ async function runPreResocontoReminders(client) {
   );
   if (!reminderMembers.length) return;
 
-  const staffMap = new Map((staffDocs || []).map((r) => [String(r.userId), r]));
+  const staffMap = new Map((staffDocs || []).map((r) => [String(r.userId), r.staff || {}]));
   const staffOnlyIds = reminderMembers.filter(hasStaffRole).map((m) => m.id);
   const overviewResults = await Promise.all(staffOnlyIds.map((uid) => getUserOverviewStats(guildId, uid, 7)));
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));

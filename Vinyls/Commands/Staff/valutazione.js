@@ -1,6 +1,7 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
@@ -18,30 +19,19 @@ function successEmbed(description) {
     .setColor("#6f4e37");
 }
 
-function ensureStaffDoc(staffDoc, guildId, userId) {
-  if (staffDoc) return staffDoc;
-  const g = String(guildId ?? "").trim();
-  const u = String(userId ?? "").trim();
-  if (!g || !u) return null;
-  return new Staff({
-    guildId: g,
-    userId: u,
-    rolesHistory: [],
-    warnReasons: [],
-    positiveReasons: [],
-    negativeReasons: [],
-    partnerActions: [],
-    positiveCount: 0,
-    negativeCount: 0,
-    valutazioniCount: 0,
-  });
+async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
+  if (profileDoc) {
+    ensureStaff(profileDoc);
+    return profileDoc;
+  }
+  return getOrCreateStaffDoc(guildId, userId);
 }
 
 async function getStaffDoc(guildId, userId) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  return Staff.findOne({ guildId: g, userId: u });
+  return ActivityUserProfile.findOne({ guildId: g, userId: u });
 }
 
 function makeLogEmbed(
@@ -99,18 +89,20 @@ async function sendChannelEmbed(channel, payload) {
 
 async function handlePositiveAdd(
   interaction,
-  staffDoc,
+  profileDoc,
   staffUser,
   reason,
   channel,
 ) {
-  staffDoc.valutazioniCount += 1;
-  staffDoc.positiveCount += 1;
-  if (!Array.isArray(staffDoc.positiveReasons)) staffDoc.positiveReasons = [];
-  staffDoc.positiveReasons.push(reason);
-  await staffDoc.save();
+  const s = ensureStaff(profileDoc);
+  s.valutazioniCount += 1;
+  s.positiveCount += 1;
+  if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
+  s.positiveReasons.push(reason);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
 
-  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${staffDoc.positiveCount}\``, reason, staffDoc.valutazioniCount,);
+  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}\``, reason, s.valutazioniCount,);
 
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
   return safeEditReply(interaction, {
@@ -124,16 +116,17 @@ async function handlePositiveAdd(
 
 async function handlePositiveRemove(
   interaction,
-  staffDoc,
+  profileDoc,
   staffUser,
   reason,
   channel,
 ) {
+  const s = ensureStaff(profileDoc);
   const removeId = interaction.options.getInteger("id");
   if (
     !Number.isInteger(removeId) ||
     removeId < 1 ||
-    !staffDoc.positiveReasons?.[removeId - 1]
+    !s.positiveReasons?.[removeId - 1]
   ) {
     return safeEditReply(interaction, {
       embeds: [errorEmbed("<:VC_Attention:1482534443632558151> ID non valido")],
@@ -141,17 +134,18 @@ async function handlePositiveRemove(
     });
   }
 
-  staffDoc.positiveReasons.splice(removeId - 1, 1);
-  staffDoc.positiveCount = Math.max(0, staffDoc.positiveCount - 1);
-  staffDoc.valutazioniCount = Math.max(0, staffDoc.valutazioniCount - 1);
-  await staffDoc.save();
+  s.positiveReasons.splice(removeId - 1, 1);
+  s.positiveCount = Math.max(0, s.positiveCount - 1);
+  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
 
   const embed = makeRemovalEmbed(interaction, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
     "",
     `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Positiva!_`, reason,
     "",
     "<:VC_update:1478721333096349817> __Valutazione Positive Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${staffDoc.positiveCount}\` valutazioni positive!`);
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`);
 
   await sendChannelEmbed(channel, { embeds: [embed] });
   return safeEditReply(interaction, {
@@ -165,23 +159,25 @@ async function handlePositiveRemove(
 
 async function handleNegativeAdd(
   interaction,
-  staffDoc,
+  profileDoc,
   staffUser,
   reason,
   channel,
 ) {
-  staffDoc.valutazioniCount += 1;
-  staffDoc.negativeCount += 1;
-  if (!Array.isArray(staffDoc.negativeReasons)) staffDoc.negativeReasons = [];
-  staffDoc.negativeReasons.push(reason);
-  await staffDoc.save();
+  const s = ensureStaff(profileDoc);
+  s.valutazioniCount += 1;
+  s.negativeCount += 1;
+  if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
+  s.negativeReasons.push(reason);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
 
-  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${staffDoc.negativeCount}\``, reason, staffDoc.valutazioniCount,);
+  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}\``, reason, s.valutazioniCount,);
 
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
 
   const guild = interaction.guild;
-  const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, staffDoc.negativeCount, reason);
+  const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
     const warnEmbed = new EmbedBuilder()
@@ -237,16 +233,17 @@ async function handleNegativeAdd(
 
 async function handleNegativeRemove(
   interaction,
-  staffDoc,
+  profileDoc,
   staffUser,
   reason,
   channel,
 ) {
+  const s = ensureStaff(profileDoc);
   const removeId = interaction.options.getInteger("id");
   if (
     !Number.isInteger(removeId) ||
     removeId < 1 ||
-    !staffDoc.negativeReasons?.[removeId - 1]
+    !s.negativeReasons?.[removeId - 1]
   ) {
     return safeEditReply(interaction, {
       embeds: [errorEmbed("<:VC_Attention:1482534443632558151> ID non valido")],
@@ -254,17 +251,18 @@ async function handleNegativeRemove(
     });
   }
 
-  staffDoc.negativeReasons.splice(removeId - 1, 1);
-  staffDoc.negativeCount = Math.max(0, staffDoc.negativeCount - 1);
-  staffDoc.valutazioniCount = Math.max(0, staffDoc.valutazioniCount - 1);
-  await staffDoc.save();
+  s.negativeReasons.splice(removeId - 1, 1);
+  s.negativeCount = Math.max(0, s.negativeCount - 1);
+  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
 
   const embed = makeRemovalEmbed(interaction, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
     "",
     `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Negativa!_`, reason,
     "",
     "<:VC_update:1478721333096349817> __Valutazione Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${staffDoc.negativeCount}\` valutazioni negative!`);
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`);
 
   await sendChannelEmbed(channel, { embeds: [embed] });
   return safeEditReply(interaction, {
@@ -277,7 +275,7 @@ async function handleNegativeRemove(
 }
 
 async function handleMedia(interaction, staffUser, doc) {
-  if (!doc) {
+  if (!doc?.staff) {
     return safeEditReply(interaction, {
       embeds: [
         errorEmbed("<:VC_Attention:1482534443632558151> Nessuna valutazione trovata."),
@@ -286,6 +284,7 @@ async function handleMedia(interaction, staffUser, doc) {
     });
   }
 
+  const st = doc.staff;
   const embed = new EmbedBuilder()
     .setTitle(`<:VC_InactiveStatus:1482526984234860574> Valutazioni di ${staffUser.username}`)
     .setColor("#6f4e37")
@@ -293,7 +292,7 @@ async function handleMedia(interaction, staffUser, doc) {
       {
         name: "<:thumbsup:1471292172145004768> Positive",
         value:
-          (doc.positiveReasons || [])
+          (st.positiveReasons || [])
             .map((entry, index) => `\`${index + 1}\` " ${entry}`)
             .join("\n") || "Nessuna",
         inline: true,
@@ -301,7 +300,7 @@ async function handleMedia(interaction, staffUser, doc) {
       {
         name: "<:thumbsdown:1471292163957457013> Negative",
         value:
-          (doc.negativeReasons || [])
+          (st.negativeReasons || [])
             .map((entry, index) => `\`${index + 1}\` " ${entry}`)
             .join("\n") || "Nessuna",
         inline: true,
@@ -427,17 +426,17 @@ module.exports = {
     await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => { });
 
     try {
-      const existingStaffDoc = sub === "media" ? await getStaffDoc(guildId, staffUser.id) : null;
+      const existingProfileDoc = sub === "media" ? await getStaffDoc(guildId, staffUser.id) : null;
       if (sub === "media") {
-        return handleMedia(interaction, staffUser, existingStaffDoc);
+        return handleMedia(interaction, staffUser, existingProfileDoc);
       }
 
-      const staffDoc = ensureStaffDoc(existingStaffDoc || (await getStaffDoc(guildId, staffUser.id)), guildId, staffUser.id,);
+      const profileDoc = await ensureStaffProfileDoc(existingProfileDoc || (await getStaffDoc(guildId, staffUser.id)), guildId, staffUser.id);
 
       if (group === "positiva" && sub === "add") {
         return handlePositiveAdd(
           interaction,
-          staffDoc,
+          profileDoc,
           staffUser,
           reason,
           channel,
@@ -446,7 +445,7 @@ module.exports = {
       if (group === "positiva" && sub === "remove") {
         return handlePositiveRemove(
           interaction,
-          staffDoc,
+          profileDoc,
           staffUser,
           reason,
           channel,
@@ -455,7 +454,7 @@ module.exports = {
       if (group === "negativa" && sub === "add") {
         return handleNegativeAdd(
           interaction,
-          staffDoc,
+          profileDoc,
           staffUser,
           reason,
           channel,
@@ -464,7 +463,7 @@ module.exports = {
       if (group === "negativa" && sub === "remove") {
         return handleNegativeRemove(
           interaction,
-          staffDoc,
+          profileDoc,
           staffUser,
           reason,
           channel,

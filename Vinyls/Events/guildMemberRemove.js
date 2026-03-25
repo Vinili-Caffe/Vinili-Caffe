@@ -1,5 +1,4 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
-const Staff = require("../Schemas/Staff/staffSchema");
 const Ticket = require("../Schemas/Ticket/ticketSchema");
 const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
 const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
@@ -18,6 +17,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
+const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
@@ -220,8 +220,11 @@ function getHighestTrackedRole(member) {
 
 async function handleTrackedStaffLeave(member) {
   const guild = member.guild;
-  const result = await Staff.deleteOne({ guildId: guild.id, userId: member.id }).catch(() => ({ deletedCount: 0 }));
-  if (result?.deletedCount === 0) return;
+  const result = await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId: member.id, staff: { $exists: true } },
+    { $unset: { staff: "" } },
+  ).catch(() => ({ modifiedCount: 0 }));
+  if (result?.modifiedCount === 0) return;
 
   const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex)) || (await getClientChannelCached(member.client, IDs.channels.pexDepex));
   if (resignChannel?.isTextBased?.()) {
@@ -263,7 +266,8 @@ function schedulePartnershipRollback(member, partnerships) {
       if (stillInGuild) return;
 
       for (const doc of partnerships) {
-        const actions = Array.isArray(doc.partnerActions) ? doc.partnerActions : [];
+        if (!doc.staff) doc.staff = {};
+        const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
         const toRollback = actions.filter((action) => action?.managerId === member.id,);
 
         for (const action of toRollback) {
@@ -280,11 +284,12 @@ function schedulePartnershipRollback(member, partnerships) {
         }
 
         if (toRollback.length > 0) {
-          doc.partnerActions = actions.filter(
+          doc.staff.partnerActions = actions.filter(
             (action) => action?.managerId !== member.id,
           );
         }
-        doc.managerId = null;
+        doc.staff.managerId = null;
+        doc.markModified("staff");
         await doc.save().catch(() => { });
       }
     },
@@ -415,7 +420,7 @@ async function cleanupUserData(guildId, userId) {
   const uid = String(userId);
   await Promise.allSettled([
     cleanupActivityUserProfileOnGuildLeave(gid, uid),
-    Staff.deleteOne({ guildId: gid, userId: uid }),
+    ActivityUserProfile.updateOne({ guildId: gid, userId: uid, staff: { $exists: true } }, { $unset: { staff: "" } }).catch(() => {}),
     InviteReminderState.deleteOne({ guildId: gid, userId: uid }),
     CustomRole.deleteOne({ guildId: gid, userId: uid }),
     AvatarPrivacy.deleteOne({ guildId: gid, userId: uid }),
@@ -465,6 +470,10 @@ module.exports = {
       await handleTrackedStaffLeave(member);
       await handlePartnershipOnLeave(member, client);
       await cleanupUserData(guild.id, member.id);
+      const activeClient = client || member.client;
+      void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] cleanup not-in-server:", err?.message || err);
+      });
     } catch (err) {
       global.logger?.error?.("[guildMemberRemove] failed:", err);
     }

@@ -102,7 +102,7 @@ async function handlePauseButton(interaction) {
   }
 
   if (action === "pause_list") {
-    const pauses = Array.isArray(stafferRecord.pauses) ? stafferRecord.pauses : [];
+    const pauses = Array.isArray(stafferRecord.staff?.pauses) ? stafferRecord.staff?.pauses : [];
     const todayUtc = getTodayUtc();
     const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
     const year = yearStart.getUTCFullYear();
@@ -180,10 +180,10 @@ async function handlePauseButton(interaction) {
     return true;
   }
 
-  let targetPause = stafferRecord.pauses?.id?.(pauseId);
+  let targetPause = stafferRecord.staff?.pauses?.id?.(pauseId);
   let effectivePauseId = pauseId;
-  if (!targetPause && messageId && Array.isArray(stafferRecord.pauses)) {
-    const byMsg = stafferRecord.pauses.find((x) => String(x?.requestMessageId) === String(messageId));
+  if (!targetPause && messageId && Array.isArray(stafferRecord.staff?.pauses)) {
+    const byMsg = stafferRecord.staff?.pauses.find((x) => String(x?.requestMessageId) === String(messageId));
     if (byMsg) {
       targetPause = byMsg;
       effectivePauseId = String(targetPause._id ?? "").trim();
@@ -311,7 +311,7 @@ async function handlePauseButton(interaction) {
     const baseLimit = getBasePauseLimit(member);
     const bonusBestStaff=member.roles.cache.has(IDs.roles.StafferDelMese)?5:0;
     const maxGiorni = baseLimit + bonusBestStaff;
-    const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.pauses);
+    const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.staff?.pauses);
     const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
 
     const currentContent = interaction.message?.content || "";
@@ -371,7 +371,7 @@ async function handlePauseButton(interaction) {
   const baseLimit = getBasePauseLimit(member);
   const bonusBestStaff=member.roles.cache.has(IDs.roles.StafferDelMese)?5:0;
   const maxGiorni = baseLimit + bonusBestStaff;
-  const usedBefore = computeConsumedPauseDays(stafferRecord.pauses);
+  const usedBefore = computeConsumedPauseDays(stafferRecord.staff?.pauses);
   const giorniUsati = usedBefore + giorniRichiesti;
   const giorniRimanenti = maxGiorni - giorniUsati;
   if (giorniRimanenti < 0) {

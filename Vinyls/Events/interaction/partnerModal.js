@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const axios = require("axios");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -52,17 +52,13 @@ async function getOrCreateStaffPartnerDoc(guildId, userId) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  let staffDoc = await Staff.findOne({ guildId: g, userId: u });
+  let staffDoc = await ActivityUserProfile.findOne({ guildId: g, userId: u });
   if (!staffDoc) {
-    staffDoc = new Staff({
-      guildId: g,
-      userId: u,
-      partnerCount: 0,
-      partnerActions: [],
-    });
+    staffDoc = new ActivityUserProfile({ guildId: g, userId: u, staff: { partnerCount: 0, partnerActions: [] } });
   }
-  if (!Array.isArray(staffDoc.partnerActions)) staffDoc.partnerActions = [];
-  if (typeof staffDoc.partnerCount !== "number") staffDoc.partnerCount = 0;
+  if (!staffDoc.staff) staffDoc.staff = {};
+  if (!Array.isArray(staffDoc.staff.partnerActions)) staffDoc.staff.partnerActions = [];
+  if (typeof staffDoc.staff.partnerCount !== "number") staffDoc.staff.partnerCount = 0;
   return staffDoc;
 }
 
@@ -260,14 +256,15 @@ async function handlePartnerModal(interaction) {
       return true;
     }
 
-    staffDoc.partnerCount++;
-    staffDoc.managerId = managerId;
+    const s = staffDoc.staff;
+    s.partnerCount++;
+    s.managerId = managerId;
     const actionEntry = { action: "create", partner: serverName, invite: inviteUrl, managerId, partnershipChannelId: IDs.channels.partnerships, partnerMessageIds: [], };
-    staffDoc.partnerActions.push(actionEntry);
-    const actionIndex = Math.max(0, staffDoc.partnerActions.length - 1);
-
+    s.partnerActions.push(actionEntry);
+    const actionIndex = Math.max(0, s.partnerActions.length - 1);
+    staffDoc.markModified("staff");
     await staffDoc.save();
-    const totalPartners = staffDoc.partnerCount;
+    const totalPartners = s.partnerCount;
 
     const embed = new EmbedBuilder()
       .setAuthor({ name: interaction.user.username, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
@@ -290,14 +287,15 @@ async function handlePartnerModal(interaction) {
     const thankYouMessage = await partnershipChannel.send({ embeds: [embed] }).catch(() => null);
     if (thankYouMessage?.id) sentMessageIds.push(thankYouMessage.id);
     if (sentMessageIds.length === 0) {
-      if (Array.isArray(staffDoc.partnerActions) && staffDoc.partnerActions.length > actionIndex) {
-        staffDoc.partnerActions.splice(actionIndex, 1);
+      if (Array.isArray(s.partnerActions) && s.partnerActions.length > actionIndex) {
+        s.partnerActions.splice(actionIndex, 1);
       }
-      staffDoc.partnerCount = Math.max(0, Number(staffDoc.partnerCount || 1) - 1);
-      if (staffDoc.managerId === managerId) {
-        const lastAction = Array.isArray(staffDoc.partnerActions) ? staffDoc.partnerActions[staffDoc.partnerActions.length - 1] : null;
-        staffDoc.managerId = lastAction?.managerId || null;
+      s.partnerCount = Math.max(0, Number(s.partnerCount || 1) - 1);
+      if (s.managerId === managerId) {
+        const lastAction = Array.isArray(s.partnerActions) ? s.partnerActions[s.partnerActions.length - 1] : null;
+        s.managerId = lastAction?.managerId || null;
       }
+      staffDoc.markModified("staff");
       await staffDoc.save().catch(() => { });
       await interaction.editReply({
         embeds: [
@@ -311,10 +309,11 @@ async function handlePartnerModal(interaction) {
       return true;
     }
 
-    if (staffDoc.partnerActions?.[actionIndex]) {
-      staffDoc.partnerActions[actionIndex].partnershipChannelId =
+    if (s.partnerActions?.[actionIndex]) {
+      s.partnerActions[actionIndex].partnershipChannelId =
         partnershipChannel.id;
-      staffDoc.partnerActions[actionIndex].partnerMessageIds = sentMessageIds;
+      s.partnerActions[actionIndex].partnerMessageIds = sentMessageIds;
+      staffDoc.markModified("staff");
       await staffDoc.save().catch(() => { });
     }
 

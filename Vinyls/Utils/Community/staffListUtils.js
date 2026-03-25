@@ -1,6 +1,6 @@
 const IDs = require("../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
-const StaffModel = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const STAFF_LIST_MARKER = "staff list";
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -74,15 +74,15 @@ function isPexEntry(row) {
 
 async function getStaffPexedLast7Days(guildId) {
   const since = new Date(Date.now() - STAFF_NEW_DAYS_MS);
-  const docs = await StaffModel.find(
-    { guildId: String(guildId) },
-    { userId: 1, rolesHistory: 1 },
+  const docs = await ActivityUserProfile.find(
+    { guildId: String(guildId), staff: { $exists: true } },
+    { userId: 1, "staff.rolesHistory": 1 },
   )
     .lean()
     .catch(() => []);
   const out = new Set();
   for (const doc of docs || []) {
-    const history = Array.isArray(doc?.rolesHistory) ? doc.rolesHistory : [];
+    const history = Array.isArray(doc?.staff?.rolesHistory) ? doc.staff.rolesHistory : [];
     const pexedInWindow = history.some((row) => {
       const when = row?.date ? new Date(row.date) : null;
       if (!when || Number.isNaN(when.getTime())) return false;

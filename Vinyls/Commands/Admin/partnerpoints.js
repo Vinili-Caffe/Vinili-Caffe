@@ -1,6 +1,6 @@
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const PRIVATE_FLAG = 1 << 6;
 const SUCCESS_COLOR = "#6f4e37";
@@ -29,10 +29,10 @@ async function addPartnerPoints(guildId, userId, amount) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  return Staff.findOneAndUpdate(
+  return ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
     {
-      $inc: { partnerCount: amount },
+      $inc: { "staff.partnerCount": amount },
       $setOnInsert: { guildId: g, userId: u },
     },
     {
@@ -47,19 +47,19 @@ async function removePartnerPoints(guildId, userId, amount) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  return Staff.findOneAndUpdate(
+  return ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
     [
       {
         $set: {
           guildId: g,
           userId: u,
-          partnerCount: {
+          "staff.partnerCount": {
             $max: [
               0,
               {
                 $subtract: [
-                  { $ifNull: ["$partnerCount", 0] },
+                  { $ifNull: ["$staff.partnerCount", 0] },
                   Number(amount || 0),
                 ],
               },
@@ -160,7 +160,7 @@ module.exports = {
     if (sub === "add") {
       const staffData = await addPartnerPoints(guildId, targetUser.id, amount);
       const changeLabel = formatPartnerPointsChange("add", amount);
-      const embed = buildResultEmbed(interaction, `<:vegacheckmark:1443666279058772028> **Successo**: ${changeLabel} a <@${targetUser.id}>. <:VC_InactiveStatus:1482526984234860574> Totale Punti:\`${staffData.partnerCount}\``,);
+      const embed = buildResultEmbed(interaction, `<:vegacheckmark:1443666279058772028> **Successo**: ${changeLabel} a <@${targetUser.id}>. <:VC_InactiveStatus:1482526984234860574> Totale Punti:\`${staffData?.staff?.partnerCount ?? 0}\``,);
 
       return safeEditReply(interaction, { embeds: [embed] });
     }
@@ -168,7 +168,7 @@ module.exports = {
     if (sub === "remove") {
       const staffData = await removePartnerPoints(guildId, targetUser.id, amount);
       const changeLabel = formatPartnerPointsChange("remove", amount);
-      const embed = buildResultEmbed(interaction, `<:vegacheckmark:1443666279058772028> **Successo**: ${changeLabel} a <@${targetUser.id}>. <:VC_InactiveStatus:1482526984234860574> Totale Punti:\`${staffData.partnerCount}\``,);
+      const embed = buildResultEmbed(interaction, `<:vegacheckmark:1443666279058772028> **Successo**: ${changeLabel} a <@${targetUser.id}>. <:VC_InactiveStatus:1482526984234860574> Totale Punti:\`${staffData?.staff?.partnerCount ?? 0}\``,);
 
       if (removedPointsChannel) {
         await removedPointsChannel.send({

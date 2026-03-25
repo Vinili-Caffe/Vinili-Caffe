@@ -3,7 +3,7 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedB
 const IDs = require("../../Utils/Config/ids");
 const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
-const { getOrCreateStaffDoc, deleteThreadForMessage } = require("../../Utils/Staff/staffDocUtils");
+const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
@@ -702,15 +702,17 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
     await sendPartnerManagerWelcome(pmChannel, member.user);
   }
 
-  const staffDoc = await getOrCreateStaffDoc(guild.id, member.id);
-  if (!Array.isArray(staffDoc.rolesHistory)) staffDoc.rolesHistory = [];
-  staffDoc.rolesHistory.push({
+  const profileDoc = await getOrCreateStaffDoc(guild.id, member.id);
+  const s = ensureStaff(profileDoc);
+  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+  s.rolesHistory.push({
     oldRole: roleBeforeId,
     newRole: String(targetRoleId),
     reason: String(reason || "").trim(),
     date: new Date(),
   });
-  await staffDoc.save();
+  profileDoc.markModified("staff");
+  await profileDoc.save();
   if (guild.client && guild.id === IDs.guilds?.main) {
     scheduleStaffListRefresh(guild.client, guild.id, 800);
     const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);

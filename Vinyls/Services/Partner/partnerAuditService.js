@@ -1,5 +1,5 @@
 const cron = require("node-cron");
-const Staff = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 let dailyPartnerAuditTask = null;
@@ -139,13 +139,17 @@ async function runDailyPartnerAudit(client, opts = {}) {
   if (!guild) return;
 
   const targetDateKey = opts.dateKey || getPreviousRomeDateKey(new Date());
-  const docs = await Staff.find({ guildId: guild.id, partnerActions: { $exists: true, $ne: [] }, }).catch(() => []);
+  const docs = await ActivityUserProfile.find({
+    guildId: guild.id,
+    "staff.partnerActions.0": { $exists: true },
+  }).catch(() => []);
 
   let totalChecked = 0;
   let totalRemoved = 0;
 
   for (const doc of docs) {
-    const actions = Array.isArray(doc.partnerActions) ? doc.partnerActions : [];
+    if (!doc.staff) doc.staff = {};
+    const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
     const allCreates = actions.map((action, index) => ({ action, index })).filter(({ action }) => String(action?.action || "create") === "create").map(({ action, index }) => { const dateMs = new Date(action?.date || 0).getTime(); return { action, index, dateMs, inviteCodes: [] }; }).sort((a, b) => a.dateMs - b.dateMs);
 
     const dayCreates = allCreates.filter(({ action }) => getRomeDateKey(new Date(action?.date || Date.now())) === targetDateKey,).sort((a, b) => a.dateMs - b.dateMs);
@@ -251,8 +255,9 @@ async function runDailyPartnerAudit(client, opts = {}) {
     }
 
     if (flagged > 0) {
-      const currentCount = Number(doc.partnerCount || 0);
-      doc.partnerCount = Math.max(0, currentCount - flagged);
+      const currentCount = Number(doc.staff?.partnerCount || 0);
+      doc.staff.partnerCount = Math.max(0, currentCount - flagged);
+      doc.markModified("staff");
       try {
         await doc.save();
         totalRemoved += flagged;

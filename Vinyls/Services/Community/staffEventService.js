@@ -1,5 +1,4 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const Staff = require("../../Schemas/Staff/staffSchema");
 const { getStaffEventSettings } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const STAFF_ROLE_ID = IDs.roles.Staff;
@@ -34,11 +33,11 @@ async function addStaffEventPoints(guildId, userId, points, note = null) {
   if (!guildId || !userId || !Number.isFinite(points) || points <= 0) return null;
   const active = await isStaffEventActive(guildId);
   if (!active) return null;
-  await Staff.findOneAndUpdate(
+  await ActivityUserProfile.findOneAndUpdate(
     { guildId, userId },
     {
       $setOnInsert: { guildId, userId },
-      $inc: { "staffEvent.points": Math.floor(points) },
+      $inc: { "staff.staffEvent.points": Math.floor(points) },
     },
     { upsert: true, new: true },
   ).catch(() => null);
@@ -47,18 +46,22 @@ async function addStaffEventPoints(guildId, userId, points, note = null) {
 
 async function getStaffEventPointsDoc(guildId, userId) {
   if (!guildId || !userId) return null;
-  const doc = await Staff.findOne({ guildId, userId })
-    .select("staffEvent.points")
+  const doc = await ActivityUserProfile.findOne({ guildId, userId })
+    .select("staff.staffEvent.points")
     .lean()
     .catch(() => null);
-  return { points: Number(doc?.staffEvent?.points || 0) };
+  return { points: Number(doc?.staff?.staffEvent?.points || 0) };
 }
 
 async function getStaffEventLeaderboard(guildId) {
   if (!guildId) return [];
-  const list=await Staff.find({guildId}).select("userId staffEvent.points").sort({"staffEvent.points":-1}).lean().catch(() => []);
+  const list = await ActivityUserProfile.find({ guildId })
+    .select("userId staff.staffEvent.points")
+    .sort({ "staff.staffEvent.points": -1 })
+    .lean()
+    .catch(() => []);
   return list
-    .map((d) => ({ userId: String(d?.userId || ""), points: Number(d?.staffEvent?.points || 0) }))
+    .map((d) => ({ userId: String(d?.userId || ""), points: Number(d?.staff?.staffEvent?.points || 0) }))
     .filter((d) => d.userId && d.points > 0);
 }
 
@@ -164,8 +167,8 @@ async function filterStaffEventLeaderboardForDisplay(guild, rawLeaderboard, now 
   const uniqueNeed = [...new Set(needIds)];
   let docsByUser = new Map();
   if (uniqueNeed.length) {
-    const docs = await Staff.find({ guildId, userId: { $in: uniqueNeed } })
-      .select("userId rolesHistory")
+    const docs = await ActivityUserProfile.find({ guildId, userId: { $in: uniqueNeed } })
+      .select("userId staff.rolesHistory")
       .lean()
       .catch(() => []);
     docsByUser = new Map((docs || []).map((d) => [String(d?.userId || ""), d]));
@@ -179,7 +182,7 @@ async function filterStaffEventLeaderboardForDisplay(guild, rawLeaderboard, now 
       continue;
     }
     const doc = docsByUser.get(uid);
-    if (doc && rolesHistoryAllowsStaffLeaderboardDespiteNoStaff(doc.rolesHistory, now)) out.push(row);
+    if (doc && rolesHistoryAllowsStaffLeaderboardDespiteNoStaff(doc.staff?.rolesHistory, now)) out.push(row);
   }
   return out;
 }
@@ -195,30 +198,34 @@ async function giveExistingInvitesPointsAtStart(guild) {
   }
   if (!staffIds.length) return;
   for (const inviterId of staffIds) {
-    const alreadyGiven=await Staff.findOne({guildId:guild.id,userId:inviterId,"staffEvent.rewardGivenTypes":"existing_invites",}).select("_id").lean().catch(() => null);
+    const alreadyGiven = await ActivityUserProfile.findOne({
+      guildId: guild.id,
+      userId: inviterId,
+      "staff.staffEvent.rewardGivenTypes": "existing_invites",
+    }).select("_id").lean().catch(() => null);
     if (alreadyGiven?._id) continue;
-    const count=await ActivityUserProfile.countDocuments({
+    const count = await ActivityUserProfile.countDocuments({
       guildId: guild.id,
       "profile.inviteTrack.inviterId": inviterId,
       "profile.inviteTrack.active": true,
     }).catch(() => 0);
     if (count <= 0) {
-      await Staff.updateOne(
+      await ActivityUserProfile.updateOne(
         { guildId: guild.id, userId: inviterId },
         {
           $setOnInsert: { guildId: guild.id, userId: inviterId },
-          $addToSet: { "staffEvent.rewardGivenTypes": "existing_invites" },
+          $addToSet: { "staff.staffEvent.rewardGivenTypes": "existing_invites" },
         },
         { upsert: true },
       ).catch(() => null);
       continue;
     }
     await addStaffEventPoints(guild.id, inviterId, count, "existing_invites");
-    await Staff.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: guild.id, userId: inviterId },
       {
         $setOnInsert: { guildId: guild.id, userId: inviterId },
-        $addToSet: { "staffEvent.rewardGivenTypes": "existing_invites" },
+        $addToSet: { "staff.staffEvent.rewardGivenTypes": "existing_invites" },
       },
       { upsert: true },
     ).catch(() => null);
@@ -234,14 +241,18 @@ async function givePmStaff15PointsAtStart(guild) {
   for (const [, member] of guild.members.cache) {
     if (!member?.user?.id) continue;
     if (!hasPartnerManagerAndStaff(member)) continue;
-    const existing=await Staff.findOne({guildId:guild.id,userId:member.id,"staffEvent.rewardGivenTypes":"pm_staff",}).select("_id").lean().catch(() => null);
+    const existing = await ActivityUserProfile.findOne({
+      guildId: guild.id,
+      userId: member.id,
+      "staff.staffEvent.rewardGivenTypes": "pm_staff",
+    }).select("_id").lean().catch(() => null);
     if (existing?._id) continue;
     await addStaffEventPoints(guild.id, member.id, 15, "pm_staff");
-    await Staff.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: guild.id, userId: member.id },
       {
         $setOnInsert: { guildId: guild.id, userId: member.id },
-        $addToSet: { "staffEvent.rewardGivenTypes": "pm_staff" },
+        $addToSet: { "staff.staffEvent.rewardGivenTypes": "pm_staff" },
       },
       { upsert: true },
     ).catch(() => null);
@@ -276,9 +287,9 @@ async function adjustPmStaffPointsOnRoleChange(oldMember, newMember) {
   }
 
   if (hadComboBefore && !hasComboNow && currentPoints >= 15) {
-    const res = await Staff.updateOne(
-      { guildId: guild.id, userId: newMember.id, "staffEvent.points": { $gte: 15 } },
-      { $inc: { "staffEvent.points": -15 } },
+    const res = await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId: newMember.id, "staff.staffEvent.points": { $gte: 15 } },
+      { $inc: { "staff.staffEvent.points": -15 } },
     ).catch(() => null);
     if (res?.modifiedCount) {
       return "removed";
@@ -309,14 +320,18 @@ async function giveWeekly20PointsIfEligible(guild, eventWeekNum, _settings) {
     const minMsg = limits.messages + OVER_LIMIT_MSG;
     const minHours = limits.hours + OVER_LIMIT_HOURS;
     if (msg < minMsg || voiceHours < minHours) continue;
-    const existing=await Staff.findOne({guildId:guild.id,userId:member.id,"staffEvent.weeklyRewards":eventWeekNum,}).select("_id").lean().catch(() => null);
+    const existing = await ActivityUserProfile.findOne({
+      guildId: guild.id,
+      userId: member.id,
+      "staff.staffEvent.weeklyRewards": eventWeekNum,
+    }).select("_id").lean().catch(() => null);
     if (existing?._id) continue;
     await addStaffEventPoints(guild.id, member.id, 20, `weekly_${eventWeekNum}`);
-    await Staff.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId: guild.id, userId: member.id },
       {
         $setOnInsert: { guildId: guild.id, userId: member.id },
-        $addToSet: { "staffEvent.weeklyRewards": eventWeekNum },
+        $addToSet: { "staff.staffEvent.weeklyRewards": eventWeekNum },
       },
       { upsert: true },
     ).catch(() => null);

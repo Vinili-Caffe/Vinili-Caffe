@@ -1,8 +1,8 @@
 "use strict";
 
-const StaffModel = require("../../Schemas/Staff/staffSchema");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
-const { getOrCreateStaffDoc } = require("../../Utils/Staff/staffDocUtils");
+const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 const NEGATIVES_PER_STAFF_WARN = 3;
@@ -38,39 +38,43 @@ function getHighestStaffRoleId(member) {
   return null;
 }
 
-function resetStaffWarnsIfSixMonths(staffDoc) {
-  const firstAt = staffDoc?.firstWarnStaffAt;
+function resetStaffWarnsIfSixMonths(profileDoc) {
+  const s = ensureStaff(profileDoc);
+  if (!s) return false;
+  const firstAt = s.firstWarnStaffAt;
   if (!firstAt || !(firstAt instanceof Date)) return false;
   const elapsed = Date.now() - firstAt.getTime();
   if (elapsed < STAFF_WARN_RESET_MS) return false;
-  staffDoc.warnCount = 0;
-  staffDoc.warnReasons = [];
-  staffDoc.firstWarnStaffAt = null;
+  s.warnCount = 0;
+  s.warnReasons = [];
+  s.firstWarnStaffAt = null;
   return true;
 }
 
 async function addStaffWarnFromNegatives(guildId, userId, negativeCountAfterAdd, reason) {
-  const staffDoc = await getOrCreateStaffDoc(guildId, userId);
-  if (!staffDoc) return { added: false };
+  const profileDoc = await getOrCreateStaffDoc(guildId, userId);
+  if (!profileDoc) return { added: false };
+  const s = ensureStaff(profileDoc);
 
-  const reset = resetStaffWarnsIfSixMonths(staffDoc);
-  if (reset) await staffDoc.save().catch(() => null);
+  const reset = resetStaffWarnsIfSixMonths(profileDoc);
+  if (reset) await profileDoc.save().catch(() => null);
 
   if (negativeCountAfterAdd % NEGATIVES_PER_STAFF_WARN !== 0) return { added: false };
 
-  staffDoc.warnCount = Math.max(0, Number(staffDoc.warnCount || 0)) + 1;
-  if (!Array.isArray(staffDoc.warnReasons)) staffDoc.warnReasons = [];
-  staffDoc.warnReasons.push(String(reason || "3 valutazioni negative").slice(0, 500));
-  if (!staffDoc.firstWarnStaffAt) staffDoc.firstWarnStaffAt = new Date();
-  await staffDoc.save().catch(() => null);
+  s.warnCount = Math.max(0, Number(s.warnCount || 0)) + 1;
+  if (!Array.isArray(s.warnReasons)) s.warnReasons = [];
+  s.warnReasons.push(String(reason || "3 valutazioni negative").slice(0, 500));
+  if (!s.firstWarnStaffAt) s.firstWarnStaffAt = new Date();
+  profileDoc.markModified("staff");
+  await profileDoc.save().catch(() => null);
 
-  const warnCount = staffDoc.warnCount;
+  const warnCount = s.warnCount;
   return {
     added: true,
     warnCount,
     shouldAskDepex: warnCount === 2,
     shouldFullDepex: warnCount === 3,
-    staffDoc,
+    staffDoc: profileDoc,
   };
 }
 
@@ -144,14 +148,14 @@ async function runStaffWarnSixMonthReset(client) {
   const guildId = IDs.guilds?.main;
   if (!guildId) return;
   const now = Date.now();
-  const docs = await StaffModel.find(
-    { guildId, firstWarnStaffAt: { $ne: null, $lte: new Date(now - STAFF_WARN_RESET_MS) } },
-    { userId: 1, warnCount: 1, firstWarnStaffAt: 1 },
+  const docs = await ActivityUserProfile.find(
+    { guildId, "staff.firstWarnStaffAt": { $ne: null, $lte: new Date(now - STAFF_WARN_RESET_MS) } },
+    { userId: 1, "staff.warnCount": 1, "staff.firstWarnStaffAt": 1 },
   ).lean();
   for (const doc of docs) {
-    await StaffModel.updateOne(
+    await ActivityUserProfile.updateOne(
       { guildId, userId: doc.userId },
-      { $set: { warnCount: 0, warnReasons: [], firstWarnStaffAt: null } },
+      { $set: { "staff.warnCount": 0, "staff.warnReasons": [], "staff.firstWarnStaffAt": null } },
     ).catch(() => null);
   }
   if (docs.length > 0) {
