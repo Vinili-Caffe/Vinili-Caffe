@@ -90,7 +90,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
         "<a:VC_HeartsBlue:1468686100045369404> **Top 10 vocale**:",
         ...voiceLines,
         "",
-        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP (solo messaggi + vocale · staff incluso, High Staff escluso)**:",
+        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
         ...expLines,
       ].join("\n")
     )
