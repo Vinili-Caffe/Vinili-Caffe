@@ -13,7 +13,6 @@ const {
 } = require("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { getVoiceSession } = require("../Voice/voiceSessionService");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const MAX_TTS_QUEUE = 30;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
@@ -704,15 +703,6 @@ async function handleTtsMessage(message, client, prefix) {
   if (message?.author?.bot) return;
   const guildId = message.guild?.id;
   const botVc = message.guild?.members?.me?.voice?.channel;
-  let voiceSession = getVoiceSession(guildId);
-  if (voiceSession?.mode === "music" && !botVc) {
-    const { destroyQueue } = require("../Music/musicService");
-    await destroyQueue(guildId, { manual: true }).catch(() => null);
-    voiceSession = getVoiceSession(guildId);
-  }
-  if (voiceSession?.mode === "music") return;
-  const { getQueue } = require("../Music/musicService");
-  if (getQueue(guildId) && botVc) return;
   if (!shouldHandleMessage(message, config, prefix)) return;
   if (!message.member && message.guild?.members?.fetch) {
     try {
@@ -1010,14 +1000,6 @@ async function restoreTtsConnections(client) {
         batch.map(async (entry) => {
           const channel = await getClientChannelCached(client, entry?.channelId);
           if (!channel || !channel.isVoiceBased?.()) return;
-
-          try {
-            const { getQueue } = require("../Music/musicService");
-            const q = getQueue(entry?.guildId);
-            const guild = client.guilds.cache.get(String(entry?.guildId || ""));
-            const botVc = guild?.members?.me?.voice?.channel;
-            if (q && botVc) return;
-          } catch (_) { }
 
           await joinTtsChannel(channel).catch((e) =>
             global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),

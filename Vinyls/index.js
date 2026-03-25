@@ -132,9 +132,6 @@ initializeCommandCollections(client, { includeSnipes: true });
       client.logBootTables();
     }
 
-    const { getPlayer } = require("./Services/Music/musicService");
-    void getPlayer(client).catch(() => {});
-
     // HTTP vote webhook Discadia: si avvia da Events/ready.js (dopo login) se discadia.httpVoteWebhookEnabled o DISCADIA_VOTE_HTTP_WEBHOOK=1
 
     client.login(client.config.token).catch((error) => {

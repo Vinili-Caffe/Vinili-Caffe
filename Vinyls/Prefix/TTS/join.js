@@ -1,8 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { joinTtsChannel } = require("../../Services/TTS/ttsService");
-const { destroyQueue } = require("../../Services/Music/musicService");
-const { setVoiceSession, getVoiceSession } = require("../../Services/Voice/voiceSessionService");
+const { setVoiceSession } = require("../../Services/Voice/voiceSessionService");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 
 module.exports = {
@@ -29,22 +28,6 @@ module.exports = {
         message,
         { embeds: [noPermEmbed] },
       );
-    }
-
-    const activeSession = getVoiceSession(message.guild?.id);
-    const botVoiceChannel = message.guild?.members?.me?.voice?.channel || null;
-    if (activeSession?.mode === "music" && !botVoiceChannel) {
-      await destroyQueue(message.guild.id, { manual: true }).catch(() => null);
-    }
-    if (
-      activeSession?.mode === "music" &&
-      botVoiceChannel &&
-      botVoiceChannel.id !== voiceChannel.id
-    ) {
-      const inUseEmbed = new EmbedBuilder()
-        .setColor("#ED4245")
-        .setDescription(`You already own a session in ${botVoiceChannel}, use the join command if you want it here instead!`);
-      return safeMessageReply(message, { embeds: [inUseEmbed] });
     }
 
     const ttsResult = await joinTtsChannel(voiceChannel);

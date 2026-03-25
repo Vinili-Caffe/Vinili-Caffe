@@ -9,7 +9,6 @@ const {
   joinRaidStateEmbedSchema,
   minigameStateEmbedSchema,
   minigameRotationEmbedSchema,
-  musicQueueStateEmbedSchema,
   voiceStateEmbedSchema,
   chatReminderRotationEmbedSchema,
   chatReminderScheduleEmbedSchema,
@@ -25,7 +24,6 @@ const BotStateSchema = new mongoose.Schema(
           joinRaidStates: { type: [joinRaidStateEmbedSchema], default: undefined },
           minigameStates: { type: [minigameStateEmbedSchema], default: undefined },
           minigameRotations: { type: [minigameRotationEmbedSchema], default: undefined },
-          musicQueueStates: { type: [musicQueueStateEmbedSchema], default: undefined },
           voiceStates: { type: [voiceStateEmbedSchema], default: undefined },
           chatReminderRotations: {
             type: [chatReminderRotationEmbedSchema],
@@ -55,7 +53,6 @@ module.exports.embedSchemas = {
   joinRaidState: joinRaidStateEmbedSchema,
   minigameState: minigameStateEmbedSchema,
   minigameRotation: minigameRotationEmbedSchema,
-  musicQueueState: musicQueueStateEmbedSchema,
   voiceState: voiceStateEmbedSchema,
   chatReminderRotation: chatReminderRotationEmbedSchema,
   chatReminderSchedule: chatReminderScheduleEmbedSchema,

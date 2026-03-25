@@ -75,7 +75,6 @@ async function ensureActiveCustomRole(message) {
 
 module.exports = {
   name: "customreaction",
-  aliases: ["customreact", "creaction"],
   allowEmptyArgs: true,
 
   async execute(message) {

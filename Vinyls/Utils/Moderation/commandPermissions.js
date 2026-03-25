@@ -89,11 +89,6 @@ function isBackupInteraction(customId) {
     id.startsWith("backup_list_")
   );
 }
-function isMusicPlayPickerInteraction(customId) {
-  const id = String(customId || "").trim();
-  if (!id) return false;
-  return id.startsWith("pick_select_") || id.startsWith("pick_first_") || id.startsWith("pick_prev_") || id.startsWith("pick_next_") || id.startsWith("pick_last_") || id.startsWith("pick_cancel_");
-}
 function isVerifyOrTicketInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
@@ -826,7 +821,7 @@ async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isMusicPlayPickerInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1018,7 +1013,7 @@ async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isMusicPlayPickerInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId)) {
       return {
         allowed: true,
         reason: null,

@@ -340,7 +340,18 @@ async function handleDisboardBump(message, client) {
   const isDisboardSource = message.author?.id === IDs.bots.DISBOARD || (Boolean(message.author?.bot) && /disboard/i.test(authorName)) || /disboard/i.test(sourceName);
   if (!message.author || !isDisboardSource) return false;
 
-  const patterns = Array.isArray(disboard.bumpSuccessPatterns) ? disboard.bumpSuccessPatterns.map((p) => String(p).toLowerCase()) : [];
+  const configuredPatterns = Array.isArray(disboard.bumpSuccessPatterns)
+    ? disboard.bumpSuccessPatterns.map((p) => String(p).toLowerCase())
+    : [];
+  const defaultPatterns = [
+    "bump done",
+    "bump successful",
+    "has been bumped",
+    "successfully bumped",
+    "you can bump again",
+    "bump will be available again",
+  ];
+  const patterns = Array.from(new Set([...configuredPatterns, ...defaultPatterns]));
   const haystacks = [];
   if (message.content) haystacks.push(message.content);
   if (Array.isArray(message.embeds)) {
@@ -350,7 +361,11 @@ async function handleDisboardBump(message, client) {
     }
   }
   const lowered = haystacks.map((text) => String(text || "").toLowerCase());
-  const isBump = patterns.some((pattern) => lowered.some((text) => text.includes(pattern)),);
+  const hasPatternMatch = patterns.some((pattern) => lowered.some((text) => text.includes(pattern)));
+  const joined = lowered.join("\n");
+  const hasRegexSuccess =
+    /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|you can bump again|bump will be available again)/i.test(joined);
+  const isBump = hasPatternMatch || hasRegexSuccess;
   if (!isBump) return false;
 
   const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
@@ -439,7 +454,8 @@ async function handleDiscadiaBump(message, client) {
   const looksLikeDisboardSource = /\bdisboard\b/i.test(sourceFingerprint);
   const hasBumpSuccessText = hasPattern || hasSuccessWord;
   const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
-  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation;
+  const isLikelyDiscadiaGenericSuccess = isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText && hasBumpWord && (Boolean(message.webhookId) || isBumpInteraction);
+  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess;
   const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource;
   if (!isBump) return false;
 

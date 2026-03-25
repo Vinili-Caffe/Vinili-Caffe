@@ -1,7 +1,5 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js");
 const { leaveTtsGuild, handleTtsBotVoiceMove } = require("../Services/TTS/ttsService");
-const { handleMusicVoiceStateUpdate } = require("../Services/Music/musicService");
-const { getVoiceSession } = require("../Services/Voice/voiceSessionService");
 const{handleVoiceActivity,}=require("../Services/Community/activityService");
 const IDs = require("../Utils/Config/ids");
 const AUDIT_FETCH_LIMIT = 20;
@@ -317,20 +315,11 @@ module.exports = {
       }
     }
 
-    try {
-      await handleMusicVoiceStateUpdate(oldState, newState, client);
-    } catch (error) {
-      global.logger?.error?.("[voiceStateUpdate] music voice handler failed:", error);
-    }
-
     if (!client?.user?.id) return;
     if (client?.config?.tts?.stayConnected) return;
 
     const guild = newState?.guild || oldState?.guild;
     if (!guild) return;
-    const voiceSession = getVoiceSession(guild.id);
-
-    if (voiceSession?.mode === "music") return;
 
     if (
       oldState.id === client.user.id &&

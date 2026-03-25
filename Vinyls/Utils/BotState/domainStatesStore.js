@@ -190,46 +190,6 @@ async function minigameRotationDeleteMany(filter) {
   );
 }
 
-async function musicQueueFindOneAndUpdate(filter, update) {
-  const guildId = String(filter.guildId || "");
-  const $set = update.$set || {};
-  const doc = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
-  const arr = [...(doc?.domains?.musicQueueStates || [])];
-  const idx = arr.findIndex((x) => String(x.guildId) === guildId);
-  const row = idx >= 0 ? { ...arr[idx], ...$set } : { ...$set };
-  if (idx >= 0) arr[idx] = row;
-  else arr.push(row);
-  await BotState.findOneAndUpdate(
-    { key: COMPACT_BOTSTATE_KEY },
-    {
-      $set: { "domains.musicQueueStates": arr },
-      $setOnInsert: { key: COMPACT_BOTSTATE_KEY, value: {} },
-    },
-    { upsert: true },
-  );
-}
-
-async function musicQueueDeleteOne(filter) {
-  const guildId = String(filter.guildId || "");
-  const doc = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
-  const arr = [...(doc?.domains?.musicQueueStates || [])].filter(
-    (x) => String(x.guildId) !== guildId,
-  );
-  await BotState.findOneAndUpdate(
-    { key: COMPACT_BOTSTATE_KEY },
-    {
-      $set: { "domains.musicQueueStates": arr },
-      $setOnInsert: { key: COMPACT_BOTSTATE_KEY, value: {} },
-    },
-    { upsert: true },
-  );
-}
-
-async function musicQueueFindAllLean() {
-  const domains = await getDomainsLean();
-  return domains.musicQueueStates || [];
-}
-
 async function voiceFindOneAndUpdate(filter, update) {
   const guildId = String(filter.guildId || "");
   const $set = update.$set || {};
@@ -420,9 +380,6 @@ module.exports = {
   minigameRotationFindOneAndUpdate,
   minigameRotationDeleteOne,
   minigameRotationDeleteMany,
-  musicQueueFindOneAndUpdate,
-  musicQueueDeleteOne,
-  musicQueueFindAllLean,
   voiceFindOneAndUpdate,
   voiceDeleteOne,
   voiceDeleteManyInGuildIds,

@@ -2,7 +2,6 @@ const { EmbedBuilder } = require("discord.js");
 const { getVoiceConnection } = require("@discordjs/voice");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { leaveTtsGuild } = require("../../Services/TTS/ttsService");
-const { forceDisconnectGuildVoice } = require("../../Services/Music/musicService");
 const { clearVoiceSession, getVoiceSession } = require("../../Services/Voice/voiceSessionService");
 
 module.exports = {
@@ -26,7 +25,6 @@ module.exports = {
     }
 
     const wasInVoice = Boolean(botChannelId);
-    await forceDisconnectGuildVoice(message.client, message.guild.id).catch(() => null);
     const ttsVc = getVoiceConnection(String(message.guild.id));
     if (ttsVc) ttsVc.destroy();
     const me =

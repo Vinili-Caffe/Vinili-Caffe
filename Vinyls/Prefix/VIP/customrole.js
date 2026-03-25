@@ -7,22 +7,6 @@ const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Commun
 
 const ANCHOR_ROLE_ID = "1469452890761596981";
 const REQUEST_TIMEOUT_MS = 60_000;
-const VALID_SUBCOMMANDS = new Set(["create", "modify", "add", "remove"]);
-
-function buildUsageEmbed() {
-  return new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("Custom Role")
-    .setDescription(
-      [
-        "Usa uno di questi subcommands:",
-        "`+customrole create`",
-        "`+customrole modify`",
-        "`+customrole add @utente`",
-        "`+customrole remove`",
-      ].join("\n"),
-    );
-}
 
 function trimRoleName(name) {
   const clean = String(name || "").replace(/\s+/g, " ").trim();
@@ -376,25 +360,10 @@ async function handleRemove(message) {
 
 module.exports = {
   name: "customrole",
-  subcommands: ["create", "modify", "add", "remove"],
   allowEmptyArgs: true,
 
-  async execute(message, args = []) {
+  async execute(message) {
     if (!message.guild || !message.member) return;
-    const subcommand = String(args[0] || "").trim().toLowerCase();
-
-    if (!VALID_SUBCOMMANDS.has(subcommand)) {
-      await safeMessageReply(message, {
-        embeds: [buildUsageEmbed()],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    const rest = args.slice(1);
-    if (subcommand === "create") return handleCreate(message, rest);
-    if (subcommand === "modify") return handleModify(message);
-    if (subcommand === "add") return handleAdd(message);
-    if (subcommand === "remove") return handleRemove(message);
+    return handleCreate(message);
   },
 };
