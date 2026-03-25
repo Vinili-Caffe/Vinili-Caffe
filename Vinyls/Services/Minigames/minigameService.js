@@ -275,6 +275,16 @@ const MINIGAME_LAST_HOUR = 23;
 const MINIGAME_LAST_MINUTE = 45;
 const MINIGAME_SLOT_MINUTES = [0, 15, 30, 45];
 let lastMinigameSlotKey = null;
+const MINIGAME_DEBUG = String(process.env.MINIGAME_DEBUG || "0") === "1";
+
+function logMinigameDebug(message, data = null) {
+  if (!MINIGAME_DEBUG) return;
+  if (data && typeof data === "object") {
+    global.logger?.info?.(`[MINIGAMES][DEBUG] ${message}`, data);
+    return;
+  }
+  global.logger?.info?.(`[MINIGAMES][DEBUG] ${message}`);
+}
 
 /**
  * Traduce un testo in italiano (en -> it) tramite MyMemory.
@@ -415,31 +425,32 @@ function getFailsafeMs(cfg) {
   return Math.max(60 * 1000, Number(cfg?.failsafeMs || 90 * 60 * 1000));
 }
 
-function recordActivity(channelId, windowMs) {
-  if (!channelId) return;
+function recordActivity(activityScopeKey, windowMs) {
+  if (!activityScopeKey) return;
   const safeWindowMs = Math.max(60 * 1000, Number(windowMs || 30 * 60 * 1000));
   const now = Date.now();
-  const list = recentMessages.get(channelId) || [];
+  const list = recentMessages.get(activityScopeKey) || [];
   list.push(now);
   const cutoff = now - safeWindowMs;
   const trimmed = list.filter((ts) => ts >= cutoff);
-  recentMessages.set(channelId, trimmed);
+  recentMessages.set(activityScopeKey, trimmed);
 }
 
-function getRecentCount(channelId, windowMs) {
-  if (!channelId) return 0;
+function getRecentCount(activityScopeKey, windowMs) {
+  if (!activityScopeKey) return 0;
   const safeWindowMs = Math.max(60 * 1000, Number(windowMs || 30 * 60 * 1000));
   const now = Date.now();
-  const list = recentMessages.get(channelId) || [];
+  const list = recentMessages.get(activityScopeKey) || [];
   const cutoff = now - safeWindowMs;
   const trimmed = list.filter((ts) => ts >= cutoff);
-  recentMessages.set(channelId, trimmed);
+  recentMessages.set(activityScopeKey, trimmed);
   return trimmed.length;
 }
 
 function isReadyByActivity(cfg) {
-  const channelId = cfg?.channelId;
-  const count = getRecentCount(channelId, getActivityWindowMs(cfg));
+  const activityScopeKey = String(cfg?.guildId || "");
+  if (!activityScopeKey) return false;
+  const count = getRecentCount(activityScopeKey, getActivityWindowMs(cfg));
   return count >= getMinMessages(cfg);
 }
 
@@ -459,9 +470,10 @@ function canStartByInterval(cfg) {
   const channelId = cfg?.channelId;
   const now = Date.now();
   const lastSent = lastSentAtByChannel.get(channelId) || 0;
-  if (now - lastSent < intervalMs) return false;
   const noPartEnd = lastNoParticipationEndAtByChannel.get(channelId) || 0;
-  if (noPartEnd > 0 && (now - noPartEnd) < noPartMs) return false;
+  const cooldownStart = noPartEnd > 0 ? Math.max(lastSent, noPartEnd) : lastSent;
+  const requiredCooldownMs = noPartEnd > 0 ? Math.max(intervalMs, noPartMs) : intervalMs;
+  if (now - cooldownStart < requiredCooldownMs) return false;
   return true;
 }
 
@@ -473,13 +485,32 @@ function markSent(channelId) {
 
 function isFailsafeDue(cfg) {
   const channelId = cfg?.channelId;
-  if (!channelId) return false;
+  const activityScopeKey = String(cfg?.guildId || "");
+  if (!channelId || !activityScopeKey) return false;
   const lastSent = lastSentAtByChannel.get(channelId) || 0;
   if (!lastSent) return true;
   if (Date.now() - lastSent < getFailsafeMs(cfg)) return false;
   const minActivityForFailsafe = Math.min(1, getMinMessages(cfg));
-  if (getRecentCount(channelId, getActivityWindowMs(cfg)) < minActivityForFailsafe) return false;
+  if (getRecentCount(activityScopeKey, getActivityWindowMs(cfg)) < minActivityForFailsafe) return false;
   return true;
+}
+
+function canCountMessageForActivity(message) {
+  if (!message?.guild || !message?.channel) return false;
+  const memberRoleId = String(IDs.roles.Member || "");
+  if (!memberRoleId) return false;
+  const memberRole = message.guild.roles?.cache?.get(memberRoleId) || null;
+  if (!memberRole) return false;
+  const perms = message.channel.permissionsFor(memberRole);
+  if (!perms) return false;
+  return perms.has("ViewChannel") && perms.has("SendMessages");
+}
+
+function isStaleOrInvalidActiveGame(game, nowMs = Date.now()) {
+  if (!game || typeof game !== "object") return true;
+  const endsAt = Number(game.endsAt || 0);
+  if (!Number.isFinite(endsAt) || endsAt <= 0) return true;
+  return nowMs >= endsAt;
 }
 
 async function saveActiveGame(client, cfg, payload) {
@@ -5865,20 +5896,31 @@ async function safeStartGameByType(client, cfg, gameType) {
 
 async function maybeStartRandomGame(client, force = false) {
   const cfg = getConfig(client);
-  if (!cfg?.enabled) return;
-  if (!cfg.channelId) return;
-  if (startingChannels.has(cfg.channelId)) return;
+  if (!cfg?.enabled) {
+    logMinigameDebug("skip: disabled");
+    return;
+  }
+  if (!cfg.channelId) {
+    logMinigameDebug("skip: missing channelId");
+    return;
+  }
+  if (startingChannels.has(cfg.channelId)) {
+    logMinigameDebug("skip: already-starting", { channelId: cfg.channelId });
+    return;
+  }
   startingChannels.add(cfg.channelId);
   try {
     if (activeGames.has(cfg.channelId)) {
       const game = activeGames.get(cfg.channelId);
-      if (game?.endsAt && Date.now() >= game.endsAt) {
+      if (isStaleOrInvalidActiveGame(game)) {
         if (game.timeout) clearTimeout(game.timeout);
         if (game.hintTimeout) clearTimeout(game.hintTimeout);
         recordNoParticipationIfNeeded(cfg.channelId, game);
         activeGames.delete(cfg.channelId);
         await clearActiveGame(client, cfg);
+        logMinigameDebug("cleanup: stale active game", { channelId: cfg.channelId, type: game?.type || null });
       } else {
+        logMinigameDebug("skip: active game still running", { channelId: cfg.channelId, type: game?.type || null, endsAt: game?.endsAt || null });
         return;
       }
     }
@@ -5887,21 +5929,36 @@ async function maybeStartRandomGame(client, force = false) {
     if (!force) {
       const windowStart = cfg?.timeWindow?.start;
       const windowEnd = cfg?.timeWindow?.end;
-      if (!isWithinAllowedWindow(now, windowStart, windowEnd)) return;
-      if (!canStartByInterval(cfg)) return;
+      if (!isWithinAllowedWindow(now, windowStart, windowEnd)) {
+        logMinigameDebug("skip: outside time window", { channelId: cfg.channelId });
+        return;
+      }
+      if (!canStartByInterval(cfg)) {
+        logMinigameDebug("skip: cooldown not elapsed", { channelId: cfg.channelId });
+        return;
+      }
       const readyByActivity = isReadyByActivity(cfg);
       const failsafeDue = isFailsafeDue(cfg);
       if (!readyByActivity && !failsafeDue) {
         standbyChannels.add(cfg.channelId);
+        const count = getRecentCount(String(cfg?.guildId || ""), getActivityWindowMs(cfg));
+        logMinigameDebug("skip: insufficient activity", { channelId: cfg.channelId, guildId: cfg?.guildId || null, count, minMessages: getMinMessages(cfg) });
         return;
       }
     }
 
     const channel = await getChannelCached(client, cfg.channelId);
-    if (!channel) return;
+    if (!channel) {
+      logMinigameDebug("skip: target channel not found", { channelId: cfg.channelId });
+      return;
+    }
+    cfg.guildId = String(channel?.guild?.id || cfg.guildId || "");
 
     const available = getAvailableGameTypes(cfg);
-    if (!available.length) return;
+    if (!available.length) {
+      logMinigameDebug("skip: no available game types", { channelId: cfg.channelId });
+      return;
+    }
     const tried = new Set();
     let pending = pendingGames.get(cfg.channelId);
 
@@ -5931,17 +5988,21 @@ async function maybeStartRandomGame(client, force = false) {
         }
         pendingGames.delete(cfg.channelId);
         await saveRotationState(client, cfg);
+        logMinigameDebug("start: game started", { channelId: cfg.channelId, gameType, force });
         return;
       }
       if (result && result.skipToNext) {
+        logMinigameDebug("retry: game skipped to next type", { channelId: cfg.channelId, gameType });
         pendingGames.delete(cfg.channelId);
         pending = null;
         continue;
       }
+      logMinigameDebug("retry: game failed, requeue type", { channelId: cfg.channelId, gameType });
       await requeueGameType(client, cfg, gameType);
       pendingGames.delete(cfg.channelId);
       pending = null;
     }
+    logMinigameDebug("skip: all game types exhausted", { channelId: cfg.channelId, tried: Array.from(tried.values()) });
   } finally {
     startingChannels.delete(cfg.channelId);
   }
@@ -5959,6 +6020,7 @@ function startMinigameLoop(client) {
     const slotKey = minigameSlotKeyFromRome(rome);
     if (slotKey === lastMinigameSlotKey) return;
     lastMinigameSlotKey = slotKey;
+    logMinigameDebug("slot tick", { slotKey, hour: rome.hour, minute: rome.minute });
     if (!pendingGames.has(cfg.channelId)) {
       const type = await getNextGameType(client, cfg);
       if (!type) return;
@@ -6070,10 +6132,21 @@ async function handleMinigameMessage(message, client) {
   if (!cfg?.enabled) return false;
   if (!message?.guild) return false;
   if (message.author?.bot) return false;
+  cfg.guildId = String(message.guild.id || "");
+  if (canCountMessageForActivity(message)) {
+    recordActivity(cfg.guildId, getActivityWindowMs(cfg));
+  }
   if (message.channelId !== cfg.channelId) return false;
-  recordActivity(cfg.channelId, getActivityWindowMs(cfg));
   
   const game = activeGames.get(cfg.channelId);
+  if (game && isStaleOrInvalidActiveGame(game)) {
+    if (game.timeout) clearTimeout(game.timeout);
+    if (game.hintTimeout) clearTimeout(game.hintTimeout);
+    recordNoParticipationIfNeeded(cfg.channelId, game);
+    activeGames.delete(cfg.channelId);
+    await clearActiveGame(client, { ...cfg, guildId: message.guild.id });
+    return false;
+  }
   if (game) {
     if (game.hadParticipation === undefined) game.hadParticipation = false;
     game.hadParticipation = true;
