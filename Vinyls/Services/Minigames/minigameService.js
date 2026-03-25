@@ -275,6 +275,11 @@ const MINIGAME_LAST_HOUR = 23;
 const MINIGAME_LAST_MINUTE = 45;
 const MINIGAME_SLOT_MINUTES = [0, 15, 30, 45];
 let lastMinigameSlotKey = null;
+/** Con slot ogni 15 min e intervalMs=15m, senza slack l'ultimo invio anche pochi secondi dopo :00 fa fallire il confronto al prossimo slot (:15). Sottraiamo questo dal cooldown richiesto. 0 = comportamento stretto precedente. */
+const MINIGAME_INTERVAL_SLOT_SLACK_MS = Math.max(
+  0,
+  Math.min(5 * 60 * 1000, Number(process.env.MINIGAME_INTERVAL_SLOT_SLACK_MS ?? 90_000)),
+);
 const MINIGAME_DEBUG = String(process.env.MINIGAME_DEBUG || "0") === "1";
 
 function logMinigameDebug(message, data = null) {
@@ -473,7 +478,8 @@ function canStartByInterval(cfg) {
   const noPartEnd = lastNoParticipationEndAtByChannel.get(channelId) || 0;
   const cooldownStart = noPartEnd > 0 ? Math.max(lastSent, noPartEnd) : lastSent;
   const requiredCooldownMs = noPartEnd > 0 ? Math.max(intervalMs, noPartMs) : intervalMs;
-  if (now - cooldownStart < requiredCooldownMs) return false;
+  const minElapsed = Math.max(0, requiredCooldownMs - MINIGAME_INTERVAL_SLOT_SLACK_MS);
+  if (now - cooldownStart < minElapsed) return false;
   return true;
 }
 

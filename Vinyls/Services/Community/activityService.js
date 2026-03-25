@@ -8,6 +8,16 @@ const TIME_ZONE = "Europe/Rome";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BACKFILL_HOUR_SUFFIX = "T12";
 const HOURLY_BACKFILL_BATCH = 500;
+/** Su `+me` non bloccare oltre questo tempo sul backfill daily→hourly (0 = attendi sempre come prima). */
+const HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS = Math.max(
+  0,
+  Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 12_000)),
+);
+/** Query guild-wide per rank su `+me`: evita timeout comando se la collection è enorme (0 = nessun limite). */
+const ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS = Math.max(
+  0,
+  Math.min(120_000, Number(process.env.ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS ?? 45_000)),
+);
 
 function shouldSkipBackfillRow(hourKey, hourSet) {
   if (!hourKey || typeof hourKey !== "string") return false;
@@ -204,7 +214,11 @@ async function loadHourlyRowsFromProfile(guildId, hourKeys = null, userId = null
   const filter = { guildId: String(guildId || "") };
   if (!filter.guildId) return [];
   if (userId) filter.userId = String(userId);
-  const docs = await ActivityUserProfile.find(filter).select("guildId userId hourly").lean().catch(() => []);
+  let q = ActivityUserProfile.find(filter).select("guildId userId hourly");
+  if (!userId && ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) {
+    q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
+  }
+  const docs = await q.lean().catch(() => []);
   const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
   const rows = [];
   for (const doc of docs) {
@@ -1224,7 +1238,20 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
 
 async function getUserOverviewStats(guildId, userId, lookbackDays = 14) {
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
-  await ensureHourlyBackfillForGuild(guildId);
+  if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
+    let timer;
+    try {
+      const timeoutP = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS);
+        if (typeof timer.unref === "function") timer.unref();
+      });
+      await Promise.race([ensureHourlyBackfillForGuild(guildId), timeoutP]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } else {
+    await ensureHourlyBackfillForGuild(guildId);
+  }
   const lookbackKey = `d${safeLookback}`;
   const hourKeys1 = getLastNHourKeys(24);
   const hourKeys7 = getLastNHourKeys(24 * 7);
