@@ -432,18 +432,6 @@ modCaseSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, modId: 1, createdAt: -1 });
 modCaseSchema.index({ guildId: 1, action: 1, active: 1, expiresAt: 1 });
 
-const disVotSchema = new Schema(
-  {
-    userId: { type: String, required: true, index: true },
-    processed: { type: Boolean, default: false, index: true },
-    timestamp: { type: Date, default: Date.now, index: true },
-    processedAt: { type: Date, default: null },
-    attempts: { type: Number, default: 0 },
-  },
-  { timestamps: true },
-);
-disVotSchema.index({ processed: 1, timestamp: 1 });
-
 const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSettingsSchema);
 const LegacyVerificationTenure = null;
 const ReviewReward = {

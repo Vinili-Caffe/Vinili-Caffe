@@ -24,7 +24,7 @@ async function resolveActiveCustomRole(message) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<:vegax:1443934876440068179> Non hai un ruolo personalizzato. Usa prima `+customrole create`.",
+            "<:vegax:1443934876440068179> Non hai un ruolo personalizzato. Usa prima `+customrole`.",
           ),
       ],
       allowedMentions: { repliedUser: false },
@@ -41,7 +41,7 @@ async function resolveActiveCustomRole(message) {
             [
               "<:vegax:1443934876440068179> Il tuo custom role temporaneo è scaduto.",
               `Scadenza: ${buildExpiryText(state.doc)}`,
-              "Usa `+customrole create` per crearne uno nuovo.",
+              "Usa `+customrole` per crearne uno nuovo.",
             ].join("\n"),
           ),
       ],
@@ -56,7 +56,7 @@ async function resolveActiveCustomRole(message) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<:vegax:1443934876440068179> Il tuo ruolo personalizzato non esiste più. Ricrealo con `+customrole create`.",
+            "<:vegax:1443934876440068179> Il tuo ruolo personalizzato non esiste più. Ricrealo con `+customrole`.",
           ),
       ],
       allowedMentions: { repliedUser: false },

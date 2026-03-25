@@ -904,7 +904,7 @@ module.exports = {
         .setColor("#6f4e37")
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
-          `Usa \`+customrole create\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
+          `Usa \`+customrole\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
           "Poi usa \`+customvoc\` nello stesso canale per creare e configurare la vocale privata.",
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
@@ -997,7 +997,7 @@ module.exports = {
         .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
 
       const howtoEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
-        `Usa \`+customrole create\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
+        `Usa \`+customrole\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
         "Poi usa \`+customvoc\` nello stesso canale per creare e configurare la vocale privata.",
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));

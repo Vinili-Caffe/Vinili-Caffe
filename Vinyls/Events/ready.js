@@ -29,7 +29,8 @@ const { runCleanupUsersNotInServer, runCleanupUserScopedNotInAnyServer } = requi
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
 const { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook } = require("../Services/Web/webhookService");
-
+const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
+const { startAutoPollLoop } = require("../Services/Community/autoPollService");
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -604,6 +605,14 @@ function setClientPresence(client) {
   }
 }
 
+function maybeCheckPackagesOnReady(client) {
+  if (typeof checkAndInstallPackages !== "function") return;
+  if (String(process.env.CHECK_PACKAGES_ON_READY || "").trim() !== "1") return;
+  Promise.resolve(checkAndInstallPackages(client)).catch((err) => {
+    logError(client, "[PACKAGES] Check failed:", err?.stack || err?.message || err);
+  });
+}
+
 module.exports = {
   name: "clientReady",
   once: true,
@@ -652,6 +661,12 @@ module.exports = {
 
     if (primaryScheduler) scheduleMonthlyGif(client);
     setClientPresence(client);
+    maybeCheckPackagesOnReady(client);
+    try {
+      startAutoPollLoop(client);
+    } catch (error) {
+      logError(client, "[STATUS] Error while loading bot status (auto poll):", error?.stack || error?.message || error);
+    }
 
     logBotReady(client, readyStartedAt);
 
