@@ -83,15 +83,19 @@ function hasInvite(presence) {
   return INVITE_REGEX.test(blob);
 }
 
-function getInviteState(presence) {
+function getInviteState(presence, prevHas = false) {
   if (!presence) return null;
   if (isOfflinePresence(presence)) return null;
   if (hasInvite(presence)) return true;
+  // Cambio client (es. desktop ↔ mobile): Discord può mandare presenza online con
+  // activities vuote per un attimo; non trattare come "nessun link" per evitare
+  // spam di annunci / rimozioni ruolo.
+  if (!presence.activities?.length && prevHas) return null;
   return false;
 }
 
 function resolveInviteState(presence, fallback = false) {
-  const inviteState = getInviteState(presence);
+  const inviteState = getInviteState(presence, fallback);
   if (inviteState === null) return Boolean(fallback);
   return inviteState;
 }
@@ -261,8 +265,8 @@ async function removeRoleIfPossible(member) {
   return !refreshedMember?.roles?.cache?.has(ROLE_ID);
 }
 
-function hasInviteNow(member) {
-  return getInviteState(member.presence);
+function hasInviteNow(member, cacheHasLink = false) {
+  return getInviteState(member.presence, Boolean(cacheHasLink));
 }
 
 function recentlyOnline(info) {
@@ -302,7 +306,7 @@ function scheduleRemovalConfirm(member, channel) {
   const userId = member.id;
   if (hasRemovalState(guildId, userId)) return;
 
-  const timeout=setTimeout(async() => {deleteRemovalState(guildId,userId);const freshMember=await refreshMember(member.guild,userId);if(!freshMember)return;const liveChannel=channel?.isTextBased?.()?channel:await resolveSupportersChannel(member.guild);const stillHasInvite=hasInviteNow(freshMember);if(stillHasInvite!==false)return;await removeRoleIfPossible(freshMember);try{await freshMember.send("Hai rimosso il link dallo status: hai perso i tuoi perks. Per riaverli, rimetti il link nel tuo status.",);}catch(err){global.logger?.warn?.("[presenceUpdate] dm send:",err?.message||err);}const info=getCachedState(guildId,userId);if(info?.lastMessageId&&liveChannel?.isTextBased?.()){await liveChannel.messages.delete(info.lastMessageId).catch(() => {});}setCachedState(guildId,userId,{hasLink:false,lastAnnounced:info?.lastAnnounced||0,lastMessageId:null,lastSeenOnlineAt:info?.lastSeenOnlineAt||0,});await clearPersistedStatus(guildId,userId);},REMOVE_CONFIRM_MS);timeout.unref?.();setRemovalState(guildId, userId, { timeout });
+  const timeout=setTimeout(async() => {deleteRemovalState(guildId,userId);const freshMember=await refreshMember(member.guild,userId);if(!freshMember)return;const liveChannel=channel?.isTextBased?.()?channel:await resolveSupportersChannel(member.guild);const stillHasInvite=hasInviteNow(freshMember,true);if(stillHasInvite!==false)return;await removeRoleIfPossible(freshMember);try{await freshMember.send("Hai rimosso il link dallo status: hai perso i tuoi perks. Per riaverli, rimetti il link nel tuo status.",);}catch(err){global.logger?.warn?.("[presenceUpdate] dm send:",err?.message||err);}const info=getCachedState(guildId,userId);if(info?.lastMessageId&&liveChannel?.isTextBased?.()){await liveChannel.messages.delete(info.lastMessageId).catch(() => {});}setCachedState(guildId,userId,{hasLink:false,lastAnnounced:info?.lastAnnounced||0,lastMessageId:null,lastSeenOnlineAt:info?.lastSeenOnlineAt||0,});await clearPersistedStatus(guildId,userId);},REMOVE_CONFIRM_MS);timeout.unref?.();setRemovalState(guildId, userId, { timeout });
 }
 
 async function persistStatus(guildId, userId, payload) {
@@ -508,7 +512,7 @@ function startCleanupClock(client, guildId) {
       if (isOfflinePresence(member.presence)) continue;
       if (hasPendingState(guildId, userId)) continue;
 
-      const hasLink = hasInviteNow(member);
+      const hasLink = hasInviteNow(member, info?.hasLink);
       if (hasLink === false) {
         if (recentlyOnline(info)) continue;
         await clearPending(guildId, userId, channel);

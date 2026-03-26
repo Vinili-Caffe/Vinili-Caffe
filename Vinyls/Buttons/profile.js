@@ -7,7 +7,6 @@ const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/
 const { MAX_REACTIONS, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
-
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
 const SECTION_BIRTHDAY = "birthday";
@@ -217,6 +216,9 @@ function buildSectionEmbed(section, state, user, guild = null) {
       : `${disabledDmSet.size} categoria/e disattivate`;
   const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
   const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join("/ ");
+  const profileDisplayName = user && typeof user === "object"
+    ? String(user.globalName || user.username || user.tag || "").trim() || "Utente"
+    : "Utente";
 
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
@@ -459,8 +461,13 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME)
       ...(typeof draft?.showAge === "boolean" ? { showAge: draft.showAge } : {}),
     };
   }
+  let panelUser = await client.users.fetch(ownerId).catch(() => null);
+  if (!panelUser && guild) {
+    const member = await guild.members.fetch(ownerId).catch(() => null);
+    panelUser = member?.user ?? null;
+  }
   return {
-    embeds: [buildSectionEmbed(safeSection, state, `<@${ownerId}>`, guild)],
+    embeds: [buildSectionEmbed(safeSection, state, panelUser, guild)],
     components: buildRows(ownerId, safeSection, state),
   };
 }
