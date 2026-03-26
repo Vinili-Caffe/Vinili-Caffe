@@ -195,7 +195,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       ? "Tutti attivi"
       : `${disabledDmSet.size} categoria/e disattivate`;
   const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
-  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join(" • ");
+  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join(" <:VC_Dot:1482532364222595303> ");
 
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
@@ -256,7 +256,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
     const isAll = Boolean(noDm?.blockAll || disabledDmSet.has(DM_CATEGORY_ALL));
     const lines = DM_CATEGORIES.map((key) => {
       const off = isAll || disabledDmSet.has(key);
-      return `• **${DM_CATEGORY_LABELS[key]}**: ${off ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`;
+      return `<:VC_Dot:1482532364222595303> **${DM_CATEGORY_LABELS[key]}**: ${off ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`;
     });
     return base.setDescription([
       "<:VC_PinkQuestionMark:1471892611026391306> Configura le tue **preferenze DM**. Clicca un pulsante per attivare/disattivare una categoria.",
@@ -266,25 +266,21 @@ function buildSectionEmbed(section, state, user, guild = null) {
       isAll
         ? "<:VC_Attention:1482534443632558151> **Tutti i DM sono attualmente disattivati.** Clicca una categoria per ricevere solo quella, o **Attiva tutto**."
         : "<a:VC_Alert:1482706673176150077> Usa **Disattiva tutto** per bloccare tutti i DM, o **Attiva tutto** per riceverli tutti.",
-      "",
-      "<a:VC_Exclamation:1482534702077444217> Ticket, moderazione e messaggi importanti restano sempre inviati.",
     ].join("\n"));
   }
 
   if (section === SECTION_PRIVACY) {
     const privacyLines = [
-      `• **Avatar**: ${privacy.avatar ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
-      `• **Banner**: ${privacy.banner ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
-      `• **Quote**: ${privacy.quotes ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
+      `<:VC_Dot:1482532364222595303> **Avatar**: ${privacy.avatar ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
+      `<:VC_Dot:1482532364222595303> **Banner**: ${privacy.banner ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
+      `<:VC_Dot:1482532364222595303> **Quote**: ${privacy.quotes ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
     ];
     return base.setDescription([
       "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner e quote in questo server.",
       "",
       ...privacyLines,
       "",
-      "Clicca un pulsante per alternare. **Blocca tutto** / **Sblocca tutto** applica alle tre voci.",
-      "",
-      "<a:VC_Exclamation:1482534702077444217> In canale: gli altri non vedono avatar o banner se bloccati; le **quote** dei tuoi messaggi non si possono creare se bloccate.",
+      "<a:VC_Alert:1482706673176150077> Clicca una categoria per alternare solo quella. Usa **Disattiva tutto** per bloccare tutti, o **Attiva tutto** per sbloccarli tutti.",
     ].join("\n"));
   }
 
@@ -296,11 +292,11 @@ function buildSectionEmbed(section, state, user, guild = null) {
       "<:VC_Info:1482526956703580372> **Configurazione attuale**",
       "",
       `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
+      `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
+      `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
-      `<a:VC_CheckDMs:1482724593448784123> DM Filters: **${noDmSummary}**`,
-      `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
     ].join("\n"))
@@ -313,11 +309,11 @@ function buildRows(ownerId, section, state = null) {
     .addOptions(
       { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
       { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
+      { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
+      { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
       { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
       { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
       { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
-      { label: "DM Filters", value: SECTION_DMFILTERS, emoji: "<:VC_Mention:1482526855289634997>", default: section === SECTION_DMFILTERS },
-      { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
     );
 
   const row1 = new ActionRowBuilder().addComponents(select);
