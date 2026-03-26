@@ -39,17 +39,17 @@ module.exports = {
     const now = Date.now();
     const cached = mstatsCache.get(cacheKey);
     if (cached && now < (cached.expiresAt || 0)) {
-      totalExp = Number(cached.doc?.exp?.minigame?.totalExp || 0);
-      currentStreak = Number(cached.doc?.exp?.minigame?.currentStreak ?? 0);
-      bestStreak = Number(cached.doc?.exp?.minigame?.bestStreak ?? 0);
+      totalExp = Number(cached.doc?.profile?.totals?.exp?.minigame?.totalExp || 0);
+      currentStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+      bestStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
     } else {
       try {
         const doc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
-          .select("exp.minigame")
+          .select("profile.totals.exp.minigame")
           .lean();
-        totalExp = Number(doc?.exp?.minigame?.totalExp || 0);
-        currentStreak = Number(doc?.exp?.minigame?.currentStreak ?? 0);
-        bestStreak = Number(doc?.exp?.minigame?.bestStreak ?? 0);
+        totalExp = Number(doc?.profile?.totals?.exp?.minigame?.totalExp || 0);
+        currentStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+        bestStreak = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
         mstatsCache.set(cacheKey, { doc: doc || {}, expiresAt: now + MSTATS_CACHE_TTL_MS });
       } catch (err) {
         global.logger?.warn?.("[mstats] ActivityUserProfile find:", err?.message || err);

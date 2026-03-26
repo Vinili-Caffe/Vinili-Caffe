@@ -3,7 +3,7 @@ const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAuto
 const IDs = require("../../Utils/Config/ids");
 
 let isProcessing = false;
-const DISCADIA_PENDING_VOTES_PATH = "exp.bumpVoteRewards.discadia_vote.pendingVotes";
+const DISCADIA_PENDING_VOTES_PATH = "profile.totals.exp.bumpVoteRewards.discadia_vote.pendingVotes";
 
 async function processVoteQueue(client) {
   if (isProcessing) return;
@@ -39,7 +39,7 @@ async function processVoteQueue(client) {
         }
 
         // Processo i voti nell'array
-        const votes = profile?.exp?.bumpVoteRewards?.discadia_vote?.pendingVotes || [];
+        const votes = profile?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.pendingVotes || [];
         if (votes.length === 0) continue;
 
         let hasProcessedAny = false;

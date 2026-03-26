@@ -285,9 +285,9 @@ async function snapshotExpForEvent(guildId) {
       filter: { _id: p._id },
       update: {
         $set: {
-          "exp.event.snapshot.totalExpAtStart": Math.max(0, Number(p?.exp?.totalExp || 0)),
-          "exp.event.snapshot.activityExpAtStart": Math.max(0, Number(p?.exp?.activityExpTotal || 0)),
-          "exp.event.snapshot.sourceUpdatedAt": now,
+          "profile.totals.exp.event.snapshot.totalExpAtStart": Math.max(0, Number(p?.profile?.totals?.exp?.totalExp || 0)),
+          "profile.totals.exp.event.snapshot.activityExpAtStart": Math.max(0, Number(p?.profile?.totals?.exp?.activityExpTotal || 0)),
+          "profile.totals.exp.event.snapshot.sourceUpdatedAt": now,
         },
       },
     },
@@ -376,7 +376,7 @@ async function recordLevelHistory(guildId, userId, actorId = null, action = "upd
   const cap = Math.max(50, Math.min(500, Number(process.env.LEVEL_HISTORY_MAX_ENTRIES) || LEVEL_HISTORY_MAX_ENTRIES));
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: String(guildId), userId: String(userId) },
-    { $push: { "exp.levelHistory": { $each: [entry], $position: 0, $slice: -cap } } },
+    { $push: { "profile.totals.exp.levelHistory": { $each: [entry], $position: 0, $slice: -cap } } },
     { upsert: true, setDefaultsOnInsert: true },
   ).catch(() => null);
   return null;
@@ -396,17 +396,17 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
   const gid = String(guildId);
   const uid = String(userId);
   const beforeRow = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-    .select("exp.totalExp exp.level")
+    .select("profile.totals.exp.totalExp profile.totals.exp.level")
     .lean()
     .catch(() => null);
-  let beforeExp = Math.max(0, Math.floor(Number(beforeRow?.exp?.totalExp || 0)));
-  const storedLevel = Math.max(0, Math.floor(Number(beforeRow?.exp?.level || 0)));
+  let beforeExp = Math.max(0, Math.floor(Number(beforeRow?.profile?.totals?.exp?.totalExp || 0)));
+  const storedLevel = Math.max(0, Math.floor(Number(beforeRow?.profile?.totals?.exp?.level || 0)));
   const minExpForStoredLevel = getTotalExpForLevel(storedLevel);
   if (storedLevel > 0 && beforeExp < minExpForStoredLevel) {
     beforeExp = minExpForStoredLevel;
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
-      { $max: { "exp.totalExp": beforeExp }, $set: { "exp.level": storedLevel } },
+      { $max: { "profile.totals.exp.totalExp": beforeExp }, $set: { "profile.totals.exp.level": storedLevel } },
     ).catch(() => null);
   }
   const prevLevel = getLevelInfo(beforeExp).level;
@@ -422,21 +422,21 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
           $set: {
             guildId: { $ifNull: ["$guildId", gid] },
             userId: { $ifNull: ["$userId", uid] },
-            "exp.totalExp": {
-              $add: [{ $max: [{ $ifNull: ["$exp.totalExp", 0] }, beforeExp] }, eff],
+            "profile.totals.exp.totalExp": {
+              $add: [{ $max: [{ $ifNull: ["$profile.totals.exp.totalExp", 0] }, beforeExp] }, eff],
             },
-            "exp.activityExpTotal": {
-              $add: [{ $ifNull: ["$exp.activityExpTotal", 0] }, activityDelta],
+            "profile.totals.exp.activityExpTotal": {
+              $add: [{ $ifNull: ["$profile.totals.exp.activityExpTotal", 0] }, activityDelta],
             },
-            "exp.weeklyKey": weekKey,
-            "exp.weeklyExp": {
+            "profile.totals.exp.weeklyKey": weekKey,
+            "profile.totals.exp.weeklyExp": {
               $cond: [
-                { $eq: [{ $ifNull: ["$exp.weeklyKey", ""] }, weekKey] },
-                { $add: [{ $ifNull: ["$exp.weeklyExp", 0] }, wk] },
+                { $eq: [{ $ifNull: ["$profile.totals.exp.weeklyKey", ""] }, weekKey] },
+                { $add: [{ $ifNull: ["$profile.totals.exp.weeklyExp", 0] }, wk] },
                 wk,
               ],
             },
-            "exp.sourceUpdatedAt": now,
+            "profile.totals.exp.sourceUpdatedAt": now,
           },
         },
       ],
@@ -446,28 +446,32 @@ async function addExp(guildId, userId, amount, applyMultiplier = false, weeklyAm
     global.logger?.warn?.("[expService] addExp atomic failed, fallback:", err?.message || err);
     let fallback = await ActivityUserProfile.findOne({ guildId: gid, userId: uid });
     if (!fallback) fallback = new ActivityUserProfile({ guildId: gid, userId: uid });
-    if (!fallback.exp) fallback.exp = {};
-    ensureWeeklyExp(fallback.exp, now);
-    fallback.exp.totalExp = Number(fallback.exp.totalExp || 0) + eff;
+    if (!fallback.profile) fallback.profile = {};
+    if (!fallback.profile.totals) fallback.profile.totals = {};
+    if (!fallback.profile.totals.exp) fallback.profile.totals.exp = {};
+    ensureWeeklyExp(fallback.profile.totals.exp, now);
+    fallback.profile.totals.exp.totalExp = Number(fallback.profile.totals.exp.totalExp || 0) + eff;
     if (activityDelta > 0) {
-      fallback.exp.activityExpTotal =
-        Number(fallback.exp.activityExpTotal || 0) + activityDelta;
+      fallback.profile.totals.exp.activityExpTotal =
+        Number(fallback.profile.totals.exp.activityExpTotal || 0) + activityDelta;
     }
-    fallback.exp.weeklyExp = Number(fallback.exp.weeklyExp || 0) + wk;
-    const li = getLevelInfo(fallback.exp.totalExp);
-    fallback.exp.level = li.level;
+    fallback.profile.totals.exp.weeklyExp = Number(fallback.profile.totals.exp.weeklyExp || 0) + wk;
+    const li = getLevelInfo(fallback.profile.totals.exp.totalExp);
+    fallback.profile.totals.exp.level = li.level;
     await fallback.save();
     doc = fallback;
   }
   if (!doc) return null;
-  const afterExp = Math.max(0, Math.floor(Number(doc.exp?.totalExp || 0)));
+  const afterExp = Math.max(0, Math.floor(Number(doc.profile?.totals?.exp?.totalExp || 0)));
   const levelInfo = getLevelInfo(afterExp);
-  if (levelInfo.level !== Number(doc.exp?.level || 0)) {
-    if (!doc.exp) doc.exp = {};
-    doc.exp.level = levelInfo.level;
+  if (levelInfo.level !== Number(doc.profile?.totals?.exp?.level || 0)) {
+    if (!doc.profile) doc.profile = {};
+    if (!doc.profile.totals) doc.profile.totals = {};
+    if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
+    doc.profile.totals.exp.level = levelInfo.level;
     await ActivityUserProfile.updateOne(
       { guildId: gid, userId: uid },
-      { $set: { "exp.level": levelInfo.level } },
+      { $set: { "profile.totals.exp.level": levelInfo.level } },
     ).catch(() => null);
   }
   recordLevelHistory(guildId, userId, null, "update", beforeExp, afterExp, null).catch(() => null);
@@ -625,7 +629,7 @@ async function maybeSendPerkNearReminder(guild, member, result) {
   const nextReminded = Array.from(new Set([...reminded.filter((level) => level > currentLevel), nextPerkLevel]),);
   await ActivityUserProfile.updateOne(
     { guildId: guild.id, userId: member.id },
-    { $set: { "exp.perkNearReminderLevels": nextReminded } },
+    { $set: { "profile.totals.exp.perkNearReminderLevels": nextReminded } },
   ).catch(() => null);
 }
 
@@ -975,8 +979,8 @@ function normalizeHistoryEntry(e) {
 async function getRecentLevelHistory(guildId, userId, limit = 10) {
   if (!guildId || !userId) return [];
   const safeLimit = Math.max(1, Math.min(30, Number(limit || 10)));
-  const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("exp.levelHistory").lean().catch(() => null);
-  const entries = (doc?.exp?.levelHistory || []).slice(0, safeLimit);
+  const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("profile.totals.exp.levelHistory").lean().catch(() => null);
+  const entries = (doc?.profile?.totals?.exp?.levelHistory || []).slice(0, safeLimit);
   return entries.map(normalizeHistoryEntry);
 }
 
@@ -985,8 +989,8 @@ async function getLevelHistoryPage(guildId, userId, page = 1, pageSize = 10) {
     return { rows: [], page: 1, totalPages: 1, totalCount: 0, pageSize: 10 };
   const safePageSize = Math.max(1, Math.min(20, Number(pageSize || 10)));
   const safePage = Math.max(1, Number(page || 1));
-  const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("exp.levelHistory").lean().catch(() => null);
-  const rawEntries = doc?.exp?.levelHistory || [];
+  const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("profile.totals.exp.levelHistory").lean().catch(() => null);
+  const rawEntries = doc?.profile?.totals?.exp?.levelHistory || [];
   const totalCount = rawEntries.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
   const effectivePage = Math.min(safePage, totalPages);
@@ -1030,22 +1034,24 @@ async function getUserExpStats(guildId, userId) {
       progressPercent: 0,
     };
   }
-  if (!doc.exp) doc.exp = {};
-  ensureWeeklyExp(doc.exp, now);
-  let safeTotalExp = Math.max(0, Math.floor(Number(doc.exp.totalExp || 0)));
-  const storedLevel = Math.max(0, Math.floor(Number(doc.exp.level || 0)));
+  if (!doc.profile) doc.profile = {};
+  if (!doc.profile.totals) doc.profile.totals = {};
+  if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
+  ensureWeeklyExp(doc.profile.totals.exp, now);
+  let safeTotalExp = Math.max(0, Math.floor(Number(doc.profile.totals.exp.totalExp || 0)));
+  const storedLevel = Math.max(0, Math.floor(Number(doc.profile.totals.exp.level || 0)));
   const minExpForStoredLevel = getTotalExpForLevel(storedLevel);
   if (storedLevel > 0 && safeTotalExp < minExpForStoredLevel) {
     safeTotalExp = minExpForStoredLevel;
-    doc.exp.totalExp = safeTotalExp;
+    doc.profile.totals.exp.totalExp = safeTotalExp;
   }
   const levelInfo = getLevelInfo(safeTotalExp);
-  doc.exp.level = Math.max(storedLevel, levelInfo.level);
+  doc.profile.totals.exp.level = Math.max(storedLevel, levelInfo.level);
   await doc.save();
   return {
     totalExp: Number(safeTotalExp || 0),
-    weeklyExp: Number(doc.exp.weeklyExp || 0),
-    level: Number(doc.exp.level || 0),
+    weeklyExp: Number(doc.profile.totals.exp.weeklyExp || 0),
+    level: Number(doc.profile.totals.exp.level || 0),
     currentLevelExp: levelInfo.currentLevelExp,
     nextLevelExp: levelInfo.nextLevelExp,
     remainingToNext: levelInfo.remainingToNext,
@@ -1060,8 +1066,8 @@ async function getUserRanks(guildId, userId) {
   }
   const currentWeekKey = getIsoWeekKey(new Date());
   const [weeklyHigher, totalHigher] = await Promise.all([
-    ActivityUserProfile.countDocuments({ guildId, "exp.weeklyKey": currentWeekKey, "exp.weeklyExp": { $gt: stats.weeklyExp } }),
-    ActivityUserProfile.countDocuments({ guildId, "exp.totalExp": { $gt: stats.totalExp } }),
+    ActivityUserProfile.countDocuments({ guildId, "profile.totals.exp.weeklyKey": currentWeekKey, "profile.totals.exp.weeklyExp": { $gt: stats.weeklyExp } }),
+    ActivityUserProfile.countDocuments({ guildId, "profile.totals.exp.totalExp": { $gt: stats.totalExp } }),
   ]);
   return {
     stats,
@@ -1089,12 +1095,12 @@ async function retroSyncGuildLevels(guild, { syncRoles = true } = {}) {
   let raised = 0;
   let lowered = 0;
 
-  const cursor = ActivityUserProfile.find({ guildId }).select("userId exp.totalExp exp.level").lean().cursor();
+  const cursor = ActivityUserProfile.find({ guildId }).select("userId profile.totals.exp.totalExp profile.totals.exp.level").lean().cursor();
 
   for await (const doc of cursor) {
     scanned += 1;
-    const totalExp = Math.max(0, Math.floor(Number(doc?.exp?.totalExp || 0)));
-    const oldLevel = Math.max(0, Math.floor(Number(doc?.exp?.level || 0)));
+    const totalExp = Math.max(0, Math.floor(Number(doc?.profile?.totals?.exp?.totalExp || 0)));
+    const oldLevel = Math.max(0, Math.floor(Number(doc?.profile?.totals?.exp?.level || 0)));
     const newLevel = getLevelInfo(totalExp).level;
     if (newLevel === oldLevel) continue;
 
@@ -1106,7 +1112,7 @@ async function retroSyncGuildLevels(guild, { syncRoles = true } = {}) {
     batchOps.push({
       updateOne: {
         filter: { guildId, userId: String(doc.userId) },
-        update: { $set: { "exp.level": newLevel } },
+        update: { $set: { "profile.totals.exp.level": newLevel } },
       },
     });
 
@@ -1145,9 +1151,9 @@ async function getTopExpGainsInPeriod(guildId, lookbackDays, limit = 100) {
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 100)));
   const agg = await ActivityUserProfile.aggregate([
     { $match: { guildId: safeGuildId } },
-    { $unwind: "$exp.levelHistory" },
-    { $match: { "exp.levelHistory.createdAt": { $gte: since }, "exp.levelHistory.deltaExp": { $gt: 0 } } },
-    { $group: { _id: "$userId", expGain: { $sum: "$exp.levelHistory.deltaExp" } } },
+    { $unwind: "$profile.totals.exp.levelHistory" },
+    { $match: { "profile.totals.exp.levelHistory.createdAt": { $gte: since }, "profile.totals.exp.levelHistory.deltaExp": { $gt: 0 } } },
+    { $group: { _id: "$userId", expGain: { $sum: "$profile.totals.exp.levelHistory.deltaExp" } } },
     { $sort: { expGain: -1 } },
     { $limit: safeLimit },
   ]).catch(() => []);
@@ -1163,9 +1169,9 @@ async function getTopLevelGainsInPeriod(guildId, lookbackDays, limit = 100) {
   const safeLimit = Math.max(1, Math.min(500, Number(limit || 100)));
   const agg = await ActivityUserProfile.aggregate([
     { $match: { guildId: safeGuildId } },
-    { $unwind: "$exp.levelHistory" },
-    { $match: { "exp.levelHistory.createdAt": { $gte: since } } },
-    { $addFields: { levelGain: { $subtract: ["$exp.levelHistory.afterLevel", "$exp.levelHistory.beforeLevel"] } } },
+    { $unwind: "$profile.totals.exp.levelHistory" },
+    { $match: { "profile.totals.exp.levelHistory.createdAt": { $gte: since } } },
+    { $addFields: { levelGain: { $subtract: ["$profile.totals.exp.levelHistory.afterLevel", "$profile.totals.exp.levelHistory.beforeLevel"] } } },
     { $match: { levelGain: { $gt: 0 } } },
     { $group: { _id: "$userId", levelGain: { $sum: "$levelGain" } } },
     { $sort: { levelGain: -1 } },

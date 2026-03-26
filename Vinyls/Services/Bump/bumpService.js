@@ -9,7 +9,7 @@ const STAFF_BYPASS_ROLE_IDS = new Set([IDs.roles.Staff, IDs.roles.Helper, IDs.ro
 const BUMP_REMINDER_CHANNEL_BY_KEY = { disboard: IDs.channels.commands, discadia: IDs.channels.commands, };
 const DISBOARD_BUMP_USER_ID = "__disboard_bump__";
 const DISCADIA_BUMP_USER_ID = "__discadia_bump__";
-const DISCADIA_VOTE_ROOT = "exp.bumpVoteRewards.discadia_vote";
+const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const DISCADIA_LAST_VOTE_AT_PATH = `${DISCADIA_VOTE_ROOT}.lastVoteAt`;
 const DISCADIA_LAST_REMINDED_AT_PATH = `${DISCADIA_VOTE_ROOT}.lastRemindedAt`;
 const DISCADIA_VOTE_COUNT_PATH = `${DISCADIA_VOTE_ROOT}.voteCount`;
@@ -368,7 +368,7 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
 }
 
 /**
- * Registra un voto Discadia per utente. `exp.bumpVoteRewards.discadia_vote.voteCount` è sempre incrementato sul profilo
+ * Registra un voto Discadia per utente. `profile.totals.exp.bumpVoteRewards.discadia_vote.voteCount` è sempre incrementato sul profilo
  * (1 voto = +1), mai preso dal testo del messaggio: Discadia espone spesso il totale voti del server.
  */
 async function recordDiscadiaVote(client, guildId, userId) {
@@ -380,7 +380,7 @@ async function recordDiscadiaVote(client, guildId, userId) {
     .select(`${DISCADIA_LAST_VOTE_AT_PATH}`)
     .lean()
     .catch(() => null);
-  const previousLastVoteAtRaw = before?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt || null;
+  const previousLastVoteAtRaw = before?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt || null;
   if (previousLastVoteAtRaw) previousLastVoteAt = new Date(previousLastVoteAtRaw);
   const doc = await ActivityUserProfile.findOneAndUpdate(
     { guildId: IDs.guilds.main, userId },
@@ -393,7 +393,7 @@ async function recordDiscadiaVote(client, guildId, userId) {
   ).catch(() => null);
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now);
-  return { voteCount: Number(doc?.exp?.bumpVoteRewards?.discadia_vote?.voteCount || 1), previousLastVoteAt };
+  return { voteCount: Number(doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.voteCount || 1), previousLastVoteAt };
 }
 
 function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
@@ -408,7 +408,7 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
   const targetTime = new Date(lastVoteAt).getTime() + cooldownMs;
   const delay = targetTime - Date.now();
 
-  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId, userId }).select(`${DISCADIA_VOTE_ROOT}`).lean(); const state = doc?.exp?.bumpVoteRewards?.discadia_vote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, guildId, userId)) return; let user = await getUserCached(client, userId); if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, guildId, userId); } await ActivityUserProfile.updateOne({ guildId, userId }, { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
+  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId, userId }).select(`${DISCADIA_VOTE_ROOT}`).lean(); const state = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, guildId, userId)) return; let user = await getUserCached(client, userId); if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, guildId, userId); } await ActivityUserProfile.updateOne({ guildId, userId }, { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
 
   if (delay <= 0) {
     void run();
@@ -444,7 +444,7 @@ async function restorePendingVoteReminders(client) {
   const latestByUser = new Map();
 
   for (const doc of docs) {
-    const lastVoteAtRaw = doc?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt;
+    const lastVoteAtRaw = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt;
     if (!doc?.userId || !lastVoteAtRaw) continue;
 
     const prev = latestByUser.get(doc.userId);
@@ -455,7 +455,7 @@ async function restorePendingVoteReminders(client) {
       continue;
     }
 
-    const prevTs = new Date(prev?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt).getTime();
+    const prevTs = new Date(prev?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt).getTime();
     if (currentTs > prevTs) {
       latestByUser.set(doc.userId, doc);
     }
@@ -467,7 +467,7 @@ async function restorePendingVoteReminders(client) {
   for (const doc of latestByUser.values()) {
     const userId = String(doc.userId);
     const guildId = String(doc.guildId);
-    const lastVoteAt = new Date(doc?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt);
+    const lastVoteAt = new Date(doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteAt);
 
     const targetTime = lastVoteAt.getTime() + cooldownMs;
     const lateBy = Date.now() - targetTime;
@@ -519,7 +519,7 @@ async function sendDueDiscadiaVoteReminders(client) {
 
   for (const doc of docs) {
     const userId = String(doc?.userId);
-    const state = doc?.exp?.bumpVoteRewards?.discadia_vote || null;
+    const state = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || null;
     if (!userId || !state?.lastVoteAt) continue;
     const lastVoteAt = new Date(state.lastVoteAt).getTime();
     if (Date.now() - lastVoteAt < cooldownMs) continue;
@@ -601,10 +601,10 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
   const guildId = String(guild.id);
   const sourceKey = String(source || "");
   const profile = await ActivityUserProfile.findOne({ guildId, userId })
-    .select("exp.bumpVoteRewards")
+    .select("profile.totals.exp.bumpVoteRewards")
     .lean()
     .catch(() => null);
-  const rewardDoc = profile?.exp?.bumpVoteRewards?.[sourceKey] || null;
+  const rewardDoc = profile?.profile?.totals?.exp?.bumpVoteRewards?.[sourceKey] || null;
   const prevStreak = Number(rewardDoc?.currentStreak ?? 0);
   const graceMs = Math.max(0, Math.min(cooldownMs, Number(streakCfg.graceMs ?? 30 * 60 * 1000) || 0));
   const sameUserAsPrevious = previousLastUserId ? String(previousLastUserId) === String(userId) : true;
@@ -625,11 +625,11 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
     {
       $setOnInsert: { guildId, userId },
       $set: {
-        [`exp.bumpVoteRewards.${sourceKey}.lastActionAt`]: new Date(),
-        [`exp.bumpVoteRewards.${sourceKey}.currentStreak`]: newStreak,
-        [`exp.bumpVoteRewards.${sourceKey}.bestStreak`]: bestStreak,
+        [`profile.totals.exp.bumpVoteRewards.${sourceKey}.lastActionAt`]: new Date(),
+        [`profile.totals.exp.bumpVoteRewards.${sourceKey}.currentStreak`]: newStreak,
+        [`profile.totals.exp.bumpVoteRewards.${sourceKey}.bestStreak`]: bestStreak,
       },
-      $inc: { [`exp.bumpVoteRewards.${sourceKey}.totalExpAwarded`]: effectiveExp },
+      $inc: { [`profile.totals.exp.bumpVoteRewards.${sourceKey}.totalExpAwarded`]: effectiveExp },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);

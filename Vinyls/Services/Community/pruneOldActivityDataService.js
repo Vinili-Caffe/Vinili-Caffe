@@ -54,8 +54,8 @@ async function pruneOldActivityData(options = {}) {
   const cursor = ActivityUserProfile.find({}).select("_id totals.daily totals.hourly").cursor();
 
   for await (const doc of cursor) {
-    const daily = { ...(doc?.totals?.daily && typeof doc.totals.daily === "object" ? doc.totals.daily : {}) };
-    const hourly = { ...(doc?.totals?.hourly && typeof doc.totals.hourly === "object" ? doc.totals.hourly : {}) };
+    const daily = { ...(doc?.profile?.totals?.daily && typeof doc.profile.totals.daily === "object" ? doc.profile.totals.daily : {}) };
+    const hourly = { ...(doc?.profile?.totals?.hourly && typeof doc.profile.totals.hourly === "object" ? doc.profile.totals.hourly : {}) };
     let changed = false;
     for (const k of Object.keys(daily)) {
       if (k < cutoffDateKey) {
@@ -75,7 +75,7 @@ async function pruneOldActivityData(options = {}) {
       batch.push({
         updateOne: {
           filter: { _id: doc._id },
-          update: { $set: { "totals.daily": daily, "totals.hourly": hourly } },
+          update: { $set: { "profile.totals.daily": daily, "profile.totals.hourly": hourly } },
         },
       });
     }

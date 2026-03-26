@@ -277,74 +277,6 @@ const activityUserProfileSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
-    totals: {
-      messagesTotal: { type: Number, default: 0 },
-      messagesDaily: { type: Number, default: 0 },
-      messagesWeekly: { type: Number, default: 0 },
-      messagesDailyKey: { type: String, default: "" },
-      messagesWeeklyKey: { type: String, default: "" },
-      voiceTotalSeconds: { type: Number, default: 0 },
-      voiceDailySeconds: { type: Number, default: 0 },
-      voiceWeeklySeconds: { type: Number, default: 0 },
-      voiceDailyKey: { type: String, default: "" },
-      voiceWeeklyKey: { type: String, default: "" },
-      sessionStartedAt: { type: Date, default: null },
-      sessionChannelId: { type: String, default: null },
-      expAwardedSeconds: { type: Number, default: 0 },
-      /** Secondi della sessione vocale aperta già riversati in daily/hourly (flush periodico + chiusura). */
-      voiceActivityBucketFlushSeconds: { type: Number, default: 0 },
-      /** Conteggio disconnessioni vocali (ex collezione `voicedisconnectcounters`). */
-      voiceDisconnectCount: { type: Number, default: 0 },
-      /** Ultimo dateKey (Europe/Rome) aggiornato negli embedded `daily` — comodo in Compass. */
-      lastEmbedDailyKey: { type: String, default: "" },
-      /** Ultimo hourKey aggiornato negli embedded `hourly`. */
-      lastEmbedHourlyKey: { type: String, default: "" },
-      daily: { type: Schema.Types.Mixed, default: {} },
-      hourly: { type: Schema.Types.Mixed, default: {} },
-    },
-    exp: {
-      totalExp: { type: Number, default: 0 },
-      weeklyExp: { type: Number, default: 0 },
-      level: { type: Number, default: 0 },
-      weeklyKey: { type: String, default: "" },
-      perkNearReminderLevels: { type: [Number], default: [] },
-      activityExpTotal: { type: Number, default: 0 },
-      sourceUpdatedAt: { type: Date, default: null },
-      levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
-      event: {
-        rewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
-        snapshot: {
-          totalExpAtStart: { type: Number, default: 0 },
-          activityExpAtStart: { type: Number, default: 0 },
-          sourceUpdatedAt: { type: Date, default: null },
-        },
-        weekWinners: { type: [Number], default: [] },
-      },
-      bumpVoteRewards: {
-        type: Schema.Types.Mixed,
-        default: () => ({
-          discadia_vote: {
-            lastVoteAt: null,
-            lastRemindedAt: null,
-            voteCount: 0,
-            pendingVotes: [],
-            voteRole: {
-              expiresAt: null,
-              grantedAt: null,
-            },
-          },
-          disboard_review: {
-            rewardedBy: null,
-            rewardedAt: null,
-          },
-        }),
-      },
-      minigame: {
-        totalExp: { type: Number, default: 0 },
-        currentStreak: { type: Number, default: 0 },
-        bestStreak: { type: Number, default: 0 },
-      },
-    },
     bumpState: {
       disboard: {
         lastBumpAt: { type: Date, default: null },
@@ -381,6 +313,70 @@ const activityUserProfileSchema = new Schema(
       modCases: { type: [modCaseEntrySchema], default: [] },
     },
     profile: {
+      totals: {
+        messagesTotal: { type: Number, default: 0 },
+        messagesDaily: { type: Number, default: 0 },
+        messagesWeekly: { type: Number, default: 0 },
+        messagesDailyKey: { type: String, default: "" },
+        messagesWeeklyKey: { type: String, default: "" },
+        voiceTotalSeconds: { type: Number, default: 0 },
+        voiceDailySeconds: { type: Number, default: 0 },
+        voiceWeeklySeconds: { type: Number, default: 0 },
+        voiceDailyKey: { type: String, default: "" },
+        voiceWeeklyKey: { type: String, default: "" },
+        sessionStartedAt: { type: Date, default: null },
+        sessionChannelId: { type: String, default: null },
+        expAwardedSeconds: { type: Number, default: 0 },
+        voiceActivityBucketFlushSeconds: { type: Number, default: 0 },
+        voiceDisconnectCount: { type: Number, default: 0 },
+        lastEmbedDailyKey: { type: String, default: "" },
+        lastEmbedHourlyKey: { type: String, default: "" },
+        daily: { type: Schema.Types.Mixed, default: {} },
+        hourly: { type: Schema.Types.Mixed, default: {} },
+        exp: {
+          totalExp: { type: Number, default: 0 },
+          weeklyExp: { type: Number, default: 0 },
+          level: { type: Number, default: 0 },
+          weeklyKey: { type: String, default: "" },
+          perkNearReminderLevels: { type: [Number], default: [] },
+          activityExpTotal: { type: Number, default: 0 },
+          sourceUpdatedAt: { type: Date, default: null },
+          levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
+          event: {
+            rewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
+            snapshot: {
+              totalExpAtStart: { type: Number, default: 0 },
+              activityExpAtStart: { type: Number, default: 0 },
+              sourceUpdatedAt: { type: Date, default: null },
+            },
+            weekWinners: { type: [Number], default: [] },
+          },
+          bumpVoteRewards: {
+            type: Schema.Types.Mixed,
+            default: () => ({
+              discadia_vote: {
+                lastVoteAt: null,
+                lastRemindedAt: null,
+                voteCount: 0,
+                pendingVotes: [],
+                voteRole: {
+                  expiresAt: null,
+                  grantedAt: null,
+                },
+              },
+              disboard_review: {
+                rewardedBy: null,
+                rewardedAt: null,
+              },
+            }),
+          },
+          minigame: {
+            totalExp: { type: Number, default: 0 },
+            currentStreak: { type: Number, default: 0 },
+            bestStreak: { type: Number, default: 0 },
+          },
+        },
+      },
       supporterStatus: {
         lastMessageId: { type: String, default: null },
         lastSentAt: { type: Date, default: null },
@@ -458,8 +454,8 @@ const activityUserProfileSchema = new Schema(
   { timestamps: true },
 );
 activityUserProfileSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-activityUserProfileSchema.index({ guildId: 1, "exp.event.rewards.rewardType": 1 });
-activityUserProfileSchema.index({ guildId: 1, "exp.totalExp": -1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.event.rewards.rewardType": 1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.totalExp": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "profile.birthday.day": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
 activityUserProfileSchema.index({ "profile.temporaryRoleGrants.grants.expiresAt": 1 });
@@ -513,9 +509,9 @@ const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSetting
 const LegacyVerificationTenure = null;
 const ReviewReward = {
   async findOne(filter) {
-    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId exp.bumpVoteRewards.disboard_review").lean().catch(() => null);
-    if (!doc?.exp?.bumpVoteRewards?.disboard_review?.rewardedAt) return null;
-    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.exp.bumpVoteRewards.disboard_review.rewardedBy || null, rewardedAt: doc.exp.bumpVoteRewards.disboard_review.rewardedAt || null };
+    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.totals.exp.bumpVoteRewards.disboard_review").lean().catch(() => null);
+    if (!doc?.profile?.totals?.exp?.bumpVoteRewards?.disboard_review?.rewardedAt) return null;
+    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy || null, rewardedAt: doc.profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt || null };
   },
   async create(payload = {}) {
     return ActivityUserProfile.findOneAndUpdate(
@@ -523,8 +519,8 @@ const ReviewReward = {
       {
         $setOnInsert: { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
         $set: {
-          "exp.bumpVoteRewards.disboard_review.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
-          "exp.bumpVoteRewards.disboard_review.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
+          "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
+          "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },

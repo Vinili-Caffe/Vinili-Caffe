@@ -513,8 +513,8 @@ async function handleSuggestionVote(interaction) {
         const userId = suggestionData.AuthorID;
         let levelsAwarded = 0;
         try {
-          const profileDoc = await ActivityUserProfile.findOne({ guildId, userId }).select("exp.totalExp").lean().catch(() => null);
-          const currentExp = Number(profileDoc?.exp?.totalExp || 0);
+          const profileDoc = await ActivityUserProfile.findOne({ guildId, userId }).select("profile.totals.exp.totalExp").lean().catch(() => null);
+          const currentExp = Number(profileDoc?.profile?.totals?.exp?.totalExp || 0);
           const currentLevel = Number(getLevelInfo(currentExp).level || 0);
           const targetLevel = Math.max(0, currentLevel + 5);
           const targetExp = Number(getTotalExpForLevel(targetLevel) || currentExp,);

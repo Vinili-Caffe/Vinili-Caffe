@@ -1,0 +1,72 @@
+/* eslint-disable no-console */
+require("dotenv").config();
+const mongoose = require("mongoose");
+
+const TARGET_GUILD_ID = "1462458562507964584";
+const COLLECTION_NAME = "guildfeaturebuckets";
+
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function entryMergeKey(entry) {
+  if (!entry || typeof entry !== "object") return "";
+  if (entry._id) return `id:${String(entry._id)}`;
+  if (entry.channelId) return `ch:${String(entry.channelId)}`;
+  if (entry.ticketNumber != null) return `num:${String(entry.ticketNumber)}`;
+  return JSON.stringify(entry);
+}
+
+function mergeTicketArrays(legacyTickets, currentTicket) {
+  const out = [];
+  const seen = new Set();
+  for (const row of [...toArray(currentTicket), ...toArray(legacyTickets)]) {
+    const key = entryMergeKey(row);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+async function run() {
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  if (!mongoUri) throw new Error("MONGO_URI/MONGODB_URI non trovato");
+  await mongoose.connect(mongoUri);
+  const collection = mongoose.connection.db.collection(COLLECTION_NAME);
+
+  const doc = await collection.findOne(
+    { guildId: TARGET_GUILD_ID },
+    { projection: { _id: 1, guildId: 1, ticket: 1, tickets: 1 } },
+  );
+
+  if (!doc) {
+    console.log(`[migrate-guildfeaturebucket-tickets-into-ticket] guild ${TARGET_GUILD_ID} non trovata`);
+    await mongoose.disconnect();
+    return;
+  }
+
+  const merged = mergeTicketArrays(doc.tickets, doc.ticket);
+  await collection.updateOne(
+    { _id: doc._id },
+    {
+      $set: { ticket: merged },
+      $unset: { tickets: "" },
+    },
+  );
+
+  console.log(
+    `[migrate-guildfeaturebucket-tickets-into-ticket] guild=${TARGET_GUILD_ID} ticket=${toArray(doc.ticket).length} tickets=${toArray(doc.tickets).length} merged=${merged.length}`,
+  );
+  await mongoose.disconnect();
+}
+
+run()
+  .then(() => process.exit(0))
+  .catch(async (err) => {
+    console.error("[migrate-guildfeaturebucket-tickets-into-ticket] error", err);
+    try {
+      await mongoose.disconnect();
+    } catch (_) {}
+    process.exit(1);
+  });

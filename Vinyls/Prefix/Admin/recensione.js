@@ -70,7 +70,7 @@ module.exports = {
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    const alreadyRewarded=await ActivityUserProfile.findOne({ guildId, userId: target.id, "exp.bumpVoteRewards.disboard_review.rewardedAt": { $ne: null } })
+    const alreadyRewarded=await ActivityUserProfile.findOne({ guildId, userId: target.id, "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": { $ne: null } })
       .select("_id")
       .lean()
       .catch(() => null);
@@ -86,8 +86,8 @@ module.exports = {
       return;
     }
 
-    const profile = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("exp.totalExp").lean().catch(() => null);
-    const currentExp = Number(profile?.exp?.totalExp || 0);
+    const profile = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("profile.totals.exp.totalExp").lean().catch(() => null);
+    const currentExp = Number(profile?.profile?.totals?.exp?.totalExp || 0);
     const currentLevel = getLevelInfo(currentExp).level;
     const targetLevel = currentLevel + LEVELS_TO_ADD;
     const targetExp = getTotalExpForLevel(targetLevel);
@@ -112,8 +112,8 @@ module.exports = {
       {
         $setOnInsert: { guildId, userId: target.id },
         $set: {
-          "exp.bumpVoteRewards.disboard_review.rewardedBy": message.author.id,
-          "exp.bumpVoteRewards.disboard_review.rewardedAt": new Date(),
+          "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy": message.author.id,
+          "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": new Date(),
         },
       },
       { upsert: true },

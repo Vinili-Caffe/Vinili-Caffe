@@ -111,12 +111,12 @@ module.exports = {
           content: "<:VC_InactiveStatus:1482526984234860574> Sync ruoli in corso (tutti gli utenti con EXP nel DB)…",
           allowedMentions: { repliedUser: false },
         });
-        const profileRows = await ActivityUserProfile.find({ guildId }).select("userId exp.totalExp").lean().catch(() => []);
+        const profileRows = await ActivityUserProfile.find({ guildId }).select("userId profile.totals.exp.totalExp").lean().catch(() => []);
         let n = 0;
         for (const row of profileRows) {
           const uid = String(row?.userId || "");
           if (!uid) continue;
-          const level = getLevelInfo(Math.max(0, Number(row?.exp?.totalExp || 0))).level;
+          const level = getLevelInfo(Math.max(0, Number(row?.profile?.totals?.exp?.totalExp || 0))).level;
           await syncLevelRolesForMember(message.guild, uid, level).catch(() => {});
           n += 1;
           if (n % 25 === 0) await message.channel.sendTyping().catch(() => {});
@@ -136,8 +136,8 @@ module.exports = {
         });
         return;
       }
-      const profileRow = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("exp.totalExp").lean().catch(() => null);
-      const totalExp = Math.max(0, Number(profileRow?.exp?.totalExp || 0));
+      const profileRow = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("profile.totals.exp.totalExp").lean().catch(() => null);
+      const totalExp = Math.max(0, Number(profileRow?.profile?.totals?.exp?.totalExp || 0));
       const level = getLevelInfo(totalExp).level;
       await syncLevelRolesForMember(message.guild, target.id, level);
       await safeMessageReply(message, {
@@ -285,9 +285,11 @@ module.exports = {
     if (!doc) {
       doc = new ActivityUserProfile({ guildId, userId: target.id });
     }
-    if (!doc.exp) doc.exp = {};
+    if (!doc.profile) doc.profile = {};
+    if (!doc.profile.totals) doc.profile.totals = {};
+    if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
 
-    const beforeExp = Math.max(0, Math.floor(Number(doc.exp.totalExp || 0)));
+    const beforeExp = Math.max(0, Math.floor(Number(doc.profile.totals.exp.totalExp || 0)));
     const beforeLevel = getLevelInfo(beforeExp).level;
     let afterExp = beforeExp;
 
@@ -340,31 +342,31 @@ module.exports = {
       return;
     }
 
-    doc.exp.totalExp = Math.max(0, Math.floor(afterExp));
-    doc.exp.level = getLevelInfo(doc.exp.totalExp).level;
+    doc.profile.totals.exp.totalExp = Math.max(0, Math.floor(afterExp));
+    doc.profile.totals.exp.level = getLevelInfo(doc.profile.totals.exp.totalExp).level;
     await doc.save();
-    await syncLevelRolesForMember(message.guild, target.id, doc.exp.level);
+    await syncLevelRolesForMember(message.guild, target.id, doc.profile.totals.exp.level);
     await recordLevelHistory({
       guildId,
       userId: target.id,
       actorId: message.author.id,
       action: `staff_${sub}`,
       beforeExp,
-      afterExp: doc.exp.totalExp,
+      afterExp: doc.profile.totals.exp.totalExp,
       note: `Comando +level ${sub}`,
     });
 
-    if (doc.exp.level > beforeLevel) {
+    if (doc.profile.totals.exp.level > beforeLevel) {
       const member = message.guild.members.cache.get(target.id) || await getGuildMemberCached(message.guild, target.id).catch(() => null);
       if (member) {
-        await sendLevelUpAnnouncement(message.guild, member, doc.exp.level).catch(() => {});
+        await sendLevelUpAnnouncement(message.guild, member, doc.profile.totals.exp.level).catch(() => {});
       }
     }
 
     const lines = [`- Utente: <@${target.id}>`,
       `- Azione: **${sub}**`,
-      `- Livello: **${beforeLevel} -> ${doc.exp.level}**`,
-      `- EXP: **${beforeExp} -> ${doc.exp.totalExp}**`,
+      `- Livello: **${beforeLevel} -> ${doc.profile.totals.exp.level}**`,
+      `- EXP: **${beforeExp} -> ${doc.profile.totals.exp.totalExp}**`,
     ];
     const embed = new EmbedBuilder()
         .setColor("#6f4e37")

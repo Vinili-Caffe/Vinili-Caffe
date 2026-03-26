@@ -6086,11 +6086,11 @@ async function awardWinAndReply(message, rewardExp, game = null) {
   const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;
   const maxBonusPercent = Number(streakCfg.maxBonusPercent ?? 50) || 0;
   let doc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: message.author.id })
-    .select("exp.minigame")
+    .select("profile.totals.exp.minigame")
     .lean()
     .catch(() => null);
-  const prevStreak = Number(doc?.exp?.minigame?.currentStreak ?? 0);
-  const prevBest = Number(doc?.exp?.minigame?.bestStreak ?? 0);
+  const prevStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+  const prevBest = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
   const newStreak = prevStreak + 1;
   const bestStreak = Math.max(prevBest, newStreak);
   const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;
@@ -6101,18 +6101,18 @@ async function awardWinAndReply(message, rewardExp, game = null) {
       { guildId: message.guild.id, userId: message.author.id },
       {
         $setOnInsert: { guildId: message.guild.id, userId: message.author.id },
-        $inc: { "exp.minigame.totalExp": effectiveExp },
-        $set: { "exp.minigame.currentStreak": newStreak, "exp.minigame.bestStreak": bestStreak },
+        $inc: { "profile.totals.exp.minigame.totalExp": effectiveExp },
+        $set: { "profile.totals.exp.minigame.currentStreak": newStreak, "profile.totals.exp.minigame.bestStreak": bestStreak },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
     warnMinigame(err);
   }
-  const nextTotal = Number(doc?.exp?.minigame?.totalExp ?? 0);
+  const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);
   ActivityUserProfile.updateMany(
     { guildId: message.guild.id, userId: { $ne: message.author.id } },
-    { $set: { "exp.minigame.currentStreak": 0 } },
+    { $set: { "profile.totals.exp.minigame.currentStreak": 0 } },
   ).catch((err) => warnMinigame(err));
   const member = message.member || (await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000 }));
   const ignoreExp = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
@@ -6963,11 +6963,11 @@ ${game.previewUrl}`,
   const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;
   const maxBonusPercent = Number(streakCfg.maxBonusPercent ?? 50) || 0;
   let doc = await ActivityUserProfile.findOne({ guildId: interaction.guild.id, userId: interaction.user.id })
-    .select("exp.minigame")
+    .select("profile.totals.exp.minigame")
     .lean()
     .catch(() => null);
-  const prevStreak = Number(doc?.exp?.minigame?.currentStreak ?? 0);
-  const prevBest = Number(doc?.exp?.minigame?.bestStreak ?? 0);
+  const prevStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+  const prevBest = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
   const newStreak = prevStreak + 1;
   const bestStreak = Math.max(prevBest, newStreak);
   const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;
@@ -6978,18 +6978,18 @@ ${game.previewUrl}`,
       { guildId: interaction.guild.id, userId: interaction.user.id },
       {
         $setOnInsert: { guildId: interaction.guild.id, userId: interaction.user.id },
-        $inc: { "exp.minigame.totalExp": effectiveExp },
-        $set: { "exp.minigame.currentStreak": newStreak, "exp.minigame.bestStreak": bestStreak },
+        $inc: { "profile.totals.exp.minigame.totalExp": effectiveExp },
+        $set: { "profile.totals.exp.minigame.currentStreak": newStreak, "profile.totals.exp.minigame.bestStreak": bestStreak },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
     warnMinigame(err);
   }
-  const nextTotal = Number(doc?.exp?.minigame?.totalExp ?? 0);
+  const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);
   ActivityUserProfile.updateMany(
     { guildId: interaction.guild.id, userId: { $ne: interaction.user.id } },
-    { $set: { "exp.minigame.currentStreak": 0 } },
+    { $set: { "profile.totals.exp.minigame.currentStreak": 0 } },
   ).catch((err) => warnMinigame(err));
   const member =
     interaction.member ||

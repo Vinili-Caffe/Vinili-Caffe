@@ -239,13 +239,13 @@ async function resolveTopExpEntries(guild, guildId, lookbackDays, limit = TOP_PA
     if (out.length > 0) return out;
   }
 
-  const profileDocs = await ActivityUserProfile.find({ guildId: safeGuildId, "exp.totalExp": { $gt: 0 } })
-    .sort({ "exp.totalExp": -1 })
+  const profileDocs = await ActivityUserProfile.find({ guildId: safeGuildId, "profile.totals.exp.totalExp": { $gt: 0 } })
+    .sort({ "profile.totals.exp.totalExp": -1 })
     .limit(safeLimit * 2)
-    .select("userId exp.totalExp")
+    .select("userId profile.totals.exp.totalExp")
     .lean()
     .catch(() => []);
-  const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp }));
+  const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.profile?.totals?.exp?.totalExp }));
   const out = [];
   for (const doc of docs) {
     const userId = String(doc?.userId || "").trim();
@@ -268,13 +268,13 @@ async function resolveTopLevelEntries(guild, guildId, _lookbackDays, limit = TOP
   if (!safeGuildId) return [];
   const safeLimit = Math.max(1, Math.min(TOP_PAGE_DATA_LIMIT, Number(limit || TOP_PAGE_DATA_LIMIT)));
 
-  const profileDocs = await ActivityUserProfile.find({ guildId: safeGuildId, "exp.totalExp": { $gt: 0 } })
-    .sort({ "exp.totalExp": -1 })
+  const profileDocs = await ActivityUserProfile.find({ guildId: safeGuildId, "profile.totals.exp.totalExp": { $gt: 0 } })
+    .sort({ "profile.totals.exp.totalExp": -1 })
     .limit(safeLimit * 2)
-    .select("userId exp.totalExp exp.level")
+    .select("userId profile.totals.exp.totalExp profile.totals.exp.level")
     .lean()
     .catch(() => []);
-  const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }));
+  const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.profile?.totals?.exp?.totalExp, level: d?.profile?.totals?.exp?.level }));
   const withLevel = docs.map((doc) => {
     const totalExp = Math.max(0, Math.floor(Number(doc?.totalExp || 0)));
     const storedLevel = Math.max(0, Math.floor(Number(doc?.level || 0)));

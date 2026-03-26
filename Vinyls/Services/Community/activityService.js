@@ -201,11 +201,11 @@ function extractProfileRowsByKey(doc = {}, bucketField = "daily", keyField = "da
 async function loadDailyRowsFromProfile(guildId, dateKeys = null) {
   const filter = { guildId: String(guildId || "") };
   if (!filter.guildId) return [];
-  const docs = await ActivityUserProfile.find(filter).select("guildId userId totals.daily").lean().catch(() => []);
+  const docs = await ActivityUserProfile.find(filter).select("guildId userId profile.totals.daily").lean().catch(() => []);
   const wanted = Array.isArray(dateKeys) && dateKeys.length ? new Set(dateKeys.map(String)) : null;
   const rows = [];
   for (const doc of docs) {
-    const list = extractProfileRowsByKey(doc, "totals.daily", "dateKey");
+    const list = extractProfileRowsByKey(doc, "profile.totals.daily", "dateKey");
     for (const row of list) {
       if (wanted && !wanted.has(String(row.dateKey || ""))) continue;
       rows.push(row);
@@ -218,7 +218,7 @@ async function loadHourlyRowsFromProfile(guildId, hourKeys = null, userId = null
   const filter = { guildId: String(guildId || "") };
   if (!filter.guildId) return [];
   if (userId) filter.userId = String(userId);
-  let q = ActivityUserProfile.find(filter).select("guildId userId totals.hourly");
+  let q = ActivityUserProfile.find(filter).select("guildId userId profile.totals.hourly");
   if (!userId && ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) {
     q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
   }
@@ -226,7 +226,7 @@ async function loadHourlyRowsFromProfile(guildId, hourKeys = null, userId = null
   const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
   const rows = [];
   for (const doc of docs) {
-    const list = extractProfileRowsByKey(doc, "totals.hourly", "hourKey");
+    const list = extractProfileRowsByKey(doc, "profile.totals.hourly", "hourKey");
     for (const row of list) {
       if (wanted && !wanted.has(String(row.hourKey || ""))) continue;
       rows.push(row);
@@ -268,7 +268,7 @@ async function ensureHourlyBackfillForGuild(guildId) {
       const textCount = Math.max(0, Number(row?.textCount || 0));
       const voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
 
-      const hourPath = `totals.hourly.${hourKey}`;
+      const hourPath = `profile.totals.hourly.${hourKey}`;
       profileOps.push({
         updateOne: {
           filter: {
@@ -342,10 +342,10 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
-        $set: { "totals.lastEmbedDailyKey": dateKey },
+        $set: { "profile.totals.lastEmbedDailyKey": dateKey },
         $inc: {
-          [`totals.daily.${dateKey}.textCount`]: inc,
-          [`totals.daily.${dateKey}.textChannels.${cid}`]: inc,
+          [`profile.totals.daily.${dateKey}.textCount`]: inc,
+          [`profile.totals.daily.${dateKey}.textChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -381,10 +381,10 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
-        $set: { "totals.lastEmbedHourlyKey": hourKey },
+        $set: { "profile.totals.lastEmbedHourlyKey": hourKey },
         $inc: {
-          [`totals.hourly.${hourKey}.textCount`]: inc,
-          [`totals.hourly.${hourKey}.textChannels.${cid}`]: inc,
+          [`profile.totals.hourly.${hourKey}.textCount`]: inc,
+          [`profile.totals.hourly.${hourKey}.textChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -415,10 +415,10 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
-        $set: { "totals.lastEmbedDailyKey": dateKey },
+        $set: { "profile.totals.lastEmbedDailyKey": dateKey },
         $inc: {
-          [`totals.daily.${dateKey}.voiceSeconds`]: inc,
-          [`totals.daily.${dateKey}.voiceChannels.${cid}`]: inc,
+          [`profile.totals.daily.${dateKey}.voiceSeconds`]: inc,
+          [`profile.totals.daily.${dateKey}.voiceChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -449,10 +449,10 @@ async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
       { guildId: gid, userId: uid },
       {
         $setOnInsert: { guildId: gid, userId: uid },
-        $set: { "totals.lastEmbedHourlyKey": hourKey },
+        $set: { "profile.totals.lastEmbedHourlyKey": hourKey },
         $inc: {
-          [`totals.hourly.${hourKey}.voiceSeconds`]: inc,
-          [`totals.hourly.${hourKey}.voiceChannels.${cid}`]: inc,
+          [`profile.totals.hourly.${hourKey}.voiceSeconds`]: inc,
+          [`profile.totals.hourly.${hourKey}.voiceChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -473,8 +473,9 @@ function getWeekKey(date) {
 }
 
 function ensureMessageKeys(doc, now) {
-  if (!doc.totals) doc.totals = {};
-  ensureTimedCounters(doc.totals, now, {
+  if (!doc.profile) doc.profile = {};
+  if (!doc.profile.totals) doc.profile.totals = {};
+  ensureTimedCounters(doc.profile.totals, now, {
     dailyKey: "messagesDailyKey",
     dailyCount: "messagesDaily",
     weeklyKey: "messagesWeeklyKey",
@@ -483,8 +484,9 @@ function ensureMessageKeys(doc, now) {
 }
 
 function ensureVoiceKeys(doc, now) {
-  if (!doc.totals) doc.totals = {};
-  ensureTimedCounters(doc.totals, now, {
+  if (!doc.profile) doc.profile = {};
+  if (!doc.profile.totals) doc.profile.totals = {};
+  ensureTimedCounters(doc.profile.totals, now, {
     dailyKey: "voiceDailyKey",
     dailyCount: "voiceDailySeconds",
     weeklyKey: "voiceWeeklyKey",
@@ -534,11 +536,12 @@ async function recordMessageActivity(message) {
     }
     return;
   }
-  if (!doc.totals) doc.totals = {};
+  if (!doc.profile) doc.profile = {};
+  if (!doc.profile.totals) doc.profile.totals = {};
   ensureMessageKeys(doc, now);
-  doc.totals.messagesTotal = Number(doc.totals.messagesTotal || 0) + 1;
-  doc.totals.messagesDaily = Number(doc.totals.messagesDaily || 0) + 1;
-  doc.totals.messagesWeekly = Number(doc.totals.messagesWeekly || 0) + 1;
+  doc.profile.totals.messagesTotal = Number(doc.profile.totals.messagesTotal || 0) + 1;
+  doc.profile.totals.messagesDaily = Number(doc.profile.totals.messagesDaily || 0) + 1;
+  doc.profile.totals.messagesWeekly = Number(doc.profile.totals.messagesWeekly || 0) + 1;
   await doc.save();
   await bumpDailyText(
     message.guild.id,
@@ -560,22 +563,23 @@ async function recordMessageActivity(message) {
 }
 
 async function recordVoiceSessionEnd(doc, now, guild, skipExp = false) {
-  if (!doc.totals) doc.totals = {};
-  const startedAt = doc.totals.sessionStartedAt;
+  if (!doc.profile) doc.profile = {};
+  if (!doc.profile.totals) doc.profile.totals = {};
+  const startedAt = doc.profile.totals.sessionStartedAt;
   if (!startedAt) return 0;
   const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - new Date(startedAt).getTime()) / 1000),);
   ensureVoiceKeys(doc, now);
-  doc.totals.voiceTotalSeconds = Number(doc.totals.voiceTotalSeconds || 0) + elapsedSeconds;
-  doc.totals.voiceDailySeconds = Number(doc.totals.voiceDailySeconds || 0) + elapsedSeconds;
-  doc.totals.voiceWeeklySeconds =
-    Number(doc.totals.voiceWeeklySeconds || 0) + elapsedSeconds;
-  doc.totals.sessionStartedAt = null;
-  doc.totals.sessionChannelId = null;
-  const alreadyAwardedSeconds = Math.max(0, Number(doc.totals.expAwardedSeconds || 0),);
+  doc.profile.totals.voiceTotalSeconds = Number(doc.profile.totals.voiceTotalSeconds || 0) + elapsedSeconds;
+  doc.profile.totals.voiceDailySeconds = Number(doc.profile.totals.voiceDailySeconds || 0) + elapsedSeconds;
+  doc.profile.totals.voiceWeeklySeconds =
+    Number(doc.profile.totals.voiceWeeklySeconds || 0) + elapsedSeconds;
+  doc.profile.totals.sessionStartedAt = null;
+  doc.profile.totals.sessionChannelId = null;
+  const alreadyAwardedSeconds = Math.max(0, Number(doc.profile.totals.expAwardedSeconds || 0),);
   const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
   const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
   const remainingExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
-  doc.totals.expAwardedSeconds = 0;
+  doc.profile.totals.expAwardedSeconds = 0;
   if (!skipExp && remainingExp > 0) {
     await addExpWithLevel(guild, doc.userId, remainingExp, true, true, { source: "activity" });
   }
@@ -609,7 +613,7 @@ async function handleVoiceActivity(oldState, newState) {
 
   if (wasInVoice && !isInVoice) {
     const oldChannel = oldState?.channel || oldState?.guild?.channels?.cache?.get(oldState.channelId);
-    const flushedBefore = Math.max(0, Number(doc.totals?.voiceActivityBucketFlushSeconds || 0));
+    const flushedBefore = Math.max(0, Number(doc.profile?.totals?.voiceActivityBucketFlushSeconds || 0));
     let elapsedSeconds = 0;
     if (wasCountable) {
       const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId: oldChannel?.id || null, });
@@ -620,25 +624,27 @@ async function handleVoiceActivity(oldState, newState) {
         ignored,
       );
     } else {
-      if (!doc.totals) doc.totals = {};
-      doc.totals.sessionStartedAt = null;
-      doc.totals.sessionChannelId = null;
-      doc.totals.expAwardedSeconds = 0;
+      if (!doc.profile) doc.profile = {};
+      if (!doc.profile.totals) doc.profile.totals = {};
+      doc.profile.totals.sessionStartedAt = null;
+      doc.profile.totals.sessionChannelId = null;
+      doc.profile.totals.expAwardedSeconds = 0;
     }
     const remainingBucket = Math.max(0, elapsedSeconds - flushedBefore);
     if (oldChannel?.id && remainingBucket > 0) {
       await bumpDailyVoice(guildId, userId, oldChannel.id, remainingBucket);
       await bumpHourlyVoice(guildId, userId, oldChannel.id, remainingBucket);
     }
-    if (!doc.totals) doc.totals = {};
-    doc.totals.voiceActivityBucketFlushSeconds = 0;
+    if (!doc.profile) doc.profile = {};
+    if (!doc.profile.totals) doc.profile.totals = {};
+    doc.profile.totals.voiceActivityBucketFlushSeconds = 0;
     await doc.save();
     return;
   }
 
   if (wasInVoice && isInVoice && oldState.channelId !== newState.channelId) {
     const oldChannel = oldState?.channel || oldState?.guild?.channels?.cache?.get(oldState.channelId);
-    const flushedBefore = Math.max(0, Number(doc.totals?.voiceActivityBucketFlushSeconds || 0));
+    const flushedBefore = Math.max(0, Number(doc.profile?.totals?.voiceActivityBucketFlushSeconds || 0));
     let elapsedSeconds = 0;
     if (wasCountable) {
       const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId: oldChannel?.id || null, });
@@ -649,23 +655,25 @@ async function handleVoiceActivity(oldState, newState) {
         ignored,
       );
     } else {
-      if (!doc.totals) doc.totals = {};
-      doc.totals.sessionStartedAt = null;
-      doc.totals.sessionChannelId = null;
-      doc.totals.expAwardedSeconds = 0;
+      if (!doc.profile) doc.profile = {};
+      if (!doc.profile.totals) doc.profile.totals = {};
+      doc.profile.totals.sessionStartedAt = null;
+      doc.profile.totals.sessionChannelId = null;
+      doc.profile.totals.expAwardedSeconds = 0;
     }
     const remainingMove = Math.max(0, elapsedSeconds - flushedBefore);
     if (oldChannel?.id && remainingMove > 0) {
       await bumpDailyVoice(guildId, userId, oldChannel.id, remainingMove);
       await bumpHourlyVoice(guildId, userId, oldChannel.id, remainingMove);
     }
-    if (!doc.totals) doc.totals = {};
-    doc.totals.sessionStartedAt = isCountable ? now : null;
-    doc.totals.sessionChannelId = isCountable
+    if (!doc.profile) doc.profile = {};
+    if (!doc.profile.totals) doc.profile.totals = {};
+    doc.profile.totals.sessionStartedAt = isCountable ? now : null;
+    doc.profile.totals.sessionChannelId = isCountable
       ? String(newState?.channelId || "")
       : null;
-    doc.totals.expAwardedSeconds = 0;
-    doc.totals.voiceActivityBucketFlushSeconds = 0;
+    doc.profile.totals.expAwardedSeconds = 0;
+    doc.profile.totals.voiceActivityBucketFlushSeconds = 0;
     await doc.save();
     return;
   }
@@ -673,7 +681,7 @@ async function handleVoiceActivity(oldState, newState) {
   if (wasInVoice && isInVoice && oldState.channelId === newState.channelId) {
     if (wasCountable && !isCountable) {
       const channel = oldState?.channel || newState?.channel || newState?.guild?.channels?.cache?.get(newState.channelId);
-      const flushedBefore = Math.max(0, Number(doc.totals?.voiceActivityBucketFlushSeconds || 0));
+      const flushedBefore = Math.max(0, Number(doc.profile?.totals?.voiceActivityBucketFlushSeconds || 0));
       const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId: channel?.id || null, });
       const elapsedSeconds = await recordVoiceSessionEnd(doc, now, member.guild, ignored,);
       const remainingMute = Math.max(0, elapsedSeconds - flushedBefore);
@@ -681,31 +689,34 @@ async function handleVoiceActivity(oldState, newState) {
         await bumpDailyVoice(guildId, userId, channel.id, remainingMute);
         await bumpHourlyVoice(guildId, userId, channel.id, remainingMute);
       }
-      if (!doc.totals) doc.totals = {};
-      doc.totals.voiceActivityBucketFlushSeconds = 0;
+      if (!doc.profile) doc.profile = {};
+      if (!doc.profile.totals) doc.profile.totals = {};
+      doc.profile.totals.voiceActivityBucketFlushSeconds = 0;
       await doc.save();
       return;
     }
 
     if (!wasCountable && isCountable) {
-      if (!doc.totals) doc.totals = {};
-      doc.totals.sessionStartedAt = now;
-      doc.totals.sessionChannelId = String(newState?.channelId || "");
-      doc.totals.expAwardedSeconds = 0;
-      doc.totals.voiceActivityBucketFlushSeconds = 0;
+      if (!doc.profile) doc.profile = {};
+      if (!doc.profile.totals) doc.profile.totals = {};
+      doc.profile.totals.sessionStartedAt = now;
+      doc.profile.totals.sessionChannelId = String(newState?.channelId || "");
+      doc.profile.totals.expAwardedSeconds = 0;
+      doc.profile.totals.voiceActivityBucketFlushSeconds = 0;
       await doc.save();
       return;
     }
   }
 
   if (!wasInVoice && isInVoice) {
-    if (!doc.totals) doc.totals = {};
-    doc.totals.sessionStartedAt = isCountable ? now : null;
-    doc.totals.sessionChannelId = isCountable
+    if (!doc.profile) doc.profile = {};
+    if (!doc.profile.totals) doc.profile.totals = {};
+    doc.profile.totals.sessionStartedAt = isCountable ? now : null;
+    doc.profile.totals.sessionChannelId = isCountable
       ? String(newState?.channelId || "")
       : null;
-    doc.totals.expAwardedSeconds = 0;
-    doc.totals.voiceActivityBucketFlushSeconds = 0;
+    doc.profile.totals.expAwardedSeconds = 0;
+    doc.profile.totals.voiceActivityBucketFlushSeconds = 0;
     await doc.save();
     return;
   }
@@ -720,16 +731,17 @@ async function getUserActivityStats(guildId, userId) {
       voice: { dailySeconds: 0, weeklySeconds: 0, totalSeconds: 0 },
     };
   }
-  if (!doc.totals) doc.totals = {};
+  if (!doc.profile) doc.profile = {};
+  if (!doc.profile.totals) doc.profile.totals = {};
   ensureMessageKeys(doc, now);
   ensureVoiceKeys(doc, now);
 
   let liveVoiceSeconds = 0;
-  if (doc.totals?.sessionStartedAt) {
+  if (doc.profile?.totals?.sessionStartedAt) {
     liveVoiceSeconds = Math.max(
       0,
       Math.floor(
-        (now.getTime() - new Date(doc.totals.sessionStartedAt).getTime()) / 1000,
+        (now.getTime() - new Date(doc.profile.totals.sessionStartedAt).getTime()) / 1000,
       ),
     );
   }
@@ -738,14 +750,14 @@ async function getUserActivityStats(guildId, userId) {
 
   return {
     messages: {
-      daily: Number(doc.totals.messagesDaily || 0),
-      weekly: Number(doc.totals.messagesWeekly || 0),
-      total: Number(doc.totals.messagesTotal || 0),
+      daily: Number(doc.profile.totals.messagesDaily || 0),
+      weekly: Number(doc.profile.totals.messagesWeekly || 0),
+      total: Number(doc.profile.totals.messagesTotal || 0),
     },
     voice: {
-      dailySeconds: Number(doc.totals.voiceDailySeconds || 0) + liveVoiceSeconds,
-      weeklySeconds: Number(doc.totals.voiceWeeklySeconds || 0) + liveVoiceSeconds,
-      totalSeconds: Number(doc.totals.voiceTotalSeconds || 0) + liveVoiceSeconds,
+      dailySeconds: Number(doc.profile.totals.voiceDailySeconds || 0) + liveVoiceSeconds,
+      weeklySeconds: Number(doc.profile.totals.voiceWeeklySeconds || 0) + liveVoiceSeconds,
+      totalSeconds: Number(doc.profile.totals.voiceTotalSeconds || 0) + liveVoiceSeconds,
     },
   };
 }
@@ -835,8 +847,8 @@ function secondsInDateKeys(startedAt, dateKeys, nowMs = Date.now()) {
 }
 
 async function loadLiveVoiceSessions(guildId) {
-  const docs = await ActivityUserProfile.find({ guildId, "totals.sessionStartedAt": { $ne: null } })
-    .select("userId totals.sessionStartedAt totals.sessionChannelId")
+  const docs = await ActivityUserProfile.find({ guildId, "profile.totals.sessionStartedAt": { $ne: null } })
+    .select("userId profile.totals.sessionStartedAt profile.totals.sessionChannelId")
     .lean()
     .catch(() => []);
   const list = Array.isArray(docs) ? docs : [];
@@ -1013,7 +1025,7 @@ async function getServerActivityStats(guildId, days = 7) {
 
   if (rows.length === 0) {
     const users = await ActivityUserProfile.find({ guildId })
-      .select("userId totals.messagesWeekly totals.messagesTotal totals.voiceWeeklySeconds totals.voiceTotalSeconds")
+      .select("userId profile.totals.messagesWeekly profile.totals.messagesTotal profile.totals.voiceWeeklySeconds profile.totals.voiceTotalSeconds")
       .lean()
       .catch(() => []);
 
@@ -1024,7 +1036,7 @@ async function getServerActivityStats(guildId, days = 7) {
     const useWeekly = Number(days || 7) <= 7;
 
     for (const row of users) {
-      const t = row?.totals || {};
+      const t = row?.profile?.totals || {};
       const textValue = Number(useWeekly ? t.messagesWeekly : t.messagesTotal) || 0;
       const voiceValue = Number(useWeekly ? t.voiceWeeklySeconds : t.voiceTotalSeconds) || 0;
       pushMapValue(retroUserText, String(row?.userId || ""), textValue);
@@ -1141,7 +1153,7 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
   const hasTrackedRows = hourlyRows.length > 0;
   if (!hasTrackedRows) {
     const users = await ActivityUserProfile.find({ guildId })
-      .select("userId totals.messagesWeekly totals.messagesTotal totals.voiceWeeklySeconds totals.voiceTotalSeconds")
+      .select("userId profile.totals.messagesWeekly profile.totals.messagesTotal profile.totals.voiceWeeklySeconds profile.totals.voiceTotalSeconds")
       .lean()
       .catch(() => []);
     const userText = new Map();
@@ -1157,7 +1169,7 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
 
     for (const row of users) {
       const id = String(row?.userId || "");
-      const t = row?.totals || {};
+      const t = row?.profile?.totals || {};
       const textWeekly = Number(t.messagesWeekly || 0);
       const textTotal = Number(t.messagesTotal || 0);
       const voiceWeekly = Number(t.voiceWeeklySeconds || 0);
@@ -1280,15 +1292,15 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14) {
     const point = userChartByDay.get(dayKey) || { text: 0, voiceSeconds: 0 };
     return { dayKey, text: Number(point.text || 0), voiceSeconds: Number(point.voiceSeconds || 0) };
   });
-  const liveDoc = await ActivityUserProfile.findOne({ guildId, userId, "totals.sessionStartedAt": { $ne: null } })
-    .select("totals.sessionStartedAt totals.sessionChannelId")
+  const liveDoc = await ActivityUserProfile.findOne({ guildId, userId, "profile.totals.sessionStartedAt": { $ne: null } })
+    .select("profile.totals.sessionStartedAt profile.totals.sessionChannelId")
     .lean()
     .catch(() => null);
 
-  if (liveDoc?.totals?.sessionStartedAt) {
+  if (liveDoc?.profile?.totals?.sessionStartedAt) {
     const nowMs = Date.now();
-    const startedAt = liveDoc.totals.sessionStartedAt;
-    const channelId = String(liveDoc?.totals?.sessionChannelId || "");
+    const startedAt = liveDoc.profile?.totals?.sessionStartedAt;
+    const channelId = String(liveDoc?.profile?.totals?.sessionChannelId || "");
     const add1 = secondsInLastNDays(startedAt, 1, nowMs);
     const add7 = secondsInLastNDays(startedAt, 7, nowMs);
     const add14 = secondsInLastNDays(startedAt, 14, nowMs);
@@ -1338,8 +1350,8 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14) {
   let rankVoice = safeTopRank(rankVoiceMap, userId);
 
   if (!userRows.length) {
-    const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("totals").lean().catch(() => null);
-    const t = doc?.totals || {};
+    const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("profile.totals").lean().catch(() => null);
+    const t = doc?.profile?.totals || {};
     const fallback = {
       d1: { text: Number(t.messagesDaily || 0), voiceSeconds: Number(t.voiceDailySeconds || 0) },
       d7: { text: Number(t.messagesWeekly || 0), voiceSeconds: Number(t.voiceWeeklySeconds || 0) },
@@ -1400,13 +1412,13 @@ async function syncLiveVoiceSessionsFromGateway(client) {
       activeUserIds.add(userId);
 
       await ActivityUserProfile.updateOne(
-        { guildId, userId, "totals.sessionStartedAt": { $eq: null } },
+        { guildId, userId, "profile.totals.sessionStartedAt": { $eq: null } },
         {
           $set: {
-            "totals.sessionStartedAt": now,
-            "totals.sessionChannelId": String(state.channelId || ""),
-            "totals.expAwardedSeconds": 0,
-            "totals.voiceActivityBucketFlushSeconds": 0,
+            "profile.totals.sessionStartedAt": now,
+            "profile.totals.sessionChannelId": String(state.channelId || ""),
+            "profile.totals.expAwardedSeconds": 0,
+            "profile.totals.voiceActivityBucketFlushSeconds": 0,
           },
           $setOnInsert: { guildId, userId },
         },
@@ -1414,16 +1426,16 @@ async function syncLiveVoiceSessionsFromGateway(client) {
       ).catch(() => { });
 
       await ActivityUserProfile.updateOne(
-        { guildId, userId, "totals.sessionStartedAt": { $ne: null } },
+        { guildId, userId, "profile.totals.sessionStartedAt": { $ne: null } },
         {
           $set: {
-            "totals.sessionChannelId": String(state.channelId || ""),
+            "profile.totals.sessionChannelId": String(state.channelId || ""),
           },
         },
       ).catch(() => { });
     }
 
-    const openSessions = await ActivityUserProfile.find({ guildId, "totals.sessionStartedAt": { $ne: null } })
+    const openSessions = await ActivityUserProfile.find({ guildId, "profile.totals.sessionStartedAt": { $ne: null } })
       .select("userId")
       .lean()
       .catch(() => []);
@@ -1435,10 +1447,10 @@ async function syncLiveVoiceSessionsFromGateway(client) {
         { guildId, userId },
         {
           $set: {
-            "totals.sessionStartedAt": null,
-            "totals.sessionChannelId": null,
-            "totals.expAwardedSeconds": 0,
-            "totals.voiceActivityBucketFlushSeconds": 0,
+            "profile.totals.sessionStartedAt": null,
+            "profile.totals.sessionChannelId": null,
+            "profile.totals.expAwardedSeconds": 0,
+            "profile.totals.voiceActivityBucketFlushSeconds": 0,
           },
         },
       ).catch(() => { });
@@ -1453,9 +1465,9 @@ const VOICE_ACTIVITY_BUCKET_FLUSH_SEC = Math.max(5, Math.min(120, Number(process
 async function runLiveVoiceExpTick(client) {
   if (!client?.guilds?.cache) return;
   const nowMs = Date.now();
-  const rows = await ActivityUserProfile.find({ "totals.sessionStartedAt": { $ne: null } })
-    .select("guildId userId totals.sessionStartedAt totals.sessionChannelId totals.expAwardedSeconds totals.voiceActivityBucketFlushSeconds")
-    .sort({ "totals.sessionStartedAt": 1 })
+  const rows = await ActivityUserProfile.find({ "profile.totals.sessionStartedAt": { $ne: null } })
+    .select("guildId userId profile.totals.sessionStartedAt profile.totals.sessionChannelId profile.totals.expAwardedSeconds profile.totals.voiceActivityBucketFlushSeconds")
+    .sort({ "profile.totals.sessionStartedAt": 1 })
     .limit(LIVE_VOICE_EXP_BATCH_SIZE)
     .lean()
     .catch(() => []);
@@ -1463,8 +1475,8 @@ async function runLiveVoiceExpTick(client) {
   for (const row of rows) {
     const guildId = String(row?.guildId || "");
     const userId = String(row?.userId || "");
-    const startedAt = row?.totals?.sessionStartedAt;
-    const channelId = String(row?.totals?.sessionChannelId || "");
+    const startedAt = row?.profile?.totals?.sessionStartedAt;
+    const channelId = String(row?.profile?.totals?.sessionChannelId || "");
     if (!guildId || !userId || !startedAt || !channelId) continue;
 
     const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
@@ -1474,7 +1486,7 @@ async function runLiveVoiceExpTick(client) {
     if (!member || member.user?.bot) continue;
 
     const elapsedSeconds = Math.max(0, Math.floor((nowMs - new Date(startedAt).getTime()) / 1000),);
-    const flushed = Math.max(0, Math.floor(Number(row?.totals?.voiceActivityBucketFlushSeconds || 0)));
+    const flushed = Math.max(0, Math.floor(Number(row?.profile?.totals?.voiceActivityBucketFlushSeconds || 0)));
     const pendingBucket = Math.max(0, elapsedSeconds - flushed);
     if (pendingBucket >= VOICE_ACTIVITY_BUCKET_FLUSH_SEC && isValidGuildUserIdChannelId(guildId, userId, channelId)) {
       await bumpDailyVoice(guildId, userId, channelId, pendingBucket);
@@ -1483,12 +1495,12 @@ async function runLiveVoiceExpTick(client) {
       if (rowId) {
         await ActivityUserProfile.updateOne(
           { _id: rowId },
-          { $inc: { "totals.voiceActivityBucketFlushSeconds": pendingBucket } },
+          { $inc: { "profile.totals.voiceActivityBucketFlushSeconds": pendingBucket } },
         ).catch(() => { });
       }
     }
 
-    const alreadyAwardedSeconds = Math.max(0, Number(row?.totals?.expAwardedSeconds || 0),);
+    const alreadyAwardedSeconds = Math.max(0, Number(row?.profile?.totals?.expAwardedSeconds || 0),);
     const totalAwardableExp = Math.floor((elapsedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
     const alreadyAwardedExp = Math.floor((alreadyAwardedSeconds * VOICE_EXP_PER_MINUTE) / 60,);
     const grantableExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
@@ -1503,9 +1515,9 @@ async function runLiveVoiceExpTick(client) {
       {
         guildId,
         userId,
-        "totals.sessionStartedAt": row?.totals?.sessionStartedAt || null,
+        "profile.totals.sessionStartedAt": row?.profile?.totals?.sessionStartedAt || null,
       },
-      { $set: { "totals.expAwardedSeconds": elapsedSeconds } },
+      { $set: { "profile.totals.expAwardedSeconds": elapsedSeconds } },
     ).catch(() => { });
   }
 }

@@ -770,10 +770,10 @@ async function getActivityMapForUsers(guildId, userIds) {
   for (const row of profileRows) {
     map.set(String(row.userId), {
       messages: {
-        weekly: Number(row?.totals?.messagesWeekly || 0),
+        weekly: Number(row?.profile?.totals?.messagesWeekly || 0),
       },
       voice: {
-        weeklySeconds: Number(row?.totals?.voiceWeeklySeconds || 0),
+        weeklySeconds: Number(row?.profile?.totals?.voiceWeeklySeconds || 0),
       },
     });
   }

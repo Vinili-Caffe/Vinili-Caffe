@@ -218,11 +218,11 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
     const startMs = weeklyStartMs;
     const hourKeys = buildHourKeysBetweenRome(startMs, Date.now());
     const docs = [];
-    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId totals.hourly").lean().catch(() => []);
+    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId profile.totals.hourly").lean().catch(() => []);
     if (profileDocs.length) {
       const keySet = new Set(hourKeys.map(String));
       for (const doc of profileDocs) {
-        const hourly = toObjectMap(doc?.totals?.hourly || {});
+        const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
         const userId = String(doc?.userId || "");
         if (!userId) continue;
         for (const [hourKey, row] of Object.entries(hourly)) {
@@ -272,10 +272,10 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
 
   const filter = { guildId: guild.id };
   const perUser = new Map();
-  const profileDocs = await ActivityUserProfile.find(filter).select("userId totals.daily").lean().catch(() => []);
+  const profileDocs = await ActivityUserProfile.find(filter).select("userId profile.totals.daily").lean().catch(() => []);
   if (profileDocs.length) {
     for (const doc of profileDocs) {
-      for (const row of extractProfileBucketRows(doc, "totals.daily")) {
+      for (const row of extractProfileBucketRows(doc, "profile.totals.daily")) {
         const userId = String(row?.userId || "");
         if (!userId) continue;
         let textCount = 0;
@@ -299,8 +299,8 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
 
   const rows = Array.from(perUser.values()).map((entry) => { const baseExpFromText = entry.textCount * MESSAGE_EXP; const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60,); const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice)); return { userId: entry.userId, exp, level: getLevelInfo(exp).level, }; }).filter((entry) => entry.exp > 0).sort((a, b) => b.exp - a.exp).slice(0, Math.max(TOP_LIMIT * 5, maxCandidates)); if (mode === "alltime" && rows.length > 0) {
     const userIds = rows.map((r) => r.userId);
-    const profileExpUsers = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: userIds } }).select("userId exp.totalExp exp.level").lean().catch(() => []);
-    const expUsers = profileExpUsers.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }));
+    const profileExpUsers = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: userIds } }).select("userId profile.totals.exp.totalExp profile.totals.exp.level").lean().catch(() => []);
+    const expUsers = profileExpUsers.map((d) => ({ userId: d?.userId, totalExp: d?.profile?.totals?.exp?.totalExp, level: d?.profile?.totals?.exp?.level }));
     const expByUser = new Map(expUsers.map((d) => [String(d.userId), { totalExp: Number(d.totalExp || 0), level: Number(d.level || 0) }]),);
     for (const row of rows) {
       const eu = expByUser.get(row.userId);
@@ -328,19 +328,19 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
   if (mode === "weekly") {
     const profileDocs = await ActivityUserProfile.find({
       guildId: guild.id,
-      "exp.weeklyKey": weekKey,
-      "exp.weeklyExp": { $gt: 0 },
+      "profile.totals.exp.weeklyKey": weekKey,
+      "profile.totals.exp.weeklyExp": { $gt: 0 },
     })
-      .select("userId exp")
-      .sort({ "exp.weeklyExp": -1 })
+      .select("userId profile.totals.exp")
+      .sort({ "profile.totals.exp.weeklyExp": -1 })
       .limit(cap)
       .lean()
       .catch(() => []);
     const docs = profileDocs.map((d) => ({
       userId: d?.userId,
-      weeklyExp: d?.exp?.weeklyExp,
-      level: d?.exp?.level,
-      totalExp: d?.exp?.totalExp,
+      weeklyExp: d?.profile?.totals?.exp?.weeklyExp,
+      level: d?.profile?.totals?.exp?.level,
+      totalExp: d?.profile?.totals?.exp?.totalExp,
     }));
     rows = docs.map((d) => ({
       userId: String(d.userId || ""),
@@ -348,13 +348,13 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
       level: Number(d.level || 0) || getLevelInfo(Math.max(0, Number(d.totalExp || 0))).level,
     }));
   } else {
-    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id, "exp.totalExp": { $gt: 0 } })
-      .select("userId exp")
-      .sort({ "exp.totalExp": -1 })
+    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id, "profile.totals.exp.totalExp": { $gt: 0 } })
+      .select("userId profile.totals.exp")
+      .sort({ "profile.totals.exp.totalExp": -1 })
       .limit(cap)
       .lean()
       .catch(() => []);
-    const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.exp?.totalExp, level: d?.exp?.level }));
+    const docs = profileDocs.map((d) => ({ userId: d?.userId, totalExp: d?.profile?.totals?.exp?.totalExp, level: d?.profile?.totals?.exp?.level }));
     rows = docs.map((d) => ({
       userId: String(d.userId || ""),
       exp: Math.max(0, Math.floor(Number(d.totalExp || 0))),
