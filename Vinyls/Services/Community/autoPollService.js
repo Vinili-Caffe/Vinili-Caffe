@@ -16,6 +16,7 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MAX_ROUNDS = 2;
 const OPENROUTER_RETRY_DELAY_MS = 1500;
 const OPENROUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
+const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
 let openRouterCooldownUntil = 0;
 const WARN_POLL_OPENROUTER_INTERVAL_MS = 60 * 1000;
@@ -251,6 +252,14 @@ function getRomeDayBounds(now = new Date()) {
   return { startRome, endRome };
 }
 
+function getDuplicateLookbackStart(cfg = {}) {
+  const rawDays = Number(cfg?.duplicateLookbackDays);
+  const days = Number.isFinite(rawDays)
+    ? Math.max(1, Math.min(365, Math.floor(rawDays)))
+    : DEFAULT_DUPLICATE_LOOKBACK_DAYS;
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 function getRomeTimeParts(date = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit", hour12: false, });
   const parts = formatter.formatToParts(date);
@@ -328,9 +337,12 @@ async function isDuplicateQuestion(guildId, question) {
   const normalized = normalizeText(question).toLowerCase();
   if (!normalized) return true;
   const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const lookbackStart = getDuplicateLookbackStart();
   const existing = await Poll.findOne({
-    guildId: String(guildId), domanda: { $regex: new RegExp(`^${escaped}$`, "i") },
+    guildId: String(guildId),
+    domanda: { $regex: new RegExp(`^${escaped}$`, "i") },
     $or: [{ source: { $in: ["manual", "auto"] } }, { source: { $exists: false } }],
+    createdAt: { $gte: lookbackStart },
   }).lean().catch(() => null);
   return Boolean(existing);
 }
@@ -338,9 +350,14 @@ async function isDuplicateQuestion(guildId, question) {
 async function isDuplicatePollContent(guildId, payload) {
   const signature = buildPollSignature(payload?.question, payload?.answers);
   if (!signature || signature === "||") return true;
+  const lookbackStart = getDuplicateLookbackStart();
   const rows = await Poll.find({ guildId: String(guildId), domanda: { $ne: COUNTER_FILTER_QUESTION }, $or: [{ source: { $in: ["manual", "auto"] } }, { source: { $exists: false } }], }, { domanda: 1, risposta1: 1, risposta2: 1, risposta3: 1, risposta4: 1, risposta5: 1, risposta6: 1, risposta7: 1, risposta8: 1, risposta9: 1, risposta10: 1, },).sort({ createdAt: -1, _id: -1 }).limit(400).lean().catch(() => []);
+  const scopedRows = rows.filter((row) => {
+    const created = new Date(row?.createdAt || 0).getTime();
+    return Number.isFinite(created) && created >= lookbackStart.getTime();
+  });
 
-  for (const row of rows) {
+  for (const row of scopedRows) {
     const rowAnswers = [row?.risposta1, row?.risposta2, row?.risposta3, row?.risposta4, row?.risposta5, row?.risposta6, row?.risposta7, row?.risposta8, row?.risposta9, row?.risposta10,];
     if (buildPollSignature(row?.domanda, rowAnswers) === signature) return true;
   }
@@ -549,7 +566,10 @@ async function runAutoPoll(client) {
     break;
   }
 
-  if (!payload) return;
+  if (!payload) {
+    global.logger?.warn?.("[poll.auto] no valid candidate found (duplicate filters or invalid payload), skipping send.");
+    return;
+  }
 
   const result = await createPollForGuild(guild, { question: payload.question, answers: payload.answers, source: "auto", });
   if (!result?.ok) {

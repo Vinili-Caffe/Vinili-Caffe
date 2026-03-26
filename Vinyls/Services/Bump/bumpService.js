@@ -94,6 +94,7 @@ function createBumpReminderService(options) {
   const { model, configKey, defaultCooldownMinutes, mentionContent, title, url, description, errorTag, logTag = errorTag, suppressInfoLogs = false, } = options;
 
   const bumpTimers = new Map();
+  const RETRY_DELAY_MS = 5 * 60 * 1000;
 
   function getCooldownMs(client) {
     const minutes = client?.config?.[configKey]?.cooldownMinutes || defaultCooldownMinutes;
@@ -110,18 +111,18 @@ function createBumpReminderService(options) {
       global.logger?.warn?.(
         `${errorTag} reminderChannelId missing for guild ${guildId}`,
       );
-      return;
+      return false;
     }
     const channel = client.channels.cache.get(reminderChannelId) || (await getClientChannelCached(client, reminderChannelId));
     if (!channel) {
       global.logger?.warn?.(
         `${errorTag} reminder channel not found (${reminderChannelId}) for guild ${guildId}`,
       );
-      return;
+      return false;
     }
 
     const embedColor = client?.config?.embedInfo || "#6f4e37";
-    await channel.send({
+    const sent = await channel.send({
       content: mentionContent,
       embeds: [
         new EmbedBuilder()
@@ -130,7 +131,11 @@ function createBumpReminderService(options) {
           .setURL(url)
           .setDescription(description),
       ],
+    }).then(() => true).catch((err) => {
+      global.logger?.warn?.(`${errorTag} reminder send failed for guild ${guildId}:`, err?.message || err);
+      return false;
     });
+    if (!sent) return false;
 
     await model
       .updateOne({ guildId }, { $set: { reminderSentAt: new Date() } })
@@ -140,6 +145,17 @@ function createBumpReminderService(options) {
           err,
         ),
       );
+    return true;
+  }
+
+  function scheduleRetry(client, guildId, lastBumpAt) {
+    const existing = bumpTimers.get(guildId);
+    if (existing) clearTimeout(existing);
+    const retryTimer = setTimeout(() => {
+      scheduleReminder(client, guildId, lastBumpAt);
+    }, RETRY_DELAY_MS);
+    retryTimer.unref?.();
+    bumpTimers.set(guildId, retryTimer);
   }
 
   function scheduleReminder(client, guildId, lastBumpAt) {
@@ -171,9 +187,14 @@ function createBumpReminderService(options) {
           `${logTag} cooldown already passed, sending reminder now guild=${guildId}`,
         );
       }
-      sendReminder(client, guildId).catch((err) => {
-        global.logger.error(`${errorTag} sendReminder failed:`, err);
-      });
+      sendReminder(client, guildId)
+        .then((ok) => {
+          if (!ok) scheduleRetry(client, guildId, lastBumpAt);
+        })
+        .catch((err) => {
+          global.logger.error(`${errorTag} sendReminder failed:`, err);
+          scheduleRetry(client, guildId, lastBumpAt);
+        });
       return;
     }
 
@@ -189,11 +210,17 @@ function createBumpReminderService(options) {
         if (!suppressInfoLogs) {
           global.logger?.info?.(`${logTag}firing reminder for guild=${guildId}`);
         }
-        await sendReminder(client, guildId);
+        const ok = await sendReminder(client, guildId);
+        if (!ok) {
+          scheduleRetry(client, guildId, lastBumpAt);
+          return;
+        }
       } catch (error) {
         global.logger.error(errorTag, error);
+        scheduleRetry(client, guildId, lastBumpAt);
       } finally {
-        bumpTimers.delete(guildId);
+        const active = bumpTimers.get(guildId);
+        if (active === timeout) bumpTimers.delete(guildId);
       }
     }, remaining);
 

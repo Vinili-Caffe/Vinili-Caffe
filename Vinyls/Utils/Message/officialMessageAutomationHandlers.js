@@ -452,10 +452,10 @@ async function handleDiscadiaBump(message, client) {
   const sourceFingerprint = `${authorName} ${sourceName}`.toLowerCase();
   const looksLikeDiscadiaSource = isFromDiscadiaBot || /\bdiscadia\b/i.test(sourceFingerprint) || hasDiscadiaWord || hasDiscadiaDomain;
   const looksLikeDisboardSource = /\bdisboard\b/i.test(sourceFingerprint);
-  const hasBumpSuccessText = hasPattern || hasSuccessWord;
+  const hasBumpSuccessText = hasPattern || hasSuccessWord || isBumpInteraction;
   const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
-  const isLikelyDiscadiaGenericSuccess = isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText && hasBumpWord && (Boolean(message.webhookId) || isBumpInteraction);
-  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess;
+  const isLikelyDiscadiaGenericSuccess = isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText && (hasBumpWord || isBumpInteraction) && (Boolean(message.webhookId) || isBumpInteraction);
+  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess || (isAutomatedSource && isBumpInteraction);
   const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource;
   if (!isBump) return false;
 
