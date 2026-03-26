@@ -74,7 +74,8 @@ async function main() {
 
   await mongoose.connect(url);
 
-  const cursor = ActivityUserProfile.find(
+  const collection = ActivityUserProfile.collection;
+  const cursor = collection.find(
     {
       $or: [
         { voteRole: { $exists: true } },
@@ -124,13 +125,13 @@ async function main() {
     migrated += 1;
 
     if (ops.length >= 500) {
-      await ActivityUserProfile.bulkWrite(ops, { ordered: false });
+      await collection.bulkWrite(ops, { ordered: false });
       ops.length = 0;
     }
   }
 
   if (ops.length) {
-    await ActivityUserProfile.bulkWrite(ops, { ordered: false });
+    await collection.bulkWrite(ops, { ordered: false });
   }
 
   console.log(
