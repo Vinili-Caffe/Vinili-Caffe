@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { CustomRole } = require("../Schemas/Community/communitySchemas");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
-const { inferBirthYearFromAge } = require("../Services/Community/birthdayService");
+const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const { MAX_REACTIONS, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 
@@ -13,6 +13,7 @@ const SECTION_CUSTOMROLE = "customrole";
 const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
 const PRIVATE_FLAG = 1 << 6;
+const birthdayDrafts = new Map();
 
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
@@ -31,6 +32,30 @@ function parseAge(rawValue) {
   const n = Number(String(rawValue || "").trim());
   if (!Number.isInteger(n) || n < 1 || n > 120) return null;
   return n;
+}
+
+function computeAgeNow(day, month, birthYear) {
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(birthYear)) return null;
+  const today = getRomeDateParts(new Date());
+  const hasBirthdayPassed = today.month > month || (today.month === month && today.day >= day);
+  return Math.max(1, today.year - Number(birthYear) - (hasBirthdayPassed ? 0 : 1));
+}
+
+function getDraftKey(guildId, userId) {
+  return `${String(guildId || "")}:${String(userId || "")}`;
+}
+
+function getBirthdayDraft(guildId, userId) {
+  return birthdayDrafts.get(getDraftKey(guildId, userId)) || null;
+}
+
+function setBirthdayDraft(guildId, userId, patch) {
+  const key = getDraftKey(guildId, userId);
+  birthdayDrafts.set(key, { ...(birthdayDrafts.get(key) || {}), ...(patch || {}) });
+}
+
+function clearBirthdayDraft(guildId, userId) {
+  birthdayDrafts.delete(getDraftKey(guildId, userId));
 }
 
 function formatBirthday(profile) {
@@ -117,13 +142,15 @@ function buildSectionEmbed(section, state, user, guild = null) {
   const birthdayPrivacy = birthday?.showAge === false ? "Nascosta" : "Visibile";
 
   if (section === SECTION_BIRTHDAY) {
+    const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
     return base
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Gestisci compleanno dal pannello rapido.",
         "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "",
         `<a:VC_Calendar:1482706208149475358> Data: **${formatBirthday(birthday)}**`,
-        `<:VC_addperson:1485419347068588073> Età: **${Number.isInteger(birthday?.birthYear) ? "Impostata" : "Non impostata"}**`,
+        `<:VC_addperson:1485419347068588073> Età: **${Number.isInteger(ageNow) ? `${ageNow} anni` : "Non impostata"}**`,
         `<:VC_Lock:1482526739044368476> Privacy età: **${birthdayPrivacy}**`,
         "",
         hasBirthday
@@ -138,6 +165,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
         "<:VC_Modifica:1478859646587633717> Hub custom role.",
         "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "",
         `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
         `<:VC_Color:1482532543273238569> Ruolo: ${customRoleName}`,
         `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
@@ -152,6 +180,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
         "<:VC_Modifica:1478859646587633717> Hub custom voc.",
         "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "",
         `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
         `<:VC_Color:1482532543273238569> Vocale: ${customVocLinked}`,
         `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
@@ -166,6 +195,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
         "<:VC_emoji:1485419161168511036> Reaction automatiche alle menzioni.",
         "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "",
         reactionList.length
           ? `<:VC_emoji:1485419161168511036> Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map((token) => renderReactionToken(token, guild)).join(" ")}`
           : "<:VC_emoji:1485419161168511036> Nessuna reaction attiva.",
@@ -181,6 +211,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
       "",
       "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+      "",
       `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
@@ -209,10 +240,16 @@ function buildRows(ownerId, section, state = null) {
 
   if (section === SECTION_BIRTHDAY) {
     row2.addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_set`).setLabel("Imposta Birthday").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_privacy`).setLabel("Toggle Privacy").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_clear`).setLabel("Rimuovi").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_date`).setLabel("Data").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_age`).setLabel("Età").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_privacy`).setLabel(state?.birthday?.showAge === false ? "Età nascosta" : "Età visibile").setStyle(state?.birthday?.showAge === false ? ButtonStyle.Danger : ButtonStyle.Success),
     );
+    const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_save`).setLabel("Salva profilo").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_clear`).setLabel("Rimuovi profilo").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_cancel`).setLabel("Chiudi").setStyle(ButtonStyle.Secondary),
+    );
+    return [row1, row2, row3];
   } else if (section === SECTION_CUSTOMROLE) {
     row2.addComponents(
       new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${roleId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
@@ -229,6 +266,7 @@ function buildRows(ownerId, section, state = null) {
     row2.addComponents(
       new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!customVocChannelId),
       new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Secondary).setDisabled(!customVocChannelId),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_delete`).setLabel("Elimina Vocale").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!customVocChannelId),
     );
   } else if (section === SECTION_CUSTOMREACTION) {
     return [row1, ...buildCustomReactionPanelRows(ownerId)];
@@ -241,6 +279,16 @@ function buildRows(ownerId, section, state = null) {
 
 async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME) {
   const state = await fetchProfilePanelState(guild, ownerId, client);
+  const draft = getBirthdayDraft(guild?.id, ownerId);
+  if (draft) {
+    state.birthday = {
+      ...(state.birthday || {}),
+      ...(Number.isInteger(draft?.day) ? { day: draft.day } : {}),
+      ...(Number.isInteger(draft?.month) ? { month: draft.month } : {}),
+      ...(Number.isInteger(draft?.birthYear) ? { birthYear: draft.birthYear } : {}),
+      ...(typeof draft?.showAge === "boolean" ? { showAge: draft.showAge } : {}),
+    };
+  }
   return {
     embeds: [buildSectionEmbed(section, state, `<@${ownerId}>`, guild)],
     components: buildRows(ownerId, section, state),
@@ -264,7 +312,7 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
     cleanupExpired: true,
   }).catch(() => null);
   const status = String(state?.status || "none");
-  if (status === "Attivo") return true;
+  if (status === "active") return true;
   await interaction.reply({
     content:
       "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+customrole`.",
@@ -300,6 +348,42 @@ async function handleBirthdaySetModal(interaction, ownerId) {
     content: "<:vegacheckmark:1443666279058772028> Birthday aggiornato.",
     flags: PRIVATE_FLAG,
   }).catch(() => {});
+  return true;
+}
+
+async function handleBirthdayDateModal(interaction, ownerId) {
+  const raw = interaction.fields.getTextInputValue("date");
+  const parsed = parseBirthdayDate(raw);
+  if (!parsed) {
+    await interaction.reply({ content: "Data non valida. Usa `gg/mm`.", flags: PRIVATE_FLAG }).catch(() => {});
+    return true;
+  }
+  setBirthdayDraft(interaction.guild.id, ownerId, { day: parsed.day, month: parsed.month });
+  const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_BIRTHDAY);
+  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
+  await interaction.reply({ content: "Data aggiornata in bozza.", flags: PRIVATE_FLAG }).catch(() => {});
+  return true;
+}
+
+async function handleBirthdayAgeModal(interaction, ownerId) {
+  const age = parseAge(interaction.fields.getTextInputValue("age"));
+  if (!age) {
+    await interaction.reply({ content: "Età non valida. Inserisci un numero 1-120.", flags: PRIVATE_FLAG }).catch(() => {});
+    return true;
+  }
+  const draft = getBirthdayDraft(interaction.guild.id, ownerId) || {};
+  const profile = await getBirthdayProfile(interaction.guild.id, ownerId).catch(() => null);
+  const day = Number.isInteger(draft?.day) ? draft.day : Number(profile?.day || 0);
+  const month = Number.isInteger(draft?.month) ? draft.month : Number(profile?.month || 0);
+  if (!day || !month) {
+    await interaction.reply({ content: "Prima imposta la data.", flags: PRIVATE_FLAG }).catch(() => {});
+    return true;
+  }
+  const birthYear = inferBirthYearFromAge(day, month, age);
+  setBirthdayDraft(interaction.guild.id, ownerId, { birthYear });
+  const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_BIRTHDAY);
+  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
+  await interaction.reply({ content: "Età aggiornata in bozza.", flags: PRIVATE_FLAG }).catch(() => {});
   return true;
 }
 
@@ -375,7 +459,43 @@ async function execute(interaction, client) {
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId("age")
-            .setLabel("Età (1-120)")
+            .setLabel("Età")
+            .setPlaceholder("18")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true),
+        ),
+      );
+      await interaction.showModal(modal).catch(() => {});
+      return true;
+    }
+
+    if (action === "birthday_date") {
+      const modal = new ModalBuilder()
+        .setCustomId(`${PANEL_PREFIX}:modal_birthday_date:${ownerId}:${SECTION_BIRTHDAY}`)
+        .setTitle("Imposta data compleanno");
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("date")
+            .setLabel("Data (gg/mm)")
+            .setPlaceholder("21/02")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true),
+        ),
+      );
+      await interaction.showModal(modal).catch(() => {});
+      return true;
+    }
+
+    if (action === "birthday_age") {
+      const modal = new ModalBuilder()
+        .setCustomId(`${PANEL_PREFIX}:modal_birthday_age:${ownerId}:${SECTION_BIRTHDAY}`)
+        .setTitle("Imposta età");
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId("age")
+            .setLabel("Età attuale")
             .setPlaceholder("18")
             .setStyle(TextInputStyle.Short)
             .setRequired(true),
@@ -386,31 +506,89 @@ async function execute(interaction, client) {
     }
 
     if (action === "birthday_privacy") {
-      const profile = await getBirthdayProfile(interaction.guild.id, ownerId);
-      if (!Number.isInteger(profile?.day) || !Number.isInteger(profile?.month)) {
-        await interaction.reply({
-          content: "<:vegax:1443934876440068179> Prima imposta il birthday.",
-          flags: PRIVATE_FLAG,
-        }).catch(() => {});
-        return true;
-      }
-      await setBirthdayProfile(interaction.guild.id, ownerId, {
-        day: profile.day,
-        month: profile.month,
-        birthYear: profile.birthYear,
-        showAge: !(profile?.showAge !== false),
-        registrationMessageId: profile.registrationMessageId,
-        registrationChannelId: profile.registrationChannelId,
-      }).catch(() => {});
+      const draft = getBirthdayDraft(interaction.guild.id, ownerId) || {};
+      const profile = await getBirthdayProfile(interaction.guild.id, ownerId).catch(() => null);
+      const showAge = typeof draft?.showAge === "boolean" ? draft.showAge : profile?.showAge !== false;
+      setBirthdayDraft(interaction.guild.id, ownerId, { showAge: !showAge });
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
       await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }
 
-    if (action === "birthday_clear") {
-      await clearBirthdayProfile(interaction.guild.id, ownerId).catch(() => {});
+    if (action === "birthday_save") {
+      const draft = getBirthdayDraft(interaction.guild.id, ownerId) || {};
+      const profile = await getBirthdayProfile(interaction.guild.id, ownerId).catch(() => null);
+      const day = Number.isInteger(draft?.day) ? draft.day : Number(profile?.day || 0);
+      const month = Number.isInteger(draft?.month) ? draft.month : Number(profile?.month || 0);
+      const birthYear = Number.isInteger(draft?.birthYear) ? draft.birthYear : Number(profile?.birthYear || 0);
+      const showAge = typeof draft?.showAge === "boolean" ? draft.showAge : profile?.showAge !== false;
+      if (!day || !month) {
+        await interaction.reply({ content: "Prima imposta la data.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      if (!birthYear) {
+        await interaction.reply({ content: "Prima imposta l'età.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      await setBirthdayProfile(interaction.guild.id, ownerId, {
+        day,
+        month,
+        birthYear,
+        showAge,
+        registrationMessageId: profile?.registrationMessageId,
+        registrationChannelId: profile?.registrationChannelId,
+      }).catch(() => {});
+      clearBirthdayDraft(interaction.guild.id, ownerId);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
       await safeUpdatePanelInteraction(interaction, payload);
+      await interaction.followUp?.({ content: "Profilo compleanno salvato.", flags: PRIVATE_FLAG }).catch(() => {});
+      return true;
+    }
+
+    if (action === "birthday_clear") {
+      await clearBirthdayProfile(interaction.guild.id, ownerId).catch(() => {});
+      clearBirthdayDraft(interaction.guild.id, ownerId);
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "birthday_cancel") {
+      clearBirthdayDraft(interaction.guild.id, ownerId);
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_HOME);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "customvoc_delete") {
+      const state = await resolveCustomRoleState({
+        guild: interaction.guild,
+        userId: ownerId,
+        client,
+        cleanupExpired: true,
+      }).catch(() => null);
+      const channelId = String(state?.doc?.customVocChannelId || "").trim();
+      if (!channelId) {
+        await interaction.reply({
+          content: "<:vegax:1443934876440068179> Non hai una vocale privata da eliminare.",
+          flags: PRIVATE_FLAG,
+        }).catch(() => {});
+        return true;
+      }
+      const channel = interaction.guild?.channels?.cache?.get(channelId) || (await interaction.guild?.channels?.fetch(channelId).catch(() => null));
+      if (channel?.delete) {
+        await channel.delete(`Custom voice deleted by ${interaction.user?.tag || interaction.user?.id || "profile panel"}`).catch(() => {});
+      }
+      await CustomRole.updateOne(
+        { guildId: interaction.guild.id, userId: ownerId },
+        { $unset: { customVocChannelId: 1 } },
+      ).catch(() => {});
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
+      await safeUpdatePanelInteraction(interaction, payload);
+      await interaction.followUp?.({
+        content: "<:vegacheckmark:1443666279058772028> Vocale privata eliminata.",
+        flags: PRIVATE_FLAG,
+      }).catch(() => {});
       return true;
     }
 
@@ -459,6 +637,14 @@ async function execute(interaction, client) {
 
   if (interaction.isModalSubmit() && kind === "modal_birthday") {
     return handleBirthdaySetModal(interaction, ownerId);
+  }
+
+  if (interaction.isModalSubmit() && kind === "modal_birthday_date") {
+    return handleBirthdayDateModal(interaction, ownerId);
+  }
+
+  if (interaction.isModalSubmit() && kind === "modal_birthday_age") {
+    return handleBirthdayAgeModal(interaction, ownerId);
   }
 
   if (interaction.isModalSubmit() && kind === "modal_reactions") {

@@ -1038,6 +1038,9 @@
         "customreaction_clear:*": {
             "ownerSegment": 1
         },
+        "profile_panel:*": {
+            "ownerSegment": 2
+        },
         "downv": [
             "roles.Member"
         ],
@@ -1438,6 +1441,9 @@
         "customreaction_remove_pick:*": {
             "ownerSegment": 1
         },
+        "profile_panel:*": {
+            "ownerSegment": 2
+        },
         "backup_list_select:*": {
             "ownerSegment": 1
         },
@@ -1494,6 +1500,9 @@
         },
         "customreaction_modal_*": {
             "ownerSegment": 1
+        },
+        "profile_panel:*": {
+            "ownerSegment": 2
         },
         "dm_broadcast:*": {
             "ownerSegment": 1
