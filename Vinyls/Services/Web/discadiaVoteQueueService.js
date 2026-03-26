@@ -3,6 +3,7 @@ const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAuto
 const IDs = require("../../Utils/Config/ids");
 
 let isProcessing = false;
+const DISCADIA_PENDING_VOTES_PATH = "bumpVoteRewards.discadia_vote.pendingVotes";
 
 async function processVoteQueue(client) {
   if (isProcessing) return;
@@ -17,11 +18,11 @@ async function processVoteQueue(client) {
       return;
     }
 
-    // Cerco utenti con voti pendenti nell'array centralizzato (Struttura: discadiaVote.pendingVotes)
+    // Cerco utenti con voti pendenti nell'array centralizzato.
     // Selezioniamo solo i profili che hanno almeno un voto nell'array
-    const usersWithVotes = await ActivityUserProfile.find({ 
-        guildId: guildId, 
-        "discadiaVote.pendingVotes.0": { $exists: true } 
+    const usersWithVotes = await ActivityUserProfile.find({
+        guildId: guildId,
+        [DISCADIA_PENDING_VOTES_PATH + ".0"]: { $exists: true },
     }).limit(20);
 
     for (const profile of usersWithVotes) {
@@ -32,13 +33,13 @@ async function processVoteQueue(client) {
             // Se l'utente non è più su Discord, pulisco la sua coda specifica per evitare loop infiniti
             await ActivityUserProfile.updateOne(
                 { guildId: guildId, userId: userId },
-                { $set: { "discadiaVote.pendingVotes": [] } }
+                { $set: { [DISCADIA_PENDING_VOTES_PATH]: [] } }
             );
             continue;
         }
 
         // Processo i voti nell'array
-        const votes = profile.discadiaVote?.pendingVotes || [];
+        const votes = profile?.bumpVoteRewards?.discadia_vote?.pendingVotes || [];
         if (votes.length === 0) continue;
 
         let hasProcessedAny = false;
@@ -65,7 +66,7 @@ async function processVoteQueue(client) {
         if (hasProcessedAny || remainingVotes.length !== votes.length) {
             await ActivityUserProfile.updateOne(
                 { guildId: guildId, userId: userId },
-                { $set: { "discadiaVote.pendingVotes": remainingVotes } }
+                { $set: { [DISCADIA_PENDING_VOTES_PATH]: remainingVotes } }
             );
         }
     }

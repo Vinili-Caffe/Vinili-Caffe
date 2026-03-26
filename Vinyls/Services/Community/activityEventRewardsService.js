@@ -3,6 +3,7 @@ const { getGuildExpSettings, addExp, getTotalExpForLevel, getLevelInfo, recordLe
 const IDs = require("../../Utils/Config/ids");
 const { sendEventRewardLog, sendEventRewardSkippedLog, sendEventRewardDm } = require("./eventRewardLogService");
 const TIME_ZONE_ROME = "Europe/Rome";
+const DISCADIA_VOTE_ROLE_GRANTED_AT_PATH = "bumpVoteRewards.discadia_vote.voteRole.grantedAt";
 
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE_ROME, timeZoneName: "shortOffset", hour: "2-digit", });
@@ -353,7 +354,7 @@ async function grantEventRewardsForSameDayReviewAndVote(guild, eventStartDate) {
 
   const voteDocs = await ActivityUserProfile.find({
     guildId: guild.id,
-    "voteRole.grantedAt": { $gte: startRome, $lt: endRome },
+    [DISCADIA_VOTE_ROLE_GRANTED_AT_PATH]: { $gte: startRome, $lt: endRome },
   }).select("userId").lean().catch(() => []);
   const membersCache = await guild.members.fetch().catch(() => null) || guild.members.cache;
   for (const doc of voteDocs) {

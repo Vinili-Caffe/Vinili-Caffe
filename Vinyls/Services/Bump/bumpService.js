@@ -9,6 +9,10 @@ const STAFF_BYPASS_ROLE_IDS = new Set([IDs.roles.Staff, IDs.roles.Helper, IDs.ro
 const BUMP_REMINDER_CHANNEL_BY_KEY = { disboard: IDs.channels.commands, discadia: IDs.channels.commands, };
 const DISBOARD_BUMP_USER_ID = "__disboard_bump__";
 const DISCADIA_BUMP_USER_ID = "__discadia_bump__";
+const DISCADIA_VOTE_ROOT = "bumpVoteRewards.discadia_vote";
+const DISCADIA_LAST_VOTE_AT_PATH = `${DISCADIA_VOTE_ROOT}.lastVoteAt`;
+const DISCADIA_LAST_REMINDED_AT_PATH = `${DISCADIA_VOTE_ROOT}.lastRemindedAt`;
+const DISCADIA_VOTE_COUNT_PATH = `${DISCADIA_VOTE_ROOT}.voteCount`;
 
 async function resolveLean(queryOrValue) {
   if (queryOrValue && typeof queryOrValue.lean === "function") {
@@ -364,7 +368,7 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
 }
 
 /**
- * Registra un voto Discadia per utente. `discadiaVote.voteCount` è sempre incrementato sul profilo
+ * Registra un voto Discadia per utente. `bumpVoteRewards.discadia_vote.voteCount` è sempre incrementato sul profilo
  * (1 voto = +1), mai preso dal testo del messaggio: Discadia espone spesso il totale voti del server.
  */
 async function recordDiscadiaVote(client, guildId, userId) {
@@ -373,22 +377,23 @@ async function recordDiscadiaVote(client, guildId, userId) {
   guildId = mainGuildId;
   let previousLastVoteAt = null;
   const before = await ActivityUserProfile.findOne({ guildId: IDs.guilds.main, userId })
-    .select("discadiaVote.lastVoteAt")
+    .select(`${DISCADIA_LAST_VOTE_AT_PATH}`)
     .lean()
     .catch(() => null);
-  if (before?.discadiaVote?.lastVoteAt) previousLastVoteAt = new Date(before.discadiaVote.lastVoteAt);
+  const previousLastVoteAtRaw = before?.bumpVoteRewards?.discadia_vote?.lastVoteAt || null;
+  if (previousLastVoteAtRaw) previousLastVoteAt = new Date(previousLastVoteAtRaw);
   const doc = await ActivityUserProfile.findOneAndUpdate(
     { guildId: IDs.guilds.main, userId },
     {
       $setOnInsert: { guildId: IDs.guilds.main, userId },
-      $set: { "discadiaVote.lastVoteAt": now },
-      $inc: { "discadiaVote.voteCount": 1 },
+      $set: { [DISCADIA_LAST_VOTE_AT_PATH]: now },
+      $inc: { [DISCADIA_VOTE_COUNT_PATH]: 1 },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
 
   scheduleDiscadiaVoteReminder(client, mainGuildId, userId, now);
-  return { voteCount: Number(doc?.discadiaVote?.voteCount || 1), previousLastVoteAt };
+  return { voteCount: Number(doc?.bumpVoteRewards?.discadia_vote?.voteCount || 1), previousLastVoteAt };
 }
 
 function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
@@ -403,7 +408,7 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
   const targetTime = new Date(lastVoteAt).getTime() + cooldownMs;
   const delay = targetTime - Date.now();
 
-  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("discadiaVote").lean(); const state = doc?.discadiaVote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, guildId, userId)) return; let user = await getUserCached(client, userId); if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, guildId, userId); } await ActivityUserProfile.updateOne({ guildId, userId }, { $set: { "discadiaVote.lastRemindedAt": new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
+  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId, userId }).select(`${DISCADIA_VOTE_ROOT}`).lean(); const state = doc?.bumpVoteRewards?.discadia_vote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, guildId, userId)) return; let user = await getUserCached(client, userId); if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, guildId, userId); } await ActivityUserProfile.updateOne({ guildId, userId }, { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
 
   if (delay <= 0) {
     void run();
@@ -426,8 +431,8 @@ async function restorePendingVoteReminders(client) {
   let docs = [];
   try {
     docs = await ActivityUserProfile.find(
-      { "discadiaVote.lastVoteAt": { $exists: true, $ne: null } },
-      { guildId: 1, userId: 1, "discadiaVote.lastVoteAt": 1 },
+      { [DISCADIA_LAST_VOTE_AT_PATH]: { $exists: true, $ne: null } },
+      { guildId: 1, userId: 1, [DISCADIA_LAST_VOTE_AT_PATH]: 1 },
     ).lean();
   } catch (err) {
     global.logger?.error?.("[DISCADIA] Failed fetching vote docs:", err);
@@ -439,7 +444,7 @@ async function restorePendingVoteReminders(client) {
   const latestByUser = new Map();
 
   for (const doc of docs) {
-    const lastVoteAtRaw = doc?.discadiaVote?.lastVoteAt;
+    const lastVoteAtRaw = doc?.bumpVoteRewards?.discadia_vote?.lastVoteAt;
     if (!doc?.userId || !lastVoteAtRaw) continue;
 
     const prev = latestByUser.get(doc.userId);
@@ -450,7 +455,7 @@ async function restorePendingVoteReminders(client) {
       continue;
     }
 
-    const prevTs = new Date(prev.lastVoteAt).getTime();
+    const prevTs = new Date(prev?.bumpVoteRewards?.discadia_vote?.lastVoteAt).getTime();
     if (currentTs > prevTs) {
       latestByUser.set(doc.userId, doc);
     }
@@ -462,7 +467,7 @@ async function restorePendingVoteReminders(client) {
   for (const doc of latestByUser.values()) {
     const userId = String(doc.userId);
     const guildId = String(doc.guildId);
-    const lastVoteAt = new Date(doc?.discadiaVote?.lastVoteAt);
+    const lastVoteAt = new Date(doc?.bumpVoteRewards?.discadia_vote?.lastVoteAt);
 
     const targetTime = lastVoteAt.getTime() + cooldownMs;
     const lateBy = Date.now() - targetTime;
@@ -504,8 +509,8 @@ async function sendDueDiscadiaVoteReminders(client) {
   let docs = [];
   try {
     docs = await ActivityUserProfile.find(
-      { guildId, "discadiaVote.lastVoteAt": { $lte: cutoff } },
-      { userId: 1, "discadiaVote.lastVoteAt": 1, "discadiaVote.lastRemindedAt": 1 },
+      { guildId, [DISCADIA_LAST_VOTE_AT_PATH]: { $lte: cutoff } },
+      { userId: 1, [DISCADIA_LAST_VOTE_AT_PATH]: 1, [DISCADIA_LAST_REMINDED_AT_PATH]: 1 },
     ).lean();
   } catch (err) {
     global.logger?.error?.("[DISCADIA VOTE REMINDER] Failed to fetch voters:", err);
@@ -514,7 +519,7 @@ async function sendDueDiscadiaVoteReminders(client) {
 
   for (const doc of docs) {
     const userId = String(doc?.userId);
-    const state = doc?.discadiaVote || null;
+    const state = doc?.bumpVoteRewards?.discadia_vote || null;
     if (!userId || !state?.lastVoteAt) continue;
     const lastVoteAt = new Date(state.lastVoteAt).getTime();
     if (Date.now() - lastVoteAt < cooldownMs) continue;
@@ -536,7 +541,7 @@ async function sendDueDiscadiaVoteReminders(client) {
     }
     await ActivityUserProfile.updateOne(
       { guildId, userId },
-      { $set: { "discadiaVote.lastRemindedAt": new Date() } },
+      { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },
     ).catch(() => {});
   }
 } 

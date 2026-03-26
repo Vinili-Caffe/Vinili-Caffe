@@ -320,16 +320,6 @@ const activityUserProfileSchema = new Schema(
       sourceUpdatedAt: { type: Date, default: null },
     },
     eventWeekWinners: { type: [Number], default: [] },
-    voteRole: {
-      expiresAt: { type: Date, default: null },
-      grantedAt: { type: Date, default: null },
-    },
-    discadiaVote: {
-      lastVoteAt: { type: Date, default: null },
-      lastRemindedAt: { type: Date, default: null },
-      voteCount: { type: Number, default: 0 },
-      pendingVotes: { type: [Schema.Types.Mixed], default: [] }, // CODA VOTI PENDENTI
-    },
     bumpState: {
       disboard: {
         lastBumpAt: { type: Date, default: null },
@@ -342,7 +332,21 @@ const activityUserProfileSchema = new Schema(
         reminderSentAt: { type: Date, default: null },
       },
     },
-    bumpVoteRewards: { type: Schema.Types.Mixed, default: {} },
+    bumpVoteRewards: {
+      type: Schema.Types.Mixed,
+      default: () => ({
+        discadia_vote: {
+          lastVoteAt: null,
+          lastRemindedAt: null,
+          voteCount: 0,
+          pendingVotes: [], // CODA VOTI PENDENTI
+          voteRole: {
+            expiresAt: null,
+            grantedAt: null,
+          },
+        },
+      }),
+    },
     minigame: {
       totalExp: { type: Number, default: 0 },
       currentStreak: { type: Number, default: 0 },

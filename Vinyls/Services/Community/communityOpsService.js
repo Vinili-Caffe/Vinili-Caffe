@@ -24,6 +24,9 @@ let verificationTenureLoopHandle = null;
 let sponsorKickLoopHandle = null;
 const SPONSOR_KICK_REASON = "<a:VC_Alert:1482706673176150077> Non sei più nel server principale da 24 ore. Rientra nel server principale per accedere di nuovo agli server sponsor.";
 const SPONSOR_KICK_INTERVAL_MS = 15 * 60 * 1000;
+const DISCADIA_VOTE_ROOT = "bumpVoteRewards.discadia_vote";
+const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
+const VOTE_ROLE_GRANTED_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.grantedAt`;
 
 async function upsertVoteRole(guildId, userId, expiresAt) {
   if (!guildId || !userId || !expiresAt) return null;
@@ -31,7 +34,7 @@ async function upsertVoteRole(guildId, userId, expiresAt) {
     { guildId, userId },
     {
       $setOnInsert: { guildId, userId },
-      $set: { "voteRole.expiresAt": expiresAt, "voteRole.grantedAt": new Date() },
+      $set: { [VOTE_ROLE_EXPIRES_AT_PATH]: expiresAt, [VOTE_ROLE_GRANTED_AT_PATH]: new Date() },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
@@ -39,8 +42,8 @@ async function upsertVoteRole(guildId, userId, expiresAt) {
 
 async function removeExpiredVoteRoles(client) {
   const now = new Date();
-  const expired = await ActivityUserProfile.find({ "voteRole.expiresAt": { $lte: now } })
-    .select("guildId userId voteRole.expiresAt")
+  const expired = await ActivityUserProfile.find({ [VOTE_ROLE_EXPIRES_AT_PATH]: { $lte: now } })
+    .select(`guildId userId ${VOTE_ROLE_EXPIRES_AT_PATH}`)
     .lean();
   if (!expired.length) return;
 
@@ -49,7 +52,7 @@ async function removeExpiredVoteRoles(client) {
     if (!guild) {
       await ActivityUserProfile.updateOne(
         { guildId: item.guildId, userId: item.userId },
-        { $set: { "voteRole.expiresAt": null } },
+        { $set: { [VOTE_ROLE_EXPIRES_AT_PATH]: null } },
       );
       continue;
     }
@@ -59,7 +62,7 @@ async function removeExpiredVoteRoles(client) {
     }
     await ActivityUserProfile.updateOne(
       { guildId: item.guildId, userId: item.userId },
-      { $set: { "voteRole.expiresAt": null } },
+      { $set: { [VOTE_ROLE_EXPIRES_AT_PATH]: null } },
     );
   }
 }
