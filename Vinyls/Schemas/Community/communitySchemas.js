@@ -118,7 +118,6 @@ const skullboardPostEntrySchema = new Schema(
   { _id: false },
 );
 
-// --- MODERATION EMBEDDED SCHEMAS ---
 const modCaseEditEntrySchema = new Schema(
   {
     field: { type: String, required: true },
@@ -173,7 +172,6 @@ const globalSettingsSchema = new Schema(
   },
   { timestamps: true },
 );
-
 
 const activityEventRewardSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardType:{type:String,required:true,index:true},tier:{type:Number,default:null},},{timestamps:true},);
 activityEventRewardSchema.index(
@@ -345,6 +343,10 @@ const activityUserProfileSchema = new Schema(
             grantedAt: null,
           },
         },
+        disboard_review: {
+          rewardedBy: null,
+          rewardedAt: null,
+        },
       }),
     },
     minigame: {
@@ -379,10 +381,6 @@ const activityUserProfileSchema = new Schema(
       lastMessageId: { type: String, default: null },
       lastSentAt: { type: Date, default: null },
       hasLink: { type: Boolean, default: false },
-    },
-    reviewReward: {
-      rewardedBy: { type: String, default: null },
-      rewardedAt: { type: Date, default: null },
     },
     profile: {
       afk: {
@@ -480,8 +478,6 @@ eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
 eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
 
-
-// --- MODERATION MAIN MOD-CASE SCHEMA ---
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
 const USE_LEGACY_MOD_CASE_MODEL = MOD_CASE_STORAGE_MODE === "legacy" || MOD_CASE_STORAGE_MODE === "dual";
@@ -515,9 +511,9 @@ const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSetting
 const LegacyVerificationTenure = null;
 const ReviewReward = {
   async findOne(filter) {
-    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId reviewReward").lean().catch(() => null);
-    if (!doc?.reviewReward?.rewardedAt) return null;
-    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.reviewReward.rewardedBy || null, rewardedAt: doc.reviewReward.rewardedAt || null };
+    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId bumpVoteRewards.disboard_review").lean().catch(() => null);
+    if (!doc?.bumpVoteRewards?.disboard_review?.rewardedAt) return null;
+    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.bumpVoteRewards.disboard_review.rewardedBy || null, rewardedAt: doc.bumpVoteRewards.disboard_review.rewardedAt || null };
   },
   async create(payload = {}) {
     return ActivityUserProfile.findOneAndUpdate(
@@ -525,8 +521,8 @@ const ReviewReward = {
       {
         $setOnInsert: { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
         $set: {
-          "reviewReward.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
-          "reviewReward.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
+          "bumpVoteRewards.disboard_review.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
+          "bumpVoteRewards.disboard_review.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
