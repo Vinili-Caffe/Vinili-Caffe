@@ -2,6 +2,7 @@ const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, Button
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
+const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
 
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe].filter(Boolean).map(String),);
@@ -228,7 +229,16 @@ module.exports = {
 
       await sendMessageEditLog(previous, updated);
 
-      if (updated.author.bot || updated.system || updated.webhookId) return;
+      if (updated.author.bot || updated.system || updated.webhookId || updated.applicationId) {
+        try {
+          if (await handleDisboardBump(updated, resolvedClient)) return;
+          if (await handleDiscadiaBump(updated, resolvedClient)) return;
+          await handleVoteManagerMessage(updated, resolvedClient);
+        } catch (error) {
+          global.logger?.error?.("[messageUpdate] automation handlers failed:", error);
+        }
+        return;
+      }
       if (!after || !contentChanged) return;
 
       const looksLikePrefix = after.startsWith("+");

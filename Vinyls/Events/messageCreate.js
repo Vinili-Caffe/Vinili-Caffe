@@ -13,6 +13,8 @@ const FORCE_DELETE_CHANNEL_IDS=new Set([]);
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
 const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set([IDs.channels.media].filter(Boolean).map((id) => String(id)),);
 const WRONG_PREFIX_HINT_CHANNEL_IDS=new Set([IDs.channels.commands,IDs.channels.staffCmds,IDs.channels.highCmds].filter(Boolean).map((id) => String(id)),);
+const AUTOMATION_RECHECK_DELAY_MS = 8000;
+const automationRecheckJobs = new Map();
 
 function hasAnyStaffBypassPermission(permissions) {
   if (!permissions || typeof permissions.has !== "function") return false;
@@ -84,6 +86,27 @@ async function maybeSendWrongPrefixHint(message, resolvedClient, validPrefix = "
   return true;
 }
 
+function scheduleAutomationMessageRecheck(message, resolvedClient) {
+  const messageId = String(message?.id || "");
+  if (!messageId || automationRecheckJobs.has(messageId)) return;
+  const timeout = setTimeout(async () => {
+    automationRecheckJobs.delete(messageId);
+    try {
+      const channel = message?.channel;
+      if (!channel?.messages?.fetch) return;
+      const fresh = await channel.messages.fetch(messageId).catch(() => null);
+      if (!fresh) return;
+      if (await handleDisboardBump(fresh, resolvedClient)) return;
+      if (await handleDiscadiaBump(fresh, resolvedClient)) return;
+      await handleVoteManagerMessage(fresh, resolvedClient);
+    } catch (error) {
+      logEventError(resolvedClient, "AUTOMATION RECHECK ERROR", error);
+    }
+  }, AUTOMATION_RECHECK_DELAY_MS);
+  timeout.unref?.();
+  automationRecheckJobs.set(messageId, timeout);
+}
+
 module.exports = {
   name: "messageCreate",
   async execute(message, client) {
@@ -111,10 +134,14 @@ module.exports = {
         if (message.author?.bot || message.webhookId || message.applicationId) {
           if (await handleDisboardBump(message, resolvedClient)) return;
           if (await handleDiscadiaBump(message, resolvedClient)) return;
+          scheduleAutomationMessageRecheck(message, resolvedClient);
         }
         if (message.author?.id !== resolvedClient?.user?.id) {
           const handledVote = await handleVoteManagerMessage(message, resolvedClient);
           if (handledVote) return;
+          if (message.author?.bot || message.webhookId || message.applicationId) {
+            scheduleAutomationMessageRecheck(message, resolvedClient);
+          }
         }
       } catch (error) {
         logEventError(resolvedClient, "EARLY BUMP/VOTE HANDLER ERROR", error);
