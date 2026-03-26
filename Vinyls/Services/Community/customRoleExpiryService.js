@@ -125,7 +125,7 @@ async function runExpiredCustomRolesSweep(client) {
   if (!client) return;
   const now = new Date();
   const rows = await execLean(
-    CustomRole.find({ "profile.customRole.expiresAt": { $ne: null, $lte: now } }),
+    CustomRole.find({ expiresAt: { $ne: null, $lte: now } }),
     [],
   ).catch(() => []);
 
@@ -136,8 +136,8 @@ async function runExpiredCustomRolesSweep(client) {
   const cutoff = new Date(Date.now() - CUSTOM_VOC_GRACE_MS);
   const staleVoc = await execLean(
     CustomRole.find({
-      "profile.customRole.customVocChannelId": { $ne: null },
-      "profile.customRole.customVocEligibilityLostAt": { $ne: null, $lte: cutoff },
+      customVocChannelId: { $ne: null },
+      customVocEligibilityLostAt: { $ne: null, $lte: cutoff },
     }),
     [],
   ).catch(() => []);
@@ -163,8 +163,8 @@ async function runExpiredCustomRolesSweep(client) {
   const roleCutoff = new Date(Date.now() - CUSTOM_ROLE_GRACE_MS);
   const staleRole = await execLean(
     CustomRole.find({
-      "profile.customRole.roleId": { $ne: null },
-      "profile.customRole.customRoleEligibilityLostAt": { $ne: null, $lte: roleCutoff },
+      roleId: { $ne: null },
+      customRoleEligibilityLostAt: { $ne: null, $lte: roleCutoff },
     }),
     [],
   ).catch(() => []);

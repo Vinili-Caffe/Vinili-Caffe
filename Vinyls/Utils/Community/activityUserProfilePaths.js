@@ -20,7 +20,7 @@ function sponsorMainLeave(...parts) {
 const MOD_CASES_PATH = "moderation.modCases";
 
 function totals(...parts) {
-  return ["totals", ...parts].join(".");
+  return ["profile", "totals", ...parts].join(".");
 }
 
 module.exports = {
