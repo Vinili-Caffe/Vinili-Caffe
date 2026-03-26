@@ -69,9 +69,7 @@ function buildBlacklistPanelPayload(ownerId, canView, canManage) {
 
 module.exports = {
   name: "blacklist",
-  category: "admin",
-  usage: "`+blacklist` — apre pannello gestione blacklist partnership",
-  examples: ["+blacklist"],
+  allowEmptyArgs: true,
   buildBlacklistPanelPayload,
   hasBlacklistManageRole,
   hasBlacklistViewRole,

@@ -195,7 +195,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       ? "Tutti attivi"
       : `${disabledDmSet.size} categoria/e disattivate`;
   const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
-  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join(" <:VC_Dot:1482532364222595303> ");
+  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join("/ ");
 
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));

@@ -47,7 +47,7 @@ function buildPanelEmbed(prefs, mode = "disable") {
     return `• **${DM_CATEGORY_LABELS[key]}**: ${off ? `${EMOJI_OFF} Disattivato` : `${EMOJI_ON} Attivo`}`;
   });
   const intro = "<:VC_PinkQuestionMark:1471892611026391306> Configura le tue **preferenze DM**. Clicca un pulsante per attivare/disattivare una categoria.";
-  const footerText = "Usa +dm-filters per gestire i tuoi avvisi in DM.";
+  const footerText = "Usa +profile per gestire i tuoi avvisi in DM.";
   const desc = [
     `${intro}`,
     "",
@@ -193,7 +193,7 @@ async function runNoDmPanel(message, options = {}) {
               .setColor("#6f4e37")
               .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
               .setDescription(
-                "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa `+dm-filters` per modificarle in futuro.",
+                "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa `+profile` per modificarle in futuro.",
               ),
           ],
           components: [],

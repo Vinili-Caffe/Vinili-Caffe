@@ -96,7 +96,7 @@ function buildPanelEmbed(states) {
     .setColor("#6f4e37")
     .setTitle("<a:VC_Announce:1482534613568979007> Privacy contenuti")
     .setDescription(desc)
-    .setFooter({ text: "Usa +privacy per riaprire questo pannello." });
+    .setFooter({ text: "Usa +profile per riaprire questo pannello." });
 }
 
 function buildRows(states, uniqueKey) {
@@ -214,7 +214,7 @@ async function runPrivacyPanel(message) {
               .setColor("#6f4e37")
               .setTitle("<:success:1461731530333229226> Privacy aggiornata")
               .setDescription(
-                "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa `+privacy` per modificarle in futuro.",
+                "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa `+profile` per modificarle in futuro.",
               ),
           ],
           components: [],

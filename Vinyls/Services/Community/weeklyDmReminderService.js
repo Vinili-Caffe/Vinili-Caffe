@@ -11,7 +11,7 @@ const MIN_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const STARTUP_BLAST_DM_DELAY_MS = 450;
 const EXTERNAL_STARTUP_DM_DELAY_MS = 600;
 const BLAST_STALE_LOCK_MS = 45 * 60 * 1000;
-const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa +dm-filters nel server.";
+const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa +profile nel server.";
 const DEFAULT_TZ = "Europe/Rome";
 const STAFF_ROLE_IDS = [IDs.roles.Staff, IDs.roles.StafferDelMese, IDs.roles.PartnerManager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Founder, IDs.roles.CoFounder,].map((id) => String(id || "").trim()).filter(Boolean);
 const channelMention = (channelId, fallback) => channelId ? `<#${channelId}>` : fallback;
@@ -40,7 +40,7 @@ const defaultPool = [
   {
     title: "Gestione DM",
     description:
-      "Puoi gestire o disattivare questi promemoria con +dm-filters.",
+      "Puoi gestire o disattivare questi promemoria con +profile.",
   },
   {
     title: "Attività community",
