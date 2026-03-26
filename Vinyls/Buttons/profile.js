@@ -187,6 +187,9 @@ async function fetchProfilePanelState(guild, userId, client) {
 
 function buildSectionEmbed(section, state, user, guild = null) {
   const base = new EmbedBuilder().setColor("#6f4e37");
+  if (user && typeof user === "object" && typeof user.displayAvatarURL === "function") {
+    base.setThumbnail(user.displayAvatarURL({ size: 256 }));
+  }
   const birthday = state?.birthday || {};
   const hasBirthday = Number.isInteger(birthday?.day) && Number.isInteger(birthday?.month);
   const custom = state?.custom || {};
@@ -224,7 +227,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
     return base
       .setDescription([
-        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
         "",
         `<a:VC_Calendar:1482706208149475358> Data: **${formatBirthday(birthday)}**`,
         `<:VC_addperson:1485419347068588073> Età: **${Number.isInteger(ageNow) ? `${ageNow} anni` : "Non impostata"}**`,
@@ -239,7 +242,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
   if (section === SECTION_CUSTOMROLE) {
     return base
       .setDescription([
-        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
         "",
         `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
         `<:VC_Color:1482532543273238569> Ruolo: ${customRoleName}`,
@@ -252,7 +255,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
   if (section === SECTION_CUSTOMVOC) {
     return base
       .setDescription([
-        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
         "",
         `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
         `<:VC_Color:1482532543273238569> Vocale: ${customVocLinked}`,
@@ -308,11 +311,11 @@ function buildSectionEmbed(section, state, user, guild = null) {
   }
 
   return base
-    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${user.username}.`)
+    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`)
     .setDescription([
       "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
       "",
-      "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+      "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
       "",
       `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
       `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
