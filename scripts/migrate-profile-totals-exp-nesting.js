@@ -21,7 +21,18 @@ function mergeObjects(base, extra) {
 }
 
 async function run() {
-  await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
+  const mongoUri =
+    process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
+    process.env.MONGO_URL ||
+    process.env.MONGO_URI ||
+    process.env.MONGODB_URI;
+  if (!mongoUri) {
+    throw new Error(
+      "Mongo URI non trovata. Imposta una tra: MONGO_URL_LOCAL, MONGODB_URI_LOCAL, MONGO_URL, MONGO_URI, MONGODB_URI",
+    );
+  }
+  await mongoose.connect(mongoUri);
   const collection = ActivityUserProfile.collection;
 
   const query = {
