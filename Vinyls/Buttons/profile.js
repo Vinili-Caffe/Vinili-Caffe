@@ -243,6 +243,23 @@ async function ensureOwner(interaction, ownerId) {
   return false;
 }
 
+async function ensureCustomReactionEnabled(interaction, ownerId, client) {
+  const state = await resolveCustomRoleState({
+    guild: interaction.guild,
+    userId: ownerId,
+    client,
+    cleanupExpired: true,
+  }).catch(() => null);
+  const status = String(state?.status || "none");
+  if (status === "active") return true;
+  await interaction.reply({
+    content:
+      "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+customrole`.",
+    flags: PRIVATE_FLAG,
+  }).catch(() => {});
+  return false;
+}
+
 async function handleBirthdaySetModal(interaction, ownerId) {
   const dateRaw = interaction.fields.getTextInputValue("date");
   const ageRaw = interaction.fields.getTextInputValue("age");
@@ -274,6 +291,8 @@ async function handleBirthdaySetModal(interaction, ownerId) {
 }
 
 async function handleReactionSetModal(interaction, ownerId) {
+  const allowed = await ensureCustomReactionEnabled(interaction, ownerId, interaction.client);
+  if (!allowed) return true;
   const raw = interaction.fields.getTextInputValue("reactions");
   const tokens = parseReactionTokens(raw, MAX_REACTIONS, interaction.guild);
   if (!tokens.length) {
@@ -382,6 +401,8 @@ async function execute(interaction, client) {
     }
 
     if (action === "reaction_set") {
+      const allowed = await ensureCustomReactionEnabled(interaction, ownerId, client);
+      if (!allowed) return true;
       const modal = new ModalBuilder()
         .setCustomId(`${PANEL_PREFIX}:modal_reactions:${ownerId}:${SECTION_CUSTOMREACTION}`)
         .setTitle("Imposta Reactions");
@@ -400,6 +421,8 @@ async function execute(interaction, client) {
     }
 
     if (action === "reaction_clear") {
+      const allowed = await ensureCustomReactionEnabled(interaction, ownerId, client);
+      if (!allowed) return true;
       await MentionReaction.deleteOne({ guildId: interaction.guild.id, userId: ownerId }).catch(() => {});
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMREACTION);
       await safeUpdatePanelInteraction(interaction, payload);
