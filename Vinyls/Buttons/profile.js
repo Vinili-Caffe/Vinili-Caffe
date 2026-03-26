@@ -221,7 +221,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       ? "Tutti attivi"
       : `${disabledDmSet.size} categoria/e disattivate`;
   const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
-  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join("/ ");
+  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join("-");
   const profileDisplayName = user && typeof user === "object"
     ? String(user.globalName || user.username || user.tag || "").trim() || "Utente"
     : "Utente";
