@@ -439,6 +439,12 @@ const activityUserProfileSchema = new Schema(
       rolePersist: {
         roles: { type: [Schema.Types.Mixed], default: [] },
       },
+      temporaryRoleGrants: {
+        grants: { type: [Schema.Types.Mixed], default: [] },
+      },
+      temporaryCommandPermissions: {
+        permissions: { type: [Schema.Types.Mixed], default: [] },
+      },
       globalOneTimeReminder: {
         entries: { type: [Schema.Types.Mixed], default: [] },
       },
@@ -734,12 +740,37 @@ const InviteReminderState = {
   },
 };
 const CustomRole = {
+  _mapFilter(filter = {}) {
+    const FIELD_MAP = {
+      roleId: "profile.customRole.roleId",
+      customVocEmoji: "profile.customRole.customVocEmoji",
+      customVocChannelId: "profile.customRole.customVocChannelId",
+      customVocEligibilityLostAt: "profile.customRole.customVocEligibilityLostAt",
+      customRoleEligibilityLostAt: "profile.customRole.customRoleEligibilityLostAt",
+      expiresAt: "profile.customRole.expiresAt",
+    };
+    const walk = (node) => {
+      if (Array.isArray(node)) return node.map((item) => walk(item));
+      if (!node || typeof node !== "object") return node;
+      const out = {};
+      for (const [key, value] of Object.entries(node)) {
+        if (key.startsWith("$")) {
+          out[key] = walk(value);
+          continue;
+        }
+        const mappedKey = FIELD_MAP[key] || key;
+        out[mappedKey] = walk(value);
+      }
+      return out;
+    };
+    return walk(filter);
+  },
   findOne(filter = {}, projection = null) {
     const run = async () => {
-      const doc = await ActivityUserProfile.findOne(filter).select("guildId userId profile.customRole").lean().catch(() => null);
+      const doc = await ActivityUserProfile.findOne(this._mapFilter(filter)).select("_id guildId userId profile.customRole").lean().catch(() => null);
       const s = doc?.profile?.customRole;
       if (!s?.roleId && !s?.customVocChannelId && !s?.expiresAt) return null;
-      const out = { guildId: doc.guildId, userId: doc.userId, ...s };
+      const out = { _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...s };
       if (!projection || typeof projection !== "object") return out;
       const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
       if (!keys.length) return out;
@@ -764,12 +795,12 @@ const CustomRole = {
     let sortSpec = null;
     let limitValue = null;
     const run = async () => {
-      let q = ActivityUserProfile.find(filter).select("guildId userId profile.customRole");
+      let q = ActivityUserProfile.find(this._mapFilter(filter)).select("_id guildId userId profile.customRole");
       if (sortSpec) q = q.sort(sortSpec);
       if (Number.isFinite(limitValue) && limitValue > 0) q = q.limit(limitValue);
       const docs = await q.lean().catch(() => []);
       const mapped = docs
-        .map((doc) => ({ guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
+        .map((doc) => ({ _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
         .filter((x) => x.roleId || x.customVocChannelId || x.expiresAt);
       if (!projection || typeof projection !== "object") return mapped;
       const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
@@ -805,7 +836,7 @@ const CustomRole = {
     const setPayload = update?.$set || {};
     const setOnInsert = update?.$setOnInsert || {};
     const doc = await ActivityUserProfile.findOneAndUpdate(
-      filter,
+      this._mapFilter(filter),
       {
         $setOnInsert: { guildId: String(filter?.guildId || setOnInsert?.guildId || ""), userId: String(filter?.userId || setOnInsert?.userId || "") },
         $set: {
@@ -825,7 +856,7 @@ const CustomRole = {
   async updateOne(filter, update = {}, options = {}) {
     const setPayload = update?.$set || {};
     return ActivityUserProfile.updateOne(
-      filter,
+      this._mapFilter(filter),
       {
         $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || "") },
         $set: {
@@ -841,7 +872,7 @@ const CustomRole = {
     ).catch(() => ({ modifiedCount: 0 }));
   },
   async deleteOne(filter) {
-    return ActivityUserProfile.updateOne(filter, {
+    return ActivityUserProfile.updateOne(this._mapFilter(filter), {
       $set: {
         "profile.customRole.roleId": null,
         "profile.customRole.customVocEmoji": null,

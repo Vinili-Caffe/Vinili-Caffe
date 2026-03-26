@@ -67,11 +67,12 @@ async function canManageChannels(guild) {
 }
 
 async function processExpiredCustomRole(client, doc) {
-  if (!client || !doc?._id) return false;
+  if (!client || !doc?.guildId || !doc?.userId) return false;
+  const identityFilter = { guildId: String(doc.guildId), userId: String(doc.userId) };
 
   const guild = client.guilds.cache.get(doc.guildId) || (await getClientGuildCached(client, doc.guildId));
   if (!guild) {
-    await CustomRole.deleteOne({ _id: doc._id }).catch(() => { });
+    await CustomRole.deleteOne(identityFilter).catch(() => { });
     return true;
   }
 
@@ -106,13 +107,13 @@ async function processExpiredCustomRole(client, doc) {
   }
 
   if (roleHandled && channelHandled) {
-    await CustomRole.deleteOne({ _id: doc._id }).catch(() => { });
+    await CustomRole.deleteOne(identityFilter).catch(() => { });
     return true;
   }
 
   if (channelHandled && doc.customVocChannelId) {
     await CustomRole.updateOne(
-      { _id: doc._id },
+      identityFilter,
       { $set: { customVocChannelId: null } },
     ).catch(() => { });
   }
@@ -124,7 +125,7 @@ async function runExpiredCustomRolesSweep(client) {
   if (!client) return;
   const now = new Date();
   const rows = await execLean(
-    CustomRole.find({ expiresAt: { $ne: null, $lte: now } }),
+    CustomRole.find({ "profile.customRole.expiresAt": { $ne: null, $lte: now } }),
     [],
   ).catch(() => []);
 
@@ -135,8 +136,8 @@ async function runExpiredCustomRolesSweep(client) {
   const cutoff = new Date(Date.now() - CUSTOM_VOC_GRACE_MS);
   const staleVoc = await execLean(
     CustomRole.find({
-      customVocChannelId: { $ne: null },
-      customVocEligibilityLostAt: { $ne: null, $lte: cutoff },
+      "profile.customRole.customVocChannelId": { $ne: null },
+      "profile.customRole.customVocEligibilityLostAt": { $ne: null, $lte: cutoff },
     }),
     [],
   ).catch(() => []);
@@ -144,7 +145,7 @@ async function runExpiredCustomRolesSweep(client) {
     try {
       const guild = client.guilds.cache.get(doc.guildId) || (await getClientGuildCached(client, doc.guildId));
       if (!guild) {
-        await CustomRole.updateOne({ _id: doc._id }, { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } }).catch(() => {});
+        await CustomRole.updateOne({ guildId: doc.guildId, userId: doc.userId }, { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } }).catch(() => {});
         continue;
       }
       const voiceChannel = await resolveVoiceChannel(guild, doc);
@@ -152,7 +153,7 @@ async function runExpiredCustomRolesSweep(client) {
         await voiceChannel.delete(`Custom private voice removed after 14d without eligibility for user ${doc.userId}`).catch(() => {});
       }
       await CustomRole.updateOne(
-        { _id: doc._id },
+        { guildId: doc.guildId, userId: doc.userId },
         { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } },
       ).catch(() => {});
     } catch {
@@ -162,8 +163,8 @@ async function runExpiredCustomRolesSweep(client) {
   const roleCutoff = new Date(Date.now() - CUSTOM_ROLE_GRACE_MS);
   const staleRole = await execLean(
     CustomRole.find({
-      roleId: { $ne: null },
-      customRoleEligibilityLostAt: { $ne: null, $lte: roleCutoff },
+      "profile.customRole.roleId": { $ne: null },
+      "profile.customRole.customRoleEligibilityLostAt": { $ne: null, $lte: roleCutoff },
     }),
     [],
   ).catch(() => []);
