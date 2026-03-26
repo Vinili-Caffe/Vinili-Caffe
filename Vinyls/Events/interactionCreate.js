@@ -8,6 +8,51 @@ const { handleCustomRoleInteraction } = require("./interaction/customRoleHandler
 const{acquireButtonSpamGuard,runPermissionGate,}=require("../Utils/Interaction/interactionRuntimeGuards");
 const{logInteractionError,}=require("../Utils/Interaction/interactionErrorHandler");
 
+function extractProfilePanelOwnerIdFromMessage(message) {
+  const rows = Array.isArray(message?.components) ? message.components : [];
+  for (const row of rows) {
+    const comps = Array.isArray(row?.components) ? row.components : [];
+    for (const comp of comps) {
+      const customId = String(comp?.customId || "");
+      if (!customId.startsWith("profile_panel:select:")) continue;
+      const parts = customId.split(":");
+      const ownerId = String(parts[2] || "");
+      if (/^\d{16,20}$/.test(ownerId)) return ownerId;
+    }
+  }
+  return null;
+}
+
+function extractProfileSectionFromMessage(message) {
+  const rows = Array.isArray(message?.components) ? message.components : [];
+  for (const row of rows) {
+    const comps = Array.isArray(row?.components) ? row.components : [];
+    for (const comp of comps) {
+      const customId = String(comp?.customId || "");
+      if (!customId.startsWith("profile_panel:select:")) continue;
+      const options = Array.isArray(comp?.options) ? comp.options : [];
+      const selected = options.find((opt) => opt?.default === true);
+      const value = String(selected?.value || "");
+      if (value) return value;
+    }
+  }
+  return "home";
+}
+
+async function refreshProfilePanelIfPresent(interaction, client) {
+  const msg = interaction?.message;
+  if (!msg?.edit || !interaction?.guild) return;
+  const ownerId = extractProfilePanelOwnerIdFromMessage(msg);
+  if (!ownerId) return;
+  const section = extractProfileSectionFromMessage(msg);
+  const profileButton = require("../Buttons/profile");
+  const payload = await profileButton
+    .buildPanelPayload(interaction.guild, ownerId, client, section)
+    .catch(() => null);
+  if (!payload) return;
+  await msg.edit(payload).catch(() => {});
+}
+
 module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
@@ -52,7 +97,10 @@ module.exports = {
       if (!allowedByGate) return;
 
       if (await handlePartnerModal(interaction)) return;
-      if (await handleCustomRoleInteraction(interaction)) return;
+      if (await handleCustomRoleInteraction(interaction)) {
+        await refreshProfilePanelIfPresent(interaction, resolvedClient);
+        return;
+      }
       if (await handleButtonInteraction(interaction, resolvedClient)) return;
     } catch (err) {
       await logInteractionError(interaction, resolvedClient, err);

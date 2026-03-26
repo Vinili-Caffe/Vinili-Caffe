@@ -158,7 +158,14 @@ function buildSectionEmbed(section, state, user, guild = null) {
   const hasBirthday = Number.isInteger(birthday?.day) && Number.isInteger(birthday?.month);
   const custom = state?.custom || {};
   const customDoc = custom?.doc || null;
-  const customRoleStatus = custom?.status || "Nessun ruolo";
+  const customStatusRaw = String(custom?.status || "none");
+  const customRoleStatus = customStatusRaw === "active"
+    ? "Attivo"
+    : customStatusRaw === "expired"
+      ? "Scaduto"
+      : customStatusRaw === "missing_role"
+        ? "Ruolo mancante"
+        : "Nessun ruolo";
   const customRoleName = custom?.role?.name ? `**${custom.role.name}**` : "Nessun ruolo attivo";
   const customRoleMention = custom?.role?.id ? `<@&${custom.role.id}>` : "Non impostato";
   const customRoleExpiry = customDoc ? buildExpiryText(customDoc) : "—";
@@ -283,25 +290,31 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`customrole_color:${ownerId}:${roleId || "0"}`).setLabel("Modifica Colore").setEmoji("<:VC_Color:1482532543273238569>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
       new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${roleId || "0"}`).setLabel("Modifica Icona").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
     );
+    if (!roleId) {
+      const row3 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
+      );
+      return [row1, row2, row3];
+    }
     const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(Boolean(roleId)),
-      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${roleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!roleId),
-      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${roleId || "0"}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
-    );
-    const row4 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
-    );
-    return [row1, row2, row3, row4];
-  } else if (section === SECTION_CUSTOMVOC) {
-    row2.addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_create`).setLabel("Crea Vocale").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(Boolean(customVocChannelId)),
-      new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!customVocChannelId),
-      new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Secondary).setDisabled(!customVocChannelId),
-    );
-    const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_delete`).setLabel("Elimina Vocale").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!customVocChannelId),
+      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${roleId}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${roleId}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
     );
     return [row1, row2, row3];
+  } else if (section === SECTION_CUSTOMVOC) {
+    if (!customVocChannelId) {
+      row2.addComponents(
+        new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_create`).setLabel("Crea Vocale").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
+      );
+      return [row1, row2];
+    }
+    row2.addComponents(
+      new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_delete`).setLabel("Elimina Vocale").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
+    );
+    return [row1, row2];
   } else if (section === SECTION_CUSTOMREACTION) {
     return [row1, ...buildCustomReactionPanelRows(ownerId)];
   } else {
