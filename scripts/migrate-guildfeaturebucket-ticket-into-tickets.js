@@ -55,17 +55,25 @@ async function run() {
     return;
   }
 
+  const beforeTickets = toArray(doc.tickets).length;
+  const beforeTicket = toArray(doc.ticket).length;
   const merged = mergeTicketArrays(doc.tickets, doc.ticket);
-  await collection.updateOne(
+  const updateResult = await collection.updateOne(
     { _id: doc._id },
     {
       $set: { tickets: merged },
       $unset: { ticket: "" },
     },
   );
+  const after = await collection.findOne(
+    { _id: doc._id },
+    { projection: { ticket: 1, tickets: 1 } },
+  );
+  const afterTickets = toArray(after?.tickets).length;
+  const afterTicket = toArray(after?.ticket).length;
 
   console.log(
-    `[migrate-guildfeaturebucket-ticket-into-tickets] guild=${TARGET_GUILD_ID} tickets=${toArray(doc.tickets).length} ticket=${toArray(doc.ticket).length} merged=${merged.length}`,
+    `[migrate-guildfeaturebucket-ticket-into-tickets] guild=${TARGET_GUILD_ID} before(tickets=${beforeTickets},ticket=${beforeTicket}) merged=${merged.length} update(matched=${Number(updateResult?.matchedCount || 0)},modified=${Number(updateResult?.modifiedCount || 0)}) after(tickets=${afterTickets},ticket=${afterTicket})`,
   );
   await mongoose.disconnect();
 }
