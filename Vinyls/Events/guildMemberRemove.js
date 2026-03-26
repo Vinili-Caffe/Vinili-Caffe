@@ -137,7 +137,7 @@ async function markInviteInactive(member) {
   ).catch(() => { });
 }
 
-async function closeOpenTicketsForMember(member) {
+async function closeOpenTicketsForMember(member, closeReason = "Utente uscito dal server") {
   const guild = member.guild;
   const client = member.client;
   const openTickets = await Ticket.find({ userId: member.id, open: true, guildId: guild.id }).catch(() => []);
@@ -173,7 +173,7 @@ async function closeOpenTicketsForMember(member) {
           ticketNumber,
           transcript: transcriptTXT,
           transcriptHtmlPath: transcriptHtmlPath || null,
-          closeReason: "Utente uscito dal server",
+          closeReason,
           closedAt: new Date(),
           closedBy: member.client.user?.id || null,
         },
@@ -185,7 +185,7 @@ async function closeOpenTicketsForMember(member) {
       const closeEmbedData = {
         ...(ticketAfter || ticket.toObject?.() || {}),
         ticketNumber,
-        closeReason: "Utente uscito dal server",
+        closeReason,
         closedBy: member.client.user?.id || null,
         closedAt: new Date(),
         guildName: ticketGuild?.name || guild?.name || "Ticket System",
@@ -325,16 +325,16 @@ async function handlePartnershipOnLeave(member, client) {
 async function sendMemberKickLog(member) {
   const guild = member?.guild;
   const targetId = String(member?.user?.id || "");
-  if (!guild || !targetId) return;
+  if (!guild || !targetId) return false;
   const recentJoinGateKick = consumeRecentJoinGateKick(guild.id, targetId);
-  if (recentJoinGateKick) return;
+  if (recentJoinGateKick) return false;
 
   if (
     !guild.members.me?.permissions?.has?.(
       PermissionsBitField.Flags.ViewAuditLog,
     )
   ) {
-    return;
+    return false;
   }
 
   let entry = null;
@@ -355,15 +355,15 @@ async function sendMemberKickLog(member) {
     if (entry) break;
     if (attempt < 2) await sleep(700);
   }
-  if (!entry) return;
+  if (!entry) return false;
   const executorId = String(entry?.executor?.id || "");
   const botUserId = String(guild?.members?.me?.id || guild?.client?.user?.id || "");
   const reasonText = String(entry?.reason || "").trim().toLowerCase();
   const isJoinGateKickByBot = botUserId && executorId && executorId === botUserId && JOIN_GATE_KICK_REASON_PATTERNS.some((value) => reasonText.includes(value));
-  if (isJoinGateKickByBot) return;
+  if (isJoinGateKickByBot) return false;
 
   const logChannel = await getGuildChannelCached(guild, IDs.channels.modLogs);
-  if (!logChannel?.isTextBased?.()) return;
+  if (!logChannel?.isTextBased?.()) return true;
 
   const responsible = formatActor(entry.executor);
   const nowTs = Math.floor(Date.now() / 1000);
@@ -386,6 +386,7 @@ async function sendMemberKickLog(member) {
     action: "kick",
     targetId,
   });
+  return true;
 }
 
 /**
@@ -468,12 +469,15 @@ module.exports = {
       }
 
       await sendLeaveLog(member);
-      await sendMemberKickLog(member);
+      const wasKicked = await sendMemberKickLog(member);
       await markInviteInactive(member);
 
       const guild = member.guild;
 
-      await closeOpenTicketsForMember(member);
+      await closeOpenTicketsForMember(
+        member,
+        wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
+      );
       await handleTrackedStaffLeave(member);
       await handlePartnershipOnLeave(member, client);
       await cleanupUserData(guild.id, member.id);

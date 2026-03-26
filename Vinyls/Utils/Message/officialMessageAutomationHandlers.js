@@ -463,21 +463,10 @@ async function handleDiscadiaBump(message, client) {
   if (shouldSkipProcessedBump(dedupeKey)) return true;
   const bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
-  const discadiaCooldownMs = (client?.config?.discadia?.cooldownMinutes ?? 1440) * 60 * 1000;
-  const recordResult = await recordDiscadiaBump(client, message.guild.id, bumpUserId);
+  await recordDiscadiaBump(client, message.guild.id, bumpUserId);
   let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
     "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" +
     bumpMention;
-  if (bumpUserId && recordResult?.previousLastBumpAt !== undefined) {
-    const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "discadia_bump", recordResult.previousLastBumpAt, discadiaCooldownMs, undefined, recordResult?.previousReminderSentAt || null, recordResult?.previousLastBumpUserId || null).catch(() => null);
-    if (reward?.effectiveExp != null) {
-      const parts = ["<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**", "<:VC_EXP:1482534670896730143> **" + reward.effectiveExp + " exp** guadagnati!"];
-      if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Risposta rapida +" + reward.fastBonus + " exp");
-      if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
-      parts.push("<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" + bumpMention);
-      thanksMessage = parts.join("\n");
-    }
-  }
   const channel = message.channel || (message.channelId ? await getGuildChannelCached(message.guild, message.channelId) : null);
   if (channel?.isTextBased?.()) {
     if (hasExistingBumpThanksReply(channel, message.id, client.user?.id)) return true;

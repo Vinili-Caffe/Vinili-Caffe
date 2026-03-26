@@ -2,6 +2,8 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
+const Ticket = require("../Schemas/Ticket/ticketSchema");
+const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -26,6 +28,45 @@ function normalizeReason(value) {
   return `${text.slice(0, 897)}...`;
 }
 
+async function closeOpenTicketsForBannedUser(guild, userId, reason = null) {
+  if (!guild || !userId) return { closed: 0 };
+  const openTickets = await Ticket.find({
+    guildId: String(guild.id),
+    userId: String(userId),
+    open: true,
+  }).limit(30).lean().catch(() => []);
+  if (!Array.isArray(openTickets) || openTickets.length === 0) return { closed: 0 };
+
+  let closed = 0;
+  for (const ticket of openTickets) {
+    try {
+      const channelId = String(ticket?.channelId || "");
+      const channel = channelId
+        ? (guild.channels.cache.get(channelId) || (await getClientChannelCached(guild.client, channelId)))
+        : null;
+
+      await Ticket.updateOne(
+        { _id: ticket._id, guildId: String(guild.id), open: true },
+        {
+          $set: {
+            open: false,
+            closedAt: new Date(),
+            closeReason: reason || "Ticket chiuso automaticamente: utente bannato.",
+            closedBy: "system:ban",
+          },
+        },
+      ).catch(() => ({ modifiedCount: 0 }));
+
+      if (channel?.deletable) {
+        await channel.delete(`Ticket auto-chiuso: utente bannato (${userId})`).catch(() => { });
+      }
+      closed += 1;
+    } catch {
+    }
+  }
+  return { closed };
+}
+
 module.exports = {
   name: "guildBanAdd",
   async execute(ban) {
@@ -41,6 +82,7 @@ module.exports = {
       if (auditEntry?.executor) executor = auditEntry.executor;
       if (auditEntry?.reason) reason = normalizeReason(auditEntry.reason);
       const executorId = String(auditEntry?.executor?.id || "");
+      const ticketClose = await closeOpenTicketsForBannedUser(guild, targetId, reason);
 
       const logChannel = await resolveModLogChannel(guild);
       if (logChannel?.isTextBased?.()) {
@@ -53,6 +95,7 @@ module.exports = {
               `${ARROW} **Target:** ${ban.user || "sconosciuto"}\`${targetId}\``,
               `${ARROW} ${nowDiscordTs()}`,
               reason ? `${ARROW} **Reason:** ${reason}` : null,
+              ticketClose?.closed ? `${ARROW} **Ticket chiusi automaticamente:** ${ticketClose.closed}` : null,
               ...buildAuditExtraLines(auditEntry, ["reason"]),
             ]
               .filter(Boolean)
