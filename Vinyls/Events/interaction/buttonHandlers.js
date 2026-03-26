@@ -12,7 +12,9 @@ module.exports = {
       try {
         if (handler.match(interaction)) {
           const result = await handler.execute(interaction, client);
-          return result === true;
+          if (result === true) {
+            return true;
+          }
         }
       } catch (error) {
         global.logger?.error?.(`[BUTTON_HANDLERS] ${handler.name} execute error:`, error);

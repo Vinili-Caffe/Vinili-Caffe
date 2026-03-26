@@ -42,6 +42,28 @@ function formatBirthday(profile) {
   return `${dd}/${mm}`;
 }
 
+function formatBirthdayWithOptionalYear(profile) {
+  const day = Number(profile?.day || 0);
+  const month = Number(profile?.month || 0);
+  if (!day || !month) return "Non impostato";
+  const dd = String(day).padStart(2, "0");
+  const mm = String(month).padStart(2, "0");
+  const canShowYear = profile?.showAge !== false && Number.isInteger(profile?.birthYear);
+  return canShowYear ? `${dd}/${mm}/${profile.birthYear}` : `${dd}/${mm}`;
+}
+
+async function safeUpdatePanelInteraction(interaction, payload) {
+  const updated = await interaction.update(payload).then(() => true).catch(() => false);
+  if (updated) return true;
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferUpdate().catch(() => {});
+  }
+  if (interaction.message?.edit) {
+    await interaction.message.edit(payload).catch(() => {});
+  }
+  return true;
+}
+
 function parsePanelCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 3) return null;
@@ -74,22 +96,24 @@ function buildSectionEmbed(section, state, user) {
   const customDoc = custom?.doc || null;
   const customRoleStatus = custom?.status || "none";
   const customRoleName = custom?.role?.name ? `**${custom.role.name}**` : "Nessun ruolo attivo";
+  const customRoleMention = custom?.role?.id ? `<@&${custom.role.id}>` : "Non impostato";
   const customRoleExpiry = customDoc ? buildExpiryText(customDoc) : "—";
   const customVocLinked = customDoc?.customVocChannelId ? `<#${customDoc.customVocChannelId}>` : "Nessuna vocale collegata";
   const customVocEmoji = String(customDoc?.customVocEmoji || "").trim() || "Non impostata";
   const reactionList = Array.isArray(state?.reactions) ? state.reactions : [];
+  const reactionsText = reactionList.length ? reactionList.map(toDisplay).join(" ") : "Non impostate";
   const birthdayPrivacy = birthday?.showAge === false ? "Nascosta" : "Visibile";
 
   if (section === SECTION_BIRTHDAY) {
     return base
-      .setTitle("Profile Center • Birthday")
+      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Birthday")
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Gestisci compleanno dal pannello rapido.",
         "",
         "**Configurazione attuale**",
-        `• Data: **${formatBirthday(birthday)}**`,
-        `• Età: **${Number.isInteger(birthday?.birthYear) ? "Impostata" : "Non impostata"}**`,
-        `• Privacy età: **${birthdayPrivacy}**`,
+        `<:VC_Dot:1482532364222595303> Data: **${formatBirthday(birthday)}**`,
+        `<:VC_Dot:1482532364222595303> Età: **${Number.isInteger(birthday?.birthYear) ? "Impostata" : "Non impostata"}**`,
+        `<:VC_Dot:1482532364222595303> Privacy età: **${birthdayPrivacy}**`,
         "",
         hasBirthday
           ? "Usa i pulsanti sotto per aggiornare o rimuovere il profilo."
@@ -99,15 +123,15 @@ function buildSectionEmbed(section, state, user) {
 
   if (section === SECTION_CUSTOMROLE) {
     return base
-      .setTitle("Profile Center • Custom Role")
+      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Custom Role")
       .setDescription([
         "<:VC_Modifica:1478859646587633717> Hub custom role.",
         "",
         "**Configurazione attuale**",
-        `• Stato: **${customRoleStatus}**`,
-        `• Ruolo: ${customRoleName}`,
-        `• Scadenza: **${customRoleExpiry}**`,
-        `• Vocale collegata: ${customVocLinked}`,
+        `<:VC_Dot:1482532364222595303> Stato: **${customRoleStatus}**`,
+        `<:VC_Dot:1482532364222595303> Ruolo: ${customRoleName}`,
+        `<:VC_Dot:1482532364222595303> Scadenza: **${customRoleExpiry}**`,
+        `<:VC_Dot:1482532364222595303> Vocale collegata: ${customVocLinked}`,
         "",
         "Usa i pulsanti per aprire i setup dedicati.",
       ].join("\n"));
@@ -115,14 +139,14 @@ function buildSectionEmbed(section, state, user) {
 
   if (section === SECTION_CUSTOMVOC) {
     return base
-      .setTitle("Profile Center • Custom Voc")
+      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Custom Voc")
       .setDescription([
         "<:VC_Headphone:1482532659514351686> Gestione vocale privata.",
         "",
         "**Configurazione attuale**",
-        `• Stato custom role: **${customRoleStatus}**`,
-        `• Vocale privata: ${customVocLinked}`,
-        `• Emoji vocale: **${customVocEmoji}**`,
+        `<:VC_Dot:1482532364222595303> Stato custom role: **${customRoleStatus}**`,
+        `<:VC_Dot:1482532364222595303> Vocale privata: ${customVocLinked}`,
+        `<:VC_Dot:1482532364222595303> Emoji vocale: **${customVocEmoji}**`,
         "",
         "Apri il setup con il comando guidato.",
       ].join("\n"));
@@ -130,14 +154,14 @@ function buildSectionEmbed(section, state, user) {
 
   if (section === SECTION_CUSTOMREACTION) {
     return base
-      .setTitle("Profile Center • Custom Reaction")
+      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Custom Reaction")
       .setDescription([
         "<:VC_emoji:1485419161168511036> Reaction automatiche alle menzioni.",
         "",
         "**Configurazione attuale**",
         reactionList.length
-          ? `• Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map(toDisplay).join(" ")}`
-          : "• Nessuna reaction attiva.",
+          ? `<:VC_Dot:1482532364222595303> Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map(toDisplay).join(" ")}`
+          : "<:VC_Dot:1482532364222595303> Nessuna reaction attiva.",
         "",
         "Puoi impostarle qui dal pannello.",
       ].join("\n"));
@@ -145,25 +169,18 @@ function buildSectionEmbed(section, state, user) {
 
   const reactionsCount = reactionList.length;
   return base
-    .setTitle("Profile Center")
     .setDescription([
       `<a:VC_Announce:1482534613568979007> Benvenuto ${user}.`,
-      "Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
+      "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
       "",
-      "**Stato rapido**",
-      `• Birthday: **${hasBirthday ? "Configurato" : "Non configurato"}**`,
-      `• Custom Role: **${customRoleStatus}**`,
-      `• Vocale Privata: **${customVocLinked}**`,
-      `• Custom Reactions: **${reactionsCount}/${MAX_REACTIONS}**`,
+      "<:VC_Info:1482526956703580372> **configurazione attuale**",
+      `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**${hasBirthday ? ` (privacy: ${birthdayPrivacy})` : ""}`,
+      `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
+      `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
+      `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
       "",
-      "**Configurazione attuale**",
-      `• Data birthday: **${formatBirthday(birthday)}**`,
-      `• Privacy età: **${birthdayPrivacy}**`,
-      `• Ruolo attivo: ${customRoleName}`,
-      `• Emoji vocale: **${customVocEmoji}**`,
-      "Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
+      "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
     ].join("\n"))
-    .setFooter({ text: "Profile Center • aggiornamento live" });
 }
 
 function buildRows(ownerId, section) {
@@ -171,11 +188,11 @@ function buildRows(ownerId, section) {
     .setCustomId(`${PANEL_PREFIX}:select:${ownerId}`)
     .setPlaceholder("Scegli una sezione")
     .addOptions(
-      { label: "Home", value: SECTION_HOME, emoji: "🏠", default: section === SECTION_HOME },
-      { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "🎂", default: section === SECTION_BIRTHDAY },
-      { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "🎨", default: section === SECTION_CUSTOMROLE },
-      { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "🎧", default: section === SECTION_CUSTOMVOC },
-      { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "✨", default: section === SECTION_CUSTOMREACTION },
+      { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
+      { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
+      { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
+      { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
+      { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
     );
 
   const row1 = new ActionRowBuilder().addComponents(select);
@@ -203,9 +220,7 @@ function buildRows(ownerId, section) {
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:open_customreaction`).setLabel("Apri +customreaction").setStyle(ButtonStyle.Secondary),
     );
   } else {
-    row2.addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:refresh`).setLabel("Aggiorna").setStyle(ButtonStyle.Secondary),
-    );
+    return [row1];
   }
 
   return [row1, row2];
@@ -299,7 +314,7 @@ async function execute(interaction, client) {
   if (interaction.isStringSelectMenu() && kind === "select") {
     const section = String(interaction.values?.[0] || SECTION_HOME);
     const payload = await buildPanelPayload(interaction.guild, ownerId, client, section);
-    await interaction.update(payload).catch(() => {});
+    await safeUpdatePanelInteraction(interaction, payload);
     return true;
   }
 
@@ -307,7 +322,7 @@ async function execute(interaction, client) {
     const action = String(rest?.[0] || "");
     if (action === "refresh") {
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_HOME);
-      await interaction.update(payload).catch(() => {});
+      await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }
 
@@ -355,14 +370,14 @@ async function execute(interaction, client) {
         registrationChannelId: profile.registrationChannelId,
       }).catch(() => {});
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
-      await interaction.update(payload).catch(() => {});
+      await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }
 
     if (action === "birthday_clear") {
       await clearBirthdayProfile(interaction.guild.id, ownerId).catch(() => {});
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
-      await interaction.update(payload).catch(() => {});
+      await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }
 
@@ -387,7 +402,7 @@ async function execute(interaction, client) {
     if (action === "reaction_clear") {
       await MentionReaction.deleteOne({ guildId: interaction.guild.id, userId: ownerId }).catch(() => {});
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMREACTION);
-      await interaction.update(payload).catch(() => {});
+      await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }
 
