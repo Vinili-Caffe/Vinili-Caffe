@@ -106,11 +106,11 @@ function buildSectionEmbed(section, state, user, guild = null) {
   const hasBirthday = Number.isInteger(birthday?.day) && Number.isInteger(birthday?.month);
   const custom = state?.custom || {};
   const customDoc = custom?.doc || null;
-  const customRoleStatus = custom?.status || "none";
+  const customRoleStatus = custom?.status || "Nessun ruolo";
   const customRoleName = custom?.role?.name ? `**${custom.role.name}**` : "Nessun ruolo attivo";
   const customRoleMention = custom?.role?.id ? `<@&${custom.role.id}>` : "Non impostato";
   const customRoleExpiry = customDoc ? buildExpiryText(customDoc) : "—";
-  const customVocLinked = customDoc?.customVocChannelId ? `<#${customDoc.customVocChannelId}>` : "Nessuna vocale collegata";
+  const customVocLinked = customDoc?.customVocChannelId ? `<#${customDoc.customVocChannelId}>` : "Nessuna vocale";
   const customVocEmoji = String(customDoc?.customVocEmoji || "").trim() || "Non impostata";
   const reactionList = Array.isArray(state?.reactions) ? state.reactions : [];
   const reactionsText = reactionList.length ? reactionList.map((token) => renderReactionToken(token, guild)).join(" ") : "Non impostate";
@@ -121,14 +121,14 @@ function buildSectionEmbed(section, state, user, guild = null) {
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Gestisci compleanno dal pannello rapido.",
         "",
-        "**Configurazione attuale**",
-        `<:VC_Dot:1482532364222595303> Data: **${formatBirthday(birthday)}**`,
-        `<:VC_Dot:1482532364222595303> Età: **${Number.isInteger(birthday?.birthYear) ? "Impostata" : "Non impostata"}**`,
-        `<:VC_Dot:1482532364222595303> Privacy età: **${birthdayPrivacy}**`,
+        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        `<a:VC_Calendar:1482706208149475358> Data: **${formatBirthday(birthday)}**`,
+        `<:VC_addperson:1485419347068588073> Età: **${Number.isInteger(birthday?.birthYear) ? "Impostata" : "Non impostata"}**`,
+        `<:VC_Lock:1482526739044368476> Privacy età: **${birthdayPrivacy}**`,
         "",
         hasBirthday
-          ? "Usa i pulsanti sotto per aggiornare o rimuovere il profilo."
-          : "Premi **Imposta Birthday** per iniziare.",
+          ? "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire."
+          : "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
       ].join("\n"));
   }
 
@@ -137,12 +137,12 @@ function buildSectionEmbed(section, state, user, guild = null) {
       .setDescription([
         "<:VC_Modifica:1478859646587633717> Hub custom role.",
         "",
-        "**Configurazione attuale**",
-        `<:VC_Dot:1482532364222595303> Stato: **${customRoleStatus}**`,
-        `<:VC_Dot:1482532364222595303> Ruolo: ${customRoleName}`,
-        `<:VC_Dot:1482532364222595303> Scadenza: **${customRoleExpiry}**`,
+        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
+        `<:VC_Color:1482532543273238569> Ruolo: ${customRoleName}`,
+        `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
         "",
-        "Usa i pulsanti per aprire i setup dedicati.",
+        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
       ].join("\n"));
   }
 
@@ -151,11 +151,12 @@ function buildSectionEmbed(section, state, user, guild = null) {
       .setDescription([
         "<:VC_Modifica:1478859646587633717> Hub custom voc.",
         "",
-        "**Configurazione attuale**",
-        `<:VC_Dot:1482532364222595303> Stato: **${customRoleStatus}**`,
-        `<:VC_Dot:1482532364222595303> Vocale privata: ${customVocLinked}`,
+        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+        `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
+        `<:VC_Color:1482532543273238569> Vocale: ${customVocLinked}`,
+        `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
         "",
-        "Apri il setup con il comando guidato.",
+        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
       ].join("\n"));
   }
 
@@ -164,12 +165,12 @@ function buildSectionEmbed(section, state, user, guild = null) {
       .setDescription([
         "<:VC_emoji:1485419161168511036> Reaction automatiche alle menzioni.",
         "",
-        "**Configurazione attuale**",
+        "<:VC_Info:1482526956703580372> **Configurazione attuale**",
         reactionList.length
-          ? `<:VC_Dot:1482532364222595303> Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map((token) => renderReactionToken(token, guild)).join(" ")}`
-          : "<:VC_Dot:1482532364222595303> Nessuna reaction attiva.",
+          ? `<:VC_emoji:1485419161168511036> Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map((token) => renderReactionToken(token, guild)).join(" ")}`
+          : "<:VC_emoji:1485419161168511036> Nessuna reaction attiva.",
         "",
-        "Puoi impostarle qui dal pannello.",
+        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
       ].join("\n"));
   }
 
@@ -180,7 +181,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
       "",
       "<:VC_Info:1482526956703580372> **Configurazione attuale**",
-      `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**${hasBirthday ? ` (privacy: ${birthdayPrivacy})` : ""}`,
+      `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
