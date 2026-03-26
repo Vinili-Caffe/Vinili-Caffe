@@ -88,9 +88,7 @@ async function main() {
       discadiaVote: 1,
       "bumpVoteRewards.discadia_vote": 1,
     },
-  )
-    .lean()
-    .cursor();
+  );
 
   const ops = [];
   let scanned = 0;
