@@ -52,7 +52,10 @@ function parseAge(rawValue) {
 
 function computeAgeNow(day, month, birthYear) {
   if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(birthYear)) return null;
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  if (birthYear < 1900) return null;
   const today = getRomeDateParts(new Date());
+  if (birthYear > today.year) return null;
   const hasBirthdayPassed = today.month > month || (today.month === month && today.day >= day);
   return Math.max(1, today.year - Number(birthYear) - (hasBirthdayPassed ? 0 : 1));
 }
@@ -191,7 +194,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
     base.setThumbnail(user.displayAvatarURL({ size: 256 }));
   }
   const birthday = state?.birthday || {};
-  const hasBirthday = Number.isInteger(birthday?.day) && Number.isInteger(birthday?.month);
+  const hasBirthday = Boolean(Number(birthday?.day) && Number(birthday?.month));
   const custom = state?.custom || {};
   const customDoc = custom?.doc || null;
   const customStatusRaw = String(custom?.status || "none");
