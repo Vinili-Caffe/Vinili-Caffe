@@ -313,9 +313,9 @@ async function persistStatus(guildId, userId, payload) {
       {
         $setOnInsert: { guildId, userId },
         $set: {
-          "supporterStatus.hasLink": Boolean(payload?.hasLink),
-          "supporterStatus.lastMessageId": payload?.lastMessageId || null,
-          ...(payload?.lastSentAt ? { "supporterStatus.lastSentAt": payload.lastSentAt } : {}),
+          "profile.supporterStatus.hasLink": Boolean(payload?.hasLink),
+          "profile.supporterStatus.lastMessageId": payload?.lastMessageId || null,
+          ...(payload?.lastSentAt ? { "profile.supporterStatus.lastSentAt": payload.lastSentAt } : {}),
         },
       },
       { upsert: true },
@@ -335,7 +335,7 @@ async function clearPersistedStatus(guildId, userId) {
   try {
     await ActivityUserProfile.updateOne(
       { guildId, userId },
-      { $set: { "supporterStatus.hasLink": false, "supporterStatus.lastMessageId": null, "supporterStatus.lastSentAt": null } },
+      { $set: { "profile.supporterStatus.hasLink": false, "profile.supporterStatus.lastMessageId": null, "profile.supporterStatus.lastSentAt": null } },
     );
   } catch (error) {
     const isMongoNetwork = error?.name === "MongoNetworkTimeoutError" || error?.name === "MongoServerSelectionError";
@@ -351,13 +351,13 @@ async function getPersistedStatus(guildId, userId) {
   if (!isDbReady() || !guildId || !userId) return null;
   try {
     const doc = await ActivityUserProfile.findOne({ guildId, userId })
-      .select("supporterStatus")
+      .select("profile.supporterStatus")
       .lean();
-    if (!doc?.supporterStatus) return null;
+    if (!doc?.profile?.supporterStatus) return null;
     return {
-      hasLink: Boolean(doc.supporterStatus.hasLink),
-      lastMessageId: doc.supporterStatus.lastMessageId || null,
-      lastSentAt: doc.supporterStatus.lastSentAt || null,
+      hasLink: Boolean(doc.profile.supporterStatus.hasLink),
+      lastMessageId: doc.profile.supporterStatus.lastMessageId || null,
+      lastSentAt: doc.profile.supporterStatus.lastSentAt || null,
     };
   } catch {
     return null;
@@ -452,11 +452,11 @@ async function bootstrapSupporter(client) {
       persisted = await ActivityUserProfile.find({
         guildId,
         $or: [
-          { "supporterStatus.hasLink": true },
-          { "supporterStatus.lastMessageId": { $ne: null } },
+          { "profile.supporterStatus.hasLink": true },
+          { "profile.supporterStatus.lastMessageId": { $ne: null } },
         ],
       })
-        .select("userId supporterStatus")
+        .select("userId profile.supporterStatus")
         .lean();
     } catch {
       persisted = [];
@@ -468,9 +468,9 @@ async function bootstrapSupporter(client) {
     const userId = String(doc.userId);
     bootstrappedUsers.add(getBootstrapKey(guildId, userId));
     setCachedState(guildId, userId, {
-      hasLink: Boolean(doc?.supporterStatus?.hasLink),
-      lastAnnounced: doc?.supporterStatus?.lastSentAt ? new Date(doc.supporterStatus.lastSentAt).getTime() : 0,
-      lastMessageId: doc?.supporterStatus?.lastMessageId || null,
+      hasLink: Boolean(doc?.profile?.supporterStatus?.hasLink),
+      lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : 0,
+      lastMessageId: doc?.profile?.supporterStatus?.lastMessageId || null,
       lastSeenOnlineAt: 0,
     });
   }

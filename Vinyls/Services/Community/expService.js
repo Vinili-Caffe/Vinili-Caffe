@@ -285,9 +285,9 @@ async function snapshotExpForEvent(guildId) {
       filter: { _id: p._id },
       update: {
         $set: {
-          "eventExpSnapshot.totalExpAtStart": Math.max(0, Number(p?.exp?.totalExp || 0)),
-          "eventExpSnapshot.activityExpAtStart": Math.max(0, Number(p?.exp?.activityExpTotal || 0)),
-          "eventExpSnapshot.sourceUpdatedAt": now,
+          "exp.event.snapshot.totalExpAtStart": Math.max(0, Number(p?.exp?.totalExp || 0)),
+          "exp.event.snapshot.activityExpAtStart": Math.max(0, Number(p?.exp?.activityExpTotal || 0)),
+          "exp.event.snapshot.sourceUpdatedAt": now,
         },
       },
     },

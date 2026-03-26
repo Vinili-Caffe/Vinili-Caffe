@@ -70,7 +70,7 @@ module.exports = {
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    const alreadyRewarded=await ActivityUserProfile.findOne({ guildId, userId: target.id, "bumpVoteRewards.disboard_review.rewardedAt": { $ne: null } })
+    const alreadyRewarded=await ActivityUserProfile.findOne({ guildId, userId: target.id, "exp.bumpVoteRewards.disboard_review.rewardedAt": { $ne: null } })
       .select("_id")
       .lean()
       .catch(() => null);
@@ -112,8 +112,8 @@ module.exports = {
       {
         $setOnInsert: { guildId, userId: target.id },
         $set: {
-          "bumpVoteRewards.disboard_review.rewardedBy": message.author.id,
-          "bumpVoteRewards.disboard_review.rewardedAt": new Date(),
+          "exp.bumpVoteRewards.disboard_review.rewardedBy": message.author.id,
+          "exp.bumpVoteRewards.disboard_review.rewardedAt": new Date(),
         },
       },
       { upsert: true },

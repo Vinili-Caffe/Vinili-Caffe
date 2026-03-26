@@ -171,7 +171,11 @@ function toObjectMap(raw) {
 
 function extractProfileBucketRows(doc, bucketField) {
   const userId = String(doc?.userId || "");
-  const bucket = toObjectMap(doc?.[bucketField] || {});
+  const bucket = toObjectMap(
+    String(bucketField).includes(".")
+      ? String(bucketField).split(".").reduce((acc, key) => (acc && typeof acc === "object" ? acc[key] : undefined), doc)
+      : doc?.[bucketField],
+  );
   if (!userId || !bucket || typeof bucket !== "object") return [];
   return Object.values(bucket).map((row) => ({
     userId,
@@ -214,11 +218,11 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
     const startMs = weeklyStartMs;
     const hourKeys = buildHourKeysBetweenRome(startMs, Date.now());
     const docs = [];
-    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId hourly").lean().catch(() => []);
+    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId totals.hourly").lean().catch(() => []);
     if (profileDocs.length) {
       const keySet = new Set(hourKeys.map(String));
       for (const doc of profileDocs) {
-        const hourly = toObjectMap(doc?.hourly || {});
+        const hourly = toObjectMap(doc?.totals?.hourly || {});
         const userId = String(doc?.userId || "");
         if (!userId) continue;
         for (const [hourKey, row] of Object.entries(hourly)) {
@@ -268,10 +272,10 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
 
   const filter = { guildId: guild.id };
   const perUser = new Map();
-  const profileDocs = await ActivityUserProfile.find(filter).select("userId daily").lean().catch(() => []);
+  const profileDocs = await ActivityUserProfile.find(filter).select("userId totals.daily").lean().catch(() => []);
   if (profileDocs.length) {
     for (const doc of profileDocs) {
-      for (const row of extractProfileBucketRows(doc, "daily")) {
+      for (const row of extractProfileBucketRows(doc, "totals.daily")) {
         const userId = String(row?.userId || "");
         if (!userId) continue;
         let textCount = 0;

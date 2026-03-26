@@ -129,12 +129,12 @@ async function loadActivityRowsFromDateKeys(guild, dateKeys) {
   if (!eligible.text.size && !eligible.voice.size) return [];
   const perUser = new Map();
   const rows = [];
-  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId daily").lean().catch(() => []);
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId totals.daily").lean().catch(() => []);
   if (profileDocs.length) {
     const wanted = new Set(dateKeys.map(String));
     for (const doc of profileDocs) {
       const userId = String(doc?.userId || "");
-      const daily = toObjectMap(doc?.daily || {});
+      const daily = toObjectMap(doc?.totals?.daily || {});
       if (!userId) continue;
       for (const [dateKey, value] of Object.entries(daily)) {
         if (!wanted.has(String(dateKey))) continue;
@@ -178,12 +178,12 @@ async function loadActivityRowsFromHourKeys(guild, hourKeys) {
   if (!eligible.text.size && !eligible.voice.size) return [];
   const perUser = new Map();
   const rows = [];
-  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId hourly").lean().catch(() => []);
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId totals.hourly").lean().catch(() => []);
   if (profileDocs.length) {
     const wanted = new Set(hourKeys.map(String));
     for (const doc of profileDocs) {
       const userId = String(doc?.userId || "");
-      const hourly = toObjectMap(doc?.hourly || {});
+      const hourly = toObjectMap(doc?.totals?.hourly || {});
       if (!userId) continue;
       for (const [key, value] of Object.entries(hourly)) {
         if (!wanted.has(String(key))) continue;
@@ -466,12 +466,12 @@ async function loadWeeklyRowsFromHourlyWindow(guild, anchorDate = new Date()) {
   const endMs = getLastSunday21BoundaryMs(anchorDate);
   const hourKeys = buildLast7DaysHourKeys(endMs);
   const rows = [];
-  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId hourly").lean().catch(() => []);
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId totals.hourly").lean().catch(() => []);
   if (profileDocs.length) {
     const wanted = new Set(hourKeys.map(String));
     for (const doc of profileDocs) {
       const userId = String(doc?.userId || "");
-      const hourly = toObjectMap(doc?.hourly || {});
+      const hourly = toObjectMap(doc?.totals?.hourly || {});
       if (!userId) continue;
       for (const [hourKey, value] of Object.entries(hourly)) {
         if (!wanted.has(String(hourKey))) continue;
@@ -813,21 +813,21 @@ async function performEndOfEventCleanup(client, guildId) {
     );
 
     // 2. Pulizia ActivityUserProfile (per tutti gli utenti del server principale)
-    // eventRewards e eventExpSnapshot vengono sempre cancellati
+    // exp.event.rewards e exp.event.snapshot vengono sempre cancellati
     await ActivityUserProfile.updateMany(
       { guildId },
       {
         $unset: {
-          eventRewards: "",
-          eventExpSnapshot: "",
+          "exp.event.rewards": "",
+          "exp.event.snapshot": "",
         },
       },
     );
 
-    // eventWeekWinners viene cancellato SOLO SE l'array è vuoto (sennò rimane lo storico dei vincitori)
+    // exp.event.weekWinners viene cancellato SOLO SE l'array e vuoto (senno rimane lo storico dei vincitori)
     await ActivityUserProfile.updateMany(
-      { guildId, eventWeekWinners: { $size: 0 } },
-      { $unset: { eventWeekWinners: "" } },
+      { guildId, "exp.event.weekWinners": { $size: 0 } },
+      { $unset: { "exp.event.weekWinners": "" } },
     );
 
     global.logger?.info("[EVENT_CLEANUP] Pulizia completata con successo.");
@@ -1101,7 +1101,7 @@ async function getEventDiagnostics(guild) {
     if (dateKeys.length) {
       activityDailyCount = await ActivityUserProfile.countDocuments({
         guildId: guild.id,
-        $or: dateKeys.map((k) => ({ [`daily.${String(k)}`]: { $exists: true } })),
+        $or: dateKeys.map((k) => ({ [`totals.daily.${String(k)}`]: { $exists: true } })),
       }).catch(() => 0);
     }
   }

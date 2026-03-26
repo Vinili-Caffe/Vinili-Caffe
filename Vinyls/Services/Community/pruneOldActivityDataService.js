@@ -35,7 +35,7 @@ function getRomeHourKey(date) {
 }
 
 /**
- * Rimuove chiavi `daily` / `hourly` scadute dai profili (retention giorni, confronto stringa su dateKey/hourKey Roma).
+ * Rimuove chiavi `totals.daily` / `totals.hourly` scadute dai profili (retention giorni, confronto stringa su dateKey/hourKey Roma).
  * @param {{ retentionDaysDaily?: number, retentionDaysHourly?: number }} options - default 90 e 60 giorni
  * @returns {{ dailyDeleted: number, hourlyDeleted: number }}
  */
@@ -51,11 +51,11 @@ async function pruneOldActivityData(options = {}) {
   let dailyDeleted = 0;
   let hourlyDeleted = 0;
   const batch = [];
-  const cursor = ActivityUserProfile.find({}).select("_id daily hourly").cursor();
+  const cursor = ActivityUserProfile.find({}).select("_id totals.daily totals.hourly").cursor();
 
   for await (const doc of cursor) {
-    const daily = { ...(doc.daily && typeof doc.daily === "object" ? doc.daily : {}) };
-    const hourly = { ...(doc.hourly && typeof doc.hourly === "object" ? doc.hourly : {}) };
+    const daily = { ...(doc?.totals?.daily && typeof doc.totals.daily === "object" ? doc.totals.daily : {}) };
+    const hourly = { ...(doc?.totals?.hourly && typeof doc.totals.hourly === "object" ? doc.totals.hourly : {}) };
     let changed = false;
     for (const k of Object.keys(daily)) {
       if (k < cutoffDateKey) {
@@ -75,7 +75,7 @@ async function pruneOldActivityData(options = {}) {
       batch.push({
         updateOne: {
           filter: { _id: doc._id },
-          update: { $set: { daily, hourly } },
+          update: { $set: { "totals.daily": daily, "totals.hourly": hourly } },
         },
       });
     }

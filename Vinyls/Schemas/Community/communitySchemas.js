@@ -299,10 +299,9 @@ const activityUserProfileSchema = new Schema(
       lastEmbedDailyKey: { type: String, default: "" },
       /** Ultimo hourKey aggiornato negli embedded `hourly`. */
       lastEmbedHourlyKey: { type: String, default: "" },
+      daily: { type: Schema.Types.Mixed, default: {} },
+      hourly: { type: Schema.Types.Mixed, default: {} },
     },
-    daily: { type: Schema.Types.Mixed, default: {} },
-    hourly: { type: Schema.Types.Mixed, default: {} },
-    eventRewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
     exp: {
       totalExp: { type: Number, default: 0 },
       weeklyExp: { type: Number, default: 0 },
@@ -312,13 +311,40 @@ const activityUserProfileSchema = new Schema(
       activityExpTotal: { type: Number, default: 0 },
       sourceUpdatedAt: { type: Date, default: null },
       levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
+      event: {
+        rewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
+        snapshot: {
+          totalExpAtStart: { type: Number, default: 0 },
+          activityExpAtStart: { type: Number, default: 0 },
+          sourceUpdatedAt: { type: Date, default: null },
+        },
+        weekWinners: { type: [Number], default: [] },
+      },
+      bumpVoteRewards: {
+        type: Schema.Types.Mixed,
+        default: () => ({
+          discadia_vote: {
+            lastVoteAt: null,
+            lastRemindedAt: null,
+            voteCount: 0,
+            pendingVotes: [],
+            voteRole: {
+              expiresAt: null,
+              grantedAt: null,
+            },
+          },
+          disboard_review: {
+            rewardedBy: null,
+            rewardedAt: null,
+          },
+        }),
+      },
+      minigame: {
+        totalExp: { type: Number, default: 0 },
+        currentStreak: { type: Number, default: 0 },
+        bestStreak: { type: Number, default: 0 },
+      },
     },
-    eventExpSnapshot: {
-      totalExpAtStart: { type: Number, default: 0 },
-      activityExpAtStart: { type: Number, default: 0 },
-      sourceUpdatedAt: { type: Date, default: null },
-    },
-    eventWeekWinners: { type: [Number], default: [] },
     bumpState: {
       disboard: {
         lastBumpAt: { type: Date, default: null },
@@ -330,30 +356,6 @@ const activityUserProfileSchema = new Schema(
         lastBumpUserId: { type: String, default: null },
         reminderSentAt: { type: Date, default: null },
       },
-    },
-    bumpVoteRewards: {
-      type: Schema.Types.Mixed,
-      default: () => ({
-        discadia_vote: {
-          lastVoteAt: null,
-          lastRemindedAt: null,
-          voteCount: 0,
-          pendingVotes: [], // CODA VOTI PENDENTI
-          voteRole: {
-            expiresAt: null,
-            grantedAt: null,
-          },
-        },
-        disboard_review: {
-          rewardedBy: null,
-          rewardedAt: null,
-        },
-      }),
-    },
-    minigame: {
-      totalExp: { type: Number, default: 0 },
-      currentStreak: { type: Number, default: 0 },
-      bestStreak: { type: Number, default: 0 },
     },
     moderation: {
       joinGateSuspicious: {
@@ -378,12 +380,12 @@ const activityUserProfileSchema = new Schema(
       /** Storico case compact. */
       modCases: { type: [modCaseEntrySchema], default: [] },
     },
-    supporterStatus: {
-      lastMessageId: { type: String, default: null },
-      lastSentAt: { type: Date, default: null },
-      hasLink: { type: Boolean, default: false },
-    },
     profile: {
+      supporterStatus: {
+        lastMessageId: { type: String, default: null },
+        lastSentAt: { type: Date, default: null },
+        hasLink: { type: Boolean, default: false },
+      },
       afk: {
         message: { type: String, default: null },
         timestamp: { type: Date, default: null },
@@ -456,7 +458,7 @@ const activityUserProfileSchema = new Schema(
   { timestamps: true },
 );
 activityUserProfileSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-activityUserProfileSchema.index({ guildId: 1, "eventRewards.rewardType": 1 });
+activityUserProfileSchema.index({ guildId: 1, "exp.event.rewards.rewardType": 1 });
 activityUserProfileSchema.index({ guildId: 1, "exp.totalExp": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "profile.birthday.day": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
@@ -511,9 +513,9 @@ const GlobalSettings=models.GlobalSettings||model("GlobalSettings",globalSetting
 const LegacyVerificationTenure = null;
 const ReviewReward = {
   async findOne(filter) {
-    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId bumpVoteRewards.disboard_review").lean().catch(() => null);
-    if (!doc?.bumpVoteRewards?.disboard_review?.rewardedAt) return null;
-    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.bumpVoteRewards.disboard_review.rewardedBy || null, rewardedAt: doc.bumpVoteRewards.disboard_review.rewardedAt || null };
+    const doc = await ActivityUserProfile.findOne(filter).select("guildId userId exp.bumpVoteRewards.disboard_review").lean().catch(() => null);
+    if (!doc?.exp?.bumpVoteRewards?.disboard_review?.rewardedAt) return null;
+    return { guildId: doc.guildId, userId: doc.userId, rewardedBy: doc.exp.bumpVoteRewards.disboard_review.rewardedBy || null, rewardedAt: doc.exp.bumpVoteRewards.disboard_review.rewardedAt || null };
   },
   async create(payload = {}) {
     return ActivityUserProfile.findOneAndUpdate(
@@ -521,8 +523,8 @@ const ReviewReward = {
       {
         $setOnInsert: { guildId: String(payload.guildId || ""), userId: String(payload.userId || "") },
         $set: {
-          "bumpVoteRewards.disboard_review.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
-          "bumpVoteRewards.disboard_review.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
+          "exp.bumpVoteRewards.disboard_review.rewardedBy": payload.rewardedBy ? String(payload.rewardedBy) : null,
+          "exp.bumpVoteRewards.disboard_review.rewardedAt": payload.rewardedAt ? new Date(payload.rewardedAt) : new Date(),
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },

@@ -3,7 +3,7 @@ const { getGuildExpSettings, addExp, getTotalExpForLevel, getLevelInfo, recordLe
 const IDs = require("../../Utils/Config/ids");
 const { sendEventRewardLog, sendEventRewardSkippedLog, sendEventRewardDm } = require("./eventRewardLogService");
 const TIME_ZONE_ROME = "Europe/Rome";
-const DISCADIA_VOTE_ROLE_GRANTED_AT_PATH = "bumpVoteRewards.discadia_vote.voteRole.grantedAt";
+const DISCADIA_VOTE_ROLE_GRANTED_AT_PATH = "exp.bumpVoteRewards.discadia_vote.voteRole.grantedAt";
 
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE_ROME, timeZoneName: "shortOffset", hour: "2-digit", });
@@ -177,8 +177,8 @@ async function grantEventRewardOnce(guildId, userId, rewardType, options = {}) {
   const tierVal = tier != null ? tier : null;
   const labelMap = { supporter: "Ruolo Supporter", verificato: "Ruolo Verificato/Verificata", guilded: "Ruolo Guilded", invite: "Inviti (soglia raggiunta)", voter: "Voto Discadia", recensione: "Recensione DISBOARD", };
 
-  const existing = await ActivityUserProfile.findOne({ guildId, userId }).select("eventRewards").lean().catch(() => null);
-  const already = (existing?.eventRewards || []).some((e) => eventRewardEntryMatches(e, rewardTypeStr, tierVal));
+  const existing = await ActivityUserProfile.findOne({ guildId, userId }).select("exp.event.rewards").lean().catch(() => null);
+  const already = (existing?.exp?.event?.rewards || []).some((e) => eventRewardEntryMatches(e, rewardTypeStr, tierVal));
   if (already) {
     if (options.clientOrGuild && !options.suppressSkipLog) {
       const client = options.clientOrGuild?.client ?? options.clientOrGuild;
@@ -196,7 +196,7 @@ async function grantEventRewardOnce(guildId, userId, rewardType, options = {}) {
     { guildId, userId },
     {
       $push: {
-        eventRewards: {
+        "exp.event.rewards": {
           rewardType: rewardTypeStr,
           tier: tierVal,
           firstSeenAt: seenAt,
@@ -212,7 +212,7 @@ async function grantEventRewardOnce(guildId, userId, rewardType, options = {}) {
   if (!result) {
     await ActivityUserProfile.updateOne(
       { guildId, userId },
-      { $pull: { eventRewards: { rewardType: rewardTypeStr, tier: tierVal } } },
+      { $pull: { "exp.event.rewards": { rewardType: rewardTypeStr, tier: tierVal } } },
     ).catch(() => { });
     return null;
   }
@@ -238,7 +238,7 @@ async function addEventWeekWinner(guildId, userId, week) {
   const u = String(userId);
   await ActivityUserProfile.updateOne(
     { guildId: g, userId: u },
-    { $addToSet: { eventWeekWinners: week }, $setOnInsert: { guildId: g, userId: u } },
+    { $addToSet: { "exp.event.weekWinners": week }, $setOnInsert: { guildId: g, userId: u } },
     { upsert: true },
   ).catch(() => null);
   return true;
@@ -248,8 +248,8 @@ async function hasEventWeekWinnerGrant(guildId, userId, week) {
   if (!guildId || !userId || (week !== 2 && week !== 3)) return false;
   const g = String(guildId);
   const u = String(userId);
-  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select("eventWeekWinners").lean().catch(() => null);
-  return Array.isArray(doc?.eventWeekWinners) && doc.eventWeekWinners.includes(week);
+  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select("exp.event.weekWinners").lean().catch(() => null);
+  return Array.isArray(doc?.exp?.event?.weekWinners) && doc.exp.event.weekWinners.includes(week);
 }
 
 async function grantEventRewardsForExistingRoleMembers(guild) {
@@ -534,7 +534,7 @@ async function clearActivityEventRewardsForGuild(guildId) {
   if (!guildId) return { deleted: 0 };
   const result = await ActivityUserProfile.updateMany(
     { guildId: String(guildId) },
-    { $set: { eventRewards: [] } },
+    { $set: { "exp.event.rewards": [] } },
   ).catch(() => null);
   return { deleted: result?.modifiedCount ?? 0 };
 }

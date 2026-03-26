@@ -389,7 +389,7 @@ async function sendMemberKickLog(member) {
 }
 
 /**
- * In uscita dal server: se esiste `moderation` (non null) e/o `eventWeekWinners` con almeno una
+ * In uscita dal server: se esiste `moderation` (non null) e/o `exp.event.weekWinners` con almeno una
  * settimana, il documento viene sostituito con uno minimale che conserva solo quei campi
  * (+ guildId/userId/timestamp), incluso `moderation.modCases` (storico case). Altrimenti il documento viene eliminato.
  */
@@ -404,7 +404,7 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
   const keepModeration =
     doc.moderation != null && typeof doc.moderation === "object";
   const keepEventWeekWinners =
-    Array.isArray(doc.eventWeekWinners) && doc.eventWeekWinners.length > 0;
+    Array.isArray(doc?.exp?.event?.weekWinners) && doc.exp.event.weekWinners.length > 0;
 
   if (keepModeration || keepEventWeekWinners) {
     const payload = {
@@ -415,7 +415,7 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
     };
     if (doc.createdAt) payload.createdAt = doc.createdAt;
     if (keepModeration) payload.moderation = doc.moderation;
-    if (keepEventWeekWinners) payload.eventWeekWinners = doc.eventWeekWinners;
+    if (keepEventWeekWinners) payload.exp = { event: { weekWinners: doc.exp.event.weekWinners } };
     await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
   } else {
     await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });

@@ -177,7 +177,11 @@ function extractProfileRowsByKey(doc = {}, bucketField = "daily", keyField = "da
   const guildId = String(doc?.guildId || "");
   const userId = String(doc?.userId || "");
   if (!guildId || !userId) return [];
-  const bucket = toObjectMap(doc?.[bucketField] || {});
+  const bucket = toObjectMap(
+    String(bucketField).includes(".")
+      ? String(bucketField).split(".").reduce((acc, key) => (acc && typeof acc === "object" ? acc[key] : undefined), doc)
+      : doc?.[bucketField],
+  );
   const rows = [];
   for (const [bucketKey, value] of Object.entries(bucket)) {
     const clean = value && typeof value === "object" ? value : {};
@@ -197,11 +201,11 @@ function extractProfileRowsByKey(doc = {}, bucketField = "daily", keyField = "da
 async function loadDailyRowsFromProfile(guildId, dateKeys = null) {
   const filter = { guildId: String(guildId || "") };
   if (!filter.guildId) return [];
-  const docs = await ActivityUserProfile.find(filter).select("guildId userId daily").lean().catch(() => []);
+  const docs = await ActivityUserProfile.find(filter).select("guildId userId totals.daily").lean().catch(() => []);
   const wanted = Array.isArray(dateKeys) && dateKeys.length ? new Set(dateKeys.map(String)) : null;
   const rows = [];
   for (const doc of docs) {
-    const list = extractProfileRowsByKey(doc, "daily", "dateKey");
+    const list = extractProfileRowsByKey(doc, "totals.daily", "dateKey");
     for (const row of list) {
       if (wanted && !wanted.has(String(row.dateKey || ""))) continue;
       rows.push(row);
@@ -214,7 +218,7 @@ async function loadHourlyRowsFromProfile(guildId, hourKeys = null, userId = null
   const filter = { guildId: String(guildId || "") };
   if (!filter.guildId) return [];
   if (userId) filter.userId = String(userId);
-  let q = ActivityUserProfile.find(filter).select("guildId userId hourly");
+  let q = ActivityUserProfile.find(filter).select("guildId userId totals.hourly");
   if (!userId && ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) {
     q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
   }
@@ -222,7 +226,7 @@ async function loadHourlyRowsFromProfile(guildId, hourKeys = null, userId = null
   const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
   const rows = [];
   for (const doc of docs) {
-    const list = extractProfileRowsByKey(doc, "hourly", "hourKey");
+    const list = extractProfileRowsByKey(doc, "totals.hourly", "hourKey");
     for (const row of list) {
       if (wanted && !wanted.has(String(row.hourKey || ""))) continue;
       rows.push(row);
@@ -264,7 +268,7 @@ async function ensureHourlyBackfillForGuild(guildId) {
       const textCount = Math.max(0, Number(row?.textCount || 0));
       const voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
 
-      const hourPath = `hourly.${hourKey}`;
+      const hourPath = `totals.hourly.${hourKey}`;
       profileOps.push({
         updateOne: {
           filter: {
@@ -340,8 +344,8 @@ async function bumpDailyText(guildId, userId, channelId, amount = 1) {
         $setOnInsert: { guildId: gid, userId: uid },
         $set: { "totals.lastEmbedDailyKey": dateKey },
         $inc: {
-          [`daily.${dateKey}.textCount`]: inc,
-          [`daily.${dateKey}.textChannels.${cid}`]: inc,
+          [`totals.daily.${dateKey}.textCount`]: inc,
+          [`totals.daily.${dateKey}.textChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -379,8 +383,8 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
         $setOnInsert: { guildId: gid, userId: uid },
         $set: { "totals.lastEmbedHourlyKey": hourKey },
         $inc: {
-          [`hourly.${hourKey}.textCount`]: inc,
-          [`hourly.${hourKey}.textChannels.${cid}`]: inc,
+          [`totals.hourly.${hourKey}.textCount`]: inc,
+          [`totals.hourly.${hourKey}.textChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -413,8 +417,8 @@ async function bumpDailyVoice(guildId, userId, channelId, seconds = 0) {
         $setOnInsert: { guildId: gid, userId: uid },
         $set: { "totals.lastEmbedDailyKey": dateKey },
         $inc: {
-          [`daily.${dateKey}.voiceSeconds`]: inc,
-          [`daily.${dateKey}.voiceChannels.${cid}`]: inc,
+          [`totals.daily.${dateKey}.voiceSeconds`]: inc,
+          [`totals.daily.${dateKey}.voiceChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -447,8 +451,8 @@ async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
         $setOnInsert: { guildId: gid, userId: uid },
         $set: { "totals.lastEmbedHourlyKey": hourKey },
         $inc: {
-          [`hourly.${hourKey}.voiceSeconds`]: inc,
-          [`hourly.${hourKey}.voiceChannels.${cid}`]: inc,
+          [`totals.hourly.${hourKey}.voiceSeconds`]: inc,
+          [`totals.hourly.${hourKey}.voiceChannels.${cid}`]: inc,
         },
       },
       { upsert: true },
