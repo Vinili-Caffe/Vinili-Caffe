@@ -1,147 +1,87 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const {
-  normalizeGuildId,
-  addPartnershipBlacklistGuild,
-  removePartnershipBlacklistGuild,
-  listPartnershipBlacklistGuilds,
-} = require("../../Services/Partner/partnershipBlacklistService");
+const IDs = require("../../Utils/Config/ids");
+
+const PANEL_PREFIX = "blacklist_ui";
+
+function hasBlacklistManageRole(member) {
+  const roles = member?.roles?.cache;
+  if (!roles) return false;
+  const highStaffRoleId = IDs?.roles?.HighStaff;
+  return Boolean(highStaffRoleId && roles.has(highStaffRoleId));
+}
+
+function hasBlacklistViewRole(member) {
+  const roles = member?.roles?.cache;
+  if (!roles) return false;
+  const highStaffRoleId = IDs?.roles?.HighStaff;
+  const partnerManagerRoleId = IDs?.roles?.PartnerManager;
+  return Boolean(
+    (highStaffRoleId && roles.has(highStaffRoleId)) ||
+      (partnerManagerRoleId && roles.has(partnerManagerRoleId)),
+  );
+}
+
+function buildBlacklistPanelPayload(ownerId, canView, canManage) {
+  const embeds = [
+    new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("Partnership blacklist (server)")
+      .setDescription(
+        [
+          "Gestisci blacklist partnership da questo pannello.",
+          "",
+          "Azioni disponibili:",
+          "• Aggiungi server",
+          "• Rimuovi server",
+          "• Mostra elenco",
+        ].join("\n"),
+      ),
+  ];
+  if (!canView) {
+    embeds[0].setColor("Red").setDescription(
+      "<:vegax:1443934876440068179> Non hai i ruoli necessari per gestire la blacklist.",
+    );
+    return { embeds, components: [] };
+  }
+  const buttons = [];
+  if (canManage) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`${PANEL_PREFIX}:add:${ownerId}`)
+        .setLabel("Aggiungi")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(`${PANEL_PREFIX}:remove:${ownerId}`)
+        .setLabel("Rimuovi")
+        .setStyle(ButtonStyle.Danger),
+    );
+  }
+  buttons.push(
+    new ButtonBuilder()
+      .setCustomId(`${PANEL_PREFIX}:list:${ownerId}`)
+      .setLabel("Elenco")
+      .setStyle(ButtonStyle.Secondary),
+  );
+  const row = new ActionRowBuilder().addComponents(...buttons);
+  return { embeds, components: [row] };
+}
 
 module.exports = {
   name: "blacklist",
   category: "admin",
-  subcommands: ["add", "remove", "list"],
-  subcommandAliases: { add: "add", remove: "remove", list: "list" },
-  usage:
-    "`+blacklist add <guildId> [nota]` — aggiungi\n`+blacklist remove <guildId>` — rimuovi\n`+blacklist remove this` — rimuovi il server corrente\n`+blacklist list` — elenco",
-  examples: [
-    "+blacklist add 987654321098765432",
-    "+blacklist add 987654321098765432 server tossico",
-    "+blacklist remove 987654321098765432",
-    "+blacklist remove this",
-    "+blacklist list",
-  ],
+  usage: "`+blacklist` — apre pannello gestione blacklist partnership",
+  examples: ["+blacklist"],
+  buildBlacklistPanelPayload,
+  hasBlacklistManageRole,
+  hasBlacklistViewRole,
   async execute(message, args) {
-    const sub = String(args[0] || "").toLowerCase();
-    const rest = args.slice(1);
-    if (!sub || !["add", "remove", "list"].includes(sub)) {
-      return safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setTitle("Partnership blacklist (server)")
-            .setDescription(
-              "**Uso:**\n" +
-                "`+blacklist add <guildId> [nota]` — nessuna partnership verso quel server\n" +
-                "`+blacklist remove <guildId>`\n" +
-                "`+blacklist remove this`\n" +
-                "`+blacklist list`\n\n" +
-                "Il **guildId** è l’ID del server da bloccare (non l’invite).",
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-    }
-    if (sub === "list") {
-      const rows = await listPartnershipBlacklistGuilds(40);
-      if (!rows.length) {
-        return safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#57f287")
-              .setDescription("Nessun server in blacklist partnership."),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-      }
-      const lines = rows.map(
-        (r) =>
-          `\`${r.guildId}\`${r.note ? ` — ${String(r.note).slice(0, 80)}` : ""}`,
-      );
-      return safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setTitle("Server in blacklist partnership")
-            .setDescription(lines.join("\n").slice(0, 3900)),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-    }
-    let gid = null;
-    if (sub === "remove") {
-      const selector = String(rest[0] || "").toLowerCase();
-      const removeCurrent = !selector || ["this", "current", "me", "server"].includes(selector);
-      gid = removeCurrent ? message?.guild?.id || null : normalizeGuildId(rest[0]);
-    } else {
-      gid = normalizeGuildId(rest[0]);
-    }
-    if (!gid) {
-      return safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setDescription(
-              "<:vegax:1443934876440068179> Fornisci un **guild ID** valido (17–20 cifre) oppure usa `this` per rimuovere il server corrente.",
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-    }
-    if (sub === "add") {
-      const note = rest.slice(1).join(" ").trim();
-      const r = await addPartnershipBlacklistGuild(
-        gid,
-        message.author.id,
-        note,
-      );
-      if (!r.ok) {
-        return safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                `<:vegax:1443934876440068179> Errore: ${r.reason || "sconosciuto"}`,
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-      }
-      return safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#57f287")
-            .setDescription(
-              `<:success:1461731530333229226> Server \`${gid}\` aggiunto alla blacklist partnership.`,
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-    }
-    if (sub === "remove") {
-      const r = await removePartnershipBlacklistGuild(gid);
-      if (!r.deleted) {
-        return safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#F59E0B")
-              .setDescription(
-                `Nessuna entry per \`${gid}\` (già assente o ID errato).`,
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-      }
-      return safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#57f287")
-            .setDescription(
-              `<:success:1461731530333229226> Server \`${gid}\` rimosso dalla blacklist.`,
-            ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-    }
+    const canView = hasBlacklistViewRole(message.member);
+    const canManage = hasBlacklistManageRole(message.member);
+    const payload = buildBlacklistPanelPayload(message.author.id, canView, canManage);
+    return safeMessageReply(message, {
+      ...payload,
+      allowedMentions: { repliedUser: false },
+    });
   },
 };

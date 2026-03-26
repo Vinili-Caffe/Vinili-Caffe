@@ -1,10 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
-const { CustomRole } = require("../Schemas/Community/communitySchemas");
+const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const { MAX_REACTIONS, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
+const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
 
 const PANEL_PREFIX = "profile_panel";
@@ -13,6 +14,8 @@ const SECTION_BIRTHDAY = "birthday";
 const SECTION_CUSTOMROLE = "customrole";
 const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
+const SECTION_DMFILTERS = "dmfilters";
+const SECTION_PRIVACY = "privacy";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
@@ -120,10 +123,10 @@ async function safeUpdatePanelInteraction(interaction, payload) {
   const updated = await interaction.update(payload).then(() => true).catch(() => false);
   if (updated) return true;
   if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferUpdate().catch(() => {});
+    await interaction.deferUpdate().catch(() => { });
   }
   if (interaction.message?.edit) {
-    await interaction.message.edit(payload).catch(() => {});
+    await interaction.message.edit(payload).catch(() => { });
   }
   return true;
 }
@@ -139,16 +142,26 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState] = await Promise.all([
+  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
+    getNoDmPreferences(guildId, userId).catch(() => ({ blockAll: false, disabled: new Set() })),
+    AvatarPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
+    BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
+    QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
   ]);
 
   return {
     birthday: birthday || null,
     reactions: Array.isArray(reactionDoc?.reactions) ? reactionDoc.reactions : [],
     custom: customState || null,
+    noDm: noDmPrefs || { blockAll: false, disabled: new Set() },
+    privacy: {
+      avatar: Boolean(avatarPrivacy?.blocked),
+      banner: Boolean(bannerPrivacy?.blocked),
+      quotes: Boolean(quotePrivacy?.blocked),
+    },
   };
 }
 
@@ -174,13 +187,20 @@ function buildSectionEmbed(section, state, user, guild = null) {
   const reactionList = Array.isArray(state?.reactions) ? state.reactions : [];
   const reactionsText = reactionList.length ? reactionList.map((token) => renderReactionToken(token, guild)).join(" ") : "Non impostate";
   const birthdayPrivacy = birthday?.showAge === false ? "Nascosta" : "Visibile";
+  const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
+  const disabledDmSet = noDm?.disabled instanceof Set ? noDm.disabled : new Set(Array.isArray(noDm?.disabled) ? noDm.disabled : []);
+  const noDmSummary = noDm?.blockAll
+    ? "Tutti disattivati"
+    : disabledDmSet.size === 0
+      ? "Tutti attivi"
+      : `${disabledDmSet.size} categoria/e disattivate`;
+  const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
+  const privacySummary = [privacy.avatar ? "Avatar: Nascosto" : "Avatar: Visibile", privacy.banner ? "Banner: Nascosto" : "Banner: Visibile", privacy.quotes ? "Quote: Bloccate" : "Quote: Attive"].join(" • ");
 
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
     return base
       .setDescription([
-        "<a:VC_Flowers:1468687836055212174> Gestisci compleanno dal pannello rapido.",
-        "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
         "",
         `<a:VC_Calendar:1482706208149475358> Data: **${formatBirthday(birthday)}**`,
@@ -196,8 +216,6 @@ function buildSectionEmbed(section, state, user, guild = null) {
   if (section === SECTION_CUSTOMROLE) {
     return base
       .setDescription([
-        "<:VC_Modifica:1478859646587633717> Hub custom role.",
-        "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
         "",
         `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
@@ -211,8 +229,6 @@ function buildSectionEmbed(section, state, user, guild = null) {
   if (section === SECTION_CUSTOMVOC) {
     return base
       .setDescription([
-        "<:VC_Modifica:1478859646587633717> Hub custom voc.",
-        "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
         "",
         `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
@@ -226,8 +242,6 @@ function buildSectionEmbed(section, state, user, guild = null) {
   if (section === SECTION_CUSTOMREACTION) {
     return base
       .setDescription([
-        "<:VC_emoji:1485419161168511036> Reaction automatiche alle menzioni.",
-        "",
         "<:VC_Info:1482526956703580372> **Configurazione attuale**",
         "",
         reactionList.length
@@ -238,10 +252,37 @@ function buildSectionEmbed(section, state, user, guild = null) {
       ].join("\n"));
   }
 
+  if (section === SECTION_DMFILTERS) {
+    const isAll = Boolean(noDm?.blockAll || disabledDmSet.has(DM_CATEGORY_ALL));
+    const lines = DM_CATEGORIES.map((key) => {
+      const off = isAll || disabledDmSet.has(key);
+      return `• ${DM_CATEGORY_LABELS[key]}: **${off ? "Disattivato" : "Attivo"}**`;
+    });
+    return base.setDescription([
+      "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+      "",
+      ...lines,
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per attivare/disattivare categorie DM.",
+    ].join("\n"));
+  }
+
+  if (section === SECTION_PRIVACY) {
+    return base.setDescription([
+      "<:VC_Info:1482526956703580372> **Configurazione attuale**",
+      "",
+      `• Avatar: **${privacy.avatar ? "Nascosto" : "Visibile"}**`,
+      `• Banner: **${privacy.banner ? "Nascosto" : "Visibile"}**`,
+      `• Quote: **${privacy.quotes ? "Bloccate" : "Attive"}**`,
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per gestire la privacy.",
+    ].join("\n"));
+  }
+
   const reactionsCount = reactionList.length;
   return base
+    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${user}.`)
     .setDescription([
-      `<a:VC_Announce:1482534613568979007> Benvenuto ${user}.`,
       "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
       "",
       "<:VC_Info:1482526956703580372> **Configurazione attuale**",
@@ -250,6 +291,8 @@ function buildSectionEmbed(section, state, user, guild = null) {
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
+      `<:VC_Dot:1482532364222595303> DM Filters: **${noDmSummary}**`,
+      `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
     ].join("\n"))
@@ -265,6 +308,8 @@ function buildRows(ownerId, section, state = null) {
       { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
       { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
       { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
+      { label: "DM Filters", value: SECTION_DMFILTERS, emoji: "<:VC_Mention:1482526855289634997>", default: section === SECTION_DMFILTERS },
+      { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
     );
 
   const row1 = new ActionRowBuilder().addComponents(select);
@@ -311,12 +356,44 @@ function buildRows(ownerId, section, state = null) {
     }
     row2.addComponents(
       new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_delete`).setLabel("Elimina Vocale").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
     );
     return [row1, row2];
   } else if (section === SECTION_CUSTOMREACTION) {
     return [row1, ...buildCustomReactionPanelRows(ownerId)];
+  } else if (section === SECTION_DMFILTERS) {
+    const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
+    const isAll = Boolean(noDm?.blockAll || noDm?.disabled?.has?.(DM_CATEGORY_ALL));
+    const dmButtons = DM_CATEGORIES.map((key) => {
+      const off = isAll || noDm?.disabled?.has?.(key);
+      return new ButtonBuilder()
+        .setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_toggle_${key}`)
+        .setLabel(String(DM_CATEGORY_LABELS[key] || key).slice(0, 80))
+        .setStyle(off ? ButtonStyle.Secondary : ButtonStyle.Success);
+    });
+    const row2 = new ActionRowBuilder().addComponents(...dmButtons);
+    const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_all`).setLabel("Disattiva tutto").setStyle(isAll ? ButtonStyle.Danger : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_none`).setLabel("Attiva tutto").setStyle(!isAll && noDm?.disabled?.size === 0 ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_done`).setLabel("Fine").setStyle(ButtonStyle.Primary),
+    );
+    return [row1, row2, row3];
+  } else if (section === SECTION_PRIVACY) {
+    const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_avatar`).setLabel("Avatar").setStyle(privacy.avatar ? ButtonStyle.Secondary : ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_banner`).setLabel("Banner").setStyle(privacy.banner ? ButtonStyle.Secondary : ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_quotes`).setLabel("Quote").setStyle(privacy.quotes ? ButtonStyle.Secondary : ButtonStyle.Success),
+    );
+    const allBlocked = privacy.avatar && privacy.banner && privacy.quotes;
+    const allVisible = !privacy.avatar && !privacy.banner && !privacy.quotes;
+    const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_all`).setLabel("Blocca tutto").setStyle(allBlocked ? ButtonStyle.Danger : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_none`).setLabel("Sblocca tutto").setStyle(allVisible ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_done`).setLabel("Fine").setStyle(ButtonStyle.Primary),
+    );
+    return [row1, row2, row3];
   } else {
     return [row1];
   }
@@ -347,7 +424,7 @@ async function ensureOwner(interaction, ownerId) {
   await interaction.reply({
     content: "<:vegax:1443934876440068179> Questo pannello non è tuo.",
     flags: PRIVATE_FLAG,
-  }).catch(() => {});
+  }).catch(() => { });
   return false;
 }
 
@@ -364,7 +441,7 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
     content:
       "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+customrole`.",
     flags: PRIVATE_FLAG,
-  }).catch(() => {});
+  }).catch(() => { });
   return false;
 }
 
@@ -393,16 +470,16 @@ async function ensureCustomRoleExists(interaction, ownerId, client) {
   const createdRole = await guild.roles.create({
     name: roleName,
     colors: { primaryColor: "#f4b6d7" },
-    reason: `Custom role for ${interaction.user?.tag || ownerId}`,
+    reason: `Custom role per ${interaction.user?.tag || ownerId}`,
   }).catch(() => null);
   if (!createdRole) return { ok: false, reason: "create_failed" };
 
   const anchor = guild.roles.cache.get(ANCHOR_ROLE_ID) || (await guild.roles.fetch(ANCHOR_ROLE_ID).catch(() => null));
   if (anchor?.position && createdRole.position !== anchor.position - 1) {
-    await createdRole.setPosition(Math.max(1, Number(anchor.position) - 1)).catch(() => {});
+    await createdRole.setPosition(Math.max(1, Number(anchor.position) - 1)).catch(() => { });
   }
 
-  await member.roles.add(createdRole.id).catch(() => {});
+  await member.roles.add(createdRole.id).catch(() => { });
 
   const doc = await CustomRole.findOneAndUpdate(
     { guildId: guild.id, userId: ownerId },
@@ -444,7 +521,7 @@ async function ensureCustomVocExists(interaction, ownerId, client) {
     name: channelName,
     type: ChannelType.GuildVoice,
     parent: CUSTOM_VOICE_CATEGORY_ID,
-    reason: `Private voice channel for ${interaction.user?.tag || ownerId}`,
+    reason: `Canale vocale privato per ${interaction.user?.tag || ownerId}`,
     permissionOverwrites: [
       {
         id: guild.roles.everyone.id,
@@ -499,7 +576,7 @@ async function handleBirthdaySetModal(interaction, ownerId) {
     await interaction.reply({
       content: "<:vegax:1443934876440068179> Dati non validi. Usa `gg/mm` e un'età 1-120.",
       flags: PRIVATE_FLAG,
-    }).catch(() => {});
+    }).catch(() => { });
     return true;
   }
 
@@ -509,14 +586,14 @@ async function handleBirthdaySetModal(interaction, ownerId) {
     month: parsedDate.month,
     birthYear,
     showAge: true,
-  }).catch(() => {});
+  }).catch(() => { });
 
   const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_BIRTHDAY);
-  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
+  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => { });
   await interaction.reply({
     content: "<:vegacheckmark:1443666279058772028> Birthday aggiornato.",
     flags: PRIVATE_FLAG,
-  }).catch(() => {});
+  }).catch(() => { });
   return true;
 }
 
@@ -524,20 +601,20 @@ async function handleBirthdayDateModal(interaction, ownerId) {
   const raw = interaction.fields.getTextInputValue("date");
   const parsed = parseBirthdayDate(raw);
   if (!parsed) {
-    await interaction.reply({ content: "Data non valida. Usa `gg/mm`.", flags: PRIVATE_FLAG }).catch(() => {});
+    await interaction.reply({ content: "Data non valida. Usa `gg/mm`.", flags: PRIVATE_FLAG }).catch(() => { });
     return true;
   }
   setBirthdayDraft(interaction.guild.id, ownerId, { day: parsed.day, month: parsed.month });
   const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_BIRTHDAY);
-  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
-  await interaction.reply({ content: "Data aggiornata in bozza.", flags: PRIVATE_FLAG }).catch(() => {});
+  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => { });
+  await interaction.reply({ content: "Data aggiornata in bozza.", flags: PRIVATE_FLAG }).catch(() => { });
   return true;
 }
 
 async function handleBirthdayAgeModal(interaction, ownerId) {
   const age = parseAge(interaction.fields.getTextInputValue("age"));
   if (!age) {
-    await interaction.reply({ content: "Età non valida. Inserisci un numero 1-120.", flags: PRIVATE_FLAG }).catch(() => {});
+    await interaction.reply({ content: "Età non valida. Inserisci un numero 1-120.", flags: PRIVATE_FLAG }).catch(() => { });
     return true;
   }
   const draft = getBirthdayDraft(interaction.guild.id, ownerId) || {};
@@ -545,28 +622,28 @@ async function handleBirthdayAgeModal(interaction, ownerId) {
   const day = Number.isInteger(draft?.day) ? draft.day : Number(profile?.day || 0);
   const month = Number.isInteger(draft?.month) ? draft.month : Number(profile?.month || 0);
   if (!day || !month) {
-    await interaction.reply({ content: "Prima imposta la data.", flags: PRIVATE_FLAG }).catch(() => {});
+    await interaction.reply({ content: "Prima imposta la data.", flags: PRIVATE_FLAG }).catch(() => { });
     return true;
   }
   const birthYear = inferBirthYearFromAge(day, month, age);
   setBirthdayDraft(interaction.guild.id, ownerId, { birthYear });
   const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_BIRTHDAY);
-  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
-  await interaction.reply({ content: "Età aggiornata in bozza.", flags: PRIVATE_FLAG }).catch(() => {});
+  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => { });
+  await interaction.reply({ content: "Età aggiornata in bozza.", flags: PRIVATE_FLAG }).catch(() => { });
   return true;
 }
 
 async function handleReactionSetModal(interaction, ownerId) {
   const allowed = await ensureCustomReactionEnabled(interaction, ownerId, interaction.client);
   if (!allowed) return true;
-  await interaction.guild?.emojis?.fetch?.().catch(() => {});
+  await interaction.guild?.emojis?.fetch?.().catch(() => { });
   const raw = interaction.fields.getTextInputValue("reactions");
   const tokens = parseReactionTokens(raw, MAX_REACTIONS, interaction.guild);
   if (!tokens.length) {
     await interaction.reply({
       content: "<:vegax:1443934876440068179> Nessuna reaction valida trovata.",
       flags: PRIVATE_FLAG,
-    }).catch(() => {});
+    }).catch(() => { });
     return true;
   }
 
@@ -574,14 +651,14 @@ async function handleReactionSetModal(interaction, ownerId) {
     { guildId: interaction.guild.id, userId: ownerId },
     { $set: { reactions: tokens } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch(() => {});
+  ).catch(() => { });
 
   const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_CUSTOMREACTION);
-  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
+  if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => { });
   await interaction.reply({
     content: `<:vegacheckmark:1443666279058772028> Reactions salvate: ${tokens.map((token) => renderReactionToken(token, interaction.guild)).join(" ")}`,
     flags: PRIVATE_FLAG,
-  }).catch(() => {});
+  }).catch(() => { });
   return true;
 }
 
@@ -634,7 +711,7 @@ async function execute(interaction, client) {
             .setRequired(true),
         ),
       );
-      await interaction.showModal(modal).catch(() => {});
+      await interaction.showModal(modal).catch(() => { });
       return true;
     }
 
@@ -652,7 +729,7 @@ async function execute(interaction, client) {
             .setRequired(true),
         ),
       );
-      await interaction.showModal(modal).catch(() => {});
+      await interaction.showModal(modal).catch(() => { });
       return true;
     }
 
@@ -670,7 +747,7 @@ async function execute(interaction, client) {
             .setRequired(true),
         ),
       );
-      await interaction.showModal(modal).catch(() => {});
+      await interaction.showModal(modal).catch(() => { });
       return true;
     }
 
@@ -692,11 +769,11 @@ async function execute(interaction, client) {
       const birthYear = Number.isInteger(draft?.birthYear) ? draft.birthYear : Number(profile?.birthYear || 0);
       const showAge = typeof draft?.showAge === "boolean" ? draft.showAge : profile?.showAge !== false;
       if (!day || !month) {
-        await interaction.reply({ content: "Prima imposta la data.", flags: PRIVATE_FLAG }).catch(() => {});
+        await interaction.reply({ content: "Prima imposta la data.", flags: PRIVATE_FLAG }).catch(() => { });
         return true;
       }
       if (!birthYear) {
-        await interaction.reply({ content: "Prima imposta l'età.", flags: PRIVATE_FLAG }).catch(() => {});
+        await interaction.reply({ content: "Prima imposta l'età.", flags: PRIVATE_FLAG }).catch(() => { });
         return true;
       }
       await setBirthdayProfile(interaction.guild.id, ownerId, {
@@ -706,16 +783,16 @@ async function execute(interaction, client) {
         showAge,
         registrationMessageId: profile?.registrationMessageId,
         registrationChannelId: profile?.registrationChannelId,
-      }).catch(() => {});
+      }).catch(() => { });
       clearBirthdayDraft(interaction.guild.id, ownerId);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
       await safeUpdatePanelInteraction(interaction, payload);
-      await interaction.followUp?.({ content: "Profilo compleanno salvato.", flags: PRIVATE_FLAG }).catch(() => {});
+      await interaction.followUp?.({ content: "Profilo compleanno salvato.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
 
     if (action === "birthday_clear") {
-      await clearBirthdayProfile(interaction.guild.id, ownerId).catch(() => {});
+      await clearBirthdayProfile(interaction.guild.id, ownerId).catch(() => { });
       clearBirthdayDraft(interaction.guild.id, ownerId);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
       await safeUpdatePanelInteraction(interaction, payload);
@@ -729,18 +806,104 @@ async function execute(interaction, client) {
       return true;
     }
 
+    if (action.startsWith("dm_toggle_")) {
+      const category = action.slice("dm_toggle_".length);
+      if (!DM_CATEGORIES.includes(category)) return true;
+      const prefs = await getNoDmPreferences(interaction.guild.id, ownerId).catch(() => ({ blockAll: false, disabled: new Set() }));
+      const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
+      let next;
+      if (isAll) {
+        next = DM_CATEGORIES.filter((k) => k !== category);
+      } else {
+        const disabled = new Set(prefs.disabled);
+        if (disabled.has(category)) disabled.delete(category);
+        else disabled.add(category);
+        next = [...disabled];
+      }
+      await setNoDmCategories(interaction.guild.id, ownerId, next.length ? next : []).catch(() => {});
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_DMFILTERS);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "dm_all") {
+      await setNoDmCategories(interaction.guild.id, ownerId, [DM_CATEGORY_ALL]).catch(() => {});
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_DMFILTERS);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "dm_none") {
+      await setNoDmCategories(interaction.guild.id, ownerId, []).catch(() => {});
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_DMFILTERS);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "dm_done") {
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_HOME);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action.startsWith("privacy_toggle_")) {
+      const kind = action.slice("privacy_toggle_".length);
+      const model = kind === "avatar" ? AvatarPrivacy : kind === "banner" ? BannerPrivacy : kind === "quotes" ? QuotePrivacy : null;
+      if (!model) return true;
+      const current = await model.findOne({ guildId: interaction.guild.id, userId: ownerId }).lean().catch(() => null);
+      const nextBlocked = !Boolean(current?.blocked);
+      await model.findOneAndUpdate(
+        { guildId: interaction.guild.id, userId: ownerId },
+        { $set: { blocked: nextBlocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).catch(() => {});
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_PRIVACY);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "privacy_all" || action === "privacy_none") {
+      const blocked = action === "privacy_all";
+      await Promise.all([
+        AvatarPrivacy.findOneAndUpdate(
+          { guildId: interaction.guild.id, userId: ownerId },
+          { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        ).catch(() => {}),
+        BannerPrivacy.findOneAndUpdate(
+          { guildId: interaction.guild.id, userId: ownerId },
+          { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        ).catch(() => {}),
+        QuotePrivacy.findOneAndUpdate(
+          { guildId: interaction.guild.id, userId: ownerId },
+          { $set: { blocked }, $setOnInsert: { guildId: interaction.guild.id, userId: ownerId } },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        ).catch(() => {}),
+      ]);
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_PRIVACY);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "privacy_done") {
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_HOME);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
     if (action === "customrole_create") {
       const result = await ensureCustomRoleExists(interaction, ownerId, client);
       if (!result.ok) {
         const reason = result.reason === "no_manage_roles"
           ? "Mi serve `Gestisci Ruoli` per creare il custom role."
           : "Non sono riuscito a creare il custom role.";
-        await interaction.reply({ content: `<:vegax:1443934876440068179> ${reason}`, flags: PRIVATE_FLAG }).catch(() => {});
+        await interaction.reply({ content: `<:vegax:1443934876440068179> ${reason}`, flags: PRIVATE_FLAG }).catch(() => { });
         return true;
       }
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMROLE);
       await safeUpdatePanelInteraction(interaction, payload);
-      await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Custom role creato.", flags: PRIVATE_FLAG }).catch(() => {});
+      await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Custom role creato.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
 
@@ -751,12 +914,12 @@ async function execute(interaction, client) {
         if (result.reason === "no_manage_channels") reason = "Mi serve `Gestisci Canali` per creare la vocale.";
         if (result.reason === "category_missing") reason = "Categoria delle vocali private non trovata.";
         if (result.reason === "no_manage_roles") reason = "Mi serve `Gestisci Ruoli` per creare il custom role richiesto.";
-        await interaction.reply({ content: `<:vegax:1443934876440068179> ${reason}`, flags: PRIVATE_FLAG }).catch(() => {});
+        await interaction.reply({ content: `<:vegax:1443934876440068179> ${reason}`, flags: PRIVATE_FLAG }).catch(() => { });
         return true;
       }
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
       await safeUpdatePanelInteraction(interaction, payload);
-      await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Vocale privata creata.", flags: PRIVATE_FLAG }).catch(() => {});
+      await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Vocale privata creata.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
 
@@ -772,23 +935,23 @@ async function execute(interaction, client) {
         await interaction.reply({
           content: "<:vegax:1443934876440068179> Non hai una vocale privata da eliminare.",
           flags: PRIVATE_FLAG,
-        }).catch(() => {});
+        }).catch(() => { });
         return true;
       }
       const channel = interaction.guild?.channels?.cache?.get(channelId) || (await interaction.guild?.channels?.fetch(channelId).catch(() => null));
       if (channel?.delete) {
-        await channel.delete(`Custom voice deleted by ${interaction.user?.tag || interaction.user?.id || "profile panel"}`).catch(() => {});
+        await channel.delete(`Custom voice deleted by ${interaction.user?.tag || interaction.user?.id || "profile panel"}`).catch(() => { });
       }
       await CustomRole.updateOne(
         { guildId: interaction.guild.id, userId: ownerId },
         { $unset: { customVocChannelId: 1 } },
-      ).catch(() => {});
+      ).catch(() => { });
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
       await safeUpdatePanelInteraction(interaction, payload);
       await interaction.followUp?.({
         content: "<:vegacheckmark:1443666279058772028> Vocale privata eliminata.",
         flags: PRIVATE_FLAG,
-      }).catch(() => {});
+      }).catch(() => { });
       return true;
     }
 
@@ -808,14 +971,14 @@ async function execute(interaction, client) {
             .setRequired(true),
         ),
       );
-      await interaction.showModal(modal).catch(() => {});
+      await interaction.showModal(modal).catch(() => { });
       return true;
     }
 
     if (action === "reaction_clear") {
       const allowed = await ensureCustomReactionEnabled(interaction, ownerId, client);
       if (!allowed) return true;
-      await MentionReaction.deleteOne({ guildId: interaction.guild.id, userId: ownerId }).catch(() => {});
+      await MentionReaction.deleteOne({ guildId: interaction.guild.id, userId: ownerId }).catch(() => { });
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMREACTION);
       await safeUpdatePanelInteraction(interaction, payload);
       return true;
@@ -830,7 +993,7 @@ async function execute(interaction, client) {
       await interaction.reply({
         content: `Usa ${cmd} nel canale comandi per aprire il pannello dedicato.`,
         flags: PRIVATE_FLAG,
-      }).catch(() => {});
+      }).catch(() => { });
       return true;
     }
   }

@@ -79,7 +79,7 @@ function buildCustomReactionPanelRows(ownerId) {
         .setCustomId(`customreaction_remove:${safeOwner}`)
         .setLabel("Rimuovi")
         .setEmoji(`<:VC_emoji:1485419161168511036>`)
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`customreaction_clear:${safeOwner}`)
         .setLabel("Azzera tutto")

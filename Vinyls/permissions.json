@@ -1038,6 +1038,9 @@
         "customreaction_clear:*": {
             "ownerSegment": 1
         },
+        "blacklist_ui:*": {
+            "ownerSegment": 2
+        },
         "profile_panel:*": {
             "ownerSegment": 2
         },
@@ -1500,6 +1503,9 @@
         },
         "customreaction_modal_*": {
             "ownerSegment": 1
+        },
+        "blacklist_ui_modal:*": {
+            "ownerSegment": 2
         },
         "profile_panel:*": {
             "ownerSegment": 2

@@ -4,6 +4,7 @@ module.exports = {
   profile: require("./profile"),
   user: require("./user"),
   channel: require("./channel"),
+  blacklist: require("./blacklist"),
   backupInfo: require("./backupInfo"),
   backupList: require("./backupList"),
   eventoClassifica: require("./eventoClassifica"),
