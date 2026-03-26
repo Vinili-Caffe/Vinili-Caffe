@@ -904,9 +904,9 @@ module.exports = {
         .setColor("#6f4e37")
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
-          `Usa \`+customrole\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
-          `Usa \`+customvoc\` in <#${IDs.channels.commands}> per creare e configurare la vocale privata.`,
-          `Usa \`+customreaction\` in <#${IDs.channels.commands}> per creare e configurare le reaction da aggiunge quando ti menzionano.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare la vocale privata.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare le reaction da aggiunge quando ti menzionano.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
 
@@ -998,9 +998,9 @@ module.exports = {
         .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
 
       const howtoEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
-        `Usa \`+customrole\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
-        `Usa \`+customvoc\` in <#${IDs.channels.commands}> per creare e configurare la vocale privata.`,
-        `Usa \`+customreaction\` in <#${IDs.channels.commands}> per creare e configurare le reaction da aggiunge quando ti menzionano.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare la vocale privata.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare le reaction da aggiunge quando ti menzionano.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 

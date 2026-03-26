@@ -21,6 +21,16 @@ const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078379118755";
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
+const CUSTOM_ROLE_VOC_ROLE_IDS = [
+  IDs?.roles?.VIP,
+  IDs?.roles?.ServerBooster,
+  IDs?.roles?.Level50,
+].filter(Boolean);
+const CUSTOM_REACTION_ROLE_IDS = [
+  IDs?.roles?.VIP,
+  IDs?.roles?.ServerBooster,
+  IDs?.roles?.Level70,
+].filter(Boolean);
 
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
@@ -142,7 +152,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy] = await Promise.all([
+  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
@@ -150,7 +160,14 @@ async function fetchProfilePanelState(guild, userId, client) {
     AvatarPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
+    guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
   ]);
+  const hasCustomRoleVocAccess = Boolean(
+    member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
+  );
+  const hasCustomReactionAccess = Boolean(
+    member?.roles?.cache && CUSTOM_REACTION_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
+  );
 
   return {
     birthday: birthday || null,
@@ -161,6 +178,10 @@ async function fetchProfilePanelState(guild, userId, client) {
       avatar: Boolean(avatarPrivacy?.blocked),
       banner: Boolean(bannerPrivacy?.blocked),
       quotes: Boolean(quotePrivacy?.blocked),
+    },
+    featureAccess: {
+      customRoleVoc: hasCustomRoleVocAccess,
+      customReaction: hasCustomReactionAccess,
     },
   };
 }
@@ -303,18 +324,29 @@ function buildSectionEmbed(section, state, user, guild = null) {
 }
 
 function buildRows(ownerId, section, state = null) {
+  const canAccessCustomRoleVoc = Boolean(state?.featureAccess?.customRoleVoc);
+  const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
+  const selectOptions = [
+    { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
+    { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
+    { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
+    { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
+  ];
+  if (canAccessCustomRoleVoc) {
+    selectOptions.push(
+      { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
+      { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
+    );
+  }
+  if (canAccessCustomReaction) {
+    selectOptions.push(
+      { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
+    );
+  }
   const select = new StringSelectMenuBuilder()
     .setCustomId(`${PANEL_PREFIX}:select:${ownerId}`)
     .setPlaceholder("Scegli una sezione")
-    .addOptions(
-      { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
-      { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
-      { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
-      { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
-      { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
-      { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
-      { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
-    );
+    .addOptions(...selectOptions);
 
   const row1 = new ActionRowBuilder().addComponents(select);
   const row2 = new ActionRowBuilder();
@@ -408,6 +440,15 @@ function buildRows(ownerId, section, state = null) {
 
 async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME) {
   const state = await fetchProfilePanelState(guild, ownerId, client);
+  const canAccessCustomRoleVoc = Boolean(state?.featureAccess?.customRoleVoc);
+  const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
+  const requestedSection = String(section || SECTION_HOME);
+  const isDeniedCustomRoleVoc = !canAccessCustomRoleVoc
+    && (requestedSection === SECTION_CUSTOMROLE || requestedSection === SECTION_CUSTOMVOC);
+  const isDeniedCustomReaction = !canAccessCustomReaction && requestedSection === SECTION_CUSTOMREACTION;
+  const safeSection = (isDeniedCustomRoleVoc || isDeniedCustomReaction)
+    ? SECTION_HOME
+    : requestedSection;
   const draft = getBirthdayDraft(guild?.id, ownerId);
   if (draft) {
     state.birthday = {
@@ -419,8 +460,8 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME)
     };
   }
   return {
-    embeds: [buildSectionEmbed(section, state, `<@${ownerId}>`, guild)],
-    components: buildRows(ownerId, section, state),
+    embeds: [buildSectionEmbed(safeSection, state, `<@${ownerId}>`, guild)],
+    components: buildRows(ownerId, safeSection, state),
   };
 }
 
@@ -444,7 +485,7 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
   if (status === "active") return true;
   await interaction.reply({
     content:
-      "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+customrole`.",
+      "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+profile`.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });
   return false;
@@ -991,10 +1032,10 @@ async function execute(interaction, client) {
 
     if (action === "open_customrole" || action === "open_customvoc" || action === "open_customreaction") {
       const cmd = action === "open_customrole"
-        ? "+customrole"
+        ? "+profile"
         : action === "open_customvoc"
-          ? "+customvoc"
-          : "+customreaction";
+          ? "+profile"
+          : "+profile";
       await interaction.reply({
         content: `Usa ${cmd} nel canale comandi per aprire il pannello dedicato.`,
         flags: PRIVATE_FLAG,

@@ -43,7 +43,7 @@ async function ensureOwnerCustomRoleActive(
   if (state.status === "none") {
     await replyEphemeral(interaction, {
       content:
-        "<:VC_Attention:1482534443632558151> Non hai più un custom role attivo. Usa `+customrole`.",
+        "<:VC_Attention:1482534443632558151> Non hai più un custom role attivo. Usa `+profile`.",
       flags: PRIVATE_FLAG,
     });
     return { ok: false, state };
@@ -54,7 +54,7 @@ async function ensureOwnerCustomRoleActive(
       content: [
         "<a:VC_Alert:1482706673176150077> Il tuo custom role temporaneo è scaduto.",
         `<:VC_Clock:1473359204189474886> Scadenza: ${buildExpiryText(state.doc)}`,
-        "<:VC_InactiveStatus:1482526984234860574> Usa `+customrole` per crearne uno nuovo.",
+        "<:VC_InactiveStatus:1482526984234860574> Usa `+profile` per crearne uno nuovo.",
       ].join("\n"),
       flags: PRIVATE_FLAG,
     });
@@ -64,7 +64,7 @@ async function ensureOwnerCustomRoleActive(
   if (state.status === "missing_role") {
     await replyEphemeral(interaction, {
       content:
-        "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole`.",
+        "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+profile`.",
       flags: PRIVATE_FLAG,
     });
     return { ok: false, state };
@@ -76,7 +76,7 @@ async function ensureOwnerCustomRoleActive(
   ) {
     await replyEphemeral(interaction, {
       content:
-        "<:vegax:1443934876440068179> Questo pannello non è più allineato al tuo ruolo attuale. Riapri con `+customrole`.",
+        "<:vegax:1443934876440068179> Questo pannello non è più allineato al tuo ruolo attuale. Riapri con `+profile`.",
       flags: PRIVATE_FLAG,
     });
     return { ok: false, state };
@@ -288,7 +288,7 @@ async function handleRoleActionButton(interaction) {
     await interaction
       .reply({
         content:
-          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole`.",
+          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+profile`.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -546,7 +546,7 @@ async function handleRoleActionModal(interaction) {
     await interaction
       .reply({
         content:
-          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole`.",
+          "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+profile`.",
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -1002,7 +1002,7 @@ async function handleAddRemoveSelectMenus(interaction) {
       await interaction
         .reply({
           content:
-            "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+customrole`.",
+            "<:VC_Attention:1482534443632558151> Ruolo non trovato, ricrealo con `+profile`.",
           flags: 1 << 6,
         })
         .catch(() => { });

@@ -472,7 +472,7 @@ activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
-/** Vincitori settimana evento 2 o 3: permesso ad personam permanente (equivalente Level50/Level70) senza ruolo. Nessuna scadenza: i vincitori mantengono per sempre l’accesso a +customrole, +customvoc, ecc. */
+/** Vincitori settimana evento 2 o 3: permesso ad personam permanente (equivalente Level50/Level70) senza ruolo. Nessuna scadenza: i vincitori mantengono per sempre l’accesso a +profile, +profile, ecc. */
 const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
 eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
 

@@ -269,34 +269,9 @@
                 ]
             }
         },
-        "customrole": {
+        "profile": {
             "roles": [
-                "roles.vip",
-                "roles.donator",
-                "roles.ServerBooster",
-                "roles.Level70"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "customvoc": {
-            "roles": [
-                "roles.vip",
-                "roles.donator",
-                "roles.ServerBooster",
-                "roles.Level70"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "customreaction": {
-            "roles": [
-                "roles.vip",
-                "roles.donator",
-                "roles.ServerBooster",
-                "roles.Level70"
+                "roles.Member"
             ],
             "channels": [
                 "channels.commands",
@@ -307,34 +282,6 @@
         "desc": [
             "roles.PartnerManager"
         ],
-        "dm-filters": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands"
-            ]
-        },
-        "privacy": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "birthday": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
         "help": {
             "roles": [
                 "roles.Member"
@@ -612,12 +559,10 @@
             ],
             "subcommands": {
                 "add": [
-                    "roles.HighStaff",
-                    "roles.PartnerManager"
+                    "roles.HighStaff"
                 ],
                 "remove": [
-                    "roles.HighStaff",
-                    "roles.PartnerManager"
+                    "roles.HighStaff"
                 ],
                 "list": [
                     "roles.HighStaff",
@@ -1006,39 +951,108 @@
         "ticket_autoclose_accept": null,
         "ticket_autoclose_reject": null,
         "customrole_color:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customrole_delete:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customrole_emoji:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customrole_grant:*": {
+            "roles": [
+                "roles.vip",
+                "roles.donator",
+                "roles.ServerBooster",
+                "roles.Level50",
+                "roles.Level70"
+            ],
             "grantRecipientOnly": true
         },
         "customrole_members:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customrole_name:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customvoc_emoji:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customvoc_name:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customreaction_add:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level70"
+            ],
             "ownerSegment": 1
         },
         "customreaction_remove:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level70"
+            ],
             "ownerSegment": 1
         },
         "customreaction_clear:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level70"
+            ],
             "ownerSegment": 1
         },
         "blacklist_ui:*": {
+            "ownerSegment": 2
+        },
+        "profile_panel:select:*": {
+            "roles": [
+                "roles.Member"
+            ],
+            "ownerSegment": 2
+        },
+        "profile_panel:action:*": {
+            "roles": [
+                "roles.Member"
+            ],
             "ownerSegment": 2
         },
         "profile_panel:*": {
@@ -1433,16 +1447,42 @@
     },
     "selectMenus": {
         "customrole_add_select:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customrole_color_type_select:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customrole_remove_select:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customreaction_remove_pick:*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level70"
+            ],
             "ownerSegment": 1
+        },
+        "profile_panel:select:*": {
+            "roles": [
+                "roles.Member"
+            ],
+            "ownerSegment": 2
         },
         "profile_panel:*": {
             "ownerSegment": 2
@@ -1496,13 +1536,34 @@
     },
     "modals": {
         "customrole_modal_*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customvoc_modal_*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level50"
+            ],
             "ownerSegment": 1
         },
         "customreaction_modal_*": {
+            "roles": [
+                "roles.vip",
+                "roles.ServerBooster",
+                "roles.Level70"
+            ],
             "ownerSegment": 1
+        },
+        "profile_panel:modal_*": {
+            "roles": [
+                "roles.Member"
+            ],
+            "ownerSegment": 2
         },
         "blacklist_ui_modal:*": {
             "ownerSegment": 2
