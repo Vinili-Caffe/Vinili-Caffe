@@ -101,6 +101,11 @@ function isVerifyOrTicketInteraction(customId) {
   return false;
 }
 
+function isProfilePanelInteraction(customId) {
+  if (!customId || typeof customId !== "string") return false;
+  return String(customId).trim().startsWith("profile_panel:");
+}
+
 function isApplyOrCandidatureInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
@@ -821,7 +826,7 @@ async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1013,7 +1018,7 @@ async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1163,7 +1168,7 @@ async function checkModalPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,

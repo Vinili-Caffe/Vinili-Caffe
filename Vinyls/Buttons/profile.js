@@ -68,19 +68,28 @@ async function fetchProfilePanelState(guild, userId, client) {
 
 function buildSectionEmbed(section, state, user) {
   const base = new EmbedBuilder().setColor("#6f4e37");
+  const birthday = state?.birthday || {};
+  const hasBirthday = Number.isInteger(birthday?.day) && Number.isInteger(birthday?.month);
+  const custom = state?.custom || {};
+  const customDoc = custom?.doc || null;
+  const customRoleStatus = custom?.status || "none";
+  const customRoleName = custom?.role?.name ? `**${custom.role.name}**` : "Nessun ruolo attivo";
+  const customRoleExpiry = customDoc ? buildExpiryText(customDoc) : "—";
+  const customVocLinked = customDoc?.customVocChannelId ? `<#${customDoc.customVocChannelId}>` : "Nessuna vocale collegata";
+  const customVocEmoji = String(customDoc?.customVocEmoji || "").trim() || "Non impostata";
+  const reactionList = Array.isArray(state?.reactions) ? state.reactions : [];
+  const birthdayPrivacy = birthday?.showAge === false ? "Nascosta" : "Visibile";
 
   if (section === SECTION_BIRTHDAY) {
-    const b = state?.birthday || {};
-    const hasBirthday = Number.isInteger(b?.day) && Number.isInteger(b?.month);
-    const privacy = b?.showAge === false ? "Nascosta" : "Visibile";
     return base
       .setTitle("Profile Center • Birthday")
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Gestisci compleanno dal pannello rapido.",
         "",
-        `Data: **${formatBirthday(b)}**`,
-        `Età: **${Number.isInteger(b?.birthYear) ? "Impostata" : "Non impostata"}**`,
-        `Privacy età: **${privacy}**`,
+        "**Configurazione attuale**",
+        `• Data: **${formatBirthday(birthday)}**`,
+        `• Età: **${Number.isInteger(birthday?.birthYear) ? "Impostata" : "Non impostata"}**`,
+        `• Privacy età: **${birthdayPrivacy}**`,
         "",
         hasBirthday
           ? "Usa i pulsanti sotto per aggiornare o rimuovere il profilo."
@@ -89,55 +98,52 @@ function buildSectionEmbed(section, state, user) {
   }
 
   if (section === SECTION_CUSTOMROLE) {
-    const c = state?.custom || {};
-    const status = c?.status || "none";
-    const roleName = c?.role?.name ? `**${c.role.name}**` : "Nessun ruolo attivo";
-    const expText = c?.doc ? buildExpiryText(c.doc) : "—";
     return base
       .setTitle("Profile Center • Custom Role")
       .setDescription([
         "<:VC_Modifica:1478859646587633717> Hub custom role.",
         "",
-        `Stato: **${status}**`,
-        `Ruolo: ${roleName}`,
-        `Scadenza: **${expText}**`,
+        "**Configurazione attuale**",
+        `• Stato: **${customRoleStatus}**`,
+        `• Ruolo: ${customRoleName}`,
+        `• Scadenza: **${customRoleExpiry}**`,
+        `• Vocale collegata: ${customVocLinked}`,
         "",
         "Usa i pulsanti per aprire i setup dedicati.",
       ].join("\n"));
   }
 
   if (section === SECTION_CUSTOMVOC) {
-    const doc = state?.custom?.doc || null;
-    const voc = doc?.customVocChannelId ? `<#${doc.customVocChannelId}>` : "Nessuna vocale collegata";
     return base
       .setTitle("Profile Center • Custom Voc")
       .setDescription([
         "<:VC_Headphone:1482532659514351686> Gestione vocale privata.",
         "",
-        `Canale attuale: ${voc}`,
+        "**Configurazione attuale**",
+        `• Stato custom role: **${customRoleStatus}**`,
+        `• Vocale privata: ${customVocLinked}`,
+        `• Emoji vocale: **${customVocEmoji}**`,
         "",
         "Apri il setup con il comando guidato.",
       ].join("\n"));
   }
 
   if (section === SECTION_CUSTOMREACTION) {
-    const list = Array.isArray(state?.reactions) ? state.reactions : [];
     return base
       .setTitle("Profile Center • Custom Reaction")
       .setDescription([
         "<:VC_emoji:1485419161168511036> Reaction automatiche alle menzioni.",
         "",
-        list.length
-          ? `Attive (${list.length}/${MAX_REACTIONS}): ${list.map(toDisplay).join(" ")}`
-          : "Nessuna reaction attiva.",
+        "**Configurazione attuale**",
+        reactionList.length
+          ? `• Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map(toDisplay).join(" ")}`
+          : "• Nessuna reaction attiva.",
         "",
         "Puoi impostarle qui dal pannello.",
       ].join("\n"));
   }
 
-  const hasBirthday = Number.isInteger(state?.birthday?.day) && Number.isInteger(state?.birthday?.month);
-  const customStatus = state?.custom?.status || "none";
-  const reactionsCount = Array.isArray(state?.reactions) ? state.reactions.length : 0;
+  const reactionsCount = reactionList.length;
   return base
     .setTitle("Profile Center")
     .setDescription([
@@ -146,9 +152,15 @@ function buildSectionEmbed(section, state, user) {
       "",
       "**Stato rapido**",
       `• Birthday: **${hasBirthday ? "Configurato" : "Non configurato"}**`,
-      `• Custom Role: **${customStatus}**`,
+      `• Custom Role: **${customRoleStatus}**`,
+      `• Vocale Privata: **${customVocLinked}**`,
       `• Custom Reactions: **${reactionsCount}/${MAX_REACTIONS}**`,
       "",
+      "**Configurazione attuale**",
+      `• Data birthday: **${formatBirthday(birthday)}**`,
+      `• Privacy età: **${birthdayPrivacy}**`,
+      `• Ruolo attivo: ${customRoleName}`,
+      `• Emoji vocale: **${customVocEmoji}**`,
       "Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
     ].join("\n"))
     .setFooter({ text: "Profile Center • aggiornamento live" });
