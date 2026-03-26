@@ -1,10 +1,11 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { CustomRole } = require("../Schemas/Community/communitySchemas");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const { MAX_REACTIONS, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
+const IDs = require("../Utils/Config/ids");
 
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
@@ -14,6 +15,9 @@ const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
+const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
+const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078379118755";
+const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
 
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
@@ -56,6 +60,29 @@ function setBirthdayDraft(guildId, userId, patch) {
 
 function clearBirthdayDraft(guildId, userId) {
   birthdayDrafts.delete(getDraftKey(guildId, userId));
+}
+
+function trimRoleName(name) {
+  const clean = String(name || "").replace(/\s+/g, " ").trim();
+  const base = clean || "Custom Role";
+  const prefixed = base.startsWith("༄") ? base : `༄ ${base}`;
+  return prefixed.slice(0, 32).trim();
+}
+
+function sanitizeVoiceBaseName(name) {
+  const clean = String(name || "")
+    .replace(/[^\p{L}\p{N}_ ',.!?\-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean || "privata";
+}
+
+function buildCustomVocName(emoji, baseName) {
+  const safeEmoji = String(emoji || "🎧").trim() || "🎧";
+  const safeBase = sanitizeVoiceBaseName(baseName);
+  const prefix = `༄${safeEmoji}︲`;
+  const maxBaseLength = Math.max(1, 100 - prefix.length);
+  return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }
 
 function formatBirthday(profile) {
@@ -257,17 +284,24 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${roleId || "0"}`).setLabel("Modifica Icona").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
     );
     const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(Boolean(roleId)),
       new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${roleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!roleId),
       new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${roleId || "0"}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
+    );
+    const row4 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
     );
-    return [row1, row2, row3];
+    return [row1, row2, row3, row4];
   } else if (section === SECTION_CUSTOMVOC) {
     row2.addComponents(
+      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_create`).setLabel("Crea Vocale").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(Boolean(customVocChannelId)),
       new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!customVocChannelId),
       new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Secondary).setDisabled(!customVocChannelId),
+    );
+    const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_delete`).setLabel("Elimina Vocale").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!customVocChannelId),
     );
+    return [row1, row2, row3];
   } else if (section === SECTION_CUSTOMREACTION) {
     return [row1, ...buildCustomReactionPanelRows(ownerId)];
   } else {
@@ -319,6 +353,128 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
     flags: PRIVATE_FLAG,
   }).catch(() => {});
   return false;
+}
+
+async function ensureCustomRoleExists(interaction, ownerId, client) {
+  const guild = interaction.guild;
+  const member = interaction.member;
+  if (!guild || !member) return { ok: false, reason: "server_missing" };
+
+  const state = await resolveCustomRoleState({
+    guild,
+    userId: ownerId,
+    client,
+    cleanupExpired: true,
+  }).catch(() => null);
+
+  if (state?.status === "active" && state?.role) {
+    return { ok: true, role: state.role, doc: state.doc || null };
+  }
+
+  const me = guild.members?.me || guild.members?.cache?.get?.(client?.user?.id);
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles)) {
+    return { ok: false, reason: "no_manage_roles" };
+  }
+
+  const roleName = trimRoleName(member?.displayName || interaction.user?.username || "Custom Role");
+  const createdRole = await guild.roles.create({
+    name: roleName,
+    colors: { primaryColor: "#f4b6d7" },
+    reason: `Custom role for ${interaction.user?.tag || ownerId}`,
+  }).catch(() => null);
+  if (!createdRole) return { ok: false, reason: "create_failed" };
+
+  const anchor = guild.roles.cache.get(ANCHOR_ROLE_ID) || (await guild.roles.fetch(ANCHOR_ROLE_ID).catch(() => null));
+  if (anchor?.position && createdRole.position !== anchor.position - 1) {
+    await createdRole.setPosition(Math.max(1, Number(anchor.position) - 1)).catch(() => {});
+  }
+
+  await member.roles.add(createdRole.id).catch(() => {});
+
+  const doc = await CustomRole.findOneAndUpdate(
+    { guildId: guild.id, userId: ownerId },
+    { $set: { guildId: guild.id, userId: ownerId, roleId: createdRole.id, expiresAt: null } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+
+  return { ok: true, role: createdRole, doc };
+}
+
+async function ensureCustomVocExists(interaction, ownerId, client) {
+  const roleState = await ensureCustomRoleExists(interaction, ownerId, client);
+  if (!roleState.ok) return { ok: false, reason: roleState.reason || "custom_role_missing" };
+  const guild = interaction.guild;
+  const role = roleState.role;
+  const me = guild?.members?.me || guild?.members?.cache?.get?.(client?.user?.id);
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels)) {
+    return { ok: false, reason: "no_manage_channels" };
+  }
+
+  const latestDoc = await CustomRole.findOne({ guildId: guild.id, userId: ownerId }).lean().catch(() => null);
+  const existingChannelId = String(latestDoc?.customVocChannelId || "").trim();
+  if (existingChannelId) {
+    const existing = guild.channels?.cache?.get?.(existingChannelId) || (await guild.channels?.fetch?.(existingChannelId).catch(() => null));
+    if (existing) return { ok: true, channel: existing, role, doc: latestDoc };
+  }
+
+  const category = guild.channels?.cache?.get?.(CUSTOM_VOICE_CATEGORY_ID) || (await guild.channels?.fetch?.(CUSTOM_VOICE_CATEGORY_ID).catch(() => null));
+  if (!category || category.type !== ChannelType.GuildCategory) {
+    return { ok: false, reason: "category_missing" };
+  }
+
+  const channelName = buildCustomVocName(
+    latestDoc?.customVocEmoji || role?.unicodeEmoji || "🎧",
+    interaction.member?.displayName || interaction.user?.username || "privata",
+  );
+
+  const channel = await guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildVoice,
+    parent: CUSTOM_VOICE_CATEGORY_ID,
+    reason: `Private voice channel for ${interaction.user?.tag || ownerId}`,
+    permissionOverwrites: [
+      {
+        id: guild.roles.everyone.id,
+        deny: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.Connect,
+          PermissionsBitField.Flags.Speak,
+          PermissionsBitField.Flags.UseVAD,
+          PermissionsBitField.Flags.Stream,
+        ],
+      },
+      ...(MEMBER_ROLE_ID ? [{ id: MEMBER_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel], deny: [PermissionsBitField.Flags.Connect] }] : []),
+      {
+        id: role.id,
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.Connect,
+          PermissionsBitField.Flags.Speak,
+          PermissionsBitField.Flags.UseVAD,
+          PermissionsBitField.Flags.Stream,
+        ],
+      },
+      {
+        id: client.user.id,
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.Connect,
+          PermissionsBitField.Flags.Speak,
+          PermissionsBitField.Flags.ManageChannels,
+          PermissionsBitField.Flags.MoveMembers,
+        ],
+      },
+    ],
+  }).catch(() => null);
+  if (!channel) return { ok: false, reason: "channel_create_failed" };
+
+  const doc = await CustomRole.findOneAndUpdate(
+    { guildId: guild.id, userId: ownerId },
+    { $set: { customVocChannelId: channel.id } },
+    { new: true },
+  ).catch(() => latestDoc || null);
+
+  return { ok: true, channel, role, doc };
 }
 
 async function handleBirthdaySetModal(interaction, ownerId) {
@@ -557,6 +713,37 @@ async function execute(interaction, client) {
       clearBirthdayDraft(interaction.guild.id, ownerId);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_HOME);
       await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action === "customrole_create") {
+      const result = await ensureCustomRoleExists(interaction, ownerId, client);
+      if (!result.ok) {
+        const reason = result.reason === "no_manage_roles"
+          ? "Mi serve `Gestisci Ruoli` per creare il custom role."
+          : "Non sono riuscito a creare il custom role.";
+        await interaction.reply({ content: `<:vegax:1443934876440068179> ${reason}`, flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMROLE);
+      await safeUpdatePanelInteraction(interaction, payload);
+      await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Custom role creato.", flags: PRIVATE_FLAG }).catch(() => {});
+      return true;
+    }
+
+    if (action === "customvoc_create") {
+      const result = await ensureCustomVocExists(interaction, ownerId, client);
+      if (!result.ok) {
+        let reason = "Non sono riuscito a creare la vocale privata.";
+        if (result.reason === "no_manage_channels") reason = "Mi serve `Gestisci Canali` per creare la vocale.";
+        if (result.reason === "category_missing") reason = "Categoria delle vocali private non trovata.";
+        if (result.reason === "no_manage_roles") reason = "Mi serve `Gestisci Ruoli` per creare il custom role richiesto.";
+        await interaction.reply({ content: `<:vegax:1443934876440068179> ${reason}`, flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
+      await safeUpdatePanelInteraction(interaction, payload);
+      await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Vocale privata creata.", flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
 
