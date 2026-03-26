@@ -311,6 +311,7 @@ const activityUserProfileSchema = new Schema(
       perkNearReminderLevels: { type: [Number], default: [] },
       activityExpTotal: { type: Number, default: 0 },
       sourceUpdatedAt: { type: Date, default: null },
+      levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
     },
     eventExpSnapshot: {
       totalExpAtStart: { type: Number, default: 0 },
@@ -450,7 +451,6 @@ const activityUserProfileSchema = new Schema(
         dmFailed: { type: Boolean, default: false },
       },
     },
-    levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
     staff: { type: staffEmbeddedSchema },
   },
   { timestamps: true },

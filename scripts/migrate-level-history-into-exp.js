@@ -1,10 +1,10 @@
 /**
  * Migrazione one-shot:
- * - da `reviewReward.*` e `reviewRewards.*`
- * - a  `bumpVoteRewards.disboard_review.*`
+ * - da `levelHistory` (legacy root)
+ * - a  `exp.levelHistory` (nuovo path canonico)
  *
  * Uso:
- *   node scripts/migrate-review-reward-into-bumpVoteRewards.js
+ *   node scripts/migrate-level-history-into-exp.js
  */
 const path = require("path");
 const ROOT = path.join(__dirname, "..");
@@ -29,7 +29,7 @@ function requireMongoose() {
 }
 
 const mongoose = requireMongoose();
-const { ActivityUserProfile } = require(path.join(
+const { ActivityUserProfile, LEVEL_HISTORY_MAX_ENTRIES } = require(path.join(
   ROOT,
   "Vinyls",
   "Schemas",
@@ -47,11 +47,24 @@ function resolveMongoUrl() {
   );
 }
 
-function pickDate(...candidates) {
-  for (const candidate of candidates) {
-    if (candidate != null) return candidate;
-  }
-  return null;
+function normalizeEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  return {
+    actorId: entry.actorId != null ? String(entry.actorId) : null,
+    action: String(entry.action || "update"),
+    beforeExp: Number(entry.beforeExp || 0),
+    afterExp: Number(entry.afterExp || 0),
+    beforeLevel: Number(entry.beforeLevel || 0),
+    afterLevel: Number(entry.afterLevel || 0),
+    deltaExp: Number(entry.deltaExp || 0),
+    note: entry.note != null ? String(entry.note).slice(0, 500) : null,
+    createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+  };
+}
+
+function normalizeList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeEntry).filter(Boolean);
 }
 
 async function main() {
@@ -63,19 +76,23 @@ async function main() {
 
   await mongoose.connect(url);
 
+  const cap = Math.max(
+    50,
+    Math.min(500, Number(process.env.LEVEL_HISTORY_MAX_ENTRIES) || LEVEL_HISTORY_MAX_ENTRIES || 150),
+  );
   const collection = ActivityUserProfile.collection;
   const cursor = collection.find(
     {
       $or: [
-        { reviewReward: { $exists: true } },
-        { reviewRewards: { $exists: true } },
+        { levelHistory: { $exists: true } },
+        { levelHystory: { $exists: true } },
       ],
     },
     {
       _id: 1,
-      reviewReward: 1,
-      reviewRewards: 1,
-      "bumpVoteRewards.disboard_review": 1,
+      levelHistory: 1,
+      levelHystory: 1,
+      "exp.levelHistory": 1,
     },
   );
 
@@ -85,29 +102,20 @@ async function main() {
 
   for await (const doc of cursor) {
     scanned += 1;
-    const current = doc?.bumpVoteRewards?.disboard_review || {};
-    const legacySingle = doc?.reviewReward || {};
-    const legacyPlural = doc?.reviewRewards || {};
+    const current = normalizeList(doc?.exp?.levelHistory);
+    const legacy = normalizeList(doc?.levelHistory);
+    const typoLegacy = normalizeList(doc?.levelHystory);
 
-    const next = {
-      rewardedBy: pickDate(
-        current?.rewardedBy,
-        legacySingle?.rewardedBy,
-        legacyPlural?.rewardedBy,
-      ),
-      rewardedAt: pickDate(
-        current?.rewardedAt,
-        legacySingle?.rewardedAt,
-        legacyPlural?.rewardedAt,
-      ),
-    };
+    const target = current.length
+      ? current.slice(0, cap)
+      : [...legacy, ...typoLegacy].slice(0, cap);
 
     ops.push({
       updateOne: {
         filter: { _id: doc._id },
         update: {
-          $set: { "bumpVoteRewards.disboard_review": next },
-          $unset: { reviewReward: "", reviewRewards: "" },
+          $set: { "exp.levelHistory": target },
+          $unset: { levelHistory: "", levelHystory: "" },
         },
       },
     });
@@ -124,7 +132,7 @@ async function main() {
   }
 
   console.log(
-    `[migrate-review-reward] scanned=${scanned} migrated=${migrated} (legacy fields rimossi).`,
+    `[migrate-level-history] scanned=${scanned} migrated=${migrated} (legacy fields rimossi).`,
   );
 
   await mongoose.disconnect();
