@@ -609,7 +609,7 @@ async function maybeSendPerkNearReminder(guild, member, result) {
   const roleId = LEVEL_ROLE_MAP.get(nextPerkLevel);
   if (!roleId) return;
 
-  const expSub = result.doc?.exp || {};
+  const expSub = result.doc?.profile?.totals?.exp || result.doc?.exp || {};
   const reminded = Array.isArray(expSub.perkNearReminderLevels)
     ? expSub.perkNearReminderLevels.map((value) => Number(value)).filter(Number.isFinite)
     : [];
