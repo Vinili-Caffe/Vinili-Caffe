@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
+const { listPartnershipBlacklistGuilds } = require("../../Services/Partner/partnershipBlacklistService");
 
 const PANEL_PREFIX = "blacklist_ui";
 
@@ -22,28 +23,17 @@ function hasBlacklistViewRole(member) {
   );
 }
 
-function buildBlacklistPanelPayload(ownerId, canView, canManage) {
-  const embeds = [
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("Partnership blacklist (server)")
-      .setDescription(
-        [
-          "Gestisci blacklist partnership da questo pannello.",
-          "",
-          "Azioni disponibili:",
-          "• Aggiungi server",
-          "• Rimuovi server",
-          "• Mostra elenco",
-        ].join("\n"),
-      ),
-  ];
+function buildBlacklistPanelPayload(ownerId, canView, canManage, rows = []) {
+  const lines = rows.map((r) => `\`${r.guildId}\`${r.note ? ` — ${String(r.note).slice(0, 80)}` : ""}`);
+  const embeds = [new EmbedBuilder().setColor("#6f4e37").setTitle("Server in blacklist partnership")];
   if (!canView) {
     embeds[0].setColor("Red").setDescription(
       "<:vegax:1443934876440068179> Non hai i ruoli necessari per gestire la blacklist.",
     );
     return { embeds, components: [] };
   }
+  embeds[0].setDescription(lines.length ? lines.join("\n").slice(0, 3900) : "Nessun server in blacklist partnership.");
+
   const buttons = [];
   if (canManage) {
     buttons.push(
@@ -57,12 +47,7 @@ function buildBlacklistPanelPayload(ownerId, canView, canManage) {
         .setStyle(ButtonStyle.Danger),
     );
   }
-  buttons.push(
-    new ButtonBuilder()
-      .setCustomId(`${PANEL_PREFIX}:list:${ownerId}`)
-      .setLabel("Elenco")
-      .setStyle(ButtonStyle.Secondary),
-  );
+  if (!buttons.length) return { embeds, components: [] };
   const row = new ActionRowBuilder().addComponents(...buttons);
   return { embeds, components: [row] };
 }
@@ -76,7 +61,8 @@ module.exports = {
   async execute(message, args) {
     const canView = hasBlacklistViewRole(message.member);
     const canManage = hasBlacklistManageRole(message.member);
-    const payload = buildBlacklistPanelPayload(message.author.id, canView, canManage);
+    const rows = canView ? await listPartnershipBlacklistGuilds(200).catch(() => []) : [];
+    const payload = buildBlacklistPanelPayload(message.author.id, canView, canManage, rows);
     return safeMessageReply(message, {
       ...payload,
       allowedMentions: { repliedUser: false },
