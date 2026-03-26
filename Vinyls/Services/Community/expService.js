@@ -275,7 +275,7 @@ async function snapshotExpForEvent(guildId) {
   if (!guildId) return;
   const g = String(guildId);
   const profiles = await ActivityUserProfile.find({ guildId: g })
-    .select("_id exp.totalExp exp.activityExpTotal")
+    .select("_id profile.totals.exp.totalExp profile.totals.exp.activityExpTotal")
     .lean()
     .catch(() => []);
   if (!profiles.length) return;

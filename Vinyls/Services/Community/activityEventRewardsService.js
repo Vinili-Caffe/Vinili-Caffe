@@ -479,7 +479,7 @@ function getCompletedEventWeekForSundayPayout(settings) {
 async function getTop10ExpDuringEvent(guildId, limit = 10) {
   if (!guildId) return [];
   const cap = Math.max(1, Math.min(100, Number(limit) || 10));
-  const profileUsers = await ActivityUserProfile.find({ guildId }).select("userId exp").lean().catch(() => []);
+  const profileUsers = await ActivityUserProfile.find({ guildId }).select("userId profile.totals.exp.activityExpTotal").lean().catch(() => []);
   const users = profileUsers.map((row) => ({
     userId: row?.userId,
     activityExpTotal: Number(row?.profile?.totals?.exp?.activityExpTotal || 0),

@@ -17,10 +17,10 @@ function entryMergeKey(entry) {
   return JSON.stringify(entry);
 }
 
-function mergeTicketArrays(legacyTickets, currentTicket) {
+function mergeTicketArrays(currentTickets, legacyTicket) {
   const out = [];
   const seen = new Set();
-  for (const row of [...toArray(currentTicket), ...toArray(legacyTickets)]) {
+  for (const row of [...toArray(currentTickets), ...toArray(legacyTicket)]) {
     const key = entryMergeKey(row);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -59,13 +59,13 @@ async function run() {
   await collection.updateOne(
     { _id: doc._id },
     {
-      $set: { ticket: merged },
-      $unset: { tickets: "" },
+      $set: { tickets: merged },
+      $unset: { ticket: "" },
     },
   );
 
   console.log(
-    `[migrate-guildfeaturebucket-tickets-into-ticket] guild=${TARGET_GUILD_ID} ticket=${toArray(doc.ticket).length} tickets=${toArray(doc.tickets).length} merged=${merged.length}`,
+    `[migrate-guildfeaturebucket-tickets-into-ticket] guild=${TARGET_GUILD_ID} tickets=${toArray(doc.tickets).length} ticket=${toArray(doc.ticket).length} merged=${merged.length}`,
   );
   await mongoose.disconnect();
 }

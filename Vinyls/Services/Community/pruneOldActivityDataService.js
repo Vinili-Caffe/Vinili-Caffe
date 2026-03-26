@@ -35,7 +35,7 @@ function getRomeHourKey(date) {
 }
 
 /**
- * Rimuove chiavi `totals.daily` / `totals.hourly` scadute dai profili (retention giorni, confronto stringa su dateKey/hourKey Roma).
+ * Rimuove chiavi `profile.totals.daily` / `profile.totals.hourly` scadute dai profili (retention giorni, confronto stringa su dateKey/hourKey Roma).
  * @param {{ retentionDaysDaily?: number, retentionDaysHourly?: number }} options - default 90 e 60 giorni
  * @returns {{ dailyDeleted: number, hourlyDeleted: number }}
  */
@@ -51,7 +51,7 @@ async function pruneOldActivityData(options = {}) {
   let dailyDeleted = 0;
   let hourlyDeleted = 0;
   const batch = [];
-  const cursor = ActivityUserProfile.find({}).select("_id totals.daily totals.hourly").cursor();
+  const cursor = ActivityUserProfile.find({}).select("_id profile.totals.daily profile.totals.hourly").cursor();
 
   for await (const doc of cursor) {
     const daily = { ...(doc?.profile?.totals?.daily && typeof doc.profile.totals.daily === "object" ? doc.profile.totals.daily : {}) };
