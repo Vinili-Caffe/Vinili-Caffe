@@ -3,7 +3,6 @@ const profileButton = require("../../Buttons/profile");
 
 module.exports = {
   name: "profile",
-  aliases: ["profilo"],
   allowEmptyArgs: true,
 
   async execute(message) {

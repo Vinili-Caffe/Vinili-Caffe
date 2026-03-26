@@ -4,7 +4,7 @@ const { CustomRole } = require("../Schemas/Community/communitySchemas");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
-const { MAX_REACTIONS, parseReactionTokens, toDisplay } = require("../Utils/Community/mentionReactionPanelUtils");
+const { MAX_REACTIONS, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
@@ -52,6 +52,18 @@ function formatBirthdayWithOptionalYear(profile) {
   return canShowYear ? `${dd}/${mm}/${profile.birthYear}` : `${dd}/${mm}`;
 }
 
+function renderReactionToken(token, guild) {
+  const raw = String(token || "");
+  if (raw.startsWith("custom:")) {
+    const id = raw.slice("custom:".length);
+    const emoji = guild?.emojis?.cache?.get?.(id) || null;
+    if (emoji?.id) {
+      return `<${emoji.animated ? "a" : ""}:${emoji.name || "emoji"}:${emoji.id}>`;
+    }
+  }
+  return toDisplay(token);
+}
+
 async function safeUpdatePanelInteraction(interaction, payload) {
   const updated = await interaction.update(payload).then(() => true).catch(() => false);
   if (updated) return true;
@@ -88,7 +100,7 @@ async function fetchProfilePanelState(guild, userId, client) {
   };
 }
 
-function buildSectionEmbed(section, state, user) {
+function buildSectionEmbed(section, state, user, guild = null) {
   const base = new EmbedBuilder().setColor("#6f4e37");
   const birthday = state?.birthday || {};
   const hasBirthday = Number.isInteger(birthday?.day) && Number.isInteger(birthday?.month);
@@ -101,12 +113,11 @@ function buildSectionEmbed(section, state, user) {
   const customVocLinked = customDoc?.customVocChannelId ? `<#${customDoc.customVocChannelId}>` : "Nessuna vocale collegata";
   const customVocEmoji = String(customDoc?.customVocEmoji || "").trim() || "Non impostata";
   const reactionList = Array.isArray(state?.reactions) ? state.reactions : [];
-  const reactionsText = reactionList.length ? reactionList.map(toDisplay).join(" ") : "Non impostate";
+  const reactionsText = reactionList.length ? reactionList.map((token) => renderReactionToken(token, guild)).join(" ") : "Non impostate";
   const birthdayPrivacy = birthday?.showAge === false ? "Nascosta" : "Visibile";
 
   if (section === SECTION_BIRTHDAY) {
     return base
-      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Birthday")
       .setDescription([
         "<a:VC_Flowers:1468687836055212174> Gestisci compleanno dal pannello rapido.",
         "",
@@ -123,7 +134,6 @@ function buildSectionEmbed(section, state, user) {
 
   if (section === SECTION_CUSTOMROLE) {
     return base
-      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Custom Role")
       .setDescription([
         "<:VC_Modifica:1478859646587633717> Hub custom role.",
         "",
@@ -131,7 +141,6 @@ function buildSectionEmbed(section, state, user) {
         `<:VC_Dot:1482532364222595303> Stato: **${customRoleStatus}**`,
         `<:VC_Dot:1482532364222595303> Ruolo: ${customRoleName}`,
         `<:VC_Dot:1482532364222595303> Scadenza: **${customRoleExpiry}**`,
-        `<:VC_Dot:1482532364222595303> Vocale collegata: ${customVocLinked}`,
         "",
         "Usa i pulsanti per aprire i setup dedicati.",
       ].join("\n"));
@@ -139,14 +148,12 @@ function buildSectionEmbed(section, state, user) {
 
   if (section === SECTION_CUSTOMVOC) {
     return base
-      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Custom Voc")
       .setDescription([
-        "<:VC_Headphone:1482532659514351686> Gestione vocale privata.",
+        "<:VC_Modifica:1478859646587633717> Hub custom voc.",
         "",
         "**Configurazione attuale**",
-        `<:VC_Dot:1482532364222595303> Stato custom role: **${customRoleStatus}**`,
+        `<:VC_Dot:1482532364222595303> Stato: **${customRoleStatus}**`,
         `<:VC_Dot:1482532364222595303> Vocale privata: ${customVocLinked}`,
-        `<:VC_Dot:1482532364222595303> Emoji vocale: **${customVocEmoji}**`,
         "",
         "Apri il setup con il comando guidato.",
       ].join("\n"));
@@ -154,13 +161,12 @@ function buildSectionEmbed(section, state, user) {
 
   if (section === SECTION_CUSTOMREACTION) {
     return base
-      .setTitle("Profile Center <:VC_Dot:1482532364222595303> Custom Reaction")
       .setDescription([
         "<:VC_emoji:1485419161168511036> Reaction automatiche alle menzioni.",
         "",
         "**Configurazione attuale**",
         reactionList.length
-          ? `<:VC_Dot:1482532364222595303> Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map(toDisplay).join(" ")}`
+          ? `<:VC_Dot:1482532364222595303> Attive (${reactionList.length}/${MAX_REACTIONS}): ${reactionList.map((token) => renderReactionToken(token, guild)).join(" ")}`
           : "<:VC_Dot:1482532364222595303> Nessuna reaction attiva.",
         "",
         "Puoi impostarle qui dal pannello.",
@@ -173,7 +179,7 @@ function buildSectionEmbed(section, state, user) {
       `<a:VC_Announce:1482534613568979007> Benvenuto ${user}.`,
       "<:VC_EXP:1482534670896730143> Qui trovi una mini guida per configurare il tuo profilo e le funzioni principali del bot.",
       "",
-      "<:VC_Info:1482526956703580372> **configurazione attuale**",
+      "<:VC_Info:1482526956703580372> **Configurazione attuale**",
       `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**${hasBirthday ? ` (privacy: ${birthdayPrivacy})` : ""}`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
@@ -183,7 +189,7 @@ function buildSectionEmbed(section, state, user) {
     ].join("\n"))
 }
 
-function buildRows(ownerId, section) {
+function buildRows(ownerId, section, state = null) {
   const select = new StringSelectMenuBuilder()
     .setCustomId(`${PANEL_PREFIX}:select:${ownerId}`)
     .setPlaceholder("Scegli una sezione")
@@ -197,6 +203,8 @@ function buildRows(ownerId, section) {
 
   const row1 = new ActionRowBuilder().addComponents(select);
   const row2 = new ActionRowBuilder();
+  const roleId = String(state?.custom?.role?.id || "").trim();
+  const customVocChannelId = String(state?.custom?.doc?.customVocChannelId || "").trim();
 
   if (section === SECTION_BIRTHDAY) {
     row2.addComponents(
@@ -206,19 +214,23 @@ function buildRows(ownerId, section) {
     );
   } else if (section === SECTION_CUSTOMROLE) {
     row2.addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:open_customrole`).setLabel("Apri +customrole").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:open_customvoc`).setLabel("Apri +customvoc").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${roleId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
+      new ButtonBuilder().setCustomId(`customrole_color:${ownerId}:${roleId || "0"}`).setLabel("Modifica Colore").setEmoji("<:VC_Color:1482532543273238569>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
+      new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${roleId || "0"}`).setLabel("Modifica Icona").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
     );
+    const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${roleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!roleId),
+      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${roleId || "0"}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
+      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
+    );
+    return [row1, row2, row3];
   } else if (section === SECTION_CUSTOMVOC) {
     row2.addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:open_customvoc`).setLabel("Apri +customvoc").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!customVocChannelId),
+      new ButtonBuilder().setCustomId(`customvoc_emoji:${ownerId}:${customVocChannelId || "0"}`).setLabel("Modifica Emoji").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Secondary).setDisabled(!customVocChannelId),
     );
   } else if (section === SECTION_CUSTOMREACTION) {
-    row2.addComponents(
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:reaction_set`).setLabel("Imposta Reactions").setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:reaction_clear`).setLabel("Azzera").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:open_customreaction`).setLabel("Apri +customreaction").setStyle(ButtonStyle.Secondary),
-    );
+    return [row1, ...buildCustomReactionPanelRows(ownerId)];
   } else {
     return [row1];
   }
@@ -229,8 +241,8 @@ function buildRows(ownerId, section) {
 async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME) {
   const state = await fetchProfilePanelState(guild, ownerId, client);
   return {
-    embeds: [buildSectionEmbed(section, state, `<@${ownerId}>`)],
-    components: buildRows(ownerId, section),
+    embeds: [buildSectionEmbed(section, state, `<@${ownerId}>`, guild)],
+    components: buildRows(ownerId, section, state),
   };
 }
 
@@ -251,7 +263,7 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
     cleanupExpired: true,
   }).catch(() => null);
   const status = String(state?.status || "none");
-  if (status === "active") return true;
+  if (status === "Attivo") return true;
   await interaction.reply({
     content:
       "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+customrole`.",
@@ -293,6 +305,7 @@ async function handleBirthdaySetModal(interaction, ownerId) {
 async function handleReactionSetModal(interaction, ownerId) {
   const allowed = await ensureCustomReactionEnabled(interaction, ownerId, interaction.client);
   if (!allowed) return true;
+  await interaction.guild?.emojis?.fetch?.().catch(() => {});
   const raw = interaction.fields.getTextInputValue("reactions");
   const tokens = parseReactionTokens(raw, MAX_REACTIONS, interaction.guild);
   if (!tokens.length) {
@@ -312,7 +325,7 @@ async function handleReactionSetModal(interaction, ownerId) {
   const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_CUSTOMREACTION);
   if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => {});
   await interaction.reply({
-    content: `<:vegacheckmark:1443666279058772028> Reactions salvate: ${tokens.map(toDisplay).join(" ")}`,
+    content: `<:vegacheckmark:1443666279058772028> Reactions salvate: ${tokens.map((token) => renderReactionToken(token, interaction.guild)).join(" ")}`,
     flags: PRIVATE_FLAG,
   }).catch(() => {});
   return true;
