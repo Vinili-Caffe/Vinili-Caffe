@@ -18,18 +18,14 @@ function ticketKey(ticket) {
   return JSON.stringify(ticket);
 }
 
-function mergeOnlyNew(targetTickets, sourceTickets) {
-  const merged = [...toArray(targetTickets)];
-  const seen = new Set(merged.map((t) => ticketKey(t)));
-  let added = 0;
-  for (const t of toArray(sourceTickets)) {
-    const key = ticketKey(t);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(t);
-    added += 1;
-  }
-  return { merged, added };
+function channelIdKey(ticket) {
+  const channelId = String(ticket?.channelId || "").trim();
+  return channelId ? `ch:${channelId}` : "";
+}
+
+function ticketNumberKey(ticket) {
+  if (ticket?.ticketNumber == null) return "";
+  return `num:${String(ticket.ticketNumber)}`;
 }
 
 async function run() {
@@ -57,15 +53,69 @@ async function run() {
 
   const sourceTickets = toArray(sourceDoc.tickets);
   const targetTickets = toArray(targetDoc.tickets);
-  const { merged, added } = mergeOnlyNew(targetTickets, sourceTickets);
+  const allOtherDocs = await collection
+    .find(
+      { guildId: { $nin: [SOURCE_GUILD_ID, TARGET_GUILD_ID] } },
+      { projection: { tickets: 1 } },
+    )
+    .toArray();
 
-  const updateResult = await collection.updateOne(
+  const usedChannelIdsOutside = new Set();
+  const usedTicketNumbersOutside = new Set();
+  for (const doc of allOtherDocs) {
+    for (const t of toArray(doc?.tickets)) {
+      const ch = channelIdKey(t);
+      const num = ticketNumberKey(t);
+      if (ch) usedChannelIdsOutside.add(ch);
+      if (num) usedTicketNumbersOutside.add(num);
+    }
+  }
+
+  const targetKeys = new Set(targetTickets.map((t) => ticketKey(t)));
+  const targetChannelIds = new Set(targetTickets.map((t) => channelIdKey(t)).filter(Boolean));
+  const targetTicketNumbers = new Set(targetTickets.map((t) => ticketNumberKey(t)).filter(Boolean));
+
+  const toMove = [];
+  let skippedAlreadyInTarget = 0;
+  let skippedConflictOutside = 0;
+  for (const t of sourceTickets) {
+    const key = ticketKey(t);
+    const ch = channelIdKey(t);
+    const num = ticketNumberKey(t);
+
+    if (targetKeys.has(key) || (ch && targetChannelIds.has(ch)) || (num && targetTicketNumbers.has(num))) {
+      skippedAlreadyInTarget += 1;
+      continue;
+    }
+    if ((ch && usedChannelIdsOutside.has(ch)) || (num && usedTicketNumbersOutside.has(num))) {
+      skippedConflictOutside += 1;
+      continue;
+    }
+
+    toMove.push(t);
+    targetKeys.add(key);
+    if (ch) targetChannelIds.add(ch);
+    if (num) targetTicketNumbers.add(num);
+  }
+
+  const movedKeySet = new Set(toMove.map((t) => ticketKey(t)));
+  const sourceAfter = sourceTickets.filter((t) => !movedKeySet.has(ticketKey(t)));
+  const targetAfter = [...targetTickets, ...toMove];
+
+  // IMPORTANT: unique indexes on tickets.channelId/ticketNumber are global per collection.
+  // To avoid E11000, moved rows are removed from source first, then appended to target.
+  const srcUpdate = await collection.updateOne(
+    { _id: sourceDoc._id },
+    { $set: { tickets: sourceAfter } },
+  );
+
+  const targetUpdate = await collection.updateOne(
     { _id: targetDoc._id },
-    { $set: { tickets: merged } },
+    { $set: { tickets: targetAfter } },
   );
 
   console.log(
-    `[migrate-guildfeaturebucket-tickets-source-to-target] source=${SOURCE_GUILD_ID}(${sourceTickets.length}) target=${TARGET_GUILD_ID} before=${targetTickets.length} added=${added} after=${merged.length} modified=${Number(updateResult?.modifiedCount || 0)}`,
+    `[migrate-guildfeaturebucket-tickets-source-to-target] source=${SOURCE_GUILD_ID} before=${sourceTickets.length} after=${sourceAfter.length} target=${TARGET_GUILD_ID} before=${targetTickets.length} moved=${toMove.length} after=${targetAfter.length} skipped_target=${skippedAlreadyInTarget} skipped_outside=${skippedConflictOutside} srcModified=${Number(srcUpdate?.modifiedCount || 0)} targetModified=${Number(targetUpdate?.modifiedCount || 0)}`,
   );
 
   await mongoose.disconnect();
