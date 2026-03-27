@@ -1,10 +1,13 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings } = require("../../Services/Community/expService");
-const profileDisplayName = user && typeof user === "object"
-? String(user.globalName || user.username || user.tag || "").trim() || "Admin"
-: "Admin";
+
 const SERVER_SECTIONS = ["home", "settings", "channels", "roles", "multi"];
+
+function discordUserDisplayName(userLike) {
+  if (!userLike || typeof userLike !== "object") return "Utente";
+  return String(userLike.globalName || userLike.username || userLike.tag || "").trim() || "Utente";
+}
 
 async function resolveTargetUser(message, raw) {
   const fromMention = message.mentions?.users?.first();
@@ -31,7 +34,7 @@ function formatRoleMultiLines(guild, roleMultipliersMap) {
   return rows;
 }
 
-function buildServerSectionEmbed(guild, settings, section) {
+function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
   const sec = SERVER_SECTIONS.includes(section) ? section : "home";
   const base = new EmbedBuilder().setColor("#6f4e37");
   if (sec === "home") {
@@ -52,10 +55,10 @@ function buildServerSectionEmbed(guild, settings, section) {
     }
     lines.push(
       "",
-      "**Canali bloccati (EXP)**",
+      "**Canali bloccati**",
       fmtDiscordList(lockLines, "_Nessuno_"),
       "",
-      "**Ruoli bloccati (EXP)**",
+      "**Ruoli bloccati**",
       fmtDiscordList(ignoreLines, "_Nessuno_"),
       "",
       "**Multi ruoli**",
@@ -63,11 +66,11 @@ function buildServerSectionEmbed(guild, settings, section) {
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu per cambiare sezione e i pulsanti per modificare la configurazione.",
     );
-    return base.setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`).setDescription(lines.join("\n"));
+    const welcome = discordUserDisplayName(openerUser);
+    return base.setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${welcome}.`).setDescription(lines.join("\n"));
   }
   if (sec === "settings") {
     return base
-      .setTitle("Level — Impostazioni")
       .setDescription(
         [
           "<:VC_Info:1482526956703580372> **Moltiplicatori**",
@@ -81,7 +84,6 @@ function buildServerSectionEmbed(guild, settings, section) {
   }
   if (sec === "channels") {
     return base
-      .setTitle("Level — Canali")
       .setDescription(
         [
           "<:VC_Info:1482526956703580372> **Canali EXP**",
@@ -94,7 +96,6 @@ function buildServerSectionEmbed(guild, settings, section) {
   }
   if (sec === "roles") {
     return base
-      .setTitle("Level — Ruoli")
       .setDescription(
         [
           "<:VC_Info:1482526956703580372> **Ruoli EXP**",
@@ -106,7 +107,6 @@ function buildServerSectionEmbed(guild, settings, section) {
       );
   }
   return base
-    .setTitle("Level — Multi ruoli")
     .setDescription(
       [
         "<:VC_Info:1482526956703580372> **Moltiplicatori per ruolo**",
@@ -188,12 +188,12 @@ function buildServerNavSelect(ownerId, currentSection) {
   );
 }
 
-async function buildLevelServerPanelPayload(guild, ownerId, section = "home") {
+async function buildLevelServerPanelPayload(guild, ownerId, section = "home", openerUser = null) {
   const safeOwner = String(ownerId || "");
   const secRaw = String(section || "home").toLowerCase();
   const sec = SERVER_SECTIONS.includes(secRaw) ? secRaw : "home";
   const settings = await getGuildExpSettings(guild?.id);
-  const embed = buildServerSectionEmbed(guild, settings, sec);
+  const embed = buildServerSectionEmbed(guild, settings, sec, openerUser);
   const iconUrl = guild?.iconURL?.({ size: 256, extension: "png" });
   if (iconUrl) embed.setThumbnail(iconUrl);
   const rowNav = buildServerNavSelect(safeOwner, sec);
@@ -218,7 +218,7 @@ module.exports = {
 
     if (!args.length) {
       await safeMessageReply(message, {
-        ...(await buildLevelServerPanelPayload(message.guild, message.author.id, "home")),
+        ...(await buildLevelServerPanelPayload(message.guild, message.author.id, "home", message.author)),
         allowedMentions: { repliedUser: false },
       });
       return;
@@ -234,18 +234,19 @@ module.exports = {
       return;
     }
     await safeMessageReply(message, {
-      ...buildLevelUserPanelPayload(message.author.id, target.id),
+      ...buildLevelUserPanelPayload(message.author.id, target.id, message.author),
       allowedMentions: { repliedUser: false },
     });
   },
 };
 
-function buildLevelUserPanelPayload(ownerId, targetUserId) {
+function buildLevelUserPanelPayload(ownerId, targetUserId, openerUser = null) {
   const safeOwner = String(ownerId || "");
   const safeTarget = String(targetUserId || "");
+  const welcome = discordUserDisplayName(openerUser);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`)
+    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${welcome}.`)
     .setDescription([
       `Target: <@${safeTarget}>`,
       "",

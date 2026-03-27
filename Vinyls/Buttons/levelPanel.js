@@ -268,7 +268,7 @@ async function execute(interaction) {
   if (interaction.isStringSelectMenu()) {
     if (compParsed?.kind === "server_nav") {
       const section = String(interaction.values?.[0] || "home").toLowerCase();
-      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, section);
+      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, section, interaction.user);
       await interaction.update(payload).catch(async () => { await interaction.reply(payload).catch(() => {}); });
       return true;
     }
