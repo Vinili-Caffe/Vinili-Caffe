@@ -49,7 +49,7 @@ async function main() {
     mongoose.set("strictQuery", false);
     await mongoose.connect(mongoUrl, MONGO_CONNECT_OPTIONS);
 
-    const totalMatched = await ActivityUserProfile.countDocuments(filter);
+    const totalMatched = await ActivityUserProfile.collection.countDocuments(filter);
     console.log(`[cleanup-temporary-profile-fields] Documenti con campi target: ${totalMatched}`);
 
     if (dryRun) {
@@ -57,7 +57,7 @@ async function main() {
       return;
     }
 
-    const res = await ActivityUserProfile.updateMany(
+    const res = await ActivityUserProfile.collection.updateMany(
       filter,
       {
         $unset: {
@@ -68,7 +68,7 @@ async function main() {
       },
     );
 
-    const remaining = await ActivityUserProfile.countDocuments(filter);
+    const remaining = await ActivityUserProfile.collection.countDocuments(filter);
     console.log(`[cleanup-temporary-profile-fields] Matched: ${Number(res?.matchedCount || 0)}`);
     console.log(`[cleanup-temporary-profile-fields] Modified: ${Number(res?.modifiedCount || 0)}`);
     console.log(`[cleanup-temporary-profile-fields] Residui dopo cleanup: ${remaining}`);
