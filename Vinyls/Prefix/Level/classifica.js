@@ -408,9 +408,7 @@ async function buildWeeklyEmbed(guild, excludeStaffFromShort = false, useExpUser
 
 async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUserBoard = false) {
   const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
-  const candidateRows = useExpUserBoard
-    ? await computeExpUserLeaderboardRows(guild, "alltime", maxCand)
-    : await computeLeaderboardRows(guild, "alltime", maxCand);
+  const candidateRows = await computeExpUserLeaderboardRows(guild, "alltime", maxCand);
   const members = await fetchMembers(guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows.filter((row) => members.has(row.userId));
   rows = rows.slice(0, TOP_LIMIT);
@@ -419,7 +417,7 @@ async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUse
     const member = members.get(row.userId);
     const label = formatUserLabel(member, row.userId);
     const exp = Number(row.exp || 0);
-    const level = getLevelInfo(Math.max(0, exp)).level;
+    const level = Number(row.level || 0) || getLevelInfo(Math.max(0, exp)).level;
     lines.push(`${rankLabel(index)} ${label}`);
     lines.push(
       `<:VC_Reply:1482532158080942191> Exp: <:VC_EXP:1482534670896730143> __${exp}__ <a:VC_Arrow:1482706699365257397> Livello: ${level}`,
