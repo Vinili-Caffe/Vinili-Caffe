@@ -82,7 +82,7 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "security.disable": "Disabilita completamente i moduli sicurezza selezionati.",
   "security.panic": "Gestisce Panic Mode centralizzata.",
   "security.statics": "Configura ruoli, canali e utenti statici per la sicurezza.",
-  "ticket": "Nel canale ticket, senza subcomando apre il pannello con menu (add/remove/transfer/switch) e pulsanti rename/richiesta chiusura, in base ai ruoli.",
+  "ticket": "Dentro un ticket aperto, senza subcomando apre il pannello staff (menu e pulsanti in base ai ruoli). Fuori dal ticket, solo **High Staff** vede il menu per riaprire ticket chiusi; gli altri solo uso testuale / reopen con id.",
   "ticket.add": "Aggiunge uno o più utenti al ticket corrente.",
   "ticket.remove": "Rimuove uno o più utenti dal ticket corrente.",
   "ticket.closerequest": "Invia richiesta di chiusura ticket.",

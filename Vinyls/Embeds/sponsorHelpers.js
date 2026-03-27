@@ -7,9 +7,7 @@ const { getGuildChannelCached, getGuildRoleCached } = require("../Utils/Interact
 const SPONSOR_PANEL_COLOR = "#6f4e37";
 const SPONSOR_BATCH_SIZE = 6;
 const TAG_IMAGE_NAME = "guildtag.gif";
-const TICKET_IMAGE_NAME = "ticket.gif";
 const TAG_IMAGE_PATH = path.join(__dirname, "..", "Photos", TAG_IMAGE_NAME);
-const TICKET_IMAGE_PATH = path.join(__dirname, "..", "Photos", TICKET_IMAGE_NAME);
 
 function sponsorDividerLine() {
   return "<a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531>";
@@ -45,23 +43,6 @@ function buildSponsorTagEmbed(config, boosterRoleMention) {
     });
 }
 
-function buildSponsorTicketEmbed(config, guildedRoleMention) {
-  const { EmbedBuilder } = require("discord.js");
-  return new EmbedBuilder()
-    .setColor(SPONSOR_PANEL_COLOR)
-    .setTitle(`༄${config.emoji}︲${config.tagName}'s Ticket`)
-    .setDescription(`Clicca sul menù per aprire un ticket e claimare il tuo ruolo ${guildedRoleMention} su questo server e su quello principale.`);
-}
-
-function buildSponsorTicketMenuRow() {
-  const { ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId("ticket_open_menu")
-    .setPlaceholder("🎫 Seleziona una categoria...")
-    .addOptions({ label: "Prima categoria", description: "Riscatto Ruolo", value: "ticket_supporto", emoji: { id: "1443651872258003005", name: "discordstaff" } });
-  return new ActionRowBuilder().addComponents(menu);
-}
-
 async function sponsorFetchGuild(client, guildId) {
   return client.guilds.cache.get(guildId) || client.guilds.fetch(guildId).catch(() => null);
 }
@@ -82,15 +63,6 @@ async function sponsorResolveRoleMention(guild, roleId, fallback = "`Role`") {
   if (!guild || !roleId) return fallback;
   const role = guild.roles.cache.get(roleId) || (await getGuildRoleCached(guild, roleId));
   return role ? `<@&${role.id}>` : fallback;
-}
-
-async function sponsorFindFallbackTicketChannel(guild) {
-  const channel = guild.channels.cache.find((ch) => {
-    if (!ch?.isTextBased?.()) return false;
-    const name = String(ch.name || "").toLowerCase();
-    return name.includes("ticket") || name.includes("assistenza") || name.includes("support");
-  });
-  return channel || null;
 }
 
 async function sponsorGetOrCreatePanelDoc(guildId, channelId) {
@@ -236,35 +208,8 @@ async function runSponsorVerifyPanels(client) {
   return sent;
 }
 
-async function processOneSponsorTicketPanel(client, guildId, config) {
-  const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-  const guild = await sponsorFetchGuild(client, guildId);
-  if (!guild) return;
-  await sponsorEnsureChannelsFetched(guild);
-  const guildedRoleMention = await sponsorResolveRoleMention(guild, config.guildedRoleId, "`Guilded`");
-
-  let channel = await sponsorFetchTextChannel(guild, config.ticketChannelId);
-  if (!channel) channel = await sponsorFindFallbackTicketChannel(guild);
-  if (!channel?.isTextBased?.()) return;
-
-  const attachment = sponsorMaybeAttachment(TICKET_IMAGE_PATH, TICKET_IMAGE_NAME, "SPONSOR TICKET");
-  const embed = buildSponsorTicketEmbed(config, guildedRoleMention);
-  const ticketRow = buildSponsorTicketMenuRow();
-
-  const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);
-  const ticketPayload = { messageId: panelDoc?.sponsorTicketPanelMessageId || null, embeds: [embed], components: [ticketRow], ...(attachment ? { files: [attachment], attachmentName: TICKET_IMAGE_NAME } : {}) };
-  const sentMessage = await upsertPanelMessage(channel, client, ticketPayload);
-  if (sentMessage?.id) {
-    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { sponsorTicketPanelMessageId: sentMessage.id } }).catch(() => {});
-  } else if (ticketPayload.messageId) {
-    await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { sponsorTicketPanelMessageId: null } }).catch(() => {});
-  }
-}
-
-async function runSponsorTicketPanels(client) {
-  // Funzione disabilitata: i ticket manuali per gli sponsor sono stati rimossi 
-  // in favore del sistema di riconoscimento automatico delle Clan Tag.
-  return;
+async function runSponsorTicketPanels() {
+  return 0;
 }
 
 module.exports = {

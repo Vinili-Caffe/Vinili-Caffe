@@ -6,13 +6,14 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
-const { hasStaffTicketRole } = require("./ticketStaffPanelBuild");
+const { hasStaffTicketRole, canRemoveTicketMemberByOverwrite } = require("./ticketStaffPanelBuild");
 const ticketModule = require("../../Prefix/Ticket/ticket");
 
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
@@ -32,7 +33,8 @@ function createInteractionMessageProxy(interaction) {
     author: interaction.user,
     reply: async (payload) => {
       replyCount += 1;
-      const p = { ...payload, ephemeral: true };
+      const baseFlags = Number(payload?.flags) || 0;
+      const p = { ...payload, flags: baseFlags | MessageFlags.Ephemeral };
       if (replyCount === 1) {
         return interaction.editReply(p);
       }
@@ -62,7 +64,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId("rename_tail")
-            .setLabel("Nuovo nome (solo parte finale, senza prefisso)")
+            .setLabel("Parte finale nome (senza prefisso)")
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setMaxLength(80),
@@ -108,13 +110,113 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     return true;
   }
 
+  if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_add_member") {
+    if (!hasStaffTicketRole(interaction.member)) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
+    if (!ticketDoc) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato o non aperto.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const userId = interaction.values?.[0];
+    if (!userId) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const targetMember = await getGuildMemberCached(interaction.guild, userId).catch(() => null);
+    if (!targetMember || targetMember.user?.bot) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non valido o bot.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    await interaction.channel.permissionOverwrites.edit(userId, {
+      ViewChannel: true,
+      SendMessages: true,
+    });
+    await interaction.reply({
+      embeds: [
+        makeError(
+          "Aggiungi",
+          `<:vegacheckmark:1443666279058772028> <@${userId}> è stato aggiunto al ticket.`,
+        ),
+      ],
+      flags: MessageFlags.Ephemeral,
+    });
+    return true;
+  }
+
+  if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_remove_member") {
+    if (!hasStaffTicketRole(interaction.member)) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
+    if (!ticketDoc) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato o non aperto.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const userId = interaction.values?.[0];
+    if (!userId) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const pickedUser = interaction.users?.get?.(userId) ?? null;
+    if (!canRemoveTicketMemberByOverwrite(interaction.channel, userId, pickedUser)) {
+      await safeReply(interaction, {
+        embeds: [
+          makeErrorEmbed(
+            "<a:VC_Alert:1482706673176150077> Errore",
+            "<:vegax:1443934876440068179> Puoi rimuovere solo utenti con **accesso diretto** al ticket (aggiunti dal pannello staff).",
+          ),
+        ],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    await interaction.channel.permissionOverwrites.edit(userId, {
+      ViewChannel: false,
+      SendMessages: false,
+    });
+    await interaction.reply({
+      embeds: [
+        makeError(
+          "Rimuovi",
+          `<:vegacheckmark:1443666279058772028> <@${userId}> è stato rimosso dal ticket.`,
+        ),
+      ],
+      flags: MessageFlags.Ephemeral,
+    });
+    return true;
+  }
+
   if (interaction.isStringSelectMenu?.()) {
     if (cid === "ticket_panel_reopen_pick") {
       const isHigh = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
-      const isSponsorStaffHere = interaction.guild?.id && ticketModule.hasSponsorStaffRole(interaction.member, interaction.guild.id);
-      if (!isHigh && !isSponsorStaffHere) {
+      if (!isHigh) {
         await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** (o staff sponsor autorizzato) può riaprire ticket.")],
+          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può riaprire ticket.")],
           flags: 1 << 6,
         });
         return true;
@@ -127,7 +229,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         });
         return true;
       }
-      await interaction.deferReply({ ephemeral: true, flags: 64 });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const proxy = createInteractionMessageProxy(interaction);
       await ticketModule.ticketReopenByNumber(
         { guild: interaction.guild, reply: (p) => proxy.reply(p) },
@@ -141,56 +243,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato o non aperto.")],
         flags: 1 << 6,
-      });
-      return true;
-    }
-
-    if (cid === "ticket_panel_add_member") {
-      if (!hasStaffTicketRole(interaction.member)) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
-          flags: 1 << 6,
-        });
-        return true;
-      }
-      const userId = interaction.values[0];
-      await interaction.channel.permissionOverwrites.edit(userId, {
-        ViewChannel: true,
-        SendMessages: true,
-      });
-      await interaction.reply({
-        embeds: [
-          makeError(
-            "Aggiungi",
-            `<:vegacheckmark:1443666279058772028> <@${userId}> è stato aggiunto al ticket.`,
-          ),
-        ],
-        ephemeral: true,
-      });
-      return true;
-    }
-
-    if (cid === "ticket_panel_remove_member") {
-      if (!hasStaffTicketRole(interaction.member)) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
-          flags: 1 << 6,
-        });
-        return true;
-      }
-      const userId = interaction.values[0];
-      await interaction.channel.permissionOverwrites.edit(userId, {
-        ViewChannel: false,
-        SendMessages: false,
-      });
-      await interaction.reply({
-        embeds: [
-          makeError(
-            "Rimuovi",
-            `<:vegacheckmark:1443666279058772028> <@${userId}> è stato rimosso dal ticket.`,
-          ),
-        ],
-        ephemeral: true,
       });
       return true;
     }
@@ -260,7 +312,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
             `<:VC_claim:1478517202016669887> Ticket assegnato a <@${targetUserId}> (prima: <@${oldClaimerId}>).`,
           ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return true;
     }
@@ -274,7 +326,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         return true;
       }
       const categoryToken = String(interaction.values[0] || "").toLowerCase();
-      await interaction.deferReply({ ephemeral: true, flags: 64 });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const proxy = createInteractionMessageProxy(interaction);
       await ticketModule.ticketSwitchPanelExecute(proxy, categoryToken);
       return true;

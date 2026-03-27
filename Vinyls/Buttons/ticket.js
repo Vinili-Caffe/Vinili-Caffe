@@ -2,8 +2,8 @@ const { isHandledTicketInteraction } = require("../Utils/Ticket/ticketInteractio
 const { handleTicketInteraction } = require("../Events/interaction/ticketHandlers");
 
 function match(interaction) {
-  const { isTicketButton, isTicketSelect, isTicketModal } = isHandledTicketInteraction(interaction);
-  return isTicketButton || isTicketSelect || isTicketModal;
+  const { isTicketButton, isTicketSelect, isTicketModal, isTicketUserSelect } = isHandledTicketInteraction(interaction);
+  return isTicketButton || isTicketSelect || isTicketModal || isTicketUserSelect;
 }
 
 async function execute(interaction) {

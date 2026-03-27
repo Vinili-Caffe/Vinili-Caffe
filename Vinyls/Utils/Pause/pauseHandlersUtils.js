@@ -423,7 +423,7 @@ function getPauseTimingText(startRaw, endRaw) {
   const end = parseItalianDate(endRaw);
   const today = getTodayUtc();
   if (!start || !end) return "è in pausa";
-  if (today < start) return "è stato in pausa";
+  if (today < start) return "sarà in pausa";
   if (today > end) return "era in pausa";
   return "è in pausa";
 }

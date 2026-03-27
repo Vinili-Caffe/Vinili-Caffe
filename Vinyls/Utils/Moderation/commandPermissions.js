@@ -54,31 +54,6 @@ function isMainGuild(guildId) {
   return Boolean(MAIN_GUILD_ID) && String(guildId || "") === String(MAIN_GUILD_ID);
 }
 
-function getSponsorGuildIds() {
-  return Array.isArray(IDs?.guilds?.sponsorGuildIds)
-    ? IDs.guilds.sponsorGuildIds.map(String)
-    : [];
-}
-function isSponsorGuild(guildId) {
-  return getSponsorGuildIds().includes(String(guildId || ""));
-}
-function hasSponsorStaffRole(member, guildId) {
-  if (!member || !guildId) return false;
-  const map = IDs?.roles?.sponsorStaffRoleIds || {};
-  const roleId = map[String(guildId)];
-  if (!roleId) return false;
-  return member?.roles?.cache?.has(roleId) === true;
-}
-function hasVerificatoRole(member, guildId) {
-  if (!member || !guildId) return false;
-  const map = IDs?.verificatoRoleIds || {};
-  const roleId = map[String(guildId)];
-  if (!roleId) return false;
-  return member?.roles?.cache?.has(roleId) === true;
-}
-
-const SPONSOR_STAFF_TICKET_BUTTON_IDS = new Set(["claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo",]);
-
 const VERIFY_OR_TICKET_IDS = new Set(["verify_start", "verify_enter", "ticket_partnership", "ticket_highstaff", "ticket_supporto", "claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo", "ticket_open_menu","ticket_panel_add_member","ticket_panel_remove_member","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_rename","ticket_panel_closerequest","ticket_panel_reopen_pick","modal_ticket_panel_rename","modal_ticket_panel_closerequest",]);
 function isBackupInteraction(customId) {
   const id = String(customId || "").trim();
@@ -748,15 +723,6 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
     return true;
   }
 
-  if (guildId && !onMainGuild && isSponsorGuild(guildId) && safeCommand === "ticket") {
-    if (message?.member && hasSponsorStaffRole(message.member, guildId)) {
-      if (options.returnDetails) {
-        return { allowed: true, reason: null, requiredRoles: null, channels: null };
-      }
-      return true;
-    }
-  }
-
   if (guildId && !onMainGuild) {
     const allowed = await hasAllPermissionsWithLiveFallback(message, [PermissionFlagsBits.Administrator,]);
     if (options.returnDetails) {
@@ -849,19 +815,6 @@ async function checkButtonPermission(interaction) {
       requiredRoles: null,
       ownerId: null,
     };
-  }
-
-  if (isSponsorGuild(guildId) && SPONSOR_STAFF_TICKET_BUTTON_IDS.has(customId)) {
-    const isAdmin = await isGuildOwnerOrAdmin(interaction);
-    if (!isAdmin && !hasSponsorStaffRole(interaction?.member, guildId)) {
-      const sponsorStaffRoleId = IDs.roles?.sponsorStaffRoleIds?.[guildId] || IDs.roles?.Staff;
-      return {
-        allowed: false,
-        reason: "missing_role",
-        requiredRoles: sponsorStaffRoleId ? [sponsorStaffRoleId] : null,
-        ownerId: null,
-      };
-    }
   }
 
   if (!customId) {
@@ -1032,17 +985,6 @@ async function checkStringSelectPermission(interaction) {
       requiredRoles: null,
       ownerId: null,
     };
-  }
-  if (isSponsorGuild(guildId) && customId === "ticket_open_menu") {
-    const isAdmin = await isGuildOwnerOrAdmin(interaction);
-    if (!isAdmin && !hasVerificatoRole(interaction?.member, guildId)) {
-      return {
-        allowed: false,
-        reason: "missing_role",
-        requiredRoles: ["Verificato"],
-        ownerId: null,
-      };
-    }
   }
   if (!customId) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };

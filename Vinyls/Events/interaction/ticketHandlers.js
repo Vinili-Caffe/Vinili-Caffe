@@ -5,29 +5,18 @@ const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper, } = requ
 const IDs = require("../../Utils/Config/ids");
 const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
 const { buildTicketChannelName } = require("../../Utils/Ticket/ticketNamingRuntime");
-const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosableTicketOrReply: runtimeEnsureClosableTicketOrReply, findOpenTicketByUser: runtimeFindOpenTicketByUser, findTicketByChannel: runtimeFindTicketByChannel, getClientGuildCached: runtimeGetClientGuildCached, getGuildChannelCached: runtimeGetGuildChannelCached, getSelectedTicketAction: runtimeGetSelectedTicketAction, hasActiveTicketClaimer: runtimeHasActiveTicketClaimer, isHandledTicketInteraction: runtimeIsHandledTicketInteraction, isSponsorGuild: runtimeIsSponsorGuild, isTicketRatingButton: runtimeIsTicketRatingButton, isTicketTranscriptButton: runtimeIsTicketTranscriptButton, loadTicketForChannelOrReply: runtimeLoadTicketForChannelOrReply, } = require("../../Utils/Ticket/ticketInteractionRuntime");
+const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosableTicketOrReply: runtimeEnsureClosableTicketOrReply, findOpenTicketByUser: runtimeFindOpenTicketByUser, findTicketByChannel: runtimeFindTicketByChannel, getClientGuildCached: runtimeGetClientGuildCached, getGuildChannelCached: runtimeGetGuildChannelCached, getSelectedTicketAction: runtimeGetSelectedTicketAction, hasActiveTicketClaimer: runtimeHasActiveTicketClaimer, isHandledTicketInteraction: runtimeIsHandledTicketInteraction, isTicketRatingButton: runtimeIsTicketRatingButton, isTicketTranscriptButton: runtimeIsTicketTranscriptButton, loadTicketForChannelOrReply: runtimeLoadTicketForChannelOrReply, } = require("../../Utils/Ticket/ticketInteractionRuntime");
 const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRatingRows: runtimeBuildTicketRatingRows, closeTicket: runtimeCloseTicket, } = require("../../Utils/Ticket/ticketCloseRuntime");
-const { createTicketsCategory: runtimeCreateTicketsCategory, handleSponsorTicketOpen: runtimeHandleSponsorTicketOpen, } = require("../../Utils/Ticket/ticketOpenRuntime");
+const { createTicketsCategory: runtimeCreateTicketsCategory } = require("../../Utils/Ticket/ticketOpenRuntime");
 const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtils");
 const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
   const ticketActionId = selectedTicketAction || interaction.customId;
-  const sponsorGuild = Boolean(interaction.guild && runtimeIsSponsorGuild(interaction.guild.id));
 
-  const { isTicketButton, isTicketSelect, isTicketModal } = runtimeIsHandledTicketInteraction(interaction);
-  if (!isTicketButton && !isTicketModal && !isTicketSelect) return false;
-  if (sponsorGuild) {
-    if (isTicketSelect && interaction.customId === "ticket_open_menu") {
-      await safeReply(interaction, {
-        content: "<a:VC_Alert:1482706673176150077> I ticket manuali per gli sponsor sono stati rimossi.\nIl ruolo **Guilded** viene ora assegnato **automaticamente** impostando la **Clan Tag** ufficiale del server nel tuo profilo Discord! 🏷️✨",
-        flags: 1 << 6
-      }).catch(() => { });
-      return true;
-    }
-    return false;
-  }
+  const { isTicketButton, isTicketSelect, isTicketModal, isTicketUserSelect } = runtimeIsHandledTicketInteraction(interaction);
+  if (!isTicketButton && !isTicketModal && !isTicketSelect && !isTicketUserSelect) return false;
   const LOG_CHANNEL = IDs.channels.ticketLogs;
   const ROLE_STAFF = IDs.roles.Staff;
   const ROLE_HIGHSTAFF = IDs.roles.HighStaff;
@@ -90,7 +79,44 @@ async function handleTicketInteraction(interaction) {
 
   function releaseTicketActionLock(lockKey) {
     if (!lockKey) return;
-    interaction.client.ticketActionLocks.delete(lockKey);
+    try {
+      interaction.client.ticketActionLocks?.delete(lockKey);
+    } catch (e) {
+      global.logger?.warn?.("[ticketHandlers] releaseTicketActionLock:", e?.message || e);
+    }
+  }
+
+  async function acknowledgeRejectClosePrompt(interaction, bodyText) {
+    const embed = new EmbedBuilder()
+      .setTitle("<:VC_PinkQuestionMark:1471892611026391306> • **__RICHIESTA DI CHIUSURA__**")
+      .setDescription(bodyText)
+      .setColor("Red");
+    const payload = { embeds: [embed], components: [] };
+    try {
+      await interaction.deferUpdate();
+      if (interaction.message) {
+        await interaction.message.edit(payload).catch((e) => {
+          global.logger?.warn?.("[ticketHandlers] rejectClose message.edit:", e?.message || e);
+        });
+      }
+      return;
+    } catch (e1) {
+      global.logger?.warn?.("[ticketHandlers] rejectClose defer+edit:", e1?.message || e1);
+    }
+    try {
+      await interaction.update(payload);
+    } catch (e2) {
+      global.logger?.warn?.("[ticketHandlers] rejectClose update:", e2?.message || e2);
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ ...payload, flags: 1 << 6 });
+        } else {
+          await interaction.followUp({ embeds: payload.embeds, flags: 1 << 6 });
+        }
+      } catch (e3) {
+        global.logger?.warn?.("[ticketHandlers] rejectClose reply fallback:", e3?.message || e3);
+      }
+    }
   }
 
   async function pinFirstTicketMessage(channel, message) {
@@ -1185,19 +1211,10 @@ async function handleTicketInteraction(interaction) {
           });
           return true;
         }
-        await interaction
-          .update({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle("<:VC_PinkQuestionMark:1471892611026391306> • **__RICHIESTA DI CHIUSURA__**")
-                .setDescription(
-                  `<:vegax:1443934876440068179> ${interaction.user} ha rifiutato la richiesta di chiusura`,
-                )
-                .setColor("Red"),
-            ],
-            components: [],
-          })
-          .catch(() => { });
+        await acknowledgeRejectClosePrompt(
+          interaction,
+          `<:vegax:1443934876440068179> <@${interaction.user.id}> ha rifiutato la richiesta di chiusura`,
+        );
         await Ticket.updateOne(
           { _id: ticketDoc._id },
           {
@@ -1252,8 +1269,8 @@ async function handleTicketInteraction(interaction) {
                 .catch(() => { })
                 .catch(() => { });
             } catch (err) {
-            global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
-          }
+              global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
+            }
             const motivo = ticketDoc.closeReason || "Chiusura automatica dopo 24h.";
             await runtimeCloseTicket(interaction, motivo, {
               safeReply,
@@ -1265,19 +1282,10 @@ async function handleTicketInteraction(interaction) {
             return true;
           }
 
-          await interaction
-            .update({
-              embeds: [
-                new EmbedBuilder()
-                  .setTitle("<:VC_PinkQuestionMark:1471892611026391306> • **__RICHIESTA DI CHIUSURA__**")
-                  .setDescription(
-                    `<:vegax:1443934876440068179> ${interaction.user} ha rifiutato la richiesta automatica di chiusura`,
-                  )
-                  .setColor("Red"),
-              ],
-              components: [],
-            })
-            .catch(() => { });
+          await acknowledgeRejectClosePrompt(
+            interaction,
+            `<:vegax:1443934876440068179> <@${interaction.user.id}> ha rifiutato la richiesta automatica di chiusura`,
+          );
           await Ticket.updateOne(
             { _id: ticketDoc._id },
             {
@@ -1285,6 +1293,7 @@ async function handleTicketInteraction(interaction) {
                 closeReason: null,
                 closeRequestedBy: null,
                 closeRequestedAt: null,
+                autoClosePromptSentAt: null,
               },
             },
           ).catch(() => { });

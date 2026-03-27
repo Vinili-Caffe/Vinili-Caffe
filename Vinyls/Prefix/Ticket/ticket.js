@@ -14,38 +14,21 @@ const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const STAFF_ROLE_IDS = [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID].filter(Boolean);
 const NO_REPLY_MENTIONS = { repliedUser: false };
-const SPONSOR_GUILD_IDS = [IDs.guilds.luna, IDs.guilds.cash, IDs.guilds.porn, IDs.guilds[69], IDs.guilds.weed, IDs.guilds.figa,].filter(Boolean);
 
 function hasAnyRole(member, roleIds = []) {
   return roleIds.some((roleId) => member?.roles?.cache?.has(roleId));
 }
 
-function isSponsorGuild(guildId) {
-  return Boolean(guildId && SPONSOR_GUILD_IDS.includes(guildId));
-}
-
-function hasSponsorStaffRole(member, guildId) {
-  if (!member || !guildId) return false;
-  const roleId = IDs?.roles?.sponsorStaffRoleIds?.[guildId];
-  return Boolean(roleId && member.roles?.cache?.has(roleId));
-}
-
-function canClaimTicket(member, ticketType, guildId = null) {
+function canClaimTicket(member, ticketType, _guildId = null) {
   if (!member) return false;
-  if (guildId && isSponsorGuild(guildId)) {
-    return (ticketType === "supporto" || ticketType === "sponsor_supporto") && hasSponsorStaffRole(member, guildId);
-  }
   const isSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
   const isPartnership = ticketType === "partnership" && (member.roles.cache.has(PARTNERMANAGER_ROLE_ID) || member.roles.cache.has(HIGHSTAFF_ROLE_ID));
   const isHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
   return isSupport || isPartnership || isHigh;
 }
 
-function canCloseTicket(member, ticketType, guildId = null) {
+function canCloseTicket(member, ticketType, _guildId = null) {
   if (!member) return false;
-  if (guildId && isSponsorGuild(guildId)) {
-    return (ticketType === "supporto" || ticketType === "sponsor_supporto") && hasSponsorStaffRole(member, guildId);
-  }
   const canCloseSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
   const canClosePartnership = ticketType === "partnership" && (member.roles.cache.has(PARTNERMANAGER_ROLE_ID) || member.roles.cache.has(HIGHSTAFF_ROLE_ID));
   const canCloseHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
@@ -390,19 +373,6 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
     }
     const previousTicketType = String(ticketDoc.ticketType || "");
 
-    if (previousTicketType === panelConfig.type) {
-      await safeMessageReply(message, {
-        embeds: [
-          makeErrorEmbed(
-            "Info",
-            `<:VC_Attention:1482534443632558151> Questo ticket è già impostato su **${panelConfig.label}**.`,
-          ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
     const openerMember = await getGuildMemberCached(message.guild, ticketDoc.userId);
     const openerName = openerMember?.user?.username || "utente";
     const safeOpenerName = String(openerName).replace(/[^\w.-]/g, "").slice(0, 20) || "utente";
@@ -522,7 +492,16 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
       ticketDoc.descriptionPromptMessageId = null;
     }
 
-    await ticketDoc.save().catch(() => { });
+    const persistSet = {
+      ticketType: panelConfig.type,
+      claimedBy: ticketDoc.claimedBy != null && String(ticketDoc.claimedBy).trim() !== "" ? ticketDoc.claimedBy : null,
+    };
+    if (previousTicketType === "partnership" && panelConfig.type !== "partnership") {
+      persistSet.descriptionPromptMessageId = null;
+    }
+    await Ticket.updateOne({ _id: ticketDoc._id }, { $set: persistSet }).catch((err) => {
+      global.logger?.warn?.("[ticketSwitchPanel] persist ticket fields failed:", err?.message || err);
+    });
 
     const msg = await fetchTicketMessage(targetChannel, ticketDoc.messageId,);
     if (msg) {
@@ -778,25 +757,55 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
 
     if (!subcommand) {
       if (!activeTicketInChannel) {
+        const canReopenOutside =
+          HIGHSTAFF_ROLE_ID && message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
+        if (canReopenOutside) {
+          const closedRaw = await Ticket.find(
+            { guildId: message.guild.id, open: false },
+            { ticketNumber: 1, userId: 1, closedAt: 1, updatedAt: 1 },
+          )
+            .limit(300)
+            .lean()
+            .catch(() => []);
+          const list = Array.isArray(closedRaw) ? closedRaw : [];
+          const sorted = list.sort((a, b) => {
+            const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+            const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+            return tb - ta;
+          });
+          const reopenable = [];
+          for (const t of sorted) {
+            if (reopenable.length >= 25) break;
+            if (message.guild.members.cache.has(t.userId)) reopenable.push(t);
+          }
+          const { buildTicketReopenOutsidePanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+          const panel = buildTicketReopenOutsidePanelPayload(message.guild, reopenable);
+          if (panel) {
+            await safeMessageReply(message, {
+              embeds: [panel.embed],
+              components: panel.components,
+              allowedMentions: { repliedUser: false },
+            });
+            return;
+          }
+          await safeMessageReply(message, {
+            embeds: [
+              new EmbedBuilder()
+                .setColor("#6f4e37")
+                .setDescription(
+                  "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server). Puoi comunque usare `+ticket reopen <id>` se conosci il numero.",
+                ),
+            ],
+            allowedMentions: { repliedUser: false },
+          });
+          return;
+        }
         await safeMessageReply(message, {
           embeds: [
             new EmbedBuilder()
               .setColor("Red")
               .setDescription(
-                "<:vegax:1443934876440068179> Uso: dentro un ticket usa `+ticket` per il **pannello azioni**, oppure `+ticket <add | remove | closerequest | close | claim | unclaim | transfer | switchpanel | rename | reopen>` — oppure `+ticket reopen <id>` fuori dal ticket.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (isSponsorGuild(message.guild.id)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Uso corretto: `+ticket <add | remove | closerequest | close | claim | unclaim | transfer | switchpanel | rename>` (il pannello interattivo non è disponibile in questo server).",
+                "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello azioni. Altri comandi (`add`, `remove`, …) funzionano solo lì. Solo **High Staff** può riaprire ticket chiusi con `+ticket reopen <id>`.",
               ),
           ],
           allowedMentions: { repliedUser: false },
@@ -850,10 +859,9 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
 
     const isHighStaffBypass = message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
     const isTicketHighStaff = message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-    const isSponsorStaffHere = message.guild?.id && hasSponsorStaffRole(message.member, message.guild.id);
 
     if (subcommand === "reopen") {
-      if (!isTicketHighStaff && !isSponsorStaffHere) {
+      if (!isTicketHighStaff) {
         await safeMessageReply(message, {
           embeds: [
             makeErrorEmbed(
@@ -1700,6 +1708,4 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
   ticketSwitchPanelExecute,
   ticketReopenByNumber,
   canClaimTicket,
-  hasSponsorStaffRole,
-  isSponsorGuild,
 };
