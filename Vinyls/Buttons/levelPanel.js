@@ -215,11 +215,15 @@ async function runUserMutation(interaction, action, targetId, modeInput = null, 
     `- EXP: **${beforeExp} -> ${doc.profile.totals.exp.totalExp}**`,
   ].join("\n"));
 }
-}
 
 async function execute(interaction) {
-  const parsed = interaction.isModalSubmit() ? parseModalId(interaction.customId) : parseCustomId(interaction.customId);
-  const ownerId = String(parsed.ownerId || "");
+  const modalParsed = interaction.isModalSubmit() ? parseModalId(interaction.customId) : null;
+  const compParsed = interaction.isModalSubmit() ? null : parseLevelPanelComponentId(interaction.customId);
+  const ownerId = String(
+    interaction.isModalSubmit()
+      ? modalParsed?.ownerId || ""
+      : compParsed?.ownerId || "",
+  );
   if (ownerId && String(interaction.user?.id || "") !== ownerId) {
     const denied = {
       embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo pannello non è tuo.")],
