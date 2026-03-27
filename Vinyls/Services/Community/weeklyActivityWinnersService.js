@@ -783,13 +783,13 @@ async function performEndOfEventCleanup(client, guildId) {
       { guildId },
       {
         $unset: {
-          expEventEndAnnouncementSentForExpiresAt: "",
-          expEventExtraMultiplierRoleIds: "",
-          expEventMultiplierExpiresAt: "",
-          expEventRoleOverrides: "",
-          expEventStartedAt: "",
-          staffEventExpiresAt: "",
-          staffEventStartedAt: "",
+          expEventEndAnnouncementSentForExpiresAt: 1,
+          expEventExtraMultiplierRoleIds: 1,
+          expEventMultiplierExpiresAt: 1,
+          expEventRoleOverrides: 1,
+          expEventStartedAt: 1,
+          staffEventExpiresAt: 1,
+          staffEventStartedAt: 1,
         },
         $set: {
           expEventMultiplier: 1,
@@ -801,15 +801,15 @@ async function performEndOfEventCleanup(client, guildId) {
       { guildId },
       {
         $unset: {
-          "profile.totals.exp.event.rewards": "",
-          "profile.totals.exp.event.snapshot": "",
+          "profile.totals.exp.event.rewards": 1,
+          "profile.totals.exp.event.snapshot": 1,
         },
       },
     );
 
     await ActivityUserProfile.updateMany(
       { guildId, "profile.totals.exp.event.weekWinners": { $size: 0 } },
-      { $unset: { "profile.totals.exp.event.weekWinners": "" } },
+      { $unset: { "profile.totals.exp.event.weekWinners": 1 } },
     );
 
     global.logger?.info("[EVENT_CLEANUP] Pulizia completata con successo.");
