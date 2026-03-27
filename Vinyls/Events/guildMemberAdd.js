@@ -1085,14 +1085,41 @@ async function sendJoinLog(member) {
   });
 }
 
+function isUserDmUnavailableError(err) {
+  const code = Number(err?.code ?? err?.rawError?.code ?? 0);
+  if ([50007, 50278].includes(code)) return true;
+  const msg = String(err?.message || err?.rawError?.message || "").toLowerCase();
+  if (!msg) return false;
+  if (msg.includes("cannot send messages")) return true;
+  if (msg.includes("no mutual guild")) return true;
+  return false;
+}
+
 async function sendDmWelcome(member) {
   const dmEmbed = buildDmWelcomeEmbed(member);
-  await member.send({ embeds: [dmEmbed] }).catch((err) => {
+  const payload = { embeds: [dmEmbed] };
+
+  try {
+    await member.send(payload);
+    return;
+  } catch (err) {
+    if (isUserDmUnavailableError(err)) return;
+  }
+
+  await new Promise((resolve) => {
+    const t = setTimeout(resolve, 2000);
+    t.unref?.();
+  });
+
+  try {
+    await member.send(payload);
+  } catch (err) {
+    if (isUserDmUnavailableError(err)) return;
     global.logger.warn(
       `[guildMemberAdd] Could not send DM to ${member.user.tag}:`,
       err.message,
     );
-  });
+  }
 }
 
 function isCustomRoleDocActive(doc) {

@@ -314,6 +314,27 @@ function buildLocalAttualitaPoll(cfg = {}, forcedTargetOptions = null) {
   );
 }
 
+async function pickNonDuplicateLocalPoll(guildId, cfg = {}, forcedTargetOptions = null) {
+  const order = shuffle([...Array(LOCAL_POLLS_BANK.length).keys()]);
+  for (const idx of order) {
+    const picked = LOCAL_POLLS_BANK[idx];
+    if (!picked) continue;
+    const candidate = applyOptionCount(
+      { question: picked.question, answers: picked.answers },
+      cfg,
+      forcedTargetOptions,
+      { shuffleAnswers: false },
+    );
+    if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < 4) {
+      continue;
+    }
+    if (await isDuplicateQuestion(guildId, candidate.question)) continue;
+    if (await isDuplicatePollContent(guildId, candidate)) continue;
+    return candidate;
+  }
+  return null;
+}
+
 function buildPollSignature(question, answers = []) {
   const q = normalizeText(String(question || "")).toLowerCase();
   const opts = Array.isArray(answers) ? answers.map((a) => normalizeText(String(a || "")).toLowerCase()).filter(Boolean) : [];
@@ -567,7 +588,13 @@ async function runAutoPoll(client) {
   }
 
   if (!payload) {
-    global.logger?.warn?.("[poll.auto] no valid candidate found (duplicate filters or invalid payload), skipping send.");
+    payload = await pickNonDuplicateLocalPoll(guild.id, cfg, optionTarget);
+  }
+
+  if (!payload) {
+    global.logger?.warn?.(
+      "[poll.auto] no valid candidate: tutti i template locali risultano già usati nel lookback o payload non valido, skipping send.",
+    );
     return;
   }
 
