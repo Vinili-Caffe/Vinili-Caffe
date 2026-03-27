@@ -413,7 +413,6 @@ async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUse
     : await computeLeaderboardRows(guild, "alltime", maxCand);
   const members = await fetchMembers(guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows.filter((row) => members.has(row.userId));
-  rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
   rows = rows.slice(0, TOP_LIMIT);
   const lines = [];
   rows.forEach((row, index) => {
