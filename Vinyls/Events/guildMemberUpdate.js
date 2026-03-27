@@ -5,8 +5,6 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Intera
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { memberHasPartnerManagerRole, buildStaffPartnerFieldsUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
-const { adjustPmStaffPointsOnRoleChange } = require("../Services/Community/staffEventService");
-const { sendEventRewardLog } = require("../Services/Community/eventRewardLogService");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/Moderation/securityProfilesService");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
@@ -1108,22 +1106,6 @@ module.exports = {
               buildStaffPartnerFieldsUnsetUpdate(),
             ).catch(() => {});
           }
-        }
-        const pmChange = await adjustPmStaffPointsOnRoleChange(oldMember, newMember).catch(() => null);
-        if (pmChange === "added") {
-          await sendEventRewardLog(client, {
-            userId: newMember.id,
-            guildId: newMember.guild.id,
-            label: "Evento staff — bonus PM+Staff",
-            detail: "+15 punti evento staff per ruolo Partner Manager + Staff.",
-          }).catch(() => {});
-        } else if (pmChange === "removed") {
-          await sendEventRewardLog(client, {
-            userId: newMember.id,
-            guildId: newMember.guild.id,
-            label: "Evento staff — rimozione PM+Staff",
-            detail: "-15 punti evento staff (rimosso bonus PM+Staff).",
-          }).catch(() => {});
         }
       }
 

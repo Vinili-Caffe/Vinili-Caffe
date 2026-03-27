@@ -161,8 +161,6 @@ const globalSettingsSchema = new Schema(
     expEventExtraMultiplierRoleIds: { type: [String], default: [] },
     expEventStartedAt: { type: Date, default: null },
     expEventEndAnnouncementSentForExpiresAt: { type: Date, default: null },
-    staffEventExpiresAt: { type: Date, default: null },
-    staffEventStartedAt: { type: Date, default: null },
     expLockedChannelIds: { type: [String], default: [] },
     expIgnoredRoleIds: { type: [String], default: [] },
     modConfig: { type: modConfigEmbeddedSchema, default: () => ({}) },
@@ -243,14 +241,6 @@ const staffPauseEntrySchema = new Schema(
   },
   { _id: true },
 );
-const staffEventEmbeddedSchema = new Schema(
-  {
-    points: { type: Number, default: 0 },
-    weeklyRewards: { type: [Number], default: [] },
-    rewardGivenTypes: { type: [String], default: [] },
-  },
-  { _id: false },
-);
 /** Ex-dedicated `Staff` collection: dati staff/PM/pause/event incastonati nel profilo activity. */
 const staffEmbeddedSchema = new Schema(
   {
@@ -268,7 +258,6 @@ const staffEmbeddedSchema = new Schema(
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
     pauses: { type: [staffPauseEntrySchema], default: [] },
-    staffEvent: { type: staffEventEmbeddedSchema, default: () => ({}) },
   },
   { _id: false },
 );
@@ -471,7 +460,6 @@ activityUserProfileSchema.index({ "profile.globalOneTimeReminder.entries.sendAt"
 activityUserProfileSchema.index({ guildId: 1, "profile.sponsorMainLeave.kickAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.joinGateSuspicious.expiresAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 });
-activityUserProfileSchema.index({ guildId: 1, "staff.staffEvent.points": -1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 

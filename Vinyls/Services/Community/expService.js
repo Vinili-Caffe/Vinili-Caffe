@@ -313,46 +313,6 @@ async function clearActivityEvent(guildId) {
   invalidateSettingsCache(guildId);
 }
 
-async function clearStaffEvent(guildId) {
-  if (!guildId) return;
-  await GlobalSettings.findOneAndUpdate(
-    { guildId: IDs.guilds.main },
-    { $set: { staffEventExpiresAt: null, staffEventStartedAt: null } },
-    { upsert: true, new: true },
-  ).catch(() => null);
-  invalidateSettingsCache(guildId);
-}
-
-async function setStaffEvent(guildId, options = {}) {
-  if (!guildId) return null;
-  const end = options.endDate ? new Date(options.endDate).getTime() : null;
-  const startedAt = options.startedAt ? new Date(options.startedAt) : new Date();
-  if (!Number.isFinite(end)) return null;
-  await GlobalSettings.findOneAndUpdate(
-    { guildId: IDs.guilds.main },
-    {
-      $set: {
-        staffEventExpiresAt: new Date(end),
-        staffEventStartedAt: startedAt,
-      },
-    },
-    { upsert: true, new: true },
-  ).catch(() => null);
-  return { expiresAt: new Date(end), startedAt };
-}
-
-async function getStaffEventSettings(guildId) {
-  if (!guildId) return { active: false, expiresAt: null, startedAt: null };
-  const doc = await GlobalSettings.findOne({ guildId }).select("staffEventExpiresAt staffEventStartedAt").lean().catch(() => null);
-  const expiresAt = doc?.staffEventExpiresAt ? new Date(doc.staffEventExpiresAt) : null;
-  const now = Date.now();
-  const active = expiresAt && expiresAt.getTime() > now;
-  return {
-    active: Boolean(active),
-    expiresAt: expiresAt || null,
-    startedAt: doc?.staffEventStartedAt ? new Date(doc.staffEventStartedAt) : null,
-  };
-}
 
 async function recordLevelHistory(guildId, userId, actorId = null, action = "update", beforeExp = 0, afterExp = 0, note = null) {
   if (typeof guildId === "object" && guildId !== null) {
@@ -1180,4 +1140,4 @@ async function getTopLevelGainsInPeriod(guildId, lookbackDays, limit = 100) {
   return agg.map((x) => ({ userId: String(x._id || ""), levelGain: Math.max(0, Math.floor(Number(x.levelGain || 0))) }));
 }
 
-module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, setActivityEvent, clearActivityEvent, clearStaffEvent, setStaffEvent, getStaffEventSettings, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, isEventStaffMember, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS };
+module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, setActivityEvent, clearActivityEvent, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, isEventStaffMember, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS };

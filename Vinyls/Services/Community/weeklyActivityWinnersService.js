@@ -3,7 +3,6 @@ const cron = require("node-cron");
 const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getEventWeekHourKeys } = require("./activityEventRewardsService");
-const { giveWeekly20PointsIfEligible, getStaffEventLeaderboard, filterStaffEventLeaderboardForDisplay } = require("./staffEventService");
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
 const { isEventStaffMember } = require("./expService");
 const { loadLiveVoiceSessions, secondsInDateKeys } = require("./activityService");
@@ -20,7 +19,6 @@ const { getClientChannelCached, getClientGuildCached, getGuildChannelCached, get
 const TIME_ZONE = "Europe/Rome";
 const TARGET_CHANNEL_ID = IDs.channels.topWeeklyUser;
 const EVENT_ANNOUNCEMENT_CHANNEL_ID = IDs.channels.eventAnnouncements;
-const NEWS_STAFF_CHANNEL_ID = IDs.channels.staffNews;
 const INFO_CHANNEL_ID = IDs.channels.info;
 const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>",];
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
@@ -762,27 +760,6 @@ async function trySendEventEndAnnouncementToNews(client) {
     { $set: { expEventEndAnnouncementSentForExpiresAt: doc.expEventMultiplierExpiresAt } },
   ).catch(() => null);
 
-  if (doc.staffEventExpiresAt && new Date(doc.staffEventExpiresAt).getTime() <= Date.now()) {
-    const leaderboard = await getStaffEventLeaderboard(mainGuildId);
-    await guild.members.fetch().catch(() => null);
-    const filtered = await filterStaffEventLeaderboardForDisplay(guild, leaderboard);
-    const first = filtered[0];
-    const last = filtered.length > 1 ? filtered[filtered.length - 1] : null;
-    const staffEndLines = [];
-    if (first) staffEndLines.push(`<:VC_Podio1:1482694399283433582> **Miglior punteggio:** <@${first.userId}> <a:VC_Arrow:1482706699365257397> **${first.points}** punti`);
-    if (last && last.userId !== first?.userId) staffEndLines.push(`**Peggior punteggio:** <@${last.userId}> <a:VC_Arrow:1482706699365257397> **${last.points}** punti`);
-    const staffEndContent = ["## <a:VC_Announce:1482534613568979007> **EVENTO STAFF — Terminato**", "", "<:VC_Attention:1482534443632558151> Risultati evento staff:", ...(staffEndLines.length ? staffEndLines : [" - Nessun dato."]), "", `<:VC_Mention:1482526855289634997>︲<@&${IDs.roles.Staff}>`,
-    ].join("\n");
-    const newsStaffChannel = NEWS_STAFF_CHANNEL_ID && (client.channels.cache.get(NEWS_STAFF_CHANNEL_ID) || (await getClientChannelCached(client, NEWS_STAFF_CHANNEL_ID)));
-    if (newsStaffChannel?.guild) {
-      await newsStaffChannel.send({
-        content: staffEndContent,
-        allowedMentions: { parse: ["roles"] },
-      }).catch((err) => {
-        global.logger?.error?.("[WEEKLY ACTIVITY] Staff event end announcement to newsstaff failed:", err);
-      });
-    }
-  }
 }
 
 /**
@@ -958,11 +935,6 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   }
   if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4 && EVENT_ANNOUNCEMENT_CHANNEL_ID) {
     await sendEventWeekAnnouncementToNews(client, guild, eventPayoutWeek, eventTopMessages, eventTopVoice);
-  }
-  if (eventPayoutWeek >= 1 && eventPayoutWeek <= 4 && settings) {
-    await giveWeekly20PointsIfEligible(guild, eventPayoutWeek, settings).catch((err) => {
-      global.logger?.error?.("[WEEKLY ACTIVITY] Staff event weekly 20 pts failed:", err);
-    });
   }
 
   const embed = new EmbedBuilder().setColor("#6f4e37").setDescription([`<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono in "badge" nel canale <#${INFO_CHANNEL_ID}>`,

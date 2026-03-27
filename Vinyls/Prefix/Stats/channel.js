@@ -3,11 +3,8 @@ const channelButton = require("../../Buttons").channel;
 
 module.exports = {
   name: channelButton.name,
-  aliases: ["ch"],
   allowEmptyArgs: true,
-  usage: "+channel [ <#canale> | id | nome ] [1d | 7d | 14d | 21d | 30d]",
-  examples: ["+channel", "+channel #salotto", "+channel #room-01 14d", "+channel 123456789012345678 30d"],
-
+  
   async execute(message, args = []) {
     await message.channel.sendTyping();
     const { channel, lookbackDays } = await channelButton.resolveChannelAndLookback(message, args);

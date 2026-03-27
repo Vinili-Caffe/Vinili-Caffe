@@ -16,7 +16,6 @@ const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("../Ser
 const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
-const { isStaffEventActive, isStaffButNotHighStaff, addStaffEventPoints, } = require("../Services/Community/staffEventService");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 
@@ -1459,12 +1458,6 @@ module.exports = {
 
             if (info && !info.isVanity && info.inviterId) {
               await trackInviteJoin(member, info.inviterId).catch(() => { });
-              if (await isStaffEventActive(member.guild.id)) {
-                const inviterMember = await getGuildMemberCached(member.guild, info.inviterId);
-                if (inviterMember && isStaffButNotHighStaff(inviterMember)) {
-                  await addStaffEventPoints(member.guild.id, info.inviterId, 1, "invite").catch(() => null);
-                }
-              }
             }
             await maybeSendInviteNearRewardReminder(member, info);
             await maybeSendInviteReward(member, info);

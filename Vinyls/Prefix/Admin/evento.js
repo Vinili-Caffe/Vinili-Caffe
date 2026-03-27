@@ -1,9 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { getGuildExpSettings, setActivityEvent, clearActivityEvent, setStaffEvent, clearStaffEvent, getStaffEventSettings, invalidateSettingsCache } = require("../../Services/Community/expService");
+const { getGuildExpSettings, setActivityEvent, clearActivityEvent, invalidateSettingsCache } = require("../../Services/Community/expService");
 const { grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, getEventWeekNumber } = require("../../Services/Community/activityEventRewardsService");
-const { givePmStaff15PointsAtStart, giveExistingInvitesPointsAtStart, addStaffEventPoints, getStaffEventLeaderboard, filterStaffEventLeaderboardForDisplay, isStaffButNotHighStaff } = require("../../Services/Community/staffEventService");
-const { buildEventoClassificaPayload, buildEventoClassificaExpOnlyPayload } = require("../../Services/Community/eventoClassificaService");
+const { buildEventoClassificaPayload } = require("../../Services/Community/eventoClassificaService");
 const { getEventDiagnostics } = require("../../Services/Community/weeklyActivityWinnersService");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -13,7 +12,6 @@ const EVENT_GLOBAL_MULTI = 3;
 const EVENT_ROLE_OVERRIDES = { [IDs.roles.ServerBooster]: 3, [IDs.roles.Donator]: 4, [IDs.roles.VIP]: 5, };
 const EVENT_EXTRA_MULTI_ROLE_IDS = [IDs.roles.Veterano].filter(Boolean);
 const EVENT_ANNOUNCEMENT_CHANNEL_ID = IDs.channels.eventAnnouncements;
-const NEWS_STAFF_CHANNEL_ID = IDs.channels.staffNews;
 const EVENT_ANNOUNCEMENT_MESSAGES = [["<:VC_Firework:1470796227913322658> **ACTIVITY EXP EVENT**", "", "> <a:VC_HeartsPink:1468685897389052008> __Per festeggiare i 350 membri abbiamo deciso di startare un nuovo evento!__", "> <a:VC_HeartsBlue:1468686100045369404> **Non sarà il classico activity event, ma sarà incentrato tanto sull'exp e i livelli.**", "", "<a:VC_Sparkles:1468546911936974889> Ogni ruolo ottenibile **gratuitamente** avrà una __ricompensa extra__ oltre a quelle già scritte in <#1442569111119990887>:", "<:VC_DoubleReply:1482532332509466797> <@&1469040179799920801> / <@&1469040190730408018> <a:VC_Arrow:1482706699365257397> __Facendo la verifica tramite selfie otterrete anche 5 livelli__", "<:VC_DoubleReply:1482532332509466797> <@&1442568948271943721> <a:VC_Arrow:1482706699365257397> __Mettendo il nostro link nello status (discord.gg/viniliecaffe) riceverete 5 livelli__", "<:VC_DoubleReply:1482532332509466797> <@&1468266342682722679> <a:VC_Arrow:1482706699365257397> __Votando ogni giorno su [Discadia](<https://discadia.com/vote/viniliecaffe/>) ricevete 1 livello__", "<:VC_DoubleReply:1482532332509466797> <@&1469758545263198442> / <@&1474357579143577610> / <@&1474361806956007425> <a:VC_Arrow:1482706699365257397> __Per ogni soglia di inviti fatti col vostro [custom link](<https://imgur.com/a/3wpDOVj>) raggiunta riceverete rispettivamente 5 livelli, 10 livelli e 25 livelli.__", "<:VC_Reply:1482532158080942191> <@&1471955147692179497> <a:VC_Arrow:1482706699365257397> __Mettendo una nostra <#1475223034057982184> riceverete 10 livelli__",].join("\n"), ["", "<:VC_EXP:1482534670896730143> Inoltre ci sarà un __multi globale__ di **x3** per tutti. Alcuni ruoli avranno anche dei boost **maggiorati** per tutta la durata dell'evento:", "<:VC_DoubleReply:1482532332509466797> <@&1329497467481493607> <a:VC_Arrow:1482706699365257397> __`x3` invece di `x2`__", "<:VC_DoubleReply:1482532332509466797> <@&1442568916114346096> <a:VC_Arrow:1482706699365257397> __`x4` invece di `x3`__", "<:VC_DoubleReply:1482532332509466797> <@&1442568950805430312> <a:VC_Arrow:1482706699365257397> __`x5` invece di `x4`__", "<:VC_Reply:1482532158080942191> <@&1469073503025103113> <a:VC_Arrow:1482706699365257397> __Per premiare anche chi sta qui da più tempo applicheremo un boost extra di `x2`__", "> <a:VC_Exclamation:1482534702077444217> __Ricordo che questi boost si sommano a quello globale, non tra di loro.__",].join("\n"), (startDateStr, endDateStr) => ["", "<a:VC_Events:1482706144953897223> Ogni settimana i 3 utenti più attivi in vocale e in testuali riceveranno rispettivamente le seguenti ricompense:", "<:VC_DoubleReply:1482532332509466797> **1° Settimana** <a:VC_Arrow:1482706699365257397> __10 livelli__", "<:VC_DoubleReply:1482532332509466797> **2° Settimana** <a:VC_Arrow:1482706699365257397> __Un colore gradiente a scelta__", "<:VC_DoubleReply:1482532332509466797> **3° Settimana** <a:VC_Arrow:1482706699365257397> __Ruolo custom e vocale privata permanente__", "<:VC_Reply:1482532158080942191> **4° Settimana** <a:VC_Arrow:1482706699365257397> __Ruolo <@&1442568950805430312> permanente__", "> <a:VC_Exclamation:1482534702077444217> __Ricordo che inoltre i primi in top testuale e vocale riceveranno lo stesso <@&1468674837957574757> e <@&1468674787399172208> ogni settimana.__", "", "<a:VC_Boost:1482706171386269830> Alla fine dell'evento verrà stilata una classifica globale in base all'**EXP** (__non ai livelli__) ottenuta durante la durata dell'evento e i primi 3 otterranno un **__NITRO BOOST__**.", "", "> **NB: Tutti i premi vengono assegnati automaticamente dal bot, anche quelli settimanali (naturalmente non i Nitro Boost), aprite un <#1442569095068254219> solo se siete sicuri di non aver ricevuto la vostra ricompensa. Tutti i ticket inutili verranno sanzionati.**", "", `<a:VC_Calendar:1482706208149475358> __La durata dell'evento è dal \`${startDateStr}\` al \`${endDateStr}\`__`, "", "<a:VC_Ping:1482694298687246377>︲<@&1442569012063109151>",].join("\n"),];
 
 function getEndDateAt21Rome(now, giorniDaOggi = 30) {
@@ -30,12 +28,6 @@ function getEndDateAt21Rome(now, giorniDaOggi = 30) {
   const hour21CEST = new Date(Date.UTC(year, month, day, 19, 0, 0));
   const fmt = new Intl.DateTimeFormat("it-IT", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false, });
   return fmt.format(hour21CET) === "21:00" ? hour21CET : hour21CEST;
-}
-
-function buildStaffEventAnnouncementMessages(startDateStr, endDateStr) {
-  const part1 = ["## <a:VC_Announce:1482534613568979007>  **EVENTO STAFF**", "", "> <a:VC_Cross:1482532424570376253> __Lo <@&1442568910070349985> non può partecipare all'activity event__", "> <a:VC_Diamon:1482706116873031680> __Per lo Staff ci sarà un evento parallelo a quello degli utenti__", "", "<:VC_InactiveStatus:1482526984234860574> __Ogni staff per tutta la durata avrà una graduatoria che gli farà garantire un punteggio:__", "<:VC_DoubleReply:1482532332509466797> **Ogni utente entrato tramite invito col vostro [custom link](<https://imgur.com/a/3wpDOVj>) **<a:VC_Arrow:1482706699365257397> __1 punto__", "<:VC_DoubleReply:1482532332509466797> **Ogni utente che si candiderà grazie a voi** <a:VC_Arrow:1482706699365257397> __5 punti__", "<:VC_DoubleReply:1482532332509466797> **Ogni utente che boosta grazie a voi**  <a:VC_Arrow:1482706699365257397> __10 punti__", "<:VC_DoubleReply:1482532332509466797> **Fare il <@&1442568905582317740> oltre allo <@&1442568910070349985>** <a:VC_Arrow:1482706699365257397> __15 punti__", "<:VC_DoubleReply:1482532332509466797> **Ogni server che si trasferirà nel nostro** <a:VC_Arrow:1482706699365257397> __20 punti__", "<:VC_DoubleReply:1482532332509466797> **Superare ogni settimana i limiti di almeno 150 messaggi e 1h e 30** <a:VC_Arrow:1482706699365257397> __20 punti__", "<:VC_DoubleReply:1482532332509466797> **Ogni server che chiede una <#1442569211611185323> grazie a voi** <a:VC_Arrow:1482706699365257397> __25 punti__", "<:VC_Reply:1482532158080942191> **Ogni utente che compra il <@&1442568950805430312> o il <@&1442568916114346096> grazie a voi** <a:VC_Arrow:1482706699365257397> __50 punti__", "> <a:VC_Alert:1482706673176150077> __NB: L'utente che si candiderà dovrà essere pexato al fine del conteggio dei punti. Per le prove dovrete aprire un <#1442569095068254219> `terza categoria`.__", "> <:VC_BlackPin:1482534513400610948> __L'<@&1442568894349840435> è escluso dall'evento__",].join("\n");
-  const part2 = ["", "<:VC_Attention:1482534443632558151> **Alla fine dell'evento verranno comunicati lo staffer con più punti (candidato al pex) e quello con meno punti (candidato al depex); pex e depex saranno assegnati manualmente dallo staff.**", "", `<a:VC_pixeltime:1482535344103620771> __La durata dell'evento è dal \`${startDateStr}\` al \`${endDateStr}\`__`, "", "<:VC_Mention:1482526855289634997>︲<@&1442568910070349985>",].join("\n");
-  return [part1, part2];
 }
 
 function fmtDate(dateValue) {
@@ -66,8 +58,8 @@ function fmtDateWithTime(dateValue) {
 module.exports = {
   name: "evento",
   aliases: [],
-  subcommands: ["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "classifica-exp", "staff"],
-  subcommandAliases: { start: "start", stop: "stop", info: "info", "assegna-ruoli": "assegna-ruoli", "reset-premi": "reset-premi", classifica: "classifica", "classifica-exp": "classifica-exp", staff: "staff" },
+  subcommands: ["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica"],
+  subcommandAliases: { start: "start", stop: "stop", info: "info", "assegna-ruoli": "assegna-ruoli", "reset-premi": "reset-premi", classifica: "classifica" },
 
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => { });
@@ -75,11 +67,11 @@ module.exports = {
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    if (!sub || !["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica", "classifica-exp", "staff"].includes(sub)) {
+    if (!sub || !["start", "stop", "info", "assegna-ruoli", "reset-premi", "classifica"].includes(sub)) {
       const usage = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("Comando evento")
-        .setDescription(["`+evento start` – Avvia l’evento Activity EXP.", "`+evento stop` – Termina l’evento e ripristina i moltiplicatori.", "`+evento info` – Mostra stato e configurazione evento.", "`+evento assegna-ruoli` – Assegna i livelli a chi ha già Supporter/Verificato/Guilded/Promoter/Propulsor/Catalyst (evento attivo).", "`+evento reset-premi` – Cancella i premi già registrati e riassegna a tutti (senza annuncio).", "`+evento classifica` – Classifica per settimana.", "`+evento classifica-exp` – Solo classifica EXP (staff incluso, High Staff escluso).", "`+evento classifica staff` – Classifica punti evento staff.", "`+evento staff start | stop | addpoints` – Gestione evento staff.",
+        .setDescription(["`+evento start` – Avvia l’evento Activity EXP.", "`+evento stop` – Termina l’evento e ripristina i moltiplicatori.", "`+evento info` – Mostra stato e configurazione evento.", "`+evento assegna-ruoli` – Assegna i livelli a chi ha già Supporter/Verificato/Guilded/Promoter/Propulsor/Catalyst (evento attivo).", "`+evento reset-premi` – Cancella i premi già registrati e riassegna a tutti (senza annuncio).", "`+evento classifica` – Classifica per settimana (con bottone extra classifica EXP).",
         ].join("\n"));
       await safeMessageReply(message, {
         embeds: [usage],
@@ -160,41 +152,6 @@ module.exports = {
     }
 
     if (sub === "classifica") {
-      const second = String(args[1] || "").toLowerCase();
-      if (second === "staff") {
-        const staffSettings = await getStaffEventSettings(guildId);
-        if (!staffSettings?.active) {
-          await safeMessageReply(message, {
-            content: "<:vegax:1443934876440068179> Nessun evento staff attivo. Usa `+evento staff start` prima.",
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        const rawLeaderboard = await getStaffEventLeaderboard(guildId);
-        await message.guild.members.fetch().catch(() => null);
-        const leaderboard = (await filterStaffEventLeaderboardForDisplay(message.guild, rawLeaderboard)).slice(0, 25);
-        const lines = leaderboard.length
-          ? leaderboard.map((r, i) => `${i + 1}. <@${r.userId}> — **${r.points}** pt`)
-          : ["Nessun punteggio registrato per l'evento staff."];
-        const embed = new EmbedBuilder()
-          .setColor("#6f4e37")
-          .setTitle("Evento Staff — Classifica punti")
-          .setDescription(
-            [
-              "<:VC_Leaderboard:1482534806314287387> **Punteggio complessivo evento staff**",
-              "",
-              ...lines,
-              "",
-              "_A fine evento i punti verranno usati per valutare pex / depex._",
-            ].join("\n"),
-          )
-          .setFooter({ text: `Fine evento: ${fmtDateWithTime(staffSettings.expiresAt)}` });
-        await safeMessageReply(message, {
-          embeds: [embed],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
       const settings = await getGuildExpSettings(guildId);
       if (!settings?.eventExpiresAt || !settings?.eventStartedAt) {
         await safeMessageReply(message, {
@@ -209,128 +166,6 @@ module.exports = {
         ...payload,
         allowedMentions: { repliedUser: false },
       });
-      return;
-    }
-
-    if (sub === "classifica-exp") {
-      const settings = await getGuildExpSettings(guildId);
-      if (!settings?.eventExpiresAt || !settings?.eventStartedAt) {
-        await safeMessageReply(message, {
-          content: "<:vegax:1443934876440068179> Nessun evento attivo. Usa `+evento start` prima.",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const payload = await buildEventoClassificaExpOnlyPayload(message.guild);
-      await safeMessageReply(message, {
-        ...payload,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (sub === "staff") {
-      const staffSub = String(args[1] || "").toLowerCase();
-      if (!["start", "stop", "addpoints"].includes(staffSub)) {
-        await safeMessageReply(message, {
-          content: [
-            "**Evento staff**:",
-            "`+evento staff start` – Avvia evento staff.",
-            "`+evento staff stop` – Termina evento staff.",
-            "`+evento staff addpoints <@user | id> <punti>` – Aggiunge punti manualmente a uno staffer.",
-          ].join("\n"),
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (staffSub === "start") {
-        const now = new Date();
-        const endDate = getEndDateAt21Rome(now, EVENT_DURATION_DAYS - 1);
-        const result = await setStaffEvent(guildId, { endDate: endDate.getTime(), startedAt: now, });
-        if (!result) {
-          await safeMessageReply(message, {
-            content: "<:vegax:1443934876440068179> Impossibile avviare l'evento staff.",
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        setImmediate(() => {
-          givePmStaff15PointsAtStart(message.guild).catch((err) => {
-            global.logger?.error?.("[evento staff start] givePmStaff15PointsAtStart failed:", err);
-          });
-          giveExistingInvitesPointsAtStart(message.guild).catch((err) => {
-            global.logger?.error?.("[evento staff start] giveExistingInvitesPointsAtStart failed:", err);
-          });
-        });
-        await safeMessageReply(message, {
-          content: "<:vegacheckmark:1443666279058772028> Evento staff avviato. Dal **" + fmtDate(now) + "** al **" + fmtDateWithTime(endDate.getTime()) + "**. Inviti esistenti e PM+Staff hanno ricevuto i punti.",
-          allowedMentions: { repliedUser: false },
-        });
-        if (NEWS_STAFF_CHANNEL_ID) {
-          const newsStaffChannel = message.client.channels.cache.get(NEWS_STAFF_CHANNEL_ID) || (await getClientChannelCached(message.client, NEWS_STAFF_CHANNEL_ID));
-          if (newsStaffChannel) {
-            const staffMessages = buildStaffEventAnnouncementMessages(fmtDate(now), fmtDateWithTime(endDate.getTime()),);
-            for (const content of staffMessages) {
-              await newsStaffChannel.send({
-                content,
-                allowedMentions: { parse: ["roles"] },
-              }).catch((err) => {
-                global.logger?.error?.("[evento staff start] Annuncio #newsstaff fallito:", err);
-              });
-            }
-          }
-        }
-        return;
-      }
-      if (staffSub === "stop") {
-        await clearStaffEvent(guildId);
-        await safeMessageReply(message, {
-          content: "<:vegacheckmark:1443666279058772028> Evento staff terminato.",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (staffSub === "addpoints") {
-        const target = args[2];
-        const pointsArg = args[3];
-        const points = Math.floor(Number(pointsArg));
-        if (!target || !Number.isFinite(points) || points <= 0) {
-          await safeMessageReply(message, {
-            content: "Uso: `+evento staff addpoints <@user | id> <punti>` (punti intero positivo).",
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        const userId = target.replace(/^<@!?(\d+)>$/, "$1") || target;
-        if (!/^\d+$/.test(userId)) {
-          await safeMessageReply(message, {
-            content: "<:vegax:1443934876440068179> Inserisci un utente valido (@menzione o ID).",
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        const member = message.guild.members.cache.get(userId) || (await getGuildMemberCached(message.guild, userId));
-        if (!member || !isStaffButNotHighStaff(member)) {
-          await safeMessageReply(message, {
-            content: "<:vegax:1443934876440068179> Solo chi ha il ruolo Staff (e non HighStaff, né solo Partner Manager) può ricevere punti evento staff.",
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        const added = await addStaffEventPoints(guildId, userId, points, "manual");
-        if (!added) {
-          await safeMessageReply(message, {
-            content: "<:vegax:1443934876440068179> Evento staff non attivo o parametri non validi.",
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        await safeMessageReply(message, {
-          content: "<:vegacheckmark:1443666279058772028> Aggiunti **" + points + "** punti a <@" + userId + ">.",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
       return;
     }
 

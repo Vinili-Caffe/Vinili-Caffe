@@ -31,6 +31,7 @@ const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService
 const { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
+const { removeStaffEventData } = require("../Services/Community/removeStaffEventDataService");
 const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -196,6 +197,19 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "startup sync clan tag roles",
       enabled: primaryScheduler,
       run: () => syncAllMembersClanTags(client),
+    },
+    {
+      label: "cleanup legacy staff event data",
+      enabled: true,
+      run: async () => {
+        const stats = await removeStaffEventData();
+        const total = Number(stats?.profilesModified || 0) + Number(stats?.settingsModified || 0);
+        if (total > 0) {
+          global.logger?.info?.(
+            `[STAFF EVENT CLEANUP] Removed legacy data: profiles=${stats.profilesModified}, settings=${stats.settingsModified}`,
+          );
+        }
+      },
     },
     {
       label: "startup sync queue",

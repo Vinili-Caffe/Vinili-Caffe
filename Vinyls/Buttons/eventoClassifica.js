@@ -3,6 +3,7 @@ const { getGuildExpSettings } = require("../Services/Community/expService");
 const { getEventWeekTopNTextAndVoice } = require("../Services/Community/weeklyActivityWinnersService");
 const { getTop10ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingHighStaff, getEventWeekNumber } = require("../Services/Community/activityEventRewardsService");
 const EVENTO_CLASSIFICA_PREFIX = "evento_classifica:";
+const EVENTO_CLASSIFICA_EXP_PREFIX = "evento_classifica_exp";
 const MAX_WEEKS = 4;
 const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>"];
 
@@ -17,13 +18,18 @@ function formatVoiceDuration(seconds) {
 
 function match(interaction) {
   const id = interaction?.customId || "";
-  return interaction.isButton() && (id === EVENTO_CLASSIFICA_PREFIX || id.startsWith(`${EVENTO_CLASSIFICA_PREFIX}`));
+  return interaction.isButton() && (
+    id === EVENTO_CLASSIFICA_EXP_PREFIX ||
+    id === EVENTO_CLASSIFICA_PREFIX ||
+    id.startsWith(`${EVENTO_CLASSIFICA_PREFIX}`)
+  );
 }
 
 async function execute(interaction, client) {
   const customId = interaction.customId || "";
-  if (!customId.startsWith(EVENTO_CLASSIFICA_PREFIX)) return false;
-  const weekStr = customId.slice(EVENTO_CLASSIFICA_PREFIX.length).trim();
+  const isExpOnly = customId === EVENTO_CLASSIFICA_EXP_PREFIX;
+  if (!isExpOnly && !customId.startsWith(EVENTO_CLASSIFICA_PREFIX)) return false;
+  const weekStr = isExpOnly ? "" : customId.slice(EVENTO_CLASSIFICA_PREFIX.length).trim();
   const week = Math.max(1, Math.min(MAX_WEEKS, Number.parseInt(weekStr || "1", 10) || 1));
 
   const guild = interaction.guild;
@@ -36,7 +42,9 @@ async function execute(interaction, client) {
 
   try {
     const currentEventWeek = Math.max(1, Math.min(MAX_WEEKS, Number(getEventWeekNumber(settings) || 1)));
-    const payload = await buildEventoClassificaPayload(guild, week, currentEventWeek);
+    const payload = isExpOnly
+      ? await buildEventoClassificaExpOnlyPayload(guild, week, currentEventWeek)
+      : await buildEventoClassificaPayload(guild, week, currentEventWeek);
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
     } else {
@@ -107,11 +115,18 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
         .setStyle(w === week ? ButtonStyle.Primary : ButtonStyle.Secondary)
     );
   }
+  const expRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(EVENTO_CLASSIFICA_EXP_PREFIX)
+      .setLabel("Classifica EXP")
+      .setEmoji("<:VC_Leaderboard:1482534806314287387>")
+      .setStyle(ButtonStyle.Secondary),
+  );
 
-  return { embeds: [embed], components: [row] };
+  return { embeds: [embed], components: [row, expRow] };
 }
 
-async function buildEventoClassificaExpOnlyPayload(guild) {
+async function buildEventoClassificaExpOnlyPayload(guild, selectedWeek = 1, currentEventWeek = 1) {
   const topExp = await getTop10ExpDuringEventExcludingHighStaff(guild, 10);
 
   const expLines = topExp.length
@@ -140,7 +155,24 @@ async function buildEventoClassificaExpOnlyPayload(guild) {
     .setFooter({ text: "Solo EXP" })
     .setTimestamp();
 
-  return { embeds: [embed], components: [] };
+  const maxWeek = Math.max(1, Math.min(MAX_WEEKS, Number(currentEventWeek || selectedWeek || 1)));
+  const row = new ActionRowBuilder();
+  for (let w = 1; w <= maxWeek; w++) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${EVENTO_CLASSIFICA_PREFIX}${w}`)
+        .setEmoji("<a:VC_Calendar:1482706208149475358>")
+        .setStyle(w === Number(selectedWeek || 1) ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    );
+  }
+  const expRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(EVENTO_CLASSIFICA_EXP_PREFIX)
+      .setLabel("Classifica EXP")
+      .setEmoji("<:VC_Leaderboard:1482534806314287387>")
+      .setStyle(ButtonStyle.Primary),
+  );
+  return { embeds: [embed], components: [row, expRow] };
 }
 
 module.exports = { name: "eventoClassifica", order: 10, match, execute, EVENTO_CLASSIFICA_PREFIX, MAX_WEEKS, buildEventoClassificaPayload, buildEventoClassificaExpOnlyPayload };

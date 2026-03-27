@@ -3,6 +3,12 @@ const { listAllBackupMetasPaginated } = require("../Services/Backup/serverBackup
 const PREFIX_PREV = "backup_list_prev:";
 const PREFIX_NEXT = "backup_list_next:";
 
+function toUnixTs(value) {
+  const ms = new Date(value || 0).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return Math.floor(ms / 1000);
+}
+
 function match(interaction) {
   const id = interaction?.customId || "";
   return interaction.isButton() && (id.startsWith(PREFIX_PREV) || id.startsWith(PREFIX_NEXT));
@@ -46,7 +52,11 @@ async function renderList(userId, page = 1) {
   const { items, total, totalPages, page: currentPage } = await listAllBackupMetasPaginated({ page, pageSize });
 
   const lines = items.length
-    ? items.map((m, i) => `${(currentPage - 1) * pageSize + i + 1}. **${String(m?.guildName || "?").replace(/\*\*/g, "")}** — \`${m?.backupId || "?"}\` (<t:${Math.floor(Number(m?.createdAt || 0) / 1000)}:d>)`)
+    ? items.map((m, i) => {
+      const ts = toUnixTs(m?.createdAt);
+      const createdLabel = ts ? `<t:${ts}:d>` : "N/D";
+      return `${(currentPage - 1) * pageSize + i + 1}. **${String(m?.guildName || "?").replace(/\*\*/g, "")}** — \`${m?.backupId || "?"}\` (${createdLabel})`;
+    })
     : ["Nessun backup trovato."];
 
   const embed = new EmbedBuilder()
@@ -74,6 +84,7 @@ async function renderList(userId, page = 1) {
 
 function buildListSelectionInfoEmbed(selectedBackup) {
   const m = selectedBackup || {};
+  const ts = toUnixTs(m?.createdAt);
   return new EmbedBuilder()
     .setColor("#3498db")
     .setTitle("<:VC_InactiveStatus:1482526984234860574> Backup selezionato")
@@ -81,7 +92,7 @@ function buildListSelectionInfoEmbed(selectedBackup) {
       [
         `<:VC_Mention:1482526855289634997> **Server:** ${String(m?.guildName || "?").replace(/\*\*/g, "")}`,
         `<:VC_id:1478517313618575419> **Backup ID:** \`${m?.backupId || "?"}\``,
-        `<:VC_opentime:1478517163022221323> **Creato:** ${m?.createdAt ? `<t:${Math.floor(Number(m.createdAt) / 1000)}:F>` : "N/D"}`,
+        `<:VC_opentime:1478517163022221323> **Creato:** ${ts ? `<t:${ts}:F>` : "N/D"}`,
       ].join("\n")
     );
 }
