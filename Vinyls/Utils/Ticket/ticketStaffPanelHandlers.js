@@ -7,17 +7,31 @@ const {
   TextInputBuilder,
   TextInputStyle,
   MessageFlags,
+  UserSelectMenuBuilder,
 } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
-const { hasStaffTicketRole, canRemoveTicketMemberByOverwrite } = require("./ticketStaffPanelBuild");
+const { hasStaffTicketRole } = require("./ticketStaffPanelBuild");
 const ticketModule = require("../../Prefix/Ticket/ticket");
 
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
+
+function buildTransferPickerEmbed(ticketType) {
+  const t = String(ticketType || "").toLowerCase();
+  let rolesLine = "**Supporto:** Staff o High Staff.";
+  if (t === "partnership") rolesLine = "**Partnership:** Partner Manager o High Staff.";
+  else if (t === "high") rolesLine = "**High Staff:** solo High Staff.";
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("🔀 Trasferisci claim")
+    .setDescription(
+      `${rolesLine}\n\nCerca e seleziona un membro idoneo. Non sono ammessi bot, l’apertore del ticket né l’attuale claimant.`,
+    );
+}
 
 function makeError(title, description) {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor("#6f4e37");
@@ -110,6 +124,40 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     return true;
   }
 
+  if (interaction.isButton?.() && cid === "ticket_panel_transfer_open") {
+    const ticketDocOpen = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
+    if (!ticketDocOpen?.claimedBy) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const isClaimerOpen = interaction.user.id === ticketDocOpen.claimedBy;
+    const isHighOpen = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
+    if (!isClaimerOpen && !isHighOpen) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo chi ha claimato o l’**High Staff** può trasferire il claim.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const intro = buildTransferPickerEmbed(ticketDocOpen.ticketType);
+    const transferRow = new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId("ticket_panel_transfer_user")
+        .setPlaceholder("Scegli il nuovo claimant…")
+        .setMinValues(1)
+        .setMaxValues(1),
+    );
+    await interaction.reply({
+      embeds: [intro],
+      components: [transferRow],
+      flags: MessageFlags.Ephemeral,
+    });
+    return true;
+  }
+
   if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_add_member") {
     if (!hasStaffTicketRole(interaction.member)) {
       await safeReply(interaction, {
@@ -158,52 +206,89 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     return true;
   }
 
-  if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_remove_member") {
-    if (!hasStaffTicketRole(interaction.member)) {
+  if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_transfer_user") {
+    const ticketDocXfer = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
+    if (!ticketDocXfer?.claimedBy) {
       await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")],
         flags: 1 << 6,
       });
       return true;
     }
-    const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
-    if (!ticketDoc) {
+    const isClaimerXfer = interaction.user.id === ticketDocXfer.claimedBy;
+    const isHighXfer = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
+    if (!isClaimerXfer && !isHighXfer) {
       await safeReply(interaction, {
-        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Ticket non trovato o non aperto.")],
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo chi ha claimato o l’**High Staff** può trasferire il claim.")],
         flags: 1 << 6,
       });
       return true;
     }
-    const userId = interaction.values?.[0];
-    if (!userId) {
+    const targetUserId = interaction.values?.[0];
+    if (!targetUserId) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
         flags: 1 << 6,
       });
       return true;
     }
-    const pickedUser = interaction.users?.get?.(userId) ?? null;
-    if (!canRemoveTicketMemberByOverwrite(interaction.channel, userId, pickedUser)) {
+    const targetMember = await getGuildMemberCached(interaction.guild, targetUserId);
+    if (!targetMember) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non nel server.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    if (targetMember.user?.bot) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non puoi assegnare il claim a un bot.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    if (!ticketModule.canClaimTicket(targetMember, ticketDocXfer.ticketType, interaction.guild?.id)) {
       await safeReply(interaction, {
         embeds: [
           makeErrorEmbed(
             "<a:VC_Alert:1482706673176150077> Errore",
-            "<:vegax:1443934876440068179> Puoi rimuovere solo utenti con **accesso diretto** al ticket (aggiunti dal pannello staff).",
+            "<:vegax:1443934876440068179> L’utente non ha il ruolo richiesto per gestire **questo** tipo di ticket (supporto → Staff/High Staff, partnership → Partner Manager/High Staff, high → High Staff).",
           ),
         ],
         flags: 1 << 6,
       });
       return true;
     }
-    await interaction.channel.permissionOverwrites.edit(userId, {
-      ViewChannel: false,
-      SendMessages: false,
+    if (targetUserId === ticketDocXfer.userId || targetUserId === ticketDocXfer.claimedBy) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Scelta non valida per il transfer.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const oldClaimerId = ticketDocXfer.claimedBy;
+    ticketDocXfer.claimedBy = targetUserId;
+    await ticketDocXfer.save();
+    await interaction.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
+    await interaction.channel.permissionOverwrites.edit(targetUserId, {
+      ViewChannel: true,
+      SendMessages: true,
     });
+    const msg = await interaction.channel.messages.fetch(ticketDocXfer.messageId).catch(() => null);
+    if (msg) {
+      const updatedEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
+      const updatedButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
+      );
+      await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] }).catch(() => {});
+    }
     await interaction.reply({
       embeds: [
         makeError(
-          "Rimuovi",
-          `<:vegacheckmark:1443666279058772028> <@${userId}> è stato rimosso dal ticket.`,
+          "Claim trasferito",
+          `<:VC_claim:1478517202016669887> Ticket assegnato a <@${targetUserId}> (prima: <@${oldClaimerId}>).`,
         ),
       ],
       flags: MessageFlags.Ephemeral,
@@ -247,69 +332,24 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       return true;
     }
 
-    if (cid === "ticket_panel_transfer_user") {
-      if (!ticketDoc.claimedBy) {
+    if (cid === "ticket_panel_remove_member") {
+      if (!hasStaffTicketRole(interaction.member)) {
         await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")],
+          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
           flags: 1 << 6,
         });
         return true;
       }
-      const isClaimer = interaction.user.id === ticketDoc.claimedBy;
-      const isHigh = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
-      if (!isClaimer && !isHigh) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo chi ha claimato o l’**High Staff** può trasferire il claim.")],
-          flags: 1 << 6,
-        });
-        return true;
-      }
-      const targetUserId = interaction.values[0];
-      const targetMember = await getGuildMemberCached(interaction.guild, targetUserId);
-      if (!targetMember) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Utente non nel server.")],
-          flags: 1 << 6,
-        });
-        return true;
-      }
-      if (!ticketModule.canClaimTicket(targetMember, ticketDoc.ticketType, interaction.guild?.id)) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> L’utente selezionato non può gestire questo tipo di ticket.")],
-          flags: 1 << 6,
-        });
-        return true;
-      }
-      if (targetUserId === ticketDoc.userId || targetUserId === ticketDoc.claimedBy) {
-        await safeReply(interaction, {
-          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Scelta non valida per il transfer.")],
-          flags: 1 << 6,
-        });
-        return true;
-      }
-      const oldClaimerId = ticketDoc.claimedBy;
-      ticketDoc.claimedBy = targetUserId;
-      await ticketDoc.save();
-      await interaction.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
-      await interaction.channel.permissionOverwrites.edit(targetUserId, {
-        ViewChannel: true,
-        SendMessages: true,
+      const userId = interaction.values[0];
+      await interaction.channel.permissionOverwrites.edit(userId, {
+        ViewChannel: false,
+        SendMessages: false,
       });
-      const msg = await interaction.channel.messages.fetch(ticketDoc.messageId).catch(() => null);
-      if (msg) {
-        const updatedEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
-        const updatedButtons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
-        );
-        await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] }).catch(() => {});
-      }
       await interaction.reply({
         embeds: [
           makeError(
-            "Claim trasferito",
-            `<:VC_claim:1478517202016669887> Ticket assegnato a <@${targetUserId}> (prima: <@${oldClaimerId}>).`,
+            "Rimuovi",
+            `<:vegacheckmark:1443666279058772028> <@${userId}> è stato rimosso dal ticket.`,
           ),
         ],
         flags: MessageFlags.Ephemeral,

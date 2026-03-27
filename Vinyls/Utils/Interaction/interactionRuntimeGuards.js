@@ -152,6 +152,17 @@ async function runPermissionGate(interaction) {
     }
   }
 
+  if (interaction.isChannelSelectMenu?.() || interaction.isRoleSelectMenu?.()) {
+    const gate = await checkStringSelectPermission(interaction);
+    if (!gate.allowed) {
+      await sendPrivateInteractionResponse(interaction, {
+        embeds: [buildDeniedEmbed(gate, "menu")],
+        flags: PRIVATE_FLAG,
+      });
+      return false;
+    }
+  }
+
   if (interaction.isModalSubmit?.()) {
     const gate = await checkModalPermission(interaction);
     if (!gate.allowed) {

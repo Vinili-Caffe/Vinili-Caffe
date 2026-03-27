@@ -20,17 +20,18 @@ const PRIVATE_FLAG = 1 << 6;
 const SERVER_BTN_MODAL = {
   gmulti: "gmulti",
   event: "multiplier",
-  lock: "lock",
-  unlock: "unlock",
-  ignore: "ignore",
-  unignore: "unignore",
   role_multi_set: "role_multi_set",
   role_multi_remove: "role_multi_remove",
 };
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
-  const isComponent = interaction?.isButton?.() || interaction?.isStringSelectMenu?.() || interaction?.isModalSubmit?.();
+  const isComponent =
+    interaction?.isButton?.() ||
+    interaction?.isStringSelectMenu?.() ||
+    interaction?.isChannelSelectMenu?.() ||
+    interaction?.isRoleSelectMenu?.() ||
+    interaction?.isModalSubmit?.();
   if (!isComponent) return false;
   return id.startsWith("level_panel:") || id.startsWith("level_panel_modal:");
 }
@@ -39,6 +40,8 @@ function parseLevelPanelComponentId(customId) {
   const parts = String(customId || "").split(":");
   if (parts[0] !== "level_panel") return null;
   if (parts[1] === "server_nav") return { kind: "server_nav", ownerId: parts[2] || "" };
+  if (parts[1] === "server_ch") return { kind: "server_ch", action: parts[2] || "", ownerId: parts[3] || "" };
+  if (parts[1] === "server_role") return { kind: "server_role", action: parts[2] || "", ownerId: parts[3] || "" };
   if (parts[1] === "server_btn") return { kind: "server_btn", action: parts[2] || "", ownerId: parts[3] || "" };
   if (parts[1] === "user_btn") return { kind: "user_btn", action: parts[2] || "", ownerId: parts[3] || "", targetId: parts[4] || "" };
   return null;
@@ -111,22 +114,6 @@ function buildSimpleEmbed(title, description) {
 async function runServerModalAction(interaction, action) {
   const guildId = interaction.guild?.id;
   if (!guildId) return buildSimpleEmbed("Level", "Guild non disponibile.");
-  if (action === "lock" || action === "unlock") {
-    const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
-    const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
-    if (!/^\d{16,20}$/.test(cleanTarget)) return buildSimpleEmbed("Level", "Canale non valido.");
-    const locked = action === "lock";
-    const next = await setLevelChannelLocked(guildId, cleanTarget, locked);
-    return buildSimpleEmbed("Level", `${locked ? "Canale bloccato" : "Canale sbloccato"} per EXP: <#${cleanTarget}>. Totale: **${next.length}**`);
-  }
-  if (action === "ignore" || action === "unignore") {
-    const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
-    const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
-    if (!/^\d{16,20}$/.test(cleanTarget)) return buildSimpleEmbed("Level", "Ruolo non valido.");
-    const ignored = action === "ignore";
-    const next = await setRoleIgnored(guildId, cleanTarget, ignored);
-    return buildSimpleEmbed("Level", `${ignored ? "Ruolo ignorato" : "Ruolo riabilitato"} per EXP: <@&${cleanTarget}>. Totale: **${next.length}**`);
-  }
   if (action === "multiplier") {
     const value = Number(interaction.fields.getTextInputValue("value"));
     const minutesRaw = String(interaction.fields.getTextInputValue("minutes") || "").trim();
@@ -296,6 +283,38 @@ async function execute(interaction) {
         return true;
       }
       return false;
+    }
+    return false;
+  }
+
+  if (interaction.isChannelSelectMenu()) {
+    if (compParsed?.kind === "server_ch") {
+      const guildId = interaction.guild?.id;
+      const channelId = interaction.values?.[0];
+      if (!guildId || !channelId) return false;
+      const locked = compParsed.action === "lock";
+      await setLevelChannelLocked(guildId, channelId, locked);
+      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, "channels", interaction.user);
+      await interaction.update(payload).catch(async () => {
+        await interaction.reply({ ...payload, flags: PRIVATE_FLAG }).catch(() => {});
+      });
+      return true;
+    }
+    return false;
+  }
+
+  if (interaction.isRoleSelectMenu()) {
+    if (compParsed?.kind === "server_role") {
+      const guildId = interaction.guild?.id;
+      const roleId = interaction.values?.[0];
+      if (!guildId || !roleId) return false;
+      const ignored = compParsed.action === "ignore";
+      await setRoleIgnored(guildId, roleId, ignored);
+      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, "roles", interaction.user);
+      await interaction.update(payload).catch(async () => {
+        await interaction.reply({ ...payload, flags: PRIVATE_FLAG }).catch(() => {});
+      });
+      return true;
     }
     return false;
   }

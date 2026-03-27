@@ -38,18 +38,7 @@
       "has been successfully bumped",
       "successfully bumped",
       "bumped successfully"
-    ],
-    "reward": {
-      "baseExp": 100,
-      "fastGuess": {
-        "windowMs": 900000,
-        "multiplier": 1.5
-      },
-      "streak": {
-        "bonusPercentPerWin": 10,
-        "maxBonusPercent": 50
-      }
-    }
+    ]
   },
   "discadiaVoteReminder": {
     "enabled": true,
@@ -222,7 +211,7 @@
     "stayConnected": false
   },
   "minigames": {
-    "enabled": true,
+    "enabled": false,
     "translateApiToItalian": true,
     "intervalMs": 900000,
     "noParticipationIntervalMs": 900000,

@@ -386,6 +386,20 @@ async function enforceInteractionPermissions(interaction) {
     }
   }
 
+  if (
+    (interaction.isChannelSelectMenu && interaction.isChannelSelectMenu()) ||
+    (interaction.isRoleSelectMenu && interaction.isRoleSelectMenu())
+  ) {
+    const gate = await checkStringSelectPermission(interaction);
+    if (!gate.allowed) {
+      const deniedEmbed = buildDeniedEmbedFromGate(gate, "menu", interaction);
+      await interaction
+        .reply({ embeds: [deniedEmbed], flags: PRIVATE_FLAG })
+        .catch((err) => { logButtonErr(err); });
+      return false;
+    }
+  }
+
   return true;
 }
 

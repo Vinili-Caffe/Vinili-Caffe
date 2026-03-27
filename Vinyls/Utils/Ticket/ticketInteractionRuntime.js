@@ -2,9 +2,9 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const CHANNEL_WARM_TTL_MS = 5 * 60_000;
 const guildChannelWarmCache = new Map();
-const HANDLED_TICKET_BUTTONS = new Set(["ticket_partnership","ticket_highstaff","ticket_supporto","claim_ticket","close_ticket","close_ticket_motivo","accetta","rifiuta","ticket_autoclose_accept","ticket_autoclose_reject","unclaim","ticket_panel_rename","ticket_panel_closerequest",]);
-const HANDLED_TICKET_USER_SELECT_MENUS = new Set(["ticket_panel_add_member","ticket_panel_remove_member"]);
-const HANDLED_TICKET_SELECT_MENUS = new Set(["ticket_open_menu","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_reopen_pick",]);
+const HANDLED_TICKET_BUTTONS = new Set(["ticket_partnership","ticket_highstaff","ticket_supporto","claim_ticket","close_ticket","close_ticket_motivo","accetta","rifiuta","ticket_autoclose_accept","ticket_autoclose_reject","unclaim","ticket_panel_transfer_open","ticket_panel_rename","ticket_panel_closerequest",]);
+const HANDLED_TICKET_USER_SELECT_MENUS = new Set(["ticket_panel_add_member","ticket_panel_transfer_user"]);
+const HANDLED_TICKET_SELECT_MENUS = new Set(["ticket_open_menu","ticket_panel_remove_member","ticket_panel_switch_category","ticket_panel_reopen_pick",]);
 
 function getCachedEntity(cache, key) {
   const cached = cache.get(key);

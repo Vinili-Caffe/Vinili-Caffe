@@ -32,22 +32,24 @@ function canSeeCloseRequestPanel(member, ticketDoc) {
   return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
 }
 
-function hasTicketRemovableParticipants(channel) {
-  const guild = channel.guild;
+function buildRemoveMemberOptions(channel) {
+  const ids = [];
   for (const ow of channel.permissionOverwrites.cache.values()) {
-    if (ow.type !== OverwriteType.Member) continue;
-    const mem = guild.members.cache.get(ow.id);
-    if (!mem || mem.user?.bot) continue;
-    return true;
+    if (ow.type === OverwriteType.Member) ids.push(ow.id);
   }
-  return false;
-}
-
-function canRemoveTicketMemberByOverwrite(channel, userId, resolvedUser) {
-  const ow = channel.permissionOverwrites.cache.get(userId);
-  if (!ow || ow.type !== OverwriteType.Member) return false;
-  if (resolvedUser?.bot) return false;
-  return true;
+  const guild = channel.guild;
+  const options = [];
+  for (const id of ids) {
+    if (options.length >= 25) break;
+    const mem = guild.members.cache.get(id);
+    if (!mem || mem.user?.bot) continue;
+    options.push({
+      label: String(mem.displayName || mem.user?.username || id).slice(0, 100),
+      value: id,
+      description: String(mem.user?.username || "").slice(0, 100),
+    });
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label, "it"));
 }
 
 function buildTicketStaffPanelPayload(member, channel, ticketDoc, canClaimTicketFn) {
@@ -64,43 +66,16 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc, canClaimTicket
           .setMaxValues(1),
       ),
     );
-    if (hasTicketRemovableParticipants(channel)) {
-      rows.push(
-        new ActionRowBuilder().addComponents(
-          new UserSelectMenuBuilder()
-            .setCustomId("ticket_panel_remove_member")
-            .setPlaceholder("➖ Rimuovi chi ha accesso diretto al ticket…")
-            .setMinValues(1)
-            .setMaxValues(1),
-        ),
-      );
-    }
-  }
-
-  if (ticketDoc && canSeeTransferPanel(member, ticketDoc) && canClaimTicketFn) {
-    const transferCandidates = guild.members.cache
-      .filter((m) => {
-        if (!m || m.user?.bot) return false;
-        return canClaimTicketFn(m, ticketDoc.ticketType, guild.id);
-      })
-      .map((m) => m)
-      .filter((m) => m.id !== ticketDoc.userId && m.id !== ticketDoc.claimedBy)
-      .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || ""), "it"))
-      .slice(0, 25);
-    if (transferCandidates.length) {
-      const tOpts = transferCandidates.map((m) => ({
-        label: String(m.displayName || m.user?.username || m.id).slice(0, 100),
-        value: m.id,
-        description: "Trasferisci il claim a questo utente",
-      }));
+    const remOpts = buildRemoveMemberOptions(channel);
+    if (remOpts.length) {
       rows.push(
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
-            .setCustomId("ticket_panel_transfer_user")
-            .setPlaceholder("🔀 Trasferisci claim…")
+            .setCustomId("ticket_panel_remove_member")
+            .setPlaceholder("➖ Rimuovi un utente dal ticket…")
             .setMinValues(1)
             .setMaxValues(1)
-            .addOptions(tOpts),
+            .addOptions(remOpts),
         ),
       );
     }
@@ -136,6 +111,15 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc, canClaimTicket
   }
 
   const buttonRow = [];
+  if (ticketDoc?.claimedBy && canSeeTransferPanel(member, ticketDoc) && canClaimTicketFn) {
+    buttonRow.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_transfer_open")
+        .setLabel("Trasferisci claim")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("🔀"),
+    );
+  }
   if (HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
     buttonRow.push(
       new ButtonBuilder()
@@ -168,7 +152,9 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc, canClaimTicket
         hasStaffTicketRole(member)
           ? "**Staff:** aggiungi con il menu utenti (ricerca Discord); rimuovi con il menu a tendina."
           : "",
-        canSeeTransferPanel(member, ticketDoc) ? "**Claim:** puoi trasferire il claim con il menu dedicato." : "",
+        canSeeTransferPanel(member, ticketDoc) && ticketDoc?.claimedBy
+          ? "**Claim:** **Trasferisci claim** apre un menu utenti (solo chi ha il ruolo giusto per il tipo di ticket: supporto → Staff/High Staff, partnership → Partner Manager/High Staff, high → High Staff)."
+          : "",
         HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)
           ? "**High Staff:** switch categoria o rinomina."
           : "",
@@ -223,5 +209,4 @@ module.exports = {
   hasStaffTicketRole,
   canSeeTransferPanel,
   canSeeCloseRequestPanel,
-  canRemoveTicketMemberByOverwrite,
 };

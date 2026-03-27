@@ -68,7 +68,7 @@ module.exports = {
         if (
           !interaction.replied &&
           !interaction.deferred &&
-          (interaction.isButton?.() || interaction.isStringSelectMenu?.() || interaction.isUserSelectMenu?.())
+          (interaction.isButton?.() || interaction.isStringSelectMenu?.() || interaction.isUserSelectMenu?.() || interaction.isChannelSelectMenu?.() || interaction.isRoleSelectMenu?.())
         ) {
           await interaction.deferUpdate().catch(() => {});
         }

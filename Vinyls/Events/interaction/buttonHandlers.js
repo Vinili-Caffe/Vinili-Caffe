@@ -1,6 +1,6 @@
 module.exports = {
   async handleButtonInteraction(interaction, client) {
-    const isComponent = interaction?.isButton?.() || interaction?.isStringSelectMenu?.() || interaction?.isUserSelectMenu?.() || interaction?.isModalSubmit?.();
+    const isComponent = interaction?.isButton?.() || interaction?.isStringSelectMenu?.() || interaction?.isUserSelectMenu?.() || interaction?.isChannelSelectMenu?.() || interaction?.isRoleSelectMenu?.() || interaction?.isModalSubmit?.();
     if (!isComponent) {
       return false;
     }

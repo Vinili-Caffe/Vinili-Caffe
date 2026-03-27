@@ -1,4 +1,13 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  ChannelSelectMenuBuilder,
+  RoleSelectMenuBuilder,
+  ChannelType,
+} = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings, getLevelInfo } = require("../../Services/Community/expService");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
@@ -101,7 +110,7 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
       "",
       fmtDiscordList(lockLines, "<:VC_InactiveStatus:1482526984234860574> _Nessun canale bloccato._"),
       "",
-      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per bloccare o sbloccare un canale.",
+      "<:VC_Modifica:1478859646587633717> Usa i **menu canale** qui sotto per bloccare o sbloccare l’EXP.",
     ];
     return base.setDescription(lines.join("\n"));
   }
@@ -128,65 +137,89 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
   return base.setDescription(lines.join("\n"));
 }
 
-function buildServerSectionButtonRow(section, ownerId) {
+const LEVEL_PANEL_CHANNEL_TYPES = [
+  ChannelType.GuildText,
+  ChannelType.GuildAnnouncement,
+  ChannelType.GuildForum,
+  ChannelType.PublicThread,
+  ChannelType.PrivateThread,
+  ChannelType.GuildVoice,
+  ChannelType.GuildStageVoice,
+];
+
+function buildServerSectionRows(section, ownerId) {
   const safeOwner = String(ownerId || "");
   if (section === "settings") {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:gmulti:${safeOwner}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel("Multi globale")
-        .setEmoji("<:VC_EXP:1482534670896730143>"),
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:event:${safeOwner}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel("Multi evento")
-        .setEmoji("<a:VC_Events:1482706144953897223>"),
-    );
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`level_panel:server_btn:gmulti:${safeOwner}`)
+          .setStyle(ButtonStyle.Primary)
+          .setLabel("Multi globale")
+          .setEmoji("<:VC_EXP:1482534670896730143>"),
+        new ButtonBuilder()
+          .setCustomId(`level_panel:server_btn:event:${safeOwner}`)
+          .setStyle(ButtonStyle.Primary)
+          .setLabel("Multi evento")
+          .setEmoji("<a:VC_Events:1482706144953897223>"),
+      ),
+    ];
   }
   if (section === "channels") {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:lock:${safeOwner}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel("Blocca")
-        .setEmoji("<:VC_Lock:1482526739044368476>"),
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:unlock:${safeOwner}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setLabel("Sblocca")
-        .setEmoji("<a:VC_Unlock:1482532082466029608>"),
-    );
+    return [
+      new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId(`level_panel:server_ch:lock:${safeOwner}`)
+          .setPlaceholder("Blocca EXP in questo canale…")
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addChannelTypes(...LEVEL_PANEL_CHANNEL_TYPES),
+      ),
+      new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId(`level_panel:server_ch:unlock:${safeOwner}`)
+          .setPlaceholder("Sblocca EXP in questo canale…")
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addChannelTypes(...LEVEL_PANEL_CHANNEL_TYPES),
+      ),
+    ];
   }
   if (section === "roles") {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:ignore:${safeOwner}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel("Blocca")
-        .setEmoji("<:VC_Lock:1482526739044368476>"),
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:unignore:${safeOwner}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setLabel("Sblocca")
-        .setEmoji("<a:VC_Unlock:1482532082466029608>"),
-    );
+    return [
+      new ActionRowBuilder().addComponents(
+        new RoleSelectMenuBuilder()
+          .setCustomId(`level_panel:server_role:ignore:${safeOwner}`)
+          .setPlaceholder("Escludi questo ruolo dall’EXP…")
+          .setMinValues(1)
+          .setMaxValues(1),
+      ),
+      new ActionRowBuilder().addComponents(
+        new RoleSelectMenuBuilder()
+          .setCustomId(`level_panel:server_role:unignore:${safeOwner}`)
+          .setPlaceholder("Riabilita EXP per questo ruolo…")
+          .setMinValues(1)
+          .setMaxValues(1),
+      ),
+    ];
   }
   if (section === "multi") {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:role_multi_set:${safeOwner}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel("Imposta")
-        .setEmoji("<a:VC_Verified:1482532479637127188>"),
-      new ButtonBuilder()
-        .setCustomId(`level_panel:server_btn:role_multi_remove:${safeOwner}`)
-        .setStyle(ButtonStyle.Secondary)
-        .setLabel("Rimuovi")
-        .setEmoji("<a:VC_Cross:1482532424570376253>"),
-    );
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`level_panel:server_btn:role_multi_set:${safeOwner}`)
+          .setStyle(ButtonStyle.Primary)
+          .setLabel("Imposta")
+          .setEmoji("<a:VC_Verified:1482532479637127188>"),
+        new ButtonBuilder()
+          .setCustomId(`level_panel:server_btn:role_multi_remove:${safeOwner}`)
+          .setStyle(ButtonStyle.Secondary)
+          .setLabel("Rimuovi")
+          .setEmoji("<a:VC_Cross:1482532424570376253>"),
+      ),
+    ];
   }
-  return null;
+  return [];
 }
 
 function buildServerNavSelect(ownerId, currentSection) {
@@ -217,8 +250,7 @@ async function buildLevelServerPanelPayload(guild, ownerId, section = "home", op
   const rowNav = buildServerNavSelect(safeOwner, sec);
   const components = [rowNav];
   if (sec !== "home") {
-    const rowBtn = buildServerSectionButtonRow(sec, safeOwner);
-    if (rowBtn) components.push(rowBtn);
+    for (const row of buildServerSectionRows(sec, safeOwner)) components.push(row);
   }
   return { embeds: [embed], components };
 }

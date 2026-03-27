@@ -780,6 +780,18 @@
             ],
             "ownerSegment": 2
         },
+        "level_panel:server_ch:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 3
+        },
+        "level_panel:server_role:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 3
+        },
         "level_panel:server_btn:*": {
             "roles": [
                 "roles.HighStaff"
@@ -1161,6 +1173,7 @@
             "roles.HighStaff",
             "roles.PartnerManager"
         ],
+        "ticket_panel_transfer_open": null,
         "ticket_panel_transfer_user": null,
         "ticket_panel_switch_category": [
             "roles.HighStaff"
