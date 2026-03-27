@@ -425,15 +425,6 @@ const activityUserProfileSchema = new Schema(
         verifiedAt: { type: Date, default: null },
         stage: { type: Number, default: 1 },
       },
-      rolePersist: {
-        roles: { type: [Schema.Types.Mixed], default: [] },
-      },
-      temporaryRoleGrants: {
-        grants: { type: [Schema.Types.Mixed], default: [] },
-      },
-      temporaryCommandPermissions: {
-        permissions: { type: [Schema.Types.Mixed], default: [] },
-      },
       globalOneTimeReminder: {
         entries: { type: [Schema.Types.Mixed], default: [] },
       },
@@ -453,8 +444,6 @@ activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.event.rewards.
 activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.totalExp": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "profile.birthday.day": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
-activityUserProfileSchema.index({ "profile.temporaryRoleGrants.grants.expiresAt": 1 });
-activityUserProfileSchema.index({ "profile.temporaryCommandPermissions.permissions.expiresAt": 1 });
 activityUserProfileSchema.index({ userId: 1, "profile.globalOneTimeReminder.entries.key": 1 });
 activityUserProfileSchema.index({ "profile.globalOneTimeReminder.entries.sendAt": 1, "profile.globalOneTimeReminder.entries.sentAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.sponsorMainLeave.kickAt": 1 });

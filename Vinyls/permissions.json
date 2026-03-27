@@ -570,22 +570,6 @@
                 "roles.Member"
             ]
         },
-        "temprole": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "add": [
-                    "roles.Staff"
-                ],
-                "remove": [
-                    "roles.Staff"
-                ]
-            }
-        },
         "ticket": {
             "roles": [
                 "roles.Staff",
@@ -1464,9 +1448,6 @@
         },
         "usage_guide:*": {
             "ownerSegment": 2
-        },
-        "dyno_temprole_help:*": {
-            "ownerSegment": 1
         },
         "personality_age": [
             "roles.Member"

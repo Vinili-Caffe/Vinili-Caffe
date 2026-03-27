@@ -13,7 +13,6 @@ const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCl
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
-const { removeExpiredTemporaryRoles, startTemporaryRoleCleanupLoop, } = require("../Services/Community/temporaryRoleService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
 const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
@@ -154,10 +153,6 @@ function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
     {
       label: "heavy task: renumber categories",
       run: () => renumberAllCategories(client),
-    },
-    {
-      label: "heavy task: remove expired temporary roles",
-      run: () => removeExpiredTemporaryRoles(client),
     },
     {
       label: "heavy task: custom role expiry sweep",
@@ -518,7 +513,6 @@ function startPrimaryLoops(client, engagementTick) {
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
     ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
-    ["[TEMP ROLE] Failed to start cleanup loop", () => startTemporaryRoleCleanupLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],

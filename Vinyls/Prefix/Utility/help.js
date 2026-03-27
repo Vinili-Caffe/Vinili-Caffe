@@ -68,7 +68,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
   recensione: "Premia una recensione assegnando livelli.",
   ticket: "Gestisce i ticket: partecipanti, claim, trasferimento, pannello, rinomina, chiusura e riapertura.",
   verify: "Verifica manualmente un utente.",
-  temprole: "Assegna o rimuove ruoli temporanei agli utenti.",
   security: "Hub sicurezza: status globale e gestione panic.",
   level: "Configura il sistema EXP/livelli: imposta o modifica exp, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
@@ -116,8 +115,6 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
   "evento.classifica": "Mostra la classifica dell'evento (con bottone Classifica EXP).",
-  "temprole.add": "Assegna un ruolo temporaneo a un utente.",
-  "temprole.remove": "Rimuove un ruolo temporaneo da un utente.",
   "pause.list": "Mostra la lista pause dell'anno corrente per te stesso o per lo staffer indicato.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };

@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../Config/ids");
 const {
   resolveCaseByGuildCaseId,
@@ -16,7 +16,6 @@ const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, logModCas
 const { resolveTarget } = require("./prefixModeration");
 const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../Logging/modAuditLogUtils");
 const { sendDm } = require("../noDmList");
-const { grantTemporaryRole, revokeTemporaryRole } = require("../../Services/Community/temporaryRoleService");
 
 function embed(client, title, description, color = null) {
   return new EmbedBuilder()
@@ -236,98 +235,6 @@ function formatDynoDate(value) {
   return formatted.replace(",", "").replace(",", "");
 }
 
-function buildTemproleHelpEmbed(mode = "default") {
-  const key = String(mode || "default").toLowerCase();
-  if (key === "add") {
-    return new EmbedBuilder().setColor("#3498DB").setDescription(
-      [
-        "**Comando: +temprole add**",
-        "",
-        "**Descrizione:** Assegna un temprole a un utente.",
-        "**Cooldown:** 5 secondi",
-        "**Uso:**",
-        "+temprole add [utente] [durata] [ruolo], [motivo opzionale]",
-        "**Esempio:**",
-        "+temprole add @LoreeXO 1d Birthday, Buon compleanno",
-      ].join("\n"),
-    );
-  }
-  if (key === "remove") {
-    return new EmbedBuilder().setColor("#3498DB").setDescription(
-      [
-        "**Comando: +temprole remove**",
-        "",
-        "**Descrizione:** Rimuove un temprole da un utente.",
-        "**Cooldown:** 5 secondi",
-        "**Uso:**",
-        "+temprole remove [utente] [ruolo], (motivo)",
-        "**Esempio:**",
-        "+temprole remove @LoreeXO Birthday, Data errata",
-      ].join("\n"),
-    );
-  }
-  return new EmbedBuilder().setColor("#3498DB").setDescription(
-    [
-      "**Comando: +temprole**",
-      "",
-      "**Alias:** +trole",
-      "**Descrizione:** Assegna o rimuove un ruolo con durata limitata.",
-      "**Cooldown:** 5 secondi",
-      "**Uso:**",
-      "+temprole [utente] [durata] [ruolo], [motivo opzionale]",
-      "**Esempio:**",
-      "+temprole @LoreeXO 1d Birthday, Buon compleanno",
-    ].join("\n"),
-  );
-}
-
-function buildTemproleHelpRow(ownerId, currentValue = "default") {
-  const customId = `dyno_temprole_help:${ownerId}`;
-  const hidden = String(currentValue || "default").toLowerCase();
-  const options = [{ label: "add", description: "Assegna un temprole a un utente.", value: "add", }, { label: "remove", description: "Rimuove un temprole da un utente.", value: "remove", },];
-  const filtered = hidden === "default" ? options : options.filter((item) => String(item.value).toLowerCase() !== hidden);
-  const defaultOpt = { label: "Comando principale", description: "Torna all'aiuto principale", value: "default", };
-  const allOpts = [...filtered.slice(0, 24), defaultOpt];
-  const menu = new StringSelectMenuBuilder().setCustomId(customId).setPlaceholder(String("Vedi sotto - comandi").slice(0, 150)).addOptions(...allOpts);
-  return new ActionRowBuilder().addComponents(menu);
-}
-
-async function sendTemproleHelpWithMenu(message) {
-  let currentValue = "default";
-  let row = buildTemproleHelpRow(message.author.id, currentValue);
-  const sent = await message.channel.send({ embeds: [buildTemproleHelpEmbed("default")], components: [row], }).catch(() => null);
-  if (!sent) return null;
-
-  const collector = sent.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 10 * 60 * 1000, });
-
-  collector.on("collect", async (interaction) => {
-    if (interaction.user.id !== message.author.id) {
-      await interaction
-        .reply({
-          content: "<:VC_Lock:1482526739044368476> Puoi usare questo menu solo sul tuo comando.",
-          flags: MessageFlags.Ephemeral,
-        })
-        .catch(() => { });
-      return;
-    }
-    const picked = String(interaction.values?.[0] || "default").toLowerCase();
-    currentValue = picked;
-    row = buildTemproleHelpRow(message.author.id, currentValue);
-    await interaction
-      .update({
-        embeds: [buildTemproleHelpEmbed(picked)],
-        components: [row],
-      })
-      .catch(() => { });
-  });
-
-  return sent;
-}
-
-function parseTemproleDuration(raw) {
-  return parseDynoMuteDuration(raw) || parseMaybeDuration(raw);
-}
-
 async function resolveRoleFlexible(message, raw) {
   const mentionRole = message.mentions?.roles?.first();
   if (mentionRole) return mentionRole;
@@ -341,30 +248,6 @@ async function resolveRoleFlexible(message, raw) {
   const byName = message.guild.roles.cache.find((role) => String(role.name || "").toLowerCase() === String(raw || "").toLowerCase(),);
   if (byName) return byName;
   return null;
-}
-
-function successTemprole(message, text) {
-  return message.channel
-    .send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#57F287")
-          .setDescription(`<:success:1461731530333229226> ***${String(text || "").trim()}***`),
-      ],
-    })
-    .catch(() => null);
-}
-
-function errorTemprole(message, text) {
-  return message.channel
-    .send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#ED4245")
-          .setDescription(`<:cancel:1461730653677551691> ${text}`),
-      ],
-    })
-    .catch(() => null);
 }
 
 function parseLockDuration(raw) {
@@ -1120,76 +1003,6 @@ async function runNamed(name, message, args, client) {
       message,
       `<#${channel.id}>`,
       cmd === "lock" ? "was locked" : "was unlocked",
-    );
-  }
-
-  if (cmd === "temprole") {
-    const first = String(args[0] || "").toLowerCase();
-    if (first === "toggle") {
-      return reply(
-        message,
-        client,
-        "Temprole",
-        "Comando rimosso. Usa `+temprole add` o `+temprole remove`.",
-        "Red",
-      );
-    }
-    const knownSub = new Set(["add", "remove"]);
-    const sub = knownSub.has(first) ? first : "add";
-    const base = sub === "add" ? 0 : 1;
-    const target = await pickUser(message, args, base);
-    if (!target.userId) {
-      return sendTemproleHelpWithMenu(message);
-    }
-    const guardTemprole = await validateModerationTarget(message, target.member, "temprole", target.userId);
-    if (!guardTemprole.ok) return reply(message, client, "Temprole", guardTemprole.error, "Red");
-
-    if (sub === "remove") {
-      const roleArg = args[base + 1];
-      const role = await resolveRoleFlexible(message, roleArg);
-      if (!role) return errorTemprole(message, "<:cancel:1461730653677551691> Non riesco a trovare quel ruolo.");
-      await revokeTemporaryRole({
-        guild: message.guild,
-        userId: target.userId,
-        roleId: role.id,
-      }).catch(() => null);
-      const member = await message.guild.members.fetch(target.userId).catch(() => null);
-      if (member?.roles?.cache?.has(role.id)) {
-        await member.roles.remove(role.id, "Temprole remove").catch(() => null);
-      }
-      await makeCase(
-        client,
-        message,
-        "TEMPROLE_REMOVE",
-        target.userId,
-        reasonFrom(args, base + 2, "Temprole remove"),
-      );
-      return successTemprole(
-        message,
-        `Ruolo ${role.name} rimosso da ${(target.user?.username || target.userId).toLowerCase()}.`,
-      );
-    }
-
-    const durationArg = args[base + 1];
-    const duration = parseTemproleDuration(durationArg);
-    if (!duration) return sendTemproleHelpWithMenu(message);
-    const roleArg = args[base + 2];
-    const role = await resolveRoleFlexible(message, roleArg);
-    if (!role) return errorTemprole(message, "<:cancel:1461730653677551691> Non riesco a trovare quel ruolo.");
-
-    const out = await grantTemporaryRole({ guild: message.guild, userId: target.userId, roleId: role.id, grantedBy: message.author.id, durationMs: duration, });
-    if (!out?.ok) return errorTemprole(message, "<:cancel:1461730653677551691> Non riesco a trovare quel ruolo.");
-    await makeCase(
-      client,
-      message,
-      "TEMPROLE",
-      target.userId,
-      reasonFrom(args, base + 3, "Temprole add"),
-      duration,
-    );
-    return successTemprole(
-      message,
-      `Ruolo ${role.name} aggiunto a ${(target.user?.username || target.userId).toLowerCase()}.`,
     );
   }
 

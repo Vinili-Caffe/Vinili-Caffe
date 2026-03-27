@@ -9,7 +9,6 @@ const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require(".
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
-const { applyRolePersistForMember } = require("../Services/Moderation/rolePersistService");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("../Services/Moderation/securityProfilesService");
@@ -1391,7 +1390,6 @@ module.exports = {
           delayMs: 250,
           secondPassMs: 1800,
         });
-        await applyRolePersistForMember(member).catch(() => { });
         await sendJoinLog(member);
         return;
       }
@@ -1450,7 +1448,6 @@ module.exports = {
       setImmediate(() => {
         (async () => {
           try {
-            await applyRolePersistForMember(member).catch(() => { });
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
             await sendJoinLog(member);
