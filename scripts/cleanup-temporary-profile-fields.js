@@ -39,6 +39,7 @@ async function main() {
 
   const filter = {
     $or: [
+      { "profile.temporaryCommandPermissions": { $exists: true } },
       { "profile.temporaryCommandPermission": { $exists: true } },
       { "profile.temporaryRoleGrants": { $exists: true } },
     ],
@@ -60,6 +61,7 @@ async function main() {
       filter,
       {
         $unset: {
+          "profile.temporaryCommandPermissions": 1,
           "profile.temporaryCommandPermission": 1,
           "profile.temporaryRoleGrants": 1,
         },
