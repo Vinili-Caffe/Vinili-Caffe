@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { getGuildExpSettings } = require("../../Services/Community/expService");
+const { getGuildExpSettings, getLevelInfo } = require("../../Services/Community/expService");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
 const SERVER_SECTIONS = ["home", "settings", "channels", "roles", "multi"];
 
@@ -234,42 +235,75 @@ module.exports = {
       return;
     }
     await safeMessageReply(message, {
-      ...buildLevelUserPanelPayload(message.author.id, target.id, message.author),
+      ...(await buildLevelUserPanelPayload(message.guild, message.author.id, target.id, message.author, target)),
       allowedMentions: { repliedUser: false },
     });
   },
 };
 
-function buildLevelUserPanelPayload(ownerId, targetUserId, openerUser = null) {
+async function buildLevelUserPanelPayload(guild, ownerId, targetUserId, openerUser = null, targetUser = null) {
   const safeOwner = String(ownerId || "");
   const safeTarget = String(targetUserId || "");
+  const guildId = guild?.id;
+  let totalExp = 0;
+  let weeklyExp = 0;
+  if (guildId && /^\d{16,20}$/.test(safeTarget)) {
+    const row = await ActivityUserProfile.findOne({ guildId, userId: safeTarget })
+      .select("profile.totals.exp.totalExp profile.totals.exp.weeklyExp")
+      .lean()
+      .catch(() => null);
+    totalExp = Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.totalExp || 0)));
+    weeklyExp = Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.weeklyExp || 0)));
+  }
+  const li = getLevelInfo(totalExp);
+  const targetName = discordUserDisplayName(targetUser);
   const welcome = discordUserDisplayName(openerUser);
+  const lines = [
+    "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
+    "",
+    `**Utente:** <@${safeTarget}> (${targetName})`,
+    `**Livello:** **${li.level}**`,
+    `<:VC_EXP:1482534670896730143> **EXP totale:** **${totalExp}**`,
+    `<:VC_EXP:1482534670896730143> **EXP settimanale:** **${weeklyExp}**`,
+    `**Progresso al prossimo livello:** **${li.progressPercent}%** (_mancano ${li.remainingToNext} EXP_)`,
+    "",
+    "<:VC_Modifica:1478859646587633717> Usa i pulsanti per impostare EXP/livello, aggiungere o togliere livelli, resettare o sincronizzare i ruoli.",
+  ];
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${welcome}.`)
-    .setDescription([
-      `Target: <@${safeTarget}>`,
-      "",
-      "Azioni rapide disponibili:",
-      "- set exp/level",
-      "- add/remove livelli",
-      "- reset livello",
-      "- sync ruoli livello",
-    ].join("\n"));
+    .setDescription(lines.join("\n"));
+  const iconUrl = guild?.iconURL?.({ size: 256, extension: "png" });
+  if (iconUrl) embed.setThumbnail(iconUrl);
 
-  const rowActions = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`level_panel:user_actions:${safeOwner}:${safeTarget}`)
-      .setPlaceholder("Scegli azione utente")
-      .addOptions(
-        { label: "set", value: "set", description: "Imposta exp o level manualmente" },
-        { label: "add", value: "add", description: "Aggiunge livelli all'utente" },
-        { label: "remove", value: "remove", description: "Rimuove livelli all'utente" },
-        { label: "reset", value: "reset", description: "Azzera exp/livello dell'utente" },
-        { label: "syncroles", value: "syncroles", description: "Sincronizza ruoli livello dell'utente" },
-      ),
+  const rowButtons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`level_panel:user_btn:set:${safeOwner}:${safeTarget}`)
+      .setStyle(ButtonStyle.Primary)
+      .setLabel("Imposta EXP/Liv")
+      .setEmoji("<:VC_Modifica:1478859646587633717>"),
+    new ButtonBuilder()
+      .setCustomId(`level_panel:user_btn:add:${safeOwner}:${safeTarget}`)
+      .setStyle(ButtonStyle.Primary)
+      .setLabel("+ Livelli")
+      .setEmoji("<:VC_EXP:1482534670896730143>"),
+    new ButtonBuilder()
+      .setCustomId(`level_panel:user_btn:remove:${safeOwner}:${safeTarget}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setLabel("- Livelli")
+      .setEmoji("<:VC_EXP:1482534670896730143>"),
+    new ButtonBuilder()
+      .setCustomId(`level_panel:user_btn:reset:${safeOwner}:${safeTarget}`)
+      .setStyle(ButtonStyle.Danger)
+      .setLabel("Reset")
+      .setEmoji("<a:VC_Cross:1482532424570376253>"),
+    new ButtonBuilder()
+      .setCustomId(`level_panel:user_btn:syncroles:${safeOwner}:${safeTarget}`)
+      .setStyle(ButtonStyle.Success)
+      .setLabel("Sync ruoli")
+      .setEmoji("<a:VC_Verified:1482532479637127188>"),
   );
-  return { embeds: [embed], components: [rowActions] };
+  return { embeds: [embed], components: [rowButtons] };
 }
 
 module.exports.buildLevelServerPanelPayload = buildLevelServerPanelPayload;

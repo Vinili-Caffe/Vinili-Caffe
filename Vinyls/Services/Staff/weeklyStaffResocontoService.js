@@ -398,7 +398,7 @@ async function runWeeklyStaffResoconti(client) {
   const now = new Date();
   const weekStart = getWeekStartDate(now);
   const weekEnd = now;
-  const staffDocs = await StaffModel.find({ guildId }, { userId: 1, positiveCount: 1, negativeCount: 1, rolesHistory: 1, partnerActions: 1, pauses: 1 }).lean().catch(() => []);
+  const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
 
   const knownStaffUserIds = Array.from(new Set((Array.isArray(staffDocs) ? staffDocs : []).map((row) => String(row?.userId || "")).filter(Boolean),),);
   if (!knownStaffUserIds.length) return;
@@ -517,7 +517,7 @@ async function runPreResocontoReminders(client) {
   const guild = await getClientGuildCached(client, guildId);
   if (!guild) return;
 
-  const staffDocs = await StaffModel.find({ guildId }, { userId: 1, pauses: 1, partnerActions: 1 }).lean().catch(() => []);
+  const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
   const staffUserIds = Array.from(new Set((staffDocs || []).map((r) => String(r?.userId || "")).filter((id) => /^\d{16,20}$/.test(id))));
   if (!staffUserIds.length) return;
 

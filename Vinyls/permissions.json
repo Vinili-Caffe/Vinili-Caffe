@@ -786,11 +786,11 @@
             ],
             "ownerSegment": 3
         },
-        "level_panel:user_actions:*": {
+        "level_panel:user_btn:*": {
             "roles": [
                 "roles.HighStaff"
             ],
-            "ownerSegment": 2
+            "ownerSegment": 3
         },
         "level_panel_modal:*": {
             "roles": [

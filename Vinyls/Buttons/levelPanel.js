@@ -17,6 +17,17 @@ const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntity
 
 const PRIVATE_FLAG = 1 << 6;
 
+const SERVER_BTN_MODAL = {
+  gmulti: "gmulti",
+  event: "multiplier",
+  lock: "lock",
+  unlock: "unlock",
+  ignore: "ignore",
+  unignore: "unignore",
+  role_multi_set: "role_multi_set",
+  role_multi_remove: "role_multi_remove",
+};
+
 function match(interaction) {
   const id = String(interaction?.customId || "");
   const isComponent = interaction?.isButton?.() || interaction?.isStringSelectMenu?.() || interaction?.isModalSubmit?.();
@@ -29,7 +40,7 @@ function parseLevelPanelComponentId(customId) {
   if (parts[0] !== "level_panel") return null;
   if (parts[1] === "server_nav") return { kind: "server_nav", ownerId: parts[2] || "" };
   if (parts[1] === "server_btn") return { kind: "server_btn", action: parts[2] || "", ownerId: parts[3] || "" };
-  if (parts[1] === "user_actions") return { kind: "user_actions", ownerId: parts[2] || "", targetId: parts[3] || "" };
+  if (parts[1] === "user_btn") return { kind: "user_btn", action: parts[2] || "", ownerId: parts[3] || "", targetId: parts[4] || "" };
   return null;
 }
 
@@ -257,23 +268,15 @@ async function execute(interaction) {
   }
 
   if (interaction.isButton()) {
-    if (!compParsed || compParsed.kind !== "server_btn") return false;
-    const modalAction = SERVER_BTN_MODAL[compParsed.action];
-    if (!modalAction) return false;
-    const modal = buildModal("server", modalAction, ownerId);
-    await interaction.showModal(modal).catch(() => {});
-    return true;
-  }
-
-  if (interaction.isStringSelectMenu()) {
-    if (compParsed?.kind === "server_nav") {
-      const section = String(interaction.values?.[0] || "home").toLowerCase();
-      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, section, interaction.user);
-      await interaction.update(payload).catch(async () => { await interaction.reply(payload).catch(() => {}); });
+    if (compParsed?.kind === "server_btn") {
+      const modalAction = SERVER_BTN_MODAL[compParsed.action];
+      if (!modalAction) return false;
+      const modal = buildModal("server", modalAction, ownerId);
+      await interaction.showModal(modal).catch(() => {});
       return true;
     }
-    if (compParsed?.kind === "user_actions") {
-      const action = String(interaction.values?.[0] || "").toLowerCase();
+    if (compParsed?.kind === "user_btn") {
+      const action = String(compParsed.action || "").toLowerCase();
       const targetId = String(compParsed.targetId || "");
       if (!/^\d{16,20}$/.test(targetId)) {
         await interaction.reply({
@@ -287,8 +290,21 @@ async function execute(interaction) {
         await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      const modal = buildModal("user", action, ownerId, targetId);
-      await interaction.showModal(modal).catch(() => {});
+      if (action === "set" || action === "add" || action === "remove") {
+        const modal = buildModal("user", action, ownerId, targetId);
+        await interaction.showModal(modal).catch(() => {});
+        return true;
+      }
+      return false;
+    }
+    return false;
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    if (compParsed?.kind === "server_nav") {
+      const section = String(interaction.values?.[0] || "home").toLowerCase();
+      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, section, interaction.user);
+      await interaction.update(payload).catch(async () => { await interaction.reply(payload).catch(() => {}); });
       return true;
     }
   }
