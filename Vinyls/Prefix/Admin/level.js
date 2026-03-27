@@ -2,7 +2,6 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings, getLevelInfo } = require("../../Services/Community/expService");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-
 const SERVER_SECTIONS = ["home", "settings", "channels", "roles", "multi"];
 
 function discordUserDisplayName(userLike) {
@@ -47,22 +46,22 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
     const lines = [
       "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
       "",
-      `**Multi globale:** **${settings?.baseMultiplier ?? 1}x**`,
+      `<:VC_EXP:1482534670896730143> **Multi globale:** **${settings?.baseMultiplier ?? 1}x**`,
     ];
     if (eventActive) {
       lines.push(
-        `**Multi evento:** **${settings?.eventMultiplier ?? 1}x** — fino al **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
+        `<a:VC_Events:1482706144953897223> **Multi evento:** **${settings?.eventMultiplier ?? 1}x** — fino al **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
       );
     }
     lines.push(
       "",
-      "**Canali bloccati**",
+      "<:VC_Lock:1482526739044368476> **Canali bloccati**",
       fmtDiscordList(lockLines, "_Nessuno_"),
       "",
-      "**Ruoli bloccati**",
+      "<:VC_Lock:1482526739044368476> **Ruoli bloccati**",
       fmtDiscordList(ignoreLines, "_Nessuno_"),
       "",
-      "**Multi ruoli**",
+      "<:VC_EXP:1482534670896730143> **Multi ruoli**",
       fmtDiscordList(multiLines, "_Nessuno_"),
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu per cambiare sezione e i pulsanti per modificare la configurazione.",
@@ -71,52 +70,62 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
     return base.setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${welcome}.`).setDescription(lines.join("\n"));
   }
   if (sec === "settings") {
-    return base
-      .setDescription(
-        [
-          "<:VC_Info:1482526956703580372> **Moltiplicatori**",
-          "",
-          "- **Moltiplicatore globale** — si applica sempre all’EXP (base).",
-          "- **Evento EXP** — moltiplicatore temporaneo con scadenza.",
-          "",
-          "<:VC_Modifica:1478859646587633717> Usa i pulsanti qui sotto.",
-        ].join("\n"),
+    const eventActive = Boolean(settings?.eventExpiresAt && settings.eventExpiresAt.getTime() > Date.now());
+    const eff = Number(settings?.effectiveMultiplier);
+    const effLabel = Number.isFinite(eff) && eff > 0 ? `${eff}x` : `${settings?.baseMultiplier ?? 1}x`;
+    const lines = [
+      "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
+      "",
+      `<:VC_EXP:1482534670896730143> **Moltiplicatore globale:** **${settings?.baseMultiplier ?? 1}x**`,
+      `<a:VC_Events:1482706144953897223> **Moltiplicatore effettivo:** **${effLabel}**`,
+      "",
+    ];
+    if (eventActive) {
+      lines.push(
+        `<a:VC_Events:1482706144953897223> **Evento EXP attivo:** **${settings?.eventMultiplier ?? 1}x**`,
+        `<a:VC_pixeltime:1482535344103620771> **Scadenza evento:** **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
       );
+    } else {
+      lines.push("<a:VC_Events:1482706144953897223> **Evento EXP:** _Nessun evento attivo_");
+    }
+    lines.push(
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per modificare il moltiplicatore globale o impostare un evento temporaneo.",
+    );
+    return base.setDescription(lines.join("\n"));
   }
   if (sec === "channels") {
-    return base
-      .setDescription(
-        [
-          "<:VC_Info:1482526956703580372> **Canali EXP**",
-          "",
-          "Blocca o sblocca l’EXP in un canale (lista **bloccati** nella Home).",
-          "",
-          "<:VC_Modifica:1478859646587633717> Usa i pulsanti per inserire un canale.",
-        ].join("\n"),
-      );
+    const lockLines = (settings?.lockedChannelIds || []).map((id) => `<#${id}>`);
+    const lines = [
+      "<:VC_Info:1482526956703580372> **Canali in cui l’EXP è bloccata:**",
+      "",
+      fmtDiscordList(lockLines, "<:VC_InactiveStatus:1482526984234860574> _Nessun canale bloccato._"),
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per bloccare o sbloccare un canale.",
+    ];
+    return base.setDescription(lines.join("\n"));
   }
   if (sec === "roles") {
-    return base
-      .setDescription(
-        [
-          "<:VC_Info:1482526956703580372> **Ruoli EXP**",
-          "",
-          "Escludi o riabilita ruoli dal guadagno EXP.",
-          "",
-          "<:VC_Modifica:1478859646587633717> Usa i pulsanti per inserire un ruolo.",
-        ].join("\n"),
-      );
+    const ignoreLines = (settings?.ignoredRoleIds || []).map((id) => `<@&${id}>`);
+    const lines = [
+      "<:VC_Info:1482526956703580372> **Ruoli esclusi dal guadagno EXP:**",
+      "",
+      fmtDiscordList(ignoreLines, "<:VC_InactiveStatus:1482526984234860574> _Nessun ruolo escluso._"),
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per ignorare o riabilitare un ruolo.",
+    ];
+    return base.setDescription(lines.join("\n"));
   }
-  return base
-    .setDescription(
-      [
-        "<:VC_Info:1482526956703580372> **Moltiplicatori per ruolo**",
-        "",
-        "Imposta un moltiplicatore per un ruolo (sovrascrive i default del bot dove presente). Rimuovi l’override per tornare al default.",
-        "",
-        "<:VC_Modifica:1478859646587633717> Usa i pulsanti qui sotto.",
-      ].join("\n"),
-    );
+  const multiMap = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : new Map();
+  const multiLines = formatRoleMultiLines(guild, multiMap);
+  const lines = [
+    "<:VC_Info:1482526956703580372> **Moltiplicatori per ruolo (attuali):**",
+    "",
+    fmtDiscordList(multiLines, "<:VC_InactiveStatus:1482526984234860574> _Nessun moltiplicatore configurato._"),
+    "",
+    "<:VC_Modifica:1478859646587633717> Usa i pulsanti per impostare o rimuovere un moltiplicatore.",
+  ];
+  return base.setDescription(lines.join("\n"));
 }
 
 function buildServerSectionButtonRow(section, ownerId) {
@@ -126,11 +135,13 @@ function buildServerSectionButtonRow(section, ownerId) {
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:gmulti:${safeOwner}`)
         .setStyle(ButtonStyle.Primary)
-        .setLabel("Moltiplicatore globale"),
+        .setLabel("Multi globale")
+        .setEmoji("<:VC_EXP:1482534670896730143>"),
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:event:${safeOwner}`)
         .setStyle(ButtonStyle.Primary)
-        .setLabel("Evento EXP"),
+        .setLabel("Multi evento")
+        .setEmoji("<a:VC_Events:1482706144953897223>"),
     );
   }
   if (section === "channels") {
@@ -138,11 +149,13 @@ function buildServerSectionButtonRow(section, ownerId) {
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:lock:${safeOwner}`)
         .setStyle(ButtonStyle.Primary)
-        .setLabel("Blocca canale"),
+        .setLabel("Blocca")
+        .setEmoji("<:VC_Lock:1482526739044368476>"),
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:unlock:${safeOwner}`)
         .setStyle(ButtonStyle.Secondary)
-        .setLabel("Sblocca canale"),
+        .setLabel("Sblocca")
+        .setEmoji("<a:VC_Unlock:1482532082466029608>"),
     );
   }
   if (section === "roles") {
@@ -150,11 +163,13 @@ function buildServerSectionButtonRow(section, ownerId) {
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:ignore:${safeOwner}`)
         .setStyle(ButtonStyle.Primary)
-        .setLabel("Ignora ruolo"),
+        .setLabel("Blocca")
+        .setEmoji("<:VC_Lock:1482526739044368476>"),
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:unignore:${safeOwner}`)
         .setStyle(ButtonStyle.Secondary)
-        .setLabel("Riabilita ruolo"),
+        .setLabel("Sblocca")
+        .setEmoji("<a:VC_Unlock:1482532082466029608>"),
     );
   }
   if (section === "multi") {
@@ -162,11 +177,13 @@ function buildServerSectionButtonRow(section, ownerId) {
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:role_multi_set:${safeOwner}`)
         .setStyle(ButtonStyle.Primary)
-        .setLabel("Imposta multi ruolo"),
+        .setLabel("Imposta")
+        .setEmoji("<a:VC_Verified:1482532479637127188>"),
       new ButtonBuilder()
         .setCustomId(`level_panel:server_btn:role_multi_remove:${safeOwner}`)
         .setStyle(ButtonStyle.Secondary)
-        .setLabel("Rimuovi override"),
+        .setLabel("Rimuovi")
+        .setEmoji("<a:VC_Cross:1482532424570376253>"),
     );
   }
   return null;
@@ -180,11 +197,11 @@ function buildServerNavSelect(ownerId, currentSection) {
       .setCustomId(`level_panel:server_nav:${safeOwner}`)
       .setPlaceholder("Sezione pannello")
       .addOptions(
-        { label: "Home", value: "home", default: cur === "home", description: "Riepilogo configurazione" },
-        { label: "Settings", value: "settings", default: cur === "settings", description: "Multi globale ed evento" },
-        { label: "Canali", value: "channels", default: cur === "channels", description: "Blocca / sblocca canali" },
-        { label: "Ruoli", value: "roles", default: cur === "roles", description: "Ignora / riabilita ruoli" },
-        { label: "Multi", value: "multi", default: cur === "multi", description: "Moltiplicatori per ruolo" },
+        { label: "Home", emoji: "<a:VC_Rule:1482706839928967280>", value: "home", default: cur === "home", description: "Riepilogo configurazione" },
+        { label: "Settings", emoji: "<:VC_Stats:1482527532682055780>", value: "settings", default: cur === "settings", description: "Multi globale ed evento" },
+        { label: "Canali", emoji: "<a:VC_Channel:1482534583944871996>", value: "channels", default: cur === "channels", description: "Blocca / sblocca canali" },
+        { label: "Ruoli", emoji: "<:VC_addperson:1485419347068588073>", value: "roles", default: cur === "roles", description: "Ignora / riabilita ruoli" },
+        { label: "Multi", emoji: "<a:VC_Events:1482706144953897223>", value: "multi", default: cur === "multi", description: "Moltiplicatori per ruolo" },
       ),
   );
 }
@@ -261,11 +278,11 @@ async function buildLevelUserPanelPayload(guild, ownerId, targetUserId, openerUs
   const lines = [
     "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
     "",
-    `**Utente:** <@${safeTarget}> (${targetName})`,
-    `**Livello:** **${li.level}**`,
-    `<:VC_EXP:1482534670896730143> **EXP totale:** **${totalExp}**`,
-    `<:VC_EXP:1482534670896730143> **EXP settimanale:** **${weeklyExp}**`,
-    `**Progresso al prossimo livello:** **${li.progressPercent}%** (_mancano ${li.remainingToNext} EXP_)`,
+    `<:VC_addperson:1485419347068588073> **Utente:** <@${safeTarget}> (${targetName})`,
+    `<:VC_Leaderboard:1482534806314287387> **Livello:** **${li.level}**`,
+    `<:VC_EXP:1482534670896730143> **Totale:** **${totalExp}**`,
+    `<:VC_EXP:1482534670896730143> **Settimanale:** **${weeklyExp}**`,
+    `<a:VC_pixeltime:1482535344103620771> **Progresso:** **${li.progressPercent}%** (_mancano ${li.remainingToNext} EXP_)`,
     "",
     "<:VC_Modifica:1478859646587633717> Usa i pulsanti per impostare EXP/livello, aggiungere o togliere livelli, resettare o sincronizzare i ruoli.",
   ];
@@ -280,28 +297,28 @@ async function buildLevelUserPanelPayload(guild, ownerId, targetUserId, openerUs
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:set:${safeOwner}:${safeTarget}`)
       .setStyle(ButtonStyle.Primary)
-      .setLabel("Imposta EXP/Liv")
+      .setLabel("Imposta")
       .setEmoji("<:VC_Modifica:1478859646587633717>"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:add:${safeOwner}:${safeTarget}`)
       .setStyle(ButtonStyle.Primary)
-      .setLabel("+ Livelli")
-      .setEmoji("<:VC_EXP:1482534670896730143>"),
+      .setLabel("Aggiungi")
+      .setEmoji("➕"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:remove:${safeOwner}:${safeTarget}`)
       .setStyle(ButtonStyle.Secondary)
-      .setLabel("- Livelli")
-      .setEmoji("<:VC_EXP:1482534670896730143>"),
+      .setLabel("Rimuovi")
+      .setEmoji("➖"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:reset:${safeOwner}:${safeTarget}`)
       .setStyle(ButtonStyle.Danger)
       .setLabel("Reset")
-      .setEmoji("<a:VC_Cross:1482532424570376253>"),
+      .setEmoji("<:VC_update:1478721333096349817>"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:syncroles:${safeOwner}:${safeTarget}`)
       .setStyle(ButtonStyle.Success)
-      .setLabel("Sync ruoli")
-      .setEmoji("<a:VC_Verified:1482532479637127188>"),
+      .setLabel("Sincronizza")
+      .setEmoji("<:VC_download:1478825280436175009>"),
   );
   return { embeds: [embed], components: [rowButtons] };
 }
