@@ -193,18 +193,29 @@ async function runDailyPartnerAudit(client, opts = {}) {
         }
       }
 
-      for (const managerId of managerMentions) {
-        const used = Number(managerDailyCounter.get(managerId) || 0) + 1;
-        managerDailyCounter.set(managerId, used);
-        if (used > 5) {
-          reasons.push(SAME_MANAGER_DAILY_CAP_REASON);
-        }
+      const isDuplicateFingerprintSameDay =
+        Boolean(descriptionFingerprint) &&
+        firstFingerprintIndexSameDay.get(descriptionFingerprint) !== index;
 
-        if (String(managerId) === String(doc.userId)) {
-          const selfUsed = Number(selfDailyCounter.get(managerId) || 0) + 1;
-          selfDailyCounter.set(managerId, selfUsed);
-          if (selfUsed > 1) {
-            reasons.push(SELF_PARTNERSHIP_DAILY_REASON);
+      if (!isDuplicateFingerprintSameDay) {
+        const canonicalManagers =
+          item.action?.managerId != null && String(item.action.managerId).trim() !== ""
+            ? [String(item.action.managerId)]
+            : managerMentions;
+
+        for (const managerId of canonicalManagers) {
+          const used = Number(managerDailyCounter.get(managerId) || 0) + 1;
+          managerDailyCounter.set(managerId, used);
+          if (used > 5) {
+            reasons.push(SAME_MANAGER_DAILY_CAP_REASON);
+          }
+
+          if (String(managerId) === String(doc.userId)) {
+            const selfUsed = Number(selfDailyCounter.get(managerId) || 0) + 1;
+            selfDailyCounter.set(managerId, selfUsed);
+            if (selfUsed > 1) {
+              reasons.push(SELF_PARTNERSHIP_DAILY_REASON);
+            }
           }
         }
       }

@@ -79,7 +79,7 @@ function hasVerificatoRole(member, guildId) {
 
 const SPONSOR_STAFF_TICKET_BUTTON_IDS = new Set(["claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo",]);
 
-const VERIFY_OR_TICKET_IDS = new Set(["verify_start", "verify_enter", "ticket_partnership", "ticket_highstaff", "ticket_supporto", "claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo", "ticket_open_menu",]);
+const VERIFY_OR_TICKET_IDS = new Set(["verify_start", "verify_enter", "ticket_partnership", "ticket_highstaff", "ticket_supporto", "claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo", "ticket_open_menu","ticket_panel_add_member","ticket_panel_remove_member","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_rename","ticket_panel_closerequest","ticket_panel_reopen_pick","modal_ticket_panel_rename","modal_ticket_panel_closerequest",]);
 function isBackupInteraction(customId) {
   const id = String(customId || "").trim();
   if (!id) return false;

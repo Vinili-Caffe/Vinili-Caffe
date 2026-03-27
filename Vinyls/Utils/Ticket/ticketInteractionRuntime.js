@@ -3,8 +3,8 @@ const IDs = require("../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const CHANNEL_WARM_TTL_MS = 5 * 60_000;
 const guildChannelWarmCache = new Map();
-const HANDLED_TICKET_BUTTONS = new Set(["ticket_partnership","ticket_highstaff","ticket_supporto","claim_ticket","close_ticket","close_ticket_motivo","accetta","rifiuta","ticket_autoclose_accept","ticket_autoclose_reject","unclaim",]);
-const HANDLED_TICKET_SELECT_MENUS = new Set(["ticket_open_menu"]);
+const HANDLED_TICKET_BUTTONS = new Set(["ticket_partnership","ticket_highstaff","ticket_supporto","claim_ticket","close_ticket","close_ticket_motivo","accetta","rifiuta","ticket_autoclose_accept","ticket_autoclose_reject","unclaim","ticket_panel_rename","ticket_panel_closerequest",]);
+const HANDLED_TICKET_SELECT_MENUS = new Set(["ticket_open_menu","ticket_panel_add_member","ticket_panel_remove_member","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_reopen_pick",]);
 
 function getCachedEntity(cache, key) {
   const cached = cache.get(key);
@@ -152,7 +152,13 @@ function isTicketTranscriptButton(customId) {
 }
 
 function isHandledTicketModalId(id) {
-  return id === "modal_close_ticket" || id.startsWith("modal_close_ticket:");
+  const s = String(id || "");
+  return (
+    s === "modal_close_ticket" ||
+    s.startsWith("modal_close_ticket:") ||
+    s === "modal_ticket_panel_rename" ||
+    s === "modal_ticket_panel_closerequest"
+  );
 }
 
 function getSelectedTicketAction(interaction) {

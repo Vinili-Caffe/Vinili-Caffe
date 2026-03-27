@@ -1151,6 +1151,25 @@
             "roles.HighStaff",
             "roles.PartnerManager"
         ],
+        "ticket_panel_add_member": [
+            "roles.Staff",
+            "roles.HighStaff",
+            "roles.PartnerManager"
+        ],
+        "ticket_panel_remove_member": [
+            "roles.Staff",
+            "roles.HighStaff",
+            "roles.PartnerManager"
+        ],
+        "ticket_panel_transfer_user": null,
+        "ticket_panel_switch_category": [
+            "roles.HighStaff"
+        ],
+        "ticket_panel_rename": [
+            "roles.HighStaff"
+        ],
+        "ticket_panel_closerequest": null,
+        "ticket_panel_reopen_pick": null,
         "upv": [
             "roles.Member"
         ],
@@ -1451,6 +1470,10 @@
         "modal_close_ticket:*": {
             "ownerSegment": 1
         },
+        "modal_ticket_panel_rename": [
+            "roles.HighStaff"
+        ],
+        "modal_ticket_panel_closerequest": null,
         "partnershipModal_*": {
             "ownerSegment": 1
         },

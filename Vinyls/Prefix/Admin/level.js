@@ -296,22 +296,22 @@ async function buildLevelUserPanelPayload(guild, ownerId, targetUserId, openerUs
   const rowButtons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:set:${safeOwner}:${safeTarget}`)
-      .setStyle(ButtonStyle.Primary)
+      .setStyle(ButtonStyle.Secondary)
       .setLabel("Imposta")
       .setEmoji("<:VC_Modifica:1478859646587633717>"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:add:${safeOwner}:${safeTarget}`)
-      .setStyle(ButtonStyle.Primary)
+      .setStyle(ButtonStyle.Success)
       .setLabel("Aggiungi")
       .setEmoji("➕"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:remove:${safeOwner}:${safeTarget}`)
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Danger)
       .setLabel("Rimuovi")
       .setEmoji("➖"),
     new ButtonBuilder()
       .setCustomId(`level_panel:user_btn:reset:${safeOwner}:${safeTarget}`)
-      .setStyle(ButtonStyle.Danger)
+      .setStyle(ButtonStyle.Primary)
       .setLabel("Reset")
       .setEmoji("<:VC_update:1478721333096349817>"),
     new ButtonBuilder()

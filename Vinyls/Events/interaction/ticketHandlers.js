@@ -9,6 +9,7 @@ const { canUserHandleCloseRequest: runtimeCanUserHandleCloseRequest, ensureClosa
 const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRatingRows: runtimeBuildTicketRatingRows, closeTicket: runtimeCloseTicket, } = require("../../Utils/Ticket/ticketCloseRuntime");
 const { createTicketsCategory: runtimeCreateTicketsCategory, handleSponsorTicketOpen: runtimeHandleSponsorTicketOpen, } = require("../../Utils/Ticket/ticketOpenRuntime");
 const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtils");
+const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -104,6 +105,12 @@ async function handleTicketInteraction(interaction) {
   }
 
   try {
+    const staffPanelHandled = await handleTicketStaffPanelInteraction(interaction, {
+      safeReply,
+      makeErrorEmbed,
+    });
+    if (staffPanelHandled) return true;
+
     if (isTicketButton || isTicketSelect) {
       const isDmSafeTicketAction = runtimeIsTicketRatingButton(interaction.customId) || runtimeIsTicketTranscriptButton(interaction.customId);
       if ((!interaction.guild || !interaction.member) && !isDmSafeTicketAction) {
