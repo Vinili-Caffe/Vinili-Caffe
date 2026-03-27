@@ -1,0 +1,59 @@
+const { EmbedBuilder } = require("discord.js");
+const { AVATAR_MODE_PREFIX, buildAvatarPayload } = require("../Prefix/Utility/avatar");
+const { BANNER_MODE_PREFIX, buildBannerPayload } = require("../Prefix/Utility/banner");
+const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
+
+const PRIVATE_FLAG = 1 << 6;
+
+function match(interaction) {
+  if (!interaction?.isButton?.()) return false;
+  const id = String(interaction.customId || "");
+  return id.startsWith(AVATAR_MODE_PREFIX) || id.startsWith(BANNER_MODE_PREFIX);
+}
+
+function parseModePayload(customId, prefix) {
+  const raw = String(customId || "").slice(prefix.length);
+  const [ownerId = "", targetId = "", modeRaw = "user"] = raw.split(":");
+  const mode = modeRaw === "server" ? "server" : "user";
+  return { ownerId, targetId, mode };
+}
+
+async function execute(interaction) {
+  const id = String(interaction.customId || "");
+  const isAvatar = id.startsWith(AVATAR_MODE_PREFIX);
+  const prefix = isAvatar ? AVATAR_MODE_PREFIX : BANNER_MODE_PREFIX;
+  const { ownerId, targetId, mode } = parseModePayload(id, prefix);
+  const guild = interaction.guild;
+  if (!guild) return false;
+
+  if (ownerId && interaction.user?.id && String(ownerId) !== String(interaction.user.id)) {
+    const denied = {
+      embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo controllo non è tuo.")],
+      flags: PRIVATE_FLAG,
+    };
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp(denied).catch(() => { });
+    } else {
+      await interaction.reply(denied).catch(() => { });
+    }
+    return true;
+  }
+
+  const member = await getGuildMemberCached(guild, targetId).catch(() => null);
+  if (!member?.user) return true;
+
+  const payload = isAvatar
+    ? await buildAvatarPayload({ guild, targetMember: member, fallbackUser: member.user, requesterId: ownerId || interaction.user?.id, mode })
+    : await buildBannerPayload({ guild, targetMember: member, fallbackUser: member.user, requesterId: ownerId || interaction.user?.id, mode });
+
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
+  } else {
+    await interaction.update(payload).catch(async () => {
+      await interaction.reply(payload).catch(() => { });
+    });
+  }
+  return true;
+}
+
+module.exports = { name: "avatarBannerToggle", order: 8, match, execute };

@@ -2,6 +2,7 @@ const { safeChannelSend } = require("../../../shared/discord/replyRuntime");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { BannerPrivacy } = require("../../Schemas/Community/communitySchemas");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const BANNER_MODE_PREFIX = "banner_mode:";
 
 function normalize(text) {
   return String(text || "")
@@ -33,7 +34,6 @@ module.exports = {
   name: "banner",
   aliases: ["bn"],
   allowEmptyArgs: true,
-  subcommands: ["user", "server", "guild"],
 
   async execute(message, args) {
     if (!message.guild) {
@@ -49,119 +49,132 @@ module.exports = {
     }
 
     const subRaw = args[0] ? String(args[0]).toLowerCase() : "";
-    const sub = ["user", "server", "guild"].includes(subRaw) ? subRaw : null;
-    const query = sub ? args.slice(1).join(" ") : args.join(" ");
-
-    if (sub === "server" || sub === "guild") {
-      const bannerUrl = message.guild.bannerURL({ size: 4096 });
-      if (!bannerUrl) {
-        return safeChannelSend(message.channel, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Questo server non ha un banner impostato.",
-              ),
-          ],
-        });
-      }
-      const embed = new EmbedBuilder()
-        .setTitle("Banner del server")
-        .setImage(bannerUrl)
-        .setAuthor({ name: message.guild.name, iconURL: message.guild.iconURL() })
-        .setColor("#6f4e37");
-      return safeChannelSend(message.channel, { embeds: [embed] });
-    }
-
-    const member = (await resolveMember(message, query)) || message.member;
-    const user = member?.user || message.author;
-
-    let privacyDoc = null;
-    try {
-      privacyDoc = await BannerPrivacy.findOneAndUpdate(
-        { guildId: message.guild.id, userId: user.id },
-        { $setOnInsert: { guildId: message.guild.id, userId: user.id } },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
-    } catch (err) {
-      global.logger?.warn?.("[banner] fetch:", err?.message || err);
-    }
-
-    if (Boolean(privacyDoc?.blocked)) {
-      const blockedEmbed = new EmbedBuilder()
-        .setColor("#e74c3c")
-        .setTitle("<:vegax:1443934876440068179> Banner Bloccato")
-        .setThumbnail("https://images-ext-1.discordapp.net/external/qZp8C7dthauZs3SMmWIVqoxSjwXkKvmCXhZpro2lLzI/%3Fformat%3Dwebp%26quality%3Dlossless%26width%3D640%26height%3D640/https/images-ext-1.discordapp.net/external/fRgXgmNV39-c_gorTdDdWPSyx2fFy_i4t01cYEF-DKY/https/i.imgur.com/7OnTq5S.png?format=webp&quality=lossless&width=640&height=640")
-        .setDescription("Questo utente ha bloccato la visualizzazione del proprio banner.");
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`banner_unblock:${user.id}`)
-          .setLabel("Sblocca")
-          .setEmoji("<a:VC_Unlock:1482532082466029608>")
-          .setStyle(ButtonStyle.Secondary),
-      );
-
-      return safeChannelSend(message.channel, {
-        embeds: [blockedEmbed],
-        components: [row],
-      });
-    }
-
-    let fetchedUser = user;
-    try {
-      fetchedUser = await user.fetch();
-    } catch (err) {
-      global.logger?.warn?.("[banner] fetch:", err?.message || err);
-    }
-
-    const bannerUrl = fetchedUser.bannerURL({ size: 4096 });
-    if (!bannerUrl) {
+    if (subRaw === "guild") {
       return safeChannelSend(message.channel, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription(
-              "<:vegax:1443934876440068179> Questo utente non ha un banner.",
-            ),
+            .setDescription("<:vegax:1443934876440068179> `+banner guild` non esiste più. Usa `+banner` e cambia vista con le frecce."),
         ],
       });
     }
+    const selectedMode = ["user", "server"].includes(subRaw) ? subRaw : "user";
+    const query = ["user", "server"].includes(subRaw) ? args.slice(1).join(" ") : args.join(" ");
 
-    let privacyCount = null;
-    try {
-      privacyCount = await BannerPrivacy.findOneAndUpdate(
-        { guildId: message.guild.id, userId: user.id },
-        { $inc: { views: 1 } },
-        { new: true },
-      );
-    } catch (err) {
-      global.logger?.warn?.("[banner] fetch:", err?.message || err);
-    }
+    const member = (await resolveMember(message, query)) || message.member;
+    const payload = await buildBannerPayload({
+      guild: message.guild,
+      targetMember: member,
+      fallbackUser: message.author,
+      requesterId: message.author.id,
+      mode: selectedMode,
+    });
+    return safeChannelSend(message.channel, payload);
+  },
+  BANNER_MODE_PREFIX,
+  buildBannerPayload,
+};
 
-    const totalViews = Number(privacyCount?.views || 0);
-    const authorLabel=member?.displayName||member?.user?.username||user.tag;
-
-    const embed = new EmbedBuilder()
-      .setTitle("User Banner")
-      .setImage(bannerUrl)
-      .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL() })
-      .setColor("#6f4e37")
-      .setFooter({
-        text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando ?blockbn.\n${totalViews} Views 👁️`,
-      });
-
-    const row = new ActionRowBuilder().addComponents(
+function buildBannerRows(requesterId, targetUserId, mode = "user") {
+  const activeMode = mode === "server" ? "server" : "user";
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:user`)
+        .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setEmoji("⬅️"),
+      new ButtonBuilder()
+        .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:server`)
+        .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setEmoji("➡️"),
       new ButtonBuilder()
         .setCustomId("banner_views")
         .setLabel("Classifica Views")
         .setEmoji("📊")
         .setStyle(ButtonStyle.Secondary),
-    );
+    ),
+  ];
+}
 
-    return safeChannelSend(message.channel, {
-      embeds: [embed],
-      components: [row],
+async function buildBannerPayload({ guild, targetMember, fallbackUser, requesterId, mode = "user" }) {
+  const member = targetMember || null;
+  const user = member?.user || fallbackUser || null;
+  if (!guild || !user) {
+    return {
+      embeds: [new EmbedBuilder().setColor("Red").setDescription("<:vegax:1443934876440068179> Impossibile trovare questo utente.")],
+      components: [],
+    };
+  }
+
+  let privacyDoc = null;
+  try {
+    privacyDoc = await BannerPrivacy.findOneAndUpdate(
+      { guildId: guild.id, userId: user.id },
+      { $setOnInsert: { guildId: guild.id, userId: user.id } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+  } catch (err) {
+    global.logger?.warn?.("[banner] fetch:", err?.message || err);
+  }
+
+  if (Boolean(privacyDoc?.blocked)) {
+    const blockedEmbed = new EmbedBuilder()
+      .setColor("#e74c3c")
+      .setTitle("<:vegax:1443934876440068179> Banner Bloccato")
+      .setThumbnail("https://images-ext-1.discordapp.net/external/qZp8C7dthauZs3SMmWIVqoxSjwXkKvmCXhZpro2lLzI/%3Fformat%3Dwebp%26quality%3Dlossless%26width%3D640%26height%3D640/https/images-ext-1.discordapp.net/external/fRgXgmNV39-c_gorTdDdWPSyx2fFy_i4t01cYEF-DKY/https/i.imgur.com/7OnTq5S.png?format=webp&quality=lossless&width=640&height=640")
+      .setDescription("Questo utente ha bloccato la visualizzazione del proprio banner.");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`banner_unblock:${user.id}`)
+        .setLabel("Sblocca")
+        .setEmoji("<a:VC_Unlock:1482532082466029608>")
+        .setStyle(ButtonStyle.Secondary),
+    );
+    return { embeds: [blockedEmbed], components: [row] };
+  }
+
+  let fetchedUser = user;
+  try {
+    fetchedUser = await user.fetch();
+  } catch (err) {
+    global.logger?.warn?.("[banner] fetch:", err?.message || err);
+  }
+
+  let privacyCount = null;
+  try {
+    privacyCount = await BannerPrivacy.findOneAndUpdate(
+      { guildId: guild.id, userId: user.id },
+      { $inc: { views: 1 } },
+      { new: true },
+    );
+  } catch (err) {
+    global.logger?.warn?.("[banner] fetch:", err?.message || err);
+  }
+
+  const totalViews = Number(privacyCount?.views || 0);
+  const activeMode = mode === "server" ? "server" : "user";
+  const userBanner = fetchedUser.bannerURL({ extension: "png", size: 4096, forceStatic: true });
+  const serverBanner = member?.bannerURL?.({ extension: "png", size: 4096, forceStatic: true }) || null;
+  const authorLabel = member?.displayName || member?.user?.username || user.tag;
+  const embed = new EmbedBuilder()
+    .setTitle(activeMode === "user" ? "User Banner" : "Server Banner")
+    .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL() })
+    .setColor("#6f4e37")
+    .setFooter({
+      text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando ?blockbn.\n${totalViews} Views 👁️`,
     });
-  },
-};
+  const imageUrl = activeMode === "server" ? serverBanner : userBanner;
+  if (!imageUrl) {
+    embed.setDescription(
+      activeMode === "server"
+        ? "<:vegax:1443934876440068179> Questo utente non ha un banner impostato per questo server."
+        : "<:vegax:1443934876440068179> Questo utente non ha un banner.",
+    );
+  } else {
+    embed.setImage(imageUrl);
+  }
+  return {
+    embeds: [embed],
+    components: buildBannerRows(requesterId || user.id, user.id, activeMode),
+  };
+}

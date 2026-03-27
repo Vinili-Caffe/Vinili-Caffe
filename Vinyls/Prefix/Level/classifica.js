@@ -419,7 +419,7 @@ async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUse
     const member = members.get(row.userId);
     const label = formatUserLabel(member, row.userId);
     const exp = Number(row.exp || 0);
-    const level = Number(row.level || 0);
+    const level = getLevelInfo(Math.max(0, exp)).level;
     lines.push(`${rankLabel(index)} ${label}`);
     lines.push(
       `<:VC_Reply:1482532158080942191> Exp: <:VC_EXP:1482534670896730143> __${exp}__ <a:VC_Arrow:1482706699365257397> Livello: ${level}`,

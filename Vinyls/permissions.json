@@ -189,34 +189,12 @@
         "avatar": {
             "roles": [
                 "roles.Member"
-            ],
-            "subcommands": {
-                "server": [
-                    "roles.Member"
-                ],
-                "user": [
-                    "roles.Member"
-                ],
-                "guild": [
-                    "roles.Member"
-                ]
-            }
+            ]
         },
         "banner": {
             "roles": [
                 "roles.Member"
-            ],
-            "subcommands": {
-                "user": [
-                    "roles.Member"
-                ],
-                "server": [
-                    "roles.Member"
-                ],
-                "guild": [
-                    "roles.Member"
-                ]
-            }
+            ]
         },
         "classifica": {
             "roles": [
@@ -812,6 +790,12 @@
         "avatar_unblock:*": {
             "ownerSegment": 1
         },
+        "avatar_mode:*": {
+            "roles": [
+                "roles.Member"
+            ],
+            "ownerSegment": 1
+        },
         "avatar_views": [
             "roles.Member"
         ],
@@ -840,6 +824,12 @@
             "ownerSegment": 1
         },
         "banner_unblock:*": {
+            "ownerSegment": 1
+        },
+        "banner_mode:*": {
+            "roles": [
+                "roles.Member"
+            ],
             "ownerSegment": 1
         },
         "banner_views": [
