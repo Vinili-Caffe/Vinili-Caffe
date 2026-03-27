@@ -1,7 +1,9 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings } = require("../../Services/Community/expService");
-
+const profileDisplayName = user && typeof user === "object"
+? String(user.globalName || user.username || user.tag || "").trim() || "Admin"
+: "Admin";
 const SERVER_SECTIONS = ["home", "settings", "channels", "roles", "multi"];
 
 async function resolveTargetUser(message, raw) {
@@ -61,7 +63,7 @@ function buildServerSectionEmbed(guild, settings, section) {
       "",
       "<:VC_Modifica:1478859646587633717> Usa il menu per cambiare sezione e i pulsanti per modificare la configurazione.",
     );
-    return base.setTitle("Pannello Level — Server").setDescription(lines.join("\n"));
+    return base.setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`).setDescription(lines.join("\n"));
   }
   if (sec === "settings") {
     return base
@@ -243,7 +245,7 @@ function buildLevelUserPanelPayload(ownerId, targetUserId) {
   const safeTarget = String(targetUserId || "");
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("Pannello Level — Utente")
+    .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`)
     .setDescription([
       `Target: <@${safeTarget}>`,
       "",
