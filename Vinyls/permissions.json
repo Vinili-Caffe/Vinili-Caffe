@@ -221,21 +221,7 @@
         "classifica": {
             "roles": [
                 "roles.Member"
-            ],
-            "subcommands": {
-                "alltime": [
-                    "roles.Member"
-                ],
-                "weekly": [
-                    "roles.Member"
-                ],
-                "cs": [
-                    "roles.Member"
-                ],
-                "classificasettimanale": [
-                    "roles.Member"
-                ]
-            }
+            ]
         },
         "security": {
             "roles": [

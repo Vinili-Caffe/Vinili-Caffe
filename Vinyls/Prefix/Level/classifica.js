@@ -8,16 +8,10 @@ const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategory
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const TOP_LIMIT = 10;
 const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
+const CLASSIFICA_TOGGLE_PREFIX = "classifica_toggle:";
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
 const leaderboardCache = new Map();
-
-function getInvokedCommand(message) {
-  const content = String(message?.content || "").trim();
-  if (!content.startsWith("+")) return "";
-  const tokens = content.slice(1).split(/\s+/).filter(Boolean);
-  return (tokens[0] ?? "").toLowerCase();
-}
 
 function rankLabel(index) {
   if (index === 0) return "<:VC_Podio1:1482694399283433582>";
@@ -368,10 +362,10 @@ async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
   return rows;
 }
 
-async function buildWeeklyEmbed(message, excludeStaffFromShort = false, useExpUserBoard = false) {
+async function buildWeeklyEmbed(guild, excludeStaffFromShort = false, useExpUserBoard = false) {
   const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
-  const candidateRows = await computeLeaderboardRows(message.guild, "weekly", maxCand);
-  const members = await fetchMembers(message.guild, candidateRows.map((r) => r.userId),);
+  const candidateRows = await computeLeaderboardRows(guild, "weekly", maxCand);
+  const members = await fetchMembers(guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows;
   rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
   rows = rows.slice(0, TOP_LIMIT);
@@ -393,11 +387,11 @@ async function buildWeeklyEmbed(message, excludeStaffFromShort = false, useExpUs
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: message.guild.name,
-      iconURL: message.guild.iconURL({ size: 128 }),
+      name: guild.name,
+      iconURL: guild.iconURL({ size: 128 }),
     })
     .setTitle("Classifica settimanale [Weekly]")
-    .setThumbnail(message.guild.iconURL({ size: 128 }))
+    .setThumbnail(guild.iconURL({ size: 128 }))
     .setDescription(
       [
         useExpUserBoard
@@ -412,12 +406,12 @@ async function buildWeeklyEmbed(message, excludeStaffFromShort = false, useExpUs
     );
 }
 
-async function buildAllTimeEmbed(message, excludeStaffFromShort = false, useExpUserBoard = false) {
+async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUserBoard = false) {
   const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
   const candidateRows = useExpUserBoard
-    ? await computeExpUserLeaderboardRows(message.guild, "alltime", maxCand)
-    : await computeLeaderboardRows(message.guild, "alltime", maxCand);
-  const members = await fetchMembers(message.guild, candidateRows.map((r) => r.userId),);
+    ? await computeExpUserLeaderboardRows(guild, "alltime", maxCand)
+    : await computeLeaderboardRows(guild, "alltime", maxCand);
+  const members = await fetchMembers(guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows.filter((row) => members.has(row.userId));
   rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
   rows = rows.slice(0, TOP_LIMIT);
@@ -440,11 +434,11 @@ async function buildAllTimeEmbed(message, excludeStaffFromShort = false, useExpU
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: message.guild.name,
-      iconURL: message.guild.iconURL({ size: 128 }),
+      name: guild.name,
+      iconURL: guild.iconURL({ size: 128 }),
     })
     .setTitle("Classifica generale [AllTime]")
-    .setThumbnail(message.guild.iconURL({ size: 128 }))
+    .setThumbnail(guild.iconURL({ size: 128 }))
     .setDescription(
       [
         useExpUserBoard
@@ -459,44 +453,44 @@ async function buildAllTimeEmbed(message, excludeStaffFromShort = false, useExpU
     );
 }
 
+function buildClassificaButtons(mode = "weekly") {
+  const active = mode === "alltime" ? "alltime" : "weekly";
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CLASSIFICA_TOGGLE_PREFIX}weekly`)
+        .setStyle(active === "weekly" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setEmoji("⬅️"),
+      new ButtonBuilder()
+        .setCustomId(`${CLASSIFICA_TOGGLE_PREFIX}alltime`)
+        .setStyle(active === "alltime" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setEmoji("➡️"),
+    ),
+  ];
+}
+
+async function buildClassificaPayload(guild, mode = "weekly") {
+  const safeMode = mode === "alltime" ? "alltime" : "weekly";
+  const embed = safeMode === "weekly"
+    ? await buildWeeklyEmbed(guild, false, false)
+    : await buildAllTimeEmbed(guild, false, false);
+  return { embeds: [embed], components: buildClassificaButtons(safeMode) };
+}
+
 module.exports = {
   name: "classifica",
   aliases: ["c", "cs", "classificasettimanale"],
   allowEmptyArgs: true,
-  subcommands: ["alltime", "weekly"],
-  subcommandAliases: {
-    cs: "weekly",
-    classificasettimanale: "weekly",
-  },
 
-  async execute(message, args = []) {
+  async execute(message) {
     await message.channel.sendTyping();
-    const invoked = getInvokedCommand(message);
-    const shortInvoked = invoked === "c" || invoked === "cs";
-    const excludeStaffFromShort = shortInvoked;
-    const useExpUserBoard = shortInvoked;
-    const rawMode = String(args[0] || "").toLowerCase();
-    const normalizedMode = ["weekly", "settimanale", "week", "w"].includes(rawMode,) ? "weekly" : ["alltime", "all", "totale", "general", "generale", "a"].includes(rawMode,) ? "alltime" : null;
-    const mode = normalizedMode || (invoked === "cs" || invoked === "classificasettimanale" ? "weekly" : "alltime");
-    const isWeekly = mode === "weekly";
-
-    if (rawMode && !normalizedMode) {
-      await safeMessageReply(message, {
-        content:
-          "<:vegax:1443934876440068179> Usa: `+classifica alltime` oppure `+classifica weekly`.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    const embed = isWeekly
-      ? await buildWeeklyEmbed(message, excludeStaffFromShort, useExpUserBoard)
-      : await buildAllTimeEmbed(message, excludeStaffFromShort, useExpUserBoard);
+    const mode = "weekly";
+    const payload = await buildClassificaPayload(message.guild, mode);
 
     const shouldRedirect = message.channel.id !== LEADERBOARD_CHANNEL_ID;
     if (!shouldRedirect) {
       await safeMessageReply(message, {
-        embeds: [embed],
+        ...payload,
         allowedMentions: { repliedUser: false },
       });
       return;
@@ -512,7 +506,7 @@ module.exports = {
       return;
     }
 
-    const sent = await leaderboardChannel.send({ embeds: [embed] }).catch(() => null);
+    const sent = await leaderboardChannel.send(payload).catch(() => null);
     if (!sent) {
       await safeMessageReply(message, {
         content: `Non sono riuscito a inviare la classifica in <#${LEADERBOARD_CHANNEL_ID}>.`,
@@ -521,10 +515,10 @@ module.exports = {
       return;
     }
 
-    const label = isWeekly ? "Vai alla classifica settimanale" : "Vai alla classifica generale";
+    const label = "Vai alla classifica";
     const redirectEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(`Per evitare di intasare la chat, la classifica ${isWeekly ? "settimanale" : "generale"}` +
+    .setDescription(`Per evitare di intasare la chat, la classifica settimanale` +
       ` è stata generata nel canale <#${LEADERBOARD_CHANNEL_ID}>.\n` +
       `[Clicca qui per vederla](${sent.url}) o utilizza il bottone sottostante.`);
 
@@ -536,4 +530,6 @@ module.exports = {
       allowedMentions: { repliedUser: false },
     });
   },
+  CLASSIFICA_TOGGLE_PREFIX,
+  buildClassificaPayload,
 };
