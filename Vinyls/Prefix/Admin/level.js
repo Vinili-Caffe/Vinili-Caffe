@@ -119,7 +119,7 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
   const multiMap = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : new Map();
   const multiLines = formatRoleMultiLines(guild, multiMap);
   const lines = [
-    "<:VC_Info:1482526956703580372> **Moltiplicatori per ruolo (attuali):**",
+    "<:VC_Info:1482526956703580372> **Moltiplicatori per ruolo:**",
     "",
     fmtDiscordList(multiLines, "<:VC_InactiveStatus:1482526984234860574> _Nessun moltiplicatore configurato._"),
     "",
