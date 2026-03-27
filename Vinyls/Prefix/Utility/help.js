@@ -108,7 +108,7 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "classifica": "Mostra la classifica weekly con pulsanti freccia per passare a All Time.",
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
-  "evento.classifica": "Mostra la classifica dell'evento (con bottone Classifica EXP).",
+  "evento.classifica": "Mostra la classifica dell'evento.",
   "pause.list": "Mostra la lista pause dell'anno corrente per te stesso o per lo staffer indicato.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };

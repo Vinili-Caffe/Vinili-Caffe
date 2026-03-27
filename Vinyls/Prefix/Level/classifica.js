@@ -476,7 +476,7 @@ async function buildClassificaPayload(guild, mode = "weekly") {
 
 module.exports = {
   name: "classifica",
-  aliases: ["c", "cs", "classificasettimanale"],
+  aliases: ["c", "cs"],
   allowEmptyArgs: true,
 
   async execute(message) {

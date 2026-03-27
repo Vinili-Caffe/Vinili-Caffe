@@ -3,6 +3,7 @@ const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, Act
 const EPHEMERAL_FLAG = 1 << 6;
 
 module.exports = {
+  skipDeploy: true,
   expectsModal: true,
   data: new SlashCommandBuilder()
     .setName("dmbroadcast")

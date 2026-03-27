@@ -156,6 +156,7 @@ async function handleStickerCopy(interaction) {
 }
 
 module.exports = {
+  skipDeploy: true,
   data: new SlashCommandBuilder()
     .setName("copy")
     .setDescription("Ruba e aggiungi sul tuo server.")

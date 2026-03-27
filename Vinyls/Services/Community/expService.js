@@ -448,19 +448,31 @@ function getRoleMultiplier(member, settings = null) {
   if (!member?.roles?.cache) return 1;
   const useOverrides = settings?.eventExpiresAt && settings?.eventRoleOverrides && typeof settings.eventRoleOverrides === "object";
   const overrides = useOverrides ? settings.eventRoleOverrides : null;
+  const veteranoRoleId = String(IDs.roles?.Veterano || "").trim();
   let multi = 1;
+  let hasSpecificRoleMulti = false;
+  let veteranoMulti = 1;
   if (overrides) {
     for (const [roleId, value] of Object.entries(overrides)) {
-      if (member.roles.cache.has(roleId)) {
-        multi = Math.max(multi, Number(value) || 1);
+      if (!member.roles.cache.has(roleId)) continue;
+      const parsed = Math.max(1, Number(value) || 1);
+      if (veteranoRoleId && String(roleId) === veteranoRoleId) {
+        veteranoMulti = Math.max(veteranoMulti, parsed);
+        continue;
       }
+      hasSpecificRoleMulti = true;
+      multi = Math.max(multi, parsed);
     }
   } else {
     for (const [roleId, value] of ROLE_MULTIPLIERS.entries()) {
-      if (member.roles.cache.has(roleId)) {
-        multi = Math.max(multi, Number(value) || 1);
-      }
+      if (!member.roles.cache.has(roleId)) continue;
+      hasSpecificRoleMulti = true;
+      multi = Math.max(multi, Math.max(1, Number(value) || 1));
     }
+  }
+  // Veterano è fallback: vale solo se non c'è già un ruolo "multi" specifico.
+  if (!hasSpecificRoleMulti && veteranoRoleId && member.roles.cache.has(veteranoRoleId)) {
+    multi = Math.max(multi, veteranoMulti);
   }
   return multi;
 }

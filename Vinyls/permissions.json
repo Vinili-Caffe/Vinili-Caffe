@@ -32,24 +32,6 @@
                 ]
             }
         },
-        "copy": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "subcommands": {
-                "emoji": [
-                    "roles.HighStaff"
-                ],
-                "sticker": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
-        "dmbroadcast": {
-            "roles": [
-                "roles.Founder"
-            ]
-        },
         "leaderboard": {
             "roles": [
                 "roles.PartnerManager",
@@ -411,7 +393,8 @@
             "channels": [
                 "channels.commands",
                 "channels.staffCmds",
-                "channels.highCmds"
+                "channels.highCmds",
+                "channels.chat"
             ]
         },
         "no-dm-list": {
