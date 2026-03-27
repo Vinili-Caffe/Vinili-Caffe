@@ -1,21 +1,11 @@
 const {
   ActivityUserProfile,
   ACTIVITY_MAIN_GUILD_ID,
-  InviteReminderState,
-  CustomRole,
-  AvatarPrivacy,
-  BannerPrivacy,
-  QuotePrivacy,
 } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 
 const guildScoped = [
   [ActivityUserProfile, "ActivityUserProfile"],
-  [InviteReminderState, "InviteReminderState"],
-  [CustomRole, "CustomRole"],
-  [AvatarPrivacy, "AvatarPrivacy"],
-  [BannerPrivacy, "BannerPrivacy"],
-  [QuotePrivacy, "QuotePrivacy"],
 ];
 
 async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {

@@ -1,6 +1,6 @@
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
-const { ActivityUserProfile, InviteReminderState, } = require("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, InviteReminderState, CustomRole, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { shouldBlockDm } = require("../Utils/noDmList");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
@@ -13,15 +13,25 @@ const { applyRolePersistForMember } = require("../Services/Moderation/rolePersis
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("../Services/Moderation/securityProfilesService");
-const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
+const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { isStaffEventActive, isStaffButNotHighStaff, addStaffEventPoints, } = require("../Services/Community/staffEventService");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
+const VOTE_ROLE_ID = IDs.roles.Voter;
+const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
+const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
+const VOTE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [
+  IDs.roles.VIP,
+  IDs.roles.ServerBooster,
+  IDs.roles.Level50,
+].filter(Boolean);
 const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1468938195348754515",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
 const INVITE_MILESTONE_EMBED_COLOR = 0x9b59b6;
 
@@ -1087,6 +1097,73 @@ async function sendDmWelcome(member) {
   });
 }
 
+function isCustomRoleDocActive(doc) {
+  const expiresAt = doc?.expiresAt ? new Date(doc.expiresAt) : null;
+  if (!expiresAt || Number.isNaN(expiresAt.getTime())) return true;
+  return expiresAt.getTime() > Date.now();
+}
+
+async function restoreDiscadiaVoteRoleOnRejoin(member) {
+  if (!member?.guild || !member?.id || !VOTE_ROLE_ID) return;
+  const guildId = String(member.guild.id);
+  if (String(guildId) !== String(IDs.guilds.main || "")) return;
+
+  const doc = await ActivityUserProfile.findOne({ guildId, userId: String(member.id) })
+    .select(VOTE_ROLE_EXPIRES_AT_PATH)
+    .lean()
+    .catch(() => null);
+  const expiresAtRaw = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.voteRole?.expiresAt || null;
+  if (!expiresAtRaw) return;
+
+  const expiresAt = new Date(expiresAtRaw);
+  if (Number.isNaN(expiresAt.getTime())) return;
+  const now = Date.now();
+  const expiresAtMs = expiresAt.getTime();
+  if (expiresAtMs <= now) return;
+  if (expiresAtMs - now > VOTE_RESTORE_WINDOW_MS) return;
+  if (member.roles.cache.has(VOTE_ROLE_ID)) return;
+
+  const me = member.guild.members.me;
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles)) return;
+  const role = await getGuildRoleCached(member.guild, VOTE_ROLE_ID);
+  if (!role) return;
+  if (role.position >= me.roles.highest.position) return;
+
+  const refreshed = await addRolesAndGetMember(member.guild, member.id, [VOTE_ROLE_ID]).catch(() => null);
+  if (!refreshed?.roles?.cache?.has?.(VOTE_ROLE_ID)) return;
+}
+
+async function restoreCustomRoleOnRejoin(member) {
+  if (!member?.guild || !member?.id) return;
+  const guildId = String(member.guild.id);
+  const userId = String(member.id);
+  const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
+  const roleId = String(doc?.roleId || "");
+  if (!roleId) return;
+  if (!isCustomRoleDocActive(doc)) return;
+  if (member.roles.cache.has(roleId)) return;
+
+  const role = await getGuildRoleCached(member.guild, roleId);
+  if (!role) return;
+  const me = member.guild.members.me;
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles)) return;
+  if (role.position >= me.roles.highest.position) return;
+
+  const hasRequiredRole = CUSTOM_ROLE_REQUIRED_ROLE_IDS.some((requiredRoleId) => member.roles.cache.has(requiredRoleId));
+  const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
+  const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
+  if (!hasRequiredRole && !hasEventWeek2Grant && !hasEventWeek3Grant) return;
+
+  const refreshed = await addRolesAndGetMember(member.guild, member.id, [roleId]).catch(() => null);
+  if (!refreshed?.roles?.cache?.has?.(roleId)) return;
+  if (doc?.customRoleEligibilityLostAt) {
+    await CustomRole.updateOne(
+      { guildId, userId },
+      { $set: { customRoleEligibilityLostAt: null } },
+    ).catch(() => {});
+  }
+}
+
 async function announceInviteInfo(member, channel, info) {
   if (!channel || !info) return;
 
@@ -1307,6 +1384,8 @@ module.exports = {
         }
       }
 
+      await restoreUserOnJoin(member.guild.id, member.id).catch(() => false);
+
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });
         scheduleMemberCounterRefresh(member.guild, {
@@ -1373,6 +1452,8 @@ module.exports = {
         (async () => {
           try {
             await applyRolePersistForMember(member).catch(() => { });
+            await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
+            await restoreCustomRoleOnRejoin(member).catch(() => {});
             await sendJoinLog(member);
             await sendDmWelcome(member);
 

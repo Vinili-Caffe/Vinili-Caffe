@@ -6,11 +6,6 @@ const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
   ActivityUserProfile,
   ACTIVITY_MAIN_GUILD_ID,
-  InviteReminderState,
-  CustomRole,
-  AvatarPrivacy,
-  BannerPrivacy,
-  QuotePrivacy,
 } = require("../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
@@ -18,6 +13,7 @@ const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getCl
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
+const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
@@ -429,11 +425,6 @@ async function cleanupUserData(guildId, userId) {
   await Promise.allSettled([
     cleanupActivityUserProfileOnGuildLeave(gid, uid),
     ActivityUserProfile.updateOne({ guildId: gid, userId: uid, staff: { $exists: true } }, { $unset: { staff: "" } }).catch(() => {}),
-    InviteReminderState.deleteOne({ guildId: gid, userId: uid }),
-    CustomRole.deleteOne({ guildId: gid, userId: uid }),
-    AvatarPrivacy.deleteOne({ guildId: gid, userId: uid }),
-    BannerPrivacy.deleteOne({ guildId: gid, userId: uid }),
-    QuotePrivacy.deleteOne({ guildId: gid, userId: uid }),
   ]);
 }
 
@@ -480,6 +471,7 @@ module.exports = {
       );
       await handleTrackedStaffLeave(member);
       await handlePartnershipOnLeave(member, client);
+      await backupUserOnLeave(guild.id, member.id);
       await cleanupUserData(guild.id, member.id);
       const activeClient = client || member.client;
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {

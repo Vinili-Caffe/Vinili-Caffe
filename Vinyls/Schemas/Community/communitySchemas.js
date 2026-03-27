@@ -475,6 +475,19 @@ activityUserProfileSchema.index({ guildId: 1, "staff.staffEvent.points": -1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 
+const userLeaveBackupSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    backupDoc: { type: Schema.Types.Mixed, default: null },
+    leftAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date, required: true },
+  },
+  { timestamps: true },
+);
+userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
 eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
@@ -912,6 +925,7 @@ const QuotePrivacy = buildProfileSubdocModel({
 });
 
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
+const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -930,4 +944,5 @@ module.exports = {
   AvatarPrivacy,
   BannerPrivacy,
   QuotePrivacy,
+  UserLeaveBackup,
 };

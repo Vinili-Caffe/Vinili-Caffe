@@ -105,7 +105,6 @@ async function startWebhookServer(client) {
 
       const handled = await processDiscadiaVote(guild, user, client);
       if (handled) {
-        global.logger?.info?.("[WEBHOOK] Discadia: Processed vote for " + user.tag + " (" + user_id + ")");
         return res.status(200).send("Vote Processed");
       }
       return res.status(500).send("Vote processing failed");
