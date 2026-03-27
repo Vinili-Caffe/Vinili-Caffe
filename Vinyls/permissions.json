@@ -403,21 +403,6 @@
                 "channels.staffCmds"
             ],
             "subcommands": {
-                "start": [
-                    "roles.Founder"
-                ],
-                "stop": [
-                    "roles.Founder"
-                ],
-                "info": [
-                    "roles.Founder"
-                ],
-                "assegna-ruoli": [
-                    "roles.Founder"
-                ],
-                "reset-premi": [
-                    "roles.Founder"
-                ],
                 "classifica": {
                     "roles": [
                         "roles.Member"

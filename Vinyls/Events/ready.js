@@ -203,10 +203,10 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       enabled: true,
       run: async () => {
         const stats = await removeStaffEventData();
-        const total = Number(stats?.profilesModified || 0) + Number(stats?.settingsModified || 0);
+        const total = Number(stats?.profilesModified || 0) + Number(stats?.settingsModified || 0) + Number(stats?.backupsModified || 0);
         if (total > 0) {
           global.logger?.info?.(
-            `[STAFF EVENT CLEANUP] Removed legacy data: profiles=${stats.profilesModified}, settings=${stats.settingsModified}`,
+            `[STAFF EVENT CLEANUP] Removed legacy data: profiles=${stats.profilesModified}, settings=${stats.settingsModified}, backups=${stats.backupsModified || 0}`,
           );
         }
       },

@@ -1,12 +1,12 @@
-const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, GlobalSettings, UserLeaveBackup } = require("../../Schemas/Community/communitySchemas");
 
 async function removeStaffEventData() {
-  const [profiles, settings] = await Promise.all([
-    ActivityUserProfile.updateMany(
+  const [profiles, settings, backups] = await Promise.all([
+    ActivityUserProfile.collection.updateMany(
       { "staff.staffEvent": { $exists: true } },
       { $unset: { "staff.staffEvent": "" } },
     ).catch(() => ({ modifiedCount: 0 })),
-    GlobalSettings.updateMany(
+    GlobalSettings.collection.updateMany(
       {
         $or: [
           { staffEventExpiresAt: { $exists: true } },
@@ -15,10 +15,15 @@ async function removeStaffEventData() {
       },
       { $unset: { staffEventExpiresAt: "", staffEventStartedAt: "" } },
     ).catch(() => ({ modifiedCount: 0 })),
+    UserLeaveBackup.collection.updateMany(
+      { "backupDoc.staff.staffEvent": { $exists: true } },
+      { $unset: { "backupDoc.staff.staffEvent": "" } },
+    ).catch(() => ({ modifiedCount: 0 })),
   ]);
   return {
     profilesModified: Number(profiles?.modifiedCount || 0),
     settingsModified: Number(settings?.modifiedCount || 0),
+    backupsModified: Number(backups?.modifiedCount || 0),
   };
 }
 

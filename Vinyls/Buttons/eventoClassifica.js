@@ -115,7 +115,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
         .setStyle(w === week ? ButtonStyle.Primary : ButtonStyle.Secondary)
     );
   }
-  const expRow = new ActionRowBuilder().addComponents(
+  row.addComponents(
     new ButtonBuilder()
       .setCustomId(EVENTO_CLASSIFICA_EXP_PREFIX)
       .setLabel("Classifica EXP")
@@ -123,7 +123,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
       .setStyle(ButtonStyle.Secondary),
   );
 
-  return { embeds: [embed], components: [row, expRow] };
+  return { embeds: [embed], components: [row] };
 }
 
 async function buildEventoClassificaExpOnlyPayload(guild, selectedWeek = 1, currentEventWeek = 1) {
@@ -162,17 +162,17 @@ async function buildEventoClassificaExpOnlyPayload(guild, selectedWeek = 1, curr
       new ButtonBuilder()
         .setCustomId(`${EVENTO_CLASSIFICA_PREFIX}${w}`)
         .setEmoji("<a:VC_Calendar:1482706208149475358>")
-        .setStyle(w === Number(selectedWeek || 1) ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary),
     );
   }
-  const expRow = new ActionRowBuilder().addComponents(
+  row.addComponents(
     new ButtonBuilder()
       .setCustomId(EVENTO_CLASSIFICA_EXP_PREFIX)
       .setLabel("Classifica EXP")
       .setEmoji("<:VC_Leaderboard:1482534806314287387>")
       .setStyle(ButtonStyle.Primary),
   );
-  return { embeds: [embed], components: [row, expRow] };
+  return { embeds: [embed], components: [row] };
 }
 
 module.exports = { name: "eventoClassifica", order: 10, match, execute, EVENTO_CLASSIFICA_PREFIX, MAX_WEEKS, buildEventoClassificaPayload, buildEventoClassificaExpOnlyPayload };

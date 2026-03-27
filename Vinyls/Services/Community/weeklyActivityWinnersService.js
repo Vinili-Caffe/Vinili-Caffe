@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require(
 const cron = require("node-cron");
 const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
-const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getEventWeekHourKeys } = require("./activityEventRewardsService");
+const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getEventWeekHourKeys, getTop10ExpDuringEventExcludingHighStaff } = require("./activityEventRewardsService");
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
 const { isEventStaffMember } = require("./expService");
 const { loadLiveVoiceSessions, secondsInDateKeys } = require("./activityService");
@@ -711,7 +711,7 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
   });
 }
 
-const EVENT_END_ANNOUNCEMENT_MESSAGE = ["<:VC_Calendar:1448670320180592724> **L'evento Activity EXP è terminato.**", "", "> <a:VC_HeartsPink:1468685897389052008> Grazie a tutti per aver partecipato! Di seguito la **top 3 per EXP totale** guadagnata durante l'evento.", "",].join("\n");
+const EVENT_END_ANNOUNCEMENT_MESSAGE = ["<:VC_Calendar:1448670320180592724> **L'evento Activity EXP è terminato.**", "", "> <a:VC_HeartsPink:1468685897389052008> Grazie a tutti per aver partecipato! Di seguito la **classifica EXP finale** dell'evento.", "",].join("\n");
 
 async function trySendEventEndAnnouncementToNews(client) {
   const mainGuildId = IDs.guilds?.main;
@@ -724,7 +724,6 @@ async function trySendEventEndAnnouncementToNews(client) {
   const sentFor = doc.expEventEndAnnouncementSentForExpiresAt ? new Date(doc.expEventEndAnnouncementSentForExpiresAt).getTime() : null;
 
   if (sentFor !== null && sentFor === expiresAt) {
-    // Annuncio già inviato (magari ieri). Verifichiamo se è passata almeno una giornata intera (24h) dalla fine dell'evento per la pulizia.
     if (Date.now() > expiresAt + 24 * 60 * 60 * 1000) {
       await performEndOfEventCleanup(client, mainGuildId);
     }
@@ -733,15 +732,29 @@ async function trySendEventEndAnnouncementToNews(client) {
 
   if (expiresAt > Date.now()) return;
 
-  const top3 = await getTop3ExpDuringEventExcludingStaff(guild);
-  const lines = top3.length ? top3.map((item, i) => {
-    const medal = TROPHY_LABELS[i] || ""; return `${medal}<@${item.userId}>—**${item.expDuringEvent.toLocaleString("it-IT")}** <:VC_EXP:1482534670896730143>`;
-  })
-    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato."];
+  const topExp = await getTop10ExpDuringEventExcludingHighStaff(guild, 10).catch(() => []);
+  const expLines = topExp.length
+    ? topExp.map((item, i) => {
+      const value = Number(
+        item.activityExpDuringEvent != null
+          ? item.activityExpDuringEvent
+          : item.expDuringEvent,
+      );
+      const label = TROPHY_LABELS[i] || `**${i + 1}.**`;
+      return `${label} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${value}** _EXP_`;
+    })
+    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP."];
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Leaderboard:1482534806314287387> Top 3 EXP totale — Evento Activity EXP")
-    .setDescription(["**Classifica per EXP guadagnata durante l'evento:**", "", ...lines].join("\n"))
+    .setTitle("<:VC_Leaderboard:1482534806314287387> Evento Activity EXP")
+    .setDescription(
+      [
+        "_Classifica EXP dell'evento_",
+        "",
+        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
+        ...expLines,
+      ].join("\n"),
+    )
     .setThumbnail(guild.iconURL({ size: 256 }) || null)
     .setFooter({ text: "Evento terminato • Grazie per la partecipazione!" })
     .setTimestamp();
@@ -762,15 +775,10 @@ async function trySendEventEndAnnouncementToNews(client) {
 
 }
 
-/**
- * Pulisce i dati degli eventi (Staff e Activity EXP) dopo che sono terminati e l'annuncio è stato inviato.
- * Esegue la pulizia solo 24 ore dopo la fine dell'evento.
- */
 async function performEndOfEventCleanup(client, guildId) {
   global.logger?.info(`[EVENT_CLEANUP] Avvio pulizia post-evento per g:${guildId}`);
 
   try {
-    // 1. Pulizia GlobalSettings: cancella i campi indicati dall'utente
     await GlobalSettings.updateOne(
       { guildId },
       {
@@ -784,13 +792,11 @@ async function performEndOfEventCleanup(client, guildId) {
           staffEventStartedAt: "",
         },
         $set: {
-          expEventMultiplier: 1, // Riporta il moltiplicatore base a 1 (scema default: 1)
+          expEventMultiplier: 1,
         },
       },
     );
 
-    // 2. Pulizia ActivityUserProfile (per tutti gli utenti del server principale)
-    // profile.totals.exp.event.rewards e profile.totals.exp.event.snapshot vengono sempre cancellati
     await ActivityUserProfile.updateMany(
       { guildId },
       {
@@ -801,7 +807,6 @@ async function performEndOfEventCleanup(client, guildId) {
       },
     );
 
-    // profile.totals.exp.event.weekWinners viene cancellato SOLO SE l'array e vuoto (senno rimane lo storico dei vincitori)
     await ActivityUserProfile.updateMany(
       { guildId, "profile.totals.exp.event.weekWinners": { $size: 0 } },
       { $unset: { "profile.totals.exp.event.weekWinners": "" } },
