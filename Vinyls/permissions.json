@@ -774,17 +774,17 @@
         "giveaway_reroll:*": [
             "roles.HighStaff"
         ],
-        "level_panel:view:*": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "ownerSegment": 3
-        },
-        "level_panel:server_actions:*": {
+        "level_panel:server_nav:*": {
             "roles": [
                 "roles.HighStaff"
             ],
             "ownerSegment": 2
+        },
+        "level_panel:server_btn:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 3
         },
         "level_panel:user_actions:*": {
             "roles": [

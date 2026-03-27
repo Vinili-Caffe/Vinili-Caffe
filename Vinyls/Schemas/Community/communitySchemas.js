@@ -163,6 +163,7 @@ const globalSettingsSchema = new Schema(
     expEventEndAnnouncementSentForExpiresAt: { type: Date, default: null },
     expLockedChannelIds: { type: [String], default: [] },
     expIgnoredRoleIds: { type: [String], default: [] },
+    expRoleMultipliers: { type: Schema.Types.Mixed, default: {} },
     modConfig: { type: modConfigEmbeddedSchema, default: () => ({}) },
     personalityPanels: { type: [personalityPanelEntrySchema], default: [] },
     channelSnapshots: { type: [channelSnapshotEntrySchema], default: [] },

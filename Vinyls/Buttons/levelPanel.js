@@ -7,7 +7,7 @@ const {
   recordLevelHistory,
   setLevelChannelLocked,
   setRoleIgnored,
-  getGuildExpSettings,
+  setRoleExpMultiplier,
   setTemporaryEventMultiplier,
   setGlobalMultiplier,
   syncLevelRolesForMember,
@@ -24,15 +24,13 @@ function match(interaction) {
   return id.startsWith("level_panel:") || id.startsWith("level_panel_modal:");
 }
 
-function parseCustomId(customId) {
+function parseLevelPanelComponentId(customId) {
   const parts = String(customId || "").split(":");
-  return {
-    root: parts[0] || "",
-    kind: parts[1] || "",
-    scope: parts[2] || "",
-    ownerId: parts[3] || "",
-    targetId: parts[4] || "",
-  };
+  if (parts[0] !== "level_panel") return null;
+  if (parts[1] === "server_nav") return { kind: "server_nav", ownerId: parts[2] || "" };
+  if (parts[1] === "server_btn") return { kind: "server_btn", action: parts[2] || "", ownerId: parts[3] || "" };
+  if (parts[1] === "user_actions") return { kind: "user_actions", ownerId: parts[2] || "", targetId: parts[3] || "" };
+  return null;
 }
 
 function parseModalId(customId) {
@@ -80,6 +78,11 @@ function buildModal(scope, action, ownerId, targetId = "") {
       pushInput("minutes", "Durata minuti", "es. 60", false);
     }
     if (action === "gmulti") pushInput("value", "Moltiplicatore globale", "es. 2");
+    if (action === "role_multi_set") {
+      pushInput("target", "Ruolo", "@ruolo oppure id");
+      pushInput("value", "Moltiplicatore", "es. 2 o 1.25");
+    }
+    if (action === "role_multi_remove") pushInput("target", "Ruolo", "@ruolo oppure id");
   } else {
     if (action === "set") {
       pushInput("mode", "Tipo", "exp oppure level");
@@ -94,37 +97,20 @@ function buildSimpleEmbed(title, description) {
   return new EmbedBuilder().setColor("#6f4e37").setTitle(title).setDescription(description);
 }
 
-async function runServerAction(interaction, action) {
-  const guildId = interaction.guild?.id;
-  if (!guildId) return buildSimpleEmbed("Level", "Guild non disponibile.");
-  if (action === "config") {
-    const settings = await getGuildExpSettings(guildId);
-    const lockList = settings.lockedChannelIds.length ? settings.lockedChannelIds.map((id) => `<#${id}>`).join(", ") : "Nessuno";
-    const ignoreList = settings.ignoredRoleIds.length ? settings.ignoredRoleIds.map((id) => `<@&${id}>`).join(", ") : "Nessuno";
-    return buildSimpleEmbed("Configurazione Level", [
-      `- Moltiplicatore base: **${settings.baseMultiplier}x**`,
-      `- Evento attivo: **${settings.eventMultiplier}x**`,
-      `- Scadenza evento: **${settings.eventExpiresAt ? fmtDate(settings.eventExpiresAt) : "Nessuna"}**`,
-      `- Moltiplicatore effettivo: **${settings.effectiveMultiplier}x**`,
-      `- Canali lock EXP: ${lockList}`,
-      `- Ruoli ignorati EXP: ${ignoreList}`,
-    ].join("\n"));
-  }
-  return null;
-}
-
 async function runServerModalAction(interaction, action) {
   const guildId = interaction.guild?.id;
   if (!guildId) return buildSimpleEmbed("Level", "Guild non disponibile.");
-  const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
-  const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
   if (action === "lock" || action === "unlock") {
+    const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
+    const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
     if (!/^\d{16,20}$/.test(cleanTarget)) return buildSimpleEmbed("Level", "Canale non valido.");
     const locked = action === "lock";
     const next = await setLevelChannelLocked(guildId, cleanTarget, locked);
     return buildSimpleEmbed("Level", `${locked ? "Canale bloccato" : "Canale sbloccato"} per EXP: <#${cleanTarget}>. Totale: **${next.length}**`);
   }
   if (action === "ignore" || action === "unignore") {
+    const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
+    const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
     if (!/^\d{16,20}$/.test(cleanTarget)) return buildSimpleEmbed("Level", "Ruolo non valido.");
     const ignored = action === "ignore";
     const next = await setRoleIgnored(guildId, cleanTarget, ignored);
@@ -145,6 +131,22 @@ async function runServerModalAction(interaction, action) {
     if (!Number.isFinite(value) || value <= 0) return buildSimpleEmbed("Level", "Valore non valido.");
     const stored = await setGlobalMultiplier(guildId, value);
     return buildSimpleEmbed("Level", `Moltiplicatore globale impostato a **${stored}x**.`);
+  }
+  if (action === "role_multi_set") {
+    const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
+    const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
+    const value = Number(interaction.fields.getTextInputValue("value"));
+    if (!/^\d{16,20}$/.test(cleanTarget)) return buildSimpleEmbed("Level", "Ruolo non valido.");
+    if (!Number.isFinite(value) || value <= 0) return buildSimpleEmbed("Level", "Moltiplicatore non valido.");
+    await setRoleExpMultiplier(guildId, cleanTarget, value);
+    return buildSimpleEmbed("Level", `Moltiplicatore ruolo impostato per <@&${cleanTarget}> a **${value}x**.`);
+  }
+  if (action === "role_multi_remove") {
+    const rawTarget = String(interaction.fields.getTextInputValue("target") || "");
+    const cleanTarget = rawTarget.replace(/[<#@&>]/g, "").trim();
+    if (!/^\d{16,20}$/.test(cleanTarget)) return buildSimpleEmbed("Level", "Ruolo non valido.");
+    await setRoleExpMultiplier(guildId, cleanTarget, null);
+    return buildSimpleEmbed("Level", `Override moltiplicatore rimosso per <@&${cleanTarget}> (torna al default se presente).`);
   }
   return buildSimpleEmbed("Level", "Azione server non riconosciuta.");
 }
@@ -229,13 +231,13 @@ async function execute(interaction) {
   }
 
   if (interaction.isModalSubmit()) {
-    const scope = String(parsed.scope || "");
-    const action = String(parsed.action || "");
+    const scope = String(modalParsed.scope || "");
+    const action = String(modalParsed.action || "");
     let embed;
     if (scope === "server") {
       embed = await runServerModalAction(interaction, action);
     } else if (scope === "user") {
-      const targetId = String(parsed.targetId || "");
+      const targetId = String(modalParsed.targetId || "");
       if (action === "set") {
         embed = await runUserMutation(interaction, action, targetId, interaction.fields.getTextInputValue("mode"), interaction.fields.getTextInputValue("value"));
       } else if (action === "add" || action === "remove") {
@@ -251,42 +253,25 @@ async function execute(interaction) {
   }
 
   if (interaction.isButton()) {
-    if (parsed.kind !== "view") return false;
-    if (parsed.scope === "server") {
-      const payload = buildLevelServerPanelPayload(ownerId, parsed.targetId || null);
-      await interaction.update(payload).catch(async () => { await interaction.reply(payload).catch(() => {}); });
-      return true;
-    }
-    if (parsed.scope === "user") {
-      const targetId = String(parsed.targetId || "");
-      if (!/^\d{16,20}$/.test(targetId)) {
-        await interaction.reply({
-          embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Usa `+level <utente>` per aprire il pannello utente.")],
-          flags: PRIVATE_FLAG,
-        }).catch(() => {});
-        return true;
-      }
-      const payload = buildLevelUserPanelPayload(ownerId, targetId);
-      await interaction.update(payload).catch(async () => { await interaction.reply(payload).catch(() => {}); });
-      return true;
-    }
-    return false;
+    if (!compParsed || compParsed.kind !== "server_btn") return false;
+    const modalAction = SERVER_BTN_MODAL[compParsed.action];
+    if (!modalAction) return false;
+    const modal = buildModal("server", modalAction, ownerId);
+    await interaction.showModal(modal).catch(() => {});
+    return true;
   }
 
   if (interaction.isStringSelectMenu()) {
-    const action = String(interaction.values?.[0] || "").toLowerCase();
-    if (parsed.kind === "server_actions") {
-      if (action === "config") {
-        const embed = await runServerAction(interaction, action);
-        await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch(() => {});
-        return true;
-      }
-      const modal = buildModal("server", action, ownerId);
-      await interaction.showModal(modal).catch(() => {});
+    if (compParsed?.kind === "server_nav") {
+      const section = String(interaction.values?.[0] || "home").toLowerCase();
+      const payload = await buildLevelServerPanelPayload(interaction.guild, ownerId, section);
+      await interaction.update(payload).catch(async () => { await interaction.reply(payload).catch(() => {}); });
       return true;
     }
-    if (parsed.kind === "user_actions") {
-      if (!/^\d{16,20}$/.test(String(parsed.targetId || ""))) {
+    if (compParsed?.kind === "user_actions") {
+      const action = String(interaction.values?.[0] || "").toLowerCase();
+      const targetId = String(compParsed.targetId || "");
+      if (!/^\d{16,20}$/.test(targetId)) {
         await interaction.reply({
           embeds: [buildSimpleEmbed("Level", "Target utente non valido.")],
           flags: PRIVATE_FLAG,
@@ -294,11 +279,11 @@ async function execute(interaction) {
         return true;
       }
       if (action === "syncroles" || action === "reset") {
-        const embed = await runUserAction(interaction, action, parsed.targetId);
+        const embed = await runUserAction(interaction, action, targetId);
         await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      const modal = buildModal("user", action, ownerId, parsed.targetId);
+      const modal = buildModal("user", action, ownerId, targetId);
       await interaction.showModal(modal).catch(() => {});
       return true;
     }

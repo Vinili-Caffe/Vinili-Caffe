@@ -117,6 +117,31 @@ function getNextPerkLevel(currentLevel) {
   );
 }
 
+function buildRoleMultipliersMerged(doc) {
+  const dbObj =
+    doc?.expRoleMultipliers && typeof doc.expRoleMultipliers === "object" && !Array.isArray(doc.expRoleMultipliers)
+      ? doc.expRoleMultipliers
+      : {};
+  const merged = new Map();
+  for (const [roleId, value] of ROLE_MULTIPLIERS.entries()) {
+    const id = String(roleId);
+    if (Object.prototype.hasOwnProperty.call(dbObj, id)) {
+      const n = Number(dbObj[id]);
+      merged.set(id, Number.isFinite(n) && n > 0 ? n : Number(value));
+    } else {
+      merged.set(id, Number(value));
+    }
+  }
+  for (const [k, v] of Object.entries(dbObj)) {
+    const id = String(k).trim();
+    if (!/^\d{16,20}$/.test(id) || merged.has(id)) continue;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    merged.set(id, n);
+  }
+  return merged;
+}
+
 function normalizeSettingsDoc(doc) {
   const now = Date.now();
   const expiresAtValue = doc?.expEventMultiplierExpiresAt ? new Date(doc.expEventMultiplierExpiresAt).getTime() : null;
@@ -147,6 +172,7 @@ function normalizeSettingsDoc(doc) {
     ignoredRoleIds: Array.isArray(doc?.expIgnoredRoleIds)
       ? doc.expIgnoredRoleIds.filter(Boolean)
       : [],
+    roleMultipliersMerged: buildRoleMultipliersMerged(doc),
   };
 }
 
@@ -175,6 +201,7 @@ async function getGuildExpSettings(guildId) {
       eventExtraMultiplierRoleIds: [],
       lockedChannelIds: [],
       ignoredRoleIds: [],
+      roleMultipliersMerged: buildRoleMultipliersMerged(null),
     };
   }
   const cached = settingsCache.get(guildId);
@@ -194,6 +221,7 @@ async function getGuildExpSettings(guildId) {
           expEventMultiplierExpiresAt: null,
           expLockedChannelIds: [],
           expIgnoredRoleIds: [],
+          expRoleMultipliers: {},
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -464,7 +492,8 @@ function getRoleMultiplier(member, settings = null) {
       multi = Math.max(multi, parsed);
     }
   } else {
-    for (const [roleId, value] of ROLE_MULTIPLIERS.entries()) {
+    const map = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : buildRoleMultipliersMerged(null);
+    for (const [roleId, value] of map.entries()) {
       if (!member.roles.cache.has(roleId)) continue;
       hasSpecificRoleMulti = true;
       multi = Math.max(multi, Math.max(1, Number(value) || 1));
@@ -879,6 +908,34 @@ async function setRoleIgnored(guildId, roleId, ignored = true) {
   return next;
 }
 
+async function setRoleExpMultiplier(guildId, roleId, multiplier) {
+  const rid = String(roleId || "").trim();
+  if (!guildId || !/^\d{16,20}$/.test(rid)) return null;
+  const targetGuildId = IDs.guilds.main;
+  const n = Number(multiplier);
+  const remove = multiplier === null || multiplier === undefined || !Number.isFinite(n) || n <= 0;
+  try {
+    if (remove) {
+      await GlobalSettings.findOneAndUpdate(
+        { guildId: targetGuildId },
+        { $unset: { [`expRoleMultipliers.${rid}`]: "" } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    } else {
+      await GlobalSettings.findOneAndUpdate(
+        { guildId: targetGuildId },
+        { $set: { [`expRoleMultipliers.${rid}`]: n } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    }
+  } catch (err) {
+    global.logger?.warn?.("[expService] setRoleExpMultiplier:", err?.message || err);
+    return null;
+  }
+  invalidateSettingsCache(guildId);
+  return getGuildExpSettings(guildId);
+}
+
 async function resolveMemberVisibilityRoleForExp(guild) {
   if (!guild) return null;
   const configuredId = String(IDs.roles?.Member || "").trim();
@@ -1152,4 +1209,4 @@ async function getTopLevelGainsInPeriod(guildId, lookbackDays, limit = 100) {
   return agg.map((x) => ({ userId: String(x._id || ""), levelGain: Math.max(0, Math.floor(Number(x.levelGain || 0))) }));
 }
 
-module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, setActivityEvent, clearActivityEvent, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, isEventStaffMember, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS };
+module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, setActivityEvent, clearActivityEvent, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, isEventStaffMember, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS };
