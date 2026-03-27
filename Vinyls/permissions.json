@@ -264,81 +264,7 @@
             "channels": [
                 "channels.highCmds",
                 "channels.staffCmds"
-            ],
-            "subcommands": {
-                "set": [
-                    "roles.HighStaff"
-                ],
-                "add": [
-                    "roles.HighStaff"
-                ],
-                "remove": [
-                    "roles.HighStaff"
-                ],
-                "reset": [
-                    "roles.HighStaff"
-                ],
-                "lock": [
-                    "roles.HighStaff"
-                ],
-                "unlock": [
-                    "roles.HighStaff"
-                ],
-                "multiplier": [
-                    "roles.HighStaff"
-                ],
-                "gmulti": [
-                    "roles.HighStaff"
-                ],
-                "ignore": [
-                    "roles.HighStaff"
-                ],
-                "unignore": [
-                    "roles.HighStaff"
-                ],
-                "config": [
-                    "roles.HighStaff"
-                ],
-                "levelset": [
-                    "roles.HighStaff"
-                ],
-                "leveladdexp": [
-                    "roles.HighStaff"
-                ],
-                "levelremoveexp": [
-                    "roles.HighStaff"
-                ],
-                "levelreset": [
-                    "roles.HighStaff"
-                ],
-                "levellock": [
-                    "roles.HighStaff"
-                ],
-                "levelunlock": [
-                    "roles.HighStaff"
-                ],
-                "levelmultiplier": [
-                    "roles.HighStaff"
-                ],
-                "levelignore": [
-                    "roles.HighStaff"
-                ],
-                "levelunignore": [
-                    "roles.HighStaff"
-                ],
-                "levelconfig": [
-                    "roles.HighStaff"
-                ],
-                "levelgmulti": [
-                    "roles.HighStaff"
-                ],
-                "syncroles": [
-                    "roles.HighStaff"
-                ],
-                "levelsyncroles": [
-                    "roles.HighStaff"
-                ]
-            }
+            ]
         },
         "evento": {
             "roles": [
@@ -848,6 +774,30 @@
         "giveaway_reroll:*": [
             "roles.HighStaff"
         ],
+        "level_panel:view:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 3
+        },
+        "level_panel:server_actions:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 2
+        },
+        "level_panel:user_actions:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 2
+        },
+        "level_panel_modal:*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 3
+        },
         "claim_ticket": [
             "roles.Staff",
             "roles.HighStaff",

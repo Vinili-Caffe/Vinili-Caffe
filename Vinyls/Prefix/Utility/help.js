@@ -76,18 +76,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
-  "level.set": "Imposta EXP o livello a un valore preciso per un utente.",
-  "level.add": "Aggiunge EXP a un utente.",
-  "level.remove": "Rimuove EXP da un utente.",
-  "level.reset": "Azzera EXP e livello di un utente.",
-  "level.lock": "Blocca il guadagno EXP in un canale.",
-  "level.unlock": "Sblocca il guadagno EXP in un canale.",
-  "level.multiplier": "Imposta un moltiplicatore EXP temporaneo.",
-  "level.gmulti": "Imposta il moltiplicatore globale EXP del server.",
-  "level.config": "Mostra la configurazione EXP corrente del server.",
-  "level.syncroles": "Allinea ruoli milestone/perks al livello EXP nel DB.",
-  "level.ignore": "Esclude un ruolo dal guadagno EXP.",
-  "level.unignore": "Riabilita un ruolo al guadagno EXP.",
+  "level": "Senza args apre pannello server; con utente apre pannello utente.",
   "security.status": "Mostra un pannello paginato con lo stato dei sistemi sicurezza.",
   "security.enable": "Riattiva completamente i moduli sicurezza selezionati.",
   "security.disable": "Disabilita completamente i moduli sicurezza selezionati.",

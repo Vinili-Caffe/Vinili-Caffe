@@ -1,8 +1,5 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { getLevelInfo, getTotalExpForLevel, recordLevelHistory, setLevelChannelLocked, setRoleIgnored, getGuildExpSettings, setTemporaryEventMultiplier, setGlobalMultiplier, syncLevelRolesForMember, sendLevelUpAnnouncement } = require("../../Services/Community/expService");
-const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 async function resolveTargetUser(message, raw) {
   const fromMention = message.mentions?.users?.first();
@@ -12,369 +9,125 @@ async function resolveTargetUser(message, raw) {
   return message.client.users.fetch(id).catch(() => null);
 }
 
-function asInt(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return Math.floor(n);
-}
-
-function fmtDate(dateValue) {
-  const d = new Date(dateValue);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString("it-IT", { hour12: false });
-}
-
 module.exports = {
   name: "level",
-  aliases: [
-    "gmulti",
-    "levelset",
-    "leveladdexp",
-    "levelremoveexp",
-    "levelreset",
-    "levellock",
-    "levelunlock",
-    "levelmultiplier",
-    "levelignore",
-    "levelunignore",
-    "levelconfig",
-    "levelgmulti",
-    "levelsyncroles",
-  ],
-  subcommands: [
-    "set",
-    "add",
-    "remove",
-    "reset",
-    "lock",
-    "unlock",
-    "multiplier",
-    "gmulti",
-    "ignore",
-    "unignore",
-    "config",
-    "syncroles",
-  ],
-  subcommandAliases: {
-    gmulti: "gmulti",
-    levelset: "set",
-    leveladdexp: "add",
-    levelremoveexp: "remove",
-    levelreset: "reset",
-    levellock: "lock",
-    levelunlock: "unlock",
-    levelmultiplier: "multiplier",
-    levelignore: "ignore",
-    levelunignore: "unignore",
-    levelconfig: "config",
-    levelgmulti: "gmulti",
-    levelsyncroles: "syncroles",
-  },
-  usage: "+level <set|add|remove|reset|syncroles|…> …",
-  examples: ["+level syncroles @utente", "+level syncroles all", "+level set @utente level 10"],
+  aliases: [],
+  usage: "+level | +level <@utente | id>",
+  examples: ["+level", "+level @utente"],
 
   async execute(message, args = []) {
     await message.channel.sendTyping().catch(() => {});
-    const sub = String(args[0] || "").toLowerCase();
     const guildId = message.guild?.id;
     if (!guildId) return;
 
-    if (!sub) {
-      const usage = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("Comando level")
-      .setDescription([
-        "`+level set <@utente | id> <exp | level> <valore>`",
-        "`+level add <@utente | id> <livelli>`",
-        "`+level remove <@utente | id> <livelli>`",
-        "`+level reset <@utente | id>`",
-        "`+level lock <#canale | id>`",
-        "`+level unlock <#canale | id>`",
-        "`+level multiplier <valore> [minuti]`",
-        "`+level gmulti <valore>`",
-        "`+level ignore <@ruolo | id>`",
-        "`+level unignore <@ruolo | id>`",
-        "`+level config`",
-        "`+level syncroles <@utente | id | all>`",
-      ].join("\n"));
+    if (!args.length) {
       await safeMessageReply(message, {
-        embeds: [usage],
+        ...buildLevelServerPanelPayload(message.author.id),
         allowedMentions: { repliedUser: false },
       });
       return;
     }
 
-    if (sub === "syncroles") {
-      const mode = String(args[1] || "").toLowerCase();
-      if (mode === "all") {
-        await safeMessageReply(message, {
-          content: "<:VC_InactiveStatus:1482526984234860574> Sync ruoli in corso (tutti gli utenti con EXP nel DB)…",
-          allowedMentions: { repliedUser: false },
-        });
-        const profileRows = await ActivityUserProfile.find({ guildId }).select("userId profile.totals.exp.totalExp").lean().catch(() => []);
-        let n = 0;
-        for (const row of profileRows) {
-          const uid = String(row?.userId || "");
-          if (!uid) continue;
-          const level = getLevelInfo(Math.max(0, Number(row?.profile?.totals?.exp?.totalExp || 0))).level;
-          await syncLevelRolesForMember(message.guild, uid, level).catch(() => {});
-          n += 1;
-          if (n % 25 === 0) await message.channel.sendTyping().catch(() => {});
-        }
-        await safeMessageReply(message, {
-          content: `<:vegacheckmark:1443666279058772028> Sync ruoli completato: **${n}** utenti.`,
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const target = await resolveTargetUser(message, args[1]);
-      if (!target) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level syncroles <@utente | id>` oppure `+level syncroles all`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const profileRow = await ActivityUserProfile.findOne({ guildId, userId: target.id }).select("profile.totals.exp.totalExp").lean().catch(() => null);
-      const totalExp = Math.max(0, Number(profileRow?.profile?.totals?.exp?.totalExp || 0));
-      const level = getLevelInfo(totalExp).level;
-      await syncLevelRolesForMember(message.guild, target.id, level);
-      await safeMessageReply(message, {
-        content: `<:vegacheckmark:1443666279058772028> Ruoli allineati al livello **${level}** per <@${target.id}>.`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (sub === "config") {
-      const settings = await getGuildExpSettings(guildId);
-      const lockList=settings.lockedChannelIds.length?settings.lockedChannelIds.map((id) => `<#${id}>`).join(", ")
-        : "Nessuno";
-      const ignoreList=settings.ignoredRoleIds.length?settings.ignoredRoleIds.map((id) => `<@&${id}>`).join(", ")
-        : "Nessuno";
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setTitle("Configurazione Level")
-        .setDescription([`- Moltiplicatore base: **${settings.baseMultiplier}x**`,
-            `- Evento attivo: **${settings.eventMultiplier}x**`,
-            `- Scadenza evento: **${settings.eventExpiresAt ? fmtDate(settings.eventExpiresAt) : "Nessuna"}**`,
-            `- Moltiplicatore effettivo: **${settings.effectiveMultiplier}x**`,
-            `- Canali lock EXP: ${lockList}`,
-            `- Ruoli ignorati EXP: ${ignoreList}`,
-          ].join("\n"));
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (sub === "lock" || sub === "unlock") {
-      const raw = String(args[1] || "");
-      const channelId = raw.replace(/[<#>]/g, "");
-      if (!/^\d{16,20}$/.test(channelId)) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level lock <#canale | id>`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const locked = sub === "lock";
-      const next = await setLevelChannelLocked(guildId, channelId, locked);
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          `${locked ? "Canale bloccato" : "Canale sbloccato"} per EXP: <#${channelId}>. Totale canali lock: **${next.length}**`,
-        );
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (sub === "ignore" || sub === "unignore") {
-      const role=message.mentions?.roles?.first()||message.guild.roles.cache.get(String(args[1]||"").replace(/[<@&>]/g,""),)||null;
-      if (!role) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level ignore <@ruolo | id>`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const ignored = sub === "ignore";
-      const next = await setRoleIgnored(guildId, role.id, ignored);
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          `${ignored ? "Ruolo ignorato" : "Ruolo riabilitato"} per EXP: ${role}. Totale ruoli ignorati: **${next.length}**`,
-        );
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (sub === "multiplier") {
-      const value = Number(args[1]);
-      const minutes = asInt(args[2] || 60);
-      if (
-        !Number.isFinite(value) ||
-        value <= 0 ||
-        !Number.isFinite(minutes) ||
-        minutes <= 0
-      ) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level multiplier <valore> [minuti]`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const result=await setTemporaryEventMultiplier(guildId,value,minutes*60*1000,);
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          `Evento EXP impostato a **${result.multiplier}x** fino al **${fmtDate(result.expiresAt)}**.`,
-        );
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (sub === "gmulti") {
-      const value = Number(args[1]);
-      if (!Number.isFinite(value) || value <= 0) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level gmulti <numero>`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const stored = await setGlobalMultiplier(guildId, value);
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          `<:vegacheckmark:1443666279058772028> Moltiplicatore globale impostato a **${stored}x**.`,
-        );
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    const target = await resolveTargetUser(message, args[1]);
+    const target = await resolveTargetUser(message, args[0]);
     if (!target) {
       await safeMessageReply(message, {
         content:
-          "<:vegax:1443934876440068179> Specifica un utente valido (`@utente` o `id`).",
+          "<:vegax:1443934876440068179> Usa `+level` oppure `+level <@utente | id>`.",
         allowedMentions: { repliedUser: false },
       });
       return;
     }
-
-    let doc = await ActivityUserProfile.findOne({ guildId, userId: target.id });
-    if (!doc) {
-      doc = new ActivityUserProfile({ guildId, userId: target.id });
-    }
-    if (!doc.profile) doc.profile = {};
-    if (!doc.profile.totals) doc.profile.totals = {};
-    if (!doc.profile.totals.exp) doc.profile.totals.exp = {};
-
-    const beforeExp = Math.max(0, Math.floor(Number(doc.profile.totals.exp.totalExp || 0)));
-    const beforeLevel = getLevelInfo(beforeExp).level;
-    let afterExp = beforeExp;
-
-    if (sub === "set") {
-      const mode = String(args[2] || "").toLowerCase();
-      const value = asInt(args[3]);
-      if (
-        !["exp", "level"].includes(mode) ||
-        !Number.isFinite(value) ||
-        value < 0
-      ) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level set <@utente | id> <exp | level> <valore>`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      afterExp = mode === "exp" ? value : getTotalExpForLevel(value);
-    } else if (sub === "add") {
-      const delta = asInt(args[2]);
-      if (!Number.isFinite(delta) || delta <= 0) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level add <@utente | id> <livelli>`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      afterExp = getTotalExpForLevel(beforeLevel + delta);
-    } else if (sub === "remove") {
-      const delta = asInt(args[2]);
-      if (!Number.isFinite(delta) || delta <= 0) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Usa: `+level remove <@utente | id> <livelli>`",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const afterLevel = Math.max(0, beforeLevel - delta);
-      afterExp = getTotalExpForLevel(afterLevel);
-    } else if (sub === "reset") {
-      afterExp = 0;
-    } else {
-      await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Subcomando non valido.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    doc.profile.totals.exp.totalExp = Math.max(0, Math.floor(afterExp));
-    doc.profile.totals.exp.level = getLevelInfo(doc.profile.totals.exp.totalExp).level;
-    await doc.save();
-    await syncLevelRolesForMember(message.guild, target.id, doc.profile.totals.exp.level);
-    await recordLevelHistory({
-      guildId,
-      userId: target.id,
-      actorId: message.author.id,
-      action: `staff_${sub}`,
-      beforeExp,
-      afterExp: doc.profile.totals.exp.totalExp,
-      note: `Comando +level ${sub}`,
-    });
-
-    if (doc.profile.totals.exp.level > beforeLevel) {
-      const member = message.guild.members.cache.get(target.id) || await getGuildMemberCached(message.guild, target.id).catch(() => null);
-      if (member) {
-        await sendLevelUpAnnouncement(message.guild, member, doc.profile.totals.exp.level).catch(() => {});
-      }
-    }
-
-    const lines = [`- Utente: <@${target.id}>`,
-      `- Azione: **${sub}**`,
-      `- Livello: **${beforeLevel} -> ${doc.profile.totals.exp.level}**`,
-      `- EXP: **${beforeExp} -> ${doc.profile.totals.exp.totalExp}**`,
-    ];
-    const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setTitle("Aggiornamento Level")
-        .setDescription(lines.join("\n"));
     await safeMessageReply(message, {
-      embeds: [embed],
+      ...buildLevelUserPanelPayload(message.author.id, target.id),
       allowedMentions: { repliedUser: false },
     });
   },
 };
+
+function buildLevelServerPanelPayload(ownerId, targetUserId = null) {
+  const safeOwner = String(ownerId || "");
+  const safeTarget = String(targetUserId || "");
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("Pannello Level — Server")
+    .setDescription([
+      "Usa questo pannello per gestire la configurazione EXP del server.",
+      "",
+      "Azioni rapide disponibili:",
+      "- Configurazione corrente",
+      "- Lock/Unlock canali EXP",
+      "- Moltiplicatore evento / globale",
+      "- Ignore/Unignore ruoli EXP",
+    ].join("\n"));
+
+  const rowSwitch = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`level_panel:view:server:${safeOwner}`)
+      .setStyle(ButtonStyle.Primary)
+      .setLabel("Server"),
+    new ButtonBuilder()
+      .setCustomId(safeTarget ? `level_panel:view:user:${safeOwner}:${safeTarget}` : `level_panel:view:user:${safeOwner}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setLabel("Utente")
+      .setDisabled(!safeTarget),
+  );
+  const rowActions = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`level_panel:server_actions:${safeOwner}`)
+      .setPlaceholder("Scegli azione server")
+      .addOptions(
+        { label: "config", value: "config", description: "Mostra configurazione level attuale" },
+        { label: "lock", value: "lock", description: "Blocca EXP in un canale" },
+        { label: "unlock", value: "unlock", description: "Sblocca EXP in un canale" },
+        { label: "multiplier", value: "multiplier", description: "Imposta moltiplicatore evento temporaneo" },
+        { label: "gmulti", value: "gmulti", description: "Imposta moltiplicatore globale" },
+        { label: "ignore", value: "ignore", description: "Esclude un ruolo dal guadagno EXP" },
+        { label: "unignore", value: "unignore", description: "Riabilita un ruolo al guadagno EXP" },
+      ),
+  );
+  return { embeds: [embed], components: [rowSwitch, rowActions] };
+}
+
+function buildLevelUserPanelPayload(ownerId, targetUserId) {
+  const safeOwner = String(ownerId || "");
+  const safeTarget = String(targetUserId || "");
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("Pannello Level — Utente")
+    .setDescription([
+      `Target: <@${safeTarget}>`,
+      "",
+      "Azioni rapide disponibili:",
+      "- set exp/level",
+      "- add/remove livelli",
+      "- reset livello",
+      "- sync ruoli livello",
+    ].join("\n"));
+
+  const rowSwitch = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`level_panel:view:server:${safeOwner}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setLabel("Server"),
+    new ButtonBuilder()
+      .setCustomId(`level_panel:view:user:${safeOwner}:${safeTarget}`)
+      .setStyle(ButtonStyle.Primary)
+      .setLabel("Utente"),
+  );
+  const rowActions = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`level_panel:user_actions:${safeOwner}:${safeTarget}`)
+      .setPlaceholder("Scegli azione utente")
+      .addOptions(
+        { label: "set", value: "set", description: "Imposta exp o level manualmente" },
+        { label: "add", value: "add", description: "Aggiunge livelli all'utente" },
+        { label: "remove", value: "remove", description: "Rimuove livelli all'utente" },
+        { label: "reset", value: "reset", description: "Azzera exp/livello dell'utente" },
+        { label: "syncroles", value: "syncroles", description: "Sincronizza ruoli livello dell'utente" },
+      ),
+  );
+  return { embeds: [embed], components: [rowSwitch, rowActions] };
+}
+
+module.exports.buildLevelServerPanelPayload = buildLevelServerPanelPayload;
+module.exports.buildLevelUserPanelPayload = buildLevelUserPanelPayload;
