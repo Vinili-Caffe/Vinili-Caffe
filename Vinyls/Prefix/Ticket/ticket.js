@@ -154,203 +154,203 @@ async function ensureTicketsCategory(guild) {
 }
 
 async function ticketSwitchPanelExecute(message, categoryToken) {
-  const targetChannel = message.channel;
-  const panelConfig = getTicketPanelConfig(categoryToken);
+      const targetChannel = message.channel;
+      const panelConfig = getTicketPanelConfig(categoryToken);
 
-  if (!targetChannel || !targetChannel.isTextBased?.()) {
-    await safeMessageReply(message, {
-      embeds: [
-        makeErrorEmbed(
-          "Errore",
-          "<:vegax:1443934876440068179> Specifica un canale valido.",
-        ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
-    return;
-  }
-
-  if (!panelConfig) {
-    await safeMessageReply(message, {
-      embeds: [
-        makeErrorEmbed(
-          "Errore",
-          "<:vegax:1443934876440068179> Categoria non valida. Usa: `supporto`, `partnership`, `highstaff`.",
-        ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
-    return;
-  }
-
-  if (!message.client.ticketSwitchLocks)
-    message.client.ticketSwitchLocks = new Set();
-  if (!message.client.ticketSwitchCooldowns)
-    message.client.ticketSwitchCooldowns = new Map();
-  const switchKey = `${message.guild.id}:${targetChannel.id}`;
-  const lastSwitchAt = Number(message.client.ticketSwitchCooldowns.get(switchKey) || 0,);
-
-  if (message.client.ticketSwitchLocks.has(switchKey)) {
-    await safeMessageReply(message, {
-      embeds: [
-        makeErrorEmbed(
-          "Attendi",
-          "<:VC_Attention:1482534443632558151> C'è già uno switchpanel in esecuzione su questo ticket.",
-        ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
-    return;
-  }
-
-  if (Date.now() - lastSwitchAt < 2000) {
-    await safeMessageReply(message, {
-      embeds: [
-        makeErrorEmbed(
-          "Attendi",
-          "<:VC_Attention:1482534443632558151> Aspetta un attimo prima di rifare switchpanel.",
-        ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
-    return;
-  }
-
-  message.client.ticketSwitchLocks.add(switchKey);
-  try {
-    const ticketDoc = await Ticket.findOne({ channelId: targetChannel.id, open: true }).catch(() => null);
-    if (!ticketDoc) {
-      await safeMessageReply(message, {
-        embeds: [
-          makeErrorEmbed(
-            "Errore",
-            "<:vegax:1443934876440068179> Nel canale indicato non c'è un ticket aperto.",
-          ),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const previousTicketType = String(ticketDoc.ticketType || "");
-
-    const openerMember = await getGuildMemberCached(message.guild, ticketDoc.userId);
-    const openerName = openerMember?.user?.username || "utente";
-    const safeOpenerName = String(openerName).replace(/[^\w.-]/g, "").slice(0, 20) || "utente";
-    const newChannelName = `༄${panelConfig.emoji}︲${panelConfig.name}᲼${safeOpenerName}`;
-    if (targetChannel.name !== newChannelName) {
-      await targetChannel.setName(newChannelName).catch(() => { });
-    }
-
-    await targetChannel.permissionOverwrites
-      .edit(message.guild.roles.everyone.id, { ViewChannel: false })
-      .catch(() => { });
-    await targetChannel.permissionOverwrites
-      .edit(ticketDoc.userId, {
-        ViewChannel: true,
-        SendMessages: true,
-        EmbedLinks: true,
-        AttachFiles: true,
-        ReadMessageHistory: true,
-        AddReactions: true,
-      })
-      .catch(() => { });
-
-    if (ticketDoc.claimedBy) {
-      const claimerMember = await getGuildMemberCached(message.guild, ticketDoc.claimedBy);
-      if (!canClaimTicket(claimerMember, panelConfig.type, message.guild?.id)) {
-        ticketDoc.claimedBy = null;
+      if (!targetChannel || !targetChannel.isTextBased?.()) {
+        await safeMessageReply(message, {
+          embeds: [
+            makeErrorEmbed(
+              "Errore",
+              "<:vegax:1443934876440068179> Specifica un canale valido.",
+            ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
       }
-    }
 
-    const applyReadOnly = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, };
-    const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
-    const denyView = { ViewChannel: false };
-
-    if (panelConfig.type === "supporto") {
-      if (ticketDoc.claimedBy) {
-        await targetChannel.permissionOverwrites
-          .edit(STAFF_ROLE_ID, applyReadOnly)
-          .catch(() => { });
-        await targetChannel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-          .catch(() => { });
-      } else {
-        await targetChannel.permissionOverwrites
-          .edit(STAFF_ROLE_ID, applyFull)
-          .catch(() => { });
-        await targetChannel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, applyFull)
-          .catch(() => { });
+      if (!panelConfig) {
+        await safeMessageReply(message, {
+          embeds: [
+            makeErrorEmbed(
+              "Errore",
+              "<:vegax:1443934876440068179> Categoria non valida. Usa: `supporto`, `partnership`, `highstaff`.",
+            ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
       }
-      await targetChannel.permissionOverwrites
-        .edit(PARTNERMANAGER_ROLE_ID, denyView)
-        .catch(() => { });
-    }
 
-    if (panelConfig.type === "partnership") {
-      if (ticketDoc.claimedBy) {
-        await targetChannel.permissionOverwrites
-          .edit(PARTNERMANAGER_ROLE_ID, applyReadOnly)
-          .catch(() => { });
-        await targetChannel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-          .catch(() => { });
-      } else {
-        await targetChannel.permissionOverwrites
-          .edit(PARTNERMANAGER_ROLE_ID, applyFull)
-          .catch(() => { });
-        await targetChannel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-          .catch(() => { });
+      if (!message.client.ticketSwitchLocks)
+        message.client.ticketSwitchLocks = new Set();
+      if (!message.client.ticketSwitchCooldowns)
+        message.client.ticketSwitchCooldowns = new Map();
+      const switchKey = `${message.guild.id}:${targetChannel.id}`;
+      const lastSwitchAt = Number(message.client.ticketSwitchCooldowns.get(switchKey) || 0,);
+
+      if (message.client.ticketSwitchLocks.has(switchKey)) {
+        await safeMessageReply(message, {
+          embeds: [
+            makeErrorEmbed(
+              "Attendi",
+              "<:VC_Attention:1482534443632558151> C'è già uno switchpanel in esecuzione su questo ticket.",
+            ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
       }
-      await targetChannel.permissionOverwrites
-        .edit(STAFF_ROLE_ID, denyView)
-        .catch(() => { });
-    }
 
-    if (panelConfig.type === "high") {
-      if (ticketDoc.claimedBy) {
-        await targetChannel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
-          .catch(() => { });
-      } else {
-        await targetChannel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, applyFull)
-          .catch(() => { });
+      if (Date.now() - lastSwitchAt < 2000) {
+        await safeMessageReply(message, {
+          embeds: [
+            makeErrorEmbed(
+              "Attendi",
+              "<:VC_Attention:1482534443632558151> Aspetta un attimo prima di rifare switchpanel.",
+            ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+        return;
       }
-      await targetChannel.permissionOverwrites
-        .edit(STAFF_ROLE_ID, denyView)
-        .catch(() => { });
-      await targetChannel.permissionOverwrites
-        .edit(PARTNERMANAGER_ROLE_ID, denyView)
-        .catch(() => { });
-    }
 
-    if (ticketDoc.claimedBy) {
-      await targetChannel.permissionOverwrites
-        .edit(ticketDoc.claimedBy, {
-          ViewChannel: true,
-          SendMessages: true,
-          EmbedLinks: true,
-          AttachFiles: true,
-          ReadMessageHistory: true,
-          AddReactions: true,
-        })
-        .catch(() => { });
-    }
+      message.client.ticketSwitchLocks.add(switchKey);
+      try {
+        const ticketDoc = await Ticket.findOne({ channelId: targetChannel.id, open: true }).catch(() => null);
+        if (!ticketDoc) {
+          await safeMessageReply(message, {
+            embeds: [
+              makeErrorEmbed(
+                "Errore",
+                "<:vegax:1443934876440068179> Nel canale indicato non c'è un ticket aperto.",
+              ),
+            ],
+            allowedMentions: { repliedUser: false },
+          });
+          return;
+        }
+        const previousTicketType = String(ticketDoc.ticketType || "");
 
-    ticketDoc.ticketType = panelConfig.type;
+        const openerMember = await getGuildMemberCached(message.guild, ticketDoc.userId);
+        const openerName = openerMember?.user?.username || "utente";
+        const safeOpenerName = String(openerName).replace(/[^\w.-]/g, "").slice(0, 20) || "utente";
+        const newChannelName = `༄${panelConfig.emoji}︲${panelConfig.name}᲼${safeOpenerName}`;
+        if (targetChannel.name !== newChannelName) {
+          await targetChannel.setName(newChannelName).catch(() => { });
+        }
 
-    if (
-      previousTicketType === "partnership" &&
-      panelConfig.type !== "partnership"
-    ) {
-      if (ticketDoc.descriptionPromptMessageId) {
-        const oldPrompt = await targetChannel.messages.fetch(ticketDoc.descriptionPromptMessageId).catch(() => null);
-        if (oldPrompt) await oldPrompt.delete().catch(() => { });
-      }
-      ticketDoc.descriptionPromptMessageId = null;
-    }
+        await targetChannel.permissionOverwrites
+          .edit(message.guild.roles.everyone.id, { ViewChannel: false })
+          .catch(() => { });
+        await targetChannel.permissionOverwrites
+          .edit(ticketDoc.userId, {
+            ViewChannel: true,
+            SendMessages: true,
+            EmbedLinks: true,
+            AttachFiles: true,
+            ReadMessageHistory: true,
+            AddReactions: true,
+          })
+          .catch(() => { });
+
+        if (ticketDoc.claimedBy) {
+          const claimerMember = await getGuildMemberCached(message.guild, ticketDoc.claimedBy);
+          if (!canClaimTicket(claimerMember, panelConfig.type, message.guild?.id)) {
+            ticketDoc.claimedBy = null;
+          }
+        }
+
+        const applyReadOnly = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, };
+        const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
+        const denyView = { ViewChannel: false };
+
+        if (panelConfig.type === "supporto") {
+          if (ticketDoc.claimedBy) {
+            await targetChannel.permissionOverwrites
+              .edit(STAFF_ROLE_ID, applyReadOnly)
+              .catch(() => { });
+            await targetChannel.permissionOverwrites
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
+              .catch(() => { });
+          } else {
+            await targetChannel.permissionOverwrites
+              .edit(STAFF_ROLE_ID, applyFull)
+              .catch(() => { });
+            await targetChannel.permissionOverwrites
+              .edit(HIGHSTAFF_ROLE_ID, applyFull)
+              .catch(() => { });
+          }
+          await targetChannel.permissionOverwrites
+            .edit(PARTNERMANAGER_ROLE_ID, denyView)
+            .catch(() => { });
+        }
+
+        if (panelConfig.type === "partnership") {
+          if (ticketDoc.claimedBy) {
+            await targetChannel.permissionOverwrites
+              .edit(PARTNERMANAGER_ROLE_ID, applyReadOnly)
+              .catch(() => { });
+            await targetChannel.permissionOverwrites
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
+              .catch(() => { });
+          } else {
+            await targetChannel.permissionOverwrites
+              .edit(PARTNERMANAGER_ROLE_ID, applyFull)
+              .catch(() => { });
+            await targetChannel.permissionOverwrites
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
+              .catch(() => { });
+          }
+          await targetChannel.permissionOverwrites
+            .edit(STAFF_ROLE_ID, denyView)
+            .catch(() => { });
+        }
+
+        if (panelConfig.type === "high") {
+          if (ticketDoc.claimedBy) {
+            await targetChannel.permissionOverwrites
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
+              .catch(() => { });
+          } else {
+            await targetChannel.permissionOverwrites
+              .edit(HIGHSTAFF_ROLE_ID, applyFull)
+              .catch(() => { });
+          }
+          await targetChannel.permissionOverwrites
+            .edit(STAFF_ROLE_ID, denyView)
+            .catch(() => { });
+          await targetChannel.permissionOverwrites
+            .edit(PARTNERMANAGER_ROLE_ID, denyView)
+            .catch(() => { });
+        }
+
+        if (ticketDoc.claimedBy) {
+          await targetChannel.permissionOverwrites
+            .edit(ticketDoc.claimedBy, {
+              ViewChannel: true,
+              SendMessages: true,
+              EmbedLinks: true,
+              AttachFiles: true,
+              ReadMessageHistory: true,
+              AddReactions: true,
+            })
+            .catch(() => { });
+        }
+
+        ticketDoc.ticketType = panelConfig.type;
+
+        if (
+          previousTicketType === "partnership" &&
+          panelConfig.type !== "partnership"
+        ) {
+          if (ticketDoc.descriptionPromptMessageId) {
+            const oldPrompt = await targetChannel.messages.fetch(ticketDoc.descriptionPromptMessageId).catch(() => null);
+            if (oldPrompt) await oldPrompt.delete().catch(() => { });
+          }
+          ticketDoc.descriptionPromptMessageId = null;
+        }
 
     const persistSet = {
       ticketType: panelConfig.type,
@@ -363,36 +363,36 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
       global.logger?.warn?.("[ticketSwitchPanel] persist ticket fields failed:", err?.message || err);
     });
 
-    const msg = await fetchTicketMessage(targetChannel, ticketDoc.messageId,);
-    if (msg) {
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-        ticketDoc.claimedBy
-          ? new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary)
-          : new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
-      );
-      await msg
-        .edit({ embeds: [panelConfig.embed], components: [row] })
-        .catch(() => { });
-    }
+        const msg = await fetchTicketMessage(targetChannel, ticketDoc.messageId,);
+        if (msg) {
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+            ticketDoc.claimedBy
+              ? new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary)
+              : new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
+          );
+          await msg
+            .edit({ embeds: [panelConfig.embed], components: [row] })
+            .catch(() => { });
+        }
 
-    await safeMessageReply(message, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#6f4e37")
-          .setTitle("Switch Panel")
-          .setDescription(
-            `<:vegacheckmark:1443666279058772028> Ticket aggiornato in **${panelConfig.label || panelConfig.name || panelConfig.type}** nel canale ${targetChannel}.`,
-          ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
-  } finally {
-    message.client.ticketSwitchLocks.delete(switchKey);
-    message.client.ticketSwitchCooldowns.set(switchKey, Date.now());
-  }
-}
+        await safeMessageReply(message, {
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#6f4e37")
+              .setTitle("Switch Panel")
+              .setDescription(
+                `<:vegacheckmark:1443666279058772028> Ticket aggiornato in **${panelConfig.label || panelConfig.name || panelConfig.type}** nel canale ${targetChannel}.`,
+              ),
+          ],
+          allowedMentions: { repliedUser: false },
+        });
+      } finally {
+        message.client.ticketSwitchLocks.delete(switchKey);
+        message.client.ticketSwitchCooldowns.set(switchKey, Date.now());
+      }
+    }
 
 const TICKET_REOPEN_BY_NUMBER_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
 
@@ -404,58 +404,58 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
 
   if (!ticketDoc) {
     await reply({
-      embeds: [
+          embeds: [
         makeErrorEmbed(
           "Errore",
           `<:vegax:1443934876440068179> Ticket #${ticketNumber} non trovato.`,
         ),
       ],
       allowedMentions: NO_REPLY_MENTIONS,
-    });
-    return;
-  }
+        });
+        return;
+      }
 
   if (ticketDoc.open && ticketDoc.channelId) {
     await reply({
-      embeds: [
+          embeds: [
         makeErrorEmbed(
           "Info",
           `<:VC_Attention:1482534443632558151> Ticket #${ticketNumber} è già aperto: <#${ticketDoc.channelId}>`,
         ),
       ],
       allowedMentions: NO_REPLY_MENTIONS,
-    });
-    return;
-  }
+        });
+        return;
+      }
 
   const existingOpen = await Ticket.findOne({ guildId: guild.id, userId: ticketDoc.userId, open: true }, { _id: 1, channelId: 1 }).lean().catch(() => null);
 
   if (existingOpen) {
     await reply({
-      embeds: [
-        makeErrorEmbed(
-          "Errore",
+          embeds: [
+            makeErrorEmbed(
+              "Errore",
           `<:vegax:1443934876440068179> L'utente ha già un ticket aperto: <#${existingOpen.channelId}>`,
-        ),
-      ],
+            ),
+          ],
       allowedMentions: NO_REPLY_MENTIONS,
-    });
-    return;
-  }
+        });
+        return;
+      }
 
   const ticketMember = await getGuildMemberCached(guild, ticketDoc.userId);
   if (!ticketMember) {
     await reply({
-      embeds: [
-        makeErrorEmbed(
-          "Errore",
+          embeds: [
+            makeErrorEmbed(
+              "Errore",
           "<:vegax:1443934876440068179> Utente del ticket non presente nel server, impossibile riaprire.",
-        ),
-      ],
+            ),
+          ],
       allowedMentions: NO_REPLY_MENTIONS,
-    });
-    return;
-  }
+        });
+        return;
+      }
 
   const config = getTicketPanelConfig(ticketDoc.ticketType) || getTicketPanelConfig("supporto");
   if (!config) {
@@ -469,16 +469,16 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
   const category = await ensureTicketsCategory(guild);
   if (!category) {
     await reply({
-      embeds: [
-        makeErrorEmbed(
+          embeds: [
+            makeErrorEmbed(
           "Errore",
           "<:vegax:1443934876440068179> Impossibile trovare o creare la categoria ticket.",
-        ),
-      ],
+            ),
+          ],
       allowedMentions: NO_REPLY_MENTIONS,
-    });
-    return;
-  }
+        });
+        return;
+      }
 
   const channelName = buildTicketChannelName(config, ticketMember.user.username, ticketMember.id,);
 
@@ -486,9 +486,9 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
 
   if (!channel) {
     await reply({
-      embeds: [
-        makeErrorEmbed(
-          "Errore",
+          embeds: [
+            makeErrorEmbed(
+              "Errore",
           "<:vegax:1443934876440068179> Impossibile creare il canale ticket.",
         ),
       ],
@@ -611,18 +611,6 @@ module.exports = {
           await safeMessageReply(message, {
             embeds: [panel.embed],
             components: panel.components,
-            allowedMentions: { repliedUser: false },
-          });
-          return;
-        }
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#6f4e37")
-              .setDescription(
-                "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server).",
-              ),
-          ],
           allowedMentions: { repliedUser: false },
         });
         return;
@@ -630,13 +618,25 @@ module.exports = {
       await safeMessageReply(message, {
         embeds: [
           new EmbedBuilder()
-            .setColor("Red")
+            .setColor("#6f4e37")
             .setDescription(
-              "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello. Se sei **High Staff**, puoi usare `+ticket` **fuori** dal ticket per il menu di riapertura.",
+                "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server).",
             ),
         ],
         allowedMentions: { repliedUser: false },
       });
+      return;
+    }
+    await safeMessageReply(message, {
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setDescription(
+              "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello. Se sei **High Staff**, puoi usare `+ticket` **fuori** dal ticket per il menu di riapertura.",
+          ),
+      ],
+      allowedMentions: { repliedUser: false },
+    });
       return;
     }
     const ticketDocFull = await Ticket.findOne(

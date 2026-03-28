@@ -46,6 +46,29 @@ function createInteractionMessageProxy(interaction) {
   };
 }
 
+function messageIsPlusTicketStaffPanel(message) {
+  if (!message?.components?.length) return false;
+  for (const row of message.components) {
+    for (const c of row.components || []) {
+      const id = String(c.customId || "");
+      if (id.startsWith("ticket_panel_nav_") || id === "ticket_panel_reopen_pick") return true;
+    }
+  }
+  return false;
+}
+
+async function deletePlusTicketCommandAndPanelMessages(interaction) {
+  const panelMsg = interaction.message;
+  if (!panelMsg?.channel?.messages?.fetch) return;
+  if (!messageIsPlusTicketStaffPanel(panelMsg)) return;
+  const channel = panelMsg.channel;
+  const refId = panelMsg.reference?.messageId;
+  await panelMsg.delete().catch(() => {});
+  if (!refId) return;
+  const cmdMsg = await channel.messages.fetch(refId).catch(() => null);
+  if (cmdMsg && !cmdMsg.author?.bot) await cmdMsg.delete().catch(() => {});
+}
+
 async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeErrorEmbed }) {
   const cid = String(interaction.customId || "");
   const isPanel =
@@ -76,6 +99,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [addRow],
       flags: MessageFlags.Ephemeral,
     });
+    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -117,6 +141,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [removeRow],
       flags: MessageFlags.Ephemeral,
     });
+    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -149,6 +174,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [switchRow],
       flags: MessageFlags.Ephemeral,
     });
+    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -173,7 +199,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
             .setMaxLength(80),
         ),
       );
-    await interaction.showModal(modal).catch(() => {});
+    const shown = await interaction.showModal(modal).catch(() => false);
+    if (shown !== false) await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -210,7 +237,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
             .setMaxLength(1800),
         ),
       );
-    await interaction.showModal(modal).catch(() => {});
+    const shownCr = await interaction.showModal(modal).catch(() => false);
+    if (shownCr !== false) await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -246,6 +274,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [transferRow],
       flags: MessageFlags.Ephemeral,
     });
+    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -407,6 +436,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         return true;
       }
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      await deletePlusTicketCommandAndPanelMessages(interaction);
       const proxy = createInteractionMessageProxy(interaction);
       await ticketModule.ticketReopenByNumber(
         { guild: interaction.guild, reply: (p) => proxy.reply(p) },

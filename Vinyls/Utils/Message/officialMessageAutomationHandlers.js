@@ -196,6 +196,35 @@ async function resolveUserFromMessage(message) {
   return null;
 }
 
+function getDisboardAuthorIdSet(client) {
+  const cfg = client?.config?.disboard || {};
+  return new Set(
+    [IDs.bots?.DISBOARD, cfg.botId, ...(Array.isArray(cfg.botIds) ? cfg.botIds : [])]
+      .filter(Boolean)
+      .map((id) => String(id)),
+  );
+}
+
+function isMessageFromDisboardBot(message, client) {
+  const authorId = String(message?.author?.id || "");
+  if (!authorId) return false;
+  if (getDisboardAuthorIdSet(client).has(authorId)) return true;
+  const name = String(message.author?.username || message.author?.globalName || "").toLowerCase();
+  return Boolean(message.author?.bot && /disboard/i.test(name));
+}
+
+function collectDisboardBumpHaystacks(message) {
+  const haystacks = [];
+  if (message.content) haystacks.push(message.content);
+  if (Array.isArray(message.embeds)) {
+    for (const embed of message.embeds) {
+      const flat = flattenEmbedText(embed);
+      if (flat) haystacks.push(flat);
+    }
+  }
+  return haystacks;
+}
+
 function getVoteManagerBotIds(client) {
   const discadiaCfg = client?.config?.discadia || {};
   const extraDiscadiaIds = Array.isArray(discadiaCfg.botIds) ? discadiaCfg.botIds : [];
@@ -335,10 +364,7 @@ async function processDiscadiaVote(guild, user, client) {
 async function handleDisboardBump(message, client) {
   const disboard = client?.config?.disboard;
   if (!disboard || !message.guild) return false;
-  const authorName = String(message.author?.globalName || message.author?.username || "",);
-  const sourceName = `${authorName} ${String(message.applicationId || "")}`.toLowerCase();
-  const isDisboardSource = message.author?.id === IDs.bots.DISBOARD || (Boolean(message.author?.bot) && /disboard/i.test(authorName)) || /disboard/i.test(sourceName);
-  if (!message.author || !isDisboardSource) return false;
+  if (!message.author || !isMessageFromDisboardBot(message, client)) return false;
 
   const configuredPatterns = Array.isArray(disboard.bumpSuccessPatterns)
     ? disboard.bumpSuccessPatterns.map((p) => String(p).toLowerCase())
@@ -350,27 +376,26 @@ async function handleDisboardBump(message, client) {
     "successfully bumped",
     "you can bump again",
     "bump will be available again",
+    "was bumped",
+    "server bumped",
   ];
   const patterns = Array.from(new Set([...configuredPatterns, ...defaultPatterns]));
-  const haystacks = [];
-  if (message.content) haystacks.push(message.content);
-  if (Array.isArray(message.embeds)) {
-    for (const embed of message.embeds) {
-      if (embed?.description) haystacks.push(embed.description);
-      if (embed?.title) haystacks.push(embed.title);
-    }
-  }
+  const haystacks = collectDisboardBumpHaystacks(message);
   const lowered = haystacks.map((text) => String(text || "").toLowerCase());
   const hasPatternMatch = patterns.some((pattern) => lowered.some((text) => text.includes(pattern)));
   const joined = lowered.join("\n");
   const hasRegexSuccess =
-    /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|you can bump again|bump will be available again)/i.test(joined);
-  const isBump = hasPatternMatch || hasRegexSuccess;
+    /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|\bwas bumped\b|server bumped|you can bump again|bump will be available again)/i.test(joined);
+  const hasDisboardBumpFailure = /already bumped|cannot bump|can\s*'t bump|can't bump|please wait|too early|wait before|failed to bump|bump failed|must be (?:\*\*)?(?:owner|admin)|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|manage server.*bump|bump.*manage server/i.test(joined);
+  const isBump = (hasPatternMatch || hasRegexSuccess) && !hasDisboardBumpFailure;
   if (!isBump) return false;
 
   const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
   if (shouldSkipProcessedBump(dedupeKey)) return true;
-  const bumpUserId = message.interaction?.user?.id || null;
+  const bumpUserId =
+    message.interaction?.user?.id ||
+    message.interactionMetadata?.user?.id ||
+    null;
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   const disboardCooldownMs = (client?.config?.disboard?.cooldownMinutes ?? 120) * 60 * 1000;
   const recordResult = await recordBump(client, message.guild.id, bumpUserId);
@@ -405,6 +430,7 @@ async function handleDisboardBump(message, client) {
 async function handleDiscadiaBump(message, client) {
   const discadia = client?.config?.discadia;
   if (!discadia || !message.guild) return false;
+  if (isMessageFromDisboardBot(message, client)) return false;
   const discadiaBotIds = new Set(
     [
       IDs.bots?.Discadia,
@@ -439,9 +465,9 @@ async function handleDiscadiaBump(message, client) {
   const joined = normalized.join("\n");
   if (/already bumped recently/i.test(joined)) return false;
   const hasPattern = patterns.some((pattern) => joined.includes(pattern));
-  const hasSuccessWord = /(server has been bumped|has been successfully bumped|bump(?:ed)?successfully|successfully bumped|successful bump|bump complete|bump done|thanks for bumping|you can bump again|bump effettuato|bump eseguito|bump completato|bump andato a buon fine|server bumpato con successo|bump riuscito|puoi bumpare di nuovo|potrai bumpare di nuovo)/i.test(joined,);
+  const hasSuccessWord = /(server has been bumped|has been successfully bumped|bump(?:ed)?successfully|successfully bumped|successful bump|bump complete|bump done|thanks for bumping|you can bump again|bump effettuato|bump eseguito|bump completato|bump andato a buon fine|server bumpato con successo|bump riuscito|puoi bumpare di nuovo|potrai bumpare di nuovo)/i.test(joined);
   const hasBumpWord = /\bbump(?:ed)?\b/i.test(joined);
-  const hasFailureWord = /already bumped|already has been bumped|cannot bump|can 't bump|please wait|too early|wait before|failed to bump|bump failed|errore bump|impossibile bumpare|devi aspettare|attendi prima di bumpare|troppo presto per bumpare|bump non riuscito|bump fallito/i.test(joined,);
+  const hasFailureWord = /already bumped|already has been bumped|cannot bump|can\s*'t bump|can't bump|please wait|too early|wait before|failed to bump|bump failed|errore bump|impossibile bumpare|devi aspettare|attendi prima di bumpare|troppo presto per bumpare|bump non riuscito|bump fallito|must be (?:\*\*)?(?:owner|admin)|manage server|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|unauthorized|can't use this command|cannot use this command|non hai i permessi|permesso negato/i.test(joined);
   const hasDiscadiaWord = /\bdiscadia\b/i.test(joined);
   const hasDiscadiaDomain = /discadia\.com/i.test(joined);
   const interactionCommandName = String(message.interaction?.commandName || message.interactionMetadata?.name || "",).trim().toLowerCase();
@@ -452,10 +478,10 @@ async function handleDiscadiaBump(message, client) {
   const sourceFingerprint = `${authorName} ${sourceName}`.toLowerCase();
   const looksLikeDiscadiaSource = isFromDiscadiaBot || /\bdiscadia\b/i.test(sourceFingerprint) || hasDiscadiaWord || hasDiscadiaDomain;
   const looksLikeDisboardSource = /\bdisboard\b/i.test(sourceFingerprint);
-  const hasBumpSuccessText = hasPattern || hasSuccessWord || isBumpInteraction;
+  const hasBumpSuccessText = hasPattern || hasSuccessWord;
   const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
   const isLikelyDiscadiaGenericSuccess = isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText && (hasBumpWord || isBumpInteraction) && (Boolean(message.webhookId) || isBumpInteraction);
-  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess || (isAutomatedSource && isBumpInteraction);
+  const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess;
   const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource;
   if (!isBump) return false;
 
