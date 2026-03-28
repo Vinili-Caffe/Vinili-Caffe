@@ -76,12 +76,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
-  "level": "Senza args apre pannello server; con utente apre pannello utente.",
-  security: "Senza argomenti apre il pannello interattivo (menu). I sottocomandi testuali (+security status, statics, enable, disable, panic…) restano come scorciatoie legacy.",
-  "ticket": "Solo **`+ticket`** (senza argomenti). Nel canale di un ticket aperto: pannello staff con pulsanti. Fuori: solo **High Staff** ottiene il menu per riaprire ticket chiusi. Claim, chiudi, ecc. restano sui pulsanti del messaggio di apertura ticket.",
-  "avatar": "Mostra di default l'avatar profilo utente e permette switch a quello server con frecce.",
-  "banner": "Mostra di default il banner profilo utente e permette switch a quello server con frecce.",
-  "classifica": "Mostra la classifica weekly con pulsanti freccia per passare a All Time.",
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
   "evento.classifica": "Mostra la classifica dell'evento.",

@@ -93,7 +93,6 @@ function run(root) {
     const requiredSecuritySubs = Array.isArray(securityCmd?.subcommands)
       ? [...new Set(securityCmd.subcommands.map((sub) => String(sub || "").trim().split(/\s+/)[0]).filter(Boolean))]
       : [];
-    assert(requiredSecuritySubs.length > 0, "security.subcommands mancante");
     for (const sub of requiredSecuritySubs) {
       assert(Array.isArray(securityPerms[sub]), `permissions.security.${sub} mancante`);
     }

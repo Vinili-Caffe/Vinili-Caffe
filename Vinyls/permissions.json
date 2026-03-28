@@ -191,29 +191,7 @@
             "channels": [
                 "channels.highCmds",
                 "channels.staffCmds"
-            ],
-            "subcommands": {
-                "status": [
-                    "roles.Founder",
-                    "roles.CoFounder"
-                ],
-                "statics": [
-                    "roles.Founder",
-                    "roles.CoFounder"
-                ],
-                "enable": [
-                    "roles.Founder",
-                    "roles.CoFounder"
-                ],
-                "disable": [
-                    "roles.Founder",
-                    "roles.CoFounder"
-                ],
-                "panic": [
-                    "roles.Founder",
-                    "roles.CoFounder"
-                ]
-            }
+            ]
         },
         "profile": {
             "roles": [
