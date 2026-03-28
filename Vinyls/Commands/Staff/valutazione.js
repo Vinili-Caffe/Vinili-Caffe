@@ -102,7 +102,7 @@ async function handlePositiveAdd(
   profileDoc.markModified("staff");
   await profileDoc.save();
 
-  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}\``, reason, s.valutazioniCount,);
+  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount,);
 
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
   return safeEditReply(interaction, {
@@ -172,7 +172,7 @@ async function handleNegativeAdd(
   profileDoc.markModified("staff");
   await profileDoc.save();
 
-  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}\``, reason, s.valutazioniCount,);
+  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount,);
 
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
 
