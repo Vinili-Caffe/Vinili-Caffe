@@ -25,6 +25,11 @@ function canSeeCloseRequestPanel(member, ticketDoc) {
   return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
 }
 
+function getBotAvatarUrl(channelOrGuild) {
+  const client = channelOrGuild?.client || channelOrGuild?.guild?.client;
+  return client?.user?.displayAvatarURL?.() || null;
+}
+
 function buildRemoveMemberOptions(channel) {
   const ids = [];
   for (const ow of channel.permissionOverwrites.cache.values()) {
@@ -76,7 +81,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_switch")
-        .setLabel("Switchpanel")
+        .setLabel("SwitchPanel")
         .setStyle(ButtonStyle.Primary)
         .setEmoji("🔄"),
       new ButtonBuilder()
@@ -99,7 +104,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_transfer")
-        .setLabel("Trasferisci claim")
+        .setLabel("Trasferisci")
         .setStyle(ButtonStyle.Primary)
         .setEmoji("🔀"),
     );
@@ -116,11 +121,12 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
   ];
   if (staffTicket) {
     desc.push(
-      "**Aggiungi** — menu utenti. **Rimuovi** — solo se c'è almeno un membro da togliere dai permessi del canale.",
+      "**Aggiungi** — menu utenti.",
+      "**Rimuovi** — solo se c'è almeno un membro da togliere dai permessi del canale."
     );
   }
   if (isHighStaff) {
-    desc.push("**Switch** / **Rinomina**.");
+    desc.push("**SwitchPanel** / **Rinomina**.");
   }
   if (showCloseReq) {
     desc.push("**Richiedi Chiusura**.");
@@ -132,9 +138,12 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
     desc.push("Qui non compaiono azioni per i tuoi permessi: usa i bottoni sopra se applicabili.");
   }
 
+  const thumbnailUrl = getBotAvatarUrl(channel);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(desc.join("\n"));
+    .setTitle("<:VC_Ticket:1482535175283019888> Ticket Panel")
+    .setDescription(desc.join("\n"))
+    .setThumbnail(thumbnailUrl || undefined);
 
   return { embed, components };
 }
@@ -156,12 +165,14 @@ function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs) {
     });
   }
   if (!options.length) return null;
+  const thumbnailUrl = getBotAvatarUrl(guild);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Ticket:1482535175283019888> Riapri ticket")
+    .setTitle("<:VC_Ticket:1482535175283019888> Ticket Panel")
     .setDescription(
-      "Ticket **chiusi** di recente. Scegli dalla lista oppure usa +ticket reopen <id>.",
-    );
+      "Scegli dalla lista un ticket da riaprire.",
+    )
+    .setThumbnail(thumbnailUrl || undefined);
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("ticket_panel_reopen_pick")
