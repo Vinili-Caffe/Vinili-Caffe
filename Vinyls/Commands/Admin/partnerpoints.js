@@ -76,6 +76,9 @@ async function removePartnerPoints(guildId, userId, amount) {
 }
 
 module.exports = {
+  addPartnerPoints,
+  removePartnerPoints,
+  formatPartnerPointsChange,
   data: new SlashCommandBuilder()
     .setName("partner")
     .setDescription("Modifica i punti partner dei PM")

@@ -338,7 +338,7 @@
                 ]
             }
         },
-        "staffprofile": {
+        "staff": {
             "roles": [
                 "roles.Staff",
                 "roles.PartnerManager",
@@ -936,6 +936,11 @@
                 "roles.HighStaff"
             ]
         },
+        "staff_hp:*": {
+            "roles": [
+                "roles.HighStaff"
+            ]
+        },
         "downv": [
             "roles.Member"
         ],
@@ -1478,6 +1483,11 @@
         },
         "profile_panel:*": {
             "ownerSegment": 2
+        },
+        "staff_hp_modal:*": {
+            "roles": [
+                "roles.HighStaff"
+            ]
         },
         "dm_broadcast:*": {
             "ownerSegment": 1

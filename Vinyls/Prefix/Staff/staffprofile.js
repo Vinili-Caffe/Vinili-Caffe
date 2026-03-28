@@ -34,10 +34,10 @@ async function resolveTargetUser(message, rawArg) {
 }
 
 module.exports = {
-  name: "staffprofile",
+  name: "staff",
   allowEmptyArgs: true,
-  usage: "`+staffprofile` · `+staffprofile @staffer`",
-  examples: ["+staffprofile", "+sprofilo @Mod"],
+  usage: "`+staff` · `+staff @staffer`",
+  examples: ["+staff", "+staff @Mod"],
 
   async execute(message, args = []) {
     if (!message.guild || !message.member) return;
@@ -51,13 +51,14 @@ module.exports = {
       return;
     }
     const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
-    if (!targetMember || !memberHasStaffRole(targetMember)) {
+    if (!targetMember) {
       await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Il target non è uno staffer (o ruolo staff non rilevato).",
+        content: "<:vegax:1443934876440068179> Utente non trovato nel server.",
         allowedMentions: { repliedUser: false },
       });
       return;
     }
+    const targetHasStaffListRole = memberHasStaffRole(targetMember);
     const isSelf = String(message.author.id) === String(targetUser.id);
     const isHighStaff = Boolean(message.member.roles?.cache?.has(IDs.roles.HighStaff));
     const viewerStaff = memberHasStaffRole(message.member);
@@ -68,7 +69,16 @@ module.exports = {
       });
       return;
     }
-    if (!isSelf && !isHighStaff) {
+    if (!targetHasStaffListRole) {
+      if (!isHighStaff) {
+        await safeMessageReply(message, {
+          content:
+            "<:vegax:1443934876440068179> Il target non ha ruolo staff/Partner Manager. Solo l’**High Staff** può aprire questo profilo.",
+          allowedMentions: { repliedUser: false },
+        });
+        return;
+      }
+    } else if (!isSelf && !isHighStaff) {
       await safeMessageReply(message, {
         content: "<:vegax:1443934876440068179> Puoi aprire solo **il tuo** profilo staff. Gli altri: solo **High Staff**.",
         allowedMentions: { repliedUser: false },

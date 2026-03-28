@@ -35,17 +35,18 @@ async function getStaffDoc(guildId, userId) {
 }
 
 function makeLogEmbed(
-  interaction,
+  actor,
   user,
   title,
   reason,
   idValue,
   color = "#6f4e37",
 ) {
+  const iconSource = actor.member || actor.user;
   return new EmbedBuilder()
     .setAuthor({
-      name: `Valutazione eseguita da ${interaction.user.username}`,
-      iconURL: (interaction.member || interaction.user).displayAvatarURL(),
+      name: `Valutazione eseguita da ${actor.user.username}`,
+      iconURL: iconSource.displayAvatarURL?.() || actor.user.displayAvatarURL?.(),
     })
     .setTitle(title)
     .setThumbnail(user.displayAvatarURL())
@@ -60,7 +61,7 @@ function makeLogEmbed(
 }
 
 function makeRemovalEmbed(
-  interaction,
+  actor,
   user,
   title,
   description,
@@ -68,10 +69,11 @@ function makeRemovalEmbed(
   updatedLabel,
   updatedValue,
 ) {
+  const iconSource = actor.member || actor.user;
   return new EmbedBuilder()
     .setAuthor({
-      name: `<:cancel:1461730653677551691> Valutazione rimossa da ${interaction.user.username}`,
-      iconURL: (interaction.member || interaction.user).displayAvatarURL(),
+      name: `<:cancel:1461730653677551691> Valutazione rimossa da ${actor.user.username}`,
+      iconURL: iconSource.displayAvatarURL?.() || actor.user.displayAvatarURL?.(),
     })
     .setTitle(title)
     .setDescription(description.replace("{user}", user.toString()))
@@ -87,13 +89,7 @@ async function sendChannelEmbed(channel, payload) {
   await channel.send(payload).catch(() => null);
 }
 
-async function handlePositiveAdd(
-  interaction,
-  profileDoc,
-  staffUser,
-  reason,
-  channel,
-) {
+async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, channel) {
   const s = ensureStaff(profileDoc);
   s.valutazioniCount += 1;
   s.positiveCount += 1;
@@ -101,10 +97,18 @@ async function handlePositiveAdd(
   s.positiveReasons.push(reason);
   profileDoc.markModified("staff");
   await profileDoc.save();
-
-  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount,);
-
+  const embed = makeLogEmbed(actor, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount);
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
+}
+
+async function handlePositiveAdd(
+  interaction,
+  profileDoc,
+  staffUser,
+  reason,
+  channel,
+) {
+  await valutazionePositiveAddCore(profileDoc, staffUser, reason, { user: interaction.user, member: interaction.member }, channel);
   return safeEditReply(interaction, {
     embeds: [
       successEmbed(
@@ -114,6 +118,30 @@ async function handlePositiveAdd(
   });
 }
 
+async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
+  const s = ensureStaff(profileDoc);
+  if (
+    !Number.isInteger(removeId) ||
+    removeId < 1 ||
+    !s.positiveReasons?.[removeId - 1]
+  ) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> ID non valido" };
+  }
+  s.positiveReasons.splice(removeId - 1, 1);
+  s.positiveCount = Math.max(0, s.positiveCount - 1);
+  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const embed = makeRemovalEmbed(actor, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
+    "",
+    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Positiva!_`, reason,
+    "",
+    "<:VC_update:1478721333096349817> __Valutazione Positive Totali__",
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`);
+  await sendChannelEmbed(channel, { embeds: [embed] });
+  return { ok: true };
+}
+
 async function handlePositiveRemove(
   interaction,
   profileDoc,
@@ -121,33 +149,21 @@ async function handlePositiveRemove(
   reason,
   channel,
 ) {
-  const s = ensureStaff(profileDoc);
   const removeId = interaction.options.getInteger("id");
-  if (
-    !Number.isInteger(removeId) ||
-    removeId < 1 ||
-    !s.positiveReasons?.[removeId - 1]
-  ) {
+  const res = await valutazionePositiveRemoveCore(
+    profileDoc,
+    staffUser,
+    removeId,
+    reason,
+    { user: interaction.user, member: interaction.member },
+    channel,
+  );
+  if (!res.ok) {
     return safeEditReply(interaction, {
-      embeds: [errorEmbed("<:VC_Attention:1482534443632558151> ID non valido")],
+      embeds: [errorEmbed(res.message)],
       flags: EPHEMERAL_FLAG,
     });
   }
-
-  s.positiveReasons.splice(removeId - 1, 1);
-  s.positiveCount = Math.max(0, s.positiveCount - 1);
-  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-
-  const embed = makeRemovalEmbed(interaction, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
-    "",
-    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Positiva!_`, reason,
-    "",
-    "<:VC_update:1478721333096349817> __Valutazione Positive Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`);
-
-  await sendChannelEmbed(channel, { embeds: [embed] });
   return safeEditReply(interaction, {
     embeds: [
       successEmbed(
@@ -157,13 +173,7 @@ async function handlePositiveRemove(
   });
 }
 
-async function handleNegativeAdd(
-  interaction,
-  profileDoc,
-  staffUser,
-  reason,
-  channel,
-) {
+async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, actor, channel) {
   const s = ensureStaff(profileDoc);
   s.valutazioniCount += 1;
   s.negativeCount += 1;
@@ -171,17 +181,13 @@ async function handleNegativeAdd(
   s.negativeReasons.push(reason);
   profileDoc.markModified("staff");
   await profileDoc.save();
-
-  const embed = makeLogEmbed(interaction, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount,);
-
+  const embed = makeLogEmbed(actor, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount);
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
-
-  const guild = interaction.guild;
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
     const warnEmbed = new EmbedBuilder()
-      .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${interaction.user.username}`, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
+      .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${actor.user.username}`, iconURL: (actor.member || actor.user).displayAvatarURL() })
       .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
       .setThumbnail(staffUser.displayAvatarURL())
       .setDescription(`${staffUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 400)}__`)
@@ -221,7 +227,23 @@ async function handleNegativeAdd(
       }
     }
   }
+}
 
+async function handleNegativeAdd(
+  interaction,
+  profileDoc,
+  staffUser,
+  reason,
+  channel,
+) {
+  await valutazioneNegativeAddCore(
+    interaction.guild,
+    profileDoc,
+    staffUser,
+    reason,
+    { user: interaction.user, member: interaction.member },
+    channel,
+  );
   return safeEditReply(interaction, {
     embeds: [
       successEmbed(
@@ -231,6 +253,30 @@ async function handleNegativeAdd(
   });
 }
 
+async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
+  const s = ensureStaff(profileDoc);
+  if (
+    !Number.isInteger(removeId) ||
+    removeId < 1 ||
+    !s.negativeReasons?.[removeId - 1]
+  ) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> ID non valido" };
+  }
+  s.negativeReasons.splice(removeId - 1, 1);
+  s.negativeCount = Math.max(0, s.negativeCount - 1);
+  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const embed = makeRemovalEmbed(actor, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
+    "",
+    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Negativa!_`, reason,
+    "",
+    "<:VC_update:1478721333096349817> __Valutazione Negative Totali__",
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`);
+  await sendChannelEmbed(channel, { embeds: [embed] });
+  return { ok: true };
+}
+
 async function handleNegativeRemove(
   interaction,
   profileDoc,
@@ -238,33 +284,21 @@ async function handleNegativeRemove(
   reason,
   channel,
 ) {
-  const s = ensureStaff(profileDoc);
   const removeId = interaction.options.getInteger("id");
-  if (
-    !Number.isInteger(removeId) ||
-    removeId < 1 ||
-    !s.negativeReasons?.[removeId - 1]
-  ) {
+  const res = await valutazioneNegativeRemoveCore(
+    profileDoc,
+    staffUser,
+    removeId,
+    reason,
+    { user: interaction.user, member: interaction.member },
+    channel,
+  );
+  if (!res.ok) {
     return safeEditReply(interaction, {
-      embeds: [errorEmbed("<:VC_Attention:1482534443632558151> ID non valido")],
+      embeds: [errorEmbed(res.message)],
       flags: EPHEMERAL_FLAG,
     });
   }
-
-  s.negativeReasons.splice(removeId - 1, 1);
-  s.negativeCount = Math.max(0, s.negativeCount - 1);
-  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-
-  const embed = makeRemovalEmbed(interaction, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
-    "",
-    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Negativa!_`, reason,
-    "",
-    "<:VC_update:1478721333096349817> __Valutazione Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`);
-
-  await sendChannelEmbed(channel, { embeds: [embed] });
   return safeEditReply(interaction, {
     embeds: [
       successEmbed(
@@ -308,6 +342,97 @@ async function handleMedia(interaction, staffUser, doc) {
     );
 
   return safeEditReply(interaction, { embeds: [embed] });
+}
+
+function actorFromMember(member) {
+  if (!member?.user) return { user: member, member: null };
+  return { user: member.user, member };
+}
+
+async function runValutazionePositiveAddForPanel(guild, actorMember, staffUser, reason) {
+  try {
+    const channel =
+      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
+      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+    const profileDoc = await ensureStaffProfileDoc(
+      await getStaffDoc(guild.id, staffUser.id),
+      guild.id,
+      staffUser.id,
+    );
+    await valutazionePositiveAddCore(profileDoc, staffUser, reason, actorFromMember(actorMember), channel);
+    return { ok: true };
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Errore valutazione positiva." };
+  }
+}
+
+async function runValutazioneNegativeAddForPanel(guild, actorMember, staffUser, reason) {
+  try {
+    const channel =
+      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
+      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+    const profileDoc = await ensureStaffProfileDoc(
+      await getStaffDoc(guild.id, staffUser.id),
+      guild.id,
+      staffUser.id,
+    );
+    await valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, actorFromMember(actorMember), channel);
+    return { ok: true };
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Errore valutazione negativa." };
+  }
+}
+
+async function runValutazionePositiveRemoveForPanel(guild, actorMember, staffUser, removeId, reason) {
+  try {
+    const channel =
+      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
+      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+    const profileDoc = await ensureStaffProfileDoc(
+      await getStaffDoc(guild.id, staffUser.id),
+      guild.id,
+      staffUser.id,
+    );
+    const res = await valutazionePositiveRemoveCore(
+      profileDoc,
+      staffUser,
+      removeId,
+      reason,
+      actorFromMember(actorMember),
+      channel,
+    );
+    return res.ok ? { ok: true } : { ok: false, message: res.message };
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Errore rimozione valutazione positiva." };
+  }
+}
+
+async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUser, removeId, reason) {
+  try {
+    const channel =
+      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
+      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+    const profileDoc = await ensureStaffProfileDoc(
+      await getStaffDoc(guild.id, staffUser.id),
+      guild.id,
+      staffUser.id,
+    );
+    const res = await valutazioneNegativeRemoveCore(
+      profileDoc,
+      staffUser,
+      removeId,
+      reason,
+      actorFromMember(actorMember),
+      channel,
+    );
+    return res.ok ? { ok: true } : { ok: false, message: res.message };
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Errore rimozione valutazione negativa." };
+  }
 }
 
 module.exports = {
@@ -481,4 +606,9 @@ module.exports = {
       });
     }
   },
+
+  runValutazionePositiveAddForPanel,
+  runValutazioneNegativeAddForPanel,
+  runValutazionePositiveRemoveForPanel,
+  runValutazioneNegativeRemoveForPanel,
 };

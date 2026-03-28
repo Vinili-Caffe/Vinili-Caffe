@@ -4,6 +4,8 @@ const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDoc
 const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
 const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
@@ -295,6 +297,296 @@ async function applyDepexSideEffects(member, roleId) {
   }
 }
 
+function getHighestLadderRole(member) {
+  if (!member?.roles?.cache) return null;
+  for (let i = STAFF_LADDER_ROLES.length - 1; i >= 0; i--) {
+    const id = STAFF_LADDER_ROLES[i];
+    if (id && member.roles.cache.has(id)) return id;
+  }
+  return null;
+}
+
+function getNextLadderRoleId(currentId) {
+  const idx = STAFF_LADDER_ROLES.indexOf(currentId);
+  if (idx < 0 || idx >= STAFF_LADDER_ROLES.length - 1) return null;
+  return STAFF_LADDER_ROLES[idx + 1];
+}
+
+function getDepexLogNextRoleId(oldRoleId) {
+  if (oldRoleId === ROLE_PARTNER_MANAGER) return ROLE_MEMBER || "";
+  const idx = STAFF_LADDER_ROLES.indexOf(oldRoleId);
+  if (idx <= 0) return ROLE_MEMBER || "";
+  return STAFF_LADDER_ROLES[idx - 1];
+}
+
+async function runProspectStaffPex(guild, client, targetUser, actorUser, reason) {
+  if (String(targetUser.id) === String(actorUser.id)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  const resolveMember = createMemberResolver(guild);
+  const member = await resolveMember(targetUser.id);
+  if (!member) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+  }
+  if (memberHasStaffRole(member)) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo o `/staff pex`.",
+    };
+  }
+  if (!ROLE_HELPER) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo Helper non configurato negli ID." };
+  }
+  if (member.roles.cache.has(ROLE_HELPER)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente ha già il ruolo Helper." };
+  }
+  if (ROLE_MEMBER && !member.roles.cache.has(ROLE_MEMBER)) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> Per la prima promozione serve il ruolo **Member** sull'utente.",
+    };
+  }
+  const roleBeforeForHistory = ROLE_MEMBER || "";
+  const roleAfter = ROLE_HELPER;
+  const pmChannel =
+    guild.channels.cache.get(IDs.channels?.partnersChat) ||
+    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
+  const staffChat =
+    guild.channels.cache.get(IDs.channels?.staffChat) ||
+    (await getGuildChannelCached(guild, IDs.channels?.staffChat));
+  const pexDepexChannel =
+    guild.channels.cache.get(IDs.channels?.pexDepex) ||
+    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  await member.roles.add(roleAfter);
+  const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
+  if (!baseRoleVerification.ok) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare Helper." };
+  }
+  try {
+    await applyPexSideEffects(
+      baseRoleVerification.member,
+      roleAfter,
+      pmChannel,
+      staffChat,
+      targetUser,
+    );
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Pex: errore side-effect ruoli." };
+  }
+  const profileDoc = staffDoc;
+  const s = ensureStaff(profileDoc);
+  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+  s.rolesHistory.push({ oldRole: roleBeforeForHistory, newRole: roleAfter, reason, date: new Date() });
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
+  const ra = guild.roles.cache.get(roleAfter);
+  await pexDepexChannel
+    ?.send?.({
+      content: `**<:success:1461731530333229226> PEX** ${targetUser}
+<:staff:1443651912179388548> \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+    })
+    .catch(() => null);
+  return { ok: true };
+}
+
+async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) {
+  if (String(targetUser.id) === String(actorUser.id)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  const resolveMember = createMemberResolver(guild);
+  const member = await resolveMember(targetUser.id);
+  if (!member) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+  }
+  const roleBefore = getHighestLadderRole(member);
+  if (!roleBefore) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali usa `/staff pex` con i ruoli manuali.",
+    };
+  }
+  const roleAfter = getNextLadderRoleId(roleBefore);
+  if (!roleAfter) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente è già al massimo della scala staff." };
+  }
+  if (member.roles.cache.has(roleAfter)) {
+    return { ok: false, message: `<:VC_Attention:1482534443632558151> ${targetUser} ha già il ruolo successivo.` };
+  }
+  const pmChannel =
+    guild.channels.cache.get(IDs.channels?.partnersChat) ||
+    (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
+  const staffChat =
+    guild.channels.cache.get(IDs.channels?.staffChat) ||
+    (await getGuildChannelCached(guild, IDs.channels?.staffChat));
+  const pexDepexChannel =
+    guild.channels.cache.get(IDs.channels?.pexDepex) ||
+    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  await member.roles.add(roleAfter);
+  const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
+  if (!baseRoleVerification.ok) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare il ruolo successivo." };
+  }
+  try {
+    await applyPexSideEffects(
+      baseRoleVerification.member,
+      roleAfter,
+      pmChannel,
+      staffChat,
+      targetUser,
+    );
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Pex: errore side-effect ruoli." };
+  }
+  const profileDoc = staffDoc;
+  const s = ensureStaff(profileDoc);
+  if (roleAfter === ROLE_PARTNER_MANAGER) initPartnerManagerFieldsIfMissing(s);
+  if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+  s.rolesHistory.push({ oldRole: roleBefore, newRole: roleAfter, reason, date: new Date() });
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const rb = guild.roles.cache.get(roleBefore);
+  const ra = guild.roles.cache.get(roleAfter);
+  await pexDepexChannel
+    ?.send?.({
+      content: `**<:success:1461731530333229226> PEX** ${targetUser}
+<:staff:1443651912179388548> \`${rb?.name || roleBefore}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+    })
+    .catch(() => null);
+  return { ok: true };
+}
+
+async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason) {
+  if (String(targetUser.id) === String(actorUser.id)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  const resolveMember = createMemberResolver(guild);
+  const member = await resolveMember(targetUser.id);
+  if (!member) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+  }
+  let oldRole = getHighestLadderRole(member);
+  if (!oldRole && member.roles.cache.has(ROLE_PARTNER_MANAGER)) {
+    oldRole = ROLE_PARTNER_MANAGER;
+  }
+  if (!oldRole) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Usa `/staff depex` con ruoli manuali se necessario.",
+    };
+  }
+  if (!member.roles.cache.has(oldRole)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Ruolo da togliere non presente sull'utente." };
+  }
+  const newRoleIdForLog = getDepexLogNextRoleId(oldRole);
+  const pexDepexChannel =
+    guild.channels.cache.get(IDs.channels?.pexDepex) ||
+    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  await member.roles.remove(oldRole);
+  const baseRoleVerification = await ensureRoleState(member, oldRole, false);
+  if (!baseRoleVerification.ok) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Depex non applicato: il ruolo è ancora presente." };
+  }
+  try {
+    await applyDepexSideEffects(baseRoleVerification.member, oldRole);
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Depex: errore side-effect ruoli." };
+  }
+  const refreshedMember = await resolveMember(targetUser.id);
+  await applyStaffDatabaseAfterDepex(guild.id, targetUser.id, refreshedMember);
+  const oldRoleObj = guild.roles.cache.get(oldRole);
+  const newRoleObj = newRoleIdForLog ? guild.roles.cache.get(newRoleIdForLog) : null;
+  await pexDepexChannel
+    ?.send?.({
+      content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
+<:staff:1443651912179388548> \`${oldRoleObj?.name || oldRole}\` <a:VC_Arrow:1482706699365257397> \`${newRoleObj?.name || newRoleIdForLog || "Nessuno"}\`
+<:VC_reason:1478517122929004544> __${reason}__`,
+    })
+    .catch(() => null);
+  return { ok: true };
+}
+
+async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reason) {
+  if (String(targetUser.id) === String(actorUser.id)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  const warnChannel =
+    guild.channels.cache.get(IDs.channels?.warnStaff) ||
+    (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
+    (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const s = ensureStaff(profileDoc);
+  if (!s.idCount) s.idCount = 0;
+  if (!s.warnCount) s.warnCount = 0;
+  if (!Array.isArray(s.warnReasons)) s.warnReasons = [];
+  s.idCount++;
+  s.warnCount++;
+  s.warnReasons.push(reason);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+  const warnEmbed = new EmbedBuilder()
+    .setAuthor({
+      name: `<:success:1461731530333229226> Warn eseguito da ${actorUser.username}`,
+      iconURL: actorUser.displayAvatarURL(),
+    })
+    .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``)
+    .setThumbnail((targetMember || targetUser).displayAvatarURL())
+    .setDescription(
+      `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${targetUser} 
+            <:VC_reason:1478517122929004544> __${reason}__ 
+            <:VC_id:1478517313618575419> **ID Valutazione:** __\`${s.idCount}\`__`,
+    )
+    .setColor(SUCCESS_COLOR);
+  if (warnChannel) {
+    await warnChannel.send({ content: `${targetUser}`, embeds: [warnEmbed] }).catch(() => null);
+  }
+  return { ok: true };
+}
+
+async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, removeId, reason) {
+  const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const s = ensureStaff(profileDoc);
+  const idx = removeId - 1;
+  if (!Number.isInteger(removeId) || removeId < 1 || !s.warnReasons?.[idx]) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> ID warn non valido (usa il numero dalla lista in **Warn staff**)." };
+  }
+  s.warnReasons.splice(idx, 1);
+  s.warnCount = Math.max(0, Number(s.warnCount || 0) - 1);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const warnChannel =
+    guild.channels.cache.get(IDs.channels?.warnStaff) ||
+    (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
+    (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  if (warnChannel?.isTextBased?.()) {
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: `<:cancel:1461730653677551691> Warn staff rimosso da ${actorUser.username}`,
+        iconURL: actorUser.displayAvatarURL(),
+      })
+      .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF RIMOSSO__**`)
+      .setThumbnail(targetUser.displayAvatarURL())
+      .setDescription(
+        `<:staff:1443651912179388548> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**`,
+      )
+      .setColor(SUCCESS_COLOR);
+    await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
+  }
+  return { ok: true };
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("staff")
@@ -537,4 +829,10 @@ module.exports = {
     }
 
   },
+
+  runProfileStaffPex,
+  runProspectStaffPex,
+  runProfileStaffDepex,
+  runProfileStaffWarnAdd,
+  runProfileStaffWarnRemove,
 };

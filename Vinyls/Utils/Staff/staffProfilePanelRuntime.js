@@ -1,15 +1,22 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { getUserOverviewStats } = require("../../Services/Community/activityService");
 const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
-const { buildPauseListPayload, buildPauseListMonthRows } = require("../Pause/pauseListRuntime");
+const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
+const { memberHasStaffRole } = require("../Community/staffListUtils");
+const { buildPartnerLeaderboardPayload } = require("../../Prefix/Partner/leaderboard");
 const PANEL_PREFIX = "staff_profile_panel";
+const STAFF_HP_PREFIX = "staff_hp";
 const SECTION_HOME = "home";
 const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
 const SECTION_PAUSE = "pause";
 const SECTION_STATS = "stats";
+const SECTION_PARTNER_LB = "partner_lb";
+const PROFILE_FULL = "full";
+const PROFILE_PM_ONLY = "pm_only";
+const PROFILE_PROSPECT = "prospect";
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 250, hours: 2.5 },
@@ -52,6 +59,27 @@ function resolveStaffProfileDisplayRoleId(member) {
     if (member.roles.cache.has(roleId)) return roleId;
   }
   return null;
+}
+
+function resolveStaffProfileKind(member) {
+  if (!member) return PROFILE_PROSPECT;
+  if (!memberHasStaffRole(member)) return PROFILE_PROSPECT;
+  const pmId = IDs.roles.PartnerManager;
+  const hasPm = Boolean(pmId && member.roles?.cache?.has(pmId));
+  const hasLadder = Boolean(resolveStaffRole(member));
+  if (hasPm && !hasLadder) return PROFILE_PM_ONLY;
+  return PROFILE_FULL;
+}
+
+function buildProspectPexRow(viewerId, targetId) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
+      .setLabel("Pex (Member → Helper)")
+      .setStyle(ButtonStyle.Success),
+  );
 }
 
 function parseItalianDate(value) {
@@ -111,7 +139,6 @@ function barCharForValue(n, maxVal) {
   return COSTANZA_BARS[level];
 }
 
-/** Due righe monospace: etichette giorno e barra centrata sotto ciascuna colonna. */
 function buildAlignedDayChartBlock(chartPoints, getNumericValue) {
   if (!Array.isArray(chartPoints) || !chartPoints.length) {
     return "— nessun dato —";
@@ -137,13 +164,121 @@ function parseStaffProfileSelectCustomId(customId) {
   return { viewerId: parts[2], targetId: parts[3] };
 }
 
-function buildSelectRow(viewerId, targetId, section) {
+function formatStaffHpButtonCustomId(action, viewerId, targetId) {
+  return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}`;
+}
+
+function buildHighStaffActionRows(viewerId, targetId) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
+      .setLabel("Pex")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
+      .setLabel("Depex")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("valpos", v, t))
+      .setLabel("Val +")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("valneg", v, t))
+      .setLabel("Val −")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("warn", v, t))
+      .setLabel("Warn")
+      .setStyle(ButtonStyle.Danger),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t))
+      .setLabel("Rimuovi val +")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t))
+      .setLabel("Rimuovi val −")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t))
+      .setLabel("Rimuovi warn")
+      .setStyle(ButtonStyle.Secondary),
+  );
+  return [row1, row2];
+}
+
+function buildPmOnlyPartnerRows(viewerId, targetId) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
+        .setLabel("Depex")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
+        .setLabel("Aggiungi punti")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
+        .setLabel("Rimuovi punti")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
+function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind) {
+  if (profileKind !== PROFILE_FULL || !viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
+  if (String(section || "").toLowerCase() === SECTION_PAUSE) return false;
+  return true;
+}
+
+function shouldAttachPmOnlyHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind) {
+  if (profileKind !== PROFILE_PM_ONLY || !viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
+  if (String(section || "").toLowerCase() === SECTION_PAUSE) return false;
+  return true;
+}
+
+function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
+  const base = [];
+  if (selectRow) base.push(selectRow);
+  if (Array.isArray(highStaffRows) && highStaffRows.length) {
+    base.push(...highStaffRows);
+  }
+  if (Array.isArray(extraRows) && extraRows.length) {
+    base.push(...extraRows);
+  }
+  return base;
+}
+
+function buildProfileSelectRow(viewerId, targetId, section, profileKind) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  if (profileKind === PROFILE_PROSPECT) return null;
+  if (profileKind === PROFILE_PM_ONLY) {
+    const opts = [
+      { label: "Panoramica", value: SECTION_HOME, emoji: "<:partnermanager:1443651916838998099>", default: sec === SECTION_HOME },
+      { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
+      { label: "Classifica partner", value: SECTION_PARTNER_LB, emoji: "<a:VC_Winner:1482535294757507255>", default: sec === SECTION_PARTNER_LB },
+    ];
+    return new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(formatStaffProfileSelectCustomId(v, t))
+        .setPlaceholder("Profilo Partner Manager")
+        .addOptions(...opts),
+    );
+  }
   const opts = [
-    { label: "Home", value: SECTION_HOME, emoji: "<:staff:1443651912179388548>", default: section === SECTION_HOME },
-    { label: "Valutazioni", value: SECTION_VALUTAZIONI, emoji: "<:thumbsup:1471292172145004768>", default: section === SECTION_VALUTAZIONI },
-    { label: "Warn staff", value: SECTION_WARN, emoji: "<:banhammer:1443651875441217639>", default: section === SECTION_WARN },
-    { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: section === SECTION_PAUSE },
-    { label: "Stats", value: SECTION_STATS, emoji: "<:VC_Clock:1473359204189474886>", default: section === SECTION_STATS },
+    { label: "Home", value: SECTION_HOME, emoji: "<:staff:1443651912179388548>", default: sec === SECTION_HOME },
+    { label: "Valutazioni", value: SECTION_VALUTAZIONI, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_VALUTAZIONI },
+    { label: "Warn staff", value: SECTION_WARN, emoji: "<:banhammer:1443651875441217639>", default: sec === SECTION_WARN },
+    { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
+    { label: "Stats", value: SECTION_STATS, emoji: "<:VC_Clock:1473359204189474886>", default: sec === SECTION_STATS },
   ];
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -186,15 +321,34 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const tid = String(targetUserId || "");
   const member = await guild.members.fetch(tid).catch(() => null);
   const targetUser = member?.user || (await client.users.fetch(tid).catch(() => null));
-  const display = member || targetUser;
   const name = member?.displayName || targetUser?.username || tid;
+  const viewerMemForPanel = await guild.members.fetch(String(viewerId)).catch(() => null);
+  const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+  const profileKind = resolveStaffProfileKind(member);
+
+  if (profileKind === PROFILE_PROSPECT) {
+    const pexComps =
+      viewerIsHighStaff && String(viewerId) !== tid ? [buildProspectPexRow(String(viewerId), tid)] : [];
+    return {
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setTitle("Profilo vuoto")
+          .setDescription(
+            `**${name}** non ha ruoli staff né Partner Manager.\n\n` +
+              "Usa **Pex** per la prima promozione (**Member → Helper**). Dopo il pex, rigenera il pannello con **`+staff`**.",
+          )
+          .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
+      ],
+      components: mergeProfileComponents(null, pexComps),
+    };
+  }
+
   const staffRoleId = member ? resolveStaffRole(member) : null;
   const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
   let roleLabel = "—";
   if (displayRoleId) {
     roleLabel = guild.roles.cache.get(displayRoleId)?.name || `<@&${displayRoleId}>`;
-  } else {
-    roleLabel = "—";
   }
 
   const doc = await fetchStaffLean(gid, tid);
@@ -213,8 +367,52 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const weeklyHours = weeklySec / 3600;
   const limits = staffRoleId ? STAFF_ACTIVITY_LIMITS[String(staffRoleId)] : null;
 
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  const selectRow = buildSelectRow(String(viewerId), tid, sec);
+  let sec = String(section || SECTION_HOME).toLowerCase();
+  if (profileKind === PROFILE_PM_ONLY) {
+    const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE, SECTION_PARTNER_LB]);
+    if (!allowedPm.has(sec)) sec = SECTION_HOME;
+  }
+
+  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind);
+  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind)
+    ? buildHighStaffActionRows(String(viewerId), tid)
+    : [];
+  const pmOnlyRows = shouldAttachPmOnlyHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind)
+    ? buildPmOnlyPartnerRows(String(viewerId), tid)
+    : [];
+  const hsRows = highStaffRows.length ? highStaffRows : pmOnlyRows;
+
+  if (profileKind === PROFILE_PM_ONLY && sec === SECTION_PARTNER_LB) {
+    const lbPayload = await buildPartnerLeaderboardPayload(client, guild, "totale", 1);
+    const mainEmbed = EmbedBuilder.from(lbPayload.embeds[0]);
+    const prev = mainEmbed.data?.description ?? "";
+    mainEmbed.setDescription(`${prev}\n\n> **Navigazione** (settimanale / pagine): \`+leaderboard\``);
+    return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, hsRows) };
+  }
+
+  if (profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME) {
+    const pauseShort = getStaffPauseLine(s);
+    const punti = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
+    const pmHomeDesc = [
+      "**Partner Manager**",
+      "",
+      `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
+      "",
+      `**Punti partner:** ${punti}`,
+      "",
+      "Dal menu: **Pause** (dettaglio) o **Classifica partner** (anteprima; interattivo con `+leaderboard`).",
+    ].join("\n");
+    return {
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setTitle(`Profilo — ${name}`)
+          .setDescription(pmHomeDesc.slice(0, 4090))
+          .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
+      ],
+      components: mergeProfileComponents(selectRow, hsRows),
+    };
+  }
 
   if (sec === SECTION_VALUTAZIONI) {
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
@@ -233,7 +431,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: [selectRow] };
+    return { embeds, components: mergeProfileComponents(selectRow, hsRows) };
   }
 
   if (sec === SECTION_WARN) {
@@ -254,18 +452,16 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: [selectRow] };
+    return { embeds, components: mergeProfileComponents(selectRow, hsRows) };
   }
 
   if (sec === SECTION_PAUSE) {
     const targetUserObj = targetUser || { id: tid, username: name };
-    const viewerMem = await guild.members.fetch(String(viewerId)).catch(() => null);
-    const isHighStaff = Boolean(viewerMem?.roles?.cache?.has(IDs.roles.HighStaff));
     const listPayload = await buildPauseListPayload({
       guildId: gid,
       requesterId: String(viewerId),
       targetUser: targetUserObj,
-      isHighStaff,
+      isHighStaff: viewerIsHighStaff,
       client,
     });
     if (!listPayload.ok) {
@@ -275,24 +471,19 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setColor("Red")
             .setDescription(listPayload.error || "Errore caricamento pause."),
         ],
-        components: [selectRow],
+        components: mergeProfileComponents(selectRow, hsRows),
       };
     }
     return {
       embeds: [...listPayload.embeds],
-      components: [selectRow, ...(listPayload.components || [])],
+      components: mergeProfileComponents(selectRow, hsRows, listPayload.components || []),
     };
   }
 
   if (sec === SECTION_STATS) {
     const chart = Array.isArray(overview?.chart) ? overview.chart.slice(-7) : [];
-    const labels = chart.map((p) => dayKeyToWeekdayLabel(p?.dayKey)).join(" ");
-    const texts = chart.map((p) => Number(p?.text || 0));
-    const hours = chart.map((p) => Number(p?.voiceSeconds || 0) / 3600);
-    const maxT = Math.max(1, ...texts);
-    const maxH = Math.max(1, ...hours);
-    const barT = barRowFromValues(texts, maxT);
-    const barH = barRowFromValues(hours, maxH);
+    const msgBlock = buildAlignedDayChartBlock(chart, (p) => p?.text ?? 0);
+    const vocBlock = buildAlignedDayChartBlock(chart, (p) => Number(p?.voiceSeconds || 0) / 3600);
     const limitLines = limits
       ? [
           "",
@@ -324,11 +515,24 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(desc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: [selectRow],
+      components: mergeProfileComponents(selectRow, hsRows),
     };
   }
 
   const pauseShort = getStaffPauseLine(s);
+  let viewerName = "";
+  try {
+    const viewerMember = await guild.members.fetch(String(viewerId));
+    viewerName = viewerMember.displayName || viewerMember.user?.username || String(viewerId);
+  } catch (e) {
+    try {
+      const viewerUser = await client.users.fetch(String(viewerId));
+      viewerName = viewerUser.username || String(viewerId);
+    } catch (err) {
+      viewerName = String(viewerId);
+    }
+  }
+
   const homeDesc = [
     `**Ruolo:** ${roleLabel}`,
     "",
@@ -341,7 +545,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     `**Warn staff:** ${warns}`,
     "",
     `**Attività:** 
-    ${weeklyMsg} messaggi
+    **${weeklyMsg}** messaggi
     **${weeklyHours.toFixed(2)}h** vocale`,
     "",
     "Seleziona una sezione dal menu per i dettagli.",
@@ -350,21 +554,25 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     embeds: [
       new EmbedBuilder()
         .setColor("#6f4e37")
+        .setTitle(`Benvenuto ${viewerName}`)
         .setDescription(homeDesc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     ],
-    components: [selectRow],
+    components: mergeProfileComponents(selectRow, hsRows),
   };
 }
 
 module.exports = {
   PANEL_PREFIX,
+  STAFF_HP_PREFIX,
   SECTION_HOME,
   SECTION_VALUTAZIONI,
   SECTION_WARN,
   SECTION_PAUSE,
   SECTION_STATS,
+  SECTION_PARTNER_LB,
   formatStaffProfileSelectCustomId,
   parseStaffProfileSelectCustomId,
+  formatStaffHpButtonCustomId,
   buildStaffProfilePayload,
 };

@@ -74,8 +74,9 @@ const PREFIX_HELP_DESCRIPTIONS = {
   quote: "Genera una quote da un messaggio.",
   evento: "Mostra info e classifica sull'evento activity/exp in corso.",
   pause: "Gestione pause staffer.",
-  staffprofile: "Pannello profilo staff: ruolo, pause, valutazioni, warn, statistiche (menu).",
-};
+  staff: "Profilo staff/PM: varianti solo-PM (pause, classifica, depex/punti), prospect (Pex Member→Helper), High Staff come /staff e /valutazione.",
+  staffprofile: "Stesso comando del prefisso `staff` (`+staff`).",
+  };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
