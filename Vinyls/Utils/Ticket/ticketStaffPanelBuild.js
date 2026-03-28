@@ -65,7 +65,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
         .setCustomId("ticket_panel_nav_add")
         .setLabel("Aggiungi")
         .setStyle(ButtonStyle.Success)
-        .setEmoji("➕"),
+        .setEmoji("<:VC_addperson:1485419347068588073>"),
     );
   }
   if (staffTicket && remOptsLen > 0) {
@@ -74,21 +74,21 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
         .setCustomId("ticket_panel_nav_remove")
         .setLabel("Rimuovi")
         .setStyle(ButtonStyle.Danger)
-        .setEmoji("➖"),
+        .setEmoji("<:VC_addperson:1485419347068588073>"),
     );
   }
   if (isHighStaff) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_switch")
-        .setLabel("SwitchPanel")
+        .setLabel("Switch Panel")
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("🔄"),
+        .setEmoji("<:VC_id:1478517313618575419>"),
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_rename")
         .setLabel("Rinomina")
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("<:VC_Ticket:1482535175283019888>"),
+        .setEmoji("<:VC_Modifica:1478859646587633717>"),
     );
   }
   if (showCloseReq) {
@@ -97,7 +97,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
         .setCustomId("ticket_panel_nav_closerequest")
         .setLabel("Richiedi Chiusura")
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<:VC_PinkQuestionMark:1471892611026391306>"),
+        .setEmoji("<:VC_close:1478517239136256020>"),
     );
   }
   if (showTransfer) {
@@ -106,7 +106,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
         .setCustomId("ticket_panel_nav_transfer")
         .setLabel("Trasferisci")
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("🔀"),
+        .setEmoji("<:VC_claim:1478517202016669887>"),
     );
   }
 
@@ -121,27 +121,34 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
   ];
   if (staffTicket) {
     desc.push(
-      "**Aggiungi** — menu utenti.",
-      "**Rimuovi** — solo se c'è almeno un membro da togliere dai permessi del canale."
+      "**Aggiungi** — Aggiungi un utente al ticket.",
+      "**Rimuovi** — Rimuovi un utente dal ticket."
     );
   }
   if (isHighStaff) {
-    desc.push("**SwitchPanel** / **Rinomina**.");
+    desc.push(
+      "**Switch Panel** - Cambia il panel del ticket.",
+      "**Rinomina** - Rinomina il ticket.");
   }
   if (showCloseReq) {
-    desc.push("**Richiedi Chiusura**.");
+    desc.push(
+      "**Richiedi Chiusura** - Richiedi la chiusura del ticket."
+    );
   }
   if (showTransfer) {
-    desc.push("**Trasferisci**.");
+    desc.push(
+      "**Trasferisci** - Trasferisci il claim del ticket a un altro staffer."
+    );
   }
   if (desc.length <= 2) {
-    desc.push("Qui non compaiono azioni per i tuoi permessi: usa i bottoni sopra se applicabili.");
+    desc.push("Qui non compaiono azioni per i tuoi permessi: usa i bottoni sopra se applicabili.",
+      "Se hai bisogno di aiuto, contatta un staff membro.");
   }
 
   const thumbnailUrl = getBotAvatarUrl(channel);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Ticket:1482535175283019888> Ticket Panel")
+    .setTitle("<:VC_Ticket:1482535175283019888> TICKET PANEL")
     .setDescription(desc.join("\n"))
     .setThumbnail(thumbnailUrl || undefined);
 
@@ -168,10 +175,8 @@ function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs) {
   const thumbnailUrl = getBotAvatarUrl(guild);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Ticket:1482535175283019888> Ticket Panel")
-    .setDescription(
-      "Scegli dalla lista un ticket da riaprire.",
-    )
+    .setTitle("<:VC_Ticket:1482535175283019888> TICKET PANEL")
+    .setDescription("<:VC_id:1478517313618575419> Scegli dalla lista un ticket da riaprire…")
     .setThumbnail(thumbnailUrl || undefined);
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
