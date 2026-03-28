@@ -1,14 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("../../Utils/Ticket/transcriptUtils");
-const { getNextTicketId } = require("../../Utils/Ticket/ticketIdUtils");
 const { TICKETS_CATEGORY_NAME, isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { buildTicketChannelName, resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("../../Utils/Ticket/ticketNamingRuntime");
 const { getTicketPanelConfig } = require("../../Utils/Ticket/ticketPanelConfig");
 const IDs = require("../../Utils/Config/ids");
-const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
-const LOG_CHANNEL_ID = IDs.channels.ticketLogs;
+const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
@@ -27,112 +24,6 @@ function canClaimTicket(member, ticketType, _guildId = null) {
   return isSupport || isPartnership || isHigh;
 }
 
-function canCloseTicket(member, ticketType, _guildId = null) {
-  if (!member) return false;
-  const canCloseSupport = ticketType === "supporto" && hasAnyRole(member, STAFF_ROLE_IDS);
-  const canClosePartnership = ticketType === "partnership" && (member.roles.cache.has(PARTNERMANAGER_ROLE_ID) || member.roles.cache.has(HIGHSTAFF_ROLE_ID));
-  const canCloseHigh = ticketType === "high" && member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-  return canCloseSupport || canClosePartnership || canCloseHigh;
-}
-
-async function sendTranscriptWithBrowserLink(
-  target,
-  payload,
-  hasHtml,
-  extraRows = [],
-) {
-  if (!target?.send) return null;
-  const sent = await target.send(payload).catch(() => null);
-  if (!sent) return sent;
-  const safeExtraRows = Array.isArray(extraRows) ? extraRows.filter(Boolean) : [];
-  if (!hasHtml) {
-    if (safeExtraRows.length > 0) {
-      const baseContent = typeof payload?.content === "string" ? payload.content.trim() : "";
-      await sent
-        .edit({
-          content: baseContent || undefined,
-          components: safeExtraRows.slice(0, 5),
-        })
-        .catch(() => { });
-    }
-    return sent;
-  }
-  const attachment = sent.attachments?.find((att) => {
-    const name = String(att?.name || "").toLowerCase();
-    const url = String(att?.url || "").toLowerCase();
-    return name.endsWith(".html") || url.includes(".html");
-  });
-  if (attachment?.url) {
-    const baseContent = typeof payload?.content === "string" ? payload.content.trim() : "";
-    const transcriptButton = new ButtonBuilder()
-      .setStyle(ButtonStyle.Link)
-      .setURL(attachment.url)
-      .setLabel("Visualizza Trascrizione")
-      .setEmoji("<:VC_file:1478515880722698300>");
-    const row = new ActionRowBuilder().addComponents(transcriptButton);
-    await sent
-      .edit({
-        content: baseContent || undefined,
-        components: [row, ...safeExtraRows].slice(0, 5),
-      })
-      .catch(() => { });
-  } else if (safeExtraRows.length > 0) {
-    const baseContent = typeof payload?.content === "string" ? payload.content.trim() : "";
-    await sent
-      .edit({
-        content: baseContent || undefined,
-        components: safeExtraRows.slice(0, 5),
-      })
-      .catch(() => { });
-  }
-  return sent;
-}
-
-function buildTicketRatingRows(ticketId) {
-  const stylesByScore = { 1: ButtonStyle.Danger, 2: ButtonStyle.Danger, 3: ButtonStyle.Primary, 4: ButtonStyle.Success, 5: ButtonStyle.Success, };
-  const row = new ActionRowBuilder().addComponents(...[1, 2, 3, 4, 5].map((score) => new ButtonBuilder().setCustomId(`ticket_rate:${ticketId}:${score}`)
-    .setStyle(stylesByScore[score] || ButtonStyle.Secondary)
-    .setLabel(String(score).slice(0, 80))
-    .setEmoji("<:VC_EXP:1482534670896730143>"),
-  ),
-  );
-  return [row];
-}
-
-function buildTicketClosedEmbed(data) {
-  const openedAt = data?.createdAt ? `<t:${Math.floor(new Date(data.createdAt).getTime() / 1000)}:F>`
-    : "Sconosciuto";
-  const closedAt = data?.closedAt ? `<t:${Math.floor(new Date(data.closedAt).getTime() / 1000)}:F>`
-    : `<t:${Math.floor(Date.now() / 1000)}:F>`;
-  const reasonText = data?.closeReason && String(data.closeReason).trim() ? String(data.closeReason).trim() : "Nessuna motivazione specificata";
-  let reasonValue = reasonText;
-  if (Number.isFinite(data?.ratingScore) && data.ratingScore >= 1) {
-    const s = Math.max(0, Math.min(5, Math.floor(Number(data.ratingScore) || 0)));
-    reasonValue = "<:VC_EXP:1482534670896730143>".repeat(s) + "<:VC_EXP:1482534670896730143>".repeat(5 - s) + (data?.ratingBy ? ` – da <@${data.ratingBy}>` : "") + "\n" + reasonText;
-  }
-
-  const embed = new EmbedBuilder()
-    .setAuthor({ name: data?.guildName || "<:VC_Ticket:1482535175283019888> Sistema Ticket", iconURL: data?.guildIconURL || undefined, })
-    .setTitle("<:VC_Ticket:1482535175283019888> Ticket Chiuso")
-    .setColor("#6f4e37")
-    .addFields(
-      { name: "<:VC_id:1478517313618575419> ID Ticket", value: String(data?.ticketNumber || "N/D"), inline: true },
-      { name: "<:VC_open:1478517277279129712> Aperto da", value: data?.userId ? `<@${data.userId}>` : "Sconosciuto", inline: true },
-      { name: "<:VC_close:1478517239136256020> Chiuso da", value: data?.closedBy ? `<@${data.closedBy}>` : "Sconosciuto", inline: true },
-      { name: "<:VC_opentime:1478517163022221323> Ora Apertura", value: openedAt, inline: true },
-      { name: "<:VC_claim:1478517202016669887> Claimato da", value: data?.claimedBy ? `<@${data.claimedBy}>` : "Non claimato", inline: true },
-      { name: "<:VC_close:1478517239136256020> Ora Chiusura", value: closedAt, inline: true },
-      { name: "<:VC_reason:1478517122929004544> Motivazione", value: reasonValue, inline: false },
-    )
-    .setFooter({ text: "© 2025 Vinili & Caffè. Tutti i diritti riservati." })
-    .setTimestamp();
-
-  const reordered = [embed.data.fields?.[0], embed.data.fields?.[1], embed.data.fields?.[2], embed.data.fields?.[3], embed.data.fields?.[5], embed.data.fields?.[4], embed.data.fields?.[6],].filter(Boolean);
-  embed.setFields(reordered);
-
-  return embed;
-}
-
 function makeErrorEmbed(title, description) {
   return new EmbedBuilder()
     .setTitle(title)
@@ -149,37 +40,6 @@ async function pinFirstTicketMessage(channel, message) {
   if (pinSystem) {
     await pinSystem.delete().catch(() => { });
   }
-}
-
-async function resolveUserFromArg(message, rawArg) {
-  const fromMention = message.mentions?.users?.first();
-  if (fromMention) return fromMention;
-  if (!rawArg) return null;
-
-  const str = String(rawArg).trim();
-  const id = str.match(/^<@!?(\d+)>$/)?.[1] || (/^\d{17,20}$/.test(str) ? str : null);
-  if (id) {
-    const user = await getUserCached(message.client, id);
-    if (user) return user;
-  }
-  if (!message.guild) return null;
-  const wanted = str.toLowerCase();
-  let member = message.guild.members.cache.find((m) => {
-    const u = String(m.user?.username || "").toLowerCase();
-    const d = String(m.displayName || "").toLowerCase();
-    return u === wanted || d === wanted;
-  });
-  if (!member && typeof message.guild.members.fetch === "function") {
-    try {
-      const fetched = await message.guild.members.fetch({ query: str.slice(0, 32), limit: 10 });
-      member = fetched.find((m) => {
-        const u = String(m.user?.username || "").toLowerCase();
-        const d = String(m.displayName || "").toLowerCase();
-        return u === wanted || d === wanted;
-      }) || fetched.first();
-    } catch (_) {}
-  }
-  return member?.user || null;
 }
 
 async function fetchTicketMessage(channel, messageId) {
@@ -696,42 +556,6 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
 module.exports = {
   name: "ticket",
   allowEmptyArgs: true,
-  aliases: [
-    "add",
-    "remove",
-    "claim",
-    "unclaim",
-    "transfer",
-    "close",
-    "closerequest",
-    "switchpanel",
-    "rename",
-    "reopen",
-  ],
-  subcommands: [
-    "add",
-    "remove",
-    "closerequest",
-    "close",
-    "claim",
-    "unclaim",
-    "transfer",
-    "switchpanel",
-    "rename",
-    "reopen",
-  ],
-  subcommandAliases: {
-    add: "add",
-    remove: "remove",
-    close: "close",
-    closerequest: "closerequest",
-    claim: "claim",
-    unclaim: "unclaim",
-    transfer: "transfer",
-    switchpanel: "switchpanel",
-    rename: "rename",
-    reopen: "reopen",
-  },
 
   async execute(message, args = [], client) {
     if (!message.inGuild?.() || !message.guild || !message.member) {
@@ -743,59 +567,50 @@ module.exports = {
       return;
     }
 
-    const defaultPrefix = "+";
-    const rawContent = String(message.content || "").trim();
-    const invokedToken = rawContent.startsWith(defaultPrefix) ? rawContent.slice(defaultPrefix.length).trim().split(/\s+/)[0]?.toLowerCase() : "";
-    const directAliasSub = invokedToken && this.subcommandAliases ? this.subcommandAliases[invokedToken] : null;
+    if (args.length > 0) {
+      await safeMessageReply(message, {
+        embeds: [
+          makeErrorEmbed(
+            "Ticket",
+            "<:vegax:1443934876440068179> Usa solo **`+ticket`** senza argomenti. Nel canale di un ticket aperto ricevi il **pannello** con i pulsanti; se sei **High Staff** e sei fuori da un ticket, puoi usare il **menu** per riaprire un ticket chiuso.",
+          ),
+        ],
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+      return;
+    }
 
-    const subcommand = String(directAliasSub || args[0] || "").toLowerCase();
-    const rest = directAliasSub ? args : args.slice(1);
-    const normalizedRest = Array.isArray(rest) ? (() => { if (!rest.length) return rest; const first = String(rest[0] || "").toLowerCase(); if (first === subcommand) return rest.slice(1); return rest; })() : [];
     const effectiveChannelId = message.channel?.isThread?.() ? message.channel?.parentId || message.channel?.id : message.channel?.id;
-    const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
-const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channelId: effectiveChannelId, open: true }, { _id: 1 }).lean().catch(() => null) : null;
+    const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channelId: effectiveChannelId, open: true }, { _id: 1 }).lean().catch(() => null) : null;
 
-    if (!subcommand) {
-      if (!activeTicketInChannel) {
-        const canReopenOutside =
-          HIGHSTAFF_ROLE_ID && message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-        if (canReopenOutside) {
-          const closedRaw = await Ticket.find(
-            { guildId: message.guild.id, open: false },
-            { ticketNumber: 1, userId: 1, closedAt: 1, updatedAt: 1 },
-          )
-            .limit(300)
-            .lean()
-            .catch(() => []);
-          const list = Array.isArray(closedRaw) ? closedRaw : [];
-          const sorted = list.sort((a, b) => {
-            const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-            const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-            return tb - ta;
-          });
-          const reopenable = [];
-          for (const t of sorted) {
-            if (reopenable.length >= 25) break;
-            if (message.guild.members.cache.has(t.userId)) reopenable.push(t);
-          }
-          const { buildTicketReopenOutsidePanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
-          const panel = buildTicketReopenOutsidePanelPayload(message.guild, reopenable);
-          if (panel) {
-            await safeMessageReply(message, {
-              embeds: [panel.embed],
-              components: panel.components,
-              allowedMentions: { repliedUser: false },
-            });
-            return;
-          }
+    if (!activeTicketInChannel) {
+      const canReopenOutside =
+        HIGHSTAFF_ROLE_ID && message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
+      if (canReopenOutside) {
+        const closedRaw = await Ticket.find(
+          { guildId: message.guild.id, open: false },
+          { ticketNumber: 1, userId: 1, closedAt: 1, updatedAt: 1 },
+        )
+          .limit(300)
+          .lean()
+          .catch(() => []);
+        const list = Array.isArray(closedRaw) ? closedRaw : [];
+        const sorted = list.sort((a, b) => {
+          const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return tb - ta;
+        });
+        const reopenable = [];
+        for (const t of sorted) {
+          if (reopenable.length >= 25) break;
+          if (message.guild.members.cache.has(t.userId)) reopenable.push(t);
+        }
+        const { buildTicketReopenOutsidePanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+        const panel = buildTicketReopenOutsidePanelPayload(message.guild, reopenable);
+        if (panel) {
           await safeMessageReply(message, {
-            embeds: [
-              new EmbedBuilder()
-                .setColor("#6f4e37")
-                .setDescription(
-                  "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server). Puoi comunque usare `+ticket reopen <id>` se conosci il numero.",
-                ),
-            ],
+            embeds: [panel.embed],
+            components: panel.components,
             allowedMentions: { repliedUser: false },
           });
           return;
@@ -803,906 +618,56 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
         await safeMessageReply(message, {
           embeds: [
             new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello azioni. Altri comandi (`add`, `remove`, …) funzionano solo lì. Solo **High Staff** può riaprire ticket chiusi con `+ticket reopen <id>`.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const ticketDocFull = await Ticket.findOne(
-        { channelId: effectiveChannelId, open: true },
-        { channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 },
-      ).lean().catch(() => null);
-      const { buildTicketStaffPanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
-      const { embed, components } = buildTicketStaffPanelPayload(
-        message.member,
-        message.channel,
-        ticketDocFull,
-      );
-      if (!components.length) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
               .setColor("#6f4e37")
               .setDescription(
-                "<:VC_Attention:1482534443632558151> Nessun menu o pulsante disponibile per i tuoi permessi in questo ticket. Puoi usare i comandi testuali (`+ticket add`, …) se applicabili.",
+                "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server).",
               ),
           ],
           allowedMentions: { repliedUser: false },
         });
         return;
       }
-      await safeMessageReply(message, {
-        embeds: [embed],
-        components,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    if (subcommand !== "reopen" && !activeTicketInChannel) {
       await safeMessageReply(message, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> I comandi ticket possono essere usati solo dentro un ticket aperto.",
+              "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello. Se sei **High Staff**, puoi usare `+ticket` **fuori** dal ticket per il menu di riapertura.",
             ),
         ],
         allowedMentions: { repliedUser: false },
       });
       return;
     }
-
-    const isHighStaffBypass = message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-    const isTicketHighStaff = message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
-
-    if (subcommand === "reopen") {
-      if (!isTicketHighStaff) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Solo l'**High Staff** può riaprire ticket.",
-            ),
-          ],
-          allowedMentions: NO_REPLY_MENTIONS,
-        });
-        return;
-      }
-
-      const ticketNumber = Number(normalizedRest[0]);
-      if (!Number.isInteger(ticketNumber) || ticketNumber <= 0) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Uso corretto: `+ticket reopen <id_ticket>` oppure `+reopen <id_ticket>`.",
-            ),
-          ],
-          allowedMentions: NO_REPLY_MENTIONS,
-        });
-        return;
-      }
-
-      await ticketReopenByNumber(
-        { guild: message.guild, reply: (p) => safeMessageReply(message, p) },
-        ticketNumber,
-      );
-      return;
-    }
-
-    if (subcommand === "add") {
-      const user = await resolveUserFromArg(message, normalizedRest[0]);
-      if (!user) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Specifica un utente valido.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      await message.channel.permissionOverwrites.edit(user.id, {
-        ViewChannel: true,
-        SendMessages: true,
-      });
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Aggiungi")
-            .setDescription(
-              `<:vegacheckmark:1443666279058772028> ${user} è stato aggiunto a ${message.channel}`,
-            )
-            .setColor("#6f4e37"),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (subcommand === "remove") {
-      const user = await resolveUserFromArg(message, normalizedRest[0]);
-      if (!user) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Specifica un utente valido.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      await message.channel.permissionOverwrites.edit(user.id, {
-        ViewChannel: false,
-        SendMessages: false,
-      });
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Rimuovi")
-            .setDescription(
-              `<:vegacheckmark:1443666279058772028> ${user} è stato rimosso da ${message.channel}`,
-            )
-            .setColor("#6f4e37"),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (subcommand === "closerequest") {
-      const reason = normalizedRest.join(" ").trim();
-      const ticketDoc = await Ticket.findOne({ channelId: effectiveChannelId }, TICKET_READ_PROJECTION).lean().catch(() => null);
-      if (!ticketDoc) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Questo non è un canale ticket",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const canRequestClose = message.author.id === ticketDoc.claimedBy || isHighStaffBypass;
-      if (!canRequestClose) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Solo chi ha claimato il ticket può inviare la richiesta di chiusura.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      await Ticket.updateOne(
-        { channelId: effectiveChannelId },
-        {
-          $set: {
-            closeReason: reason || null,
-            closeRequestedBy: message.author.id,
-            closeRequestedAt: new Date(),
-          },
-        },
-      ).catch(() => { });
-      const closeButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("accetta").setEmoji("<:vegacheckmark:1443666279058772028>").setLabel("Accetta e chiudi").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("rifiuta").setEmoji("<:vegax:1443934876440068179>").setLabel("Rifiuta e mantieni aperto").setStyle(ButtonStyle.Secondary),
-      );
-
-      await message.channel.send({
-        content: `<@${ticketDoc.userId}>`,
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Richiesta di chiusura")
-            .setDescription(
-              `${message.author} ha richiesto di chiudere questo ticket.\nMotivo:\n\`\`\`${reason || "Nessun motivo inserito"}\`\`\``,
-            )
-            .setColor("#6f4e37"),
-        ],
-        components: [closeButton],
-      });
-      return;
-    }
-
-    if (subcommand === "close") {
-      const ticketDoc = await Ticket.findOne({ channelId: effectiveChannelId }, TICKET_READ_PROJECTION).lean().catch(() => null);
-      if (!ticketDoc) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Questo non è un canale ticket",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (ticketDoc.userId === message.author.id) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non puoi chiudere da solo il ticket che hai aperto.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (!canCloseTicket(message.member, ticketDoc.ticketType, message.guild?.id)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non puoi chiudere questo ticket.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setDescription("🔒 Chiusura ticket in corso...")
-            .setColor("#6f4e37"),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-
-      const claimed = await Ticket.findOneAndUpdate({ channelId: effectiveChannelId, open: true }, { $set: { open: false, closedAt: new Date(), closedBy: message.author.id, }, }, { new: true },);
-      if (!claimed) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Orange")
-              .setDescription(
-                "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const closeReason = normalizedRest.join(" ").trim() || claimed.closeReason || null;
-      let ticketNumber = Number(claimed.ticketNumber || 0);
-      if (!ticketNumber) ticketNumber = await getNextTicketId();
-      const transcriptTXT = await createTranscript(message.channel).catch(() => "",);
-      const transcriptHTML = await createTranscriptHtml(message.channel).catch(() => "",);
-      const transcriptHtmlPath = transcriptHTML ? await saveTranscriptHtml(message.channel, transcriptHTML).catch(() => null,) : null;
-      await Ticket.updateOne(
-        { channelId: effectiveChannelId },
-        {
-          $set: {
-            ticketNumber,
-            transcript: transcriptTXT,
-            transcriptHtmlPath: transcriptHtmlPath || null,
-            closeReason,
-            claimedBy: claimed.claimedBy || null,
-            closeRequestedBy: null,
-            closeRequestedAt: null,
-            closedBy: message.author.id,
-          },
-        },
-      ).catch(() => { });
-
-      const mainGuildId = IDs?.guilds?.main || null;
-      const centralTicketLogChannelId = IDs?.channels?.ticketLogs || "1442569290682208296";
-
-      const mainGuild = mainGuildId ? await getClientGuildCached(client, mainGuildId) : null;
-
-      const logChannel = mainGuild?.channels?.cache?.get(centralTicketLogChannelId) || (mainGuild ? await getGuildChannelCached(mainGuild, centralTicketLogChannelId) : null);
-
-      const closeEmbed = buildTicketClosedEmbed({ ...claimed.toObject(), ticketNumber, closeReason, closedBy: message.author.id, closedAt: new Date(), guildName: message.guild?.name || "Ticket System", guildIconURL: message.guild?.iconURL?.({ size: 128 }) || null, });
-      const ratingRows = buildTicketRatingRows(String(claimed._id));
-      const transcriptRows = transcriptHtmlPath
-        ? [
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`ticket_transcript:${claimed._id}`)
-                .setLabel("Visualizza Trascrizione")
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji("<:VC_file:1478515880722698300>"),
-            ),
-          ]
-        : [];
-      const dmActionRows = [...transcriptRows, ...ratingRows];
-
-      let logSentMessage = null;
-      if (logChannel?.isTextBased?.()) {
-        logSentMessage = await sendTranscriptWithBrowserLink(
-          logChannel,
-          {
-            embeds: [closeEmbed],
-          },
-          false,
-          transcriptRows,
-        );
-      }
-
-      const member = await getGuildMemberCached(message.guild, claimed.userId);
-      if (member) {
-        try {
-          await sendTranscriptWithBrowserLink(
-            member,
-            {
-              embeds: [closeEmbed],
-            },
-            false,
-            dmActionRows,
-          );
-        } catch (err) {
-          if (![50007, 50278].includes(err?.code)) {
-            global.logger.error("[DM ERROR]", err);
-          }
-        }
-      }
-
-      if (logSentMessage?.id && logChannel?.id) {
-        await Ticket.updateOne(
-          { _id: claimed._id },
-          {
-            $set: {
-              closeLogChannelId: logChannel.id,
-              closeLogMessageId: logSentMessage.id,
-            },
-          },
-        ).catch(() => { });
-      }
-
-      const timer = setTimeout(() => {
-        if (message.channel) message.channel.delete().catch(() => { });
-      }, 2000);
-      timer.unref?.();
-      return;
-    }
-
-    if (subcommand === "claim") {
-      const ticketDoc = await Ticket.findOne({ channelId: effectiveChannelId, open: true });
-      if (!ticketDoc) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Questo non è un canale ticket",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (!canClaimTicket(message.member, ticketDoc.ticketType, message.guild?.id)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Solo il personale autorizzato può claimare questo ticket.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      if (String(ticketDoc.claimedBy || "").trim()) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                `<:VC_Attention:1482534443632558151> Questo ticket è già stato claimato da <@${ticketDoc.claimedBy}>`,
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      if (ticketDoc.userId === message.author.id) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non puoi claimare il ticket che hai aperto tu.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      ticketDoc.claimedBy = message.author.id;
-      await ticketDoc.save();
-      await message.channel.permissionOverwrites.edit(message.author.id, {
-        ViewChannel: true,
-        SendMessages: true,
-      });
-
-      const originalButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("claim_ticket").setEmoji("<:VC_claim:1478517202016669887>").setLabel("Claim").setStyle(ButtonStyle.Success),
-      );
-      const msg = await fetchTicketMessage(message.channel, ticketDoc.messageId,);
-      if (!msg) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non riesco a trovare il messaggio del ticket.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const updatedEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
-      const updatedButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
-      );
-
-      await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] });
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Ticket Claimato")
-            .setDescription(
-              `Il ticket è stato preso in carico da <@${ticketDoc.claimedBy}>`,
-            )
-            .setColor("#6f4e37"),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (subcommand === "unclaim") {
-      const ticketDoc = await Ticket.findOne({ channelId: effectiveChannelId, open: true });
-      if (!ticketDoc) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Questo non è un canale ticket",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      if (!String(ticketDoc.claimedBy || "").trim()) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Questo ticket non è claimato.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const oldClaimer = ticketDoc.claimedBy;
-      if (message.author.id !== oldClaimer) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Solo chi ha claimato può unclaimare il ticket.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      ticketDoc.claimedBy = null;
-      await ticketDoc.save();
-      await message.channel.permissionOverwrites
-        .delete(oldClaimer)
-        .catch(() => { });
-      if (ticketDoc.ticketType === "supporto") {
-        await message.channel.permissionOverwrites
-          .edit(STAFF_ROLE_ID, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true,
-          })
-          .catch(() => {});
-        await message.channel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true,
-          })
-          .catch(() => {});
-        await message.channel.permissionOverwrites
-          .edit(PARTNERMANAGER_ROLE_ID, { ViewChannel: false })
-          .catch(() => {});
-      } else if (ticketDoc.ticketType === "partnership") {
-        await message.channel.permissionOverwrites
-          .edit(PARTNERMANAGER_ROLE_ID, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true,
-          })
-          .catch(() => {});
-        await message.channel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true,
-          })
-          .catch(() => {});
-        await message.channel.permissionOverwrites
-          .edit(STAFF_ROLE_ID, { ViewChannel: false })
-          .catch(() => {});
-      } else if (ticketDoc.ticketType === "high") {
-        await message.channel.permissionOverwrites
-          .edit(HIGHSTAFF_ROLE_ID, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true,
-          })
-          .catch(() => {});
-        await message.channel.permissionOverwrites
-          .edit(STAFF_ROLE_ID, { ViewChannel: false })
-          .catch(() => {});
-        await message.channel.permissionOverwrites
-          .edit(PARTNERMANAGER_ROLE_ID, { ViewChannel: false })
-          .catch(() => {});
-      }
-
-      const msg = await fetchTicketMessage(message.channel, ticketDoc.messageId,);
-      if (!msg) {
-        const fallback = await message.channel.send({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-              .setColor("#6f4e37"),
-          ],
-          components: [originalButtons],
-        }).catch(() => null);
-        if (fallback?.id) {
-          ticketDoc.messageId = fallback.id;
-          await ticketDoc.save().catch(() => {});
-        }
-        return;
-      }
-
-      const originalEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
-      await msg.edit({
-        embeds: [originalEmbed],
-        components: [originalButtons],
-      });
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Ticket Unclaimato")
-            .setDescription(`<@${oldClaimer}> non gestisce più il ticket`)
-            .setColor("#6f4e37"),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (subcommand === "transfer") {
-      const ticketDoc = await Ticket.findOne({ channelId: effectiveChannelId, open: true });
-      if (!ticketDoc) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Questo non è un canale ticket.",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (!ticketDoc.claimedBy) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Il ticket non è claimato. Usa `+ticket claim` o `+claim` per prenderlo in carico.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const isClaimer = message.author.id === ticketDoc.claimedBy;
-      if (!isClaimer && !message.member.roles.cache.has(HIGHSTAFF_ROLE_ID)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Solo chi ha claimato il ticket o l'**High Staff** può trasferire il claim.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const targetUser = await resolveUserFromArg(message, normalizedRest[0]);
-      if (!targetUser) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Uso: `+ticket transfer <@utente | id>` oppure `+transfer <@utente | id>`. Specifica un utente valido.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const targetMember = await getGuildMemberCached(message.guild, targetUser.id);
-      if (!targetMember) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> L'utente non è nel server.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (!canClaimTicket(targetMember, ticketDoc.ticketType, message.guild?.id)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> L'utente selezionato non può gestire questo tipo di ticket (ruolo non autorizzato).",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (targetUser.id === ticketDoc.userId) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Errore")
-              .setDescription(
-                "<:vegax:1443934876440068179> Non puoi trasferire il claim all'utente che ha aperto il ticket.",
-              )
-              .setColor("Red"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      if (targetUser.id === ticketDoc.claimedBy) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("Info")
-              .setDescription(
-                "<:VC_Attention:1482534443632558151> Il ticket è già claimato da questo utente.",
-              )
-              .setColor("#6f4e37"),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const oldClaimerId = ticketDoc.claimedBy;
-      ticketDoc.claimedBy = targetUser.id;
-      await ticketDoc.save();
-      await message.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
-      await message.channel.permissionOverwrites.edit(targetUser.id, {
-        ViewChannel: true,
-        SendMessages: true,
-      });
-      const msg = await fetchTicketMessage(message.channel, ticketDoc.messageId);
-      if (msg) {
-        const updatedEmbed = msg.embeds?.[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder().setColor("#6f4e37");
-        const updatedButtons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("close_ticket").setEmoji("<:VC_Lock:1482526739044368476>").setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji("<:VC_reason:1478517122929004544>").setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("unclaim").setEmoji("<a:VC_Unlock:1482532082466029608>").setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
-        );
-        await msg.edit({ embeds: [updatedEmbed], components: [updatedButtons] }).catch(() => {});
-      }
-      await safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("Claim trasferito")
-            .setDescription(
-              `<:VC_claim:1478517202016669887> Il ticket è stato assegnato a <@${targetUser.id}> (prima: <@${oldClaimerId}>).`,
-            )
-            .setColor("#6f4e37"),
-        ],
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-
-    if (subcommand === "switchpanel") {
-      if (!message.member.roles.cache.has(HIGHSTAFF_ROLE_ID)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Solo l'**High Staff** può usare `switchpanel`.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const categoryToken = String(normalizedRest[0] || "").toLowerCase();
-      await ticketSwitchPanelExecute(message, categoryToken);
-      return;
-    }
-
-    if (subcommand === "rename") {
-      if (!message.member.roles.cache.has(HIGHSTAFF_ROLE_ID)) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Solo l'**High Staff** può usare `rename`.",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const rawNewName = normalizedRest.join(" ").trim();
-      if (!rawNewName) {
-        await safeMessageReply(message, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setDescription(
-                "<:vegax:1443934876440068179> Uso corretto: `+ticket rename <nuovo nome>`",
-              ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const currentName = String(message.channel.name || "");
-      const ticketPrefix = resolveTicketRenamePrefix(currentName, null, getTicketPanelConfig(activeTicketInChannel?.ticketType) || getTicketPanelConfig("supporto"));
-      if (!ticketPrefix) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Nome canale ticket non valido: non riesco a ricostruire il prefisso.",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-      const words = rawNewName.replace(/-/g, " ").split(/\s+/).map((word) => word.replace(/[\/\\#@:`*?"<>|]/g, "").trim())
-        .filter(Boolean);
-      const normalizedTail = sanitizeTicketChannelTail(words.join(" "), "");
-
-      if (!normalizedTail) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Il nuovo nome non è valido.",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const newName = `${ticketPrefix}${normalizedTail}`.slice(0, 100);
-      if (newName === currentName) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Info",
-              "<:VC_Attention:1482534443632558151> Il canale ha già questo nome.",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-
-      const renamed = await message.channel.setName(newName).catch(() => null);
-      if (!renamed) {
-        await safeMessageReply(message, {
-          embeds: [
-            makeErrorEmbed(
-              "Errore",
-              "<:vegax:1443934876440068179> Non riesco a rinominare il canale con questo nome.",
-            ),
-          ],
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
+    const ticketDocFull = await Ticket.findOne(
+      { channelId: effectiveChannelId, open: true },
+      { channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 },
+    ).lean().catch(() => null);
+    const { buildTicketStaffPanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+    const { embed, components } = buildTicketStaffPanelPayload(
+      message.member,
+      message.channel,
+      ticketDocFull,
+    );
+    if (!components.length) {
       await safeMessageReply(message, {
         embeds: [
           new EmbedBuilder()
             .setColor("#6f4e37")
-            .setTitle("Rinomina Ticket")
             .setDescription(
-              `<:vegacheckmark:1443666279058772028> Canale rinominato in \`${newName}\``,
+              "<:VC_Attention:1482534443632558151> Nessun pulsante disponibile per i tuoi permessi in questo ticket.",
             ),
         ],
         allowedMentions: { repliedUser: false },
       });
       return;
     }
-
     await safeMessageReply(message, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-            "<:vegax:1443934876440068179> Subcomando non valido. Usa: `+ticket` (pannello in ticket o menu riapertura fuori, se autorizzato), `add`, `remove`, `closerequest`, `close`, `claim`, `unclaim`, `transfer`, `switchpanel`, `rename`, `reopen`.",
-          ),
-      ],
+      embeds: [embed],
+      components,
       allowedMentions: { repliedUser: false },
     });
+    return;
   },
   ticketSwitchPanelExecute,
   ticketReopenByNumber,

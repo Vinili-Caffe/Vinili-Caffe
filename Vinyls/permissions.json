@@ -446,47 +446,9 @@
         "ticket": {
             "roles": [
                 "roles.Staff",
-                "roles.PartnerManager"
-            ],
-            "subcommands": {
-                "add": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "remove": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "closerequest": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "close": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "claim": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "unclaim": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "transfer": [
-                    "roles.Staff",
-                    "roles.PartnerManager"
-                ],
-                "switchpanel": [
-                    "roles.HighStaff"
-                ],
-                "rename": [
-                    "roles.HighStaff"
-                ],
-                "reopen": [
-                    "roles.HighStaff"
-                ]
-            }
+                "roles.PartnerManager",
+                "roles.HighStaff"
+            ]
         },
         "top": {
             "roles": [
