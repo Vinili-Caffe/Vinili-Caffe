@@ -321,7 +321,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setTitle("Statistiche attività")
           .setDescription(desc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
@@ -331,24 +330,26 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   const pauseShort = getStaffPauseLine(s);
   const homeDesc = [
-    `<:staff:1443651912179388548> **Profilo staff — ${name}**`,
-    "",
     `**Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
     "",
-    `**Valutazioni:** <:thumbsup:1471292172145004768> ${pos} · <:thumbsdown:1471292163957457013> ${neg}`,
+    `**Valutazioni:** 
+    <:thumbsup:1471292172145004768> ${pos}
+    <:thumbsdown:1471292163957457013> ${neg}`,
+    "",
     `**Warn staff:** ${warns}`,
-    `**Attività:** ${weeklyMsg} messaggi · **${weeklyHours.toFixed(2)}h** vocale`,
+    "",
+    `**Attività:** 
+    ${weeklyMsg} messaggi
+    **${weeklyHours.toFixed(2)}h** vocale`,
     "",
     "Seleziona una sezione dal menu per i dettagli.",
   ].join("\n");
-
   return {
     embeds: [
       new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle("Home")
         .setDescription(homeDesc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     ],
