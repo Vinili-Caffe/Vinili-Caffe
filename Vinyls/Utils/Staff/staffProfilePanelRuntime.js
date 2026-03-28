@@ -95,16 +95,36 @@ function dayKeyToWeekdayLabel(dayKey) {
   return formatter.format(date).replace(".", "").slice(0, 3);
 }
 
-function barRowFromValues(values, maxVal) {
-  const safeMax = Math.max(1, maxVal);
-  return values
-    .map((v) => {
-      const n = Math.max(0, Number(v || 0));
-      const level = Math.min(7, Math.floor((7 * n) / safeMax));
-      return COSTANZA_BARS[level];
-    })
-    .map((b) => ` ${b} `)
+const CHART_COL_W = 6;
+
+function centerInColumn(text, width = CHART_COL_W) {
+  const s = String(text ?? "");
+  const pad = Math.max(0, width - s.length);
+  const left = Math.floor(pad / 2);
+  return `${" ".repeat(left)}${s}${" ".repeat(pad - left)}`;
+}
+
+function barCharForValue(n, maxVal) {
+  const safeMax = Math.max(1, Number(maxVal) || 1);
+  const v = Math.max(0, Number(n || 0));
+  const level = Math.min(7, Math.floor((7 * v) / safeMax));
+  return COSTANZA_BARS[level];
+}
+
+/** Due righe monospace: etichette giorno e barra centrata sotto ciascuna colonna. */
+function buildAlignedDayChartBlock(chartPoints, getNumericValue) {
+  if (!Array.isArray(chartPoints) || !chartPoints.length) {
+    return "— nessun dato —";
+  }
+  const nums = chartPoints.map((p) => Number(getNumericValue(p) || 0));
+  const maxVal = Math.max(1, ...nums);
+  const labelLine = chartPoints
+    .map((p) => centerInColumn(dayKeyToWeekdayLabel(p?.dayKey).slice(0, 3), CHART_COL_W))
     .join("");
+  const barLine = chartPoints
+    .map((_, i) => centerInColumn(barCharForValue(nums[i], maxVal), CHART_COL_W))
+    .join("");
+  return `${labelLine}\n${barLine}`;
 }
 
 function formatStaffProfileSelectCustomId(viewerId, targetId) {
@@ -174,7 +194,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (displayRoleId) {
     roleLabel = guild.roles.cache.get(displayRoleId)?.name || `<@&${displayRoleId}>`;
   } else {
-    roleLabel = "— (nessun ruolo staff rilevato)";
+    roleLabel = "—";
   }
 
   const doc = await fetchStaffLean(gid, tid);
@@ -200,10 +220,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const negLines = negReasons.map((r, i) => `**−${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const body = [
-      `<:staff:1443651912179388548> **${name}**`,
-      "",
-      `Valutazioni positive: **${pos}** · negative: **${neg}**`,
-      "",
       posLines.length ? "**Positive**" : "**Positive** — nessuna.",
       ...posLines,
       "",
@@ -214,7 +230,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const embeds = chunks.map((desc, i) =>
       new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle(i === 0 ? "Valutazioni staff" : `Valutazioni staff (${i + 1}/${chunks.length})`)
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
@@ -223,10 +238,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   if (sec === SECTION_WARN) {
     const lines = [
-      `<:staff:1443651912179388548> **${name}**`,
-      "",
-      `Warn staff attivi: **${warns}**`,
-      "",
       warnResetLine(s.firstWarnStaffAt),
       "",
     ];
@@ -240,7 +251,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const embeds = chunks.map((desc, i) =>
       new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle(i === 0 ? "Warn staff" : `Warn staff (${i + 1}/${chunks.length})`)
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
@@ -296,15 +306,15 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           `Vocale negli ultimi 7 giorni: **${weeklyHours.toFixed(2)}h**`,
         ];
     const desc = [
-      `<:staff:1443651912179388548> **${name}** — ultimi **7** giorni.`,
-      "",
       "**Messaggi / giorno**",
-      `\`${labels}\``,
-      `\`${barT}\``,
+      "```",
+      msgBlock,
+      "```",
       "",
       "**Ore vocali / giorno**",
-      `\`${labels}\``,
-      `\`${barH}\``,
+      "```",
+      vocBlock,
+      "```",
       ...limitLines,
     ].join("\n");
     return {
