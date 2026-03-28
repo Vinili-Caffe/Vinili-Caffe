@@ -8,13 +8,14 @@ const {
   TextInputStyle,
   MessageFlags,
   UserSelectMenuBuilder,
+  StringSelectMenuBuilder,
 } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
-const { hasStaffTicketRole } = require("./ticketStaffPanelBuild");
+const { hasStaffTicketRole, buildRemoveMemberOptions } = require("./ticketStaffPanelBuild");
 const ticketModule = require("../../Prefix/Ticket/ticket");
 
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
@@ -63,7 +64,107 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     cid.startsWith("ticket_panel_") || cid.startsWith("modal_ticket_panel");
   if (!isPanel) return false;
 
-  if (interaction.isButton?.() && cid === "ticket_panel_rename") {
+  if (interaction.isButton?.() && cid === "ticket_panel_nav_add") {
+    if (!hasStaffTicketRole(interaction.member)) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti al ticket.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const addEmbed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("➕ Aggiungi al ticket")
+      .setDescription("Cerca e seleziona un membro. I bot non sono ammessi.");
+    const addRow = new ActionRowBuilder().addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId("ticket_panel_add_member")
+        .setPlaceholder("➕ Scegli un utente da aggiungere…")
+        .setMinValues(1)
+        .setMaxValues(1),
+    );
+    await interaction.reply({
+      embeds: [addEmbed],
+      components: [addRow],
+      flags: MessageFlags.Ephemeral,
+    });
+    return true;
+  }
+
+  if (interaction.isButton?.() && cid === "ticket_panel_nav_remove") {
+    if (!hasStaffTicketRole(interaction.member)) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti dal ticket.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const remOpts = buildRemoveMemberOptions(interaction.channel);
+    if (!remOpts.length) {
+      await safeReply(interaction, {
+        embeds: [
+          makeErrorEmbed(
+            "<a:VC_Alert:1482706673176150077> Errore",
+            "<:vegax:1443934876440068179> Non c’è nessun utente da rimuovere dai permessi del canale.",
+          ),
+        ],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const removeEmbed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("➖ Rimuovi dal ticket")
+      .setDescription("Scegli un membro da togliere dai permessi del canale.");
+    const removeRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("ticket_panel_remove_member")
+        .setPlaceholder("➖ Scegli chi rimuovere…")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(remOpts),
+    );
+    await interaction.reply({
+      embeds: [removeEmbed],
+      components: [removeRow],
+      flags: MessageFlags.Ephemeral,
+    });
+    return true;
+  }
+
+  if (interaction.isButton?.() && cid === "ticket_panel_nav_switch") {
+    if (!HIGHSTAFF_ROLE_ID || !interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può usare lo switchpanel.")],
+        flags: 1 << 6,
+      });
+      return true;
+    }
+    const switchEmbed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setTitle("🔄 Switchpanel — categoria ticket")
+      .setDescription("Scegli la nuova categoria. Il canale verrà spostato come da comando `+ticket switchpanel`.");
+    const switchRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("ticket_panel_switch_category")
+        .setPlaceholder("🔄 Cambia categoria…")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(
+          { label: "Supporto", value: "supporto", description: "Prima categoria" },
+          { label: "Partnership", value: "partnership", description: "Seconda categoria" },
+          { label: "High Staff", value: "highstaff", description: "Terza categoria" },
+        ),
+    );
+    await interaction.reply({
+      embeds: [switchEmbed],
+      components: [switchRow],
+      flags: MessageFlags.Ephemeral,
+    });
+    return true;
+  }
+
+  if (interaction.isButton?.() && cid === "ticket_panel_nav_rename") {
     if (!HIGHSTAFF_ROLE_ID || !interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può rinominare il ticket.")],
@@ -88,7 +189,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     return true;
   }
 
-  if (interaction.isButton?.() && cid === "ticket_panel_closerequest") {
+  if (interaction.isButton?.() && cid === "ticket_panel_nav_closerequest") {
     const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id }, TICKET_READ_PROJECTION).lean().catch(() => null);
     if (!ticketDoc) {
       await safeReply(interaction, {
@@ -97,8 +198,9 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       });
       return true;
     }
+    const claimerClose = String(ticketDoc.claimedBy || "").trim();
     const canRequestClose =
-      interaction.user.id === ticketDoc.claimedBy ||
+      (claimerClose && interaction.user.id === claimerClose) ||
       (HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
     if (!canRequestClose) {
       await safeReply(interaction, {
@@ -124,16 +226,17 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     return true;
   }
 
-  if (interaction.isButton?.() && cid === "ticket_panel_transfer_open") {
+  if (interaction.isButton?.() && cid === "ticket_panel_nav_transfer") {
     const ticketDocOpen = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
-    if (!ticketDocOpen?.claimedBy) {
+    const openClaimer = String(ticketDocOpen?.claimedBy || "").trim();
+    if (!openClaimer) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")],
         flags: 1 << 6,
       });
       return true;
     }
-    const isClaimerOpen = interaction.user.id === ticketDocOpen.claimedBy;
+    const isClaimerOpen = interaction.user.id === openClaimer;
     const isHighOpen = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
     if (!isClaimerOpen && !isHighOpen) {
       await safeReply(interaction, {
@@ -208,14 +311,15 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
 
   if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_transfer_user") {
     const ticketDocXfer = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
-    if (!ticketDocXfer?.claimedBy) {
+    const xferClaimer = String(ticketDocXfer?.claimedBy || "").trim();
+    if (!xferClaimer) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Il ticket non è claimato.")],
         flags: 1 << 6,
       });
       return true;
     }
-    const isClaimerXfer = interaction.user.id === ticketDocXfer.claimedBy;
+    const isClaimerXfer = interaction.user.id === xferClaimer;
     const isHighXfer = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
     if (!isClaimerXfer && !isHighXfer) {
       await safeReply(interaction, {
@@ -259,14 +363,14 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       });
       return true;
     }
-    if (targetUserId === ticketDocXfer.userId || targetUserId === ticketDocXfer.claimedBy) {
+    if (targetUserId === ticketDocXfer.userId || targetUserId === xferClaimer) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Scelta non valida per il transfer.")],
         flags: 1 << 6,
       });
       return true;
     }
-    const oldClaimerId = ticketDocXfer.claimedBy;
+    const oldClaimerId = xferClaimer;
     ticketDocXfer.claimedBy = targetUserId;
     await ticketDocXfer.save();
     await interaction.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
@@ -454,8 +558,9 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         });
         return true;
       }
+      const crClaimer = String(ticketDoc.claimedBy || "").trim();
       const canRequestClose =
-        interaction.user.id === ticketDoc.claimedBy ||
+        (crClaimer && interaction.user.id === crClaimer) ||
         (HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
       if (!canRequestClose) {
         await safeReply(interaction, {

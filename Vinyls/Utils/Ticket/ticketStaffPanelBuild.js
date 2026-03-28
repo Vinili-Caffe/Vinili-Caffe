@@ -2,7 +2,6 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  UserSelectMenuBuilder,
   ButtonBuilder,
   ButtonStyle,
   OverwriteType,
@@ -21,14 +20,16 @@ function hasStaffTicketRole(member) {
 }
 
 function canSeeTransferPanel(member, ticketDoc) {
-  if (!ticketDoc?.claimedBy) return false;
-  if (member?.id === ticketDoc.claimedBy) return true;
+  const claimer = String(ticketDoc?.claimedBy || "").trim();
+  if (!claimer) return false;
+  if (String(member?.id || "") === claimer) return true;
   return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
 }
 
 function canSeeCloseRequestPanel(member, ticketDoc) {
   if (!ticketDoc) return false;
-  if (member?.id === ticketDoc.claimedBy) return true;
+  const claimer = String(ticketDoc.claimedBy || "").trim();
+  if (claimer && String(member?.id || "") === claimer) return true;
   return Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
 }
 
@@ -52,121 +53,56 @@ function buildRemoveMemberOptions(channel) {
   return options.sort((a, b) => a.label.localeCompare(b.label, "it"));
 }
 
-function buildTicketStaffPanelPayload(member, channel, ticketDoc, canClaimTicketFn) {
-  const rows = [];
-  const guild = channel.guild;
-
-  if (hasStaffTicketRole(member)) {
-    rows.push(
-      new ActionRowBuilder().addComponents(
-        new UserSelectMenuBuilder()
-          .setCustomId("ticket_panel_add_member")
-          .setPlaceholder("➕ Cerca e aggiungi un utente al ticket…")
-          .setMinValues(1)
-          .setMaxValues(1),
-      ),
-    );
-    const remOpts = buildRemoveMemberOptions(channel);
-    if (remOpts.length) {
-      rows.push(
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId("ticket_panel_remove_member")
-            .setPlaceholder("➖ Rimuovi un utente dal ticket…")
-            .setMinValues(1)
-            .setMaxValues(1)
-            .addOptions(remOpts),
-        ),
-      );
-    }
-  }
-
-  if (HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
-    rows.push(
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("ticket_panel_switch_category")
-          .setPlaceholder("🔄 Cambia categoria ticket (switchpanel)…")
-          .setMinValues(1)
-          .setMaxValues(1)
-          .addOptions(
-            {
-              label: "Supporto",
-              value: "supporto",
-              description: "Prima categoria",
-            },
-            {
-              label: "Partnership",
-              value: "partnership",
-              description: "Seconda categoria",
-            },
-            {
-              label: "High Staff",
-              value: "highstaff",
-              description: "Terza categoria",
-            },
-          ),
-      ),
-    );
-  }
-
-  const buttonRow = [];
-  if (ticketDoc?.claimedBy && canSeeTransferPanel(member, ticketDoc) && canClaimTicketFn) {
-    buttonRow.push(
-      new ButtonBuilder()
-        .setCustomId("ticket_panel_transfer_open")
-        .setLabel("Trasferisci claim")
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji("🔀"),
-    );
-  }
-  if (HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
-    buttonRow.push(
-      new ButtonBuilder()
-        .setCustomId("ticket_panel_rename")
-        .setLabel("Rinomina canale")
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji("<:VC_Ticket:1482535175283019888>"),
-    );
-  }
-  if (canSeeCloseRequestPanel(member, ticketDoc)) {
-    buttonRow.push(
-      new ButtonBuilder()
-        .setCustomId("ticket_panel_closerequest")
-        .setLabel("Richiesta chiusura")
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<:VC_PinkQuestionMark:1471892611026391306>"),
-    );
-  }
-  if (buttonRow.length) {
-    rows.push(new ActionRowBuilder().addComponents(buttonRow));
-  }
-
+function buildTicketStaffPanelPayload(_member, _channel, _ticketDoc) {
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_panel_nav_add")
+      .setLabel("Aggiungi")
+      .setStyle(ButtonStyle.Success)
+      .setEmoji("➕"),
+    new ButtonBuilder()
+      .setCustomId("ticket_panel_nav_remove")
+      .setLabel("Rimuovi")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("➖"),
+    new ButtonBuilder()
+      .setCustomId("ticket_panel_nav_switch")
+      .setLabel("Switchpanel")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🔄"),
+    new ButtonBuilder()
+      .setCustomId("ticket_panel_nav_rename")
+      .setLabel("Rinomina")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("<:VC_Ticket:1482535175283019888>"),
+    new ButtonBuilder()
+      .setCustomId("ticket_panel_nav_closerequest")
+      .setLabel("Rich. chiusura")
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("<:VC_PinkQuestionMark:1471892611026391306>"),
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("ticket_panel_nav_transfer")
+      .setLabel("Trasferisci claim")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🔀"),
+  );
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Ticket:1482535175283019888> Pannello azioni ticket")
+    .setTitle("<:VC_Ticket:1482535175283019888> Pannello ticket — scegli un’azione")
     .setDescription(
       [
-        "Scegli un’azione qui sotto. **Claim**, **unclaim** e **chiudi** restano nel messaggio di apertura del ticket.",
+        "Usa i pulsanti per continuare. **Claim**, **unclaim** e **chiudi** restano sul messaggio di apertura del ticket.",
         "",
-        hasStaffTicketRole(member)
-          ? "**Staff:** aggiungi con il menu utenti (ricerca Discord); rimuovi con il menu a tendina."
-          : "",
-        canSeeTransferPanel(member, ticketDoc) && ticketDoc?.claimedBy
-          ? "**Claim:** **Trasferisci claim** apre un menu utenti (solo chi ha il ruolo giusto per il tipo di ticket: supporto → Staff/High Staff, partnership → Partner Manager/High Staff, high → High Staff)."
-          : "",
-        HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)
-          ? "**High Staff:** switch categoria o rinomina."
-          : "",
-        canSeeCloseRequestPanel(member, ticketDoc)
-          ? "**Richiesta chiusura:** invia la richiesta all’apertore (come `+ticket closerequest`)."
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+        "**Aggiungi** / **Rimuovi** — aprono un messaggio privato (solo tu) con menu a tendina. *Serve ruolo staff ticket.*",
+        "**Switchpanel** — menu categoria (solo **High Staff**).",
+        "**Rinomina** — si apre subito il modulo nome canale (solo **High Staff**).",
+        "**Rich. chiusura** — modulo motivo, poi messaggio all’apertore (chi ha claimato o **High Staff**).",
+        "**Trasferisci claim** — menu utenti nel messaggio privato (ticket **claimato**; claimant o **High Staff**).",
+      ].join("\n"),
     );
-
-  return { embed, components: rows.slice(0, 5) };
+  return { embed, components: [row1, row2] };
 }
 
 function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs) {
@@ -209,4 +145,5 @@ module.exports = {
   hasStaffTicketRole,
   canSeeTransferPanel,
   canSeeCloseRequestPanel,
+  buildRemoveMemberOptions,
 };

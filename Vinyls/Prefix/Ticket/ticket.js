@@ -821,7 +821,6 @@ const activeTicketInChannel = effectiveChannelId ? await Ticket.findOne({ channe
         message.member,
         message.channel,
         ticketDocFull,
-        canClaimTicket,
       );
       if (!components.length) {
         await safeMessageReply(message, {

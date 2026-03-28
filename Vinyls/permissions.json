@@ -1173,15 +1173,28 @@
             "roles.HighStaff",
             "roles.PartnerManager"
         ],
-        "ticket_panel_transfer_open": null,
         "ticket_panel_transfer_user": null,
         "ticket_panel_switch_category": [
             "roles.HighStaff"
         ],
-        "ticket_panel_rename": [
+        "ticket_panel_nav_add": [
+            "roles.Staff",
+            "roles.HighStaff",
+            "roles.PartnerManager"
+        ],
+        "ticket_panel_nav_remove": [
+            "roles.Staff",
+            "roles.HighStaff",
+            "roles.PartnerManager"
+        ],
+        "ticket_panel_nav_switch": [
             "roles.HighStaff"
         ],
-        "ticket_panel_closerequest": null,
+        "ticket_panel_nav_rename": [
+            "roles.HighStaff"
+        ],
+        "ticket_panel_nav_closerequest": null,
+        "ticket_panel_nav_transfer": null,
         "ticket_panel_reopen_pick": null,
         "upv": [
             "roles.Member"
