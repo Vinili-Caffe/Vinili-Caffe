@@ -772,6 +772,48 @@
             ],
             "ownerSegment": 3
         },
+        "security_panel:hub:*": {
+            "roles": [
+                "roles.Founder",
+                "roles.CoFounder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:pick:*": {
+            "roles": [
+                "roles.Founder",
+                "roles.CoFounder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:status:*": {
+            "roles": [
+                "roles.Founder",
+                "roles.CoFounder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:panic:*": {
+            "roles": [
+                "roles.Founder",
+                "roles.CoFounder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:statics:*": {
+            "roles": [
+                "roles.Founder",
+                "roles.CoFounder"
+            ],
+            "ownerSegment": 2
+        },
+        "security_panel:back:*": {
+            "roles": [
+                "roles.Founder",
+                "roles.CoFounder"
+            ],
+            "ownerSegment": 2
+        },
         "claim_ticket": [
             "roles.Staff",
             "roles.HighStaff",

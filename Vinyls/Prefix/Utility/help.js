@@ -68,7 +68,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   recensione: "Premia una recensione assegnando livelli.",
   ticket: "Gestisce i ticket: partecipanti, claim, trasferimento, pannello, rinomina, chiusura e riapertura.",
   verify: "Verifica manualmente un utente.",
-  security: "Hub sicurezza: status globale e gestione panic.",
+  security: "Pannello sicurezza con menu: stato, statics, panic, abilita/disabilita moduli.",
   level: "Configura il sistema EXP/livelli: imposta o modifica exp, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
   evento: "Mostra info e classifica sull'evento activity/exp in corso.",
@@ -77,11 +77,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "level": "Senza args apre pannello server; con utente apre pannello utente.",
-  "security.status": "Mostra un pannello paginato con lo stato dei sistemi sicurezza.",
-  "security.enable": "Riattiva completamente i moduli sicurezza selezionati.",
-  "security.disable": "Disabilita completamente i moduli sicurezza selezionati.",
-  "security.panic": "Gestisce Panic Mode centralizzata.",
-  "security.statics": "Configura ruoli, canali e utenti statici per la sicurezza.",
+  security: "Senza argomenti apre il pannello interattivo (menu). I sottocomandi testuali (+security status, statics, enable, disable, panic…) restano come scorciatoie legacy.",
   "ticket": "Solo **`+ticket`** (senza argomenti). Nel canale di un ticket aperto: pannello staff con pulsanti. Fuori: solo **High Staff** ottiene il menu per riaprire ticket chiusi. Claim, chiudi, ecc. restano sui pulsanti del messaggio di apertura ticket.",
   "avatar": "Mostra di default l'avatar profilo utente e permette switch a quello server con frecce.",
   "banner": "Mostra di default il banner profilo utente e permette switch a quello server con frecce.",
@@ -600,6 +596,29 @@ function chunkEntriesByCategory(entries, maxPerPage) {
   }
   if (currentPage.length) chunks.push(currentPage);
   return chunks.length ? chunks : [];
+}
+
+/** Unisce chunk consecutivi se insieme restano entro maxPerPage (evita pagine quasi vuote dopo una categoria che non entrava nella pagina precedente). */
+function mergeAdjacentHelpChunks(chunks, maxPerPage) {
+  if (!Array.isArray(chunks) || chunks.length <= 1) return chunks;
+  const out = [];
+  let buffer = null;
+  for (const chunk of chunks) {
+    const c = Array.isArray(chunk) ? chunk : [];
+    if (!c.length) continue;
+    if (buffer == null) {
+      buffer = [...c];
+      continue;
+    }
+    if (buffer.length + c.length <= maxPerPage) {
+      buffer.push(...c);
+    } else {
+      out.push(buffer);
+      buffer = [...c];
+    }
+  }
+  if (buffer != null && buffer.length) out.push(buffer);
+  return out.length ? out : chunks;
 }
 
 function renderPageText(page, newUntilMap = null) {
@@ -1263,9 +1282,6 @@ function resolvePrefixCommandByToken(client, token) {
 
 function listPrefixSubcommandsForCommand(command, commandName, permissions) {
   const baseSubcommands = Array.from(new Set([...extractPrefixSubcommands(command), ...(Array.isArray(command?.subcommands) ? command.subcommands.map((s) => String(s || "").trim().toLowerCase(),).filter(Boolean) : []),]),);
-  if (String(commandName || "").toLowerCase() === "security") {
-    baseSubcommands.push("panic status", "panic enable", "panic disable");
-  }
   const subcommands = Array.from(new Set(baseSubcommands));
   return subcommands.sort((a, b) => a.localeCompare(b, "it"));
 }
@@ -1420,7 +1436,10 @@ module.exports = {
 
     const allVisibleEntries = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles),);
     const sortedVisible = dedupeAndSortEntries(allVisibleEntries);
-    const chunks = chunkEntriesByCategory(sortedVisible, HELP_PAGE_SIZE);
+    const chunks = mergeAdjacentHelpChunks(
+      chunkEntriesByCategory(sortedVisible, HELP_PAGE_SIZE),
+      HELP_PAGE_SIZE,
+    );
     const groupedPages = chunks.map((items, idx) => ({ roleId: "all", items, indexLabel: "", groupLabel: PAGE_TITLES.all || "Comandi Disponibili", }));
     const displayPages = expandHelpDisplayPages(groupedPages, newUntilMap);
 

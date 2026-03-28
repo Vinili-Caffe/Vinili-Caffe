@@ -1,4 +1,4 @@
-const{EmbedBuilder,PermissionsBitField,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,}=require("discord.js");
+const{EmbedBuilder,PermissionsBitField,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,StringSelectMenuBuilder,}=require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const{getAntiNukeStatusSnapshot,stopAntiNukePanic,triggerAntiNukePanicExternal,setAntiNukeConfigSnapshot,}=require("../../Services/Moderation/antiNukeService");
@@ -538,6 +538,9 @@ function usageEmbed() {
     .setTitle("Security Command")
     .setDescription(
       [
+        "**Consigliato:** `+security` (menu interattivo: stato, statics, panic, moduli).",
+        "",
+        "Legacy testuali:",
         "`+security status`",
         "`+security statics [target ?add/?set/?remove slot]`",
         "`+security enable <antinuke | automod | joingate | joinraid | lockcommands | all>`",
@@ -676,7 +679,7 @@ async function buildStatusEmbeds(guild) {
         `- \`${anti?.enabled ? "Enabled" : "Disabled"}\``,
         "",
         "[2] Panic Mode:",
-        `- \`+security panic status\``,
+        "- Dal **menu +security** → voce *Panic / runtime*.",
         "",
         "[3] Backups:",
         `- [A] Status: \`${backup.enabled ? "Enabled" : "Disabled"}\``,
@@ -1074,6 +1077,76 @@ async function runSecurityAction(action, target, guild, actorId) {
   return results;
 }
 
+function buildSecurityHubPayload(guild, ownerId, openerUser = null, member = null) {
+  const safeOwner = String(ownerId || "").trim();
+  const welcome = openerUser
+    ? String(openerUser.globalName || openerUser.username || "").trim() || "Staff"
+    : "Staff";
+  const canPanic = member && hasPanicControlAccess(member, guild);
+  const lines = [
+    "<:VC_Info:1482526956703580372> **Pannello sicurezza** — stato globale, statics e panic.",
+    "",
+    "- **Stato sistemi**: AntiNuke, JoinRaid, AutoMod (heat), JoinGate",
+    "- **Statics**: ruoli, canali e utenti di configurazione",
+    "- **Panic / runtime**: overview panic e lock attivi",
+  ];
+  if (canPanic) {
+    lines.push("", "<:VC_Modifica:1478859646587633717> **Founder/CoFounder**: abilita o disabilita moduli dal menu.");
+  } else {
+    lines.push("", "<:VC_InactiveStatus:1482526984234860574> Abilitazione/disabilitazione moduli: solo Founder/CoFounder.");
+  }
+  lines.push("", "<:VC_Modifica:1478859646587633717> Seleziona un'azione dal menu qui sotto.");
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle(`Benvenuto, ${welcome}.`)
+    .setDescription(lines.join("\n"));
+  const iconUrl = guild?.iconURL?.({ size: 256, extension: "png" });
+  if (iconUrl) embed.setThumbnail(iconUrl);
+  const options = [
+    {
+      label: "Stato sistemi",
+      description: "Pannello paginato (4 pagine)",
+      value: "view_status",
+      emoji: "<:VC_Stats:1482527532682055780>",
+    },
+    {
+      label: "Statics",
+      description: "Ruoli, canali, utenti statici",
+      value: "view_statics",
+      emoji: "<a:VC_Channel:1482534583944871996>",
+    },
+    {
+      label: "Panic / runtime",
+      description: "Stato panic e lock",
+      value: "view_panic",
+      emoji: "<a:VC_Alert:1482706673176150077>",
+    },
+  ];
+  if (canPanic) {
+    options.push(
+      {
+        label: "Abilita moduli",
+        description: "AntiNuke, AutoMod, JoinGate…",
+        value: "pick_enable",
+        emoji: "<a:VC_Verified:1482532479637127188>",
+      },
+      {
+        label: "Disabilita moduli",
+        description: "Spegne moduli o panic",
+        value: "pick_disable",
+        emoji: "<a:VC_Cross:1482532424570376253>",
+      },
+    );
+  }
+  const row = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`security_panel:hub:${safeOwner}`)
+      .setPlaceholder("Scegli un'area…")
+      .addOptions(options),
+  );
+  return { embeds: [embed], components: [row] };
+}
+
 module.exports = {
   name: "security",
   subcommands: ["status", "statics", "enable", "disable", "panic", "panic status", "panic enable", "panic disable"],
@@ -1106,6 +1179,16 @@ module.exports = {
   },
   allowEmptyArgs: true,
 
+  buildSecurityHubPayload,
+  buildStatusEmbeds,
+  buildPanicStatusEmbeds,
+  buildSecurityStaticsPanelEmbed,
+  hasStaffAccess,
+  hasPanicControlAccess,
+  runSecurityAction,
+  parsePanicTarget,
+  sendSecurityAuditLog,
+
   async execute(message, args = []) {
     if (!message?.guild || !message?.member) return;
     if (!hasStaffAccess(message.member, message.guild)) {
@@ -1116,7 +1199,21 @@ module.exports = {
       return;
     }
 
-    const sub = String(args[0] || "status").toLowerCase();
+    if (!args.length) {
+      const payload = buildSecurityHubPayload(
+        message.guild,
+        message.author.id,
+        message.author,
+        message.member,
+      );
+      await safeMessageReply(message, {
+        ...payload,
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+
+    const sub = String(args[0] || "").toLowerCase();
 
     if (sub === "status") {
       const pages = await buildStatusEmbeds(message.guild);
