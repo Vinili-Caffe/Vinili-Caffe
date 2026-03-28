@@ -177,6 +177,7 @@ function startStaffWarnResetLoop(client) {
 
 module.exports = {
   NEGATIVES_PER_STAFF_WARN,
+  STAFF_WARN_RESET_MS,
   addStaffWarnFromNegatives,
   getHighestStaffRoleId,
   applyDepexOneLevel,

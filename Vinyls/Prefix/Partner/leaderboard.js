@@ -1,0 +1,284 @@
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const IDs = require("../../Utils/Config/ids");
+const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+
+const PARTNERS_PER_PAGE = 10;
+const TIME_ZONE = "Europe/Rome";
+const UNKNOWN_USERNAME = "Utente sconosciuto";
+const PARTNER_LB_CHANNEL_ID = IDs.channels.partnersChat;
+const PLB_MODE_PREFIX = "plb_mode:";
+const PLB_NAV_PREFIX = "plb_nav:";
+
+function getRomeDateParts(date) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const out = {};
+  for (const part of parts) {
+    if (part.type !== "literal") out[part.type] = part.value;
+  }
+  return {
+    year: Number(out.year),
+    month: Number(out.month),
+    day: Number(out.day),
+  };
+}
+
+function getRomeOffsetMs(utcDate) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const timeZoneName = formatter.formatToParts(utcDate).find((part) => part.type === "timeZoneName")?.value;
+  const match = String(timeZoneName || "GMT+0").match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * (hours * 60 + minutes) * 60 * 1000;
+}
+
+function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
+  const baseUtcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+  const firstOffsetMs = getRomeOffsetMs(new Date(baseUtcMs));
+  let utcMs = baseUtcMs - firstOffsetMs;
+  const secondOffsetMs = getRomeOffsetMs(new Date(utcMs));
+  if (secondOffsetMs !== firstOffsetMs) {
+    utcMs = baseUtcMs - secondOffsetMs;
+  }
+  return new Date(utcMs);
+}
+
+function getCurrentWeekWindow(now = new Date()) {
+  const romeToday = getRomeDateParts(now);
+  const romeTodayNoonUtc = new Date(Date.UTC(romeToday.year, romeToday.month - 1, romeToday.day, 12, 0, 0));
+  const dayFromMonday = (romeTodayNoonUtc.getUTCDay() + 6) % 7;
+  const mondayNoonUtc = new Date(romeTodayNoonUtc.getTime() - dayFromMonday * 24 * 60 * 60 * 1000);
+  const mondayY = mondayNoonUtc.getUTCFullYear();
+  const mondayM = mondayNoonUtc.getUTCMonth() + 1;
+  const mondayD = mondayNoonUtc.getUTCDate();
+  const sundayNoonUtc = new Date(mondayNoonUtc.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const sundayY = sundayNoonUtc.getUTCFullYear();
+  const sundayM = sundayNoonUtc.getUTCMonth() + 1;
+  const sundayD = sundayNoonUtc.getUTCDate();
+  const weekStart = createUtcFromRomeLocal(mondayY, mondayM, mondayD, 0, 0, 0);
+  const scheduledWeekEnd = createUtcFromRomeLocal(sundayY, sundayM, sundayD, 23, 59, 59);
+  const weekEnd = now.getTime() < scheduledWeekEnd.getTime() ? now : scheduledWeekEnd;
+  return { weekStart, weekEnd };
+}
+
+function isActionInWeeklyWindow(action, weekStart, weekEnd) {
+  if (!action || action.action !== "create" || !action.date) return false;
+  if (Array.isArray(action?.auditPenaltyDates) && action.auditPenaltyDates.length > 0) return false;
+  const when = new Date(action.date);
+  if (Number.isNaN(when.getTime())) return false;
+  return when >= weekStart && when <= weekEnd;
+}
+
+function countValidAllTimePartners(actions) {
+  if (!Array.isArray(actions)) return 0;
+  return actions.reduce((total, action) => {
+    if (String(action?.action || "").toLowerCase() !== "create") return total;
+    if (Array.isArray(action?.auditPenaltyDates) && action.auditPenaltyDates.length > 0) return total;
+    return total + 1;
+  }, 0);
+}
+
+function buildNoDataEmbed(isWeekly) {
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(
+      isWeekly
+        ? "<:VC_Attention:1482534443632558151> Nessuno ha effettuato partner in questa settimana!"
+        : "<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!",
+    );
+}
+
+async function buildLeaderboardEmbed(partners, currentPage, totalPages, isWeekly, resolveUsername) {
+  const startIndex = (currentPage - 1) * PARTNERS_PER_PAGE;
+  const currentPartners = partners.slice(startIndex, startIndex + PARTNERS_PER_PAGE);
+  const usernames = await Promise.all(currentPartners.map((partner) => resolveUsername(partner.userId)));
+  const rows = currentPartners.map(
+    (partner, index) =>
+      `**${startIndex + index + 1}.**${usernames[index] || UNKNOWN_USERNAME} - <:VC_Partner:1482527213780729896> ${partner.score} partnership`,
+  );
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle(
+      `<a:VC_Winner:1482535294757507255> Classifica Partnership (${isWeekly ? "Settimanale" : "Totale"})`,
+    )
+    .setDescription(rows.join("\n"))
+    .setFooter({ text: `Pagina ${currentPage} di ${totalPages}` })
+    .setTimestamp();
+}
+
+function createUsernameResolver(client) {
+  const usernameCache = new Map();
+  const pendingFetches = new Map();
+  return async (userId) => {
+    const key = String(userId || "");
+    if (!key) return UNKNOWN_USERNAME;
+    if (usernameCache.has(key)) return usernameCache.get(key);
+    const cachedUser = client.users.cache.get(key);
+    if (cachedUser?.username) {
+      usernameCache.set(key, cachedUser.username);
+      return cachedUser.username;
+    }
+    if (pendingFetches.has(key)) return pendingFetches.get(key);
+    const fetchPromise = client.users
+      .fetch(key)
+      .then((user) => {
+        const username = user?.username || UNKNOWN_USERNAME;
+        usernameCache.set(key, username);
+        pendingFetches.delete(key);
+        return username;
+      })
+      .catch(() => {
+        pendingFetches.delete(key);
+        usernameCache.set(key, UNKNOWN_USERNAME);
+        return UNKNOWN_USERNAME;
+      });
+    pendingFetches.set(key, fetchPromise);
+    return fetchPromise;
+  };
+}
+
+async function fetchSortedPartners(guild, isWeekly) {
+  const weekWindow = getCurrentWeekWindow(new Date());
+  const allStaff = await ActivityUserProfile.find({ guildId: guild.id })
+    .select("userId staff.partnerCount staff.partnerActions")
+    .lean();
+  const partners = allStaff
+    .map((row) => {
+      const staff = row.staff || {};
+      if (!isWeekly) {
+        const totalCount = Number(staff.partnerCount);
+        const fromActions = countValidAllTimePartners(Array.isArray(staff.partnerActions) ? staff.partnerActions : []);
+        const score = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : fromActions;
+        return { userId: row.userId, score };
+      }
+      const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : [];
+      const weeklyCount = actions.reduce(
+        (total, action) => (isActionInWeeklyWindow(action, weekWindow.weekStart, weekWindow.weekEnd) ? total + 1 : total),
+        0,
+      );
+      return { userId: row.userId, score: weeklyCount };
+    })
+    .filter((staff) => staff.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return partners;
+}
+
+function buildPartnerLbToggleRow(mode = "totale") {
+  const active = mode === "settimanale" ? "settimanale" : "totale";
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${PLB_MODE_PREFIX}totale`)
+      .setLabel("Totale")
+      .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`${PLB_MODE_PREFIX}settimanale`)
+      .setLabel("Settimanale")
+      .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+  );
+}
+
+function buildPartnerLbNavRow(mode, currentPage, totalPages) {
+  const m = mode === "settimanale" ? "settimanale" : "totale";
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${PLB_NAV_PREFIX}${m}:${currentPage}:p`)
+      .setEmoji("<a:vegaleftarrow:1462914743416131816>")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(currentPage <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${PLB_NAV_PREFIX}${m}:${currentPage}:n`)
+      .setEmoji("<a:vegarightarrow:1443673039156936837>")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(currentPage >= totalPages),
+  );
+}
+
+async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", page = 1) {
+  const isWeekly = mode === "settimanale";
+  const partners = await fetchSortedPartners(guild, isWeekly);
+  const toggleRow = buildPartnerLbToggleRow(isWeekly ? "settimanale" : "totale");
+  if (!partners.length) {
+    return { embeds: [buildNoDataEmbed(isWeekly)], components: [toggleRow] };
+  }
+  const totalPages = Math.max(1, Math.ceil(partners.length / PARTNERS_PER_PAGE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const resolveUsername = createUsernameResolver(client);
+  const embed = await buildLeaderboardEmbed(partners, safePage, totalPages, isWeekly, resolveUsername);
+  const components = [toggleRow];
+  if (totalPages > 1) components.push(buildPartnerLbNavRow(isWeekly ? "settimanale" : "totale", safePage, totalPages));
+  return { embeds: [embed], components };
+}
+
+module.exports = {
+  name: "leaderboard",
+  aliases: ["lb", "classificapartner"],
+  allowEmptyArgs: true,
+  usage: "`+leaderboard`",
+  examples: ["+leaderboard", "+lb"],
+
+  PARTNERS_PER_PAGE,
+  PLB_MODE_PREFIX,
+  PLB_NAV_PREFIX,
+  buildPartnerLeaderboardPayload,
+  fetchSortedPartners,
+
+  async execute(message) {
+    if (!message.guild) return;
+    await message.channel.sendTyping();
+    const mode = "totale";
+    const payload = await buildPartnerLeaderboardPayload(message.client, message.guild, mode, 1);
+    const shouldRedirect = String(message.channel.id) !== String(PARTNER_LB_CHANNEL_ID);
+    if (!shouldRedirect) {
+      await safeMessageReply(message, {
+        ...payload,
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+    const targetChannel =
+      message.guild.channels.cache.get(PARTNER_LB_CHANNEL_ID) ||
+      (await getGuildChannelCached(message.guild, PARTNER_LB_CHANNEL_ID));
+    if (!targetChannel || !targetChannel.isTextBased()) {
+      await safeMessageReply(message, {
+        content: `Non riesco a trovare il canale <#${PARTNER_LB_CHANNEL_ID}>.`,
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+    const sent = await targetChannel.send(payload).catch(() => null);
+    if (!sent) {
+      await safeMessageReply(message, {
+        content: `Non sono riuscito a inviare la classifica in <#${PARTNER_LB_CHANNEL_ID}>.`,
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+    const redirectEmbed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setDescription(
+        `Per evitare di intasare la chat, la classifica partnership è stata generata in <#${PARTNER_LB_CHANNEL_ID}>.\n` +
+          `[Clicca qui per vederla](${sent.url}) o utilizza il bottone sottostante.`,
+      );
+    const linkRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai alla classifica").setURL(sent.url),
+    );
+    await safeMessageReply(message, {
+      embeds: [redirectEmbed],
+      components: [linkRow],
+      allowedMentions: { repliedUser: false },
+    });
+  },
+};

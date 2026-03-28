@@ -32,17 +32,6 @@
                 ]
             }
         },
-        "leaderboard": {
-            "roles": [
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.partnersChat",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
         "partner": {
             "roles": [
                 "roles.HighStaff"
@@ -230,6 +219,17 @@
                 "roles.Member"
             ]
         },
+        "leaderboard": {
+            "roles": [
+                "roles.PartnerManager",
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.partnersChat",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ]
+        },
         "leave": {
             "roles": [
                 "roles.Member"
@@ -337,6 +337,18 @@
                     "roles.HighStaff"
                 ]
             }
+        },
+        "staffprofile": {
+            "roles": [
+                "roles.Staff",
+                "roles.PartnerManager",
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.partnersChat",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ]
         },
         "purge": [
             "roles.HighStaff"
@@ -916,6 +928,13 @@
         },
         "profile_panel:*": {
             "ownerSegment": 2
+        },
+        "staff_profile_panel:*": {
+            "roles": [
+                "roles.Staff",
+                "roles.PartnerManager",
+                "roles.HighStaff"
+            ]
         },
         "downv": [
             "roles.Member"

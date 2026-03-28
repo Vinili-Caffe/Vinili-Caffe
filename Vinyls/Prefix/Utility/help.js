@@ -34,6 +34,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   ship: "Calcola la compatibilità tra due utenti.",
   snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
   join: "Fa entrare il bot nel tuo canale vocale.",
+  leaderboard: "Classifica partnership totale e settimanale.",
   leave: "Fa uscire il bot dal canale vocale.",
   classifica: "Mostra la classifica livelli.",
   mstats: "Mostra statistiche minigiochi di un utente.",
@@ -73,6 +74,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   quote: "Genera una quote da un messaggio.",
   evento: "Mostra info e classifica sull'evento activity/exp in corso.",
   pause: "Gestione pause staffer.",
+  staffprofile: "Pannello profilo staff: ruolo, pause, valutazioni, warn, statistiche (menu).",
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
@@ -1394,9 +1396,25 @@ function buildMiniHelpEmbed(query, entries, context = {}) {
     .setDescription(`${lines.join("\n")}${extra}`);
 }
 
+function buildHelpNewUntilPayload(client, untilMs) {
+  const permissions = loadPermissions();
+  const ts =
+    typeof untilMs === "number" && Number.isFinite(untilMs)
+      ? untilMs
+      : Date.now() + HELP_NEW_DAYS * 24 * 60 * 60 * 1000;
+  const entries = buildEntries(client, permissions);
+  const out = {};
+  for (const entry of entries) {
+    const key = getHelpNewEntryKey(entry);
+    if (key) out[key] = ts;
+  }
+  return out;
+}
+
 module.exports = {
   name: "help",
   allowEmptyArgs: true,
+  buildHelpNewUntilPayload,
   async execute(message, args, client) {
     if (!message.guild || !message.member) return;
     await message.channel.sendTyping().catch(() => { });
