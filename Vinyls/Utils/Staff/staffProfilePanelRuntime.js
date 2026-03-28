@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("dis
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { getUserOverviewStats } = require("../../Services/Community/activityService");
-const { getHighestStaffRoleId, STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
+const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../Pause/pauseListRuntime");
 const PANEL_PREFIX = "staff_profile_panel";
 const SECTION_HOME = "home";
@@ -10,7 +10,6 @@ const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
 const SECTION_PAUSE = "pause";
 const SECTION_STATS = "stats";
-
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 250, hours: 2.5 },
@@ -24,11 +23,32 @@ const STAFF_ROLE_PRIORITY = [
   String(IDs.roles.Mod),
   String(IDs.roles.Helper),
 ].filter(Boolean);
+const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
+  IDs.roles.Founder,
+  IDs.roles.CoFounder,
+  IDs.roles.Manager,
+  IDs.roles.Admin,
+  IDs.roles.HighStaff,
+  IDs.roles.Supervisor,
+  IDs.roles.Coordinator,
+  IDs.roles.Mod,
+  IDs.roles.Helper,
+  IDs.roles.PartnerManager,
+  IDs.roles.Staff,
+].filter(Boolean);
 const COSTANZA_BARS = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588";
 
 function resolveStaffRole(member) {
   if (!member?.roles?.cache) return null;
   for (const roleId of STAFF_ROLE_PRIORITY) {
+    if (member.roles.cache.has(roleId)) return roleId;
+  }
+  return null;
+}
+
+function resolveStaffProfileDisplayRoleId(member) {
+  if (!member?.roles?.cache) return null;
+  for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
     if (member.roles.cache.has(roleId)) return roleId;
   }
   return null;
@@ -63,7 +83,7 @@ function getStaffPauseLine(staffDoc) {
       return `Rientrato il **${p.dataRitorno}**`;
     }
   }
-  return "Nessuna pausa in corso / rientro recente.";
+  return "Nessuna pausa in corso.";
 }
 
 function dayKeyToWeekdayLabel(dayKey) {
@@ -124,12 +144,12 @@ function chunkString(text, maxLen = 3800) {
 }
 
 function warnResetLine(firstWarnStaffAt) {
-  if (!firstWarnStaffAt) return "Reset warn: dopo **6 mesi** dal primo warn (nessun warn registrato).";
+  if (!firstWarnStaffAt) return
   const first = firstWarnStaffAt instanceof Date ? firstWarnStaffAt : new Date(firstWarnStaffAt);
   if (Number.isNaN(first.getTime())) return "";
   const resetAt = first.getTime() + STAFF_WARN_RESET_MS;
   const left = resetAt - Date.now();
-  if (left <= 0) return "I warn possono essere stati azzerati dal ciclo automatico (6 mesi dal primo).";
+  if (left <= 0) return "I warn possono essere stati azzerati dal ciclo automatico.";
   const days = Math.ceil(left / (24 * 60 * 60 * 1000));
   return `Prossimo reset automatico warn: tra ~**${days}** giorni (<t:${Math.floor(resetAt / 1000)}:R>).`;
 }
@@ -149,18 +169,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const display = member || targetUser;
   const name = member?.displayName || targetUser?.username || tid;
   const staffRoleId = member ? resolveStaffRole(member) : null;
-  const highRoleId = member ? getHighestStaffRoleId(member) : null;
-  const pmId = String(IDs.roles.PartnerManager || "");
-  const hasPm = member && pmId && member.roles?.cache?.has(pmId);
+  const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
   let roleLabel = "—";
-  if (staffRoleId) {
-    roleLabel = guild.roles.cache.get(staffRoleId)?.name || `<@&${staffRoleId}>`;
-  } else if (highRoleId) {
-    roleLabel = guild.roles.cache.get(highRoleId)?.name || `<@&${highRoleId}>`;
-  } else if (hasPm) {
-    roleLabel = guild.roles.cache.get(pmId)?.name || "Partner Manager";
+  if (displayRoleId) {
+    roleLabel = guild.roles.cache.get(displayRoleId)?.name || `<@&${displayRoleId}>`;
   } else {
-    roleLabel = "— (nessun ruolo staff gerarchico)";
+    roleLabel = "— (nessun ruolo staff rilevato)";
   }
 
   const doc = await fetchStaffLean(gid, tid);
@@ -211,7 +225,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const lines = [
       `<:staff:1443651912179388548> **${name}**`,
       "",
-      `Warn staff attivi (da valutazioni negative): **${warns}**`,
+      `Warn staff attivi: **${warns}**`,
       "",
       warnResetLine(s.firstWarnStaffAt),
       "",
@@ -254,12 +268,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         components: [selectRow],
       };
     }
-    const extra = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("Pause — navigazione")
-      .setDescription("Usa i pulsanti sotto per filtrare per mese (come `+pause list`).");
     return {
-      embeds: [extra, ...listPayload.embeds],
+      embeds: [...listPayload.embeds],
       components: [selectRow, ...(listPayload.components || [])],
     };
   }
@@ -276,18 +286,17 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const limitLines = limits
       ? [
           "",
-          "**Limiti settimanali (resoconto staff)**",
+          "**Limiti settimanali**",
           `Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${Math.max(0, limits.messages - weeklyMsg)}**`,
           `Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${Math.max(0, limits.hours - weeklyHours).toFixed(2)}h**`,
         ]
       : [
           "",
-          "*Limiti numerici non definiti per il tuo ruolo (es. Admin/PM): comunque mostriamo l’attività ultimi 7 giorni.*",
-          `Messaggi (7g): **${weeklyMsg}**`,
-          `Vocale (7g): **${weeklyHours.toFixed(2)}h**`,
+          `Messaggi negli ultimi 7 giorni: **${weeklyMsg}**`,
+          `Vocale negli ultimi 7 giorni: **${weeklyHours.toFixed(2)}h**`,
         ];
     const desc = [
-      `<:staff:1443651912179388548> **${name}** — ultimi **7** giorni (dati attività, come il blocco nel resoconto staff).`,
+      `<:staff:1443651912179388548> **${name}** — ultimi **7** giorni.`,
       "",
       "**Messaggi / giorno**",
       `\`${labels}\``,
@@ -314,13 +323,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const homeDesc = [
     `<:staff:1443651912179388548> **Profilo staff — ${name}**`,
     "",
-    `**Ruolo (gerarchia):** ${roleLabel}`,
+    `**Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
     "",
     `**Valutazioni:** <:thumbsup:1471292172145004768> ${pos} · <:thumbsdown:1471292163957457013> ${neg}`,
     `**Warn staff:** ${warns}`,
-    `**Attività (7 giorni):** ${weeklyMsg} messaggi · **${weeklyHours.toFixed(2)}h** vocale`,
+    `**Attività:** ${weeklyMsg} messaggi · **${weeklyHours.toFixed(2)}h** vocale`,
     "",
     "Seleziona una sezione dal menu per i dettagli.",
   ].join("\n");

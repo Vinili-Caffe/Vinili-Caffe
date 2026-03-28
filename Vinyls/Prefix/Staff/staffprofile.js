@@ -35,7 +35,6 @@ async function resolveTargetUser(message, rawArg) {
 
 module.exports = {
   name: "staffprofile",
-  aliases: ["sprofilo", "staffprofilo"],
   allowEmptyArgs: true,
   usage: "`+staffprofile` · `+staffprofile @staffer`",
   examples: ["+staffprofile", "+sprofilo @Mod"],
