@@ -1,15 +1,4 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  MessageFlags,
-  UserSelectMenuBuilder,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, UserSelectMenuBuilder, StringSelectMenuBuilder } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
@@ -17,14 +6,13 @@ const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
 const { hasStaffTicketRole, buildRemoveMemberOptions } = require("./ticketStaffPanelBuild");
 const ticketModule = require("../../Prefix/Ticket/ticket");
-
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
 
 function buildTransferPickerEmbed(ticketType) {
   const t = String(ticketType || "").toLowerCase();
-  let rolesLine = "**Supporto:** Staff o High Staff.";
-  if (t === "partnership") rolesLine = "**Partnership:** Partner Manager o High Staff.";
+  let rolesLine = "**Supporto:** Staff.";
+  if (t === "partnership") rolesLine = "**Partnership:** Partner Manager.";
   else if (t === "high") rolesLine = "**High Staff:** solo High Staff.";
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -74,12 +62,12 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     }
     const addEmbed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("➕ Aggiungi al ticket")
-      .setDescription("Cerca e seleziona un membro. I bot non sono ammessi.");
+      .setTitle("➕ Aggiungi")
+      .setDescription("Cerca e seleziona un membro.");
     const addRow = new ActionRowBuilder().addComponents(
       new UserSelectMenuBuilder()
         .setCustomId("ticket_panel_add_member")
-        .setPlaceholder("➕ Scegli un utente da aggiungere…")
+        .setPlaceholder("➕ Scegli un utente…")
         .setMinValues(1)
         .setMaxValues(1),
     );
@@ -114,12 +102,12 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     }
     const removeEmbed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("➖ Rimuovi dal ticket")
-      .setDescription("Scegli un membro da togliere dai permessi del canale.");
+      .setTitle("➖ Rimuovi")
+      .setDescription("Scegli un membro.");
     const removeRow = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("ticket_panel_remove_member")
-        .setPlaceholder("➖ Scegli chi rimuovere…")
+        .setPlaceholder("➖ Scegli un utente…")
         .setMinValues(1)
         .setMaxValues(1)
         .addOptions(remOpts),
@@ -142,8 +130,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     }
     const switchEmbed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("🔄 Switchpanel — categoria ticket")
-      .setDescription("Scegli la nuova categoria. Il canale verrà spostato come da comando `+ticket switchpanel`.");
+      .setTitle("🔄 Switchpanel")
+      .setDescription("Scegli la nuova categoria.");
     const switchRow = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("ticket_panel_switch_category")
@@ -179,7 +167,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId("rename_tail")
-            .setLabel("Parte finale nome (senza prefisso)")
+            .setLabel("Scrivi solo la parte finale del ticket")
             .setStyle(TextInputStyle.Short)
             .setRequired(true)
             .setMaxLength(80),
@@ -211,12 +199,12 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     }
     const modal = new ModalBuilder()
       .setCustomId("modal_ticket_panel_closerequest")
-      .setTitle("Richiesta chiusura")
+      .setTitle("Richiedi Chiusura")
       .addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId("closerequest_reason")
-            .setLabel("Motivo (opzionale)")
+            .setLabel("Motivo")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(false)
             .setMaxLength(1800),
@@ -249,7 +237,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     const transferRow = new ActionRowBuilder().addComponents(
       new UserSelectMenuBuilder()
         .setCustomId("ticket_panel_transfer_user")
-        .setPlaceholder("Scegli il nuovo claimant…")
+        .setPlaceholder("Scegli un utente…")
         .setMinValues(1)
         .setMaxValues(1),
     );
@@ -280,7 +268,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     const userId = interaction.values?.[0];
     if (!userId) {
       await safeReply(interaction, {
-        embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Selezione non valida.")],
         flags: 1 << 6,
       });
       return true;

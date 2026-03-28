@@ -1,13 +1,5 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  OverwriteType,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, OverwriteType } = require("discord.js");
 const IDs = require("../Config/ids");
-
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
@@ -53,56 +45,98 @@ function buildRemoveMemberOptions(channel) {
   return options.sort((a, b) => a.label.localeCompare(b.label, "it"));
 }
 
-function buildTicketStaffPanelPayload(_member, _channel, _ticketDoc) {
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_panel_nav_add")
-      .setLabel("Aggiungi")
-      .setStyle(ButtonStyle.Success)
-      .setEmoji("➕"),
-    new ButtonBuilder()
-      .setCustomId("ticket_panel_nav_remove")
-      .setLabel("Rimuovi")
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("➖"),
-    new ButtonBuilder()
-      .setCustomId("ticket_panel_nav_switch")
-      .setLabel("Switchpanel")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("🔄"),
-    new ButtonBuilder()
-      .setCustomId("ticket_panel_nav_rename")
-      .setLabel("Rinomina")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("<:VC_Ticket:1482535175283019888>"),
-    new ButtonBuilder()
-      .setCustomId("ticket_panel_nav_closerequest")
-      .setLabel("Rich. chiusura")
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_PinkQuestionMark:1471892611026391306>"),
-  );
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_panel_nav_transfer")
-      .setLabel("Trasferisci claim")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("🔀"),
-  );
+function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
+  const isHighStaff = Boolean(HIGHSTAFF_ROLE_ID && member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID));
+  const staffTicket = hasStaffTicketRole(member);
+  const remOptsLen = staffTicket ? buildRemoveMemberOptions(channel).length : 0;
+  const claimedTrim = String(ticketDoc?.claimedBy || "").trim();
+  const showTransfer = Boolean(claimedTrim && canSeeTransferPanel(member, ticketDoc));
+  const showCloseReq = canSeeCloseRequestPanel(member, ticketDoc);
+
+  const buttons = [];
+  if (staffTicket) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_nav_add")
+        .setLabel("Aggiungi")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("➕"),
+    );
+  }
+  if (staffTicket && remOptsLen > 0) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_nav_remove")
+        .setLabel("Rimuovi")
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("➖"),
+    );
+  }
+  if (isHighStaff) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_nav_switch")
+        .setLabel("Switchpanel")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("🔄"),
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_nav_rename")
+        .setLabel("Rinomina")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("<:VC_Ticket:1482535175283019888>"),
+    );
+  }
+  if (showCloseReq) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_nav_closerequest")
+        .setLabel("Richiedi Chiusura")
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji("<:VC_PinkQuestionMark:1471892611026391306>"),
+    );
+  }
+  if (showTransfer) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_nav_transfer")
+        .setLabel("Trasferisci claim")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("🔀"),
+    );
+  }
+
+  const components = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+
+  const desc = [
+    "Questo è il pannello per gestire al completo il tuo ticket.",
+    "",
+  ];
+  if (staffTicket) {
+    desc.push(
+      "**Aggiungi** — menu utenti. **Rimuovi** — solo se c'è almeno un membro da togliere dai permessi del canale.",
+    );
+  }
+  if (isHighStaff) {
+    desc.push("**Switch** / **Rinomina**.");
+  }
+  if (showCloseReq) {
+    desc.push("**Richiedi Chiusura**.");
+  }
+  if (showTransfer) {
+    desc.push("**Trasferisci**.");
+  }
+  if (desc.length <= 2) {
+    desc.push("Qui non compaiono azioni per i tuoi permessi: usa i bottoni sopra se applicabili.");
+  }
+
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Ticket:1482535175283019888> Pannello ticket — scegli un’azione")
-    .setDescription(
-      [
-        "Usa i pulsanti per continuare. **Claim**, **unclaim** e **chiudi** restano sul messaggio di apertura del ticket.",
-        "",
-        "**Aggiungi** / **Rimuovi** — aprono un messaggio privato (solo tu) con menu a tendina. *Serve ruolo staff ticket.*",
-        "**Switchpanel** — menu categoria (solo **High Staff**).",
-        "**Rinomina** — si apre subito il modulo nome canale (solo **High Staff**).",
-        "**Rich. chiusura** — modulo motivo, poi messaggio all’apertore (chi ha claimato o **High Staff**).",
-        "**Trasferisci claim** — menu utenti nel messaggio privato (ticket **claimato**; claimant o **High Staff**).",
-      ].join("\n"),
-    );
-  return { embed, components: [row1, row2] };
+    .setDescription(desc.join("\n"));
+
+  return { embed, components };
 }
 
 function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs) {
@@ -126,7 +160,7 @@ function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs) {
     .setColor("#6f4e37")
     .setTitle("<:VC_Ticket:1482535175283019888> Riapri ticket")
     .setDescription(
-      "Ticket **chiusi** di recente (apertore ancora nel server). Scegli dalla lista oppure usa `+ticket reopen <id>`.",
+      "Ticket **chiusi** di recente. Scegli dalla lista oppure usa +ticket reopen <id>.",
     );
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -139,11 +173,4 @@ function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs) {
   return { embed, components: [row] };
 }
 
-module.exports = {
-  buildTicketStaffPanelPayload,
-  buildTicketReopenOutsidePanelPayload,
-  hasStaffTicketRole,
-  canSeeTransferPanel,
-  canSeeCloseRequestPanel,
-  buildRemoveMemberOptions,
-};
+module.exports = { buildTicketStaffPanelPayload, buildTicketReopenOutsidePanelPayload, hasStaffTicketRole, canSeeTransferPanel, canSeeCloseRequestPanel, buildRemoveMemberOptions };  
