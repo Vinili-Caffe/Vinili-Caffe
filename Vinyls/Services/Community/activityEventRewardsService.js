@@ -372,12 +372,15 @@ async function grantEventRewardsForSameDayReviewAndVote(guild, eventStartDate) {
   }
 }
 
-function getEventWeekNumber(settings) {
+function getEventWeekNumber(settings, atMs = Date.now()) {
   if (!settings?.eventStartedAt || !settings?.eventExpiresAt) return 0;
-  const now = Date.now();
+  const tAt = Number(atMs);
+  const at = Number.isFinite(tAt) ? tAt : Date.now();
   const start = new Date(settings.eventStartedAt).getTime();
   const end = new Date(settings.eventExpiresAt).getTime();
-  if (now < start || now > end) return 0;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) return 0;
+  if (at < start) return 0;
+  const now = Math.min(at, end);
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   let week = 1;
   let boundary = getFirstSunday21BoundaryAtOrAfter(start);
@@ -470,10 +473,29 @@ function getEventWeekHourKeys(settings, weekNum) {
  * Domenica 21:00 Roma: getEventWeekNumber passa subito alla settimana successiva.
  * I premi vanno alla settimana appena conclusa = rolling - 1 (mai erogare se rolling < 2).
  */
-function getCompletedEventWeekForSundayPayout(settings) {
-  const rolling = getEventWeekNumber(settings);
+function getCompletedEventWeekForSundayPayout(settings, atMs = Date.now()) {
+  const rolling = getEventWeekNumber(settings, atMs);
   if (rolling < 2) return 0;
   return Math.min(4, rolling - 1);
+}
+
+/**
+ * Ultimo istante "domenica 21:00" Europe/Rome non dopo `date` (stessi confini dell'evento).
+ * Se `date` è domenica prima delle 21:00 Roma, si usa la domenica precedente alle 21:00.
+ * Evita errori di una settimana quando il processo Node non è in TZ Europe/Rome.
+ */
+function getLastSunday21BoundaryMsAtOrBefore(date = new Date()) {
+  const nowMs = date instanceof Date ? date.getTime() : Number(date);
+  if (!Number.isFinite(nowMs)) return Date.now();
+  const p = getRomeDateTimeParts(new Date(nowMs));
+  if (p.weekday === 0) {
+    const thisSunday21 = createUtcFromRomeLocal(p.year, p.month, p.day, 21, 0, 0).getTime();
+    if (nowMs < thisSunday21) {
+      return createUtcFromRomeLocal(p.year, p.month, p.day - 7, 21, 0, 0).getTime();
+    }
+    return thisSunday21;
+  }
+  return createUtcFromRomeLocal(p.year, p.month, p.day - p.weekday, 21, 0, 0).getTime();
 }
 
 async function getTop10ExpDuringEvent(guildId, limit = 10) {
@@ -539,4 +561,4 @@ async function clearActivityEventRewardsForGuild(guildId) {
   return { deleted: result?.modifiedCount ?? 0 };
 }
 
-module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingHighStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getTop10ExpDuringEvent, getEventWeekHourKeys };
+module.exports = { isEventActive, grantEventLevels, grantEventRewardOnce, grantEventRewardsForExistingRoleMembers, grantEventRewardsForSameDayReviewAndVote, clearActivityEventRewardsForGuild, addEventWeekWinner, hasEventWeekWinnerGrant, getTop3ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingStaff, getTop10ExpDuringEventExcludingHighStaff, getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getLastSunday21BoundaryMsAtOrBefore, getTop10ExpDuringEvent, getEventWeekHourKeys };

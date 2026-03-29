@@ -1,6 +1,6 @@
 const { EmbedBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const { addStaffWarnFromNegatives, applyFullDepex } = require("../../Services/Staff/staffWarnService");
@@ -196,8 +196,19 @@ async function applyDepexSideEffects(guild, member, roleId) {
   return true;
 }
 
+async function resolvePexDepexChannel(guild) {
+  const channelId = IDs.channels?.pexDepex;
+  if (!guild || !channelId) return null;
+  const id = String(channelId);
+  return (
+    guild.channels?.cache?.get(id) ||
+    (await getGuildChannelCached(guild, id)) ||
+    (guild.client ? await getClientChannelCached(guild.client, id) : null)
+  );
+}
+
 async function sendPexDepexLog(guild, type, targetUser, oldRoleId, newRoleId, reason) {
-  const channel = await getGuildChannelCached(guild, IDs.channels.pexDepex);
+  const channel = await resolvePexDepexChannel(guild);
   if (!channel?.isTextBased?.()) return;
   const oldRole = guild.roles.cache.get(String(oldRoleId || ""));
   const newRole = guild.roles.cache.get(String(newRoleId || ""));
@@ -377,6 +388,14 @@ async function applyPmAction(guild, payload) {
   }
   const memberAfterPmDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
   await applyStaffDatabaseAfterDepex(guild.id, payload.userId, memberAfterPmDepex);
+  await sendPexDepexLog(
+    guild,
+    "depex",
+    member.user,
+    ROLE_PARTNER_MANAGER,
+    ROLE_MEMBER || "",
+    "Depex Partner Manager da resoconto.",
+  );
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
 }
 
