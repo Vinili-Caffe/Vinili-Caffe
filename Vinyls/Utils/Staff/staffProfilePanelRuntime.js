@@ -118,13 +118,13 @@ function getStaffPauseLine(staffDoc) {
     const end = parseItalianDate(p.dataRitorno);
     if (!start || !end) continue;
     if (today >= start && today <= end) {
-      return `In pausa fino al **${p.dataRitorno}**`;
+      return `<a:VC_Calendar:1482706208149475358> In pausa fino al **${p.dataRitorno}**`;
     }
     if (end < today && end >= sevenDaysAgo) {
-      return `Rientrato il **${p.dataRitorno}**`;
+      return `<a:VC_Calendar:1482706208149475358> Rientrato il **${p.dataRitorno}**`;
     }
   }
-  return "Nessuna pausa in corso.";
+  return "<a:VC_Cross:1482532424570376253> Nessuna pausa in corso.";
 }
 
 function dayKeyToWeekdayLabel(dayKey) {
@@ -223,10 +223,12 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
           .setLabel("Pex")
+          .setEmoji("<a:VC_Verified:1482532479637127188>")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
           .setLabel("Depex")
+          .setEmoji("<a:VC_Cross:1482532424570376253>")
           .setStyle(ButtonStyle.Danger),
       ),
     ];
@@ -236,19 +238,23 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("valpos", v, t))
-          .setLabel("Val +")
+          .setLabel("Aggiungi Positiva")
+          .setEmoji("➕")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("valneg", v, t))
-          .setLabel("Val −")
+          .setLabel("Aggiungi Negativa")
+          .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t))
-          .setLabel("Rimuovi val +")
+          .setLabel("Rimuovi Positiva")
+          .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t))
-          .setLabel("Rimuovi val −")
+          .setLabel("Rimuovi Negativa")
+          .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
       ),
     ];
@@ -258,11 +264,13 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn", v, t))
-          .setLabel("Warn")
+          .setLabel("Aggiungi")
+          .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t))
-          .setLabel("Rimuovi warn")
+          .setLabel("Rimuovi")
+          .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
       ),
     ];
@@ -278,14 +286,17 @@ function buildPmOnlyPartnerRows(viewerId, targetId) {
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
         .setLabel("Depex")
+        .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
         .setLabel("Aggiungi punti")
+        .setEmoji("➕")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
         .setLabel("Rimuovi punti")
+        .setEmoji("➖")
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -299,10 +310,12 @@ function buildPartnerPointsOnlyRow(viewerId, targetId) {
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
         .setLabel("Aggiungi punti")
+        .setEmoji("➕")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
         .setLabel("Rimuovi punti")
+        .setEmoji("➖")
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -314,7 +327,6 @@ function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsH
   return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
 }
 
-/** Punti partner / depex per HS: profilo solo-PM ovunque tranne pause; staff+PM su home (solo punti), stats e classifica partner. */
 function shouldAttachPartnerManagerHighStaffExtras(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, hasPartnerManager) {
   if (!viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
   const sec = String(section || "").toLowerCase();
@@ -395,9 +407,9 @@ function warnResetLine(firstWarnStaffAt) {
   if (Number.isNaN(first.getTime())) return "";
   const resetAt = first.getTime() + STAFF_WARN_RESET_MS;
   const left = resetAt - Date.now();
-  if (left <= 0) return "I warn possono essere stati azzerati dal ciclo automatico.";
+  if (left <= 0) return "<a:VC_Clock:1473359204189474886> I warn possono essere stati azzerati dal ciclo automatico.";
   const days = Math.ceil(left / (24 * 60 * 60 * 1000));
-  return `Prossimo reset automatico warn: tra ~**${days}** giorni (<t:${Math.floor(resetAt / 1000)}:R>).`;
+  return `<a:VC_Clock:1473359204189474886> Prossimo reset automatico warn: tra ~**${days}** giorni (<t:${Math.floor(resetAt / 1000)}:R>).`;
 }
 
 async function fetchStaffLean(guildId, userId) {
@@ -428,8 +440,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setColor("#6f4e37")
           .setTitle("Profilo vuoto")
           .setDescription(
-            `**${name}** non ha ruoli staff né Partner Manager.\n\n` +
-              "Usa **Pex** per la prima promozione (**Member → Helper**). Dopo il pex, rigenera il pannello con **`+staff`**.",
+            `<:VC_Staff:1479443779571155086> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
+            "<:VC_Verified:1482532479637127188> Usa **Pex** per la prima promozione (**Member → Helper**). Dopo il pex, rigenera il pannello con **`+staff`**.",
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
@@ -487,7 +499,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const lbPayload = await buildPartnerLeaderboardPayload(client, guild, lbMode, 1);
     const mainEmbed = EmbedBuilder.from(lbPayload.embeds[0]);
     const prev = mainEmbed.data?.description ?? "";
-    mainEmbed.setDescription(`${prev}\n\n> Altre pagine: \`+leaderboard\``);
+    mainEmbed.setDescription(`${prev}\n\n`);
     const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode);
     return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, hsRows, [plbRow]) };
   }
@@ -496,17 +508,17 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const pauseShort = getStaffPauseLine(s);
     const punti = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
     const pmHomeDesc = [
-      `**Ruolo:** ${roleLabel}`,
+      `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
-      `**Punti partner:** ${punti}`,
-      ].join("\n");
+      `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
+    ].join("\n");
     return {
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setTitle(`Profilo — ${name}`)
+          .setTitle(`<:VC_addperson:1485419347068588073> Profilo Staff - ${name}`)
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
@@ -518,10 +530,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const negLines = negReasons.map((r, i) => `**−${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const body = [
-      posLines.length ? "**Positive**" : "**Positive** — nessuna.",
+      posLines.length ? "<:thumbsup:1471292172145004768> **Positive**" : "<:thumbsup:1471292172145004768> **Positive** — nessuna.",
       ...posLines,
       "",
-      negLines.length ? "**Negative**" : "**Negative** — nessuna.",
+      negLines.length ? "<:thumbsdown:1471292163957457013> **Negative**" : "<:thumbsdown:1471292163957457013> **Negative** — nessuna.",
       ...negLines,
     ].join("\n");
     const chunks = chunkString(body, 3800);
@@ -540,10 +552,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       "",
     ];
     if (warnReasons.length) {
-      lines.push("**Motivazioni**");
+      lines.push("<:VC_PinkQuestionMark:1471892611026391306> **Motivazioni**");
       warnReasons.forEach((r, i) => lines.push(`**${i + 1}.** ${String(r || "—").slice(0, 900)}`));
     } else {
-      lines.push("Nessun warn registrato.");
+      lines.push("<a:VC_Cross:1482532424570376253> Nessun warn registrato.");
     }
     const chunks = chunkString(lines.join("\n"), 3800);
     const embeds = chunks.map((desc, i) =>
@@ -586,30 +598,30 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const vocBlock = buildAlignedDayChartBlock(chart, (p) => Number(p?.voiceSeconds || 0) / 3600);
     const limitLines = limits
       ? (() => {
-          const msgLeft = Math.max(0, limits.messages - weeklyMsg);
-          const vocLeft = Math.max(0, limits.hours - weeklyHours);
-          const msgLine =
-            msgLeft > 0
-              ? `Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${msgLeft}**`
-              : `Messaggi: **${weeklyMsg}** / ${limits.messages}`;
-          const vocLine =
-            vocLeft > 0
-              ? `Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${vocLeft.toFixed(2)}h**`
-              : `Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h`;
-          return ["", "**Limiti settimanali**", msgLine, vocLine];
-        })()
+        const msgLeft = Math.max(0, limits.messages - weeklyMsg);
+        const vocLeft = Math.max(0, limits.hours - weeklyHours);
+        const msgLine =
+          msgLeft > 0
+            ? `<:VC_Chat:1482532573002465433> Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${msgLeft}**`
+            : `<:VC_Chat:1482532573002465433> Messaggi: **${weeklyMsg}** / ${limits.messages}`;
+        const vocLine =
+          vocLeft > 0
+            ? `<a:VC_Mute:1482534751511515238> Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${vocLeft.toFixed(2)}h**`
+            : `<a:VC_Mute:1482534751511515238> Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h`;
+        return ["", "<:VC_Stats:1482527532682055780> **Limiti settimanali**", msgLine, vocLine];
+      })()
       : [
-          "",
-          `Messaggi negli ultimi 7 giorni: **${weeklyMsg}**`,
-          `Vocale negli ultimi 7 giorni: **${weeklyHours.toFixed(2)}h**`,
-        ];
+        "",
+        `<:VC_Chat:1482532573002465413> Messaggi negli ultimi 7 giorni: **${weeklyMsg}**`,
+        `<a:VC_Mute:1482534751511515238> Vocale negli ultimi 7 giorni: **${weeklyHours.toFixed(2)}h**`,
+      ];
     const desc = [
-      "**Messaggi / giorno**",
+      "<:VC_Chat:1482532573002465413> **Messaggi / giorno**",
       "```",
       msgBlock,
       "```",
       "",
-      "**Ore vocali / giorno**",
+      "<a:VC_Mute:1482534751511515238> **Ore vocali / giorno**",
       "```",
       vocBlock,
       "```",
@@ -642,25 +654,25 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   const puntiPartner = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
   const homeDescParts = [
-    `**Ruolo:** ${roleLabel}`,
+    `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
     "",
-    `**Valutazioni:** 
+    `<:VC_Stats:1482527532682055780> **Valutazioni:** 
     <:thumbsup:1471292172145004768> ${pos}
     <:thumbsdown:1471292163957457013> ${neg}`,
     "",
-    `**Warn staff:** ${warns}`,
+    `<:banhammer:1443651875441217639> **Warn staff:** ${warns}`,
     "",
-    `**Attività:** 
-    **${weeklyMsg}** messaggi
-    **${weeklyHours.toFixed(2)}h** vocale`,
+    `<:VC_Stats:1482527532682055780> **Attività:** 
+    <:VC_Chat:1482532573002465413> **${weeklyMsg}** messaggi
+    <a:VC_Mute:1482534751511515238> **${weeklyHours.toFixed(2)}h** vocale`,
   ];
   if (hasPm) {
     homeDescParts.push(
       "",
       `**Punti partner:** ${puntiPartner}`,
-      );
+    );
   }
   homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
@@ -668,7 +680,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     embeds: [
       new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle(`Benvenuto ${viewerName}`)
+        .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${viewerName}`)
         .setDescription(homeDesc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     ],
