@@ -5,7 +5,11 @@ const {
   TextInputStyle,
 } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel } = require("../Utils/Staff/staffProfilePanelRuntime");
+const {
+  STAFF_HP_PREFIX,
+  viewerCanUsePartnerPointsPanel,
+  viewerIsFounderOrCoFounder,
+} = require("../Utils/Staff/staffProfilePanelRuntime");
 const {
   runProfileStaffPex,
   runProspectStaffPex,
@@ -102,7 +106,21 @@ async function ensurePartnerPointsViewer(interaction) {
   await interaction
     .reply({
       content:
-        "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner da qui.",
+        "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner (su altri profili).",
+      flags: PRIVATE_FLAG,
+    })
+    .catch(() => {});
+  return false;
+}
+
+async function ensureNoUnauthorizedSelfStaffHp(interaction, parsed) {
+  const self = String(parsed.viewerId) === String(parsed.targetId);
+  if (!self) return true;
+  if (viewerIsFounderOrCoFounder(interaction.member)) return true;
+  await interaction
+    .reply({
+      content:
+        "<:vegax:1443934876440068179> Sul **tuo** profilo queste azioni sono consentite solo a **Founder** e **Co-Founder**.",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
@@ -202,10 +220,12 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
+    if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
+    const selfHp = String(parsed.viewerId) === String(parsed.targetId);
     const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
     if (isPpmBtn) {
-      if (!(await ensurePartnerPointsViewer(interaction))) return true;
-    } else if (!(await ensureHighStaffViewer(interaction))) {
+      if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
+    } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
     const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}`;
@@ -236,10 +256,12 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
+    if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
+    const selfHp = String(parsed.viewerId) === String(parsed.targetId);
     const isPpmModal = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
     if (isPpmModal) {
-      if (!(await ensurePartnerPointsViewer(interaction))) return true;
-    } else if (!(await ensureHighStaffViewer(interaction))) {
+      if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
+    } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
     const guild = interaction.guild;

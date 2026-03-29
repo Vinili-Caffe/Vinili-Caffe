@@ -73,13 +73,22 @@ function hasDisplayTierStaffBeforePartnerManager(member) {
   return false;
 }
 
-/** High Staff, Founder o Co-Founder: pulsanti punti partner nel pannello (anche su se stessi se PM). */
+/** High Staff, Founder o Co-Founder: gestione punti partner su **altri** profili. */
 function viewerCanUsePartnerPointsPanel(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
   return Boolean(
     (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)) ||
       (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
+      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
+  );
+}
+
+function viewerIsFounderOrCoFounder(member) {
+  if (!member?.roles?.cache) return false;
+  const c = member.roles.cache;
+  return Boolean(
+    (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
       (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
   );
 }
@@ -332,24 +341,16 @@ function buildPartnerPointsOnlyRow(viewerId, targetId) {
   ];
 }
 
-function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind) {
-  if (profileKind !== PROFILE_FULL || !viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
+function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember) {
+  if (profileKind !== PROFILE_FULL) return false;
+  const self = String(viewerId) === String(targetUserId);
+  if (self) {
+    if (!viewerIsFounderOrCoFounder(viewerMember)) return false;
+  } else if (!viewerIsHighStaff) {
+    return false;
+  }
   const sec = String(section || "").toLowerCase();
   return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
-}
-
-function shouldAttachPartnerManagerHighStaffExtras(section, viewerId, targetUserId, viewerCanPp, profileKind, hasPartnerManager) {
-  if (!viewerCanPp) return false;
-  const self = String(viewerId) === String(targetUserId);
-  if (self && !hasPartnerManager) return false;
-  const sec = String(section || "").toLowerCase();
-  if (sec === SECTION_PAUSE) return false;
-  if (sec === SECTION_PARTNER_LB) return false;
-  if (profileKind === PROFILE_PM_ONLY) return sec === SECTION_HOME;
-  if (profileKind === PROFILE_FULL && hasPartnerManager) {
-    return sec === SECTION_HOME || sec === SECTION_STATS;
-  }
-  return false;
 }
 
 function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
@@ -495,18 +496,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === SECTION_PARTNER_LB && !canPartnerLb) sec = SECTION_HOME;
 
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind, profileKind === PROFILE_FULL && hasPm);
-  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind)
+  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel)
     ? buildHighStaffActionRows(String(viewerId), tid, sec)
     : [];
-  let pmExtraRows = [];
-  if (shouldAttachPartnerManagerHighStaffExtras(sec, viewerId, tid, viewerCanPartnerPointsPanel, profileKind, hasPm)) {
-    if (profileKind === PROFILE_FULL && hasPm && sec === SECTION_HOME) {
-      pmExtraRows = buildPartnerPointsOnlyRow(String(viewerId), tid);
-    } else {
-      pmExtraRows = buildPmOnlyPartnerRows(String(viewerId), tid);
-    }
-  }
-  const hsRows = [...highStaffRows, ...pmExtraRows];
+  const hsRows = [...highStaffRows];
 
   if (canPartnerLb && sec === SECTION_PARTNER_LB) {
     const lbMode = String(options?.partnerLbMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
@@ -516,8 +509,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     mainEmbed.setDescription(`${prev}\n\n`);
     const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode);
     const v = String(viewerId);
+    const selfLb = v === tid;
     const canHsPartnerPoints =
-      viewerCanPartnerPointsPanel && (profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm));
+      viewerCanPartnerPointsPanel &&
+      (profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm)) &&
+      (!selfLb || viewerIsFounderOrCoFounder(viewerMemForPanel));
     const pmRowsForPartnerLb = canHsPartnerPoints
       ? profileKind === PROFILE_FULL && hasPm
         ? buildPartnerPointsOnlyRow(v, tid)
@@ -726,4 +722,5 @@ module.exports = {
   formatStaffHpButtonCustomId,
   buildStaffProfilePayload,
   viewerCanUsePartnerPointsPanel,
+  viewerIsFounderOrCoFounder,
 };
