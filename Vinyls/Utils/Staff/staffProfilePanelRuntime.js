@@ -62,7 +62,6 @@ function resolveStaffProfileDisplayRoleId(member) {
   return null;
 }
 
-/** True se ha un ruolo “staff” più alto del PM nella lista display (es. Founder + PM → true). */
 function hasDisplayTierStaffBeforePartnerManager(member) {
   if (!member?.roles?.cache) return false;
   const pmId = IDs.roles.PartnerManager;
@@ -502,9 +501,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
       `**Punti partner:** ${punti}`,
-      "",
-      "Dal menu: **Pause** (dettaglio) o **Classifica partner** (Totale / Settimanale nel pannello; altre pagine con `+leaderboard`).",
-    ].join("\n");
+      ].join("\n");
     return {
       embeds: [
         new EmbedBuilder()
@@ -588,12 +585,19 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const msgBlock = buildAlignedDayChartBlock(chart, (p) => p?.text ?? 0);
     const vocBlock = buildAlignedDayChartBlock(chart, (p) => Number(p?.voiceSeconds || 0) / 3600);
     const limitLines = limits
-      ? [
-          "",
-          "**Limiti settimanali**",
-          `Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${Math.max(0, limits.messages - weeklyMsg)}**`,
-          `Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${Math.max(0, limits.hours - weeklyHours).toFixed(2)}h**`,
-        ]
+      ? (() => {
+          const msgLeft = Math.max(0, limits.messages - weeklyMsg);
+          const vocLeft = Math.max(0, limits.hours - weeklyHours);
+          const msgLine =
+            msgLeft > 0
+              ? `Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${msgLeft}**`
+              : `Messaggi: **${weeklyMsg}** / ${limits.messages}`;
+          const vocLine =
+            vocLeft > 0
+              ? `Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${vocLeft.toFixed(2)}h**`
+              : `Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h`;
+          return ["", "**Limiti settimanali**", msgLine, vocLine];
+        })()
       : [
           "",
           `Messaggi negli ultimi 7 giorni: **${weeklyMsg}**`,
@@ -656,9 +660,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     homeDescParts.push(
       "",
       `**Punti partner:** ${puntiPartner}`,
-      "",
-      "Dal menu: **Classifica partner** (Totale / Settimanale nel pannello; altre pagine con `+leaderboard`).",
-    );
+      );
   }
   homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
