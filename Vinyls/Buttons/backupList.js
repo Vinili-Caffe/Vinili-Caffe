@@ -20,7 +20,10 @@ async function execute(interaction) {
   if (!userId) return false;
 
   const restStr = customId.startsWith(PREFIX_PREV) ? customId.slice(PREFIX_PREV.length) : customId.slice(PREFIX_NEXT.length);
-  const authorId = restStr.split(":")[0];
+  const seg = restStr.split(":");
+  const withPanelNav = seg[seg.length - 1] === "p";
+  const core = withPanelNav ? seg.slice(0, -1) : seg;
+  const authorId = core[0];
   if (authorId && authorId !== userId) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.", flags: 1 << 6 }).catch(() => {});
     return true;
@@ -28,15 +31,13 @@ async function execute(interaction) {
 
   let page = 1;
   if (customId.startsWith(PREFIX_PREV)) {
-    const rest = restStr.split(":");
-    page = Math.max(1, Number.parseInt(rest[1] || "1", 10) - 1);
+    page = Math.max(1, Number.parseInt(core[1] || "1", 10) - 1);
   } else if (customId.startsWith(PREFIX_NEXT)) {
-    const rest = restStr.split(":");
-    page = Number.parseInt(rest[1] || "1", 10) + 1;
+    page = Number.parseInt(core[1] || "1", 10) + 1;
   }
 
   try {
-    const payload = await renderList(userId, page);
+    const payload = await renderList(userId, page, withPanelNav);
     const { safeEditReply } = require("../../shared/discord/replyRuntime");
     await safeEditReply(interaction, { ...payload, flags: 1 << 6 });
     return true;
@@ -47,7 +48,7 @@ async function execute(interaction) {
   }
 }
 
-async function renderList(userId, page = 1) {
+async function renderList(userId, page = 1, withPanelNav = false) {
   const pageSize = 10;
   const { items, total, totalPages, page: currentPage } = await listAllBackupMetasPaginated({ page, pageSize });
 
@@ -66,20 +67,27 @@ async function renderList(userId, page = 1) {
     .setFooter({ text: `Pagina ${currentPage}/${totalPages} • ${total} backup totali` })
     .setTimestamp();
 
+  const panelSuffix = withPanelNav ? ":p" : "";
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${PREFIX_PREV}${userId}:${currentPage}`)
+      .setCustomId(`${PREFIX_PREV}${userId}:${currentPage}${panelSuffix}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("<:VC_page5:1482459835042762752> ")
       .setDisabled(currentPage <= 1),
     new ButtonBuilder()
-      .setCustomId(`${PREFIX_NEXT}${userId}:${currentPage}`)
+      .setCustomId(`${PREFIX_NEXT}${userId}:${currentPage}${panelSuffix}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("<:VC_page4:1482459791975645226>")
-      .setDisabled(currentPage >= totalPages)
+      .setDisabled(currentPage >= totalPages),
   );
 
-  return { embeds: [embed], components: [row] };
+  const components = [];
+  if (withPanelNav) {
+    const { buildBackupPanelNavRow } = require("../Utils/Backup/backupPanelNav");
+    components.push(buildBackupPanelNavRow(userId, "list"));
+  }
+  components.push(row);
+  return { embeds: [embed], components: components.slice(0, 5) };
 }
 
 function buildListSelectionInfoEmbed(selectedBackup) {

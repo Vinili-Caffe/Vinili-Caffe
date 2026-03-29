@@ -162,6 +162,15 @@
                 "roles.Member"
             ]
         },
+        "backup": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.highCmds",
+                "channels.staffCmds"
+            ]
+        },
         "banner": {
             "roles": [
                 "roles.Member"
@@ -677,6 +686,9 @@
         },
         "backup_info_load:*": {
             "ownerSegment": 2
+        },
+        "backup_panel:open:*": {
+            "ownerSegment": 3
         },
         "backup_list_next:*": {
             "ownerSegment": 1
@@ -1408,6 +1420,9 @@
         "backup_list_select:*": {
             "ownerSegment": 1
         },
+        "backup_panel:select:*": {
+            "ownerSegment": 2
+        },
         "usage_guide:*": {
             "ownerSegment": 2
         },
@@ -1450,6 +1465,9 @@
         "ticket_open_menu": null
     },
     "modals": {
+        "backup_panel_modal:*": {
+            "ownerSegment": 2
+        },
         "customrole_modal_*": {
             "roles": [
                 "roles.vip",

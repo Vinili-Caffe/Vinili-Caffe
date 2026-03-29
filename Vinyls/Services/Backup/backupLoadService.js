@@ -1201,7 +1201,7 @@ async function handleBackupLoadInteraction(interaction) {
   if (!session) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Sessione backup scaduta. Riesegui `/backup load`.",
+        content: "<a:VC_Alert:1482706673176150077> Sessione backup scaduta. Riesegui **+backup** (Carica backup) o `/backup load`.",
         flags: 1 << 6,
       })
       .catch(() => { });
