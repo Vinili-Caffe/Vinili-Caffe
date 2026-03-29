@@ -1,4 +1,4 @@
-const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Moderation/commandPermissions");
+const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Moderation/commandPermissions");
 const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
@@ -60,6 +60,10 @@ function buildDeniedEmbed(gate, controlLabel) {
 
   if (gate.reason === "mono_guild") {
     return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED);
+  }
+
+  if (gate.reason === "channel") {
+    return buildGlobalChannelDeniedEmbed(gate.channels || [], controlLabel);
   }
 
   return buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], controlLabel);

@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
@@ -36,30 +36,43 @@ function isDbReady() {
   return mongoose.connection?.readyState === 1;
 }
 
-function activityTypeIsCustom(activity) {
-  return Number(activity?.type) === Number(ActivityType.Custom);
+function getActivitiesArray(presence) {
+  const list = presence?.activities;
+  return Array.isArray(list) ? list : [];
 }
 
-function getCustomStatus(presence) {
-  if (!presence?.activities?.length) return "";
-  const customs = presence.activities.filter(activityTypeIsCustom);
+function collectActivitySearchStrings(activity) {
+  if (!activity || typeof activity !== "object") return [];
   const parts = [];
-  for (const a of customs) {
-    const state = String(a?.state || "").trim();
-    const name = String(a?.name || "").trim();
-    const details = String(a?.details || "").trim();
-    if (state) parts.push(state);
-    if (name && name.toLowerCase() !== "custom status") parts.push(name);
-    if (details) parts.push(details);
+  const push = (v) => {
+    if (v == null || v === "") return;
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t) parts.push(t);
+      return;
+    }
+    if (typeof v === "number" && Number.isFinite(v)) parts.push(String(v));
+  };
+  push(activity.state);
+  push(activity.name);
+  push(activity.details);
+  push(activity.url);
+  const assets = activity.assets;
+  if (assets && typeof assets === "object") {
+    push(assets.largeText);
+    push(assets.smallText);
   }
-  if (parts.length) return parts.join(" ");
-  const first = presence.activities.find(activityTypeIsCustom);
-  return String(first?.state || first?.name || "");
-}
-
-function hasCustomActivity(presence) {
-  if (!presence?.activities?.length) return false;
-  return presence.activities.some(activityTypeIsCustom);
+  const btns = activity.buttons;
+  if (Array.isArray(btns)) {
+    for (const b of btns) {
+      if (typeof b === "string") push(b);
+      else if (b && typeof b === "object") {
+        push(b.label);
+        push(b.url);
+      }
+    }
+  }
+  return parts;
 }
 
 function normalizeStatusForMatch(text) {
@@ -70,18 +83,13 @@ function normalizeStatusForMatch(text) {
 }
 
 function allActivitiesSearchText(presence) {
-  if (!presence?.activities?.length) return "";
-  return presence.activities
-    .map((a) =>
-      [a?.state, a?.name, a?.details, a?.url].filter(Boolean).join(" "),
-    )
-    .join(" ");
+  const list = getActivitiesArray(presence);
+  if (!list.length) return "";
+  return list.flatMap((a) => collectActivitySearchStrings(a)).join(" ");
 }
 
 function hasInvite(presence) {
-  const blob = normalizeStatusForMatch(
-    allActivitiesSearchText(presence) || getCustomStatus(presence),
-  );
+  const blob = normalizeStatusForMatch(allActivitiesSearchText(presence));
   return INVITE_REGEX.test(blob);
 }
 
@@ -92,7 +100,7 @@ function getInviteState(presence, prevHas = false) {
   // Cambio client (es. desktop ↔ mobile): Discord può mandare presenza online con
   // activities vuote per un attimo; non trattare come "nessun link" per evitare
   // spam di annunci / rimozioni ruolo.
-  if (!presence.activities?.length && prevHas) return null;
+  if (!getActivitiesArray(presence).length && prevHas) return null;
   return false;
 }
 

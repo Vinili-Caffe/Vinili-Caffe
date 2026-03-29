@@ -525,7 +525,7 @@ const ReviewReward = {
   },
 };
 const LegacyInviteTrack = null;
-function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null }) {
+function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet = null, buildInc = null }) {
   function asQueryLike(run) {
     return {
       lean() {
@@ -558,12 +558,18 @@ function buildProfileSubdocModel({ selectPath, mapDoc, buildSet = null, clearSet
       const run = async () => {
         const setPayload = update?.$set || {};
         const setDoc = buildSet ? buildSet(setPayload) : setPayload;
+        const incPayload = update?.$inc || {};
+        const incDoc = typeof buildInc === "function" ? buildInc(incPayload) : {};
+        const insertGuild = String(filter?.guildId || update?.$setOnInsert?.guildId || "");
+        const insertUser = String(filter?.userId || update?.$setOnInsert?.userId || "");
+        const mongoUpdate = {
+          $setOnInsert: { guildId: insertGuild, userId: insertUser },
+        };
+        if (Object.keys(setDoc).length) mongoUpdate.$set = setDoc;
+        if (Object.keys(incDoc).length) mongoUpdate.$inc = incDoc;
         const doc = await ActivityUserProfile.findOneAndUpdate(
           filter,
-          {
-            $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || "") },
-            $set: setDoc,
-          },
+          mongoUpdate,
           { upsert: Boolean(options?.upsert), new: options?.new !== false, setDefaultsOnInsert: true },
         ).lean().catch(() => null);
         return mapDoc(doc, filter) || null;
@@ -882,6 +888,12 @@ const AvatarPrivacy = buildProfileSubdocModel({
     ...(setPayload?.blocked != null ? { "profile.privacy.avatar.blocked": Boolean(setPayload.blocked) } : {}),
     ...(setPayload?.views != null ? { "profile.privacy.avatar.views": Number(setPayload.views || 0) } : {}),
   }),
+  buildInc: (incPayload) => {
+    if (incPayload?.views == null) return {};
+    const n = Number(incPayload.views);
+    if (!Number.isFinite(n)) return {};
+    return { "profile.privacy.avatar.views": n };
+  },
   clearSet: { "profile.privacy.avatar.blocked": false, "profile.privacy.avatar.views": 0 },
 });
 const BannerPrivacy = buildProfileSubdocModel({
@@ -891,6 +903,12 @@ const BannerPrivacy = buildProfileSubdocModel({
     ...(setPayload?.blocked != null ? { "profile.privacy.banner.blocked": Boolean(setPayload.blocked) } : {}),
     ...(setPayload?.views != null ? { "profile.privacy.banner.views": Number(setPayload.views || 0) } : {}),
   }),
+  buildInc: (incPayload) => {
+    if (incPayload?.views == null) return {};
+    const n = Number(incPayload.views);
+    if (!Number.isFinite(n)) return {};
+    return { "profile.privacy.banner.views": n };
+  },
   clearSet: { "profile.privacy.banner.blocked": false, "profile.privacy.banner.views": 0 },
 });
 const QuotePrivacy = buildProfileSubdocModel({

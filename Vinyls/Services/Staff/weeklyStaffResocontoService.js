@@ -49,6 +49,19 @@ function formatHoursFromSeconds(seconds) {
   return `${hours.toFixed(2)}h`;
 }
 
+/** Canali vocali (e stage) con parent = categoria: il tempo non conta per i resoconti staff. */
+function collectVoiceChannelIdsUnderCategory(guild, categoryId) {
+  const out = new Set();
+  const cat = String(categoryId || "");
+  if (!guild?.channels?.cache || !cat) return out;
+  for (const ch of guild.channels.cache.values()) {
+    if (!ch?.isVoiceBased?.()) continue;
+    if (String(ch.parentId || "") !== cat) continue;
+    out.add(String(ch.id));
+  }
+  return out;
+}
+
 function getRomeDateParts(date) {
   const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", });
   const parts = formatter.formatToParts(date);
@@ -363,8 +376,6 @@ function countPmWeeklyPartners(staffDoc, weekStart, weekEnd) {
   let count = 0;
   for (const action of actions) {
     if (String(action?.action || "").toLowerCase() !== "create") continue;
-    if (Array.isArray(action?.auditPenaltyDates) && action.auditPenaltyDates.length > 0)
-      continue;
     const when = action?.date ? new Date(action.date) : null;
     if (!when || Number.isNaN(when.getTime())) continue;
     const whenMs = when.getTime();
@@ -391,6 +402,13 @@ async function runWeeklyStaffResoconti(client) {
 
   const guild = await getClientGuildCached(client, guildId);
   if (!guild) return;
+
+  const resocontoExcludeVoiceChannels = collectVoiceChannelIdsUnderCategory(
+    guild,
+    String(IDs.categories?.categoryPrivate || ""),
+  );
+  const resocontoOverviewVoiceExclude =
+    resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
 
   const channel = await resolveChannel(client, channelId);
   if (!channel?.isTextBased?.()) return;
@@ -422,7 +440,9 @@ async function runWeeklyStaffResoconti(client) {
   const staffMap = new Map((Array.isArray(staffDocs) ? staffDocs : []).map((row) => [String(row.userId), row.staff || {}]));
 
   const staffUserIds = candidateMembers.filter((m) => resolveStaffRole(m)).map((m) => String(m.id));
-  const overviewResults = await Promise.all(staffUserIds.map((uid) => getUserOverviewStats(guildId, uid, 7)),);
+  const overviewResults = await Promise.all(
+    staffUserIds.map((uid) => getUserOverviewStats(guildId, uid, 7, resocontoOverviewVoiceExclude)),
+  );
   const overviewMap = new Map(staffUserIds.map((id, i) => [id, overviewResults[i] || null]),);
   const sanctionCountByModId = await getWeeklySanctionCountByMod(guildId, weekStart, weekEnd);
 
@@ -499,10 +519,11 @@ async function runWeeklyStaffResoconti(client) {
       ];
       if (pmPauseLine) pmContentLines.push(pmPauseLine);
 
+      const pmComponents = action === "Nulla" ? [] : [buildResocontoButtons("p", userId, pmActionToKey(action))];
       await channel
         .send({
           content: pmContentLines.join("\n"),
-          components: [buildResocontoButtons("p", userId, pmActionToKey(action))],
+          ...(pmComponents.length ? { components: pmComponents } : {}),
         })
         .then((msg) => createResocontoThread(msg, userId, member.user?.username))
         .catch(() => null);
@@ -516,6 +537,13 @@ async function runPreResocontoReminders(client) {
   if (!guildId) return;
   const guild = await getClientGuildCached(client, guildId);
   if (!guild) return;
+
+  const resocontoExcludeVoiceChannels = collectVoiceChannelIdsUnderCategory(
+    guild,
+    String(IDs.categories?.categoryPrivate || ""),
+  );
+  const resocontoOverviewVoiceExclude =
+    resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
 
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
   const staffUserIds = Array.from(new Set((staffDocs || []).map((r) => String(r?.userId || "")).filter((id) => /^\d{16,20}$/.test(id))));
@@ -531,7 +559,9 @@ async function runPreResocontoReminders(client) {
 
   const staffMap = new Map((staffDocs || []).map((r) => [String(r.userId), r.staff || {}]));
   const staffOnlyIds = reminderMembers.filter(hasStaffRole).map((m) => m.id);
-  const overviewResults = await Promise.all(staffOnlyIds.map((uid) => getUserOverviewStats(guildId, uid, 7)));
+  const overviewResults = await Promise.all(
+    staffOnlyIds.map((uid) => getUserOverviewStats(guildId, uid, 7, resocontoOverviewVoiceExclude)),
+  );
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
   const resocontoTime = "**domenica alle 20:00**";
   const reminderWindow = getPmResocontoWindow(new Date());

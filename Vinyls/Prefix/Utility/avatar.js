@@ -108,11 +108,7 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
 
   let privacyDoc = null;
   try {
-    privacyDoc = await AvatarPrivacy.findOneAndUpdate(
-      { guildId: guild.id, userId: user.id },
-      { $setOnInsert: { guildId: guild.id, userId: user.id } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    privacyDoc = await AvatarPrivacy.findOne({ guildId: guild.id, userId: user.id });
   } catch (err) {
     global.logger?.warn?.("[avatar] fetch:", err?.message || err);
   }
@@ -138,7 +134,7 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
     privacyCount = await AvatarPrivacy.findOneAndUpdate(
       { guildId: guild.id, userId: user.id },
       { $inc: { views: 1 } },
-      { new: true },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
     global.logger?.warn?.("[avatar] fetch:", err?.message || err);

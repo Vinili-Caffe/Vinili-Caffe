@@ -6,7 +6,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
-const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
+const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, ROLE_DM_OLD_STATE, ROLE_COLOR_OLD, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
@@ -345,6 +345,9 @@ function buildDeniedEmbedFromGate(gate, kind, interaction = null) {
   if (gate.reason === "not_owner") embed = buildGlobalNotYourControlEmbed();
   if (gate.reason === "mono_guild") {
     embed = buildGlobalPermissionDeniedEmbed([], kind, MONO_GUILD_DENIED_TEXT, guild);
+  }
+  if (gate.reason === "channel") {
+    embed = buildGlobalChannelDeniedEmbed(gate.channels || [], kind);
   }
   if (!embed) {
     embed = buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], kind, null, guild);

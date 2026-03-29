@@ -76,7 +76,6 @@ function getCurrentWeekWindow(now = new Date()) {
 
 function isActionInWeeklyWindow(action, weekStart, weekEnd) {
   if (!action || action.action !== "create" || !action.date) return false;
-  if (Array.isArray(action?.auditPenaltyDates) && action.auditPenaltyDates.length > 0) return false;
   const when = new Date(action.date);
   if (Number.isNaN(when.getTime())) return false;
   return when >= weekStart && when <= weekEnd;
@@ -86,7 +85,6 @@ function countValidAllTimePartners(actions) {
   if (!Array.isArray(actions)) return 0;
   return actions.reduce((total, action) => {
     if (String(action?.action || "").toLowerCase() !== "create") return total;
-    if (Array.isArray(action?.auditPenaltyDates) && action.auditPenaltyDates.length > 0) return total;
     return total + 1;
   }, 0);
 }

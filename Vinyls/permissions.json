@@ -700,6 +700,26 @@
         "bh_save:*": {
             "ownerSegment": 1
         },
+        "evento_classifica:*": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ]
+        },
+        "evento_classifica_exp": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.highCmds"
+            ]
+        },
         "giveaway_enter:*": [
             "roles.Member"
         ],

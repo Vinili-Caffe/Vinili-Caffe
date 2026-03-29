@@ -9,10 +9,18 @@ const {
   STAFF_HP_PREFIX,
   viewerCanUsePartnerPointsPanel,
   viewerIsFounderOrCoFounder,
+  SECTION_HOME,
+  SECTION_VALUTAZIONI,
+  SECTION_WARN,
+  SECTION_PAUSE,
+  SECTION_STATS,
+  SECTION_PARTNER_LB,
+  buildStaffProfilePayload,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
 const {
   runProfileStaffPex,
   runProspectStaffPex,
+  runProspectStaffPexToPartnerManager,
   runProfileStaffDepex,
   runProfileStaffWarnAdd,
   runProfileStaffWarnRemove,
@@ -29,9 +37,21 @@ const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
 
+const STAFF_HP_SECTIONS = new Set([
+  SECTION_HOME,
+  SECTION_VALUTAZIONI,
+  SECTION_WARN,
+  SECTION_PAUSE,
+  SECTION_STATS,
+  SECTION_PARTNER_LB,
+]);
+
 const TITLE_BY_ACTION = {
   pex: "Motivo pex",
+  pex_pm: "Motivo pex Partner Manager",
   depex: "Motivo depex",
+  depex_staff: "Motivo depex (scala staff)",
+  depex_pm_only: "Motivo depex (Partner Manager)",
   valpos: "Motivo valutazione positiva",
   valneg: "Motivo valutazione negativa",
   warn: "Motivo warn staff",
@@ -42,6 +62,47 @@ const TITLE_BY_ACTION = {
   ppm_remove: "Rimuovi punti partner",
 };
 
+function parseStaffPanelSection(parts) {
+  const raw = parts.length >= 5 ? String(parts[4] || "").toLowerCase() : "";
+  if (raw && STAFF_HP_SECTIONS.has(raw)) return raw;
+  return SECTION_HOME;
+}
+
+function parseStaffHpPartnerLbMode(parts, section) {
+  if (section !== SECTION_PARTNER_LB) return "totale";
+  if (parts.length < 6) return "totale";
+  return String(parts[5] || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
+}
+
+async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
+  const guild = interaction.guild;
+  if (!guild || !parsed?.targetId || !parsed?.viewerId) return;
+  const section = STAFF_HP_SECTIONS.has(String(parsed.section || "").toLowerCase())
+    ? parsed.section
+    : SECTION_HOME;
+  const partnerLbMode =
+    section === SECTION_PARTNER_LB
+      ? String(parsed.partnerLbMode || "").toLowerCase() === "settimanale"
+        ? "settimanale"
+        : "totale"
+      : null;
+  const opts = section === SECTION_PARTNER_LB ? { partnerLbMode } : {};
+  try {
+    const payload = await buildStaffProfilePayload(
+      guild,
+      parsed.targetId,
+      parsed.viewerId,
+      client,
+      section,
+      opts,
+    );
+    const msg = interaction.message;
+    if (msg && typeof msg.edit === "function") await msg.edit(payload);
+  } catch {
+    // Messaggio non modificabile o pannello non più valido
+  }
+}
+
 function parseStaffHpButton(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== STAFF_HP_PREFIX) return null;
@@ -51,7 +112,10 @@ function parseStaffHpButton(customId) {
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
   const allowed = new Set([
     "pex",
+    "pex_pm",
     "depex",
+    "depex_staff",
+    "depex_pm_only",
     "valpos",
     "valneg",
     "warn",
@@ -62,7 +126,8 @@ function parseStaffHpButton(customId) {
     "ppm_remove",
   ]);
   if (!allowed.has(action)) return null;
-  return { action, viewerId, targetId };
+  const section = parseStaffPanelSection(parts);
+  return { action, viewerId, targetId, section, partnerLbMode: parseStaffHpPartnerLbMode(parts, section) };
 }
 
 function parseStaffHpModal(customId) {
@@ -74,7 +139,10 @@ function parseStaffHpModal(customId) {
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
   const allowed = new Set([
     "pex",
+    "pex_pm",
     "depex",
+    "depex_staff",
+    "depex_pm_only",
     "valpos",
     "valneg",
     "warn",
@@ -85,7 +153,8 @@ function parseStaffHpModal(customId) {
     "ppm_remove",
   ]);
   if (!allowed.has(action)) return null;
-  return { action, viewerId, targetId };
+  const section = parseStaffPanelSection(parts);
+  return { action, viewerId, targetId, section, partnerLbMode: parseStaffHpPartnerLbMode(parts, section) };
 }
 
 async function ensureHighStaffViewer(interaction) {
@@ -228,7 +297,10 @@ async function execute(interaction) {
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
-    const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}`;
+    const modalId =
+      parsed.section === SECTION_PARTNER_LB
+        ? `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}:${parsed.partnerLbMode}`
+        : `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}`;
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
     if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
@@ -305,6 +377,7 @@ async function execute(interaction) {
       }
       const staffData = await addPartnerPoints(guild.id, targetUser.id, amount);
       const changeLabel = formatPartnerPointsChange("add", amount);
+      await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
       await interaction
         .reply({
           content: `<:vegacheckmark:1443666279058772028> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.`,
@@ -363,6 +436,7 @@ async function execute(interaction) {
           })
           .catch(() => null);
       }
+      await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
       await interaction
         .reply({
           content: `<:vegacheckmark:1443666279058772028> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.`,
@@ -380,12 +454,30 @@ async function execute(interaction) {
       res = targetMember && memberHasStaffRole(targetMember)
         ? await runProfileStaffPex(guild, interaction.client, targetUser, interaction.user, reason)
         : await runProspectStaffPex(guild, interaction.client, targetUser, interaction.user, reason);
+    } else if (parsed.action === "pex_pm") {
+      if (!reason) {
+        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      res = await runProspectStaffPexToPartnerManager(guild, interaction.client, targetUser, interaction.user, reason);
     } else if (parsed.action === "depex") {
       if (!reason) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason);
+      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "auto");
+    } else if (parsed.action === "depex_staff") {
+      if (!reason) {
+        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "ladder");
+    } else if (parsed.action === "depex_pm_only") {
+      if (!reason) {
+        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "partner_manager");
     } else if (parsed.action === "valpos") {
       if (!reason) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
@@ -450,6 +542,7 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
+    await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
     await interaction
       .reply({
         content: "<:vegacheckmark:1443666279058772028> Azione registrata.",

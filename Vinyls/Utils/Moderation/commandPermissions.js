@@ -553,8 +553,22 @@ function normalizeButtonPolicy(policy) {
     const ownerOrRole = Boolean(policy.ownerOrRole);
     const grantRecipientOnly = Boolean(policy.grantRecipientOnly);
     const verifyStartRequired = Boolean(policy.verifyStartRequired);
+    let channelPolicy = null;
+    if (Array.isArray(policy.channels)) {
+      channelPolicy = normalizeChannelList(policy.channels);
+    }
 
-    return { roles, permissions, ownerSegment, ownerSeparator, ownerFromMessageMention, ownerOrRole, grantRecipientOnly, verifyStartRequired };
+    return {
+      roles,
+      permissions,
+      ownerSegment,
+      ownerSeparator,
+      ownerFromMessageMention,
+      ownerOrRole,
+      grantRecipientOnly,
+      verifyStartRequired,
+      channels: channelPolicy,
+    };
   }
 
   return null;
@@ -942,6 +956,22 @@ async function checkButtonPermission(interaction) {
       allowed: false,
       reason: "missing_permission",
       requiredRoles: policy.roles || null,
+      ownerId: null,
+    };
+  }
+
+  const hasChannelConstraint = Array.isArray(policy.channels) && policy.channels.length > 0;
+  let channelPass = true;
+  if (hasChannelConstraint) {
+    const chId = String(interaction?.channelId || interaction?.channel?.id || "");
+    channelPass = Boolean(chId && policy.channels.includes(chId));
+  }
+  if (hasChannelConstraint && !channelPass) {
+    return {
+      allowed: false,
+      reason: "channel",
+      requiredRoles: policy.roles || null,
+      channels: policy.channels,
       ownerId: null,
     };
   }

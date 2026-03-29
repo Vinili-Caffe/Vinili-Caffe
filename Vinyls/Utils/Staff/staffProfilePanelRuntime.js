@@ -104,14 +104,44 @@ function resolveStaffProfileKind(member) {
   return PROFILE_FULL;
 }
 
+const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [
+  IDs.roles.Helper,
+  IDs.roles.Mod,
+  IDs.roles.Coordinator,
+  IDs.roles.Supervisor,
+  IDs.roles.Admin,
+  IDs.roles.Manager,
+  IDs.roles.CoFounder,
+  IDs.roles.Founder,
+].filter(Boolean);
+
+function getHighestStaffLadderRoleIdForPanel(member) {
+  if (!member?.roles?.cache) return null;
+  for (let i = STAFF_LADDER_ROLE_IDS_FOR_PANEL.length - 1; i >= 0; i--) {
+    const id = STAFF_LADDER_ROLE_IDS_FOR_PANEL[i];
+    if (id && member.roles.cache.has(id)) return id;
+  }
+  return null;
+}
+
+function memberHasPmAndStaffLadderForDualDepex(member) {
+  const pmId = IDs.roles.PartnerManager;
+  if (!pmId || !member?.roles?.cache?.has(pmId)) return false;
+  return Boolean(getHighestStaffLadderRoleIdForPanel(member));
+}
+
 function buildProspectPexRow(viewerId, targetId) {
   const v = String(viewerId);
   const t = String(targetId);
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
+      .setCustomId(formatStaffHpButtonCustomId("pex", v, t, SECTION_HOME))
       .setLabel("Pex (Member → Helper)")
       .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME))
+      .setLabel("Pex → Partner Manager")
+      .setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -229,24 +259,50 @@ function buildStaffPartnerLbToggleRow(viewerId, targetId, currentMode) {
   );
 }
 
-function formatStaffHpButtonCustomId(action, viewerId, targetId) {
-  return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}`;
+function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, partnerLbMode) {
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  if (sec === SECTION_PARTNER_LB) {
+    const m = String(partnerLbMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
+    return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}:${m}`;
+  }
+  return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`;
 }
 
-function buildHighStaffActionRows(viewerId, targetId, section) {
+function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || "").toLowerCase();
   if (sec === SECTION_HOME) {
+    if (dualPmStaffDepex) {
+      return [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec))
+            .setLabel("Pex")
+            .setEmoji("<a:VC_Verified:1482532479637127188>")
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec))
+            .setLabel("Depex scala staff")
+            .setEmoji("<a:VC_Cross:1482532424570376253>")
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec))
+            .setLabel("Depex Partner Manager")
+            .setEmoji("<:partnermanager:1443651916838998099>")
+            .setStyle(ButtonStyle.Secondary),
+        ),
+      ];
+    }
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec))
           .setLabel("Pex")
           .setEmoji("<a:VC_Verified:1482532479637127188>")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec))
           .setLabel("Depex")
           .setEmoji("<a:VC_Cross:1482532424570376253>")
           .setStyle(ButtonStyle.Danger),
@@ -257,22 +313,22 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valpos", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("valpos", v, t, sec))
           .setLabel("Aggiungi Positiva")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valneg", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("valneg", v, t, sec))
           .setLabel("Aggiungi Negativa")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t, sec))
           .setLabel("Rimuovi Positiva")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t, sec))
           .setLabel("Rimuovi Negativa")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
@@ -283,12 +339,12 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("warn", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("warn", v, t, sec))
           .setLabel("Aggiungi Warn")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t))
+          .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t, sec))
           .setLabel("Rimuovi Warn")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
@@ -298,23 +354,25 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
   return [];
 }
 
-function buildPmOnlyPartnerRows(viewerId, targetId) {
+function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_PARTNER_LB, partnerLbMode = "totale") {
   const v = String(viewerId);
   const t = String(targetId);
+  const sec = String(section || SECTION_PARTNER_LB).toLowerCase();
+  const lb = sec === SECTION_PARTNER_LB ? partnerLbMode : undefined;
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
+        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, lb))
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
+        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb))
         .setLabel("Aggiungi punti")
         .setEmoji("➕")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
+        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb))
         .setLabel("Rimuovi punti")
         .setEmoji("➖")
         .setStyle(ButtonStyle.Danger),
@@ -322,34 +380,49 @@ function buildPmOnlyPartnerRows(viewerId, targetId) {
   ];
 }
 
-function buildPartnerPointsOnlyRow(viewerId, targetId) {
+function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, partnerLbMode = "totale", dualPmStaffDepex = false) {
   const v = String(viewerId);
   const t = String(targetId);
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
-        .setLabel("Aggiungi punti")
-        .setEmoji("➕")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
-        .setLabel("Rimuovi punti")
-        .setEmoji("➖")
-        .setStyle(ButtonStyle.Secondary),
-    ),
-  ];
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  const lb = sec === SECTION_PARTNER_LB ? partnerLbMode : undefined;
+  const ppmRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb))
+      .setLabel("Aggiungi punti")
+      .setEmoji("➕")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb))
+      .setLabel("Rimuovi punti")
+      .setEmoji("➖")
+      .setStyle(ButtonStyle.Secondary),
+  );
+  if (!dualPmStaffDepex) return [ppmRow];
+  const depexRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec, lb))
+      .setLabel("Depex scala staff")
+      .setEmoji("<a:VC_Cross:1482532424570376253>")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec, lb))
+      .setLabel("Depex Partner Manager")
+      .setEmoji("<:partnermanager:1443651916838998099>")
+      .setStyle(ButtonStyle.Secondary),
+  );
+  return [depexRow, ppmRow];
 }
 
 function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember) {
-  if (profileKind !== PROFILE_FULL) return false;
+  const sec = String(section || "").toLowerCase();
+  const pmHome = profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME;
+  if (profileKind !== PROFILE_FULL && !pmHome) return false;
   const self = String(viewerId) === String(targetUserId);
   if (self) {
     if (!viewerIsFounderOrCoFounder(viewerMember)) return false;
   } else if (!viewerIsHighStaff) {
     return false;
   }
-  const sec = String(section || "").toLowerCase();
   return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
 }
 
@@ -456,7 +529,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setColor("#6f4e37")
           .setDescription(
             `<:VC_Staff:1479443779571155086> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
-            "<:VC_Verified:1482532479637127188> Usa **Pex** per la prima promozione (**Member → Helper**). Dopo il pex, rigenera il pannello con **`+staff`**.",
+            "<:VC_Verified:1482532479637127188> Usa **Pex** per **Member → Helper** o **Pex → Partner Manager**. Dopo il pex, il pannello si aggiorna da solo; altrimenti **`+staff`**.",
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
@@ -496,8 +569,9 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === SECTION_PARTNER_LB && !canPartnerLb) sec = SECTION_HOME;
 
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind, profileKind === PROFILE_FULL && hasPm);
+  const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
   const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel)
-    ? buildHighStaffActionRows(String(viewerId), tid, sec)
+    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex)
     : [];
   const hsRows = [...highStaffRows];
 
@@ -516,8 +590,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       (!selfLb || viewerIsFounderOrCoFounder(viewerMemForPanel));
     const pmRowsForPartnerLb = canHsPartnerPoints
       ? profileKind === PROFILE_FULL && hasPm
-        ? buildPartnerPointsOnlyRow(v, tid)
-        : buildPmOnlyPartnerRows(v, tid)
+        ? buildPartnerPointsOnlyRow(v, tid, SECTION_PARTNER_LB, lbMode, dualPmStaffDepex)
+        : buildPmOnlyPartnerRows(v, tid, SECTION_PARTNER_LB, lbMode)
       : [];
     return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]) };
   }
@@ -686,6 +760,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     `<:VC_Stats:1482527532682055780> **Attività:** 
     <:VC_Chat:1482532573002465413> **${weeklyMsg}** messaggi
     <a:VC_Mute:1482534751511515238> **${weeklyHours.toFixed(2)}h** vocale`,
+    "",
+    "*Messaggi e vocale: ultimi 7 giorni (stessa metrica del resoconto staff; il messaggio del resoconto è uno snapshot nel tempo).",
   ];
   if (hasPm) {
     homeDescParts.push(

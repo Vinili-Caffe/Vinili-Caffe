@@ -19,8 +19,10 @@ const ROLE_SUPERVISOR = String(IDs.roles.Supervisor);
 const ROLE_ADMIN = String(IDs.roles.Admin);
 const ROLE_MANAGER = String(IDs.roles.Manager);
 const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
+const ROLE_OWNER = String(IDs.roles.Founder || "");
 
 const STAFF_ROLES_HIGH_TO_LOW = [
+  ROLE_OWNER,
   ROLE_CO_OWNER,
   ROLE_MANAGER,
   ROLE_ADMIN,
@@ -78,36 +80,28 @@ async function addStaffWarnFromNegatives(guildId, userId, negativeCountAfterAdd,
   };
 }
 
-async function applyDepexOneLevel(guild, member) {
-  const roleId = getHighestStaffRoleId(member);
+async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
+  const forced = typeof forcedLadderRoleId === "string" && forcedLadderRoleId && member?.roles?.cache?.has?.(forcedLadderRoleId)
+    ? forcedLadderRoleId
+    : null;
+  const roleId = forced || getHighestStaffRoleId(member);
   if (!roleId) return { ok: false, reason: "Nessun ruolo staff trovato." };
 
-  if (roleId === ROLE_MODERATOR || roleId === ROLE_HELPER) {
-    await member.roles.remove(roleId).catch(() => null);
-    await member.roles.remove(ROLE_STAFF).catch(() => null);
-    if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
-    return { ok: true, roleRemoved: roleId, fullDepex: true };
-  }
-
-  if (roleId === ROLE_COORDINATOR) {
-    await member.roles.remove(ROLE_COORDINATOR).catch(() => null);
-    await member.roles.add(ROLE_MODERATOR).catch(() => null);
+  if (ROLE_OWNER && roleId === ROLE_OWNER) {
+    await member.roles.remove(ROLE_OWNER).catch(() => null);
+    await member.roles.add(ROLE_CO_OWNER).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_MODERATOR };
+    await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_CO_OWNER };
   }
-  if (roleId === ROLE_SUPERVISOR) {
-    await member.roles.remove(ROLE_SUPERVISOR).catch(() => null);
-    await member.roles.add(ROLE_COORDINATOR).catch(() => null);
-    await member.roles.add(ROLE_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_COORDINATOR };
-  }
-  if (roleId === ROLE_ADMIN) {
-    await member.roles.remove(ROLE_ADMIN).catch(() => null);
+  if (roleId === ROLE_CO_OWNER) {
+    await member.roles.remove(ROLE_CO_OWNER).catch(() => null);
     await member.roles.remove(ROLE_STAFF).catch(() => null);
     await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
-    await member.roles.add(ROLE_SUPERVISOR).catch(() => null);
+    await member.roles.add(ROLE_MANAGER).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_SUPERVISOR };
+    await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_MANAGER };
   }
   if (roleId === ROLE_MANAGER) {
     await member.roles.remove(ROLE_MANAGER).catch(() => null);
@@ -118,14 +112,31 @@ async function applyDepexOneLevel(guild, member) {
     await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_ADMIN };
   }
-  if (roleId === ROLE_CO_OWNER) {
-    await member.roles.remove(ROLE_CO_OWNER).catch(() => null);
+  if (roleId === ROLE_ADMIN) {
+    await member.roles.remove(ROLE_ADMIN).catch(() => null);
     await member.roles.remove(ROLE_STAFF).catch(() => null);
     await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
-    await member.roles.add(ROLE_MANAGER).catch(() => null);
+    await member.roles.add(ROLE_SUPERVISOR).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
-    await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_MANAGER };
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_SUPERVISOR };
+  }
+  if (roleId === ROLE_SUPERVISOR) {
+    await member.roles.remove(ROLE_SUPERVISOR).catch(() => null);
+    await member.roles.add(ROLE_COORDINATOR).catch(() => null);
+    await member.roles.add(ROLE_STAFF).catch(() => null);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_COORDINATOR };
+  }
+  if (roleId === ROLE_COORDINATOR) {
+    await member.roles.remove(ROLE_COORDINATOR).catch(() => null);
+    await member.roles.add(ROLE_MODERATOR).catch(() => null);
+    await member.roles.add(ROLE_STAFF).catch(() => null);
+    return { ok: true, roleRemoved: roleId, newRole: ROLE_MODERATOR };
+  }
+  if (roleId === ROLE_MODERATOR || roleId === ROLE_HELPER) {
+    await member.roles.remove(roleId).catch(() => null);
+    await member.roles.remove(ROLE_STAFF).catch(() => null);
+    if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
+    return { ok: true, roleRemoved: roleId, fullDepex: true, newRole: ROLE_MEMBER || "" };
   }
   return { ok: false, reason: "Ruolo non gestito per depex un livello." };
 }
