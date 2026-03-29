@@ -264,12 +264,12 @@ function buildHighStaffActionRows(viewerId, targetId, section) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn", v, t))
-          .setLabel("Aggiungi")
+          .setLabel("Aggiungi Warn")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t))
-          .setLabel("Rimuovi")
+          .setLabel("Rimuovi Warn")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
       ),
@@ -287,7 +287,7 @@ function buildPmOnlyPartnerRows(viewerId, targetId) {
         .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
-        .setStyle(ButtonStyle.Danger),
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
         .setLabel("Aggiungi punti")
@@ -297,7 +297,7 @@ function buildPmOnlyPartnerRows(viewerId, targetId) {
         .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
         .setLabel("Rimuovi punti")
         .setEmoji("➖")
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Danger),
     ),
   ];
 }
@@ -331,9 +331,10 @@ function shouldAttachPartnerManagerHighStaffExtras(section, viewerId, targetUser
   if (!viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
   const sec = String(section || "").toLowerCase();
   if (sec === SECTION_PAUSE) return false;
-  if (profileKind === PROFILE_PM_ONLY) return true;
+  if (sec === SECTION_PARTNER_LB) return false;
+  if (profileKind === PROFILE_PM_ONLY) return sec === SECTION_HOME;
   if (profileKind === PROFILE_FULL && hasPartnerManager) {
-    return sec === SECTION_HOME || sec === SECTION_STATS || sec === SECTION_PARTNER_LB;
+    return sec === SECTION_HOME || sec === SECTION_STATS;
   }
   return false;
 }
@@ -438,7 +439,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setTitle("Profilo vuoto")
           .setDescription(
             `<:VC_Staff:1479443779571155086> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
             "<:VC_Verified:1482532479637127188> Usa **Pex** per la prima promozione (**Member → Helper**). Dopo il pex, rigenera il pannello con **`+staff`**.",
@@ -501,7 +501,15 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const prev = mainEmbed.data?.description ?? "";
     mainEmbed.setDescription(`${prev}\n\n`);
     const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode);
-    return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, hsRows, [plbRow]) };
+    const v = String(viewerId);
+    const canHsPartnerPoints =
+      viewerIsHighStaff && v !== tid && (profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm));
+    const pmRowsForPartnerLb = canHsPartnerPoints
+      ? profileKind === PROFILE_FULL && hasPm
+        ? buildPartnerPointsOnlyRow(v, tid)
+        : buildPmOnlyPartnerRows(v, tid)
+      : [];
+    return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]) };
   }
 
   if (profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME) {
@@ -518,7 +526,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setTitle(`<:VC_addperson:1485419347068588073> Profilo Staff - ${name}`)
+          .setTitle(`<:VC_addperson:1485419347068588073> Profilo Staff ${name}`)
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
@@ -656,7 +664,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const homeDescParts = [
     `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
     "",
-    `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
+    `<a:VC_Calendar:1482706208149475358> **Pause:**`,
+    `${pauseShort}`,
     "",
     `<:VC_Stats:1482527532682055780> **Valutazioni:** 
     <:thumbsup:1471292172145004768> ${pos}
@@ -671,10 +680,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (hasPm) {
     homeDescParts.push(
       "",
-      `**Punti partner:** ${puntiPartner}`,
+      `<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`,
     );
   }
-  homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
+  homeDescParts.push("",);
   const homeDesc = homeDescParts.join("\n");
   return {
     embeds: [
