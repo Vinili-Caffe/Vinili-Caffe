@@ -1,21 +1,22 @@
 /**
- * Riesegue il calcolo e (opzionale) l'invio dei vincitori settimanali + annuncio evento,
- * ancorato all'ultima domenica 21:00 Europe/Rome (o a --at), così dopo la fascia oraria
- * i dati coincidono con quelli che avrebbe usato il cron.
+ * Script di recovery: **solo top evento settimana 4** (classifica + annuncio news + flusso premi
+ * se abilitati), **senza** top weekly normale (canale top weekly, ruoli chat/vocal, embed 7 giorni).
+ *
+ * Default: forza payout/classifica **settimana 4** evento; usa `--use-computed-payout` per la
+ * settimana calcolata dal calendario. Con `--include-normal-weekly` si ripristina anche il flusso
+ * weekly generale (come il cron).
  *
  * IMPORTANTE: stesso token del bot in esecuzione = sessione Discord in conflitto.
- * Ferma il processo del bot oppure usa un token diverso.
  *
  * Uso (da root DiscordBot-1):
  *   node scripts/resend-weekly-winners.js
  *   node scripts/resend-weekly-winners.js --send
- *   node scripts/resend-weekly-winners.js --at 2026-03-23T20:05:00.000Z --send
- *   node scripts/resend-weekly-winners.js --send --apply-grants --assign-weekly-roles
+ *   node scripts/resend-weekly-winners.js --send --apply-grants
+ *   node scripts/resend-weekly-winners.js --at 2026-03-23T20:05:00.000Z --send --apply-grants
+ *   node scripts/resend-weekly-winners.js --use-computed-payout --send
  *   node scripts/resend-weekly-winners.js --force-event-payout-week 3 --send
- *
- * Default: nessun messaggio Discord, nessun premio DB, nessun ruolo weekly (solo calcolo interno).
- * Aggiungi --send per pubblicare weekly + news evento; --apply-grants per premi evento in DB;
- * --assign-weekly-roles per riassegnare ruoli top weekly.
+ *   node scripts/resend-weekly-winners.js --include-normal-weekly --send --assign-weekly-roles
+ *   node scripts/resend-weekly-winners.js --announce-all-event-weeks --send
  */
 const path = require("path");
 const mongoose = require("mongoose");
@@ -84,6 +85,9 @@ async function main() {
   const applyGrants = process.argv.includes("--apply-grants");
   const assignWeeklyRoles = process.argv.includes("--assign-weekly-roles");
   const skipEvent = process.argv.includes("--skip-event");
+  const includeNormalWeekly = process.argv.includes("--include-normal-weekly");
+  const useComputedPayout = process.argv.includes("--use-computed-payout");
+  const announceAllEventWeeks = process.argv.includes("--announce-all-event-weeks");
 
   const atRaw = getOptLongForm("--at");
   let anchorDate;
@@ -99,8 +103,8 @@ async function main() {
     anchorDate = new Date(boundaryMs + 5000);
   }
 
-  const forceRaw = getOptLongForm("--force-event-payout-week");
   let forceEventPayoutWeek = null;
+  const forceRaw = getOptLongForm("--force-event-payout-week");
   if (forceRaw != null && String(forceRaw).trim() !== "") {
     forceEventPayoutWeek = Number(forceRaw);
     if (!Number.isFinite(forceEventPayoutWeek) || forceEventPayoutWeek < 1 || forceEventPayoutWeek > 4) {
@@ -108,6 +112,17 @@ async function main() {
       process.exitCode = 1;
       return;
     }
+  } else if (!useComputedPayout) {
+    forceEventPayoutWeek = 4;
+  }
+
+  let eventAnnouncementOnlyForWeeks = null;
+  if (announceAllEventWeeks || useComputedPayout) {
+    eventAnnouncementOnlyForWeeks = null;
+  } else if (forceEventPayoutWeek != null) {
+    eventAnnouncementOnlyForWeeks = [forceEventPayoutWeek];
+  } else {
+    eventAnnouncementOnlyForWeeks = [4];
   }
 
   const mongoUrl = getMongoUrl();
@@ -144,19 +159,25 @@ async function main() {
   console.log("[resend-weekly-winners] Opzioni:", {
     send,
     applyGrants,
-    assignWeeklyRoles,
+    assignWeeklyRoles: includeNormalWeekly && assignWeeklyRoles,
     skipEvent,
+    includeNormalWeekly,
+    useComputedPayout,
+    announceAllEventWeeks,
     forceEventPayoutWeek,
+    eventAnnouncementOnlyForWeeks,
   });
 
   try {
     await publishWeeklyActivityWinners(client, {
       anchorDate,
+      skipNormalWeekly: !includeNormalWeekly,
       skipDiscordSends: !send,
       skipEventDbGrants: !applyGrants,
-      skipWeeklyRoles: !assignWeeklyRoles,
+      skipWeeklyRoles: !includeNormalWeekly || !assignWeeklyRoles,
       skipEvent,
       forceEventPayoutWeek,
+      eventAnnouncementOnlyForWeeks,
     });
     console.log("[resend-weekly-winners] publishWeeklyActivityWinners completato.");
   } finally {

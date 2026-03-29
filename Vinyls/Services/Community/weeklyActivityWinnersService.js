@@ -799,17 +799,34 @@ async function performEndOfEventCleanup(client, guildId) {
 }
 
 async function publishWeeklyActivityWinners(client, options = {}) {
-  const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
-  const channel = client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
-  if (!channel) {
-    global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: channel not found.", channelIdToUse);
-    return;
+  const skipNormalWeekly = Boolean(options.skipNormalWeekly);
+  const mainGuildId = String(IDs.guilds?.main || "");
+  let guild =
+    mainGuildId &&
+    (client.guilds.cache.get(mainGuildId) ||
+      (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
+  if (!guild) {
+    const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+    const channel =
+      client.channels.cache.get(channelIdToUse) ||
+      (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+    if (!channel?.guild) {
+      global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: guild not found (main o canale top weekly).");
+      return;
+    }
+    guild = channel.guild;
   }
-  if (!channel.guild) {
-    global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: channel has no guild.", TARGET_CHANNEL_ID);
-    return;
+  let channel = null;
+  if (!skipNormalWeekly) {
+    const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+    channel =
+      client.channels.cache.get(channelIdToUse) ||
+      (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+    if (!channel?.guild) {
+      global.logger?.error?.("[WEEKLY ACTIVITY] Publish skipped: canale top weekly non trovato.", channelIdToUse);
+      return;
+    }
   }
-  const guild = channel.guild;
   const now =
     options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime())
       ? options.anchorDate
@@ -843,35 +860,42 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     eventTopVoice = deduped.listB || [];
   }
 
-  const weeklyRows = await loadWeeklyRowsFromHourlyWindow(guild, now);
+  let displayTopMessages = [];
+  let displayTopVoice = [];
+  let messageRows = [buildEmptyLine("messaggi")];
+  let voiceRows = [buildEmptyLine("exp vocale")];
+  let awarded = { messageWinner: null, voiceWinner: null };
 
-  const messageDocs = weeklyRows.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 200);
-  const voiceDocs = weeklyRows.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 200);
+  if (!skipNormalWeekly) {
+    const weeklyRows = await loadWeeklyRowsFromHourlyWindow(guild, now);
 
-  const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 10);
-  const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 10);
+    const messageDocs = weeklyRows.filter((row) => Number(row?.messageCount || 0) > 0).sort((a, b) => Number(b.messageCount || 0) - Number(a.messageCount || 0)).slice(0, 200);
+    const voiceDocs = weeklyRows.filter((row) => Number(row?.voiceExp || 0) > 0).sort((a, b) => Number(b.voiceExp || 0) - Number(a.voiceExp || 0)).slice(0, 200);
 
-  const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
-  const displayTopMessages = dedupe.listA;
-  const displayTopVoice = dedupe.listB;
+    const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 10);
+    const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 10);
 
-  const messageRows = displayTopMessages.length ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"),
-  )
-    : [buildEmptyLine("messaggi")];
+    const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
+    displayTopMessages = dedupe.listA;
+    displayTopVoice = dedupe.listB;
 
-  const voiceRows = displayTopVoice.length ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"),
-  )
-    : [buildEmptyLine("exp vocale")];
+    messageRows = displayTopMessages.length ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"),
+    )
+      : [buildEmptyLine("messaggi")];
 
-  let awarded;
-  if (options.skipWeeklyRoles) {
-    const chosenUserIds = new Set();
-    const messageWinner = pickFirstAvailable(displayTopMessages, chosenUserIds);
-    if (messageWinner) chosenUserIds.add(messageWinner.userId);
-    const voiceWinner = pickFirstAvailable(displayTopVoice, chosenUserIds);
-    awarded = { messageWinner, voiceWinner };
-  } else {
-    awarded = await updateWeeklyWinnerRoles(guild, displayTopMessages, displayTopVoice);
+    voiceRows = displayTopVoice.length ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"),
+    )
+      : [buildEmptyLine("exp vocale")];
+
+    if (options.skipWeeklyRoles) {
+      const chosenUserIds = new Set();
+      const messageWinner = pickFirstAvailable(displayTopMessages, chosenUserIds);
+      if (messageWinner) chosenUserIds.add(messageWinner.userId);
+      const voiceWinner = pickFirstAvailable(displayTopVoice, chosenUserIds);
+      awarded = { messageWinner, voiceWinner };
+    } else {
+      awarded = await updateWeeklyWinnerRoles(guild, displayTopMessages, displayTopVoice);
+    }
   }
   const topSixUserIds = new Set();
   for (const item of eventTopMessages) if (item?.userId) topSixUserIds.add(item.userId);
@@ -939,8 +963,21 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       }
     }
   }
-  if (!options.skipDiscordSends && eventPayoutWeek >= 1 && eventPayoutWeek <= 4 && EVENT_ANNOUNCEMENT_CHANNEL_ID) {
+  const announceWeeks = options.eventAnnouncementOnlyForWeeks;
+  const allowEventNews =
+    !options.skipDiscordSends &&
+    eventPayoutWeek >= 1 &&
+    eventPayoutWeek <= 4 &&
+    EVENT_ANNOUNCEMENT_CHANNEL_ID &&
+    (!Array.isArray(announceWeeks) ||
+      announceWeeks.length === 0 ||
+      announceWeeks.includes(eventPayoutWeek));
+  if (allowEventNews) {
     await sendEventWeekAnnouncementToNews(client, guild, eventPayoutWeek, eventTopMessages, eventTopVoice);
+  }
+
+  if (skipNormalWeekly) {
+    return;
   }
 
   const embed = new EmbedBuilder().setColor("#6f4e37").setDescription([`<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono in "badge" nel canale <#${INFO_CHANNEL_ID}>`,
@@ -963,7 +1000,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
 
   const button = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("Chat").setStyle(ButtonStyle.Link).setEmoji("<:VC_FrogCute:1331620415185096746>").setURL("https://discord.com/channels/1329080093599076474/1442569130573303898"), new ButtonBuilder().setLabel("Vocal").setStyle(ButtonStyle.Link).setEmoji("<:VC_FrogJuice:1331620486517358613>").setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),);
 
-  if (!options.skipDiscordSends) {
+  if (!options.skipDiscordSends && channel) {
     try {
       await channel.send({
         content: `<@&1442568949605597264>
@@ -1070,11 +1107,12 @@ async function getEventDiagnostics(guild) {
   if (!guild?.id) return null;
   const settings = await getGuildExpSettings(guild.id).catch(() => null);
   const eventWeek = settings ? getEventWeekNumber(settings) : 0;
+  const weekForDailyKeys = eventWeek >= 1 ? Math.min(4, eventWeek) : 0;
   const eligible = await getEligibleChannelSets(guild);
   let dateKeys = [];
   let activityDailyCount = 0;
-  if (eventWeek >= 1 && eventWeek <= 4 && settings?.eventStartedAt) {
-    dateKeys = getEventWeekDateKeys(settings, eventWeek);
+  if (weekForDailyKeys >= 1 && weekForDailyKeys <= 4 && settings?.eventStartedAt) {
+    dateKeys = getEventWeekDateKeys(settings, weekForDailyKeys);
     if (dateKeys.length) {
       activityDailyCount = await ActivityUserProfile.countDocuments({
         guildId: guild.id,

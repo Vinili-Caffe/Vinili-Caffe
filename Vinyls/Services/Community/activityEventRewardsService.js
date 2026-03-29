@@ -384,7 +384,9 @@ function getEventWeekNumber(settings, atMs = Date.now()) {
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   let week = 1;
   let boundary = getFirstSunday21BoundaryAtOrAfter(start);
-  while (week < 4 && now >= boundary) {
+  // Serve il 5° incremento dopo la 4ª domenica 21:00: rolling=5 ⇒ payout rolling−1=4.
+  // Con week < 4 ci si fermava a rolling=4 ⇒ payout sempre 3 (bug).
+  while (week < 5 && now >= boundary) {
     week += 1;
     boundary += weekMs;
   }
@@ -470,8 +472,8 @@ function getEventWeekHourKeys(settings, weekNum) {
 }
 
 /**
- * Domenica 21:00 Roma: getEventWeekNumber passa subito alla settimana successiva.
- * I premi vanno alla settimana appena conclusa = rolling - 1 (mai erogare se rolling < 2).
+ * Domenica 21:00 Roma: getEventWeekNumber avanza (rolling 1…5; 5 = dopo la 4ª domenica).
+ * Premi settimana appena conclusa = rolling − 1, max 4 (mai se rolling < 2).
  */
 function getCompletedEventWeekForSundayPayout(settings, atMs = Date.now()) {
   const rolling = getEventWeekNumber(settings, atMs);
