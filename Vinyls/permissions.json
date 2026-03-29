@@ -938,7 +938,9 @@
         },
         "staff_hp:*": {
             "roles": [
-                "roles.HighStaff"
+                "roles.HighStaff",
+                "roles.Founder",
+                "roles.CoFounder"
             ]
         },
         "downv": [
@@ -1486,7 +1488,9 @@
         },
         "staff_hp_modal:*": {
             "roles": [
-                "roles.HighStaff"
+                "roles.HighStaff",
+                "roles.Founder",
+                "roles.CoFounder"
             ]
         },
         "dm_broadcast:*": {

@@ -5,7 +5,7 @@ const {
   TextInputStyle,
 } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { STAFF_HP_PREFIX } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel } = require("../Utils/Staff/staffProfilePanelRuntime");
 const {
   runProfileStaffPex,
   runProspectStaffPex,
@@ -91,6 +91,18 @@ async function ensureHighStaffViewer(interaction) {
   await interaction
     .reply({
       content: "<:vegax:1443934876440068179> Solo l'**High Staff** può usare questi pulsanti.",
+      flags: PRIVATE_FLAG,
+    })
+    .catch(() => {});
+  return false;
+}
+
+async function ensurePartnerPointsViewer(interaction) {
+  if (viewerCanUsePartnerPointsPanel(interaction.member)) return true;
+  await interaction
+    .reply({
+      content:
+        "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner da qui.",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
@@ -190,7 +202,12 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
-    if (!(await ensureHighStaffViewer(interaction))) return true;
+    const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
+    if (isPpmBtn) {
+      if (!(await ensurePartnerPointsViewer(interaction))) return true;
+    } else if (!(await ensureHighStaffViewer(interaction))) {
+      return true;
+    }
     const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}`;
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
@@ -219,7 +236,12 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
-    if (!(await ensureHighStaffViewer(interaction))) return true;
+    const isPpmModal = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
+    if (isPpmModal) {
+      if (!(await ensurePartnerPointsViewer(interaction))) return true;
+    } else if (!(await ensureHighStaffViewer(interaction))) {
+      return true;
+    }
     const guild = interaction.guild;
     if (!guild) {
       await interaction.reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG }).catch(() => {});

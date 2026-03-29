@@ -73,6 +73,17 @@ function hasDisplayTierStaffBeforePartnerManager(member) {
   return false;
 }
 
+/** High Staff, Founder o Co-Founder: pulsanti punti partner nel pannello (anche su se stessi se PM). */
+function viewerCanUsePartnerPointsPanel(member) {
+  if (!member?.roles?.cache) return false;
+  const c = member.roles.cache;
+  return Boolean(
+    (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)) ||
+      (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
+      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
+  );
+}
+
 function resolveStaffProfileKind(member) {
   if (!member) return PROFILE_PROSPECT;
   if (!memberHasStaffRole(member)) return PROFILE_PROSPECT;
@@ -327,8 +338,10 @@ function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsH
   return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
 }
 
-function shouldAttachPartnerManagerHighStaffExtras(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, hasPartnerManager) {
-  if (!viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
+function shouldAttachPartnerManagerHighStaffExtras(section, viewerId, targetUserId, viewerCanPp, profileKind, hasPartnerManager) {
+  if (!viewerCanPp) return false;
+  const self = String(viewerId) === String(targetUserId);
+  if (self && !hasPartnerManager) return false;
   const sec = String(section || "").toLowerCase();
   if (sec === SECTION_PAUSE) return false;
   if (sec === SECTION_PARTNER_LB) return false;
@@ -428,6 +441,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const name = member?.displayName || targetUser?.username || tid;
   const viewerMemForPanel = await guild.members.fetch(String(viewerId)).catch(() => null);
   const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+  const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
   const profileKind = resolveStaffProfileKind(member);
   const pmRoleId = IDs.roles.PartnerManager;
   const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
@@ -485,7 +499,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     ? buildHighStaffActionRows(String(viewerId), tid, sec)
     : [];
   let pmExtraRows = [];
-  if (shouldAttachPartnerManagerHighStaffExtras(sec, viewerId, tid, viewerIsHighStaff, profileKind, hasPm)) {
+  if (shouldAttachPartnerManagerHighStaffExtras(sec, viewerId, tid, viewerCanPartnerPointsPanel, profileKind, hasPm)) {
     if (profileKind === PROFILE_FULL && hasPm && sec === SECTION_HOME) {
       pmExtraRows = buildPartnerPointsOnlyRow(String(viewerId), tid);
     } else {
@@ -503,7 +517,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode);
     const v = String(viewerId);
     const canHsPartnerPoints =
-      viewerIsHighStaff && v !== tid && (profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm));
+      viewerCanPartnerPointsPanel && (profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm));
     const pmRowsForPartnerLb = canHsPartnerPoints
       ? profileKind === PROFILE_FULL && hasPm
         ? buildPartnerPointsOnlyRow(v, tid)
@@ -683,7 +697,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       `<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`,
     );
   }
-  homeDescParts.push("",);
+  homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
   return {
     embeds: [
@@ -711,4 +725,5 @@ module.exports = {
   parseStaffProfilePlbCustomId,
   formatStaffHpButtonCustomId,
   buildStaffProfilePayload,
+  viewerCanUsePartnerPointsPanel,
 };
