@@ -29,6 +29,7 @@ const STAFF_ROLE_PRIORITY = [
   String(IDs.roles.Coordinator),
   String(IDs.roles.Mod),
   String(IDs.roles.Helper),
+  String(IDs.roles.Staff),
 ].filter(Boolean);
 const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
   IDs.roles.Founder,
@@ -56,9 +57,21 @@ function resolveStaffRole(member) {
 function resolveStaffProfileDisplayRoleId(member) {
   if (!member?.roles?.cache) return null;
   for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
-    if (member.roles.cache.has(roleId)) return roleId;
+    if (roleId && member.roles.cache.has(roleId)) return roleId;
   }
   return null;
+}
+
+/** True se ha un ruolo “staff” più alto del PM nella lista display (es. Founder + PM → true). */
+function hasDisplayTierStaffBeforePartnerManager(member) {
+  if (!member?.roles?.cache) return false;
+  const pmId = IDs.roles.PartnerManager;
+  if (!pmId) return false;
+  for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
+    if (String(roleId) === String(pmId)) break;
+    if (roleId && member.roles.cache.has(roleId)) return true;
+  }
+  return false;
 }
 
 function resolveStaffProfileKind(member) {
@@ -67,7 +80,8 @@ function resolveStaffProfileKind(member) {
   const pmId = IDs.roles.PartnerManager;
   const hasPm = Boolean(pmId && member.roles?.cache?.has(pmId));
   const hasLadder = Boolean(resolveStaffRole(member));
-  if (hasPm && !hasLadder) return PROFILE_PM_ONLY;
+  const hasHigherThanPm = hasDisplayTierStaffBeforePartnerManager(member);
+  if (hasPm && !hasLadder && !hasHigherThanPm) return PROFILE_PM_ONLY;
   return PROFILE_FULL;
 }
 
@@ -164,50 +178,97 @@ function parseStaffProfileSelectCustomId(customId) {
   return { viewerId: parts[2], targetId: parts[3] };
 }
 
+function formatStaffProfilePlbCustomId(viewerId, targetId, mode) {
+  const m = String(mode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
+  return `${PANEL_PREFIX}:plb:${viewerId}:${targetId}:${m}`;
+}
+
+function parseStaffProfilePlbCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 5 || parts[0] !== PANEL_PREFIX || parts[1] !== "plb") return null;
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  const modeRaw = String(parts[4] || "").toLowerCase();
+  const mode = modeRaw === "settimanale" ? "settimanale" : "totale";
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  return { viewerId, targetId, mode };
+}
+
+function buildStaffPartnerLbToggleRow(viewerId, targetId, currentMode) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  const active = String(currentMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffProfilePlbCustomId(v, t, "totale"))
+      .setLabel("Totale")
+      .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(formatStaffProfilePlbCustomId(v, t, "settimanale"))
+      .setLabel("Settimanale")
+      .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+  );
+}
+
 function formatStaffHpButtonCustomId(action, viewerId, targetId) {
   return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}`;
 }
 
-function buildHighStaffActionRows(viewerId, targetId) {
+function buildHighStaffActionRows(viewerId, targetId, section) {
   const v = String(viewerId);
   const t = String(targetId);
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
-      .setLabel("Pex")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
-      .setLabel("Depex")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("valpos", v, t))
-      .setLabel("Val +")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("valneg", v, t))
-      .setLabel("Val −")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("warn", v, t))
-      .setLabel("Warn")
-      .setStyle(ButtonStyle.Danger),
-  );
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t))
-      .setLabel("Rimuovi val +")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t))
-      .setLabel("Rimuovi val −")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t))
-      .setLabel("Rimuovi warn")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return [row1, row2];
+  const sec = String(section || "").toLowerCase();
+  if (sec === SECTION_HOME) {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("pex", v, t))
+          .setLabel("Pex")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("depex", v, t))
+          .setLabel("Depex")
+          .setStyle(ButtonStyle.Danger),
+      ),
+    ];
+  }
+  if (sec === SECTION_VALUTAZIONI) {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("valpos", v, t))
+          .setLabel("Val +")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("valneg", v, t))
+          .setLabel("Val −")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t))
+          .setLabel("Rimuovi val +")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t))
+          .setLabel("Rimuovi val −")
+          .setStyle(ButtonStyle.Secondary),
+      ),
+    ];
+  }
+  if (sec === SECTION_WARN) {
+    return [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("warn", v, t))
+          .setLabel("Warn")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t))
+          .setLabel("Rimuovi warn")
+          .setStyle(ButtonStyle.Secondary),
+      ),
+    ];
+  }
+  return [];
 }
 
 function buildPmOnlyPartnerRows(viewerId, targetId) {
@@ -231,16 +292,39 @@ function buildPmOnlyPartnerRows(viewerId, targetId) {
   ];
 }
 
-function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind) {
-  if (profileKind !== PROFILE_FULL || !viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
-  if (String(section || "").toLowerCase() === SECTION_PAUSE) return false;
-  return true;
+function buildPartnerPointsOnlyRow(viewerId, targetId) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t))
+        .setLabel("Aggiungi punti")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t))
+        .setLabel("Rimuovi punti")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
 }
 
-function shouldAttachPmOnlyHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind) {
-  if (profileKind !== PROFILE_PM_ONLY || !viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
-  if (String(section || "").toLowerCase() === SECTION_PAUSE) return false;
-  return true;
+function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind) {
+  if (profileKind !== PROFILE_FULL || !viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
+  const sec = String(section || "").toLowerCase();
+  return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
+}
+
+/** Punti partner / depex per HS: profilo solo-PM ovunque tranne pause; staff+PM su home (solo punti), stats e classifica partner. */
+function shouldAttachPartnerManagerHighStaffExtras(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, hasPartnerManager) {
+  if (!viewerIsHighStaff || String(viewerId) === String(targetUserId)) return false;
+  const sec = String(section || "").toLowerCase();
+  if (sec === SECTION_PAUSE) return false;
+  if (profileKind === PROFILE_PM_ONLY) return true;
+  if (profileKind === PROFILE_FULL && hasPartnerManager) {
+    return sec === SECTION_HOME || sec === SECTION_STATS || sec === SECTION_PARTNER_LB;
+  }
+  return false;
 }
 
 function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
@@ -255,7 +339,7 @@ function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
   return base;
 }
 
-function buildProfileSelectRow(viewerId, targetId, section, profileKind) {
+function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPartnerManager = false) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
@@ -280,6 +364,14 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind) {
     { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
     { label: "Stats", value: SECTION_STATS, emoji: "<:VC_Clock:1473359204189474886>", default: sec === SECTION_STATS },
   ];
+  if (hasPartnerManager) {
+    opts.push({
+      label: "Classifica partner",
+      value: SECTION_PARTNER_LB,
+      emoji: "<a:VC_Winner:1482535294757507255>",
+      default: sec === SECTION_PARTNER_LB,
+    });
+  }
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(formatStaffProfileSelectCustomId(viewerId, targetId))
@@ -316,7 +408,7 @@ async function fetchStaffLean(guildId, userId) {
     .catch(() => null);
 }
 
-async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, section = SECTION_HOME) {
+async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, section = SECTION_HOME, options = {}) {
   const gid = String(guild?.id || "");
   const tid = String(targetUserId || "");
   const member = await guild.members.fetch(tid).catch(() => null);
@@ -325,6 +417,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const viewerMemForPanel = await guild.members.fetch(String(viewerId)).catch(() => null);
   const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
   const profileKind = resolveStaffProfileKind(member);
+  const pmRoleId = IDs.roles.PartnerManager;
+  const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
 
   if (profileKind === PROFILE_PROSPECT) {
     const pexComps =
@@ -372,35 +466,44 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE, SECTION_PARTNER_LB]);
     if (!allowedPm.has(sec)) sec = SECTION_HOME;
   }
+  const canPartnerLb = profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm);
+  if (sec === SECTION_PARTNER_LB && !canPartnerLb) sec = SECTION_HOME;
 
-  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind);
+  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind, profileKind === PROFILE_FULL && hasPm);
   const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind)
-    ? buildHighStaffActionRows(String(viewerId), tid)
+    ? buildHighStaffActionRows(String(viewerId), tid, sec)
     : [];
-  const pmOnlyRows = shouldAttachPmOnlyHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind)
-    ? buildPmOnlyPartnerRows(String(viewerId), tid)
-    : [];
-  const hsRows = highStaffRows.length ? highStaffRows : pmOnlyRows;
+  let pmExtraRows = [];
+  if (shouldAttachPartnerManagerHighStaffExtras(sec, viewerId, tid, viewerIsHighStaff, profileKind, hasPm)) {
+    if (profileKind === PROFILE_FULL && hasPm && sec === SECTION_HOME) {
+      pmExtraRows = buildPartnerPointsOnlyRow(String(viewerId), tid);
+    } else {
+      pmExtraRows = buildPmOnlyPartnerRows(String(viewerId), tid);
+    }
+  }
+  const hsRows = [...highStaffRows, ...pmExtraRows];
 
-  if (profileKind === PROFILE_PM_ONLY && sec === SECTION_PARTNER_LB) {
-    const lbPayload = await buildPartnerLeaderboardPayload(client, guild, "totale", 1);
+  if (canPartnerLb && sec === SECTION_PARTNER_LB) {
+    const lbMode = String(options?.partnerLbMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
+    const lbPayload = await buildPartnerLeaderboardPayload(client, guild, lbMode, 1);
     const mainEmbed = EmbedBuilder.from(lbPayload.embeds[0]);
     const prev = mainEmbed.data?.description ?? "";
-    mainEmbed.setDescription(`${prev}\n\n> **Navigazione** (settimanale / pagine): \`+leaderboard\``);
-    return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, hsRows) };
+    mainEmbed.setDescription(`${prev}\n\n> Altre pagine: \`+leaderboard\``);
+    const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode);
+    return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, hsRows, [plbRow]) };
   }
 
   if (profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s);
     const punti = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
     const pmHomeDesc = [
-      "**Partner Manager**",
+      `**Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
       `**Punti partner:** ${punti}`,
       "",
-      "Dal menu: **Pause** (dettaglio) o **Classifica partner** (anteprima; interattivo con `+leaderboard`).",
+      "Dal menu: **Pause** (dettaglio) o **Classifica partner** (Totale / Settimanale nel pannello; altre pagine con `+leaderboard`).",
     ].join("\n");
     return {
       embeds: [
@@ -533,7 +636,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
   }
 
-  const homeDesc = [
+  const puntiPartner = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
+  const homeDescParts = [
     `**Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
@@ -547,9 +651,17 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     `**Attività:** 
     **${weeklyMsg}** messaggi
     **${weeklyHours.toFixed(2)}h** vocale`,
-    "",
-    "Seleziona una sezione dal menu per i dettagli.",
-  ].join("\n");
+  ];
+  if (hasPm) {
+    homeDescParts.push(
+      "",
+      `**Punti partner:** ${puntiPartner}`,
+      "",
+      "Dal menu: **Classifica partner** (Totale / Settimanale nel pannello; altre pagine con `+leaderboard`).",
+    );
+  }
+  homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
+  const homeDesc = homeDescParts.join("\n");
   return {
     embeds: [
       new EmbedBuilder()
@@ -573,6 +685,7 @@ module.exports = {
   SECTION_PARTNER_LB,
   formatStaffProfileSelectCustomId,
   parseStaffProfileSelectCustomId,
+  parseStaffProfilePlbCustomId,
   formatStaffHpButtonCustomId,
   buildStaffProfilePayload,
 };
