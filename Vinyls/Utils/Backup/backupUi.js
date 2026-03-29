@@ -45,7 +45,7 @@ function buildSuccessEmbed(guild, result) {
       [
         `<:success:1461731530333229226> Backup creato con successo con ID \`${result.backupId}\`.`,
         "",
-        "<:VC_InactiveStatus:1482526984234860574> Da qui: menu **Info** / **Carica** nel pannello `+backup`, oppure `/backup`.",
+        "<:VC_InactiveStatus:1482526984234860574> Da qui: nel pannello **+backup** usa il menu **Info** o **Carica**.",
       ].join("\n"),
     )
     .addFields([

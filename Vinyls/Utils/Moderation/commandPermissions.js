@@ -619,19 +619,6 @@ async function checkSlashPermission(interaction, options = {}) {
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const onMainGuild = isMainGuild(guildId);
 
-  if (String(interaction?.commandName || "").toLowerCase() === "backup") {
-    const allowed = await isGuildOwnerOrAdmin(interaction);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_permission",
-        requiredRoles: null,
-        channels: null,
-      };
-    }
-    return allowed;
-  }
-
   if (interaction.commandName === "dmbroadcast" && onMainGuild) {
     const client = interaction.client;
     const devIds = getDevIds(client);

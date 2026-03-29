@@ -5,7 +5,7 @@ const ACTION_KEYS = new Set(LOAD_ACTIONS.map((a) => a.key));
 const DEFAULT_ACTIONS = new Set(LOAD_ACTIONS.map((a) => a.key));
 const DEFAULT_MESSAGES_LIMIT = 1000;
 const MAX_MESSAGES_LIMIT = 50000;
-const MESSAGE_LIMIT_PRESETS = [{ label: "100 messages", value: "100", description: "Ripristina max 100 messaggi" }, { label: "500 messages", value: "500", description: "Ripristina max 500 messaggi" }, { label: "1,000 messages", value: "1000", description: "Ripristina max 1000 messaggi" }, { label: "5,000 messages", value: "5000", description: "Ripristina max 5000 messaggi" }, { label: "10,000 messages", value: "10000", description: "Ripristina max 10000 messaggi" }, { label: "All available", value: "ALL", description: "Ripristina tutti i messaggi nel backup" },];
+const MESSAGE_LIMIT_PRESETS = [{ label: "100 messages", value: "100", description: "Ripristina max 100 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "500 messages", value: "500", description: "Ripristina max 500 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "1,000 messages", value: "1000", description: "Ripristina max 1000 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "5,000 messages", value: "5000", description: "Ripristina max 5000 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "10,000 messages", value: "10000", description: "Ripristina max 10000 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "All available", value: "ALL", description: "Ripristina tutti i messaggi nel backup", emoji: "<a:VC_Announce:1482534613568979007>", },];
 const SESSION_TTL_MS = 1000 * 60 * 20;
 const ACTIVE_LOAD_STALE_MS = 1000 * 60 * 60 * 6;
 const sessions = new Map();
@@ -219,7 +219,7 @@ function buildLoadInProgressEmbed(backupId, checkpointId = null) {
       [
         "<:VC_update:1478721333096349817> **The backup will start loading now.** Please be patient, this can take a while!",
         "",
-        "<:VC_update:1478721333096349817> Use `/backup status` to get the current status and `/backup cancel` to cancel the process.",
+        "<:VC_update:1478721333096349817> Usa **+backup** → menu **Stato caricamento** / **Annulla caricamento** per stato e stop.",
         "",
         "<:VC_update:1478721333096349817> *This message might not be updated.*",
         "",
@@ -407,7 +407,7 @@ function buildLoadCancelledEmbed(backupId) {
       [
         "<:VC_update:1478721333096349817> The loading process has been **cancelled**.",
         "",
-        "<:VC_update:1478721333096349817> Use `/backup load` to try again.",
+        "<:VC_update:1478721333096349817> Riprova da **+backup** → **Carica backup**.",
       ].filter(Boolean).join("\n"),
     );
 }
@@ -446,6 +446,7 @@ function buildLoadComponents(
         label: item.label,
         value: item.value,
         description: item.description,
+        emoji: item.emoji,
         default: String(item.value).toUpperCase() === String(limitValue).toUpperCase(),
       })),
     ),
@@ -1201,7 +1202,7 @@ async function handleBackupLoadInteraction(interaction) {
   if (!session) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Sessione backup scaduta. Riesegui **+backup** (Carica backup) o `/backup load`.",
+        content: "<a:VC_Alert:1482706673176150077> Sessione backup scaduta. Riesegui **+backup** → **Carica backup**.",
         flags: 1 << 6,
       })
       .catch(() => { });

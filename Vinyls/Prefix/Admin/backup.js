@@ -3,7 +3,7 @@ const { buildBackupPanelPayload, SECTION_HOME } = require("../../Utils/Backup/ba
 
 module.exports = {
   name: "backup",
-  description: "Centro backup con menu (alternative a /backup)",
+  description: "Centro backup: menu e moduli per snapshot, lista, info, load e delete",
   usage: "+backup",
   examples: ["+backup"],
   async execute(message) {

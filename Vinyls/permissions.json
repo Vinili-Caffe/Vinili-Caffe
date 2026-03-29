@@ -1,37 +1,5 @@
 {
     "slash": {
-        "backup": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.staffCmds"
-            ],
-            "subcommands": {
-                "info": [
-                    "roles.HighStaff"
-                ],
-                "load": [
-                    "roles.HighStaff"
-                ],
-                "create": [
-                    "roles.HighStaff"
-                ],
-                "list": [
-                    "roles.HighStaff"
-                ],
-                "delete": [
-                    "roles.HighStaff"
-                ],
-                "status": [
-                    "roles.HighStaff"
-                ],
-                "cancel": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
         "partner": {
             "roles": [
                 "roles.HighStaff"

@@ -84,8 +84,6 @@ function buildBackupHomeEmbed(guild) {
         "Da qui puoi **creare** uno snapshot, vedere la **lista**, aprire **info**, **caricare** o **eliminare** un backup.",
         "",
         "Usa il **menu** qui sotto. Per inserire l’ID usa **Apri modulo** nelle sezioni Info / Carica / Elimina.",
-        "",
-        "Il comando slash `/backup` resta disponibile.",
       ].join("\n"),
     )
     .setFooter({ text: guild?.name ? String(guild.name).slice(0, 80) : "Server" });
@@ -111,7 +109,7 @@ async function buildBackupPanelPayload(guild, ownerId, section = SECTION_HOME) {
     const embed = buildBackupFormIntroEmbed(
       "<:VC_InactiveStatus:1482526984234860574> Info backup",
       [
-        "Incolla l’ID del backup nel modulo (puoi usare anche `guildId:backupId` dall’autocomplete di `/backup`).",
+        "Incolla l’ID del backup nel modulo (formato `BACKUPID` oppure `guildId:backupId` se serve).",
         "",
         "Poi **Apri modulo** e conferma.",
       ],

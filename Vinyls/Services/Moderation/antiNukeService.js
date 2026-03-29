@@ -1215,7 +1215,7 @@ async function runAutoBackupSyncAfterPanic(guild, state) {
         `<:VC_reason:1478517122929004544> **Ruoli falliti:** ${Number(restoredRoles.failed || 0)}`,
         `<:VC_reason:1478517122929004544> **Canali ripristinati:** ${Number(restoredChannels.restored || 0)}`,
         `<:VC_reason:1478517122929004544> **Canali falliti:** ${Number(restoredChannels.failed || 0)}`,
-        `<:VC_reason:1478517122929004544> Per ripristino completo canali/ruoli usa \`/backup load\`.`,
+        `<:VC_reason:1478517122929004544> Per ripristino completo canali/ruoli usa **+backup** → **Carica backup**.`,
       ],
       Number(restoredRoles.failed || 0) > 0 || Number(restoredChannels.failed || 0) > 0
         ? "#F59E0B"
