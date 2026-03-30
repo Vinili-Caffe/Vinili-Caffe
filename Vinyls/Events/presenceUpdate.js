@@ -118,9 +118,11 @@ function computeSupporterLinkState(prev = {}, presence) {
     return { newHas: prevHas, inviteMissSince };
   }
 
-  const rawHas = hasInvite(presence);
-
-  if (rawHas) {
+  const inviteState = getInviteState(presence, prevHas);
+  if (inviteState === null) {
+    return { newHas: prevHas, inviteMissSince };
+  }
+  if (inviteState === true) {
     return { newHas: true, inviteMissSince: null };
   }
 

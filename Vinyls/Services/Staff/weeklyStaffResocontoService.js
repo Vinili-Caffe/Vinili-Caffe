@@ -62,6 +62,44 @@ function collectVoiceChannelIdsUnderCategory(guild, categoryId) {
   return out;
 }
 
+function buildResocontoActivityScope(guild) {
+  const includeTextChannelIds = new Set();
+  const includeVoiceChannelIds = new Set();
+  const addText = (id) => {
+    const value = String(id || "");
+    if (value) includeTextChannelIds.add(value);
+  };
+  const addVoice = (id) => {
+    const value = String(id || "");
+    if (value) includeVoiceChannelIds.add(value);
+  };
+
+  addText(IDs.channels?.chat);
+  addText(IDs.channels?.media);
+  addText(IDs.channels?.commands);
+  addText(IDs.channels?.forum);
+  addText(IDs.channels?.selfieVerificati);
+
+  const forumId = String(IDs.channels?.forum || "");
+  const publicsCategoryId = String(IDs.categories?.categoryPublics || "");
+
+  for (const ch of guild?.channels?.cache?.values?.() || []) {
+    const parentId = String(ch?.parentId || "");
+    const channelId = String(ch?.id || "");
+    if (!channelId) continue;
+    if (forumId && parentId === forumId && ch?.isThread?.()) {
+      includeTextChannelIds.add(channelId);
+      continue;
+    }
+    if (publicsCategoryId && parentId === publicsCategoryId && ch?.isVoiceBased?.()) {
+      includeVoiceChannelIds.add(channelId);
+      includeTextChannelIds.add(channelId);
+    }
+  }
+
+  return { includeTextChannelIds, includeVoiceChannelIds };
+}
+
 function getRomeDateParts(date) {
   const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", });
   const parts = formatter.formatToParts(date);
@@ -409,6 +447,7 @@ async function runWeeklyStaffResoconti(client) {
   );
   const resocontoOverviewVoiceExclude =
     resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
+  const resocontoScope = buildResocontoActivityScope(guild);
 
   const channel = await resolveChannel(client, channelId);
   if (!channel?.isTextBased?.()) return;
@@ -441,7 +480,14 @@ async function runWeeklyStaffResoconti(client) {
 
   const staffUserIds = candidateMembers.filter((m) => resolveStaffRole(m)).map((m) => String(m.id));
   const overviewResults = await Promise.all(
-    staffUserIds.map((uid) => getUserOverviewStats(guildId, uid, 7, resocontoOverviewVoiceExclude)),
+    staffUserIds.map((uid) =>
+      getUserOverviewStats(
+        guildId,
+        uid,
+        7,
+        resocontoOverviewVoiceExclude,
+        resocontoScope,
+      )),
   );
   const overviewMap = new Map(staffUserIds.map((id, i) => [id, overviewResults[i] || null]),);
   const sanctionCountByModId = await getWeeklySanctionCountByMod(guildId, weekStart, weekEnd);
@@ -544,6 +590,7 @@ async function runPreResocontoReminders(client) {
   );
   const resocontoOverviewVoiceExclude =
     resocontoExcludeVoiceChannels.size > 0 ? resocontoExcludeVoiceChannels : null;
+  const resocontoScope = buildResocontoActivityScope(guild);
 
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
   const staffUserIds = Array.from(new Set((staffDocs || []).map((r) => String(r?.userId || "")).filter((id) => /^\d{16,20}$/.test(id))));
@@ -560,7 +607,14 @@ async function runPreResocontoReminders(client) {
   const staffMap = new Map((staffDocs || []).map((r) => [String(r.userId), r.staff || {}]));
   const staffOnlyIds = reminderMembers.filter(hasStaffRole).map((m) => m.id);
   const overviewResults = await Promise.all(
-    staffOnlyIds.map((uid) => getUserOverviewStats(guildId, uid, 7, resocontoOverviewVoiceExclude)),
+    staffOnlyIds.map((uid) =>
+      getUserOverviewStats(
+        guildId,
+        uid,
+        7,
+        resocontoOverviewVoiceExclude,
+        resocontoScope,
+      )),
   );
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
   const resocontoTime = "**domenica alle 20:00**";

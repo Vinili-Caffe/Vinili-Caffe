@@ -956,9 +956,40 @@ function sumVoiceSecondsFromHourRow(row, excludeVoiceChannelIds) {
   return sum;
 }
 
-function aggregateUserHourlyRows(rows = [], hourKeys = [], excludeVoiceChannelIds = null) {
+function sumTextFromHourRow(row, includeTextChannelIds) {
+  const include =
+    includeTextChannelIds instanceof Set && includeTextChannelIds.size > 0
+      ? includeTextChannelIds
+      : null;
+  if (!include) return Number(row?.textCount || 0);
+  const textChannels = row?.textChannels || {};
+  const keys = Object.keys(textChannels);
+  if (!keys.length) return 0;
+  let sum = 0;
+  for (const [channelId, value] of Object.entries(textChannels)) {
+    if (!include.has(String(channelId))) continue;
+    sum += Number(value || 0);
+  }
+  return sum;
+}
+
+function aggregateUserHourlyRows(
+  rows = [],
+  hourKeys = [],
+  excludeVoiceChannelIds = null,
+  includeTextChannelIds = null,
+  includeVoiceChannelIds = null,
+) {
   const exclude =
     excludeVoiceChannelIds instanceof Set && excludeVoiceChannelIds.size > 0 ? excludeVoiceChannelIds : null;
+  const includeText =
+    includeTextChannelIds instanceof Set && includeTextChannelIds.size > 0
+      ? includeTextChannelIds
+      : null;
+  const includeVoice =
+    includeVoiceChannelIds instanceof Set && includeVoiceChannelIds.size > 0
+      ? includeVoiceChannelIds
+      : null;
   const hourSet = new Set(Array.isArray(hourKeys) ? hourKeys : []);
   const channelText = new Map();
   const channelVoice = new Map();
@@ -969,19 +1000,34 @@ function aggregateUserHourlyRows(rows = [], hourKeys = [], excludeVoiceChannelId
     const hourKey = String(row?.hourKey || "");
     if (!hourSet.has(hourKey)) continue;
     if (shouldSkipBackfillRow(hourKey, hourSet)) continue;
-    const rowText = Number(row?.textCount || 0);
+    const rowText = sumTextFromHourRow(row, includeText);
     const rowVoice = sumVoiceSecondsFromHourRow(row, exclude);
     text += rowText;
-    voiceSeconds += rowVoice;
+    if (includeVoice) {
+      const voiceChannels = row?.voiceChannels || {};
+      let rowVoiceIncluded = 0;
+      for (const [channelId, value] of Object.entries(voiceChannels)) {
+        const channelIdStr = String(channelId || "");
+        if (exclude && exclude.has(channelIdStr)) continue;
+        if (!includeVoice.has(channelIdStr)) continue;
+        rowVoiceIncluded += Number(value || 0);
+      }
+      voiceSeconds += rowVoiceIncluded;
+    } else {
+      voiceSeconds += rowVoice;
+    }
 
     const textChannels = row?.textChannels || {};
     for (const [channelId, value] of Object.entries(textChannels)) {
+      if (includeText && !includeText.has(String(channelId || ""))) continue;
       pushMapValue(channelText, String(channelId || ""), Number(value || 0));
     }
 
     const voiceChannels = row?.voiceChannels || {};
     for (const [channelId, value] of Object.entries(voiceChannels)) {
-      if (exclude && exclude.has(String(channelId))) continue;
+      const channelIdStr = String(channelId || "");
+      if (exclude && exclude.has(channelIdStr)) continue;
+      if (includeVoice && !includeVoice.has(channelIdStr)) continue;
       pushMapValue(channelVoice, String(channelId || ""), Number(value || 0));
     }
   }
@@ -989,9 +1035,23 @@ function aggregateUserHourlyRows(rows = [], hourKeys = [], excludeVoiceChannelId
   return { text, voiceSeconds, topChannelsText: topNFromMap(channelText, 3), topChannelsVoice: topNFromMap(channelVoice, 3) };
 }
 
-function buildChartByDayFromHourlyRows(rows = [], hourKeys = [], excludeVoiceChannelIds = null) {
+function buildChartByDayFromHourlyRows(
+  rows = [],
+  hourKeys = [],
+  excludeVoiceChannelIds = null,
+  includeTextChannelIds = null,
+  includeVoiceChannelIds = null,
+) {
   const exclude =
     excludeVoiceChannelIds instanceof Set && excludeVoiceChannelIds.size > 0 ? excludeVoiceChannelIds : null;
+  const includeText =
+    includeTextChannelIds instanceof Set && includeTextChannelIds.size > 0
+      ? includeTextChannelIds
+      : null;
+  const includeVoice =
+    includeVoiceChannelIds instanceof Set && includeVoiceChannelIds.size > 0
+      ? includeVoiceChannelIds
+      : null;
   const hourSet = new Set(Array.isArray(hourKeys) ? hourKeys : []);
   const byDay = new Map();
 
@@ -1002,8 +1062,18 @@ function buildChartByDayFromHourlyRows(rows = [], hourKeys = [], excludeVoiceCha
     const dayKey = hourKey.split("T")[0] || "";
     if (!dayKey) continue;
     const current = byDay.get(dayKey) || { text: 0, voiceSeconds: 0 };
-    current.text += Number(row?.textCount || 0);
-    current.voiceSeconds += sumVoiceSecondsFromHourRow(row, exclude);
+    current.text += sumTextFromHourRow(row, includeText);
+    if (includeVoice) {
+      const voiceChannels = row?.voiceChannels || {};
+      for (const [channelId, value] of Object.entries(voiceChannels)) {
+        const channelIdStr = String(channelId || "");
+        if (exclude && exclude.has(channelIdStr)) continue;
+        if (!includeVoice.has(channelIdStr)) continue;
+        current.voiceSeconds += Number(value || 0);
+      }
+    } else {
+      current.voiceSeconds += sumVoiceSecondsFromHourRow(row, exclude);
+    }
     byDay.set(dayKey, current);
   }
 
@@ -1272,9 +1342,17 @@ async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) 
   };
 }
 
-async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeVoiceChannelIds = null) {
+async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeVoiceChannelIds = null, options = null) {
   const exclude =
     excludeVoiceChannelIds instanceof Set && excludeVoiceChannelIds.size > 0 ? excludeVoiceChannelIds : null;
+  const includeText =
+    options?.includeTextChannelIds instanceof Set && options.includeTextChannelIds.size > 0
+      ? options.includeTextChannelIds
+      : null;
+  const includeVoice =
+    options?.includeVoiceChannelIds instanceof Set && options.includeVoiceChannelIds.size > 0
+      ? options.includeVoiceChannelIds
+      : null;
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
   if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
     let timer;
@@ -1302,13 +1380,13 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
 
   const userRows = await loadHourlyRows(guildId, allHourKeys, userId);
 
-  const agg1 = aggregateUserHourlyRows(userRows, hourKeys1, exclude);
-  const agg7 = aggregateUserHourlyRows(userRows, hourKeys7, exclude);
-  const agg14 = aggregateUserHourlyRows(userRows, hourKeys14, exclude);
-  const agg21 = aggregateUserHourlyRows(userRows, hourKeys21, exclude);
-  const agg30 = aggregateUserHourlyRows(userRows, hourKeys30, exclude);
-  const aggLookback = aggregateUserHourlyRows(userRows, hourKeysLookback, exclude);
-  const userChartByDay = buildChartByDayFromHourlyRows(userRows, hourKeysLookback, exclude);
+  const agg1 = aggregateUserHourlyRows(userRows, hourKeys1, exclude, includeText, includeVoice);
+  const agg7 = aggregateUserHourlyRows(userRows, hourKeys7, exclude, includeText, includeVoice);
+  const agg14 = aggregateUserHourlyRows(userRows, hourKeys14, exclude, includeText, includeVoice);
+  const agg21 = aggregateUserHourlyRows(userRows, hourKeys21, exclude, includeText, includeVoice);
+  const agg30 = aggregateUserHourlyRows(userRows, hourKeys30, exclude, includeText, includeVoice);
+  const aggLookback = aggregateUserHourlyRows(userRows, hourKeysLookback, exclude, includeText, includeVoice);
+  const userChartByDay = buildChartByDayFromHourlyRows(userRows, hourKeysLookback, exclude, includeText, includeVoice);
 
   const chart = dayKeysLookback.slice().reverse().map((dayKey) => {
     const point = userChartByDay.get(dayKey) || { text: 0, voiceSeconds: 0 };
@@ -1323,7 +1401,10 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
     const nowMs = Date.now();
     const startedAt = liveDoc.profile?.totals?.sessionStartedAt;
     const channelId = String(liveDoc?.profile?.totals?.sessionChannelId || "");
-    const skipLiveVoice = Boolean(exclude && channelId && exclude.has(channelId));
+    const skipLiveVoice = Boolean(
+      (exclude && channelId && exclude.has(channelId)) ||
+      (includeVoice && channelId && !includeVoice.has(channelId)),
+    );
     if (!skipLiveVoice) {
       const add1 = secondsInLastNDays(startedAt, 1, nowMs);
       const add7 = secondsInLastNDays(startedAt, 7, nowMs);
@@ -1354,8 +1435,20 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
   const rankVoiceMap = new Map();
   for (const row of guildRows14) {
     const id = String(row?.userId || "");
-    pushMapValue(rankTextMap, id, Number(row?.textCount || 0));
-    pushMapValue(rankVoiceMap, id, Number(row?.voiceSeconds || 0));
+    pushMapValue(rankTextMap, id, sumTextFromHourRow(row, includeText));
+    if (includeVoice) {
+      const voiceChannels = row?.voiceChannels || {};
+      let voiceIncluded = 0;
+      for (const [channelId, value] of Object.entries(voiceChannels)) {
+        const channelIdStr = String(channelId || "");
+        if (exclude && exclude.has(channelIdStr)) continue;
+        if (!includeVoice.has(channelIdStr)) continue;
+        voiceIncluded += Number(value || 0);
+      }
+      pushMapValue(rankVoiceMap, id, voiceIncluded);
+    } else {
+      pushMapValue(rankVoiceMap, id, sumVoiceSecondsFromHourRow(row, exclude));
+    }
   }
 
   const liveGuildSessions = await loadLiveVoiceSessions(guildId);
@@ -1367,6 +1460,9 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       if (!id || !startedAt) continue;
       const add = secondsInLastNDays(startedAt, safeLookback, nowMs);
       if (!add) continue;
+      const channelId = String(row?.voice?.sessionChannelId || "");
+      if (exclude && channelId && exclude.has(channelId)) continue;
+      if (includeVoice && channelId && !includeVoice.has(channelId)) continue;
       pushMapValue(rankVoiceMap, id, add);
     }
   }
