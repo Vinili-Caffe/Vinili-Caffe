@@ -433,6 +433,16 @@
                 "channels.sanzioniUtenti"
             ]
         },
+        "moderazione": {
+            "roles": [
+                "roles.Staff"
+            ],
+            "channels": [
+                "channels.staffCmds",
+                "channels.highCmds",
+                "channels.sanzioniUtenti"
+            ]
+        },
         "reason": {
             "roles": [
                 "roles.HighStaff"
@@ -652,6 +662,17 @@
                 "roles.HighStaff"
             ],
             "ownerSegment": 3
+        },
+        "mpr:*": {
+            "roles": [
+                "roles.Staff"
+            ],
+            "channels": [
+                "channels.staffCmds",
+                "channels.highCmds",
+                "channels.sanzioniUtenti"
+            ],
+            "ownerSegment": 2
         },
         "security_panel:hub:*": {
             "roles": [
