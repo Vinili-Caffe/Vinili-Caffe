@@ -13,64 +13,65 @@ const PANEL_PREFIX = "mpr";
 const SECTION_HOME = "home";
 const SECTION_SANCTIONS = "sanctions";
 const SECTION_CASES = "cases";
-const SECTION_CHANNEL = "channel";
 
 const FIELD_REASON = "mpr_f_reason";
 const FIELD_DURATION = "mpr_f_duration";
 const FIELD_CASE = "mpr_f_case";
 const FIELD_EXTRA = "mpr_f_extra";
 
-function formatNavCustomId(viewerId, targetId) {
-  return `${PANEL_PREFIX}:nav:${viewerId}:${targetId}`;
+function formatNavCustomId(guildId, viewerId, targetId) {
+  return `${PANEL_PREFIX}:nav:${guildId}:${viewerId}:${targetId}`;
 }
 
-function formatGoCustomId(viewerId, targetId, action) {
-  return `${PANEL_PREFIX}:go:${viewerId}:${targetId}:${action}`;
+function formatGoCustomId(guildId, viewerId, targetId, action) {
+  return `${PANEL_PREFIX}:go:${guildId}:${viewerId}:${targetId}:${action}`;
 }
 
-function formatModalCustomId(viewerId, targetId, action) {
-  return `${PANEL_PREFIX}:md:${viewerId}:${targetId}:${action}`;
+function formatModalCustomId(guildId, viewerId, targetId, action) {
+  return `${PANEL_PREFIX}:md:${guildId}:${viewerId}:${targetId}:${action}`;
 }
 
 function parseNavCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 4 || p[0] !== PANEL_PREFIX || p[1] !== "nav") return null;
-  return { viewerId: p[2], targetId: p[3] };
+  if (p.length >= 5) return { guildId: p[2], viewerId: p[3], targetId: p[4] };
+  return { guildId: null, viewerId: p[2], targetId: p[3] };
 }
 
 function parseGoCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "go") return null;
-  return { viewerId: p[2], targetId: p[3], action: p[4] };
+  if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5] };
+  return { guildId: null, viewerId: p[2], targetId: p[3], action: p[4] };
 }
 
 function parseModalCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "md") return null;
-  return { viewerId: p[2], targetId: p[3], action: p[4] };
+  if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5] };
+  return { guildId: null, viewerId: p[2], targetId: p[3], action: p[4] };
 }
 
 function sectionLabel(sec) {
   const s = String(sec || SECTION_HOME).toLowerCase();
   if (s === SECTION_SANCTIONS) return "Sanzioni";
   if (s === SECTION_CASES) return "Case e log";
-  if (s === SECTION_CHANNEL) return "Canale";
   return "Home";
 }
 
-function buildNavRow(viewerId, targetId, section) {
+function buildNavRow(guildId, viewerId, targetId, section) {
+  const g = String(guildId);
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(formatNavCustomId(v, t))
+      .setCustomId(formatNavCustomId(g, v, t))
       .setPlaceholder(`Sezione: ${sectionLabel(sec)}`)
       .addOptions(
         { label: "Home", value: SECTION_HOME, default: sec === SECTION_HOME, emoji: "<:VC_Info:1482526956703580372>" },
         { label: "Sanzioni", value: SECTION_SANCTIONS, default: sec === SECTION_SANCTIONS, emoji: "<:VC_BanHammer:1482534474502897795>" },
         { label: "Case e log", value: SECTION_CASES, default: sec === SECTION_CASES, emoji: "<:VC_id:1478517313618575419>" },
-        { label: "Canale", value: SECTION_CHANNEL, default: sec === SECTION_CHANNEL, emoji: "<:VC_Lock:1482526739044368476>" },
       ),
   );
 }
@@ -83,51 +84,49 @@ function chunkButtons(rows, maxPerRow = 5) {
   return out;
 }
 
-function btn(v, t, key, label, style = ButtonStyle.Secondary) {
-  return new ButtonBuilder().setCustomId(formatGoCustomId(v, t, key)).setLabel(label).setStyle(style);
+function btn(guildId, v, t, key, label, style = ButtonStyle.Secondary) {
+  return new ButtonBuilder().setCustomId(formatGoCustomId(guildId, v, t, key)).setLabel(label).setStyle(style);
 }
 
-function buildSectionRows(viewerId, targetId, section) {
+function buildSectionRows(guildId, viewerId, targetId, section) {
+  const g = String(guildId);
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
   const rows = [];
   if (sec === SECTION_HOME) {
     rows.push(
-      btn(v, t, "warnings", "Warnings", ButtonStyle.Primary),
-      btn(v, t, "moderations", "Moderazioni attive", ButtonStyle.Primary),
-      btn(v, t, "modlogs", "Modlogs", ButtonStyle.Primary),
+      btn(g, v, t, "warnings", "Warnings", ButtonStyle.Primary),
+      btn(g, v, t, "moderations", "Moderazioni attive", ButtonStyle.Primary),
+      btn(g, v, t, "modlogs", "Modlogs", ButtonStyle.Primary),
     );
   } else if (sec === SECTION_SANCTIONS) {
     rows.push(
-      btn(v, t, "warn", "Warn", ButtonStyle.Danger),
-      btn(v, t, "kick", "Kick", ButtonStyle.Danger),
-      btn(v, t, "mute", "Mute", ButtonStyle.Danger),
-      btn(v, t, "ban", "Ban", ButtonStyle.Danger),
-      btn(v, t, "unmute", "Unmute", ButtonStyle.Secondary),
-      btn(v, t, "unban", "Unban", ButtonStyle.Secondary),
-      btn(v, t, "delwarn", "Delwarn", ButtonStyle.Secondary),
-      btn(v, t, "clearwarn", "Clearwarn", ButtonStyle.Secondary),
+      btn(g, v, t, "warn", "Warn", ButtonStyle.Danger),
+      btn(g, v, t, "kick", "Kick", ButtonStyle.Danger),
+      btn(g, v, t, "mute", "Mute", ButtonStyle.Danger),
+      btn(g, v, t, "ban", "Ban", ButtonStyle.Danger),
+      btn(g, v, t, "unmute", "Unmute", ButtonStyle.Secondary),
+      btn(g, v, t, "unban", "Unban", ButtonStyle.Secondary),
+      btn(g, v, t, "delwarn", "Delwarn", ButtonStyle.Secondary),
+      btn(g, v, t, "clearwarn", "Clearwarn", ButtonStyle.Secondary),
     );
   } else if (sec === SECTION_CASES) {
     rows.push(
-      btn(v, t, "case", "Case", ButtonStyle.Primary),
-      btn(v, t, "reason", "Reason", ButtonStyle.Primary),
-      btn(v, t, "duration", "Duration", ButtonStyle.Primary),
-    );
-  } else if (sec === SECTION_CHANNEL) {
-    rows.push(
-      btn(v, t, "lock", "Lock", ButtonStyle.Danger),
-      btn(v, t, "unlock", "Unlock", ButtonStyle.Success),
+      btn(g, v, t, "case", "Case", ButtonStyle.Primary),
+      btn(g, v, t, "reason", "Reason", ButtonStyle.Primary),
+      btn(g, v, t, "duration", "Duration", ButtonStyle.Primary),
     );
   }
   const chunks = chunkButtons(rows, 5);
   return chunks.map((chunk) => new ActionRowBuilder().addComponents(...chunk));
 }
 
-function buildModalForAction(viewerId, targetId, action) {
+function buildModalForAction(guildId, viewerId, targetId, action) {
   const a = String(action || "").toLowerCase();
-  const modal = new ModalBuilder().setCustomId(formatModalCustomId(viewerId, targetId, a)).setTitle(`Moderazione: ${a}`);
+  const modal = new ModalBuilder()
+    .setCustomId(formatModalCustomId(String(guildId), viewerId, targetId, a))
+    .setTitle(`Moderazione: ${a}`);
   if (a === "warn" || a === "kick") {
     modal.addComponents(
       new ActionRowBuilder().addComponents(
@@ -277,19 +276,6 @@ function buildModalForAction(viewerId, targetId, action) {
     );
     return modal;
   }
-  if (a === "lock" || a === "unlock") {
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId(FIELD_REASON)
-          .setLabel(a === "lock" ? "Motivo / messaggio (opzionale)" : "Motivo (opzionale)")
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(false)
-          .setMaxLength(500),
-      ),
-    );
-    return modal;
-  }
   return null;
 }
 
@@ -300,7 +286,7 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
   const member = await guild.members.fetch(tid).catch(() => null);
   const name = member?.displayName || targetUser?.username || tid;
   let sec = String(section || SECTION_HOME).toLowerCase();
-  const allowed = new Set([SECTION_HOME, SECTION_SANCTIONS, SECTION_CASES, SECTION_CHANNEL]);
+  const allowed = new Set([SECTION_HOME, SECTION_SANCTIONS, SECTION_CASES]);
   if (!allowed.has(sec)) sec = SECTION_HOME;
 
   const lines = [
@@ -317,9 +303,10 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
     .setTitle("<:VC_BanHammer:1482534474502897795> Pannello moderazione")
     .setDescription(lines.join("\n"))
     .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null)
-    .setFooter({ text: `Aperto da ${vid} · Target ${tid}` });
+    .setFooter({ text: `Server ${guild.id} · Aperto da ${vid} · Target ${tid}` });
 
-  const components = [buildNavRow(vid, tid, sec), ...buildSectionRows(vid, tid, sec)];
+  const gid = String(guild.id);
+  const components = [buildNavRow(gid, vid, tid, sec), ...buildSectionRows(gid, vid, tid, sec)];
   return { embeds: [embed], components };
 }
 
@@ -328,7 +315,6 @@ module.exports = {
   SECTION_HOME,
   SECTION_SANCTIONS,
   SECTION_CASES,
-  SECTION_CHANNEL,
   FIELD_REASON,
   FIELD_DURATION,
   FIELD_CASE,

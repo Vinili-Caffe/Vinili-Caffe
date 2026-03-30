@@ -137,7 +137,8 @@ async function sendStaffActionToModLogs(guild, modCase, options = {}) {
 async function sendModCommandUsageToModLogs(guild, message, commandName) {
   const channel = await resolveModLogChannel(guild);
   if (!channel?.isTextBased?.() || !message?.author) return;
-  const channelLabel = message.channel?.name ? `# ${message.channel.name}` : "# canale";
+  const auditCh = message.invokeChannel || message.channel;
+  const channelLabel = auditCh?.name ? `# ${auditCh.name}` : "# canale";
   const fullCommand = String(message.content || "").trim() || `+${commandName}`;
   const now = new Date();
   const day = String(now.getDate()).padStart(2, "0");

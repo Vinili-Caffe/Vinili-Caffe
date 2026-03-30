@@ -79,7 +79,7 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "evento.classifica": "Mostra la classifica dell'evento.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };
-const CONTEXT_CATEGORY_OVERRIDES = { partnership: "partner", };
+const CONTEXT_CATEGORY_OVERRIDES = { partnership: "staff", };
 const PERMISSIONS_CACHE_TTL_MS = 30_000;
 let permissionsCache = null;
 let permissionsCacheAt = 0;

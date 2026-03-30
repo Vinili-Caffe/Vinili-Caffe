@@ -1,4 +1,5 @@
 const { Collection } = require("discord.js");
+const IDs = require("../Utils/Config/ids");
 const { executeDynoModerationCommand } = require("../Utils/Moderation/dynoModerationCommands");
 const { checkPrefixPermission } = require("../Utils/Moderation/commandPermissions");
 const {
@@ -19,14 +20,29 @@ const PRIVATE_FLAG = 1 << 6;
 
 const GO_IMMEDIATE = new Set(["warnings", "moderations", "clearwarn"]);
 
-function createProxyMessage(interaction) {
+const SANCTIONS_OUTPUT_TO_SANZIONI = new Set([
+  "warn",
+  "kick",
+  "mute",
+  "ban",
+  "unmute",
+  "unban",
+  "delwarn",
+  "clearwarn",
+]);
+
+function createProxyMessage(interaction, outputChannel = null, guild = null, member = null) {
+  const ch = outputChannel || interaction.channel;
+  const g = guild || interaction.guild;
   return {
     id: interaction.id,
-    channel: interaction.channel,
-    channelId: interaction.channelId,
-    guild: interaction.guild,
+    channel: ch,
+    channelId: ch?.id,
+    invokeChannel: interaction.channel,
+    invokeChannelId: interaction.channelId,
+    guild: g,
     author: interaction.user,
-    member: interaction.member,
+    member: member ?? interaction.member,
     client: interaction.client,
     mentions: {
       users: new Collection(),
@@ -34,6 +50,38 @@ function createProxyMessage(interaction) {
       roles: new Collection(),
     },
   };
+}
+
+function resolveGuildFromInteraction(interaction, parsed) {
+  if (interaction.guild) return interaction.guild;
+  const gid = parsed?.guildId;
+  if (!gid) return null;
+  return interaction.client.guilds.cache.get(gid) || null;
+}
+
+function resolvePermChannel(interaction, guild) {
+  if (interaction.guild && interaction.channel && String(interaction.guild.id) === String(guild.id)) {
+    return interaction.channel;
+  }
+  const sid = String(IDs?.channels?.sanzioniUtenti || "").trim();
+  const stid = String(IDs?.channels?.staffCmds || "").trim();
+  const sanz = guild.channels.cache.get(sid);
+  if (sanz?.isTextBased?.()) return sanz;
+  const staff = guild.channels.cache.get(stid);
+  if (staff?.isTextBased?.()) return staff;
+  return interaction.channel;
+}
+
+async function resolveSanctionOutputChannel(guild, interaction, cmd) {
+  const key = String(cmd || "").toLowerCase();
+  if (!SANCTIONS_OUTPUT_TO_SANZIONI.has(key)) return interaction.channel;
+  const sid = String(IDs?.channels?.sanzioniUtenti || "").trim();
+  if (!sid || !guild) return interaction.channel;
+  const cached = guild.channels.cache.get(sid);
+  if (cached?.isTextBased?.()) return cached;
+  const fetched = await guild.channels.fetch(sid).catch(() => null);
+  if (fetched?.isTextBased?.()) return fetched;
+  return interaction.channel;
 }
 
 async function safeUpdatePanelInteraction(interaction, payload) {
@@ -59,9 +107,18 @@ async function replyEphemeral(interaction, content) {
   } catch (_) {}
 }
 
+function getModalText(fields, id) {
+  if (!fields || typeof fields.getTextInputValue !== "function") return "";
+  try {
+    return String(fields.getTextInputValue(id) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
 function buildArgsFromModal(action, targetId, fields) {
   const a = String(action || "").toLowerCase();
-  const get = (id) => String(fields.get(id) || "").trim();
+  const get = (id) => getModalText(fields, id);
   const R = FIELD_REASON;
   const D = FIELD_DURATION;
   const C = FIELD_CASE;
@@ -99,11 +156,6 @@ function buildArgsFromModal(action, targetId, fields) {
       return [get(C), get(R)];
     case "duration":
       return [get(C), get(D)];
-    case "lock":
-    case "unlock": {
-      const r = get(R);
-      return r ? [r] : [""];
-    }
     default:
       return null;
   }
@@ -121,9 +173,15 @@ function buildImmediateArgs(action, targetId) {
   }
 }
 
-async function runDynoFromInteraction(interaction, client, cmd, args) {
-  const proxy = createProxyMessage(interaction);
-  const allowed = await checkPrefixPermission(proxy, cmd);
+async function runDynoFromInteraction(interaction, client, cmd, args, guild) {
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) {
+    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non trovo il tuo membro nel server.");
+    return;
+  }
+  const permCh = resolvePermChannel(interaction, guild);
+  const permProxy = createProxyMessage(interaction, permCh, guild, member);
+  const allowed = await checkPrefixPermission(permProxy, cmd);
   if (!allowed) {
     await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non hai permesso per questa azione in questo canale.");
     return;
@@ -132,14 +190,18 @@ async function runDynoFromInteraction(interaction, client, cmd, args) {
     await replyEphemeral(interaction, "<:vegax:1443934876440068179> Argomenti non validi.");
     return;
   }
+  const outCh = await resolveSanctionOutputChannel(guild, interaction, cmd);
+  const execProxy = createProxyMessage(interaction, outCh, guild, member);
+  const sid = String(IDs?.channels?.sanzioniUtenti || "").trim();
+  const usedSanzioni =
+    SANCTIONS_OUTPUT_TO_SANZIONI.has(String(cmd || "").toLowerCase()) && sid && String(outCh?.id) === sid;
   await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
   try {
-    await executeDynoModerationCommand(cmd, proxy, args, client);
-    await interaction
-      .editReply({
-        content: "<:vegacheckmark:1443666279058772028> Eseguito. Controlla il canale per output e conferme.",
-      })
-      .catch(() => {});
+    await executeDynoModerationCommand(cmd, execProxy, args, client);
+    const doneMsg = usedSanzioni
+      ? "<:vegacheckmark:1443666279058772028> Eseguito. L’esito è stato inviato nel canale sanzioni."
+      : "<:vegacheckmark:1443666279058772028> Eseguito. Controlla il canale per output e conferme.";
+    await interaction.editReply({ content: doneMsg }).catch(() => {});
   } catch (err) {
     global.logger?.error?.("[moderationPanel]", err);
     await interaction
@@ -158,7 +220,6 @@ function match(interaction) {
 }
 
 async function execute(interaction, client) {
-  if (!interaction?.guild) return false;
   const id = String(interaction.customId || "");
 
   if (interaction.isStringSelectMenu()) {
@@ -168,9 +229,14 @@ async function execute(interaction, client) {
       await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare il menu.");
       return true;
     }
+    const guild = resolveGuildFromInteraction(interaction, parsed);
+    if (!guild) {
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+      return true;
+    }
     const section = String(interaction.values?.[0] || SECTION_HOME);
     const payload = await buildModerationPanelPayload(
-      interaction.guild,
+      guild,
       parsed.viewerId,
       parsed.targetId,
       interaction.client,
@@ -187,18 +253,29 @@ async function execute(interaction, client) {
       await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare i pulsanti.");
       return true;
     }
+    const guild = resolveGuildFromInteraction(interaction, parsed);
+    if (!guild) {
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+      return true;
+    }
     const action = String(parsed.action || "").toLowerCase();
 
     if (GO_IMMEDIATE.has(action)) {
       const args = buildImmediateArgs(action, parsed.targetId);
       if (!args) return false;
-      await runDynoFromInteraction(interaction, client, action, args);
+      await runDynoFromInteraction(interaction, client, action, args, guild);
       return true;
     }
 
-    const modal = buildModalForAction(parsed.viewerId, parsed.targetId, action);
+    const modal = buildModalForAction(String(parsed.guildId || guild.id), parsed.viewerId, parsed.targetId, action);
     if (!modal) return false;
-    const proxy = createProxyMessage(interaction);
+    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+    if (!member) {
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non trovo il tuo membro nel server.");
+      return true;
+    }
+    const permCh = resolvePermChannel(interaction, guild);
+    const proxy = createProxyMessage(interaction, permCh, guild, member);
     const allowed = await checkPrefixPermission(proxy, action);
     if (!allowed) {
       await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non hai permesso per questa azione in questo canale.");
@@ -215,13 +292,18 @@ async function execute(interaction, client) {
       await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può inviare questo modulo.");
       return true;
     }
+    const guild = resolveGuildFromInteraction(interaction, parsed);
+    if (!guild) {
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+      return true;
+    }
     const action = String(parsed.action || "").toLowerCase();
     const args = buildArgsFromModal(action, parsed.targetId, interaction.fields);
     if (!args) {
       await replyEphemeral(interaction, "<:vegax:1443934876440068179> Modulo non valido.");
       return true;
     }
-    await runDynoFromInteraction(interaction, client, action, args);
+    await runDynoFromInteraction(interaction, client, action, args, guild);
     return true;
   }
 

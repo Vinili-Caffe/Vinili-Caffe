@@ -4,7 +4,13 @@ const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../S
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
-const { MAX_REACTIONS, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
+const {
+  MAX_REACTIONS,
+  memberHasCustomReactionRoleAccess,
+  parseReactionTokens,
+  toDisplay,
+  buildCustomReactionPanelRows,
+} = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
 const PANEL_PREFIX = "profile_panel";
@@ -25,12 +31,6 @@ const CUSTOM_ROLE_VOC_ROLE_IDS = [
   IDs?.roles?.ServerBooster,
   IDs?.roles?.Level50,
 ].filter(Boolean);
-const CUSTOM_REACTION_ROLE_IDS = [
-  IDs?.roles?.VIP,
-  IDs?.roles?.ServerBooster,
-  IDs?.roles?.Level70,
-].filter(Boolean);
-
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
   const match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
@@ -167,9 +167,7 @@ async function fetchProfilePanelState(guild, userId, client) {
   const hasCustomRoleVocAccess = Boolean(
     member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
   );
-  const hasCustomReactionAccess = Boolean(
-    member?.roles?.cache && CUSTOM_REACTION_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
-  );
+  const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
 
   return {
     birthday: birthday || null,
@@ -488,8 +486,16 @@ async function ensureOwner(interaction, ownerId) {
 }
 
 async function ensureCustomReactionEnabled(interaction, ownerId, client) {
+  const guild = interaction.guild;
+  const member =
+    interaction.member ||
+    (guild && typeof guild.members?.fetch === "function"
+      ? await guild.members.fetch(ownerId).catch(() => null)
+      : null);
+  if (memberHasCustomReactionRoleAccess(member)) return true;
+
   const state = await resolveCustomRoleState({
-    guild: interaction.guild,
+    guild,
     userId: ownerId,
     client,
     cleanupExpired: true,
@@ -498,7 +504,7 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
   if (status === "active") return true;
   await interaction.reply({
     content:
-      "<:VC_Attention:1482534443632558151> Questa funzione richiede un custom role attivo. Usa `+profile`.",
+      "<:VC_Attention:1482534443632558151> Serve VIP, Booster o Level 70 (come da profilo), oppure un custom role attivo. Usa `+profile`.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });
   return false;

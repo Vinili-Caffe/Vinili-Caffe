@@ -672,7 +672,7 @@
                 "channels.highCmds",
                 "channels.sanzioniUtenti"
             ],
-            "ownerSegment": 2
+            "ownerSegment": 3
         },
         "security_panel:hub:*": {
             "roles": [

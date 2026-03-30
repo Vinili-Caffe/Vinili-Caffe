@@ -165,7 +165,8 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
 
 async function makeCase(client, message, action, userId, reason, durationMs = null) {
   const config = await getModConfig(message.guild.id);
-  const { doc } = await createModCase({ guildId: message.guild.id, action, userId: String(userId), modId: message.author.id, reason, durationMs, context: { channelId: message.channel.id, messageId: message.id }, });
+  const contextChannelId = message.invokeChannel?.id || message.channel?.id;
+  const { doc } = await createModCase({ guildId: message.guild.id, action, userId: String(userId), modId: message.author.id, reason, durationMs, context: { channelId: contextChannelId, messageId: message.id }, });
   await logModCase({ client, guild: message.guild, modCase: doc, config });
   return doc;
 }

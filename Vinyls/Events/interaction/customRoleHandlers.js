@@ -7,6 +7,7 @@ const {
   toDisplay,
   buildCustomReactionPanelEmbed,
   buildCustomReactionPanelRows,
+  memberHasCustomReactionRoleAccess,
 } = require("../../Utils/Community/mentionReactionPanelUtils");
 const axios = require("axios");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
@@ -83,6 +84,15 @@ async function ensureOwnerCustomRoleActive(
   }
 
   return { ok: true, state };
+}
+
+async function ensureOwnerCustomReactionAllowed(interaction, ownerId) {
+  const member =
+    interaction.member && String(interaction.member.id) === String(ownerId)
+      ? interaction.member
+      : await interaction.guild?.members?.fetch?.(ownerId).catch(() => null);
+  if (memberHasCustomReactionRoleAccess(member)) return { ok: true };
+  return ensureOwnerCustomRoleActive(interaction, ownerId);
 }
 
 async function fetchRole(interaction, roleId) {
@@ -1080,7 +1090,7 @@ async function handleCustomReactionButton(interaction) {
   const [, action, ownerId] = match;
   if (!(await checkOwnership(interaction, ownerId))) return true;
 
-  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  const ownerState = await ensureOwnerCustomReactionAllowed(interaction, ownerId);
   if (!ownerState.ok) return true;
 
   const guildId = interaction.guild?.id;
@@ -1182,7 +1192,7 @@ async function handleCustomReactionModal(interaction) {
     return true;
   }
 
-  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  const ownerState = await ensureOwnerCustomReactionAllowed(interaction, ownerId);
   if (!ownerState.ok) return true;
 
   await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
@@ -1248,7 +1258,7 @@ async function handleCustomReactionSelect(interaction) {
     return true;
   }
 
-  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  const ownerState = await ensureOwnerCustomReactionAllowed(interaction, ownerId);
   if (!ownerState.ok) return true;
 
   const token = interaction.values?.[0];

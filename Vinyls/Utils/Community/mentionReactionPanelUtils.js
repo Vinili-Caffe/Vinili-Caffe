@@ -1,6 +1,19 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const IDs = require("../Config/ids");
 
 const MAX_REACTIONS = 3;
+
+const CUSTOM_REACTION_ROLE_IDS = [
+  IDs?.roles?.VIP,
+  IDs?.roles?.ServerBooster,
+  IDs?.roles?.Level70,
+].filter(Boolean);
+
+function memberHasCustomReactionRoleAccess(member) {
+  return Boolean(
+    member?.roles?.cache && CUSTOM_REACTION_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
+  );
+}
 
 function parseReactionTokens(input, max = MAX_REACTIONS, guild = null) {
   const text = String(input || "").trim();
@@ -91,6 +104,8 @@ function buildCustomReactionPanelRows(ownerId) {
 
 module.exports = {
   MAX_REACTIONS,
+  CUSTOM_REACTION_ROLE_IDS,
+  memberHasCustomReactionRoleAccess,
   parseReactionTokens,
   toDisplay,
   buildCustomReactionPanelEmbed,
