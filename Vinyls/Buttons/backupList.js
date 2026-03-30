@@ -189,7 +189,7 @@ async function renderList(userId, page = 1, withPanelNav = false, selectedRef = 
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`${PREFIX_SELECT}${userId}:${currentPage}${panelSuffix}`)
-          .setPlaceholder("<:VC_Info:1482526956703580372> Scegli un backup (pagina corrente)")
+          .setPlaceholder("Scegli un backup") 
           .setMinValues(1)
           .setMaxValues(1)
           .addOptions(pickOptions),

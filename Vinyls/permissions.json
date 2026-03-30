@@ -1,27 +1,5 @@
 {
     "slash": {
-        "partner": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.partnersChat",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "modifypoint.add": {
-                    "roles": [
-                        "roles.HighStaff"
-                    ]
-                },
-                "modifypoint.remove": {
-                    "roles": [
-                        "roles.HighStaff"
-                    ]
-                }
-            }
-        },
         "partnership": {
             "roles": [
                 "roles.PartnerManager"
@@ -70,53 +48,6 @@
             "roles": [
                 "roles.Founder"
             ]
-        },
-        "staff": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.partnersChat",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "pex": [
-                    "roles.HighStaff"
-                ],
-                "depex": [
-                    "roles.HighStaff"
-                ],
-                "warn": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
-        "valutazione": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "positiva.add": [
-                    "roles.HighStaff"
-                ],
-                "positiva.remove": [
-                    "roles.HighStaff"
-                ],
-                "negativa.add": [
-                    "roles.HighStaff"
-                ],
-                "negativa.remove": [
-                    "roles.HighStaff"
-                ],
-                "media": [
-                    "roles.Staff"
-                ]
-            }
         }
     },
     "prefix": {
@@ -194,17 +125,6 @@
         "join": {
             "roles": [
                 "roles.Member"
-            ]
-        },
-        "leaderboard": {
-            "roles": [
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.partnersChat",
-                "channels.staffCmds",
-                "channels.highCmds"
             ]
         },
         "leave": {
@@ -295,25 +215,6 @@
                 "channels.staffCmds",
                 "channels.highCmds"
             ]
-        },
-        "pause": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.partnersChat",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ],
-            "subcommands": {
-                "list": [
-                    "roles.Staff",
-                    "roles.PartnerManager",
-                    "roles.HighStaff"
-                ]
-            }
         },
         "staff": {
             "roles": [

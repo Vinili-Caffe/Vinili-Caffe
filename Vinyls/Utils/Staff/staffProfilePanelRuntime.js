@@ -3,9 +3,10 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../Config/ids");
 const { getUserOverviewStats } = require("../../Services/Community/activityService");
 const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
+const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
-const { buildPartnerLeaderboardPayload } = require("../../Prefix/Partner/leaderboard");
+const { buildPartnerLeaderboardPayload } = require("../Partner/partnerLeaderboardRuntime");
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
 const SECTION_HOME = "home";
@@ -13,6 +14,7 @@ const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
 const SECTION_PAUSE = "pause";
 const SECTION_STATS = "stats";
+const SECTION_MODSTATS = "modstats";
 const SECTION_PARTNER_LB = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
@@ -451,6 +453,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPart
     { label: "Warn staff", value: SECTION_WARN, emoji: "<:banhammer:1443651875441217639>", default: sec === SECTION_WARN },
     { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
     { label: "Stats", value: SECTION_STATS, emoji: "<:VC_Clock:1473359204189474886>", default: sec === SECTION_STATS },
+    { label: "Modstats", value: SECTION_MODSTATS, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_MODSTATS },
   ];
   if (hasPartnerManager) {
     opts.push({
@@ -719,6 +722,75 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     };
   }
 
+  if (sec === SECTION_MODSTATS) {
+    const modId = tid;
+    const now = Date.now();
+    const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const countAction = (action, since = null) => countModActionsByMod(gid, modId, action, since);
+    const [m7, m30, mall, b7, b30, ball, k7, k30, kall, w7, w30, wall] = await Promise.all([
+      countAction("MUTE", d7),
+      countAction("MUTE", d30),
+      countAction("MUTE"),
+      countAction("BAN", d7),
+      countAction("BAN", d30),
+      countAction("BAN"),
+      countAction("KICK", d7),
+      countAction("KICK", d30),
+      countAction("KICK"),
+      countAction("WARN", d7),
+      countAction("WARN", d30),
+      countAction("WARN"),
+    ]);
+    const t7 = Number(m7) + Number(b7) + Number(k7) + Number(w7);
+    const t30 = Number(m30) + Number(b30) + Number(k30) + Number(w30);
+    const tall = Number(mall) + Number(ball) + Number(kall) + Number(wall);
+    if (tall === 0) {
+      return {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#6f4e37")
+            .setDescription("<:cancel:1461730653677551691> **Nessun log moderazione trovato.**")
+            .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
+        ],
+        components: mergeProfileComponents(selectRow, hsRows),
+      };
+    }
+    const hh = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return {
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#3498DB")
+          .setTitle("Moderation Statistics")
+          .setThumbnail(targetUser?.displayAvatarURL?.({ size: 256 }) || null)
+          .setAuthor({
+            name: targetUser?.username || String(modId),
+            iconURL: targetUser?.displayAvatarURL?.({ size: 128 }) || null,
+          })
+          .addFields(
+            {
+              name: "Last 7 days",
+              value: `Mutes: ${m7}\nBans: ${b7}\nKicks: ${k7}\nWarns: ${w7}\n**Total: ${t7}**`,
+              inline: true,
+            },
+            {
+              name: "Last 30 days",
+              value: `Mutes: ${m30}\nBans: ${b30}\nKicks: ${k30}\nWarns: ${w30}\n**Total: ${t30}**`,
+              inline: true,
+            },
+            {
+              name: "All time",
+              value: `Mutes: ${mall}\nBans: ${ball}\nKicks: ${kall}\nWarns: ${wall}\n**Total: ${tall}**`,
+              inline: true,
+            },
+          )
+          .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
+          .setTimestamp(),
+      ],
+      components: mergeProfileComponents(selectRow, hsRows),
+    };
+  }
+
   const pauseShort = getStaffPauseLine(s);
   let viewerName = "";
   try {
@@ -779,6 +851,7 @@ module.exports = {
   SECTION_WARN,
   SECTION_PAUSE,
   SECTION_STATS,
+  SECTION_MODSTATS,
   SECTION_PARTNER_LB,
   formatStaffProfileSelectCustomId,
   parseStaffProfileSelectCustomId,

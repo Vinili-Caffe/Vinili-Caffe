@@ -1,13 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const IDs = require("../../Utils/Config/ids");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const IDs = require("../Config/ids");
 
 const PARTNERS_PER_PAGE = 10;
 const TIME_ZONE = "Europe/Rome";
 const UNKNOWN_USERNAME = "Utente sconosciuto";
-const PARTNER_LB_CHANNEL_ID = IDs.channels.partnersChat;
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
 
@@ -221,62 +218,9 @@ async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", pa
 }
 
 module.exports = {
-  name: "leaderboard",
-  aliases: ["lb", "classificapartner"],
-  allowEmptyArgs: true,
-  usage: "`+leaderboard`",
-  examples: ["+leaderboard", "+lb"],
-
   PARTNERS_PER_PAGE,
   PLB_MODE_PREFIX,
   PLB_NAV_PREFIX,
   buildPartnerLeaderboardPayload,
   fetchSortedPartners,
-
-  async execute(message) {
-    if (!message.guild) return;
-    await message.channel.sendTyping();
-    const mode = "totale";
-    const payload = await buildPartnerLeaderboardPayload(message.client, message.guild, mode, 1);
-    const shouldRedirect = String(message.channel.id) !== String(PARTNER_LB_CHANNEL_ID);
-    if (!shouldRedirect) {
-      await safeMessageReply(message, {
-        ...payload,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const targetChannel =
-      message.guild.channels.cache.get(PARTNER_LB_CHANNEL_ID) ||
-      (await getGuildChannelCached(message.guild, PARTNER_LB_CHANNEL_ID));
-    if (!targetChannel || !targetChannel.isTextBased()) {
-      await safeMessageReply(message, {
-        content: `Non riesco a trovare il canale <#${PARTNER_LB_CHANNEL_ID}>.`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const sent = await targetChannel.send(payload).catch(() => null);
-    if (!sent) {
-      await safeMessageReply(message, {
-        content: `Non sono riuscito a inviare la classifica in <#${PARTNER_LB_CHANNEL_ID}>.`,
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const redirectEmbed = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(
-        `Per evitare di intasare la chat, la classifica partnership è stata generata in <#${PARTNER_LB_CHANNEL_ID}>.\n` +
-          `[Clicca qui per vederla](${sent.url}) o utilizza il bottone sottostante.`,
-      );
-    const linkRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai alla classifica").setURL(sent.url),
-    );
-    await safeMessageReply(message, {
-      embeds: [redirectEmbed],
-      components: [linkRow],
-      allowedMentions: { repliedUser: false },
-    });
-  },
 };

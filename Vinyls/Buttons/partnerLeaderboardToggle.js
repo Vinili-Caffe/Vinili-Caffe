@@ -4,7 +4,7 @@ const {
   PLB_NAV_PREFIX,
   buildPartnerLeaderboardPayload,
   fetchSortedPartners,
-} = require("../Prefix/Partner/leaderboard");
+} = require("../Utils/Partner/partnerLeaderboardRuntime");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");

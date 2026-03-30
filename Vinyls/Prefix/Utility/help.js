@@ -24,17 +24,15 @@ const MAX_HELP_TEXT_LENGTH = 3900;
 const PREFIX_HELP_DESCRIPTIONS = {
   help: "Mostra tutti i comandi disponibili con il bot.",
   afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
-  avatar: "Mostra l'avatar di un utente o l'icona del server.",
-  banner: "Mostra il banner di un utente o del server.",
+  avatar: "Mostra l'avatar di un utente.",
+  banner: "Mostra il banner di un utente.",
   voices: "Mostra le voci TTS disponibili.",
   membercount: "Mostra il numero totale di membri del server.",
   ping: "Mostra latenza bot, database e informazioni di uptime.",
   profile: "Hub profilo interattivo: birthday, DM, privacy, custom role/voc/reactions.",
-  set: "Impostazioni TTS: autojoin e voce personale.",
   ship: "Calcola la compatibilità tra due utenti.",
   snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
   join: "Fa entrare il bot nel tuo canale vocale.",
-  leaderboard: "Classifica partnership totale e settimanale.",
   leave: "Fa uscire il bot dal canale vocale.",
   classifica: "Mostra la classifica livelli.",
   mstats: "Mostra statistiche minigiochi di un utente.",
@@ -65,24 +63,20 @@ const PREFIX_HELP_DESCRIPTIONS = {
   modstats: "Mostra statistiche moderazione per staffer.",
   lock: "Blocca un canale.",
   unlock: "Sblocca un canale.",
-  blacklist: "Pannello blacklist partnership: lista completa; gestione solo High Staff.",
+  blacklist: "Mostra la lista completa dei server blacklistati.",
   recensione: "Premia una recensione assegnando livelli.",
   ticket: "Gestisce i ticket: partecipanti, claim, trasferimento, pannello, rinomina, chiusura e riapertura.",
   verify: "Verifica manualmente un utente.",
   security: "Pannello sicurezza con menu: stato, statics, panic, abilita/disabilita moduli.",
-  level: "Configura il sistema EXP/livelli: imposta o modifica exp, blocca canali, moltiplicatori, ruoli ignorati.",
+  level: "Configura il sistema livelli: imposta o modifica livelli, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
-  evento: "Mostra info e classifica sull'evento activity/exp in corso.",
-  pause: "Gestione pause staffer.",
-  staff: "Profilo staff/PM: varianti solo-PM (pause, classifica, depex/punti), prospect (Pex Member→Helper), High Staff come /staff e /valutazione.",
-  staffprofile: "Stesso comando del prefisso `staff` (`+staff`).",
+  staff: "Mostra il profilo di uno/a staffer.",
   };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
   "evento.classifica": "Mostra la classifica dell'evento.",
-  "pause.list": "Mostra la lista pause dell'anno corrente per te stesso o per lo staffer indicato.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };
 const CONTEXT_CATEGORY_OVERRIDES = { partnership: "partner", };

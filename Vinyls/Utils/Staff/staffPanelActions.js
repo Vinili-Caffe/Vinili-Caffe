@@ -1,5 +1,4 @@
-const { safeEditReply } = require("../../../shared/discord/replyRuntime");
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
@@ -19,38 +18,7 @@ const ROLE_ADMIN = IDs.roles.Admin;
 const ROLE_MANAGER = IDs.roles.Manager;
 const ROLE_CO_OWNER = IDs.roles.CoFounder;
 const ROLE_OWNER = IDs.roles.Founder;
-const ERROR_COLOR = "#E74C3C";
 const SUCCESS_COLOR = "#6f4e37";
-const PRIVATE_FLAG = 1 << 6;
-
-function statusEmbed(description, color) {
-  return new EmbedBuilder().setDescription(description).setColor(color);
-}
-
-async function replyError(interaction, description) {
-  return safeEditReply(interaction, {
-    embeds: [statusEmbed(description, ERROR_COLOR)],
-    flags: PRIVATE_FLAG,
-  });
-}
-
-async function replyCommandError(interaction) {
-  return replyError(
-    interaction,
-    "<:vegax:1443934876440068179> Errore durante l'esecuzione del comando.",
-  );
-}
-
-async function replySuccess(interaction) {
-  return safeEditReply(interaction, {
-    embeds: [
-      statusEmbed(
-        `<:vegacheckmark:1443666279058772028> Azione eseguita con successo da ${interaction.user.username}.`,
-        SUCCESS_COLOR,
-      ),
-    ],
-  });
-}
 
 async function refreshMemberRoles(member) {
   const guild = member?.guild;
@@ -327,7 +295,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason)
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo o `/staff pex`.",
+        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+staff`).",
     };
   }
   if (!ROLE_HELPER) {
@@ -403,7 +371,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo o `/staff pex`.",
+        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+staff`).",
     };
   }
   if (!ROLE_PARTNER_MANAGER) {
@@ -481,7 +449,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali usa `/staff pex` con i ruoli manuali.",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa il pannello High Staff (`+staff`).",
     };
   }
   const roleAfter = getNextLadderRoleId(roleBefore);
@@ -612,7 +580,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Usa `/staff depex` con ruoli manuali se necessario.",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa il pannello High Staff (`+staff`).",
     };
   }
 
@@ -714,249 +682,8 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
   return { ok: true };
 }
 
+
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("staff")
-    .setDescription("Gestisci lo staff di Vinili & Caffè")
-    .addSubcommand((command) =>
-      command
-        .setName("pex")
-        .setDescription("Pexa un utente.")
-        .addUserOption((option) =>
-          option
-            .setName("user")
-            .setDescription("Specifica l'utente da pexare.")
-            .setRequired(true),
-        )
-        .addRoleOption((option) =>
-          option
-            .setName("ruolo_precedente")
-            .setDescription("Specifica il ruolo precedente.")
-            .setRequired(true),
-        )
-        .addRoleOption((option) =>
-          option
-            .setName("ruolo_successivo")
-            .setDescription("Specifca il ruolo da dare.")
-            .setRequired(true),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("motivo")
-            .setDescription("Specifica il motivo del pex.")
-            .setRequired(true),
-        ),
-    )
-    .addSubcommand((command) =>
-      command
-        .setName("depex")
-        .setDescription("Depexa uno staffer.")
-        .addUserOption((option) =>
-          option
-            .setName("staffer")
-            .setDescription("Specifica l'utente da depexare.")
-            .setRequired(true),
-        )
-        .addRoleOption((option) =>
-          option
-            .setName("ruolo_precedente")
-            .setDescription("Specifica il ruolo da togliere.")
-            .setRequired(true),
-        )
-        .addRoleOption((option) =>
-          option
-            .setName("ruolo_successivo")
-            .setDescription("Specifica il ruolo da dare.")
-            .setRequired(true),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("motivo")
-            .setDescription("Specifica il motivo del depex.")
-            .setRequired(true),
-        ),
-    )
-    .addSubcommand((command) =>
-      command
-        .setName("warn")
-        .setDescription("Warna uno staffer.")
-        .addUserOption((option) =>
-          option
-            .setName("staffer")
-            .setDescription("Specifica l'utente da warnare.")
-            .setRequired(true),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("motivo")
-            .setDescription("Specifica il motivo del warn.")
-            .setRequired(true),
-        ),
-    ),
-
-  async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
-    await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => { });
-    const pexDepexChannel = interaction.guild.channels.cache.get(IDs.channels?.pexDepex,);
-    const pmChannel = interaction.guild.channels.cache.get(IDs.channels?.partnersChat,);
-    const staffChat = interaction.guild.channels.cache.get(IDs.channels?.staffChat,);
-    const resolveMember = createMemberResolver(interaction.guild);
-
-    if (sub === "pex") {
-      try {
-        const targetUser = interaction.options.getUser("user");
-        const reason = interaction.options.getString("motivo");
-        const roleBefore = interaction.options.getRole("ruolo_precedente");
-        const roleAfter = interaction.options.getRole("ruolo_successivo");
-
-        const member = await ensureMember(interaction, targetUser, resolveMember);
-        if (!member) return;
-
-        if (!(await ensureNotSelf(interaction, targetUser))) return;
-
-        const staffDoc = await getOrCreateStaffDoc(interaction.guild.id, targetUser.id,);
-
-        if (member.roles.cache.has(roleAfter.id)) {
-          return replyError(
-            interaction,
-            `<:VC_Attention:1482534443632558151> L'utente ${targetUser} ha già il ruolo che gli vuoi aggiungere.`,
-          );
-        }
-
-        await member.roles.add(roleAfter.id);
-        const baseRoleVerification = await ensureRoleState(member, roleAfter.id, true);
-        if (!baseRoleVerification.ok) {
-          throw new Error(`Pex failed: role ${roleAfter.id} not applied.`);
-        }
-        await applyPexSideEffects(
-          baseRoleVerification.member,
-          roleAfter.id,
-          pmChannel,
-          staffChat,
-          targetUser,
-        );
-
-        const profileDoc = staffDoc;
-        const s = ensureStaff(profileDoc);
-        if (roleAfter.id === ROLE_PARTNER_MANAGER) {
-          initPartnerManagerFieldsIfMissing(s);
-        }
-        if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
-        s.rolesHistory.push({
-          oldRole: roleBefore.id,
-          newRole: roleAfter.id,
-          reason,
-          date: new Date(),
-        });
-        profileDoc.markModified("staff");
-        await profileDoc.save();
-
-        await replySuccess(interaction);
-
-        await pexDepexChannel.send({
-          content: `**<:success:1461731530333229226> PEX** ${targetUser}
-<:staff:1443651912179388548> \`${roleBefore.name}\` <a:VC_Arrow:1482706699365257397> \`${roleAfter.name}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
-        }).catch(() => null);
-        return;
-      } catch (err) {
-        global.logger.error(err);
-        return replyCommandError(interaction);
-      }
-    }
-
-    if (sub === "depex") {
-      try {
-        const targetUser = interaction.options.getUser("staffer");
-        const oldRole = interaction.options.getRole("ruolo_precedente");
-        const newRole = interaction.options.getRole("ruolo_successivo");
-        const reason = interaction.options.getString("motivo");
-
-        const member = await ensureMember(interaction, targetUser, resolveMember);
-        if (!member) return;
-
-        if (!(await ensureNotSelf(interaction, targetUser))) return;
-
-        if (!member.roles.cache.has(oldRole.id)) {
-          return replyError(
-            interaction,
-            `<:VC_Attention:1482534443632558151> L'utente ${targetUser} non ha il ruolo che gli vuoi togliere.`,
-          );
-        }
-
-        await member.roles.remove(oldRole.id);
-        const baseRoleVerification = await ensureRoleState(member, oldRole.id, false);
-        if (!baseRoleVerification.ok) {
-          throw new Error(`Depex failed: role ${oldRole.id} still present.`);
-        }
-        await applyDepexSideEffects(baseRoleVerification.member, oldRole.id);
-
-        const refreshedMember = await resolveMember(targetUser.id);
-        await applyStaffDatabaseAfterDepex(
-          interaction.guild.id,
-          targetUser.id,
-          refreshedMember,
-        );
-
-        await replySuccess(interaction);
-
-        await pexDepexChannel.send({
-          content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
-<:staff:1443651912179388548> \`${oldRole.name}\` <a:VC_Arrow:1482706699365257397> \`${newRole.name}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
-        }).catch(() => null);
-        return;
-      } catch (err) {
-        global.logger.error(err);
-        return replyCommandError(interaction);
-      }
-    }
-
-    if (sub === "warn") {
-      try {
-        const targetUser = interaction.options.getUser("staffer");
-        const reason = interaction.options.getString("motivo");
-        const warnChannel = interaction.guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(interaction.guild, IDs.channels?.warnStaff)) || (await getClientChannelCached(interaction.client, IDs.channels?.warnStaff));
-
-        const profileDoc = await getOrCreateStaffDoc(interaction.guild.id, targetUser.id);
-        const s = ensureStaff(profileDoc);
-        if (!s.idCount) s.idCount = 0;
-        if (!s.warnCount) s.warnCount = 0;
-        if (!s.warnReasons) s.warnReasons = [];
-
-        s.idCount++;
-        s.warnCount++;
-        s.warnReasons.push(reason);
-        profileDoc.markModified("staff");
-        await profileDoc.save();
-
-        const warnEmbed = new EmbedBuilder().setAuthor({
-          name: `<:success:1461731530333229226> Warn eseguito da ${interaction.user.username}`,
-          iconURL: (interaction.member || interaction.user).displayAvatarURL(),
-        })
-          .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``,)
-          .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL())
-          .setDescription(`<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${targetUser} 
-            <:VC_reason:1478517122929004544> __${reason}__ 
-            <:VC_id:1478517313618575419> **ID Valutazione:** __\`${s.idCount}\`__`,)
-          .setColor(SUCCESS_COLOR);
-
-        if (warnChannel) {
-          await warnChannel.send({
-            content: `${targetUser}`,
-            embeds: [warnEmbed],
-          }).catch(() => null);
-        }
-
-        return replySuccess(interaction);
-      } catch (err) {
-        global.logger.error(err);
-        return replyCommandError(interaction);
-      }
-    }
-
-  },
-
   runProfileStaffPex,
   runProspectStaffPex,
   runProspectStaffPexToPartnerManager,

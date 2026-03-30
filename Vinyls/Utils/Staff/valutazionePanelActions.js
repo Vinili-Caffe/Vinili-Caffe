@@ -1,23 +1,9 @@
-const { safeEditReply } = require("../../../shared/discord/replyRuntime");
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
-const EPHEMERAL_FLAG = 1 << 6;
-
-function errorEmbed(description) {
-  return new EmbedBuilder()
-    .setDescription(description)
-    .setColor("Red");
-}
-
-function successEmbed(description) {
-  return new EmbedBuilder()
-    .setDescription(description)
-    .setColor("#6f4e37");
-}
 
 async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
   if (profileDoc) {
@@ -101,23 +87,6 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
 }
 
-async function handlePositiveAdd(
-  interaction,
-  profileDoc,
-  staffUser,
-  reason,
-  channel,
-) {
-  await valutazionePositiveAddCore(profileDoc, staffUser, reason, { user: interaction.user, member: interaction.member }, channel);
-  return safeEditReply(interaction, {
-    embeds: [
-      successEmbed(
-        "<:vegacheckmark:1443666279058772028> Valutazione positiva registrata con successo!",
-      ),
-    ],
-  });
-}
-
 async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
   const s = ensureStaff(profileDoc);
   if (
@@ -140,37 +109,6 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`);
   await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
-}
-
-async function handlePositiveRemove(
-  interaction,
-  profileDoc,
-  staffUser,
-  reason,
-  channel,
-) {
-  const removeId = interaction.options.getInteger("id");
-  const res = await valutazionePositiveRemoveCore(
-    profileDoc,
-    staffUser,
-    removeId,
-    reason,
-    { user: interaction.user, member: interaction.member },
-    channel,
-  );
-  if (!res.ok) {
-    return safeEditReply(interaction, {
-      embeds: [errorEmbed(res.message)],
-      flags: EPHEMERAL_FLAG,
-    });
-  }
-  return safeEditReply(interaction, {
-    embeds: [
-      successEmbed(
-        "<:vegacheckmark:1443666279058772028> Valutazione positiva rimossa con successo!",
-      ),
-    ],
-  });
 }
 
 async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, actor, channel) {
@@ -229,30 +167,6 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   }
 }
 
-async function handleNegativeAdd(
-  interaction,
-  profileDoc,
-  staffUser,
-  reason,
-  channel,
-) {
-  await valutazioneNegativeAddCore(
-    interaction.guild,
-    profileDoc,
-    staffUser,
-    reason,
-    { user: interaction.user, member: interaction.member },
-    channel,
-  );
-  return safeEditReply(interaction, {
-    embeds: [
-      successEmbed(
-        "<:vegacheckmark:1443666279058772028> Valutazione negativa registrata con successo!",
-      ),
-    ],
-  });
-}
-
 async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
   const s = ensureStaff(profileDoc);
   if (
@@ -275,73 +189,6 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`);
   await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
-}
-
-async function handleNegativeRemove(
-  interaction,
-  profileDoc,
-  staffUser,
-  reason,
-  channel,
-) {
-  const removeId = interaction.options.getInteger("id");
-  const res = await valutazioneNegativeRemoveCore(
-    profileDoc,
-    staffUser,
-    removeId,
-    reason,
-    { user: interaction.user, member: interaction.member },
-    channel,
-  );
-  if (!res.ok) {
-    return safeEditReply(interaction, {
-      embeds: [errorEmbed(res.message)],
-      flags: EPHEMERAL_FLAG,
-    });
-  }
-  return safeEditReply(interaction, {
-    embeds: [
-      successEmbed(
-        "<:vegacheckmark:1443666279058772028> Valutazione negativa rimossa con successo!",
-      ),
-    ],
-  });
-}
-
-async function handleMedia(interaction, staffUser, doc) {
-  if (!doc?.staff) {
-    return safeEditReply(interaction, {
-      embeds: [
-        errorEmbed("<:VC_Attention:1482534443632558151> Nessuna valutazione trovata."),
-      ],
-      flags: EPHEMERAL_FLAG,
-    });
-  }
-
-  const st = doc.staff;
-  const embed = new EmbedBuilder()
-    .setTitle(`<:VC_InactiveStatus:1482526984234860574> Valutazioni di ${staffUser.username}`)
-    .setColor("#6f4e37")
-    .addFields(
-      {
-        name: "<:thumbsup:1471292172145004768> Positive",
-        value:
-          (st.positiveReasons || [])
-            .map((entry, index) => `\`${index + 1}\` " ${entry}`)
-            .join("\n") || "Nessuna",
-        inline: true,
-      },
-      {
-        name: "<:thumbsdown:1471292163957457013> Negative",
-        value:
-          (st.negativeReasons || [])
-            .map((entry, index) => `\`${index + 1}\` " ${entry}`)
-            .join("\n") || "Nessuna",
-        inline: true,
-      },
-    );
-
-  return safeEditReply(interaction, { embeds: [embed] });
 }
 
 function actorFromMember(member) {
@@ -436,177 +283,6 @@ async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUse
 }
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("valutazione")
-    .setDescription("Gestisci le valutazioni degli staffer")
-    .addSubcommandGroup((group) =>
-      group
-        .setName("positiva")
-        .setDescription("Gestisci valutazioni positive")
-        .addSubcommand((sub) =>
-          sub
-            .setName("add")
-            .setDescription("Aggiungi una valutazione positiva a uno staffer")
-            .addUserOption((opt) =>
-              opt
-                .setName("staffer")
-                .setDescription("Staffer")
-                .setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt
-                .setName("motivo")
-                .setDescription("Motivazione")
-                .setRequired(true),
-            ),
-        )
-        .addSubcommand((sub) =>
-          sub
-            .setName("remove")
-            .setDescription("Rimuovi una valutazione positiva")
-            .addUserOption((opt) =>
-              opt
-                .setName("staffer")
-                .setDescription("Staffer")
-                .setRequired(true),
-            )
-            .addIntegerOption((opt) =>
-              opt
-                .setName("id")
-                .setDescription("ID valutazione")
-                .setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt
-                .setName("motivo")
-                .setDescription("Motivazione rimozione")
-                .setRequired(true),
-            ),
-        ),
-    )
-    .addSubcommandGroup((group) =>
-      group
-        .setName("negativa")
-        .setDescription("Gestisci valutazioni negative")
-        .addSubcommand((sub) =>
-          sub
-            .setName("add")
-            .setDescription("Aggiungi una valutazione negativa a uno staffer")
-            .addUserOption((opt) =>
-              opt
-                .setName("staffer")
-                .setDescription("Staffer")
-                .setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt
-                .setName("motivo")
-                .setDescription("Motivazione")
-                .setRequired(true),
-            ),
-        )
-        .addSubcommand((sub) =>
-          sub
-            .setName("remove")
-            .setDescription("Rimuovi una valutazione negativa")
-            .addUserOption((opt) =>
-              opt
-                .setName("staffer")
-                .setDescription("Staffer")
-                .setRequired(true),
-            )
-            .addIntegerOption((opt) =>
-              opt
-                .setName("id")
-                .setDescription("ID valutazione")
-                .setRequired(true),
-            )
-            .addStringOption((opt) =>
-              opt
-                .setName("motivo")
-                .setDescription("Motivazione rimozione")
-                .setRequired(true),
-            ),
-        ),
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName("media")
-        .setDescription("Vedi le valutazioni di uno staffer")
-        .addUserOption((opt) =>
-          opt.setName("staffer")
-            .setDescription("Staffer")
-            .setRequired(true),
-        ),
-    ),
-
-  async execute(interaction) {
-    const group = interaction.options.getSubcommandGroup(false);
-    const sub = interaction.options.getSubcommand();
-    const staffUser = interaction.options.getUser("staffer");
-    const reason = interaction.options.getString("motivo");
-    const guildId = interaction.guild.id;
-    const channel = interaction.guild.channels.cache.get(IDs.channels?.valutazioniStaff,);
-
-    await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => { });
-
-    try {
-      const existingProfileDoc = sub === "media" ? await getStaffDoc(guildId, staffUser.id) : null;
-      if (sub === "media") {
-        return handleMedia(interaction, staffUser, existingProfileDoc);
-      }
-
-      const profileDoc = await ensureStaffProfileDoc(existingProfileDoc || (await getStaffDoc(guildId, staffUser.id)), guildId, staffUser.id);
-
-      if (group === "positiva" && sub === "add") {
-        return handlePositiveAdd(
-          interaction,
-          profileDoc,
-          staffUser,
-          reason,
-          channel,
-        );
-      }
-      if (group === "positiva" && sub === "remove") {
-        return handlePositiveRemove(
-          interaction,
-          profileDoc,
-          staffUser,
-          reason,
-          channel,
-        );
-      }
-      if (group === "negativa" && sub === "add") {
-        return handleNegativeAdd(
-          interaction,
-          profileDoc,
-          staffUser,
-          reason,
-          channel,
-        );
-      }
-      if (group === "negativa" && sub === "remove") {
-        return handleNegativeRemove(
-          interaction,
-          profileDoc,
-          staffUser,
-          reason,
-          channel,
-        );
-      }
-    } catch (err) {
-      global.logger.error(err);
-      return safeEditReply(interaction, {
-        embeds: [
-          errorEmbed(
-            "<:vegax:1443934876440068179> Errore durante l'esecuzione del comando.",
-          ),
-        ],
-        flags: EPHEMERAL_FLAG,
-      });
-    }
-  },
-
   runValutazionePositiveAddForPanel,
   runValutazioneNegativeAddForPanel,
   runValutazionePositiveRemoveForPanel,

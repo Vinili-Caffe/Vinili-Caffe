@@ -14,6 +14,7 @@ const {
   SECTION_WARN,
   SECTION_PAUSE,
   SECTION_STATS,
+  SECTION_MODSTATS,
   SECTION_PARTNER_LB,
   buildStaffProfilePayload,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
@@ -24,9 +25,9 @@ const {
   runProfileStaffDepex,
   runProfileStaffWarnAdd,
   runProfileStaffWarnRemove,
-} = require("../Commands/Staff/staff");
-const valutazioneCmd = require("../Commands/Staff/valutazione");
-const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Commands/Admin/partnerpoints");
+} = require("../Utils/Staff/staffPanelActions");
+const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
+const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 
 const MODAL_PREFIX = "staff_hp_modal";
@@ -43,6 +44,7 @@ const STAFF_HP_SECTIONS = new Set([
   SECTION_WARN,
   SECTION_PAUSE,
   SECTION_STATS,
+  SECTION_MODSTATS,
   SECTION_PARTNER_LB,
 ]);
 
