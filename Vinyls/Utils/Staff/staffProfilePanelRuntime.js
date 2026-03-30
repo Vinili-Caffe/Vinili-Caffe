@@ -380,37 +380,26 @@ function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_PARTNER_LB
   ];
 }
 
-function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, partnerLbMode = "totale", dualPmStaffDepex = false) {
+/** Solo punti partner: usata per la classifica (non Depex: quelli restano in Home). */
+function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, partnerLbMode = "totale") {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
   const lb = sec === SECTION_PARTNER_LB ? partnerLbMode : undefined;
-  const ppmRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb))
-      .setLabel("Aggiungi punti")
-      .setEmoji("➕")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb))
-      .setLabel("Rimuovi punti")
-      .setEmoji("➖")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  if (!dualPmStaffDepex) return [ppmRow];
-  const depexRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec, lb))
-      .setLabel("Depex scala staff")
-      .setEmoji("<a:VC_Cross:1482532424570376253>")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec, lb))
-      .setLabel("Depex Partner Manager")
-      .setEmoji("<:partnermanager:1443651916838998099>")
-      .setStyle(ButtonStyle.Secondary),
-  );
-  return [depexRow, ppmRow];
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb))
+        .setLabel("Aggiungi punti")
+        .setEmoji("➕")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb))
+        .setLabel("Rimuovi punti")
+        .setEmoji("➖")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
 }
 
 function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember) {
@@ -490,7 +479,7 @@ function chunkString(text, maxLen = 3800) {
 }
 
 function warnResetLine(firstWarnStaffAt) {
-  if (!firstWarnStaffAt) return
+  if (!firstWarnStaffAt) return "";
   const first = firstWarnStaffAt instanceof Date ? firstWarnStaffAt : new Date(firstWarnStaffAt);
   if (Number.isNaN(first.getTime())) return "";
   const resetAt = first.getTime() + STAFF_WARN_RESET_MS;
@@ -590,7 +579,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       (!selfLb || viewerIsFounderOrCoFounder(viewerMemForPanel));
     const pmRowsForPartnerLb = canHsPartnerPoints
       ? profileKind === PROFILE_FULL && hasPm
-        ? buildPartnerPointsOnlyRow(v, tid, SECTION_PARTNER_LB, lbMode, dualPmStaffDepex)
+        ? buildPartnerPointsOnlyRow(v, tid, SECTION_PARTNER_LB, lbMode)
         : buildPmOnlyPartnerRows(v, tid, SECTION_PARTNER_LB, lbMode)
       : [];
     return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]) };
@@ -761,8 +750,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     <:VC_Chat:1482532573002465413> **${weeklyMsg}** messaggi
     <a:VC_Mute:1482534751511515238> **${weeklyHours.toFixed(2)}h** vocale`,
     "",
-    "*Messaggi e vocale: ultimi 7 giorni (stessa metrica del resoconto staff; il messaggio del resoconto è uno snapshot nel tempo).",
-  ];
+    ];
   if (hasPm) {
     homeDescParts.push(
       "",
