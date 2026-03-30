@@ -205,7 +205,6 @@
   "tts": {
     "enabled": true,
     "lang": "it",
-    "maxChars": 2000,
     "autojoin": false,
     "includeUsername": false,
     "stayConnected": false

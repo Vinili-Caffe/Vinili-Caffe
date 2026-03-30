@@ -328,6 +328,18 @@ function readTtsErrorPreview(buffer) {
   return buffer.subarray(0, 240).toString("utf8").replace(/\s+/g, " ").trim();
 }
 
+function safeUnlinkTtsFile(filePath) {
+  if (!filePath) return;
+  try {
+    if (!fs.existsSync(filePath)) return;
+    fs.unlinkSync(filePath);
+  } catch (err) {
+    if (err?.code !== "ENOENT") {
+      global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
+    }
+  }
+}
+
 function isAbortOrTimeoutError(err) {
   if (!err) return false;
   const name = String(err?.name || "").toLowerCase();
@@ -376,6 +388,8 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
 }
 
 const LANG_TO_VOICERSS = { it: "it-it", en: "en-gb", es: "es-es", fr: "fr-fr", de: "de-de", pt: "pt-pt", ru: "ru-ru", pl: "pl-pl", nl: "nl-nl", tr: "tr-tr", ja: "ja-jp", zh: "zh-cn", };
+let voicerssDisabledByInactive = false;
+let voicerssInactiveWarnLogged = false;
 
 async function createTtsStream(text, lang) {
   const textStr = String(text || "").slice(0, 300).trim();
@@ -399,7 +413,7 @@ async function createTtsStream(text, lang) {
     }
   }
   const voicerssKey = typeof process !== "undefined" && process.env && process.env.TTS_VOICERSS_KEY;
-  if (voicerssKey && textStr.length <= 1000) {
+  if (voicerssKey && !voicerssDisabledByInactive && textStr.length <= 1000) {
     try {
       const hl = LANG_TO_VOICERSS[langBase] || "it-it";
       const url = `https://api.voicerss.org/?key=${encodeURIComponent(voicerssKey)}&hl=${hl}&src=${encodeURIComponent(textStr)}&c=MP3`;
@@ -407,6 +421,15 @@ async function createTtsStream(text, lang) {
       if (data) return Readable.from(Buffer.from(data));
     } catch (err) {
       lastErr = err;
+      if (/inactive/i.test(String(err?.message || err))) {
+        voicerssDisabledByInactive = true;
+        if (!voicerssInactiveWarnLogged) {
+          voicerssInactiveWarnLogged = true;
+          global.logger?.warn?.(
+            "[TTS] VoiceRSS: account/chiave non attiva. Rinnova la chiave o rimuovi TTS_VOICERSS_KEY. Nessuna nuova richiesta VoiceRSS fino al riavvio del bot.",
+          );
+        }
+      }
     }
   }
   throw (
@@ -437,11 +460,7 @@ function getState(voiceChannel) {
     };
     player.on(AudioPlayerStatus.Idle, () => {
       if (state.currentTtsFile) {
-        try {
-          fs.unlinkSync(state.currentTtsFile);
-        } catch (err) {
-          global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-        }
+        safeUnlinkTtsFile(state.currentTtsFile);
         state.currentTtsFile = null;
       }
       state.playing = false;
@@ -571,12 +590,9 @@ async function playNext(state) {
     const connection = await ensureConnection(state, item.voiceChannel);
     if (!connection) {
       state.playing = false;
-      if (state.currentTtsFile)
-        try {
-          fs.unlinkSync(state.currentTtsFile);
-        } catch (err) {
-          global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-        }
+      if (state.currentTtsFile) {
+        safeUnlinkTtsFile(state.currentTtsFile);
+      }
       state.currentTtsFile = null;
       playNext(state);
       return;
@@ -588,12 +604,9 @@ async function playNext(state) {
     state.player.play(resource);
   } catch (err) {
     global.logger.error("[TTS PLAY ERROR]", err?.message || err);
-    if (state.currentTtsFile)
-      try {
-        fs.unlinkSync(state.currentTtsFile);
-      } catch (err) {
-        global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-      }
+    if (state.currentTtsFile) {
+      safeUnlinkTtsFile(state.currentTtsFile);
+    }
     state.currentTtsFile = null;
     state.playing = false;
     playNext(state);
@@ -689,11 +702,7 @@ function cleanupAllTtsStateForGuild(guildId) {
     state.queue = [];
     state.playing = false;
     if (state.currentTtsFile) {
-      try {
-        fs.unlinkSync(state.currentTtsFile);
-      } catch (err) {
-        global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-      }
+      safeUnlinkTtsFile(state.currentTtsFile);
       state.currentTtsFile = null;
     }
     try {
@@ -741,11 +750,7 @@ async function leaveTtsGuild(guildId, client) {
     state.queue = [];
     state.playing = false;
     if (state.currentTtsFile) {
-      try {
-        fs.unlinkSync(state.currentTtsFile);
-      } catch (err) {
-        global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-      }
+      safeUnlinkTtsFile(state.currentTtsFile);
       state.currentTtsFile = null;
     }
     try {
