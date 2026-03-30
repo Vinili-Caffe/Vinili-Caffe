@@ -31,11 +31,21 @@ function formatModalCustomId(guildId, viewerId, targetId, action) {
   return `${PANEL_PREFIX}:md:${guildId}:${viewerId}:${targetId}:${action}`;
 }
 
+function formatHomeCustomId(guildId, viewerId, targetId) {
+  return `${PANEL_PREFIX}:home:${guildId}:${viewerId}:${targetId}`;
+}
+
 function parseNavCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 4 || p[0] !== PANEL_PREFIX || p[1] !== "nav") return null;
   if (p.length >= 5) return { guildId: p[2], viewerId: p[3], targetId: p[4] };
   return { guildId: null, viewerId: p[2], targetId: p[3] };
+}
+
+function parseHomeCustomId(customId) {
+  const p = String(customId || "").split(":");
+  if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "home") return null;
+  return { guildId: p[2], viewerId: p[3], targetId: p[4] };
 }
 
 function parseGoCustomId(customId) {
@@ -55,7 +65,6 @@ function parseModalCustomId(customId) {
 function sectionLabel(sec) {
   const s = String(sec || SECTION_HOME).toLowerCase();
   if (s === SECTION_SANCTIONS) return "Sanzioni";
-  if (s === SECTION_CASES) return "Case e log";
   return "Home";
 }
 
@@ -71,8 +80,34 @@ function buildNavRow(guildId, viewerId, targetId, section) {
       .addOptions(
         { label: "Home", value: SECTION_HOME, default: sec === SECTION_HOME, emoji: "<:VC_Info:1482526956703580372>" },
         { label: "Sanzioni", value: SECTION_SANCTIONS, default: sec === SECTION_SANCTIONS, emoji: "<:VC_BanHammer:1482534474502897795>" },
-        { label: "Case e log", value: SECTION_CASES, default: sec === SECTION_CASES, emoji: "<:VC_id:1478517313618575419>" },
       ),
+  );
+}
+
+function buildHomeRow(guildId, viewerId, targetId) {
+  const g = String(guildId);
+  const v = String(viewerId);
+  const t = String(targetId);
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(formatHomeCustomId(g, v, t))
+      .setPlaceholder("Warnings · moderazioni · modlogs")
+      .addOptions(
+        { label: "Warnings", value: "warnings", emoji: "<:VC_Info:1482526956703580372>" },
+        { label: "Moderazioni attive", value: "moderations", emoji: "<:VC_BanHammer:1482534474502897795>" },
+        { label: "Modlogs", value: "modlogs", emoji: "<:VC_id:1478517313618575419>" },
+      ),
+  );
+}
+
+function buildModlogCaseRow(guildId, viewerId, targetId) {
+  const g = String(guildId);
+  const v = String(viewerId);
+  const t = String(targetId);
+  return new ActionRowBuilder().addComponents(
+    btn(g, v, t, "case", "Case", ButtonStyle.Primary),
+    btn(g, v, t, "reason", "Reason", ButtonStyle.Primary),
+    btn(g, v, t, "duration", "Duration", ButtonStyle.Primary),
   );
 }
 
@@ -93,14 +128,11 @@ function buildSectionRows(guildId, viewerId, targetId, section) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
-  const rows = [];
   if (sec === SECTION_HOME) {
-    rows.push(
-      btn(g, v, t, "warnings", "Warnings", ButtonStyle.Primary),
-      btn(g, v, t, "moderations", "Moderazioni attive", ButtonStyle.Primary),
-      btn(g, v, t, "modlogs", "Modlogs", ButtonStyle.Primary),
-    );
-  } else if (sec === SECTION_SANCTIONS) {
+    return [buildHomeRow(g, v, t), buildModlogCaseRow(g, v, t)];
+  }
+  const rows = [];
+  if (sec === SECTION_SANCTIONS) {
     rows.push(
       btn(g, v, t, "warn", "Warn", ButtonStyle.Danger),
       btn(g, v, t, "kick", "Kick", ButtonStyle.Danger),
@@ -110,12 +142,6 @@ function buildSectionRows(guildId, viewerId, targetId, section) {
       btn(g, v, t, "unban", "Unban", ButtonStyle.Secondary),
       btn(g, v, t, "delwarn", "Delwarn", ButtonStyle.Secondary),
       btn(g, v, t, "clearwarn", "Clearwarn", ButtonStyle.Secondary),
-    );
-  } else if (sec === SECTION_CASES) {
-    rows.push(
-      btn(g, v, t, "case", "Case", ButtonStyle.Primary),
-      btn(g, v, t, "reason", "Reason", ButtonStyle.Primary),
-      btn(g, v, t, "duration", "Duration", ButtonStyle.Primary),
     );
   }
   const chunks = chunkButtons(rows, 5);
@@ -286,14 +312,15 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
   const member = await guild.members.fetch(tid).catch(() => null);
   const name = member?.displayName || targetUser?.username || tid;
   let sec = String(section || SECTION_HOME).toLowerCase();
-  const allowed = new Set([SECTION_HOME, SECTION_SANCTIONS, SECTION_CASES]);
+  if (sec === SECTION_CASES) sec = SECTION_HOME;
+  const allowed = new Set([SECTION_HOME, SECTION_SANCTIONS]);
   if (!allowed.has(sec)) sec = SECTION_HOME;
 
   const lines = [
     `<:staff:1443651912179388548> **Target:** ${targetUser ? `${targetUser} (\`${tid}\`)` : `\`${tid}\``}`,
     member ? `<:VC_OnlineStatus:1482527088912240650> **Nel server:** sì` : `<:VC_InactiveStatus:1482526984234860574> **Nel server:** no (alcune azioni richiedono la presenza)`,
     "",
-    "<:VC_Info:1482526956703580372> Usa il **menu** per cambiare sezione. I **pulsanti** aprono un modulo o eseguono subito l’azione.",
+    "<:VC_Info:1482526956703580372> **Home:** menu consultazioni (warnings, moderazioni, modlogs) e sotto i pulsanti **Case / Reason / Duration**. **Sanzioni:** pulsanti sanzione. Il menu in alto passa tra Home e Sanzioni.",
     "",
     "_Comandi legacy (+ban, +kick, …) restano disponibili; questo pannello li riunisce._",
   ];
@@ -321,8 +348,10 @@ module.exports = {
   FIELD_EXTRA,
   formatNavCustomId,
   formatGoCustomId,
+  formatHomeCustomId,
   formatModalCustomId,
   parseNavCustomId,
+  parseHomeCustomId,
   parseGoCustomId,
   parseModalCustomId,
   buildModalForAction,

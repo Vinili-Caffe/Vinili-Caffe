@@ -5,6 +5,7 @@ const { checkPrefixPermission } = require("../Utils/Moderation/commandPermission
 const {
   PANEL_PREFIX,
   parseNavCustomId,
+  parseHomeCustomId,
   parseGoCustomId,
   parseModalCustomId,
   buildModerationPanelPayload,
@@ -210,10 +211,40 @@ async function runDynoFromInteraction(interaction, client, cmd, args, guild) {
   }
 }
 
+async function dispatchGoStyleAction(interaction, client, guild, ctx, action) {
+  const a = String(action || "").toLowerCase();
+  const viewerId = ctx.viewerId;
+  const targetId = ctx.targetId;
+  const gid = String(ctx.guildId || guild.id);
+  if (GO_IMMEDIATE.has(a)) {
+    const args = buildImmediateArgs(a, targetId);
+    if (!args) return false;
+    await runDynoFromInteraction(interaction, client, a, args, guild);
+    return true;
+  }
+  const modal = buildModalForAction(gid, viewerId, targetId, a);
+  if (!modal) return false;
+  const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) {
+    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non trovo il tuo membro nel server.");
+    return true;
+  }
+  const permCh = resolvePermChannel(interaction, guild);
+  const proxy = createProxyMessage(interaction, permCh, guild, member);
+  const allowed = await checkPrefixPermission(proxy, a);
+  if (!allowed) {
+    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non hai permesso per questa azione in questo canale.");
+    return true;
+  }
+  await interaction.showModal(modal).catch(() => null);
+  return true;
+}
+
 function match(interaction) {
   const id = String(interaction?.customId || "");
   if (!id.startsWith(`${PANEL_PREFIX}:`)) return false;
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:nav:`)) return true;
+  if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:home:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:go:`)) return true;
   if (interaction?.isModalSubmit?.() && id.startsWith(`${PANEL_PREFIX}:md:`)) return true;
   return false;
@@ -223,6 +254,24 @@ async function execute(interaction, client) {
   const id = String(interaction.customId || "");
 
   if (interaction.isStringSelectMenu()) {
+    if (id.startsWith(`${PANEL_PREFIX}:home:`)) {
+      const parsed = parseHomeCustomId(id);
+      if (!parsed) return false;
+      if (String(interaction.user.id) !== String(parsed.viewerId)) {
+        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare il menu.");
+        return true;
+      }
+      const guild = resolveGuildFromInteraction(interaction, parsed);
+      if (!guild) {
+        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+        return true;
+      }
+      const action = String(interaction.values?.[0] || "").toLowerCase();
+      const ctx = { ...parsed, guildId: parsed.guildId || guild.id };
+      const ok = await dispatchGoStyleAction(interaction, client, guild, ctx, action);
+      if (!ok) await replyEphemeral(interaction, "<:vegax:1443934876440068179> Azione non valida.");
+      return true;
+    }
     const parsed = parseNavCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
@@ -259,30 +308,8 @@ async function execute(interaction, client) {
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
-
-    if (GO_IMMEDIATE.has(action)) {
-      const args = buildImmediateArgs(action, parsed.targetId);
-      if (!args) return false;
-      await runDynoFromInteraction(interaction, client, action, args, guild);
-      return true;
-    }
-
-    const modal = buildModalForAction(String(parsed.guildId || guild.id), parsed.viewerId, parsed.targetId, action);
-    if (!modal) return false;
-    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!member) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non trovo il tuo membro nel server.");
-      return true;
-    }
-    const permCh = resolvePermChannel(interaction, guild);
-    const proxy = createProxyMessage(interaction, permCh, guild, member);
-    const allowed = await checkPrefixPermission(proxy, action);
-    if (!allowed) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non hai permesso per questa azione in questo canale.");
-      return true;
-    }
-    await interaction.showModal(modal).catch(() => null);
-    return true;
+    const ok = await dispatchGoStyleAction(interaction, client, guild, parsed, action);
+    return ok;
   }
 
   if (interaction.isModalSubmit()) {
