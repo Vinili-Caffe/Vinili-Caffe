@@ -491,20 +491,44 @@ async function startPendingFlow(member, channel) {
   if (hasPendingState(guildId, userId)) return;
 
   const existing = getCachedState(guildId, userId);
-  if (existing?.lastMessageId && channel?.isTextBased?.()) {
-    await channel.messages.delete(existing.lastMessageId).catch(() => {});
+  let sent = null;
+  const botId = member.client.user?.id;
+
+  if (existing?.lastMessageId && channel?.isTextBased?.() && botId) {
+    try {
+      const fetched = await channel.messages.fetch(existing.lastMessageId);
+      if (fetched && String(fetched.author?.id) === String(botId)) {
+        sent = fetched;
+      }
+    } catch (_) {}
   }
 
-  setPendingState(guildId, userId, {
-    timeout: null,
-    messageId: null,
-    inFlight: true,
-  });
+  if (!sent) {
+    setPendingState(guildId, userId, {
+      timeout: null,
+      messageId: null,
+      inFlight: true,
+    });
 
-  const sent=await channel.send({content:`<@${userId}>`,
-      embeds: [buildPendingEmbed(member)],
-    })
-    .catch(() => null);
+    sent = await channel
+      .send({
+        content: `<@${userId}>`,
+        embeds: [buildPendingEmbed(member)],
+      })
+      .catch(() => null);
+  } else {
+    await sent
+      .edit({
+        content: `<@${userId}>`,
+        embeds: [buildPendingEmbed(member)],
+      })
+      .catch(() => {});
+    setPendingState(guildId, userId, {
+      timeout: null,
+      messageId: sent.id,
+      inFlight: true,
+    });
+  }
 
   if (sent) {
     const timeout = setTimeout(async () => {
