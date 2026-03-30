@@ -1,6 +1,41 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { checkPrefixPermission } = require("../../Utils/Moderation/commandPermissions");
-const { buildModerationPanelPayload, SECTION_HOME } = require("../../Utils/Moderation/moderationPanelRuntime");
+const {
+  buildModerationPanelPayload,
+  SECTION_HOME,
+  parseNavCustomId,
+} = require("../../Utils/Moderation/moderationPanelRuntime");
+
+const PANEL_FETCH_LIMIT = 45;
+
+function navCustomIdFromMessage(msg) {
+  const row = msg?.components?.[0];
+  const comp = row?.components?.[0];
+  const id = comp?.customId;
+  return typeof id === "string" && id.startsWith("mpr:nav:") ? id : null;
+}
+
+async function findExistingModerationPanelMessage(channel, botUserId, guildId, viewerId, targetId) {
+  const gid = String(guildId);
+  const vid = String(viewerId);
+  const tid = String(targetId);
+  const bid = String(botUserId);
+  try {
+    const coll = await channel.messages.fetch({ limit: PANEL_FETCH_LIMIT });
+    const list = [...coll.values()].sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+    for (const m of list) {
+      if (String(m.author?.id) !== bid) continue;
+      const navId = navCustomIdFromMessage(m);
+      if (!navId) continue;
+      const parsed = parseNavCustomId(navId);
+      if (!parsed) continue;
+      if (String(parsed.viewerId) !== vid || String(parsed.targetId) !== tid) continue;
+      if (String(parsed.guildId || gid) !== gid) continue;
+      return m;
+    }
+  } catch (_) {}
+  return null;
+}
 
 async function resolveTargetUser(message, rawArg) {
   const mentioned = message.mentions?.users?.first();
@@ -68,6 +103,17 @@ module.exports = {
       message.client,
       SECTION_HOME,
     );
+    const existing = await findExistingModerationPanelMessage(
+      message.channel,
+      message.client.user.id,
+      message.guild.id,
+      message.author.id,
+      targetUser.id,
+    );
+    if (existing?.editable) {
+      const edited = await existing.edit(payload).then(() => true).catch(() => false);
+      if (edited) return;
+    }
     await safeMessageReply(message, {
       ...payload,
       allowedMentions: { repliedUser: false },
