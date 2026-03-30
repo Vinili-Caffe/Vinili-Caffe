@@ -167,9 +167,17 @@ function resolveRoleReference(value) {
   else if (key.startsWith("roles.")) key = key.slice("roles.".length);
 
   const idsCfg = typeof IDs !== "undefined" && IDs ? IDs : getIdsConfig();
-  const resolved = idsCfg?.roles?.[key];
-  if (!resolved) return null;
-  return String(resolved);
+  const table = idsCfg?.roles;
+  if (!table || typeof table !== "object") return null;
+  if (table[key] != null && String(table[key]).trim() !== "") return String(table[key]);
+  const lower = String(key).toLowerCase();
+  for (const k of Object.keys(table)) {
+    if (String(k).toLowerCase() === lower) {
+      const v = table[k];
+      if (v != null && String(v).trim() !== "") return String(v);
+    }
+  }
+  return null;
 }
 
 function normalizeRoleList(roleIds) {

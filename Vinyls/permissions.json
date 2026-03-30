@@ -235,7 +235,7 @@
             "roles": [
                 "roles.ServerBooster",
                 "roles.donator",
-                "roles.vip",
+                "roles.VIP",
                 "roles.Level10"
             ],
             "channels": [
@@ -735,7 +735,7 @@
         "ticket_autoclose_reject": null,
         "customrole_color:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -743,7 +743,7 @@
         },
         "customrole_delete:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -751,7 +751,7 @@
         },
         "customrole_emoji:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -759,7 +759,7 @@
         },
         "customrole_grant:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.donator",
                 "roles.ServerBooster",
                 "roles.Level50",
@@ -769,7 +769,7 @@
         },
         "customrole_members:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -777,7 +777,7 @@
         },
         "customrole_name:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -785,7 +785,7 @@
         },
         "customvoc_emoji:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -793,7 +793,7 @@
         },
         "customvoc_name:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -801,7 +801,7 @@
         },
         "customreaction_add:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level70"
             ],
@@ -809,7 +809,7 @@
         },
         "customreaction_remove:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level70"
             ],
@@ -817,7 +817,7 @@
         },
         "customreaction_clear:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level70"
             ],
@@ -1278,7 +1278,7 @@
     "selectMenus": {
         "customrole_add_select:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -1286,7 +1286,7 @@
         },
         "customrole_color_type_select:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -1294,7 +1294,7 @@
         },
         "customrole_remove_select:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -1302,7 +1302,7 @@
         },
         "customreaction_remove_pick:*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level70"
             ],
@@ -1337,7 +1337,7 @@
         ],
         "personality_colors_plus": [
             "roles.Donator",
-            "roles.vip",
+            "roles.VIP",
             "roles.Level50",
             "roles.ServerBooster"
         ],
@@ -1370,7 +1370,7 @@
         },
         "customrole_modal_*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -1378,7 +1378,7 @@
         },
         "customvoc_modal_*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level50"
             ],
@@ -1386,7 +1386,7 @@
         },
         "customreaction_modal_*": {
             "roles": [
-                "roles.vip",
+                "roles.VIP",
                 "roles.ServerBooster",
                 "roles.Level70"
             ],
