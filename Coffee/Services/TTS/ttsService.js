@@ -331,12 +331,12 @@ function readTtsErrorPreview(buffer) {
 function safeUnlinkTtsFile(filePath) {
   if (!filePath) return;
   try {
-    if (!fs.existsSync(filePath)) return;
     fs.unlinkSync(filePath);
   } catch (err) {
-    if (err?.code !== "ENOENT") {
-      global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-    }
+    const code = String(err?.code || "");
+    const msg = String(err?.message || "");
+    if (code === "ENOENT" || /ENOENT/i.test(msg)) return;
+    global.logger?.warn?.("[TTS] unlink temp file:", msg || err);
   }
 }
 
@@ -380,6 +380,9 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
   const isAudio = contentType.includes("audio/") || looksLikeMpegAudio(data);
   if (!isAudio || isTextLike) {
     const preview = readTtsErrorPreview(data);
+    if (provider === "VoiceRSS") {
+      disableVoiceRssIfInactiveHint(preview);
+    }
     throw new Error(
       `${provider}: risposta non audio${preview ? ` (${preview.slice(0, 160)})` : ""}`,
     );
@@ -390,6 +393,31 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
 const LANG_TO_VOICERSS = { it: "it-it", en: "en-gb", es: "es-es", fr: "fr-fr", de: "de-de", pt: "pt-pt", ru: "ru-ru", pl: "pl-pl", nl: "nl-nl", tr: "tr-tr", ja: "ja-jp", zh: "zh-cn", };
 let voicerssDisabledByInactive = false;
 let voicerssInactiveWarnLogged = false;
+const TTS_INACTIVE_PLAY_LOG_COOLDOWN_MS = 5 * 60 * 1000;
+let lastTtsInactivePlayLogAt = 0;
+
+function disableVoiceRssIfInactiveHint(text) {
+  if (!/inactive/i.test(String(text || ""))) return;
+  voicerssDisabledByInactive = true;
+  if (!voicerssInactiveWarnLogged) {
+    voicerssInactiveWarnLogged = true;
+    global.logger?.warn?.(
+      "[TTS] VoiceRSS: account/chiave non attiva. Rinnova la chiave o rimuovi TTS_VOICERSS_KEY. Nessuna nuova richiesta VoiceRSS fino al riavvio del bot.",
+    );
+  }
+}
+
+function logTtsPlayFailure(err) {
+  const msg = String(err?.message || err);
+  if (/inactive|voicerss/i.test(msg) && /non audio|risposta non audio/i.test(msg)) {
+    const now = Date.now();
+    if (now - lastTtsInactivePlayLogAt < TTS_INACTIVE_PLAY_LOG_COOLDOWN_MS) return;
+    lastTtsInactivePlayLogAt = now;
+    global.logger?.warn?.("[TTS PLAY SKIP]", msg.slice(0, 220));
+    return;
+  }
+  global.logger?.error?.("[TTS PLAY ERROR]", msg);
+}
 
 async function createTtsStream(text, lang) {
   const textStr = String(text || "").slice(0, 300).trim();
@@ -421,15 +449,7 @@ async function createTtsStream(text, lang) {
       if (data) return Readable.from(Buffer.from(data));
     } catch (err) {
       lastErr = err;
-      if (/inactive/i.test(String(err?.message || err))) {
-        voicerssDisabledByInactive = true;
-        if (!voicerssInactiveWarnLogged) {
-          voicerssInactiveWarnLogged = true;
-          global.logger?.warn?.(
-            "[TTS] VoiceRSS: account/chiave non attiva. Rinnova la chiave o rimuovi TTS_VOICERSS_KEY. Nessuna nuova richiesta VoiceRSS fino al riavvio del bot.",
-          );
-        }
-      }
+      disableVoiceRssIfInactiveHint(err?.message);
     }
   }
   throw (
@@ -585,28 +605,23 @@ async function playNext(state) {
   const item = state.queue.shift();
   state.playing = true;
   const tmpPath = path.resolve(os.tmpdir(), `tts_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`,);
-  state.currentTtsFile = tmpPath;
+  state.currentTtsFile = null;
   try {
     const connection = await ensureConnection(state, item.voiceChannel);
     if (!connection) {
       state.playing = false;
-      if (state.currentTtsFile) {
-        safeUnlinkTtsFile(state.currentTtsFile);
-      }
-      state.currentTtsFile = null;
       playNext(state);
       return;
     }
     const buffer = await createTtsBuffer(item.text, item.lang);
     if (!buffer || buffer.length === 0) throw new Error("TTS buffer vuoto");
     fs.writeFileSync(tmpPath, buffer);
+    state.currentTtsFile = tmpPath;
     const resource = createAudioResource(tmpPath);
     state.player.play(resource);
   } catch (err) {
-    global.logger.error("[TTS PLAY ERROR]", err?.message || err);
-    if (state.currentTtsFile) {
-      safeUnlinkTtsFile(state.currentTtsFile);
-    }
+    logTtsPlayFailure(err);
+    safeUnlinkTtsFile(tmpPath);
     state.currentTtsFile = null;
     state.playing = false;
     playNext(state);

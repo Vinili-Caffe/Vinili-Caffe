@@ -360,12 +360,12 @@ function readTtsErrorPreview(buffer) {
 function safeUnlinkTtsFile(filePath) {
   if (!filePath) return;
   try {
-    if (!fs.existsSync(filePath)) return;
     fs.unlinkSync(filePath);
   } catch (err) {
-    if (err?.code !== "ENOENT") {
-      global.logger?.warn?.("[TTS] unlink temp file:", err?.message || err);
-    }
+    const code = String(err?.code || "");
+    const msg = String(err?.message || "");
+    if (code === "ENOENT" || /ENOENT/i.test(msg)) return;
+    global.logger?.warn?.("[TTS] unlink temp file:", msg || err);
   }
 }
 
@@ -451,15 +451,7 @@ async function createTtsStream(text, lang) {
       if (data) return Readable.from(Buffer.from(data));
     } catch (err) {
       lastErr = err;
-      if (/inactive/i.test(String(err?.message || err))) {
-        voicerssDisabledByInactive = true;
-        if (!voicerssInactiveWarnLogged) {
-          voicerssInactiveWarnLogged = true;
-          global.logger?.warn?.(
-            "[TTS] VoiceRSS: account/chiave non attiva. Rinnova la chiave o rimuovi TTS_VOICERSS_KEY. Nessuna nuova richiesta VoiceRSS fino al riavvio del bot.",
-          );
-        }
-      }
+      disableVoiceRssIfInactiveHint(err?.message);
     }
   }
   throw (
@@ -675,30 +667,25 @@ async function playNext(state) {
   state.playing = true;
   const tmpPath = path.resolve(os.tmpdir(), `tts_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`,
   );
-  state.currentTtsFile = tmpPath;
+  state.currentTtsFile = null;
   try {
     const connection = await ensureConnection(state, item.voiceChannel);
     if (!connection) {
       state.playing = false;
-      if (state.currentTtsFile) {
-        safeUnlinkTtsFile(state.currentTtsFile);
-      }
-      state.currentTtsFile = null;
       playNext(state);
       return;
     }
     const buffer = await createTtsBuffer(item.text, item.lang);
     if (!buffer || buffer.length === 0) throw new Error("TTS buffer vuoto");
     fs.writeFileSync(tmpPath, buffer);
+    state.currentTtsFile = tmpPath;
     const ffmpegArgs = ["-analyzeduration", "0", "-loglevel", "0", "-i", tmpPath, "-f", "s16le", "-ar", "48000", "-ac", "2",];
     const transcoder = new prism.FFmpeg({ args: ffmpegArgs, shell: false, command: ffmpegStatic || "ffmpeg", });
     const resource = createAudioResource(transcoder, { inputType: StreamType.Raw, inlineVolume: false, });
     state.player.play(resource);
   } catch (err) {
-    global.logger.error("[TTS PLAY ERROR]", err?.message || err);
-    if (state.currentTtsFile) {
-      safeUnlinkTtsFile(state.currentTtsFile);
-    }
+    logTtsPlayFailure(err);
+    safeUnlinkTtsFile(tmpPath);
     state.currentTtsFile = null;
     state.playing = false;
     playNext(state);
