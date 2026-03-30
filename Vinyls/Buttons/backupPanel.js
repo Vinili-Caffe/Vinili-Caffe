@@ -26,6 +26,14 @@ const {
 
 const PRIVATE = 1 << 6;
 
+async function applyPanelUpdate(interaction, payload) {
+  if (interaction.deferred && interaction.message?.edit) {
+    await interaction.message.edit(payload);
+    return;
+  }
+  await interaction.update(payload);
+}
+
 function match(interaction) {
   const id = String(interaction?.customId || "");
   const ok =
@@ -221,8 +229,19 @@ async function execute(interaction) {
       return true;
     }
 
+    if (section === "list") {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferUpdate().catch(() => {});
+      }
+      const payload = await buildBackupPanelPayload(guild, parsed.ownerId, section);
+      await applyPanelUpdate(interaction, payload).catch(async () => {
+        await interaction.reply({ ...payload, flags: PRIVATE }).catch(() => {});
+      });
+      return true;
+    }
+
     const payload = await buildBackupPanelPayload(guild, parsed.ownerId, section);
-    await interaction.update(payload).catch(async () => {
+    await applyPanelUpdate(interaction, payload).catch(async () => {
       await interaction.reply({ ...payload, flags: PRIVATE }).catch(() => {});
     });
     return true;

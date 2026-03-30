@@ -38,6 +38,14 @@ function parseBackupListTail(customId, prefix) {
 
 async function respondListUpdate(interaction, payload) {
   const body = { embeds: payload.embeds, components: payload.components };
+  if (interaction.deferred && interaction.message?.edit) {
+    try {
+      await interaction.message.edit(body);
+      return;
+    } catch (err) {
+      global.logger?.warn?.("[Buttons/backupList] message.edit (deferred)", err);
+    }
+  }
   const canUpdate =
     (interaction.isButton?.() || interaction.isStringSelectMenu?.()) &&
     !interaction.deferred &&
@@ -77,6 +85,9 @@ async function execute(interaction) {
       await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.", flags: EPHEMERAL }).catch(() => {});
       return true;
     }
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate().catch(() => {});
+    }
     const page = parsed.pageOnMenu;
     const selectedRef = String(interaction.values?.[0] || "").trim();
     try {
@@ -104,6 +115,9 @@ async function execute(interaction) {
     page = Math.max(1, page - 1);
   } else if (customId.startsWith(PREFIX_NEXT)) {
     page = page + 1;
+  }
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferUpdate().catch(() => {});
   }
 
   try {
