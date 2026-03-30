@@ -384,8 +384,6 @@ function getEventWeekNumber(settings, atMs = Date.now()) {
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   let week = 1;
   let boundary = getFirstSunday21BoundaryAtOrAfter(start);
-  // Serve il 5° incremento dopo la 4ª domenica 21:00: rolling=5 ⇒ payout rolling−1=4.
-  // Con week < 4 ci si fermava a rolling=4 ⇒ payout sempre 3 (bug).
   while (week < 5 && now >= boundary) {
     week += 1;
     boundary += weekMs;
@@ -397,10 +395,6 @@ function pad2Event(n) {
   return String(Math.floor(Number(n) || 0)).padStart(2, "0");
 }
 
-/**
- * Date keys (Europe/Rome calendar days) per settimana evento, allineate a getEventWeekNumber
- * (confini domenica 21:00 Roma), non a blocchi fissi di 7×24h dall'inizio.
- */
 function getEventWeekRomeDateKeys(settings, weekNum) {
   if (!settings?.eventStartedAt || !settings?.eventExpiresAt) return [];
   if (weekNum < 1 || weekNum > 4) return [];
@@ -471,21 +465,14 @@ function getEventWeekHourKeys(settings, weekNum) {
   return keys;
 }
 
-/**
- * Domenica 21:00 Roma: getEventWeekNumber avanza (rolling 1…5; 5 = dopo la 4ª domenica).
- * Premi settimana appena conclusa = rolling − 1, max 4 (mai se rolling < 2).
- */
+
 function getCompletedEventWeekForSundayPayout(settings, atMs = Date.now()) {
   const rolling = getEventWeekNumber(settings, atMs);
   if (rolling < 2) return 0;
   return Math.min(4, rolling - 1);
 }
 
-/**
- * Ultimo istante "domenica 21:00" Europe/Rome non dopo `date` (stessi confini dell'evento).
- * Se `date` è domenica prima delle 21:00 Roma, si usa la domenica precedente alle 21:00.
- * Evita errori di una settimana quando il processo Node non è in TZ Europe/Rome.
- */
+
 function getLastSunday21BoundaryMsAtOrBefore(date = new Date()) {
   const nowMs = date instanceof Date ? date.getTime() : Number(date);
   if (!Number.isFinite(nowMs)) return Date.now();

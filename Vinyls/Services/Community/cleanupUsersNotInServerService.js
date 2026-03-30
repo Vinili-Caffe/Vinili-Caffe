@@ -1,12 +1,6 @@
-const {
-  ActivityUserProfile,
-  ACTIVITY_MAIN_GUILD_ID,
-} = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
-
-const guildScoped = [
-  [ActivityUserProfile, "ActivityUserProfile"],
-];
+const guildScoped = [ [ActivityUserProfile, "ActivityUserProfile"] ];
 
 async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
   const filter = {

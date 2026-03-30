@@ -237,14 +237,14 @@ async function getEventWeekTopThreeTextAndVoice(guild, eventWeekNum, opts = {}) 
     if (!channelId || !eligible.voice.has(channelId)) continue;
     const sStart = session.voice?.sessionStartedAt ? new Date(session.voice.sessionStartedAt) : null;
     if (!sStart || Number.isNaN(sStart.getTime())) continue;
-    
+
     // Convert session started at to hour key approximation
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
-    const p = fmt.formatToParts(sStart).reduce((a,x) => { if(x.type!=="literal") a[x.type]=x.value; return a; }, {});
+    const p = fmt.formatToParts(sStart).reduce((a, x) => { if (x.type !== "literal") a[x.type] = x.value; return a; }, {});
     const hk = `${p.year}-${p.month}-${p.day}T${p.hour}`;
-    
+
     if (!hourKeys.includes(hk)) continue;
-    
+
     const add = Math.max(0, Math.floor((asOfMs - sStart.getTime()) / 1000));
     if (add <= 0) continue;
     const userId = String(session?.userId || "");
@@ -297,11 +297,11 @@ async function getEventWeekTopNTextAndVoice(guild, eventWeekNum, limit = 10, opt
   for (const session of liveSessions) {
     const channelId = String(session?.voice?.sessionChannelId || "");
     if (!channelId || !eligible.voice.has(channelId)) continue;
-    
+
     const sStart = session.voice?.sessionStartedAt ? new Date(session.voice.sessionStartedAt) : null;
     if (!sStart || Number.isNaN(sStart.getTime())) continue;
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false });
-    const p = fmt.formatToParts(sStart).reduce((a,x) => { if(x.type!=="literal") a[x.type]=x.value; return a; }, {});
+    const p = fmt.formatToParts(sStart).reduce((a, x) => { if (x.type !== "literal") a[x.type] = x.value; return a; }, {});
     const hk = `${p.year}-${p.month}-${p.day}T${p.hour}`;
     if (!hourKeys.includes(hk)) continue;
 
@@ -680,7 +680,7 @@ async function sendEventWeekAnnouncementToNews(client, guild, eventWeek, topMess
     .setFooter({ text: `Settimana ${eventWeek} di ${eventWeek === 1 ? "evento" : "evento"} • Premi assegnati ai vincitori` }).setTimestamp();
   await eventChannel.send({
     content: `<@&1442568949605597264>
-    <a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori dell'Activity Event EXP della settimana ${eventWeek}
+<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori dell'Activity Event EXP della settimana ${eventWeek}
 
 <:VC_EXP:1482534670896730143> Avete ricevuto __${getEventWeeklyRewardLabel(eventWeek)}__ come ricompensa di questa settimana
 
