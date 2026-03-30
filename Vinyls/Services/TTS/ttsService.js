@@ -14,7 +14,7 @@ const {
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
-const MAX_TTS_QUEUE = 30;
+const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
 const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000; // Ridotto a 30 secondi per evitare di leggere messaggi vecchi al riavvio
 const TTS_RESTORE_CONCURRENCY = 3;
@@ -88,15 +88,8 @@ function sanitizeText(text) {
     )
     .replace(/`{1,3}[^`]*`{1,3}/g, "")
     .trim();
-  const maxEmojis = 4;
-  let emojiCount = 0;
-  cleaned = cleaned.replace(/<a?:([a-zA-Z0-9_]+):\d+>/g, (_, name) => {
-    emojiCount += 1;
-    return emojiCount <= maxEmojis ? ` emoji ${name} ` : " ";
-  });
+  cleaned = cleaned.replace(/<a?:([a-zA-Z0-9_]+):\d+>/g, (_, name) => ` emoji ${name} `);
   cleaned = cleaned.replace(/\p{Extended_Pictographic}/gu, (m) => {
-    emojiCount += 1;
-    if (emojiCount > maxEmojis) return " ";
     const name = getUnicodeEmojiName(m);
     return name ? ` emoji ${name} ` : " emoji ";
   });
@@ -339,7 +332,7 @@ function buildGoogleTtsUrl(
   lang,
   baseHost = "https://translate.google.com",
 ) {
-  const q = encodeURIComponent(String(text || "").slice(0, 200));
+  const q = encodeURIComponent(String(text || ""));
   const tl = encodeURIComponent(String(lang || "it"));
   return `${baseHost}/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${q}`;
 }
@@ -377,6 +370,35 @@ function isAbortOrTimeoutError(err) {
   return name === "aborterror" || code === "econnaborted" || msg.includes("abort") || msg.includes("timeout");
 }
 
+const LANG_TO_VOICERSS = { it: "it-it", en: "en-gb", es: "es-es", fr: "fr-fr", de: "de-de", pt: "pt-pt", ru: "ru-ru", pl: "pl-pl", nl: "nl-nl", tr: "tr-tr", ja: "ja-jp", zh: "zh-cn", };
+let voicerssDisabledByInactive = false;
+let voicerssInactiveWarnLogged = false;
+const TTS_INACTIVE_PLAY_LOG_COOLDOWN_MS = 5 * 60 * 1000;
+let lastTtsInactivePlayLogAt = 0;
+
+function disableVoiceRssIfInactiveHint(text) {
+  if (!/inactive/i.test(String(text || ""))) return;
+  voicerssDisabledByInactive = true;
+  if (!voicerssInactiveWarnLogged) {
+    voicerssInactiveWarnLogged = true;
+    global.logger?.warn?.(
+      "[TTS] VoiceRSS: account/chiave non attiva. Rinnova la chiave o rimuovi TTS_VOICERSS_KEY. Nessuna nuova richiesta VoiceRSS fino al riavvio del bot.",
+    );
+  }
+}
+
+function logTtsPlayFailure(err) {
+  const msg = String(err?.message || err);
+  if (/inactive|voicerss/i.test(msg) && /non audio|risposta non audio/i.test(msg)) {
+    const now = Date.now();
+    if (now - lastTtsInactivePlayLogAt < TTS_INACTIVE_PLAY_LOG_COOLDOWN_MS) return;
+    lastTtsInactivePlayLogAt = now;
+    global.logger?.warn?.("[TTS PLAY SKIP]", msg.slice(0, 220));
+    return;
+  }
+  global.logger?.error?.("[TTS PLAY ERROR]", msg);
+}
+
 async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
   const maxAttempts = 2;
   let res;
@@ -409,6 +431,9 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
   const isAudio = contentType.includes("audio/") || looksLikeMpegAudio(data);
   if (!isAudio || isTextLike) {
     const preview = readTtsErrorPreview(data);
+    if (provider === "VoiceRSS") {
+      disableVoiceRssIfInactiveHint(preview);
+    }
     throw new Error(
       `${provider}: risposta non audio${preview ? ` (${preview.slice(0, 160)})` : ""}`,
     );
@@ -416,13 +441,29 @@ async function fetchTtsAudio(url, provider = "TTS", attempt = 1) {
   return data;
 }
 
-const LANG_TO_VOICERSS = { it: "it-it", en: "en-gb", es: "es-es", fr: "fr-fr", de: "de-de", pt: "pt-pt", ru: "ru-ru", pl: "pl-pl", nl: "nl-nl", tr: "tr-tr", ja: "ja-jp", zh: "zh-cn", };
-let voicerssDisabledByInactive = false;
-let voicerssInactiveWarnLogged = false;
+/** Spezza solo per lunghezza URL (GET); il messaggio completo viene letto in sequenza. */
+const TTS_HTTP_SEGMENT_MAX = 380;
 
-async function createTtsStream(text, lang) {
-  const textStr = String(text || "").slice(0, 300).trim();
-  if (!textStr) throw new Error("TTS: testo vuoto");
+function splitTextForTtsSegments(text, maxLen = TTS_HTTP_SEGMENT_MAX) {
+  const s = String(text || "").trim();
+  if (!s) return [];
+  if (s.length <= maxLen) return [s];
+  const out = [];
+  let start = 0;
+  while (start < s.length) {
+    let end = Math.min(start + maxLen, s.length);
+    if (end < s.length) {
+      const space = s.lastIndexOf(" ", end);
+      if (space > start + Math.floor(maxLen * 0.5)) end = space + 1;
+    }
+    const part = s.slice(start, end).trim();
+    if (part) out.push(part);
+    start = end;
+  }
+  return out.length ? out : [s];
+}
+
+async function createTtsStreamOnce(textStr, lang) {
   const rawLang = String(lang || "it").trim();
   const langLocale = rawLang.replace("_", "-");
   const langBase = langLocale.split("-")[0].toLowerCase();
@@ -443,7 +484,7 @@ async function createTtsStream(text, lang) {
     }
   }
   const voicerssKey = typeof process !== "undefined" && process.env && process.env.TTS_VOICERSS_KEY;
-  if (voicerssKey && !voicerssDisabledByInactive && textStr.length <= 1000) {
+  if (voicerssKey && !voicerssDisabledByInactive) {
     try {
       const hl = LANG_TO_VOICERSS[langBase] || "it-it";
       const url = `https://api.voicerss.org/?key=${encodeURIComponent(voicerssKey)}&hl=${hl}&src=${encodeURIComponent(textStr)}&c=MP3`;
@@ -457,6 +498,21 @@ async function createTtsStream(text, lang) {
   throw (
     lastErr || new Error("TTS: nessuna sorgente disponibile (Google/VoiceRSS).")
   );
+}
+
+async function createTtsStream(text, lang) {
+  const full = String(text || "").trim();
+  if (!full) throw new Error("TTS: testo vuoto");
+  const segments = splitTextForTtsSegments(full);
+  if (segments.length === 1) return createTtsStreamOnce(segments[0], lang);
+  const buffers = [];
+  for (const seg of segments) {
+    const stream = await createTtsStreamOnce(seg, lang);
+    const parts = [];
+    for await (const chunk of stream) parts.push(chunk);
+    buffers.push(Buffer.concat(parts));
+  }
+  return Readable.from(Buffer.concat(buffers));
 }
 
 async function createTtsBuffer(text, lang) {
@@ -748,7 +804,6 @@ async function handleTtsMessage(message, client, prefix) {
   const state = getState(voiceChannel);
   const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
   if (!connection) return;
-  const maxChars = config?.tts?.maxChars || 200;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false,);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
@@ -760,9 +815,8 @@ async function handleTtsMessage(message, client, prefix) {
   text = normalizeCaseForTts(text);
   text = normalizePausesForTts(text);
   text = numbersToWordsForTts(text, lang);
-  const clipped = text.slice(0, maxChars);
   await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
-  enqueue(state, { voiceChannel, text: clipped, lang });
+  enqueue(state, { voiceChannel, text, lang });
 }
 async function joinTtsChannel(voiceChannel) {
   if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
@@ -931,7 +985,6 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   const config = client?.config;
   if (!message || !client || !voiceChannel || !state) return;
   if (!shouldHandleMessage(message, config, prefix)) return;
-  const maxChars = config?.tts?.maxChars || 200;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
@@ -943,8 +996,7 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   text = normalizeCaseForTts(text);
   text = normalizePausesForTts(text);
   text = numbersToWordsForTts(text, lang);
-  const clipped = text.slice(0, maxChars);
-  enqueue(state, { voiceChannel, text: clipped, lang });
+  enqueue(state, { voiceChannel, text, lang });
   await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
 }
 

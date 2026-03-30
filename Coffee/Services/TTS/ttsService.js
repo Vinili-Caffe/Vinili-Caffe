@@ -12,7 +12,7 @@ const {
 } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, } = require("../../Utils/Interaction/entityCache");
-const MAX_TTS_QUEUE = 30;
+const MAX_TTS_QUEUE = 10000;
 const ttsStates = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
@@ -81,15 +81,8 @@ function sanitizeText(text) {
     )
     .replace(/`{1,3}[^`]*`{1,3}/g, "")
     .trim();
-  const maxEmojis = 4;
-  let emojiCount = 0;
-  cleaned = cleaned.replace(/<a?:([a-zA-Z0-9_]+):\d+>/g, (_, name) => {
-    emojiCount += 1;
-    return emojiCount <= maxEmojis ? ` emoji ${name} ` : " ";
-  });
+  cleaned = cleaned.replace(/<a?:([a-zA-Z0-9_]+):\d+>/g, (_, name) => ` emoji ${name} `);
   cleaned = cleaned.replace(/\p{Extended_Pictographic}/gu, (m) => {
-    emojiCount += 1;
-    if (emojiCount > maxEmojis) return " ";
     const name = getUnicodeEmojiName(m);
     return name ? ` emoji ${name} ` : " emoji ";
   });
@@ -310,7 +303,7 @@ function buildGoogleTtsUrl(
   lang,
   baseHost = "https://translate.google.com",
 ) {
-  const q = encodeURIComponent(String(text || "").slice(0, 200));
+  const q = encodeURIComponent(String(text || ""));
   const tl = encodeURIComponent(String(lang || "it"));
   return `${baseHost}/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${q}`;
 }
@@ -419,9 +412,29 @@ function logTtsPlayFailure(err) {
   global.logger?.error?.("[TTS PLAY ERROR]", msg);
 }
 
-async function createTtsStream(text, lang) {
-  const textStr = String(text || "").slice(0, 300).trim();
-  if (!textStr) throw new Error("TTS: testo vuoto");
+/** Spezza solo per lunghezza URL (GET); il messaggio completo viene letto in sequenza. */
+const TTS_HTTP_SEGMENT_MAX = 380;
+
+function splitTextForTtsSegments(text, maxLen = TTS_HTTP_SEGMENT_MAX) {
+  const s = String(text || "").trim();
+  if (!s) return [];
+  if (s.length <= maxLen) return [s];
+  const out = [];
+  let start = 0;
+  while (start < s.length) {
+    let end = Math.min(start + maxLen, s.length);
+    if (end < s.length) {
+      const space = s.lastIndexOf(" ", end);
+      if (space > start + Math.floor(maxLen * 0.5)) end = space + 1;
+    }
+    const part = s.slice(start, end).trim();
+    if (part) out.push(part);
+    start = end;
+  }
+  return out.length ? out : [s];
+}
+
+async function createTtsStreamOnce(textStr, lang) {
   const rawLang = String(lang || "it").trim();
   const langLocale = rawLang.replace("_", "-");
   const langBase = langLocale.split("-")[0].toLowerCase();
@@ -441,7 +454,7 @@ async function createTtsStream(text, lang) {
     }
   }
   const voicerssKey = typeof process !== "undefined" && process.env && process.env.TTS_VOICERSS_KEY;
-  if (voicerssKey && !voicerssDisabledByInactive && textStr.length <= 1000) {
+  if (voicerssKey && !voicerssDisabledByInactive) {
     try {
       const hl = LANG_TO_VOICERSS[langBase] || "it-it";
       const url = `https://api.voicerss.org/?key=${encodeURIComponent(voicerssKey)}&hl=${hl}&src=${encodeURIComponent(textStr)}&c=MP3`;
@@ -455,6 +468,21 @@ async function createTtsStream(text, lang) {
   throw (
     lastErr || new Error("TTS: nessuna sorgente disponibile (Google/VoiceRSS).")
   );
+}
+
+async function createTtsStream(text, lang) {
+  const full = String(text || "").trim();
+  if (!full) throw new Error("TTS: testo vuoto");
+  const segments = splitTextForTtsSegments(full);
+  if (segments.length === 1) return createTtsStreamOnce(segments[0], lang);
+  const buffers = [];
+  for (const seg of segments) {
+    const stream = await createTtsStreamOnce(seg, lang);
+    const parts = [];
+    for await (const chunk of stream) parts.push(chunk);
+    buffers.push(Buffer.concat(parts));
+  }
+  return Readable.from(Buffer.concat(buffers));
 }
 
 async function createTtsBuffer(text, lang) {
@@ -675,7 +703,6 @@ async function handleTtsMessage(message, client, prefix) {
   const state = getState(voiceChannel);
   const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
   if (!connection) return;
-  const maxChars = config?.tts?.maxChars || 200;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false,);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
@@ -687,8 +714,7 @@ async function handleTtsMessage(message, client, prefix) {
   text = normalizeCaseForTts(text);
   text = normalizePausesForTts(text);
   text = numbersToWordsForTts(text, lang);
-  const clipped = text.slice(0, maxChars);
-  enqueue(state, { voiceChannel, text: clipped, lang });
+  enqueue(state, { voiceChannel, text, lang });
 }
 async function joinTtsChannel(voiceChannel) {
   if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
