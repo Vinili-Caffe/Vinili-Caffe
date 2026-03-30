@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
@@ -39,6 +39,27 @@ function isDbReady() {
 function getActivitiesArray(presence) {
   const list = presence?.activities;
   return Array.isArray(list) ? list : [];
+}
+
+/** Playing / Streaming / Listening / Watching: gli aggiornamento episodio possono arrivare senza il Custom Status nel payload. */
+const RICH_PRESENCE_TYPES = new Set([
+  ActivityType.Playing,
+  ActivityType.Streaming,
+  ActivityType.Listening,
+  ActivityType.Watching,
+]);
+
+function hasRichPresenceWithoutCustom(presence) {
+  const list = getActivitiesArray(presence);
+  if (!list.length) return false;
+  let hasRich = false;
+  let hasCustom = false;
+  for (const a of list) {
+    const t = Number(a?.type);
+    if (t === ActivityType.Custom) hasCustom = true;
+    if (RICH_PRESENCE_TYPES.has(t)) hasRich = true;
+  }
+  return hasRich && !hasCustom;
 }
 
 function collectActivitySearchStrings(activity) {
@@ -101,6 +122,9 @@ function getInviteState(presence, prevHas = false) {
   // activities vuote per un attimo; non trattare come "nessun link" per evitare
   // spam di annunci / rimozioni ruolo.
   if (!getActivitiesArray(presence).length && prevHas) return null;
+  // Aggiornamento Watching/Playing/Listening: spesso il payload non include il Custom Status
+  // per un evento; senza questo si toglieva e rimetteva il ruolo Supporter a ogni episodio.
+  if (prevHas && hasRichPresenceWithoutCustom(presence)) return null;
   return false;
 }
 
@@ -192,6 +216,12 @@ function deleteRemovalState(guildId, userId) {
 
 function hasRemovalState(guildId, userId) {
   return removalChecks.has(makeStateKey(guildId, userId));
+}
+
+function cancelScheduledRemoval(guildId, userId) {
+  const st = getRemovalState(guildId, userId);
+  if (st?.timeout) clearTimeout(st.timeout);
+  deleteRemovalState(guildId, userId);
 }
 
 function getBootstrapKey(guildId, userId) {
@@ -632,6 +662,10 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
   const effectivePrev = prev != null ? prev : { hasLink: Boolean(prevHas) };
   const { newHas, inviteMissSince } = computeSupporterLinkState(effectivePrev, presence);
   const lastSeenOnlineAt = Date.now();
+
+  if (newHas) {
+    cancelScheduledRemoval(guildId, userId);
+  }
 
   if (newHas && member.roles.cache.has(ROLE_ID)) {
     setCachedState(guildId, userId, {
