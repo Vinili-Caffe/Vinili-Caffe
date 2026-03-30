@@ -68,18 +68,9 @@ module.exports = {
       message.client,
       SECTION_HOME,
     );
-    const dmPayload = { ...payload, allowedMentions: { parse: [] } };
-    try {
-      await message.author.send(dmPayload);
-      await safeMessageReply(message, {
-        content: "<:vegacheckmark:1443666279058772028> Pannello moderazione inviato in DM (visibile solo a te).",
-        allowedMentions: { repliedUser: false },
-      });
-    } catch (_) {
-      await safeMessageReply(message, {
-        ...payload,
-        allowedMentions: { repliedUser: false },
-      });
-    }
+    await safeMessageReply(message, {
+      ...payload,
+      allowedMentions: { repliedUser: false },
+    });
   },
 };
