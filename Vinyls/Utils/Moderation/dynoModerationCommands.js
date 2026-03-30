@@ -10,7 +10,6 @@ const {
   findModLogsPage,
   findOpenCases,
   findActiveWarns,
-  countModActionsByMod,
 } = require("./modCaseStore");
 const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, logModCase, parseDuration, formatDuration } = require("./moderation");
 const { resolveTarget } = require("./prefixModeration");
@@ -891,51 +890,6 @@ async function runNamed(name, message, args, client) {
       .setFooter({ text: `${total} log totali | Usa +modlogs [utente] [pagina] per vedere un'altra pagina` });
 
     return message.channel.send({ embeds: [logsEmbed] }).catch(() => null);
-  }
-
-  if (cmd === "modstats") {
-    const target = await pickUser(message, args, 0);
-    const modId = target.userId || message.author.id;
-    const modUser = await message.client.users.fetch(modId).catch(() => null);
-    const now = Date.now();
-    const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    const d30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
-    const guildId = message.guild.id;
-    const countAction = (action, since = null) => countModActionsByMod(guildId, modId, action, since);
-    const [m7, m30, mall, b7, b30, ball, k7, k30, kall, w7, w30, wall] = await Promise.all([countAction("MUTE", d7), countAction("MUTE", d30), countAction("MUTE"), countAction("BAN", d7), countAction("BAN", d30), countAction("BAN"), countAction("KICK", d7), countAction("KICK", d30), countAction("KICK"), countAction("WARN", d7), countAction("WARN", d30), countAction("WARN"),]);
-    const t7 = Number(m7) + Number(b7) + Number(k7) + Number(w7);
-    const t30 = Number(m30) + Number(b30) + Number(k30) + Number(w30);
-    const tall = Number(mall) + Number(ball) + Number(kall) + Number(wall);
-    if (tall === 0) {
-      return message.channel
-        .send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#ED4245")
-              .setDescription("<:cancel:1461730653677551691> **Nessun log trovato.**"),
-          ],
-        })
-        .catch(() => null);
-    }
-    const hh = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false, });
-    const statsEmbed = new EmbedBuilder().setColor("#3498DB").setTitle("Moderation Statistics").setThumbnail((typeof modMember !== "undefined" && modMember ? modMember : modUser)?.displayAvatarURL({ size: 256 }) || null).setAuthor({ name: modUser?.username || String(modId), iconURL: (typeof modMember !== "undefined" && modMember ? modMember : modUser)?.displayAvatarURL({ size: 128 }) || null, }).addFields({
-      name: "Last 7 days", value: `Mutes: ${m7}\nBans: ${b7}\nKicks: ${k7}\nWarns: ${w7}\n**Total: ${t7}**`,
-      inline: true,
-    },
-      {
-        name: "Last 30 days",
-        value: `Mutes: ${m30}\nBans: ${b30}\nKicks: ${k30}\nWarns: ${w30}\n**Total: ${t30}**`,
-        inline: true,
-      },
-      {
-        name: "All time",
-        value: `Mutes: ${mall}\nBans: ${ball}\nKicks: ${kall}\nWarns: ${wall}\n**Total: ${tall}**`,
-        inline: true,
-      },
-    )
-      .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
-      .setTimestamp();
-    return message.channel.send({ embeds: [statsEmbed] }).catch(() => null);
   }
 
   if (cmd === "lock" || cmd === "unlock") {

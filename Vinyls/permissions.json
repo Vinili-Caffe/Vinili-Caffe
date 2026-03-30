@@ -423,16 +423,6 @@
                 "channels.sanzioniUtenti"
             ]
         },
-        "modstats": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.highCmds",
-                "channels.sanzioniUtenti"
-            ]
-        },
         "mute": {
             "roles": [
                 "roles.Staff"

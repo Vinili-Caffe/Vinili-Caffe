@@ -14,7 +14,7 @@ const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", partner: "Partner", ticket: "Ticket", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
-const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "vip", "partner", "ticket", "moderation", "admin", "staff", "dev",];
+const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "vip", "partner", "staff", "ticket", "moderation", "admin", "dev",];
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const HELP_NEW_DAYS = 14;
 const HELP_NEW_INVOKES = new Set([]);
@@ -60,7 +60,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
   duration: "Aggiorna la durata di una case temporanea.",
   modlogs: "Mostra gli ultimi log moderazione di un utente.",
   moderations: "Mostra tutte le moderazioni temporanee attive.",
-  modstats: "Mostra statistiche moderazione per staffer.",
   lock: "Blocca un canale.",
   unlock: "Sblocca un canale.",
   blacklist: "Mostra la lista completa dei server blacklistati.",
