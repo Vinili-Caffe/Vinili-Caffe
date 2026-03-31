@@ -426,6 +426,10 @@ function getMinMessages(cfg) {
   return Math.max(1, Number(cfg?.minMessages ?? 1));
 }
 
+function getActivityScopeKey(cfg) {
+  return String(cfg?.channelId || "");
+}
+
 function getFailsafeMs(cfg) {
   return Math.max(60 * 1000, Number(cfg?.failsafeMs || 90 * 60 * 1000));
 }
@@ -453,7 +457,7 @@ function getRecentCount(activityScopeKey, windowMs) {
 }
 
 function isReadyByActivity(cfg) {
-  const activityScopeKey = String(cfg?.guildId || "");
+  const activityScopeKey = getActivityScopeKey(cfg);
   if (!activityScopeKey) return false;
   const count = getRecentCount(activityScopeKey, getActivityWindowMs(cfg));
   return count >= getMinMessages(cfg);
@@ -491,7 +495,7 @@ function markSent(channelId) {
 
 function isFailsafeDue(cfg) {
   const channelId = cfg?.channelId;
-  const activityScopeKey = String(cfg?.guildId || "");
+  const activityScopeKey = getActivityScopeKey(cfg);
   if (!channelId || !activityScopeKey) return false;
   const lastSent = lastSentAtByChannel.get(channelId) || 0;
   if (!lastSent) return true;
@@ -503,6 +507,13 @@ function isFailsafeDue(cfg) {
 
 function canCountMessageForActivity(message) {
   if (!message?.guild || !message?.channel) return false;
+  const channelId = String(message.channel?.id || "");
+  const allowedChannelIds = new Set(
+    [IDs.channels.chat, IDs.channels.media]
+      .map((id) => String(id || "").trim())
+      .filter(Boolean),
+  );
+  if (!allowedChannelIds.has(channelId)) return false;
   const memberRoleId = String(IDs.roles.Member || "");
   if (!memberRoleId) return false;
   const memberRole = message.guild.roles?.cache?.get(memberRoleId) || null;
@@ -5955,8 +5966,8 @@ async function maybeStartRandomGame(client, force = false) {
       const failsafeDue = isFailsafeDue(cfg);
       if (!readyByActivity && !failsafeDue) {
         standbyChannels.add(cfg.channelId);
-        const count = getRecentCount(String(cfg?.guildId || ""), getActivityWindowMs(cfg));
-        logMinigameDebug("skip: insufficient activity", { channelId: cfg.channelId, guildId: cfg?.guildId || null, count, minMessages: getMinMessages(cfg) });
+        const count = getRecentCount(getActivityScopeKey(cfg), getActivityWindowMs(cfg));
+        logMinigameDebug("skip: insufficient activity", { channelId: cfg.channelId, count, minMessages: getMinMessages(cfg) });
         return;
       }
     }
@@ -6147,12 +6158,11 @@ async function handleMinigameMessage(message, client) {
   if (!message?.guild) return false;
   if (message.author?.bot) return false;
   cfg.guildId = String(message.guild.id || "");
-  if (canCountMessageForActivity(message)) {
-    recordActivity(cfg.guildId, getActivityWindowMs(cfg));
-  }
   if (message.channelId !== cfg.channelId) return false;
-  
   const game = activeGames.get(cfg.channelId);
+  if (!game && canCountMessageForActivity(message)) {
+    recordActivity(getActivityScopeKey(cfg), getActivityWindowMs(cfg));
+  }
   if (game && isStaleOrInvalidActiveGame(game)) {
     if (game.timeout) clearTimeout(game.timeout);
     if (game.hintTimeout) clearTimeout(game.hintTimeout);
