@@ -686,8 +686,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         const vocLeft = Math.max(0, limits.hours - weeklyHours);
         const msgLine =
           msgLeft > 0
-            ? `<:VC_Chat:1482532573002465433> Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${msgLeft}**`
-            : `<:VC_Chat:1482532573002465433> Messaggi: **${weeklyMsg}** / ${limits.messages}`;
+            ? `<:VC_Chat:1482532573002465413> Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${msgLeft}**`
+            : `<:VC_Chat:1482532573002465413> Messaggi: **${weeklyMsg}** / ${limits.messages}`;
         const vocLine =
           vocLeft > 0
             ? `<a:VC_Mute:1482534751511515238> Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${vocLeft.toFixed(2)}h**`
