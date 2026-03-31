@@ -264,13 +264,6 @@ async function handleTicketInteraction(interaction) {
         return true;
       }
       if (config) {
-        if (!interaction.deferred && !interaction.replied) {
-          try {
-            await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
-          } catch (err) {
-            global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
-          }
-        }
         if (!interaction.client.ticketOpenLocks) {
           interaction.client.ticketOpenLocks = new Set();
         }
@@ -289,6 +282,13 @@ async function handleTicketInteraction(interaction) {
         }
         interaction.client.ticketOpenLocks.add(ticketLockKey);
         try {
+          if (!interaction.deferred && !interaction.replied) {
+            try {
+              await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
+            } catch (err) {
+              global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
+            }
+          }
           let memOpen = interaction.member;
           if (
             interaction.guild &&
@@ -364,6 +364,25 @@ async function handleTicketInteraction(interaction) {
                   "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Impossibile creare o trovare la categoria ticket",
                 ),
+              ],
+              flags: 1 << 6,
+            });
+            return true;
+          }
+          const existingAgain = await runtimeFindOpenTicketByUser(
+            interaction.guild.id,
+            interaction.user.id,
+            interaction.guild,
+          );
+          if (existingAgain) {
+            await safeReply(interaction, {
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
+                  .setDescription(
+                    `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existingAgain.channelId}>`,
+                  )
+                  .setColor("#6f4e37"),
               ],
               flags: 1 << 6,
             });

@@ -46,22 +46,28 @@ async function findOpenTicketByUser(guildId, userId, guild = null) {
   if (!guild || !existing.channelId) return existing;
 
   await warmGuildChannels(guild).catch(() => null);
-  const liveChannel =
-    guild.channels?.cache?.get?.(String(existing.channelId)) ||
-    (await getGuildChannelCached(guild, existing.channelId).catch(() => null));
-  if (liveChannel) return existing;
+  const cid = String(existing.channelId);
+  const cached = guild.channels?.cache?.get?.(cid) || null;
+  if (cached) return existing;
 
-  await Ticket.updateOne(
-    { _id: existing._id, open: true },
-    {
-      $set: {
-        open: false,
-        closedAt: new Date(),
-        closeReason: "Auto-closed stale open ticket (missing channel)",
+  const fetched = await guild.channels.fetch(cid).catch((err) => err);
+  if (fetched && typeof fetched.id === "string") return existing;
+
+  const code = Number(fetched?.code ?? fetched?.rawError?.code);
+  if (code === 10003) {
+    await Ticket.updateOne(
+      { _id: existing._id, open: true },
+      {
+        $set: {
+          open: false,
+          closedAt: new Date(),
+          closeReason: "Auto-closed stale open ticket (missing channel)",
+        },
       },
-    },
-  ).catch(() => null);
-  return null;
+    ).catch(() => null);
+    return null;
+  }
+  return existing;
 }
 
 async function findTicketByChannel(channelId) {
