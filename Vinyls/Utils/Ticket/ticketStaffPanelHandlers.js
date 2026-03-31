@@ -5,7 +5,7 @@ const { getGuildMemberCached } = require("../Interaction/interactionEntityCache"
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
 const { hasStaffTicketRole, buildRemoveMemberOptions } = require("./ticketStaffPanelBuild");
-const ticketModule = require("../../Prefix/Ticket/ticket");
+const ticketModule = require("../../Prefix/Staff/ticket");
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
 
