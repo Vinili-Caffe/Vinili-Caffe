@@ -364,7 +364,7 @@ async function processDiscadiaVote(guild, user, client) {
 async function handleDisboardBump(message, client) {
   const disboard = client?.config?.disboard;
   if (!disboard || !message.guild) return false;
-  if (!message.author || !isMessageFromDisboardBot(message, client)) return false;
+  if (!message.author) return false;
 
   const configuredPatterns = Array.isArray(disboard.bumpSuccessPatterns)
     ? disboard.bumpSuccessPatterns.map((p) => String(p).toLowerCase())
@@ -384,10 +384,45 @@ async function handleDisboardBump(message, client) {
   const lowered = haystacks.map((text) => String(text || "").toLowerCase());
   const hasPatternMatch = patterns.some((pattern) => lowered.some((text) => text.includes(pattern)));
   const joined = lowered.join("\n");
+  const authorName = String(message.author?.globalName || message.author?.username || "");
+  const sourceName = String(
+    [
+      message.author?.globalName || "",
+      message.author?.username || "",
+      message.author?.tag || "",
+      message.author?.id || "",
+      message.applicationId || "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const sourceFingerprint = `${authorName} ${sourceName}`.toLowerCase();
+  const hasDisboardWord = /\bdisboard\b/i.test(joined);
+  const hasDisboardDomain = /disboard\.org/i.test(joined);
+  const hasDiscadiaWord = /\bdiscadia\b/i.test(joined) || /discadia\.com/i.test(joined);
+  const isAutomatedSource = Boolean(
+    message.author?.bot || message.applicationId || message.webhookId,
+  );
+  const isLikelyCommandChannel =
+    String(message.channelId || "") === String(IDs.channels.commands || "");
+  const isFromDisboardBot = isMessageFromDisboardBot(message, client);
   const hasRegexSuccess =
     /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|\bwas bumped\b|server bumped|you can bump again|bump will be available again)/i.test(joined);
   const hasDisboardBumpFailure = /already bumped|cannot bump|can\s*'t bump|can't bump|please wait|too early|wait before|failed to bump|bump failed|must be (?:\*\*)?(?:owner|admin)|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|manage server.*bump|bump.*manage server/i.test(joined);
-  const isBump = (hasPatternMatch || hasRegexSuccess) && !hasDisboardBumpFailure;
+  const hasBumpSuccessText = hasPatternMatch || hasRegexSuccess;
+  const isStrictDisboardSource = isFromDisboardBot;
+  const isDisboardByContentFallback =
+    isAutomatedSource &&
+    hasBumpSuccessText &&
+    !hasDiscadiaWord &&
+    (hasDisboardWord ||
+      hasDisboardDomain ||
+      /\bdisboard\b/i.test(sourceFingerprint) ||
+      isLikelyCommandChannel);
+  const isBump =
+    hasBumpSuccessText &&
+    !hasDisboardBumpFailure &&
+    (isStrictDisboardSource || isDisboardByContentFallback);
   if (!isBump) return false;
 
   const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
@@ -482,7 +517,10 @@ async function handleDiscadiaBump(message, client) {
   const isLikelyDiscadiaViaAutomation = isAutomatedSource && !looksLikeDisboardSource && (looksLikeDiscadiaSource || (isLikelyCommandChannel && hasBumpSuccessText && hasBumpWord));
   const isLikelyDiscadiaGenericSuccess = isAutomatedSource && !looksLikeDisboardSource && hasBumpSuccessText && (hasBumpWord || isBumpInteraction) && (Boolean(message.webhookId) || isBumpInteraction);
   const isStrictDiscadiaSource = isFromDiscadiaBot || isLikelyDiscadiaViaAutomation || isLikelyDiscadiaGenericSuccess;
-  const isBump = !hasFailureWord && hasBumpSuccessText && isStrictDiscadiaSource;
+  // Fallback: alcuni output Discadia arrivano con formati diversi (bridge/webhook),
+  // ma contengono chiaramente dominio/parola Discadia + testo di successo bump.
+  const isDiscadiaByContentFallback = !looksLikeDisboardSource && hasBumpSuccessText && (hasDiscadiaWord || hasDiscadiaDomain || /\bdiscadia\b/i.test(sourceFingerprint));
+  const isBump = !hasFailureWord && hasBumpSuccessText && (isStrictDiscadiaSource || isDiscadiaByContentFallback);
   if (!isBump) return false;
 
   const dedupeKey = `discadia:${message.guild.id}:${message.id}`;
