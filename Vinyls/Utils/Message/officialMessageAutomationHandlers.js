@@ -67,7 +67,10 @@ function extractUserIdFromText(text) {
   return match ? match[1] : null;
 }
 
-function shouldSkipProcessedBump(key, ttlMs = 5 * 60 * 1000) {
+/** Stesso messageId su messageUpdate (embed che si aggiorna): TTL breve faceva ripetere recordBump e slittare il reminder. */
+const BUMP_MESSAGE_DEDUPE_TTL_MS = 48 * 60 * 60 * 1000;
+
+function shouldSkipProcessedBump(key, ttlMs = BUMP_MESSAGE_DEDUPE_TTL_MS) {
   if (!key) return false;
   const now = Date.now();
   const last = processedBumpMessages.get(key) || 0;
