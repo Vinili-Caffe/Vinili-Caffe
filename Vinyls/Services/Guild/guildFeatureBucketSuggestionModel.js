@@ -79,6 +79,20 @@ const suggestion = {
     await bucket.save();
     return { deletedCount: 1 };
   },
+
+  async saveEmbedded(subdoc) {
+    if (!subdoc) return null;
+    const root =
+      typeof subdoc.ownerDocument === "function"
+        ? subdoc.ownerDocument()
+        : null;
+    if (!root || typeof root.save !== "function") return null;
+    try {
+      return await root.save();
+    } catch {
+      return null;
+    }
+  },
 };
 
 module.exports = suggestion;

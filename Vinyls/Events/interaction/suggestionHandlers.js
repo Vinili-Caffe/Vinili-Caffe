@@ -216,7 +216,7 @@ async function handleSuggestionVote(interaction) {
             },
           );
 
-        const saved = await data.save().catch(() => null);
+        const saved = await suggestion.saveEmbedded(data);
         if (!saved) {
           await interaction
             .reply({
@@ -316,7 +316,7 @@ async function handleSuggestionVote(interaction) {
             },
           );
 
-        const saved = await data.save().catch(() => null);
+        const saved = await suggestion.saveEmbedded(data);
         if (!saved) {
           await interaction
             .reply({

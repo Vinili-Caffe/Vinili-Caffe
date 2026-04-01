@@ -8,6 +8,7 @@ const{handleAfk,handleCounting,handleMentionAutoReactions,handleWordReactions,lo
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
+const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS=new Set([]);
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
@@ -74,6 +75,9 @@ async function maybeSendWrongPrefixHint(message, resolvedClient, validPrefix = "
   const attempt = parseWrongPrefixAttempt(message?.content || "", safePrefix);
   if (!attempt?.token || !attempt?.usedPrefix) return false;
   if (attempt.usedPrefix === safePrefix) return false;
+  if (attempt.usedPrefix === "-" && isCoffeePrefixCommandToken(attempt.token)) {
+    return false;
+  }
   const command = resolvePrefixCommandByToken(resolvedClient, attempt.token);
   if (!command) return false;
   const cmdName = String(command.name || "").toLowerCase();

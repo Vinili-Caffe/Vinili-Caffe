@@ -580,16 +580,24 @@ function scheduleMonthlyGif(client) {
         const channel = await getChannelSafe(client, channelId);
         if (!channel?.isTextBased?.()) return;
 
-        await channel.send({
-          content: "@everyone",
-          files: [
-            {
-              attachment:
-                "https://media.tenor.com/crZirRXKLuQAAAAC/manhdz2k9.gif",
-              name: "monthly.gif",
-            },
-          ],
-        });
+        await channel
+          .send({
+            content: "@everyone",
+            allowedMentions: { parse: ["everyone"] },
+            files: [
+              {
+                attachment:
+                  "https://media.tenor.com/crZirRXKLuQAAAAC/manhdz2k9.gif",
+                name: "monthly.gif",
+              },
+            ],
+          })
+          .catch((err) => {
+            global.logger?.error?.(
+              "[MONTHLY GIF] Invio fallito:",
+              err?.message || err,
+            );
+          });
       },
       { timezone: "Europe/Rome" },
     );
