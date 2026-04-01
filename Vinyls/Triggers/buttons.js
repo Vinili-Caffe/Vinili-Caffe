@@ -684,7 +684,7 @@ module.exports = {
 
     if (interaction.customId == "metodi") {
       const embeds = [new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
-        `<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#${IDs.channels.ticket}> \`Terza Categoria\`.\n\n` +
+        `<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#${IDs.channels.ticket}> \`HIGH STAFF\`.\n\n` +
         "<:VC_Dot:1482532364222595303> **€1,50** <a:VC_Arrow:1482706699365257397> sponsor per **2** settimane\n" +
         "<:VC_Dot:1482532364222595303> **€3** <a:VC_Arrow:1482706699365257397> sponsor per **1** mese\n" +
         "<:VC_Dot:1482532364222595303> **€5** <a:VC_Arrow:1482706699365257397> sponsor **lifetime**"
@@ -817,7 +817,7 @@ module.exports = {
         .setImage(DIVIDER_URL)
         .setColor("#6f4e37")
         .setTitle("Acquista ora!")
-        .setDescription("<:blueflash:1470064803157643468> Apri un ticket nella **terza categoria** su: <#1442569095068254219>.");
+        .setDescription("<:blueflash:1470064803157643468> Apri un ticket nella **HIGH STAFF** su: <#1442569095068254219>.");
       await interaction.reply({ embeds: [donations, vip, ticket], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
@@ -825,7 +825,7 @@ module.exports = {
       const sponsorEmbed = new EmbedBuilder()
         .setColor("#6f4e37")
         .setDescription(
-          "<:pinnednew:1443670849990430750> **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un <#1442569095068254219> `Terza Categoria`.\n\n" +
+          "<:pinnednew:1443670849990430750> **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un <#1442569095068254219> `HIGH STAFF`.\n\n" +
           "> Ogni server che vorrà effettuare una **sponsor** dovrà rispettare questi 3 requisiti:\n" +
           "> <:VC_Dot:1482532364222595303> Rispettare i [**ToS di Discord**](https://discord.com/terms)\n" +
           "> <:VC_Dot:1482532364222595303> Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n" +
@@ -862,7 +862,7 @@ module.exports = {
         .setColor("#6f4e37")
         .setDescription(
           "<:partneredserverowner:1443651871125409812> **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n" +
-          "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`Terza Categoria`__**\n\n" +
+          "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`HIGH STAFF`__**\n\n" +
           "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **__2__ euro** <:paypal:1329524292446191676>\n" +
           "<:VC_Dot:1482532364222595303> **__`175`__** partner <a:vegarightarrow:1443673039156936837> **__3__ euro** <:paypal:1329524292446191676> / **Nitro __Basic__** <:sparkles_nitro_basic:1330196488336310383>\n" +
           "<:VC_Dot:1482532364222595303> **__`250`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n\n" +
@@ -896,7 +896,7 @@ module.exports = {
         .setColor("#6f4e37")
         .setTitle("<a:VC_Verified:1482532479637127188> **__Verificati per ottenere vantaggi unici__**")
         .setDescription([
-          `Per verificare il tuo profilo dovrai andare in <#${IDs.channels.ticket}> e selezionare la terza categoria`,
+          `Per verificare il tuo profilo dovrai andare in <#${IDs.channels.ticket}> e selezionare la HIGH STAFF`,
           "<:VC_Reply:1482532158080942191> successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
           "con il vostro nickname scritto su un foglio cartaceo o altrimenti con il cellulare nella schermata del vostro profilo Discord",
           "",

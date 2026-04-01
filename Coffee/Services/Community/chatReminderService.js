@@ -76,7 +76,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_bump:1482531857521311885> Recensiscici su DISBOARD!")
       .setDescription([
-        `<:VC_LevelUp2:1482527047871107143> Scrivi la tua recensione e fai brillare Vinili & Caffè! Dopo aver recensito, apri un <#1442569095068254219> \`Terza Categoria\` e ricevi **5 livelli** come premio!`,
+        `<:VC_LevelUp2:1482527047871107143> Scrivi la tua recensione e fai brillare Vinili & Caffè! Dopo aver recensito, apri un <#1442569095068254219> \`HIGH STAFF\` e ricevi **5 livelli** come premio!`,
         "<:VC_Link:1482460590894088222> Lascia la tua recensione qui: https://disboard.org/it/server/1329080093599076474",
       ].join("\n")),
   () =>
@@ -262,7 +262,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<a:VC_PepeFoto:1479131953100750882> Verifica con un Selfie!")
       .setDescription([
-        "<a:VC_Moon:1482724651430838406> Sapevi che puoi verificarti semplicemente con un selfie? Apri un <#1442569095068254219> \`Terza Categoria\` e segui le istruzioni.",
+        "<a:VC_Moon:1482724651430838406> Sapevi che puoi verificarti semplicemente con un selfie? Apri un <#1442569095068254219> \`HIGH STAFF\` e segui le istruzioni.",
         "<a:VC_Sparkles:1468546911936974889> Sblocca il canale <#1470029899740873029> e tanti altri vantaggi visibili in <#1442569111119990887>!",
       ].join("\n")),
   () =>
@@ -291,7 +291,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Collab:1482534540089098260> Vuoi sponsorizzare il tuo server o social network?")
       .setDescription([
-        "<a:VC_ThankYou:1330186319673950401> Vinili & Caffè offre sponsorizzazioni per chi rispetta i requisiti: apri un <#1442569095068254219> `Terza Categoria` per iniziare!",
+        "<a:VC_ThankYou:1330186319673950401> Vinili & Caffè offre sponsorizzazioni per chi rispetta i requisiti: apri un <#1442569095068254219> `HIGH STAFF` per iniziare!",
         "<:VC_Ticket:1482535175283019888> Trovi tutte le info sulle sponsorizzazioni in <#1442569111119990887>",
       ].join("\n")),
   () =>

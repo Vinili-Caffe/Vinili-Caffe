@@ -161,7 +161,7 @@ async function handleTicketInteraction(interaction) {
             new EmbedBuilder()
               .setColor("#6f4e37")
               .setDescription(
-                `<a:VC_Alert:1482706673176150077> Non puoi usare questo bottone poiché sei blacklistato dalle partner.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`Terza Categoria\``,
+                `<a:VC_Alert:1482706673176150077> Non puoi usare questo bottone poiché sei blacklistato dalle partner.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`HIGH STAFF\``,
               ),
           ],
           flags: 1 << 6,
@@ -178,7 +178,7 @@ async function handleTicketInteraction(interaction) {
             new EmbedBuilder()
               .setColor("#6f4e37")
               .setDescription(
-                `<:vegax:1443934876440068179> Non puoi usare questo bottone poiché sei blacklistato dai ticket.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`Terza Categoria\``,
+                `<:vegax:1443934876440068179> Non puoi usare questo bottone poiché sei blacklistato dai ticket.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`HIGH STAFF\``,
               ),
           ],
           flags: 1 << 6,

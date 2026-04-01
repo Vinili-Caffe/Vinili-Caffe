@@ -340,7 +340,7 @@ function buildIntroEmbed(type) {
       .setDescription(
         "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
         "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
-        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket terza categoria.",
+        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket HIGH STAFF.",
         "",
         "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",);
   }
@@ -350,7 +350,7 @@ function buildIntroEmbed(type) {
     .setDescription(
       "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
       "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
-      "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket terza categoria.",
+      "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket HIGH STAFF.",
       "",
       "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
     );
