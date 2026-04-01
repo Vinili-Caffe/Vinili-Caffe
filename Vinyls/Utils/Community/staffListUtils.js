@@ -95,7 +95,7 @@ async function getStaffPexedLast7Days(guildId) {
 }
 
 function buildContent(guild, membersSource = guild.members.cache, pexedLast7Days = new Set()) {
-  const staffRoleIds = STAFF_LIST_ORDER.length ? STAFF_LIST_ORDER : STAFF_ROLE_IDS;
+  const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
   let content = "## STAFF LIST\n\n";
 
   for (const roleId of staffRoleIds) {
