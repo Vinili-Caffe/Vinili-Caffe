@@ -18,17 +18,6 @@ const ROLE_EMOJIS = {
 };
 const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };
 const STAFF_ROLE_IDS = Object.keys(ROLE_EMOJIS);
-const STAFF_LIST_ORDER = [
-  IDs.roles.PartnerManager,
-  IDs.roles.Helper,
-  IDs.roles.Mod,
-  IDs.roles.Coordinator,
-  IDs.roles.Supervisor,
-  IDs.roles.Admin,
-  IDs.roles.Manager,
-  IDs.roles.CoFounder,
-  IDs.roles.Founder,
-].filter(Boolean);
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -188,7 +177,7 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   const content = buildContent(guild, membersSource, pexedLast7Days);
 
   if (content.trim() === "## STAFF LIST") {
-    const staffRoleIds = STAFF_LIST_ORDER.length ? STAFF_LIST_ORDER : STAFF_ROLE_IDS;
+    const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
     const roleDebug = staffRoleIds.map((roleId) => {
       const role = guild.roles.cache.get(roleId);
       if (!role) return { roleId, name: null, memberCount: 0 };

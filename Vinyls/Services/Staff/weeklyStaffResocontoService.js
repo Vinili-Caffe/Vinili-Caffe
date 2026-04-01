@@ -254,6 +254,26 @@ function resolveStaffRole(member) {
   return null;
 }
 
+function getResocontoMemberRank(member) {
+  const staffRoleId = resolveStaffRole(member);
+  if (staffRoleId) {
+    const idx = STAFF_ROLE_PRIORITY.indexOf(String(staffRoleId));
+    return idx >= 0 ? idx : 50;
+  }
+  if (member.roles.cache.has(String(IDs.roles.PartnerManager)))
+    return STAFF_ROLE_PRIORITY.length;
+  return 999;
+}
+
+function compareResocontoMembers(a, b) {
+  const ra = getResocontoMemberRank(a);
+  const rb = getResocontoMemberRank(b);
+  if (ra !== rb) return ra - rb;
+  const na = String(a.user?.username || a.id).toLowerCase();
+  const nb = String(b.user?.username || b.id).toLowerCase();
+  return na.localeCompare(nb);
+}
+
 function computeActivityGrade(roleId, weeklyMessages, weeklyVoiceHours) {
   const limits = STAFF_ACTIVITY_LIMITS[String(roleId)];
   if (!limits) return "Non classificato";
@@ -603,6 +623,8 @@ async function runPreResocontoReminders(client) {
     (m) => m && !m.user?.bot && !m.roles.cache.has(String(IDs.roles.HighStaff)) && (hasStaffRole(m) || hasPmRole(m)),
   );
   if (!reminderMembers.length) return;
+
+  reminderMembers.sort(compareResocontoMembers);
 
   const staffMap = new Map((staffDocs || []).map((r) => [String(r.userId), r.staff || {}]));
   const staffOnlyIds = reminderMembers.filter(hasStaffRole).map((m) => m.id);
