@@ -1,5 +1,5 @@
 const IDs = require("../../Utils/Config/ids");
-const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { safeMessageReply, safeChannelSend } = require("../../../shared/discord/replyRuntime");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
 
@@ -92,9 +92,6 @@ module.exports = {
       message.client,
       SECTION_HOME,
     );
-    await safeMessageReply(message, {
-      ...payload,
-      allowedMentions: { repliedUser: false },
-    });
+    await safeChannelSend(message.channel, payload);
   },
 };
