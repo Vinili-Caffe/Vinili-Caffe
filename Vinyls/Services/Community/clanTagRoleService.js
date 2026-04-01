@@ -81,6 +81,42 @@ function guildHasSponsorGuildedExtra(guildId, client) {
   return Boolean(map && typeof map === "object" && map[g]);
 }
 
+function getAllGuildedRoleIdsFromConfig(client) {
+  const map = client?.config?.guildedRoleIds;
+  if (!map || typeof map !== "object") return [];
+  return [...new Set(Object.values(map).map((rid) => String(rid || "")).filter(Boolean))];
+}
+
+async function fetchUserClanViaMemberApi(client, userId) {
+  const uid = String(userId || "");
+  if (!uid || !client?.rest) return { clan: null, ok: false };
+  const order = [String(MAIN_GUILD_ID), ...Object.keys(client?.config?.guildedRoleIds || {})];
+  const seen = new Set();
+  for (const gid of order) {
+    const g = String(gid || "");
+    if (!g || seen.has(g)) continue;
+    seen.add(g);
+    try {
+      const raw = await client.rest.get(`/guilds/${g}/members/${uid}`);
+      return { clan: raw?.user?.clan ?? null, ok: true };
+    } catch (_) { }
+  }
+  return { clan: null, ok: false };
+}
+
+const MEMBER_EVENT_CLAN_SYNC_THROTTLE_MS = 8000;
+const lastClanSyncAfterMemberEventByUser = new Map();
+
+async function syncClanTagRolesForUserEverywhereAfterMemberEvent(client, user) {
+  const uid = String(user?.id || "");
+  if (!uid) return;
+  const now = Date.now();
+  const last = Number(lastClanSyncAfterMemberEventByUser.get(uid) || 0);
+  if (now - last < MEMBER_EVENT_CLAN_SYNC_THROTTLE_MS) return;
+  lastClanSyncAfterMemberEventByUser.set(uid, now);
+  await syncClanTagRolesForUserEverywhere(client, user, {});
+}
+
 async function removeRolesFromMember(member, roleIds, label) {
   for (const rid of roleIds) {
     if (!member.roles.cache.has(rid)) continue;
@@ -123,7 +159,13 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
   }
 
   if (guildHasSponsorGuildedExtra(g, client)) {
-    const extraRoleId = String(client.config.guildedRoleIds[g] || "");
+    const map = client.config.guildedRoleIds;
+    const extraRoleId = String(map[g] || "");
+    const configuredIds = getAllGuildedRoleIdsFromConfig(client);
+    const presentConfigured = configuredIds.filter((rid) => member.roles.cache.has(rid));
+    if (presentConfigured.length) {
+      await removeRolesFromMember(member, presentConfigured, "Ruolo Guilded sponsor reset");
+    }
     const shouldHaveSponsorRole = Boolean(
       match &&
       extraRoleId &&
@@ -134,8 +176,6 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
         const ok = await member.roles.add(extraRoleId).then(() => true).catch(() => false);
         if (ok) addedSponsor = true;
       }
-    } else if (extraRoleId) {
-      await removeRolesFromMember(member, [extraRoleId], "Ruolo Guilded sponsor");
     }
     return { added: addedMain || addedSponsor, addedMain, addedSponsor };
   }
@@ -235,19 +275,14 @@ async function syncAllMembersClanTags(client) {
 
   try {
     const members = await guild.members.fetch({ withPresences: true, force: true }).catch(() => guild.members.cache);
-    let mainCount = 0;
 
     for (const member of members.values()) {
       if (member.user.bot) continue;
 
       const { addedMain } = await applyClanTagGuildedRoles(member, client, { refreshFromApi: true });
-      if (addedMain) {
-        mainCount++;
-        await new Promise((resolve) => setTimeout(resolve, 750));
-      }
+      if (addedMain) await new Promise((resolve) => setTimeout(resolve, 750));
     }
 
-    let sponsorCount = 0;
     const roleMap = client.config?.guildedRoleIds;
     if (roleMap && typeof roleMap === "object") {
       for (const sponsorGid of Object.keys(roleMap)) {
@@ -257,22 +292,18 @@ async function syncAllMembersClanTags(client) {
         for (const member of smembers.values()) {
           if (member.user.bot) continue;
           const { addedSponsor } = await applyClanTagGuildedRoles(member, client, { refreshFromApi: true });
-          if (addedSponsor) {
-            sponsorCount++;
-            await new Promise((resolve) => setTimeout(resolve, 750));
-          }
+          if (addedSponsor) await new Promise((resolve) => setTimeout(resolve, 750));
         }
       }
-    }
-
-    if (mainCount > 0 || sponsorCount > 0) {
-      global.logger?.info?.(
-        `[ClanTagService] Scansione: main +${mainCount} ruoli Guilded, sponsor +${sponsorCount} ruoli extra.`,
-      );
     }
   } catch (error) {
     global.logger?.error?.("[ClanTagService] Startup sync failed:", error);
   }
 }
 
-module.exports = { syncClanTagRoles, syncClanTagRolesForUserEverywhere, syncAllMembersClanTags };
+module.exports = {
+  syncClanTagRoles,
+  syncClanTagRolesForUserEverywhere,
+  syncClanTagRolesForUserEverywhereAfterMemberEvent,
+  syncAllMembersClanTags,
+};

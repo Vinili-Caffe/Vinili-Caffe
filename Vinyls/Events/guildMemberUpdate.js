@@ -13,7 +13,7 @@ const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("
 const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
-const { syncClanTagRoles } = require("../Services/Community/clanTagRoleService");
+const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -1093,7 +1093,10 @@ module.exports = {
       await sendMemberUpdateLog(oldMember, newMember);
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);
-      await syncClanTagRoles(newMember);
+      const resolvedClientForClan = client || newMember.client;
+      if (resolvedClientForClan) {
+        await syncClanTagRolesForUserEverywhereAfterMemberEvent(resolvedClientForClan, newMember.user);
+      }
 
       if (newMember?.guild?.id === IDs.guilds.main && client) {
         if (didStaffMembershipChange(oldMember, newMember) || didStaffRolesChange(oldMember, newMember)) {
