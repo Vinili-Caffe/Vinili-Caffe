@@ -4943,7 +4943,7 @@ async function startHangmanGame(client, cfg) {
   const hangmanAttachment = buildPromptImageAttachment("Impiccato", [maskedWord, `Errori: 0/${maxMisses}`],
     "hangman",
   );
-  const hangmanEmbed = buildHangmanEmbed(maskedWord, 0, maxMisses, rewardExp, durationMs,);
+  const hangmanEmbed = buildHangmanEmbed(maskedWord, rewardExp, durationMs);
   if (hangmanAttachment) {
     hangmanEmbed.setImage(`attachment://${hangmanAttachment.name}`);
   }
@@ -6598,8 +6598,6 @@ async function handleMinigameMessage(message, client) {
       );
       const hangmanSolvedEmbed = buildHangmanEmbed(
         shownWord,
-        Number(game.misses || 0),
-        Number(game.maxMisses || 7),
         game.rewardExp,
         Math.max(1000, game.endsAt - Date.now()),
       );
@@ -6697,7 +6695,7 @@ async function handleMinigameMessage(message, client) {
     ],
       "hangman",
     );
-    const hangmanUpdateEmbed = buildHangmanEmbed(maskedWord, Number(game.misses || 0), Number(game.maxMisses || 7), game.rewardExp, Math.max(1000, game.endsAt - Date.now()),);
+    const hangmanUpdateEmbed = buildHangmanEmbed(maskedWord, game.rewardExp, Math.max(1000, game.endsAt - Date.now()));
     if (hangmanUpdateAttachment) {
       hangmanUpdateEmbed.setImage(`attachment://${hangmanUpdateAttachment.name}`);
     }

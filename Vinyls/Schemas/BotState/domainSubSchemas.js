@@ -89,7 +89,6 @@ const chatReminderRotationEmbedSchema = new Schema(
     dateKey: { type: String, required: true },
     queue: { type: [Number], default: [] },
     lastSentAt: { type: Date, default: null },
-    normalRemindersSinceEvent: { type: Number, default: 0 },
   },
   { timestamps: true, _id: false },
 );

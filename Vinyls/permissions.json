@@ -141,27 +141,6 @@
                 "channels.staffCmds"
             ]
         },
-        "evento": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.highCmds",
-                "channels.staffCmds"
-            ],
-            "subcommands": {
-                "classifica": {
-                    "roles": [
-                        "roles.Member"
-                    ],
-                    "channels": [
-                        "channels.commands",
-                        "channels.staffCmds",
-                        "channels.highCmds"
-                    ]
-                }
-            }
-        },
         "me": {
             "roles": [
                 "roles.Member"
@@ -600,26 +579,6 @@
         },
         "bh_save:*": {
             "ownerSegment": 1
-        },
-        "evento_classifica:*": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
-        },
-        "evento_classifica_exp": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
-            ]
         },
         "giveaway_enter:*": [
             "roles.Member"

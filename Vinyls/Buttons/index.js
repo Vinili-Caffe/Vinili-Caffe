@@ -7,6 +7,5 @@ module.exports = {
   blacklist: require("./blacklist"),
   backupInfo: require("./backupInfo"),
   backupList: require("./backupList"),
-  eventoClassifica: require("./eventoClassifica"),
   topChannelComponents: require("./topChannel/components"),
 };

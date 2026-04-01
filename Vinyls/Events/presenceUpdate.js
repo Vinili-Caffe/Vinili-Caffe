@@ -3,7 +3,6 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
-const { grantEventRewardOnce } = require("../Services/Community/activityEventRewardsService");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
@@ -269,13 +268,6 @@ async function addRoleIfPossible(member) {
     const refreshedMember = await refreshMember(member.guild, member.id);
     if (!refreshedMember?.roles?.cache?.has(ROLE_ID)) return false;
   }
-  setImmediate(() => {
-    grantEventRewardOnce(member.guild.id, member.id, "supporter", {
-      levels: 5,
-      member,
-      clientOrGuild: member.guild,
-    }).catch(() => {});
-  });
   return true;
 }
 

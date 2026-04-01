@@ -2,7 +2,6 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs } = require("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService");
-const { grantEventLevels } = require("../../Services/Community/activityEventRewardsService");
 const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest } = require("../Pause/pauseRequestRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
@@ -329,14 +328,6 @@ async function processDiscadiaVote(guild, user, client) {
     if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
       await member.roles.add(VOTE_ROLE_ID).catch(() => { });
     }
-    grantEventLevels(
-      guild.id,
-      user.id,
-      1,
-      "Evento: voto Discadia",
-      member || undefined,
-      client,
-    ).catch(() => { });
   } catch (err) {
     global.logger?.warn?.("[officialMessageAutomation] role/event error: ", err?.message || err);
   }

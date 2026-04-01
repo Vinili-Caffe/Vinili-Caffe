@@ -5,8 +5,6 @@ const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, add
 const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
 const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
-const { isEventActive } = require("../../Services/Community/activityEventRewardsService");
-
 function withFooter(interaction, payload) {
   return payload?.embeds?.length ? applyDefaultFooterToEmbeds(payload, interaction?.guild) : payload;
 }
@@ -111,9 +109,7 @@ async function finalizeVerification(interaction, member) {
     const guildForPing = mainGuild || guild;
     const pingChannelIds = VERIFY_PING_CHANNEL_IDS && VERIFY_PING_CHANNEL_IDS.length ? VERIFY_PING_CHANNEL_IDS : [];
     const allowedMentions = { users: [interaction.user.id] };
-    const shouldPingEventAnnouncements = await isEventActive(guildForPing?.id).catch(() => false);
     for (const channelId of pingChannelIds) {
-      if (!shouldPingEventAnnouncements && String(channelId || "") === String(IDs.channels?.eventAnnouncements || "")) continue;
       const pingChannel = channelId && guildForPing ? await getGuildChannelCached(guildForPing, channelId) : null;
       if (!pingChannel?.isTextBased?.()) continue;
       const pingMsg = await pingChannel.send({ content: pingContent, allowedMentions }).catch((err) => {

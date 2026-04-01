@@ -10,7 +10,7 @@ const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
 const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Services/Moderation/antiNukeService");
-const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
+const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
@@ -323,16 +323,6 @@ async function sendMemberRoleUpdateLog(oldMember, newMember) {
       addedRoles: additions,
       executorId,
     });
-    const guildId = guild.id;
-    const userId = newMember.id;
-    for (const role of additions) {
-      const rid = role?.id;
-      if (rid === IDs.roles.Verificato || rid === IDs.roles.Verificata) {
-        grantEventRewardOnce(guildId, userId, "verificato", { levels: 5, member: newMember, clientOrGuild: newMember.guild }).catch(() => {});
-      } else if (rid === IDs.roles.Guilded) {
-        grantEventRewardOnce(guildId, userId, "guilded", { levels: 10, member: newMember, clientOrGuild: newMember.guild }).catch(() => { });
-      }
-    }
   }
 }
 

@@ -47,7 +47,7 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
   const sec = SERVER_SECTIONS.includes(section) ? section : "home";
   const base = new EmbedBuilder().setColor("#6f4e37");
   if (sec === "home") {
-    const eventActive = Boolean(settings?.eventExpiresAt && settings.eventExpiresAt.getTime() > Date.now());
+    const tempBoost = Boolean(settings?.eventExpiresAt && settings.eventExpiresAt.getTime() > Date.now());
     const lockLines = (settings?.lockedChannelIds || []).map((id) => `<#${id}>`);
     const ignoreLines = (settings?.ignoredRoleIds || []).map((id) => `<@&${id}>`);
     const multiMap = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : new Map();
@@ -57,9 +57,9 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
       "",
       `<:VC_EXP:1482534670896730143> **Multi globale:** **${settings?.baseMultiplier ?? 1}x**`,
     ];
-    if (eventActive) {
+    if (tempBoost) {
       lines.push(
-        `<a:VC_Events:1482706144953897223> **Multi evento:** **${settings?.eventMultiplier ?? 1}x** — fino al **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
+        `<a:VC_Events:1482706144953897223> **Boost EXP temporaneo:** **${settings?.eventMultiplier ?? 1}x** — fino al **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
       );
     }
     lines.push(
@@ -79,7 +79,7 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
     return base.setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${welcome}.`).setDescription(lines.join("\n"));
   }
   if (sec === "settings") {
-    const eventActive = Boolean(settings?.eventExpiresAt && settings.eventExpiresAt.getTime() > Date.now());
+    const tempBoost = Boolean(settings?.eventExpiresAt && settings.eventExpiresAt.getTime() > Date.now());
     const eff = Number(settings?.effectiveMultiplier);
     const effLabel = Number.isFinite(eff) && eff > 0 ? `${eff}x` : `${settings?.baseMultiplier ?? 1}x`;
     const lines = [
@@ -89,17 +89,17 @@ function buildServerSectionEmbed(guild, settings, section, openerUser = null) {
       `<a:VC_Events:1482706144953897223> **Moltiplicatore effettivo:** **${effLabel}**`,
       "",
     ];
-    if (eventActive) {
+    if (tempBoost) {
       lines.push(
-        `<a:VC_Events:1482706144953897223> **Evento EXP attivo:** **${settings?.eventMultiplier ?? 1}x**`,
-        `<a:VC_pixeltime:1482535344103620771> **Scadenza evento:** **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
+        `<a:VC_Events:1482706144953897223> **Boost EXP temporaneo attivo:** **${settings?.eventMultiplier ?? 1}x**`,
+        `<a:VC_pixeltime:1482535344103620771> **Scadenza:** **${settings.eventExpiresAt ? settings.eventExpiresAt.toLocaleString("it-IT", { hour12: false }) : "-"}**`,
       );
     } else {
-      lines.push("<a:VC_Events:1482706144953897223> **Evento EXP:** _Nessun evento attivo_");
+      lines.push("<a:VC_Events:1482706144953897223> **Boost EXP temporaneo:** _nessuno attivo_");
     }
     lines.push(
       "",
-      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per modificare il moltiplicatore globale o impostare un evento temporaneo.",
+      "<:VC_Modifica:1478859646587633717> Usa i pulsanti per modificare il moltiplicatore globale o impostare un boost temporaneo.",
     );
     return base.setDescription(lines.join("\n"));
   }
@@ -160,7 +160,7 @@ function buildServerSectionRows(section, ownerId) {
         new ButtonBuilder()
           .setCustomId(`level_panel:server_btn:event:${safeOwner}`)
           .setStyle(ButtonStyle.Primary)
-          .setLabel("Multi evento")
+          .setLabel("Boost temporaneo")
           .setEmoji("<a:VC_Events:1482706144953897223>"),
       ),
     ];
@@ -231,7 +231,7 @@ function buildServerNavSelect(ownerId, currentSection) {
       .setPlaceholder("Sezione pannello")
       .addOptions(
         { label: "Home", emoji: "<a:VC_Rule:1482706839928967280>", value: "home", default: cur === "home", description: "Riepilogo configurazione" },
-        { label: "Settings", emoji: "<:VC_Stats:1482527532682055780>", value: "settings", default: cur === "settings", description: "Multi globale ed evento" },
+        { label: "Settings", emoji: "<:VC_Stats:1482527532682055780>", value: "settings", default: cur === "settings", description: "Multi globale e boost temporaneo" },
         { label: "Canali", emoji: "<a:VC_Channel:1482534583944871996>", value: "channels", default: cur === "channels", description: "Blocca / sblocca canali" },
         { label: "Ruoli", emoji: "<:VC_addperson:1485419347068588073>", value: "roles", default: cur === "roles", description: "Ignora / riabilita ruoli" },
         { label: "Multi", emoji: "<a:VC_Events:1482706144953897223>", value: "multi", default: cur === "multi", description: "Moltiplicatori per ruolo" },

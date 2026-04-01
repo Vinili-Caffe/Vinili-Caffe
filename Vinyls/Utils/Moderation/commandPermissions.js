@@ -5,7 +5,7 @@ const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
-const { hasEventWeekWinnerGrant } = require("../../Services/Community/activityEventRewardsService");
+const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
 const PERMISSIONS_CANDIDATES = [path.resolve(__dirname, "../../permissions.json"), path.join(process.cwd(), "permissions.json"),];
 const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, selectMenus: {}, modals: {}, };
 const PERMISSIONS_CACHE_TTL_MS = 3000;
@@ -387,7 +387,6 @@ async function hasAnyRoleWithEventGrants(member, roleIds, guildId, userId) {
   const gid = guildId || member?.guild?.id;
   const uid = userId || member?.id;
   if (!gid || !uid) return false;
-  const { hasEventWeekWinnerGrant } = require("../../Services/Community/activityEventRewardsService");
   for (const roleId of normalized) {
     if (roleId === IDs.roles.Level50 && (await hasEventWeekWinnerGrant(gid, uid, 2))) return true;
     if (roleId === IDs.roles.Level70 && (await hasEventWeekWinnerGrant(gid, uid, 3))) return true;

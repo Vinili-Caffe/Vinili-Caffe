@@ -76,7 +76,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
-  "evento.classifica": "Mostra la classifica dell'evento.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };
 const CONTEXT_CATEGORY_OVERRIDES = { partnership: "staff", };

@@ -16,21 +16,14 @@ const DEFAULT_TIME_ZONE = "Europe/Rome";
 const DEFAULT_START_HOUR = 9;
 const DEFAULT_END_HOUR = 21;
 const REMINDER_FIXED_INTERVAL_MINUTES = 45;
-const REMINDER_EVENT_INTERVAL_MINUTES = 15;
-const EVENT_REMINDER_MIN_GAP_MS = 10 * 60 * 1000;
 const DEFAULT_MIN_GAP_MS = 30 * 60 * 1000;
-const SEND_ONLY_EVENT_REMINDERS = false;
-const EVENT_REMINDER_EVERY_NORMAL = 3;
 const scheduledHours = new Map();
 const scheduledTimeouts = new Map();
 let lastReminderSlotKey = null;
-let lastEventReminderSlotKey = null;
-let lastEventReminderAt = null;
 let rotationDate = null;
 let rotationQueue = [];
 let rotationGuildId = null;
 let lastSentAt = null;
-let normalRemindersSinceEvent = 0;
 const reminderActivity = new Map();
 let hourlyLoopHandle = null;
 
@@ -303,32 +296,6 @@ const reminderPool = [
       ].join("\n")),
 ];
 
-function getEventReminderEmbed() {
-  return new EmbedBuilder()
-    .setColor("#e8c547")
-    .setTitle("<a:VC_Events:1482706144953897223> Evento in corso!")
-    .setDescription(
-      [
-        "<:VC_EXP:1482534670896730143> **È attivo un moltiplicatore EXP**: messaggi in chat e minigiochi danno più punti!",
-        "",
-        "<a:VC_Arrow:1482706699365257397> Partecipa in chat, gioca ai minigiochi e scala la classifica prima che finisca.",
-        "",
-        "> <:VC_InactiveStatus:1482526984234860574> Livelli e premi in <#1442569111119990887>",
-      ].join("\n"),
-    );
-}
-
-async function isActivityEventActive(guildId) {
-  if (!guildId) return false;
-  try {
-    const { getGuildExpSettings } = require("../../../Vinyls/Services/Community/expService");
-    const settings = await getGuildExpSettings(guildId);
-    return settings?.eventExpiresAt != null && new Date(settings.eventExpiresAt).getTime() > Date.now();
-  } catch (err) {
-    return false;
-  }
-}
-
 function getDateKey(parts) {
   const y = parts.year;
   const m = String(parts.month).padStart(2, "0");
@@ -388,7 +355,6 @@ async function saveRotationState() {
         dateKey: rotationDate,
         queue: rotationQueue,
         lastSentAt: lastSentAt ? new Date(lastSentAt) : null,
-        normalRemindersSinceEvent: Number(normalRemindersSinceEvent || 0),
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -422,7 +388,6 @@ async function loadRotationState(guildId, dateKey) {
     if (queueHasAllReminderIndices(rotationQueue)) {
       rotationDate = doc.dateKey;
       lastSentAt = doc.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
-      normalRemindersSinceEvent = Number(doc.normalRemindersSinceEvent || 0);
       rotationQueue = shuffleArray(rotationQueue);
       return;
     }
@@ -430,7 +395,6 @@ async function loadRotationState(guildId, dateKey) {
   rotationDate = normDate;
   rotationQueue = [];
   lastSentAt = doc?.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
-  normalRemindersSinceEvent = Number(doc?.normalRemindersSinceEvent || 0);
   await saveRotationState();
 }
 
@@ -438,12 +402,6 @@ async function nextReminderEmbed(parts, guildId) {
   const key = getDateKey(parts);
   const gid = guildId || rotationGuildId;
   if (gid) await loadRotationState(gid, key);
-  const eventActive = gid ? await isActivityEventActive(gid) : false;
-  if (eventActive && normalRemindersSinceEvent >= EVENT_REMINDER_EVERY_NORMAL) {
-    normalRemindersSinceEvent = 0;
-    await saveRotationState();
-    return getEventReminderEmbed();
-  }
 
   if (rotationDate !== key || rotationQueue.length === 0) {
     rotationDate = key;
@@ -457,7 +415,6 @@ async function nextReminderEmbed(parts, guildId) {
   const pos = randomInt(0, rotationQueue.length);
   const index = rotationQueue[pos];
   rotationQueue.splice(pos, 1);
-  normalRemindersSinceEvent = eventActive ? normalRemindersSinceEvent + 1 : 0;
   await saveRotationState();
   const next = Number.isFinite(index) ? reminderPool[index] : reminderPool[0];
   return next ? next() : null;
@@ -501,14 +458,6 @@ function isReminderFixedSlot(parts, client) {
   const startMins = start * 60 + 1;
   if (totalMins < startMins) return false;
   return (totalMins - startMins) % REMINDER_FIXED_INTERVAL_MINUTES === 0;
-}
-
-function isEventReminderSlot(parts, client) {
-  const { hour, minute } = parts;
-  const start = getStartHour(client);
-  const end = getEndHour(client);
-  if (hour < start || hour > end) return false;
-  return minute % REMINDER_EVENT_INTERVAL_MINUTES === 0;
 }
 
 function rand(max) {
@@ -627,22 +576,6 @@ async function sendReminder(client, scheduleId, kind = "first") {
   }
 }
 
-async function sendEventReminderAtSlot(client, parts, slotKey) {
-  const channelId = getReminderChannelId(client);
-  if (!channelId) return;
-  const now = Date.now();
-  if (lastEventReminderAt != null && now - lastEventReminderAt < EVENT_REMINDER_MIN_GAP_MS) return;
-  const { count30m: activityCount30m } = await getActivityCounts(client);
-  const minForSlot = Math.max(1, Number(getCfg(client)?.minMessagesForEventSlot ?? 1));
-  if (activityCount30m < minForSlot) return;
-  const channel = await getClientChannelCached(client, channelId);
-  if (!channel) return;
-  const embed = getEventReminderEmbed();
-  await channel.send({ embeds: [embed] }).catch(() => { });
-  lastEventReminderAt = now;
-  lastEventReminderSlotKey = slotKey;
-}
-
 async function sendReminderAtFixedSlot(client, parts, slotKey) {
   const channelId = getReminderChannelId(client);
   if (!channelId) return;
@@ -756,11 +689,6 @@ function startHourlyReminderLoop(client) {
     const slotKey = `${getDateKey(parts)}_${parts.hour}_${parts.minute}`;
     const guildId = client.guilds.cache.first()?.id || null;
 
-    // Reminder evento: gestito nella rotazione normale con peso maggiore.
-
-    // Modalita evento-only: disabilita reminder normali.
-    if (SEND_ONLY_EVENT_REMINDERS) return;
-    // Reminder normale: slot fissi ogni 45 min
     if (!isReminderFixedSlot(parts, client)) return;
     if (slotKey === lastReminderSlotKey) return;
     if (!guildId) return;

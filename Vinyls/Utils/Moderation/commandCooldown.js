@@ -61,7 +61,7 @@ async function getUserCommandCooldownSeconds({ guildId, userId, member }) {
   let seconds = computeCooldownSeconds(member, level);
   if (seconds > 5 && guildId && userId && isDbReady()) {
     try {
-      const { hasEventWeekWinnerGrant } = require("../../Services/Community/activityEventRewardsService");
+      const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
       if (await hasEventWeekWinnerGrant(guildId, userId, 2)) seconds = 5;
     } catch (err) {
       global.logger?.warn?.("[commandCooldown] ", err?.message || err);

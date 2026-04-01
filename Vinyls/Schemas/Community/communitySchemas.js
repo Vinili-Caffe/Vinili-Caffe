@@ -157,10 +157,6 @@ const globalSettingsSchema = new Schema(
     expMultiplier: { type: Number, default: 2 },
     expEventMultiplier: { type: Number, default: 1 },
     expEventMultiplierExpiresAt: { type: Date, default: null },
-    expEventRoleOverrides: { type: Schema.Types.Mixed, default: null },
-    expEventExtraMultiplierRoleIds: { type: [String], default: [] },
-    expEventStartedAt: { type: Date, default: null },
-    expEventEndAnnouncementSentForExpiresAt: { type: Date, default: null },
     expLockedChannelIds: { type: [String], default: [] },
     expIgnoredRoleIds: { type: [String], default: [] },
     expRoleMultipliers: { type: Schema.Types.Mixed, default: {} },
@@ -172,21 +168,6 @@ const globalSettingsSchema = new Schema(
   { timestamps: true },
 );
 
-const activityEventRewardSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},rewardType:{type:String,required:true,index:true},tier:{type:Number,default:null},},{timestamps:true},);
-activityEventRewardSchema.index(
-  { guildId: 1, userId: 1, rewardType: 1, tier: 1 },
-  { unique: true },
-);
-
-const activityUserProfileRewardEntrySchema = new Schema(
-  {
-    rewardType: { type: String, required: true },
-    tier: { type: Number, default: null },
-    firstSeenAt: { type: Date, default: null },
-    lastSeenAt: { type: Date, default: null },
-  },
-  { _id: false },
-);
 const activityUserProfileLevelHistoryEntrySchema = new Schema(
   {
     actorId: { type: String, default: null },
@@ -333,12 +314,6 @@ const activityUserProfileSchema = new Schema(
           sourceUpdatedAt: { type: Date, default: null },
           levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
           event: {
-            rewards: { type: [activityUserProfileRewardEntrySchema], default: [] },
-            snapshot: {
-              totalExpAtStart: { type: Number, default: 0 },
-              activityExpAtStart: { type: Number, default: 0 },
-              sourceUpdatedAt: { type: Date, default: null },
-            },
             weekWinners: { type: [Number], default: [] },
           },
           bumpVoteRewards: {
@@ -441,7 +416,6 @@ const activityUserProfileSchema = new Schema(
   { timestamps: true },
 );
 activityUserProfileSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.event.rewards.rewardType": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.totalExp": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "profile.birthday.day": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
@@ -465,13 +439,6 @@ const userLeaveBackupSchema = new Schema(
 );
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
-const eventUserExpSnapshotSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},totalExpAtStart:{type:Number,default:0},activityExpAtStart:{type:Number,default:0},},{timestamps:true},);
-eventUserExpSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-/** Vincitori settimana evento 2 o 3: permesso ad personam permanente (equivalente Level50/Level70) senza ruolo. Nessuna scadenza: i vincitori mantengono per sempre l’accesso a +profile, +profile, ecc. */
-const eventWeekWinnerSchema=new Schema({guildId:{type:String,required:true,index:true},userId:{type:String,required:true,index:true},week:{type:Number,required:true},},{timestamps:true},);
-eventWeekWinnerSchema.index({ guildId: 1, userId: 1, week: 1 }, { unique: true });
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();

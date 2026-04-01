@@ -12,7 +12,7 @@ const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("../Services/Moderation/securityProfilesService");
-const { grantEventRewardOnce, hasEventWeekWinnerGrant } = require("../Services/Community/activityEventRewardsService");
+const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
@@ -1216,19 +1216,6 @@ async function maybeSendInviteReward(member, info) {
 
   const inviterMember = await getGuildMemberCached(member.guild, info.inviterId);
   if (!inviterMember) return;
-
-  const levelsByTier = { 5: 5, 25: 10, 100: 25 };
-  for (const tier of rewardResult.targets || []) {
-    const levels = levelsByTier[tier];
-    if (levels) {
-      grantEventRewardOnce(member.guild.id, info.inviterId, "invite", {
-        levels,
-        tier,
-        member: inviterMember,
-        clientOrGuild: member.guild,
-      }).catch(() => { });
-    }
-  }
 
   const tierChunks = splitAwardedRolesByTier(rewardResult.roleIds);
   const milestoneEmbeds = buildInviteMilestoneEmbeds(inviterMember, info.totalInvites, tierChunks);

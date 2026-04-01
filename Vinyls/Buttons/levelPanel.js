@@ -24,6 +24,17 @@ const SERVER_BTN_MODAL = {
   role_multi_remove: "role_multi_remove",
 };
 
+const SERVER_MODAL_TITLE = {
+  multiplier: "Boost temporaneo",
+  gmulti: "Moltiplicatore globale",
+  lock: "Blocca canale",
+  unlock: "Sblocca canale",
+  ignore: "Ignora ruolo",
+  unignore: "Non ignorare ruolo",
+  role_multi_set: "Moltiplicatore per ruolo",
+  role_multi_remove: "Rimuovi moltiplicatore ruolo",
+};
+
 function match(interaction) {
   const id = String(interaction?.customId || "");
   const isComponent =
@@ -72,7 +83,8 @@ function fmtDate(dateValue) {
 
 function buildModal(scope, action, ownerId, targetId = "") {
   const baseId = `level_panel_modal:${scope}:${action}:${ownerId}${targetId ? `:${targetId}` : ""}`;
-  const modal = new ModalBuilder().setCustomId(baseId).setTitle(`Level ${scope} • ${action}`);
+  const titleAction = scope === "server" ? (SERVER_MODAL_TITLE[action] || action) : action;
+  const modal = new ModalBuilder().setCustomId(baseId).setTitle(`Level ${scope} • ${titleAction}`);
   const rows = [];
   const pushInput = (customId, label, placeholder, required = true) => {
     rows.push(new ActionRowBuilder().addComponents(
@@ -122,7 +134,7 @@ async function runServerModalAction(interaction, action) {
       return buildSimpleEmbed("Level", "Valori non validi.");
     }
     const out = await setTemporaryEventMultiplier(guildId, value, minutes * 60 * 1000);
-    return buildSimpleEmbed("Level", `Evento EXP impostato a **${out.multiplier}x** fino al **${fmtDate(out.expiresAt)}**.`);
+    return buildSimpleEmbed("Level", `Boost EXP temporaneo impostato a **${out.multiplier}x** fino al **${fmtDate(out.expiresAt)}**.`);
   }
   if (action === "gmulti") {
     const value = Number(interaction.fields.getTextInputValue("value"));
