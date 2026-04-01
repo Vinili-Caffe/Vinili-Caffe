@@ -1,10 +1,9 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const cron = require("node-cron");
 const { ActivityUserProfile, GlobalSettings } = require("../../Schemas/Community/communitySchemas");
-const { VOICE_EXP_PER_MINUTE, getGuildExpSettings } = require("./expService");
+const { VOICE_EXP_PER_MINUTE, getGuildExpSettings, invalidateSettingsCache, isEventStaffMember } = require("./expService");
 const { getEventWeekNumber, getEventWeekRomeDateKeys, getCompletedEventWeekForSundayPayout, getLastSunday21BoundaryMsAtOrBefore, grantEventLevels, addEventWeekWinner, hasEventWeekWinnerGrant, getEventWeekHourKeys, getTop10ExpDuringEventExcludingHighStaff } = require("./activityEventRewardsService");
 const { sendEventRewardLog, sendEventRewardDm } = require("./eventRewardLogService");
-const { isEventStaffMember } = require("./expService");
 const { loadLiveVoiceSessions, secondsInDateKeys } = require("./activityService");
 const BACKFILL_HOUR_SUFFIX = "T12";
 function shouldSkipBackfillRow(hourKey, hourSet) {
@@ -695,72 +694,111 @@ const EVENT_END_ANNOUNCEMENT_MESSAGE = ["<:VC_Calendar:1448670320180592724> **L'
 
 async function trySendEventEndAnnouncementToNews(client) {
   const mainGuildId = IDs.guilds?.main;
-  if (!mainGuildId || !EVENT_ANNOUNCEMENT_CHANNEL_ID) return;
-  const guild = client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId));
-  if (!guild) return;
+  if (!mainGuildId) return;
   const doc = await GlobalSettings.findOne({ guildId: mainGuildId }).lean().catch(() => null);
-  if (!doc?.expEventMultiplierExpiresAt) return;
-  const expiresAt = new Date(doc.expEventMultiplierExpiresAt).getTime();
-  const sentFor = doc.expEventEndAnnouncementSentForExpiresAt ? new Date(doc.expEventEndAnnouncementSentForExpiresAt).getTime() : null;
+  const expiresAtMs = doc?.expEventMultiplierExpiresAt ? new Date(doc.expEventMultiplierExpiresAt).getTime() : null;
+  if (expiresAtMs != null && expiresAtMs > Date.now()) return;
+  const sentForMs = doc?.expEventEndAnnouncementSentForExpiresAt ? new Date(doc.expEventEndAnnouncementSentForExpiresAt).getTime() : null;
+  const pastExpiryStillInDb = expiresAtMs != null && expiresAtMs <= Date.now();
+  const announcementAlreadyForThisExpiry = pastExpiryStillInDb && sentForMs === expiresAtMs;
 
-  if (sentFor !== null && sentFor === expiresAt) {
-    if (Date.now() > expiresAt + 24 * 60 * 60 * 1000) {
-      await performEndOfEventCleanup(client, mainGuildId);
-    }
+  if (announcementAlreadyForThisExpiry) {
+    await performEndOfEventCleanup(client, mainGuildId);
     return;
   }
 
-  if (expiresAt > Date.now()) return;
-
-  const topExp = await getTop10ExpDuringEventExcludingHighStaff(guild, 10).catch(() => []);
-  const expLines = topExp.length
-    ? topExp.map((item, i) => {
-      const value = Number(
-        item.activityExpDuringEvent != null
-          ? item.activityExpDuringEvent
-          : item.expDuringEvent,
-      );
-      const label = TROPHY_LABELS[i] || `**${i + 1}.**`;
-      return `${label} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${value}** _EXP_`;
-    })
-    : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP."];
-  const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<:VC_Leaderboard:1482534806314287387> Evento Activity EXP")
-    .setDescription(
-      [
-        "_Classifica EXP dell'evento_",
-        "",
-        "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
-        ...expLines,
-      ].join("\n"),
-    )
-    .setThumbnail(guild.iconURL({ size: 256 }) || null)
-    .setFooter({ text: "Evento terminato • Grazie per la partecipazione!" })
-    .setTimestamp();
-  const eventChannel = client.channels.cache.get(EVENT_ANNOUNCEMENT_CHANNEL_ID) || (await getClientChannelCached(client, EVENT_ANNOUNCEMENT_CHANNEL_ID));
-  if (!eventChannel?.guild) return;
-  await eventChannel.send({
-    content: `${EVENT_END_ANNOUNCEMENT_MESSAGE}\n\n<a:VC_Ping:1482694298687246377>︲<@&1442569012063109151>`,
-    embeds: [embed],
-    allowedMentions: { parse: ["everyone"] },
-  }).catch((err) => {
-    global.logger?.error?.("[WEEKLY ACTIVITY] Event end announcement failed:", err);
+  if (pastExpiryStillInDb) {
+    const guild = client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId));
+    if (guild && EVENT_ANNOUNCEMENT_CHANNEL_ID) {
+      const topExp = await getTop10ExpDuringEventExcludingHighStaff(guild, 10).catch(() => []);
+      const expLines = topExp.length
+        ? topExp.map((item, i) => {
+          const value = Number(
+            item.activityExpDuringEvent != null
+              ? item.activityExpDuringEvent
+              : item.expDuringEvent,
+          );
+          const label = TROPHY_LABELS[i] || `**${i + 1}.**`;
+          return `${label} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${value}** _EXP_`;
+        })
+        : ["<:VC_InactiveStatus:1482526984234860574> - Nessun dato per la classifica EXP."];
+      const embed = new EmbedBuilder()
+        .setColor("#6f4e37")
+        .setTitle("<:VC_Leaderboard:1482534806314287387> Evento Activity EXP")
+        .setDescription(
+          [
+            "_Classifica EXP dell'evento_",
+            "",
+            "<:VC_Leaderboard:1482534806314287387> **Top 10 EXP**:",
+            ...expLines,
+          ].join("\n"),
+        )
+        .setThumbnail(guild.iconURL({ size: 256 }) || null)
+        .setFooter({ text: "Evento terminato • Grazie per la partecipazione!" })
+        .setTimestamp();
+      const eventChannel = client.channels.cache.get(EVENT_ANNOUNCEMENT_CHANNEL_ID) || (await getClientChannelCached(client, EVENT_ANNOUNCEMENT_CHANNEL_ID));
+      if (eventChannel?.guild) {
+        await eventChannel.send({
+          content: `${EVENT_END_ANNOUNCEMENT_MESSAGE}\n\n<a:VC_Ping:1482694298687246377>︲<@&1442569012063109151>`,
+          embeds: [embed],
+          allowedMentions: { parse: ["everyone"] },
+        }).catch((err) => {
+          global.logger?.error?.("[WEEKLY ACTIVITY] Event end announcement failed:", err);
+        });
+      }
+    }
+    await GlobalSettings.findOneAndUpdate(
+      { guildId: mainGuildId },
+      { $set: { expEventEndAnnouncementSentForExpiresAt: doc.expEventMultiplierExpiresAt } },
+    ).catch(() => null);
+    await performEndOfEventCleanup(client, mainGuildId);
     return;
-  });
-  await GlobalSettings.findOneAndUpdate(
-    { guildId: mainGuildId },
-    { $set: { expEventEndAnnouncementSentForExpiresAt: doc.expEventMultiplierExpiresAt } },
-  ).catch(() => null);
+  }
 
+  await performEndOfEventCleanup(client, mainGuildId);
 }
 
 async function performEndOfEventCleanup(client, guildId) {
-  global.logger?.info(`[EVENT_CLEANUP] Avvio pulizia post-evento per g:${guildId}`);
+  const gid = String(guildId || "");
+  if (!gid) return;
+  const doc = await GlobalSettings.findOne({ guildId: gid }).lean().catch(() => null);
+  const expMs = doc?.expEventMultiplierExpiresAt ? new Date(doc.expEventMultiplierExpiresAt).getTime() : null;
+  if (expMs != null && expMs > Date.now()) {
+    global.logger?.info?.(`[EVENT_CLEANUP] Skip: evento ancora attivo g:${gid}`);
+    return;
+  }
+  const overrides = doc?.expEventRoleOverrides;
+  const extraIds = doc?.expEventExtraMultiplierRoleIds;
+  const settingsNeedsWork = Boolean(
+    doc &&
+      (doc.expEventEndAnnouncementSentForExpiresAt != null ||
+        doc.expEventMultiplierExpiresAt != null ||
+        doc.expEventStartedAt != null ||
+        doc.staffEventStartedAt != null ||
+        doc.staffEventExpiresAt != null ||
+        (overrides != null && typeof overrides === "object" && Object.keys(overrides).length > 0) ||
+        (Array.isArray(extraIds) && extraIds.length > 0) ||
+        (doc.expEventMultiplier != null && Number(doc.expEventMultiplier) !== 1)),
+  );
+  let profilesNeedWork = false;
+  if (!settingsNeedsWork) {
+    profilesNeedWork = Boolean(
+      await ActivityUserProfile.exists({
+        guildId: gid,
+        $or: [
+          { "profile.totals.exp.event.rewards": { $exists: true } },
+          { "profile.totals.exp.event.snapshot": { $exists: true } },
+        ],
+      }).catch(() => false),
+    );
+  }
+  if (!settingsNeedsWork && !profilesNeedWork) return;
+
+  global.logger?.info?.(`[EVENT_CLEANUP] Avvio pulizia post-evento per g:${gid}`);
 
   try {
     await GlobalSettings.updateOne(
-      { guildId },
+      { guildId: gid },
       {
         $unset: {
           expEventEndAnnouncementSentForExpiresAt: 1,
@@ -778,7 +816,7 @@ async function performEndOfEventCleanup(client, guildId) {
     );
 
     await ActivityUserProfile.updateMany(
-      { guildId },
+      { guildId: gid },
       {
         $unset: {
           "profile.totals.exp.event.rewards": 1,
@@ -788,13 +826,14 @@ async function performEndOfEventCleanup(client, guildId) {
     );
 
     await ActivityUserProfile.updateMany(
-      { guildId, "profile.totals.exp.event.weekWinners": { $size: 0 } },
+      { guildId: gid, "profile.totals.exp.event.weekWinners": { $size: 0 } },
       { $unset: { "profile.totals.exp.event.weekWinners": 1 } },
     );
 
-    global.logger?.info("[EVENT_CLEANUP] Pulizia completata con successo.");
+    invalidateSettingsCache(gid);
+    global.logger?.info?.("[EVENT_CLEANUP] Pulizia completata con successo.");
   } catch (err) {
-    global.logger?.error("[EVENT_CLEANUP] Errore durante la pulizia post-evento:", err);
+    global.logger?.error?.("[EVENT_CLEANUP] Errore durante la pulizia post-evento:", err);
   }
 }
 
@@ -1132,4 +1171,4 @@ async function getEventDiagnostics(guild) {
   };
 }
 
-module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getEventWeekDateKeys, loadActivityRowsFromDateKeys, getEventDiagnostics, getEventWeekTopThreeTextAndVoice, getEventWeekTopNTextAndVoice, loadActivityRowsFromHourKeys, sendEventWeekAnnouncementToNews, deduplicateTopTwoLists, filterEventTopForWeek };
+module.exports = { startWeeklyActivityWinnersLoop, publishWeeklyActivityWinners, resetWeeklyActivityCounters, getLastCompletedWeekKey, getEventWeekDateKeys, loadActivityRowsFromDateKeys, getEventDiagnostics, getEventWeekTopThreeTextAndVoice, getEventWeekTopNTextAndVoice, loadActivityRowsFromHourKeys, sendEventWeekAnnouncementToNews, deduplicateTopTwoLists, filterEventTopForWeek, performEndOfEventCleanup, trySendEventEndAnnouncementToNews };

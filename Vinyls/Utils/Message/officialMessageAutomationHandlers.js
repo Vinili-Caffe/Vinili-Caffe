@@ -463,7 +463,11 @@ async function handleDisboardBump(message, client) {
   const disboardCooldownMs = (client?.config?.disboard?.cooldownMinutes ?? 120) * 60 * 1000;
   let recordResult;
   try {
-    recordResult = await recordBump(client, message.guild.id, bumpUserId);
+    const bumpAtFromMessage = (() => {
+      const ts = Number(message.createdTimestamp);
+      return Number.isFinite(ts) && ts > 0 ? new Date(ts) : new Date();
+    })();
+    recordResult = await recordBump(client, message.guild.id, bumpUserId, { bumpAt: bumpAtFromMessage });
   } catch (err) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
@@ -562,7 +566,11 @@ async function handleDiscadiaBump(message, client) {
   const bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   try {
-    await recordDiscadiaBump(client, message.guild.id, bumpUserId);
+    const discadiaBumpAt = (() => {
+      const ts = Number(message.createdTimestamp);
+      return Number.isFinite(ts) && ts > 0 ? new Date(ts) : new Date();
+    })();
+    await recordDiscadiaBump(client, message.guild.id, bumpUserId, { bumpAt: discadiaBumpAt });
   } catch (err) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;

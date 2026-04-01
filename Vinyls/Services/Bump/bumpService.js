@@ -121,6 +121,14 @@ function createBumpReminderService(options) {
   }
 
   async function sendReminder(client, guildId) {
+    const gid = String(guildId || "");
+    if (!gid) return false;
+    const cooldownMs = getCooldownMs(client);
+    const fresh = await resolveLean(model.findOne({ guildId: gid })).catch(() => null);
+    if (!fresh?.lastBumpAt || fresh.reminderSentAt) return false;
+    const lastT = new Date(fresh.lastBumpAt).getTime();
+    if (!Number.isFinite(lastT) || Date.now() < lastT + cooldownMs) return false;
+
     const reminderChannelId = getReminderChannelId();
     if (!reminderChannelId) {
       global.logger?.warn?.(
@@ -137,8 +145,10 @@ function createBumpReminderService(options) {
     }
 
     const embedColor = client?.config?.embedInfo || "#6f4e37";
+    const roleIds = [...String(mentionContent || "").matchAll(/<@&(\d+)>/g)].map((m) => m[1]);
     const sent = await channel.send({
       content: mentionContent,
+      ...(roleIds.length ? { allowedMentions: { roles: roleIds } } : {}),
       embeds: [
         new EmbedBuilder()
           .setColor(embedColor)
@@ -153,7 +163,7 @@ function createBumpReminderService(options) {
     if (!sent) return false;
 
     await model
-      .updateOne({ guildId }, { $set: { reminderSentAt: new Date() } })
+      .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date() } })
       .catch((err) =>
         global.logger.error(
           `${errorTag} updateOne reminderSentAt failed:`,
@@ -163,13 +173,15 @@ function createBumpReminderService(options) {
     return true;
   }
 
-  function scheduleRetry(client, guildId, lastBumpAt) {
+  function scheduleRetry(client, guildId, lastBumpAtFallback) {
     const gid = String(guildId || "");
     if (!gid) return;
     const existing = bumpTimers.get(gid);
     if (existing) clearTimeout(existing);
-    const retryTimer = setTimeout(() => {
-      scheduleReminder(client, gid, lastBumpAt);
+    const retryTimer = setTimeout(async () => {
+      const row = await resolveLean(model.findOne({ guildId: gid })).catch(() => null);
+      const at = row?.lastBumpAt ? new Date(row.lastBumpAt) : lastBumpAtFallback;
+      scheduleReminder(client, gid, at);
     }, RETRY_DELAY_MS);
     bumpTimers.set(gid, retryTimer);
   }
@@ -278,8 +290,11 @@ function createBumpReminderService(options) {
     return { doc, previousLastBumpAt, previousLastBumpUserId, previousReminderSentAt };
   }
 
-  async function recordBump(client, guildId, userId) {
-    const result = await setBumpAt(client, guildId, new Date(), userId);
+  async function recordBump(client, guildId, userId, extra = {}) {
+    const raw = extra?.bumpAt;
+    const bumpAt =
+      raw instanceof Date && !Number.isNaN(raw.getTime()) ? raw : new Date();
+    const result = await setBumpAt(client, guildId, bumpAt, userId);
     return result;
   }
 
@@ -341,6 +356,7 @@ function startBumpDueReminderSweepLoop(client) {
     );
   };
   setInterval(tick, BUMP_DUE_REMINDER_SWEEP_MS);
+  tick();
 }
 
 function getVoteCooldownMs(client) {

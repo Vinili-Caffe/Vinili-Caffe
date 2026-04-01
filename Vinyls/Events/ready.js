@@ -20,7 +20,7 @@ const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require(
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
-const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
+const { startWeeklyActivityWinnersLoop, trySendEventEndAnnouncementToNews } = require("../Services/Community/weeklyActivityWinnersService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
@@ -164,14 +164,14 @@ function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
 function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
   return [
     {
-      label: "restore bump reminders",
-      enabled: primaryScheduler,
-      run: () => restoreBumpReminders(client),
-    },
-    {
       label: "process recent automation messages (vote, bump)",
       enabled: primaryScheduler,
       run: () => processAllRecentAutomationMessages(client),
+    },
+    {
+      label: "restore bump reminders",
+      enabled: primaryScheduler,
+      run: () => restoreBumpReminders(client),
     },
     {
       label: "run due one-time reminders",
@@ -205,6 +205,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
           );
         }
       },
+    },
+    {
+      label: "activity EXP event end announcement / DB cleanup",
+      enabled: primaryScheduler,
+      run: () => trySendEventEndAnnouncementToNews(client),
     },
     {
       label: "startup sync queue",
