@@ -694,6 +694,13 @@ module.exports = {
         client._deferredStartupRunning = false;
       });
     }
+    if (primaryScheduler) {
+      void runStartupPanels(client, "ready").catch(() => {});
+      const retryPanels = setTimeout(() => {
+        void runStartupPanels(client, "ready-retry").catch(() => {});
+      }, STARTUP_PANELS_RETRY_MS);
+      retryPanels.unref?.();
+    }
 
     const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";
     if (!cleanupDisabled) {

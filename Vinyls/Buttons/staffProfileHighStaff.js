@@ -1,35 +1,10 @@
-const {
-  ModalBuilder,
-  ActionRowBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-} = require("discord.js");
+const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const {
-  STAFF_HP_PREFIX,
-  viewerCanUsePartnerPointsPanel,
-  viewerIsFounderOrCoFounder,
-  SECTION_HOME,
-  SECTION_VALUTAZIONI,
-  SECTION_WARN,
-  SECTION_PAUSE,
-  SECTION_STATS,
-  SECTION_MODSTATS,
-  SECTION_PARTNER_LB,
-  buildStaffProfilePayload,
-} = require("../Utils/Staff/staffProfilePanelRuntime");
-const {
-  runProfileStaffPex,
-  runProspectStaffPex,
-  runProspectStaffPexToPartnerManager,
-  runProfileStaffDepex,
-  runProfileStaffWarnAdd,
-  runProfileStaffWarnRemove,
-} = require("../Utils/Staff/staffPanelActions");
+const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel, viewerIsFounderOrCoFounder, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB, buildStaffProfilePayload } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
-
 const MODAL_PREFIX = "staff_hp_modal";
 const IN_REASON = "staff_hp_reason";
 const IN_IDX = "staff_hp_idx";
@@ -37,19 +12,16 @@ const IN_PPM_AMOUNT = "staff_hp_ppm_amount";
 const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
-
-const STAFF_HP_SECTIONS = new Set([
-  SECTION_HOME,
-  SECTION_VALUTAZIONI,
-  SECTION_WARN,
-  SECTION_PAUSE,
-  SECTION_STATS,
-  SECTION_MODSTATS,
-  SECTION_PARTNER_LB,
-]);
-
-const TITLE_BY_ACTION = {
-  pex: "Motivo pex",
+const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB]);
+const TITLE_BY_ACTION = { pex: "Motivo pex",
+  pex_helper: "Motivo pex Helper",
+  pex_mod: "Motivo pex Mod",
+  pex_coord: "Motivo pex Coordinator",
+  pex_supervisor: "Motivo pex Supervisor",
+  pex_admin: "Motivo pex Admin",
+  pex_manager: "Motivo pex Manager",
+  pex_cofounder: "Motivo pex Co-Founder",
+  pex_founder: "Motivo pex Founder",
   pex_pm: "Motivo pex Partner Manager",
   depex: "Motivo depex",
   depex_staff: "Motivo depex (scala staff)",
@@ -101,7 +73,6 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
     const msg = interaction.message;
     if (msg && typeof msg.edit === "function") await msg.edit(payload);
   } catch {
-    // Messaggio non modificabile o pannello non più valido
   }
 }
 
@@ -114,6 +85,14 @@ function parseStaffHpButton(customId) {
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
   const allowed = new Set([
     "pex",
+    "pex_helper",
+    "pex_mod",
+    "pex_coord",
+    "pex_supervisor",
+    "pex_admin",
+    "pex_manager",
+    "pex_cofounder",
+    "pex_founder",
     "pex_pm",
     "depex",
     "depex_staff",
@@ -141,6 +120,14 @@ function parseStaffHpModal(customId) {
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
   const allowed = new Set([
     "pex",
+    "pex_helper",
+    "pex_mod",
+    "pex_coord",
+    "pex_supervisor",
+    "pex_admin",
+    "pex_manager",
+    "pex_cofounder",
+    "pex_founder",
     "pex_pm",
     "depex",
     "depex_staff",
@@ -447,21 +434,32 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
-    if (parsed.action === "pex") {
+    if (parsed.action === "pex" || parsed.action.startsWith("pex_")) {
       if (!reason) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
-      res = targetMember && memberHasStaffRole(targetMember)
-        ? await runProfileStaffPex(guild, interaction.client, targetUser, interaction.user, reason)
-        : await runProspectStaffPex(guild, interaction.client, targetUser, interaction.user, reason);
-    } else if (parsed.action === "pex_pm") {
-      if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
-        return true;
+      if (parsed.action === "pex_pm") {
+        res = await runProspectStaffPexToPartnerManager(guild, interaction.client, targetUser, interaction.user, reason);
+      } else {
+        const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
+        if (targetMember && memberHasStaffRole(targetMember)) {
+          res = await runProfileStaffPex(guild, interaction.client, targetUser, interaction.user, reason);
+        } else {
+          const roleByAction = {
+            pex_helper: IDs.roles.Helper,
+            pex_mod: IDs.roles.Mod,
+            pex_coord: IDs.roles.Coordinator,
+            pex_supervisor: IDs.roles.Supervisor,
+            pex_admin: IDs.roles.Admin,
+            pex_manager: IDs.roles.Manager,
+            pex_cofounder: IDs.roles.CoFounder,
+            pex_founder: IDs.roles.Founder,
+          };
+          const selectedRoleId = roleByAction[parsed.action] || IDs.roles.Helper;
+          res = await runProspectStaffPex(guild, interaction.client, targetUser, interaction.user, reason, selectedRoleId);
+        }
       }
-      res = await runProspectStaffPexToPartnerManager(guild, interaction.client, targetUser, interaction.user, reason);
     } else if (parsed.action === "depex") {
       if (!reason) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});

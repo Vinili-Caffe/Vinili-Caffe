@@ -132,19 +132,51 @@ function memberHasPmAndStaffLadderForDualDepex(member) {
   return Boolean(getHighestStaffLadderRoleIdForPanel(member));
 }
 
-function buildProspectPexRow(viewerId, targetId) {
+function buildProspectPexRows(viewerId, targetId) {
   const v = String(viewerId);
   const t = String(targetId);
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("pex", v, t, SECTION_HOME))
-      .setLabel("Pex (Member → Helper)")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME))
-      .setLabel("Pex → Partner Manager")
-      .setStyle(ButtonStyle.Primary),
-  );
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME))
+        .setLabel("Member → Helper")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_mod", v, t, SECTION_HOME))
+        .setLabel("Member → Mod")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_coord", v, t, SECTION_HOME))
+        .setLabel("Member → Coord")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_supervisor", v, t, SECTION_HOME))
+        .setLabel("Member → Supervisor")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_admin", v, t, SECTION_HOME))
+        .setLabel("Member → Admin")
+        .setStyle(ButtonStyle.Primary),
+    ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_manager", v, t, SECTION_HOME))
+        .setLabel("Member → Manager")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_cofounder", v, t, SECTION_HOME))
+        .setLabel("Member → Co-Founder")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_founder", v, t, SECTION_HOME))
+        .setLabel("Member → Founder")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME))
+        .setLabel("Member → Partner Manager")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
 }
 
 function parseItalianDate(value) {
@@ -514,14 +546,14 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   if (profileKind === PROFILE_PROSPECT) {
     const pexComps =
-      viewerIsHighStaff && String(viewerId) !== tid ? [buildProspectPexRow(String(viewerId), tid)] : [];
+      viewerIsHighStaff && String(viewerId) !== tid ? buildProspectPexRows(String(viewerId), tid) : [];
     return {
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
           .setDescription(
             `<:VC_Staff:1479443779571155086> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
-            "<:VC_Verified:1482532479637127188> Usa **Pex** per **Member → Helper** o **Pex → Partner Manager**. Dopo il pex, il pannello si aggiorna da solo; altrimenti **`+staff`**.",
+            "<:VC_Verified:1482532479637127188> Usa i pulsanti PEX per promuovere direttamente da **Member** verso un ruolo staff (o Partner Manager). Dopo il pex, il pannello si aggiorna da solo; altrimenti **`+staff`**.",
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],

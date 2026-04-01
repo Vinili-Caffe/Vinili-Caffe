@@ -129,6 +129,7 @@ async function applyPexSideEffects(
   staffChannel,
   user,
 ) {
+  const hadAnyStaffRoleBefore = memberHasStaffRole(member);
   if (roleId === ROLE_PARTNER_MANAGER) {
     await sendPartnerManagerWelcome(pmChannel, user);
   }
@@ -146,7 +147,6 @@ async function applyPexSideEffects(
     await member.roles.add(ROLE_STAFF);
     const verification = await ensureRoleState(member, ROLE_STAFF, true);
     if (!verification.ok) throw new Error("Pex side effect failed: staff role missing after helper promotion.");
-    await sendHelperWelcome(staffChannel, user);
     member = verification.member;
   }
 
@@ -197,6 +197,11 @@ async function applyPexSideEffects(
     await member.roles.remove(ROLE_CO_OWNER);
     const verification = await ensureRoleState(member, ROLE_CO_OWNER, false);
     if (!verification.ok) throw new Error("Pex side effect failed: co-owner role still present after owner promotion.");
+  }
+
+  const hasAnyStaffRoleNow = memberHasStaffRole(member);
+  if (!hadAnyStaffRoleBefore && hasAnyStaffRoleNow) {
+    await sendHelperWelcome(staffChannel, user);
   }
 }
 
@@ -282,7 +287,7 @@ function getNextLadderRoleId(currentId) {
   return STAFF_LADDER_ROLES[idx + 1];
 }
 
-async function runProspectStaffPex(guild, client, targetUser, actorUser, reason) {
+async function runProspectStaffPex(guild, client, targetUser, actorUser, reason, targetRoleId = ROLE_HELPER) {
   if (String(targetUser.id) === String(actorUser.id)) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
   }
@@ -298,11 +303,13 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason)
         "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+staff`).",
     };
   }
-  if (!ROLE_HELPER) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo Helper non configurato negli ID." };
+  const roleAfter = String(targetRoleId || "");
+  if (!roleAfter || !STAFF_LADDER_ROLES.includes(roleAfter)) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo target non valido per il PEX iniziale staff." };
   }
-  if (member.roles.cache.has(ROLE_HELPER)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente ha già il ruolo Helper." };
+  const roleAfterName = guild.roles.cache.get(roleAfter)?.name || roleAfter;
+  if (member.roles.cache.has(roleAfter)) {
+    return { ok: false, message: `<:VC_Attention:1482534443632558151> L'utente ha già il ruolo ${roleAfterName}.` };
   }
   if (ROLE_MEMBER && !member.roles.cache.has(ROLE_MEMBER)) {
     return {
@@ -312,7 +319,6 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason)
     };
   }
   const roleBeforeForHistory = ROLE_MEMBER || "";
-  const roleAfter = ROLE_HELPER;
   const pmChannel =
     guild.channels.cache.get(IDs.channels?.partnersChat) ||
     (await getGuildChannelCached(guild, IDs.channels?.partnersChat));
@@ -326,7 +332,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason)
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare Helper." };
+    return { ok: false, message: `<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare ${roleAfterName}.` };
   }
   try {
     await applyPexSideEffects(
