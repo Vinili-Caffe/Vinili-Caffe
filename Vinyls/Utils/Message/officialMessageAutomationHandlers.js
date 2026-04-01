@@ -72,16 +72,21 @@ function extractUserIdFromText(text) {
 /** Stesso messageId su messageUpdate (embed che si aggiorna): TTL breve faceva ripetere recordBump e slittare il reminder. */
 const BUMP_MESSAGE_DEDUPE_TTL_MS = 48 * 60 * 60 * 1000;
 
-function shouldSkipProcessedBump(key, ttlMs = BUMP_MESSAGE_DEDUPE_TTL_MS) {
-  if (!key) return false;
+function claimBumpDedupeKey(key, ttlMs = BUMP_MESSAGE_DEDUPE_TTL_MS) {
+  if (!key) return true;
   const now = Date.now();
   const last = processedBumpMessages.get(key) || 0;
-  if (last && now - last < ttlMs) return true;
+  if (last && now - last < ttlMs) return false;
   processedBumpMessages.set(key, now);
   for (const [k, ts] of processedBumpMessages.entries()) {
     if (now - ts > ttlMs) processedBumpMessages.delete(k);
   }
-  return false;
+  return true;
+}
+
+function releaseBumpDedupeKey(key) {
+  if (!key) return;
+  processedBumpMessages.delete(key);
 }
 
 function logBumpDetectionOnce(tag, guildId, details) {
@@ -441,6 +446,8 @@ async function handleDisboardBump(message, client) {
     !hasDisboardBumpFailure &&
     (isStrictDisboardSource || isDisboardByContentFallback);
   if (!isBump) return false;
+  const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
+  if (!claimBumpDedupeKey(dedupeKey)) return true;
   const detectionSource =
     isStrictDisboardSource ? "strict" : "fallback";
   logBumpDetectionOnce(
@@ -448,16 +455,19 @@ async function handleDisboardBump(message, client) {
     message.guild.id,
     `source=${detectionSource} msg=${message.id} channel=${message.channelId}`,
   );
-
-  const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
-  if (shouldSkipProcessedBump(dedupeKey)) return true;
   const bumpUserId =
     message.interaction?.user?.id ||
     message.interactionMetadata?.user?.id ||
     null;
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   const disboardCooldownMs = (client?.config?.disboard?.cooldownMinutes ?? 120) * 60 * 1000;
-  const recordResult = await recordBump(client, message.guild.id, bumpUserId);
+  let recordResult;
+  try {
+    recordResult = await recordBump(client, message.guild.id, bumpUserId);
+  } catch (err) {
+    releaseBumpDedupeKey(dedupeKey);
+    throw err;
+  }
   let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
     "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **due ore!**\n" +
     bumpMention;
@@ -548,10 +558,15 @@ async function handleDiscadiaBump(message, client) {
   if (!isBump) return false;
 
   const dedupeKey = `discadia:${message.guild.id}:${message.id}`;
-  if (shouldSkipProcessedBump(dedupeKey)) return true;
+  if (!claimBumpDedupeKey(dedupeKey)) return true;
   const bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
-  await recordDiscadiaBump(client, message.guild.id, bumpUserId);
+  try {
+    await recordDiscadiaBump(client, message.guild.id, bumpUserId);
+  } catch (err) {
+    releaseBumpDedupeKey(dedupeKey);
+    throw err;
+  }
   let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
     "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" +
     bumpMention;
