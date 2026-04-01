@@ -31,6 +31,13 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
   let clan = null;
   if (userForClan) {
     clan = userForClan.clan ?? null;
+    // In alcuni userUpdate il campo clan non arriva: fallback REST per sync live.
+    if (!clan && client && member?.guild?.id) {
+      try {
+        const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);
+        clan = raw.user?.clan ?? null;
+      } catch (_) { }
+    }
   } else if (options.refreshFromApi === true && client && member?.guild?.id) {
     try {
       const raw = await client.rest.get(`/guilds/${member.guild.id}/members/${member.id}`);

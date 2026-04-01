@@ -20,7 +20,7 @@ module.exports = {
       const usage = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("Comando evento")
-        .setDescription("`+evento classifica` – Mostra la classifica dell'evento (con bottone extra Classifica EXP).");
+        .setDescription("`+evento classifica` – Mostra la classifica dell'evento (con solo bottone Classifica EXP).");
       await safeMessageReply(message, {
         embeds: [usage],
         allowedMentions: { repliedUser: false },

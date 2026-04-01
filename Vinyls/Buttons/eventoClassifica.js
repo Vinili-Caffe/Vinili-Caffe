@@ -106,16 +106,7 @@ async function buildEventoClassificaPayload(guild, selectedWeek, currentEventWee
     .setFooter({ text: `Settimana ${week} di evento • Classifica settimanale` })
     .setTimestamp();
 
-  const row = new ActionRowBuilder();
-  for (let w = 1; w <= maxWeek; w++) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${EVENTO_CLASSIFICA_PREFIX}${w}`)
-        .setEmoji(`<a:VC_Calendar:1482706208149475358>`)
-        .setStyle(w === week ? ButtonStyle.Primary : ButtonStyle.Secondary)
-    );
-  }
-  row.addComponents(
+  const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(EVENTO_CLASSIFICA_EXP_PREFIX)
       .setLabel("Classifica EXP")
@@ -155,17 +146,7 @@ async function buildEventoClassificaExpOnlyPayload(guild, selectedWeek = 1, curr
     .setFooter({ text: "Solo EXP" })
     .setTimestamp();
 
-  const maxWeek = Math.max(1, Math.min(MAX_WEEKS, Number(currentEventWeek || selectedWeek || 1)));
-  const row = new ActionRowBuilder();
-  for (let w = 1; w <= maxWeek; w++) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${EVENTO_CLASSIFICA_PREFIX}${w}`)
-        .setEmoji("<a:VC_Calendar:1482706208149475358>")
-        .setStyle(ButtonStyle.Secondary),
-    );
-  }
-  row.addComponents(
+  const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(EVENTO_CLASSIFICA_EXP_PREFIX)
       .setLabel("Classifica EXP")
