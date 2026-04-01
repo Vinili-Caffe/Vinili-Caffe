@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildExpSettings } = require("../../Services/Community/expService");
 const { getEventWeekNumber } = require("../../Services/Community/activityEventRewardsService");
-const { buildEventoClassificaPayload } = require("../../Services/Community/eventoClassificaService");
+const { buildEventoClassificaExpOnlyPayload } = require("../../Services/Community/eventoClassificaService");
 
 module.exports = {
   name: "evento",
@@ -20,7 +20,7 @@ module.exports = {
       const usage = new EmbedBuilder()
         .setColor("#6f4e37")
         .setTitle("Comando evento")
-        .setDescription("`+evento classifica` – Mostra la classifica dell'evento (con solo bottone Classifica EXP).");
+        .setDescription("`+evento classifica` – Mostra direttamente la classifica EXP dell'evento.");
       await safeMessageReply(message, {
         embeds: [usage],
         allowedMentions: { repliedUser: false },
@@ -31,7 +31,7 @@ module.exports = {
     const second = String(args[1] || "").toLowerCase().trim();
     if (second === "staff") {
       await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> La classifica staff non esiste piu. Usa `+evento classifica` o il bottone **Classifica EXP**.",
+        content: "<:vegax:1443934876440068179> La classifica staff non esiste piu. Usa `+evento classifica`.",
         allowedMentions: { repliedUser: false },
       });
       return;
@@ -47,9 +47,10 @@ module.exports = {
     }
 
     const currentWeek = Math.max(1, Math.min(4, Number(getEventWeekNumber(settings) || 1)));
-    const payload = await buildEventoClassificaPayload(message.guild, currentWeek, currentWeek);
+    const payload = await buildEventoClassificaExpOnlyPayload(message.guild, currentWeek, currentWeek);
     await safeMessageReply(message, {
       ...payload,
+      components: [],
       allowedMentions: { repliedUser: false },
     });
   },
