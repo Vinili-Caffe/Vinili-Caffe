@@ -553,7 +553,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setColor("#6f4e37")
           .setDescription(
             `<:VC_Staff:1479443779571155086> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
-            "<:VC_Verified:1482532479637127188> Usa i pulsanti PEX per promuovere direttamente da **Member** verso un ruolo staff (o Partner Manager). Dopo il pex, il pannello si aggiorna da solo; altrimenti **`+staff`**.",
+            "<a:VC_Verified:1482532479637127188> Usa i pulsanti per pexare direttamente da **Member** verso un ruolo Staff o Partner Manager.",
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],

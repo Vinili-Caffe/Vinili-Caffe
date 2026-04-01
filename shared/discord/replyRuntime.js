@@ -32,6 +32,63 @@ function isUnknownMessageReferenceError(err) {
   return err?.code === 50035 && Boolean(err?.rawError?.errors?.message_reference);
 }
 
+const AUTO_CLEANUP_ERROR_TTL_MS = 3000;
+const ERROR_HINTS = [
+  "errore",
+  "error",
+  "non valido",
+  "invalid",
+  "permesso",
+  "permission",
+  "non puoi",
+  "impossibile",
+  "attendi",
+  "warning",
+  "warn",
+  "not found",
+];
+
+function normalizeLower(value) {
+  return String(value || "").toLowerCase();
+}
+
+function textLooksLikeError(value) {
+  const text = normalizeLower(value);
+  if (!text.trim()) return false;
+  if (text.includes("vegax")) return true;
+  return ERROR_HINTS.some((hint) => text.includes(hint));
+}
+
+function payloadLooksLikeError(payload) {
+  if (!payload) return false;
+  if (typeof payload === "string") return textLooksLikeError(payload);
+  if (typeof payload !== "object") return false;
+  if (textLooksLikeError(payload.content)) return true;
+  const embeds = Array.isArray(payload.embeds) ? payload.embeds : [];
+  return embeds.some((embed) => {
+    if (!embed) return false;
+    const title = embed.title || embed?.data?.title;
+    const description = embed.description || embed?.data?.description;
+    const color = embed.color ?? embed?.data?.color;
+    if (textLooksLikeError(title) || textLooksLikeError(description)) return true;
+    return String(color).toLowerCase() === "red";
+  });
+}
+
+function scheduleDeleteMessage(messageLike, ttlMs = AUTO_CLEANUP_ERROR_TTL_MS) {
+  if (!messageLike?.delete) return;
+  const timer = setTimeout(() => {
+    messageLike.delete().catch(() => {});
+  }, ttlMs);
+  timer.unref?.();
+}
+
+function maybeAutoCleanupErrorReply(sourceMessage, replyMessage, payload) {
+  if (!payloadLooksLikeError(payload)) return;
+  if (replyMessage) scheduleDeleteMessage(replyMessage, AUTO_CLEANUP_ERROR_TTL_MS);
+  if (sourceMessage?.deletable) scheduleDeleteMessage(sourceMessage, AUTO_CLEANUP_ERROR_TTL_MS);
+}
+
 function logReplyError(scope, err) {
   if (isUnknownInteractionError(err) || isAlreadyAcknowledgedError(err)) return;
   if (global?.logger?.error) global.logger.error(`[REPLY:${scope}]`, err);
@@ -134,7 +191,9 @@ async function safeMessageReply(message, payload) {
   if (typeof message.reply !== "function") {
     if (message.channel?.send) {
       try {
-        return await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
+        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
+        maybeAutoCleanupErrorReply(message, sent, payload);
+        return sent;
       } catch (err) {
         if (err?.code === 10008) return null;
         logReplyError("message.channel.send(fallback)", err);
@@ -144,12 +203,16 @@ async function safeMessageReply(message, payload) {
     return null;
   }
   try {
-    return await message.reply(payload);
+    const sent = await message.reply(payload);
+    maybeAutoCleanupErrorReply(message, sent, payload);
+    return sent;
   } catch (err) {
     if (err?.code === 10008) return null;
     if (isUnknownMessageReferenceError(err)) {
       try {
-        return await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
+        const sent = await message.channel.send(payloadWithReplyReference(stripMessageReference(payload), message));
+        maybeAutoCleanupErrorReply(message, sent, payload);
+        return sent;
       } catch (fallbackErr) {
         if (fallbackErr?.code === 10008) return null;
         logReplyError("message.reply(reference-fallback)", fallbackErr);
