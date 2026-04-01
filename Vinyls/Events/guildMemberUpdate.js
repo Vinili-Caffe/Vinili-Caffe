@@ -636,11 +636,18 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
 
 function computeBoostDelta(oldMember, newMember, guildId) {
   const currentCount = Number(newMember.guild.premiumSubscriptionCount || 0);
-  const oldCountFromEvent=Number(oldMember?.guild?.premiumSubscriptionCount||0,);
-  const prevCount=typeof boostCountCache.get(guildId)==="number"?boostCountCache.get(guildId):oldCountFromEvent;
-  const effectivePrev = oldCountFromEvent > 0 ? oldCountFromEvent : prevCount;
+  const oldCountFromEvent = Number(oldMember?.guild?.premiumSubscriptionCount || 0);
+  const prevCount =
+    typeof boostCountCache.get(guildId) === "number"
+      ? boostCountCache.get(guildId)
+      : oldCountFromEvent;
+  // oldMember/newMember condividono spesso la stessa Guild: il count può essere già aggiornato su "old".
+  const effectivePrev = Math.min(
+    prevCount,
+    oldCountFromEvent > 0 ? oldCountFromEvent : prevCount,
+  );
   const countIncreased = currentCount > effectivePrev;
-  const boostDelta=countIncreased?Math.max(1,currentCount-effectivePrev):0;
+  const boostDelta = countIncreased ? Math.max(1, currentCount - effectivePrev) : 0;
 
   return { currentCount, countIncreased, boostDelta };
 }

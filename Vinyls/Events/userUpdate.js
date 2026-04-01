@@ -18,6 +18,26 @@ const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const CORE_EXEMPT_USER_IDS = new Set(["1466495522474037463", "1329118940110127204"]);
 const USER_UPDATE_DEDUPE_MS = 15_000;
 const recentUserUpdateActions = new Map();
+/** USER_UPDATE spesso non include `clan`: sync via REST quando il payload non mostra cambiamenti. */
+const CLAN_TAG_USER_UPDATE_THROTTLE_MS = 10_000;
+const clanTagUserUpdateLastSync = new Map();
+
+async function maybeThrottledClanTagSyncFromUserUpdate(newUser, resolvedClient) {
+  if (!newUser?.id || newUser.bot) return;
+  const mainGuildId = IDs.guilds.main;
+  const mainGuild = resolvedClient.guilds.cache.get(mainGuildId);
+  if (!mainGuild) return;
+  const uid = String(newUser.id);
+  const now = Date.now();
+  const last = Number(clanTagUserUpdateLastSync.get(uid) || 0);
+  if (now - last < CLAN_TAG_USER_UPDATE_THROTTLE_MS) return;
+  clanTagUserUpdateLastSync.set(uid, now);
+  const member =
+    mainGuild.members.cache.get(uid) ||
+    (await getGuildMemberCached(mainGuild, uid, { preferFresh: true }));
+  if (!member) return;
+  await syncClanTagRoles(member);
+}
 
 function buildJoinGateTriggeredEmbed(member, reason) {
   return new EmbedBuilder()
@@ -88,7 +108,10 @@ module.exports = {
         const clanGuildChanged = oldClanGuild !== newClanGuild;
         const clanPresenceChanged = Boolean(oldClan) !== Boolean(newClan);
         const clanChanged = clanTagChanged || clanGuildChanged || clanPresenceChanged;
-        if (!usernameChanged && !globalNameChanged && !clanChanged) return;
+        if (!usernameChanged && !globalNameChanged && !clanChanged) {
+          await maybeThrottledClanTagSyncFromUserUpdate(newUser, resolvedClient);
+          return;
+        }
 
         if (clanChanged) {
           const mainGuildId = IDs.guilds.main;
