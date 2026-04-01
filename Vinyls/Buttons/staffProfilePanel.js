@@ -41,6 +41,7 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
+    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
     const payload = await buildStaffProfilePayload(
       interaction.guild,
       plb.targetId,
@@ -49,7 +50,11 @@ async function execute(interaction) {
       SECTION_PARTNER_LB,
       { partnerLbMode: plb.mode },
     );
-    await safeUpdatePanelInteraction(interaction, payload);
+    if (deferred && interaction.message) {
+      await interaction.message.edit(payload).catch(() => {});
+    } else {
+      await safeUpdatePanelInteraction(interaction, payload);
+    }
     return true;
   }
 
@@ -65,6 +70,7 @@ async function execute(interaction) {
     return true;
   }
   const section = String(interaction.values?.[0] || SECTION_HOME);
+  const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
   const payload = await buildStaffProfilePayload(
     interaction.guild,
     parsed.targetId,
@@ -72,7 +78,11 @@ async function execute(interaction) {
     interaction.client,
     section,
   );
-  await safeUpdatePanelInteraction(interaction, payload);
+  if (deferred && interaction.message) {
+    await interaction.message.edit(payload).catch(() => {});
+  } else {
+    await safeUpdatePanelInteraction(interaction, payload);
+  }
   return true;
 }
 

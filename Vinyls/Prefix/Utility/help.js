@@ -372,6 +372,10 @@ function getSubcommandEntries(commandName, dataJson, permissionConfig, commandTy
   return entries;
 }
 
+function shouldIncludeSlashCommandInHelp(command) {
+  return Boolean(command) && !command.skipDeploy;
+}
+
 function buildEntries(client, permissions) {
   const entries = [];
 
@@ -409,6 +413,7 @@ function buildEntries(client, permissions) {
 
   const seenSlash = new Set();
   for (const command of client.commands.values()) {
+    if (!shouldIncludeSlashCommandInHelp(command)) continue;
     const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const commandType = dataJson.type || ApplicationCommandType.ChatInput;
@@ -446,6 +451,7 @@ function buildEntries(client, permissions) {
   }
 
   for (const command of client.commands.values()) {
+    if (!shouldIncludeSlashCommandInHelp(command)) continue;
     const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const commandType = dataJson.type || ApplicationCommandType.ChatInput;
@@ -1077,6 +1083,7 @@ function buildSlashDetailedHelpEmbed(query, entries, context = {}) {
   const seen = new Set();
   const slashCommands = [];
   for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
+    if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
     const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const type = dataJson.type || ApplicationCommandType.ChatInput;
@@ -1310,6 +1317,7 @@ function buildSubcommandFallbackEmbed(query, visibleEntries, context = {}) {
   const seen = new Set();
   const slashCommands = [];
   for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
+    if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
     const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
     if (!dataJson?.name) continue;
     const type = dataJson.type || ApplicationCommandType.ChatInput;
