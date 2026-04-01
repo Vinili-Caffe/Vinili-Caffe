@@ -6,9 +6,10 @@ const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket"
 const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
-const { EPHEMERAL_TTL_NORMAL_MS, EPHEMERAL_TTL_LONG_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
+const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const COUNTING_CHANNEL_ID = IDs.channels.counting;
 const COUNTING_ALLOWED_REGEX = /^[0-9+\-*/x:() ]+$/;
+const AFK_RETURN_TTL_MS = 3000;
 const WORD_REACTIONS_CONFIG_PATH = path.join(__dirname, "..", "Config", "wordReactions.json");
 const WORD_REACTIONS_MAX_REACTIONS = 20;
 const WORD_REACTIONS_TIMEZONE = "Europe/Rome";
@@ -205,7 +206,7 @@ async function handleAfk(message) {
       message,
       `Bentornato <@${userId}>, ho rimosso il tuo AFK.`,
     );
-    if (msg) scheduleMessageDeletion(msg, EPHEMERAL_TTL_LONG_MS);
+    if (msg) scheduleMessageDeletion(msg, AFK_RETURN_TTL_MS);
   }
 
   const afkCandidates = new Map();

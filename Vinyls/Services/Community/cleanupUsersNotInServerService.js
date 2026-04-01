@@ -141,22 +141,9 @@ async function runCleanupAfterMemberLeave(client, guild) {
   if (!client?.guilds || !guild?.id) return;
   const guildId = String(guild.id);
   const memberIds = Array.from(guild.members?.cache?.values() ?? []).map((m) => m?.id).filter(Boolean).map(String);
-  let grandTotal = 0;
-  const { total, details } = await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
-  if (total > 0) {
-    grandTotal += total;
-    const guildLabel = guild.name ? `${guild.name} (${guildId})` : guildId;
-    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] dopo leave " + guildLabel + ": rimossi " + total + " documenti. " + details.map((d) => d.name + " " + d.count).join(", "));
-  }
+  await runCleanupUsersNotInServer(guildId, memberIds, { dryRun: false, includeUserScoped: false });
   const allIds = collectAllMemberUserIdsFromClient(client);
-  const userScopedCleanup = await runCleanupUserScopedNotInAnyServer(allIds, { dryRun: false });
-  if (userScopedCleanup.total > 0) {
-    grandTotal += userScopedCleanup.total;
-    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] User-scoped global cleanup (dopo leave): rimossi " + userScopedCleanup.total + " documenti. " + userScopedCleanup.details.map((d) => d.name + " " + d.count).join(", "));
-  }
-  if (grandTotal > 0) {
-    global.logger?.info?.("[CLEANUP USERS NOT IN SERVER] Totale dopo leave: " + grandTotal + " documenti.");
-  }
+  await runCleanupUserScopedNotInAnyServer(allIds, { dryRun: false });
 }
 
 module.exports = {

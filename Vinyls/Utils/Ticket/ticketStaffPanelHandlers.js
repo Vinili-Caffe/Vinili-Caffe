@@ -164,9 +164,9 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         .setMinValues(1)
         .setMaxValues(1)
         .addOptions(
-          { label: "Supporto", value: "supporto", description: "Prima categoria" },
-          { label: "Partnership", value: "partnership", description: "Seconda categoria" },
-          { label: "High Staff", value: "highstaff", description: "Terza categoria" },
+          { label: "SUPPORTO", value: "supporto", description: "SUPPORTO" },
+          { label: "PARTNERSHIP", value: "partnership", description: "PARTNERSHIP" },
+          { label: "HIGH STAFF", value: "highstaff", description: "HIGH STAFF" },
         ),
     );
     await interaction.reply({

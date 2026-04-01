@@ -16,6 +16,8 @@ const VOTE_URL = IDs.links.vote;
 const VOTE_ROLE_DURATION_MS = 24 * 60 * 60 * 1000;
 const MEDIA_BLOCK_ROLE_IDS = [IDs.roles.PicPerms].filter(Boolean);
 const processedBumpMessages = new Map();
+const bumpDetectionLogAtByGuild = new Map();
+const BUMP_DETECTION_LOG_COOLDOWN_MS = 10 * 60 * 1000;
 const MEMBER_FETCH_CACHE_TTL_MS = 15_000;
 const memberFetchCache = new Map();
 
@@ -80,6 +82,17 @@ function shouldSkipProcessedBump(key, ttlMs = BUMP_MESSAGE_DEDUPE_TTL_MS) {
     if (now - ts > ttlMs) processedBumpMessages.delete(k);
   }
   return false;
+}
+
+function logBumpDetectionOnce(tag, guildId, details) {
+  const gid = String(guildId || "");
+  if (!gid) return;
+  const now = Date.now();
+  const cacheKey = `${tag}:${gid}`;
+  const last = Number(bumpDetectionLogAtByGuild.get(cacheKey) || 0);
+  if (last && now - last < BUMP_DETECTION_LOG_COOLDOWN_MS) return;
+  bumpDetectionLogAtByGuild.set(cacheKey, now);
+  global.logger?.info?.(`${tag} guild=${gid} ${details}`);
 }
 
 /** True se il bot ha già inviato un messaggio di ringraziamento bump in risposta a questo messaggio (evita duplicati dopo riavvio). */
@@ -411,8 +424,9 @@ async function handleDisboardBump(message, client) {
   const isFromDisboardBot = isMessageFromDisboardBot(message, client);
   const hasRegexSuccess =
     /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|\bwas bumped\b|server bumped|you can bump again|bump will be available again)/i.test(joined);
+  const hasBumpWord = /\bbump(?:ed)?\b/i.test(joined);
   const hasDisboardBumpFailure = /already bumped|cannot bump|can\s*'t bump|can't bump|please wait|too early|wait before|failed to bump|bump failed|must be (?:\*\*)?(?:owner|admin)|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|manage server.*bump|bump.*manage server/i.test(joined);
-  const hasBumpSuccessText = hasPatternMatch || hasRegexSuccess;
+  const hasBumpSuccessText = hasPatternMatch || hasRegexSuccess || (hasBumpWord && (isFromDisboardBot || isLikelyCommandChannel));
   const isStrictDisboardSource = isFromDisboardBot;
   const isDisboardByContentFallback =
     isAutomatedSource &&
@@ -427,6 +441,13 @@ async function handleDisboardBump(message, client) {
     !hasDisboardBumpFailure &&
     (isStrictDisboardSource || isDisboardByContentFallback);
   if (!isBump) return false;
+  const detectionSource =
+    isStrictDisboardSource ? "strict" : "fallback";
+  logBumpDetectionOnce(
+    "[DISBOARD BUMP DETECT]",
+    message.guild.id,
+    `source=${detectionSource} msg=${message.id} channel=${message.channelId}`,
+  );
 
   const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
   if (shouldSkipProcessedBump(dedupeKey)) return true;

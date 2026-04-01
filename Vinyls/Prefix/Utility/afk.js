@@ -1,6 +1,8 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { EmbedBuilder, escapeMarkdown } = require("discord.js");
 const { setAfk } = require("../../Services/Community/profileStore");
+const { scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
+const AFK_MISSING_REASON_TTL_MS = 3000;
 
 module.exports = {
   name: "afk",
@@ -11,11 +13,15 @@ module.exports = {
     const userId = message.author.id;
     const guildId = message.guild?.id;
 
-    if (!args || !args.length)
-      return safeMessageReply(
+    if (!args || !args.length) {
+      const prompt = await safeMessageReply(
         message,
         "<:vegax:1443934876440068179> Per favore scrivi un messaggio per impostare il tuo stato AFK.",
       );
+      if (prompt) scheduleMessageDeletion(prompt, AFK_MISSING_REASON_TTL_MS);
+      scheduleMessageDeletion(message, AFK_MISSING_REASON_TTL_MS);
+      return;
+    }
     if (!guildId) return;
 
     if (afkMessage.includes("@everyone") || afkMessage.includes("@here"))
