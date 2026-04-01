@@ -87,6 +87,21 @@ function buildBumpStateModel(kind, stateUserId) {
         lastBumpAt: doc?.bumpState?.[kind]?.lastBumpAt || null,
       }));
     },
+    async findGuildIdsDueForReminderSweep(cooldownMs) {
+      const ms = Number(cooldownMs);
+      if (!Number.isFinite(ms) || ms <= 0) return [];
+      const cutoff = new Date(Date.now() - ms);
+      const docs = await ActivityUserProfile.find({
+        userId: stateUserId,
+        [lastBumpAtPath]: { $exists: true, $ne: null, $lte: cutoff },
+        [reminderSentAtPath]: null,
+      })
+        .select("guildId")
+        .limit(100)
+        .lean()
+        .catch(() => []);
+      return docs.map((d) => String(d?.guildId || "")).filter(Boolean);
+    },
   };
 }
 
@@ -149,31 +164,34 @@ function createBumpReminderService(options) {
   }
 
   function scheduleRetry(client, guildId, lastBumpAt) {
-    const existing = bumpTimers.get(guildId);
+    const gid = String(guildId || "");
+    if (!gid) return;
+    const existing = bumpTimers.get(gid);
     if (existing) clearTimeout(existing);
     const retryTimer = setTimeout(() => {
-      scheduleReminder(client, guildId, lastBumpAt);
+      scheduleReminder(client, gid, lastBumpAt);
     }, RETRY_DELAY_MS);
-    retryTimer.unref?.();
-    bumpTimers.set(guildId, retryTimer);
+    bumpTimers.set(gid, retryTimer);
   }
 
   function scheduleReminder(client, guildId, lastBumpAt) {
+    const gid = String(guildId || "");
+    if (!gid) return;
     if (!suppressInfoLogs) {
       global.logger?.info?.(
-        `${errorTag} scheduleReminder called guild=${guildId} lastBumpAt=${lastBumpAt}`,
+        `${errorTag} scheduleReminder called guild=${gid} lastBumpAt=${lastBumpAt}`,
       );
     }
-    const existing = bumpTimers.get(guildId);
+    const existing = bumpTimers.get(gid);
     if (existing) clearTimeout(existing);
 
     const cooldownMs = getCooldownMs(client);
     const now = Date.now();
     const lastBumpTime = new Date(lastBumpAt).getTime();
     if (!Number.isFinite(lastBumpTime)) {
-      bumpTimers.delete(guildId);
+      bumpTimers.delete(gid);
       global.logger?.warn?.(
-        `${errorTag} scheduleReminder invalid lastBumpAt guild=${guildId}`,
+        `${errorTag} scheduleReminder invalid lastBumpAt guild=${gid}`,
       );
       return;
     }
@@ -181,19 +199,19 @@ function createBumpReminderService(options) {
     const remaining = targetTime - now;
 
     if (remaining <= 0) {
-      bumpTimers.delete(guildId);
+      bumpTimers.delete(gid);
       if (!suppressInfoLogs) {
         global.logger?.info?.(
-          `${logTag} cooldown already passed, sending reminder now guild=${guildId}`,
+          `${logTag} cooldown already passed, sending reminder now guild=${gid}`,
         );
       }
-      sendReminder(client, guildId)
+      sendReminder(client, gid)
         .then((ok) => {
-          if (!ok) scheduleRetry(client, guildId, lastBumpAt);
+          if (!ok) scheduleRetry(client, gid, lastBumpAt);
         })
         .catch((err) => {
           global.logger.error(`${errorTag} sendReminder failed:`, err);
-          scheduleRetry(client, guildId, lastBumpAt);
+          scheduleRetry(client, gid, lastBumpAt);
         });
       return;
     }
@@ -201,34 +219,35 @@ function createBumpReminderService(options) {
     const remainingMinutes = Math.round(remaining / 60_000);
     if (!suppressInfoLogs) {
       global.logger?.info?.(
-        `${logTag} reminder scheduled for guild=${guildId} in ${remainingMinutes} minutes`,
+        `${logTag} reminder scheduled for guild=${gid} in ${remainingMinutes} minutes`,
       );
     }
 
     const timeout = setTimeout(async () => {
       try {
         if (!suppressInfoLogs) {
-          global.logger?.info?.(`${logTag}firing reminder for guild=${guildId}`);
+          global.logger?.info?.(`${logTag}firing reminder for guild=${gid}`);
         }
-        const ok = await sendReminder(client, guildId);
+        const ok = await sendReminder(client, gid);
         if (!ok) {
-          scheduleRetry(client, guildId, lastBumpAt);
+          scheduleRetry(client, gid, lastBumpAt);
           return;
         }
       } catch (error) {
         global.logger.error(errorTag, error);
-        scheduleRetry(client, guildId, lastBumpAt);
+        scheduleRetry(client, gid, lastBumpAt);
       } finally {
-        const active = bumpTimers.get(guildId);
-        if (active === timeout) bumpTimers.delete(guildId);
+        const active = bumpTimers.get(gid);
+        if (active === timeout) bumpTimers.delete(gid);
       }
     }, remaining);
 
-    timeout.unref?.();
-    bumpTimers.set(guildId, timeout);
+    bumpTimers.set(gid, timeout);
   }
 
   async function setBumpAt(client, guildId, bumpAt, userId) {
+    const gid = String(guildId || "");
+    if (!gid) return { doc: null, previousLastBumpAt: null, previousLastBumpUserId: null, previousReminderSentAt: null };
     const bumpDate = bumpAt instanceof Date ? bumpAt : new Date(bumpAt);
     let lastBumpAt = bumpDate;
     let doc = null;
@@ -236,12 +255,12 @@ function createBumpReminderService(options) {
     let previousLastBumpUserId = null;
     let previousReminderSentAt = null;
     try {
-      const before = await resolveLean(model.findOne({ guildId })).catch(() => null);
+      const before = await resolveLean(model.findOne({ guildId: gid })).catch(() => null);
       if (before?.lastBumpAt) previousLastBumpAt = new Date(before.lastBumpAt);
       if (before?.lastBumpUserId) previousLastBumpUserId = String(before.lastBumpUserId);
       if (before?.reminderSentAt) previousReminderSentAt = new Date(before.reminderSentAt);
       doc = await model.findOneAndUpdate(
-        { guildId },
+        { guildId: gid },
         {
           $set: {
             lastBumpAt: bumpDate,
@@ -255,7 +274,7 @@ function createBumpReminderService(options) {
     } catch (err) {
       global.logger?.error?.(`${errorTag} setBumpAt DB failed, scheduling in-memory anyway:`, err?.message || err);
     }
-    scheduleReminder(client, guildId, lastBumpAt);
+    scheduleReminder(client, gid, lastBumpAt);
     return { doc, previousLastBumpAt, previousLastBumpUserId, previousReminderSentAt };
   }
 
@@ -286,13 +305,43 @@ function createBumpReminderService(options) {
     }
   }
 
-  return { recordBump, setBumpAt, restorePendingReminders };
+  async function sweepDueReminders(client) {
+    const cooldownMs = getCooldownMs(client);
+    const guildIds = await model.findGuildIdsDueForReminderSweep(cooldownMs).catch(() => []);
+    for (const rawGid of guildIds) {
+      const g = String(rawGid || "");
+      if (!g) continue;
+      const fresh = await resolveLean(model.findOne({ guildId: g })).catch(() => null);
+      if (!fresh?.lastBumpAt || fresh.reminderSentAt) continue;
+      const t = new Date(fresh.lastBumpAt).getTime();
+      if (!Number.isFinite(t) || Date.now() < t + cooldownMs) continue;
+      const ok = await sendReminder(client, g);
+      if (!ok) scheduleRetry(client, g, fresh.lastBumpAt);
+    }
+  }
+
+  return { recordBump, setBumpAt, restorePendingReminders, sweepDueReminders };
 }
 
 const disboardService = createBumpReminderService({ model: buildBumpStateModel("disboard", DISBOARD_BUMP_USER_ID), configKey: "disboard", defaultCooldownMinutes: 120, mentionContent: "<@&1442569013074071644>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP`!**", url: "https://disboard.org/it/server/1329080093599076474", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER]", suppressInfoLogs: true, });
 
 const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1442569013074071644>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP` SU DISCADIA!**", url: "https://discadia.com/server/viniliecaffe/", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER]", suppressInfoLogs: true, });
 let discadiaVoteReminderLoopHandle = null;
+const BUMP_DUE_REMINDER_SWEEP_MS = 5 * 60 * 1000;
+
+function startBumpDueReminderSweepLoop(client) {
+  if (!client || client._bumpDueReminderSweepStarted) return;
+  client._bumpDueReminderSweepStarted = true;
+  const tick = () => {
+    Promise.all([
+      disboardService.sweepDueReminders(client),
+      discadiaBumpService.sweepDueReminders(client),
+    ]).catch((err) =>
+      global.logger?.error?.("[BUMP DUE REMINDER SWEEP]", err?.message || err),
+    );
+  };
+  setInterval(tick, BUMP_DUE_REMINDER_SWEEP_MS);
+}
 
 function getVoteCooldownMs(client) {
   const raw = client?.config?.discadiaVoteReminder?.cooldownHours;
@@ -427,7 +476,11 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
   const enabled = client?.config?.discadiaVoteReminder?.enabled;
   if (!enabled) return;
 
-  const key = `vote:${userId}`;
+  const uid = String(userId || "");
+  if (!uid) return;
+  const gid = String(guildId || "");
+  if (!gid) return;
+  const key = `vote:${uid}`;
   const existing = discadiaVoteTimers.get(key);
   if (existing) clearTimeout(existing);
 
@@ -435,7 +488,7 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
   const targetTime = new Date(lastVoteAt).getTime() + cooldownMs;
   const delay = targetTime - Date.now();
 
-  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId, userId }).select(`${DISCADIA_VOTE_ROOT}`).lean(); const state = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, guildId, userId)) return; let user = await getUserCached(client, userId); if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, guildId, userId); } await ActivityUserProfile.updateOne({ guildId, userId }, { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
+  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }).select(`${DISCADIA_VOTE_ROOT}`).lean(); const state = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, gid, uid)) return; let user = await getUserCached(client, uid); if (!user && client?.users?.fetch) user = await client.users.fetch(uid).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, gid, uid); } await ActivityUserProfile.updateOne({ guildId: gid, userId: uid }, { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
 
   if (delay <= 0) {
     void run();
@@ -443,7 +496,6 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
   }
 
   const timer = setTimeout(() => run().catch(() => { }), delay);
-  timer.unref?.();
   discadiaVoteTimers.set(key, timer);
 }
 
@@ -583,7 +635,6 @@ function startDiscadiaVoteReminderLoop(client) {
       global.logger.error("[DISCADIA VOTE REMINDER ERROR]", error);
     });
   }, intervalMs);
-  discadiaVoteReminderLoopHandle.unref?.();
   sendDueDiscadiaVoteReminders(client).catch((error) => {
     global.logger.error("[DISCADIA VOTE REMINDER ERROR] (first run)", error);
   });
@@ -668,4 +719,4 @@ async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, c
   return { baseExp, fastBonus, streakBonus, effectiveExp, newStreak, bestStreak, isFast };
 }
 
-module.exports = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, sendDueReminders: sendDueDiscadiaVoteReminders, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs };
+module.exports = { createBumpReminderService, recordBump: disboardService.recordBump, restorePendingReminders: disboardService.restorePendingReminders, startBumpDueReminderSweepLoop, recordDiscadiaBump: discadiaBumpService.recordBump, restorePendingDiscadiaReminders: discadiaBumpService.restorePendingReminders, recordDiscadiaVote, sendDueReminders: sendDueDiscadiaVoteReminders, startDiscadiaVoteReminderLoop, restorePendingVoteReminders, awardBumpVoteExp, getVoteCooldownMs };

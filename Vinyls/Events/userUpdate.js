@@ -12,7 +12,7 @@ const {
   isSecurityProfileImmune,
   hasAdminsProfileCapability,
 } = require("../Services/Moderation/securityProfilesService");
-const { syncClanTagRoles } = require("../Services/Community/clanTagRoleService");
+const { syncClanTagRolesForUserEverywhere } = require("../Services/Community/clanTagRoleService");
 
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const CORE_EXEMPT_USER_IDS = new Set(["1466495522474037463", "1329118940110127204"]);
@@ -24,19 +24,12 @@ const clanTagUserUpdateLastSync = new Map();
 
 async function maybeThrottledClanTagSyncFromUserUpdate(newUser, resolvedClient) {
   if (!newUser?.id || newUser.bot) return;
-  const mainGuildId = IDs.guilds.main;
-  const mainGuild = resolvedClient.guilds.cache.get(mainGuildId);
-  if (!mainGuild) return;
   const uid = String(newUser.id);
   const now = Date.now();
   const last = Number(clanTagUserUpdateLastSync.get(uid) || 0);
   if (now - last < CLAN_TAG_USER_UPDATE_THROTTLE_MS) return;
   clanTagUserUpdateLastSync.set(uid, now);
-  const member =
-    mainGuild.members.cache.get(uid) ||
-    (await getGuildMemberCached(mainGuild, uid, { preferFresh: true }));
-  if (!member) return;
-  await syncClanTagRoles(member);
+  await syncClanTagRolesForUserEverywhere(resolvedClient, newUser, {});
 }
 
 function buildJoinGateTriggeredEmbed(member, reason) {
@@ -114,16 +107,7 @@ module.exports = {
         }
 
         if (clanChanged) {
-          const mainGuildId = IDs.guilds.main;
-          const mainGuild = resolvedClient.guilds.cache.get(mainGuildId);
-          if (mainGuild) {
-            const member =
-              mainGuild.members.cache.get(newUser.id) ||
-              (await getGuildMemberCached(mainGuild, newUser.id, { preferFresh: true }));
-            if (member) {
-              await syncClanTagRoles(member, { userForClan: newUser });
-            }
-          }
+          await syncClanTagRolesForUserEverywhere(resolvedClient, newUser, { userForClan: newUser });
         }
 
         const cfg = getJoinGateConfigSnapshot();

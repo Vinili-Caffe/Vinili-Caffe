@@ -1,7 +1,7 @@
 const config = require("../config.json");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
-const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
+const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
@@ -425,6 +425,7 @@ async function restoreBumpReminders(client) {
   if (voteReminders.status === "rejected")
     global.logger?.error?.("[DISCADIA VOTE REMINDER ERROR]", voteReminders.reason);
 
+  startBumpDueReminderSweepLoop(client);
   startDiscadiaVoteReminderLoop(client);
 }
 
