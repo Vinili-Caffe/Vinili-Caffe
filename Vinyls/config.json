@@ -195,6 +195,7 @@
       "openrouter",
       "local"
     ],
+    "maxCandidateAttempts": 80,
     "minOptions": 2,
     "maxOptions": 10,
     "windowStartHour": 19,

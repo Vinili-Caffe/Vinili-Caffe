@@ -17,6 +17,9 @@ const OPENROUTER_MAX_ROUNDS = 2;
 const OPENROUTER_RETRY_DELAY_MS = 1500;
 const OPENROUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
 const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
+const DEFAULT_MAX_CANDIDATE_ATTEMPTS = 80;
+const MIN_MAX_CANDIDATE_ATTEMPTS = 5;
+const ABS_MAX_CANDIDATE_ATTEMPTS = 250;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
 let openRouterCooldownUntil = 0;
 const WARN_POLL_OPENROUTER_INTERVAL_MS = 60 * 1000;
@@ -258,6 +261,15 @@ function getDuplicateLookbackStart(cfg = {}) {
     ? Math.max(1, Math.min(365, Math.floor(rawDays)))
     : DEFAULT_DUPLICATE_LOOKBACK_DAYS;
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+function resolveMaxCandidateAttempts(cfg = {}) {
+  const raw = Number(cfg?.maxCandidateAttempts);
+  if (!Number.isFinite(raw)) return DEFAULT_MAX_CANDIDATE_ATTEMPTS;
+  return Math.max(
+    MIN_MAX_CANDIDATE_ATTEMPTS,
+    Math.min(ABS_MAX_CANDIDATE_ATTEMPTS, Math.floor(raw)),
+  );
 }
 
 function getRomeTimeParts(date = new Date()) {
@@ -575,8 +587,10 @@ async function runAutoPoll(client) {
 
   const optionTarget = pickNextOptionTarget(client, cfg);
   let payload = null;
+  const maxAttempts = resolveMaxCandidateAttempts(cfg);
 
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < maxAttempts && !payload; i += 1) {
+    if (i > 0 && i % 20 === 0) await sleep(300);
     const candidate = await pickPollCandidate(cfg, optionTarget);
     if (!candidate?.question || !Array.isArray(candidate.answers) || candidate.answers.length < 4) {
       continue;
@@ -584,7 +598,6 @@ async function runAutoPoll(client) {
     if (await isDuplicateQuestion(guild.id, candidate.question)) continue;
     if (await isDuplicatePollContent(guild.id, candidate)) continue;
     payload = candidate;
-    break;
   }
 
   if (!payload) {
