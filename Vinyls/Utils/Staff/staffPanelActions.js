@@ -128,8 +128,10 @@ async function applyPexSideEffects(
   pmChannel,
   staffChannel,
   user,
+  hadStaffRolesBeforePex,
 ) {
-  const hadAnyStaffRoleBefore = memberHasStaffRole(member);
+  const hadAnyStaffRoleBefore =
+    typeof hadStaffRolesBeforePex === "boolean" ? hadStaffRolesBeforePex : memberHasStaffRole(member);
   if (roleId === ROLE_PARTNER_MANAGER) {
     await sendPartnerManagerWelcome(pmChannel, user);
   }
@@ -329,6 +331,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     guild.channels.cache.get(IDs.channels?.pexDepex) ||
     (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const hadStaffRolesBeforePex = false;
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
@@ -341,6 +344,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
       pmChannel,
       staffChat,
       targetUser,
+      hadStaffRolesBeforePex,
     );
   } catch (err) {
     global.logger.error(err);
@@ -373,13 +377,6 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  if (memberHasStaffRole(member)) {
-    return {
-      ok: false,
-      message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+staff`).",
-    };
-  }
   if (!ROLE_PARTNER_MANAGER) {
     return { ok: false, message: "<:vegax:1443934876440068179> Ruolo Partner Manager non configurato negli ID." };
   }
@@ -393,7 +390,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
         "<:VC_Attention:1482534443632558151> Per questa promozione serve il ruolo **Member** sull'utente.",
     };
   }
-  const roleBeforeForHistory = ROLE_MEMBER || "";
+  const roleBeforeForHistory = getHighestLadderRole(member) || (ROLE_MEMBER || "");
   const roleAfter = ROLE_PARTNER_MANAGER;
   const pmChannel =
     guild.channels.cache.get(IDs.channels?.partnersChat) ||
@@ -405,6 +402,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
     guild.channels.cache.get(IDs.channels?.pexDepex) ||
     (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const hadStaffRolesBeforePex = memberHasStaffRole(member);
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
@@ -417,6 +415,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
       pmChannel,
       staffChat,
       targetUser,
+      hadStaffRolesBeforePex,
     );
   } catch (err) {
     global.logger.error(err);
@@ -475,6 +474,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     guild.channels.cache.get(IDs.channels?.pexDepex) ||
     (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
   const staffDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
+  const hadStaffRolesBeforePex = memberHasStaffRole(member);
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
@@ -487,6 +487,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
       pmChannel,
       staffChat,
       targetUser,
+      hadStaffRolesBeforePex,
     );
   } catch (err) {
     global.logger.error(err);

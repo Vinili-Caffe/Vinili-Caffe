@@ -316,6 +316,11 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
             .setEmoji("<a:VC_Verified:1482532479637127188>")
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
+            .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec))
+            .setLabel("Pex Partner Manager")
+            .setEmoji("<:partnermanager:1443651916838998099>")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
             .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec))
             .setLabel("Depex scala staff")
             .setEmoji("<a:VC_Cross:1482532424570376253>")
@@ -335,6 +340,11 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
           .setLabel("Pex")
           .setEmoji("<a:VC_Verified:1482532479637127188>")
           .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec))
+          .setLabel("Pex Partner Manager")
+          .setEmoji("<:partnermanager:1443651916838998099>")
+          .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec))
           .setLabel("Depex")
