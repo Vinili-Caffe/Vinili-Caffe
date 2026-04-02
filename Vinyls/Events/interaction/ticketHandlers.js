@@ -959,6 +959,7 @@ async function handleTicketInteraction(interaction) {
             });
             return true;
           }
+          const previousClaimerId = String(ticketDoc.claimedBy || "").trim();
           const unclaimQuery = isHighStaffActor()
             ? { channelId: interaction.channel.id, open: true }
             : { channelId: interaction.channel.id, open: true, claimedBy: interaction.user.id };
@@ -976,6 +977,11 @@ async function handleTicketInteraction(interaction) {
             return true;
           }
           if (interaction.channel) {
+            if (previousClaimerId) {
+              await interaction.channel.permissionOverwrites.delete(previousClaimerId).catch((err) => {
+                global.logger?.error?.(err);
+              });
+            }
             if (unclaimedTicket.ticketType === "supporto") {
               if (ROLE_STAFF) {
                 await interaction.channel.permissionOverwrites.edit(
