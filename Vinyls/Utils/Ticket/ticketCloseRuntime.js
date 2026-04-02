@@ -130,9 +130,8 @@ async function closeTicket(targetInteraction, motivo, helpers) {
       return;
     }
 
-    const ticket = await Ticket.findOneAndUpdate({ channelId: targetInteraction.channel.id, open: true }, { $set: { open: false, closedAt: new Date(), closedBy: closedByUserId, }, }, { new: true },);
-
-    if (!ticket) {
+    const ticketOpen = await Ticket.findOne({ channelId: targetInteraction.channel.id, open: true });
+    if (!ticketOpen) {
       await safeReply(targetInteraction, {
         embeds: [
           makeErrorEmbed(
@@ -149,33 +148,57 @@ async function closeTicket(targetInteraction, motivo, helpers) {
     const transcriptHTML = await createTranscriptHtml(targetInteraction.channel).catch(() => "");
     const transcriptHtmlPath = transcriptHTML ? await saveTranscriptHtml(targetInteraction.channel, transcriptHTML).catch(() => null) : null;
 
-    let ticketNumber = Number(ticket.ticketNumber || 0);
-    if (!ticketNumber) {
-      ticketNumber = await getNextTicketId();
-    }
+    const existingNum = Number(ticketOpen.ticketNumber);
+    let ticketNumber =
+      Number.isFinite(existingNum) && existingNum > 0 ? existingNum : await getNextTicketId();
 
-    await Ticket.updateOne(
-      { channelId: targetInteraction.channel.id },
+    const closedAt = new Date();
+    const ticket = await Ticket.findOneAndUpdate(
+      { channelId: targetInteraction.channel.id, open: true },
       {
         $set: {
+          open: false,
+          closedAt,
+          closedBy: closedByUserId,
           ticketNumber,
           transcript: transcriptTXT,
           transcriptHtmlPath: transcriptHtmlPath || null,
           closeReason: motivo || null,
-          claimedBy: ticket.claimedBy || null,
+          claimedBy: ticketOpen.claimedBy || null,
           closeRequestedBy: null,
           closeRequestedAt: null,
-          closedBy: closedByUserId,
         },
       },
-    ).catch(() => { });
+      { new: true },
+    );
+
+    if (!ticket) {
+      await safeReply(targetInteraction, {
+        embeds: [
+          makeErrorEmbed(
+            "Info",
+            "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
+          ),
+        ],
+        flags: 1 << 6,
+      });
+      return;
+    }
 
     const mainGuildId = IDs?.guilds?.main || null;
     const centralTicketLogChannelId = LOG_CHANNEL || IDs?.channels?.ticketLogs || "1442569290682208296";
     const mainGuild = mainGuildId ? await getClientGuildCached(targetInteraction.client, mainGuildId) : null;
     const logChannel = mainGuild ? await getGuildChannelCached(mainGuild, centralTicketLogChannelId) : null;
 
-    const closeEmbedData = { ...ticket.toObject(), ticketNumber, closeReason: motivo || null, closedBy: closedByUserId, closedAt: new Date(), guildName: targetInteraction.guild?.name || "Ticket System", guildIconURL: targetInteraction.guild?.iconURL?.({ size: 128 }) || null, };
+    const closeEmbedData = {
+      ...ticket.toObject(),
+      ticketNumber,
+      closeReason: motivo || null,
+      closedBy: closedByUserId,
+      closedAt: ticket.closedAt || closedAt,
+      guildName: targetInteraction.guild?.name || "Ticket System",
+      guildIconURL: targetInteraction.guild?.iconURL?.({ size: 128 }) || null,
+    };
     const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
     const ratingRows = buildTicketRatingRows(String(ticket._id));
     const transcriptRows = transcriptHtmlPath
@@ -219,7 +242,9 @@ async function closeTicket(targetInteraction, motivo, helpers) {
             closeLogMessageId: logSentMessage.id,
           },
         },
-      ).catch(() => { });
+      ).catch((err) => {
+        global.logger?.warn?.("[TICKET CLOSE] closeLog ids update failed:", err?.message || err);
+      });
     }
 
     await safeEditReply(targetInteraction, {
