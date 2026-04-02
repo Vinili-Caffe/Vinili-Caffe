@@ -7,6 +7,7 @@ const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCas
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazione } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = { [String(IDs.roles.Helper)]: { messages: 250, hours: 2.5 }, [String(IDs.roles.Mod)]: { messages: 350, hours: 3.5 }, [String(IDs.roles.Coordinator)]: { messages: 450, hours: 4.5 }, [String(IDs.roles.Supervisor)]: { messages: 500, hours: 5 }, };
 const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 1, [String(IDs.roles.Coordinator)]: 2, [String(IDs.roles.Supervisor)]: 3 };
@@ -136,6 +137,77 @@ function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
     utcMs = baseUtcMs - secondOffsetMs;
   }
   return new Date(utcMs);
+}
+
+function parseRomeWallClock(referenceDate) {
+  const f = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = f.formatToParts(referenceDate);
+  const o = {};
+  for (const x of parts) {
+    if (x.type !== "literal") o[x.type] = x.value;
+  }
+  return {
+    year: Number(o.year),
+    month: Number(o.month),
+    day: Number(o.day),
+    weekday: String(o.weekday || "").replace(/\.$/, ""),
+    hour: Number(o.hour),
+    minute: Number(o.minute),
+  };
+}
+
+function addDaysToRomeYmd(year, month, day, deltaDays) {
+  const mid = createUtcFromRomeLocal(year, month, day, 12, 0, 0);
+  return getRomeDateParts(new Date(mid.getTime() + deltaDays * 86400000));
+}
+
+/** Domenica 20:00 Europe/Rome che chiude la settimana del resoconto rispetto a `referenceNow`. */
+function getResocontoClosingSunday20Utc(referenceNow = new Date()) {
+  const r = parseRomeWallClock(referenceNow);
+  const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const w = wdMap[r.weekday];
+  if (w == null) {
+    return createUtcFromRomeLocal(r.year, r.month, r.day, 20, 0, 0);
+  }
+
+  let sunY = r.year;
+  let sunM = r.month;
+  let sunD = r.day;
+
+  if (w === 0) {
+    const thisSun20 = createUtcFromRomeLocal(r.year, r.month, r.day, 20, 0, 0);
+    if (referenceNow.getTime() < thisSun20.getTime()) {
+      const prev = addDaysToRomeYmd(r.year, r.month, r.day, -7);
+      sunY = prev.year;
+      sunM = prev.month;
+      sunD = prev.day;
+    }
+  } else {
+    const prev = addDaysToRomeYmd(r.year, r.month, r.day, -w);
+    sunY = prev.year;
+    sunM = prev.month;
+    sunD = prev.day;
+  }
+
+  return createUtcFromRomeLocal(sunY, sunM, sunD, 20, 0, 0);
+}
+
+/** Lunedì 00:00 → domenica 20:00 (escluso) Roma per la settimana chiusa da quel resoconto. */
+function getResocontoPexSkipWindowUtc(referenceNow = new Date()) {
+  const closingSunday20 = getResocontoClosingSunday20Utc(referenceNow);
+  const sunParts = getRomeDateParts(closingSunday20);
+  const monParts = addDaysToRomeYmd(sunParts.year, sunParts.month, sunParts.day, -6);
+  const windowStart = createUtcFromRomeLocal(monParts.year, monParts.month, monParts.day, 0, 0, 0);
+  return { windowStart, windowEndExclusive: closingSunday20 };
 }
 
 function getPmResocontoWindow(now = new Date()) {
@@ -299,12 +371,20 @@ function computeBehaviorGrade(positiveCount, negativeCount) {
   const positive = Math.max(0, Math.floor(toSafeNumber(positiveCount)));
   const negative = Math.max(0, Math.floor(toSafeNumber(negativeCount)));
 
-  if (positive === 0 && negative === 0) return "Non classificato";
+  if (positive === 0 && negative === 0) return "Sufficiente";
   if (positive >= 3 && negative === 0) return "Ottimo";
   if (positive === 0 && negative > 0) return "Non classificato";
   if (negative > positive) return "Insufficiente";
   if (positive > negative) return "Discreto";
   return "Sufficiente";
+}
+
+function isStaffRolesHistoryPexRow(row) {
+  const oldRole = String(row?.oldRole || "");
+  const newRole = String(row?.newRole || "");
+  const isPromotion = oldRole && newRole && ROLE_UP[oldRole] === newRole;
+  const reasonHasPex = String(row?.reason || "").toLowerCase().includes("pex");
+  return Boolean(isPromotion || reasonHasPex);
 }
 
 function wasPexedInWeek(staffDoc, weekStart) {
@@ -314,16 +394,52 @@ function wasPexedInWeek(staffDoc, weekStart) {
     const when = row?.date ? new Date(row.date) : null;
     if (!when || Number.isNaN(when.getTime())) return false;
     if (when.getTime() < weekStartMs) return false;
-    const oldRole = String(row?.oldRole || "");
-    const newRole = String(row?.newRole || "");
-    const isPromotion = oldRole && newRole && ROLE_UP[oldRole] === newRole;
-    const reasonHasPex = String(row?.reason || "").toLowerCase().includes("pex");
-    return isPromotion || reasonHasPex;
+    return isStaffRolesHistoryPexRow(row);
   });
 }
 
-function computeStaffAction(activityGrade, behaviorGrade, pexedInWeek) {
+function wasPexedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive) {
+  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  const t0 = windowStart.getTime();
+  const t1 = windowEndExclusive.getTime();
+  return history.some((row) => {
+    if (!isStaffRolesHistoryPexRow(row)) return false;
+    const when = row?.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) return false;
+    const ms = when.getTime();
+    return ms >= t0 && ms < t1;
+  });
+}
+
+function wasPmPromotedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive) {
+  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  const pmRoleId = String(IDs.roles.PartnerManager || "");
+  if (!pmRoleId) return false;
+  const t0 = windowStart.getTime();
+  const t1 = windowEndExclusive.getTime();
+  return history.some((row) => {
+    if (String(row?.newRole || "") !== pmRoleId) return false;
+    const when = row?.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) return false;
+    const ms = when.getTime();
+    return ms >= t0 && ms < t1;
+  });
+}
+
+function shouldSkipResocontoForPexInCalendarWeek(staffDoc, windowStart, windowEndExclusive) {
+  if (!staffDoc) return false;
+  return (
+    wasPexedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive) ||
+    wasPmPromotedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive)
+  );
+}
+
+function computeStaffAction(activityGrade, behaviorGrade, pexedInWeek, positiveCount, negativeCount) {
   if (pexedInWeek) return "Nulla";
+
+  const pos = Math.max(0, Math.floor(toSafeNumber(positiveCount)));
+  const neg = Math.max(0, Math.floor(toSafeNumber(negativeCount)));
+  const noValutazioni = pos === 0 && neg === 0;
 
   if (
     (activityGrade === "Ottimo" || activityGrade === "Eccellente") &&
@@ -333,7 +449,7 @@ function computeStaffAction(activityGrade, behaviorGrade, pexedInWeek) {
   }
   if (
     activityGrade === "Non classificato" &&
-    behaviorGrade === "Non classificato"
+    (behaviorGrade === "Non classificato" || noValutazioni)
   ) {
     return "Depex";
   }
@@ -475,6 +591,7 @@ async function runWeeklyStaffResoconti(client) {
   const now = new Date();
   const weekStart = getWeekStartDate(now);
   const weekEnd = now;
+  const pexSkipWindow = getResocontoPexSkipWindowUtc(now);
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
 
   const knownStaffUserIds = Array.from(new Set((Array.isArray(staffDocs) ? staffDocs : []).map((row) => String(row?.userId || "")).filter(Boolean),),);
@@ -516,6 +633,16 @@ async function runWeeklyStaffResoconti(client) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
 
+    if (
+      shouldSkipResocontoForPexInCalendarWeek(
+        staffDoc,
+        pexSkipWindow.windowStart,
+        pexSkipWindow.windowEndExclusive,
+      )
+    ) {
+      continue;
+    }
+
     const staffRoleId = resolveStaffRole(member);
     if (staffRoleId) {
       const overview = overviewMap.get(userId);
@@ -527,10 +654,11 @@ async function runWeeklyStaffResoconti(client) {
       const behaviorGrade = computeBehaviorGrade(staffDoc?.positiveCount, staffDoc?.negativeCount,);
       const pexedInWeek = wasPexedInWeek(staffDoc, weekStart);
       const inPauseDuringWeek = wasInPauseDuringWeek(staffDoc, weekStart, weekEnd);
+      const staffNewBadge = pexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
 
       const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
       const contentLines = [
-        `<:staff:1443651912179388548> **Staffer:** __**<@${userId}>**__`,
+        `<:staff:1443651912179388548> **Staffer:** __**<@${userId}>**__${staffNewBadge}`,
         `<:VC_Mention:1482526855289634997> **Ruolo:** __<@&${staffRoleId}>__`,
         `<:VC_Chat:1482532573002465413> **Messaggi in una settimana:** __${weeklyMessages}__`,
         `<:voice:1467639623735054509> **Ore in una settimana:** __${formatHoursFromSeconds(weeklyVoiceSeconds)}__`,
@@ -542,7 +670,15 @@ async function runWeeklyStaffResoconti(client) {
         const weeklySanctions = sanctionCountByModId.get(userId) || 0;
         contentLines.push(`<:VC_Dot:1443660294596329582> **Sanzioni nella settimana:** __${weeklySanctions}__ (minimo __${sanctionLimit}__)`);
       }
-      const action = inPauseDuringWeek ? "Nulla" : computeStaffAction(activityGrade, behaviorGrade, pexedInWeek);
+      const action = inPauseDuringWeek
+        ? "Nulla"
+        : computeStaffAction(
+            activityGrade,
+            behaviorGrade,
+            pexedInWeek,
+            staffDoc?.positiveCount,
+            staffDoc?.negativeCount,
+          );
       contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
       const pauseLine = getStaffPauseLine(staffDoc);
       if (pauseLine) contentLines.push(pauseLine);
@@ -555,17 +691,22 @@ async function runWeeklyStaffResoconti(client) {
         }
       }
 
+      const staffComponents =
+        action === "Nulla"
+          ? []
+          : [
+              buildResocontoButtons(
+                "s",
+                userId,
+                staffActionToKey(action),
+                staffRoleId,
+              ),
+            ];
+
       await channel
         .send({
           content: contentLines.join("\n"),
-          components: [
-            buildResocontoButtons(
-              "s",
-              userId,
-              staffActionToKey(action),
-              staffRoleId,
-            ),
-          ],
+          ...(staffComponents.length ? { components: staffComponents } : {}),
         })
         .then((msg) => createResocontoThread(msg, userId, member.user?.username))
         .catch(() => null);
@@ -578,14 +719,18 @@ async function runWeeklyStaffResoconti(client) {
       const pmInPauseDuringWeek = wasInPauseDuringWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd);
       const action = pmInPauseDuringWeek ? "Nulla" : computePmAction(weeklyPartners, pmPexedInWeek);
       const pmPauseLine = getStaffPauseLine(staffDoc);
+      const pmNewBadge = pmPexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
       const pmContentLines = [
-        `<:partnermanager:1443651916838998099> **Partner Manager:** __<@${userId}>__`,
+        `<:partnermanager:1443651916838998099> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
         `<:partneredserverowner:1443651871125409812> **Partner:** __${weeklyPartners}__`,
         `<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`,
       ];
       if (pmPauseLine) pmContentLines.push(pmPauseLine);
 
-      const pmComponents = action === "Nulla" ? [] : [buildResocontoButtons("p", userId, pmActionToKey(action))];
+      const pmComponents =
+        action === "Nulla" || action === "Richiamo"
+          ? []
+          : [buildResocontoButtons("p", userId, pmActionToKey(action))];
       await channel
         .send({
           content: pmContentLines.join("\n"),

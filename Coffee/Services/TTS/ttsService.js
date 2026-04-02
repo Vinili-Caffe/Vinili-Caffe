@@ -9,6 +9,9 @@ const {
   voiceDeleteOne,
   voiceDeleteManyInGuildIds,
   voiceFindManyLean,
+  ttsUserLangFindManyLean,
+  ttsUserLangFindOneLean,
+  ttsUserLangUpsert,
 } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, } = require("../../Utils/Interaction/entityCache");
@@ -276,16 +279,49 @@ function numbersToWordsForTts(text, lang) {
   return text.replace(/\b(\d{1,6})\b/g, (_, digits) => numberToWordsItalian(parseInt(digits, 10)));
 }
 
+async function warmUserTtsLangsFromDb() {
+  try {
+    const rows = await ttsUserLangFindManyLean().catch(() => []);
+    for (const row of rows || []) {
+      if (row?.userId != null && row?.lang) {
+        userLangs.set(String(row.userId).trim(), String(row.lang));
+      }
+    }
+  } catch (err) {
+    global.logger?.warn?.("[TTS] warmUserTtsLangsFromDb:", err?.message || err);
+  }
+}
+
+async function hydrateUserTtsLangForUser(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid || userLangs.has(uid)) return;
+  const row = await ttsUserLangFindOneLean(uid).catch(() => null);
+  userLangs.set(uid, row?.lang ? String(row.lang) : false);
+}
+
 function setUserTtsLang(userId, lang) {
   if (!userId) return;
+  const uid = String(userId).trim();
+  if (!uid) return;
   if (!lang) {
-    userLangs.delete(userId);
+    userLangs.delete(uid);
+    void ttsUserLangUpsert(uid, null).catch((err) =>
+      global.logger?.warn?.("[TTS] persist user lang clear:", err?.message || err),
+    );
     return;
   }
-  userLangs.set(userId, lang);
+  userLangs.set(uid, String(lang));
+  void ttsUserLangUpsert(uid, String(lang)).catch((err) =>
+    global.logger?.warn?.("[TTS] persist user lang:", err?.message || err),
+  );
 }
 function getUserTtsLang(userId) {
-  return userLangs.get(userId) || null;
+  if (userId == null) return null;
+  const uid = String(userId).trim();
+  const v = userLangs.get(uid);
+  if (v === false) return null;
+  if (typeof v === "string") return v;
+  return null;
 }
 function getUnicodeEmojiName(emoji) {
   if (emojiNameMap && emojiNameMap[emoji]) {
@@ -704,6 +740,7 @@ async function handleTtsMessage(message, client, prefix) {
   const connection = await ensureConnection(state, voiceChannel).catch(() => null,);
   if (!connection) return;
   const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false,);
+  await hydrateUserTtsLangForUser(message.author?.id);
   const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
   let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText),);
@@ -844,6 +881,7 @@ async function clearVoiceState(guildId) {
 
 async function restoreTtsConnections(client) {
   try {
+    await warmUserTtsLangsFromDb();
     const autojoinEnabled = booleanFromConfig(client?.config?.tts?.autojoin, false,);
     if (!autojoinEnabled) {
       const guildIds = [...(client?.guilds?.cache?.keys?.() || [])];
@@ -872,5 +910,6 @@ module.exports = {
   leaveTtsGuild,
   setUserTtsLang,
   getUserTtsLang,
+  hydrateUserTtsLangForUser,
   restoreTtsConnections,
 };

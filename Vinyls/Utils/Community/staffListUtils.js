@@ -85,7 +85,6 @@ function didStaffRolesChange(oldMember, newMember) {
   return false;
 }
 
-/** Pex che valgono per il badge NEW sulla colonna `newRole`: Member→ruolo staff list, oppure (ruolo in lista | Staff generico)→PM. */
 function rowQualifiesForStaffListNewBadge(row) {
   const oldRole = String(row?.oldRole || "");
   const newRole = String(row?.newRole || "");
@@ -102,7 +101,6 @@ function rowQualifiesForStaffListNewBadge(row) {
   return fromMember || staffToPm;
 }
 
-/** userId → Set di roleId (colonne staff list) con NEW in base alla data del pex in rolesHistory. */
 async function getStaffListNewBadgeRoleIdsByUser(guildId) {
   const cutoff = Date.now() - STAFF_NEW_DAYS_MS;
   const docs = await ActivityUserProfile.find(
@@ -365,6 +363,7 @@ function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 5
 }
 
 module.exports = {
+  STAFF_NEW_EMOJI,
   STAFF_ROLE_IDS,
   memberHasStaffRole,
   didStaffMembershipChange,

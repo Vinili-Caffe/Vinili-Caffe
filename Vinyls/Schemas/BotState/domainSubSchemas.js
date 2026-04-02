@@ -103,6 +103,14 @@ const chatReminderScheduleEmbedSchema = new Schema(
   { timestamps: true, _id: false },
 );
 
+const ttsUserLangEmbedSchema = new Schema(
+  {
+    userId: { type: String, required: true },
+    lang: { type: String, required: true },
+  },
+  { _id: false },
+);
+
 module.exports = {
   joinRaidStateEmbedSchema,
   minigameStateEmbedSchema,
@@ -110,4 +118,5 @@ module.exports = {
   voiceStateEmbedSchema,
   chatReminderRotationEmbedSchema,
   chatReminderScheduleEmbedSchema,
+  ttsUserLangEmbedSchema,
 };

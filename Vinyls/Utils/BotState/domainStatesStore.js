@@ -247,6 +247,42 @@ async function voiceFindManyLean() {
   return domains.voiceStates || [];
 }
 
+async function ttsUserLangFindManyLean() {
+  const domains = await getDomainsLean();
+  return domains.ttsUserLangs || [];
+}
+
+async function ttsUserLangFindOneLean(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return null;
+  const domains = await getDomainsLean();
+  const arr = domains.ttsUserLangs || [];
+  return arr.find((x) => String(x.userId) === uid) || null;
+}
+
+async function ttsUserLangUpsert(userId, lang) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+  const doc = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
+  let arr = [...(doc?.domains?.ttsUserLangs || [])];
+  const idx = arr.findIndex((x) => String(x.userId) === uid);
+  if (!lang) {
+    if (idx >= 0) arr.splice(idx, 1);
+  } else {
+    const row = { userId: uid, lang: String(lang) };
+    if (idx >= 0) arr[idx] = row;
+    else arr.push(row);
+  }
+  await BotState.findOneAndUpdate(
+    { key: COMPACT_BOTSTATE_KEY },
+    {
+      $set: { "domains.ttsUserLangs": arr },
+      $setOnInsert: { key: COMPACT_BOTSTATE_KEY, value: {} },
+    },
+    { upsert: true },
+  );
+}
+
 async function chatReminderRotationFindOneLean(filter) {
   const guildId = String(filter.guildId || "");
   const domains = await getDomainsLean();
@@ -384,6 +420,9 @@ module.exports = {
   voiceDeleteOne,
   voiceDeleteManyInGuildIds,
   voiceFindManyLean,
+  ttsUserLangFindManyLean,
+  ttsUserLangFindOneLean,
+  ttsUserLangUpsert,
   chatReminderRotationFindOneLean,
   chatReminderRotationFindOneAndUpdate,
   chatReminderScheduleCreate,

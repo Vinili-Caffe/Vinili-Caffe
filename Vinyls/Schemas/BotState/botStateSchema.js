@@ -12,6 +12,7 @@ const {
   voiceStateEmbedSchema,
   chatReminderRotationEmbedSchema,
   chatReminderScheduleEmbedSchema,
+  ttsUserLangEmbedSchema,
 } = require("./domainSubSchemas");
 
 const BotStateSchema = new mongoose.Schema(
@@ -33,6 +34,7 @@ const BotStateSchema = new mongoose.Schema(
             type: [chatReminderScheduleEmbedSchema],
             default: undefined,
           },
+          ttsUserLangs: { type: [ttsUserLangEmbedSchema], default: undefined },
         },
         { _id: false },
       ),
@@ -56,4 +58,5 @@ module.exports.embedSchemas = {
   voiceState: voiceStateEmbedSchema,
   chatReminderRotation: chatReminderRotationEmbedSchema,
   chatReminderSchedule: chatReminderScheduleEmbedSchema,
+  ttsUserLang: ttsUserLangEmbedSchema,
 };
