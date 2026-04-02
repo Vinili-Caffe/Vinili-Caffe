@@ -1,6 +1,4 @@
-const IDs = require("../../Utils/Config/ids");
 const { safeMessageReply, safeChannelSend } = require("../../../shared/discord/replyRuntime");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
 
 async function resolveTargetUser(message, rawArg) {
@@ -54,33 +52,6 @@ module.exports = {
     if (!targetMember) {
       await safeMessageReply(message, {
         content: "<:vegax:1443934876440068179> Utente non trovato nel server.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    const targetHasStaffListRole = memberHasStaffRole(targetMember);
-    const isSelf = String(message.author.id) === String(targetUser.id);
-    const isHighStaff = Boolean(message.member.roles?.cache?.has(IDs.roles.HighStaff));
-    const viewerStaff = memberHasStaffRole(message.member);
-    if (!viewerStaff && !isHighStaff) {
-      await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Devi essere **staff** o **High Staff** per usare questo comando.",
-        allowedMentions: { repliedUser: false },
-      });
-      return;
-    }
-    if (!targetHasStaffListRole) {
-      if (!isHighStaff) {
-        await safeMessageReply(message, {
-          content:
-            "<:vegax:1443934876440068179> Il target non ha ruolo staff/Partner Manager. Solo l’**High Staff** può aprire questo profilo.",
-          allowedMentions: { repliedUser: false },
-        });
-        return;
-      }
-    } else if (!isSelf && !isHighStaff) {
-      await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Puoi aprire solo **il tuo** profilo staff. Gli altri: solo **High Staff**.",
         allowedMentions: { repliedUser: false },
       });
       return;

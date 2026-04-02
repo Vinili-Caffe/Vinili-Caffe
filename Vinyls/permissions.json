@@ -198,8 +198,7 @@
         "staff": {
             "roles": [
                 "roles.Staff",
-                "roles.PartnerManager",
-                "roles.HighStaff"
+                "roles.PartnerManager"
             ],
             "channels": [
                 "channels.partnersChat",
@@ -1274,6 +1273,14 @@
             "ownerSegment": 2
         },
         "profile_panel:*": {
+            "ownerSegment": 2
+        },
+        "staff_profile_panel:select:*": {
+            "roles": [
+                "roles.Staff",
+                "roles.PartnerManager",
+                "roles.HighStaff"
+            ],
             "ownerSegment": 2
         },
         "backup_list_select:*": {
