@@ -116,8 +116,25 @@ function createBumpReminderService(options) {
     return minutes * 60 * 1000;
   }
 
-  function getReminderChannelId() {
+  function getReminderChannelId(client) {
+    const fromCfg = client?.config?.[configKey]?.reminderChannelId;
+    if (fromCfg) return String(fromCfg);
     return BUMP_REMINDER_CHANNEL_BY_KEY[configKey] || null;
+  }
+
+  async function resolveReminderChannel(client, reminderChannelId) {
+    let channel =
+      client.channels.cache.get(reminderChannelId) ||
+      (await getClientChannelCached(client, reminderChannelId).catch(() => null));
+    if (channel?.id) return channel;
+    const mainGid = String(client?.config?.mainGuildId || IDs.guilds?.main || "");
+    if (!mainGid) return null;
+    const guild = await getClientGuildCached(client, mainGid).catch(() => null);
+    if (!guild) return null;
+    return (
+      guild.channels.cache.get(reminderChannelId) ||
+      (await guild.channels.fetch(reminderChannelId).catch(() => null))
+    );
   }
 
   async function sendReminder(client, guildId) {
@@ -129,14 +146,14 @@ function createBumpReminderService(options) {
     const lastT = new Date(fresh.lastBumpAt).getTime();
     if (!Number.isFinite(lastT) || Date.now() < lastT + cooldownMs) return false;
 
-    const reminderChannelId = getReminderChannelId();
+    const reminderChannelId = getReminderChannelId(client);
     if (!reminderChannelId) {
       global.logger?.warn?.(
         `${errorTag} reminderChannelId missing for guild ${guildId}`,
       );
       return false;
     }
-    const channel = client.channels.cache.get(reminderChannelId) || (await getClientChannelCached(client, reminderChannelId));
+    const channel = await resolveReminderChannel(client, reminderChannelId);
     if (!channel) {
       global.logger?.warn?.(
         `${errorTag} reminder channel not found (${reminderChannelId}) for guild ${guildId}`,
@@ -342,7 +359,7 @@ const disboardService = createBumpReminderService({ model: buildBumpStateModel("
 
 const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1442569013074071644>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP` SU DISCADIA!**", url: "https://discadia.com/server/viniliecaffe/", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER]", suppressInfoLogs: true, });
 let discadiaVoteReminderLoopHandle = null;
-const BUMP_DUE_REMINDER_SWEEP_MS = 5 * 60 * 1000;
+const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 
 function startBumpDueReminderSweepLoop(client) {
   if (!client || client._bumpDueReminderSweepStarted) return;
@@ -659,7 +676,7 @@ function startDiscadiaVoteReminderLoop(client) {
 
 const DEFAULT_REWARD = {
   disboard: { baseExp: 80, fastGuess: { windowMs: 5 * 60 * 1000, multiplier: 1.5 }, streak: { bonusPercentPerWin: 10, maxBonusPercent: 50 } },
-  discadia_bump: { baseExp: 100, fastGuess: { windowMs: 15 * 60 * 1000, multiplier: 1.5 }, streak: { bonusPercentPerWin: 10, maxBonusPercent: 50 } },
+  discadia_bump: { baseExp: 0, fastGuess: { windowMs: 0, multiplier: 1 }, streak: { bonusPercentPerWin: 0, maxBonusPercent: 0 } },
   discadia_vote: { baseExp: 150, fastGuess: { windowMs: 15 * 60 * 1000, multiplier: 1.5 }, streak: { bonusPercentPerWin: 10, maxBonusPercent: 50 } },
 };
 
@@ -678,6 +695,7 @@ function getRewardConfig(client, source) {
 }
 
 async function awardBumpVoteExp(client, guild, userId, source, previousLastAt, cooldownMs, baseExpOverride, fastSinceAt = null, previousLastUserId = null) {
+  if (String(source || "") === "discadia_bump") return null;
   if (!guild?.id || !userId) return null;
   const now = Date.now();
   const lastSlotAt = previousLastAt ? new Date(previousLastAt).getTime() : 0;
