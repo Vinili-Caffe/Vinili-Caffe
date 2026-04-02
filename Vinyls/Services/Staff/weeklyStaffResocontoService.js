@@ -658,13 +658,13 @@ async function runPreResocontoReminders(client) {
         const hours = voiceSec / 3600;
         const needMsg = Math.max(0, limits.messages - msg);
         const needHours = Math.max(0, limits.hours - hours);
-        if (needMsg <= 0 && needHours <= 0) continue;
-        const parts = [];
-        if (needMsg > 0) parts.push(`**${needMsg}** messaggi`);
-        if (needHours > 0) parts.push(`**${needHours.toFixed(2)}** ore in vocale`);
-        const text = `<:staff:1443651912179388548> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nPer rientrare nei limiti ti mancano: ${parts.join(" e ")}.`;
-        await member.send({ content: text }).catch(() => null);
-        continue;
+        if (needMsg > 0 || needHours > 0) {
+          const parts = [];
+          if (needMsg > 0) parts.push(`**${needMsg}** messaggi`);
+          if (needHours > 0) parts.push(`**${needHours.toFixed(2)}** ore in vocale`);
+          const text = `<:staff:1443651912179388548> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nPer rientrare nei limiti ti mancano: ${parts.join(" e ")}.`;
+          await member.send({ content: text }).catch(() => null);
+        }
       }
     }
 

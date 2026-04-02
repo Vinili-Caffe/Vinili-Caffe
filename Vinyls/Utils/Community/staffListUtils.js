@@ -159,6 +159,9 @@ async function fetchMembersForStaffList(guild) {
     await wait(400);
   }
 
+  for (const [id, m] of guild.members.cache) {
+    all.set(id, m);
+  }
   return all.size ? all : guild.members.cache;
 }
 
@@ -208,17 +211,48 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
     }
   }
 
+  let synced = false;
   if (message) {
     if (force || message.content !== content) {
-      const edited = await message.edit(content).catch(() => null);
-      if (edited) state.messageIdByGuild.set(guildId, edited.id);
+      const edited = await message.edit(content).catch((err) => {
+        global.logger?.warn?.("[STAFF LIST] message.edit failed:", err?.message || err);
+        return null;
+      });
+      if (edited) {
+        state.messageIdByGuild.set(guildId, edited.id);
+        synced = true;
+      }
+    } else {
+      synced = true;
     }
   } else {
-    const sent = await channel.send(content).catch(() => null);
-    if (sent) state.messageIdByGuild.set(guildId, sent.id);
+    const sent = await channel.send(content).catch((err) => {
+      global.logger?.warn?.("[STAFF LIST] channel.send failed:", err?.message || err);
+      return null;
+    });
+    if (sent) {
+      state.messageIdByGuild.set(guildId, sent.id);
+      synced = true;
+    }
   }
 
-  state.contentHashByGuild.set(guildId, content);
+  if (synced) state.contentHashByGuild.set(guildId, content);
+}
+
+const STAFF_LIST_PERIODIC_REFRESH_MS = 15 * 60 * 1000;
+
+function startStaffListPeriodicRefreshLoop(client) {
+  if (!client || client._staffListPeriodicRefreshStarted) return;
+  const gid = String(IDs.guilds.main || "");
+  if (!gid || !client.guilds.cache.has(gid)) return;
+  client._staffListPeriodicRefreshStarted = true;
+  const tick = () => {
+    refreshStaffList(client, gid).catch((err) => {
+      global.logger?.warn?.("[STAFF LIST] periodic refresh failed:", err?.message || err);
+    });
+  };
+  client._staffListPeriodicInterval = setInterval(tick, STAFF_LIST_PERIODIC_REFRESH_MS);
+  tick();
 }
 
 function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500) {
@@ -232,4 +266,12 @@ function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 5
   state.timersByGuild.set(guildId, timer);
 }
 
-module.exports = { STAFF_ROLE_IDS, memberHasStaffRole, didStaffMembershipChange, didStaffRolesChange, refreshStaffList, scheduleStaffListRefresh };
+module.exports = {
+  STAFF_ROLE_IDS,
+  memberHasStaffRole,
+  didStaffMembershipChange,
+  didStaffRolesChange,
+  refreshStaffList,
+  scheduleStaffListRefresh,
+  startStaffListPeriodicRefreshLoop,
+};

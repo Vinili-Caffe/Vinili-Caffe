@@ -359,6 +359,7 @@ const disboardService = createBumpReminderService({ model: buildBumpStateModel("
 
 const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1442569013074071644>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP` SU DISCADIA!**", url: "https://discadia.com/server/viniliecaffe/", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER]", suppressInfoLogs: true, });
 let discadiaVoteReminderLoopHandle = null;
+/** Controlla il DB ogni 2 min per Disboard (~2h) e Discadia (~24h): non solo al riavvio o al timer in-memory. */
 const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 
 function startBumpDueReminderSweepLoop(client) {

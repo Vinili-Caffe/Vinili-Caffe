@@ -1,6 +1,7 @@
 const config = require("../config.json");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
+const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
@@ -163,14 +164,14 @@ function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
 function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
   return [
     {
-      label: "process recent automation messages (vote, bump)",
-      enabled: primaryScheduler,
-      run: () => processAllRecentAutomationMessages(client),
-    },
-    {
       label: "restore bump reminders",
       enabled: primaryScheduler,
       run: () => restoreBumpReminders(client),
+    },
+    {
+      label: "process recent automation messages (vote, bump)",
+      enabled: primaryScheduler,
+      run: () => processAllRecentAutomationMessages(client),
     },
     {
       label: "run due one-time reminders",
@@ -639,6 +640,18 @@ module.exports = {
     await connectMongo(client);
 
     const primaryScheduler = isPrimaryScheduler(client);
+    if (primaryScheduler) {
+      try {
+        startBumpDueReminderSweepLoop(client);
+      } catch (err) {
+        global.logger?.error?.("[BUMP DUE REMINDER SWEEP] early start failed:", err?.message || err);
+      }
+    }
+    try {
+      startStaffListPeriodicRefreshLoop(client);
+    } catch (err) {
+      global.logger?.error?.("[STAFF LIST] periodic loop start failed:", err?.message || err);
+    }
     if (primaryScheduler) {
       try {
         startDailyPartnerAuditLoop(client);

@@ -1088,9 +1088,10 @@ module.exports = {
         await syncClanTagRolesForUserEverywhereAfterMemberEvent(resolvedClientForClan, newMember.user);
       }
 
-      if (newMember?.guild?.id === IDs.guilds.main && client) {
+      const botClient = client || newMember.client;
+      if (newMember?.guild?.id === IDs.guilds.main && botClient) {
         if (didStaffMembershipChange(oldMember, newMember) || didStaffRolesChange(oldMember, newMember)) {
-          scheduleStaffListRefresh(client, newMember.guild.id);
+          scheduleStaffListRefresh(botClient, newMember.guild.id);
           if (!memberHasStaffRole(oldMember) && memberHasStaffRole(newMember)) {
             setWelcomeContextActive(newMember.guild.id, client);
           }
