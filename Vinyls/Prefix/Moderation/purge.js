@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const { resolveTarget, extractUserId, } = require("../../Utils/Moderation/prefixModeration");
+const { extractUserId, } = require("../../Utils/Moderation/prefixModeration");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 
 const DISCORD_BULK_DELETE_MAX = 100;
@@ -60,14 +60,31 @@ function pickAmountToken(args) {
   return { token, invalidToken };
 }
 
+function pickExplicitTargetUserId(message, args) {
+  const mentionedId = message?.mentions?.users?.first?.()?.id || null;
+  if (mentionedId) return String(mentionedId);
+  if (!Array.isArray(args) || !args.length) return null;
+  for (const rawArg of args) {
+    const raw = String(rawArg || "").trim();
+    const normalized = normalizeArgToken(raw);
+    if (!normalized || normalized === "all") continue;
+    if (/^\d+$/.test(normalized) && !/^\d{17,20}$/.test(normalized)) continue;
+    const extracted = extractUserId(raw, message);
+    if (extracted) return String(extracted);
+  }
+  return null;
+}
+
 module.exports = {
   name: "purge",
 
   async execute(message, args, client) {
     await message.channel.sendTyping();
 
-    const userArgIndex=Array.isArray(args)?args.findIndex((arg) => Boolean(extractUserId(String(arg||""),message)),):-1;
-    const{user}=await resolveTarget(message,args,userArgIndex>=0?userArgIndex:0,);
+    const targetUserId = pickExplicitTargetUserId(message, args);
+    const user = targetUserId
+      ? await message.client.users.fetch(targetUserId).catch(() => null)
+      : null;
     const deleteLater = (msg) => { scheduleMessageDeletion(msg, EPHEMERAL_TTL_NORMAL_MS); return null; };
     const replyTemp=async(payload) => {const msg=await message.channel.send({...payload,allowedMentions:{repliedUser:false},});deleteLater(msg);return msg;};await message.delete().catch(() => {});
 

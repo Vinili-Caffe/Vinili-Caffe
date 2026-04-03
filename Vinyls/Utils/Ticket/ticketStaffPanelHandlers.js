@@ -34,7 +34,8 @@ function makeError(title, description) {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor("#6f4e37");
 }
 
-function createInteractionMessageProxy(interaction) {
+function createInteractionMessageProxy(interaction, options = {}) {
+  const forceEphemeral = Boolean(options?.ephemeral);
   let replyCount = 0;
   return {
     channel: interaction.channel,
@@ -44,8 +45,11 @@ function createInteractionMessageProxy(interaction) {
     author: interaction.user,
     reply: async (payload) => {
       replyCount += 1;
-      const baseFlags = Number(payload?.flags) || 0;
-      const p = { ...payload, flags: baseFlags | MessageFlags.Ephemeral };
+      let p = { ...payload };
+      if (forceEphemeral) {
+        const baseFlags = Number(payload?.flags) || 0;
+        p = { ...p, flags: baseFlags | MessageFlags.Ephemeral };
+      }
       if (replyCount === 1) {
         return interaction.editReply(p);
       }
@@ -337,7 +341,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
           `<:vegacheckmark:1443666279058772028> <@${userId}> è stato aggiunto al ticket.`,
         ),
       ],
-      flags: MessageFlags.Ephemeral,
     });
     const addPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_ADD_MEMBER_PREFIX);
     if (addPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, addPanelMid);
@@ -451,7 +454,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
           `<:VC_claim:1478517202016669887> Ticket assegnato a <@${targetUserId}> (prima: <@${oldClaimerId}>).`,
         ),
       ],
-      flags: MessageFlags.Ephemeral,
     });
     const xferPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_TRANSFER_USER_PREFIX);
     if (xferPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, xferPanelMid);
@@ -515,7 +517,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
             `<:vegacheckmark:1443666279058772028> <@${userId}> è stato rimosso dal ticket.`,
           ),
         ],
-        flags: MessageFlags.Ephemeral,
       });
       const remPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_REMOVE_MEMBER_PREFIX);
       if (remPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, remPanelMid);
@@ -531,8 +532,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         return true;
       }
       const categoryToken = String(interaction.values[0] || "").toLowerCase();
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const proxy = createInteractionMessageProxy(interaction);
+      await interaction.deferReply();
+      const proxy = createInteractionMessageProxy(interaction, { ephemeral: false });
       const switched = await ticketModule.ticketSwitchPanelExecute(proxy, categoryToken);
       if (switched) {
         const swPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_SWITCH_CATEGORY_PREFIX);

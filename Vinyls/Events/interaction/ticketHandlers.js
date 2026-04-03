@@ -710,21 +710,27 @@ async function handleTicketInteraction(interaction) {
             });
             return true;
           }
-          let claimedTicket = await Ticket.findOneAndUpdate(
-            isHighStaffActor()
-              ? { channelId: interaction.channel.id, open: true }
-              : {
-                channelId: interaction.channel.id,
-                open: true,
-                $or: [
-                  { claimedBy: null },
-                  { claimedBy: { $exists: false } },
-                  { claimedBy: "" },
-                ],
-              },
-            { $set: { claimedBy: interaction.user.id } },
-            { new: true },
-          ).catch(() => null);
+          let claimedTicket = null;
+          if (isHighStaffActor()) {
+            claimedTicket = await Ticket.findOneAndUpdate(
+              { channelId: interaction.channel.id, open: true },
+              { $set: { claimedBy: interaction.user.id } },
+              { new: true },
+            ).catch(() => null);
+          } else {
+            const nonHighClaimFilters = [
+              { channelId: interaction.channel.id, open: true, claimedBy: null },
+              { channelId: interaction.channel.id, open: true, claimedBy: "" },
+            ];
+            for (const claimFilter of nonHighClaimFilters) {
+              claimedTicket = await Ticket.findOneAndUpdate(
+                claimFilter,
+                { $set: { claimedBy: interaction.user.id } },
+                { new: true },
+              ).catch(() => null);
+              if (claimedTicket) break;
+            }
+          }
           if (!claimedTicket) {
             claimedTicket = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
             if (!claimedTicket) {
@@ -756,7 +762,7 @@ async function handleTicketInteraction(interaction) {
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
-                  "<:vegax:1443934876440068179> Ticket già claimato.",
+                  "<:vegax:1443934876440068179> Impossibile claimare il ticket ora. Riprova tra un attimo.",
                 ),
               ],
               flags: 1 << 6,
