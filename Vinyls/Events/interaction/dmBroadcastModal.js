@@ -3,6 +3,7 @@ const { shouldBlockDm } = require("../../Utils/noDmList");
 const IDs = require("../../Utils/Config/ids");
 const { getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { splitMessage, chunkLines } = require("../../Utils/Message/messageChunkUtils");
+const { checkModalPermission } = require("../../Utils/Moderation/commandPermissions");
 
 const getStaffRoleIds = (client) => { void client; return [IDs.roles.Staff, IDs.roles.PartnerManager, IDs.roles.HighStaff].map((id) => String(id || "").trim()).filter(Boolean); };
 
@@ -17,6 +18,18 @@ function collectOpenDmRecipientIds(client) {
   return ids;
 }
 
+function getDevIds(client) {
+  const rawIds = IDs?.developers ?? IDs?.guilds?.developers ?? "";
+  const fromIds = Array.isArray(rawIds)
+    ? rawIds.map((id) => String(id).trim()).filter(Boolean)
+    : String(rawIds).split(",").map((id) => id.trim()).filter(Boolean);
+  const rawCfg = client?.config?.developers ?? "";
+  const fromConfig = Array.isArray(rawCfg)
+    ? rawCfg.map((id) => String(id).trim()).filter(Boolean)
+    : String(rawCfg).split(",").map((id) => id.trim()).filter(Boolean);
+  return Array.from(new Set([...fromIds, ...fromConfig]));
+}
+
 async function handleDmBroadcastModal(interaction, client) {
   if (
     !interaction.isModalSubmit() ||
@@ -27,6 +40,23 @@ async function handleDmBroadcastModal(interaction, client) {
     await interaction.reply({
       content:
         "<:vegax:1443934876440068179> Questo modulo può essere usato solo in un server.",
+      flags: 1 << 6,
+    }).catch(() => { });
+    return true;
+  }
+  const gate = await checkModalPermission(interaction);
+  if (!gate?.allowed) {
+    await interaction.reply({
+      content: "<:vegax:1443934876440068179> Non hai i permessi per usare questo modulo.",
+      flags: 1 << 6,
+    }).catch(() => { });
+    return true;
+  }
+  const onMainGuild = String(interaction.guildId || "") === String(IDs?.guilds?.main || "");
+  const devIds = getDevIds(client);
+  if (!onMainGuild || !devIds.includes(String(interaction.user?.id || ""))) {
+    await interaction.reply({
+      content: "<:vegax:1443934876440068179> Solo i developer possono usare questo modulo.",
       flags: 1 << 6,
     }).catch(() => { });
     return true;

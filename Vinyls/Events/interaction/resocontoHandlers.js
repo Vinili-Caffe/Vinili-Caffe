@@ -3,7 +3,8 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
-const { addStaffWarnFromNegatives, applyFullDepex } = require("../../Services/Staff/staffWarnService");
+const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
+const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
@@ -11,7 +12,6 @@ const RESOCONTO_REASON_INPUT_ID = "reason";
 const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl"]);
 const PM_ACTIONS = new Set(["dp", "rc", "nl"]);
 const ROLE_UP = { [String(IDs.roles.Helper)]: String(IDs.roles.Mod), [String(IDs.roles.Mod)]: String(IDs.roles.Coordinator), [String(IDs.roles.Coordinator)]: String(IDs.roles.Supervisor), };
-const ROLE_DOWN = { [String(IDs.roles.Supervisor)]: String(IDs.roles.Coordinator), [String(IDs.roles.Coordinator)]: String(IDs.roles.Mod), [String(IDs.roles.Mod)]: String(IDs.roles.Member || ""), [String(IDs.roles.Helper)]: String(IDs.roles.Member || ""), };
 const ROLE_PARTNER_MANAGER = String(IDs.roles.PartnerManager);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_STAFF = String(IDs.roles.Staff);
@@ -24,6 +24,15 @@ const ROLE_ADMIN = String(IDs.roles.Admin);
 const ROLE_MANAGER = String(IDs.roles.Manager);
 const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
 const ROLE_OWNER = String(IDs.roles.Founder);
+
+function resolvePexDepexLogRoleAfterId(member) {
+  if (!member?.roles?.cache) return ROLE_MEMBER || "";
+  if (!memberHasStaffRole(member)) return ROLE_MEMBER || "";
+  const ladderHi = getHighestStaffRoleId(member);
+  if (ladderHi) return ladderHi;
+  if (ROLE_PARTNER_MANAGER && member.roles.cache.has(ROLE_PARTNER_MANAGER)) return ROLE_PARTNER_MANAGER;
+  return ROLE_MEMBER || "";
+}
 
 function parseResocontoButtonCustomId(customId) {
   const raw = String(customId || "");
@@ -193,6 +202,14 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
     return roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
   }
+  if (roleId === ROLE_OWNER) {
+    const roleRemoved = await ensureRoleRemoved(guild, member, ROLE_OWNER);
+    const coOwnerRemoved = await ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
+    const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
+    const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
+    const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
+    return roleRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
+  }
   return true;
 }
 
@@ -239,7 +256,7 @@ async function appendOutcomeToMessage(guild, channelId, messageId, actorId, acce
   if (!message) return;
   const existingContent = String(message.content || "");
   const line = accepted ? `\n\n<:success:1461731530333229226> Azione confermata da <@${actorId}>:${statusText}`
-    : `\n\n<:cancel:1461730653677551691> Azione negata da<@${actorId}>`;
+    : `\n\n<:cancel:1461730653677551691> Azione negata da <@${actorId}>`;
   const content = `${existingContent}${line}`.slice(0, 1900);
   await message.edit({ content, components: [] }).catch(() => null);
   await deleteThreadForMessage(guild, messageId);
@@ -311,9 +328,9 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
       const roleId = String(payload.roleId || "");
       const fullResult = await applyFullDepex(guild, member, roleId || null);
       if (fullResult.ok) {
-        const memberAfterFull = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => null);
+        const memberAfterFull = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
         await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterFull);
-        const roleAfterId = ROLE_DOWN[roleId] ?? "";
+        const roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterFull);
         await sendPexDepexLog(guild, "depex", targetUser, roleId, roleAfterId, `Depex automatico: 3 warn staff (valutazioni negative).`);
       }
     }
@@ -352,7 +369,6 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
   }
 
   if (payload.actionKey === "dp") {
-    const roleAfterId = ROLE_DOWN[roleBeforeId];
     if (!member.roles.cache.has(roleBeforeId)) return "<a:VC_Alert:1482706673176150077> Depex non applicato: ruolo corrente non presente.";
 
     const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
@@ -361,6 +377,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
     const memberAfterDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
     await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterDepex);
+    const roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterDepex);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Depex applicato.";
   }

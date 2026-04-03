@@ -442,7 +442,17 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   }
 
   const isAntiNukeRecoveryCommand = ["antinuke", "security"].includes(String(command?.name || "").toLowerCase(),);
-  const securityLockState = await resolveWithTimeout(() => getSecurityLockState(message.guild), { active: false, joinLockActive: false, commandLockActive: false, sources: [], commandSources: [], }, "security lock precheck",);
+  const securityLockState = await resolveWithTimeout(
+    () => getSecurityLockState(message.guild),
+    {
+      active: false,
+      joinLockActive: false,
+      commandLockActive: false,
+      sources: ["Precheck timeout"],
+      commandSources: ["Precheck timeout"],
+    },
+    "security lock precheck",
+  );
   if (!isAntiNukeRecoveryCommand && securityLockState.commandLockActive) {
     const lockSources = Array.isArray(securityLockState.commandSources) ? securityLockState.commandSources : securityLockState.sources;
     await deleteCommandMessage();
@@ -513,7 +523,15 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     }
     return;
   }
-  const permissionResult = await resolveWithTimeout(() => checkPrefixPermission(message, command.name, prefixSubcommand, { returnDetails: true, }), { allowed: true, reason: null, requiredRoles: null, channels: null }, `permission precheck for ${command.name}`,
+  const permissionResult = await resolveWithTimeout(
+    () => checkPrefixPermission(message, command.name, prefixSubcommand, { returnDetails: true, }),
+    {
+      allowed: false,
+      reason: "missing_permission",
+      requiredRoles: null,
+      channels: null,
+    },
+    `permission precheck for ${command.name}`,
   );
   if (!permissionResult?.allowed) {
     if (

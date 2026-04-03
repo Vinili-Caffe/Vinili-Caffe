@@ -116,7 +116,7 @@ async function handleStaffButtons(interaction) {
       await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> ${result.reason || "Depex non applicato."}`, flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
       return true;
     }
-    const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);
     await syncStaffDbAndPauseChannelAfterDepex(guild, userId, freshMember);
     const oldRoleId = result.roleRemoved;
     const newRoleId = result.newRole || (result.fullDepex ? String(IDs.roles?.Member || "") : "");

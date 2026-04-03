@@ -10,11 +10,37 @@ const {
   memberHasCustomReactionRoleAccess,
 } = require("../../Utils/Community/mentionReactionPanelUtils");
 const axios = require("axios");
+const crypto = require("crypto");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName } = require("../../Utils/Interaction/customRoleUtils");
 const pendingRoleGrants = new Map();
 const PRIVATE_FLAG = 1 << 6;
+const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
+
+function isSafeRoleIconUrl(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return false;
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  const host = String(parsed.hostname || "").trim().toLowerCase();
+  if (!host || host === "localhost" || host.endsWith(".local")) return false;
+  if (
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  ) {
+    return false;
+  }
+  return true;
+}
 
 async function checkOwnership(interaction, ownerId) {
   if (interaction.user.id === ownerId) return true;
@@ -130,7 +156,7 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
   const promptMsg = await channel.send({ embeds: [waitingEmbed] }).catch(() => null);
   if (!promptMsg) return { ok: false };
 
-  const token = `${Date.now()}_${Math.floor(Math.random() * 999999)}`;
+  const token = crypto.randomBytes(16).toString("hex");
   const dmRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_grant:${token}:yes`)
     .setEmoji("<:vegacheckmark:1443666279058772028>")
     .setStyle(ButtonStyle.Success),
@@ -707,7 +733,26 @@ async function handleRoleActionModal(interaction) {
     }
     const isUrl = /^https?:\/\/\S+$/i.test(value);
     if (isUrl) {
-      const iconBuffer = await axios.get(value, { responseType: "arraybuffer", timeout: 15000, }).then((r) => r?.status >= 200 && r?.status < 300 ? Buffer.from(r.data) : null,).catch(() => null);
+      if (!isSafeRoleIconUrl(value)) {
+        await interaction
+          .reply({
+            content:
+              "<:VC_Attention:1482534443632558151> URL non sicuro o non supportato. Usa un link `https` pubblico.",
+            flags: 1 << 6,
+          })
+          .catch(() => { });
+        return true;
+      }
+      const iconBuffer = await axios
+        .get(value, {
+          responseType: "arraybuffer",
+          timeout: 15000,
+          maxContentLength: MAX_ROLE_ICON_BYTES,
+          maxBodyLength: MAX_ROLE_ICON_BYTES,
+          validateStatus: (status) => status >= 200 && status < 300,
+        })
+        .then((r) => Buffer.from(r.data))
+        .catch(() => null);
       if (!iconBuffer) {
         await interaction
           .reply({
@@ -1198,7 +1243,7 @@ async function handleCustomReactionModal(interaction) {
   await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
 
   const raw = interaction.fields.getTextInputValue("value") || "";
-  const tokens = parseReactionTokens(raw, MAX_REACTIONS);
+  const tokens = parseReactionTokens(raw, MAX_REACTIONS, interaction.guild);
   if (!tokens.length) {
     await interaction.editReply({
       content:

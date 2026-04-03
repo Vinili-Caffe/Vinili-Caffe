@@ -220,7 +220,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
   }
 
   if (interaction.isButton?.() && cid === "ticket_panel_nav_closerequest") {
-    const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id }, TICKET_READ_PROJECTION).lean().catch(() => null);
+    const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id, open: true }, TICKET_READ_PROJECTION).lean().catch(() => null);
     if (!ticketDoc) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Questo non è un canale ticket.")],
@@ -598,7 +598,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     }
 
     if (cid === "modal_ticket_panel_closerequest") {
-      const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id }, TICKET_READ_PROJECTION).lean().catch(() => null);
+      const ticketDoc = await Ticket.findOne({ channelId: interaction.channel.id, open: true }, TICKET_READ_PROJECTION).lean().catch(() => null);
       if (!ticketDoc) {
         await safeReply(interaction, {
           embeds: [makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Ticket non trovato.")],
@@ -619,7 +619,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       }
       const reason = String(interaction.fields.getTextInputValue("closerequest_reason") || "").trim();
       await Ticket.updateOne(
-        { channelId: interaction.channel.id },
+        { channelId: interaction.channel.id, open: true },
         {
           $set: {
             closeReason: reason || null,

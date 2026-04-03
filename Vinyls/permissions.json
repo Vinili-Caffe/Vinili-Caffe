@@ -525,12 +525,6 @@
         "backup_info_delete:*": {
             "ownerSegment": 2
         },
-        "backup_info_delete_cancel:*": {
-            "ownerSegment": 2
-        },
-        "backup_info_delete_confirm:*": {
-            "ownerSegment": 2
-        },
         "backup_info_load:*": {
             "ownerSegment": 2
         },

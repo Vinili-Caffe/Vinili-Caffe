@@ -128,7 +128,7 @@ module.exports = {
 
       const securityState = await getSecurityLockState(guild).catch(() => ({ ...SECURITY_LOCK_FALLBACK }));
       if (
-        (isAntiNukePanicActive(guild.id) || securityState.commandLockActive) &&
+        (isAntiNukePanicActive(guild.id) || securityState.joinLockActive || securityState.commandLockActive) &&
         !(executorId && (await isWhitelistedExecutorAsync(guild, executorId)))
       ) {
         await invite

@@ -153,7 +153,7 @@ function buildInfoEmbed(guild, backupId, backupData, fileSize, checksum = null) 
   const roleLines = formatRoleList(roles);
   const createdAt = Math.floor(new Date(payload.createdAt || Date.now()).getTime() / 1000);
 
-  const minimalBackup = totalMessages <= 0 || members.length <= 0 || bans.length <= 0;
+  const minimalBackup = totalMessages <= 0 && members.length <= 0 && bans.length <= 0;
 
   const embed = new EmbedBuilder()
     .setColor("#3498db")

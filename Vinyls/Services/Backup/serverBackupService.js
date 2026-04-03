@@ -561,7 +561,7 @@ async function listGuildBackupMetas(guildId, { search = "", limit = 25, offset =
   const safeOffset = Math.max(0, Number(offset || 0));
 
   const files = await fs.readdir(folder).catch(() => []);
-  const backupFiles = files.filter((name) => String(name).toLowerCase().endsWith(".json.gz")).slice(0, 250);
+  const backupFiles = files.filter((name) => String(name).toLowerCase().endsWith(".json.gz"));
 
   const withStats = await Promise.all(backupFiles.map(async (name) => { const filePath = path.join(folder, name); const stat = await fs.stat(filePath).catch(() => null); return { name, mtimeMs: Number(stat?.mtimeMs || 0), }; }),);
 
@@ -703,7 +703,20 @@ async function readBackupByIdGlobal(backupRef) {
   }
 
   const all = await listAllBackupMetas({ search: backupId, limit: 2000, offset: 0 });
-  const hit = all.find((meta) => String(meta.backupId || "").toUpperCase() === backupId);
+  const matches = all.filter(
+    (meta) => String(meta.backupId || "").toUpperCase() === backupId,
+  );
+  const uniqueGuildIds = Array.from(
+    new Set(matches.map((meta) => String(meta?.guildId || "").trim()).filter(Boolean)),
+  );
+  if (uniqueGuildIds.length > 1) {
+    const err = new Error(
+      `<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` trovato in più server. Usa il formato \`guildId:${backupId}\`.`,
+    );
+    err.code = "EAMBIGUOUS";
+    throw err;
+  }
+  const hit = matches[0] || null;
   if (!hit?.guildId) {
     const err = new Error(`<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` non trovato.`);
     err.code = "ENOENT";

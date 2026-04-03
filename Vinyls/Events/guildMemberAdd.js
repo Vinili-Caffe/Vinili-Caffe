@@ -1369,9 +1369,12 @@ module.exports = {
             action: joinGateConfig?.suspiciousAccount?.action || "log",
           };
         }
+        const joinGateWillPunish =
+          Boolean(joinGateMatch) &&
+          String(joinGateMatch?.action || "kick").toLowerCase() !== "log";
         let joinRaidOutcome = { blocked: false };
         try {
-          joinRaidOutcome = (await processJoinRaidForMember(member, { joinGateFeedOnly: !!joinGateMatch })) || { blocked: false };
+          joinRaidOutcome = (await processJoinRaidForMember(member, { joinGateFeedOnly: joinGateWillPunish })) || { blocked: false };
         } catch (err) {
           global.logger?.warn?.("[guildMemberAdd] Join Raid failed:", member.guild.id, member.id, err?.message || err);
         }

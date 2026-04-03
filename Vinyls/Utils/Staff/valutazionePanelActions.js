@@ -155,7 +155,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
       const currentRoleId = getHighestStaffRoleId(member);
       const fullResult = await applyFullDepex(guild, member, currentRoleId);
       if (fullResult.ok) {
-        const memberAfterFull = await getGuildMemberCached(guild, staffUser.id, { preferFresh: true }).catch(() => null);
+        const memberAfterFull = await getGuildMemberCached(guild, staffUser.id, { preferFresh: true }).catch(() => member);
         await syncStaffDbAndPauseChannelAfterDepex(guild, staffUser.id, memberAfterFull);
         const pexDepexChannel = await getGuildChannelCached(guild, IDs.channels?.pexDepex);
         if (pexDepexChannel?.isTextBased?.()) {

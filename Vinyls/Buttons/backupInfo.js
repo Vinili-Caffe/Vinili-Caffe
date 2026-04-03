@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const { readBackupByIdGlobal, deleteBackupByIdGlobal } = require("../Services/Backup/serverBackupService");
 const { createLoadSession, buildLoadWarningEmbed, buildLoadComponents } = require("../Services/Backup/backupLoadService");
 const { safeEditReply } = require("../../shared/discord/replyRuntime");
@@ -85,6 +85,10 @@ async function execute(interaction) {
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
       await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non autorizzato.", flags: EPHEMERAL }).catch(() => { });
+      return true;
+    }
+    if (!interaction.memberPermissions?.has?.(PermissionFlagsBits.ManageGuild)) {
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Ti serve il permesso **Gestisci Server**.", flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     try {

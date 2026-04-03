@@ -168,6 +168,19 @@ function buildLast7DaysHourKeys(endMs) {
   return keys;
 }
 
+function buildAnchorDateFromWeekKey(weekKey) {
+  const keys = getDateKeysForWeekKey(weekKey);
+  const lastDay = String(keys[keys.length - 1] || "");
+  const m = lastDay.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  // 22:00 locale domenica: garantisce boundary alle 21:00 della stessa settimana.
+  return createUtcFromRomeLocal(year, month, day, 22, 0, 0);
+}
+
 async function resolveMemberRole(guild) {
   if (!guild) return null;
   if (REQUIRED_MEMBER_ROLE_ID) {
@@ -421,7 +434,11 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       return;
     }
   }
+  const anchorFromWeekKey = options.weekKey ? buildAnchorDateFromWeekKey(options.weekKey) : null;
   const now =
+    anchorFromWeekKey && !Number.isNaN(anchorFromWeekKey.getTime())
+      ? anchorFromWeekKey
+      :
     options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime())
       ? options.anchorDate
       : new Date();

@@ -143,6 +143,20 @@ function startActiveLoad({ guildId, userId, backupId, actions, messagesLimit }) 
   return state;
 }
 
+function startActiveLoadIfIdle({ guildId, userId, backupId, actions, messagesLimit }) {
+  const key = String(guildId || "");
+  if (!key) return null;
+  clearStaleActiveLoad(key);
+  if (getActiveLoadState(key)) return null;
+  return startActiveLoad({
+    guildId: key,
+    userId,
+    backupId,
+    actions,
+    messagesLimit,
+  });
+}
+
 function finishActiveLoad(guildId) {
   const key = String(guildId || "");
   if (!key) return;
@@ -1306,8 +1320,14 @@ async function handleBackupLoadInteraction(interaction) {
   }
 
   if (isButton && customId.startsWith("backup_load_confirm:")) {
-    clearStaleActiveLoad(interaction.guildId);
-    if (getActiveLoadState(interaction.guildId)) {
+    const activeLoad = startActiveLoadIfIdle({
+      guildId: interaction.guildId,
+      userId: session.userId,
+      backupId: session.backupId,
+      actions: [...session.actions],
+      messagesLimit: session.messagesLimit,
+    });
+    if (!activeLoad) {
       await interaction
         .reply({
           content: "<a:VC_Alert:1482706673176150077> C'è già un backup load in corso in questo server.",
@@ -1317,14 +1337,11 @@ async function handleBackupLoadInteraction(interaction) {
       return true;
     }
 
-    await interaction.deferUpdate().catch(() => { });
-    startActiveLoad({
-      guildId: interaction.guildId,
-      userId: session.userId,
-      backupId: session.backupId,
-      actions: [...session.actions],
-      messagesLimit: session.messagesLimit,
-    });
+    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+    if (!deferred) {
+      finishActiveLoad(interaction.guildId);
+      return true;
+    }
     await interaction.message
       .edit({
         embeds: [buildLoadInProgressEmbed(session.backupId)],

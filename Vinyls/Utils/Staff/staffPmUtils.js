@@ -4,9 +4,16 @@ const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { deleteStaffPauseRequestChannelMessages } = require("./staffDocUtils");
 
 const ROLE_PM = IDs.roles.PartnerManager;
+const ROLE_STAFF_GENERIC = IDs.roles.Staff;
 
 function memberHasPartnerManagerRole(member) {
   return Boolean(ROLE_PM && member?.roles?.cache?.has?.(ROLE_PM));
+}
+
+function memberHasAnyStaffPresenceForDepexSync(member) {
+  if (!member?.roles?.cache) return false;
+  if (memberHasStaffRole(member)) return true;
+  return Boolean(ROLE_STAFF_GENERIC && member.roles.cache.has(ROLE_STAFF_GENERIC));
 }
 
 /** Inizializza i campi DB legati al ruolo Partner Manager (solo quando l'utente ha il PM). */
@@ -41,13 +48,10 @@ async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
   if (!member) {
-    await ActivityUserProfile.updateOne(
-      { guildId: gid, userId: uid, staff: { $exists: true } },
-      { $unset: { staff: "" } },
-    ).catch(() => null);
+    // Evita wipe distruttivi in caso di fetch membro fallita temporaneamente.
     return;
   }
-  if (memberHasStaffRole(member)) {
+  if (memberHasAnyStaffPresenceForDepexSync(member)) {
     if (!memberHasPartnerManagerRole(member)) {
       await ActivityUserProfile.updateOne(
         { guildId: gid, userId: uid },
@@ -69,7 +73,8 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) return;
-  if (!member || !memberHasStaffRole(member)) {
+  if (!member) return;
+  if (!memberHasAnyStaffPresenceForDepexSync(member)) {
     await deleteStaffPauseRequestChannelMessages(guild, uid);
   }
   await applyStaffDatabaseAfterDepex(gid, uid, member);

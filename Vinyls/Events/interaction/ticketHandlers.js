@@ -1084,7 +1084,7 @@ async function handleTicketInteraction(interaction) {
               new EmbedBuilder()
                 .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET UNCLAIMATO__**")
                 .setDescription(
-                  `<:VC_claim:1478517202016669887> Il ticket non è più gestito da <@${interaction.user.id}>`,
+                  `<:VC_claim:1478517202016669887> Il ticket non è più gestito da <@${previousClaimerId || interaction.user.id}>`,
                 )
                 .setColor("#6f4e37"),
             ],

@@ -591,7 +591,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
     };
   }
 
-  const refreshedMember = await resolveMember(targetUser.id);
+  const refreshedMember = (await resolveMember(targetUser.id)) || member;
   await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
 
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);

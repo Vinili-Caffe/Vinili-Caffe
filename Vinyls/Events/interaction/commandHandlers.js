@@ -31,6 +31,22 @@ function hasAnyStaffBypassPermission(permissions) {
 async function handleAutocomplete(interaction, client) {
   const cmd=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
   if (!cmd?.autocomplete) return;
+  const isAntiNukeRecoveryCommand=["antinuke","security"].includes(String(cmd?.name||interaction.commandName||"").toLowerCase(),);
+  const securityLockState = await getSecurityLockState(interaction.guild);
+  if (!isAntiNukeRecoveryCommand && securityLockState.commandLockActive) {
+    return;
+  }
+  const isModerationSlashCommand=["staff","admin"].includes(String(cmd?.category||"").toLowerCase(),);
+  if (
+    isModerationSlashCommand &&
+    !isAntiNukeRecoveryCommand &&
+    (await shouldBlockModerationCommands(
+      interaction.guild,
+      String(interaction.user?.id || ""),
+    ))
+  ) {
+    return;
+  }
   try {
     await cmd.autocomplete(interaction, client);
   } catch (err) {

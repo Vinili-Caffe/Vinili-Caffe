@@ -58,6 +58,14 @@ function buildDeniedEmbed(gate, controlLabel) {
     return buildGlobalNotYourControlEmbed();
   }
 
+  if (gate.reason === "verify_session_required") {
+    return buildGlobalPermissionDeniedEmbed(
+      [],
+      controlLabel,
+      "<a:VC_Alert:1482706673176150077> Devi prima premere `Inizia Verifica`, poi inserire il codice.",
+    );
+  }
+
   if (gate.reason === "mono_guild") {
     return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED);
   }

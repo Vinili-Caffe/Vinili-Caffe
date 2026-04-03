@@ -855,8 +855,8 @@ async function loadLiveVoiceSessions(guildId) {
   return list.map((row) => ({
     userId: row.userId,
     voice: {
-      sessionStartedAt: row.totals?.sessionStartedAt,
-      sessionChannelId: row.totals?.sessionChannelId,
+      sessionStartedAt: row.profile?.totals?.sessionStartedAt,
+      sessionChannelId: row.profile?.totals?.sessionChannelId,
     },
   }));
 }
@@ -1480,10 +1480,6 @@ async function getUserOverviewStats(guildId, userId, lookbackDays = 14, excludeV
       d21: { text: Number(t.messagesTotal || 0), voiceSeconds: Number(t.voiceTotalSeconds || 0) },
       d30: { text: Number(t.messagesTotal || 0), voiceSeconds: Number(t.voiceTotalSeconds || 0) },
     };
-    if (!rankText && Number(fallback?.[lookbackKey]?.text || 0) > 0)
-      rankText = 1;
-    if (!rankVoice && Number(fallback?.[lookbackKey]?.voiceSeconds || 0) > 0)
-      rankVoice = 1;
     return {
       approximate: true,
       lookbackDays: safeLookback,
@@ -1739,15 +1735,11 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
     }
   }
 
-  const lookbackWindow = sumForKeys(dayKeysLookback);
   const d1 = sumForKeys(dayKeys1);
   const d7 = sumForKeys(dayKeys7);
   const d14 = sumForKeys(dayKeys14);
   const d21 = sumForKeys(dayKeys21);
   const d30 = sumForKeys(dayKeys30);
-  if (liveForChannel > 0) {
-    lookbackWindow.voiceSeconds += liveForChannel;
-  }
 
   const chart = dayKeysLookback.slice().reverse().map((dayKey) => {
     const point = byDay.get(dayKey) || { text: 0, voiceSeconds: 0 };

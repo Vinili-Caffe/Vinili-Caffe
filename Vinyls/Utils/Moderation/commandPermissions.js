@@ -650,8 +650,16 @@ async function checkSlashPermission(interaction, options = {}) {
   if (interaction.commandName === "dmbroadcast" && onMainGuild) {
     const client = interaction.client;
     const devIds = getDevIds(client);
-    if (devIds.length === 0) return false;
-    return devIds.includes(userId);
+    const allowed = devIds.length > 0 && devIds.includes(userId);
+    if (options.returnDetails) {
+      return {
+        allowed,
+        reason: allowed ? null : "missing_role",
+        requiredRoles: null,
+        channels: null,
+      };
+    }
+    return allowed;
   }
 
   if (guildId && !onMainGuild) {
@@ -807,7 +815,7 @@ async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -848,16 +856,21 @@ async function checkButtonPermission(interaction) {
     if (!hasSession) {
       return {
         allowed: false,
-        reason: "not_owner",
+        reason: "verify_session_required",
         requiredRoles: policy.roles || null,
         ownerId: interaction?.user?.id || null,
       };
     }
   }
 
+  let grantRecipientMatched = false;
   if (policy.grantRecipientOnly) {
     const [, token] = String(customId).split(":");
     const request = getPendingCustomRoleGrant(token);
+    grantRecipientMatched =
+      Boolean(request) &&
+      Boolean(interaction?.user?.id) &&
+      String(interaction.user.id) === String(request.targetId);
     if (
       request &&
       interaction?.user?.id &&
@@ -898,7 +911,9 @@ async function checkButtonPermission(interaction) {
   const hasRoleConstraint = Array.isArray(policy.roles);
   let rolePass = true;
   if (hasRoleConstraint) {
-    if (!interaction?.inGuild?.()) {
+    if (grantRecipientMatched && !interaction?.inGuild?.()) {
+      rolePass = true;
+    } else if (!interaction?.inGuild?.()) {
       rolePass = false;
     } else {
       rolePass = await hasAnyRoleWithLiveFallback(interaction, policy.roles);
@@ -954,8 +969,8 @@ async function checkButtonPermission(interaction) {
 
   if (hasRoleConstraint && !rolePass) {
     if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => true);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => true);
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
       if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
     }
     return {
@@ -989,7 +1004,6 @@ async function checkButtonPermission(interaction) {
       ownerId: null,
     };
   }
-
   return {
     allowed: true,
     reason: null,
@@ -1002,7 +1016,7 @@ async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1109,8 +1123,8 @@ async function checkStringSelectPermission(interaction) {
 
   if (hasRoleConstraint && !rolePass) {
     if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => true);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => true);
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
       if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
     }
     return {
@@ -1128,6 +1142,21 @@ async function checkStringSelectPermission(interaction) {
       ownerId: null,
     };
   }
+  const hasChannelConstraint = Array.isArray(policy.channels) && policy.channels.length > 0;
+  let channelPass = true;
+  if (hasChannelConstraint) {
+    const chId = String(interaction?.channelId || interaction?.channel?.id || "");
+    channelPass = Boolean(chId && policy.channels.includes(chId));
+  }
+  if (hasChannelConstraint && !channelPass) {
+    return {
+      allowed: false,
+      reason: "channel",
+      requiredRoles: policy.roles || null,
+      channels: policy.channels,
+      ownerId: null,
+    };
+  }
 
   return {
     allowed: true,
@@ -1141,7 +1170,7 @@ async function checkModalPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isBackupInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1157,7 +1186,7 @@ async function checkModalPermission(interaction) {
     };
   }
 
-  if (guildId && isAllowedGuildForComponents(guildId) && isApplyOrCandidatureInteraction(customId)) {
+  if (isMainGuild(guildId) && isApplyOrCandidatureInteraction(customId)) {
     return {
       allowed: true,
       reason: null,
@@ -1259,8 +1288,8 @@ async function checkModalPermission(interaction) {
 
   if (hasRoleConstraint && !rolePass) {
     if (customId === "personality_colors_plus" && guildId && interaction?.user?.id) {
-      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => true);
-      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => true);
+      const week2Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 2).catch(() => false);
+      const week3Grant = await hasEventWeekWinnerGrant(guildId, interaction.user.id, 3).catch(() => false);
       if (week2Grant || week3Grant) return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
     }
     return {
@@ -1275,6 +1304,21 @@ async function checkModalPermission(interaction) {
       allowed: false,
       reason: "missing_permission",
       requiredRoles: policy.roles || null,
+      ownerId: null,
+    };
+  }
+  const hasChannelConstraint = Array.isArray(policy.channels) && policy.channels.length > 0;
+  let channelPass = true;
+  if (hasChannelConstraint) {
+    const chId = String(interaction?.channelId || interaction?.channel?.id || "");
+    channelPass = Boolean(chId && policy.channels.includes(chId));
+  }
+  if (hasChannelConstraint && !channelPass) {
+    return {
+      allowed: false,
+      reason: "channel",
+      requiredRoles: policy.roles || null,
+      channels: policy.channels,
       ownerId: null,
     };
   }
