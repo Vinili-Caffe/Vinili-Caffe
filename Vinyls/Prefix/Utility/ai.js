@@ -4,7 +4,7 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const OLLAMA_CHAT_URL = String(
   process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/generate",
 ).trim();
-const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:1.5b").trim();
+const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:0.5b").trim();
 const OLLAMA_TIMEOUT_MS = Math.max(
   5000,
   Number(process.env.OLLAMA_TIMEOUT_MS || 14000),
@@ -15,7 +15,7 @@ const OLLAMA_MAX_PROMPT_CHARS = Math.max(
 );
 const OLLAMA_MAX_RESPONSE_CHARS = Math.max(
   300,
-  Number(process.env.OLLAMA_MAX_RESPONSE_CHARS || 1200),
+  Number(process.env.OLLAMA_MAX_RESPONSE_CHARS || 900),
 );
 const AI_USER_COOLDOWN_MS = Math.max(
   1000,
@@ -55,11 +55,12 @@ async function callOllama(prompt) {
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         stream: false,
+        keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
         prompt: `Rispondi in italiano, in modo utile e conciso.\n\nUtente: ${prompt}\nAssistente:`,
         options: {
-          temperature: 0.5,
-          num_predict: 64,
-          num_ctx: 1024,
+          temperature: 0.4,
+          num_predict: Math.max(16, Number(process.env.OLLAMA_NUM_PREDICT || 40)),
+          num_ctx: Math.max(256, Number(process.env.OLLAMA_NUM_CTX || 512)),
         }
       }),
     });
