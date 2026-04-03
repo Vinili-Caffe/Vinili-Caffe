@@ -2,9 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/weeklyStaffResocontoService");
 const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Prefix/Level/classifica");
-
 const PLB_MODE_PREFIX = "plb_mode:";
-/** Legacy messaggi con paginazione: aggiorna senza freccie pagina. */
 const PLB_NAV_PREFIX = "plb_nav:";
 
 function countValidAllTimePartners(actions) {
@@ -32,21 +30,15 @@ function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
   return t >= weekStart.getTime() && t < weekEndExclusive.getTime();
 }
 
-function partnerLbSubtitle(isWeekly) {
-  return isWeekly
-    ? "<a:VC_Sparkles:1468546911936974889> I 10 utenti con più partnership nella settimana resoconto [Settimanale]"
-    : "<a:VC_Sparkles:1468546911936974889> I 10 utenti con più partnership [Totale]";
-}
-
 function buildPartnerLbShellEmbed(guild, isWeekly, bodyLines) {
-  const title = isWeekly ? "Classifica partnership [Settimanale]" : "Classifica partnership [Totale]";
+  const title = isWeekly ? "Classifica partnership [Weekly]" : "Classifica partnership [All Time]";
   const icon = guild.iconURL({ size: 128 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: guild.name, iconURL: icon })
     .setTitle(title)
     .setThumbnail(icon)
-    .setDescription([partnerLbSubtitle(isWeekly), "", bodyLines.join("\n")].join("\n"));
+    .setDescription([bodyLines.join("\n")].join("\n"));
 }
 
 async function buildPartnerLbEmbed(guild, visibleRows, isWeekly) {
@@ -126,12 +118,4 @@ async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", _p
   return { embeds: [embed], components: [toggleRow] };
 }
 
-module.exports = {
-  TOP_LIMIT,
-  PARTNERS_PER_PAGE: TOP_LIMIT,
-  PLB_MODE_PREFIX,
-  PLB_NAV_PREFIX,
-  buildPartnerLeaderboardPayload,
-  fetchSortedPartners,
-  countValidAllTimePartners,
-};
+module.exports = { TOP_LIMIT, PARTNERS_PER_PAGE: TOP_LIMIT, PLB_MODE_PREFIX: "plb_mode:", PLB_NAV_PREFIX: "plb_nav:", buildPartnerLeaderboardPayload, fetchSortedPartners, countValidAllTimePartners };
