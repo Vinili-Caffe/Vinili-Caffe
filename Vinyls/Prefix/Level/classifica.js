@@ -478,6 +478,10 @@ module.exports = {
   name: "classifica",
   aliases: ["c", "cs"],
   allowEmptyArgs: true,
+  TOP_LIMIT,
+  rankLabel,
+  formatUserLabel,
+  fetchMembers,
 
   async execute(message) {
     await message.channel.sendTyping();

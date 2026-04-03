@@ -1,10 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/weeklyStaffResocontoService");
+const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Prefix/Level/classifica");
 
-const PARTNERS_PER_PAGE = 10;
-const UNKNOWN_USERNAME = "Utente sconosciuto";
 const PLB_MODE_PREFIX = "plb_mode:";
+/** Legacy messaggi con paginazione: aggiorna senza freccie pagina. */
 const PLB_NAV_PREFIX = "plb_nav:";
 
 function countValidAllTimePartners(actions) {
@@ -32,62 +32,41 @@ function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
   return t >= weekStart.getTime() && t < weekEndExclusive.getTime();
 }
 
-function buildNoDataEmbed(isWeekly) {
+function partnerLbSubtitle(isWeekly) {
+  return isWeekly
+    ? "<a:VC_Sparkles:1468546911936974889> I 10 utenti con più partnership nella settimana resoconto [Settimanale]"
+    : "<a:VC_Sparkles:1468546911936974889> I 10 utenti con più partnership [Totale]";
+}
+
+function buildPartnerLbShellEmbed(guild, isWeekly, bodyLines) {
+  const title = isWeekly ? "Classifica partnership [Settimanale]" : "Classifica partnership [Totale]";
+  const icon = guild.iconURL({ size: 128 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(
-      isWeekly
-        ? "<:VC_Attention:1482534443632558151> Nessuna partnership in questa settimana resoconto (dom 20:00 → dom 20:00)!"
-        : "<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!",
+    .setAuthor({ name: guild.name, iconURL: icon })
+    .setTitle(title)
+    .setThumbnail(icon)
+    .setDescription([partnerLbSubtitle(isWeekly), "", bodyLines.join("\n")].join("\n"));
+}
+
+async function buildPartnerLbEmbed(guild, visibleRows, isWeekly) {
+  const members = await fetchMembers(guild, visibleRows.map((r) => r.userId));
+  const lines = [];
+  visibleRows.forEach((row, index) => {
+    const member = members.get(row.userId);
+    const label = formatUserLabel(member, row.userId);
+    const score = Number(row.score || 0);
+    lines.push(`${rankLabel(index)} ${label}`);
+    lines.push(
+      `<:VC_Reply:1482532158080942191> __${score}__ partnership <:VC_Partner:1482527213780729896>`,
     );
-}
-
-async function buildLeaderboardEmbed(partners, currentPage, totalPages, isWeekly, resolveUsername) {
-  const startIndex = (currentPage - 1) * PARTNERS_PER_PAGE;
-  const currentPartners = partners.slice(startIndex, startIndex + PARTNERS_PER_PAGE);
-  const usernames = await Promise.all(currentPartners.map((partner) => resolveUsername(partner.userId)));
-  const rows = currentPartners.map(
-    (partner, index) =>
-      `**${startIndex + index + 1}.**${usernames[index] || UNKNOWN_USERNAME} - <:VC_Partner:1482527213780729896> ${partner.score} partnership`,
-  );
-  const titleSuffix = isWeekly ? "Settimanale (dom 20:00 → dom 20:00)" : "Totale";
-  return new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle(`<a:VC_Winner:1482535294757507255> Classifica Partnership (${titleSuffix})`)
-    .setDescription(rows.join("\n"))
-    .setFooter({ text: `Pagina ${currentPage} di ${totalPages}` })
-    .setTimestamp();
-}
-
-function createUsernameResolver(client) {
-  const usernameCache = new Map();
-  const pendingFetches = new Map();
-  return async (userId) => {
-    const key = String(userId || "");
-    if (!key) return UNKNOWN_USERNAME;
-    if (usernameCache.has(key)) return usernameCache.get(key);
-    const cachedUser = client.users.cache.get(key);
-    if (cachedUser?.username) {
-      usernameCache.set(key, cachedUser.username);
-      return cachedUser.username;
-    }
-    if (pendingFetches.has(key)) return pendingFetches.get(key);
-    const fetchPromise = client.users
-      .fetch(key)
-      .then((user) => {
-        const username = user?.username || UNKNOWN_USERNAME;
-        usernameCache.set(key, username);
-        pendingFetches.delete(key);
-        return username;
-      })
-      .catch(() => {
-        pendingFetches.delete(key);
-        usernameCache.set(key, UNKNOWN_USERNAME);
-        return UNKNOWN_USERNAME;
-      });
-    pendingFetches.set(key, fetchPromise);
-    return fetchPromise;
-  };
+  });
+  if (lines.length === 0) {
+    lines.push(
+      isWeekly ? "Nessun dato disponibile per questa settimana." : "Nessun dato disponibile.",
+    );
+  }
+  return buildPartnerLbShellEmbed(guild, isWeekly, lines);
 }
 
 async function fetchSortedPartners(guild, isWeekly) {
@@ -117,50 +96,39 @@ function buildPartnerLbToggleRow(mode = "totale") {
   const active = mode === "settimanale" ? "settimanale" : "totale";
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${PLB_MODE_PREFIX}totale`)
-      .setLabel("Totale")
-      .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    new ButtonBuilder()
       .setCustomId(`${PLB_MODE_PREFIX}settimanale`)
-      .setLabel("Settimanale")
-      .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
+      .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji("⬅️"),
+    new ButtonBuilder()
+      .setCustomId(`${PLB_MODE_PREFIX}totale`)
+      .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji("➡️"),
   );
 }
 
-function buildPartnerLbNavRow(mode, currentPage, totalPages) {
-  const m = mode === "settimanale" ? "settimanale" : "totale";
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${PLB_NAV_PREFIX}${m}:${currentPage}:p`)
-      .setEmoji("<a:vegaleftarrow:1462914743416131816>")
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(currentPage <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${PLB_NAV_PREFIX}${m}:${currentPage}:n`)
-      .setEmoji("<a:vegarightarrow:1443673039156936837>")
-      .setStyle(ButtonStyle.Primary)
-      .setDisabled(currentPage >= totalPages),
-  );
-}
-
-async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", page = 1) {
-  const isWeekly = mode === "settimanale";
-  const partners = await fetchSortedPartners(guild, isWeekly);
-  const toggleRow = buildPartnerLbToggleRow(isWeekly ? "settimanale" : "totale");
-  if (!partners.length) {
-    return { embeds: [buildNoDataEmbed(isWeekly)], components: [toggleRow] };
+async function pickTopPartnerRowsInGuild(sortedAll, guild, limit) {
+  const members = await fetchMembers(guild, sortedAll.map((r) => r.userId));
+  const out = [];
+  for (const row of sortedAll) {
+    if (!members.has(row.userId)) continue;
+    out.push(row);
+    if (out.length >= limit) break;
   }
-  const totalPages = Math.max(1, Math.ceil(partners.length / PARTNERS_PER_PAGE));
-  const safePage = Math.min(Math.max(1, page), totalPages);
-  const resolveUsername = createUsernameResolver(client);
-  const embed = await buildLeaderboardEmbed(partners, safePage, totalPages, isWeekly, resolveUsername);
-  const components = [toggleRow];
-  if (totalPages > 1) components.push(buildPartnerLbNavRow(isWeekly ? "settimanale" : "totale", safePage, totalPages));
-  return { embeds: [embed], components };
+  return out;
+}
+
+async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", _page = 1) {
+  const isWeekly = mode === "settimanale";
+  const sortedAll = await fetchSortedPartners(guild, isWeekly);
+  const toggleRow = buildPartnerLbToggleRow(isWeekly ? "settimanale" : "totale");
+  const visible = await pickTopPartnerRowsInGuild(sortedAll, guild, TOP_LIMIT);
+  const embed = await buildPartnerLbEmbed(guild, visible, isWeekly);
+  return { embeds: [embed], components: [toggleRow] };
 }
 
 module.exports = {
-  PARTNERS_PER_PAGE,
+  TOP_LIMIT,
+  PARTNERS_PER_PAGE: TOP_LIMIT,
   PLB_MODE_PREFIX,
   PLB_NAV_PREFIX,
   buildPartnerLeaderboardPayload,

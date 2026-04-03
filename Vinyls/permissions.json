@@ -201,7 +201,7 @@
                 "roles.PartnerManager"
             ],
             "channels": [
-                "channels.partnersChat",
+                "channels.partnersCmds",
                 "channels.staffCmds",
                 "channels.highCmds"
             ]
@@ -246,7 +246,7 @@
             "channels": [
                 "channels.staffCmds",
                 "channels.highCmds",
-                "channels.partnersChat"
+                "channels.partnersCmds"
             ],
             "subcommands": {
                 "add": [
