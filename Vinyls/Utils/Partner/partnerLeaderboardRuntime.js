@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/weeklyStaffResocontoService");
 
 const PARTNERS_PER_PAGE = 10;
 const UNKNOWN_USERNAME = "Utente sconosciuto";
@@ -22,10 +23,23 @@ function computeTotalPartnerScore(staff) {
   return Math.max(safeCounter, fromActions);
 }
 
-function buildNoDataEmbed() {
+function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
+  if (!action || String(action.action || "").toLowerCase() !== "create") return false;
+  const raw = action.date != null ? action.date : null;
+  const when = raw != null ? new Date(raw) : null;
+  if (!when || Number.isNaN(when.getTime())) return false;
+  const t = when.getTime();
+  return t >= weekStart.getTime() && t < weekEndExclusive.getTime();
+}
+
+function buildNoDataEmbed(isWeekly) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription("<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!");
+    .setDescription(
+      isWeekly
+        ? "<:VC_Attention:1482534443632558151> Nessuna partnership in questa settimana resoconto (dom 20:00 → dom 20:00)!"
+        : "<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!",
+    );
 }
 
 async function buildLeaderboardEmbed(partners, currentPage, totalPages, isWeekly, resolveUsername) {
@@ -36,7 +50,7 @@ async function buildLeaderboardEmbed(partners, currentPage, totalPages, isWeekly
     (partner, index) =>
       `**${startIndex + index + 1}.**${usernames[index] || UNKNOWN_USERNAME} - <:VC_Partner:1482527213780729896> ${partner.score} partnership`,
   );
-  const titleSuffix = isWeekly ? "Settimanale · punti totali" : "Totale";
+  const titleSuffix = isWeekly ? "Settimanale (dom 20:00 → dom 20:00)" : "Totale";
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(`<a:VC_Winner:1482535294757507255> Classifica Partnership (${titleSuffix})`)
@@ -76,15 +90,25 @@ function createUsernameResolver(client) {
   };
 }
 
-async function fetchSortedPartners(guild) {
+async function fetchSortedPartners(guild, isWeekly) {
   const allStaff = await ActivityUserProfile.find({ guildId: guild.id })
     .select("userId staff.partnerCount staff.partnerActions")
     .lean();
+  const weekBounds = isWeekly ? getPartnerLeaderboardWeekBoundsUtc(new Date()) : null;
   return allStaff
-    .map((row) => ({
-      userId: row.userId,
-      score: computeTotalPartnerScore(row.staff),
-    }))
+    .map((row) => {
+      const staff = row.staff || {};
+      if (!isWeekly) {
+        return { userId: row.userId, score: computeTotalPartnerScore(staff) };
+      }
+      const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : [];
+      const weeklyCount = actions.reduce(
+        (total, action) =>
+          total + (isPartnerCreateInResocontoWeek(action, weekBounds.weekStart, weekBounds.weekEndExclusive) ? 1 : 0),
+        0,
+      );
+      return { userId: row.userId, score: weeklyCount };
+    })
     .filter((p) => p.score > 0)
     .sort((a, b) => b.score - a.score);
 }
@@ -121,10 +145,10 @@ function buildPartnerLbNavRow(mode, currentPage, totalPages) {
 
 async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", page = 1) {
   const isWeekly = mode === "settimanale";
-  const partners = await fetchSortedPartners(guild);
+  const partners = await fetchSortedPartners(guild, isWeekly);
   const toggleRow = buildPartnerLbToggleRow(isWeekly ? "settimanale" : "totale");
   if (!partners.length) {
-    return { embeds: [buildNoDataEmbed()], components: [toggleRow] };
+    return { embeds: [buildNoDataEmbed(isWeekly)], components: [toggleRow] };
   }
   const totalPages = Math.max(1, Math.ceil(partners.length / PARTNERS_PER_PAGE));
   const safePage = Math.min(Math.max(1, page), totalPages);

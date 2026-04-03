@@ -201,6 +201,18 @@ function getResocontoClosingSunday20Utc(referenceNow = new Date()) {
   return createUtcFromRomeLocal(sunY, sunM, sunD, 20, 0, 0);
 }
 
+/**
+ * Finestra classifica partner “settimanale”: [domenica 20:00 dopo resoconto, domenica 20:00 dopo 7 giorni) in Europe/Rome.
+ * Stesso ancoraggio di `getResocontoClosingSunday20Utc` (allineato al ciclo resoconto domenica 20).
+ */
+function getPartnerLeaderboardWeekBoundsUtc(now = new Date()) {
+  const weekStart = getResocontoClosingSunday20Utc(now);
+  const sunParts = getRomeDateParts(weekStart);
+  const endParts = addDaysToRomeYmd(sunParts.year, sunParts.month, sunParts.day, 7);
+  const weekEndExclusive = createUtcFromRomeLocal(endParts.year, endParts.month, endParts.day, 20, 0, 0);
+  return { weekStart, weekEndExclusive };
+}
+
 /** Lunedì 00:00 → domenica 20:00 (escluso) Roma per la settimana chiusa da quel resoconto. */
 function getResocontoPexSkipWindowUtc(referenceNow = new Date()) {
   const closingSunday20 = getResocontoClosingSunday20Utc(referenceNow);
@@ -872,4 +884,8 @@ function startWeeklyStaffResocontoLoop(client) {
   return weeklyStaffResocontoTask;
 }
 
-module.exports = { startWeeklyStaffResocontoLoop, runWeeklyStaffResoconti };
+module.exports = {
+  startWeeklyStaffResocontoLoop,
+  runWeeklyStaffResoconti,
+  getPartnerLeaderboardWeekBoundsUtc,
+};

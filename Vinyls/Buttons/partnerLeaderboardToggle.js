@@ -28,7 +28,8 @@ async function execute(interaction) {
     mode = modeRaw === "settimanale" ? "settimanale" : "totale";
     const curPage = Math.max(1, Number.parseInt(parts[1], 10) || 1);
     const dir = String(parts[2] || "").toLowerCase();
-    const partners = await fetchSortedPartners(guild);
+    const isWeekly = mode === "settimanale";
+    const partners = await fetchSortedPartners(guild, isWeekly);
     const totalPages = Math.max(1, Math.ceil(Math.max(partners.length, 1) / PARTNERS_PER_PAGE));
     if (dir === "n") page = Math.min(totalPages, curPage + 1);
     else if (dir === "p") page = Math.max(1, curPage - 1);
