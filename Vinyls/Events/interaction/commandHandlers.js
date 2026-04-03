@@ -47,9 +47,12 @@ async function handleSlashCommand(interaction, client) {
     !isAntiNukeRecoveryCommand &&
     securityLockState.commandLockActive
   ) {
+    const cmdLockSources = Array.isArray(securityLockState.commandSources)
+      ? securityLockState.commandSources
+      : [];
     return interaction.reply({
       content:
-        `<:VC_Attention:1482534443632558151> Server in lockdown di sicurezza: comandi temporaneamente bloccati.${securityLockState.sources.length ? ` (${securityLockState.sources.join(", ")})` : ""}`,
+        `<:VC_Attention:1482534443632558151> Server in lockdown di sicurezza: comandi temporaneamente bloccati.${cmdLockSources.length ? ` (${cmdLockSources.join(", ")})` : ""}`,
       flags: 1 << 6,
     });
   }

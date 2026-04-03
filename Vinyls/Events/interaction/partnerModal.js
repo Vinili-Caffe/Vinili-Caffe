@@ -165,7 +165,11 @@ async function handlePartnerModal(interaction) {
   }
   let serverName = "Server Sconosciuto";
   let serverIcon = null;
+  let resolvedInviteGuildId = "";
   const inviteUrl = `https://discord.gg/${inviteCode}`;
+  const ourGuildIdForPartnerBlock = String(
+    IDs.guilds?.main || interaction.guild?.id || "",
+  ).trim();
   try {
     const res = await axios.get(`https://discord.com/api/v10/invites/${inviteCode}?with_counts=true`,
       {
@@ -175,6 +179,7 @@ async function handlePartnerModal(interaction) {
     );
     const data = res?.data || {};
     if (!data.guild) throw new Error("Invite invalid");
+    resolvedInviteGuildId = String(data.guild.id || "").trim();
     serverName = data.guild.name;
     serverIcon = data.guild.icon
       ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png`
@@ -197,7 +202,12 @@ async function handlePartnerModal(interaction) {
   if (!isValidServerName(serverName)) {
     serverName = "Server Sconosciuto";
   }
-  if (inviteCode.toLowerCase().includes("viniliecaffe")) {
+  const inviteTargetsOurGuild =
+    Boolean(resolvedInviteGuildId && ourGuildIdForPartnerBlock) &&
+    resolvedInviteGuildId === ourGuildIdForPartnerBlock;
+  const vanitySlugLooksLikeOurs =
+    !resolvedInviteGuildId && inviteCode.toLowerCase().includes("viniliecaffe");
+  if (inviteTargetsOurGuild || vanitySlugLooksLikeOurs) {
     const embed = new EmbedBuilder()
       .setAuthor({ name: interaction.user.username, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
       .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${interaction.user.username}**`)

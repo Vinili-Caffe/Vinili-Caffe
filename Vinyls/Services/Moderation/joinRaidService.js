@@ -9,12 +9,12 @@ const {
 } = require("../../Utils/BotState/domainStatesStore");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
+const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
 const HIGH_STAFF_MENTION = HIGH_STAFF_ROLE_ID ? `<@&${HIGH_STAFF_ROLE_ID}>` : null;
-const CORE_EXEMPT_USER_IDS = new Set(["1466495522474037463", "1329118940110127204",]);
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
 const JOIN_RAID_CONFIG = { enabled: true, lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "any", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [IDs.roles.Founder, IDs.roles.CoFounder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Supervisor, IDs.roles.Coordinator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.HighStaff,].filter(Boolean).map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
 const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "any", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
@@ -359,6 +359,10 @@ async function doFinalizeJoinRaidReportLocked(guild, reason = "elapsed") {
   state.raidInitialFlaggedUserIds = [];
   state.raidCaughtUserIds = [];
   scheduleStateSave(guild.id);
+  try {
+    const { invalidateSecurityLockCache } = require("./securityOrchestratorService");
+    invalidateSecurityLockCache(guild.id);
+  } catch (_) {}
 }
 
 async function finalizeJoinRaidAndReport(guild, reason = "elapsed") {
@@ -798,10 +802,12 @@ async function processJoinRaidForMember(member, options = {}) {
   return withGuildLock(member.guild.id, async () => {
     const at = nowMs();
     const state = getGuildState(member.guild.id);
+    const staleCooldownKeys = [];
     for (const [key, ts] of LOW_RISK_FLAG_LOG_COOLDOWN.entries()) {
-      if (Number(ts || 0) + LOW_RISK_FLAG_LOG_COOLDOWN_MS < at) {
-        LOW_RISK_FLAG_LOG_COOLDOWN.delete(key);
-      }
+      if (Number(ts || 0) + LOW_RISK_FLAG_LOG_COOLDOWN_MS < at) staleCooldownKeys.push(key);
+    }
+    for (const key of staleCooldownKeys) {
+      LOW_RISK_FLAG_LOG_COOLDOWN.delete(key);
     }
     pruneState(state, at);
     if (Number(state.raidUntil || 0) > 0 && Number(state.raidUntil || 0) <= at) {
@@ -987,6 +993,24 @@ async function registerJoinRaidSecuritySignal(member, options = {}) {
   const raidBoostMinutes = Math.max(0, Math.floor(Number(options?.raidBoost || 0)));
   const minMs = explicitMs + raidBoostMinutes * 60_000;
   const raid = await activateJoinRaidWindow(member.guild, reason, minMs || 0);
+  if (options?.enableAntiNuke && member.guild) {
+    try {
+      const { enableAntiNukePanic } = require("./antiNukeService");
+      await enableAntiNukePanic(member.guild, reason, Number(options.antiNukeHeat || 0), {
+        force: Boolean(options.antiNukeForce),
+      });
+    } catch (_) {}
+  }
+  if (options?.enableAutoMod && member.guild?.id) {
+    try {
+      const { triggerAutoModPanicExternal } = require("./automodService");
+      triggerAutoModPanicExternal(String(member.guild.id), String(member.id || "external"), {
+        activityBoost: Number(options.autoModActivityBoost || 0),
+        dbBoost: Number(options.autoModDbBoost || 0),
+        raidBoost: Number(options.autoModRaidBoost || 0),
+      });
+    } catch (_) {}
+  }
   try {
     const { invalidateSecurityLockCache } = require("./securityOrchestratorService");
     invalidateSecurityLockCache(member.guild.id);
@@ -1092,23 +1116,26 @@ async function getJoinRaidStatusSnapshot(guildId) {
   };
 }
 
-function stopJoinRaidWindowForGuild(guildId) {
+async function stopJoinRaidWindowForGuild(guildId) {
   const key = String(guildId || "").trim();
   if (!key || CLEARED_GUILDS.has(key)) return;
-  const reportTimer = RAID_REPORT_TIMERS.get(key);
-  if (reportTimer) {
-    clearTimeout(reportTimer);
-    RAID_REPORT_TIMERS.delete(key);
-  }
-  const state = getGuildState(key);
-  state.raidUntil = 0;
-  state.raidCaseCode = "";
-  state.raidStartedAt = 0;
-  state.raidInitialFlaggedUserIds = [];
-  state.raidCaughtUserIds = [];
-  if (LOAD_SUCCEEDED_GUILDS.has(key) && isDbReady()) {
-    scheduleStateSave(key);
-  }
+  await loadGuildState(key);
+  await withGuildLock(key, async () => {
+    const reportTimer = RAID_REPORT_TIMERS.get(key);
+    if (reportTimer) {
+      clearTimeout(reportTimer);
+      RAID_REPORT_TIMERS.delete(key);
+    }
+    const state = getGuildState(key);
+    state.raidUntil = 0;
+    state.raidCaseCode = "";
+    state.raidStartedAt = 0;
+    state.raidInitialFlaggedUserIds = [];
+    state.raidCaughtUserIds = [];
+    if (LOAD_SUCCEEDED_GUILDS.has(key) && isDbReady()) {
+      scheduleStateSave(key);
+    }
+  });
   try {
     const { invalidateSecurityLockCache } = require("./securityOrchestratorService");
     invalidateSecurityLockCache(key);

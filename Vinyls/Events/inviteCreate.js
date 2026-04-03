@@ -6,6 +6,24 @@ const { getSecurityLockState } = require("../Services/Moderation/securityOrchest
 const INVITE_CREATE_ACTION = AuditLogEvent?.InviteCreate ?? 40;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
+const SECURITY_LOCK_FALLBACK = {
+  active: false,
+  joinLockActive: false,
+  commandLockActive: false,
+  sources: [],
+  commandSources: [],
+  details: {
+    antiNukePanic: false,
+    autoModPanic: false,
+    joinRaid: false,
+    lockAllCommands: false,
+    joinRaidLockCommands: false,
+    autoModLockCommands: false,
+    commandLockByPanic: false,
+    commandLockByJoinRaid: false,
+    commandLockByAutoModPanic: false,
+  },
+};
 
 function toDiscordTimestamp(value = new Date(), style = "F") {
   const ms = new Date(value).getTime();
@@ -108,7 +126,7 @@ module.exports = {
         channelId: String(invite?.channel?.id || ""),
       }).catch(() => {});
 
-      const securityState=await getSecurityLockState(guild).catch(() => ({commandLockActive:false,}));
+      const securityState = await getSecurityLockState(guild).catch(() => ({ ...SECURITY_LOCK_FALLBACK }));
       if (
         (isAntiNukePanicActive(guild.id) || securityState.commandLockActive) &&
         !(executorId && (await isWhitelistedExecutorAsync(guild, executorId)))

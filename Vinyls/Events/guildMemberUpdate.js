@@ -752,7 +752,8 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   const now = Date.now();
   const fallbackMemberScan = opts?.fallbackMemberScan !== false;
   const fallbackChannelScan = opts?.fallbackChannelScan !== false;
-  const debugEnabled = opts?.debug === true;
+  const debugEnabled =
+    opts?.debug === true || String(process.env.BOOST_RECOVERY_DEBUG || "").trim() === "1";
 
   const me = guild.members?.me || null;
   const perms = me && boostAnnounceChannel?.permissionsFor ? boostAnnounceChannel.permissionsFor(me) : null;

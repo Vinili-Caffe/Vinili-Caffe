@@ -273,6 +273,7 @@ async function buildStatusEmbeds(guild) {
         `- [A] Status: \`${panic.enabled ? "Enabled" : "Disabled"}\``,
         `- [B] Trigger: \`${Number(panic.triggerCount || 3)} Raiders\``,
         `- [C] Panic Duration: \`${toCompactDuration(panic.durationMs)}\``,
+        `- [D] Lock commands (panic): \`${panic.lockCommands ? "Enabled" : "Disabled"}\``,
         "",
         "[8] Auto Server Lockdown:",
         `- [A] Status: \`${lock.enabled ? "Enabled" : "Disabled"}\``,
@@ -429,7 +430,7 @@ async function disableJoinRaid(guildId) {
 
   const next={...(raid?.config||{}),enabled:false,lockCommands:false,};
   const updated = setJoinRaidConfigSnapshot(next);
-  if (updated?.ok) stopJoinRaidWindowForGuild(guildId);
+  if (updated?.ok) await stopJoinRaidWindowForGuild(guildId);
   return {
     ok: Boolean(updated?.ok),
     changed: true,

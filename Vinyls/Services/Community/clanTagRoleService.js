@@ -291,8 +291,7 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
 async function syncAllMembersClanTags(client) {
   if (!client?.user) return;
 
-  const mainBotId = "1329118940110127204"; // ID di Vinili & Caffè Bot
-  if (client.user.id !== mainBotId) return;
+  if (client.user.id !== String(MAIN_BOT_ID || "")) return;
 
   const mainGuildId = String(IDs.guilds.main || "");
   const guild = client.guilds.cache.get(mainGuildId) || (await client.guilds.fetch(mainGuildId).catch(() => null));

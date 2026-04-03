@@ -78,7 +78,8 @@
     "durationMs": 600000,
     "raidWindowMs": 120000,
     "raidUserThreshold": 6,
-    "raidYoungThreshold": 4
+    "raidYoungThreshold": 4,
+    "lockCommands": false
   },
   "shorteners": {
     "crawl": true,
