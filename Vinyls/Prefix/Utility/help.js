@@ -29,6 +29,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   voices: "Mostra le voci TTS disponibili.",
   membercount: "Mostra il numero totale di membri del server.",
   ping: "Mostra latenza bot, database e informazioni di uptime.",
+  ai: "Interroga il modello AI locale in esecuzione sulla VPS (Ollama).",
   profile: "Hub profilo interattivo: birthday, DM, privacy, custom role/voc/reactions.",
   ship: "Calcola la compatibilità tra due utenti.",
   snipe: "Recupera l'ultimo messaggio eliminato nel canale.",
