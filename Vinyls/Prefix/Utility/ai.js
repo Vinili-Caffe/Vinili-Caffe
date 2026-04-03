@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 
 const OLLAMA_CHAT_URL = String(
-  process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/chat",
+  process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/generate",
 ).trim();
 const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:1.5b").trim();
 const OLLAMA_TIMEOUT_MS = Math.max(
@@ -15,7 +15,7 @@ const OLLAMA_MAX_PROMPT_CHARS = Math.max(
 );
 const OLLAMA_MAX_RESPONSE_CHARS = Math.max(
   300,
-  Number(process.env.OLLAMA_MAX_RESPONSE_CHARS || 1700),
+  Number(process.env.OLLAMA_MAX_RESPONSE_CHARS || 1200),
 );
 const AI_USER_COOLDOWN_MS = Math.max(
   1000,
@@ -55,21 +55,12 @@ async function callOllama(prompt) {
       body: JSON.stringify({
         model: OLLAMA_MODEL,
         stream: false,
+        prompt: `Rispondi in italiano, in modo utile e conciso.\n\nUtente: ${prompt}\nAssistente:`,
         options: {
-          temperature: 0.6,
-          num_predict: 96,
-        },
-        messages: [
-          {
-            role: "system",
-            content:
-              "Rispondi in italiano, in modo utile e conciso. Evita testo superfluo.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+          temperature: 0.5,
+          num_predict: 64,
+          num_ctx: 1024,
+        }
       }),
     });
     if (!response.ok) {
@@ -78,7 +69,7 @@ async function callOllama(prompt) {
     }
     const data = await response.json().catch(() => null);
     const messageText = normalizeResponseText(
-      data?.message?.content || data?.response || "",
+      data?.response || data?.message?.content || "",
     );
     if (!messageText) {
       throw new Error("ollama_empty_response");
@@ -170,15 +161,8 @@ module.exports = {
     const startedAt = Date.now();
     try {
       const text = await enqueueAiTask(() => callOllama(prompt));
-      const latency = Math.max(0, Date.now() - startedAt);
       return safeMessageReply(message, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setTitle("AI locale")
-            .setDescription(text)
-            .setFooter({ text: `${OLLAMA_MODEL} - ${latency}ms` }),
-        ],
+        content: text,
         allowedMentions: { repliedUser: false, parse: [] },
       });
     } catch (error) {
