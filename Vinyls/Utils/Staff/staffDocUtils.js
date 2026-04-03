@@ -1,5 +1,6 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
+const { isValidGuildUserId } = require("../DB/validateWriteIds");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 
 function ensureStaff(profileDoc) {
@@ -13,11 +14,13 @@ function ensureStaff(profileDoc) {
 async function getOrCreateStaffDoc(guildId, userId) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
-  if (!g || !u) return null;
-  let doc = await ActivityUserProfile.findOne({ guildId: g, userId: u });
-  if (!doc) {
-    doc = new ActivityUserProfile({ guildId: g, userId: u });
-  }
+  if (!isValidGuildUserId(g, u)) return null;
+  const doc = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: g, userId: u },
+    { $setOnInsert: { guildId: g, userId: u } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  if (!doc) return null;
   ensureStaff(doc);
   return doc;
 }

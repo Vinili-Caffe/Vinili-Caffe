@@ -880,12 +880,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     `<:VC_Stats:1482527532682055780> **Attività:** 
     <:VC_Chat:1482532573002465413> **${weeklyMsg}** messaggi
     <a:VC_Mute:1482534751511515238> **${weeklyHours.toFixed(2)}h** vocale`,
-    "",
     ];
   if (hasPm) {
-    homeDescParts.push(`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
+    homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
   }
-  homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
+  homeDescParts.push("","Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
   return {
     embeds: [

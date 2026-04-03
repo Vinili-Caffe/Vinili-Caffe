@@ -265,7 +265,7 @@ async function handleSlashCommand(interaction, client) {
       }
     }
     if (msg) {
-      const collector=msg.createMessageComponentCollector({time:1000*60*60*24,filter:(i) => i.isButton(),});
+      const collector=msg.createMessageComponentCollector({time:1000*60*60*6,max:30,filter:(i) => i.isButton(),});
       collector.on("collect", async (btn) => {
         try {
           if (!btn.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {

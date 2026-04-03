@@ -1035,18 +1035,18 @@
             "roles.HighStaff",
             "roles.PartnerManager"
         ],
-        "ticket_panel_add_member": [
+        "ticket_panel_add_member:*": [
             "roles.Staff",
             "roles.HighStaff",
             "roles.PartnerManager"
         ],
-        "ticket_panel_remove_member": [
+        "ticket_panel_remove_member:*": [
             "roles.Staff",
             "roles.HighStaff",
             "roles.PartnerManager"
         ],
-        "ticket_panel_transfer_user": null,
-        "ticket_panel_switch_category": [
+        "ticket_panel_transfer_user:*": null,
+        "ticket_panel_switch_category:*": [
             "roles.HighStaff"
         ],
         "ticket_panel_nav_add": [
@@ -1153,9 +1153,6 @@
             "ownerSegment": 1
         },
         "quote_remove:*": {
-            "ownerSegment": 1
-        },
-        "security-statics:*": {
             "ownerSegment": 1
         },
         "server_refresh*": {
@@ -1375,10 +1372,10 @@
             "ownerSegment": 1
         },
         "ebm:*": {
-            "ownerSegment": 1
+            "ownerSegment": 2
         },
         "ebm:send:*": {
-            "ownerSegment": 1
+            "ownerSegment": 2
         },
         "bh_modal_date:*": {
             "ownerSegment": 1

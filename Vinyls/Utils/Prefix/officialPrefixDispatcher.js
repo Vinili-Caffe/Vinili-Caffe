@@ -421,6 +421,7 @@ function rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix) {
 
 async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand = null, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission }) {
   rewriteCustomPrefixAliases(message, resolvedClient, defaultPrefix);
+  const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
   const startsWithDefault = message.content.startsWith(defaultPrefix);
   const deleteCommandMessage = async () => { await message.delete().catch(() => { }); };
 
@@ -577,7 +578,7 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
     );
   }
 
-  if (!hasPrefixCooldownBypass) {
+  if (!hasPrefixCooldownBypass && !isEditedPrefixExecution) {
     const cooldownSeconds = await resolveWithTimeout(() => getUserCommandCooldownSeconds({ guildId: message.guild.id, userId: message.author.id, member: message.member, }), 0, `cooldown lookup for ${command.name}`,
     );
     const cooldownResult = consumeUserCooldown({ client: resolvedClient, guildId: message.guild.id, userId: message.author.id, cooldownSeconds, });
@@ -599,10 +600,47 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   const userId = message.author.id;
   const queueLockId = `${message.guild.id}:${userId}`;
   const sendBusyQueueNotice = async () => { const now = Date.now(); const lastNoticeAt = resolvedClient.prefixCommandBusyNoticeAt.get(queueLockId) || 0; if (now - lastNoticeAt < EPHEMERAL_TTL_SHORT_MS) return; resolvedClient.prefixCommandBusyNoticeAt.set(queueLockId, now); const embed = buildBusyCommandErrorEmbed(); await sendTemporaryMessage(message.channel, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS); };
+  const commandPayload = {
+    message,
+    args,
+    command,
+    channelId: message.channelId,
+    messageId: message.id,
+    enqueuedAt: Date.now(),
+  };
 
-  const enqueueCommand = async () => { const loadingEmojiId = IDs.emojis?.loadingAnimatedId; const fallbackEmojiId = IDs.emojis?.loadingFallbackId; const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null; if (emoji) { await message.react(emoji).catch(() => { }); } else if (fallbackEmojiId) { await message.react(fallbackEmojiId).catch(() => { }); } else { await message.react("\u23F3").catch(() => { }); } if (!resolvedClient.prefixCommandQueue.has(queueLockId)) { resolvedClient.prefixCommandQueue.set(queueLockId, []); } resolvedClient.prefixCommandQueue.get(queueLockId).push({ message, args, command, channelId: message.channelId, messageId: message.id, enqueuedAt: Date.now(), }); }; if (resolvedClient.prefixCommandLocks.has(queueLockId)) {
+  const enqueueCommand = async () => {
+    const queue = resolvedClient.prefixCommandQueue.get(queueLockId) || [];
+    if (isEditedPrefixExecution) {
+      const idx = queue.findIndex(
+        (item) => String(item?.messageId || "") === String(message.id || ""),
+      );
+      if (idx >= 0) {
+        queue[idx] = { ...queue[idx], ...commandPayload };
+        resolvedClient.prefixCommandQueue.set(queueLockId, queue);
+        return;
+      }
+    }
+    const loadingEmojiId = IDs.emojis?.loadingAnimatedId;
+    const fallbackEmojiId = IDs.emojis?.loadingFallbackId;
+    const emoji = loadingEmojiId ? message.client?.emojis?.cache?.get(loadingEmojiId) : null;
+    if (emoji) {
+      await message.react(emoji).catch(() => { });
+    } else if (fallbackEmojiId) {
+      await message.react(fallbackEmojiId).catch(() => { });
+    } else {
+      await message.react("\u23F3").catch(() => { });
+    }
+    if (!resolvedClient.prefixCommandQueue.has(queueLockId)) {
+      resolvedClient.prefixCommandQueue.set(queueLockId, []);
+    }
+    resolvedClient.prefixCommandQueue.get(queueLockId).push(commandPayload);
+  };
+  if (resolvedClient.prefixCommandLocks.has(queueLockId)) {
     await enqueueCommand();
-    await sendBusyQueueNotice();
+    if (!isEditedPrefixExecution) {
+      await sendBusyQueueNotice();
+    }
     return;
   }
 

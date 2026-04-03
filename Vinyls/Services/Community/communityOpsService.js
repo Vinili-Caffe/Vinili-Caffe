@@ -79,14 +79,35 @@ function startVoteRoleCleanupLoop(client) {
 }
 
 async function upsertVerifiedMember(guildId, userId, verifiedAt = new Date()) {
-  return ActivityUserProfile.findOneAndUpdate(
+  await ActivityUserProfile.findOneAndUpdate(
     { guildId, userId },
     {
-      $setOnInsert: { guildId, userId },
-      $set: { "profile.verificationTenure.verifiedAt": verifiedAt, "profile.verificationTenure.stage": 1 },
+      $setOnInsert: {
+        guildId,
+        userId,
+        "profile.verificationTenure.verifiedAt": verifiedAt,
+        "profile.verificationTenure.stage": 1,
+      },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
+  await ActivityUserProfile.updateOne(
+    {
+      guildId,
+      userId,
+      $or: [
+        { "profile.verificationTenure.verifiedAt": { $exists: false } },
+        { "profile.verificationTenure.verifiedAt": null },
+      ],
+    },
+    {
+      $set: {
+        "profile.verificationTenure.verifiedAt": verifiedAt,
+        "profile.verificationTenure.stage": 1,
+      },
+    },
+  ).catch(() => null);
+  return ActivityUserProfile.findOne({ guildId, userId });
 }
 
 async function applyTenureForMember(member, record) {
@@ -216,17 +237,38 @@ async function backfillVerificationTenure(client) {
 
     for (const member of targetMembers.values()) {
       const verifiedAt = member.joinedAt || new Date();
-      const record = await ActivityUserProfile.findOneAndUpdate(
+      await ActivityUserProfile.findOneAndUpdate(
         { guildId: guild.id, userId: member.id },
         {
-          $setOnInsert: { guildId: guild.id, userId: member.id },
-          $set: {
+          $setOnInsert: {
+            guildId: guild.id,
+            userId: member.id,
             "profile.verificationTenure.verifiedAt": verifiedAt,
             "profile.verificationTenure.stage": 1,
           },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       ).catch(() => null);
+      await ActivityUserProfile.updateOne(
+        {
+          guildId: guild.id,
+          userId: member.id,
+          $or: [
+            { "profile.verificationTenure.verifiedAt": { $exists: false } },
+            { "profile.verificationTenure.verifiedAt": null },
+          ],
+        },
+        {
+          $set: {
+            "profile.verificationTenure.verifiedAt": verifiedAt,
+            "profile.verificationTenure.stage": 1,
+          },
+        },
+      ).catch(() => null);
+      const record = await ActivityUserProfile.findOne({
+        guildId: guild.id,
+        userId: member.id,
+      }).catch(() => null);
       if (!record) continue;
       await applyTenureForMember(member, record);
     }

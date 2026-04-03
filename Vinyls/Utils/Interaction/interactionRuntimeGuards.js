@@ -47,9 +47,55 @@ function pruneExpiredMap(map, nowTs) {
 }
 
 function acquireButtonSpamGuard(interaction, client) {
+  const isComponentInteraction = Boolean(
+    interaction?.isButton?.() ||
+    interaction?.isStringSelectMenu?.() ||
+    interaction?.isUserSelectMenu?.() ||
+    interaction?.isChannelSelectMenu?.() ||
+    interaction?.isRoleSelectMenu?.(),
+  );
+  if (!isComponentInteraction) {
+    return {
+      blocked: false,
+      release: () => { },
+    };
+  }
+  const customId = String(interaction?.customId || "");
+  if (VERIFY_CONTROLS.has(customId)) {
+    return {
+      blocked: false,
+      release: () => { },
+    };
+  }
+  const userId = String(interaction?.user?.id || "");
+  const guildId = String(interaction?.guildId || interaction?.guild?.id || "dm");
+  if (!userId) {
+    return {
+      blocked: false,
+      release: () => { },
+    };
+  }
+  const nowTs = Date.now();
+  const state = getButtonSpamState(client);
+  pruneExpiredMap(state.cooldownByUser, nowTs);
+  pruneExpiredMap(state.inFlightByAction, nowTs);
+  const userKey = `${guildId}:${userId}`;
+  const actionKey = `${userKey}:${customId}`;
+  const cooldownUntil = Number(state.cooldownByUser.get(userKey) || 0);
+  const inFlightUntil = Number(state.inFlightByAction.get(actionKey) || 0);
+  if (cooldownUntil > nowTs || inFlightUntil > nowTs) {
+    return {
+      blocked: true,
+      release: () => { },
+    };
+  }
+  state.cooldownByUser.set(userKey, nowTs + BUTTON_SPAM_COOLDOWN_MS);
+  state.inFlightByAction.set(actionKey, nowTs + BUTTON_INFLIGHT_TTL_MS);
   return {
     blocked: false,
-    release: () => { },
+    release: () => {
+      state.inFlightByAction.delete(actionKey);
+    },
   };
 }
 

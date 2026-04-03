@@ -81,6 +81,84 @@ function findTicketSubdocInBucket(bucket, filter) {
   return bucket.tickets.find((t) => ticketMatchesFilter(t, filter)) || null;
 }
 
+async function resolveTicketRef(filter) {
+  const buckets = await findBucketsForTicketFilter(filter);
+  for (const bucket of buckets) {
+    const t = findTicketSubdocInBucket(bucket, filter);
+    if (!t?._id) continue;
+    return { bucketId: bucket._id, ticketId: t._id };
+  }
+  return null;
+}
+
+function toTicketSet(update) {
+  const $set = update?.$set || {};
+  const out = {};
+  for (const [key, value] of Object.entries($set)) {
+    if (!key) continue;
+    out[`tickets.$[t].${key}`] = value;
+  }
+  return out;
+}
+
+function buildTicketArrayFilter(filter, ticketId) {
+  const arrayFilter = { "t._id": ticketId };
+  if (Object.prototype.hasOwnProperty.call(filter, "channelId")) {
+    arrayFilter["t.channelId"] = String(filter.channelId);
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "open")) {
+    arrayFilter["t.open"] = Boolean(filter.open);
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "guildId")) {
+    arrayFilter["t.guildId"] = String(filter.guildId);
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "userId")) {
+    arrayFilter["t.userId"] = String(filter.userId);
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "ticketNumber")) {
+    arrayFilter["t.ticketNumber"] = Number(filter.ticketNumber);
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "claimedBy")) {
+    arrayFilter["t.claimedBy"] = filter.claimedBy;
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "ratingScore")) {
+    arrayFilter["t.ratingScore"] = filter.ratingScore;
+  }
+  if (Object.prototype.hasOwnProperty.call(filter, "autoClosePromptSentAt")) {
+    arrayFilter["t.autoClosePromptSentAt"] = filter.autoClosePromptSentAt;
+  }
+  if (Array.isArray(filter.$or) && filter.$or.length > 0) {
+    const claimOnly = filter.$or.every((c) =>
+      Object.prototype.hasOwnProperty.call(c, "claimedBy"),
+    );
+    const autoCloseOnly = filter.$or.every((c) =>
+      Object.prototype.hasOwnProperty.call(c, "autoClosePromptSentAt"),
+    );
+    if (claimOnly) {
+      arrayFilter.$or = filter.$or.map((clause) => {
+        if (clause.claimedBy?.$exists === false) {
+          return { "t.claimedBy": { $exists: false } };
+        }
+        return { "t.claimedBy": clause.claimedBy };
+      });
+    } else if (autoCloseOnly) {
+      arrayFilter.$or = filter.$or.map((clause) => {
+        if (clause.autoClosePromptSentAt?.$exists === false) {
+          return { "t.autoClosePromptSentAt": { $exists: false } };
+        }
+        return { "t.autoClosePromptSentAt": clause.autoClosePromptSentAt };
+      });
+    }
+  }
+  return arrayFilter;
+}
+
+async function readTicketByRef(bucketId, ticketId) {
+  const fresh = await GuildFeatureBucket.findById(bucketId).catch(() => null);
+  if (!fresh?.tickets) return null;
+  return fresh.tickets.id(ticketId) || null;
+}
+
 class TicketFindQuery {
   constructor(filter, projection) {
     this.filter = filter;
@@ -180,39 +258,51 @@ const Ticket = {
   },
 
   async findOneAndUpdate(filter, update, opts = {}) {
-    const buckets = await findBucketsForTicketFilter(filter);
-    const $set = update?.$set || {};
-    for (const bucket of buckets) {
-      const t = findTicketSubdocInBucket(bucket, filter);
-      if (!t) continue;
-      Object.assign(t, $set);
-      await bucket.save();
-      return opts.new !== false ? t : null;
+    const ref = await resolveTicketRef(filter);
+    if (!ref) return null;
+    const $set = toTicketSet(update);
+    if (!Object.keys($set).length) {
+      return opts.new !== false ? readTicketByRef(ref.bucketId, ref.ticketId) : null;
     }
-    return null;
+    const arrayFilter = buildTicketArrayFilter(filter, ref.ticketId);
+    const result = await GuildFeatureBucket.updateOne(
+      { _id: ref.bucketId },
+      { $set },
+      { arrayFilters: [arrayFilter] },
+    ).catch(() => null);
+    if (!result || Number(result.matchedCount || 0) < 1) return null;
+    return opts.new !== false ? readTicketByRef(ref.bucketId, ref.ticketId) : null;
   },
 
   async updateOne(filter, update) {
-    const buckets = await findBucketsForTicketFilter(filter);
-    const $set = update?.$set || {};
-    for (const bucket of buckets) {
-      const t = findTicketSubdocInBucket(bucket, filter);
-      if (!t) continue;
-      Object.assign(t, $set);
-      await bucket.save();
-      return { modifiedCount: 1, matchedCount: 1 };
-    }
-    return { modifiedCount: 0, matchedCount: 0 };
+    const ref = await resolveTicketRef(filter);
+    if (!ref) return { modifiedCount: 0, matchedCount: 0 };
+    const $set = toTicketSet(update);
+    if (!Object.keys($set).length) return { modifiedCount: 0, matchedCount: 1 };
+    const arrayFilter = buildTicketArrayFilter(filter, ref.ticketId);
+    const result = await GuildFeatureBucket.updateOne(
+      { _id: ref.bucketId },
+      { $set },
+      { arrayFilters: [arrayFilter] },
+    ).catch(() => null);
+    if (!result) return { modifiedCount: 0, matchedCount: 0 };
+    return {
+      modifiedCount: Number(result.modifiedCount || 0),
+      matchedCount: Number(result.matchedCount || 0),
+    };
   },
 
   async create(payload) {
     const guildId = String(payload.guildId || "");
     if (!guildId) throw new Error("Ticket.create: guildId required");
-    const bucket = await ensureGuildFeatureBucket(guildId);
+    await ensureGuildFeatureBucket(guildId);
     const { guildId: _g, ...rest } = payload;
-    bucket.tickets.push(rest);
-    await bucket.save();
-    return bucket.tickets[bucket.tickets.length - 1];
+    const ticketId = new mongoose.Types.ObjectId();
+    await GuildFeatureBucket.updateOne(
+      { guildId },
+      { $push: { tickets: { ...rest, _id: ticketId } } },
+    );
+    return Ticket.findById(ticketId);
   },
 };
 

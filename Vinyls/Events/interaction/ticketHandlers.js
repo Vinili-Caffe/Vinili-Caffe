@@ -1,4 +1,5 @@
 const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, } = require("discord.js");
+const mongoose = require("mongoose");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const fs = require("fs");
 const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper, } = require("../../../shared/discord/replyRuntime");
@@ -503,7 +504,7 @@ async function handleTicketInteraction(interaction) {
         }
         const [, ticketDbId, scoreRaw] = ratingParts;
         const score = Number(scoreRaw);
-        if (!ticketDbId || !Number.isInteger(score) || score < 1 || score > 5) {
+        if (!ticketDbId || !mongoose.Types.ObjectId.isValid(ticketDbId) || !Number.isInteger(score) || score < 1 || score > 5) {
           await safeReply(interaction, {
             embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Valutazione non valida.")],
             flags: 1 << 6,
@@ -582,7 +583,7 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
         const [, ticketDbId] = transcriptParts;
-        if (!ticketDbId) {
+        if (!ticketDbId || !mongoose.Types.ObjectId.isValid(ticketDbId)) {
           await safeReply(interaction, {
             embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Transcript non valido.")],
             flags: 1 << 6,

@@ -122,7 +122,19 @@ function createBumpReminderService(options) {
     return BUMP_REMINDER_CHANNEL_BY_KEY[configKey] || null;
   }
 
-  async function resolveReminderChannel(client, reminderChannelId) {
+  async function resolveFallbackReminderChannel(client, guildId) {
+    const guild = await getClientGuildCached(client, guildId).catch(() => null);
+    if (!guild) return null;
+    await guild.channels.fetch().catch(() => null);
+    const fallback = guild.channels.cache.find((ch) => {
+      if (!ch?.isTextBased?.()) return false;
+      const name = String(ch?.name || "").toLowerCase();
+      return /(comand|command|cmd)/i.test(name);
+    });
+    return fallback || null;
+  }
+
+  async function resolveReminderChannel(client, reminderChannelId, guildId) {
     let channel =
       client.channels.cache.get(reminderChannelId) ||
       (await getClientChannelCached(client, reminderChannelId).catch(() => null));
@@ -131,10 +143,12 @@ function createBumpReminderService(options) {
     if (!mainGid) return null;
     const guild = await getClientGuildCached(client, mainGid).catch(() => null);
     if (!guild) return null;
-    return (
+    const fromMainGuild = (
       guild.channels.cache.get(reminderChannelId) ||
       (await guild.channels.fetch(reminderChannelId).catch(() => null))
     );
+    if (fromMainGuild?.id) return fromMainGuild;
+    return resolveFallbackReminderChannel(client, guildId || mainGid);
   }
 
   async function sendReminder(client, guildId) {
@@ -148,12 +162,30 @@ function createBumpReminderService(options) {
 
     const reminderChannelId = getReminderChannelId(client);
     if (!reminderChannelId) {
-      global.logger?.warn?.(
-        `${errorTag} reminderChannelId missing for guild ${guildId}`,
-      );
-      return false;
+      const fallback = await resolveFallbackReminderChannel(client, gid);
+      if (!fallback) {
+        global.logger?.warn?.(
+          `${errorTag} reminderChannelId missing for guild ${guildId}`,
+        );
+        return false;
+      }
+      const sent = await fallback.send({
+        content: mentionContent,
+        embeds: [
+          new EmbedBuilder()
+            .setColor(client?.config?.embedInfo || "#6f4e37")
+            .setTitle(title)
+            .setURL(url)
+            .setDescription(description),
+        ],
+      }).then(() => true).catch(() => false);
+      if (!sent) return false;
+      await model
+        .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date() } })
+        .catch(() => null);
+      return true;
     }
-    const channel = await resolveReminderChannel(client, reminderChannelId);
+    const channel = await resolveReminderChannel(client, reminderChannelId, gid);
     if (!channel) {
       global.logger?.warn?.(
         `${errorTag} reminder channel not found (${reminderChannelId}) for guild ${guildId}`,

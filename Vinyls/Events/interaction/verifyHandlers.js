@@ -191,56 +191,70 @@ async function handleVerifyInteraction(interaction) {
 
       const deferred = await safeDeferReply(interaction, { flags: 1 << 6 });
       if (!deferred) return true;
-
-      const code = makeCode(VERIFY_CAPTCHA.codeLength);
-      const captchaPng = await makeCaptchaPng(code);
-      const captchaFile = new AttachmentBuilder(captchaPng, { name: "captcha.png", });
-
-      const timeoutId = setTimeout(() => {
-        clearVerifyState(stateKey);
-      }, VERIFY_CODE_TTL_MS);
-      if (typeof timeoutId?.unref === "function") timeoutId.unref();
-      verifyState.set(stateKey, {
-        code,
-        expiresAt: Date.now() + VERIFY_CODE_TTL_MS,
-        attemptsLeft: VERIFY_MAX_ATTEMPTS,
-        timeoutId,
-      });
-
-      const embed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          `<:verification:1461725843125571758> Hello! Are you human? Let's find out!\n` +
-          "`Please type the captcha below to be able to access this server!`\n\n" +
-          "**Additional Notes:**\n" +
-          "<:tracedColored:1461728858955976805> Type out the traced colored characters from left to right.\n" +
-          "<:decoy:1461728857114546421> Ignore the decoy characters spread-around.\n" +
-          "<:nocases:1461728855642341509> You do not have to respect characters cases (upper/lower case)!\n\n",
-        )
-        .setFooter({ text: "Verification Period: 5 minutes" })
-        .setImage("attachment://captcha.png");
-
-      const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("verify_enter").setLabel("Answer").setStyle(ButtonStyle.Primary),);
-
-      await safeEditReply(interaction, withFooter(interaction, {
-        embeds: [embed],
-        components: [row],
-        files: [captchaFile],
-      }));
-
       try {
-        const replyMsg = await interaction.fetchReply();
-        if (replyMsg) {
-          const state = verifyState.get(stateKey);
-          if (state) {
-            state.promptMessage = replyMsg;
-            verifyState.set(stateKey, state);
+        const code = makeCode(VERIFY_CAPTCHA.codeLength);
+        const captchaPng = await makeCaptchaPng(code);
+        const captchaFile = new AttachmentBuilder(captchaPng, { name: "captcha.png", });
+
+        const timeoutId = setTimeout(() => {
+          clearVerifyState(stateKey);
+        }, VERIFY_CODE_TTL_MS);
+        if (typeof timeoutId?.unref === "function") timeoutId.unref();
+        verifyState.set(stateKey, {
+          code,
+          expiresAt: Date.now() + VERIFY_CODE_TTL_MS,
+          attemptsLeft: VERIFY_MAX_ATTEMPTS,
+          timeoutId,
+        });
+
+        const embed = new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setDescription(
+            `<:verification:1461725843125571758> Hello! Are you human? Let's find out!\n` +
+            "`Please type the captcha below to be able to access this server!`\n\n" +
+            "**Additional Notes:**\n" +
+            "<:tracedColored:1461728858955976805> Type out the traced colored characters from left to right.\n" +
+            "<:decoy:1461728857114546421> Ignore the decoy characters spread-around.\n" +
+            "<:nocases:1461728855642341509> You do not have to respect characters cases (upper/lower case)!\n\n",
+          )
+          .setFooter({ text: "Verification Period: 5 minutes" })
+          .setImage("attachment://captcha.png");
+
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("verify_enter").setLabel("Answer").setStyle(ButtonStyle.Primary),);
+
+        await safeEditReply(interaction, withFooter(interaction, {
+          embeds: [embed],
+          components: [row],
+          files: [captchaFile],
+        }));
+
+        try {
+          const replyMsg = await interaction.fetchReply();
+          if (replyMsg) {
+            const state = verifyState.get(stateKey);
+            if (state) {
+              state.promptMessage = replyMsg;
+              verifyState.set(stateKey, state);
+            }
           }
+        } catch (err) {
+          global.logger?.warn?.("[verifyHandlers] ", err?.message || err);
         }
       } catch (err) {
-        global.logger?.warn?.("[verifyHandlers] ", err?.message || err);
+        clearVerifyState(stateKey);
+        global.logger?.warn?.("[verifyHandlers] verify_start failed:", err?.message || err);
+        await safeEditReply(interaction, withFooter(interaction, {
+          embeds: [
+            new EmbedBuilder()
+              .setColor("Red")
+              .setTitle("<:vegax:1443934876440068179> Errore verifica")
+              .setDescription(
+                "Impossibile preparare il captcha in questo momento. Riprova tra poco.",
+              ),
+          ],
+          components: [makeVerifyStartRow()],
+        }));
       }
-
       return true;
     }
 

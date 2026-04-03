@@ -21,6 +21,7 @@ async function createTicketsCategory(interaction, guild) {
       await moveCategoryToTop(cachedCategory);
       return cachedCategory;
     }
+    interaction.client.ticketCategoryCache.delete(guild.id);
   }
 
   await warmGuildChannels(guild);
