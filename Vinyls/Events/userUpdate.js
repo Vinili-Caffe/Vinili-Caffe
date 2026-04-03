@@ -3,19 +3,15 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { getJoinGateConfigSnapshot } = require("../Services/Moderation/joinGateService");
+const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
 const {
   kickForJoinGate,
   matchUsernameFilters,
   getJoinGateNameCandidate,
 } = require("./guildMemberAdd");
-const {
-  isSecurityProfileImmune,
-  hasAdminsProfileCapability,
-} = require("../Services/Moderation/securityProfilesService");
 const { syncClanTagRolesForUserEverywhere } = require("../Services/Community/clanTagRoleService");
 
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
-const CORE_EXEMPT_USER_IDS = new Set(["1466495522474037463", "1329118940110127204"]);
 const USER_UPDATE_DEDUPE_MS = 15_000;
 const recentUserUpdateActions = new Map();
 /** USER_UPDATE spesso non include `clan`: sync via REST quando il payload non mostra cambiamenti. */
@@ -107,7 +103,10 @@ module.exports = {
         }
 
         if (clanChanged) {
-          await syncClanTagRolesForUserEverywhere(resolvedClient, newUser, { userForClan: newUser });
+          await syncClanTagRolesForUserEverywhere(resolvedClient, newUser, {
+            userForClan: newUser,
+            previousUserForClan: oldUser,
+          });
         }
 
         const cfg = getJoinGateConfigSnapshot();
@@ -125,17 +124,10 @@ module.exports = {
         const match = matchUsernameFilters(nameCandidate, cfg.usernameFilter);
         if (!match) return;
         for (const guild of resolvedClient.guilds.cache.values()) {
-          if (
-            CORE_EXEMPT_USER_IDS.has(String(newUser.id)) ||
-            String(guild.ownerId || "") === String(newUser.id) ||
-            isSecurityProfileImmune(String(guild?.id || ""), String(newUser.id || ""))
-          ) {
-            continue;
-          }
           const member =
             guild.members.cache.get(newUser.id) || (await getGuildMemberCached(guild, newUser.id));
           if (!member || member.user?.bot) continue;
-          if (hasAdminsProfileCapability(member, "fullImmunity")) continue;
+          if (await resolveJoinGateConfiguredExempt(guild, newUser.id, member)) continue;
           if (shouldSkipRecentUserUpdateAction(guild.id, newUser.id, match)) continue;
           await punishUsernameMatchPostJoin(member, match, cfg);
         }

@@ -74,6 +74,12 @@ async function hasMatchingTag(member, client, userForClan = null, options = {}) 
   return null;
 }
 
+async function hadObtainableGuildTagBefore(member, client, previousUser) {
+  if (!previousUser) return false;
+  const prev = await hasMatchingTag(member, client, previousUser, { refreshFromApi: false });
+  return Boolean(prev && prev.type === "native");
+}
+
 function guildHasSponsorGuildedExtra(guildId, client) {
   const g = String(guildId || "");
   if (!g) return false;
@@ -106,6 +112,9 @@ async function fetchUserClanViaMemberApi(client, userId) {
 
 const MEMBER_EVENT_CLAN_SYNC_THROTTLE_MS = 8000;
 const lastClanSyncAfterMemberEventByUser = new Map();
+
+const GUILDED_ANNOUNCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const lastGuildedChannelAnnounceByUserId = new Map();
 
 async function syncClanTagRolesForUserEverywhereAfterMemberEvent(client, user) {
   const uid = String(user?.id || "");
@@ -149,11 +158,18 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
         const ok = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
         if (ok) {
           addedMain = true;
-          await announceNewGuildedMember(member, match.tag, GLOBAL_GUILDED_ROLE_ID);
+          const swapAmongObtainable =
+            options.previousUserForClan &&
+            match.type === "native" &&
+            (await hadObtainableGuildTagBefore(member, client, options.previousUserForClan));
+          if (!swapAmongObtainable) {
+            await announceNewGuildedMember(member, match.tag, GLOBAL_GUILDED_ROLE_ID);
+          }
         }
       }
     } else if (GLOBAL_GUILDED_ROLE_ID) {
       await removeRolesFromMember(member, [GLOBAL_GUILDED_ROLE_ID], "Ruolo Guilded");
+      lastGuildedChannelAnnounceByUserId.delete(String(member.id));
     }
     return { added: addedMain, addedMain, addedSponsor };
   }
@@ -222,6 +238,12 @@ async function syncClanTagRolesForUserEverywhere(client, user, options = {}) {
 }
 
 async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
+  const uid = String(member?.id || "");
+  if (!uid) return;
+  const now = Date.now();
+  const lastAnn = Number(lastGuildedChannelAnnounceByUserId.get(uid) || 0);
+  if (now - lastAnn < GUILDED_ANNOUNCE_COOLDOWN_MS) return;
+
   const channelId = ANNOUNCE_CHANNEL_ID;
   const channel = channelId ? (member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId))) : null;
   if (!channel?.isTextBased?.()) return;
@@ -257,10 +279,13 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
     )
     .setFooter({ text: "Grazie per il tuo supporto!" });
 
-  await channel.send({
-    content: `<@${member.id}>`,
-    embeds: [embed],
-  }).catch(() => { });
+  const sent = await channel
+    .send({
+      content: `<@${member.id}>`,
+      embeds: [embed],
+    })
+    .catch(() => null);
+  if (sent) lastGuildedChannelAnnounceByUserId.set(uid, Date.now());
 }
 
 async function syncAllMembersClanTags(client) {

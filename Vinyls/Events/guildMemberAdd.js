@@ -7,11 +7,11 @@ const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
+const { resolveJoinGateConfiguredExempt, } = require("../Services/Moderation/joinGateExemptUtils");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
-const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("../Services/Moderation/securityProfilesService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
@@ -110,21 +110,10 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder, IDs.roles.CoFounder,].filter(Boolean).map(String),);
-const CORE_EXEMPT_USER_IDS = new Set(["1466495522474037463", "1329118940110127204",]);
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const SUSPICIOUS_JOIN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const recentJoinSignalsByGuild = new Map();
-
-function isConfiguredExempt(guild, userId, member = null) {
-  const uid = String(userId || "");
-  if (!uid) return false;
-  if (CORE_EXEMPT_USER_IDS.has(uid)) return true;
-  if (String(guild?.ownerId || "") === uid) return true;
-  if (hasAdminsProfileCapability(member, "fullImmunity")) return true;
-  if (isSecurityProfileImmune(String(guild?.id || ""), uid)) return true;
-  return false;
-}
 
 function formatActor(actor) {
   if (!actor) return "sconosciuto";
@@ -548,6 +537,7 @@ function getJoinGateNameCandidate(member) {
   return String(
     member?.user?.globalName ||
     member?.displayName ||
+    member?.nickname ||
     member?.user?.username ||
     "",
   );
@@ -835,7 +825,7 @@ async function isVerifiedBot(user) {
 async function isAuthorizedBotAdder(guild, executorId) {
   if (!guild || !executorId) return false;
   const executorMember = await getGuildMemberCached(guild, String(executorId || ""));
-  if (isConfiguredExempt(guild, executorId, executorMember)) return true;
+  if (await resolveJoinGateConfiguredExempt(guild, executorId, executorMember)) return true;
   const executor = executorMember;
   if (!executor) return false;
   if (
@@ -1282,7 +1272,7 @@ module.exports = {
     try {
       if (!member?.guild || !member?.user) return;
       const joinGateConfig = getJoinGateConfigSnapshot();
-      const isCoreExempt = isConfiguredExempt(member?.guild, member?.id, member);
+      const isCoreExempt = await resolveJoinGateConfiguredExempt(member?.guild, member?.id, member);
       if (!isCoreExempt) {
         const lockState = await getSecurityLockState(member.guild);
         if (lockState.joinLockActive) {

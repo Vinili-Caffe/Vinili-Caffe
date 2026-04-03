@@ -6,7 +6,7 @@ const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange,
 const { memberHasPartnerManagerRole, buildStaffPartnerFieldsUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
-const{isSecurityProfileImmune,hasAdminsProfileCapability,}=require("../Services/Moderation/securityProfilesService");
+const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
 const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Services/Moderation/antiNukeService");
@@ -29,8 +29,6 @@ const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yell
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
-const CORE_EXEMPT_USER_IDS=new Set(["1466495522474037463","1329118940110127204",]);
-
 function isPrimaryShard(client) {
   return !client?.shard || client.shard.ids?.[0] === 0;
 }
@@ -461,7 +459,7 @@ function normalizeText(value) {
 }
 
 function wildcardToRegex(wildcard) {
-  const escaped=String(wildcard||"").replace(/[.+^${}()|[\]\\]/g,"\\$&").replace(/\*/g,".*");
+  const escaped = String(wildcard || "").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
   return new RegExp(`^${escaped}$`, "i");
 }
 
@@ -507,17 +505,7 @@ async function sendJoinGatePostJoinDm(member, reason, extraLines = []) {
 async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
   if (!oldMember?.guild || !newMember?.user) return;
   if (newMember.user.bot) return;
-  if (
-    CORE_EXEMPT_USER_IDS.has(String(newMember.id || "")) ||
-    String(newMember.guild.ownerId || "") === String(newMember.id || "") ||
-    hasAdminsProfileCapability(newMember, "fullImmunity") ||
-    isSecurityProfileImmune(
-      String(newMember.guild?.id || ""),
-      String(newMember.id || ""),
-    )
-  ) {
-    return;
-  }
+  if (await resolveJoinGateConfiguredExempt(newMember.guild, newMember.id, newMember)) return;
 
   const cfg = getJoinGateConfigSnapshot();
   if (!cfg?.enabled) return;

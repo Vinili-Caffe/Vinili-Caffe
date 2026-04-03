@@ -139,8 +139,30 @@ module.exports = {
 
     const recentChunks = chunkArray(recent, DISCORD_BULK_DELETE_MAX);
     for (const chunk of recentChunks) {
-      const deleted=await message.channel.bulkDelete(chunk,true).catch(() => null);
-      if (deleted?.size) deletedCount += deleted.size;
+      const bulkSet = chunk.filter((m) => m.bulkDeletable);
+      const singleOnly = chunk.filter((m) => !m.bulkDeletable && m.deletable);
+
+      if (bulkSet.length) {
+        const deleted = await message.channel.bulkDelete(bulkSet, true).catch((err) => {
+          global.logger?.warn?.("[purge] bulkDelete fallito:", err?.message || err);
+          return null;
+        });
+        if (deleted?.size) deletedCount += deleted.size;
+        const gone = new Set(deleted ? [...deleted.keys()] : []);
+        for (const m of bulkSet) {
+          if (gone.has(m.id)) continue;
+          const ok = await m.delete().then(() => true).catch(() => false);
+          if (ok) deletedCount += 1;
+          await sleep(350);
+        }
+      }
+
+      for (const m of singleOnly) {
+        const ok = await m.delete().then(() => true).catch(() => false);
+        if (ok) deletedCount += 1;
+        await sleep(350);
+      }
+
       await sleep(250);
     }
 

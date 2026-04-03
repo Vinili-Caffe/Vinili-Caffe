@@ -9,7 +9,7 @@ const {
 } = require("../../Utils/BotState/domainStatesStore");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
-const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { createModCase, getModConfig, logModCase } = require("../../Utils/Moderation/moderation");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
@@ -586,10 +586,6 @@ async function scheduleTempUnban(guild, userId, reason, marker = "") {
   TEMP_BAN_TIMERS.set(key, timer);
 }
 
-function joinRaidBanShortToken(guildId, userId) {
-  return `[jr:${String(guildId || "").trim()}:${String(userId || "").trim()}:`;
-}
-
 async function shouldUnbanJoinRaidBan(guild, userId, marker = "") {
   if (!guild?.id || !userId) return false;
   const ban = await guild.bans.fetch(String(userId)).catch(() => null);
@@ -784,12 +780,16 @@ async function processJoinRaidForMember(member, options = {}) {
   const guildKey = String(member.guild.id || "");
   if (CLEARED_GUILDS.has(guildKey)) return { blocked: false };
   if (member.user?.bot) return { blocked: false };
-  if (
-    CORE_EXEMPT_USER_IDS.has(String(member.id || "")) ||
-    String(member.guild.ownerId || "") === String(member.id || "") ||
-    isSecurityProfileImmune(String(member.guild?.id || ""), String(member.id || "")) ||
-    hasAdminsProfileCapability(member, "fullImmunity")
-  ) {
+  const userId = String(member.id || "");
+  if (CORE_EXEMPT_USER_IDS.has(userId)) return { blocked: false };
+  if (String(member.guild.ownerId || "") === userId) return { blocked: false };
+  if (isSecurityProfileImmune(String(member.guild?.id || ""), userId)) {
+    return { blocked: false };
+  }
+  const memberForImmunity =
+    (await getGuildMemberCached(member.guild, userId, { ttlMs: 15_000 }).catch(() => null)) ||
+    member;
+  if (hasAdminsProfileCapability(memberForImmunity, "fullImmunity")) {
     return { blocked: false };
   }
 
@@ -983,7 +983,9 @@ async function registerJoinRaidSecuritySignal(member, options = {}) {
   if (!member?.guild?.id || !member?.id) return { ok: false, reason: "missing_member" };
   if (!JOIN_RAID_CONFIG.enabled) return { ok: true, raid: { activated: false } };
   const reason = String(options?.reason || "Join Gate / security signal");
-  const minMs = Math.max(0, Number(options?.minRaidDurationMs || options?.raidBoost || 0) * 60_000);
+  const explicitMs = Math.max(0, Number(options?.minRaidDurationMs || 0));
+  const raidBoostMinutes = Math.max(0, Math.floor(Number(options?.raidBoost || 0)));
+  const minMs = explicitMs + raidBoostMinutes * 60_000;
   const raid = await activateJoinRaidWindow(member.guild, reason, minMs || 0);
   try {
     const { invalidateSecurityLockCache } = require("./securityOrchestratorService");

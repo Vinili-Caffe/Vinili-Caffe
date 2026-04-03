@@ -66,7 +66,7 @@
     "maxPerMessage": 85,
     "charactersMax": 40,
     "textClusterMax": 35,
-    "attachmentClusterMax": 28,
+    "attachmentClusterMax": 45,
     "mentionClusterMax": 70
   },
   "panic": {
@@ -97,7 +97,7 @@
       "exempt": false,
       "heatMultiplier": 0.85,
       "mentionsEnabled": true,
-      "attachmentsEnabled": false,
+      "attachmentsEnabled": true,
       "inviteLinksEnabled": true
     },
     "ticket": {
