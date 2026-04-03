@@ -1,82 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const IDs = require("../Config/ids");
 
 const PARTNERS_PER_PAGE = 10;
-const TIME_ZONE = "Europe/Rome";
 const UNKNOWN_USERNAME = "Utente sconosciuto";
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
-
-function getRomeDateParts(date) {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = formatter.formatToParts(date);
-  const out = {};
-  for (const part of parts) {
-    if (part.type !== "literal") out[part.type] = part.value;
-  }
-  return {
-    year: Number(out.year),
-    month: Number(out.month),
-    day: Number(out.day),
-  };
-}
-
-function getRomeOffsetMs(utcDate) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIME_ZONE,
-    timeZoneName: "shortOffset",
-    hour: "2-digit",
-  });
-  const timeZoneName = formatter.formatToParts(utcDate).find((part) => part.type === "timeZoneName")?.value;
-  const match = String(timeZoneName || "GMT+0").match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/i);
-  if (!match) return 0;
-  const sign = match[1] === "-" ? -1 : 1;
-  const hours = Number(match[2] || 0);
-  const minutes = Number(match[3] || 0);
-  return sign * (hours * 60 + minutes) * 60 * 1000;
-}
-
-function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
-  const baseUtcMs = Date.UTC(year, month - 1, day, hour, minute, second);
-  const firstOffsetMs = getRomeOffsetMs(new Date(baseUtcMs));
-  let utcMs = baseUtcMs - firstOffsetMs;
-  const secondOffsetMs = getRomeOffsetMs(new Date(utcMs));
-  if (secondOffsetMs !== firstOffsetMs) {
-    utcMs = baseUtcMs - secondOffsetMs;
-  }
-  return new Date(utcMs);
-}
-
-function getCurrentWeekWindow(now = new Date()) {
-  const romeToday = getRomeDateParts(now);
-  const romeTodayNoonUtc = new Date(Date.UTC(romeToday.year, romeToday.month - 1, romeToday.day, 12, 0, 0));
-  const dayFromMonday = (romeTodayNoonUtc.getUTCDay() + 6) % 7;
-  const mondayNoonUtc = new Date(romeTodayNoonUtc.getTime() - dayFromMonday * 24 * 60 * 60 * 1000);
-  const mondayY = mondayNoonUtc.getUTCFullYear();
-  const mondayM = mondayNoonUtc.getUTCMonth() + 1;
-  const mondayD = mondayNoonUtc.getUTCDate();
-  const sundayNoonUtc = new Date(mondayNoonUtc.getTime() + 6 * 24 * 60 * 60 * 1000);
-  const sundayY = sundayNoonUtc.getUTCFullYear();
-  const sundayM = sundayNoonUtc.getUTCMonth() + 1;
-  const sundayD = sundayNoonUtc.getUTCDate();
-  const weekStart = createUtcFromRomeLocal(mondayY, mondayM, mondayD, 0, 0, 0);
-  const scheduledWeekEnd = createUtcFromRomeLocal(sundayY, sundayM, sundayD, 23, 59, 59);
-  const weekEnd = now.getTime() < scheduledWeekEnd.getTime() ? now : scheduledWeekEnd;
-  return { weekStart, weekEnd };
-}
-
-function isActionInWeeklyWindow(action, weekStart, weekEnd) {
-  if (!action || action.action !== "create" || !action.date) return false;
-  const when = new Date(action.date);
-  if (Number.isNaN(when.getTime())) return false;
-  return when >= weekStart && when <= weekEnd;
-}
 
 function countValidAllTimePartners(actions) {
   if (!Array.isArray(actions)) return 0;
@@ -86,14 +14,18 @@ function countValidAllTimePartners(actions) {
   }, 0);
 }
 
-function buildNoDataEmbed(isWeekly) {
+function computeTotalPartnerScore(staff) {
+  const s = staff || {};
+  const totalCount = Number(s.partnerCount);
+  const fromActions = countValidAllTimePartners(Array.isArray(s.partnerActions) ? s.partnerActions : []);
+  const safeCounter = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : 0;
+  return Math.max(safeCounter, fromActions);
+}
+
+function buildNoDataEmbed() {
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(
-      isWeekly
-        ? "<:VC_Attention:1482534443632558151> Nessuno ha effettuato partner in questa settimana!"
-        : "<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!",
-    );
+    .setDescription("<:VC_Attention:1482534443632558151> Nessuno ha ancora effettuato partner!");
 }
 
 async function buildLeaderboardEmbed(partners, currentPage, totalPages, isWeekly, resolveUsername) {
@@ -104,11 +36,10 @@ async function buildLeaderboardEmbed(partners, currentPage, totalPages, isWeekly
     (partner, index) =>
       `**${startIndex + index + 1}.**${usernames[index] || UNKNOWN_USERNAME} - <:VC_Partner:1482527213780729896> ${partner.score} partnership`,
   );
+  const titleSuffix = isWeekly ? "Settimanale · punti totali" : "Totale";
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(
-      `<a:VC_Winner:1482535294757507255> Classifica Partnership (${isWeekly ? "Settimanale" : "Totale"})`,
-    )
+    .setTitle(`<a:VC_Winner:1482535294757507255> Classifica Partnership (${titleSuffix})`)
     .setDescription(rows.join("\n"))
     .setFooter({ text: `Pagina ${currentPage} di ${totalPages}` })
     .setTimestamp();
@@ -145,31 +76,17 @@ function createUsernameResolver(client) {
   };
 }
 
-async function fetchSortedPartners(guild, isWeekly) {
-  const weekWindow = getCurrentWeekWindow(new Date());
+async function fetchSortedPartners(guild) {
   const allStaff = await ActivityUserProfile.find({ guildId: guild.id })
     .select("userId staff.partnerCount staff.partnerActions")
     .lean();
-  const partners = allStaff
-    .map((row) => {
-      const staff = row.staff || {};
-      if (!isWeekly) {
-        const totalCount = Number(staff.partnerCount);
-        const fromActions = countValidAllTimePartners(Array.isArray(staff.partnerActions) ? staff.partnerActions : []);
-        const safeCounter = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : 0;
-        const score = Math.max(safeCounter, fromActions);
-        return { userId: row.userId, score };
-      }
-      const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : [];
-      const weeklyCount = actions.reduce(
-        (total, action) => (isActionInWeeklyWindow(action, weekWindow.weekStart, weekWindow.weekEnd) ? total + 1 : total),
-        0,
-      );
-      return { userId: row.userId, score: weeklyCount };
-    })
-    .filter((staff) => staff.score > 0)
+  return allStaff
+    .map((row) => ({
+      userId: row.userId,
+      score: computeTotalPartnerScore(row.staff),
+    }))
+    .filter((p) => p.score > 0)
     .sort((a, b) => b.score - a.score);
-  return partners;
 }
 
 function buildPartnerLbToggleRow(mode = "totale") {
@@ -204,10 +121,10 @@ function buildPartnerLbNavRow(mode, currentPage, totalPages) {
 
 async function buildPartnerLeaderboardPayload(client, guild, mode = "totale", page = 1) {
   const isWeekly = mode === "settimanale";
-  const partners = await fetchSortedPartners(guild, isWeekly);
+  const partners = await fetchSortedPartners(guild);
   const toggleRow = buildPartnerLbToggleRow(isWeekly ? "settimanale" : "totale");
   if (!partners.length) {
-    return { embeds: [buildNoDataEmbed(isWeekly)], components: [toggleRow] };
+    return { embeds: [buildNoDataEmbed()], components: [toggleRow] };
   }
   const totalPages = Math.max(1, Math.ceil(partners.length / PARTNERS_PER_PAGE));
   const safePage = Math.min(Math.max(1, page), totalPages);
