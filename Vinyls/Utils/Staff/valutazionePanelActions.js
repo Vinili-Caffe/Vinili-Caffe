@@ -4,6 +4,7 @@ const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDoc
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
+const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 
 async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
   if (profileDoc) {
@@ -154,6 +155,8 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
       const currentRoleId = getHighestStaffRoleId(member);
       const fullResult = await applyFullDepex(guild, member, currentRoleId);
       if (fullResult.ok) {
+        const memberAfterFull = await getGuildMemberCached(guild, staffUser.id, { preferFresh: true }).catch(() => null);
+        await syncStaffDbAndPauseChannelAfterDepex(guild, staffUser.id, memberAfterFull);
         const pexDepexChannel = await getGuildChannelCached(guild, IDs.channels?.pexDepex);
         if (pexDepexChannel?.isTextBased?.()) {
           await pexDepexChannel.send({

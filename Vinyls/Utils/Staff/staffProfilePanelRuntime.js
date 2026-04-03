@@ -883,10 +883,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     "",
     ];
   if (hasPm) {
-    homeDescParts.push(
-      "",
-      `<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`,
-    );
+    homeDescParts.push(`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
   }
   homeDescParts.push("", "Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");

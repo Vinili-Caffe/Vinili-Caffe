@@ -5,6 +5,7 @@ const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schem
 const IDs = require("../Utils/Config/ids");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
+const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils");
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
@@ -115,6 +116,8 @@ async function handleStaffButtons(interaction) {
       await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> ${result.reason || "Depex non applicato."}`, flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
       return true;
     }
+    const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    await syncStaffDbAndPauseChannelAfterDepex(guild, userId, freshMember);
     const oldRoleId = result.roleRemoved;
     const newRoleId = result.newRole || (result.fullDepex ? String(IDs.roles?.Member || "") : "");
     await sendPexDepexLog(guild, "depex", targetUser, oldRoleId, newRoleId, "Depex da 2 warn staff (scelta High Staff).");

@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
-const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
+const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
@@ -592,7 +592,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
   }
 
   const refreshedMember = await resolveMember(targetUser.id);
-  await applyStaffDatabaseAfterDepex(guild.id, targetUser.id, refreshedMember);
+  await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
 
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const s = ensureStaff(profileDoc);

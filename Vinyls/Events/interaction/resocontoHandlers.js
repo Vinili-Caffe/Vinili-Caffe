@@ -2,7 +2,7 @@ const { EmbedBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInpu
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
-const { initPartnerManagerFieldsIfMissing, applyStaffDatabaseAfterDepex } = require("../../Utils/Staff/staffPmUtils");
+const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const { addStaffWarnFromNegatives, applyFullDepex } = require("../../Services/Staff/staffWarnService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
@@ -311,6 +311,8 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
       const roleId = String(payload.roleId || "");
       const fullResult = await applyFullDepex(guild, member, roleId || null);
       if (fullResult.ok) {
+        const memberAfterFull = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => null);
+        await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterFull);
         const roleAfterId = ROLE_DOWN[roleId] ?? "";
         await sendPexDepexLog(guild, "depex", targetUser, roleId, roleAfterId, `Depex automatico: 3 warn staff (valutazioni negative).`);
       }
@@ -358,7 +360,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
     if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
     const memberAfterDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
-    await applyStaffDatabaseAfterDepex(guild.id, payload.userId, memberAfterDepex);
+    await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterDepex);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Depex applicato.";
   }
@@ -387,7 +389,7 @@ async function applyPmAction(guild, payload) {
     if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
   }
   const memberAfterPmDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
-  await applyStaffDatabaseAfterDepex(guild.id, payload.userId, memberAfterPmDepex);
+  await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterPmDepex);
   await sendPexDepexLog(
     guild,
     "depex",

@@ -1,6 +1,7 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
+const { deleteStaffPauseRequestChannelMessages } = require("./staffDocUtils");
 
 const ROLE_PM = IDs.roles.PartnerManager;
 
@@ -61,6 +62,19 @@ async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
   }
 }
 
+/**
+ * Dopo un depex: se l'utente non ha più ruoli staff list, cancella messaggi/thread pausa nel canale e poi allinea il DB (`applyStaffDatabaseAfterDepex`).
+ */
+async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
+  const gid = String(guild?.id || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return;
+  if (!member || !memberHasStaffRole(member)) {
+    await deleteStaffPauseRequestChannelMessages(guild, uid);
+  }
+  await applyStaffDatabaseAfterDepex(gid, uid, member);
+}
+
 module.exports = {
   ROLE_PM,
   memberHasPartnerManagerRole,
@@ -68,4 +82,5 @@ module.exports = {
   buildStaffPartnerFieldsUnsetUpdate,
   buildStaffPartnerManagerIdUnsetUpdate,
   applyStaffDatabaseAfterDepex,
+  syncStaffDbAndPauseChannelAfterDepex,
 };

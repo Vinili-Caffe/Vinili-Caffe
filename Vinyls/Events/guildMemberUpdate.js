@@ -4,6 +4,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { memberHasPartnerManagerRole, buildStaffPartnerManagerIdUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
+const { deleteStaffPauseRequestChannelMessages } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
@@ -1085,6 +1086,7 @@ module.exports = {
             setWelcomeContextActive(newMember.guild.id, client);
           }
           if (memberHasStaffRole(oldMember) && !memberHasStaffRole(newMember)) {
+            await deleteStaffPauseRequestChannelMessages(newMember.guild, newMember.id);
             await ActivityUserProfile.updateOne(
               { guildId: newMember.guild.id, userId: newMember.id, staff: { $exists: true } },
               { $unset: { staff: "" } },
