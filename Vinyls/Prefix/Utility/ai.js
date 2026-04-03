@@ -5,6 +5,9 @@ const OLLAMA_CHAT_URL = String(
   process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/generate",
 ).trim();
 const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:0.5b").trim();
+const OLLAMA_FALLBACK_MODEL = String(
+  process.env.OLLAMA_FALLBACK_MODEL || "qwen2.5:1.5b",
+).trim();
 const OLLAMA_TIMEOUT_MS = Math.max(
   5000,
   Number(process.env.OLLAMA_TIMEOUT_MS || 14000),
@@ -43,7 +46,19 @@ function normalizeResponseText(raw) {
   return `${text.slice(0, OLLAMA_MAX_RESPONSE_CHARS - 3).trimEnd()}...`;
 }
 
-async function callOllama(prompt) {
+function looksLikeBadRefusal(text) {
+  const s = String(text || "").toLowerCase();
+  if (!s) return true;
+  return (
+    s.includes("non sono pronto per rispondere in italiano") ||
+    s.includes("non posso parlare o rispondere a parole") ||
+    s.includes("non supporto l'italiano") ||
+    s.includes("non supporto italiano")
+  );
+}
+
+async function callOllama(prompt, modelOverride = null) {
+  const model = String(modelOverride || OLLAMA_MODEL).trim() || OLLAMA_MODEL;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   timeout.unref?.();
@@ -53,10 +68,10 @@ async function callOllama(prompt) {
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: OLLAMA_MODEL,
+        model,
         stream: false,
         keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
-        prompt: `Rispondi in italiano, in modo utile e conciso.\n\nUtente: ${prompt}\nAssistente:`,
+        prompt: `Sei un assistente Discord. Rispondi sempre e solo in italiano naturale, senza dire che non puoi parlare italiano. Se non sai qualcosa, dillo in italiano in modo breve.\n\nUtente: ${prompt}\nAssistente:`,
         options: {
           temperature: 0.4,
           num_predict: Math.max(16, Number(process.env.OLLAMA_NUM_PREDICT || 40)),
@@ -162,8 +177,16 @@ module.exports = {
     const startedAt = Date.now();
     try {
       const text = await enqueueAiTask(() => callOllama(prompt));
+      let finalText = text;
+      if (looksLikeBadRefusal(finalText) && OLLAMA_FALLBACK_MODEL) {
+        try {
+          finalText = await enqueueAiTask(() =>
+            callOllama(prompt, OLLAMA_FALLBACK_MODEL),
+          );
+        } catch (_) {}
+      }
       return safeMessageReply(message, {
-        content: text,
+        content: finalText,
         allowedMentions: { repliedUser: false, parse: [] },
       });
     } catch (error) {
