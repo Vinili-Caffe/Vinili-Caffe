@@ -73,6 +73,13 @@ function isVerifyOrTicketInteraction(customId) {
     id.startsWith("modal_close_ticket")
   )
     return true;
+  if (
+    id.startsWith("ticket_panel_add_member:") ||
+    id.startsWith("ticket_panel_remove_member:") ||
+    id.startsWith("ticket_panel_switch_category:") ||
+    id.startsWith("ticket_panel_transfer_user:")
+  )
+    return true;
   return false;
 }
 

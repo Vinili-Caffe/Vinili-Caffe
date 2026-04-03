@@ -167,7 +167,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           ],
           allowedMentions: { repliedUser: false },
         });
-        return;
+        return false;
       }
 
       if (!panelConfig) {
@@ -180,7 +180,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           ],
           allowedMentions: { repliedUser: false },
         });
-        return;
+        return false;
       }
 
       if (!message.client.ticketSwitchLocks)
@@ -200,7 +200,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           ],
           allowedMentions: { repliedUser: false },
         });
-        return;
+        return false;
       }
 
       if (Date.now() - lastSwitchAt < 2000) {
@@ -213,7 +213,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           ],
           allowedMentions: { repliedUser: false },
         });
-        return;
+        return false;
       }
 
       message.client.ticketSwitchLocks.add(switchKey);
@@ -229,7 +229,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
             ],
             allowedMentions: { repliedUser: false },
           });
-          return;
+          return false;
         }
         const previousTicketType = String(ticketDoc.ticketType || "");
 
@@ -388,6 +388,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           ],
           allowedMentions: { repliedUser: false },
         });
+        return true;
       } finally {
         message.client.ticketSwitchLocks.delete(switchKey);
         message.client.ticketSwitchCooldowns.set(switchKey, Date.now());
@@ -398,7 +399,7 @@ const TICKET_REOPEN_BY_NUMBER_PROJECTION = { _id: 1, channelId: 1, open: 1, user
 
 async function ticketReopenByNumber(ctx, ticketNumber) {
   const { guild, reply } = ctx;
-  if (!guild || typeof reply !== "function") return;
+  if (!guild || typeof reply !== "function") return false;
 
   const ticketDoc = await Ticket.findOne({ guildId: guild.id, ticketNumber }, TICKET_REOPEN_BY_NUMBER_PROJECTION).lean().catch(() => null);
 
@@ -412,7 +413,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
       ],
       allowedMentions: NO_REPLY_MENTIONS,
         });
-        return;
+        return false;
       }
 
   if (ticketDoc.open && ticketDoc.channelId) {
@@ -425,7 +426,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
       ],
       allowedMentions: NO_REPLY_MENTIONS,
         });
-        return;
+        return false;
       }
 
   const existingOpen = await Ticket.findOne({ guildId: guild.id, userId: ticketDoc.userId, open: true }, { _id: 1, channelId: 1 }).lean().catch(() => null);
@@ -440,7 +441,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
           ],
       allowedMentions: NO_REPLY_MENTIONS,
         });
-        return;
+        return false;
       }
 
   const ticketMember = await getGuildMemberCached(guild, ticketDoc.userId);
@@ -454,7 +455,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
           ],
       allowedMentions: NO_REPLY_MENTIONS,
         });
-        return;
+        return false;
       }
 
   const config = getTicketPanelConfig(ticketDoc.ticketType) || getTicketPanelConfig("supporto");
@@ -463,7 +464,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
       embeds: [makeErrorEmbed("Errore", "Configurazione ticket non valida.")],
       allowedMentions: NO_REPLY_MENTIONS,
     });
-    return;
+    return false;
   }
 
   const category = await ensureTicketsCategory(guild);
@@ -477,7 +478,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
           ],
       allowedMentions: NO_REPLY_MENTIONS,
         });
-        return;
+        return false;
       }
 
   const channelName = buildTicketChannelName(config, ticketMember.user.username, ticketMember.id,);
@@ -494,7 +495,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
       ],
       allowedMentions: NO_REPLY_MENTIONS,
     });
-    return;
+    return false;
   }
 
   const row = new ActionRowBuilder().addComponents(
@@ -551,6 +552,7 @@ async function ticketReopenByNumber(ctx, ticketNumber) {
     ],
     allowedMentions: NO_REPLY_MENTIONS,
   });
+  return true;
 }
 
 module.exports = {

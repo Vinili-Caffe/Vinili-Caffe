@@ -3,8 +3,35 @@ const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = re
 const CHANNEL_WARM_TTL_MS = 5 * 60_000;
 const guildChannelWarmCache = new Map();
 const HANDLED_TICKET_BUTTONS = new Set(["ticket_partnership","ticket_highstaff","ticket_supporto","claim_ticket","close_ticket","close_ticket_motivo","accetta","rifiuta","ticket_autoclose_accept","ticket_autoclose_reject","unclaim","ticket_panel_nav_add","ticket_panel_nav_remove","ticket_panel_nav_switch","ticket_panel_nav_rename","ticket_panel_nav_closerequest","ticket_panel_nav_transfer",]);
-const HANDLED_TICKET_USER_SELECT_MENUS = new Set(["ticket_panel_add_member","ticket_panel_transfer_user"]);
-const HANDLED_TICKET_SELECT_MENUS = new Set(["ticket_open_menu","ticket_panel_remove_member","ticket_panel_switch_category","ticket_panel_reopen_pick",]);
+const TICKET_PANEL_ADD_MEMBER_PREFIX = "ticket_panel_add_member";
+const TICKET_PANEL_TRANSFER_USER_PREFIX = "ticket_panel_transfer_user";
+const TICKET_PANEL_REMOVE_MEMBER_PREFIX = "ticket_panel_remove_member";
+const TICKET_PANEL_SWITCH_CATEGORY_PREFIX = "ticket_panel_switch_category";
+
+function isTicketPanelUserSelectCustomId(id) {
+  const s = String(id || "");
+  return (
+    s === TICKET_PANEL_ADD_MEMBER_PREFIX ||
+    s.startsWith(`${TICKET_PANEL_ADD_MEMBER_PREFIX}:`) ||
+    s === TICKET_PANEL_TRANSFER_USER_PREFIX ||
+    s.startsWith(`${TICKET_PANEL_TRANSFER_USER_PREFIX}:`)
+  );
+}
+
+function isTicketPanelStringSelectCustomId(id) {
+  const s = String(id || "");
+  return (
+    s === TICKET_PANEL_REMOVE_MEMBER_PREFIX ||
+    s.startsWith(`${TICKET_PANEL_REMOVE_MEMBER_PREFIX}:`) ||
+    s === TICKET_PANEL_SWITCH_CATEGORY_PREFIX ||
+    s.startsWith(`${TICKET_PANEL_SWITCH_CATEGORY_PREFIX}:`) ||
+    s === "ticket_panel_reopen_pick"
+  );
+}
+
+function isTicketOpenMenuCustomId(id) {
+  return String(id || "") === "ticket_open_menu";
+}
 
 function getCachedEntity(cache, key) {
   const cached = cache.get(key);
@@ -171,16 +198,58 @@ function getSelectedTicketAction(interaction) {
   if (!interaction.isStringSelectMenu || !interaction.isStringSelectMenu()) {
     return null;
   }
-  if (!HANDLED_TICKET_SELECT_MENUS.has(interaction.customId)) return null;
+  if (!isTicketOpenMenuCustomId(interaction.customId)) return null;
   return interaction.values?.[0] || null;
 }
 
 function isHandledTicketInteraction(interaction) {
   const isTicketButton = interaction.isButton && interaction.isButton()&&(HANDLED_TICKET_BUTTONS.has(interaction.customId)|| isTicketRatingButton(interaction.customId)|| isTicketTranscriptButton(interaction.customId));
-  const isTicketSelect = interaction.isStringSelectMenu && interaction.isStringSelectMenu()&& HANDLED_TICKET_SELECT_MENUS.has(interaction.customId);
-  const isTicketUserSelect = interaction.isUserSelectMenu && interaction.isUserSelectMenu()&& HANDLED_TICKET_USER_SELECT_MENUS.has(interaction.customId);
+  const cid = String(interaction.customId || "");
+  const isTicketSelect =
+    interaction.isStringSelectMenu &&
+    interaction.isStringSelectMenu() &&
+    (isTicketOpenMenuCustomId(cid) || isTicketPanelStringSelectCustomId(cid));
+  const isTicketUserSelect =
+    interaction.isUserSelectMenu && interaction.isUserSelectMenu() && isTicketPanelUserSelectCustomId(cid);
   const isTicketModal = interaction.isModalSubmit && interaction.isModalSubmit()&& isHandledTicketModalId(String(interaction.customId || ""));
   return { isTicketButton, isTicketSelect, isTicketModal, isTicketUserSelect };
 }
 
-module.exports = { canUserHandleCloseRequest, ensureClosableTicketOrReply, findOpenTicketByUser, findTicketByChannel, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getSelectedTicketAction, hasActiveTicketClaimer, isHandledTicketInteraction, isTicketClaimedByUser, isTicketOwnedByUser, isTicketRatingButton, isTicketTranscriptButton, loadTicketForChannelOrReply, warmGuildChannels };
+module.exports = {
+  canUserHandleCloseRequest,
+  ensureClosableTicketOrReply,
+  findOpenTicketByUser,
+  findTicketByChannel,
+  getClientGuildCached,
+  getGuildChannelCached,
+  getGuildMemberCached,
+  getSelectedTicketAction,
+  hasActiveTicketClaimer,
+  isHandledTicketInteraction,
+  isTicketClaimedByUser,
+  isTicketOwnedByUser,
+  isTicketRatingButton,
+  isTicketTranscriptButton,
+  loadTicketForChannelOrReply,
+  warmGuildChannels,
+  parseTicketPanelMessageIdFromCustomId: (customId, basePrefix) => {
+    const s = String(customId || "");
+    const p = String(basePrefix || "");
+    if (!p) return null;
+    if (s === p) return null;
+    if (!s.startsWith(`${p}:`)) return null;
+    const id = s.slice(p.length + 1);
+    return /^\d{17,20}$/.test(id) ? id : null;
+  },
+  withTicketPanelMessageCustomId: (baseCustomId, panelMessageId) => {
+    const base = String(baseCustomId || "");
+    const pid = String(panelMessageId || "").trim();
+    if (!base || !/^\d{17,20}$/.test(pid)) return base;
+    const out = `${base}:${pid}`;
+    return out.length <= 100 ? out : base;
+  },
+  TICKET_PANEL_ADD_MEMBER_PREFIX,
+  TICKET_PANEL_REMOVE_MEMBER_PREFIX,
+  TICKET_PANEL_SWITCH_CATEGORY_PREFIX,
+  TICKET_PANEL_TRANSFER_USER_PREFIX,
+};

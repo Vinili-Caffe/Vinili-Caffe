@@ -61,6 +61,10 @@ function textLooksLikeError(value) {
 
 function payloadLooksLikeError(payload) {
   if (!payload) return false;
+  if (typeof payload === "object" && !Array.isArray(payload)) {
+    const comps = payload.components;
+    if (Array.isArray(comps) && comps.length > 0) return false;
+  }
   if (typeof payload === "string") return textLooksLikeError(payload);
   if (typeof payload !== "object") return false;
   if (textLooksLikeError(payload.content)) return true;

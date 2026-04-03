@@ -6,6 +6,14 @@ const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
 const { hasStaffTicketRole, buildRemoveMemberOptions } = require("./ticketStaffPanelBuild");
 const ticketModule = require("../../Prefix/Staff/ticket");
+const {
+  parseTicketPanelMessageIdFromCustomId,
+  withTicketPanelMessageCustomId,
+  TICKET_PANEL_ADD_MEMBER_PREFIX,
+  TICKET_PANEL_REMOVE_MEMBER_PREFIX,
+  TICKET_PANEL_SWITCH_CATEGORY_PREFIX,
+  TICKET_PANEL_TRANSFER_USER_PREFIX,
+} = require("./ticketInteractionRuntime");
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const TICKET_READ_PROJECTION = { _id: 1, channelId: 1, open: 1, userId: 1, claimedBy: 1, guildId: 1, ticketNumber: 1, ticketType: 1 };
 
@@ -69,6 +77,17 @@ async function deletePlusTicketCommandAndPanelMessages(interaction) {
   if (cmdMsg && !cmdMsg.author?.bot) await cmdMsg.delete().catch(() => {});
 }
 
+async function deletePlusTicketStaffPanelById(channel, panelMessageId) {
+  if (!channel?.messages?.fetch || !panelMessageId) return;
+  const panelMsg = await channel.messages.fetch(panelMessageId).catch(() => null);
+  if (!panelMsg || !messageIsPlusTicketStaffPanel(panelMsg)) return;
+  const refId = panelMsg.reference?.messageId;
+  await panelMsg.delete().catch(() => {});
+  if (!refId) return;
+  const cmdMsg = await channel.messages.fetch(refId).catch(() => null);
+  if (cmdMsg && !cmdMsg.author?.bot) await cmdMsg.delete().catch(() => {});
+}
+
 async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeErrorEmbed }) {
   const cid = String(interaction.customId || "");
   const isPanel =
@@ -89,7 +108,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       .setDescription("Cerca e seleziona un membro.");
     const addRow = new ActionRowBuilder().addComponents(
       new UserSelectMenuBuilder()
-        .setCustomId("ticket_panel_add_member")
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_ADD_MEMBER_PREFIX, interaction.message?.id))
         .setPlaceholder("➕ Scegli un utente…")
         .setMinValues(1)
         .setMaxValues(1),
@@ -99,7 +118,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [addRow],
       flags: MessageFlags.Ephemeral,
     });
-    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -130,7 +148,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       .setDescription("Scegli un membro.");
     const removeRow = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId("ticket_panel_remove_member")
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_REMOVE_MEMBER_PREFIX, interaction.message?.id))
         .setPlaceholder("➖ Scegli un utente…")
         .setMinValues(1)
         .setMaxValues(1)
@@ -141,7 +159,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [removeRow],
       flags: MessageFlags.Ephemeral,
     });
-    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -159,7 +176,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       .setDescription("Scegli la nuova categoria.");
     const switchRow = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId("ticket_panel_switch_category")
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_SWITCH_CATEGORY_PREFIX, interaction.message?.id))
         .setPlaceholder("🔄 Cambia categoria…")
         .setMinValues(1)
         .setMaxValues(1)
@@ -174,7 +191,6 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [switchRow],
       flags: MessageFlags.Ephemeral,
     });
-    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
@@ -199,8 +215,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
             .setMaxLength(80),
         ),
       );
-    const shown = await interaction.showModal(modal).catch(() => false);
-    if (shown !== false) await deletePlusTicketCommandAndPanelMessages(interaction);
+    await interaction.showModal(modal).catch(() => null);
     return true;
   }
 
@@ -237,8 +252,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
             .setMaxLength(1800),
         ),
       );
-    const shownCr = await interaction.showModal(modal).catch(() => false);
-    if (shownCr !== false) await deletePlusTicketCommandAndPanelMessages(interaction);
+    await interaction.showModal(modal).catch(() => null);
     return true;
   }
 
@@ -264,7 +278,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     const intro = buildTransferPickerEmbed(ticketDocOpen.ticketType);
     const transferRow = new ActionRowBuilder().addComponents(
       new UserSelectMenuBuilder()
-        .setCustomId("ticket_panel_transfer_user")
+        .setCustomId(withTicketPanelMessageCustomId(TICKET_PANEL_TRANSFER_USER_PREFIX, interaction.message?.id))
         .setPlaceholder("Scegli un utente…")
         .setMinValues(1)
         .setMaxValues(1),
@@ -274,11 +288,13 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       components: [transferRow],
       flags: MessageFlags.Ephemeral,
     });
-    await deletePlusTicketCommandAndPanelMessages(interaction);
     return true;
   }
 
-  if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_add_member") {
+  if (
+    interaction.isUserSelectMenu?.() &&
+    (cid === TICKET_PANEL_ADD_MEMBER_PREFIX || cid.startsWith(`${TICKET_PANEL_ADD_MEMBER_PREFIX}:`))
+  ) {
     if (!hasStaffTicketRole(interaction.member)) {
       await safeReply(interaction, {
         embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di aggiungere utenti.")],
@@ -323,10 +339,15 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       ],
       flags: MessageFlags.Ephemeral,
     });
+    const addPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_ADD_MEMBER_PREFIX);
+    if (addPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, addPanelMid);
     return true;
   }
 
-  if (interaction.isUserSelectMenu?.() && cid === "ticket_panel_transfer_user") {
+  if (
+    interaction.isUserSelectMenu?.() &&
+    (cid === TICKET_PANEL_TRANSFER_USER_PREFIX || cid.startsWith(`${TICKET_PANEL_TRANSFER_USER_PREFIX}:`))
+  ) {
     const ticketDocXfer = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
     const xferClaimer = String(ticketDocXfer?.claimedBy || "").trim();
     if (!xferClaimer) {
@@ -414,6 +435,8 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       ],
       flags: MessageFlags.Ephemeral,
     });
+    const xferPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_TRANSFER_USER_PREFIX);
+    if (xferPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, xferPanelMid);
     return true;
   }
 
@@ -436,12 +459,12 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         return true;
       }
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      await deletePlusTicketCommandAndPanelMessages(interaction);
       const proxy = createInteractionMessageProxy(interaction);
-      await ticketModule.ticketReopenByNumber(
+      const reopened = await ticketModule.ticketReopenByNumber(
         { guild: interaction.guild, reply: (p) => proxy.reply(p) },
         ticketNumber,
       );
+      if (reopened) await deletePlusTicketCommandAndPanelMessages(interaction);
       return true;
     }
 
@@ -454,7 +477,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       return true;
     }
 
-    if (cid === "ticket_panel_remove_member") {
+    if (cid === TICKET_PANEL_REMOVE_MEMBER_PREFIX || cid.startsWith(`${TICKET_PANEL_REMOVE_MEMBER_PREFIX}:`)) {
       if (!hasStaffTicketRole(interaction.member)) {
         await safeReply(interaction, {
           embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Non hai permesso di rimuovere utenti.")],
@@ -476,10 +499,12 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         ],
         flags: MessageFlags.Ephemeral,
       });
+      const remPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_REMOVE_MEMBER_PREFIX);
+      if (remPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, remPanelMid);
       return true;
     }
 
-    if (cid === "ticket_panel_switch_category") {
+    if (cid === TICKET_PANEL_SWITCH_CATEGORY_PREFIX || cid.startsWith(`${TICKET_PANEL_SWITCH_CATEGORY_PREFIX}:`)) {
       if (!HIGHSTAFF_ROLE_ID || !interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
         await safeReply(interaction, {
           embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può cambiare categoria.")],
@@ -490,7 +515,11 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       const categoryToken = String(interaction.values[0] || "").toLowerCase();
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const proxy = createInteractionMessageProxy(interaction);
-      await ticketModule.ticketSwitchPanelExecute(proxy, categoryToken);
+      const switched = await ticketModule.ticketSwitchPanelExecute(proxy, categoryToken);
+      if (switched) {
+        const swPanelMid = parseTicketPanelMessageIdFromCustomId(cid, TICKET_PANEL_SWITCH_CATEGORY_PREFIX);
+        if (swPanelMid) await deletePlusTicketStaffPanelById(interaction.channel, swPanelMid);
+      }
       return true;
     }
   }
@@ -564,6 +593,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         ],
         flags: 1 << 6,
       });
+      await deletePlusTicketCommandAndPanelMessages(interaction);
       return true;
     }
 
@@ -618,6 +648,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription("<:vegacheckmark:1443666279058772028> Richiesta inviata.")],
         flags: 1 << 6,
       });
+      await deletePlusTicketCommandAndPanelMessages(interaction);
       return true;
     }
   }

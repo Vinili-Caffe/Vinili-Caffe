@@ -26,9 +26,14 @@ function buildStaffPartnerFieldsUnsetUpdate() {
   };
 }
 
+/** Solo assegnazione PM corrente: non tocca conteggio né storico (serve per classifica e audit). */
+function buildStaffPartnerManagerIdUnsetUpdate() {
+  return { $unset: { "staff.managerId": "" } };
+}
+
 /**
  * Dopo un depex (o equivalente): se non resta nessun ruolo staff list → elimina tutto `staff`.
- * Se resta staff ma non più PM → rimuove solo i campi partner (partnerCount, partnerActions, managerId).
+ * Se resta staff ma non più PM → rimuove solo `managerId` (storico partner e punti restano nel DB).
  */
 async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
   const gid = String(guildId || "").trim();
@@ -45,7 +50,7 @@ async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
     if (!memberHasPartnerManagerRole(member)) {
       await ActivityUserProfile.updateOne(
         { guildId: gid, userId: uid },
-        buildStaffPartnerFieldsUnsetUpdate(),
+        buildStaffPartnerManagerIdUnsetUpdate(),
       ).catch(() => null);
     }
   } else {
@@ -61,5 +66,6 @@ module.exports = {
   memberHasPartnerManagerRole,
   initPartnerManagerFieldsIfMissing,
   buildStaffPartnerFieldsUnsetUpdate,
+  buildStaffPartnerManagerIdUnsetUpdate,
   applyStaffDatabaseAfterDepex,
 };

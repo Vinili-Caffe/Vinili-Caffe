@@ -6,7 +6,14 @@ const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService")
 const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
-const { buildPartnerLeaderboardPayload } = require("../Partner/partnerLeaderboardRuntime");
+const { buildPartnerLeaderboardPayload, countValidAllTimePartners } = require("../Partner/partnerLeaderboardRuntime");
+
+function resolveStaffPartnerPointsDisplay(staffObj) {
+  if (!staffObj) return 0;
+  const fromCounter = Math.max(0, Math.floor(Number(staffObj.partnerCount ?? 0)));
+  const fromActions = countValidAllTimePartners(Array.isArray(staffObj.partnerActions) ? staffObj.partnerActions : []);
+  return Math.max(fromCounter, fromActions);
+}
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
 const SECTION_HOME = "home";
@@ -632,7 +639,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   if (profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s);
-    const punti = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
+    const punti = resolveStaffPartnerPointsDisplay(s);
     const pmHomeDesc = [
       `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
       "",
@@ -847,7 +854,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
   }
 
-  const puntiPartner = Math.max(0, Math.floor(Number(s.partnerCount ?? 0)));
+  const puntiPartner = resolveStaffPartnerPointsDisplay(s);
   const homeDescParts = [
     `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
     "",

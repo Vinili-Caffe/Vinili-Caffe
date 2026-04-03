@@ -3,7 +3,7 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
-const { memberHasPartnerManagerRole, buildStaffPartnerFieldsUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
+const { memberHasPartnerManagerRole, buildStaffPartnerManagerIdUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
@@ -1093,7 +1093,7 @@ module.exports = {
           if (memberHasStaffRole(newMember) && !memberHasPartnerManagerRole(newMember)) {
             await ActivityUserProfile.updateOne(
               { guildId: newMember.guild.id, userId: newMember.id },
-              buildStaffPartnerFieldsUnsetUpdate(),
+              buildStaffPartnerManagerIdUnsetUpdate(),
             ).catch(() => {});
           }
         }

@@ -156,7 +156,8 @@ async function fetchSortedPartners(guild, isWeekly) {
       if (!isWeekly) {
         const totalCount = Number(staff.partnerCount);
         const fromActions = countValidAllTimePartners(Array.isArray(staff.partnerActions) ? staff.partnerActions : []);
-        const score = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : fromActions;
+        const safeCounter = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : 0;
+        const score = Math.max(safeCounter, fromActions);
         return { userId: row.userId, score };
       }
       const actions = Array.isArray(staff.partnerActions) ? staff.partnerActions : [];
@@ -223,4 +224,5 @@ module.exports = {
   PLB_NAV_PREFIX,
   buildPartnerLeaderboardPayload,
   fetchSortedPartners,
+  countValidAllTimePartners,
 };
