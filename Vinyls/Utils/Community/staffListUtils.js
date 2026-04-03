@@ -174,7 +174,7 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
       pm = "<:VC_Dot:1482532364222595303>";
     }
   }
-  return { main, pm };
+  return { main, pm: `\n${pm}` };
 }
 
 async function fetchChannelMessage(channel, messageId) {

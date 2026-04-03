@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
@@ -627,16 +628,17 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
     guild.channels.cache.get(IDs.channels?.warnStaff) ||
     (await getGuildChannelCached(guild, IDs.channels?.warnStaff)) ||
     (await getClientChannelCached(client, IDs.channels?.warnStaff));
+  await ActivityUserProfile.findOneAndUpdate(
+    { guildId: guild.id, userId: targetUser.id },
+    {
+      $setOnInsert: { guildId: guild.id, userId: targetUser.id },
+      $inc: { "staff.idCount": 1, "staff.warnCount": 1 },
+      $push: { "staff.warnReasons": String(reason || "").slice(0, 500) },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
   const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
   const s = ensureStaff(profileDoc);
-  if (!s.idCount) s.idCount = 0;
-  if (!s.warnCount) s.warnCount = 0;
-  if (!Array.isArray(s.warnReasons)) s.warnReasons = [];
-  s.idCount++;
-  s.warnCount++;
-  s.warnReasons.push(reason);
-  profileDoc.markModified("staff");
-  await profileDoc.save();
   const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
   const warnEmbed = new EmbedBuilder()
     .setAuthor({

@@ -417,6 +417,14 @@ async function handleDisboardBump(message, client) {
   const isAutomatedSource = Boolean(
     message.author?.bot || message.applicationId || message.webhookId,
   );
+  const interactionCommandName = String(
+    message.interaction?.commandName || message.interactionMetadata?.name || "",
+  )
+    .trim()
+    .toLowerCase();
+  const isBumpInteraction = interactionCommandName === "bump";
+  const isLikelyCommandChannel =
+    String(message.channelId || "") === String(IDs.channels.commands || "");
   const isFromDisboardBot = isMessageFromDisboardBot(message, client);
   const hasRegexSuccess =
     /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|\bwas bumped\b|server bumped|you can bump again|bump will be available again)/i.test(joined);
@@ -431,10 +439,14 @@ async function handleDisboardBump(message, client) {
     (hasDisboardWord ||
       hasDisboardDomain ||
       /\bdisboard\b/i.test(sourceFingerprint));
-  const isBump =
-    hasBumpSuccessText &&
+  const isDisboardByBotFallback =
+    isFromDisboardBot &&
     !hasDisboardBumpFailure &&
-    (isStrictDisboardSource || isDisboardByContentFallback);
+    (hasBumpSuccessText || hasBumpWord || isBumpInteraction || isLikelyCommandChannel);
+  const isBump =
+    !hasDisboardBumpFailure &&
+    ((hasBumpSuccessText && (isStrictDisboardSource || isDisboardByContentFallback)) ||
+      isDisboardByBotFallback);
   if (!isBump) return false;
   const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
   if (!claimBumpDedupeKey(dedupeKey)) return true;
@@ -505,7 +517,6 @@ async function handleDiscadiaBump(message, client) {
   const discadiaBotIds = new Set(
     [
       IDs.bots?.Discadia,
-      IDs.roles?.Discadia,
       discadia?.botId,
       ...(Array.isArray(discadia?.botIds) ? discadia.botIds : []),
     ]

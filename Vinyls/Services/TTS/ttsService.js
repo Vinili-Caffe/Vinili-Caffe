@@ -646,6 +646,21 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function destroyVoiceConnectionSafe(connection, logPrefix = "[TTS] connection destroy:") {
+  if (!connection) return false;
+  const status = String(connection?.state?.status || "");
+  if (status === String(VoiceConnectionStatus.Destroyed)) return false;
+  try {
+    connection.destroy();
+    return true;
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    if (/already been destroyed/i.test(msg)) return false;
+    global.logger?.warn?.(logPrefix, msg || err);
+    return false;
+  }
+}
+
 function shouldLogTtsJoinWarning(guildId, channelId, errMessage, ttlMs = 30000) {
   const key = `${String(guildId || "")}:${String(channelId || "")}:${String(errMessage || "")}`;
   const now = Date.now();
@@ -658,13 +673,7 @@ async function destroyGuildVoiceConnection(guildId) {
   const gid = String(guildId || "");
   if (!gid) return;
   const existing = getVoiceConnection(gid);
-  if (existing) {
-    try {
-      existing.destroy();
-    } catch (err) {
-      global.logger?.warn?.("[TTS] destroy existing voice connection:", err?.message || err);
-    }
-  }
+  if (existing) destroyVoiceConnectionSafe(existing, "[TTS] destroy existing voice connection:");
   await sleep(600);
 }
 async function ensureConnection(state, voiceChannel) {
@@ -677,20 +686,12 @@ async function ensureConnection(state, voiceChannel) {
       await entersState(state.connection, VoiceConnectionStatus.Ready, 5_000);
       return state.connection;
     } catch {
-      try {
-        state.connection.destroy();
-      } catch (err) {
-        global.logger?.warn?.("[TTS] connection destroy:", err?.message || err);
-      }
+      destroyVoiceConnectionSafe(state.connection);
       state.connection = null;
     }
   }
   if (state.connection) {
-    try {
-      state.connection.destroy();
-    } catch (err) {
-      global.logger?.warn?.("[TTS] connection destroy:", err?.message || err);
-    }
+    destroyVoiceConnectionSafe(state.connection);
     state.connection = null;
   }
   await destroyGuildVoiceConnection(voiceChannel.guild.id);
@@ -718,11 +719,7 @@ async function ensureConnection(state, voiceChannel) {
       return connection;
     } catch (err) {
       if (connection) {
-        try {
-          connection.destroy();
-        } catch (e) {
-          global.logger?.warn?.("[TTS] connection destroy after error:", e?.message || e);
-        }
+        destroyVoiceConnectionSafe(connection, "[TTS] connection destroy after error:");
         state.connection = null;
       }
       await destroyGuildVoiceConnection(voiceChannel.guild.id);
@@ -899,11 +896,7 @@ function cleanupAllTtsStateForGuild(guildId) {
       global.logger?.warn?.("[TTS] player stop:", err?.message || err);
     }
     if (state.connection) {
-      try {
-        state.connection.destroy();
-      } catch (err) {
-        global.logger?.warn?.("[TTS] connection destroy:", err?.message || err);
-      }
+      destroyVoiceConnectionSafe(state.connection);
       state.connection = null;
     }
     ttsStates.delete(channelId);
@@ -924,7 +917,7 @@ async function leaveTtsGuild(guildId, client) {
       try {
         const existing = getVoiceConnection(String(guildId));
         if (existing) {
-          existing.destroy();
+          destroyVoiceConnectionSafe(existing, "[TTS] disconnect cleanup:");
         } else {
           cleanupAllTtsStateForGuild(guildId);
         }
@@ -951,11 +944,7 @@ async function leaveTtsGuild(guildId, client) {
       global.logger?.warn?.("[TTS] player stop:", err?.message || err);
     }
     if (state.connection) {
-      try {
-        state.connection.destroy();
-      } catch (err) {
-        global.logger?.warn?.("[TTS] connection destroy:", err?.message || err);
-      }
+      destroyVoiceConnectionSafe(state.connection);
       state.connection = null;
     }
     clearLockedChannel(guildId, lockedChannelId);

@@ -409,8 +409,26 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
       return true;
     }
     const oldClaimerId = xferClaimer;
-    ticketDocXfer.claimedBy = targetUserId;
-    await ticketDocXfer.save();
+    const transferResult = await Ticket.updateOne(
+      {
+        _id: ticketDocXfer._id,
+        open: true,
+        claimedBy: oldClaimerId,
+      },
+      { $set: { claimedBy: targetUserId } },
+    ).catch(() => null);
+    if (!transferResult || Number(transferResult.modifiedCount || 0) < 1) {
+      await safeReply(interaction, {
+        embeds: [
+          makeErrorEmbed(
+            "<a:VC_Alert:1482706673176150077> Errore",
+            "<:vegax:1443934876440068179> Claim non aggiornato: ticket modificato da un'altra azione. Riprova.",
+          ),
+        ],
+        flags: 1 << 6,
+      });
+      return true;
+    }
     await interaction.channel.permissionOverwrites.delete(oldClaimerId).catch(() => {});
     await interaction.channel.permissionOverwrites.edit(targetUserId, {
       ViewChannel: true,

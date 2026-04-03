@@ -6,6 +6,22 @@ const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzat
 const TICKET_OPEN_CONTROLS = new Set(["ticket_partnership", "ticket_highstaff", "ticket_supporto", "ticket_open_menu",]);
 /** Pulsanti verifica: non applicare cooldown/inFlight per evitare di bloccare il primo click o click dopo altro bottone. */
 const VERIFY_CONTROLS = new Set(["verify_start", "verify_enter"]);
+/**
+ * Ticket interactions already have their own per-channel action locks.
+ * Exclude them from the generic anti-spam guard to avoid silent deferred updates.
+ */
+const TICKET_GUARD_BYPASS_EXACT = new Set([
+  "claim_ticket",
+  "unclaim",
+  "close_ticket",
+  "close_ticket_motivo",
+  "accetta",
+  "rifiuta",
+]);
+const TICKET_GUARD_BYPASS_PREFIXES = [
+  "ticket_",
+  "ticket_panel_",
+];
 
 function isAckError(error) {
   const code = error?.code || error?.rawError?.code;
@@ -61,7 +77,9 @@ function acquireButtonSpamGuard(interaction, client) {
     };
   }
   const customId = String(interaction?.customId || "");
-  if (VERIFY_CONTROLS.has(customId)) {
+  const bypassTicketGuard = TICKET_GUARD_BYPASS_EXACT.has(customId) ||
+    TICKET_GUARD_BYPASS_PREFIXES.some((prefix) => customId.startsWith(prefix));
+  if (VERIFY_CONTROLS.has(customId) || bypassTicketGuard) {
     return {
       blocked: false,
       release: () => { },
