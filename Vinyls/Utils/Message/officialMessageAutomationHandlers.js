@@ -16,7 +16,9 @@ const VOTE_ROLE_DURATION_MS = 24 * 60 * 60 * 1000;
 const MEDIA_BLOCK_ROLE_IDS = [IDs.roles.PicPerms].filter(Boolean);
 const processedBumpMessages = new Map();
 const bumpDetectionLogAtByGuild = new Map();
+const bumpSkipDebugLogAtByKey = new Map();
 const BUMP_DETECTION_LOG_COOLDOWN_MS = 10 * 60 * 1000;
+const BUMP_SKIP_DEBUG_LOG_TTL_MS = 30 * 60 * 1000;
 const MEMBER_FETCH_CACHE_TTL_MS = 15_000;
 const memberFetchCache = new Map();
 
@@ -97,6 +99,31 @@ function logBumpDetectionOnce(tag, guildId, details) {
   if (last && now - last < BUMP_DETECTION_LOG_COOLDOWN_MS) return;
   bumpDetectionLogAtByGuild.set(cacheKey, now);
   global.logger?.info?.(`${tag} guild=${gid} ${details}`);
+}
+
+function isBumpDetectDebugEnabled() {
+  return String(process.env.BUMP_DETECT_DEBUG || "1").trim() !== "0";
+}
+
+function logBumpSkipDebug(tag, message, reason, details = "") {
+  if (!isBumpDetectDebugEnabled()) return;
+  const gid = String(message?.guild?.id || "");
+  const msgId = String(message?.id || "");
+  const channelId = String(message?.channelId || "");
+  if (!gid || !msgId) return;
+  const key = `${tag}:${gid}:${msgId}:${reason}`;
+  const now = Date.now();
+  const prev = Number(bumpSkipDebugLogAtByKey.get(key) || 0);
+  if (prev && now - prev < BUMP_SKIP_DEBUG_LOG_TTL_MS) return;
+  bumpSkipDebugLogAtByKey.set(key, now);
+  for (const [k, ts] of bumpSkipDebugLogAtByKey.entries()) {
+    if (now - ts > BUMP_SKIP_DEBUG_LOG_TTL_MS) bumpSkipDebugLogAtByKey.delete(k);
+  }
+  const line = `${tag} [SKIP] guild=${gid} msg=${msgId} channel=${channelId} reason=${reason}${details ? ` ${details}` : ""}`;
+  global.logger?.warn?.(line);
+  try {
+    console.log(line);
+  } catch (_) { }
 }
 
 /** True se il bot ha già inviato un messaggio di ringraziamento bump in risposta a questo messaggio (evita duplicati dopo riavvio). */
@@ -452,9 +479,23 @@ async function handleDisboardBump(message, client) {
     !hasDisboardBumpFailure &&
     ((hasBumpSuccessText && (isStrictDisboardSource || isDisboardByContentFallback)) ||
       isDisboardByBotFallback);
-  if (!isBump) return false;
+  if (!isBump) {
+    const reason = hasDisboardBumpFailure
+      ? "disboard_failure_text"
+      : (!hasBumpSuccessText ? "missing_success_text" : "source_not_recognized");
+    logBumpSkipDebug(
+      "[DISBOARD BUMP DETECT]",
+      message,
+      reason,
+      `flags={success:${hasBumpSuccessText},failure:${hasDisboardBumpFailure},strict:${isStrictDisboardSource},contentFallback:${isDisboardByContentFallback},botFallback:${isDisboardByBotFallback},automated:${isAutomatedSource},discadiaWord:${hasDiscadiaWord}}`,
+    );
+    return false;
+  }
   const dedupeKey = `disboard:${message.guild.id}:${message.id}`;
-  if (!claimBumpDedupeKey(dedupeKey)) return true;
+  if (!claimBumpDedupeKey(dedupeKey)) {
+    logBumpSkipDebug("[DISBOARD BUMP DETECT]", message, "duplicate_message_dedupe");
+    return true;
+  }
   let bumpUserId =
     message.interaction?.user?.id ||
     message.interactionMetadata?.user?.id ||
@@ -465,6 +506,9 @@ async function handleDisboardBump(message, client) {
   }
   if (!bumpUserId) {
     bumpUserId = extractUserIdFromText(message.content) || extractUserIdFromText(rawHaystackJoin) || null;
+    if (!bumpUserId) {
+      logBumpSkipDebug("[DISBOARD BUMP DETECT]", message, "user_not_resolved", "fallback=record_with_null_user");
+    }
   }
   const detectionSource =
     isStrictDisboardSource ? "strict" : "fallback";
@@ -550,7 +594,10 @@ async function handleDiscadiaBump(message, client) {
   }
   const normalized = haystacks.map((text) => String(text).toLowerCase()).map((text) => text.replace(/\s+/g, " ").trim());
   const joined = normalized.join("\n");
-  if (/already bumped recently/i.test(joined)) return false;
+  if (/already bumped recently/i.test(joined)) {
+    logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "already_bumped_recently_text");
+    return false;
+  }
   const hasPattern = patterns.some((pattern) => joined.includes(pattern));
   const hasSuccessWord = /(server has been bumped|has been successfully bumped|bump(?:ed)?successfully|successfully bumped|successful bump|bump complete|bump done|thanks for bumping|you can bump again|bump effettuato|bump eseguito|bump completato|bump andato a buon fine|server bumpato con successo|bump riuscito|puoi bumpare di nuovo|potrai bumpare di nuovo)/i.test(joined);
   const hasBumpWord = /\bbump(?:ed)?\b/i.test(joined);
@@ -573,14 +620,31 @@ async function handleDiscadiaBump(message, client) {
   // ma contengono chiaramente dominio/parola Discadia + testo di successo bump.
   const isDiscadiaByContentFallback = !looksLikeDisboardSource && hasBumpSuccessText && (hasDiscadiaWord || hasDiscadiaDomain || /\bdiscadia\b/i.test(sourceFingerprint));
   const isBump = !hasFailureWord && hasBumpSuccessText && (isStrictDiscadiaSource || isDiscadiaByContentFallback);
-  if (!isBump) return false;
+  if (!isBump) {
+    const reason = hasFailureWord
+      ? "discadia_failure_text"
+      : (!hasBumpSuccessText ? "missing_success_text" : "source_not_recognized");
+    logBumpSkipDebug(
+      "[DISCADIA BUMP DETECT]",
+      message,
+      reason,
+      `flags={success:${hasBumpSuccessText},failure:${hasFailureWord},strict:${isStrictDiscadiaSource},contentFallback:${isDiscadiaByContentFallback},automated:${isAutomatedSource},looksDisboard:${looksLikeDisboardSource}}`,
+    );
+    return false;
+  }
 
   const dedupeKey = `discadia:${message.guild.id}:${message.id}`;
-  if (!claimBumpDedupeKey(dedupeKey)) return true;
+  if (!claimBumpDedupeKey(dedupeKey)) {
+    logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "duplicate_message_dedupe");
+    return true;
+  }
   let bumpUserId = message.interaction?.user?.id || message.interactionMetadata?.user?.id || extractUserIdFromText(message.content) || extractUserIdFromText(joined) || null;
   if (!bumpUserId) {
     const resolvedUser = await resolveUserFromMessage(message);
     if (resolvedUser && !resolvedUser.bot) bumpUserId = resolvedUser.id;
+    if (!bumpUserId) {
+      logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "user_not_resolved", "fallback=record_with_null_user");
+    }
   }
   const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   try {
