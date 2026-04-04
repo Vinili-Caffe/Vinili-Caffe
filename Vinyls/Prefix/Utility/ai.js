@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { getAiKnowledgeContext } = require("../../Utils/AI/aiKnowledgeRuntime");
 
 const OLLAMA_CHAT_URL = String(
   process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/generate",
@@ -26,6 +27,14 @@ const AI_USER_COOLDOWN_MS = Math.max(
 );
 const AI_MAX_QUEUE = Math.max(1, Number(process.env.AI_MAX_QUEUE || 12));
 const AI_MAX_INFLIGHT = Math.max(1, Number(process.env.AI_MAX_INFLIGHT || 1));
+const AI_CONTEXT_MAX_CHARS = Math.max(
+  400,
+  Number(process.env.AI_CONTEXT_MAX_CHARS || 1400),
+);
+const AI_CONTEXT_MAX_DOCS = Math.max(
+  1,
+  Number(process.env.AI_CONTEXT_MAX_DOCS || 3),
+);
 
 const userCooldownMap = new Map();
 const aiQueue = [];
@@ -57,8 +66,12 @@ function looksLikeBadRefusal(text) {
   );
 }
 
-async function callOllama(prompt, modelOverride = null) {
+async function callOllama(prompt, modelOverride = null, context = "") {
   const model = String(modelOverride || OLLAMA_MODEL).trim() || OLLAMA_MODEL;
+  const contextBlock = String(context || "").trim();
+  const guidance = contextBlock
+    ? `Contesto ufficiale bot/server (usa prima questo):\n${contextBlock}\n\nRegole: non inventare comandi, ruoli, canali o policy. Se il contesto non basta, dichiaralo in modo breve.`
+    : "Nessun contesto interno trovato. Rispondi in italiano in modo breve e pratico, senza inventare dettagli.";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   timeout.unref?.();
@@ -71,7 +84,7 @@ async function callOllama(prompt, modelOverride = null) {
         model,
         stream: false,
         keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
-        prompt: `Sei un assistente Discord. Rispondi sempre e solo in italiano naturale, senza dire che non puoi parlare italiano. Se non sai qualcosa, dillo in italiano in modo breve.\n\nUtente: ${prompt}\nAssistente:`,
+        prompt: `Sei l'assistente di supporto del server e del bot Vinili & Caffe.\n${guidance}\n\nUtente: ${prompt}\nAssistente:`,
         options: {
           temperature: 0.4,
           num_predict: Math.max(16, Number(process.env.OLLAMA_NUM_PREDICT || 40)),
@@ -159,6 +172,10 @@ module.exports = {
     }
 
     const prompt = rawPrompt.slice(0, OLLAMA_MAX_PROMPT_CHARS);
+    const context = getAiKnowledgeContext(rawPrompt, {
+      maxDocs: AI_CONTEXT_MAX_DOCS,
+      maxChars: AI_CONTEXT_MAX_CHARS,
+    });
     if (aiQueue.length >= AI_MAX_QUEUE && aiInFlight >= AI_MAX_INFLIGHT) {
       return safeMessageReply(message, {
         embeds: [
@@ -174,14 +191,13 @@ module.exports = {
 
     userCooldownMap.set(userKey, nowTs + AI_USER_COOLDOWN_MS);
     await message.channel.sendTyping().catch(() => {});
-    const startedAt = Date.now();
     try {
-      const text = await enqueueAiTask(() => callOllama(prompt));
+      const text = await enqueueAiTask(() => callOllama(prompt, null, context));
       let finalText = text;
       if (looksLikeBadRefusal(finalText) && OLLAMA_FALLBACK_MODEL) {
         try {
           finalText = await enqueueAiTask(() =>
-            callOllama(prompt, OLLAMA_FALLBACK_MODEL),
+            callOllama(prompt, OLLAMA_FALLBACK_MODEL, context),
           );
         } catch (_) {}
       }

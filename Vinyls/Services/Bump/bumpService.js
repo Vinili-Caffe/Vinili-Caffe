@@ -122,6 +122,12 @@ function createBumpReminderService(options) {
     return BUMP_REMINDER_CHANNEL_BY_KEY[configKey] || null;
   }
 
+  function debugReminder(guildId, message) {
+    const enabled = String(process.env.BUMP_REMINDER_DEBUG || "1").trim() !== "0";
+    if (!enabled) return;
+    global.logger?.info?.(`${logTag} [DEBUG] guild=${String(guildId || "")} ${String(message || "")}`);
+  }
+
   async function resolveFallbackReminderChannel(client, guildId) {
     const guild = await getClientGuildCached(client, guildId).catch(() => null);
     if (!guild) return null;
@@ -156,9 +162,27 @@ function createBumpReminderService(options) {
     if (!gid) return false;
     const cooldownMs = getCooldownMs(client);
     const fresh = await resolveLean(model.findOne({ guildId: gid })).catch(() => null);
-    if (!fresh?.lastBumpAt || fresh.reminderSentAt) return false;
+    if (!fresh?.lastBumpAt) {
+      debugReminder(gid, "skip:no_lastBumpAt");
+      return false;
+    }
     const lastT = new Date(fresh.lastBumpAt).getTime();
-    if (!Number.isFinite(lastT) || Date.now() < lastT + cooldownMs) return false;
+    const remindedT = fresh?.reminderSentAt
+      ? new Date(fresh.reminderSentAt).getTime()
+      : NaN;
+    if (Number.isFinite(remindedT) && remindedT >= lastT) {
+      debugReminder(gid, `skip:already_reminded remindedAt=${new Date(remindedT).toISOString()} lastBumpAt=${new Date(lastT).toISOString()}`);
+      return false;
+    }
+    if (!Number.isFinite(lastT)) {
+      debugReminder(gid, "skip:invalid_lastBumpAt");
+      return false;
+    }
+    const dueAt = lastT + cooldownMs;
+    if (Date.now() < dueAt) {
+      debugReminder(gid, `skip:not_due dueAt=${new Date(dueAt).toISOString()}`);
+      return false;
+    }
 
     const reminderChannelId = getReminderChannelId(client);
     if (!reminderChannelId) {
@@ -167,8 +191,10 @@ function createBumpReminderService(options) {
         global.logger?.warn?.(
           `${errorTag} reminderChannelId missing for guild ${guildId}`,
         );
+        debugReminder(gid, "send_fail:no_config_channel_and_no_fallback");
         return false;
       }
+      debugReminder(gid, `send_try:fallback_channel channelId=${String(fallback.id || "")}`);
       const sent = await fallback.send({
         content: mentionContent,
         embeds: [
@@ -179,10 +205,14 @@ function createBumpReminderService(options) {
             .setDescription(description),
         ],
       }).then(() => true).catch(() => false);
-      if (!sent) return false;
+      if (!sent) {
+        debugReminder(gid, `send_fail:fallback_channel channelId=${String(fallback.id || "")}`);
+        return false;
+      }
       await model
         .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date() } })
         .catch(() => null);
+      debugReminder(gid, `send_ok:fallback_channel channelId=${String(fallback.id || "")}`);
       return true;
     }
     const channel = await resolveReminderChannel(client, reminderChannelId, gid);
@@ -190,11 +220,13 @@ function createBumpReminderService(options) {
       global.logger?.warn?.(
         `${errorTag} reminder channel not found (${reminderChannelId}) for guild ${guildId}`,
       );
+      debugReminder(gid, `send_fail:resolved_channel_missing configuredChannelId=${reminderChannelId}`);
       return false;
     }
 
     const embedColor = client?.config?.embedInfo || "#6f4e37";
     const roleIds = [...String(mentionContent || "").matchAll(/<@&(\d+)>/g)].map((m) => m[1]);
+    debugReminder(gid, `send_try:configured_channel channelId=${String(channel.id || "")}`);
     const sent = await channel.send({
       content: mentionContent,
       ...(roleIds.length ? { allowedMentions: { roles: roleIds } } : {}),
@@ -209,7 +241,35 @@ function createBumpReminderService(options) {
       global.logger?.warn?.(`${errorTag} reminder send failed for guild ${guildId}:`, err?.message || err);
       return false;
     });
-    if (!sent) return false;
+    if (!sent) {
+      const fallbackChannel = await resolveFallbackReminderChannel(client, gid);
+      if (!fallbackChannel || String(fallbackChannel.id || "") === String(channel?.id || "")) {
+        debugReminder(gid, "send_fail:configured_failed_and_no_distinct_fallback");
+        return false;
+      }
+      debugReminder(gid, `send_try:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
+      const fallbackSent = await fallbackChannel.send({
+        content: mentionContent,
+        ...(roleIds.length ? { allowedMentions: { roles: roleIds } } : {}),
+        embeds: [
+          new EmbedBuilder()
+            .setColor(embedColor)
+            .setTitle(title)
+            .setURL(url)
+            .setDescription(description),
+        ],
+      }).then(() => true).catch((err) => {
+        global.logger?.warn?.(`${errorTag} fallback reminder send failed for guild ${guildId}:`, err?.message || err);
+        return false;
+      });
+      if (!fallbackSent) {
+        debugReminder(gid, `send_fail:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
+        return false;
+      }
+      debugReminder(gid, `send_ok:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
+    } else {
+      debugReminder(gid, `send_ok:configured_channel channelId=${String(channel.id || "")}`);
+    }
 
     await model
       .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date() } })
@@ -376,8 +436,12 @@ function createBumpReminderService(options) {
       const g = String(rawGid || "");
       if (!g) continue;
       const fresh = await resolveLean(model.findOne({ guildId: g })).catch(() => null);
-      if (!fresh?.lastBumpAt || fresh.reminderSentAt) continue;
+      if (!fresh?.lastBumpAt) continue;
+      const remindedT = fresh?.reminderSentAt
+        ? new Date(fresh.reminderSentAt).getTime()
+        : NaN;
       const t = new Date(fresh.lastBumpAt).getTime();
+      if (Number.isFinite(remindedT) && remindedT >= t) continue;
       if (!Number.isFinite(t) || Date.now() < t + cooldownMs) continue;
       const ok = await sendReminder(client, g);
       if (!ok) scheduleRetry(client, g, fresh.lastBumpAt);

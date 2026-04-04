@@ -66,19 +66,72 @@ async function warmGuildChannels(guild) {
 }
 
 async function findOpenTicketByUser(guildId, userId, guild = null) {
-  const existing = await Ticket.findOne({ guildId, userId, open: true }).catch(
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!uid) return null;
+
+  let existing = await Ticket.findOne({ guildId: gid, userId: uid, open: true }).catch(
     () => null,
   );
+  if (!existing) {
+    // Legacy/fault-tolerant fallback: block duplicates even if an old ticket has missing guildId.
+    const openByUser = await Ticket.find({ userId: uid, open: true })
+      .limit(25)
+      .lean()
+      .catch(() => []);
+    if (Array.isArray(openByUser) && openByUser.length > 0) {
+      const exactGuild = openByUser.find(
+        (doc) => String(doc?.guildId || "") === gid,
+      );
+      if (exactGuild) {
+        existing = exactGuild;
+      } else if (guild) {
+        await warmGuildChannels(guild).catch(() => null);
+        for (const doc of openByUser) {
+          const cid = String(doc?.channelId || "");
+          if (!cid) continue;
+          const cached = guild.channels?.cache?.get?.(cid) || null;
+          if (cached) {
+            existing = doc;
+            break;
+          }
+          const fetched = await guild.channels.fetch(cid).catch(() => null);
+          if (fetched?.id) {
+            existing = doc;
+            break;
+          }
+        }
+      } else {
+        existing = openByUser[0];
+      }
+    }
+  }
   if (!existing) return null;
   if (!guild || !existing.channelId) return existing;
 
   await warmGuildChannels(guild).catch(() => null);
   const cid = String(existing.channelId);
   const cached = guild.channels?.cache?.get?.(cid) || null;
-  if (cached) return existing;
+  if (cached) {
+    if (String(existing.guildId || "") !== gid) {
+      await Ticket.updateOne(
+        { _id: existing._id, open: true },
+        { $set: { guildId: gid } },
+      ).catch(() => null);
+    }
+    return existing;
+  }
 
   const fetched = await guild.channels.fetch(cid).catch((err) => err);
-  if (fetched && typeof fetched.id === "string") return existing;
+  if (fetched && typeof fetched.id === "string") {
+    if (String(existing.guildId || "") !== gid) {
+      await Ticket.updateOne(
+        { _id: existing._id, open: true },
+        { $set: { guildId: gid } },
+      ).catch(() => null);
+    }
+    return existing;
+  }
 
   const code = Number(fetched?.code ?? fetched?.rawError?.code);
   if (code === 10003) {

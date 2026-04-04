@@ -429,8 +429,13 @@ async function handleDisboardBump(message, client) {
   const hasRegexSuccess =
     /(bump(?:ed)?\s*(?:done|successful|successfully)|has been bumped|\bwas bumped\b|server bumped|you can bump again|bump will be available again)/i.test(joined);
   const hasBumpWord = /\bbump(?:ed)?\b/i.test(joined);
-  const hasDisboardBumpFailure = /already bumped|cannot bump|can\s*'t bump|can't bump|please wait|too early|wait before|failed to bump|bump failed|must be (?:\*\*)?(?:owner|admin)|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|manage server.*bump|bump.*manage server/i.test(joined);
   const hasBumpSuccessText = hasPatternMatch || hasRegexSuccess || (hasBumpWord && isFromDisboardBot);
+  const hasHardDisboardBumpFailure =
+    /already bumped|cannot bump|can\s*'t bump|can't bump|failed to bump|bump failed|must be (?:\*\*)?(?:owner|admin)|permission to bump|don't have permission|do not have permission|missing permission|you must be|unable to bump|not allowed to bump|manage server.*bump|bump.*manage server/i.test(joined);
+  const hasCooldownLikeText = /please wait|too early|wait before/i.test(joined);
+  const hasDisboardBumpFailure =
+    hasHardDisboardBumpFailure ||
+    (hasCooldownLikeText && !hasBumpSuccessText);
   const isStrictDisboardSource = isFromDisboardBot;
   const isDisboardByContentFallback =
     isAutomatedSource &&
