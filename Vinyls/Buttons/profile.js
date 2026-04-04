@@ -752,14 +752,14 @@ async function execute(interaction, client) {
   if (!parsed) return false;
   const { kind, ownerId, rest } = parsed;
 
-  if (!(await ensureOwner(interaction, ownerId))) return true;
-
   if (interaction.isStringSelectMenu() && kind === "select") {
     const section = String(interaction.values?.[0] || SECTION_HOME);
     const payload = await buildPanelPayload(interaction.guild, ownerId, client, section);
     await safeUpdatePanelInteraction(interaction, payload);
     return true;
   }
+
+  if (!(await ensureOwner(interaction, ownerId))) return true;
 
   if (interaction.isButton() && kind === "action") {
     const action = String(rest?.[0] || "");
