@@ -440,9 +440,29 @@ function createBumpReminderService(options) {
 
   async function sweepDueReminders(client) {
     const cooldownMs = getCooldownMs(client);
-    const guildIds = await model.findGuildIdsDueForReminderSweep(cooldownMs).catch(() => []);
-    debugReminder("all", `sweep_due_candidates=${Array.isArray(guildIds) ? guildIds.length : 0} cooldownMs=${cooldownMs}`);
-    if (!Array.isArray(guildIds) || guildIds.length === 0) {
+    const rows = await model.find(
+      { lastBumpAt: { $exists: true } },
+      { guildId: 1, lastBumpAt: 1, reminderSentAt: 1 },
+    ).catch(() => []);
+    const allRows = Array.isArray(rows) ? rows : [];
+    const nowTs = Date.now();
+    const guildIds = [];
+    for (const row of allRows) {
+      const gid = String(row?.guildId || "");
+      if (!gid) continue;
+      const lastT = row?.lastBumpAt ? new Date(row.lastBumpAt).getTime() : NaN;
+      if (!Number.isFinite(lastT)) continue;
+      const remindedT = row?.reminderSentAt
+        ? new Date(row.reminderSentAt).getTime()
+        : NaN;
+      const alreadyRemindedForThisBump =
+        Number.isFinite(remindedT) && remindedT >= lastT;
+      if (alreadyRemindedForThisBump) continue;
+      if (nowTs < lastT + cooldownMs) continue;
+      guildIds.push(gid);
+    }
+    debugReminder("all", `sweep_rows=${allRows.length} due_candidates=${guildIds.length} cooldownMs=${cooldownMs}`);
+    if (guildIds.length === 0) {
       debugReminder("all", "sweep_skip:no_due_candidates");
       return;
     }
