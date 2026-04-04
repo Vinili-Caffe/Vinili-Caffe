@@ -91,18 +91,13 @@ function releaseBumpDedupeKey(key) {
 }
 
 function logBumpDetectionOnce(tag, guildId, details) {
-  const gid = String(guildId || "");
-  if (!gid) return;
-  const now = Date.now();
-  const cacheKey = `${tag}:${gid}`;
-  const last = Number(bumpDetectionLogAtByGuild.get(cacheKey) || 0);
-  if (last && now - last < BUMP_DETECTION_LOG_COOLDOWN_MS) return;
-  bumpDetectionLogAtByGuild.set(cacheKey, now);
-  global.logger?.info?.(`${tag} guild=${gid} ${details}`);
+  void tag;
+  void guildId;
+  void details;
 }
 
 function isBumpDetectDebugEnabled() {
-  return String(process.env.BUMP_DETECT_DEBUG || "1").trim() !== "0";
+  return false;
 }
 
 function logBumpSkipDebug(tag, message, reason, details = "") {
