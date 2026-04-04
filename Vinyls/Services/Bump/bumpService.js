@@ -29,10 +29,20 @@ function buildBumpStateModel(kind, stateUserId) {
     async findOne(filter) {
       const guildId = String(filter?.guildId || "");
       if (!guildId) return null;
-      const doc = await ActivityUserProfile.findOne({ guildId, userId: stateUserId })
+      let doc = await ActivityUserProfile.findOne({ guildId, userId: stateUserId })
         .select(`${lastBumpAtPath} ${lastBumpUserIdPath} ${reminderSentAtPath}`)
         .lean()
         .catch(() => null);
+      if (!doc?.bumpState?.[kind]?.lastBumpAt) {
+        doc = await ActivityUserProfile.findOne({
+          guildId,
+          [lastBumpAtPath]: { $exists: true, $ne: null },
+        })
+          .sort({ [lastBumpAtPath]: -1 })
+          .select(`${lastBumpAtPath} ${lastBumpUserIdPath} ${reminderSentAtPath}`)
+          .lean()
+          .catch(() => null);
+      }
       if (!doc) return null;
       return {
         guildId,
@@ -75,17 +85,39 @@ function buildBumpStateModel(kind, stateUserId) {
       ).catch(() => null);
     },
     async find(filter, projection = {}) {
-      const query = { userId: stateUserId };
+      const query = {};
       if (filter?.lastBumpAt?.$exists) query[lastBumpAtPath] = { $exists: true, $ne: null };
       const docs = await ActivityUserProfile.find(query)
         .select(`guildId ${projection?.lastBumpAt ? lastBumpAtPath : ""} ${projection?.reminderSentAt ? reminderSentAtPath : ""}`)
+        .limit(4000)
         .lean()
         .catch(() => []);
-      return docs.map((doc) => ({
-        guildId: String(doc?.guildId || ""),
-        lastBumpAt: doc?.bumpState?.[kind]?.lastBumpAt || null,
-        reminderSentAt: doc?.bumpState?.[kind]?.reminderSentAt || null,
-      }));
+      const byGuild = new Map();
+      for (const doc of docs) {
+        const gid = String(doc?.guildId || "");
+        if (!gid) continue;
+        const nextLast = doc?.bumpState?.[kind]?.lastBumpAt || null;
+        if (!nextLast) continue;
+        const prev = byGuild.get(gid);
+        if (!prev) {
+          byGuild.set(gid, {
+            guildId: gid,
+            lastBumpAt: nextLast,
+            reminderSentAt: doc?.bumpState?.[kind]?.reminderSentAt || null,
+          });
+          continue;
+        }
+        const prevTs = new Date(prev.lastBumpAt).getTime();
+        const nextTs = new Date(nextLast).getTime();
+        if (Number.isFinite(nextTs) && (!Number.isFinite(prevTs) || nextTs > prevTs)) {
+          byGuild.set(gid, {
+            guildId: gid,
+            lastBumpAt: nextLast,
+            reminderSentAt: doc?.bumpState?.[kind]?.reminderSentAt || null,
+          });
+        }
+      }
+      return Array.from(byGuild.values());
     },
     async findGuildIdsDueForReminderSweep(cooldownMs) {
       const ms = Number(cooldownMs);
@@ -213,7 +245,7 @@ function createBumpReminderService(options) {
         return false;
       }
       await model
-        .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date() } })
+        .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date(), lastBumpAt: fresh.lastBumpAt } })
         .catch(() => null);
       debugReminder(gid, `send_ok:fallback_channel channelId=${String(fallback.id || "")}`);
       return true;
@@ -275,7 +307,7 @@ function createBumpReminderService(options) {
     }
 
     await model
-      .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date() } })
+      .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date(), lastBumpAt: fresh.lastBumpAt } })
       .catch((err) =>
         global.logger.error(
           `${errorTag} updateOne reminderSentAt failed:`,
@@ -395,8 +427,10 @@ function createBumpReminderService(options) {
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
       if (doc?.lastBumpAt) lastBumpAt = new Date(doc.lastBumpAt);
+      debugReminder(gid, `setBumpAt_ok bumpAt=${new Date(lastBumpAt).toISOString()} userId=${String(userId || "")}`);
     } catch (err) {
       global.logger?.error?.(`${errorTag} setBumpAt DB failed, scheduling in-memory anyway:`, err?.message || err);
+      debugReminder(gid, `setBumpAt_db_fail reason=${String(err?.message || err || "")}`);
     }
     scheduleReminder(client, gid, lastBumpAt);
     return { doc, previousLastBumpAt, previousLastBumpUserId, previousReminderSentAt };

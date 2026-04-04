@@ -1389,7 +1389,7 @@ module.exports = {
         }
       }
 
-      await restoreUserOnJoin(member.guild.id, member.id).catch(() => false);
+      await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
 
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });

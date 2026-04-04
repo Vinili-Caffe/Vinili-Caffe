@@ -130,6 +130,14 @@ function buildDeniedEmbed(gate, controlLabel) {
     );
   }
 
+  if (gate.reason === "candidature_blacklist") {
+    return buildGlobalPermissionDeniedEmbed(
+      [],
+      controlLabel,
+      "<a:VC_Alert:1482706673176150077> Non puoi inviare candidature con il tuo stato attuale.",
+    );
+  }
+
   if (gate.reason === "mono_guild") {
     return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED);
   }

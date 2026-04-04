@@ -41,6 +41,9 @@ const ALLOWED_GUILD_IDS = new Set(
 const sponsorIdsForComponents = new Set(
   (Array.isArray(IDs?.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : []).map(String).filter(Boolean),
 );
+const CANDIDATURE_BLACKLIST_ROLE_ID = String(
+  IDs?.roles?.blacklistModuli || "1463248874725576879",
+).trim();
 function isAllowedGuildUfficiale(guildId) {
   return !guildId || ALLOWED_GUILD_IDS.has(String(guildId));
 }
@@ -96,6 +99,13 @@ function isApplyOrCandidatureInteraction(customId) {
   if (id.startsWith("apply_pex:") || id.startsWith("apply_form:") || id.startsWith("apply_pex_modal:")) return true;
   if (id === "candidature_premi_partner") return true;
   return false;
+}
+
+async function isBlockedFromCandidaturesByRole(interaction, customId) {
+  if (!isApplyOrCandidatureInteraction(customId)) return false;
+  if (!CANDIDATURE_BLACKLIST_ROLE_ID) return false;
+  if (!interaction?.inGuild?.()) return false;
+  return hasAnyRoleWithLiveFallback(interaction, [CANDIDATURE_BLACKLIST_ROLE_ID]);
 }
 
 async function isGuildOwnerOrAdmin(interaction) {
@@ -814,6 +824,14 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
 async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
+  if (await isBlockedFromCandidaturesByRole(interaction, customId)) {
+    return {
+      allowed: false,
+      reason: "candidature_blacklist",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
     if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
@@ -1015,6 +1033,14 @@ async function checkButtonPermission(interaction) {
 async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
+  if (await isBlockedFromCandidaturesByRole(interaction, customId)) {
+    return {
+      allowed: false,
+      reason: "candidature_blacklist",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
     if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
@@ -1169,6 +1195,14 @@ async function checkStringSelectPermission(interaction) {
 async function checkModalPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
+  if (await isBlockedFromCandidaturesByRole(interaction, customId)) {
+    return {
+      allowed: false,
+      reason: "candidature_blacklist",
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
     if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {

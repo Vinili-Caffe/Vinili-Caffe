@@ -471,7 +471,7 @@ module.exports = {
       );
       await handleTrackedStaffLeave(member);
       await handlePartnershipOnLeave(member, client);
-      await backupUserOnLeave(guild.id, member.id);
+      await backupUserOnLeave(guild.id, member.id, member);
       await cleanupUserData(guild.id, member.id);
       const activeClient = client || member.client;
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {
