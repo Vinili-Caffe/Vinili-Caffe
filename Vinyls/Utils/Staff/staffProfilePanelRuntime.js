@@ -102,6 +102,20 @@ function viewerIsFounderOrCoFounder(member) {
   );
 }
 
+function viewerIsCoordinatorOrAbove(member) {
+  if (!member?.roles?.cache) return false;
+  const c = member.roles.cache;
+  return Boolean(
+    (IDs.roles.Coordinator && c.has(IDs.roles.Coordinator)) ||
+      (IDs.roles.Supervisor && c.has(IDs.roles.Supervisor)) ||
+      (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
+      (IDs.roles.Manager && c.has(IDs.roles.Manager)) ||
+      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)) ||
+      (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
+      (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)),
+  );
+}
+
 function resolveStaffProfileKind(member) {
   if (!member) return PROFILE_PROSPECT;
   if (!memberHasStaffRole(member)) return PROFILE_PROSPECT;
@@ -338,6 +352,11 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
           .setEmoji("<a:VC_Cross:1482532424570376253>")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec))
+          .setLabel("Depex completo")
+          .setEmoji("<a:VC_Cross:1482532424570376253>")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec))
           .setLabel("Depex Partner Manager")
           .setEmoji("<:partnermanager:1443651916838998099>")
@@ -367,6 +386,11 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec))
+        .setLabel("Depex completo")
+        .setEmoji("<a:VC_Cross:1482532424570376253>")
+        .setStyle(ButtonStyle.Secondary),
     );
     return [new ActionRowBuilder().addComponents(...homeComps)];
   }
@@ -566,6 +590,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const name = member?.displayName || targetUser?.username || tid;
   const viewerMemForPanel = await guild.members.fetch(String(viewerId)).catch(() => null);
   const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+  const viewerCanFullDepex = viewerIsCoordinatorOrAbove(viewerMemForPanel);
   const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
   const profileKind = resolveStaffProfileKind(member);
   const pmRoleId = IDs.roles.PartnerManager;
@@ -625,6 +650,23 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm)
     : [];
   const hsRows = [...highStaffRows];
+  if (
+    sec === SECTION_HOME &&
+    profileKind === PROFILE_FULL &&
+    String(viewerId) !== tid &&
+    viewerCanFullDepex &&
+    !viewerIsHighStaff
+  ) {
+    hsRows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec))
+          .setLabel("Depex completo")
+          .setEmoji("<a:VC_Cross:1482532424570376253>")
+          .setStyle(ButtonStyle.Danger),
+      ),
+    );
+  }
 
   if (canPartnerLb && sec === SECTION_PARTNER_LB) {
     const lbMode = String(options?.partnerLbMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
@@ -914,5 +956,6 @@ module.exports = {
   formatStaffHpButtonCustomId,
   buildStaffProfilePayload,
   viewerCanUsePartnerPointsPanel,
+  viewerIsCoordinatorOrAbove,
   viewerIsFounderOrCoFounder,
 };

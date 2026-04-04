@@ -691,12 +691,87 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
   return { ok: true };
 }
 
+function actorIsCoordinatorPlus(member) {
+  const cache = member?.roles?.cache;
+  if (!cache) return false;
+  const allowRoles = [
+    IDs.roles.Coordinator,
+    IDs.roles.Supervisor,
+    IDs.roles.Admin,
+    IDs.roles.Manager,
+    IDs.roles.CoFounder,
+    IDs.roles.Founder,
+    IDs.roles.HighStaff,
+  ].filter(Boolean);
+  return allowRoles.some((roleId) => cache.has(roleId));
+}
+
+async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMember, reason) {
+  const actorUser = actorMember?.user || null;
+  if (!actorUser || String(targetUser?.id || "") === String(actorUser.id || "")) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+  }
+  if (!actorIsCoordinatorPlus(actorMember)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo da **Coordinator** in su." };
+  }
+  const resolveMember = createMemberResolver(guild);
+  const member = await resolveMember(targetUser.id);
+  if (!member) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+  }
+  const completeDepexRoleChain = [
+    ROLE_COORDINATOR,
+    ROLE_SUPERVISOR,
+    ROLE_ADMIN,
+    ROLE_MANAGER,
+    ROLE_CO_OWNER,
+    ROLE_OWNER,
+  ].filter(Boolean);
+  let roleToRemove = null;
+  for (let i = completeDepexRoleChain.length - 1; i >= 0; i--) {
+    const roleId = completeDepexRoleChain[i];
+    if (member.roles.cache.has(roleId)) {
+      roleToRemove = roleId;
+      break;
+    }
+  }
+  if (!roleToRemove) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Coordinator** in su da depexare." };
+  }
+  const isAdminOrAbove = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
+  const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);
+  await member.roles.remove(roleIdsToRemove).catch(() => null);
+  const verification = await ensureMultipleRoleStates(
+    member,
+    roleIdsToRemove.map((roleId) => ({ roleId, shouldHaveRole: false })),
+  );
+  if (!verification.ok) {
+    return { ok: false, message: "<:vegax:1443934876440068179> Depex completo non applicato correttamente." };
+  }
+  const refreshedMember = (await resolveMember(targetUser.id)) || verification.member || member;
+  await syncStaffDbAndPauseChannelAfterDepex(guild, targetUser.id, refreshedMember);
+
+  const pexDepexChannel =
+    guild.channels.cache.get(IDs.channels?.pexDepex) ||
+    (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
+  const oldRoleObj = guild.roles.cache.get(roleToRemove);
+  await pexDepexChannel
+    ?.send?.({
+      content: `**<:cancel:1461730653677551691> DEPEX COMPLETO** ${targetUser}
+<:staff:1443651912179388548> \`${oldRoleObj?.name || roleToRemove}\` <a:VC_Arrow:1482706699365257397> \`${guild.roles.cache.get(ROLE_MEMBER)?.name || "Member"}\`
+<:VC_reason:1478517122929004544> __${String(reason || "").slice(0, 500)}__`,
+    })
+    .catch(() => null);
+  return { ok: true };
+}
+
 
 module.exports = {
   runProfileStaffPex,
   runProspectStaffPex,
   runProspectStaffPexToPartnerManager,
   runProfileStaffDepex,
+  runProfileStaffCompleteDepex,
   runProfileStaffWarnAdd,
   runProfileStaffWarnRemove,
 };

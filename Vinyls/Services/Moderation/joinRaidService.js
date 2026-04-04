@@ -16,8 +16,8 @@ const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
 const HIGH_STAFF_MENTION = HIGH_STAFF_ROLE_ID ? `<@&${HIGH_STAFF_ROLE_ID}>` : null;
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
-const JOIN_RAID_CONFIG = { enabled: true, lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "any", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [IDs.roles.Founder, IDs.roles.CoFounder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Supervisor, IDs.roles.Coordinator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.HighStaff,].filter(Boolean).map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
-const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "any", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
+const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [IDs.roles.Founder, IDs.roles.CoFounder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Supervisor, IDs.roles.Coordinator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.HighStaff,].filter(Boolean).map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
+const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
 const GUILD_STATE = new Map();
 const TEMP_BAN_TIMERS = new Map();
 const RAID_REPORT_TIMERS = new Map();
@@ -64,7 +64,7 @@ function applyPersistentJoinRaidConfig(raw) {
   }
   if (typeof raw.triggerAction === "string") {
     const action = String(raw.triggerAction || "").toLowerCase();
-    if (["ban", "kick", "timeout", "log"].includes(action)) {
+    if (["ban", "kick", "timeout", "quarantine", "log"].includes(action)) {
       JOIN_RAID_CONFIG.triggerAction = action;
     }
   }
@@ -658,12 +658,13 @@ async function restoreTempBans(guild, options = {}) {
 
 async function applyPunishment(member, reasons) {
   const configuredAction = String(JOIN_RAID_CONFIG.triggerAction || "log").toLowerCase();
-  const action = ["ban", "kick", "timeout", "log"].includes(configuredAction) ? configuredAction : "log";
+  const action = ["ban", "kick", "timeout", "quarantine", "log"].includes(configuredAction) ? configuredAction : "log";
   const guild = member.guild;
   const me = guild.members.me;
   const canBan = Boolean(me?.permissions?.has(PermissionsBitField.Flags.BanMembers)) && Boolean(member?.bannable);
   const canKick = Boolean(me?.permissions?.has(PermissionsBitField.Flags.KickMembers)) && Boolean(member?.kickable);
   const canTimeout = Boolean(me?.permissions?.has(PermissionsBitField.Flags.ModerateMembers)) && Boolean(member?.moderatable);
+  const canQuarantine = true;
   let dmSent = false;
   if (action !== "log") {
     dmSent = await sendPunishDm(member, action, reasons);
@@ -714,6 +715,17 @@ async function applyPunishment(member, reasons) {
           return false;
         });
     }
+  } else if (action === "quarantine") {
+    const { quarantineExecutor } = require("./antiNukeService");
+    const quarantine = await quarantineExecutor(
+      guild,
+      member.id,
+      "<:VC_Lock:1482526739044368476> Join Raid: suspicious join pattern",
+    ).catch(() => null);
+    if (quarantine?.applied) {
+      punished = true;
+      appliedAction = "quarantine";
+    }
   }
 
   if (!punished && action !== "log") {
@@ -738,8 +750,8 @@ async function applyPunishment(member, reasons) {
 
   if (punished && appliedAction !== "log" && guild?.client) {
     const caseReason = `<a:VC_Alert:1482706673176150077> **Join Raid: ${reasons.map((r) => r.label || r).join(", ") || "flagged account during raid window"}**`;
-    const caseDurationMs = appliedAction === "timeout" ? Math.max(10 * 60_000, JOIN_RAID_CONFIG.raidDurationMs) : appliedAction === "ban" ? JOIN_RAID_CONFIG.raidDurationMs : null;
-    const modAction = appliedAction === "timeout" ? "MUTE" : appliedAction === "ban" ? "BAN" : "KICK";
+    const caseDurationMs = appliedAction === "timeout" || appliedAction === "quarantine" ? Math.max(10 * 60_000, JOIN_RAID_CONFIG.raidDurationMs) : appliedAction === "ban" ? JOIN_RAID_CONFIG.raidDurationMs : null;
+    const modAction = appliedAction === "timeout" || appliedAction === "quarantine" ? "MUTE" : appliedAction === "ban" ? "BAN" : "KICK";
     try {
       const config = await getModConfig(guild.id);
       const { doc, created } = await createModCase({ guildId: guild.id, action: modAction, userId: member.id, modId: guild.client.user.id, reason: caseReason, durationMs: caseDurationMs, context: {}, dedupe: { enabled: true, windowMs: 15_000, matchReason: true }, });
@@ -754,7 +766,7 @@ async function applyPunishment(member, reasons) {
   if (!dmSent && punished && appliedAction !== "log") {
     dmSent = await sendPunishDm(member, appliedAction, reasons);
   }
-  const actionWord = appliedAction === "ban" ? "banned" : appliedAction === "kick" ? "kicked" : appliedAction === "timeout" ? "timed out" : "flagged";
+  const actionWord = appliedAction === "ban" ? "banned" : appliedAction === "kick" ? "kicked" : appliedAction === "timeout" ? "timed out" : appliedAction === "quarantine" ? "quarantined" : "flagged";
 
   await sendJoinRaidLog(
     guild,
@@ -763,7 +775,7 @@ async function applyPunishment(member, reasons) {
       `<:member_role_icon:1330530086792728618> **JoinRaid Filter:** ${reasons.map((x) => x.label).join(", ") || "N/A"}`,
       `<:VC_reason:1478517122929004544> **Member:** ${member.user} [\`${member.id}\`]`,
       `<:VC_BanHammer:1482534474502897795> **Action:** ${appliedAction}${punished ? "" : " (fallback)"}`,
-      `<:VC_PinkQuestionMark:1471892611026391306> **Can Ban:** ${canBan ? "Yes" : "No"} | **Can Kick:** ${canKick ? "Yes" : "No"} | **Can Timeout:** ${canTimeout ? "Yes" : "No"}`,
+      `<:VC_PinkQuestionMark:1471892611026391306> **Can Ban:** ${canBan ? "Yes" : "No"} | **Can Kick:** ${canKick ? "Yes" : "No"} | **Can Timeout:** ${canTimeout ? "Yes" : "No"} | **Can Quarantine:** ${canQuarantine ? "Yes" : "No"}`,
       appliedAction === "ban"
         ? `${ARROW} **Duration:** ${Math.round(
           JOIN_RAID_CONFIG.raidDurationMs / 60_000,
@@ -850,7 +862,7 @@ async function processJoinRaidForMember(member, options = {}) {
       ).slice(-8);
       const untilTs = Math.floor(state.raidUntil / 1000);
       const initialFlags = buildInitialFlagRows(member.guild, state, 8);
-      const actionVerb = JOIN_RAID_CONFIG.triggerAction === "ban" ? "banned" : JOIN_RAID_CONFIG.triggerAction === "kick" ? "kicked" : JOIN_RAID_CONFIG.triggerAction === "timeout" ? "timed out" : "logged";
+      const actionVerb = JOIN_RAID_CONFIG.triggerAction === "ban" ? "banned" : JOIN_RAID_CONFIG.triggerAction === "kick" ? "kicked" : JOIN_RAID_CONFIG.triggerAction === "timeout" ? "timed out" : JOIN_RAID_CONFIG.triggerAction === "quarantine" ? "quarantined" : "logged";
       await warnRaidRoles(member.guild, [
         `<a:VC_Alert:1482706673176150077> **Join Raid triggered: **${triggerCountNow}** flagged ${String(JOIN_RAID_CONFIG.triggerType || "unique") === "events"
           ? "events"

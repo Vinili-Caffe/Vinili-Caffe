@@ -75,16 +75,30 @@ module.exports = {
   buildAvatarPayload,
 };
 
-function buildAvatarRows(requesterId, targetUserId, mode = "user") {
+function normalizeViewState(state) {
+  const base = { user: false, server: false };
+  if (!state || typeof state !== "object") return base;
+  base.user = Boolean(state.user);
+  base.server = Boolean(state.server);
+  return base;
+}
+
+function encodeViewState(state) {
+  const normalized = normalizeViewState(state);
+  return `${normalized.user ? 1 : 0}${normalized.server ? 1 : 0}`;
+}
+
+function buildAvatarRows(requesterId, targetUserId, mode = "user", viewState = null) {
   const activeMode = mode === "server" ? "server" : "user";
+  const stateToken = encodeViewState(viewState);
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:user`)
+        .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:user:${stateToken}`)
         .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("⬅️"),
       new ButtonBuilder()
-        .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:server`)
+        .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:server:${stateToken}`)
         .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("➡️"),
       new ButtonBuilder()
@@ -96,7 +110,7 @@ function buildAvatarRows(requesterId, targetUserId, mode = "user") {
   ];
 }
 
-async function buildAvatarPayload({ guild, targetMember, fallbackUser, requesterId, mode = "user" }) {
+async function buildAvatarPayload({ guild, targetMember, fallbackUser, requesterId, mode = "user", viewState = null }) {
   const member = targetMember || null;
   const user = member?.user || fallbackUser || null;
   if (!guild || !user) {
@@ -129,23 +143,35 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
     return { embeds: [blockedEmbed], components: [row] };
   }
 
-  let privacyCount = null;
-  try {
-    privacyCount = await AvatarPrivacy.findOneAndUpdate(
-      { guildId: guild.id, userId: user.id },
-      { $inc: { views: 1 } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-  } catch (err) {
-    global.logger?.warn?.("[avatar] fetch:", err?.message || err);
-  }
-
-  const totalViews = Number(privacyCount?.views || 0);
   const userAvatar = user.displayAvatarURL({ extension: "png", size: 4096, forceStatic: true });
   const memberAvatar = member?.displayAvatarURL?.({ extension: "png", size: 4096, forceStatic: true }) || userAvatar;
   const hasServerAvatar = memberAvatar !== userAvatar;
   const activeMode = mode === "server" ? "server" : "user";
   const imageUrl = activeMode === "server" ? memberAvatar : userAvatar;
+  const canCountThisMode = activeMode === "user" || hasServerAvatar;
+  const nextViewState = normalizeViewState(viewState);
+  let privacyCount = null;
+  const shouldCountNow = canCountThisMode && !nextViewState[activeMode];
+  if (shouldCountNow) {
+    try {
+      privacyCount = await AvatarPrivacy.findOneAndUpdate(
+        { guildId: guild.id, userId: user.id },
+        { $inc: { views: 1 } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      nextViewState[activeMode] = true;
+    } catch (err) {
+      global.logger?.warn?.("[avatar] fetch:", err?.message || err);
+    }
+  } else {
+    try {
+      privacyCount = await AvatarPrivacy.findOne({ guildId: guild.id, userId: user.id });
+    } catch (err) {
+      global.logger?.warn?.("[avatar] fetch:", err?.message || err);
+    }
+  }
+
+  const totalViews = Number(privacyCount?.views || 0);
   const authorLabel = member?.displayName || member?.user?.username || user.tag;
   const embed = new EmbedBuilder()
     .setTitle(activeMode === "user" ? "User Avatar" : "Server Avatar")
@@ -161,6 +187,6 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
   }
   return {
     embeds: [embed],
-    components: buildAvatarRows(requesterId || user.id, user.id, activeMode),
+    components: buildAvatarRows(requesterId || user.id, user.id, activeMode, nextViewState),
   };
 }

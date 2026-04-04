@@ -13,16 +13,19 @@ function match(interaction) {
 
 function parseModePayload(customId, prefix) {
   const raw = String(customId || "").slice(prefix.length);
-  const [ownerId = "", targetId = "", modeRaw = "user"] = raw.split(":");
+  const [ownerId = "", targetId = "", modeRaw = "user", stateRaw = "00"] = raw.split(":");
   const mode = modeRaw === "server" ? "server" : "user";
-  return { ownerId, targetId, mode };
+  const normalizedState = String(stateRaw || "00").replace(/[^01]/g, "");
+  const user = normalizedState.charAt(0) === "1";
+  const server = normalizedState.charAt(1) === "1";
+  return { ownerId, targetId, mode, viewState: { user, server } };
 }
 
 async function execute(interaction) {
   const id = String(interaction.customId || "");
   const isAvatar = id.startsWith(AVATAR_MODE_PREFIX);
   const prefix = isAvatar ? AVATAR_MODE_PREFIX : BANNER_MODE_PREFIX;
-  const { ownerId, targetId, mode } = parseModePayload(id, prefix);
+  const { ownerId, targetId, mode, viewState } = parseModePayload(id, prefix);
   const guild = interaction.guild;
   if (!guild) return false;
 
@@ -43,8 +46,8 @@ async function execute(interaction) {
   if (!member?.user) return true;
 
   const payload = isAvatar
-    ? await buildAvatarPayload({ guild, targetMember: member, fallbackUser: member.user, requesterId: ownerId || interaction.user?.id, mode })
-    : await buildBannerPayload({ guild, targetMember: member, fallbackUser: member.user, requesterId: ownerId || interaction.user?.id, mode });
+    ? await buildAvatarPayload({ guild, targetMember: member, fallbackUser: member.user, requesterId: ownerId || interaction.user?.id, mode, viewState })
+    : await buildBannerPayload({ guild, targetMember: member, fallbackUser: member.user, requesterId: ownerId || interaction.user?.id, mode, viewState });
 
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));

@@ -1,7 +1,7 @@
 const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel, viewerIsFounderOrCoFounder, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB, buildStaffProfilePayload } = require("../Utils/Staff/staffProfilePanelRuntime");
-const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
+const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounderOrCoFounder, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB, buildStaffProfilePayload } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
@@ -24,6 +24,7 @@ const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_founder: "Motivo pex Founder",
   pex_pm: "Motivo pex Partner Manager",
   depex: "Motivo depex",
+  depex_full: "Motivo depex completo",
   depex_staff: "Motivo depex (scala staff)",
   depex_pm_only: "Motivo depex (Partner Manager)",
   valpos: "Motivo valutazione positiva",
@@ -95,6 +96,7 @@ function parseStaffHpButton(customId) {
     "pex_founder",
     "pex_pm",
     "depex",
+    "depex_full",
     "depex_staff",
     "depex_pm_only",
     "valpos",
@@ -130,6 +132,7 @@ function parseStaffHpModal(customId) {
     "pex_founder",
     "pex_pm",
     "depex",
+    "depex_full",
     "depex_staff",
     "depex_pm_only",
     "valpos",
@@ -165,6 +168,17 @@ async function ensurePartnerPointsViewer(interaction) {
     .reply({
       content:
         "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner (su altri profili).",
+      flags: PRIVATE_FLAG,
+    })
+    .catch(() => {});
+  return false;
+}
+
+async function ensureCoordinatorPlusViewer(interaction) {
+  if (viewerIsCoordinatorOrAbove(interaction.member)) return true;
+  await interaction
+    .reply({
+      content: "<:vegax:1443934876440068179> Solo da **Coordinator** in su puoi usare questo pulsante.",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
@@ -283,6 +297,8 @@ async function execute(interaction) {
     const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
     if (isPpmBtn) {
       if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
+    } else if (parsed.action === "depex_full") {
+      if (!(await ensureCoordinatorPlusViewer(interaction))) return true;
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
@@ -322,6 +338,8 @@ async function execute(interaction) {
     const isPpmModal = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
     if (isPpmModal) {
       if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
+    } else if (parsed.action === "depex_full") {
+      if (!(await ensureCoordinatorPlusViewer(interaction))) return true;
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
@@ -466,6 +484,12 @@ async function execute(interaction) {
         return true;
       }
       res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "auto");
+    } else if (parsed.action === "depex_full") {
+      if (!reason) {
+        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
+        return true;
+      }
+      res = await runProfileStaffCompleteDepex(guild, interaction.client, targetUser, interaction.member, reason);
     } else if (parsed.action === "depex_staff") {
       if (!reason) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});

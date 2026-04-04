@@ -1,8 +1,9 @@
 {
   "enabled": true,
-  "triggerAction": "ban",
+  "lockCommands": true,
+  "triggerAction": "quarantine",
   "triggerType": "unique",
-  "accountType": "any",
+  "accountType": "young_or_no_pfp",
   "punishOnActiveRaid": true,
   "triggerCount": 10,
   "triggerWindowMs": 10800000,

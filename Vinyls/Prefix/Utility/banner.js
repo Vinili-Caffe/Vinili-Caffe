@@ -75,16 +75,30 @@ module.exports = {
   buildBannerPayload,
 };
 
-function buildBannerRows(requesterId, targetUserId, mode = "user") {
+function normalizeViewState(state) {
+  const base = { user: false, server: false };
+  if (!state || typeof state !== "object") return base;
+  base.user = Boolean(state.user);
+  base.server = Boolean(state.server);
+  return base;
+}
+
+function encodeViewState(state) {
+  const normalized = normalizeViewState(state);
+  return `${normalized.user ? 1 : 0}${normalized.server ? 1 : 0}`;
+}
+
+function buildBannerRows(requesterId, targetUserId, mode = "user", viewState = null) {
   const activeMode = mode === "server" ? "server" : "user";
+  const stateToken = encodeViewState(viewState);
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:user`)
+        .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:user:${stateToken}`)
         .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("⬅️"),
       new ButtonBuilder()
-        .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:server`)
+        .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:server:${stateToken}`)
         .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("➡️"),
       new ButtonBuilder()
@@ -96,7 +110,7 @@ function buildBannerRows(requesterId, targetUserId, mode = "user") {
   ];
 }
 
-async function buildBannerPayload({ guild, targetMember, fallbackUser, requesterId, mode = "user" }) {
+async function buildBannerPayload({ guild, targetMember, fallbackUser, requesterId, mode = "user", viewState = null }) {
   const member = targetMember || null;
   const user = member?.user || fallbackUser || null;
   if (!guild || !user) {
@@ -136,21 +150,33 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
     global.logger?.warn?.("[banner] fetch:", err?.message || err);
   }
 
-  let privacyCount = null;
-  try {
-    privacyCount = await BannerPrivacy.findOneAndUpdate(
-      { guildId: guild.id, userId: user.id },
-      { $inc: { views: 1 } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-  } catch (err) {
-    global.logger?.warn?.("[banner] fetch:", err?.message || err);
-  }
-
-  const totalViews = Number(privacyCount?.views || 0);
   const activeMode = mode === "server" ? "server" : "user";
   const userBanner = fetchedUser.bannerURL({ extension: "png", size: 4096, forceStatic: true });
   const serverBanner = member?.bannerURL?.({ extension: "png", size: 4096, forceStatic: true }) || null;
+  const canCountThisMode = activeMode === "user" ? Boolean(userBanner) : Boolean(serverBanner);
+  const nextViewState = normalizeViewState(viewState);
+  let privacyCount = null;
+  const shouldCountNow = canCountThisMode && !nextViewState[activeMode];
+  if (shouldCountNow) {
+    try {
+      privacyCount = await BannerPrivacy.findOneAndUpdate(
+        { guildId: guild.id, userId: user.id },
+        { $inc: { views: 1 } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      nextViewState[activeMode] = true;
+    } catch (err) {
+      global.logger?.warn?.("[banner] fetch:", err?.message || err);
+    }
+  } else {
+    try {
+      privacyCount = await BannerPrivacy.findOne({ guildId: guild.id, userId: user.id });
+    } catch (err) {
+      global.logger?.warn?.("[banner] fetch:", err?.message || err);
+    }
+  }
+
+  const totalViews = Number(privacyCount?.views || 0);
   const authorLabel = member?.displayName || member?.user?.username || user.tag;
   const embed = new EmbedBuilder()
     .setTitle(activeMode === "user" ? "User Banner" : "Server Banner")
@@ -171,6 +197,6 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   }
   return {
     embeds: [embed],
-    components: buildBannerRows(requesterId || user.id, user.id, activeMode),
+    components: buildBannerRows(requesterId || user.id, user.id, activeMode, nextViewState),
   };
 }

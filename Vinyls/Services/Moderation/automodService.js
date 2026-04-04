@@ -497,6 +497,22 @@ function clearAutoModPanicState(guildId) {
 const WICK_EQUIV = { textClusterMultiplier: 1.1875, upperCharMultiplier: 9.90575, lowerCharMultiplier: 14.866, };
 
 const INSTANT_LINK_KEYS = new Set(["invite", "scam_pattern", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mention_hour_cap", "mentions_lockdown",]);
+const SUSPICIOUS_ACCOUNT_STRONG_KEYS = new Set([
+  "mention_user",
+  "mention_role",
+  "mention_everyone",
+  "mention_hour_cap",
+  "mentions_lockdown",
+  "invite",
+  "scam_pattern",
+  "nsfw_link",
+  "link_blacklist",
+  "attachment_embed",
+  "attachment_image",
+  "attachment_file",
+  "attachment_link",
+  "attachment_sticker",
+]);
 
 const RACIST_WORD_PATTERNS = [/\bn[\W_]*[i1l!|][\W_]*g[\W_]*g[\W_]*([e3][\W_]*)?r\b/iu, /\bk[\W_]*i[\W_]*k[\W_]*e\b/iu, /\bc[\W_]*h[\W_]*i[\W_]*n[\W_]*k\b/iu, /\bw[\W_]*e[\W_]*t[\W_]*b[\W_]*a[\W_]*c[\W_]*k\b/iu, /\bp[\W_]*a[\W_]*k[\W_]*i\b/iu,];
 
@@ -1765,22 +1781,6 @@ async function detectViolations(message, state, profile) {
 
   if (
     !spamWhitelisted &&
-    TEXT_RULES.suspiciousAccount.enabled &&
-    suspiciousMessageAuthor &&
-    hasMeaningfulTextPayload
-  ) {
-    violations.push({
-      key: "suspicious_account",
-      heat: profileHeat(
-        percentToHeat(TEXT_RULES.suspiciousAccount.heat),
-        "suspiciousAccount",
-      ),
-      info: "suspicious member profile",
-    });
-  }
-
-  if (
-    !spamWhitelisted &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.regularMessage.enabled
   ) {
@@ -2109,6 +2109,30 @@ async function detectViolations(message, state, profile) {
           "attachments",
         ),
         info: `${stickerCount} sticker`,
+      });
+    }
+  }
+
+  if (
+    !spamWhitelisted &&
+    TEXT_RULES.suspiciousAccount.enabled &&
+    suspiciousMessageAuthor &&
+    hasMeaningfulTextPayload
+  ) {
+    const hasStrongSignal = violations.some((v) =>
+      SUSPICIOUS_ACCOUNT_STRONG_KEYS.has(String(v?.key || "")),
+    );
+    const panicActive = isPanicModeActive(message.guildId);
+    if (hasStrongSignal || panicActive) {
+      violations.push({
+        key: "suspicious_account",
+        heat: profileHeat(
+          percentToHeat(TEXT_RULES.suspiciousAccount.heat),
+          "suspiciousAccount",
+        ),
+        info: panicActive
+          ? "suspicious member profile (panic mode)"
+          : "suspicious member profile (strong trigger)",
       });
     }
   }
