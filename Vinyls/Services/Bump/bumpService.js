@@ -441,20 +441,46 @@ function createBumpReminderService(options) {
   async function sweepDueReminders(client) {
     const cooldownMs = getCooldownMs(client);
     const guildIds = await model.findGuildIdsDueForReminderSweep(cooldownMs).catch(() => []);
+    debugReminder("all", `sweep_due_candidates=${Array.isArray(guildIds) ? guildIds.length : 0} cooldownMs=${cooldownMs}`);
+    if (!Array.isArray(guildIds) || guildIds.length === 0) {
+      debugReminder("all", "sweep_skip:no_due_candidates");
+      return;
+    }
+    let processed = 0;
+    let skipped = 0;
+    let sent = 0;
     for (const rawGid of guildIds) {
       const g = String(rawGid || "");
-      if (!g) continue;
+      if (!g) {
+        skipped += 1;
+        continue;
+      }
       const fresh = await resolveLean(model.findOne({ guildId: g })).catch(() => null);
-      if (!fresh?.lastBumpAt) continue;
+      if (!fresh?.lastBumpAt) {
+        skipped += 1;
+        debugReminder(g, "sweep_skip:no_lastBumpAt");
+        continue;
+      }
       const remindedT = fresh?.reminderSentAt
         ? new Date(fresh.reminderSentAt).getTime()
         : NaN;
       const t = new Date(fresh.lastBumpAt).getTime();
-      if (Number.isFinite(remindedT) && remindedT >= t) continue;
-      if (!Number.isFinite(t) || Date.now() < t + cooldownMs) continue;
+      if (Number.isFinite(remindedT) && remindedT >= t) {
+        skipped += 1;
+        debugReminder(g, "sweep_skip:already_reminded_for_last_bump");
+        continue;
+      }
+      if (!Number.isFinite(t) || Date.now() < t + cooldownMs) {
+        skipped += 1;
+        debugReminder(g, "sweep_skip:not_due_after_refresh");
+        continue;
+      }
       const ok = await sendReminder(client, g);
+      processed += 1;
+      if (ok) sent += 1;
       if (!ok) scheduleRetry(client, g, fresh.lastBumpAt);
     }
+    debugReminder("all", `sweep_done processed=${processed} sent=${sent} skipped=${skipped}`);
   }
 
   return { recordBump, setBumpAt, restorePendingReminders, sweepDueReminders };
