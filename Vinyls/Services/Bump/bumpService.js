@@ -76,15 +76,15 @@ function buildBumpStateModel(kind, stateUserId) {
     },
     async find(filter, projection = {}) {
       const query = { userId: stateUserId };
-      if (filter?.reminderSentAt === null) query[reminderSentAtPath] = null;
       if (filter?.lastBumpAt?.$exists) query[lastBumpAtPath] = { $exists: true, $ne: null };
       const docs = await ActivityUserProfile.find(query)
-        .select(`guildId ${projection?.lastBumpAt ? lastBumpAtPath : ""}`)
+        .select(`guildId ${projection?.lastBumpAt ? lastBumpAtPath : ""} ${projection?.reminderSentAt ? reminderSentAtPath : ""}`)
         .lean()
         .catch(() => []);
       return docs.map((doc) => ({
         guildId: String(doc?.guildId || ""),
         lastBumpAt: doc?.bumpState?.[kind]?.lastBumpAt || null,
+        reminderSentAt: doc?.bumpState?.[kind]?.reminderSentAt || null,
       }));
     },
     async findGuildIdsDueForReminderSweep(cooldownMs) {
@@ -94,7 +94,6 @@ function buildBumpStateModel(kind, stateUserId) {
       const docs = await ActivityUserProfile.find({
         userId: stateUserId,
         [lastBumpAtPath]: { $exists: true, $ne: null, $lte: cutoff },
-        [reminderSentAtPath]: null,
       })
         .select("guildId")
         .limit(100)
@@ -409,8 +408,8 @@ function createBumpReminderService(options) {
 
   async function restorePendingReminders(client) {
     const baseFind = model.find(
-      { reminderSentAt: null, lastBumpAt: { $exists: true } },
-      { guildId: 1, lastBumpAt: 1 },
+      { lastBumpAt: { $exists: true } },
+      { guildId: 1, lastBumpAt: 1, reminderSentAt: 1 },
     );
     let docs = [];
     if (baseFind && typeof baseFind.limit === "function" && typeof baseFind.lean === "function") {
@@ -425,6 +424,12 @@ function createBumpReminderService(options) {
       );
     }
     for (const doc of docs) {
+      const lastT = new Date(doc?.lastBumpAt).getTime();
+      const remindedT = doc?.reminderSentAt
+        ? new Date(doc.reminderSentAt).getTime()
+        : NaN;
+      if (!Number.isFinite(lastT)) continue;
+      if (Number.isFinite(remindedT) && remindedT >= lastT) continue;
       scheduleReminder(client, doc.guildId, doc.lastBumpAt);
     }
   }
