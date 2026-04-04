@@ -124,7 +124,11 @@ function createBumpReminderService(options) {
   function debugReminder(guildId, message) {
     const enabled = String(process.env.BUMP_REMINDER_DEBUG || "1").trim() !== "0";
     if (!enabled) return;
-    global.logger?.info?.(`${logTag} [DEBUG] guild=${String(guildId || "")} ${String(message || "")}`);
+    const line = `${logTag} [DEBUG] guild=${String(guildId || "")} ${String(message || "")}`;
+    global.logger?.warn?.(line);
+    try {
+      console.log(line);
+    } catch (_) {}
   }
 
   async function resolveFallbackReminderChannel(client, guildId) {
@@ -466,7 +470,22 @@ const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 function startBumpDueReminderSweepLoop(client) {
   if (!client || client._bumpDueReminderSweepStarted) return;
   client._bumpDueReminderSweepStarted = true;
+  const debugEnabled = String(process.env.BUMP_REMINDER_DEBUG || "1").trim() !== "0";
+  if (debugEnabled) {
+    const line = `[BUMP DUE REMINDER SWEEP] started intervalMs=${BUMP_DUE_REMINDER_SWEEP_MS}`;
+    global.logger?.warn?.(line);
+    try {
+      console.log(line);
+    } catch (_) {}
+  }
   const tick = () => {
+    if (debugEnabled) {
+      const line = "[BUMP DUE REMINDER SWEEP] tick";
+      global.logger?.warn?.(line);
+      try {
+        console.log(line);
+      } catch (_) {}
+    }
     Promise.all([
       disboardService.sweepDueReminders(client),
       discadiaBumpService.sweepDueReminders(client),
