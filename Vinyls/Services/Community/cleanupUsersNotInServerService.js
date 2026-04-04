@@ -1,11 +1,20 @@
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
 const guildScoped = [ [ActivityUserProfile, "ActivityUserProfile"] ];
+const SYSTEM_PROFILE_USERID_REGEX = /^__.*__$/;
 
 async function clearGlobalAutomodBadUserForUsersNotIn(memberIds, dryRun) {
   const filter = {
     guildId: ACTIVITY_MAIN_GUILD_ID,
     userId: { $nin: memberIds },
+    $expr: {
+      $not: {
+        $regexMatch: {
+          input: "$userId",
+          regex: SYSTEM_PROFILE_USERID_REGEX.source,
+        },
+      },
+    },
     [automodBadUser()]: { $exists: true },
     $and: [
       { "moderation.modCases": { $exists: true, $size: 0 } },
@@ -35,6 +44,14 @@ async function unsetStaffForUsersNotInGuild(guildId, memberIds, dryRun) {
   const filter = {
     guildId: String(guildId),
     userId: { $nin: memberIds },
+    $expr: {
+      $not: {
+        $regexMatch: {
+          input: "$userId",
+          regex: SYSTEM_PROFILE_USERID_REGEX.source,
+        },
+      },
+    },
     staff: { $exists: true },
   };
   if (dryRun) {
@@ -51,7 +68,18 @@ async function runCleanupUsersNotInServer(guildId, memberIds, { dryRun = false, 
 
   for (const [Model, name] of guildScoped) {
     if (!Model?.countDocuments) continue;
-    const filterGuild = { guildId: String(guildId), userId: { $nin: memberIds } };
+    const filterGuild = {
+      guildId: String(guildId),
+      userId: { $nin: memberIds },
+      $expr: {
+        $not: {
+          $regexMatch: {
+            input: "$userId",
+            regex: SYSTEM_PROFILE_USERID_REGEX.source,
+          },
+        },
+      },
+    };
     
     if (name === "ActivityUserProfile") {
       filterGuild.$and = [
