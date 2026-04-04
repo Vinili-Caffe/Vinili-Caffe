@@ -137,7 +137,7 @@ function buildBumpStateModel(kind, stateUserId) {
 }
 
 function createBumpReminderService(options) {
-  const { model, configKey, defaultCooldownMinutes, mentionContent, title, url, description, errorTag, logTag = errorTag, suppressInfoLogs = false, } = options;
+  const { model, configKey, defaultCooldownMinutes, mentionContent, title, url, description } = options;
 
   const bumpTimers = new Map();
   const RETRY_DELAY_MS = 5 * 60 * 1000;
@@ -154,13 +154,8 @@ function createBumpReminderService(options) {
   }
 
   function debugReminder(guildId, message) {
-    const enabled = String(process.env.BUMP_REMINDER_DEBUG || "1").trim() !== "0";
-    if (!enabled) return;
-    const line = `${logTag} [DEBUG] guild=${String(guildId || "")} ${String(message || "")}`;
-    global.logger?.warn?.(line);
-    try {
-      console.log(line);
-    } catch (_) {}
+    void guildId;
+    void message;
   }
 
   async function resolveFallbackReminderChannel(client, guildId) {
@@ -223,9 +218,6 @@ function createBumpReminderService(options) {
     if (!reminderChannelId) {
       const fallback = await resolveFallbackReminderChannel(client, gid);
       if (!fallback) {
-        global.logger?.warn?.(
-          `${errorTag} reminderChannelId missing for guild ${guildId}`,
-        );
         debugReminder(gid, "send_fail:no_config_channel_and_no_fallback");
         return false;
       }
@@ -252,9 +244,6 @@ function createBumpReminderService(options) {
     }
     const channel = await resolveReminderChannel(client, reminderChannelId, gid);
     if (!channel) {
-      global.logger?.warn?.(
-        `${errorTag} reminder channel not found (${reminderChannelId}) for guild ${guildId}`,
-      );
       debugReminder(gid, `send_fail:resolved_channel_missing configuredChannelId=${reminderChannelId}`);
       return false;
     }
@@ -272,10 +261,7 @@ function createBumpReminderService(options) {
           .setURL(url)
           .setDescription(description),
       ],
-    }).then(() => true).catch((err) => {
-      global.logger?.warn?.(`${errorTag} reminder send failed for guild ${guildId}:`, err?.message || err);
-      return false;
-    });
+    }).then(() => true).catch(() => false);
     if (!sent) {
       const fallbackChannel = await resolveFallbackReminderChannel(client, gid);
       if (!fallbackChannel || String(fallbackChannel.id || "") === String(channel?.id || "")) {
@@ -293,10 +279,7 @@ function createBumpReminderService(options) {
             .setURL(url)
             .setDescription(description),
         ],
-      }).then(() => true).catch((err) => {
-        global.logger?.warn?.(`${errorTag} fallback reminder send failed for guild ${guildId}:`, err?.message || err);
-        return false;
-      });
+      }).then(() => true).catch(() => false);
       if (!fallbackSent) {
         debugReminder(gid, `send_fail:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
         return false;
@@ -308,12 +291,7 @@ function createBumpReminderService(options) {
 
     await model
       .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date(), lastBumpAt: fresh.lastBumpAt } })
-      .catch((err) =>
-        global.logger.error(
-          `${errorTag} updateOne reminderSentAt failed:`,
-          err,
-        ),
-      );
+      .catch(() => null);
     return true;
   }
 
@@ -333,11 +311,6 @@ function createBumpReminderService(options) {
   function scheduleReminder(client, guildId, lastBumpAt) {
     const gid = String(guildId || "");
     if (!gid) return;
-    if (!suppressInfoLogs) {
-      global.logger?.info?.(
-        `${errorTag} scheduleReminder called guild=${gid} lastBumpAt=${lastBumpAt}`,
-      );
-    }
     const existing = bumpTimers.get(gid);
     if (existing) clearTimeout(existing);
 
@@ -346,9 +319,6 @@ function createBumpReminderService(options) {
     const lastBumpTime = new Date(lastBumpAt).getTime();
     if (!Number.isFinite(lastBumpTime)) {
       bumpTimers.delete(gid);
-      global.logger?.warn?.(
-        `${errorTag} scheduleReminder invalid lastBumpAt guild=${gid}`,
-      );
       return;
     }
     const targetTime = lastBumpTime + cooldownMs;
@@ -356,41 +326,24 @@ function createBumpReminderService(options) {
 
     if (remaining <= 0) {
       bumpTimers.delete(gid);
-      if (!suppressInfoLogs) {
-        global.logger?.info?.(
-          `${logTag} cooldown already passed, sending reminder now guild=${gid}`,
-        );
-      }
       sendReminder(client, gid)
         .then((ok) => {
           if (!ok) scheduleRetry(client, gid, lastBumpAt);
         })
-        .catch((err) => {
-          global.logger.error(`${errorTag} sendReminder failed:`, err);
+        .catch(() => {
           scheduleRetry(client, gid, lastBumpAt);
         });
       return;
     }
 
-    const remainingMinutes = Math.round(remaining / 60_000);
-    if (!suppressInfoLogs) {
-      global.logger?.info?.(
-        `${logTag} reminder scheduled for guild=${gid} in ${remainingMinutes} minutes`,
-      );
-    }
-
     const timeout = setTimeout(async () => {
       try {
-        if (!suppressInfoLogs) {
-          global.logger?.info?.(`${logTag}firing reminder for guild=${gid}`);
-        }
         const ok = await sendReminder(client, gid);
         if (!ok) {
           scheduleRetry(client, gid, lastBumpAt);
           return;
         }
-      } catch (error) {
-        global.logger.error(errorTag, error);
+      } catch {
         scheduleRetry(client, gid, lastBumpAt);
       } finally {
         const active = bumpTimers.get(gid);
@@ -429,7 +382,6 @@ function createBumpReminderService(options) {
       if (doc?.lastBumpAt) lastBumpAt = new Date(doc.lastBumpAt);
       debugReminder(gid, `setBumpAt_ok bumpAt=${new Date(lastBumpAt).toISOString()} userId=${String(userId || "")}`);
     } catch (err) {
-      global.logger?.error?.(`${errorTag} setBumpAt DB failed, scheduling in-memory anyway:`, err?.message || err);
       debugReminder(gid, `setBumpAt_db_fail reason=${String(err?.message || err || "")}`);
     }
     scheduleReminder(client, gid, lastBumpAt);
@@ -455,11 +407,6 @@ function createBumpReminderService(options) {
     } else {
       const resolved = await baseFind;
       docs = Array.isArray(resolved) ? resolved.slice(0, 500) : [];
-    }
-    if (docs.length > 0 && !suppressInfoLogs) {
-      global.logger?.info?.(
-        `${logTag} restoring ${docs.length} pending reminder(s)`,
-      );
     }
     for (const doc of docs) {
       const lastT = new Date(doc?.lastBumpAt).getTime();
@@ -550,28 +497,11 @@ const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 function startBumpDueReminderSweepLoop(client) {
   if (!client || client._bumpDueReminderSweepStarted) return;
   client._bumpDueReminderSweepStarted = true;
-  const debugEnabled = String(process.env.BUMP_REMINDER_DEBUG || "1").trim() !== "0";
-  if (debugEnabled) {
-    const line = `[BUMP DUE REMINDER SWEEP] started intervalMs=${BUMP_DUE_REMINDER_SWEEP_MS}`;
-    global.logger?.warn?.(line);
-    try {
-      console.log(line);
-    } catch (_) {}
-  }
   const tick = () => {
-    if (debugEnabled) {
-      const line = "[BUMP DUE REMINDER SWEEP] tick";
-      global.logger?.warn?.(line);
-      try {
-        console.log(line);
-      } catch (_) {}
-    }
     Promise.all([
       disboardService.sweepDueReminders(client),
       discadiaBumpService.sweepDueReminders(client),
-    ]).catch((err) =>
-      global.logger?.error?.("[BUMP DUE REMINDER SWEEP]", err?.message || err),
-    );
+    ]).catch(() => null);
   };
   setInterval(tick, BUMP_DUE_REMINDER_SWEEP_MS);
   tick();
