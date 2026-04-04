@@ -432,6 +432,7 @@ const userLeaveBackupSchema = new Schema(
     guildId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
     backupDoc: { type: Schema.Types.Mixed, default: null },
+    restoreRoleIds: { type: [String], default: [] },
     leftAt: { type: Date, default: Date.now },
     expiresAt: { type: Date, required: true },
   },

@@ -540,8 +540,23 @@ async function ensureCustomRoleExists(interaction, ownerId, client) {
   if (!createdRole) return { ok: false, reason: "create_failed" };
 
   const anchor = guild.roles.cache.get(ANCHOR_ROLE_ID) || (await guild.roles.fetch(ANCHOR_ROLE_ID).catch(() => null));
-  if (anchor?.position && createdRole.position !== anchor.position - 1) {
-    await createdRole.setPosition(Math.max(1, Number(anchor.position) - 1)).catch(() => { });
+  if (anchor?.position) {
+    const customRoleDocs = await CustomRole.find({ guildId: guild.id })
+      .select("roleId")
+      .lean()
+      .catch(() => []);
+    const existingCustomPositions = (Array.isArray(customRoleDocs) ? customRoleDocs : [])
+      .map((doc) => String(doc?.roleId || ""))
+      .filter((id) => id && id !== createdRole.id)
+      .map((id) => guild.roles.cache.get(id) || null)
+      .filter((role) => role && Number(role.position) > 0 && Number(role.position) < Number(anchor.position))
+      .map((role) => Number(role.position));
+    const targetPosition = existingCustomPositions.length
+      ? Math.max(1, Math.min(...existingCustomPositions) - 1)
+      : Math.max(1, Number(anchor.position) - 1);
+    if (createdRole.position !== targetPosition) {
+      await createdRole.setPosition(targetPosition).catch(() => { });
+    }
   }
 
   await member.roles.add(createdRole.id).catch(() => { });

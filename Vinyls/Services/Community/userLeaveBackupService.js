@@ -1,5 +1,6 @@
 const { ActivityUserProfile, UserLeaveBackup, RejoinRoleMemory } = require("../../Schemas/Community/communitySchemas");
 const { addRolesAndGetMember, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 
 const RESTORE_ON_REJOIN_ROLE_IDS = [
   "1463248874725576879",
@@ -20,11 +21,6 @@ function resolveExpiryDate() {
   return new Date(Date.now() + resolveRetentionDays() * DAY_MS);
 }
 
-function toMs(value) {
-  const t = new Date(value || 0).getTime();
-  return Number.isFinite(t) ? t : 0;
-}
-
 function getTrackedRolesFromMember(member) {
   if (!member?.roles?.cache) return [];
   return RESTORE_ON_REJOIN_ROLE_IDS.filter((roleId) =>
@@ -32,12 +28,28 @@ function getTrackedRolesFromMember(member) {
   );
 }
 
+function getRestorableRoleIdsFromMember(member) {
+  const cache = member?.roles?.cache;
+  const guildId = String(member?.guild?.id || "");
+  if (!cache || !guildId) return [];
+  return Array.from(cache.values())
+    .filter((role) => {
+      if (!role?.id) return false;
+      if (String(role.id) === guildId) return false;
+      if (role.managed) return false;
+      return true;
+    })
+    .map((role) => String(role.id))
+    .filter(Boolean);
+}
+
 async function backupUserOnLeave(guildId, userId, member = null) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
-  if (!gid || !uid) return false;
+  if (!isValidGuildUserId(gid, uid)) return false;
 
   const source = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
+  const restoreRoleIds = getRestorableRoleIdsFromMember(member);
   const trackedRoleIds = getTrackedRolesFromMember(member);
 
   if (trackedRoleIds.length > 0) {
@@ -50,7 +62,7 @@ async function backupUserOnLeave(guildId, userId, member = null) {
     await RejoinRoleMemory.deleteOne({ guildId: gid, userId: uid }).catch(() => null);
   }
 
-  if (!source && trackedRoleIds.length === 0) return false;
+  if (!source && restoreRoleIds.length === 0) return false;
 
   await UserLeaveBackup.updateOne(
     { guildId: gid, userId: uid },
@@ -59,6 +71,7 @@ async function backupUserOnLeave(guildId, userId, member = null) {
         guildId: gid,
         userId: uid,
         backupDoc: source || null,
+        restoreRoleIds,
         leftAt: new Date(),
         expiresAt: resolveExpiryDate(),
       },
@@ -96,13 +109,19 @@ async function restoreRolesOnJoin(member, roleIds) {
 async function restoreUserOnJoin(guildId, userId, member = null) {
   const gid = String(guildId || "");
   const uid = String(userId || "");
-  if (!gid || !uid) return false;
+  if (!isValidGuildUserId(gid, uid)) return false;
 
   const backup = await UserLeaveBackup.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
   const roleMemory = await RejoinRoleMemory.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
   const roleIdsFromMemory = Array.isArray(roleMemory?.roleIds) ? roleMemory.roleIds : [];
   const roleIdsFallback = Array.isArray(backup?.restoreRoleIds) ? backup.restoreRoleIds : [];
-  const restoreRoleIds = roleIdsFromMemory.length > 0 ? roleIdsFromMemory : roleIdsFallback;
+  const restoreRoleIds = Array.from(
+    new Set(
+      [...roleIdsFromMemory, ...roleIdsFallback]
+        .map((id) => String(id || "").trim())
+        .filter(Boolean),
+    ),
+  );
   let payload = backup?.backupDoc || null;
   if (backup?.expiresAt && new Date(backup.expiresAt).getTime() <= Date.now()) {
     await UserLeaveBackup.deleteOne({ guildId: gid, userId: uid }).catch(() => null);
@@ -113,36 +132,45 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   let restoredProfile = false;
   if (payload && typeof payload === "object") {
     const current = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-      .select("updatedAt")
+      .select("profile moderation staff")
       .lean()
       .catch(() => null);
-    const backupUpdatedMs = Math.max(toMs(payload?.updatedAt), toMs(backup?.leftAt));
-    const currentUpdatedMs = toMs(current?.updatedAt);
+    const nextProfile =
+      payload?.profile && typeof payload.profile === "object"
+        ? payload.profile
+        : current?.profile && typeof current.profile === "object"
+          ? current.profile
+          : null;
+    const nextModeration =
+      payload?.moderation && typeof payload.moderation === "object"
+        ? payload.moderation
+        : current?.moderation && typeof current.moderation === "object"
+          ? current.moderation
+          : null;
+    const nextStaff =
+      payload?.staff && typeof payload.staff === "object"
+        ? payload.staff
+        : current?.staff && typeof current.staff === "object"
+          ? current.staff
+          : null;
 
-    // Protezione anti-overwrite: se il documento attuale è più recente del backup,
-    // non ripristinare e scarta il backup.
-    if (current && currentUpdatedMs > backupUpdatedMs) {
-      await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
-      payload = null;
-    } else {
-      const setPayload = {
-        ...(payload?.profile && typeof payload.profile === "object" ? { profile: payload.profile } : {}),
-        ...(payload?.moderation && typeof payload.moderation === "object" ? { moderation: payload.moderation } : {}),
-        ...(payload?.staff && typeof payload.staff === "object" ? { staff: payload.staff } : {}),
-        updatedAt: new Date(),
-      };
-      const setOnInsert = {
-        guildId: gid,
-        userId: uid,
-        ...(payload?.createdAt ? { createdAt: new Date(payload.createdAt) } : {}),
-      };
-      await ActivityUserProfile.updateOne(
-        { guildId: gid, userId: uid },
-        { $setOnInsert: setOnInsert, $set: setPayload },
-        { upsert: true },
-      ).catch(() => null);
-      restoredProfile = true;
-    }
+    const setPayload = {
+      ...(nextProfile ? { profile: nextProfile } : {}),
+      ...(nextModeration ? { moderation: nextModeration } : {}),
+      ...(nextStaff ? { staff: nextStaff } : {}),
+      updatedAt: new Date(),
+    };
+    const setOnInsert = {
+      guildId: gid,
+      userId: uid,
+      ...(payload?.createdAt ? { createdAt: new Date(payload.createdAt) } : {}),
+    };
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      { $setOnInsert: setOnInsert, $set: setPayload },
+      { upsert: true },
+    ).catch(() => null);
+    restoredProfile = true;
   }
 
   let restoredRoles = false;
@@ -150,7 +178,8 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
     restoredRoles = await restoreRolesOnJoin(member, restoreRoleIds).catch(() => false);
   }
 
-  if (backup?._id) {
+  const hasPendingRoleRestore = restoreRoleIds.length > 0 && !restoredRoles;
+  if (backup?._id && !hasPendingRoleRestore) {
     await UserLeaveBackup.deleteOne({ _id: backup._id }).catch(() => null);
   }
   return restoredProfile || restoredRoles;
