@@ -57,16 +57,23 @@ function makeRemovalEmbed(
   updatedValue,
 ) {
   const iconSource = actor.member || actor.user;
+  const safeDescriptionRaw = String(description || "").trim();
+  const safeDescription = safeDescriptionRaw
+    ? safeDescriptionRaw.replace("{user}", user.toString())
+    : `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${user}`;
+  const safeReasonField = String(reason || "").trim() || "—";
+  const safeUpdatedLabel = String(updatedLabel || "").trim() || "Aggiornamento";
+  const safeUpdatedValue = String(updatedValue || "").trim() || "—";
   return new EmbedBuilder()
     .setAuthor({
       name: `<:cancel:1461730653677551691> Valutazione rimossa da ${actor.user.username}`,
       iconURL: iconSource.displayAvatarURL?.() || actor.user.displayAvatarURL?.(),
     })
     .setTitle(title)
-    .setDescription(description.replace("{user}", user.toString()))
+    .setDescription(safeDescription)
     .addFields(
-      { name: "<:VC_reason:1478517122929004544> Motivazione: ", value: `${reason}`, inline: false },
-      { name: updatedLabel, value: updatedValue, inline: false },
+      { name: "<:VC_reason:1478517122929004544> Motivazione: ", value: safeReasonField, inline: false },
+      { name: safeUpdatedLabel, value: safeUpdatedValue, inline: false },
     )
     .setColor("#6f4e37");
 }
@@ -102,12 +109,15 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const embed = makeRemovalEmbed(actor, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
-    "",
-    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Positiva!_`, reason,
-    "",
-    "<:VC_update:1478721333096349817> __Valutazione Positive Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`);
+  const embed = makeRemovalEmbed(
+    actor,
+    staffUser,
+    "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
+    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Positiva!_`,
+    reason,
+    "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`,
+  );
   await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
 }
@@ -184,12 +194,15 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const embed = makeRemovalEmbed(actor, staffUser, "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
-    "",
-    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Negativa!_`, reason,
-    "",
-    "<:VC_update:1478721333096349817> __Valutazione Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`);
+  const embed = makeRemovalEmbed(
+    actor,
+    staffUser,
+    "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
+    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Negativa!_`,
+    reason,
+    "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`,
+  );
   await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
 }

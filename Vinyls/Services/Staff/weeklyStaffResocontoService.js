@@ -13,6 +13,22 @@ const STAFF_ACTIVITY_LIMITS = { [String(IDs.roles.Helper)]: { messages: 250, hou
 const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 1, [String(IDs.roles.Coordinator)]: 2, [String(IDs.roles.Supervisor)]: 3 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
 const STAFF_ROLE_PRIORITY = [String(IDs.roles.Supervisor), String(IDs.roles.Coordinator), String(IDs.roles.Mod), String(IDs.roles.Helper),];
+const RESOCONTO_ROLE_RANK = new Map(
+  [
+    IDs.roles.Member,
+    IDs.roles.Helper,
+    IDs.roles.Mod,
+    IDs.roles.Coordinator,
+    IDs.roles.Supervisor,
+    IDs.roles.Admin,
+    IDs.roles.Manager,
+    IDs.roles.CoFounder,
+    IDs.roles.Founder,
+    IDs.roles.PartnerManager,
+  ]
+    .filter(Boolean)
+    .map((roleId, index) => [String(roleId), index]),
+);
 const ROLE_UP = {
   [String(IDs.roles.Member || "")]: String(IDs.roles.Helper),
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
@@ -394,9 +410,20 @@ function computeBehaviorGrade(positiveCount, negativeCount) {
 function isStaffRolesHistoryPexRow(row) {
   const oldRole = String(row?.oldRole || "");
   const newRole = String(row?.newRole || "");
-  const isPromotion = oldRole && newRole && ROLE_UP[oldRole] === newRole;
-  const reasonHasPex = String(row?.reason || "").toLowerCase().includes("pex");
-  return Boolean(isPromotion || reasonHasPex);
+  const oldRank = RESOCONTO_ROLE_RANK.has(oldRole) ? Number(RESOCONTO_ROLE_RANK.get(oldRole)) : null;
+  const newRank = RESOCONTO_ROLE_RANK.has(newRole) ? Number(RESOCONTO_ROLE_RANK.get(newRole)) : null;
+  const isRankPromotion =
+    oldRank != null &&
+    newRank != null &&
+    newRole &&
+    oldRole &&
+    newRole !== oldRole &&
+    newRank > oldRank;
+  const isMappedPromotion = oldRole && newRole && ROLE_UP[oldRole] === newRole;
+  const reasonNorm = String(row?.reason || "").toLowerCase();
+  const reasonHasDepex = reasonNorm.includes("depex");
+  const reasonHasPex = reasonNorm.includes("pex") && !reasonHasDepex;
+  return Boolean(isRankPromotion || isMappedPromotion || reasonHasPex);
 }
 
 function wasPexedInWeek(staffDoc, weekStart) {
@@ -440,10 +467,7 @@ function wasPmPromotedInResocontoSkipWindow(staffDoc, windowStart, windowEndExcl
 
 function shouldSkipResocontoForPexInCalendarWeek(staffDoc, windowStart, windowEndExclusive) {
   if (!staffDoc) return false;
-  return (
-    wasPexedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive) ||
-    wasPmPromotedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive)
-  );
+  return wasPexedInResocontoSkipWindow(staffDoc, windowStart, windowEndExclusive);
 }
 
 function computeStaffAction(activityGrade, behaviorGrade, pexedInWeek, positiveCount, negativeCount) {
@@ -644,19 +668,19 @@ async function runWeeklyStaffResoconti(client) {
   for (const member of candidateMembers) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
-
-    if (
-      shouldSkipResocontoForPexInCalendarWeek(
-        staffDoc,
-        pexSkipWindow.windowStart,
-        pexSkipWindow.windowEndExclusive,
-      )
-    ) {
-      continue;
-    }
+    const skipForStaffPexInWindow = shouldSkipResocontoForPexInCalendarWeek(
+      staffDoc,
+      pexSkipWindow.windowStart,
+      pexSkipWindow.windowEndExclusive,
+    );
+    const skipForPmPromotionInWindow = wasPmPromotedInResocontoSkipWindow(
+      staffDoc,
+      pexSkipWindow.windowStart,
+      pexSkipWindow.windowEndExclusive,
+    );
 
     const staffRoleId = resolveStaffRole(member);
-    if (staffRoleId) {
+    if (staffRoleId && !skipForStaffPexInWindow) {
       const overview = overviewMap.get(userId);
       const d7 = overview?.windows?.d7;
       const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)),);
@@ -724,7 +748,7 @@ async function runWeeklyStaffResoconti(client) {
         .catch(() => null);
     }
 
-    if (member.roles.cache.has(String(IDs.roles.PartnerManager))) {
+    if (member.roles.cache.has(String(IDs.roles.PartnerManager)) && !skipForPmPromotionInWindow) {
       const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd,);
       const pmPexedInWeek = wasPmPexedInWeek(staffDoc, pmWindow.weekStart);
