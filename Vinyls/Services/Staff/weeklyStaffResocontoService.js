@@ -743,7 +743,12 @@ async function runWeeklyStaffResoconti(client) {
           content: contentLines.join("\n"),
           ...(staffComponents.length ? { components: staffComponents } : {}),
         })
-        .then((msg) => createResocontoThread(msg, userId, member.user?.username))
+        .then((msg) => {
+          if (action !== "Nulla" && action !== "Richiamo") {
+            return createResocontoThread(msg, userId, member.user?.username);
+          }
+          return null;
+        })
         .catch(() => null);
     }
 
@@ -771,7 +776,12 @@ async function runWeeklyStaffResoconti(client) {
           content: pmContentLines.join("\n"),
           ...(pmComponents.length ? { components: pmComponents } : {}),
         })
-        .then((msg) => createResocontoThread(msg, userId, member.user?.username))
+        .then((msg) => {
+          if (action !== "Nulla" && action !== "Richiamo") {
+            return createResocontoThread(msg, userId, member.user?.username);
+          }
+          return null;
+        })
         .catch(() => null);
     }
   }
