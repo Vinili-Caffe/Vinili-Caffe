@@ -1605,6 +1605,10 @@ function countCaseCharacters(content) {
   return { lower, upper, total: lower + upper };
 }
 
+function stripUrlsForCharacterRule(content) {
+  return String(content || "").replace(/https?:\/\/\S+/gi, " ");
+}
+
 function isExempt(message) {
   if (!message.guild) return true;
   const guildId = String(message.guild?.id || "");
@@ -2026,10 +2030,11 @@ async function detectViolations(message, state, profile) {
   }
 
   if (!spamWhitelisted && TEXT_RULES.characters.enabled) {
-    const { lower, upper, total } = countCaseCharacters(content);
+    const characterRuleContent = stripUrlsForCharacterRule(content);
+    const { lower, upper, total } = countCaseCharacters(characterRuleContent);
     if (total >= TEXT_RULES.characters.minChars) {
       const upperRatio = total > 0 ? upper / total : 0;
-      const repeatedCharBurst = /(.)\1{10,}/.test(content);
+      const repeatedCharBurst = /(.)\1{10,}/.test(characterRuleContent);
       const noisyShape = upperRatio >= 0.45 || repeatedCharBurst;
       if (legitConversation && !noisyShape) {
       } else {

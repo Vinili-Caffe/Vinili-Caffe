@@ -276,9 +276,19 @@ function formatStaffProfileSelectCustomId(viewerId, targetId) {
   return `${PANEL_PREFIX}:select:${viewerId}:${targetId}`;
 }
 
+function formatStaffProfileCloseCustomId(viewerId, targetId) {
+  return `${PANEL_PREFIX}:close:${viewerId}:${targetId}`;
+}
+
 function parseStaffProfileSelectCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "select") return null;
+  return { viewerId: parts[2], targetId: parts[3] };
+}
+
+function parseStaffProfileCloseCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "close") return null;
   return { viewerId: parts[2], targetId: parts[3] };
 }
 
@@ -512,6 +522,19 @@ function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
   return base;
 }
 
+function buildProfileCloseRow(viewerId, targetId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId)))
+      .setLabel("Chiudi panel")
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+function withCloseProfileComponents(components, viewerId, targetId) {
+  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId)];
+}
+
 function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPartnerManager = false) {
   const v = String(viewerId);
   const t = String(targetId);
@@ -609,7 +632,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: mergeProfileComponents(null, pexComps),
+      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid),
     };
   }
 
@@ -686,7 +709,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         ? buildPartnerPointsOnlyRow(v, tid, SECTION_PARTNER_LB, lbMode)
         : buildPmOnlyPartnerRows(v, tid, SECTION_PARTNER_LB, lbMode)
       : [];
-    return { embeds: [mainEmbed], components: mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]) };
+    return {
+      embeds: [mainEmbed],
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]), viewerId, tid),
+    };
   }
 
   if (profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME) {
@@ -707,7 +733,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: mergeProfileComponents(selectRow, hsRows),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
     };
   }
 
@@ -728,7 +754,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: mergeProfileComponents(selectRow, hsRows) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid) };
   }
 
   if (sec === SECTION_WARN) {
@@ -749,7 +775,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: mergeProfileComponents(selectRow, hsRows) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid) };
   }
 
   if (sec === SECTION_PAUSE) {
@@ -768,12 +794,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setColor("Red")
             .setDescription(listPayload.error || "Errore caricamento pause."),
         ],
-        components: mergeProfileComponents(selectRow, hsRows),
+        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
       };
     }
     return {
       embeds: [...listPayload.embeds],
-      components: mergeProfileComponents(selectRow, hsRows, listPayload.components || []),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, listPayload.components || []), viewerId, tid),
     };
   }
 
@@ -819,7 +845,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(desc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: mergeProfileComponents(selectRow, hsRows),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
     };
   }
 
@@ -854,7 +880,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setDescription("<:cancel:1461730653677551691> **Nessun log moderazione trovato.**")
             .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
         ],
-        components: mergeProfileComponents(selectRow, hsRows),
+        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
       };
     }
     const hh = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -888,7 +914,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
           .setTimestamp(),
       ],
-      components: mergeProfileComponents(selectRow, hsRows),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
     };
   }
 
@@ -936,7 +962,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(homeDesc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     ],
-    components: mergeProfileComponents(selectRow, hsRows),
+    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
   };
 }
 
@@ -952,6 +978,8 @@ module.exports = {
   SECTION_PARTNER_LB,
   formatStaffProfileSelectCustomId,
   parseStaffProfileSelectCustomId,
+  formatStaffProfileCloseCustomId,
+  parseStaffProfileCloseCustomId,
   parseStaffProfilePlbCustomId,
   formatStaffHpButtonCustomId,
   buildStaffProfilePayload,

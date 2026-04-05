@@ -1,6 +1,7 @@
 const {
   PANEL_PREFIX,
   parseStaffProfileSelectCustomId,
+  parseStaffProfileCloseCustomId,
   parseStaffProfilePlbCustomId,
   buildStaffProfilePayload,
   SECTION_HOME,
@@ -25,11 +26,35 @@ function match(interaction) {
   const id = String(interaction?.customId || "");
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:select:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:plb:`)) return true;
+  if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:close:`)) return true;
   return false;
 }
 
 async function execute(interaction) {
   if (interaction.isButton()) {
+    if (String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:close:`)) {
+      const close = parseStaffProfileCloseCustomId(interaction.customId);
+      if (!close) return false;
+      if (String(interaction.user.id) !== String(close.viewerId)) {
+        await interaction
+          .reply({
+            content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const payload = {
+        content: "<:vegacheckmark:1443666279058772028> Panel chiuso.",
+        embeds: [],
+        components: [],
+      };
+      const updated = await interaction.update(payload).then(() => true).catch(() => false);
+      if (!updated && interaction.message?.edit) {
+        await interaction.message.edit(payload).catch(() => {});
+      }
+      return true;
+    }
     const plb = parseStaffProfilePlbCustomId(interaction.customId);
     if (!plb) return false;
     if (String(interaction.user.id) !== String(plb.viewerId)) {

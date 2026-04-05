@@ -757,7 +757,7 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   const oldRoleObj = guild.roles.cache.get(roleToRemove);
   await pexDepexChannel
     ?.send?.({
-      content: `**<:cancel:1461730653677551691> DEPEX COMPLETO** ${targetUser}
+      content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
 <:staff:1443651912179388548> \`${oldRoleObj?.name || roleToRemove}\` <a:VC_Arrow:1482706699365257397> \`${guild.roles.cache.get(ROLE_MEMBER)?.name || "Member"}\`
 <:VC_reason:1478517122929004544> __${String(reason || "").slice(0, 500)}__`,
     })

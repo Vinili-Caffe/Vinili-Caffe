@@ -7,6 +7,7 @@ const {
   parseNavCustomId,
   parseHomeCustomId,
   parseGoCustomId,
+  parseCloseCustomId,
   parseModalCustomId,
   buildModerationPanelPayload,
   buildModalForAction,
@@ -246,6 +247,7 @@ function match(interaction) {
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:nav:`)) return true;
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:home:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:go:`)) return true;
+  if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:close:`)) return true;
   if (interaction?.isModalSubmit?.() && id.startsWith(`${PANEL_PREFIX}:md:`)) return true;
   return false;
 }
@@ -296,6 +298,24 @@ async function execute(interaction, client) {
   }
 
   if (interaction.isButton()) {
+    if (id.startsWith(`${PANEL_PREFIX}:close:`)) {
+      const parsedClose = parseCloseCustomId(id);
+      if (!parsedClose) return false;
+      if (String(interaction.user.id) !== String(parsedClose.viewerId)) {
+        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.");
+        return true;
+      }
+      const payload = {
+        content: "<:vegacheckmark:1443666279058772028> Panel chiuso.",
+        embeds: [],
+        components: [],
+      };
+      const updated = await interaction.update(payload).then(() => true).catch(() => false);
+      if (!updated && interaction.message?.edit) {
+        await interaction.message.edit(payload).catch(() => {});
+      }
+      return true;
+    }
     const parsed = parseGoCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {

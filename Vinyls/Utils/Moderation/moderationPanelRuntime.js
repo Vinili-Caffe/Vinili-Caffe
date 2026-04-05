@@ -35,6 +35,10 @@ function formatHomeCustomId(guildId, viewerId, targetId) {
   return `${PANEL_PREFIX}:home:${guildId}:${viewerId}:${targetId}`;
 }
 
+function formatCloseCustomId(guildId, viewerId, targetId) {
+  return `${PANEL_PREFIX}:close:${guildId}:${viewerId}:${targetId}`;
+}
+
 function parseNavCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 4 || p[0] !== PANEL_PREFIX || p[1] !== "nav") return null;
@@ -53,6 +57,12 @@ function parseGoCustomId(customId) {
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "go") return null;
   if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5] };
   return { guildId: null, viewerId: p[2], targetId: p[3], action: p[4] };
+}
+
+function parseCloseCustomId(customId) {
+  const p = String(customId || "").split(":");
+  if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "close") return null;
+  return { guildId: p[2], viewerId: p[3], targetId: p[4] };
 }
 
 function parseModalCustomId(customId) {
@@ -146,6 +156,15 @@ function buildSectionRows(guildId, viewerId, targetId, section) {
   }
   const chunks = chunkButtons(rows, 5);
   return chunks.map((chunk) => new ActionRowBuilder().addComponents(...chunk));
+}
+
+function buildCloseRow(guildId, viewerId, targetId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(formatCloseCustomId(guildId, viewerId, targetId))
+      .setLabel("Chiudi panel")
+      .setStyle(ButtonStyle.Secondary),
+  );
 }
 
 function buildModalForAction(guildId, viewerId, targetId, action) {
@@ -333,7 +352,11 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
     .setFooter({ text: `Server ${guild.id} · Aperto da ${vid} · Target ${tid}` });
 
   const gid = String(guild.id);
-  const components = [buildNavRow(gid, vid, tid, sec), ...buildSectionRows(gid, vid, tid, sec)];
+  const components = [
+    buildNavRow(gid, vid, tid, sec),
+    ...buildSectionRows(gid, vid, tid, sec),
+    buildCloseRow(gid, vid, tid),
+  ];
   return { embeds: [embed], components };
 }
 
@@ -353,6 +376,7 @@ module.exports = {
   parseNavCustomId,
   parseHomeCustomId,
   parseGoCustomId,
+  parseCloseCustomId,
   parseModalCustomId,
   buildModalForAction,
   buildModerationPanelPayload,

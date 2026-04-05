@@ -138,8 +138,8 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
         .setTitle("<a:VC_Alert:1482706673176150077> 2 warn staff — Decidi azione")
         .setDescription(
           `${staffUser} ha raggiunto **2 warn staff** (da valutazioni negative).\n\n` +
-          "**Depex ora** = un livello in basso (Mod → depex completo; Coord → Mod; …).\n" +
-          "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo** (ruolo + staff).",
+          "**Depex ora** = un livello in basso.\n" +
+          "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
         )
         .setThumbnail(staffUser.displayAvatarURL());
       const row = new ActionRowBuilder().addComponents(

@@ -101,7 +101,7 @@ async function handleStaffButtons(interaction) {
     const targetUser = member?.user;
     if (choice === "no") {
       await interaction.update({
-        content: "<:VC_OnlineStatus:1482527088912240650> Nessuna azione. Al **3° warn staff** scatterà il depex completo (ruolo + staff).",
+        content: "<:VC_OnlineStatus:1482527088912240650> Nessuna azione. Al **3° warn staff** scatterà il depex completo.",
         embeds: [],
         components: [],
       }).catch((err) => { logButtonErr(err); return null; });
