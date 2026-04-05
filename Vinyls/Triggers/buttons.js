@@ -202,17 +202,17 @@ async function handleStaffButtons(interaction) {
       "<:infoglowingdot:1443660296823767110> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
       "> <:VC_Attention:1482534443632558151> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n\n" +
       "<a:VC_Arrow:1482706699365257397> <@&1442568904311570555>\n" +
-      "<:VC_DoubleReply:1482532332509466797> **__250__** messaggi\n" +
-      "<:VC_Reply:1482532158080942191> **__2.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&1442568901887000618>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__3.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&1442568897902678038>\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&1442568901887000618>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__450__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__4.5h__** in vocale\n\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&1442568897902678038>\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__2.5h__** in vocale\n\n" +
       "<a:VC_Arrow:1482706699365257397> <@&1442568896237277295>\n" +
-      "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
-      "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__400__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__3.5h__** in vocale\n\n" +
       "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });

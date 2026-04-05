@@ -28,10 +28,10 @@ const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = {
-  [String(IDs.roles.Helper)]: { messages: 250, hours: 2.5 },
-  [String(IDs.roles.Mod)]: { messages: 350, hours: 3.5 },
-  [String(IDs.roles.Coordinator)]: { messages: 450, hours: 4.5 },
-  [String(IDs.roles.Supervisor)]: { messages: 500, hours: 5 },
+  [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
+  [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
+  [String(IDs.roles.Coordinator)]: { messages: 350, hours: 2.5 },
+  [String(IDs.roles.Supervisor)]: { messages: 400, hours: 3.5 },
 };
 const STAFF_ROLE_PRIORITY = [
   String(IDs.roles.Supervisor),
