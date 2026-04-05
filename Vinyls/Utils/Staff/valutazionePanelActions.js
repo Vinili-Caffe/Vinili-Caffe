@@ -47,15 +47,7 @@ function makeLogEmbed(
     .setColor(color);
 }
 
-function makeRemovalEmbed(
-  actor,
-  user,
-  title,
-  description,
-  reason,
-  updatedLabel,
-  updatedValue,
-) {
+function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel, updatedValue) {
   const iconSource = actor.member || actor.user;
   const safeDescriptionRaw = String(description || "").trim();
   const safeDescription = safeDescriptionRaw
@@ -66,7 +58,7 @@ function makeRemovalEmbed(
   const safeUpdatedValue = String(updatedValue || "").trim() || "—";
   return new EmbedBuilder()
     .setAuthor({
-      name: `<:cancel:1461730653677551691> Valutazione rimossa da ${actor.user.username}`,
+      name: `Valutazione rimossa da ${actor.user.username}`,
       iconURL: iconSource.displayAvatarURL?.() || actor.user.displayAvatarURL?.(),
     })
     .setTitle(title)
