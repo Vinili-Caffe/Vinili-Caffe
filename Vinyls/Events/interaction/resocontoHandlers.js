@@ -21,7 +21,6 @@ const ROLE_MODERATOR = String(IDs.roles.Mod);
 const ROLE_COORDINATOR = String(IDs.roles.Coordinator);
 const ROLE_SUPERVISOR = String(IDs.roles.Supervisor);
 const ROLE_ADMIN = String(IDs.roles.Admin);
-const ROLE_MANAGER = String(IDs.roles.Manager);
 const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
 const ROLE_OWNER = String(IDs.roles.Founder);
 
@@ -165,8 +164,7 @@ async function applyPexSideEffects(guild, member, roleId) {
     const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
     return supervisorRemoved && highStaffAdded;
   }
-  if (roleId === ROLE_MANAGER) return ensureRoleRemoved(guild, member, ROLE_ADMIN);
-  if (roleId === ROLE_CO_OWNER) return ensureRoleRemoved(guild, member, ROLE_MANAGER);
+  if (roleId === ROLE_CO_OWNER) return ensureRoleRemoved(guild, member, ROLE_ADMIN);
   if (roleId === ROLE_OWNER) return ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
   return true;
 }
@@ -195,7 +193,7 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const staffAdded = await ensureRoleAdded(guild, member, ROLE_STAFF);
     return supervisorRemoved && coordinatorAdded && staffAdded;
   }
-  if (roleId === ROLE_ADMIN || roleId === ROLE_MANAGER || roleId === ROLE_CO_OWNER) {
+  if (roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);

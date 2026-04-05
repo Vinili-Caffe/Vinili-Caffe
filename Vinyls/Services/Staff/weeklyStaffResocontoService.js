@@ -21,7 +21,6 @@ const RESOCONTO_ROLE_RANK = new Map(
     IDs.roles.Coordinator,
     IDs.roles.Supervisor,
     IDs.roles.Admin,
-    IDs.roles.Manager,
     IDs.roles.CoFounder,
     IDs.roles.Founder,
     IDs.roles.PartnerManager,

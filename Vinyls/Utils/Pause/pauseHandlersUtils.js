@@ -5,7 +5,7 @@ const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
-const STAFF_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.CoFounder, IDs.roles.Manager, IDs.roles.Admin, IDs.roles.Supervisor, IDs.roles.Coordinator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
+const STAFF_ROLE_PRIORITY = [IDs.roles.Founder, IDs.roles.CoFounder, IDs.roles.Admin, IDs.roles.Supervisor, IDs.roles.Coordinator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
 
 function getRomeDateKey(date) {
   if (!date || !date.getTime) return "";
@@ -77,7 +77,6 @@ const PAUSE_ROLE_LIMITS = {
   Coordinator: 1,
   Supervisor: 1,
   Admin: 2,
-  Manager: 1,
   "Co-Founder": 1,
   CoFounder: 1,
   Founder: 1,

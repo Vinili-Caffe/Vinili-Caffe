@@ -13,7 +13,7 @@ const EXTERNAL_STARTUP_DM_DELAY_MS = 600;
 const BLAST_STALE_LOCK_MS = 45 * 60 * 1000;
 const DM_FOOTER = "Se non vuoi ricevere questi avvisi in DM usa +profile nel server.";
 const DEFAULT_TZ = "Europe/Rome";
-const STAFF_ROLE_IDS = [IDs.roles.Staff, IDs.roles.StafferDelMese, IDs.roles.PartnerManager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Founder, IDs.roles.CoFounder,].map((id) => String(id || "").trim()).filter(Boolean);
+const STAFF_ROLE_IDS = [IDs.roles.Staff, IDs.roles.StafferDelMese, IDs.roles.PartnerManager, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Founder, IDs.roles.CoFounder,].map((id) => String(id || "").trim()).filter(Boolean);
 const channelMention = (channelId, fallback) => channelId ? `<#${channelId}>` : fallback;
 const defaultPool = [
   {
@@ -730,8 +730,7 @@ function hasAnyStaffRole(member) {
       name.includes("mod") ||
       name.includes("coordinat") ||
       name.includes("supervisor") ||
-      name.includes("admin") ||
-      name.includes("manager")
+      name.includes("admin")
     ) {
       return true;
     }

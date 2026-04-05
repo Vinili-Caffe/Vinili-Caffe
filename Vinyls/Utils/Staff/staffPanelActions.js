@@ -16,7 +16,6 @@ const ROLE_MODERATOR = IDs.roles.Mod;
 const ROLE_COORDINATOR = IDs.roles.Coordinator;
 const ROLE_SUPERVISOR = IDs.roles.Supervisor;
 const ROLE_ADMIN = IDs.roles.Admin;
-const ROLE_MANAGER = IDs.roles.Manager;
 const ROLE_CO_OWNER = IDs.roles.CoFounder;
 const ROLE_OWNER = IDs.roles.Founder;
 const SUCCESS_COLOR = "#6f4e37";
@@ -120,8 +119,8 @@ __Per qualsiasi cosa l'High Staff è disponibile__ <:staff:1443651912179388548>`
   }).catch(() => null);
 }
 
-const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_COORDINATOR, ROLE_SUPERVISOR, ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER];
-const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER];
+const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_COORDINATOR, ROLE_SUPERVISOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
+const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
 
 async function applyPexSideEffects(
   member,
@@ -182,17 +181,10 @@ async function applyPexSideEffects(
     member = verification.member;
   }
 
-  if (roleId === ROLE_MANAGER) {
+  if (roleId === ROLE_CO_OWNER) {
     await member.roles.remove(ROLE_ADMIN);
     const verification = await ensureRoleState(member, ROLE_ADMIN, false);
-    if (!verification.ok) throw new Error("Pex side effect failed: admin role still present after manager promotion.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_CO_OWNER) {
-    await member.roles.remove(ROLE_MANAGER);
-    const verification = await ensureRoleState(member, ROLE_MANAGER, false);
-    if (!verification.ok) throw new Error("Pex side effect failed: manager role still present after co-owner promotion.");
+    if (!verification.ok) throw new Error("Pex side effect failed: admin role still present after co-owner promotion.");
     member = verification.member;
   }
 
@@ -254,15 +246,6 @@ async function applyDepexSideEffects(member, roleId) {
     await member.roles.remove(ROLE_HIGH_STAFF);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: admin/high staff/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_MANAGER) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    await member.roles.remove(ROLE_HIGH_STAFF);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: manager/high staff/staff roles still present.");
     member = verification.member;
   }
 
@@ -698,7 +681,6 @@ function actorIsCoordinatorPlus(member) {
     IDs.roles.Coordinator,
     IDs.roles.Supervisor,
     IDs.roles.Admin,
-    IDs.roles.Manager,
     IDs.roles.CoFounder,
     IDs.roles.Founder,
     IDs.roles.HighStaff,
@@ -723,7 +705,6 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     ROLE_COORDINATOR,
     ROLE_SUPERVISOR,
     ROLE_ADMIN,
-    ROLE_MANAGER,
     ROLE_CO_OWNER,
     ROLE_OWNER,
   ].filter(Boolean);
@@ -738,7 +719,7 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!roleToRemove) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Coordinator** in su da depexare." };
   }
-  const isAdminOrAbove = [ROLE_ADMIN, ROLE_MANAGER, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
+  const isAdminOrAbove = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
   const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);
   await member.roles.remove(roleIdsToRemove).catch(() => null);
   const verification = await ensureMultipleRoleStates(

@@ -32,7 +32,6 @@ const ROLE_EMOJIS = {
   [IDs.roles.Coordinator]: { emoji: "<:VC_coordinator:1479442481308373032>" },
   [IDs.roles.Supervisor]: { emoji: "<:VC_supervisor:1479442514430656532>" },
   [IDs.roles.Admin]: { emoji: "<:VC_admin:1479442544831103109>" },
-  [IDs.roles.Manager]: { emoji: "<:VC_manager:1479442578217767053>" },
   [IDs.roles.CoFounder]: { emoji: "<:VC_cofounder:1479442609112879276>" },
   [IDs.roles.Founder]: { emoji: "<:VC_founder:1479442642671632557>" },
 };

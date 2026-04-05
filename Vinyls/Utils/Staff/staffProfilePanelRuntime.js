@@ -43,7 +43,6 @@ const STAFF_ROLE_PRIORITY = [
 const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
   IDs.roles.Founder,
   IDs.roles.CoFounder,
-  IDs.roles.Manager,
   IDs.roles.Admin,
   IDs.roles.HighStaff,
   IDs.roles.Supervisor,
@@ -109,7 +108,6 @@ function viewerIsCoordinatorOrAbove(member) {
     (IDs.roles.Coordinator && c.has(IDs.roles.Coordinator)) ||
       (IDs.roles.Supervisor && c.has(IDs.roles.Supervisor)) ||
       (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
-      (IDs.roles.Manager && c.has(IDs.roles.Manager)) ||
       (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)) ||
       (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
       (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)),
@@ -133,7 +131,6 @@ const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [
   IDs.roles.Coordinator,
   IDs.roles.Supervisor,
   IDs.roles.Admin,
-  IDs.roles.Manager,
   IDs.roles.CoFounder,
   IDs.roles.Founder,
 ].filter(Boolean);
@@ -180,10 +177,6 @@ function buildProspectPexRows(viewerId, targetId) {
         .setStyle(ButtonStyle.Primary),
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_manager", v, t, SECTION_HOME))
-        .setLabel("Member → Manager")
-        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_cofounder", v, t, SECTION_HOME))
         .setLabel("Member → Co-Founder")

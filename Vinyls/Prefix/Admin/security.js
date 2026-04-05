@@ -9,7 +9,7 @@ const{getAutoModConfigSnapshot,getAutoModRulesSnapshot,getAutoModPanicSnapshot,t
 const { getSecurityLockState, invalidateSecurityLockCache } = require("../../Services/Moderation/securityOrchestratorService");
 const { sendSecurityAuditLog } = require("../../Utils/Logging/securityAuditLog");
 
-const STAFF_ROLE_IDS=[IDs.roles.Founder,IDs.roles.CoFounder,IDs.roles.Manager,IDs.roles.Admin,IDs.roles.HighStaff,IDs.roles.Supervisor,IDs.roles.Coordinator,IDs.roles.Mod,IDs.roles.Helper,IDs.roles.Staff,].filter(Boolean);
+const STAFF_ROLE_IDS=[IDs.roles.Founder,IDs.roles.CoFounder,IDs.roles.Admin,IDs.roles.HighStaff,IDs.roles.Supervisor,IDs.roles.Coordinator,IDs.roles.Mod,IDs.roles.Helper,IDs.roles.Staff,].filter(Boolean);
 
 const PANIC_CONTROL_ROLE_IDS=[IDs.roles.Founder,IDs.roles.CoFounder,].filter(Boolean);
 
