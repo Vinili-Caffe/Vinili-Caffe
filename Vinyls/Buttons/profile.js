@@ -541,8 +541,7 @@ async function ensureCustomRoleExists(interaction, ownerId, client) {
 
   const anchor = guild.roles.cache.get(ANCHOR_ROLE_ID) || (await guild.roles.fetch(ANCHOR_ROLE_ID).catch(() => null));
   if (anchor?.position) {
-    const customRoleDocs = await CustomRole.find({ guildId: guild.id })
-      .select("roleId")
+    const customRoleDocs = await CustomRole.find({ guildId: guild.id }, { roleId: 1 })
       .lean()
       .catch(() => []);
     const existingCustomPositions = (Array.isArray(customRoleDocs) ? customRoleDocs : [])

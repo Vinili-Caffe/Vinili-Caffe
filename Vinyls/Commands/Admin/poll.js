@@ -57,9 +57,30 @@ function collectCreateAnswers(interaction) {
   return answers;
 }
 
-function collectEditAnswers(interaction, pollMessage) {
+function getStoredPollAnswers(pollData) {
+  if (!pollData) return [];
+  return [
+    pollData.risposta1,
+    pollData.risposta2,
+    pollData.risposta3,
+    pollData.risposta4,
+    pollData.risposta5,
+    pollData.risposta6,
+    pollData.risposta7,
+    pollData.risposta8,
+    pollData.risposta9,
+    pollData.risposta10,
+  ]
+    .map((value) => (value == null ? null : String(value).trim()))
+    .filter((value) => value);
+}
+
+function collectEditAnswers(interaction, pollMessage, pollData = null) {
   const rawMatches = pollMessage.content.match(/__([^_]+)__/g)?.map((entry) => entry.replace(/__/g, "").trim()) || [];
-  const existingAnswers = rawMatches.filter((text, idx) => idx !== 0 || !/^Poll#\d+$/.test(text));
+  const parsedFromMessage = rawMatches.filter((text, idx) => idx !== 0 || !/^Poll\s*#\d+$/i.test(text));
+  const existingAnswers = getStoredPollAnswers(pollData).length
+    ? getStoredPollAnswers(pollData)
+    : parsedFromMessage;
   const answers = [];
 
   for (let i = 1; i <= 10; i += 1) {
@@ -363,7 +384,7 @@ async function handleEdit(interaction) {
     });
   }
 
-  const answers = collectEditAnswers(interaction, pollMessage);
+  const answers = collectEditAnswers(interaction, pollMessage, pollData);
   const gapPosition = hasAnswerGap(answers);
   if (gapPosition) {
     return safeEditReply(interaction, {
