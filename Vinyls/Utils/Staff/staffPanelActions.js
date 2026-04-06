@@ -625,7 +625,7 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
   const warnEmbed = new EmbedBuilder()
     .setAuthor({
-      name: `<:success:1461731530333229226> Warn eseguito da ${actorUser.username}`,
+      name: `Warn eseguito da ${actorUser.username}`,
       iconURL: actorUser.displayAvatarURL(),
     })
     .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``)

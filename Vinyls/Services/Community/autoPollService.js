@@ -16,6 +16,7 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MAX_ROUNDS = 2;
 const OPENROUTER_RETRY_DELAY_MS = 1500;
 const OPENROUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
+const DEFAULT_OPENROUTER_RETRY_UNTIL_HOUR = 22;
 const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
 const DEFAULT_MAX_CANDIDATE_ATTEMPTS = 80;
 const MIN_MAX_CANDIDATE_ATTEMPTS = 5;
@@ -315,6 +316,22 @@ function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
   return new Date(utcMs);
 }
 
+function msUntilRomeLocalHourDeadline(deadlineHour) {
+  const h = Math.floor(Number(deadlineHour));
+  if (!Number.isFinite(h) || h < 0 || h > 23) return 0;
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+  const parts = fmt.formatToParts(now).reduce((acc, part) => {
+    if (part.type !== "literal") acc[part.type] = part.value;
+    return acc;
+  }, {});
+  const y = Number(parts.year || 0);
+  const mo = Number(parts.month || 1);
+  const d = Number(parts.day || 1);
+  const targetUtc = createUtcFromRomeLocal(y, mo, d, h, 0, 0);
+  return Math.max(0, targetUtc.getTime() - now.getTime());
+}
+
 function buildLocalAttualitaPoll(cfg = {}, forcedTargetOptions = null) {
   const picked = pickRandom(LOCAL_POLLS_BANK);
   if (!picked) return null;
@@ -521,25 +538,48 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
 }
 
 async function fetchPollFromOpenRouterWithRetry(cfg = {}, forcedTargetOptions = null) {
+  if (!String(process.env.OPENROUTER_API_KEY || "").trim()) return null;
+  if (!resolveOpenRouterModels(cfg).length) return null;
+
   const maxRounds = Math.max(1, Math.min(10, Math.floor(Number(cfg.openrouterRetryRounds || OPENROUTER_MAX_ROUNDS))),);
   const retryDelayMs = Math.max(0, Math.min(10000, Math.floor(Number(cfg.openrouterRetryDelayMs || OPENROUTER_RETRY_DELAY_MS))),);
+  const rawDeadline = Number(cfg.openrouterRetryUntilHour);
+  const deadlineHour = Number.isFinite(rawDeadline)
+    ? Math.min(23, Math.max(0, Math.floor(rawDeadline)))
+    : DEFAULT_OPENROUTER_RETRY_UNTIL_HOUR;
 
-  for (let round = 0; round < maxRounds; round += 1) {
-    if (isOpenRouterCoolingDown()) break;
-    const payload = await fetchPollFromOpenRouter(cfg, forcedTargetOptions).catch((error) => { global.logger?.warn?.("[poll.auto] OpenRouter round failed:", error?.message || error); return null; });
-    if (payload?.question && Array.isArray(payload?.answers) && payload.answers.length >= 4) {
-      return payload;
+  while (msUntilRomeLocalHourDeadline(deadlineHour) > 0) {
+    for (let round = 0; round < maxRounds; round += 1) {
+      if (isOpenRouterCoolingDown()) break;
+      const payload = await fetchPollFromOpenRouter(cfg, forcedTargetOptions).catch((error) => { global.logger?.warn?.("[poll.auto] OpenRouter round failed:", error?.message || error); return null; });
+      if (payload?.question && Array.isArray(payload?.answers) && payload.answers.length >= 4) {
+        return payload;
+      }
+      if (isOpenRouterCoolingDown()) break;
+      if (round < maxRounds - 1 && retryDelayMs > 0) {
+        const cap = msUntilRomeLocalHourDeadline(deadlineHour);
+        await sleep(cap > 0 ? Math.min(retryDelayMs, cap) : retryDelayMs);
+      }
     }
-    if (isOpenRouterCoolingDown()) break;
-    if (round < maxRounds - 1 && retryDelayMs > 0) {
-      await sleep(retryDelayMs);
+
+    const untilDeadline = msUntilRomeLocalHourDeadline(deadlineHour);
+    if (untilDeadline <= 0) break;
+
+    if (isOpenRouterCoolingDown()) {
+      const untilCool = Math.max(0, Number(openRouterCooldownUntil || 0) - Date.now());
+      const sleepMs = Math.min(untilCool, untilDeadline);
+      if (sleepMs > 0) await sleep(sleepMs);
+      continue;
     }
+
+    const stagger = Math.min(retryDelayMs > 0 ? retryDelayMs : 1500, untilDeadline);
+    if (stagger > 0) await sleep(stagger);
   }
 
   if (isOpenRouterCoolingDown()) {
-    warnPollOpenRouter("OpenRouter cooling down after rate limit, falling back to local.");
+    warnPollOpenRouter("OpenRouter in cooldown (rate limit): nessun poll entro le 22:00 Roma, fallback locale.");
   } else {
-    warnPollOpenRouter("OpenRouter retries exhausted, falling back to local.");
+    warnPollOpenRouter("OpenRouter: tentativi fino alle 22:00 Roma senza poll valido, fallback locale.");
   }
   return null;
 }
