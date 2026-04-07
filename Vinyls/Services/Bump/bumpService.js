@@ -141,6 +141,7 @@ function createBumpReminderService(options) {
 
   const bumpTimers = new Map();
   const RETRY_DELAY_MS = 5 * 60 * 1000;
+  const MIN_CHAT_MESSAGES_FOR_REMINDER = 10;
 
   function getCooldownMs(client) {
     const minutes = client?.config?.[configKey]?.cooldownMinutes || defaultCooldownMinutes;
@@ -187,6 +188,12 @@ function createBumpReminderService(options) {
     return resolveFallbackReminderChannel(client, guildId || mainGid);
   }
 
+  async function channelHasMinMessagesForReminder(channel) {
+    if (!channel?.messages?.fetch) return false;
+    const batch = await channel.messages.fetch({ limit: MIN_CHAT_MESSAGES_FOR_REMINDER }).catch(() => null);
+    return Boolean(batch && batch.size >= MIN_CHAT_MESSAGES_FOR_REMINDER);
+  }
+
   async function sendReminder(client, guildId) {
     const gid = String(guildId || "");
     if (!gid) return false;
@@ -221,6 +228,10 @@ function createBumpReminderService(options) {
         debugReminder(gid, "send_fail:no_config_channel_and_no_fallback");
         return false;
       }
+      if (!(await channelHasMinMessagesForReminder(fallback))) {
+        debugReminder(gid, "skip:few_channel_messages");
+        return false;
+      }
       debugReminder(gid, `send_try:fallback_channel channelId=${String(fallback.id || "")}`);
       const sent = await fallback.send({
         content: mentionContent,
@@ -247,6 +258,10 @@ function createBumpReminderService(options) {
       debugReminder(gid, `send_fail:resolved_channel_missing configuredChannelId=${reminderChannelId}`);
       return false;
     }
+    if (!(await channelHasMinMessagesForReminder(channel))) {
+      debugReminder(gid, "skip:few_channel_messages");
+      return false;
+    }
 
     const embedColor = client?.config?.embedInfo || "#6f4e37";
     const roleIds = [...String(mentionContent || "").matchAll(/<@&(\d+)>/g)].map((m) => m[1]);
@@ -266,6 +281,10 @@ function createBumpReminderService(options) {
       const fallbackChannel = await resolveFallbackReminderChannel(client, gid);
       if (!fallbackChannel || String(fallbackChannel.id || "") === String(channel?.id || "")) {
         debugReminder(gid, "send_fail:configured_failed_and_no_distinct_fallback");
+        return false;
+      }
+      if (!(await channelHasMinMessagesForReminder(fallbackChannel))) {
+        debugReminder(gid, "skip:fallback_few_channel_messages");
         return false;
       }
       debugReminder(gid, `send_try:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);

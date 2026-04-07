@@ -13,7 +13,7 @@ const AFK_RETURN_TTL_MS = 3000;
 const WORD_REACTIONS_CONFIG_PATH = path.join(__dirname, "..", "Config", "wordReactions.json");
 const WORD_REACTIONS_MAX_REACTIONS = 20;
 const WORD_REACTIONS_TIMEZONE = "Europe/Rome";
-const WELCOME_CONTEXT_DURATION_MS = 5 * 60 * 1000;
+const WELCOME_CONTEXT_DURATION_MS = 10 * 60 * 1000;
 let wordReactionsConfigCache = null;
 const welcomeContextUntilByChannelId = new Map();
 
@@ -91,18 +91,19 @@ function matchesAtMessageStart(haystack, wordOrPhrase) {
   const h = stripLeadingNoiseForGreeting(haystack);
   const needle = String(wordOrPhrase || "").trim().toLowerCase();
   if (!needle || !h) return false;
+  const lastChar = needle.slice(-1);
+  const repeatedNeedle = lastChar ? `${escapeRegex(needle)}${escapeRegex(lastChar)}*` : escapeRegex(needle);
+  const phrasePattern = new RegExp(`^${repeatedNeedle}(?:$|[\\s\\p{P}])`, "u");
   if (needle.includes(" ")) {
-    return (
-      h.startsWith(needle) &&
-      (h.length === needle.length || /^[\s\p{P}]/.test(h.slice(needle.length)))
-    );
+    return phrasePattern.test(h);
   }
   const firstToken = h.match(/^([^\s]+)/u);
   if (!firstToken) return false;
   const raw = firstToken[1];
   const first = raw.replace(/[\p{P}]+$/gu, "").toLowerCase();
   if (first === needle) return true;
-  if (h.startsWith(needle) && (h.length === needle.length || /^[\s\p{P}]/.test(h[needle.length]))) return true;
+  if (first.startsWith(needle) && new RegExp(`^${repeatedNeedle}$`, "u").test(first)) return true;
+  if (phrasePattern.test(h)) return true;
   return false;
 }
 
