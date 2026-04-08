@@ -43,6 +43,42 @@ function parseUserDateInput(raw) {
   return { day, month, year, hasYear: year !== null };
 }
 
+/** Prova a consumare una data dall'array di token (1–3 token: es. `01/02`, `1 agosto`, `1 agosto 2027`). */
+function tryParseDateFromTokens(tokens, startIndex) {
+  for (let n = 1; n <= 3 && startIndex + n <= tokens.length; n++) {
+    const candidate = tokens.slice(startIndex, startIndex + n).join(" ");
+    if (parseUserDateInput(candidate)) {
+      return { raw: candidate, nextIndex: startIndex + n };
+    }
+  }
+  return null;
+}
+
+/**
+ * Messaggio canale pause: `<data> - <data> - <motivo>` oppure `<data> <data> <motivo>` (stesso ordine, senza trattini).
+ */
+function parsePauseChannelMessageContent(raw) {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return null;
+  const hyphen = trimmed.match(/^(.+?)\s-\s(.+?)\s-\s(.+)$/);
+  if (hyphen) {
+    const rawStart = String(hyphen[1] || "").trim();
+    const rawEnd = String(hyphen[2] || "").trim();
+    const reason = String(hyphen[3] || "").trim();
+    if (!reason) return null;
+    return { rawStart, rawEnd, reason };
+  }
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length < 3) return null;
+  const first = tryParseDateFromTokens(tokens, 0);
+  if (!first) return null;
+  const second = tryParseDateFromTokens(tokens, first.nextIndex);
+  if (!second) return null;
+  const reason = tokens.slice(second.nextIndex).join(" ").trim();
+  if (!reason) return null;
+  return { rawStart: first.raw, rawEnd: second.raw, reason };
+}
+
 function buildUtcDate(day, month, year) {
   if (!day || !month || !year) return null;
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -205,4 +241,4 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   return { ok: true, pauseId };
 }
 
-module.exports = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest };
+module.exports = { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent };

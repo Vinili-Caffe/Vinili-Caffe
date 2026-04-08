@@ -2,7 +2,7 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs } = require("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService");
-const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest } = require("../Pause/pauseRequestRuntime");
+const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
@@ -774,17 +774,17 @@ async function handlePauseChannelMessage(message) {
 
   const raw = String(message.content || "").trim();
   if (!raw) return false;
-  const match = raw.match(/^(.+?)\s-\s(.+?)\s-\s(.+)$/);
-  if (!match) {
-    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa: \`<data richiesta> - <data ritorno> - <motivazione>\`` }).catch(() => null);
+  const parsed = parsePauseChannelMessageContent(raw);
+  if (!parsed) {
+    const warning = await message.channel.send({ content: `${message.author} formato non valido. Usa: \`<data richiesta> - <data ritorno> - <motivazione>\` oppure \`<data richiesta> <data ritorno> <motivazione>\` (stesso ordine, anche senza trattini).` }).catch(() => null);
     await message.delete().catch(() => { });
     if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
     return true;
   }
 
-  const rawStart = String(match[1] || "").trim();
-  const rawEnd = String(match[2] || "").trim();
-  const reason = String(match[3] || "").trim();
+  const rawStart = parsed.rawStart;
+  const rawEnd = parsed.rawEnd;
+  const reason = parsed.reason;
   const result = await createPauseRequest({ guild: message.guild, userId: message.author.id, requesterMention: String(message.author), rawStart, rawEnd, reason, member: message.member, });
   if (!result.ok) {
     const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${result.error}` }).catch(() => null);
