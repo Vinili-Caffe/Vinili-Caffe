@@ -212,6 +212,7 @@ const staffPauseEntrySchema = new Schema(
     motivazione: String,
     giorniUsati: { type: Number, default: 0 },
     giorniAggiuntivi: { type: Number, default: 0 },
+    ruoloRichiesto: String,
     ruolo: String,
     stafferInPausa: { type: Number, default: 0 },
     status: { type: String, default: "pending" },

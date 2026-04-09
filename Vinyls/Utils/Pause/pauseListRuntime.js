@@ -171,7 +171,8 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     if (!start || !end || countOverlapDays(start, end, yearStart, yearEnd) <= 0) return null;
     const reasonFromMsg = client ? await getPauseReasonFromMessage(client, pause) : null;
     const reason = (reasonFromMsg || String(pause?.motivazione || "").trim().slice(0, 800) || "—");
-    return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1482706699365257397> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati: \`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\`\n\n<:VC_reason:1478517122929004544> ${reason}`;
+    const pauseRole = String(pause?.ruolo || pause?.ruoloRichiesto || "Staff");
+    return `<:VC_Dot:1482532364222595303> \`${pause.dataRichiesta}\` <a:VC_Arrow:1482706699365257397> \`${pause.dataRitorno}\` | **${getPauseStatusLabel(pause, todayUtc)}** | <:VC_Clock:1473359204189474886> Giorni scalati: \`${computePauseScaledDaysThisYear(pause, todayUtc, yearStart, yearEnd)}\`\n<:VC_Mention:1482526855289634997> Ruolo pausa: \`${pauseRole}\`\n\n<:VC_reason:1478517122929004544> ${reason}`;
   });
   const rows = (await Promise.all(rowPromises)).filter(Boolean);
   const monthLabel = monthFilter >= 1 && monthFilter <= 12 ? ` ${MONTH_LABELS[monthFilter - 1]} ${currentYear}` : "";

@@ -60,4 +60,77 @@ async function deleteStaffPauseRequestChannelMessages(guild, userId) {
   }
 }
 
-module.exports = { getOrCreateStaffDoc, deleteThreadForMessage, deleteStaffPauseRequestChannelMessages, ensureStaff };
+const DEPEX_SCAN_FETCH_LIMIT = 100;
+const DEPEX_SCAN_MAX_MESSAGES_PER_CHANNEL = 1500;
+
+function messageLooksRelatedToUser(msg, userId) {
+  if (!msg || !userId) return false;
+  const uid = String(userId);
+  if (String(msg.author?.id || "") === uid) return true;
+  const content = String(msg.content || "");
+  if (content.includes(`<@${uid}>`) || content.includes(`<@!${uid}>`) || content.includes(uid)) {
+    return true;
+  }
+  const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
+  return embeds.some((e) => {
+    const title = String(e?.title || e?.data?.title || "");
+    const desc = String(e?.description || e?.data?.description || "");
+    const footer = String(e?.footer?.text || e?.data?.footer?.text || "");
+    return (
+      title.includes(uid) ||
+      desc.includes(uid) ||
+      footer.includes(uid) ||
+      title.includes(`<@${uid}>`) ||
+      desc.includes(`<@${uid}>`) ||
+      title.includes(`<@!${uid}>`) ||
+      desc.includes(`<@!${uid}>`)
+    );
+  });
+}
+
+async function deleteUserRelatedMessagesInChannel(guild, channelId, userId) {
+  const chId = String(channelId || "").trim();
+  if (!chId || !guild) return 0;
+  const channel = guild.channels.cache.get(chId) || (await getGuildChannelCached(guild, chId));
+  if (!channel?.messages?.fetch) return 0;
+  let deleted = 0;
+  let before = null;
+  let scanned = 0;
+  while (scanned < DEPEX_SCAN_MAX_MESSAGES_PER_CHANNEL) {
+    const batch = await channel.messages
+      .fetch({ limit: DEPEX_SCAN_FETCH_LIMIT, ...(before ? { before } : {}) })
+      .catch(() => null);
+    if (!batch?.size) break;
+    for (const msg of batch.values()) {
+      scanned += 1;
+      if (messageLooksRelatedToUser(msg, userId)) {
+        const ok = await msg.delete().then(() => true).catch(() => false);
+        if (ok) deleted += 1;
+      }
+      if (scanned >= DEPEX_SCAN_MAX_MESSAGES_PER_CHANNEL) break;
+    }
+    before = batch.last()?.id || null;
+    if (!before || batch.size < DEPEX_SCAN_FETCH_LIMIT) break;
+  }
+  return deleted;
+}
+
+async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId) {
+  const uid = String(userId || "").trim();
+  if (!guild || !uid) return { deleted: 0 };
+  const channelIds = [
+    IDs.channels?.pause,
+    IDs.channels?.valutazioniStaff,
+    IDs.channels?.warnStaff,
+    IDs.channels?.puntiTolti,
+  ]
+    .map((x) => String(x || "").trim())
+    .filter(Boolean);
+  let deleted = 0;
+  for (const channelId of channelIds) {
+    deleted += await deleteUserRelatedMessagesInChannel(guild, channelId, uid);
+  }
+  return { deleted };
+}
+
+module.exports = { getOrCreateStaffDoc, deleteThreadForMessage, deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, ensureStaff };

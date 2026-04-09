@@ -309,13 +309,23 @@ function parseItalianDate(value) {
   return date;
 }
 
-function getStaffPauseLine(staffDoc) {
+function pauseRoleAppliesToSection(pauseRole, sectionRole) {
+  const p = String(pauseRole || "").trim().toLowerCase();
+  const s = String(sectionRole || "").trim().toLowerCase();
+  if (!s) return true;
+  if (!p) return true;
+  if (p === "entrambi") return s === "staff" || s === "partnermanager";
+  return p === s;
+}
+
+function getStaffPauseLine(staffDoc, sectionRole = null) {
   const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
   for (const p of pauses) {
     if (!p || p.status !== "accepted") continue;
+    if (!pauseRoleAppliesToSection(p.ruolo || p.ruoloRichiesto, sectionRole)) continue;
     const start = parseItalianDate(p.dataRichiesta);
     const end = parseItalianDate(p.dataRitorno);
     if (!start || !end) continue;
@@ -329,12 +339,13 @@ function getStaffPauseLine(staffDoc) {
   return null;
 }
 
-function wasInPauseDuringWeek(staffDoc, weekStart, weekEnd) {
+function wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, sectionRole = null) {
   const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
   const ws = weekStart.getTime();
   const we = weekEnd.getTime();
   for (const p of pauses) {
     if (!p || p.status !== "accepted") continue;
+    if (!pauseRoleAppliesToSection(p.ruolo || p.ruoloRichiesto, sectionRole)) continue;
     const start = parseItalianDate(p.dataRichiesta);
     const end = parseItalianDate(p.dataRitorno);
     if (!start || !end) continue;
@@ -688,7 +699,7 @@ async function runWeeklyStaffResoconti(client) {
       const activityGrade = computeActivityGrade(staffRoleId, weeklyMessages, weeklyVoiceHours,);
       const behaviorGrade = computeBehaviorGrade(staffDoc?.positiveCount, staffDoc?.negativeCount,);
       const pexedInWeek = wasPexedInWeek(staffDoc, weekStart);
-      const inPauseDuringWeek = wasInPauseDuringWeek(staffDoc, weekStart, weekEnd);
+      const inPauseDuringWeek = wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
       const staffNewBadge = pexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
 
       const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
@@ -715,7 +726,7 @@ async function runWeeklyStaffResoconti(client) {
             staffDoc?.negativeCount,
           );
       contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
-      const pauseLine = getStaffPauseLine(staffDoc);
+      const pauseLine = getStaffPauseLine(staffDoc, "Staff");
       if (pauseLine) contentLines.push(pauseLine);
 
       if (sanctionLimit != null && !inPauseDuringWeek) {
@@ -756,9 +767,9 @@ async function runWeeklyStaffResoconti(client) {
       const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd,);
       const pmPexedInWeek = wasPmPexedInWeek(staffDoc, pmWindow.weekStart);
-      const pmInPauseDuringWeek = wasInPauseDuringWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd);
+      const pmInPauseDuringWeek = wasInPauseDuringWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd, "PartnerManager");
       const action = pmInPauseDuringWeek ? "Nulla" : computePmAction(weeklyPartners, pmPexedInWeek);
-      const pmPauseLine = getStaffPauseLine(staffDoc);
+      const pmPauseLine = getStaffPauseLine(staffDoc, "PartnerManager");
       const pmNewBadge = pmPexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
       const pmContentLines = [
         `<:partnermanager:1443651916838998099> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
@@ -835,7 +846,7 @@ async function runPreResocontoReminders(client) {
   for (const member of reminderMembers) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId);
-    if (wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd)) continue;
+    if (wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd, "Staff") || wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd, "PartnerManager")) continue;
 
     const staffRoleId = resolveStaffRole(member);
     if (staffRoleId) {

@@ -83,6 +83,9 @@ const PAUSE_ROLE_LIMITS = {
   Staff: null,
   PartnerManager: null,
 };
+const PAUSE_ROLE_STAFF = "Staff";
+const PAUSE_ROLE_PM = "PartnerManager";
+const PAUSE_ROLE_BOTH = "Entrambi";
 
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
@@ -193,7 +196,7 @@ async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeSta
     const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
     const hasOverlap = pauses.some((pause) => {
       if (!pause || pause.status !== "accepted") return false;
-      if ((pause.ruolo || "").trim() !== roleLabel) return false;
+      if (!roleChoiceAppliesTo(roleLabel, pause.ruolo)) return false;
       const pStart = parseItalianDate(pause.dataRichiesta);
       const pEnd = parseItalianDate(pause.dataRitorno);
       return rangesOverlap(targetStart, targetEnd, pStart, pEnd);
@@ -295,6 +298,44 @@ function getMemberRoleLabel(member) {
   return "Staff";
 }
 
+function normalizePauseRoleChoice(raw) {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return null;
+  if (value === "staff") return PAUSE_ROLE_STAFF;
+  if (value === "pm" || value === "partnermanager" || value === "partner_manager") return PAUSE_ROLE_PM;
+  if (value === "entrambi" || value === "both") return PAUSE_ROLE_BOTH;
+  return null;
+}
+
+function getMemberPauseRoleChoices(member) {
+  const hasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
+  const hasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
+  if (hasStaff && hasPm) return [PAUSE_ROLE_PM, PAUSE_ROLE_STAFF, PAUSE_ROLE_BOTH];
+  if (hasStaff) return [PAUSE_ROLE_STAFF];
+  if (hasPm) return [PAUSE_ROLE_PM];
+  return [];
+}
+
+function getPauseRoleTargets(roleChoice, member) {
+  const normalized = normalizePauseRoleChoice(roleChoice);
+  if (normalized === PAUSE_ROLE_STAFF) return [PAUSE_ROLE_STAFF];
+  if (normalized === PAUSE_ROLE_PM) return [PAUSE_ROLE_PM];
+  if (normalized === PAUSE_ROLE_BOTH) return [PAUSE_ROLE_STAFF, PAUSE_ROLE_PM];
+  const fallback = getMemberPauseRoleChoices(member);
+  if (fallback.includes(PAUSE_ROLE_STAFF) && fallback.includes(PAUSE_ROLE_PM)) return [PAUSE_ROLE_STAFF];
+  if (fallback.includes(PAUSE_ROLE_STAFF)) return [PAUSE_ROLE_STAFF];
+  if (fallback.includes(PAUSE_ROLE_PM)) return [PAUSE_ROLE_PM];
+  return [PAUSE_ROLE_STAFF];
+}
+
+function roleChoiceAppliesTo(baseRole, pauseRoleChoice) {
+  const role = normalizePauseRoleChoice(baseRole);
+  const pause = normalizePauseRoleChoice(pauseRoleChoice);
+  if (!role || !pause) return false;
+  if (pause === PAUSE_ROLE_BOTH) return role === PAUSE_ROLE_STAFF || role === PAUSE_ROLE_PM;
+  return role === pause;
+}
+
 function getPauseRoleLimit(roleLabel) {
   if (!roleLabel || typeof roleLabel !== "string") return null;
   const key = roleLabel.trim();
@@ -394,12 +435,10 @@ function isHelperFirstWeek(member, staffDoc) {
   return then > weekAgo;
 }
 
-function getBasePauseLimit(member) {
-  const hasStaffRole = member.roles.cache.has(IDs.roles.Staff);
-  const hasPartnerManagerRole = member.roles.cache.has(IDs.roles.PartnerManager);
-  if (hasStaffRole) return 60;
-  if (hasPartnerManagerRole) return 45;
-  return 60;
+function getBasePauseLimit(member, requestedRole = null) {
+  const targets = getPauseRoleTargets(requestedRole, member);
+  const values = targets.map((t) => (t === PAUSE_ROLE_PM ? 45 : 60));
+  return values.length ? Math.max(...values) : 60;
 }
 
 function getPauseStatusLabel(pause, todayUtc) {
@@ -542,4 +581,4 @@ function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseEndRaw) {
   if (typeof timer?.unref === "function") timer.unref();
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo };

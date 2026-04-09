@@ -17,6 +17,8 @@ const DEFAULT_START_HOUR = 9;
 const DEFAULT_END_HOUR = 21;
 const REMINDER_FIXED_INTERVAL_MINUTES = 45;
 const DEFAULT_MIN_GAP_MS = 30 * 60 * 1000;
+const MIN_CHAT_MESSAGES_45M = 10;
+const CHAT_ACTIVITY_WINDOW_45M_MS = 45 * 60 * 1000;
 const scheduledHours = new Map();
 const scheduledTimeouts = new Map();
 let lastReminderSlotKey = null;
@@ -505,6 +507,17 @@ async function getRecentChannelMessageCount(
   return count;
 }
 
+async function hasMinimumChatActivity45m(client) {
+  const channelId = getReminderChannelId(client);
+  if (!channelId) return false;
+  const count45m = await getRecentChannelMessageCount(
+    client,
+    channelId,
+    CHAT_ACTIVITY_WINDOW_45M_MS,
+  );
+  return count45m >= MIN_CHAT_MESSAGES_45M;
+}
+
 async function getActivityCounts(client) {
   const channelId = getReminderChannelId(client);
   if (!channelId) return { count30m: 0, count60m: 0 };
@@ -528,6 +541,13 @@ async function getActivityCounts(client) {
 
 async function sendReminder(client, scheduleId, kind = "first") {
   clearScheduleTimeout(scheduleId);
+  const hasActivity = await hasMinimumChatActivity45m(client);
+  if (!hasActivity) {
+    if (scheduleId)
+      await chatReminderScheduleDeleteOne({ scheduleId }).catch(() => { });
+    clearScheduleTimeout(scheduleId);
+    return;
+  }
   const nowMs = Date.now();
   const minGapMs = getMinGapMs(client);
   if (lastSentAt && nowMs - lastSentAt < minGapMs && scheduleId) {
@@ -579,6 +599,8 @@ async function sendReminder(client, scheduleId, kind = "first") {
 async function sendReminderAtFixedSlot(client, parts, slotKey) {
   const channelId = getReminderChannelId(client);
   if (!channelId) return;
+  const hasActivity = await hasMinimumChatActivity45m(client);
+  if (!hasActivity) return;
   const { count30m: activityCount30m } = await getActivityCounts(client);
   const minForSlot = Math.max(1, Number(getCfg(client)?.minMessagesForFixedSlot ?? 1));
   if (activityCount30m < minForSlot) return;

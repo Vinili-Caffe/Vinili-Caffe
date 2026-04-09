@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils");
 const IDs = require("../Config/ids");
-const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek } = require("./pauseHandlersUtils");
+const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, normalizePauseRoleChoice, PAUSE_ROLE_STAFF } = require("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
@@ -133,7 +133,11 @@ function buildPauseRequestButtonsRow(userId, pauseId) {
   );
 }
 
-async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null }) {
+async function createPauseRequest({ guild, userId, requesterMention, rawStart, rawEnd, reason, member = null, requestedRole = null }) {
+  const memberHasStaff = Boolean(member?.roles?.cache?.has(IDs.roles.Staff));
+  const memberHasPm = Boolean(member?.roles?.cache?.has(IDs.roles.PartnerManager));
+  const fallbackRole = memberHasPm && !memberHasStaff ? "PartnerManager" : PAUSE_ROLE_STAFF;
+  const normalizedRequestedRole = normalizePauseRoleChoice(requestedRole) || fallbackRole;
   const guildId = String(guild?.id ?? "").trim();
   const uid = String(userId ?? "").trim();
   if (!guild || !guildId || !uid) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
@@ -160,6 +164,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     dataRichiesta: normalized.dataRichiesta,
     dataRitorno: normalized.dataRitorno,
     motivazione: reason,
+    ruoloRichiesto: normalizedRequestedRole,
     status: "pending",
     createdAt: new Date(),
   });
@@ -187,7 +192,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"
     : "";
 
-  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
+  const content = `<:staff:1443651912179388548> <@&${IDs.roles.HighStaff}> ${requesterMention} ha richiesto una pausa.\n<:VC_Mention:1482526855289634997> Ruolo pausa richiesto: \`${normalizedRequestedRole}\`\n<a:VC_Calendar:1482706208149475358> Data richiesta: ${normalized.dataRichiesta}\n<a:VC_Calendar:1482706208149475358> Data ritorno: ${normalized.dataRitorno}\n<:VC_reason:1478517122929004544> Motivo: ${reason}`;
   const posted = await pauseChannel.send({
     content,
     components: [buildPauseRequestButtonsRow(uid, pauseId)],

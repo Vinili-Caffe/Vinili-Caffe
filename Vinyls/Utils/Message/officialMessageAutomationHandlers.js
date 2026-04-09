@@ -21,6 +21,11 @@ const BUMP_DETECTION_LOG_COOLDOWN_MS = 10 * 60 * 1000;
 const BUMP_SKIP_DEBUG_LOG_TTL_MS = 30 * 60 * 1000;
 const MEMBER_FETCH_CACHE_TTL_MS = 15_000;
 const memberFetchCache = new Map();
+const PAUSE_ROLE_PICK_TIMEOUT_MS = 45_000;
+const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
+const PAUSE_ROLE_PICK_PM = `${PAUSE_ROLE_PICK_PREFIX}pm`;
+const PAUSE_ROLE_PICK_STAFF = `${PAUSE_ROLE_PICK_PREFIX}staff`;
+const PAUSE_ROLE_PICK_BOTH = `${PAUSE_ROLE_PICK_PREFIX}both`;
 
 function hasMediaPermission(member) {
   return MEDIA_BLOCK_ROLE_IDS.some((roleId) =>
@@ -785,7 +790,51 @@ async function handlePauseChannelMessage(message) {
   const rawStart = parsed.rawStart;
   const rawEnd = parsed.rawEnd;
   const reason = parsed.reason;
-  const result = await createPauseRequest({ guild: message.guild, userId: message.author.id, requesterMention: String(message.author), rawStart, rawEnd, reason, member: message.member, });
+  let requestedRole = null;
+  const hasStaff = Boolean(message.member?.roles?.cache?.has(IDs.roles.Staff));
+  const hasPm = Boolean(message.member?.roles?.cache?.has(IDs.roles.PartnerManager));
+  if (hasStaff && hasPm) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_PM).setLabel("PM").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_STAFF).setLabel("Staff").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(PAUSE_ROLE_PICK_BOTH).setLabel("Entrambi").setStyle(ButtonStyle.Primary),
+    );
+    const prompt = await message.channel
+      .send({
+        content: `${message.author} scegli per quale ruolo vuoi chiedere la pausa:`,
+        components: [row],
+      })
+      .catch(() => null);
+    if (!prompt) {
+      const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> Non riesco a chiederti il ruolo pausa. Riprova.` }).catch(() => null);
+      await message.delete().catch(() => { });
+      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+      return true;
+    }
+    const picked = await prompt
+      .awaitMessageComponent({
+        time: PAUSE_ROLE_PICK_TIMEOUT_MS,
+        filter: (i) => i.user?.id === message.author.id,
+      })
+      .catch(() => null);
+    if (!picked) {
+      await prompt.edit({ content: `${message.author} selezione ruolo pausa scaduta. Riinvia la richiesta.`, components: [] }).catch(() => { });
+      await message.delete().catch(() => { });
+      scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
+      return true;
+    }
+    if (picked.customId === PAUSE_ROLE_PICK_PM) requestedRole = "PartnerManager";
+    else if (picked.customId === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
+    else requestedRole = "Staff";
+    await picked.deferUpdate().catch(() => { });
+    await prompt.edit({ content: `${message.author} ruolo pausa selezionato: \`${requestedRole}\``, components: [] }).catch(() => { });
+    scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
+  } else if (hasPm && !hasStaff) {
+    requestedRole = "PartnerManager";
+  } else {
+    requestedRole = "Staff";
+  }
+  const result = await createPauseRequest({ guild: message.guild, userId: message.author.id, requesterMention: String(message.author), rawStart, rawEnd, reason, member: message.member, requestedRole });
   if (!result.ok) {
     const warning = await message.channel.send({ content: `${message.author} <:vegax:1443934876440068179> ${result.error}` }).catch(() => null);
     await message.delete().catch(() => { });

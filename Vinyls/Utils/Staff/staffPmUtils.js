@@ -1,7 +1,7 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
-const { deleteStaffPauseRequestChannelMessages } = require("./staffDocUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels } = require("./staffDocUtils");
 
 const ROLE_PM = IDs.roles.PartnerManager;
 const ROLE_STAFF_GENERIC = IDs.roles.Staff;
@@ -76,6 +76,7 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
   if (!member) return;
   if (!memberHasAnyStaffPresenceForDepexSync(member)) {
     await deleteStaffPauseRequestChannelMessages(guild, uid);
+    await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid);
   }
   await applyStaffDatabaseAfterDepex(gid, uid, member);
 }
