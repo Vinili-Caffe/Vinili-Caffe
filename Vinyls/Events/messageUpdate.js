@@ -3,6 +3,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
+const { handleMentionAutoReactions, handleWordReactions } = require("../Utils/Message/officialMessageCommunityHandlers");
 
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe].filter(Boolean).map(String),);
@@ -240,6 +241,17 @@ module.exports = {
         return;
       }
       if (!after || !contentChanged) return;
+
+      const [mentionsResult, wordResult] = await Promise.allSettled([
+        handleMentionAutoReactions(updated),
+        handleWordReactions(updated),
+      ]);
+      if (mentionsResult.status === "rejected") {
+        global.logger?.error?.("[messageUpdate] mention auto reactions failed:", mentionsResult.reason);
+      }
+      if (wordResult.status === "rejected") {
+        global.logger?.error?.("[messageUpdate] word reactions failed:", wordResult.reason);
+      }
 
       const looksLikePrefix = after.startsWith("+");
       if (!looksLikePrefix) return;
