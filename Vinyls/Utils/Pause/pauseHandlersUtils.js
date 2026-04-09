@@ -462,7 +462,7 @@ function getPauseTimingText(startRaw, endRaw) {
   const today = getTodayUtc();
   if (!start || !end) return "è in pausa";
   if (today < start) return "sarà in pausa";
-  if (today > end) return "era in pausa";
+  if (today > end) return "è stato in pausa";
   return "è in pausa";
 }
 
@@ -556,29 +556,105 @@ async function getPauseReasonFromMessage(client, pause) {
   }
 }
 
-function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseEndRaw) {
-  const end = parseItalianDate(pauseEndRaw);
-  if (!end || !guild || !channelId || !messageId) return;
-  const removalAtMs = end.getTime() + MS_PER_DAY;
-  const delayMs = removalAtMs - Date.now();
-  if (delayMs <= 0) return;
-
-  const timer = setTimeout(async () => {
-    try {
-      const channel = await getGuildChannelCached(guild, String(channelId));
-      if (!channel?.isTextBased?.()) return;
-      const msg = await channel.messages.fetch(String(messageId)).catch(() => null);
-      if (!msg) return;
-      const currentContent = String(msg.content || "");
-      const nextContent = currentContent
-        .replace(" è in pausa.", " è stato in pausa.")
-        .replace(" sarà in pausa.", " è stato in pausa.");
-      await msg.edit({ content: nextContent, components: [] }).catch(() => null);
-    } catch (err) {
-      global.logger?.warn?.("[pauseHandlers] ", err?.message || err);
-    }
-  }, delayMs);
-  if (typeof timer?.unref === "function") timer.unref();
+function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseStartRaw, pauseEndRaw, userId, pauseId) {
+  if (!guild || !channelId || !messageId || !userId || !pauseId) return;
+  const pause = {
+    _id: pauseId,
+    dataRichiesta: pauseStartRaw,
+    dataRitorno: pauseEndRaw,
+    requestChannelId: channelId,
+    requestMessageId: messageId,
+    status: "accepted",
+  };
+  schedulePauseStatusRefresh(guild, String(userId), pause);
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo };
+function normalizePauseStatusPhrase(content, targetPhrase) {
+  const raw = String(content || "");
+  if (!raw) return raw;
+  return raw
+    .replace(" sarà in pausa.", ` ${targetPhrase}.`)
+    .replace(" è in pausa.", ` ${targetPhrase}.`)
+    .replace(" era in pausa.", ` ${targetPhrase}.`)
+    .replace(" è stato in pausa.", ` ${targetPhrase}.`);
+}
+
+function getPausePhase(startRaw, endRaw) {
+  const start = parseItalianDate(startRaw);
+  const end = parseItalianDate(endRaw);
+  const today = getTodayUtc();
+  if (!start || !end) return "active";
+  if (today < start) return "planned";
+  if (today > end) return "ended";
+  return "active";
+}
+
+async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
+  const channelId = String(pause?.requestChannelId || "").trim();
+  const messageId = String(pause?.requestMessageId || "").trim();
+  const pauseId = String(pause?._id || "").trim();
+  if (!guild || !channelId || !messageId || !pauseId) return;
+  const phase = getPausePhase(pause?.dataRichiesta, pause?.dataRitorno);
+  const channel = await getGuildChannelCached(guild, channelId);
+  if (!channel?.isTextBased?.()) return;
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (!msg) return;
+  const currentContent = String(msg.content || "");
+  let nextContent = currentContent;
+  let nextComponents = msg.components || [];
+  if (phase === "planned") {
+    nextContent = normalizePauseStatusPhrase(currentContent, "sarà in pausa");
+    nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
+  } else if (phase === "active") {
+    nextContent = normalizePauseStatusPhrase(currentContent, "è in pausa");
+    nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
+  } else {
+    nextContent = normalizePauseStatusPhrase(currentContent, "è stato in pausa");
+    nextComponents = [];
+  }
+  const sameContent = nextContent === currentContent;
+  const hasComponentsNow = Array.isArray(msg.components) && msg.components.length > 0;
+  const hasComponentsNext = Array.isArray(nextComponents) && nextComponents.length > 0;
+  if (sameContent && hasComponentsNow === hasComponentsNext) return;
+  await msg.edit({ content: nextContent, components: nextComponents }).catch(() => null);
+}
+
+function schedulePauseStatusRefresh(guild, userId, pause) {
+  const start = parseItalianDate(pause?.dataRichiesta);
+  const end = parseItalianDate(pause?.dataRitorno);
+  if (!guild || !pause || !start || !end) return;
+  const checkpoints = [start.getTime(), end.getTime() + MS_PER_DAY];
+  for (const at of checkpoints) {
+    const delayMs = at - Date.now();
+    if (delayMs <= 0) continue;
+    const timer = setTimeout(() => {
+      syncSingleAcceptedPauseMessage(guild, userId, pause).catch(() => null);
+    }, delayMs);
+    if (typeof timer?.unref === "function") timer.unref();
+  }
+}
+
+async function restorePauseMessageStatusSync(client) {
+  const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
+  if (!guildId) return;
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return;
+  const docs = await ActivityUserProfile.find(
+    { guildId, "staff.pauses.status": "accepted" },
+    { userId: 1, "staff.pauses": 1 },
+  )
+    .lean()
+    .catch(() => []);
+  for (const doc of docs) {
+    const userId = String(doc?.userId || "").trim();
+    if (!userId) continue;
+    const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
+    for (const pause of pauses) {
+      if (!pause || pause.status !== "accepted") continue;
+      await syncSingleAcceptedPauseMessage(guild, userId, pause);
+      schedulePauseStatusRefresh(guild, userId, pause);
+    }
+  }
+}
+
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo };

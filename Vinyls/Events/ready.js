@@ -35,6 +35,7 @@ const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
+const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 
@@ -700,6 +701,11 @@ module.exports = {
       const engagementTick = client._engagementTick || (async () => { });
       void runDeferredStartup(client, primaryScheduler, engagementTick).finally(() => {
         client._deferredStartupRunning = false;
+      });
+    }
+    if (primaryScheduler) {
+      void restorePauseMessageStatusSync(client).catch((err) => {
+        global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err?.message || err);
       });
     }
     if (primaryScheduler) {

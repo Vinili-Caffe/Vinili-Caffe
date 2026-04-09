@@ -19,6 +19,16 @@ function resolveAcceptedPauseRoleChoice(member, targetPause) {
   return PAUSE_ROLE_STAFF;
 }
 
+function formatPauseRoleLabelForMessage(guild, roleChoice) {
+  const normalized = normalizePauseRoleChoice(roleChoice) || PAUSE_ROLE_STAFF;
+  if (normalized !== PAUSE_ROLE_BOTH) return normalized;
+  const staffRole = guild?.roles?.cache?.get(String(IDs.roles?.Staff || ""));
+  const pmRole = guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
+  const staffLabel = staffRole?.name || "Staff";
+  const pmLabel = pmRole?.name || "Partner Manager";
+  return `${staffLabel} & ${pmLabel}`;
+}
+
 async function handlePauseButton(interaction) {
   if (!interaction.isButton()) return false;
   if (
@@ -434,7 +444,8 @@ async function handlePauseButton(interaction) {
   const now = getTodayUtc();
   const pauseAlreadyEnded = Boolean(pauseEnd && now > pauseEnd);
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
-  const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${targetPause.ruolo}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
+  const pauseRoleLabel = formatPauseRoleLabelForMessage(interaction.guild, targetPause.ruolo);
+  const acceptanceContent = `<a:VC_Calendar:1482706208149475358> **\`${pauseRoleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${targetPause.dataRichiesta}\`** al **\`${targetPause.dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:staff:1443651912179388548> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 
   await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
   await interaction.deferUpdate().catch(() => {});
@@ -447,7 +458,10 @@ async function handlePauseButton(interaction) {
       interaction.guild,
       interaction.channel.id,
       interaction.message.id,
+      targetPause.dataRichiesta,
       targetPause.dataRitorno,
+      effectiveUserId,
+      effectivePauseId,
     );
   }
   return true;
