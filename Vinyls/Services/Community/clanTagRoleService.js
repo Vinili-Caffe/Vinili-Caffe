@@ -115,6 +115,41 @@ const lastClanSyncAfterMemberEventByUser = new Map();
 
 const GUILDED_ANNOUNCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const lastGuildedChannelAnnounceByUserId = new Map();
+const lastGuildedAnnouncementMessageByUserId = new Map();
+const GUILDED_ANNOUNCE_SCAN_LIMIT = 200;
+
+async function deleteGuildedAnnouncementForUser(member) {
+  const uid = String(member?.id || "");
+  if (!uid) return false;
+  const channelId = ANNOUNCE_CHANNEL_ID;
+  const channel = channelId
+    ? (member.guild.channels.cache.get(channelId) ||
+      (await getGuildChannelCached(member.guild, channelId)))
+    : null;
+  if (!channel?.isTextBased?.() || !channel.messages?.fetch) return false;
+  const known = lastGuildedAnnouncementMessageByUserId.get(uid) || null;
+  if (known?.messageId && String(known.channelId || "") === String(channel.id)) {
+    const knownMsg = await channel.messages.fetch(String(known.messageId)).catch(() => null);
+    if (knownMsg) {
+      const ok = await knownMsg.delete().then(() => true).catch(() => false);
+      if (ok) return true;
+    }
+  }
+  const recent = await channel.messages.fetch({ limit: GUILDED_ANNOUNCE_SCAN_LIMIT }).catch(() => null);
+  if (!recent?.size) return false;
+  for (const msg of recent.values()) {
+    if (String(msg.author?.id || "") !== String(member.client?.user?.id || "")) continue;
+    const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
+    const hasGuildedTitle = embeds.some((e) =>
+      String(e?.title || e?.data?.title || "").toLowerCase().includes("nuovx guilded"),
+    );
+    const mentionsUser = String(msg.content || "").includes(`<@${uid}>`) || String(msg.content || "").includes(`<@!${uid}>`);
+    if (!hasGuildedTitle && !mentionsUser) continue;
+    const ok = await msg.delete().then(() => true).catch(() => false);
+    if (ok) return true;
+  }
+  return false;
+}
 
 async function syncClanTagRolesForUserEverywhereAfterMemberEvent(client, user) {
   const uid = String(user?.id || "");
@@ -170,6 +205,8 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
     } else if (GLOBAL_GUILDED_ROLE_ID) {
       await removeRolesFromMember(member, [GLOBAL_GUILDED_ROLE_ID], "Ruolo Guilded");
       lastGuildedChannelAnnounceByUserId.delete(String(member.id));
+      await deleteGuildedAnnouncementForUser(member).catch(() => false);
+      lastGuildedAnnouncementMessageByUserId.delete(String(member.id));
     }
     return { added: addedMain, addedMain, addedSponsor };
   }
@@ -285,7 +322,13 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
       embeds: [embed],
     })
     .catch(() => null);
-  if (sent) lastGuildedChannelAnnounceByUserId.set(uid, Date.now());
+  if (sent) {
+    lastGuildedChannelAnnounceByUserId.set(uid, Date.now());
+    lastGuildedAnnouncementMessageByUserId.set(uid, {
+      channelId: String(channel.id || ""),
+      messageId: String(sent.id || ""),
+    });
+  }
 }
 
 async function syncAllMembersClanTags(client) {
