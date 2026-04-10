@@ -576,18 +576,20 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
     });
 
     const row = buildWeeklyContestVoteRow(message.id);
-    let surface = message;
-    try {
-      surface = await message.edit({ components: [row] });
-    } catch (err) {
-      global.logger?.warn?.("[WEEKLY_CONTEST] impossibile aggiungere pulsanti voto:", err?.message || err);
-    }
-    await surface.reactions.removeAll().catch(() => {});
+    await message
+      .reply({
+        components: [row],
+        allowedMentions: { repliedUser: false },
+      })
+      .catch((err) => {
+        global.logger?.warn?.("[WEEKLY_CONTEST] impossibile inviare messaggio pulsanti voto:", err?.message || err);
+      });
+    await message.reactions.removeAll().catch(() => {});
 
-    if (!surface.hasThread) {
-      const label = String(surface.author?.globalName || surface.author?.username || "autore").trim() || "autore";
+    if (!message.hasThread) {
+      const label = String(message.author?.globalName || message.author?.username || "autore").trim() || "autore";
       const name = `Commenti · ${label}`.slice(0, 100);
-      await surface.startThread({
+      await message.startThread({
         name,
         autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
         reason: "Contest sfondi: commenti allo sfondo",

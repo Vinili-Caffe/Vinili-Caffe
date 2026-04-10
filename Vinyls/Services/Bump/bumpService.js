@@ -133,6 +133,37 @@ function buildBumpStateModel(kind, stateUserId) {
         .catch(() => []);
       return docs.map((d) => String(d?.guildId || "")).filter(Boolean);
     },
+    async claimReminderNotificationSlot(guildId, lastBumpAt) {
+      const gid = String(guildId || "");
+      if (!gid || !lastBumpAt) return null;
+      const lb = lastBumpAt instanceof Date ? lastBumpAt : new Date(lastBumpAt);
+      const lbMs = lb.getTime();
+      if (!Number.isFinite(lbMs)) return null;
+      const winMs = 5000;
+      const claimedAt = new Date();
+      const res = await ActivityUserProfile.updateOne(
+        {
+          guildId: gid,
+          userId: stateUserId,
+          [lastBumpAtPath]: { $gte: new Date(lbMs - winMs), $lte: new Date(lbMs + winMs) },
+          $or: [
+            { [reminderSentAtPath]: { $exists: false } },
+            { [reminderSentAtPath]: null },
+            { [reminderSentAtPath]: { $lt: lb } },
+          ],
+        },
+        { $set: { [reminderSentAtPath]: claimedAt } },
+      ).catch(() => ({ modifiedCount: 0 }));
+      return res?.modifiedCount === 1 ? claimedAt : null;
+    },
+    async rollbackReminderNotificationClaim(guildId, claimedAt) {
+      const gid = String(guildId || "");
+      if (!gid || !claimedAt) return;
+      await ActivityUserProfile.updateOne(
+        { guildId: gid, userId: stateUserId, [reminderSentAtPath]: claimedAt },
+        { $set: { [reminderSentAtPath]: null } },
+      ).catch(() => null);
+    },
   };
 }
 
@@ -221,6 +252,18 @@ function createBumpReminderService(options) {
       return false;
     }
 
+    const lastBumpAtForClaim = fresh.lastBumpAt;
+
+    async function afterFailedClaim() {
+      const again = await resolveLean(model.findOne({ guildId: gid })).catch(() => null);
+      if (!again) return false;
+      if (!again.lastBumpAt) return true;
+      const lastT2 = new Date(again.lastBumpAt).getTime();
+      const remindedT2 = again?.reminderSentAt ? new Date(again.reminderSentAt).getTime() : NaN;
+      if (Number.isFinite(remindedT2) && remindedT2 >= lastT2) return true;
+      return false;
+    }
+
     const reminderChannelId = getReminderChannelId(client);
     if (!reminderChannelId) {
       const fallback = await resolveFallbackReminderChannel(client, gid);
@@ -231,6 +274,12 @@ function createBumpReminderService(options) {
       if (!(await channelHasMinMessagesForReminder(fallback))) {
         debugReminder(gid, "skip:few_channel_messages");
         return false;
+      }
+      const claimedAt = await model.claimReminderNotificationSlot(gid, lastBumpAtForClaim);
+      if (!claimedAt) {
+        const done = await afterFailedClaim();
+        debugReminder(gid, done ? "skip:claim_lost_already_reminded" : "skip:claim_lost");
+        return done;
       }
       debugReminder(gid, `send_try:fallback_channel channelId=${String(fallback.id || "")}`);
       const sent = await fallback.send({
@@ -245,11 +294,9 @@ function createBumpReminderService(options) {
       }).then(() => true).catch(() => false);
       if (!sent) {
         debugReminder(gid, `send_fail:fallback_channel channelId=${String(fallback.id || "")}`);
+        await model.rollbackReminderNotificationClaim(gid, claimedAt);
         return false;
       }
-      await model
-        .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date(), lastBumpAt: fresh.lastBumpAt } })
-        .catch(() => null);
       debugReminder(gid, `send_ok:fallback_channel channelId=${String(fallback.id || "")}`);
       return true;
     }
@@ -261,6 +308,13 @@ function createBumpReminderService(options) {
     if (!(await channelHasMinMessagesForReminder(channel))) {
       debugReminder(gid, "skip:few_channel_messages");
       return false;
+    }
+
+    const claimedAt = await model.claimReminderNotificationSlot(gid, lastBumpAtForClaim);
+    if (!claimedAt) {
+      const done = await afterFailedClaim();
+      debugReminder(gid, done ? "skip:claim_lost_already_reminded" : "skip:claim_lost");
+      return done;
     }
 
     const embedColor = client?.config?.embedInfo || "#6f4e37";
@@ -281,10 +335,12 @@ function createBumpReminderService(options) {
       const fallbackChannel = await resolveFallbackReminderChannel(client, gid);
       if (!fallbackChannel || String(fallbackChannel.id || "") === String(channel?.id || "")) {
         debugReminder(gid, "send_fail:configured_failed_and_no_distinct_fallback");
+        await model.rollbackReminderNotificationClaim(gid, claimedAt);
         return false;
       }
       if (!(await channelHasMinMessagesForReminder(fallbackChannel))) {
         debugReminder(gid, "skip:fallback_few_channel_messages");
+        await model.rollbackReminderNotificationClaim(gid, claimedAt);
         return false;
       }
       debugReminder(gid, `send_try:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
@@ -301,16 +357,13 @@ function createBumpReminderService(options) {
       }).then(() => true).catch(() => false);
       if (!fallbackSent) {
         debugReminder(gid, `send_fail:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
+        await model.rollbackReminderNotificationClaim(gid, claimedAt);
         return false;
       }
       debugReminder(gid, `send_ok:fallback_after_config_fail channelId=${String(fallbackChannel.id || "")}`);
-    } else {
-      debugReminder(gid, `send_ok:configured_channel channelId=${String(channel.id || "")}`);
+      return true;
     }
-
-    await model
-      .updateOne({ guildId: gid }, { $set: { reminderSentAt: new Date(), lastBumpAt: fresh.lastBumpAt } })
-      .catch(() => null);
+    debugReminder(gid, `send_ok:configured_channel channelId=${String(channel.id || "")}`);
     return true;
   }
 
