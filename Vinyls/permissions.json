@@ -1216,6 +1216,11 @@
         "user_refresh*": {
             "ownerSegment": 1
         },
+        "wcVote:*": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
         "verify_start": null,
         "vocalimoderazione": [
             "roles.Staff"

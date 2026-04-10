@@ -8,12 +8,10 @@ const TIME_ZONE = "Europe/Rome";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BACKFILL_HOUR_SUFFIX = "T12";
 const HOURLY_BACKFILL_BATCH = 500;
-/** Su `+me` non bloccare oltre questo tempo sul backfill daily→hourly (0 = attendi sempre come prima). */
 const HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS = Math.max(
   0,
   Math.min(120_000, Number(process.env.HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS ?? 12_000)),
 );
-/** Query guild-wide per rank su `+me`: evita timeout comando se la collection è enorme (0 = nessun limite). */
 const ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS = Math.max(
   0,
   Math.min(120_000, Number(process.env.ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS ?? 45_000)),
@@ -88,16 +86,13 @@ function logActivityBumpError(label, err) {
   try {
     console.error(line);
   } catch {
-    /* ignore */
   }
   try {
     global.logger?.warn?.(`[ACTIVITY] ${label}:`, err?.message || err);
   } catch {
-    /* ignore */
   }
 }
 
-/** Update su `activityuserprofiles` via driver Mongo (no casting Mongoose su Mixed + path dinamici). */
 function profileActivityCollection() {
   const db = mongoose.connection?.db;
   if (!db) return null;
@@ -1765,4 +1760,19 @@ async function getChannelOverviewStats(guildId, channelId, lookbackDays = 14) {
   };
 }
 
-module.exports = { recordMessageActivity, handleVoiceActivity, getUserActivityStats, getServerActivityStats, getServerOverviewStats, getUserOverviewStats, getChannelOverviewStats, getLiveVoiceOverlay, loadLiveVoiceSessions, secondsInDateKeys, syncLiveVoiceSessionsFromGateway, runLiveVoiceExpTick, startLiveVoiceExpLoop };
+module.exports = {
+  recordMessageActivity,
+  handleVoiceActivity,
+  getUserActivityStats,
+  getServerActivityStats,
+  getServerOverviewStats,
+  getUserOverviewStats,
+  getChannelOverviewStats,
+  getLiveVoiceOverlay,
+  loadLiveVoiceSessions,
+  loadDailyRows,
+  secondsInDateKeys,
+  syncLiveVoiceSessionsFromGateway,
+  runLiveVoiceExpTick,
+  startLiveVoiceExpLoop,
+};

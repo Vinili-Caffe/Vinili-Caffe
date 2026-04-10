@@ -4,6 +4,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
+const { tryStripContestSubmissionReaction } = require("../Services/Community/weeklyContestService");
 const SKULL_EMOJI = "\u{1F480}";
 const SKULLBOARD_CHANNEL_ID = IDs.channels.quotes;
 const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set(["1442569130573303898","1442569136067575809","1442569138114662490","1442569141717438495",]);
@@ -228,6 +229,7 @@ module.exports = {
     let inFlightSet = null;
     try {
       if (user?.bot) return;
+      if (await tryStripContestSubmissionReaction(reaction, user)) return;
       if (!isSkullReaction(reaction)) return;
 
       const message = await resolveReactionMessage(reaction);

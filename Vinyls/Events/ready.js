@@ -22,6 +22,7 @@ const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
 const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaffResocontoService");
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
+const { startWeeklyContestCron } = require("../Services/Community/weeklyContestService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
@@ -507,6 +508,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
     ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
+    ["[WEEKLY CONTEST SFONDI] Failed to start cron", () => startWeeklyContestCron(client)],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],

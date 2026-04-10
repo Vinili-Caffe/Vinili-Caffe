@@ -5,6 +5,7 @@ const { recordMessageActivity } = require("../Services/Community/activityService
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handlePauseChannelMessage,handleSuggestionChannelMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
 const{handleAfk,handleCounting,handleMentionAutoReactions,handleWordReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
+const { handleWeeklyContestSubmissionMessage } = require("../Services/Community/weeklyContestService");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
@@ -12,7 +13,9 @@ const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefi
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS=new Set([]);
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
-const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set([IDs.channels.media].filter(Boolean).map((id) => String(id)),);
+const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set(
+  [IDs.channels.media, IDs.channels.contestSfondiMobile, IDs.channels.contestSfondiPc].filter(Boolean).map((id) => String(id)),
+);
 const WRONG_PREFIX_HINT_CHANNEL_IDS=new Set([IDs.channels.commands,IDs.channels.staffCmds,IDs.channels.highCmds].filter(Boolean).map((id) => String(id)),);
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
 const automationRecheckJobs = new Map();
@@ -208,6 +211,7 @@ module.exports = {
         }
         if (await handleSuggestionChannelMessage(message)) return;
         if (await handlePauseChannelMessage(message)) return;
+        if (await handleWeeklyContestSubmissionMessage(message, resolvedClient)) return;
       }
     } catch (error) {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);
