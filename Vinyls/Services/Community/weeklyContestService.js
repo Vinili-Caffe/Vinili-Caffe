@@ -160,31 +160,37 @@ function categoryForChannelId(channelId) {
   return CHANNEL_TO_CATEGORY.get(String(channelId || "")) || null;
 }
 
-function attachmentIsContestImageOrVideo(attachment) {
+function attachmentIsContestImage(attachment) {
   const ct = String(attachment?.contentType || "");
-  return ct.startsWith("image/") || ct.startsWith("video/");
+  if (ct.startsWith("image/")) return true;
+  if (ct.startsWith("video/") || ct.startsWith("audio/")) return false;
+  if (ct) return false;
+  const name = String(attachment?.name || "").toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(name);
 }
 
-function firstContestMediaAttachment(message) {
+function firstContestImageAttachment(message) {
   const attachments = [...(message.attachments?.values?.() || [])];
-  return attachments.find(attachmentIsContestImageOrVideo) || null;
+  return attachments.find(attachmentIsContestImage) || null;
 }
 
 function messageHasContestMediaAttachment(message) {
-  return Boolean(firstContestMediaAttachment(message));
+  return Boolean(firstContestImageAttachment(message));
 }
 
 function buildWeeklyContestSubmissionEmbed(message, client) {
-  const att = firstContestMediaAttachment(message);
+  const att = firstContestImageAttachment(message);
   const display = String(message.author?.globalName || message.author?.username || "utente").trim() || "utente";
+  const avatarUrl = message.author?.displayAvatarURL?.({ extension: "png", size: 256 });
   const embed = new EmbedBuilder()
     .setColor(client?.config?.embedInfo || "#6f4e37")
-    .setAuthor({ name: `Sfondo di ${display}` });
+    .setAuthor({
+      name: `Sfondo di ${display}`,
+      ...(avatarUrl ? { iconURL: avatarUrl } : {}),
+    });
   if (att) {
     const url = String(att.proxyURL || att.url || "").trim();
-    const ct = String(att.contentType || "");
-    if (url && ct.startsWith("image/")) embed.setImage(url);
-    else if (url) embed.setDescription(`[Apri il video](${url})`);
+    if (url) embed.setImage(url);
   }
   return embed;
 }
