@@ -488,6 +488,45 @@ function formatApplicationDescription(type, answers) {
   return blocks.join("\n\n").trim();
 }
 
+const DISCORD_EMBED_DESC_MAX = 4096;
+const DISCORD_MESSAGE_EMBEDS_MAX = 10;
+
+function chunkStringForEmbedDescriptions(text, maxChunk = DISCORD_EMBED_DESC_MAX) {
+  const pieces = [];
+  let rest = String(text || "");
+  while (rest.length > 0) {
+    if (rest.length <= maxChunk) {
+      pieces.push(rest);
+      break;
+    }
+    const window = rest.slice(0, maxChunk);
+    let take = maxChunk;
+    const lastBreak = window.lastIndexOf("\n");
+    if (lastBreak > maxChunk * 0.45) take = lastBreak + 1;
+    const part = rest.slice(0, take).replace(/\s+$/u, "");
+    if (!part.length) {
+      pieces.push(rest.slice(0, maxChunk));
+      rest = rest.slice(maxChunk);
+      continue;
+    }
+    pieces.push(part);
+    rest = rest.slice(take);
+  }
+  return pieces;
+}
+
+function capChunksToMaxEmbeds(chunks, maxEmbeds = DISCORD_MESSAGE_EMBEDS_MAX, maxChunk = DISCORD_EMBED_DESC_MAX) {
+  if (chunks.length <= maxEmbeds) return chunks;
+  const head = chunks.slice(0, maxEmbeds - 1);
+  const tail = chunks.slice(maxEmbeds - 1).join("\n\n");
+  const suffix = "\n\n… *(testo troncato: troppo lungo.)*";
+  const room = maxChunk - suffix.length;
+  let body = tail;
+  if (body.length > room) body = `${body.slice(0, Math.max(0, room - 3))}...`;
+  head.push(`${body}${suffix}`);
+  return head;
+}
+
 async function resolveSubmissionChannel(interaction) {
   const guild = interaction.guild;
   if (!guild) return null;
@@ -578,19 +617,28 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
 
   const user = interaction.user;
   const applicationNumber = await nextApplicationNumber(type);
-  const embed = new EmbedBuilder()
-    .setColor("#3498DB")
-    .setAuthor({ name: user.username, iconURL: user.displayAvatarURL({ size: 128 }) })
-    .setTitle(`<:VC_Poll:1482535102436216832> CANDIDATURA ${cfg.label.toUpperCase()} (#${applicationNumber})`)
-    .setDescription(formatApplicationDescription(type, state.answers))
-    .setFooter({
-      text: `User ID: ${user.id}\u2022${new Date().toLocaleString("it-IT")}`,
-    })
-    .setTimestamp();
+  const fullText = formatApplicationDescription(type, state.answers);
+  const descChunks = capChunksToMaxEmbeds(chunkStringForEmbedDescriptions(fullText));
+  const embeds = descChunks.map((chunk, idx) => {
+    const e = new EmbedBuilder().setColor("#3498DB");
+    if (idx === 0) {
+      e.setAuthor({ name: user.username, iconURL: user.displayAvatarURL({ size: 128 }) })
+        .setTitle(`<:VC_Poll:1482535102436216832> CANDIDATURA ${cfg.label.toUpperCase()} (#${applicationNumber})`)
+        .setDescription(chunk)
+        .setFooter({
+          text: `User ID: ${user.id}\u2022${new Date().toLocaleString("it-IT")}`,
+        })
+        .setTimestamp();
+    } else {
+      e.setTitle(`Candidatura · continua (${idx + 1}/${descChunks.length})`)
+        .setDescription(chunk);
+    }
+    return e;
+  });
 
   const highStaffRoleId = IDs.roles.HighStaff;
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
-  const sent = await channel.send({ content: mention || undefined, embeds: [embed], components: [buildCandidateActionRow(type, user.id)], }).catch(() => null);
+  const sent = await channel.send({ content: mention || undefined, embeds, components: [buildCandidateActionRow(type, user.id)], }).catch(() => null);
   if (!sent) {
     await interaction.reply({
       content:

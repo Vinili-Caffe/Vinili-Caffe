@@ -13,6 +13,16 @@ const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
 const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB]);
+
+function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
+  try {
+    let v = String(interaction.fields.getTextInputValue(customId) || "").trim();
+    if (maxLen != null && Number.isFinite(maxLen)) v = v.slice(0, maxLen);
+    return v;
+  } catch {
+    return "";
+  }
+}
 const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_helper: "Motivo pex Helper",
   pex_mod: "Motivo pex Mod",
@@ -345,7 +355,7 @@ async function execute(interaction) {
       await interaction.reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
-    const reason = String(interaction.fields?.getTextInputValue(IN_REASON) || "").trim().slice(0, 500);
+    const reason = getModalTextInputTrimmed(interaction, IN_REASON, 500);
     const targetUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
     if (!targetUser) {
       await interaction.reply({ content: "<:vegax:1443934876440068179> Utente non trovato.", flags: PRIVATE_FLAG }).catch(() => {});
@@ -353,7 +363,7 @@ async function execute(interaction) {
     }
     let res;
     if (parsed.action === "ppm_add") {
-      const rawAmt = String(interaction.fields?.getTextInputValue(IN_PPM_AMOUNT) || "").trim();
+      const rawAmt = getModalTextInputTrimmed(interaction, IN_PPM_AMOUNT);
       const amount = parseInt(rawAmt, 10);
       if (!Number.isInteger(amount) || amount < 1) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Quantità non valida.", flags: PRIVATE_FLAG }).catch(() => {});
@@ -391,10 +401,10 @@ async function execute(interaction) {
       return true;
     }
     if (parsed.action === "ppm_remove") {
-      const rawAmt = String(interaction.fields?.getTextInputValue(IN_PPM_AMOUNT) || "").trim();
+      const rawAmt = getModalTextInputTrimmed(interaction, IN_PPM_AMOUNT);
       const amount = parseInt(rawAmt, 10);
       const motivo = reason;
-      const messageLink = String(interaction.fields?.getTextInputValue(IN_PPM_LINK) || "").trim();
+      const messageLink = getModalTextInputTrimmed(interaction, IN_PPM_LINK);
       if (!Number.isInteger(amount) || amount < 1) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Quantità non valida.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
@@ -517,7 +527,7 @@ async function execute(interaction) {
       }
       res = await runProfileStaffWarnAdd(guild, interaction.client, targetUser, interaction.user, reason);
     } else if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
-      const rawId = String(interaction.fields?.getTextInputValue(IN_IDX) || "").trim();
+      const rawId = getModalTextInputTrimmed(interaction, IN_IDX, 4);
       const removeId = parseInt(rawId, 10);
       if (!reason) {
         await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
