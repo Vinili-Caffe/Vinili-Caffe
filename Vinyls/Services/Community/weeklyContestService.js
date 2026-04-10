@@ -165,9 +165,28 @@ function attachmentIsContestImageOrVideo(attachment) {
   return ct.startsWith("image/") || ct.startsWith("video/");
 }
 
-function messageHasContestMediaAttachment(message) {
+function firstContestMediaAttachment(message) {
   const attachments = [...(message.attachments?.values?.() || [])];
-  return attachments.some(attachmentIsContestImageOrVideo);
+  return attachments.find(attachmentIsContestImageOrVideo) || null;
+}
+
+function messageHasContestMediaAttachment(message) {
+  return Boolean(firstContestMediaAttachment(message));
+}
+
+function buildWeeklyContestSubmissionEmbed(message, client) {
+  const att = firstContestMediaAttachment(message);
+  const display = String(message.author?.globalName || message.author?.username || "utente").trim() || "utente";
+  const embed = new EmbedBuilder()
+    .setColor(client?.config?.embedInfo || "#6f4e37")
+    .setAuthor({ name: `Sfondo di ${display}` });
+  if (att) {
+    const url = String(att.proxyURL || att.url || "").trim();
+    const ct = String(att.contentType || "");
+    if (url && ct.startsWith("image/")) embed.setImage(url);
+    else if (url) embed.setDescription(`[Apri il video](${url})`);
+  }
+  return embed;
 }
 
 function hasAnyRole(member, idSet) {
@@ -398,8 +417,18 @@ async function handleWeeklyContestVoteButton(interaction) {
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
-  const messageId = String(interaction.message.id || "");
-  if (messageId !== parsed.messageId) {
+  const botId = String(interaction.client?.user?.id || "");
+  const hostAuthorId = String(interaction.message.author?.id || "");
+  if (!botId || hostAuthorId !== botId) {
+    await safeEditReply(interaction, {
+      content: "<:VC_Attention:1482534443632558151> Pulsante non valido per questo messaggio.",
+      flags: MessageFlags.Ephemeral,
+    }).catch(() => {});
+    return true;
+  }
+
+  const hostMessageId = String(interaction.message.id || "");
+  if (hostMessageId !== parsed.messageId) {
     await safeEditReply(interaction, {
       content: "<:VC_Attention:1482534443632558151> Pulsante non valido per questo messaggio.",
       flags: MessageFlags.Ephemeral,
@@ -422,7 +451,7 @@ async function handleWeeklyContestVoteButton(interaction) {
   const submission = await WeeklyContestSubmission.findOne({
     guildId,
     eventKey: EVENT_KEY,
-    messageId,
+    messageId: hostMessageId,
   })
     .lean()
     .catch(() => null);
@@ -447,7 +476,7 @@ async function handleWeeklyContestVoteButton(interaction) {
   const baseMax = resolveBaseVoteCap(member);
   const todayKey = getContestDayKey();
   const countPath = countsPathForCategory(category);
-  const incPath = `${countPath}.${messageId}`;
+  const incPath = `${countPath}.${hostMessageId}`;
 
   const voterDoc = await WeeklyContestVoter.findOne({ guildId, eventKey: EVENT_KEY, voterId }).catch(() => null);
   if (voterDoc) {
@@ -567,29 +596,47 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       }
     }
 
+    const embed = buildWeeklyContestSubmissionEmbed(message, client);
+    const posted = await message.channel
+      .send({
+        embeds: [embed],
+        allowedMentions: { parse: [] },
+      })
+      .catch((err) => {
+        global.logger?.warn?.("[WEEKLY_CONTEST] impossibile pubblicare submission:", err?.message || err);
+        return null;
+      });
+    if (!posted?.id) return false;
+
+    const row = buildWeeklyContestVoteRow(posted.id);
+    let voteRowOk = true;
+    await posted.edit({ components: [row] }).catch((err) => {
+      voteRowOk = false;
+      global.logger?.warn?.("[WEEKLY_CONTEST] impossibile aggiungere pulsanti voto:", err?.message || err);
+    });
+    if (!voteRowOk) {
+      await posted.delete().catch(() => {});
+      return false;
+    }
+
     await WeeklyContestSubmission.findOneAndUpdate(
       { guildId, eventKey: EVENT_KEY, category, userId },
-      { $set: { messageId: String(message.id) } },
+      { $set: { messageId: String(posted.id) } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).catch((err) => {
       global.logger?.error?.("[WEEKLY_CONTEST] submission upsert:", err);
     });
 
-    const row = buildWeeklyContestVoteRow(message.id);
-    await message
-      .reply({
-        components: [row],
-        allowedMentions: { repliedUser: false },
-      })
-      .catch((err) => {
-        global.logger?.warn?.("[WEEKLY_CONTEST] impossibile inviare messaggio pulsanti voto:", err?.message || err);
-      });
-    await message.reactions.removeAll().catch(() => {});
+    await message.delete().catch((err) => {
+      global.logger?.warn?.("[WEEKLY_CONTEST] impossibile eliminare messaggio utente:", err?.message || err);
+    });
 
-    if (!message.hasThread) {
+    await posted.reactions.removeAll().catch(() => {});
+
+    if (!posted.hasThread) {
       const label = String(message.author?.globalName || message.author?.username || "autore").trim() || "autore";
       const name = `Commenti · ${label}`.slice(0, 100);
-      await message.startThread({
+      await posted.startThread({
         name,
         autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
         reason: "Contest sfondi: commenti allo sfondo",
