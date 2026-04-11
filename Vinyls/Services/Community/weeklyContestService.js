@@ -139,6 +139,11 @@ function addRomeDays(dateKey, deltaDays) {
   return getContestDayKey(new Date(utc));
 }
 
+function isRomeSunday(date = new Date()) {
+  const w = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" }).format(date);
+  return w === "Sun";
+}
+
 function isContestRomeDayKey(dayKey) {
   const k = String(dayKey || "");
   return k >= CONTEST_FIRST_DAY && k <= CONTEST_LAST_DAY;
@@ -767,6 +772,7 @@ async function runDailyTopThreeBonusJob(client) {
   if (!gid || !client) return;
   if (CONTEST_TEST_MODE) return;
   if (!CHANNEL_MOBILE_ID || !CHANNEL_PC_ID) return;
+  if (isRomeSunday()) return;
 
   const guild = await client.guilds.fetch(gid).catch(() => null);
   if (!guild) return;
@@ -1126,14 +1132,14 @@ function startWeeklyContestCron(client) {
   if (!MAIN_GUILD_ID || !CHANNEL_MOBILE_ID) return null;
   if (CONTEST_TEST_MODE) {
     global.logger?.warn?.(
-      `[WEEKLY_CONTEST] TEST MODE attivo: scrivo su eventKey="${EVENT_KEY}" (sandbox), evento reale="${EVENT_KEY_PRODUCTION}". Finestre ignorate=${CONTEST_TEST_IGNORE_TIME_WINDOW}. Cron bonus/finale disattivi; prune votanti solo su evento reale.`,
+      `[WEEKLY_CONTEST] TEST MODE attivo: scrivo su eventKey="${EVENT_KEY}" (sandbox), evento reale="${EVENT_KEY_PRODUCTION}". Finestre ignorate=${CONTEST_TEST_IGNORE_TIME_WINDOW}. Cron 21:00 ${TIME_ZONE}: bonus top-3 disattivo (test); altri job attivi; prune votanti solo su evento reale.`,
     );
   }
   ensureContestChannelsHideReactionCounts(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] hide reaction counts:", err?.message || err),
   );
   contestCronTask = cron.schedule(
-    "20 0 * * *",
+    "0 21 * * *",
     () => {
       processContestFinalePrizeRoleRemovals(client).catch((err) =>
         global.logger?.error?.("[WEEKLY_CONTEST] cron rimozioni premio:", err),

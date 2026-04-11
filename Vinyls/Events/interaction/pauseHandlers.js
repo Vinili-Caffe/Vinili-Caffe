@@ -407,11 +407,11 @@ async function handlePauseButton(interaction) {
 
   let sameRoleActiveCount = 1;
   if (roleChoice === PAUSE_ROLE_BOTH) {
-    const overlapStaff = await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_STAFF, targetPause.dataRichiesta, targetPause.dataRitorno);
-    const overlapPm = await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_PM, targetPause.dataRichiesta, targetPause.dataRitorno);
+    const overlapStaff = await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_STAFF, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
+    const overlapPm = await computeStaffersInPauseByRoleForRange(guildId, PAUSE_ROLE_PM, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
     sameRoleActiveCount = Math.max(overlapStaff, overlapPm) + 1;
   } else {
-    const overlappingSameRole = await computeStaffersInPauseByRoleForRange(guildId, roleChoice, targetPause.dataRichiesta, targetPause.dataRitorno);
+    const overlappingSameRole = await computeStaffersInPauseByRoleForRange(guildId, roleChoice, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId);
     sameRoleActiveCount = overlappingSameRole + 1;
   }
 

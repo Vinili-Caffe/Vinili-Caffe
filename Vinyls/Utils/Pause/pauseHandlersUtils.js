@@ -180,19 +180,21 @@ function filterPausesByMonth(pauses, year, month) {
   });
 }
 
-async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeStartRaw, rangeEndRaw) {
+async function computeStaffersInPauseByRoleForRange(guildId, roleLabel, rangeStartRaw, rangeEndRaw, excludeUserId = null) {
   const targetStart = parseItalianDate(rangeStartRaw);
   const targetEnd = parseItalianDate(rangeEndRaw);
   if (!targetStart || !targetEnd) return 0;
 
   const g = String(guildId ?? "").trim();
   if (!g) return 0;
+  const excluded = String(excludeUserId ?? "").trim();
   const docs = await ActivityUserProfile.find({ guildId: g, staff: { $exists: true } }, { userId: 1, "staff.pauses": 1 })
     .lean()
     .catch(() => []);
   const userIds = new Set();
 
   for (const doc of docs) {
+    if (excluded && String(doc?.userId ?? "").trim() === excluded) continue;
     const pauses = Array.isArray(doc?.staff?.pauses) ? doc.staff.pauses : [];
     const hasOverlap = pauses.some((pause) => {
       if (!pause || pause.status !== "accepted") return false;
