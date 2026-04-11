@@ -112,7 +112,10 @@ function isLoneWordMessage(normalized, word) {
   if (!w) return false;
   let s = stripLeadingNoiseForGreeting(normalized);
   s = s.replace(/[\p{P}\s]+$/gu, "").trim();
-  return s === w;
+  if (s === w) return true;
+  const lastChar = w.slice(-1);
+  const repeatedNeedle = lastChar ? `${escapeRegex(w)}${escapeRegex(lastChar)}*` : escapeRegex(w);
+  return new RegExp(`^${repeatedNeedle}$`, "u").test(s);
 }
 
 function getWordReactionsConfig() {
