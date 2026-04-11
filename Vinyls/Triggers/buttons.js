@@ -187,7 +187,6 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> <@&1442568897902678038> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568896237277295> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568893435478097> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568891875201066> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568889052430609> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
       "<:infoglowingdot:1443660296823767110> Gli __`Helper`__ potranno richiedere una __pausa__ nella loro prima settimana **solo** per **__problemi personali__ o __familiari gravi__**. Se l'<@&1442568894349840435> viene a conoscenza di un **__falso__ motivo** per usare una pausa, **in qualsiasi circostanza**, si verrà **__depexati__** all'**__istante__**.\n\n" +
