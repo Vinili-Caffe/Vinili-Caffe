@@ -28,6 +28,8 @@ const RESOCONTO_ROLE_RANK = new Map(
     .filter(Boolean)
     .map((roleId, index) => [String(roleId), index]),
 );
+/** Partner settimanali da PM: sotto questo numero (salvo eccezioni) non si va in “Nulla” sul resoconto. */
+const PM_WEEKLY_PARTNER_MIN_FOR_OK = 25;
 const ROLE_UP = {
   [String(IDs.roles.Member || "")]: String(IDs.roles.Helper),
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
@@ -527,14 +529,12 @@ function wasPmPexedInWeek(staffDoc, weekStart) {
   });
 }
 
-/** Soglie PM: ≤5 Depex, 6-10 Richiamo, 11-14 Richiamo, ≥15 Nulla. */
+/** Soglie PM: ≤5 Depex, 6–(min−1) Richiamo, ≥min Nulla. */
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
   const partners = Math.max(0, Math.floor(toSafeNumber(weeklyPartners)));
   if (partners <= 5) return "Depex";
-  if (partners <= 10) return "Richiamo";
-  if (partners >= 15) return "Nulla";
-  if (partners <= 14) return "Richiamo";
+  if (partners < PM_WEEKLY_PARTNER_MIN_FOR_OK) return "Richiamo";
   return "Nulla";
 }
 
@@ -872,7 +872,7 @@ async function runPreResocontoReminders(client) {
     if (hasPmRole(member)) {
       const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd);
-      const minPartners = 15;
+      const minPartners = PM_WEEKLY_PARTNER_MIN_FOR_OK;
       if (weeklyPartners >= minPartners) continue;
       const mancano = minPartners - weeklyPartners;
       const depexHint = weeklyPartners < 5 ? " (sotto 5 rischi Depex)" : "";
