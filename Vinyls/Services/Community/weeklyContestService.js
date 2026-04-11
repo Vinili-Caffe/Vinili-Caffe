@@ -63,6 +63,7 @@ function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
   return new Date(utcMs);
 }
 
+// Default: lunedì 13 aprile 2026, 12:00 Europe/Rome
 const CONTEST_WINDOW_START_MS =
   parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_SFONDI_START_MS) ??
   createUtcFromRomeLocal(2026, 4, 13, 12, 0, 0).getTime();
@@ -130,6 +131,12 @@ function getContestDayKey(date = new Date()) {
     if (part.type !== "literal") map[part.type] = part.value;
   }
   return `${map.year}-${map.month}-${map.day}`;
+}
+
+function getRomeHour(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, hour: "2-digit", hour12: false });
+  const n = Number(formatter.format(date));
+  return Number.isFinite(n) ? Math.max(0, Math.min(23, n)) : 0;
 }
 
 function addRomeDays(dateKey, deltaDays) {
@@ -289,13 +296,13 @@ function pcVoteCountUnified(voterLean) {
   );
 }
 
-function canAddVoteToCategory(voterLean, category, baseMax, todayKey) {
+function canAddVoteToCategory(voterLean, category, baseMax) {
   const m = mobileVoteCountUnified(voterLean);
   const p = pcVoteCountUnified(voterLean);
-  const bonus = bonusSlotsForDay(voterLean, todayKey);
+  const bonusTotal = totalBonusSlotsForContest(voterLean);
   const nextM = category === "mobile" ? m + 1 : m;
   const nextP = category === "pc" ? p + 1 : p;
-  return extraVotesUsed(nextM, nextP, baseMax) <= bonus;
+  return extraVotesUsed(nextM, nextP, baseMax) <= bonusTotal;
 }
 
 function buildWeeklyContestVoteRow(messageId) {
@@ -331,6 +338,53 @@ async function ensureContestChannelsHideReactionCounts(client) {
       );
     });
   }
+}
+
+/** Il primo giorno del contest (CONTEST_FIRST_DAY), da mezzogiorno Roma: consente a Member di inviare messaggi nei due canali submission. */
+async function runContestMemberSendChannelsOpenJob(client) {
+  const gid = contestGuildId();
+  if (!gid || !client) return;
+  const memberRoleId = MEMBER_ROLE_ID;
+  if (!memberRoleId || !CHANNEL_MOBILE_ID || !CHANNEL_PC_ID) return;
+
+  const firstDay = String(CONTEST_FIRST_DAY || "").trim();
+  if (!firstDay) return;
+  const todayKey = getContestDayKey();
+  if (String(todayKey) !== firstDay) return;
+  if (getRomeHour() < 12) return;
+
+  const metaLean = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION })
+    .select("contestMemberSendOpenedDayKey")
+    .lean()
+    .catch(() => null);
+  if (String(metaLean?.contestMemberSendOpenedDayKey || "") === firstDay) return;
+
+  const guild = await client.guilds.fetch(gid).catch(() => null);
+  if (!guild) return;
+
+  for (const cid of [CHANNEL_MOBILE_ID, CHANNEL_PC_ID]) {
+    const ch = guild.channels.cache.get(cid) || (await guild.channels.fetch(cid).catch(() => null));
+    if (!ch?.permissionOverwrites?.edit) {
+      global.logger?.warn?.("[WEEKLY_CONTEST] apertura Member SendMessages: canale non editabile:", cid);
+      return;
+    }
+    const ok = await ch.permissionOverwrites
+      .edit(memberRoleId, { SendMessages: true })
+      .then(() => true)
+      .catch((err) => {
+        global.logger?.warn?.("[WEEKLY_CONTEST] Member SendMessages:", cid, err?.message || err);
+        return false;
+      });
+    if (!ok) return;
+  }
+
+  await WeeklyContestMeta.findOneAndUpdate(
+    { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+    { $set: { contestMemberSendOpenedDayKey: firstDay } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] meta contestMemberSendOpenedDayKey:", err));
+
+  global.logger?.info?.(`[WEEKLY_CONTEST] Member → SendMessages su canali contest (inizio ${firstDay}, ${TIME_ZONE}).`);
 }
 
 async function denySendInContestChannel(channel, userId) {
@@ -485,7 +539,6 @@ async function handleWeeklyContestVoteButton(interaction) {
 
   const member = await getGuildMemberCached(interaction.guild, voterId);
   const baseMax = resolveBaseVoteCap(member);
-  const todayKey = getContestDayKey();
   const countPath = countsPathForCategory(category);
   const incPath = `${countPath}.${hostMessageId}`;
 
@@ -526,7 +579,7 @@ async function handleWeeklyContestVoteButton(interaction) {
     votesPcCounts: {},
     bonusSlots: {},
   };
-  if (!canAddVoteToCategory(leanForCheck, category, baseMax, todayKey)) {
+  if (!canAddVoteToCategory(leanForCheck, category, baseMax)) {
     await safeEditReply(interaction, {
       content: "Hai esaurito i voti disponibili in questa categoria.",
       flags: MessageFlags.Ephemeral,
@@ -545,7 +598,7 @@ async function handleWeeklyContestVoteButton(interaction) {
     .catch(() => null);
   const fm = mobileVoteCountUnified(fresh);
   const fp = pcVoteCountUnified(fresh);
-  if (extraVotesUsed(fm, fp, baseMax) > bonusSlotsForDay(fresh, todayKey)) {
+  if (extraVotesUsed(fm, fp, baseMax) > totalBonusSlotsForContest(fresh)) {
     await WeeklyContestVoter.updateOne(
       { guildId, eventKey: EVENT_KEY, voterId, [incPath]: { $gt: 0 } },
       { $inc: { [incPath]: -1 } },
@@ -741,7 +794,7 @@ async function sendContestDailyBonusAnnounce(client, guild, { yesterdayKey, toda
         `<a:VC_HeartsPink:1468685897389052008> • **Top 3 attività:**`,
         ...lines,
         "",
-        `<a:VC_Winner:1482535294757507255> Avete **+1 voto** extra da usare oggi (**${todayKey}**) nel contest sfondi.`,
+        `<a:VC_Winner:1482535294757507255> Avete **+1 voto** extra (accreditato **${todayKey}**): potete spenderlo **in qualsiasi giorno** del contest fino alla fine; se non lo usate subito **non si perde**.`,
       ].join("\n"),
     )
     .setThumbnail(guild.iconURL({ size: 256 }) || null);
@@ -1125,10 +1178,11 @@ async function runContestFinalePrizeGrantJob(client) {
   }
 }
 
-let contestCronTask = null;
+let contestCronEveningTask = null;
+let contestCronNoonTask = null;
 
 function startWeeklyContestCron(client) {
-  if (contestCronTask) return contestCronTask;
+  if (contestCronEveningTask) return { evening: contestCronEveningTask, noon: contestCronNoonTask };
   if (!MAIN_GUILD_ID || !CHANNEL_MOBILE_ID) return null;
   if (CONTEST_TEST_MODE) {
     global.logger?.warn?.(
@@ -1138,7 +1192,7 @@ function startWeeklyContestCron(client) {
   ensureContestChannelsHideReactionCounts(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] hide reaction counts:", err?.message || err),
   );
-  contestCronTask = cron.schedule(
+  contestCronEveningTask = cron.schedule(
     "0 21 * * *",
     () => {
       processContestFinalePrizeRoleRemovals(client).catch((err) =>
@@ -1156,8 +1210,21 @@ function startWeeklyContestCron(client) {
     },
     { timezone: TIME_ZONE },
   );
-  contestCronTask.unref?.();
-  return contestCronTask;
+  contestCronNoonTask = cron.schedule(
+    "0 12 * * *",
+    () => {
+      runContestMemberSendChannelsOpenJob(client).catch((err) =>
+        global.logger?.error?.("[WEEKLY_CONTEST] cron apertura Member contest:", err),
+      );
+    },
+    { timezone: TIME_ZONE },
+  );
+  contestCronEveningTask.unref?.();
+  contestCronNoonTask.unref?.();
+  void runContestMemberSendChannelsOpenJob(client).catch((err) =>
+    global.logger?.warn?.("[WEEKLY_CONTEST] apertura Member contest (catch-up avvio):", err?.message || err),
+  );
+  return { evening: contestCronEveningTask, noon: contestCronNoonTask };
 }
 
 module.exports = {
@@ -1170,6 +1237,7 @@ module.exports = {
   ensureContestChannelsHideReactionCounts,
   tryStripContestSubmissionReaction,
   startWeeklyContestCron,
+  runContestMemberSendChannelsOpenJob,
   runDailyTopThreeBonusJob,
   runWeeklyContestNonMemberVoterPrune,
   runContestFinalePrizeGrantJob,

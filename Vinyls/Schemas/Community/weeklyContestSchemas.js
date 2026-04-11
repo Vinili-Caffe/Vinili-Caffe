@@ -52,6 +52,7 @@ const weeklyContestMetaSchema = new Schema(
     contestFinaleResolved: { type: Boolean, default: false },
     finalePrizesResolvedCategories: { type: Schema.Types.Mixed, default: {} },
     finalePrizeRoleRemovals: { type: [finalePrizeRemovalEntrySchema], default: [] },
+    contestMemberSendOpenedDayKey: { type: String, default: null },
   },
   { timestamps: true },
 );
