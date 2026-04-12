@@ -50,7 +50,14 @@ let AUTOMOD_ANTISPAM_ENABLED = true;
 let AUTOMOD_MONITOR_UNWHITELISTED_WEBHOOKS = true;
 const PANIC_MODE = { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, };
 const PANIC_TRIGGER_KEYS = new Set(["invite", "scam_pattern", "nsfw_link", "word_blacklist", "link_blacklist", "mention_everyone", "mentions_lockdown", "mention_hour_cap", "unwhitelisted_webhook",]);
-const MENTION_RULES = { enabled: true, timeoutMs: 45 * 60_000, hourCap: 20, userMentions: { enabled: true, heat: 15, }, roleMentions: { enabled: true, heat: 20, }, everyoneMentions: { enabled: true, heat: 100, }, };
+const MENTION_RULES = {
+  enabled: true,
+  timeoutMs: 45 * 60_000,
+  hourCap: 20,
+  userMentions: { enabled: true, heat: 15, minUserMentions: 3 },
+  roleMentions: { enabled: true, heat: 20 },
+  everyoneMentions: { enabled: true, heat: 100 },
+};
 const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 15 }, images: { enabled: true, heat: 20 }, files: { enabled: true, heat: 15 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 15 }, };
 const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, };
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
@@ -1857,10 +1864,14 @@ async function detectViolations(message, state, profile) {
       trimWindow(state.mentionHourTimes, 60 * 60_000, at);
     }
 
+    const minUserMentions = Math.max(
+      1,
+      Math.floor(Number(MENTION_RULES.userMentions?.minUserMentions ?? 3)),
+    );
     if (
       !mentionWhitelisted &&
       MENTION_RULES.userMentions.enabled &&
-      userMentionCount >= 2
+      userMentionCount >= minUserMentions
     ) {
       violations.push({
         key: "mention_user",
