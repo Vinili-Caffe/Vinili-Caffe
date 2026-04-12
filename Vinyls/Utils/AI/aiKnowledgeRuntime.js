@@ -22,6 +22,21 @@ function tokenize(value) {
   return Array.from(new Set(tokens));
 }
 
+const KNOWLEDGE_QUERY_STOPWORDS = new Set(
+  `anche alle all alla ancora appena are and bene che chi come cosa cosi cose dei degli delle della detto dire ecco fai fatti fare for from gli gia hai ho loro male molto mia non per perche poi proprio piu qualche qualcosa qua qui quella quello solo sono sempre sua the this that tutti tutte tutto una uno vita was when where while with you`.split(
+    /\s+/,
+  ),
+);
+
+function looksLikeServerOrBotScopedQuery(raw) {
+  const t = normalizeText(raw);
+  if (!t || t.length < 2) return false;
+  if (/^\s*\+\s*[0-9a-zà-ù_-]/iu.test(String(raw || ""))) return true;
+  return /\b(comand\w*|prefix\w*|ticket\w*|warn\w*|mut\w*|unmute|ban\w*|unban|kick\w*|staff\w*|moderat\w*|purge\w*|ruol\w*|canal\w*|permess\w*|regol\w+|automod|segnal\w*|verific\w*|sponsor\w*|support\w*|discord|guild|server|\bbot\b|vinili|caff(e|è))\b/iu.test(
+    t,
+  );
+}
+
 function loadKnowledgeDocsFromDisk() {
   if (!fs.existsSync(KNOWLEDGE_DIR)) return [];
   const names = fs
@@ -74,15 +89,26 @@ function buildSnippet(text, maxChars) {
 function getAiKnowledgeContext(query, options = {}) {
   const maxDocs = Math.max(1, Number(options.maxDocs || 3));
   const maxChars = Math.max(400, Number(options.maxChars || 1600));
+  const minDocScore = Math.max(1, Number(options.minDocScore ?? 3));
+  const skipIntentGate = Boolean(options.skipServerIntentGate);
   const docs = getKnowledgeDocs();
   if (!docs.length) return "";
 
-  const queryTokens = tokenize(query);
+  if (!skipIntentGate && !looksLikeServerOrBotScopedQuery(query)) return "";
+
+  const queryTokens = tokenize(query).filter(
+    (tok) => !KNOWLEDGE_QUERY_STOPWORDS.has(tok),
+  );
+  if (!queryTokens.length) return "";
+
   const ranked = docs
     .map((doc) => ({ doc, score: scoreDoc(doc, queryTokens) }))
     .sort((a, b) => b.score - a.score || a.doc.id.localeCompare(b.doc.id, "it"));
+  const best = ranked[0]?.score || 0;
+  if (best < minDocScore) return "";
+
   const selected = ranked
-    .filter((entry) => entry.score > 0)
+    .filter((entry) => entry.score >= minDocScore)
     .slice(0, maxDocs)
     .map((entry) => entry.doc);
   if (!selected.length) return "";

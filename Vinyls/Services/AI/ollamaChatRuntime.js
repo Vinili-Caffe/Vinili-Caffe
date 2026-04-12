@@ -1,6 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { getAiKnowledgeContext } = require("../../Utils/AI/aiKnowledgeRuntime");
 const IDs = require("../../Utils/Config/ids");
 
 const OLLAMA_CHAT_URL = String(
@@ -28,14 +27,6 @@ const AI_USER_COOLDOWN_MS = Math.max(
 );
 const AI_MAX_QUEUE = Math.max(1, Number(process.env.AI_MAX_QUEUE || 12));
 const AI_MAX_INFLIGHT = Math.max(1, Number(process.env.AI_MAX_INFLIGHT || 1));
-const AI_CONTEXT_MAX_CHARS = Math.max(
-  400,
-  Number(process.env.AI_CONTEXT_MAX_CHARS || 1400),
-);
-const AI_CONTEXT_MAX_DOCS = Math.max(
-  1,
-  Number(process.env.AI_CONTEXT_MAX_DOCS || 3),
-);
 const OLLAMA_TEMPERATURE = Math.min(
   1.5,
   Math.max(0.1, Number(process.env.OLLAMA_TEMPERATURE ?? 0.55)),
@@ -43,9 +34,9 @@ const OLLAMA_TEMPERATURE = Math.min(
 const OLLAMA_PERSONA =
   String(process.env.OLLAMA_PERSONA || "").trim() ||
   [
-    "Sei un membro qualunque del server Discord Vinili & Caffe: tono informale, dai del tu, messaggi brevi come in chat.",
-    "Niente incipit da assistente (niente \"come posso aiutarti\", \"sono un'intelligenza artificiale\").",
-    "Niente liste lunghe se non servono. Su Discord si scrive sciolto, non come mail aziendale.",
+    "Sei un assistente AI generalista: intelligente, chiaro e utile. Rispondi sempre in italiano salvo che l'utente chieda esplicitamente un'altra lingua.",
+    "Comportati come un modello conversazionale standard: spiegazioni, ragionamento, creatività o chiacchiera, in base a cosa serve.",
+    "Tono naturale (di solito tu con l'utente), senza incipit finti da call center. Niente liste lunghe se non servono.",
   ].join(" ");
 
 function parseAmbientEnabled() {
@@ -106,12 +97,8 @@ function looksLikeBadRefusal(text) {
   );
 }
 
-async function callOllama(prompt, modelOverride = null, context = "") {
+async function callOllama(prompt, modelOverride = null) {
   const model = String(modelOverride || OLLAMA_MODEL).trim() || OLLAMA_MODEL;
-  const contextBlock = String(context || "").trim();
-  const guidance = contextBlock
-    ? `Contesto ufficiale bot/server (priorita su questo):\n${contextBlock}\n\nRegole: non inventare comandi, ruoli, canali o policy. Se il contesto non basta, dillo in due parole. Stile sempre da utente in chat, non da bot ufficiale.`
-    : "Non ho trovato contesto interno utile: rispondi in italiano, breve, senza inventare cose sul server. Stile da utente in chat.";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   timeout.unref?.();
@@ -124,7 +111,7 @@ async function callOllama(prompt, modelOverride = null, context = "") {
         model,
         stream: false,
         keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
-        prompt: `${OLLAMA_PERSONA}\n\n${guidance}\n\nDomanda: ${prompt}\nRisposta:`,
+        prompt: `${OLLAMA_PERSONA}\n\nUtente:\n${prompt}\n\nAssistente:`,
         options: {
           temperature: OLLAMA_TEMPERATURE,
           num_predict: Math.max(
@@ -244,19 +231,15 @@ async function handleAmbientOllamaMessage(message, client) {
   }
 
   const prompt = rawPrompt.slice(0, OLLAMA_MAX_PROMPT_CHARS);
-  const context = getAiKnowledgeContext(rawPrompt, {
-    maxDocs: AI_CONTEXT_MAX_DOCS,
-    maxChars: AI_CONTEXT_MAX_CHARS,
-  });
 
   userCooldownMap.set(userKey, nowTs + AI_USER_COOLDOWN_MS);
   await message.channel.sendTyping().catch(() => {});
   try {
-    let finalText = await enqueueAiTask(() => callOllama(prompt, null, context));
+    let finalText = await enqueueAiTask(() => callOllama(prompt, null));
     if (looksLikeBadRefusal(finalText) && OLLAMA_FALLBACK_MODEL) {
       try {
         finalText = await enqueueAiTask(() =>
-          callOllama(prompt, OLLAMA_FALLBACK_MODEL, context),
+          callOllama(prompt, OLLAMA_FALLBACK_MODEL),
         );
       } catch (_) {}
     }
@@ -309,8 +292,6 @@ async function handleAmbientOllamaMessage(message, client) {
 module.exports = {
   OLLAMA_MAX_PROMPT_CHARS,
   OLLAMA_FALLBACK_MODEL,
-  AI_CONTEXT_MAX_CHARS,
-  AI_CONTEXT_MAX_DOCS,
   pruneCooldown,
   aiUserCooldownKey,
   userCooldownMap,

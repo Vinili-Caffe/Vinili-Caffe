@@ -1,11 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
-const { getAiKnowledgeContext } = require("../../Utils/AI/aiKnowledgeRuntime");
 const {
   OLLAMA_MAX_PROMPT_CHARS,
   OLLAMA_FALLBACK_MODEL,
-  AI_CONTEXT_MAX_CHARS,
-  AI_CONTEXT_MAX_DOCS,
   pruneCooldown,
   aiUserCooldownKey,
   userCooldownMap,
@@ -53,10 +50,6 @@ module.exports = {
     }
 
     const prompt = rawPrompt.slice(0, OLLAMA_MAX_PROMPT_CHARS);
-    const context = getAiKnowledgeContext(rawPrompt, {
-      maxDocs: AI_CONTEXT_MAX_DOCS,
-      maxChars: AI_CONTEXT_MAX_CHARS,
-    });
     if (isAiQueueSaturated()) {
       return safeMessageReply(message, {
         embeds: [
@@ -73,12 +66,12 @@ module.exports = {
     userCooldownMap.set(userKey, nowTs + AI_USER_COOLDOWN_MS);
     await message.channel.sendTyping().catch(() => {});
     try {
-      const text = await enqueueAiTask(() => callOllama(prompt, null, context));
+      const text = await enqueueAiTask(() => callOllama(prompt, null));
       let finalText = text;
       if (looksLikeBadRefusal(finalText) && OLLAMA_FALLBACK_MODEL) {
         try {
           finalText = await enqueueAiTask(() =>
-            callOllama(prompt, OLLAMA_FALLBACK_MODEL, context),
+            callOllama(prompt, OLLAMA_FALLBACK_MODEL),
           );
         } catch (_) {}
       }
