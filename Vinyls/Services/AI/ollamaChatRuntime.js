@@ -88,7 +88,11 @@ function normalizeResponseText(raw) {
   const text = String(raw || "").replace(/\r\n/g, "\n").trim();
   if (!text) return "";
   if (text.length <= OLLAMA_MAX_RESPONSE_CHARS) return text;
-  return `${text.slice(0, OLLAMA_MAX_RESPONSE_CHARS - 3).trimEnd()}...`;
+  const budget = OLLAMA_MAX_RESPONSE_CHARS - 3;
+  let cut = text.slice(0, budget);
+  const lastSpace = cut.lastIndexOf(" ");
+  if (lastSpace > budget * 0.55) cut = cut.slice(0, lastSpace);
+  return `${cut.trimEnd()}...`;
 }
 
 function looksLikeBadRefusal(text) {
@@ -123,7 +127,10 @@ async function callOllama(prompt, modelOverride = null, context = "") {
         prompt: `${OLLAMA_PERSONA}\n\n${guidance}\n\nDomanda: ${prompt}\nRisposta:`,
         options: {
           temperature: OLLAMA_TEMPERATURE,
-          num_predict: Math.max(16, Number(process.env.OLLAMA_NUM_PREDICT || 40)),
+          num_predict: Math.max(
+            96,
+            Number(process.env.OLLAMA_NUM_PREDICT || 180),
+          ),
           num_ctx: Math.max(256, Number(process.env.OLLAMA_NUM_CTX || 512)),
         },
       }),
