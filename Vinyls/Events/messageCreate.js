@@ -6,6 +6,7 @@ const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixD
 const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handlePauseChannelMessage,handleSuggestionChannelMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
 const{handleAfk,handleCounting,handleMentionAutoReactions,handleWordReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
 const { handleWeeklyContestSubmissionMessage } = require("../Services/Community/weeklyContestService");
+const { handleAmbientOllamaMessage } = require("../Services/AI/ollamaChatRuntime");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
@@ -271,6 +272,11 @@ module.exports = {
         await handleTtsMessage(message, resolvedClient, defaultPrefix);
       } catch (error) {
         logEventError(resolvedClient, "TTS ERROR", error);
+      }
+      try {
+        if (await handleAmbientOllamaMessage(message, resolvedClient)) return;
+      } catch (error) {
+        logEventError(resolvedClient, "OLLAMA AMBIENT ERROR", error);
       }
     }
 

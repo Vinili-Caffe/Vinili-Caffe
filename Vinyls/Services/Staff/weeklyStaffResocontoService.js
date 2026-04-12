@@ -358,6 +358,22 @@ function wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, sectionRole = null) 
   return false;
 }
 
+/** Pausa rilevante per il blocco resoconto PM: ruolo PM/Entrambi, oppure pausa “staff” se l’utente è comunque Partner Manager (stesso periodo di assenza). */
+function wasPartnerManagerInPauseForResocontoWeek(staffDoc, weekStart, weekEnd, member) {
+  if (wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, "PartnerManager")) return true;
+  const pmId = String(IDs.roles?.PartnerManager || "");
+  if (pmId && member?.roles?.cache?.has(pmId) && wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, "Staff")) return true;
+  return false;
+}
+
+function getPmResocontoPauseDisplayLine(staffDoc, member) {
+  const pmLine = getStaffPauseLine(staffDoc, "PartnerManager");
+  if (pmLine) return pmLine;
+  const pmId = String(IDs.roles?.PartnerManager || "");
+  if (pmId && member?.roles?.cache?.has(pmId)) return getStaffPauseLine(staffDoc, "Staff");
+  return null;
+}
+
 function resolveStaffRole(member) {
   if (!member?.roles?.cache) return null;
   for (const roleId of STAFF_ROLE_PRIORITY) {
@@ -767,9 +783,9 @@ async function runWeeklyStaffResoconti(client) {
       const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd,);
       const pmPexedInWeek = wasPmPexedInWeek(staffDoc, pmWindow.weekStart);
-      const pmInPauseDuringWeek = wasInPauseDuringWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd, "PartnerManager");
+      const pmInPauseDuringWeek = wasPartnerManagerInPauseForResocontoWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd, member);
       const action = pmInPauseDuringWeek ? "Nulla" : computePmAction(weeklyPartners, pmPexedInWeek);
-      const pmPauseLine = getStaffPauseLine(staffDoc, "PartnerManager");
+      const pmPauseLine = getPmResocontoPauseDisplayLine(staffDoc, member);
       const pmNewBadge = pmPexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
       const pmContentLines = [
         `<:partnermanager:1443651916838998099> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
