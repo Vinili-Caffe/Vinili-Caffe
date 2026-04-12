@@ -213,6 +213,9 @@
     "includeUsername": false,
     "stayConnected": false
   },
+  "ai": {
+    "enabled": false
+  },
   "minigames": {
     "enabled": true,
     "translateApiToItalian": true,

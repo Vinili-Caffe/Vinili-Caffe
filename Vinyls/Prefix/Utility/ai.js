@@ -11,12 +11,25 @@ const {
   enqueueAiTask,
   looksLikeBadRefusal,
   isAiQueueSaturated,
+  isAiEnabledInConfig,
 } = require("../../Services/AI/ollamaChatRuntime");
 
 module.exports = {
   name: "ai",
   args: true,
   async execute(message, args) {
+    if (!isAiEnabledInConfig(message.client)) {
+      return safeMessageReply(message, {
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(
+              "<:vegax:1443934876440068179> L'AI e disattivata: in `Vinyls/config.json` imposta `ai.enabled` su `true` per riattivarla.",
+            ),
+        ],
+        allowedMentions: { repliedUser: false, parse: [] },
+      });
+    }
     const nowTs = Date.now();
     pruneCooldown(nowTs);
     const userKey = aiUserCooldownKey(message);

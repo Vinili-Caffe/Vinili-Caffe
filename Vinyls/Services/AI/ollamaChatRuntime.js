@@ -216,8 +216,15 @@ function isAiQueueSaturated() {
   return aiQueue.length >= AI_MAX_QUEUE && aiInFlight >= AI_MAX_INFLIGHT;
 }
 
+function isAiEnabledInConfig(client) {
+  const v = client?.config?.ai?.enabled;
+  if (v === undefined || v === null) return true;
+  return Boolean(v);
+}
+
 async function handleAmbientOllamaMessage(message, client) {
   if (!OLLAMA_AMBIENT_ENABLED) return false;
+  if (!isAiEnabledInConfig(client)) return false;
   if (!message?.guild || !message.channel?.isTextBased?.()) return false;
   const mainId = String(IDs.guilds?.main || "").trim();
   if (!mainId || String(message.guild.id) !== mainId) return false;
@@ -349,5 +356,6 @@ module.exports = {
   enqueueAiTask,
   looksLikeBadRefusal,
   isAiQueueSaturated,
+  isAiEnabledInConfig,
   handleAmbientOllamaMessage,
 };

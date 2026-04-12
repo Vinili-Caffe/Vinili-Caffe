@@ -19,6 +19,7 @@ const OPENROUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
 const DEFAULT_OPENROUTER_RETRY_UNTIL_HOUR = 22;
 const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
 const DEFAULT_MAX_CANDIDATE_ATTEMPTS = 80;
+const AUTO_POLL_RETRY_MS = 5 * 60 * 1000;
 const MIN_MAX_CANDIDATE_ATTEMPTS = 5;
 const ABS_MAX_CANDIDATE_ATTEMPTS = 250;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
@@ -609,21 +610,62 @@ async function pickPollCandidate(cfg = {}, forcedTargetOptions = null) {
   return buildLocalAttualitaPoll(cfg, forcedTargetOptions);
 }
 
+function clearAutoPollRetryTimer(client) {
+  try {
+    if (client?._autoPollRetryTimer) clearTimeout(client._autoPollRetryTimer);
+  } catch (_) {}
+  client._autoPollRetryTimer = null;
+}
+
+function scheduleAutoPollRetry(client) {
+  clearAutoPollRetryTimer(client);
+  client._autoPollRetryTimer = setTimeout(() => {
+    client._autoPollRetryTimer = null;
+    runAutoPollAndMaybeScheduleRetry(client).catch((error) => {
+      global.logger?.error?.("[poll.auto] retry run failed:", error);
+    });
+  }, AUTO_POLL_RETRY_MS);
+  client._autoPollRetryTimer.unref?.();
+}
+
+async function runAutoPollAndMaybeScheduleRetry(client) {
+  let outcome;
+  try {
+    outcome = await runAutoPoll(client);
+  } catch (error) {
+    global.logger?.error?.("[poll.auto] run failed:", error);
+    outcome = { retry: true, reason: "exception" };
+  }
+  if (outcome?.retry) scheduleAutoPollRetry(client);
+  else clearAutoPollRetryTimer(client);
+}
+
 async function runAutoPoll(client) {
+  const cfg = client?.config?.autoPoll || {};
+  if (cfg.enabled === false) {
+    return { retry: false, reason: "disabled" };
+  }
+
   const channelId = IDs.channels?.polls;
-  if (!channelId) return;
+  if (!channelId) {
+    return { retry: false, reason: "no_channel_id" };
+  }
   const pollChannel = client.channels.cache.get(channelId) || (await getClientChannelCached(client, String(channelId))) || (await client.channels.fetch(String(channelId)).catch(() => null));
   if (!pollChannel?.guild?.id || !pollChannel.isTextBased?.()) {
-    return;
+    return { retry: true, reason: "channel_resolve" };
   }
   const guild = pollChannel.guild;
 
-  if (await hasManualPollToday(guild.id)) return;
-  if (await hasAutoPollToday(guild.id)) return;
+  if (await hasManualPollToday(guild.id)) {
+    return { retry: false, reason: "manual_exists" };
+  }
+  if (await hasAutoPollToday(guild.id)) {
+    return { retry: false, reason: "auto_exists" };
+  }
 
-  const cfg = client?.config?.autoPoll || {};
-  if (cfg.enabled === false) return;
-  if (!isWithinAutoPollWindow(new Date(), cfg)) return;
+  if (!isWithinAutoPollWindow(new Date(), cfg)) {
+    return { retry: false, reason: "outside_window" };
+  }
 
   const optionTarget = pickNextOptionTarget(client, cfg);
   let payload = null;
@@ -646,15 +688,17 @@ async function runAutoPoll(client) {
 
   if (!payload) {
     global.logger?.warn?.(
-      "[poll.auto] no valid candidate: tutti i template locali risultano già usati nel lookback o payload non valido, skipping send.",
+      "[poll.auto] no valid candidate: tutti i template locali risultano già usati nel lookback o payload non valido, riprovo tra 5 minuti se resta la finestra.",
     );
-    return;
+    return { retry: true, reason: "no_payload" };
   }
 
   const result = await createPollForGuild(guild, { question: payload.question, answers: payload.answers, source: "auto", });
   if (!result?.ok) {
     global.logger?.warn?.("[poll.auto] createPollForGuild failed:", result?.error || "unknown");
+    return { retry: true, reason: "create_failed" };
   }
+  return { retry: false, reason: "success" };
 }
 
 function startAutoPollLoop(client) {
@@ -665,11 +709,13 @@ function startAutoPollLoop(client) {
       global.logger?.warn?.("[autoPoll] ", err?.message || err);
     }
   }
+  clearAutoPollRetryTimer(client);
 
   client._autoPollTask = cron.schedule(
     "0 20 * * *",
     () => {
-      runAutoPoll(client).catch((error) => {
+      clearAutoPollRetryTimer(client);
+      runAutoPollAndMaybeScheduleRetry(client).catch((error) => {
         global.logger?.error?.("[poll.auto] run failed:", error);
       });
     },
@@ -677,4 +723,4 @@ function startAutoPollLoop(client) {
   );
 }
 
-module.exports = { startAutoPollLoop, runAutoPoll };
+module.exports = { startAutoPollLoop, runAutoPoll, runAutoPollAndMaybeScheduleRetry };
