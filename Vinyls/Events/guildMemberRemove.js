@@ -207,11 +207,23 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
   }
 }
 
-function getHighestTrackedRole(member) {
+const PARTNER_MANAGER_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
+
+function getHighestStaffTrackedRoleExcludingPm(member) {
+  if (!member?.roles?.cache) return null;
+  const pmId = PARTNER_MANAGER_ROLE_ID;
   return member.roles.cache
-    .filter((role) => STAFF_TRACKED_ROLE_IDS.has(role.id))
+    .filter((role) => STAFF_TRACKED_ROLE_IDS.has(role.id) && (!pmId || role.id !== pmId))
     .sort((a, b) => b.position - a.position)
     .first();
+}
+
+function buildStaffLeaveResignationContent(member, roleLabel, userRoleLabel) {
+  const label = String(roleLabel || "Staff/PM").trim() || "Staff/PM";
+  const dest = String(userRoleLabel || "User").trim() || "User";
+  return `**<a:laydowntorest:1444006796661358673> DEPEX** ${member.user}
+    <:member_role_icon:1330530086792728618>\`${label}\` <a:vegarightarrow:1443673039156936837> \`${dest}\`
+<:discordstaff:1443651872258003005> __Dimissioni (Esce dal server)__`;
 }
 
 async function handleTrackedStaffLeave(member) {
@@ -223,14 +235,26 @@ async function handleTrackedStaffLeave(member) {
   if (result?.modifiedCount === 0) return;
 
   const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex)) || (await getClientChannelCached(member.client, IDs.channels.pexDepex));
-  if (resignChannel?.isTextBased?.()) {
-    const highestTrackedRole = member.roles?.cache ? getHighestTrackedRole(member) : null;
-    const roleLabel = highestTrackedRole?.name || "Staff/PM";
-    const userRole = guild.roles.cache.get(IDs.roles.Member);
-    const userRoleLabel = userRole?.name || "User";
-    const content = `**<a:laydowntorest:1444006796661358673> DEPEX** ${member.user}
-    <:member_role_icon:1330530086792728618>\`${roleLabel}\` <a:vegarightarrow:1443673039156936837> \`${userRoleLabel}\`
-<:discordstaff:1443651872258003005> __Dimissioni (Esce dal server)__`;
+  if (!resignChannel?.isTextBased?.()) return;
+
+  const userRole = guild.roles.cache.get(IDs.roles.Member);
+  const userRoleLabel = userRole?.name || "User";
+
+  const highestStaffExPm = getHighestStaffTrackedRoleExcludingPm(member);
+  const hasPm = Boolean(PARTNER_MANAGER_ROLE_ID && member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID));
+  const pmRole = hasPm ? guild.roles.cache.get(PARTNER_MANAGER_ROLE_ID) : null;
+  const pmLabel = pmRole?.name || "Partner Manager";
+
+  if (highestStaffExPm) {
+    const content = buildStaffLeaveResignationContent(member, highestStaffExPm.name, userRoleLabel);
+    await resignChannel.send({ content }).catch(() => { });
+  }
+  if (hasPm) {
+    const contentPm = buildStaffLeaveResignationContent(member, pmLabel, userRoleLabel);
+    await resignChannel.send({ content: contentPm }).catch(() => { });
+  }
+  if (!highestStaffExPm && !hasPm) {
+    const content = buildStaffLeaveResignationContent(member, "Staff/PM", userRoleLabel);
     await resignChannel.send({ content }).catch(() => { });
   }
 }
