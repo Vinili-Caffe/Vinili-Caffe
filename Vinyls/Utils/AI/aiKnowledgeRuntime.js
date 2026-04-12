@@ -85,11 +85,11 @@ function getAiKnowledgeContext(query, options = {}) {
     .filter((entry) => entry.score > 0)
     .slice(0, maxDocs)
     .map((entry) => entry.doc);
-  const fallbackDocs = selected.length ? selected : docs.slice(0, Math.min(2, docs.length));
+  if (!selected.length) return "";
 
   const lines = [];
   let usedChars = 0;
-  for (const doc of fallbackDocs) {
+  for (const doc of selected) {
     const remaining = maxChars - usedChars;
     if (remaining < 120) break;
     const snippet = buildSnippet(doc.body, Math.max(120, remaining - 40));
@@ -101,4 +101,4 @@ function getAiKnowledgeContext(query, options = {}) {
   return lines.join("\n\n").trim();
 }
 
-module.exports = { getAiKnowledgeContext }; 
+module.exports = { getAiKnowledgeContext };
