@@ -2,16 +2,27 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 
-const OLLAMA_CHAT_URL = String(
-  process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/generate",
-).trim();
-const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:0.5b").trim();
+function normalizeOllamaChatUrl(raw) {
+  let u = String(raw || "").trim();
+  if (!u) u = "http://127.0.0.1:11434/api/chat";
+  u = u.replace(/\/api\/generate\/?$/i, "/api/chat");
+  u = u.replace(/\/api\/generate(?=\?)/i, "/api/chat");
+  if (!/\/api\/chat/i.test(u) && !/\/api\/generate/i.test(u)) {
+    u = `${u.replace(/\/$/, "")}/api/chat`;
+  }
+  return u;
+}
+
+const OLLAMA_CHAT_URL = normalizeOllamaChatUrl(
+  process.env.OLLAMA_CHAT_URL || "http://127.0.0.1:11434/api/chat",
+);
+const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:1.5b").trim();
 const OLLAMA_FALLBACK_MODEL = String(
-  process.env.OLLAMA_FALLBACK_MODEL || "qwen2.5:1.5b",
+  process.env.OLLAMA_FALLBACK_MODEL || "qwen2.5:3b",
 ).trim();
 const OLLAMA_TIMEOUT_MS = Math.max(
   5000,
-  Number(process.env.OLLAMA_TIMEOUT_MS || 14000),
+  Number(process.env.OLLAMA_TIMEOUT_MS || 22000),
 );
 const OLLAMA_MAX_PROMPT_CHARS = Math.max(
   200,
@@ -29,12 +40,22 @@ const AI_MAX_QUEUE = Math.max(1, Number(process.env.AI_MAX_QUEUE || 12));
 const AI_MAX_INFLIGHT = Math.max(1, Number(process.env.AI_MAX_INFLIGHT || 1));
 const OLLAMA_TEMPERATURE = Math.min(
   1.5,
-  Math.max(0.1, Number(process.env.OLLAMA_TEMPERATURE ?? 0.55)),
+  Math.max(0.1, Number(process.env.OLLAMA_TEMPERATURE ?? 0.48)),
+);
+const OLLAMA_TOP_P = Math.min(
+  1,
+  Math.max(0.5, Number(process.env.OLLAMA_TOP_P ?? 0.88)),
+);
+const OLLAMA_TOP_K = Math.max(5, Number(process.env.OLLAMA_TOP_K || 40));
+const OLLAMA_REPEAT_PENALTY = Math.min(
+  2,
+  Math.max(1, Number(process.env.OLLAMA_REPEAT_PENALTY ?? 1.12)),
 );
 const OLLAMA_PERSONA =
   String(process.env.OLLAMA_PERSONA || "").trim() ||
   [
     "Sei un assistente AI generalista: intelligente, chiaro e utile. Rispondi sempre in italiano salvo che l'utente chieda esplicitamente un'altra lingua.",
+    "Resta pertinente al messaggio: niente divagazioni assurde o risposte a caso. Se non sai qualcosa, dillo invece di inventare.",
     "Comportati come un modello conversazionale standard: spiegazioni, ragionamento, creatività o chiacchiera, in base a cosa serve.",
     "Tono naturale (di solito tu con l'utente), senza incipit finti da call center. Niente liste lunghe se non servono.",
   ].join(" ");
@@ -103,24 +124,50 @@ async function callOllama(prompt, modelOverride = null) {
   const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
   timeout.unref?.();
   try {
+    const useChatApi = /\/api\/chat\b/i.test(OLLAMA_CHAT_URL);
+    const body = useChatApi
+      ? {
+          model,
+          stream: false,
+          keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
+          messages: [
+            { role: "system", content: OLLAMA_PERSONA },
+            { role: "user", content: String(prompt || "") },
+          ],
+          options: {
+            temperature: OLLAMA_TEMPERATURE,
+            top_p: OLLAMA_TOP_P,
+            top_k: OLLAMA_TOP_K,
+            repeat_penalty: OLLAMA_REPEAT_PENALTY,
+            num_predict: Math.max(
+              96,
+              Number(process.env.OLLAMA_NUM_PREDICT || 220),
+            ),
+            num_ctx: Math.max(512, Number(process.env.OLLAMA_NUM_CTX || 2048)),
+          },
+        }
+      : {
+          model,
+          stream: false,
+          keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
+          prompt: `${OLLAMA_PERSONA}\n\nUtente:\n${prompt}\n\nAssistente:`,
+          options: {
+            temperature: OLLAMA_TEMPERATURE,
+            top_p: OLLAMA_TOP_P,
+            top_k: OLLAMA_TOP_K,
+            repeat_penalty: OLLAMA_REPEAT_PENALTY,
+            num_predict: Math.max(
+              96,
+              Number(process.env.OLLAMA_NUM_PREDICT || 220),
+            ),
+            num_ctx: Math.max(512, Number(process.env.OLLAMA_NUM_CTX || 2048)),
+          },
+        };
     const response = await fetch(OLLAMA_CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        stream: false,
-        keep_alive: String(process.env.OLLAMA_KEEP_ALIVE || "30m"),
-        prompt: `${OLLAMA_PERSONA}\n\nUtente:\n${prompt}\n\nAssistente:`,
-        options: {
-          temperature: OLLAMA_TEMPERATURE,
-          num_predict: Math.max(
-            96,
-            Number(process.env.OLLAMA_NUM_PREDICT || 180),
-          ),
-          num_ctx: Math.max(256, Number(process.env.OLLAMA_NUM_CTX || 512)),
-        },
-      }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "");
@@ -128,7 +175,7 @@ async function callOllama(prompt, modelOverride = null) {
     }
     const data = await response.json().catch(() => null);
     const messageText = normalizeResponseText(
-      data?.response || data?.message?.content || "",
+      data?.message?.content || data?.response || "",
     );
     if (!messageText) {
       throw new Error("ollama_empty_response");
