@@ -1771,6 +1771,7 @@ module.exports = {
   getLiveVoiceOverlay,
   loadLiveVoiceSessions,
   loadDailyRows,
+  loadHourlyRows,
   secondsInDateKeys,
   syncLiveVoiceSessionsFromGateway,
   runLiveVoiceExpTick,

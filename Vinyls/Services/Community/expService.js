@@ -1099,4 +1099,82 @@ async function getTopLevelGainsInPeriod(guildId, lookbackDays, limit = 100) {
   return agg.map((x) => ({ userId: String(x._id || ""), levelGain: Math.max(0, Math.floor(Number(x.levelGain || 0))) }));
 }
 
-module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS };
+function getRomeOffsetMsForExp(utcDate) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIME_ZONE,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const zoneName = formatter.formatToParts(utcDate).find((part) => part.type === "timeZoneName")?.value;
+  const match = String(zoneName || "GMT+0").match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/i);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * (hours * 60 + minutes) * 60 * 1000;
+}
+
+function createUtcFromRomeLocalForExp(year, month, day, hour, minute, second) {
+  const baseUtcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+  const firstOffsetMs = getRomeOffsetMsForExp(new Date(baseUtcMs));
+  let utcMs = baseUtcMs - firstOffsetMs;
+  const secondOffsetMs = getRomeOffsetMsForExp(new Date(utcMs));
+  if (secondOffsetMs !== firstOffsetMs) utcMs = baseUtcMs - secondOffsetMs;
+  return new Date(utcMs);
+}
+
+function getRomeDayUtcBoundsFromContestDayKey(dayKey) {
+  const m = String(dayKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  const start = createUtcFromRomeLocalForExp(y, mo, d, 0, 0, 0);
+  const end = createUtcFromRomeLocalForExp(y, mo, d + 1, 0, 0, 0);
+  return { start, end };
+}
+
+/** Mezzanotte–21:00 (escluso) Europe/Rome sul `dayKey` (stesso giorno del cron bonus). */
+function getRomeActivityWindowUntil21UtcBounds(dayKey) {
+  const m = String(dayKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  const start = createUtcFromRomeLocalForExp(y, mo, d, 0, 0, 0);
+  const end = createUtcFromRomeLocalForExp(y, mo, d, 21, 0, 0);
+  return { start, end };
+}
+
+/** Somma `deltaExp` nello storico livelli nel periodo indicato (Rome day o 00–21). */
+async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, options = {}) {
+  const safeGuildId = String(guildId || "").trim();
+  const bounds = options?.until21
+    ? getRomeActivityWindowUntil21UtcBounds(dayKey)
+    : getRomeDayUtcBoundsFromContestDayKey(dayKey);
+  const ids = [...new Set((Array.isArray(userIds) ? userIds : []).map((id) => String(id || "").trim()).filter(Boolean))];
+  const out = new Map();
+  for (const id of ids) out.set(id, 0);
+  if (!safeGuildId || !bounds || !ids.length) return out;
+  const { start, end } = bounds;
+  const agg = await ActivityUserProfile.aggregate([
+    { $match: { guildId: safeGuildId, userId: { $in: ids } } },
+    { $unwind: "$profile.totals.exp.levelHistory" },
+    {
+      $match: {
+        "profile.totals.exp.levelHistory.createdAt": { $gte: start, $lt: end },
+      },
+    },
+    { $group: { _id: "$userId", expDelta: { $sum: "$profile.totals.exp.levelHistory.deltaExp" } } },
+  ]).catch(() => []);
+  for (const row of agg) {
+    const uid = String(row?._id || "");
+    if (!uid) continue;
+    out.set(uid, Math.floor(Number(row?.expDelta || 0)));
+  }
+  return out;
+}
+
+module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS, sumExpDeltaFromLevelHistoryForRomeDay };
