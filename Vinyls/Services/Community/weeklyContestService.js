@@ -12,7 +12,7 @@ const IDs = require("../../Utils/Config/ids");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { loadDailyRows } = require("./activityService");
 const { VOICE_EXP_PER_MINUTE } = require("./expService");
-const { WeeklyContestSubmission, WeeklyContestVoter, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
+const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
 const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
@@ -118,6 +118,34 @@ const CHANNEL_TO_CATEGORY = new Map(
     [CHANNEL_PC_ID, "pc"],
   ].filter(([id]) => id),
 );
+
+function normalizeSubmissionsCategoryMap(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw;
+}
+
+async function getContestBundleLean(guildId, eventKey) {
+  const gid = String(guildId || "");
+  const ek = String(eventKey || "").trim();
+  if (!gid || !ek) return null;
+  return WeeklyContestBundle.findOne({ guildId: gid, eventKey: ek }).lean().catch(() => null);
+}
+
+function findSubmissionByMessageId(bundleLean, messageId) {
+  const mid = String(messageId || "");
+  if (!mid || !bundleLean) return null;
+  const idx = bundleLean.submissionMessageIndex?.[mid];
+  if (idx && idx.category && idx.userId) {
+    return { category: String(idx.category), userId: String(idx.userId), messageId: mid };
+  }
+  for (const cat of ["mobile", "pc"]) {
+    const m = normalizeSubmissionsCategoryMap(bundleLean.submissions?.[cat]);
+    for (const [uid, mmsg] of Object.entries(m)) {
+      if (String(mmsg) === mid) return { category: cat, userId: String(uid), messageId: mid };
+    }
+  }
+  return null;
+}
 
 function getContestDayKey(date = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -456,8 +484,11 @@ async function denySendInContestChannel(channel, userId) {
   });
 }
 
-async function migrateVoterToCountMapsIfNeeded(doc) {
-  if (!doc?._id) return;
+async function migrateVoterLeafInBundleIfNeeded(guildId, eventKey, voterId, doc) {
+  const gid = String(guildId || "");
+  const ek = String(eventKey || "").trim();
+  const vid = String(voterId || "");
+  if (!gid || !ek || !vid || !doc) return;
   const lm = (doc.votesMobile?.length || 0) + (doc.votesMobileSparkle?.length || 0);
   const lp = (doc.votesPc?.length || 0) + (doc.votesPcSparkle?.length || 0);
   if (!lm && !lp) return;
@@ -487,11 +518,20 @@ async function migrateVoterToCountMapsIfNeeded(doc) {
     const k = String(id);
     pMap[k] = (Number(pMap[k]) || 0) + 1;
   }
-  await WeeklyContestVoter.updateOne(
-    { _id: doc._id },
+  const base = `voters.${vid}`;
+  await WeeklyContestBundle.updateOne(
+    { guildId: gid, eventKey: ek },
     {
-      $set: { votesMobileCounts: mMap, votesPcCounts: pMap },
-      $unset: { votesMobile: "", votesMobileSparkle: "", votesPc: "", votesPcSparkle: "" },
+      $set: {
+        [`${base}.votesMobileCounts`]: mMap,
+        [`${base}.votesPcCounts`]: pMap,
+      },
+      $unset: {
+        [`${base}.votesMobile`]: "",
+        [`${base}.votesMobileSparkle`]: "",
+        [`${base}.votesPc`]: "",
+        [`${base}.votesPcSparkle`]: "",
+      },
     },
   ).catch(() => null);
 }
@@ -519,10 +559,9 @@ async function tryStripContestSubmissionReaction(reaction, user) {
     if (!categoryForChannelId(msg.channelId)) return false;
     const guildId = String(msg.guild.id);
     const messageId = String(msg.id);
-    const sub = await WeeklyContestSubmission.findOne({ guildId, eventKey: EVENT_KEY, messageId })
-      .select("_id")
-      .lean()
-      .catch(() => null);
+    const q = { guildId, eventKey: EVENT_KEY };
+    q[`submissionMessageIndex.${messageId}`] = { $exists: true };
+    const sub = await WeeklyContestBundle.findOne(q).select("_id").lean().catch(() => null);
     if (!sub) return false;
     await reaction.users.remove(user.id).catch(() => {});
     return true;
@@ -574,13 +613,8 @@ async function handleWeeklyContestVoteButton(interaction) {
   const voterId = String(interaction.user.id);
   if (!isValidGuildUserId(guildId, voterId)) return true;
 
-  const submission = await WeeklyContestSubmission.findOne({
-    guildId,
-    eventKey: EVENT_KEY,
-    messageId: hostMessageId,
-  })
-    .lean()
-    .catch(() => null);
+  const bundlePre = await getContestBundleLean(guildId, EVENT_KEY);
+  const submission = findSubmissionByMessageId(bundlePre, hostMessageId);
   if (!submission || String(submission.category) !== category) {
     await safeEditReply(interaction, {
       content: "Questo messaggio non è una submission del contest.",
@@ -601,21 +635,21 @@ async function handleWeeklyContestVoteButton(interaction) {
   const member = await getGuildMemberCached(interaction.guild, voterId);
   const baseMax = resolveBaseVoteCap(member);
   const countPath = countsPathForCategory(category);
-  const incPath = `${countPath}.${hostMessageId}`;
+  const incPath = `voters.${voterId}.${countPath}.${hostMessageId}`;
 
-  const voterDoc = await WeeklyContestVoter.findOne({ guildId, eventKey: EVENT_KEY, voterId }).catch(() => null);
-  if (voterDoc) {
-    const plain = typeof voterDoc.toObject === "function" ? voterDoc.toObject() : voterDoc;
-    await migrateVoterToCountMapsIfNeeded(plain);
+  const voterDocLeaf = (await getContestBundleLean(guildId, EVENT_KEY))?.voters?.[voterId];
+  if (voterDocLeaf) {
+    await migrateVoterLeafInBundleIfNeeded(guildId, EVENT_KEY, voterId, voterDocLeaf);
   }
 
-  const voterLean = await WeeklyContestVoter.findOne({ guildId, eventKey: EVENT_KEY, voterId })
-    .lean()
-    .catch(() => null);
+  const bundleForLean = await getContestBundleLean(guildId, EVENT_KEY);
+  const voterLean = bundleForLean?.voters?.[voterId]
+    ? { guildId, eventKey: EVENT_KEY, voterId, ...bundleForLean.voters[voterId] }
+    : null;
 
   if (parsed.dir === "dec") {
-    const res = await WeeklyContestVoter.updateOne(
-      { guildId, eventKey: EVENT_KEY, voterId, [incPath]: { $gt: 0 } },
+    const res = await WeeklyContestBundle.updateOne(
+      { guildId, eventKey: EVENT_KEY, [incPath]: { $gt: 0 } },
       { $inc: { [incPath]: -1 } },
     ).catch(() => ({ modifiedCount: 0 }));
     if (!res?.modifiedCount) {
@@ -648,20 +682,22 @@ async function handleWeeklyContestVoteButton(interaction) {
     return true;
   }
 
-  await WeeklyContestVoter.findOneAndUpdate(
-    { guildId, eventKey: EVENT_KEY, voterId },
+  await WeeklyContestBundle.findOneAndUpdate(
+    { guildId, eventKey: EVENT_KEY },
     { $inc: { [incPath]: 1 } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
 
-  const fresh = await WeeklyContestVoter.findOne({ guildId, eventKey: EVENT_KEY, voterId })
-    .lean()
-    .catch(() => null);
+  const freshBundle = await getContestBundleLean(guildId, EVENT_KEY);
+  const freshLeaf = freshBundle?.voters?.[voterId];
+  const fresh = freshLeaf
+    ? { guildId, eventKey: EVENT_KEY, voterId, ...freshLeaf }
+    : null;
   const fm = mobileVoteCountUnified(fresh);
   const fp = pcVoteCountUnified(fresh);
   if (extraVotesUsed(fm, fp, baseMax) > totalBonusSlotsForContest(fresh)) {
-    await WeeklyContestVoter.updateOne(
-      { guildId, eventKey: EVENT_KEY, voterId, [incPath]: { $gt: 0 } },
+    await WeeklyContestBundle.updateOne(
+      { guildId, eventKey: EVENT_KEY, [incPath]: { $gt: 0 } },
       { $inc: { [incPath]: -1 } },
     ).catch(() => null);
     await safeEditReply(interaction, {
@@ -696,18 +732,12 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       return true;
     }
 
-    const existing = await WeeklyContestSubmission.findOne({
-      guildId,
-      eventKey: EVENT_KEY,
-      category,
-      userId,
-    })
-      .select("messageId")
-      .lean()
-      .catch(() => null);
+    const bundleExisting = await getContestBundleLean(guildId, EVENT_KEY);
+    const catMap = normalizeSubmissionsCategoryMap(bundleExisting?.submissions?.[category]);
+    const existingMid = catMap[userId] ? String(catMap[userId]) : null;
 
-    if (existing?.messageId && String(existing.messageId) !== String(message.id)) {
-      const oldAlive = await message.channel.messages.fetch(existing.messageId).catch(() => null);
+    if (existingMid && existingMid !== String(message.id)) {
+      const oldAlive = await message.channel.messages.fetch(existingMid).catch(() => null);
       if (oldAlive) {
         const warn = await message.channel
           .send({
@@ -745,11 +775,21 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       return false;
     }
 
-    await WeeklyContestSubmission.findOneAndUpdate(
-      { guildId, eventKey: EVENT_KEY, category, userId },
-      { $set: { messageId: String(posted.id) } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).catch((err) => {
+    const newMsgId = String(posted.id);
+    const update = {
+      $set: {
+        [`submissions.${category}.${userId}`]: newMsgId,
+        [`submissionMessageIndex.${newMsgId}`]: { category, userId },
+      },
+    };
+    if (existingMid && existingMid !== newMsgId) {
+      update.$unset = { [`submissionMessageIndex.${existingMid}`]: "" };
+    }
+    await WeeklyContestBundle.findOneAndUpdate({ guildId, eventKey: EVENT_KEY }, update, {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    }).catch((err) => {
       global.logger?.error?.("[WEEKLY_CONTEST] submission upsert:", err);
     });
 
@@ -785,15 +825,9 @@ async function runWeeklyContestNonMemberVoterPrune(client) {
   const guild = await client.guilds.fetch(gid).catch(() => null);
   if (!guild) return;
 
-  const docs = await WeeklyContestVoter.find({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION })
-    .select(
-      "voterId votesMobileCounts votesPcCounts votesMobile votesMobileSparkle votesPc votesPcSparkle",
-    )
-    .lean()
-    .catch(() => []);
-
-  for (const doc of docs) {
-    const voterId = String(doc?.voterId || "");
+  const bundle = await getContestBundleLean(gid, EVENT_KEY_PRODUCTION);
+  const voters = bundle?.voters && typeof bundle.voters === "object" ? bundle.voters : {};
+  for (const [voterId, doc] of Object.entries(voters)) {
     if (!voterId) continue;
     const stillIn = await guild.members.fetch(voterId).catch(() => null);
     if (stillIn) continue;
@@ -807,11 +841,20 @@ async function runWeeklyContestNonMemberVoterPrune(client) {
       (doc.votesPcSparkle?.length || 0);
     if (!w) continue;
 
-    await WeeklyContestVoter.updateOne(
-      { guildId: gid, eventKey: EVENT_KEY_PRODUCTION, voterId },
+    const base = `voters.${voterId}`;
+    await WeeklyContestBundle.updateOne(
+      { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
       {
-        $set: { votesMobileCounts: {}, votesPcCounts: {} },
-        $unset: { votesMobile: "", votesMobileSparkle: "", votesPc: "", votesPcSparkle: "" },
+        $set: {
+          [`${base}.votesMobileCounts`]: {},
+          [`${base}.votesPcCounts`]: {},
+        },
+        $unset: {
+          [`${base}.votesMobile`]: "",
+          [`${base}.votesMobileSparkle`]: "",
+          [`${base}.votesPc`]: "",
+          [`${base}.votesPcSparkle`]: "",
+        },
       },
     ).catch(() => null);
   }
@@ -934,9 +977,9 @@ async function runDailyTopThreeBonusJob(client) {
   const topIds = winners.map((w) => w.userId);
   for (const voterId of topIds) {
     if (!isValidGuildUserId(gid, voterId)) continue;
-    await WeeklyContestVoter.findOneAndUpdate(
-      { guildId: gid, eventKey: EVENT_KEY_PRODUCTION, voterId },
-      { $set: { [`bonusSlots.${todayKey}`]: 1 } },
+    await WeeklyContestBundle.findOneAndUpdate(
+      { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+      { $set: { [`voters.${voterId}.bonusSlots.${todayKey}`]: 1 } },
       { upsert: true, setDefaultsOnInsert: true },
     ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] bonus grant:", err));
   }
@@ -1039,10 +1082,11 @@ async function aggregateFinaleCategoryVoteTotalsValid(guild, guildId) {
   const gid = String(guildId || "");
   const mobileMerged = new Map();
   const pcMerged = new Map();
-  const voters = await WeeklyContestVoter.find({ guildId: gid, eventKey: EVENT_KEY }).lean().catch(() => []);
-  for (const v of voters) {
-    const voterId = String(v?.voterId || "");
+  const bundle = await getContestBundleLean(gid, EVENT_KEY);
+  const votersObj = bundle?.voters && typeof bundle.voters === "object" ? bundle.voters : {};
+  for (const [voterId, leaf] of Object.entries(votersObj)) {
     if (!voterId) continue;
+    const v = { voterId, ...leaf };
     const member = await guild.members.fetch(voterId).catch(() => null);
     const baseNow = resolveBaseVoteCap(member);
     const bonusTotal = totalBonusSlotsForContest(v);
@@ -1060,9 +1104,9 @@ async function aggregateFinaleCategoryVoteTotalsValid(guild, guildId) {
 async function computeContestFinaleRankingForCategory(guildId, category, msgVoteMap) {
   const gid = String(guildId || "");
   const cat = String(category || "");
-  const subs = await WeeklyContestSubmission.find({ guildId: gid, eventKey: EVENT_KEY, category: cat })
-    .lean()
-    .catch(() => []);
+  const bundle = await getContestBundleLean(gid, EVENT_KEY);
+  const m = normalizeSubmissionsCategoryMap(bundle?.submissions?.[cat]);
+  const subs = Object.entries(m).map(([userId, messageId]) => ({ userId, messageId }));
   const byAuthor = new Map();
   for (const s of subs) {
     const uid = String(s?.userId || "");
@@ -1310,10 +1354,9 @@ function addLegacyVotesFromArrays(totals, arr) {
 async function getSfondiVoteTotalsForCategory(guildId, eventKey, category) {
   const isMobile = category === "mobile";
   const countField = isMobile ? "votesMobileCounts" : "votesPcCounts";
-  const docs = await WeeklyContestVoter.find({ guildId, eventKey })
-    .select(`${countField} votesMobile votesMobileSparkle votesPc votesPcSparkle`)
-    .lean()
-    .catch(() => []);
+  const bundle = await getContestBundleLean(guildId, eventKey);
+  const votersObj = bundle?.voters && typeof bundle.voters === "object" ? bundle.voters : {};
+  const docs = Object.values(votersObj);
   const totals = Object.create(null);
   for (const doc of docs) {
     const bag = doc[countField];
@@ -1365,10 +1408,9 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
   }
 
   const totals = await getSfondiVoteTotalsForCategory(guildId, eventKey, cat);
-  const subs = await WeeklyContestSubmission.find({ guildId, eventKey, category: cat })
-    .select("messageId userId")
-    .lean()
-    .catch(() => []);
+  const bundleLb = await getContestBundleLean(guildId, eventKey);
+  const subMap = normalizeSubmissionsCategoryMap(bundleLb?.submissions?.[cat]);
+  const subs = Object.entries(subMap).map(([userId, messageId]) => ({ userId, messageId }));
 
   const channelId = cat === "mobile" ? CHANNEL_MOBILE_ID : CHANNEL_PC_ID;
   const rows = subs
