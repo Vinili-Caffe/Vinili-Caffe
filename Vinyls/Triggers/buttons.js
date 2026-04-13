@@ -660,7 +660,7 @@ module.exports = {
         },
       )
         .setFooter({
-          text: `Puoi bloccare le future quote tramite il comando \`+blockquotes\` \u2022 Oggi alle ${timeStr}`,
+          text: `Puoi bloccare le future quote tramite il comando \`+profile\` \u2022 Oggi alle ${timeStr}`,
         });
       if (originChannelId && originMessageId && originMessageId !== "0") {
         const originChannel = interaction.guild?.channels?.cache?.get(originChannelId) || (await interaction.guild?.channels?.fetch(originChannelId).catch((err) => { logButtonErr(err); return null; }));

@@ -183,7 +183,7 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
     .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL() })
     .setColor("#6f4e37")
     .setFooter({
-      text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando +blockbn.\n${totalViews} Views 👁️`,
+      text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando +profile.\n${totalViews} Views 👁️`,
     });
   const imageUrl = activeMode === "server" ? serverBanner : userBanner;
   if (!imageUrl) {
