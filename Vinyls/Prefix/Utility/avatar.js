@@ -10,12 +10,32 @@ function normalize(text) {
     .trim();
 }
 
+function memberLikeFromUser(user) {
+  if (!user) return null;
+  return {
+    user,
+    displayName: user.globalName || user.username,
+    displayAvatarURL: (opts) => user.displayAvatarURL(opts),
+  };
+}
+
 async function resolveMember(message, query) {
-  const mention = message.mentions?.members?.first();
-  if (mention) return mention;
+  const mentionedUser = message.mentions?.users?.first();
+  if (mentionedUser) {
+    const member = await getGuildMemberCached(message.guild, mentionedUser.id);
+    if (member) return member;
+    return memberLikeFromUser(mentionedUser);
+  }
   const id = String(query || "").replace(/[<@!>]/g, "");
-  if (/^\d{17,20}$/.test(id)) {
-    return await getGuildMemberCached(message.guild, id);
+  if (/^\d{17,22}$/.test(id)) {
+    const member = await getGuildMemberCached(message.guild, id);
+    if (member) return member;
+    try {
+      const fetched = await message.client.users.fetch(id).catch(() => null);
+      return memberLikeFromUser(fetched);
+    } catch {
+      return null;
+    }
   }
   if (!query) return null;
   const target = normalize(query);
