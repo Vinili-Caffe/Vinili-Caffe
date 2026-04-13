@@ -1,20 +1,10 @@
 const cron = require("node-cron");
-const {
-  ActionRowBuilder,
-  AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  MessageFlags,
-  ThreadAutoArchiveDuration,
-} = require("discord.js");
+const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, ThreadAutoArchiveDuration } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
-const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { loadHourlyRows } = require("./activityService");
-const { VOICE_EXP_PER_MINUTE, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
+const { MESSAGE_EXP, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
-const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
+const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const TIME_ZONE = "Europe/Rome";
 const MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
@@ -987,7 +977,10 @@ async function computeDailyBonusTopThreeWinners(guild, activityDayKey) {
   for (const row of sorted) {
     const mem = await guild.members.fetch(row.userId).catch(() => null);
     if (!mem || !isEligibleDailyBonusMember(mem)) continue;
-    winners.push({ userId: row.userId });
+    const textCount = Math.max(0, Math.floor(Number(row.textCount || 0)));
+    const voiceExp = Math.max(0, Math.floor(Number(row.voiceExp || 0)));
+    const baseExpFromActivity = textCount * MESSAGE_EXP + voiceExp;
+    winners.push({ userId: row.userId, baseExpFromActivity });
     if (winners.length >= 3) break;
   }
 
@@ -995,16 +988,13 @@ async function computeDailyBonusTopThreeWinners(guild, activityDayKey) {
     until21: true,
   }).catch(() => new Map());
   for (const w of winners) {
-    w.expWindow = Math.max(0, Math.floor(Number(expByUser.get(w.userId) || 0)));
+    const hist = Math.max(0, Math.floor(Number(expByUser.get(w.userId) || 0)));
+    const base = Math.max(0, Math.floor(Number(w.baseExpFromActivity || 0)));
+    w.expWindow = hist > 0 ? hist : base;
   }
   return winners;
 }
 
-/**
- * Ricalcola Top 3, opzionalmente allinea `bonusSlots` su DB (rimuove slot `slotDayKey` a chi non è più top 3,
- * assegna ai nuovi) e clamp dei voti per chi perde lo slot, poi invia l’embed.
- * `syncDb` default true; `slotDayKey` default = `accreditDayKey` (chiave giorno del bonus nel bundle).
- */
 async function replayContestDailyBonusAnnounce(client, opts = {}) {
   const gid = contestGuildId();
   if (!gid || !client) return { ok: false, reason: "missing_client_or_guild" };
