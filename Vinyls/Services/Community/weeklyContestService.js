@@ -1,11 +1,13 @@
 const cron = require("node-cron");
 const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, ThreadAutoArchiveDuration } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
+const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { loadHourlyRows } = require("./activityService");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
 const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
+const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
 const MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
 
