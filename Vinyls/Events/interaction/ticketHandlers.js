@@ -63,11 +63,19 @@ async function handleTicketInteraction(interaction) {
   async function acquireTicketActionLock(actionGroup, channelId = interaction.channel?.id) {
     const lockKey = getTicketActionLockKey(actionGroup, channelId);
     if (interaction.client.ticketActionLocks.has(lockKey)) {
+      let suffix = "";
+      if (channelId) {
+        const t = await Ticket.findOne({ channelId, open: true }).select("claimedBy").lean().catch(() => null);
+        const cid = t?.claimedBy != null ? String(t.claimedBy).trim() : "";
+        if (cid) {
+          suffix = `\n\n<:VC_claim:1478517202016669887> **In carico a:** <@${cid}>`;
+        }
+      }
       await safeReply(interaction, {
         embeds: [
           makeErrorEmbed(
             "<a:VC_Loading:1482526818278969578> Attendi",
-            "<a:VC_Alert:1482706673176150077> Azione già in corso su questo ticket, attendi un attimo.",
+            "<a:VC_Alert:1482706673176150077> Un altro staff sta completando un'azione su questo ticket. Riprova tra un secondo." + suffix,
           ),
         ],
         flags: 1 << 6,
@@ -656,17 +664,32 @@ async function handleTicketInteraction(interaction) {
         }
         const claimLockKey = await acquireTicketActionLock("claim_state");
         if (!claimLockKey) return true;
+        let claimReplyDeferred = false;
+        async function replyTicketClaim(payload) {
+          const base = { ...payload };
+          if (base.flags == null) base.flags = 1 << 6;
+          if (claimReplyDeferred) {
+            const editPayload = { ...base };
+            delete editPayload.flags;
+            await interaction.editReply(editPayload).catch(async () => {
+              await interaction.followUp(base).catch(() => {});
+            });
+            return;
+          }
+          await safeReply(interaction, base);
+        }
         try {
+          await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
+          claimReplyDeferred = Boolean(interaction.deferred);
           const ticket = await runtimeFindTicketByChannel(interaction.channel.id);
           if (!ticket) {
-            await safeReply(interaction, {
+            await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Ticket non trovato",
                 ),
               ],
-              flags: 1 << 6,
             });
             return true;
           }
@@ -674,39 +697,36 @@ async function handleTicketInteraction(interaction) {
           const canClaimPartnership = ticket.ticketType === "partnership" && (interaction.member?.roles?.cache?.has(ROLE_PARTNERMANAGER) || interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF));
           const canClaimHigh = ticket.ticketType === "high" && interaction.member?.roles?.cache?.has(ROLE_HIGHSTAFF);
           if (!canClaimSupport && !canClaimPartnership && !canClaimHigh) {
-            await safeReply(interaction, {
+            await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Solo lo staff può claimare i ticket",
                 ),
               ],
-              flags: 1 << 6,
             });
             return true;
           }
           if (ticket.userId === interaction.user.id) {
-            await safeReply(interaction, {
+            await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Non puoi claimare il ticket che hai aperto tu.",
                 ),
               ],
-              flags: 1 << 6,
             });
             return true;
           }
           const claimedByVal = ticket.claimedBy != null ? String(ticket.claimedBy).trim() : "";
           if (claimedByVal !== "" && !isHighStaffActor()) {
-            await safeReply(interaction, {
+            await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
-                  "<:vegax:1443934876440068179> Ticket già claimato",
+                  `<:vegax:1443934876440068179> Ticket già claimato da <@${claimedByVal}>.`,
                 ),
               ],
-              flags: 1 << 6,
             });
             return true;
           }
@@ -734,38 +754,35 @@ async function handleTicketInteraction(interaction) {
           if (!claimedTicket) {
             claimedTicket = await Ticket.findOne({ channelId: interaction.channel.id, open: true }).catch(() => null);
             if (!claimedTicket) {
-              await safeReply(interaction, {
+              await replyTicketClaim({
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
-                    "<:vegax:1443934876440068179> Ticket già claimato",
+                    "<:vegax:1443934876440068179> Ticket non disponibile o già gestito.",
                   ),
                 ],
-                flags: 1 << 6,
               });
               return true;
             }
             const nowClaimed = claimedTicket.claimedBy != null ? String(claimedTicket.claimedBy).trim() : "";
             if (nowClaimed !== "" && !isHighStaffActor()) {
-              await safeReply(interaction, {
+              await replyTicketClaim({
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
-                    "<:vegax:1443934876440068179> Ticket già claimato da un altro staff.",
+                    `<:vegax:1443934876440068179> **Ticket già claimato** da <@${nowClaimed}>.`,
                   ),
                 ],
-                flags: 1 << 6,
               });
               return true;
             }
-            await safeReply(interaction, {
+            await replyTicketClaim({
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
                   "<:vegax:1443934876440068179> Impossibile claimare il ticket ora. Riprova tra un attimo.",
                 ),
               ],
-              flags: 1 << 6,
             });
             return true;
           }
@@ -880,7 +897,7 @@ async function handleTicketInteraction(interaction) {
           } catch (err) {
             global.logger.error(err);
           }
-          await safeReply(interaction, {
+          await replyTicketClaim({
             embeds: [
               new EmbedBuilder()
                 .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET CLAIMATO__**")
