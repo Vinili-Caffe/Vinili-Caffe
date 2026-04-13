@@ -4,7 +4,7 @@ const IDs = require("../../Utils/Config/ids");
 const { loadHourlyRows } = require("./activityService");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
-const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const TIME_ZONE = "Europe/Rome";
 const MAIN_GUILD_ID = String(process.env.ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
@@ -572,6 +572,7 @@ async function handleWeeklyContestVoteButton(interaction) {
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
 
+  try {
   const botId = String(interaction.client?.user?.id || "");
   const hostAuthorId = String(interaction.message.author?.id || "");
   if (!botId || hostAuthorId !== botId) {
@@ -601,7 +602,13 @@ async function handleWeeklyContestVoteButton(interaction) {
 
   const guildId = String(interaction.guild.id);
   const voterId = String(interaction.user.id);
-  if (!isValidGuildUserId(guildId, voterId)) return true;
+  if (!isValidGuildUserId(guildId, voterId)) {
+    await safeEditReply(interaction, {
+      content: "<:VC_Attention:1482534443632558151> Richiesta non valida.",
+      flags: MessageFlags.Ephemeral,
+    }).catch(() => {});
+    return true;
+  }
 
   const bundlePre = await getContestBundleLean(guildId, EVENT_KEY);
   const submission = findSubmissionByMessageId(bundlePre, hostMessageId);
@@ -703,6 +710,14 @@ async function handleWeeklyContestVoteButton(interaction) {
     flags: MessageFlags.Ephemeral,
   }).catch(() => {});
   return true;
+  } catch (err) {
+    global.logger?.error?.("[WEEKLY_CONTEST] vote button:", err?.message || err);
+    await safeEditReply(interaction, {
+      content: "<:VC_Attention:1482534443632558151> Errore durante il voto. Riprova tra poco.",
+      flags: MessageFlags.Ephemeral,
+    }).catch(() => {});
+    return true;
+  }
 }
 
 async function handleWeeklyContestSubmissionMessage(message, client) {
