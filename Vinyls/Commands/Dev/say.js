@@ -63,8 +63,14 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName("messaggio")
-        .setDescription("Il messaggio che vuoi che scriva il bot")
-        .setRequired(true),
+        .setDescription("Testo del messaggio (opzionale se allegi un file)")
+        .setRequired(false),
+    )
+    .addAttachmentOption((option) =>
+      option
+        .setName("allegato")
+        .setDescription("File audio o altro allegato (opzionale se scrivi un messaggio)")
+        .setRequired(false),
     )
     .addStringOption((option) =>
       option
@@ -83,11 +89,21 @@ module.exports = {
     await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => { });
 
     try {
-      const messageText = interaction.options.getString("messaggio");
+      const rawText = interaction.options.getString("messaggio");
+      const messageText = rawText != null ? String(rawText).trim() : "";
+      const attachment = interaction.options.getAttachment("allegato");
       const messageId = interaction.options.getString("message_id")?.trim();
       const messageLink = interaction.options.getString("message_link")?.trim();
 
-      const target = await resolveReplyTarget(interaction, messageId, messageLink,);
+      if (!messageText && !attachment) {
+        return safeEditReply(interaction, {
+          content:
+            "<:vegax:1443934876440068179> Indica almeno **messaggio** o **allegato**.",
+          flags: EPHEMERAL_FLAG,
+        });
+      }
+
+      const target = await resolveReplyTarget(interaction, messageId, messageLink);
       if (target.error) {
         return safeEditReply(interaction, {
           content: target.error,
@@ -100,7 +116,9 @@ module.exports = {
         flags: EPHEMERAL_FLAG,
       });
 
-      const payload = { content: `${messageText}` };
+      const payload = {};
+      if (messageText) payload.content = messageText;
+      if (attachment) payload.files = [attachment];
       if (target.replyTo) {
         payload.reply = {
           messageReference: target.replyTo.id,
