@@ -58,7 +58,9 @@ const MENTION_RULES = {
   roleMentions: { enabled: true, heat: 20 },
   everyoneMentions: { enabled: true, heat: 100 },
 };
-const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 15 }, images: { enabled: true, heat: 20 }, files: { enabled: true, heat: 15 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 15 }, };
+const ATTACHMENT_RULES = { enabled: true, timeoutMs: 0, embeds: { enabled: true, heat: 15 }, images: { enabled: true, heat: 10 }, files: { enabled: true, heat: 15 }, links: { enabled: true, heat: 10 }, stickers: { enabled: true, heat: 15 }, };
+const AUTOMOD_IMAGE_ONLY_MAX_COUNT = 10;
+const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.45;
 const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, };
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
 const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../../Utils/Config/automodMetrics.json",);
@@ -1613,7 +1615,12 @@ function countCaseCharacters(content) {
 }
 
 function stripUrlsForCharacterRule(content) {
-  return String(content || "").replace(/https?:\/\/\S+/gi, " ");
+  let s = String(content || "").replace(/https?:\/\/\S+/gi, " ");
+  s = s.replace(/(?:https?:)?\/\/cdn\.discordapp\.(?:com|net)\/\S+/gi, " ");
+  s = s.replace(/\bcdn\.discordapp\.(?:com|net)\/attachments\/\S+/gi, " ");
+  s = s.replace(/\b(?:cdn\.discordapp\.(?:com|net)|media\.discordapp\.(?:com|net))\S+/gi, " ");
+  s = s.replace(/<a?:\w+:\d+>/g, " ");
+  return s;
 }
 
 function isExempt(message) {
@@ -1780,6 +1787,8 @@ async function detectViolations(message, state, profile) {
   const inviteLinksEnabled = profile?.inviteLinksEnabled !== false;
   const autoLockdownEnabled = automodRuntimeConfig?.autoLockdown?.enabled !== false;
   const hasMeaningfulTextPayload = String(moderationContent || "").trim().length >= 8;
+  const attachmentListForCharRule = [...(message.attachments?.values?.() || [])];
+  const imageAttachmentCountForCharRule = attachmentListForCharRule.filter((att) => isImageAttachment(att)).length;
   const profileHeat = (value, factorKey = "regularMessage") => applyProfileHeat(applyHeatFactor(factorKey, value), profile);
   const legitConversation = looksLikeLegitConversation(moderationContent || content);
   let suspiciousMessageAuthor = false;
@@ -2041,9 +2050,13 @@ async function detectViolations(message, state, profile) {
   }
 
   if (!spamWhitelisted && TEXT_RULES.characters.enabled) {
-    const characterRuleContent = stripUrlsForCharacterRule(content);
+    const characterRuleContent = stripUrlsForCharacterRule(moderationContent);
+    const strippedForCharLen = characterRuleContent.replace(/\s+/g, " ").trim();
+    const skipCharSpamForHeavyImagePost =
+      imageAttachmentCountForCharRule >= 3 &&
+      strippedForCharLen.length < TEXT_RULES.characters.minChars;
     const { lower, upper, total } = countCaseCharacters(characterRuleContent);
-    if (total >= TEXT_RULES.characters.minChars) {
+    if (!skipCharSpamForHeavyImagePost && total >= TEXT_RULES.characters.minChars) {
       const upperRatio = total > 0 ? upper / total : 0;
       const repeatedCharBurst = /(.)\1{10,}/.test(characterRuleContent);
       const noisyShape = upperRatio >= 0.45 || repeatedCharBurst;
@@ -2070,10 +2083,21 @@ async function detectViolations(message, state, profile) {
     const imageCount = attachmentList.filter((att) => isImageAttachment(att)).length;
     const fileCount = Math.max(0, attachmentList.length - imageCount);
     const linkCount = extractedUrls.length;
-    const isLightMediaOnlyMessage = hasMeaningfulTextPayload === false && embedCount === 0 && stickerCount === 0 && fileCount === 0 && linkCount === 0 && imageCount > 0 && imageCount <= 2;
+    const isImageOnlyGallery =
+      hasMeaningfulTextPayload === false &&
+      embedCount === 0 &&
+      stickerCount === 0 &&
+      fileCount === 0 &&
+      linkCount === 0 &&
+      imageCount > 0 &&
+      imageCount <= AUTOMOD_IMAGE_ONLY_MAX_COUNT;
     const profileKey = String(profile?.key || "");
     const imageHeatMultiplier =
-      profileKey === "media" ? 1 : isLightMediaOnlyMessage ? 0.6 : 1;
+      profileKey === "media"
+        ? 1
+        : isImageOnlyGallery
+          ? AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER
+          : 1;
 
     if (ATTACHMENT_RULES.embeds.enabled && embedCount > 0) {
       violations.push({
