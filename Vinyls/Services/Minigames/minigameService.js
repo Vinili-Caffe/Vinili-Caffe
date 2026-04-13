@@ -6275,11 +6275,19 @@ async function handleMinigameMessage(message, client) {
   if (!message?.guild) return false;
   if (message.author?.bot) return false;
   cfg.guildId = String(message.guild.id || "");
-  if (message.channelId !== cfg.channelId) return false;
-  const game = activeGames.get(cfg.channelId);
-  if (!game && canCountMessageForActivity(message)) {
+  const chatId = String(cfg.channelId || "");
+  const mediaId = String(IDs.channels.media || "").trim();
+  const chId = String(message.channelId || "");
+  const gameBucket = activeGames.get(chatId);
+  if (
+    !gameBucket &&
+    canCountMessageForActivity(message) &&
+    (chId === chatId || (mediaId && chId === mediaId))
+  ) {
     recordActivity(getActivityScopeKey(cfg), getActivityWindowMs(cfg), message.author?.id);
   }
+  if (chId !== chatId) return false;
+  const game = gameBucket;
   if (game && isStaleOrInvalidActiveGame(game)) {
     if (game.timeout) clearTimeout(game.timeout);
     if (game.hintTimeout) clearTimeout(game.hintTimeout);

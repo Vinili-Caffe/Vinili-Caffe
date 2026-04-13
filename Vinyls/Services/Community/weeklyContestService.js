@@ -997,7 +997,13 @@ async function computeDailyBonusTopThreeWinners(guild, activityDayKey) {
     const textCount = Math.max(0, Math.floor(Number(row.textCount || 0)));
     const voiceExp = Math.max(0, Math.floor(Number(row.voiceExp || 0)));
     const baseExpFromActivity = textCount * MESSAGE_EXP + voiceExp;
-    winners.push({ userId: row.userId, baseExpFromActivity });
+    winners.push({
+      userId: row.userId,
+      baseExpFromActivity,
+      activityCombined: Math.max(0, Math.floor(Number(row.combined || 0))),
+      textCount,
+      voiceSeconds: Math.max(0, Number(row.voiceSeconds || 0)),
+    });
     if (winners.length >= 3) break;
   }
 
@@ -1009,6 +1015,17 @@ async function computeDailyBonusTopThreeWinners(guild, activityDayKey) {
     const base = Math.max(0, Math.floor(Number(w.baseExpFromActivity || 0)));
     w.expWindow = hist > 0 ? hist : base;
   }
+  winners.sort((a, b) => {
+    const ea = Math.max(0, Math.floor(Number(a.expWindow || 0)));
+    const eb = Math.max(0, Math.floor(Number(b.expWindow || 0)));
+    if (eb !== ea) return eb - ea;
+    const ca = Math.max(0, Math.floor(Number(a.activityCombined || 0)));
+    const cb = Math.max(0, Math.floor(Number(b.activityCombined || 0)));
+    if (cb !== ca) return cb - ca;
+    if (b.textCount !== a.textCount) return b.textCount - a.textCount;
+    if (b.voiceSeconds !== a.voiceSeconds) return b.voiceSeconds - a.voiceSeconds;
+    return String(a.userId).localeCompare(String(b.userId));
+  });
   return winners;
 }
 

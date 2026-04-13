@@ -221,12 +221,12 @@
     "translateApiToItalian": true,
     "intervalMs": 900000,
     "noParticipationIntervalMs": 900000,
-    "activityWindowMs": 900000,
-    "minMessages": 50,
+    "activityWindowMs": 1200000,
+    "minMessages": 28,
     "activityThreshold": {
       "enabled": true,
-      "hardMin": 14,
-      "hardMax": 110,
+      "hardMin": 12,
+      "hardMax": 95,
       "memberReference": 400,
       "memberFactorMin": 0.78,
       "memberFactorMax": 1.38,
@@ -236,13 +236,13 @@
       "nightFactor": 0.72,
       "peakHourStart": 18,
       "peakHourEnd": 22,
-      "peakFactor": 1.2,
+      "peakFactor": 1.08,
       "defaultTimeFactor": 1,
       "spamAvgMessagesPerUser": 4,
       "spamPenaltyPerExcess": 0.065,
       "spamPenaltyCap": 0.42,
-      "minUniqueDivisor": 12,
-      "uniqueBypassMultiple": 1.65
+      "minUniqueDivisor": 16,
+      "uniqueBypassMultiple": 1.35
     },
     "failsafeMs": 5400000,
     "fastGuess": {
