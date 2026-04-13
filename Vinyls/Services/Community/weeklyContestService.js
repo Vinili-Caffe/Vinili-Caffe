@@ -916,7 +916,7 @@ function mergeContestBonusHourlyRows(rawRows, activityDayKey) {
 function formatDailyBonusRankLine(index, userId, expWindow) {
   const medal = TROPHY_LABELS_BONUS[index] || "[#]";
   const n = Math.max(0, Math.floor(Number(expWindow || 0)));
-  return `${medal} <@${userId}> <a:VC_Arrow:1482706699365257397> **${n}** exp (00–21)`;
+  return `${medal} <@${userId}> <a:VC_Arrow:1482706699365257397> **${n}** exp`;
 }
 
 async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, todayKey, winners }) {
@@ -929,7 +929,7 @@ async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, to
     return;
   }
   const lines = winners.map((w, i) => formatDailyBonusRankLine(i, w.userId, w.expWindow));
-  const infoLine = `<:VC_Leaderboard:1482534806314287387> // **${activityDayKey}** 00:00–21:00 ${TIME_ZONE} · ordine = messaggi + punti da vocale · exp = delta storico livelli nello stesso intervallo (storico limitato).`;
+  const infoLine = `<:VC_Leaderboard:1482534806314287387> // I più attivi di oggi.`;
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setDescription(
@@ -939,7 +939,7 @@ async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, to
         `<a:VC_HeartsPink:1468685897389052008> • **Top 3 attività:**`,
         ...lines,
         "",
-        `<a:VC_Winner:1482535294757507255> Avete **+1 voto** extra (accreditato **${todayKey}**): potete spenderlo **in qualsiasi giorno** del contest fino alla fine.`,
+        `<a:VC_Winner:1482535294757507255> Avete **+1 voto** extra potete spenderlo **in qualsiasi giorno** del contest fino alla fine.`,
       ].join("\n"),
     )
     .setThumbnail(guild.iconURL({ size: 256 }) || null);

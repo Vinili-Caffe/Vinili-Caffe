@@ -1148,6 +1148,13 @@ function getRomeActivityWindowUntil21UtcBounds(dayKey) {
   return { start, end };
 }
 
+function levelHistoryEntryTimeMs(entry) {
+  const raw = entry?.createdAt;
+  if (raw == null) return NaN;
+  const t = raw instanceof Date ? raw.getTime() : new Date(raw).getTime();
+  return Number.isFinite(t) ? t : NaN;
+}
+
 /** Somma `deltaExp` nello storico livelli nel periodo indicato (Rome day o 00–21). */
 async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, options = {}) {
   const safeGuildId = String(guildId || "").trim();
@@ -1158,21 +1165,24 @@ async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, o
   const out = new Map();
   for (const id of ids) out.set(id, 0);
   if (!safeGuildId || !bounds || !ids.length) return out;
-  const { start, end } = bounds;
-  const agg = await ActivityUserProfile.aggregate([
-    { $match: { guildId: safeGuildId, userId: { $in: ids } } },
-    { $unwind: "$profile.totals.exp.levelHistory" },
-    {
-      $match: {
-        "profile.totals.exp.levelHistory.createdAt": { $gte: start, $lt: end },
-      },
-    },
-    { $group: { _id: "$userId", expDelta: { $sum: "$profile.totals.exp.levelHistory.deltaExp" } } },
-  ]).catch(() => []);
-  for (const row of agg) {
-    const uid = String(row?._id || "");
+  const startMs = bounds.start.getTime();
+  const endMs = bounds.end.getTime();
+  const docs = await ActivityUserProfile.find({ guildId: safeGuildId, userId: { $in: ids } })
+    .select("userId profile.totals.exp.levelHistory")
+    .lean()
+    .catch(() => []);
+  for (const doc of docs || []) {
+    const uid = String(doc?.userId || "");
     if (!uid) continue;
-    out.set(uid, Math.floor(Number(row?.expDelta || 0)));
+    const hist = doc?.profile?.totals?.exp?.levelHistory;
+    if (!Array.isArray(hist) || !hist.length) continue;
+    let sum = 0;
+    for (const e of hist) {
+      const t = levelHistoryEntryTimeMs(e);
+      if (!Number.isFinite(t) || t < startMs || t >= endMs) continue;
+      sum += Math.floor(Number(e?.deltaExp || 0));
+    }
+    out.set(uid, sum);
   }
   return out;
 }
