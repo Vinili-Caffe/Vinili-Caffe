@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
@@ -190,7 +191,48 @@ function messageHasContestMediaAttachment(message) {
   return Boolean(firstContestImageAttachment(message));
 }
 
-function buildWeeklyContestSubmissionEmbed(message, client) {
+function maxAttachmentUploadBytesForGuild(guild) {
+  const tier = Number(guild?.premiumTier ?? 0);
+  if (tier >= 3) return 100 * 1024 * 1024;
+  if (tier >= 2) return 50 * 1024 * 1024;
+  return 8 * 1024 * 1024;
+}
+
+function safeContestAttachmentFileName(attachment) {
+  let n = String(attachment?.name || "sfondo.png").replace(/[\r\n\0]/g, "").trim() || "sfondo.png";
+  n = n.replace(/\s+/g, "_").slice(0, 80);
+  if (!/\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(n)) {
+    const base = n.replace(/\.+$/u, "") || "sfondo";
+    n = `${base}.png`;
+  }
+  return n.slice(0, 80) || "sfondo.png";
+}
+
+async function fetchDiscordAttachmentBuffer(attachment, maxBytes) {
+  const urls = [attachment?.url, attachment?.proxyURL].filter(Boolean).map((u) => String(u).trim());
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  timer.unref?.();
+  try {
+    for (const url of urls) {
+      if (!url) continue;
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) continue;
+        const cl = Number(res.headers.get("content-length") || 0);
+        if (Number.isFinite(cl) && cl > maxBytes) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length > maxBytes) continue;
+        return buf;
+      } catch (_) {}
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+  return null;
+}
+
+async function buildWeeklyContestSubmissionPayload(message, client) {
   const att = firstContestImageAttachment(message);
   const display = String(message.author?.globalName || message.author?.username || "utente").trim() || "utente";
   const avatarUrl = message.author?.displayAvatarURL?.({ extension: "png", size: 256 });
@@ -200,11 +242,30 @@ function buildWeeklyContestSubmissionEmbed(message, client) {
       name: `Sfondo di ${display}`,
       ...(avatarUrl ? { iconURL: avatarUrl } : {}),
     });
+  const files = [];
   if (att) {
-    const url = String(att.proxyURL || att.url || "").trim();
-    if (url) embed.setImage(url);
+    const maxBytes = maxAttachmentUploadBytesForGuild(message.guild);
+    const declared = Number(att.size || 0);
+    if (!declared || declared <= maxBytes) {
+      const buf = await fetchDiscordAttachmentBuffer(att, maxBytes);
+      const name = safeContestAttachmentFileName(att);
+      if (buf?.length) {
+        embed.setImage(`attachment://${name}`);
+        files.push(new AttachmentBuilder(buf, { name }));
+      }
+    }
+    if (!files.length) {
+      if (declared > maxBytes) {
+        global.logger?.warn?.(
+          "[WEEKLY_CONTEST] allegato oltre il limite upload server: embed con URL (può non reggere se Discord invalida il link).",
+          { bytes: declared, maxBytes },
+        );
+      }
+      const url = String(att.proxyURL || att.url || "").trim();
+      if (url) embed.setImage(url);
+    }
   }
-  return embed;
+  return { embed, files };
 }
 
 function hasAnyRole(member, idSet) {
@@ -660,10 +721,11 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       }
     }
 
-    const embed = buildWeeklyContestSubmissionEmbed(message, client);
+    const { embed, files } = await buildWeeklyContestSubmissionPayload(message, client);
     const posted = await message.channel
       .send({
         embeds: [embed],
+        ...(files.length ? { files } : {}),
         allowedMentions: { parse: [] },
       })
       .catch((err) => {
