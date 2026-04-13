@@ -1289,10 +1289,133 @@ function startWeeklyContestCron(client) {
   return { evening: contestCronEveningTask, noon: contestCronNoonTask };
 }
 
+const EVENTO_SFONDI_CLASSIFICA_BTN_PREFIX = "evtSfondiLb:";
+
+function sfondiRankLabel(index) {
+  if (index === 0) return "<:VC_Podio1:1482694399283433582>";
+  if (index === 1) return "<:VC_Podio2:1482694424411635712>";
+  if (index === 2) return "<:VC_Podio3:1482694450806259744>";
+  return `${index + 1}°`;
+}
+
+function addLegacyVotesFromArrays(totals, arr) {
+  if (!Array.isArray(arr)) return;
+  for (const id of arr) {
+    const k = String(id);
+    if (!/^\d{17,22}$/.test(k)) continue;
+    totals[k] = (Number(totals[k]) || 0) + 1;
+  }
+}
+
+async function getSfondiVoteTotalsForCategory(guildId, eventKey, category) {
+  const isMobile = category === "mobile";
+  const countField = isMobile ? "votesMobileCounts" : "votesPcCounts";
+  const docs = await WeeklyContestVoter.find({ guildId, eventKey })
+    .select(`${countField} votesMobile votesMobileSparkle votesPc votesPcSparkle`)
+    .lean()
+    .catch(() => []);
+  const totals = Object.create(null);
+  for (const doc of docs) {
+    const bag = doc[countField];
+    if (bag && typeof bag === "object" && !Array.isArray(bag)) {
+      for (const [k, v] of Object.entries(bag)) {
+        const n = Math.floor(Number(v));
+        if (!Number.isFinite(n) || n <= 0) continue;
+        totals[k] = (Number(totals[k]) || 0) + n;
+      }
+    }
+    if (isMobile) {
+      addLegacyVotesFromArrays(totals, doc.votesMobile);
+      addLegacyVotesFromArrays(totals, doc.votesMobileSparkle);
+    } else {
+      addLegacyVotesFromArrays(totals, doc.votesPc);
+      addLegacyVotesFromArrays(totals, doc.votesPcSparkle);
+    }
+  }
+  return totals;
+}
+
+function buildSfondiClassificaButtonRow(activeCategory) {
+  const mobileOn = activeCategory !== "pc";
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${EVENTO_SFONDI_CLASSIFICA_BTN_PREFIX}mobile`)
+      .setLabel("Mobile")
+      .setEmoji("📱")
+      .setStyle(mobileOn ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`${EVENTO_SFONDI_CLASSIFICA_BTN_PREFIX}pc`)
+      .setLabel("PC")
+      .setEmoji("🖥️")
+      .setStyle(!mobileOn ? ButtonStyle.Primary : ButtonStyle.Secondary),
+  );
+}
+
+async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverride = null) {
+  const guildId = String(guild?.id || "");
+  const eventKey = String(eventKeyOverride != null ? eventKeyOverride : EVENT_KEY).trim();
+  const cat = categoryMode === "pc" ? "pc" : "mobile";
+  const rowButtons = buildSfondiClassificaButtonRow(cat);
+
+  if (!guildId) {
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setDescription("Impossibile mostrare la classifica (guild mancante).");
+    return { embeds: [embed], components: [rowButtons] };
+  }
+
+  const totals = await getSfondiVoteTotalsForCategory(guildId, eventKey, cat);
+  const subs = await WeeklyContestSubmission.find({ guildId, eventKey, category: cat })
+    .select("messageId userId")
+    .lean()
+    .catch(() => []);
+
+  const channelId = cat === "mobile" ? CHANNEL_MOBILE_ID : CHANNEL_PC_ID;
+  const rows = subs
+    .map((s) => {
+      const messageId = String(s.messageId);
+      return {
+        messageId,
+        userId: String(s.userId || ""),
+        votes: Math.max(0, Math.floor(Number(totals[messageId] || 0))),
+      };
+    })
+    .sort((a, b) => b.votes - a.votes || a.messageId.localeCompare(b.messageId))
+    .slice(0, 10);
+
+  const lines = [];
+  rows.forEach((row, index) => {
+    const author = row.userId ? `<@${row.userId}>` : "—";
+    const jump =
+      channelId && row.messageId
+        ? `[messaggio](https://discord.com/channels/${guildId}/${channelId}/${row.messageId})`
+        : "—";
+    lines.push(`${sfondiRankLabel(index)} ${author} — **${row.votes}** · ${jump}`);
+  });
+  if (!lines.length) {
+    lines.push("Nessun voto in questa categoria (o submission ancora assenti).");
+  }
+
+  const titleSuffix = cat === "mobile" ? "Sfondi mobile" : "Sfondi PC";
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setAuthor({
+      name: guild.name,
+      iconURL: guild.iconURL?.({ size: 128 }) || undefined,
+    })
+    .setTitle(`Classifica evento · ${titleSuffix}`)
+    .setDescription(lines.join("\n"))
+    .setFooter({ text: `Chiave evento: ${eventKey}` });
+
+  return { embeds: [embed], components: [rowButtons] };
+}
+
 module.exports = {
   EVENT_KEY,
   EVENT_KEY_PRODUCTION,
   CONTEST_TEST_MODE,
+  EVENTO_SFONDI_CLASSIFICA_BTN_PREFIX,
+  buildSfondiClassificaPayload,
   handleWeeklyContestSubmissionMessage,
   handleWeeklyContestVoteButton,
   buildWeeklyContestVoteRow,

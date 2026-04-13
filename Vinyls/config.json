@@ -222,7 +222,7 @@
     "intervalMs": 900000,
     "noParticipationIntervalMs": 900000,
     "activityWindowMs": 900000,
-    "minMessages": 100,
+    "minMessages": 50,
     "failsafeMs": 5400000,
     "fastGuess": {
       "windowMs": 30000,
