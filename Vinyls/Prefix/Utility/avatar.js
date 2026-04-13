@@ -198,7 +198,7 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
     .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL({ extension: "png", size: 256, forceStatic: true }) })
     .setColor("#6f4e37")
     .setFooter({
-      text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il comando ?blockav.\n${totalViews} Views 👁️`,
+      text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il comando +blockav.\n${totalViews} Views 👁️`,
     });
   if (activeMode === "server" && !hasServerAvatar) {
     embed.setDescription("<:vegax:1443934876440068179> Non ha un avatar impostato solo per questo server.");
