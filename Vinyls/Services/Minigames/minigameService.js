@@ -426,6 +426,122 @@ function getMinMessages(cfg) {
   return Math.max(1, Number(cfg?.minMessages ?? 1));
 }
 
+function getActivityThresholdCfg(cfg) {
+  const at = cfg?.activityThreshold;
+  return at && typeof at === "object" ? at : {};
+}
+
+function normalizeActivityEntry(raw) {
+  if (typeof raw === "number" && Number.isFinite(raw)) return { t: raw, u: null };
+  if (raw && typeof raw === "object" && Number.isFinite(Number(raw.t))) {
+    const uid = raw.u != null && String(raw.u).trim() ? String(raw.u).trim() : null;
+    return { t: Number(raw.t), u: uid };
+  }
+  return null;
+}
+
+function getRecentActivityStats(activityScopeKey, windowMs) {
+  if (!activityScopeKey) return { count: 0, uniqueUsers: 0, avgPerUser: 0 };
+  const safeWindowMs = Math.max(60 * 1000, Number(windowMs || 30 * 60 * 1000));
+  const now = Date.now();
+  const list = recentMessages.get(activityScopeKey) || [];
+  const cutoff = now - safeWindowMs;
+  const trimmed = [];
+  for (const raw of list) {
+    const e = normalizeActivityEntry(raw);
+    if (!e || e.t < cutoff) continue;
+    trimmed.push(e);
+  }
+  recentMessages.set(activityScopeKey, trimmed);
+  const count = trimmed.length;
+  const set = new Set();
+  let unknown = 0;
+  for (const e of trimmed) {
+    if (e.u) set.add(e.u);
+    else unknown += 1;
+  }
+  let uniqueUsers = set.size;
+  if (unknown > 0) {
+    uniqueUsers += Math.max(0, Math.min(unknown, Math.ceil(unknown / 4)));
+  }
+  uniqueUsers = Math.max(1, Math.min(count, uniqueUsers));
+  const avgPerUser = count / uniqueUsers;
+  return { count, uniqueUsers, avgPerUser };
+}
+
+function getTimeFactorAdaptive(at, client) {
+  const h = getMinigameRomeTime(new Date(), client).hour;
+  const nightStart = Number(at.nightHourStart ?? 2);
+  const nightEnd = Number(at.nightHourEnd ?? 7);
+  const inNight =
+    nightStart <= nightEnd
+      ? h >= nightStart && h < nightEnd
+      : h >= nightStart || h < nightEnd;
+  if (inNight) return Math.max(0.45, Number(at.nightFactor ?? 0.72));
+  const peakStart = Number(at.peakHourStart ?? 18);
+  const peakEnd = Number(at.peakHourEnd ?? 22);
+  if (h >= peakStart && h <= peakEnd) return Math.max(0.5, Number(at.peakFactor ?? 1.2));
+  return Math.max(0.5, Number(at.defaultTimeFactor ?? 1));
+}
+
+function getMemberFactorAdaptive(at, client, cfg) {
+  const ref = Math.max(50, Number(at.memberReference ?? 400));
+  const minF = Number(at.memberFactorMin ?? 0.78);
+  const maxF = Number(at.memberFactorMax ?? 1.38);
+  const exp = Number(at.memberExponent ?? 0.28);
+  const gid = String(cfg?.guildId || "").trim();
+  const g = gid && client?.guilds?.cache?.get(gid);
+  const members = Math.max(30, Number(g?.approximateMemberCount || g?.memberCount || ref));
+  const raw = (members / ref) ** exp;
+  return Math.min(maxF, Math.max(minF, raw));
+}
+
+function getSpamPenaltyMultiplier(at, stats) {
+  const above = Math.max(1.5, Number(at.spamAvgMessagesPerUser ?? 4));
+  if (stats.avgPerUser <= above) return 1;
+  const per = Number(at.spamPenaltyPerExcess ?? 0.065);
+  const cap = Number(at.spamPenaltyCap ?? 0.42);
+  return 1 + Math.min(cap, (stats.avgPerUser - above) * per);
+}
+
+function computeAdaptiveMinMessages(cfg, client, stats) {
+  const at = getActivityThresholdCfg(cfg);
+  if (at.enabled === false) return getMinMessages(cfg);
+  const base = getMinMessages(cfg);
+  const nRaw =
+    base *
+    getTimeFactorAdaptive(at, client) *
+    getMemberFactorAdaptive(at, client, cfg) *
+    getSpamPenaltyMultiplier(at, stats);
+  const lo = Math.max(1, Math.floor(Number(at.hardMin ?? 12)));
+  const hi = Math.max(lo, Math.floor(Number(at.hardMax ?? 120)));
+  return Math.min(hi, Math.max(lo, Math.round(nRaw)));
+}
+
+function passesUniqueAuthorsGate(cfg, stats, effectiveMin) {
+  const at = getActivityThresholdCfg(cfg);
+  if (at.enabled === false) return true;
+  const minUnique = Math.max(
+    2,
+    Math.min(14, Math.ceil(effectiveMin / Math.max(4, Number(at.minUniqueDivisor ?? 12)))),
+  );
+  const bypassMultiple = Math.max(1.2, Number(at.uniqueBypassMultiple ?? 1.65));
+  if (stats.uniqueUsers >= minUnique) return true;
+  if (stats.count >= effectiveMin * bypassMultiple) return true;
+  return false;
+}
+
+function isReadyByActivity(cfg, client) {
+  const activityScopeKey = getActivityScopeKey(cfg);
+  if (!activityScopeKey) return false;
+  const windowMs = getActivityWindowMs(cfg);
+  const stats = getRecentActivityStats(activityScopeKey, windowMs);
+  const effectiveMin = computeAdaptiveMinMessages(cfg, client, stats);
+  if (stats.count < effectiveMin) return false;
+  if (!passesUniqueAuthorsGate(cfg, stats, effectiveMin)) return false;
+  return true;
+}
+
 function getActivityScopeKey(cfg) {
   return String(cfg?.channelId || "");
 }
@@ -434,33 +550,24 @@ function getFailsafeMs(cfg) {
   return Math.max(60 * 1000, Number(cfg?.failsafeMs || 90 * 60 * 1000));
 }
 
-function recordActivity(activityScopeKey, windowMs) {
+function recordActivity(activityScopeKey, windowMs, userId) {
   if (!activityScopeKey) return;
   const safeWindowMs = Math.max(60 * 1000, Number(windowMs || 30 * 60 * 1000));
   const now = Date.now();
+  const uid = userId != null && String(userId).trim() ? String(userId).trim() : null;
   const list = recentMessages.get(activityScopeKey) || [];
-  list.push(now);
+  list.push({ t: now, u: uid });
   const cutoff = now - safeWindowMs;
-  const trimmed = list.filter((ts) => ts >= cutoff);
+  const trimmed = [];
+  for (const raw of list) {
+    const e = normalizeActivityEntry(raw);
+    if (e && e.t >= cutoff) trimmed.push(e);
+  }
   recentMessages.set(activityScopeKey, trimmed);
 }
 
 function getRecentCount(activityScopeKey, windowMs) {
-  if (!activityScopeKey) return 0;
-  const safeWindowMs = Math.max(60 * 1000, Number(windowMs || 30 * 60 * 1000));
-  const now = Date.now();
-  const list = recentMessages.get(activityScopeKey) || [];
-  const cutoff = now - safeWindowMs;
-  const trimmed = list.filter((ts) => ts >= cutoff);
-  recentMessages.set(activityScopeKey, trimmed);
-  return trimmed.length;
-}
-
-function isReadyByActivity(cfg) {
-  const activityScopeKey = getActivityScopeKey(cfg);
-  if (!activityScopeKey) return false;
-  const count = getRecentCount(activityScopeKey, getActivityWindowMs(cfg));
-  return count >= getMinMessages(cfg);
+  return getRecentActivityStats(activityScopeKey, windowMs).count;
 }
 
 function recordNoParticipationIfNeeded(channelId, game) {
@@ -5963,12 +6070,21 @@ async function maybeStartRandomGame(client, force = false) {
         logMinigameDebug("skip: cooldown not elapsed", { channelId: cfg.channelId });
         return;
       }
-      const readyByActivity = isReadyByActivity(cfg);
+      const readyByActivity = isReadyByActivity(cfg, client);
       const failsafeDue = isFailsafeDue(cfg);
       if (!readyByActivity && !failsafeDue) {
         standbyChannels.add(cfg.channelId);
-        const count = getRecentCount(getActivityScopeKey(cfg), getActivityWindowMs(cfg));
-        logMinigameDebug("skip: insufficient activity", { channelId: cfg.channelId, count, minMessages: getMinMessages(cfg) });
+        const w = getActivityWindowMs(cfg);
+        const key = getActivityScopeKey(cfg);
+        const stats = getRecentActivityStats(key, w);
+        const effectiveMin = computeAdaptiveMinMessages(cfg, client, stats);
+        logMinigameDebug("skip: insufficient activity", {
+          channelId: cfg.channelId,
+          count: stats.count,
+          uniqueUsers: stats.uniqueUsers,
+          minMessagesEffective: effectiveMin,
+          minMessagesAnchor: getMinMessages(cfg),
+        });
         return;
       }
     }
@@ -6162,7 +6278,7 @@ async function handleMinigameMessage(message, client) {
   if (message.channelId !== cfg.channelId) return false;
   const game = activeGames.get(cfg.channelId);
   if (!game && canCountMessageForActivity(message)) {
-    recordActivity(getActivityScopeKey(cfg), getActivityWindowMs(cfg));
+    recordActivity(getActivityScopeKey(cfg), getActivityWindowMs(cfg), message.author?.id);
   }
   if (game && isStaleOrInvalidActiveGame(game)) {
     if (game.timeout) clearTimeout(game.timeout);
