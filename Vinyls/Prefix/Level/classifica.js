@@ -485,6 +485,16 @@ module.exports = {
 
   async execute(message) {
     await message.channel.sendTyping();
+    const channelId = String(message.channel?.id || "");
+    if (channelId && channelId === String(IDs.channels?.partnersCmds || "")) {
+      const { buildPartnerLeaderboardPayload } = require("../../Utils/Partner/partnerLeaderboardRuntime");
+      const partnerPayload = await buildPartnerLeaderboardPayload(message.client, message.guild, "totale", 1);
+      await safeMessageReply(message, {
+        ...partnerPayload,
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
     const mode = "weekly";
     const payload = await buildClassificaPayload(message.guild, mode);
 

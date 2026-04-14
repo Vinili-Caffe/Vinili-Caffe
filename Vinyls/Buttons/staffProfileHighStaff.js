@@ -1,6 +1,21 @@
 const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounderOrCoFounder, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_PARTNER_LB, buildStaffProfilePayload } = require("../Utils/Staff/staffProfilePanelRuntime");
+const {
+  STAFF_HP_PREFIX,
+  viewerCanUsePartnerPointsPanel,
+  viewerIsCoordinatorOrAbove,
+  viewerIsFounderOrCoFounder,
+  SECTION_HOME,
+  SECTION_VALUTAZIONI,
+  SECTION_WARN,
+  SECTION_PAUSE,
+  SECTION_MODSTATS,
+  SECTION_PARTNER_LB,
+  buildStaffProfilePayload,
+  parseStaffProfileCloseCustomId,
+  parseStaffProfileSelectCustomId,
+  parseStaffProfilePlbCustomId,
+} = require("../Utils/Staff/staffProfilePanelRuntime");
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
@@ -61,35 +76,6 @@ function parseStaffHpPartnerLbMode(parts, section) {
   if (section !== SECTION_PARTNER_LB) return "totale";
   if (parts.length < 6) return "totale";
   return String(parts[5] || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
-}
-
-async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
-  const guild = interaction.guild;
-  if (!guild || !parsed?.targetId || !parsed?.viewerId) return;
-  const section = STAFF_HP_SECTIONS.has(String(parsed.section || "").toLowerCase())
-    ? parsed.section
-    : SECTION_HOME;
-  const partnerLbMode =
-    section === SECTION_PARTNER_LB
-      ? String(parsed.partnerLbMode || "").toLowerCase() === "settimanale"
-        ? "settimanale"
-        : "totale"
-      : null;
-  const opts = section === SECTION_PARTNER_LB ? { partnerLbMode } : {};
-  if (parsed?.sourceMessageId) opts.sourceMessageId = parsed.sourceMessageId;
-  try {
-    const payload = await buildStaffProfilePayload(
-      guild,
-      parsed.targetId,
-      parsed.viewerId,
-      client,
-      section,
-      opts,
-    );
-    const msg = interaction.message;
-    if (msg && typeof msg.edit === "function") await msg.edit(payload);
-  } catch {
-  }
 }
 
 function parseStaffHpButton(customId) {
@@ -175,6 +161,64 @@ function parseStaffHpModal(customId) {
     partnerLbMode: parseStaffHpPartnerLbMode(parts, section),
     sourceMessageId: null,
   };
+}
+
+function panelComponentCustomId(comp) {
+  if (!comp) return null;
+  if (typeof comp.customId === "string") return comp.customId;
+  const d = comp.data;
+  if (d && typeof d.custom_id === "string") return d.custom_id;
+  return null;
+}
+
+function extractSourceFromStaffPanelMessage(message) {
+  const rows = message?.components;
+  if (!Array.isArray(rows)) return null;
+  for (const row of rows) {
+    const comps = row?.components;
+    if (!Array.isArray(comps)) continue;
+    for (const comp of comps) {
+      const id = panelComponentCustomId(comp);
+      if (!id) continue;
+      const sid =
+        parseStaffProfileCloseCustomId(id)?.sourceMessageId ||
+        parseStaffProfileSelectCustomId(id)?.sourceMessageId ||
+        parseStaffProfilePlbCustomId(id)?.sourceMessageId ||
+        parseStaffHpButton(id)?.sourceMessageId;
+      if (sid) return sid;
+    }
+  }
+  return null;
+}
+
+async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
+  const guild = interaction.guild;
+  if (!guild || !parsed?.targetId || !parsed?.viewerId) return;
+  const section = STAFF_HP_SECTIONS.has(String(parsed.section || "").toLowerCase())
+    ? parsed.section
+    : SECTION_HOME;
+  const partnerLbMode =
+    section === SECTION_PARTNER_LB
+      ? String(parsed.partnerLbMode || "").toLowerCase() === "settimanale"
+        ? "settimanale"
+        : "totale"
+      : null;
+  const opts = section === SECTION_PARTNER_LB ? { partnerLbMode } : {};
+  const preserved = parsed?.sourceMessageId || extractSourceFromStaffPanelMessage(interaction.message);
+  if (preserved) opts.sourceMessageId = preserved;
+  try {
+    const payload = await buildStaffProfilePayload(
+      guild,
+      parsed.targetId,
+      parsed.viewerId,
+      client,
+      section,
+      opts,
+    );
+    const msg = interaction.message;
+    if (msg && typeof msg.edit === "function") await msg.edit(payload);
+  } catch {
+  }
 }
 
 async function ensureHighStaffViewer(interaction) {
