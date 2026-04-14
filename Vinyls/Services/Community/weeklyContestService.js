@@ -1602,7 +1602,27 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
   const totals = await getSfondiVoteTotalsForCategory(guildId, eventKey, cat);
   const bundleLb = await getContestBundleLean(guildId, eventKey);
   const subMap = normalizeSubmissionsCategoryMap(bundleLb?.submissions?.[cat]);
-  const subs = Object.entries(subMap).map(([userId, messageId]) => ({ userId, messageId }));
+  const subsRaw = Object.entries(subMap).map(([userId, messageId]) => ({
+    userId: String(userId || ""),
+    messageId: String(messageId || ""),
+  }));
+  const presenceRows = await Promise.all(
+    subsRaw.map(async (s) => {
+      const uid = String(s.userId || "").trim();
+      if (!/^\d{17,22}$/.test(uid)) return { ok: false, s: null, uid: "" };
+      const mem = await getGuildMemberCached(guild, uid);
+      return { ok: Boolean(mem), s, uid };
+    }),
+  );
+  const subs = presenceRows.filter((r) => r.ok && r.s).map((r) => r.s);
+  const leaverIds = [
+    ...new Set(presenceRows.filter((r) => !r.ok && r.uid && r.s).map((r) => String(r.uid))),
+  ];
+  if (leaverIds.length && guild?.client && String(guild.id) === contestGuildId()) {
+    void Promise.all(
+      leaverIds.map((uid) => removeContestSfondiSubmissionsOnMemberLeave(guild.client, guildId, uid).catch(() => {})),
+    ).catch(() => {});
+  }
 
   const channelId = cat === "mobile" ? CHANNEL_MOBILE_ID : CHANNEL_PC_ID;
   const rows = subs

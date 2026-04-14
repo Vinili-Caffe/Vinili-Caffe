@@ -35,6 +35,15 @@ function isDbReady() {
   return mongoose.connection?.readyState === 1;
 }
 
+function isExpectedSupporterDmFailure(err) {
+  const code = Number(err?.code);
+  const msg = String(err?.message || err || "").toLowerCase();
+  if (code === 50007) return true;
+  if (msg.includes("cannot send messages to this user")) return true;
+  if (msg.includes("no mutual guilds")) return true;
+  return false;
+}
+
 function getActivitiesArray(presence) {
   const list = presence?.activities;
   return Array.isArray(list) ? list : [];
@@ -375,7 +384,9 @@ function scheduleRemovalConfirm(member, channel) {
         "Hai rimosso il link dallo status: hai perso i tuoi perks. Per riaverli, rimetti il link nel tuo status.",
       );
     } catch (err) {
-      global.logger?.warn?.("[presenceUpdate] dm send:", err?.message || err);
+      if (!isExpectedSupporterDmFailure(err)) {
+        global.logger?.warn?.("[presenceUpdate] dm send:", err?.message || err);
+      }
     }
     const info = getCachedState(guildId, userId);
     if (info?.lastMessageId && liveChannel?.isTextBased?.()) {
