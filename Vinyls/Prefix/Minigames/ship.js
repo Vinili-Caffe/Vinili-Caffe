@@ -1,3 +1,4 @@
+const { randomInt } = require("crypto");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
@@ -38,8 +39,26 @@ function trimName(name) {
   return v.length > 16 ? `${v.slice(0, 16)}...` : v;
 }
 
-function randomPercent() {
-  return Math.floor(Math.random() * 100) + 1;
+/** Percentuale 1–100: RNG forte + mix di distribuzioni + rumore per invocazione (meno “sempre uguali / sempre basse”). */
+function randomShipPercent(messageId) {
+  const roll = () => randomInt(1, 101);
+  const d = [roll(), roll(), roll(), roll()];
+  const pick = randomInt(0, 100);
+  let v;
+  if (pick < 26) v = Math.max(d[0], d[1]);
+  else if (pick < 52) v = Math.round((d[0] + d[1] + d[2]) / 3);
+  else if (pick < 70) v = d[randomInt(0, 4)];
+  else if (pick < 86) v = Math.round((d[0] + d[1] + d[2] + d[3]) / 4);
+  else if (pick < 96) v = Math.max(d[0], d[1], d[2]);
+  else v = Math.min(d[0], d[1]);
+
+  const hr = Number(process.hrtime.bigint() % 4096n);
+  const idJitter =
+    typeof messageId === "string" && /^\d{10,30}$/.test(messageId)
+      ? Number(BigInt(messageId) % 31n) - 15
+      : randomInt(-15, 16);
+  const tweak = randomInt(-24, 25) + (hr % 35) - 17 + idJitter;
+  return Math.max(1, Math.min(100, v + tweak));
 }
 
 module.exports = {
@@ -105,7 +124,7 @@ module.exports = {
     }
 
     try {
-      const percent = randomPercent();
+      const percent = randomShipPercent(message.id);
       const image=await renderShipCanvas({leftAvatarUrl:left.displayAvatarURL({extension:"png",size:512}),rightAvatarUrl:right.displayAvatarURL({extension:"png",size:512}),leftName:trimName(left.username),rightName:trimName(right.username),leftId:left.id,rightId:right.id,percent,});
 
       const file = new AttachmentBuilder(image, { name: "ship.png" });
