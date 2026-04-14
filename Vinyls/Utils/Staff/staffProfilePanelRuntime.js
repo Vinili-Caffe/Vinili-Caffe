@@ -1,7 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
-const { getUserOverviewStats } = require("../../Services/Community/activityService");
 const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
 const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
@@ -20,19 +19,12 @@ const SECTION_HOME = "home";
 const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
 const SECTION_PAUSE = "pause";
-const SECTION_STATS = "stats";
 const SECTION_MODSTATS = "modstats";
 const SECTION_PARTNER_LB = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
 const TIME_ZONE = "Europe/Rome";
-const STAFF_ACTIVITY_LIMITS = {
-  [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
-  [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
-  [String(IDs.roles.Coordinator)]: { messages: 350, hours: 2.5 },
-  [String(IDs.roles.Supervisor)]: { messages: 400, hours: 3.5 },
-};
 const STAFF_ROLE_PRIORITY = [
   String(IDs.roles.Supervisor),
   String(IDs.roles.Coordinator),
@@ -52,7 +44,6 @@ const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
   IDs.roles.PartnerManager,
   IDs.roles.Staff,
 ].filter(Boolean);
-const COSTANZA_BARS = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588";
 
 function resolveStaffRole(member) {
   if (!member?.roles?.cache) return null;
@@ -225,45 +216,6 @@ function getStaffPauseLine(staffDoc) {
   return "<a:VC_Cross:1482532424570376253> Nessuna pausa in corso.";
 }
 
-function dayKeyToWeekdayLabel(dayKey) {
-  if (!dayKey || typeof dayKey !== "string") return "?";
-  const [y, m, d] = dayKey.split("-").map(Number);
-  if (!y || !m || !d) return "?";
-  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const formatter = new Intl.DateTimeFormat("it-IT", { timeZone: TIME_ZONE, weekday: "short" });
-  return formatter.format(date).replace(".", "").slice(0, 3);
-}
-
-const CHART_COL_W = 6;
-
-function centerInColumn(text, width = CHART_COL_W) {
-  const s = String(text ?? "");
-  const pad = Math.max(0, width - s.length);
-  const left = Math.floor(pad / 2);
-  return `${" ".repeat(left)}${s}${" ".repeat(pad - left)}`;
-}
-
-function barCharForValue(n, maxVal) {
-  const safeMax = Math.max(1, Number(maxVal) || 1);
-  const v = Math.max(0, Number(n || 0));
-  const level = Math.min(7, Math.floor((7 * v) / safeMax));
-  return COSTANZA_BARS[level];
-}
-
-function buildAlignedDayChartBlock(chartPoints, getNumericValue) {
-  if (!Array.isArray(chartPoints) || !chartPoints.length) {
-    return "— nessun dato —";
-  }
-  const nums = chartPoints.map((p) => Number(getNumericValue(p) || 0));
-  const maxVal = Math.max(1, ...nums);
-  const labelLine = chartPoints
-    .map((p) => centerInColumn(dayKeyToWeekdayLabel(p?.dayKey).slice(0, 3), CHART_COL_W))
-    .join("");
-  const barLine = chartPoints
-    .map((_, i) => centerInColumn(barCharForValue(nums[i], maxVal), CHART_COL_W))
-    .join("");
-  return `${labelLine}\n${barLine}`;
-}
 
 function formatStaffProfileSelectCustomId(viewerId, targetId) {
   return `${PANEL_PREFIX}:select:${viewerId}:${targetId}`;
@@ -551,7 +503,6 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPart
     { label: "Valutazioni", value: SECTION_VALUTAZIONI, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_VALUTAZIONI },
     { label: "Warn staff", value: SECTION_WARN, emoji: "<:banhammer:1443651875441217639>", default: sec === SECTION_WARN },
     { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
-    { label: "Stats", value: SECTION_STATS, emoji: "<:VC_Clock:1473359204189474886>", default: sec === SECTION_STATS },
     { label: "Modstats", value: SECTION_MODSTATS, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_MODSTATS },
   ];
   if (hasPartnerManager) {
@@ -629,7 +580,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     };
   }
 
-  const staffRoleId = member ? resolveStaffRole(member) : null;
   const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
   let roleLabel = "—";
   if (displayRoleId) {
@@ -645,12 +595,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const negReasons = Array.isArray(s.negativeReasons) ? s.negativeReasons : [];
   const warnReasons = Array.isArray(s.warnReasons) ? s.warnReasons : [];
 
-  const overview = await getUserOverviewStats(gid, tid, 7).catch(() => null);
-  const d7 = overview?.windows?.d7 || {};
-  const weeklyMsg = Math.max(0, Math.floor(Number(d7.text || 0)));
-  const weeklySec = Math.max(0, Math.floor(Number(d7.voiceSeconds || 0)));
-  const weeklyHours = weeklySec / 3600;
-  const limits = staffRoleId ? STAFF_ACTIVITY_LIMITS[String(staffRoleId)] : null;
 
   let sec = String(section || SECTION_HOME).toLowerCase();
   if (profileKind === PROFILE_PM_ONLY) {
@@ -796,52 +740,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     };
   }
 
-  if (sec === SECTION_STATS) {
-    const chart = Array.isArray(overview?.chart) ? overview.chart.slice(-7) : [];
-    const msgBlock = buildAlignedDayChartBlock(chart, (p) => p?.text ?? 0);
-    const vocBlock = buildAlignedDayChartBlock(chart, (p) => Number(p?.voiceSeconds || 0) / 3600);
-    const limitLines = limits
-      ? (() => {
-        const msgLeft = Math.max(0, limits.messages - weeklyMsg);
-        const vocLeft = Math.max(0, limits.hours - weeklyHours);
-        const msgLine =
-          msgLeft > 0
-            ? `<:VC_Chat:1482532573002465413> Messaggi: **${weeklyMsg}** / ${limits.messages} — mancano **${msgLeft}**`
-            : `<:VC_Chat:1482532573002465413> Messaggi: **${weeklyMsg}** / ${limits.messages}`;
-        const vocLine =
-          vocLeft > 0
-            ? `<a:VC_Mute:1482534751511515238> Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h — mancano **${vocLeft.toFixed(2)}h**`
-            : `<a:VC_Mute:1482534751511515238> Vocale: **${weeklyHours.toFixed(2)}h** / ${limits.hours}h`;
-        return ["", "<:VC_Stats:1482527532682055780> **Limiti settimanali**", msgLine, vocLine];
-      })()
-      : [
-        "",
-        `<:VC_Chat:1482532573002465413> Messaggi negli ultimi 7 giorni: **${weeklyMsg}**`,
-        `<a:VC_Mute:1482534751511515238> Vocale negli ultimi 7 giorni: **${weeklyHours.toFixed(2)}h**`,
-      ];
-    const desc = [
-      "<:VC_Chat:1482532573002465413> **Messaggi / giorno**",
-      "```",
-      msgBlock,
-      "```",
-      "",
-      "<a:VC_Mute:1482534751511515238> **Ore vocali / giorno**",
-      "```",
-      vocBlock,
-      "```",
-      ...limitLines,
-    ].join("\n");
-    return {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#6f4e37")
-          .setDescription(desc.slice(0, 4090))
-          .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
-      ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
-    };
-  }
-
   if (sec === SECTION_MODSTATS) {
     const modId = tid;
     const now = Date.now();
@@ -937,10 +835,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     <:thumbsdown:1471292163957457013> ${neg}`,
     "",
     `<:banhammer:1443651875441217639> **Warn staff:** ${warns}`,
-    "",
-    `<:VC_Stats:1482527532682055780> **Attività:** 
-    <:VC_Chat:1482532573002465413> **${weeklyMsg}** messaggi
-    <a:VC_Mute:1482534751511515238> **${weeklyHours.toFixed(2)}h** vocale`,
     ];
   if (hasPm) {
     homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
@@ -966,7 +860,6 @@ module.exports = {
   SECTION_VALUTAZIONI,
   SECTION_WARN,
   SECTION_PAUSE,
-  SECTION_STATS,
   SECTION_MODSTATS,
   SECTION_PARTNER_LB,
   formatStaffProfileSelectCustomId,

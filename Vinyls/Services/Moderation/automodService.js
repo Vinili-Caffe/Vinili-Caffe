@@ -1255,7 +1255,7 @@ function getState(message) {
   const key = getUserKey(message);
   const existing = USER_STATE.get(key);
   if (existing) return existing;
-  const initial = { heat: 0, lastAt: nowMs(), msgTimes: [], normHistory: [], mentionTimes: [], mentionHourTimes: [], automodHits: [], };
+  const initial = { heat: 0, lastAt: nowMs(), msgTimes: [], normHistory: [], recentMessageHistory: [], mentionTimes: [], mentionHourTimes: [], automodHits: [], };
   USER_STATE.set(key, initial);
   return initial;
 }
@@ -1279,7 +1279,7 @@ function cleanupRuntimeMaps(at = nowMs()) {
       continue;
     }
     const idleFor = at - Number(state.lastAt || 0);
-    const stale = idleFor > 2 * 60 * 60_000 && Number(state.heat || 0) <= 0 && (!Array.isArray(state.msgTimes) || state.msgTimes.length === 0) && (!Array.isArray(state.normHistory) || state.normHistory.length === 0) && (!Array.isArray(state.mentionTimes) || state.mentionTimes.length === 0) && (!Array.isArray(state.mentionHourTimes) || state.mentionHourTimes.length === 0) && (!Array.isArray(state.automodHits) || state.automodHits.length === 0);
+    const stale = idleFor > 2 * 60 * 60_000 && Number(state.heat || 0) <= 0 && (!Array.isArray(state.msgTimes) || state.msgTimes.length === 0) && (!Array.isArray(state.normHistory) || state.normHistory.length === 0) && (!Array.isArray(state.recentMessageHistory) || state.recentMessageHistory.length === 0) && (!Array.isArray(state.mentionTimes) || state.mentionTimes.length === 0) && (!Array.isArray(state.mentionHourTimes) || state.mentionHourTimes.length === 0) && (!Array.isArray(state.automodHits) || state.automodHits.length === 0);
     if (stale) USER_STATE.delete(key);
   }
 
@@ -1340,6 +1340,14 @@ function trimWindow(list, windowMs, at = nowMs()) {
 }
 
 function trimNormHistory(history, windowMs, at = nowMs()) {
+  if (!Array.isArray(history) || !history.length) return;
+  const min = at - windowMs;
+  let idx = 0;
+  while (idx < history.length && Number(history[idx]?.t || 0) < min) idx += 1;
+  if (idx > 0) history.splice(0, idx);
+}
+
+function trimRecentMessageHistory(history, windowMs, at = nowMs()) {
   if (!Array.isArray(history) || !history.length) return;
   const min = at - windowMs;
   let idx = 0;
@@ -1766,6 +1774,10 @@ async function getAutoModMemberSnapshot(member) {
 
 async function detectViolations(message, state, profile) {
   const at = nowMs();
+  const msgId = String(message.id || "");
+  state.recentMessageHistory = Array.isArray(state.recentMessageHistory) ? state.recentMessageHistory : [];
+  state.recentMessageHistory.push({ t: at, id: msgId });
+  trimRecentMessageHistory(state.recentMessageHistory, 20_000, at);
   const content = String(message.content || "");
   const moderationContent = stripQuotedAndCodeText(content);
   const normalized = normalizeContent(content);
@@ -1807,6 +1819,10 @@ async function detectViolations(message, state, profile) {
     state.msgTimes.push(at);
     trimWindow(state.msgTimes, 8_000, at);
     if (state.msgTimes.length >= 6) {
+      const recentForBurst = state.recentMessageHistory
+        .slice(-Math.max(6, state.msgTimes.length))
+        .map((row) => String(row?.id || ""))
+        .filter(Boolean);
       violations.push({
         key: "regular_message",
         heat: profileHeat(
@@ -1814,6 +1830,7 @@ async function detectViolations(message, state, profile) {
           "regularMessage",
         ),
         info: `${state.msgTimes.length}/8s`,
+        relatedMessageIds: recentForBurst,
       });
     }
   }
@@ -1825,17 +1842,18 @@ async function detectViolations(message, state, profile) {
     normalized.length >= 8 &&
     !message.editedTimestamp
   ) {
-    const msgId = String(message.id || "");
     state.normHistory.push({ t: at, c: normalized, id: msgId });
     trimNormHistory(state.normHistory, 18_000, at);
     const ratio = TEXT_RULES.similarMessage.ratio;
     const similarThreshold = legitConversation ? 2 : 1;
     let similarCount = 0;
+    const similarIds = [];
     for (const x of state.normHistory) {
       if (!x?.c) continue;
       if (msgId && String(x.id || "") === msgId) continue;
       if (similarityRatio(x.c, normalized) >= ratio) {
         similarCount += 1;
+        if (x.id) similarIds.push(String(x.id));
         if (similarCount >= similarThreshold) break;
       }
     }
@@ -1847,6 +1865,7 @@ async function detectViolations(message, state, profile) {
           "similarMessage",
         ),
         info: `ratio>=${ratio.toFixed(2)} count:${similarCount}`,
+        relatedMessageIds: similarIds,
       });
     }
   }
@@ -2387,9 +2406,41 @@ async function sendPanicModeLog(message, event, count, activeUntil) {
   }
 }
 
+function collectRelatedViolationMessageIds(violations, currentMessageId) {
+  const current = String(currentMessageId || "");
+  const ids = new Set();
+  for (const violation of Array.isArray(violations) ? violations : []) {
+    const list = Array.isArray(violation?.relatedMessageIds)
+      ? violation.relatedMessageIds
+      : [];
+    for (const rawId of list) {
+      const id = String(rawId || "").trim();
+      if (!id || id === current) continue;
+      ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+async function deleteRelatedViolationMessages(message, violations) {
+  const channel = message?.channel;
+  if (!channel?.messages?.fetch) return 0;
+  const relatedIds = collectRelatedViolationMessageIds(violations, message?.id);
+  if (!relatedIds.length) return 0;
+  let removed = 0;
+  for (const id of relatedIds) {
+    const extra = await channel.messages.fetch(id).catch(() => null);
+    if (!extra) continue;
+    const ok = await extra.delete().then(() => true).catch(() => false);
+    if (ok) removed += 1;
+  }
+  return removed;
+}
+
 async function warnUser(message, state, violations) {
   const deleted = await message.delete().then(() => true).catch(() => false);
   if (!deleted) return false;
+  await deleteRelatedViolationMessages(message, violations);
   await markBadUserAction(message, "warn", violations);
   await registerAutoModCase(message, "warn", violations);
   await sendAutomodLog(message, "warn", violations, state.heat);
@@ -2404,6 +2455,7 @@ async function warnUser(message, state, violations) {
 async function deleteMessage(message, state, violations) {
   const deleted = await message.delete().then(() => true).catch(() => false);
   if (!deleted) return false;
+  await deleteRelatedViolationMessages(message, violations);
   await markBadUserAction(message, "delete", violations);
   await registerAutoModCase(message, "delete", violations);
   await sendAutomodLog(message, "delete", violations, state.heat);

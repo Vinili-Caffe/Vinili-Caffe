@@ -5267,6 +5267,27 @@ function parseDrivingQuizFromPayload(payload) {
   };
 }
 
+function shuffleDrivingMultipleChoiceRow(row) {
+  if (!row || row.questionType !== "multiple") return row;
+  if (!Array.isArray(row.options) || row.options.length < 2) return row;
+  const n = row.options.length;
+  const rawCorrect = Number(row.correctIndex);
+  if (!Number.isFinite(rawCorrect)) return row;
+  const boundedCorrect = Math.max(0, Math.min(Math.floor(rawCorrect), n - 1));
+  const tagged = row.options.map((option, idx) => ({
+    option: String(option ?? "").trim(),
+    idx,
+  }));
+  const shuffled = shuffleArray(tagged);
+  const correctIndex = shuffled.findIndex((entry) => entry.idx === boundedCorrect);
+  if (correctIndex < 0) return row;
+  return {
+    ...row,
+    options: shuffled.map((entry) => entry.option),
+    correctIndex,
+  };
+}
+
 function isDrivingPatenteRelated(statement) {
   if (!statement || typeof statement !== "string") return false;
   const s = statement.toLowerCase();
@@ -5360,6 +5381,9 @@ async function startDrivingQuizGame(client, cfg) {
     if (translatedAll[0]) row = { ...row, statement: translatedAll[0] };
     if (row.questionType === "multiple" && translatedAll.length > 1 && translatedAll.slice(1).every(Boolean))
       row = { ...row, options: translatedAll.slice(1) };
+  }
+  if (row.questionType === "multiple") {
+    row = shuffleDrivingMultipleChoiceRow(row);
   }
 
   const rewardExp = normalizeRewardExp(cfg?.drivingQuiz?.rewardExp ?? 150);

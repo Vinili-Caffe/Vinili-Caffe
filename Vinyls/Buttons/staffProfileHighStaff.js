@@ -1,6 +1,6 @@
 const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounderOrCoFounder, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB, buildStaffProfilePayload } = require("../Utils/Staff/staffProfilePanelRuntime");
+const { STAFF_HP_PREFIX, viewerCanUsePartnerPointsPanel, viewerIsCoordinatorOrAbove, viewerIsFounderOrCoFounder, SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_PARTNER_LB, buildStaffProfilePayload } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
@@ -12,7 +12,7 @@ const IN_PPM_AMOUNT = "staff_hp_ppm_amount";
 const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
-const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_STATS, SECTION_MODSTATS, SECTION_PARTNER_LB]);
+const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_PARTNER_LB]);
 
 function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
   try {
