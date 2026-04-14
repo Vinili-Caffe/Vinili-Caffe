@@ -13,6 +13,8 @@ const PAUSE_CHANNEL_ID = IDs.channels.pause;
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
 const VOTE_ROLE_DURATION_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_THREAD_VOTE_REACTION = "👍";
+const DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT = 100;
 const MEDIA_BLOCK_ROLE_IDS = [IDs.roles.PicPerms].filter(Boolean);
 const processedBumpMessages = new Map();
 const bumpDetectionLogAtByGuild = new Map();
@@ -92,6 +94,71 @@ function isDiscordInviteLinkMessage(message) {
   return /(?:https?:\/\/)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/[a-z0-9-]{2,}/i.test(
     content,
   );
+}
+
+function normalizeThreadVoteText(raw) {
+  return String(raw || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getThreadVoteConfig(client) {
+  const cfg = client?.config?.threadVote;
+  if (!cfg || typeof cfg !== "object") return null;
+  const threadIds = Array.isArray(cfg.threadIds)
+    ? cfg.threadIds.map((id) => String(id || "").trim()).filter((id) => /^\d{16,20}$/.test(id))
+    : [];
+  return {
+    enabled: cfg.enabled !== false,
+    preventDuplicates: cfg.preventDuplicates !== false,
+    reactionEmoji: String(cfg.reactionEmoji || DEFAULT_THREAD_VOTE_REACTION).trim() || DEFAULT_THREAD_VOTE_REACTION,
+    lookbackLimit: Math.max(
+      20,
+      Math.min(200, Number(cfg.duplicateLookbackLimit || DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT)),
+    ),
+    threadIds,
+  };
+}
+
+async function handleThreadVoteMessage(message, client) {
+  if (!message?.guild) return false;
+  if (message.author?.bot || message.webhookId || message.system) return false;
+  if (!message.channel?.isThread?.()) return false;
+  const cfg = getThreadVoteConfig(client);
+  if (!cfg?.enabled) return false;
+  const threadId = String(message.channelId || "");
+  if (!cfg.threadIds.includes(threadId)) return false;
+
+  const normalizedCurrent = normalizeThreadVoteText(message.content);
+  if (cfg.preventDuplicates && normalizedCurrent) {
+    const recent = await message.channel.messages
+      .fetch({ limit: cfg.lookbackLimit })
+      .catch(() => null);
+    const duplicate = recent?.find((msg) => {
+      if (!msg || String(msg.id) === String(message.id)) return false;
+      if (msg.author?.bot || msg.webhookId || msg.system) return false;
+      return normalizeThreadVoteText(msg.content) === normalizedCurrent;
+    });
+    if (duplicate) {
+      await message.delete().catch(() => {});
+      const warning = await message.channel
+        .send({
+          content: `${message.author} questa proposta è già presente nel thread. Evita duplicati.`,
+        })
+        .catch(() => null);
+      if (warning) scheduleMessageDeletion(warning, EPHEMERAL_TTL_NORMAL_MS);
+      return true;
+    }
+  }
+
+  const reacted = await message.react(cfg.reactionEmoji).then(() => true).catch(() => false);
+  if (!reacted && cfg.reactionEmoji !== DEFAULT_THREAD_VOTE_REACTION) {
+    await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
+  }
+  return false;
 }
 
 function getRandomExp() {
@@ -968,4 +1035,4 @@ async function processAllRecentAutomationMessages(client) {
   await processRecentPauseChannelMessages(client);
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

@@ -206,6 +206,13 @@
     "windowEndHour": 21,
     "windowEndMinute": 59
   },
+  "threadVote": {
+    "enabled": true,
+    "threadIds": ["1493305481870053529"],
+    "reactionEmoji": "<a:VC_Vote:1482535223001485473>",
+    "preventDuplicates": true,
+    "duplicateLookbackLimit": 100
+  },
   "tts": {
     "enabled": true,
     "lang": "it",

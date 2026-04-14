@@ -3,7 +3,7 @@ const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService");
 const { recordMessageActivity } = require("../Services/Community/activityService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
-const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handlePauseChannelMessage,handleSuggestionChannelMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
+const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handlePauseChannelMessage,handleSuggestionChannelMessage,handleThreadVoteMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
 const{handleAfk,handleCounting,handleMentionAutoReactions,handleWordReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
 const { handleWeeklyContestSubmissionMessage } = require("../Services/Community/weeklyContestService");
 const { handleAmbientOllamaMessage } = require("../Services/AI/ollamaChatRuntime");
@@ -211,6 +211,7 @@ module.exports = {
           return;
         }
         if (await handleSuggestionChannelMessage(message)) return;
+        if (await handleThreadVoteMessage(message, resolvedClient)) return;
         if (await handlePauseChannelMessage(message)) return;
         if (await handleWeeklyContestSubmissionMessage(message, resolvedClient)) return;
       }
