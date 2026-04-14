@@ -208,7 +208,7 @@
   },
   "threadVote": {
     "enabled": true,
-    "threadIds": ["1493305481870053529"],
+    "threadIds": ["1493625991363432489"],
     "reactionEmoji": "<a:VC_Vote:1482535223001485473>",
     "preventDuplicates": true,
     "duplicateLookbackLimit": 100
