@@ -298,9 +298,10 @@ function hasAnyRole(member, idSet) {
 
 function resolveBaseVoteCap(member) {
   if (!member) return 1;
-  if (hasAnyRole(member, STAFF_ROLE_IDS)) return 2;
-  if (hasAnyRole(member, PREMIUM_ROLE_IDS)) return 2;
-  return 1;
+  let cap = 1;
+  if (hasAnyRole(member, STAFF_ROLE_IDS)) cap += 1;
+  if (hasAnyRole(member, PREMIUM_ROLE_IDS)) cap += 1;
+  return cap;
 }
 
 function bonusSlotsForDay(voterDoc, dayKey) {
