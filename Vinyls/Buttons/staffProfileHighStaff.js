@@ -10,11 +10,9 @@ const {
   SECTION_WARN,
   SECTION_PAUSE,
   SECTION_MODSTATS,
-  SECTION_PARTNER_LB,
   buildStaffProfilePayload,
   parseStaffProfileCloseCustomId,
   parseStaffProfileSelectCustomId,
-  parseStaffProfilePlbCustomId,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
@@ -27,7 +25,7 @@ const IN_PPM_AMOUNT = "staff_hp_ppm_amount";
 const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
-const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_PARTNER_LB]);
+const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS]);
 
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
@@ -72,10 +70,12 @@ function parseStaffPanelSection(parts) {
   return SECTION_HOME;
 }
 
-function parseStaffHpPartnerLbMode(parts, section) {
-  if (section !== SECTION_PARTNER_LB) return "totale";
-  if (parts.length < 6) return "totale";
-  return String(parts[5] || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
+function parseStaffHpSourceMessageId(parts) {
+  for (let i = parts.length - 1; i >= 5; i -= 1) {
+    const id = normalizeSourceMessageId(parts[i]);
+    if (id) return id;
+  }
+  return null;
 }
 
 function parseStaffHpButton(customId) {
@@ -110,14 +110,12 @@ function parseStaffHpButton(customId) {
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffPanelSection(parts);
-  const sourceIdx = section === SECTION_PARTNER_LB ? 6 : 5;
   return {
     action,
     viewerId,
     targetId,
     section,
-    partnerLbMode: parseStaffHpPartnerLbMode(parts, section),
-    sourceMessageId: normalizeSourceMessageId(parts[sourceIdx]),
+    sourceMessageId: parseStaffHpSourceMessageId(parts),
   };
 }
 
@@ -158,7 +156,6 @@ function parseStaffHpModal(customId) {
     viewerId,
     targetId,
     section,
-    partnerLbMode: parseStaffHpPartnerLbMode(parts, section),
     sourceMessageId: null,
   };
 }
@@ -183,7 +180,6 @@ function extractSourceFromStaffPanelMessage(message) {
       const sid =
         parseStaffProfileCloseCustomId(id)?.sourceMessageId ||
         parseStaffProfileSelectCustomId(id)?.sourceMessageId ||
-        parseStaffProfilePlbCustomId(id)?.sourceMessageId ||
         parseStaffHpButton(id)?.sourceMessageId;
       if (sid) return sid;
     }
@@ -197,13 +193,7 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
   const section = STAFF_HP_SECTIONS.has(String(parsed.section || "").toLowerCase())
     ? parsed.section
     : SECTION_HOME;
-  const partnerLbMode =
-    section === SECTION_PARTNER_LB
-      ? String(parsed.partnerLbMode || "").toLowerCase() === "settimanale"
-        ? "settimanale"
-        : "totale"
-      : null;
-  const opts = section === SECTION_PARTNER_LB ? { partnerLbMode } : {};
+  const opts = {};
   const preserved = parsed?.sourceMessageId || extractSourceFromStaffPanelMessage(interaction.message);
   if (preserved) opts.sourceMessageId = preserved;
   try {
@@ -374,10 +364,7 @@ async function execute(interaction) {
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
-    const modalId =
-      parsed.section === SECTION_PARTNER_LB
-        ? `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}:${parsed.partnerLbMode}`
-        : `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}`;
+    const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}`;
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
     if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {

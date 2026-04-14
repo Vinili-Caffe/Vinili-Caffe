@@ -457,11 +457,11 @@ function buildClassificaButtons(mode = "weekly") {
       new ButtonBuilder()
         .setCustomId(`${CLASSIFICA_TOGGLE_PREFIX}weekly`)
         .setStyle(active === "weekly" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("⬅️"),
+        .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
       new ButtonBuilder()
         .setCustomId(`${CLASSIFICA_TOGGLE_PREFIX}alltime`)
         .setStyle(active === "alltime" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("➡️"),
+        .setEmoji("<a:vegarightarrow:1443673039156936837>"),
     ),
   ];
 }
@@ -488,7 +488,7 @@ module.exports = {
     const channelId = String(message.channel?.id || "");
     if (channelId && channelId === String(IDs.channels?.partnersCmds || "")) {
       const { buildPartnerLeaderboardPayload } = require("../../Utils/Partner/partnerLeaderboardRuntime");
-      const partnerPayload = await buildPartnerLeaderboardPayload(message.client, message.guild, "totale", 1);
+      const partnerPayload = await buildPartnerLeaderboardPayload(message.client, message.guild, "settimanale", 1);
       await safeMessageReply(message, {
         ...partnerPayload,
         allowedMentions: { repliedUser: false },

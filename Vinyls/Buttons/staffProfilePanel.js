@@ -2,10 +2,8 @@ const {
   PANEL_PREFIX,
   parseStaffProfileSelectCustomId,
   parseStaffProfileCloseCustomId,
-  parseStaffProfilePlbCustomId,
   buildStaffProfilePayload,
   SECTION_HOME,
-  SECTION_PARTNER_LB,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
 
 const PRIVATE_FLAG = 1 << 6;
@@ -34,60 +32,33 @@ async function deleteMessageInSameChannel(channel, messageId) {
 function match(interaction) {
   const id = String(interaction?.customId || "");
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:select:`)) return true;
-  if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:plb:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:close:`)) return true;
   return false;
 }
 
 async function execute(interaction) {
   if (interaction.isButton()) {
-    if (String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:close:`)) {
-      const close = parseStaffProfileCloseCustomId(interaction.customId);
-      if (!close) return false;
-      if (String(interaction.user.id) !== String(close.viewerId)) {
-        await interaction
-          .reply({
-            content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      await interaction.deferUpdate().catch(() => {});
-      await interaction.message?.delete?.().catch(() => {});
-      if (close.sourceMessageId) {
-        await deleteMessageInSameChannel(interaction.channel, close.sourceMessageId);
-      }
-      return true;
-    }
-    const plb = parseStaffProfilePlbCustomId(interaction.customId);
-    if (!plb) return false;
-    if (String(interaction.user.id) !== String(plb.viewerId)) {
+    if (!String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:close:`)) return false;
+    const close = parseStaffProfileCloseCustomId(interaction.customId);
+    if (!close) return false;
+    if (String(interaction.user.id) !== String(close.viewerId)) {
       await interaction
         .reply({
-          content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare questi pulsanti.",
+          content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.",
           flags: PRIVATE_FLAG,
         })
         .catch(() => {});
       return true;
     }
-    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
-    const payload = await buildStaffProfilePayload(
-      interaction.guild,
-      plb.targetId,
-      plb.viewerId,
-      interaction.client,
-      SECTION_PARTNER_LB,
-      { partnerLbMode: plb.mode, sourceMessageId: plb.sourceMessageId },
-    );
-    if (deferred && interaction.message) {
-      await interaction.message.edit(payload).catch(() => {});
-    } else {
-      await safeUpdatePanelInteraction(interaction, payload);
+    await interaction.deferUpdate().catch(() => {});
+    await interaction.message?.delete?.().catch(() => {});
+    if (close.sourceMessageId) {
+      await deleteMessageInSameChannel(interaction.channel, close.sourceMessageId);
     }
     return true;
   }
 
+  if (!interaction.isStringSelectMenu()) return false;
   const parsed = parseStaffProfileSelectCustomId(interaction.customId);
   if (!parsed) return false;
   if (String(interaction.user.id) !== String(parsed.viewerId)) {

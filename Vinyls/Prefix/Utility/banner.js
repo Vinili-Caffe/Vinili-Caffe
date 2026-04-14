@@ -96,11 +96,11 @@ function buildBannerRows(requesterId, targetUserId, mode = "user", viewState = n
       new ButtonBuilder()
         .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:user:${stateToken}`)
         .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("⬅️"),
+        .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
       new ButtonBuilder()
         .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:server:${stateToken}`)
         .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("➡️"),
+        .setEmoji("<a:vegarightarrow:1443673039156936837>"),
       new ButtonBuilder()
         .setCustomId("banner_views")
         .setLabel("Classifica Views")

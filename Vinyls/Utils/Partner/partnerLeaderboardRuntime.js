@@ -90,11 +90,11 @@ function buildPartnerLbToggleRow(mode = "totale") {
     new ButtonBuilder()
       .setCustomId(`${PLB_MODE_PREFIX}settimanale`)
       .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setEmoji("⬅️"),
+      .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
     new ButtonBuilder()
       .setCustomId(`${PLB_MODE_PREFIX}totale`)
       .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setEmoji("➡️"),
+      .setEmoji("<a:vegarightarrow:1443673039156936837>"),
   );
 }
 

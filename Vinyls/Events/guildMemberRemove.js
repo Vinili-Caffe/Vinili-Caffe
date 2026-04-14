@@ -13,6 +13,7 @@ const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getCl
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
+const { removeContestSfondiSubmissionsOnMemberLeave } = require("../Services/Community/weeklyContestService");
 const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
@@ -495,9 +496,14 @@ module.exports = {
       );
       await handleTrackedStaffLeave(member);
       await handlePartnershipOnLeave(member, client);
+      const activeClient = client || member.client;
+      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
+        void removeContestSfondiSubmissionsOnMemberLeave(activeClient, guild.id, member.id).catch((err) => {
+          global.logger?.warn?.("[guildMemberRemove] contest sfondi leave:", err?.message || err);
+        });
+      }
       await backupUserOnLeave(guild.id, member.id, member);
       await cleanupUserData(guild.id, member.id);
-      const activeClient = client || member.client;
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] cleanup not-in-server:", err?.message || err);
       });

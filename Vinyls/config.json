@@ -224,7 +224,7 @@
     "enabled": false
   },
   "minigames": {
-    "enabled": true,
+    "enabled": false,
     "translateApiToItalian": true,
     "intervalMs": 900000,
     "noParticipationIntervalMs": 900000,

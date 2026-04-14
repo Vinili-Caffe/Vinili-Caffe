@@ -874,8 +874,12 @@ async function handleTicketInteraction(interaction) {
             new ButtonBuilder().setCustomId("unclaim").setEmoji(`<a:VC_Unlock:1482532082466029608>`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
           );
           try {
-            if (interaction.channel && claimedTicket.messageId) {
-              const msg = await interaction.channel.messages.fetch(claimedTicket.messageId).catch(() => null);
+            if (interaction.channel) {
+              let msg = null;
+              const panelMid = claimedTicket.messageId != null ? String(claimedTicket.messageId).trim() : "";
+              if (panelMid) {
+                msg = await interaction.channel.messages.fetch(panelMid).catch(() => null);
+              }
               if (!msg) {
                 const fallback = new EmbedBuilder()
                   .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
@@ -883,7 +887,12 @@ async function handleTicketInteraction(interaction) {
                   .setColor("#6f4e37");
                 await interaction.channel
                   .send({ embeds: [fallback], components: [claimedButtons] })
-                  .catch(() => { });
+                  .then(async (sent) => {
+                    if (sent?.id && claimedTicket._id) {
+                      await Ticket.updateOne({ _id: claimedTicket._id }, { $set: { messageId: sent.id } }).catch(() => {});
+                    }
+                  })
+                  .catch((err) => global.logger.error(err));
               } else {
                 const embedDaUsare = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder()
                 .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
@@ -1066,8 +1075,12 @@ async function handleTicketInteraction(interaction) {
             }
           }
           try {
-            if (interaction.channel && unclaimedTicket.messageId) {
-              const msg = await interaction.channel.messages.fetch(unclaimedTicket.messageId).catch(() => null);
+            if (interaction.channel) {
+              let msg = null;
+              const panelMid = unclaimedTicket.messageId != null ? String(unclaimedTicket.messageId).trim() : "";
+              if (panelMid) {
+                msg = await interaction.channel.messages.fetch(panelMid).catch(() => null);
+              }
               if (!msg) {
                 const fallback = new EmbedBuilder()
                 .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
@@ -1079,7 +1092,7 @@ async function handleTicketInteraction(interaction) {
                     components: [ticketButtonsOriginal],
                   })
                   .then(async (sent) => {
-                    if (sent?.id) {
+                    if (sent?.id && unclaimedTicket._id) {
                       await Ticket.updateOne(
                         { _id: unclaimedTicket._id },
                         { $set: { messageId: sent.id } },

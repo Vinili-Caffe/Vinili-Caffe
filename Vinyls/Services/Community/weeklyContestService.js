@@ -5,7 +5,7 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { loadHourlyRows } = require("./activityService");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
-const { getClientChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
@@ -1644,6 +1644,103 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
   return { embeds: [embed], components: [rowButtons] };
 }
 
+function legacyVoteArrayContainsMid(arr, mid) {
+  const m = String(mid || "");
+  if (!m || !Array.isArray(arr)) return false;
+  return arr.some((x) => String(x) === m);
+}
+
+async function deleteContestSubmissionMessages(guild, mobileMid, pcMid) {
+  if (!guild) return;
+  const pairs = [];
+  if (CHANNEL_MOBILE_ID && mobileMid) pairs.push([CHANNEL_MOBILE_ID, String(mobileMid)]);
+  if (CHANNEL_PC_ID && pcMid) pairs.push([CHANNEL_PC_ID, String(pcMid)]);
+  for (const [chId, msgId] of pairs) {
+    if (!/^\d{17,22}$/.test(String(msgId))) continue;
+    const ch = await getGuildChannelCached(guild, chId).catch(() => null);
+    const msg = await ch?.messages?.fetch?.(msgId).catch(() => null);
+    await msg?.delete?.().catch(() => {});
+  }
+}
+
+async function removeContestSfondiSubmissionsOnMemberLeave(client, guildId, userId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!client || !gid || !uid || gid !== contestGuildId()) return;
+  if (!isValidGuildUserId(gid, uid)) return;
+
+  const guild = await client.guilds.fetch(gid).catch(() => null);
+  const eventKeys = Array.from(
+    new Set([EVENT_KEY_PRODUCTION, EVENT_KEY_TEST].map((k) => String(k || "").trim()).filter(Boolean)),
+  );
+
+  for (const eventKey of eventKeys) {
+    const bundle = await getContestBundleLean(gid, eventKey);
+    if (!bundle) continue;
+
+    const mobMap = normalizeSubmissionsCategoryMap(bundle.submissions?.mobile);
+    const pcMap = normalizeSubmissionsCategoryMap(bundle.submissions?.pc);
+    const hadMobile = Object.prototype.hasOwnProperty.call(mobMap, uid);
+    const hadPc = Object.prototype.hasOwnProperty.call(pcMap, uid);
+    const mobileMid = hadMobile ? String(mobMap[uid] || "").trim() : "";
+    const pcMid = hadPc ? String(pcMap[uid] || "").trim() : "";
+    const midOk = (m) => /^\d{17,22}$/.test(String(m || ""));
+    const mids = Array.from(new Set([mobileMid, pcMid].filter(midOk)));
+
+    const votersObj = bundle.voters && typeof bundle.voters === "object" && !Array.isArray(bundle.voters) ? bundle.voters : {};
+    const voterIds = Object.keys(votersObj);
+
+    const $unset = {};
+    if (hadMobile) $unset[`submissions.mobile.${uid}`] = "";
+    if (hadPc) $unset[`submissions.pc.${uid}`] = "";
+    if (votersObj[uid]) $unset[`voters.${uid}`] = "";
+    for (const mid of mids) {
+      $unset[`submissionMessageIndex.${mid}`] = "";
+    }
+    for (const vid of voterIds) {
+      if (!vid || vid === uid) continue;
+      const leaf = votersObj[vid] || {};
+      const mCounts = leaf.votesMobileCounts && typeof leaf.votesMobileCounts === "object" && !Array.isArray(leaf.votesMobileCounts) ? leaf.votesMobileCounts : {};
+      const pCounts = leaf.votesPcCounts && typeof leaf.votesPcCounts === "object" && !Array.isArray(leaf.votesPcCounts) ? leaf.votesPcCounts : {};
+      for (const mid of mids) {
+        if (Object.prototype.hasOwnProperty.call(mCounts, mid)) $unset[`voters.${vid}.votesMobileCounts.${mid}`] = "";
+        if (Object.prototype.hasOwnProperty.call(pCounts, mid)) $unset[`voters.${vid}.votesPcCounts.${mid}`] = "";
+      }
+    }
+
+    const $pullAll = {};
+    for (const vid of voterIds) {
+      if (!vid || vid === uid) continue;
+      const leaf = votersObj[vid] || {};
+      const pm = mids.filter((mid) => legacyVoteArrayContainsMid(leaf.votesMobile, mid));
+      if (pm.length) $pullAll[`voters.${vid}.votesMobile`] = pm;
+      const pms = mids.filter((mid) => legacyVoteArrayContainsMid(leaf.votesMobileSparkle, mid));
+      if (pms.length) $pullAll[`voters.${vid}.votesMobileSparkle`] = pms;
+      const pp = mids.filter((mid) => legacyVoteArrayContainsMid(leaf.votesPc, mid));
+      if (pp.length) $pullAll[`voters.${vid}.votesPc`] = pp;
+      const pps = mids.filter((mid) => legacyVoteArrayContainsMid(leaf.votesPcSparkle, mid));
+      if (pps.length) $pullAll[`voters.${vid}.votesPcSparkle`] = pps;
+    }
+
+    const hasUnset = Object.keys($unset).length > 0;
+    const hasPullAll = Object.keys($pullAll).length > 0;
+    if (!hasUnset && !hasPullAll) continue;
+
+    const update = {};
+    if (hasUnset) update.$unset = $unset;
+    if (hasPullAll) update.$pullAll = $pullAll;
+    await WeeklyContestBundle.updateOne({ guildId: gid, eventKey }, update).catch((err) => {
+      global.logger?.warn?.("[WEEKLY_CONTEST] leave cleanup bundle:", err?.message || err);
+    });
+
+    await deleteContestSubmissionMessages(
+      guild,
+      midOk(mobileMid) && hadMobile ? mobileMid : "",
+      midOk(pcMid) && hadPc ? pcMid : "",
+    );
+  }
+}
+
 module.exports = {
   EVENT_KEY,
   EVENT_KEY_PRODUCTION,
@@ -1664,4 +1761,5 @@ module.exports = {
   runContestFinalePrizeGrantJob,
   processContestFinalePrizeRoleRemovals,
   isContestActiveNow,
+  removeContestSfondiSubmissionsOnMemberLeave,
 };

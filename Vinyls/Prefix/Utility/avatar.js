@@ -116,11 +116,11 @@ function buildAvatarRows(requesterId, targetUserId, mode = "user", viewState = n
       new ButtonBuilder()
         .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:user:${stateToken}`)
         .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("⬅️"),
+        .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
       new ButtonBuilder()
         .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:server:${stateToken}`)
         .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("➡️"),
+        .setEmoji("<a:vegarightarrow:1443673039156936837>"),
       new ButtonBuilder()
         .setCustomId("avatar_views")
         .setLabel("Classifica Views")
