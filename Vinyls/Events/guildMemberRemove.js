@@ -498,7 +498,7 @@ module.exports = {
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
       if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
-        void removeContestSfondiSubmissionsOnMemberLeave(activeClient, guild.id, member.id).catch((err) => {
+        await removeContestSfondiSubmissionsOnMemberLeave(activeClient, guild.id, member.id).catch((err) => {
           global.logger?.warn?.("[guildMemberRemove] contest sfondi leave:", err?.message || err);
         });
       }

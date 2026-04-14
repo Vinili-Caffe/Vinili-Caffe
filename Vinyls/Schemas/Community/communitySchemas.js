@@ -443,16 +443,15 @@ const userLeaveBackupSchema = new Schema(
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-/** Aggregati orari per guild (+server / contest): non dipendono dal ciclo di vita di ActivityUserProfile. */
+/** Aggregati orari per guild (+server / contest): un solo documento per guildId, ore in `hours`. */
 const activityGuildHourlySchema = new Schema(
   {
     guildId: { type: String, required: true },
-    hourKey: { type: String, required: true },
-    users: { type: Schema.Types.Mixed, default: {} },
+    hours: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true },
 );
-activityGuildHourlySchema.index({ guildId: 1, hourKey: 1 }, { unique: true });
+activityGuildHourlySchema.index({ guildId: 1 }, { unique: true });
 
 const rejoinRoleMemorySchema = new Schema(
   {

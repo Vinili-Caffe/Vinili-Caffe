@@ -146,6 +146,87 @@ function toObjectMap(raw = {}) {
   return {};
 }
 
+function addNumericMapInto(target, delta) {
+  const t = target && typeof target === "object" ? target : {};
+  for (const [k, v] of Object.entries(delta || {})) {
+    const n = Math.max(0, Math.floor(Number(v || 0)));
+    if (!k || !n) continue;
+    t[String(k)] = (Number(t[String(k)]) || 0) + n;
+  }
+  return t;
+}
+
+function mergeGuildHourlyRowInto(byRowKey, row) {
+  const gid = String(row?.guildId || "");
+  const hk = String(row?.hourKey || "");
+  const uid = String(row?.userId || "");
+  if (!gid || !hk || !uid) return;
+  const k = `${hk}\t${uid}`;
+  const prev = byRowKey.get(k);
+  if (!prev) {
+    byRowKey.set(k, {
+      guildId: gid,
+      hourKey: hk,
+      userId: uid,
+      textCount: Math.max(0, Number(row.textCount || 0)),
+      voiceSeconds: Math.max(0, Number(row.voiceSeconds || 0)),
+      textChannels: { ...toObjectMap(row.textChannels) },
+      voiceChannels: { ...toObjectMap(row.voiceChannels) },
+    });
+    return;
+  }
+  prev.textCount += Math.max(0, Number(row.textCount || 0));
+  prev.voiceSeconds += Math.max(0, Number(row.voiceSeconds || 0));
+  addNumericMapInto(prev.textChannels, row.textChannels);
+  addNumericMapInto(prev.voiceChannels, row.voiceChannels);
+}
+
+function pushRowsFromLegacyGuildHourlyDoc(doc, gid, wanted, byRowKey) {
+  const hk = String(doc?.hourKey || "");
+  if (!hk || (wanted && !wanted.has(hk))) return;
+  const users = doc?.users && typeof doc.users === "object" && !Array.isArray(doc.users) ? doc.users : {};
+  for (const [uidRaw, pack] of Object.entries(users)) {
+    const uid = String(uidRaw || "");
+    if (!uid) continue;
+    const p = pack && typeof pack === "object" ? pack : {};
+    const textCh = p.textCh && typeof p.textCh === "object" ? p.textCh : {};
+    const voiceCh = p.voiceCh && typeof p.voiceCh === "object" ? p.voiceCh : {};
+    mergeGuildHourlyRowInto(byRowKey, {
+      guildId: gid,
+      hourKey: hk,
+      userId: uid,
+      textCount: Number(p.text || 0),
+      voiceSeconds: Number(p.voice || 0),
+      textChannels: toObjectMap(textCh),
+      voiceChannels: toObjectMap(voiceCh),
+    });
+  }
+}
+
+function pushRowsFromRollupHours(hours, gid, wanted, byRowKey) {
+  const h = hours && typeof hours === "object" && !Array.isArray(hours) ? hours : {};
+  for (const [hourKey, block] of Object.entries(h)) {
+    if (wanted && !wanted.has(String(hourKey || ""))) continue;
+    const users = block?.users && typeof block.users === "object" && !Array.isArray(block.users) ? block.users : {};
+    for (const [uidRaw, pack] of Object.entries(users)) {
+      const uid = String(uidRaw || "");
+      if (!uid) continue;
+      const p = pack && typeof pack === "object" ? pack : {};
+      const textCh = p.textCh && typeof p.textCh === "object" ? p.textCh : {};
+      const voiceCh = p.voiceCh && typeof p.voiceCh === "object" ? p.voiceCh : {};
+      mergeGuildHourlyRowInto(byRowKey, {
+        guildId: gid,
+        hourKey: String(hourKey || ""),
+        userId: uid,
+        textCount: Number(p.text || 0),
+        voiceSeconds: Number(p.voice || 0),
+        textChannels: toObjectMap(textCh),
+        voiceChannels: toObjectMap(voiceCh),
+      });
+    }
+  }
+}
+
 function extractCompactRowsByKey(doc = {}, keyField = "dateKey") {
   const guildId = String(doc?.guildId || "");
   const bucketKey = String(doc?.[keyField] || "");
@@ -258,31 +339,21 @@ async function loadGuildHourlyRows(guildId, hourKeys = null) {
   const gid = String(guildId || "");
   if (!gid) return [];
   const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
-  const q = { guildId: gid };
-  if (wanted) q.hourKey = { $in: [...wanted] };
-  const docs = await ActivityGuildHourly.find(q).lean().catch(() => []);
-  const rows = [];
+  let q = ActivityGuildHourly.find({ guildId: gid }).lean();
+  if (ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) {
+    q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
+  }
+  const docs = await q.catch(() => []);
+  const byRowKey = new Map();
   for (const doc of docs) {
-    const hk = String(doc?.hourKey || "");
-    if (wanted && !wanted.has(hk)) continue;
-    const users = doc?.users && typeof doc.users === "object" && !Array.isArray(doc.users) ? doc.users : {};
-    for (const [uid, pack] of Object.entries(users)) {
-      if (!uid) continue;
-      const p = pack && typeof pack === "object" ? pack : {};
-      const textCh = p.textCh && typeof p.textCh === "object" ? p.textCh : {};
-      const voiceCh = p.voiceCh && typeof p.voiceCh === "object" ? p.voiceCh : {};
-      rows.push({
-        guildId: gid,
-        hourKey: hk,
-        userId: String(uid),
-        textCount: Number(p.text || 0),
-        voiceSeconds: Number(p.voice || 0),
-        textChannels: toObjectMap(textCh),
-        voiceChannels: toObjectMap(voiceCh),
-      });
+    const legacyHourKey = typeof doc?.hourKey === "string" && String(doc.hourKey).trim() !== "";
+    if (legacyHourKey) {
+      pushRowsFromLegacyGuildHourlyDoc(doc, gid, wanted, byRowKey);
+    } else if (doc?.hours && typeof doc.hours === "object" && !Array.isArray(doc.hours)) {
+      pushRowsFromRollupHours(doc.hours, gid, wanted, byRowKey);
     }
   }
-  return rows;
+  return [...byRowKey.values()];
 }
 
 async function loadHourlyRows(guildId, hourKeys = null, userId = null) {
@@ -456,12 +527,12 @@ async function bumpGuildHourlyText(guildId, userId, channelId, hourKey, amount =
   const cid = String(channelId);
   try {
     await ActivityGuildHourly.updateOne(
-      { guildId: gid, hourKey: hk },
+      { guildId: gid },
       {
-        $setOnInsert: { guildId: gid, hourKey: hk },
+        $setOnInsert: { guildId: gid },
         $inc: {
-          [`users.${uid}.text`]: inc,
-          [`users.${uid}.textCh.${cid}`]: inc,
+          [`hours.${hk}.users.${uid}.text`]: inc,
+          [`hours.${hk}.users.${uid}.textCh.${cid}`]: inc,
         },
       },
       { upsert: true },
@@ -550,12 +621,12 @@ async function bumpGuildHourlyVoice(guildId, userId, channelId, hourKey, seconds
   const cid = String(channelId);
   try {
     await ActivityGuildHourly.updateOne(
-      { guildId: gid, hourKey: hk },
+      { guildId: gid },
       {
-        $setOnInsert: { guildId: gid, hourKey: hk },
+        $setOnInsert: { guildId: gid },
         $inc: {
-          [`users.${uid}.voice`]: inc,
-          [`users.${uid}.voiceCh.${cid}`]: inc,
+          [`hours.${hk}.users.${uid}.voice`]: inc,
+          [`hours.${hk}.users.${uid}.voiceCh.${cid}`]: inc,
         },
       },
       { upsert: true },

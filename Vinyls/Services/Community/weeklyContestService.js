@@ -1670,6 +1670,25 @@ function legacyVoteArrayContainsMid(arr, mid) {
   return arr.some((x) => String(x) === m);
 }
 
+const THREAD_DELETE_REASON = "Contest sfondi: autore uscito dal server";
+
+async function deleteContestSubmissionMessageAndThread(guild, channel, msgId) {
+  const mid = String(msgId || "");
+  if (!guild || !channel?.messages?.fetch || !/^\d{17,22}$/.test(mid)) return;
+  const msg = await channel.messages.fetch(mid).catch(() => null);
+  if (msg) {
+    const fromMessage = msg.thread;
+    const fromFlag =
+      !fromMessage && msg.hasThread ? await guild.channels.fetch(mid).catch(() => null) : null;
+    const thread = fromMessage || (fromFlag?.isThread?.() ? fromFlag : null);
+    if (thread?.isThread?.()) await thread.delete(THREAD_DELETE_REASON).catch(() => {});
+    await msg.delete().catch(() => {});
+    return;
+  }
+  const orphan = await guild.channels.fetch(mid).catch(() => null);
+  if (orphan?.isThread?.()) await orphan.delete(THREAD_DELETE_REASON).catch(() => {});
+}
+
 async function deleteContestSubmissionMessages(guild, mobileMid, pcMid) {
   if (!guild) return;
   const pairs = [];
@@ -1678,8 +1697,7 @@ async function deleteContestSubmissionMessages(guild, mobileMid, pcMid) {
   for (const [chId, msgId] of pairs) {
     if (!/^\d{17,22}$/.test(String(msgId))) continue;
     const ch = await getGuildChannelCached(guild, chId).catch(() => null);
-    const msg = await ch?.messages?.fetch?.(msgId).catch(() => null);
-    await msg?.delete?.().catch(() => {});
+    await deleteContestSubmissionMessageAndThread(guild, ch, msgId);
   }
 }
 

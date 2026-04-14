@@ -1,6 +1,7 @@
 /**
- * Scrive in activityguildhourlys i dati hourly già presenti sui profili o nei backup uscita,
- * così +server / contest possono contarli anche dopo cleanup profilo.
+ * Scrive in activityguildhourlys (un documento per guild, ore in `hours`) i dati hourly
+ * già presenti sui profili o nei backup uscita, così +server / contest possono contarli
+ * anche dopo cleanup profilo.
  *
  * Uso (da root repo, .env con MONGO_*):
  *   node scripts/backfill-activity-guild-hourly.js profiles [guildId]
@@ -68,21 +69,21 @@ function buildGuildIncUpdate(row) {
   const $inc = {};
   const tc = Math.max(0, Number(row.textCount || 0));
   const vs = Math.max(0, Number(row.voiceSeconds || 0));
-  if (tc) $inc[`users.${uid}.text`] = tc;
-  if (vs) $inc[`users.${uid}.voice`] = vs;
+  if (tc) $inc[`hours.${hk}.users.${uid}.text`] = tc;
+  if (vs) $inc[`hours.${hk}.users.${uid}.voice`] = vs;
   for (const [ch, v] of Object.entries(row.textChannels || {})) {
     const n = Math.max(0, Number(v || 0));
-    if (n) $inc[`users.${uid}.textCh.${String(ch)}`] = n;
+    if (n) $inc[`hours.${hk}.users.${uid}.textCh.${String(ch)}`] = n;
   }
   for (const [ch, v] of Object.entries(row.voiceChannels || {})) {
     const n = Math.max(0, Number(v || 0));
-    if (n) $inc[`users.${uid}.voiceCh.${String(ch)}`] = n;
+    if (n) $inc[`hours.${hk}.users.${uid}.voiceCh.${String(ch)}`] = n;
   }
   if (Object.keys($inc).length === 0) return null;
   return {
     updateOne: {
-      filter: { guildId: gid, hourKey: hk },
-      update: { $setOnInsert: { guildId: gid, hourKey: hk }, $inc },
+      filter: { guildId: gid },
+      update: { $setOnInsert: { guildId: gid }, $inc },
       upsert: true,
     },
   };
@@ -177,7 +178,7 @@ async function main() {
     console.log(`backups: ${c} righe hourly processate.`);
     n += c;
   }
-  console.log(`Totale operazioni riga: ${n} (bulkWrite aggregati su activityguildhourlys).`);
+  console.log(`Totale operazioni riga: ${n} (bulkWrite su activityguildhourlys, doc unico per guild).`);
   await mongoose.disconnect().catch(() => null);
 }
 
