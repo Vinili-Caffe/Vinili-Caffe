@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ActivityGuildHourly } = require("../../Schemas/Community/communitySchemas");
 const { isValidGuildUserId, isValidGuildUserIdChannelId } = require("../../Utils/DB/validateWriteIds");
 const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
@@ -234,8 +234,64 @@ async function loadDailyRows(guildId, dateKeys = null) {
   return loadDailyRowsFromProfile(guildId, dateKeys);
 }
 
+function mergeGuildPreferHourlyRows(profileRows, guildRows) {
+  const byKey = new Map();
+  for (const r of guildRows || []) {
+    const hk = String(r?.hourKey || "");
+    const uid = String(r?.userId || "");
+    if (!hk || !uid) continue;
+    byKey.set(`${hk}\t${uid}`, r);
+  }
+  const out = [...byKey.values()];
+  for (const r of profileRows || []) {
+    const hk = String(r?.hourKey || "");
+    const uid = String(r?.userId || "");
+    if (!hk || !uid) continue;
+    const k = `${hk}\t${uid}`;
+    if (byKey.has(k)) continue;
+    out.push(r);
+  }
+  return out;
+}
+
+async function loadGuildHourlyRows(guildId, hourKeys = null) {
+  const gid = String(guildId || "");
+  if (!gid) return [];
+  const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
+  const q = { guildId: gid };
+  if (wanted) q.hourKey = { $in: [...wanted] };
+  const docs = await ActivityGuildHourly.find(q).lean().catch(() => []);
+  const rows = [];
+  for (const doc of docs) {
+    const hk = String(doc?.hourKey || "");
+    if (wanted && !wanted.has(hk)) continue;
+    const users = doc?.users && typeof doc.users === "object" && !Array.isArray(doc.users) ? doc.users : {};
+    for (const [uid, pack] of Object.entries(users)) {
+      if (!uid) continue;
+      const p = pack && typeof pack === "object" ? pack : {};
+      const textCh = p.textCh && typeof p.textCh === "object" ? p.textCh : {};
+      const voiceCh = p.voiceCh && typeof p.voiceCh === "object" ? p.voiceCh : {};
+      rows.push({
+        guildId: gid,
+        hourKey: hk,
+        userId: String(uid),
+        textCount: Number(p.text || 0),
+        voiceSeconds: Number(p.voice || 0),
+        textChannels: toObjectMap(textCh),
+        voiceChannels: toObjectMap(voiceCh),
+      });
+    }
+  }
+  return rows;
+}
+
 async function loadHourlyRows(guildId, hourKeys = null, userId = null) {
-  return loadHourlyRowsFromProfile(guildId, hourKeys, userId);
+  if (userId) return loadHourlyRowsFromProfile(guildId, hourKeys, userId);
+  const [profileRows, guildRows] = await Promise.all([
+    loadHourlyRowsFromProfile(guildId, hourKeys, null),
+    loadGuildHourlyRows(guildId, hourKeys),
+  ]);
+  return mergeGuildPreferHourlyRows(profileRows, guildRows);
 }
 
 async function ensureHourlyBackfillForGuild(guildId) {
@@ -384,8 +440,34 @@ async function bumpHourlyText(guildId, userId, channelId, amount = 1) {
       },
       { upsert: true },
     );
+    await bumpGuildHourlyText(guildId, userId, channelId, hourKey, inc);
   } catch (err) {
     logActivityBumpError("bumpHourlyText", err);
+  }
+}
+
+async function bumpGuildHourlyText(guildId, userId, channelId, hourKey, amount = 1) {
+  const inc = Math.max(0, Number(amount || 0));
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
+  const hk = String(hourKey || "");
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hk)) return;
+  const gid = String(guildId);
+  const uid = String(userId);
+  const cid = String(channelId);
+  try {
+    await ActivityGuildHourly.updateOne(
+      { guildId: gid, hourKey: hk },
+      {
+        $setOnInsert: { guildId: gid, hourKey: hk },
+        $inc: {
+          [`users.${uid}.text`]: inc,
+          [`users.${uid}.textCh.${cid}`]: inc,
+        },
+      },
+      { upsert: true },
+    );
+  } catch (err) {
+    logActivityBumpError("bumpGuildHourlyText", err);
   }
 }
 
@@ -452,8 +534,34 @@ async function bumpHourlyVoice(guildId, userId, channelId, seconds = 0) {
       },
       { upsert: true },
     );
+    await bumpGuildHourlyVoice(guildId, userId, channelId, hourKey, inc);
   } catch (err) {
     logActivityBumpError("bumpHourlyVoice", err);
+  }
+}
+
+async function bumpGuildHourlyVoice(guildId, userId, channelId, hourKey, seconds = 0) {
+  const inc = Math.max(0, Math.floor(Number(seconds || 0)));
+  if (!inc || !isValidGuildUserIdChannelId(guildId, userId, channelId)) return;
+  const hk = String(hourKey || "");
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}$/.test(hk)) return;
+  const gid = String(guildId);
+  const uid = String(userId);
+  const cid = String(channelId);
+  try {
+    await ActivityGuildHourly.updateOne(
+      { guildId: gid, hourKey: hk },
+      {
+        $setOnInsert: { guildId: gid, hourKey: hk },
+        $inc: {
+          [`users.${uid}.voice`]: inc,
+          [`users.${uid}.voiceCh.${cid}`]: inc,
+        },
+      },
+      { upsert: true },
+    );
+  } catch (err) {
+    logActivityBumpError("bumpGuildHourlyVoice", err);
   }
 }
 

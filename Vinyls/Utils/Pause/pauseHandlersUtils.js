@@ -221,9 +221,14 @@ async function getStaffAndPauseByRequestMessageId(guildId, messageId) {
   const g = String(guildId ?? "").trim();
   const msgId = String(messageId ?? "").trim();
   if (!g || !msgId) return null;
-  const doc = await ActivityUserProfile.findOne({ guildId: g, "staff.pauses.requestMessageId": msgId });
+  const doc = await ActivityUserProfile.findOne({
+    guildId: g,
+    $or: [{ "staff.pauses.requestMessageId": msgId }, { "staff.pauses.requestMessageIdPm": msgId }],
+  });
   if (!doc || !Array.isArray(doc.staff?.pauses)) return null;
-  const pause = doc.staff.pauses.find((p) => String(p?.requestMessageId) === msgId);
+  const pause = doc.staff.pauses.find(
+    (p) => String(p?.requestMessageId) === msgId || String(p?.requestMessageIdPm) === msgId,
+  );
   return pause ? { stafferRecord: doc, pause } : null;
 }
 
@@ -558,14 +563,16 @@ async function getPauseReasonFromMessage(client, pause) {
   }
 }
 
-function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseStartRaw, pauseEndRaw, userId, pauseId) {
+function schedulePauseButtonsRemoval(guild, channelId, messageId, pauseStartRaw, pauseEndRaw, userId, pauseId, requestMessageIdPm = null) {
   if (!guild || !channelId || !messageId || !userId || !pauseId) return;
+  const pmId = String(requestMessageIdPm ?? "").trim() || null;
   const pause = {
     _id: pauseId,
     dataRichiesta: pauseStartRaw,
     dataRitorno: pauseEndRaw,
     requestChannelId: channelId,
     requestMessageId: messageId,
+    requestMessageIdPm: pmId,
     status: "accepted",
   };
   schedulePauseStatusRefresh(guild, String(userId), pause);
@@ -591,27 +598,27 @@ function getPausePhase(startRaw, endRaw) {
   return "active";
 }
 
-async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
-  const channelId = String(pause?.requestChannelId || "").trim();
-  const messageId = String(pause?.requestMessageId || "").trim();
-  const pauseId = String(pause?._id || "").trim();
-  if (!guild || !channelId || !messageId || !pauseId) return;
-  const phase = getPausePhase(pause?.dataRichiesta, pause?.dataRitorno);
-  const channel = await getGuildChannelCached(guild, channelId);
-  if (!channel?.isTextBased?.()) return;
+async function applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, withControls) {
   const msg = await channel.messages.fetch(messageId).catch(() => null);
   if (!msg) return;
   const currentContent = String(msg.content || "");
   let nextContent = currentContent;
-  let nextComponents = msg.components || [];
-  if (phase === "planned") {
-    nextContent = normalizePauseStatusPhrase(currentContent, "sarà in pausa");
-    nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
-  } else if (phase === "active") {
-    nextContent = normalizePauseStatusPhrase(currentContent, "è in pausa");
-    nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
+  let nextComponents = [];
+  if (withControls) {
+    if (phase === "planned") {
+      nextContent = normalizePauseStatusPhrase(currentContent, "sarà in pausa");
+      nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
+    } else if (phase === "active") {
+      nextContent = normalizePauseStatusPhrase(currentContent, "è in pausa");
+      nextComponents = [buildAcceptedButtonsRow(userId, pauseId, { hideCancel: false, disableCancel: false })];
+    } else {
+      nextContent = normalizePauseStatusPhrase(currentContent, "è stato in pausa");
+      nextComponents = [];
+    }
   } else {
-    nextContent = normalizePauseStatusPhrase(currentContent, "è stato in pausa");
+    if (phase === "planned") nextContent = normalizePauseStatusPhrase(currentContent, "sarà in pausa");
+    else if (phase === "active") nextContent = normalizePauseStatusPhrase(currentContent, "è in pausa");
+    else nextContent = normalizePauseStatusPhrase(currentContent, "è stato in pausa");
     nextComponents = [];
   }
   const sameContent = nextContent === currentContent;
@@ -619,6 +626,20 @@ async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
   const hasComponentsNext = Array.isArray(nextComponents) && nextComponents.length > 0;
   if (sameContent && hasComponentsNow === hasComponentsNext) return;
   await msg.edit({ content: nextContent, components: nextComponents }).catch(() => null);
+}
+
+async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
+  const channelId = String(pause?.requestChannelId || "").trim();
+  const messageId = String(pause?.requestMessageId || "").trim();
+  const messageIdPm = String(pause?.requestMessageIdPm || "").trim();
+  const pauseId = String(pause?._id || "").trim();
+  if (!guild || !channelId || !messageId || !pauseId) return;
+  const phase = getPausePhase(pause?.dataRichiesta, pause?.dataRitorno);
+  const channel = await getGuildChannelCached(guild, channelId);
+  if (!channel?.isTextBased?.()) return;
+  await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true);
+  if (messageIdPm)
+    await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, false);
 }
 
 function schedulePauseStatusRefresh(guild, userId, pause) {

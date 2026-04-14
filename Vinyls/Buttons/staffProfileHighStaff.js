@@ -196,6 +196,7 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
   const opts = {};
   const preserved = parsed?.sourceMessageId || extractSourceFromStaffPanelMessage(interaction.message);
   if (preserved) opts.sourceMessageId = preserved;
+  if (String(interaction.channel?.id || "") === String(IDs.channels?.partnersCmds || "")) opts.partnersCmdsChannel = true;
   try {
     const payload = await buildStaffProfilePayload(
       guild,

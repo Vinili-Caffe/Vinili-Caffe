@@ -1,13 +1,24 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { MS_PER_DAY, countOverlapDays, countEffectiveOverlapDays, getPauseReasonFromMessage, filterPausesByMonth } = require("./pauseHandlersUtils");
+const {
+  MS_PER_DAY,
+  countOverlapDays,
+  countEffectiveOverlapDays,
+  getPauseReasonFromMessage,
+  filterPausesByMonth,
+  roleChoiceAppliesTo,
+  PAUSE_ROLE_PM,
+  PAUSE_ROLE_STAFF,
+} = require("./pauseHandlersUtils");
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
-function buildPauseListMonthRows(targetUserId, year) {
+function buildPauseListMonthRows(targetUserId, year, options = {}) {
   const uid = String(targetUserId ?? "").trim();
   const y = String(Number(year) || new Date().getUTCFullYear());
   if (!uid) return [];
+  const prf = String(options.pauseRoleFilter || "").toLowerCase();
+  const filtSuffix = prf === "pm" || prf === "staff" ? `:${prf}` : "";
   const rows = [];
   let current = new ActionRowBuilder();
   for (let m = 1; m <= 12; m++) {
@@ -17,18 +28,16 @@ function buildPauseListMonthRows(targetUserId, year) {
     }
     current.addComponents(
       new ButtonBuilder()
-        .setCustomId(`pause_list_month:${uid}:${y}:${m}`)
+        .setCustomId(`pause_list_month:${uid}:${y}:${m}${filtSuffix}`)
         .setLabel(MONTH_LABELS[m - 1])
         .setStyle(ButtonStyle.Secondary),
     );
   }
   if (current.components.length) rows.push(current);
 
+  const yearCustomId = filtSuffix ? `pause_list:${uid}${filtSuffix}` : `pause_list:${uid}:`;
   const rowYear = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`pause_list:${uid}:`)
-      .setLabel("Anno intero")
-      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(yearCustomId).setLabel("Anno intero").setStyle(ButtonStyle.Primary),
   );
   rows.push(rowYear);
 
@@ -146,18 +155,33 @@ function splitRowsForEmbeds(rows, limit = 3500) {
   return chunks;
 }
 
-async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client, filterMonth }) {
+async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighStaff, client, filterMonth, pauseRoleFilter }) {
   if (!isHighStaff && String(targetUser?.id || "") !== String(requesterId || "")) {
     return { ok: false, error: "<:vegax:1443934876440068179> Puoi vedere solo le tue pause." };
   }
+  const prf = String(pauseRoleFilter || "").toLowerCase();
+  const monthOpts = prf === "pm" || prf === "staff" ? { pauseRoleFilter: prf } : {};
   const g = String(guildId ?? "").trim();
   const u = String(targetUser?.id ?? "").trim();
   if (!g || !u) {
     const y = getCurrentYearBoundsUtc().yearStart.getUTCFullYear();
-    return { ok: true, embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`)], components: buildPauseListMonthRows(u, y) };
+    return {
+      ok: true,
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#6f4e37")
+          .setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`),
+      ],
+      components: buildPauseListMonthRows(u, y, monthOpts),
+    };
   }
   const stafferRecord = await ActivityUserProfile.findOne({ guildId: g, userId: u }, { "staff.pauses": 1 }).lean().catch(() => null);
   let pauses = Array.isArray(stafferRecord?.staff?.pauses) ? stafferRecord.staff.pauses : [];
+  if (prf === "pm") {
+    pauses = pauses.filter((p) => roleChoiceAppliesTo(PAUSE_ROLE_PM, p?.ruolo || p?.ruoloRichiesto));
+  } else if (prf === "staff") {
+    pauses = pauses.filter((p) => roleChoiceAppliesTo(PAUSE_ROLE_STAFF, p?.ruolo || p?.ruoloRichiesto));
+  }
   const todayUtc = getTodayUtc();
   const { yearStart, yearEnd } = getCurrentYearBoundsUtc();
   const currentYear = yearStart.getUTCFullYear();
@@ -183,7 +207,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     return {
       ok: true,
       embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(desc)],
-      components: buildPauseListMonthRows(u, currentYear),
+      components: buildPauseListMonthRows(u, currentYear, monthOpts),
     };
   }
   const totalScaledDays = computeConsumedPauseDays(pauses);
@@ -194,7 +218,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
       .setTitle(`<a:VC_Calendar:1482706208149475358> Pause ${titleSuffix}${chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : ""}`)
       .setDescription(`${chunk}\n\n<:VC_Clock:1473359204189474886> Totale giorni scalati${monthLabel ? " nel mese" : " anno corrente"}: \`${totalScaledDays}\``),
   );
-  return { ok: true, embeds, components: buildPauseListMonthRows(u, currentYear) };
+  return { ok: true, embeds, components: buildPauseListMonthRows(u, currentYear, monthOpts) };
 }
 
 module.exports = { buildPauseListPayload, buildPauseListMonthRows };

@@ -50,13 +50,16 @@ async function deleteStaffPauseRequestChannelMessages(guild, userId) {
   for (const p of pauses) {
     const threadId = String(p?.requestThreadId || "").trim();
     if (threadId) await deleteThreadForMessage(guild, threadId);
-    const msgId = String(p?.requestMessageId || "").trim();
     const chId = String(p?.requestChannelId || "").trim() || defaultPauseCh;
-    if (!msgId || !chId) continue;
+    if (!chId) continue;
     const ch = guild.channels.cache.get(chId) || (await getGuildChannelCached(guild, chId));
     if (!ch?.messages?.fetch) continue;
-    const msg = await ch.messages.fetch(msgId).catch(() => null);
-    await msg?.delete?.().catch(() => null);
+    for (const mid of [p?.requestMessageId, p?.requestMessageIdPm]) {
+      const msgId = String(mid || "").trim();
+      if (!msgId) continue;
+      const msg = await ch.messages.fetch(msgId).catch(() => null);
+      await msg?.delete?.().catch(() => null);
+    }
   }
 }
 

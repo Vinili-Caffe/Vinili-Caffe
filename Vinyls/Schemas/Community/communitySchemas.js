@@ -220,6 +220,7 @@ const staffPauseEntrySchema = new Schema(
     createdAt: { type: Date, default: Date.now },
     requestChannelId: { type: String, default: null },
     requestMessageId: { type: String, default: null },
+    requestMessageIdPm: { type: String, default: null },
     requestThreadId: { type: String, default: null },
   },
   { _id: true },
@@ -441,6 +442,17 @@ const userLeaveBackupSchema = new Schema(
 );
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+/** Aggregati orari per guild (+server / contest): non dipendono dal ciclo di vita di ActivityUserProfile. */
+const activityGuildHourlySchema = new Schema(
+  {
+    guildId: { type: String, required: true },
+    hourKey: { type: String, required: true },
+    users: { type: Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true },
+);
+activityGuildHourlySchema.index({ guildId: 1, hourKey: 1 }, { unique: true });
 
 const rejoinRoleMemorySchema = new Schema(
   {
@@ -900,6 +912,7 @@ const QuotePrivacy = buildProfileSubdocModel({
 });
 
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
+const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
 const RejoinRoleMemory = models.RejoinRoleMemory || model("RejoinRoleMemory", rejoinRoleMemorySchema, "rejoinrolememories");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
@@ -913,6 +926,7 @@ module.exports = {
   InviteTrack,
   InviteReminderState,
   ActivityUserProfile,
+  ActivityGuildHourly,
   ModCase,
   modCaseEntrySchema,
   modCaseEditEntrySchema,

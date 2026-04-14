@@ -4,6 +4,7 @@ const IDs = require("../Config/ids");
 const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
 const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
+const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { countValidAllTimePartners } = require("../Partner/partnerLeaderboardRuntime");
 
@@ -59,6 +60,25 @@ function resolveStaffProfileDisplayRoleId(member) {
     if (roleId && member.roles.cache.has(roleId)) return roleId;
   }
   return null;
+}
+
+function buildFullProfileRoleLabelForEmbed(guild, member) {
+  if (!member?.roles?.cache || !guild?.roles?.cache) return "—";
+  const pmId = String(IDs.roles.PartnerManager || "");
+  let staffLabel = null;
+  for (const roleId of STAFF_PROFILE_DISPLAY_ROLE_PRIORITY) {
+    if (!roleId || String(roleId) === pmId) continue;
+    if (member.roles.cache.has(roleId)) {
+      staffLabel = guild.roles.cache.get(roleId)?.name || `<@&${roleId}>`;
+      break;
+    }
+  }
+  const hasPm = Boolean(pmId && member.roles.cache.has(pmId));
+  const pmLabel = hasPm ? guild.roles.cache.get(pmId)?.name || "Partner Manager" : null;
+  if (staffLabel && pmLabel) return `${staffLabel} & ${pmLabel}`;
+  if (staffLabel) return staffLabel;
+  if (pmLabel) return pmLabel;
+  return "—";
 }
 
 function hasDisplayTierStaffBeforePartnerManager(member) {
@@ -196,8 +216,11 @@ function parseItalianDate(value) {
   return date;
 }
 
-function getStaffPauseLine(staffDoc) {
-  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+function getStaffPauseLine(staffDoc, opts = {}) {
+  const allPauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const pauses = opts.pmOnly
+    ? allPauses.filter((p) => roleChoiceAppliesTo(PAUSE_ROLE_PM, p?.ruolo || p?.ruoloRichiesto))
+    : allPauses;
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -414,7 +437,8 @@ function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, s
   ];
 }
 
-function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember) {
+function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember, suppressPexDepex = false) {
+  if (suppressPexDepex) return false;
   const sec = String(section || "").toLowerCase();
   const pmHome = profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME;
   if (profileKind !== PROFILE_FULL && !pmHome) return false;
@@ -452,14 +476,15 @@ function withCloseProfileComponents(components, viewerId, targetId, sourceMessag
   return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId)];
 }
 
-function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceMessageId = null) {
+function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceMessageId = null, selectOptions = {}) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
+  const homeLabel = selectOptions.partnersCmdsHomeLabel ? "Home" : "Panoramica";
   if (profileKind === PROFILE_PROSPECT) return null;
   if (profileKind === PROFILE_PM_ONLY) {
     const opts = [
-      { label: "Panoramica", value: SECTION_HOME, emoji: "<:partnermanager:1443651916838998099>", default: sec === SECTION_HOME },
+      { label: homeLabel, value: SECTION_HOME, emoji: "<:partnermanager:1443651916838998099>", default: sec === SECTION_HOME },
       { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
     ];
     return new ActionRowBuilder().addComponents(
@@ -526,6 +551,21 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const sourceMessageId = normalizeSourceMessageId(options?.sourceMessageId);
   const pmRoleId = IDs.roles.PartnerManager;
   const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
+  const partnersCmdsMode = options?.partnersCmdsChannel === true;
+  const usePartnersCmdsPmPanel = partnersCmdsMode && hasPm;
+
+  if (partnersCmdsMode && !hasPm) {
+    return {
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#992d22")
+          .setDescription(
+            "<:VC_Attention:1482534443632558151> In **partner cmds** puoi consultare solo utenti con ruolo **Partner Manager**.",
+          ),
+      ],
+      components: withCloseProfileComponents([], viewerId, tid, sourceMessageId),
+    };
+  }
 
   if (profileKind === PROFILE_PROSPECT) {
     const pexComps =
@@ -546,7 +586,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
   let roleLabel = "—";
-  if (displayRoleId) {
+  if (usePartnersCmdsPmPanel) {
+    roleLabel = pmRoleId ? guild.roles.cache.get(pmRoleId)?.name || "Partner Manager" : "Partner Manager";
+  } else if (profileKind === PROFILE_FULL) {
+    roleLabel = buildFullProfileRoleLabelForEmbed(guild, member);
+  } else if (displayRoleId) {
     roleLabel = guild.roles.cache.get(displayRoleId)?.name || `<@&${displayRoleId}>`;
   }
 
@@ -562,7 +606,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   let sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === LEGACY_PARTNER_LB_SECTION) sec = SECTION_HOME;
-  if (profileKind === PROFILE_PM_ONLY) {
+  if (profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel) {
     const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE]);
     if (!allowedPm.has(sec)) sec = SECTION_HOME;
   }
@@ -570,24 +614,31 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const selfForPts = String(viewerId) === tid;
   const canHsPartnerPoints =
     viewerCanPartnerPointsPanel &&
-    (profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm)) &&
+    (profileKind === PROFILE_PM_ONLY ||
+      usePartnersCmdsPmPanel ||
+      (profileKind === PROFILE_FULL && hasPm)) &&
     (!selfForPts || viewerIsFounderOrCoFounder(viewerMemForPanel));
   let partnerHomeRows = [];
   if (sec === SECTION_HOME && canHsPartnerPoints) {
     const vPts = String(viewerId);
-    if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
+    if (usePartnersCmdsPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
+    else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_PM_ONLY) partnerHomeRows = buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
   }
 
-  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind, sourceMessageId);
+  const profileKindForSelect = usePartnersCmdsPmPanel ? PROFILE_PM_ONLY : profileKind;
+  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
+    partnersCmdsHomeLabel: usePartnersCmdsPmPanel,
+  });
   const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
-  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel)
+  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, usePartnersCmdsPmPanel)
     ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId)
     : [];
   const hsRows = [...highStaffRows];
   if (
     sec === SECTION_HOME &&
     profileKind === PROFILE_FULL &&
+    !usePartnersCmdsPmPanel &&
     String(viewerId) !== tid &&
     viewerCanFullDepex &&
     !viewerIsHighStaff
@@ -603,8 +654,8 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     );
   }
 
-  if (profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME) {
-    const pauseShort = getStaffPauseLine(s);
+  if ((profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel) && sec === SECTION_HOME) {
+    const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = resolveStaffPartnerPointsDisplay(s);
     const pmHomeDesc = [
       `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
@@ -613,11 +664,14 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       "",
       `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
     ].join("\n");
+    const pmTitle = usePartnersCmdsPmPanel
+      ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
+      : `<:VC_addperson:1485419347068588073> Profilo Staff ${name}`;
     return {
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setTitle(`<:VC_addperson:1485419347068588073> Profilo Staff ${name}`)
+          .setTitle(pmTitle)
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
@@ -668,12 +722,15 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   if (sec === SECTION_PAUSE) {
     const targetUserObj = targetUser || { id: tid, username: name };
+    const pauseRoleFilter =
+      profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel ? "pm" : undefined;
     const listPayload = await buildPauseListPayload({
       guildId: gid,
       requesterId: String(viewerId),
       targetUser: targetUserObj,
       isHighStaff: viewerIsHighStaff,
       client,
+      pauseRoleFilter,
     });
     if (!listPayload.ok) {
       return {
