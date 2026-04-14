@@ -167,14 +167,13 @@ function parseStaffHpModal(customId) {
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffPanelSection(parts);
-  const sourceIdx = section === SECTION_PARTNER_LB ? 6 : 5;
   return {
     action,
     viewerId,
     targetId,
     section,
     partnerLbMode: parseStaffHpPartnerLbMode(parts, section),
-    sourceMessageId: normalizeSourceMessageId(parts[sourceIdx]),
+    sourceMessageId: null,
   };
 }
 
@@ -333,8 +332,8 @@ async function execute(interaction) {
     }
     const modalId =
       parsed.section === SECTION_PARTNER_LB
-        ? `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}:${parsed.partnerLbMode}${parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : ""}`
-        : `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : ""}`;
+        ? `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}:${parsed.partnerLbMode}`
+        : `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}`;
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
     if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
