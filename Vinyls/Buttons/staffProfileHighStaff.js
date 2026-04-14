@@ -14,6 +14,11 @@ const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
 const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS, SECTION_PARTNER_LB]);
 
+function normalizeSourceMessageId(raw) {
+  const id = String(raw || "").trim();
+  return /^\d{16,20}$/.test(id) ? id : null;
+}
+
 function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
   try {
     let v = String(interaction.fields.getTextInputValue(customId) || "").trim();
@@ -71,6 +76,7 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
         : "totale"
       : null;
   const opts = section === SECTION_PARTNER_LB ? { partnerLbMode } : {};
+  if (parsed?.sourceMessageId) opts.sourceMessageId = parsed.sourceMessageId;
   try {
     const payload = await buildStaffProfilePayload(
       guild,
@@ -118,7 +124,15 @@ function parseStaffHpButton(customId) {
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffPanelSection(parts);
-  return { action, viewerId, targetId, section, partnerLbMode: parseStaffHpPartnerLbMode(parts, section) };
+  const sourceIdx = section === SECTION_PARTNER_LB ? 6 : 5;
+  return {
+    action,
+    viewerId,
+    targetId,
+    section,
+    partnerLbMode: parseStaffHpPartnerLbMode(parts, section),
+    sourceMessageId: normalizeSourceMessageId(parts[sourceIdx]),
+  };
 }
 
 function parseStaffHpModal(customId) {
@@ -153,7 +167,15 @@ function parseStaffHpModal(customId) {
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffPanelSection(parts);
-  return { action, viewerId, targetId, section, partnerLbMode: parseStaffHpPartnerLbMode(parts, section) };
+  const sourceIdx = section === SECTION_PARTNER_LB ? 6 : 5;
+  return {
+    action,
+    viewerId,
+    targetId,
+    section,
+    partnerLbMode: parseStaffHpPartnerLbMode(parts, section),
+    sourceMessageId: normalizeSourceMessageId(parts[sourceIdx]),
+  };
 }
 
 async function ensureHighStaffViewer(interaction) {
@@ -311,8 +333,8 @@ async function execute(interaction) {
     }
     const modalId =
       parsed.section === SECTION_PARTNER_LB
-        ? `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}:${parsed.partnerLbMode}`
-        : `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}`;
+        ? `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}:${parsed.partnerLbMode}${parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : ""}`
+        : `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : ""}`;
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
     if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {

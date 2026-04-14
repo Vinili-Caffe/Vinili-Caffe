@@ -62,6 +62,7 @@ module.exports = {
       message.author.id,
       message.client,
       SECTION_HOME,
+      { sourceMessageId: message.id },
     );
     await safeChannelSend(message.channel, payload);
   },

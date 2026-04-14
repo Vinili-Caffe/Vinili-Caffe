@@ -22,6 +22,15 @@ async function safeUpdatePanelInteraction(interaction, payload) {
   return true;
 }
 
+async function deleteMessageInSameChannel(channel, messageId) {
+  const mid = String(messageId || "").trim();
+  if (!/^\d{16,20}$/.test(mid)) return false;
+  if (!channel?.messages?.fetch) return false;
+  const msg = await channel.messages.fetch(mid).catch(() => null);
+  if (!msg) return false;
+  return msg.delete().then(() => true).catch(() => false);
+}
+
 function match(interaction) {
   const id = String(interaction?.customId || "");
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:select:`)) return true;
@@ -44,14 +53,10 @@ async function execute(interaction) {
           .catch(() => {});
         return true;
       }
-      const payload = {
-        content: "<:vegacheckmark:1443666279058772028> Panel chiuso.",
-        embeds: [],
-        components: [],
-      };
-      const updated = await interaction.update(payload).then(() => true).catch(() => false);
-      if (!updated && interaction.message?.edit) {
-        await interaction.message.edit(payload).catch(() => {});
+      await interaction.deferUpdate().catch(() => {});
+      await interaction.message?.delete?.().catch(() => {});
+      if (close.sourceMessageId) {
+        await deleteMessageInSameChannel(interaction.channel, close.sourceMessageId);
       }
       return true;
     }
@@ -73,7 +78,7 @@ async function execute(interaction) {
       plb.viewerId,
       interaction.client,
       SECTION_PARTNER_LB,
-      { partnerLbMode: plb.mode },
+      { partnerLbMode: plb.mode, sourceMessageId: plb.sourceMessageId },
     );
     if (deferred && interaction.message) {
       await interaction.message.edit(payload).catch(() => {});
@@ -102,6 +107,7 @@ async function execute(interaction) {
     parsed.viewerId,
     interaction.client,
     section,
+    { sourceMessageId: parsed.sourceMessageId },
   );
   if (deferred && interaction.message) {
     await interaction.message.edit(payload).catch(() => {});

@@ -67,6 +67,7 @@ module.exports = {
       targetUser.id,
       message.client,
       SECTION_HOME,
+      { sourceMessageId: message.id },
     );
     await safeMessageReply(message, {
       ...payload,

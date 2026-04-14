@@ -19,56 +19,66 @@ const FIELD_DURATION = "mpr_f_duration";
 const FIELD_CASE = "mpr_f_case";
 const FIELD_EXTRA = "mpr_f_extra";
 
-function formatNavCustomId(guildId, viewerId, targetId) {
-  return `${PANEL_PREFIX}:nav:${guildId}:${viewerId}:${targetId}`;
+function normalizeSourceMessageId(raw) {
+  const id = String(raw || "").trim();
+  return /^\d{16,20}$/.test(id) ? id : null;
 }
 
-function formatGoCustomId(guildId, viewerId, targetId, action) {
-  return `${PANEL_PREFIX}:go:${guildId}:${viewerId}:${targetId}:${action}`;
+function withSourceSuffix(baseCustomId, sourceMessageId = null) {
+  const sid = normalizeSourceMessageId(sourceMessageId);
+  return sid ? `${baseCustomId}:${sid}` : baseCustomId;
 }
 
-function formatModalCustomId(guildId, viewerId, targetId, action) {
-  return `${PANEL_PREFIX}:md:${guildId}:${viewerId}:${targetId}:${action}`;
+function formatNavCustomId(guildId, viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:nav:${guildId}:${viewerId}:${targetId}`, sourceMessageId);
 }
 
-function formatHomeCustomId(guildId, viewerId, targetId) {
-  return `${PANEL_PREFIX}:home:${guildId}:${viewerId}:${targetId}`;
+function formatGoCustomId(guildId, viewerId, targetId, action, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:go:${guildId}:${viewerId}:${targetId}:${action}`, sourceMessageId);
 }
 
-function formatCloseCustomId(guildId, viewerId, targetId) {
-  return `${PANEL_PREFIX}:close:${guildId}:${viewerId}:${targetId}`;
+function formatModalCustomId(guildId, viewerId, targetId, action, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:md:${guildId}:${viewerId}:${targetId}:${action}`, sourceMessageId);
+}
+
+function formatHomeCustomId(guildId, viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:home:${guildId}:${viewerId}:${targetId}`, sourceMessageId);
+}
+
+function formatCloseCustomId(guildId, viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:close:${guildId}:${viewerId}:${targetId}`, sourceMessageId);
 }
 
 function parseNavCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 4 || p[0] !== PANEL_PREFIX || p[1] !== "nav") return null;
-  if (p.length >= 5) return { guildId: p[2], viewerId: p[3], targetId: p[4] };
-  return { guildId: null, viewerId: p[2], targetId: p[3] };
+  if (p.length >= 5) return { guildId: p[2], viewerId: p[3], targetId: p[4], sourceMessageId: normalizeSourceMessageId(p[5]) };
+  return { guildId: null, viewerId: p[2], targetId: p[3], sourceMessageId: normalizeSourceMessageId(p[4]) };
 }
 
 function parseHomeCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "home") return null;
-  return { guildId: p[2], viewerId: p[3], targetId: p[4] };
+  return { guildId: p[2], viewerId: p[3], targetId: p[4], sourceMessageId: normalizeSourceMessageId(p[5]) };
 }
 
 function parseGoCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "go") return null;
-  if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5] };
+  if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5], sourceMessageId: normalizeSourceMessageId(p[6]) };
   return { guildId: null, viewerId: p[2], targetId: p[3], action: p[4] };
 }
 
 function parseCloseCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "close") return null;
-  return { guildId: p[2], viewerId: p[3], targetId: p[4] };
+  return { guildId: p[2], viewerId: p[3], targetId: p[4], sourceMessageId: normalizeSourceMessageId(p[5]) };
 }
 
 function parseModalCustomId(customId) {
   const p = String(customId || "").split(":");
   if (p.length < 5 || p[0] !== PANEL_PREFIX || p[1] !== "md") return null;
-  if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5] };
+  if (p.length >= 6) return { guildId: p[2], viewerId: p[3], targetId: p[4], action: p[5], sourceMessageId: normalizeSourceMessageId(p[6]) };
   return { guildId: null, viewerId: p[2], targetId: p[3], action: p[4] };
 }
 
@@ -78,14 +88,14 @@ function sectionLabel(sec) {
   return "Home";
 }
 
-function buildNavRow(guildId, viewerId, targetId, section) {
+function buildNavRow(guildId, viewerId, targetId, section, sourceMessageId = null) {
   const g = String(guildId);
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(formatNavCustomId(g, v, t))
+      .setCustomId(formatNavCustomId(g, v, t, sourceMessageId))
       .setPlaceholder(`Sezione: ${sectionLabel(sec)}`)
       .addOptions(
         { label: "Home", value: SECTION_HOME, default: sec === SECTION_HOME, emoji: "<:VC_Info:1482526956703580372>" },
@@ -94,13 +104,13 @@ function buildNavRow(guildId, viewerId, targetId, section) {
   );
 }
 
-function buildHomeRow(guildId, viewerId, targetId) {
+function buildHomeRow(guildId, viewerId, targetId, sourceMessageId = null) {
   const g = String(guildId);
   const v = String(viewerId);
   const t = String(targetId);
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(formatHomeCustomId(g, v, t))
+      .setCustomId(formatHomeCustomId(g, v, t, sourceMessageId))
       .setPlaceholder("Warnings · moderazioni · modlogs")
       .addOptions(
         { label: "Warnings", value: "warnings", emoji: "<:VC_Info:1482526956703580372>" },
@@ -110,14 +120,14 @@ function buildHomeRow(guildId, viewerId, targetId) {
   );
 }
 
-function buildModlogCaseRow(guildId, viewerId, targetId) {
+function buildModlogCaseRow(guildId, viewerId, targetId, sourceMessageId = null) {
   const g = String(guildId);
   const v = String(viewerId);
   const t = String(targetId);
   return new ActionRowBuilder().addComponents(
-    btn(g, v, t, "case", "Case", ButtonStyle.Primary),
-    btn(g, v, t, "reason", "Reason", ButtonStyle.Primary),
-    btn(g, v, t, "duration", "Duration", ButtonStyle.Primary),
+    btn(g, v, t, "case", "Case", ButtonStyle.Primary, sourceMessageId),
+    btn(g, v, t, "reason", "Reason", ButtonStyle.Primary, sourceMessageId),
+    btn(g, v, t, "duration", "Duration", ButtonStyle.Primary, sourceMessageId),
   );
 }
 
@@ -129,48 +139,48 @@ function chunkButtons(rows, maxPerRow = 5) {
   return out;
 }
 
-function btn(guildId, v, t, key, label, style = ButtonStyle.Secondary) {
-  return new ButtonBuilder().setCustomId(formatGoCustomId(guildId, v, t, key)).setLabel(label).setStyle(style);
+function btn(guildId, v, t, key, label, style = ButtonStyle.Secondary, sourceMessageId = null) {
+  return new ButtonBuilder().setCustomId(formatGoCustomId(guildId, v, t, key, sourceMessageId)).setLabel(label).setStyle(style);
 }
 
-function buildSectionRows(guildId, viewerId, targetId, section) {
+function buildSectionRows(guildId, viewerId, targetId, section, sourceMessageId = null) {
   const g = String(guildId);
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === SECTION_HOME) {
-    return [buildHomeRow(g, v, t), buildModlogCaseRow(g, v, t)];
+    return [buildHomeRow(g, v, t, sourceMessageId), buildModlogCaseRow(g, v, t, sourceMessageId)];
   }
   const rows = [];
   if (sec === SECTION_SANCTIONS) {
     rows.push(
-      btn(g, v, t, "warn", "Warn", ButtonStyle.Danger),
-      btn(g, v, t, "kick", "Kick", ButtonStyle.Danger),
-      btn(g, v, t, "mute", "Mute", ButtonStyle.Danger),
-      btn(g, v, t, "ban", "Ban", ButtonStyle.Danger),
-      btn(g, v, t, "unmute", "Unmute", ButtonStyle.Secondary),
-      btn(g, v, t, "unban", "Unban", ButtonStyle.Secondary),
-      btn(g, v, t, "delwarn", "Delwarn", ButtonStyle.Secondary),
-      btn(g, v, t, "clearwarn", "Clearwarn", ButtonStyle.Secondary),
+      btn(g, v, t, "warn", "Warn", ButtonStyle.Danger, sourceMessageId),
+      btn(g, v, t, "kick", "Kick", ButtonStyle.Danger, sourceMessageId),
+      btn(g, v, t, "mute", "Mute", ButtonStyle.Danger, sourceMessageId),
+      btn(g, v, t, "ban", "Ban", ButtonStyle.Danger, sourceMessageId),
+      btn(g, v, t, "unmute", "Unmute", ButtonStyle.Secondary, sourceMessageId),
+      btn(g, v, t, "unban", "Unban", ButtonStyle.Secondary, sourceMessageId),
+      btn(g, v, t, "delwarn", "Delwarn", ButtonStyle.Secondary, sourceMessageId),
+      btn(g, v, t, "clearwarn", "Clearwarn", ButtonStyle.Secondary, sourceMessageId),
     );
   }
   const chunks = chunkButtons(rows, 5);
   return chunks.map((chunk) => new ActionRowBuilder().addComponents(...chunk));
 }
 
-function buildCloseRow(guildId, viewerId, targetId) {
+function buildCloseRow(guildId, viewerId, targetId, sourceMessageId = null) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(formatCloseCustomId(guildId, viewerId, targetId))
+      .setCustomId(formatCloseCustomId(guildId, viewerId, targetId, sourceMessageId))
       .setLabel("Chiudi panel")
       .setStyle(ButtonStyle.Secondary),
   );
 }
 
-function buildModalForAction(guildId, viewerId, targetId, action) {
+function buildModalForAction(guildId, viewerId, targetId, action, sourceMessageId = null) {
   const a = String(action || "").toLowerCase();
   const modal = new ModalBuilder()
-    .setCustomId(formatModalCustomId(String(guildId), viewerId, targetId, a))
+    .setCustomId(formatModalCustomId(String(guildId), viewerId, targetId, a, sourceMessageId))
     .setTitle(`Moderazione: ${a}`);
   if (a === "warn" || a === "kick") {
     modal.addComponents(
@@ -324,7 +334,7 @@ function buildModalForAction(guildId, viewerId, targetId, action) {
   return null;
 }
 
-async function buildModerationPanelPayload(guild, viewerId, targetId, client, section = SECTION_HOME) {
+async function buildModerationPanelPayload(guild, viewerId, targetId, client, section = SECTION_HOME, options = {}) {
   const tid = String(targetId || "");
   const vid = String(viewerId || "");
   const targetUser = await client.users.fetch(tid).catch(() => null);
@@ -334,6 +344,7 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
   if (sec === SECTION_CASES) sec = SECTION_HOME;
   const allowed = new Set([SECTION_HOME, SECTION_SANCTIONS]);
   if (!allowed.has(sec)) sec = SECTION_HOME;
+  const sourceMessageId = normalizeSourceMessageId(options?.sourceMessageId);
 
   const lines = [
     `<:staff:1443651912179388548> **Target:** ${targetUser ? `${targetUser} (\`${tid}\`)` : `\`${tid}\``}`,
@@ -353,9 +364,9 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
 
   const gid = String(guild.id);
   const components = [
-    buildNavRow(gid, vid, tid, sec),
-    ...buildSectionRows(gid, vid, tid, sec),
-    buildCloseRow(gid, vid, tid),
+    buildNavRow(gid, vid, tid, sec, sourceMessageId),
+    ...buildSectionRows(gid, vid, tid, sec, sourceMessageId),
+    buildCloseRow(gid, vid, tid, sourceMessageId),
   ];
   return { embeds: [embed], components };
 }

@@ -109,6 +109,15 @@ async function replyEphemeral(interaction, content) {
   } catch (_) {}
 }
 
+async function deleteMessageInSameChannel(channel, messageId) {
+  const mid = String(messageId || "").trim();
+  if (!/^\d{16,20}$/.test(mid)) return false;
+  if (!channel?.messages?.fetch) return false;
+  const msg = await channel.messages.fetch(mid).catch(() => null);
+  if (!msg) return false;
+  return msg.delete().then(() => true).catch(() => false);
+}
+
 function getModalText(fields, id) {
   if (!fields || typeof fields.getTextInputValue !== "function") return "";
   try {
@@ -223,7 +232,7 @@ async function dispatchGoStyleAction(interaction, client, guild, ctx, action) {
     await runDynoFromInteraction(interaction, client, a, args, guild);
     return true;
   }
-  const modal = buildModalForAction(gid, viewerId, targetId, a);
+  const modal = buildModalForAction(gid, viewerId, targetId, a, ctx?.sourceMessageId);
   if (!modal) return false;
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
@@ -292,6 +301,7 @@ async function execute(interaction, client) {
       parsed.targetId,
       interaction.client,
       section,
+      { sourceMessageId: parsed.sourceMessageId },
     );
     await safeUpdatePanelInteraction(interaction, payload);
     return true;
@@ -305,14 +315,10 @@ async function execute(interaction, client) {
         await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.");
         return true;
       }
-      const payload = {
-        content: "<:vegacheckmark:1443666279058772028> Panel chiuso.",
-        embeds: [],
-        components: [],
-      };
-      const updated = await interaction.update(payload).then(() => true).catch(() => false);
-      if (!updated && interaction.message?.edit) {
-        await interaction.message.edit(payload).catch(() => {});
+      await interaction.deferUpdate().catch(() => {});
+      await interaction.message?.delete?.().catch(() => {});
+      if (parsedClose.sourceMessageId) {
+        await deleteMessageInSameChannel(interaction.channel, parsedClose.sourceMessageId);
       }
       return true;
     }

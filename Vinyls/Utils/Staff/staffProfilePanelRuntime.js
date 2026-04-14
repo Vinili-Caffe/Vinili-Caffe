@@ -141,43 +141,43 @@ function memberHasPmAndStaffLadderForDualDepex(member) {
   return Boolean(getHighestStaffLadderRoleIdForPanel(member));
 }
 
-function buildProspectPexRows(viewerId, targetId) {
+function buildProspectPexRows(viewerId, targetId, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Helper")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_mod", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_mod", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Mod")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_coord", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_coord", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Coord")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_supervisor", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_supervisor", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Supervisor")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_admin", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_admin", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Admin")
         .setStyle(ButtonStyle.Primary),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_cofounder", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_cofounder", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Co-Founder")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_founder", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_founder", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Founder")
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME))
+        .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME, undefined, sourceMessageId))
         .setLabel("Member → Partner Manager")
         .setStyle(ButtonStyle.Secondary),
     ),
@@ -217,29 +217,29 @@ function getStaffPauseLine(staffDoc) {
 }
 
 
-function formatStaffProfileSelectCustomId(viewerId, targetId) {
-  return `${PANEL_PREFIX}:select:${viewerId}:${targetId}`;
+function formatStaffProfileSelectCustomId(viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:select:${viewerId}:${targetId}`, sourceMessageId);
 }
 
-function formatStaffProfileCloseCustomId(viewerId, targetId) {
-  return `${PANEL_PREFIX}:close:${viewerId}:${targetId}`;
+function formatStaffProfileCloseCustomId(viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:close:${viewerId}:${targetId}`, sourceMessageId);
 }
 
 function parseStaffProfileSelectCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "select") return null;
-  return { viewerId: parts[2], targetId: parts[3] };
+  return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
 }
 
 function parseStaffProfileCloseCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "close") return null;
-  return { viewerId: parts[2], targetId: parts[3] };
+  return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
 }
 
-function formatStaffProfilePlbCustomId(viewerId, targetId, mode) {
+function formatStaffProfilePlbCustomId(viewerId, targetId, mode, sourceMessageId = null) {
   const m = String(mode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
-  return `${PANEL_PREFIX}:plb:${viewerId}:${targetId}:${m}`;
+  return withSourceSuffix(`${PANEL_PREFIX}:plb:${viewerId}:${targetId}:${m}`, sourceMessageId);
 }
 
 function parseStaffProfilePlbCustomId(customId) {
@@ -250,35 +250,45 @@ function parseStaffProfilePlbCustomId(customId) {
   const modeRaw = String(parts[4] || "").toLowerCase();
   const mode = modeRaw === "settimanale" ? "settimanale" : "totale";
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
-  return { viewerId, targetId, mode };
+  return { viewerId, targetId, mode, sourceMessageId: normalizeSourceMessageId(parts[5]) };
 }
 
-function buildStaffPartnerLbToggleRow(viewerId, targetId, currentMode) {
+function buildStaffPartnerLbToggleRow(viewerId, targetId, currentMode, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   const active = String(currentMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(formatStaffProfilePlbCustomId(v, t, "totale"))
+      .setCustomId(formatStaffProfilePlbCustomId(v, t, "totale", sourceMessageId))
       .setLabel("Totale")
       .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId(formatStaffProfilePlbCustomId(v, t, "settimanale"))
+      .setCustomId(formatStaffProfilePlbCustomId(v, t, "settimanale", sourceMessageId))
       .setLabel("Settimanale")
       .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary),
   );
 }
 
-function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, partnerLbMode) {
+function normalizeSourceMessageId(raw) {
+  const id = String(raw || "").trim();
+  return /^\d{16,20}$/.test(id) ? id : null;
+}
+
+function withSourceSuffix(baseCustomId, sourceMessageId) {
+  const sid = normalizeSourceMessageId(sourceMessageId);
+  return sid ? `${baseCustomId}:${sid}` : baseCustomId;
+}
+
+function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, partnerLbMode, sourceMessageId = null) {
   const sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === SECTION_PARTNER_LB) {
     const m = String(partnerLbMode || "").toLowerCase() === "settimanale" ? "settimanale" : "totale";
-    return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}:${m}`;
+    return withSourceSuffix(`${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}:${m}`, sourceMessageId);
   }
-  return `${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`;
+  return withSourceSuffix(`${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`, sourceMessageId);
 }
 
-function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false) {
+function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || "").toLowerCase();
@@ -286,7 +296,7 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     if (dualPmStaffDepex) {
       const dualComps = [
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec, undefined, sourceMessageId))
           .setLabel("Pex")
           .setEmoji("<a:VC_Verified:1482532479637127188>")
           .setStyle(ButtonStyle.Success),
@@ -294,7 +304,7 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
       if (!targetHasPartnerManager) {
         dualComps.push(
           new ButtonBuilder()
-            .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec))
+            .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec, undefined, sourceMessageId))
             .setLabel("Pex Partner Manager")
             .setEmoji("<:partnermanager:1443651916838998099>")
             .setStyle(ButtonStyle.Secondary),
@@ -302,17 +312,17 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
       }
       dualComps.push(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec, undefined, sourceMessageId))
           .setLabel("Depex scala staff")
           .setEmoji("<a:VC_Cross:1482532424570376253>")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec, undefined, sourceMessageId))
           .setLabel("Depex completo")
           .setEmoji("<a:VC_Cross:1482532424570376253>")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec, undefined, sourceMessageId))
           .setLabel("Depex Partner Manager")
           .setEmoji("<:partnermanager:1443651916838998099>")
           .setStyle(ButtonStyle.Secondary),
@@ -321,7 +331,7 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     }
     const homeComps = [
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec))
+        .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec, undefined, sourceMessageId))
         .setLabel("Pex")
         .setEmoji("<a:VC_Verified:1482532479637127188>")
         .setStyle(ButtonStyle.Success),
@@ -329,7 +339,7 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     if (!targetHasPartnerManager) {
       homeComps.push(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec, undefined, sourceMessageId))
           .setLabel("Pex Partner Manager")
           .setEmoji("<:partnermanager:1443651916838998099>")
           .setStyle(ButtonStyle.Secondary),
@@ -337,12 +347,12 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     }
     homeComps.push(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec))
+        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, undefined, sourceMessageId))
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec))
+        .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec, undefined, sourceMessageId))
         .setLabel("Depex completo")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Secondary),
@@ -353,22 +363,22 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valpos", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("valpos", v, t, sec, undefined, sourceMessageId))
           .setLabel("Aggiungi Positiva")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valneg", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("valneg", v, t, sec, undefined, sourceMessageId))
           .setLabel("Aggiungi Negativa")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t, sec, undefined, sourceMessageId))
           .setLabel("Rimuovi Positiva")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t, sec, undefined, sourceMessageId))
           .setLabel("Rimuovi Negativa")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
@@ -379,12 +389,12 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("warn", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("warn", v, t, sec, undefined, sourceMessageId))
           .setLabel("Aggiungi Warn")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t, sec))
+          .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t, sec, undefined, sourceMessageId))
           .setLabel("Rimuovi Warn")
           .setEmoji("➖")
           .setStyle(ButtonStyle.Secondary),
@@ -394,7 +404,7 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
   return [];
 }
 
-function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_PARTNER_LB, partnerLbMode = "totale") {
+function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_PARTNER_LB, partnerLbMode = "totale", sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_PARTNER_LB).toLowerCase();
@@ -402,17 +412,17 @@ function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_PARTNER_LB
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, lb))
+        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, lb, sourceMessageId))
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb))
+        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb, sourceMessageId))
         .setLabel("Aggiungi punti")
         .setEmoji("➕")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb))
+        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb, sourceMessageId))
         .setLabel("Rimuovi punti")
         .setEmoji("➖")
         .setStyle(ButtonStyle.Danger),
@@ -421,7 +431,7 @@ function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_PARTNER_LB
 }
 
 /** Solo punti partner: usata per la classifica (non Depex: quelli restano in Home). */
-function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, partnerLbMode = "totale") {
+function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, partnerLbMode = "totale", sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
@@ -429,12 +439,12 @@ function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, p
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb))
+        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, lb, sourceMessageId))
         .setLabel("Aggiungi punti")
         .setEmoji("➕")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb))
+        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, lb, sourceMessageId))
         .setLabel("Rimuovi punti")
         .setEmoji("➖")
         .setStyle(ButtonStyle.Secondary),
@@ -467,20 +477,20 @@ function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
   return base;
 }
 
-function buildProfileCloseRow(viewerId, targetId) {
+function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId)))
+      .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId), sourceMessageId))
       .setLabel("Chiudi panel")
       .setStyle(ButtonStyle.Secondary),
   );
 }
 
-function withCloseProfileComponents(components, viewerId, targetId) {
-  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId)];
+function withCloseProfileComponents(components, viewerId, targetId, sourceMessageId = null) {
+  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId)];
 }
 
-function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPartnerManager = false) {
+function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPartnerManager = false, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
@@ -493,7 +503,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPart
     ];
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId(formatStaffProfileSelectCustomId(v, t))
+        .setCustomId(formatStaffProfileSelectCustomId(v, t, sourceMessageId))
         .setPlaceholder("Profilo Partner Manager")
         .addOptions(...opts),
     );
@@ -515,7 +525,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, hasPart
   }
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(formatStaffProfileSelectCustomId(viewerId, targetId))
+      .setCustomId(formatStaffProfileSelectCustomId(viewerId, targetId, sourceMessageId))
       .setPlaceholder("Sezione profilo staff")
       .addOptions(...opts),
   );
@@ -560,12 +570,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const viewerCanFullDepex = viewerIsCoordinatorOrAbove(viewerMemForPanel);
   const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
   const profileKind = resolveStaffProfileKind(member);
+  const sourceMessageId = normalizeSourceMessageId(options?.sourceMessageId);
   const pmRoleId = IDs.roles.PartnerManager;
   const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
 
   if (profileKind === PROFILE_PROSPECT) {
     const pexComps =
-      viewerIsHighStaff && String(viewerId) !== tid ? buildProspectPexRows(String(viewerId), tid) : [];
+      viewerIsHighStaff && String(viewerId) !== tid ? buildProspectPexRows(String(viewerId), tid, sourceMessageId) : [];
     return {
       embeds: [
         new EmbedBuilder()
@@ -576,7 +587,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid),
+      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -604,10 +615,17 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const canPartnerLb = profileKind === PROFILE_PM_ONLY || (profileKind === PROFILE_FULL && hasPm);
   if (sec === SECTION_PARTNER_LB && !canPartnerLb) sec = SECTION_HOME;
 
-  const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKind, profileKind === PROFILE_FULL && hasPm);
+  const selectRow = buildProfileSelectRow(
+    String(viewerId),
+    tid,
+    sec,
+    profileKind,
+    profileKind === PROFILE_FULL && hasPm,
+    sourceMessageId,
+  );
   const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
   const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel)
-    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm)
+    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId)
     : [];
   const hsRows = [...highStaffRows];
   if (
@@ -620,7 +638,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     hsRows.push(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec))
+          .setCustomId(formatStaffHpButtonCustomId("depex_full", String(viewerId), tid, sec, undefined, sourceMessageId))
           .setLabel("Depex completo")
           .setEmoji("<a:VC_Cross:1482532424570376253>")
           .setStyle(ButtonStyle.Danger),
@@ -634,7 +652,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const mainEmbed = EmbedBuilder.from(lbPayload.embeds[0]);
     const prev = mainEmbed.data?.description ?? "";
     mainEmbed.setDescription(`${prev}\n\n`);
-    const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode);
+    const plbRow = buildStaffPartnerLbToggleRow(String(viewerId), tid, lbMode, sourceMessageId);
     const v = String(viewerId);
     const selfLb = v === tid;
     const canHsPartnerPoints =
@@ -643,12 +661,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       (!selfLb || viewerIsFounderOrCoFounder(viewerMemForPanel));
     const pmRowsForPartnerLb = canHsPartnerPoints
       ? profileKind === PROFILE_FULL && hasPm
-        ? buildPartnerPointsOnlyRow(v, tid, SECTION_PARTNER_LB, lbMode)
-        : buildPmOnlyPartnerRows(v, tid, SECTION_PARTNER_LB, lbMode)
+        ? buildPartnerPointsOnlyRow(v, tid, SECTION_PARTNER_LB, lbMode, sourceMessageId)
+        : buildPmOnlyPartnerRows(v, tid, SECTION_PARTNER_LB, lbMode, sourceMessageId)
       : [];
     return {
       embeds: [mainEmbed],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]), viewerId, tid),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, pmRowsForPartnerLb, [plbRow]), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -670,7 +688,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -691,7 +709,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId) };
   }
 
   if (sec === SECTION_WARN) {
@@ -712,7 +730,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId) };
   }
 
   if (sec === SECTION_PAUSE) {
@@ -731,12 +749,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setColor("Red")
             .setDescription(listPayload.error || "Errore caricamento pause."),
         ],
-        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
+        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId),
       };
     }
     return {
       embeds: [...listPayload.embeds],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, listPayload.components || []), viewerId, tid),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, listPayload.components || []), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -771,7 +789,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setDescription("<:cancel:1461730653677551691> **Nessun log moderazione trovato.**")
             .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
         ],
-        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
+        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId),
       };
     }
     const hh = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -805,7 +823,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
           .setTimestamp(),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -849,7 +867,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(homeDesc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     ],
-    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid),
+    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows), viewerId, tid, sourceMessageId),
   };
 }
 
