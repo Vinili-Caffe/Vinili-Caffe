@@ -27,6 +27,7 @@ const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService"
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
+const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
 const { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook } = require("../Services/Web/webhookService");
@@ -512,6 +513,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
+    ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
       const tick = async () => {
         const guilds = [...client.guilds.cache.values()];

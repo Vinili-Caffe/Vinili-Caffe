@@ -414,6 +414,8 @@ const activityUserProfileSchema = new Schema(
       },
     },
     staff: { type: staffEmbeddedSchema },
+    /** Dopo leave con ruolo staff/PM: fino a questa data `staff` resta nel DB; poi purge automatico se non rippexato. */
+    staffPendingPurgeAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -428,6 +430,7 @@ activityUserProfileSchema.index({ guildId: 1, "moderation.joinGateSuspicious.exp
 activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
+activityUserProfileSchema.index({ guildId: 1, staffPendingPurgeAt: 1 }, { sparse: true });
 
 const userLeaveBackupSchema = new Schema(
   {

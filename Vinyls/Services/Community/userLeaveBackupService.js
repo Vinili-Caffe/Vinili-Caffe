@@ -1,6 +1,7 @@
 const { ActivityUserProfile, UserLeaveBackup, RejoinRoleMemory } = require("../../Schemas/Community/communitySchemas");
 const { addRolesAndGetMember, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const IDs = require("../../Utils/Config/ids");
 
 const RESTORE_ON_REJOIN_ROLE_IDS = [
   "1463248874725576879",
@@ -10,6 +11,32 @@ const RESTORE_ON_REJOIN_ROLE_IDS = [
 
 const DEFAULT_RETENTION_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS = new Set(
+  [
+    IDs.roles?.PartnerManager,
+    IDs.roles?.Staff,
+    IDs.roles?.Helper,
+    IDs.roles?.Mod,
+    IDs.roles?.Coordinator,
+    IDs.roles?.Supervisor,
+    IDs.roles?.Admin,
+    IDs.roles?.CoFounder,
+    IDs.roles?.Founder,
+  ]
+    .filter(Boolean)
+    .map((id) => String(id)),
+);
+
+function filterRestoreRoleIdsExcludingStaffPm(roleIds) {
+  return Array.from(
+    new Set(
+      (Array.isArray(roleIds) ? roleIds : [])
+        .map((id) => String(id || "").trim())
+        .filter((id) => id && !NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS.has(id)),
+    ),
+  );
+}
 
 function resolveRetentionDays() {
   const raw = Number(process.env.USER_LEAVE_BACKUP_RETENTION_DAYS || DEFAULT_RETENTION_DAYS);
@@ -115,12 +142,8 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   const roleMemory = await RejoinRoleMemory.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
   const roleIdsFromMemory = Array.isArray(roleMemory?.roleIds) ? roleMemory.roleIds : [];
   const roleIdsFallback = Array.isArray(backup?.restoreRoleIds) ? backup.restoreRoleIds : [];
-  const restoreRoleIds = Array.from(
-    new Set(
-      [...roleIdsFromMemory, ...roleIdsFallback]
-        .map((id) => String(id || "").trim())
-        .filter(Boolean),
-    ),
+  const restoreRoleIds = filterRestoreRoleIdsExcludingStaffPm(
+    [...roleIdsFromMemory, ...roleIdsFallback].map((id) => String(id || "").trim()).filter(Boolean),
   );
   let payload = backup?.backupDoc || null;
   if (backup?.expiresAt && new Date(backup.expiresAt).getTime() <= Date.now()) {
@@ -132,7 +155,7 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   let restoredProfile = false;
   if (payload && typeof payload === "object") {
     const current = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
-      .select("profile moderation staff")
+      .select("profile moderation staff staffPendingPurgeAt")
       .lean()
       .catch(() => null);
     const nextProfile =
@@ -147,12 +170,9 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
         : current?.moderation && typeof current.moderation === "object"
           ? current.moderation
           : null;
-    const nextStaff =
-      payload?.staff && typeof payload.staff === "object"
-        ? payload.staff
-        : current?.staff && typeof current.staff === "object"
-          ? current.staff
-          : null;
+    const staffFromCurrent = current?.staff && typeof current.staff === "object" ? current.staff : null;
+    const staffFromPayload = payload?.staff && typeof payload.staff === "object" ? payload.staff : null;
+    const nextStaff = staffFromCurrent || staffFromPayload;
 
     const setPayload = {
       ...(nextProfile ? { profile: nextProfile } : {}),
@@ -185,10 +205,44 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   return restoredProfile || restoredRoles;
 }
 
+async function purgeDueStaffGraceProfiles() {
+  const now = new Date();
+  await ActivityUserProfile.updateMany(
+    { staffPendingPurgeAt: { $lte: now } },
+    { $unset: { staff: "", staffPendingPurgeAt: "" } },
+  ).catch(() => null);
+}
+
+function startStaffGracePurgeLoop(client) {
+  if (!client || client._staffGracePurgeInterval) return;
+  const tick = () => purgeDueStaffGraceProfiles().catch(() => null);
+  tick();
+  const timer = setInterval(tick, 60 * 60 * 1000);
+  if (typeof timer.unref === "function") timer.unref();
+  client._staffGracePurgeInterval = timer;
+}
+
+async function clearStaffPendingPurgeAt(guildId, userId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!isValidGuildUserId(gid, uid)) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid },
+    { $unset: { staffPendingPurgeAt: "" } },
+  ).catch(() => null);
+}
+
 async function purgeExpiredUserLeaveBackups() {
   const now = new Date();
   const result = await UserLeaveBackup.deleteMany({ expiresAt: { $lte: now } }).catch(() => ({ deletedCount: 0 }));
   return Number(result?.deletedCount || 0);
 }
 
-module.exports = { backupUserOnLeave, restoreUserOnJoin, purgeExpiredUserLeaveBackups };
+module.exports = {
+  backupUserOnLeave,
+  restoreUserOnJoin,
+  purgeExpiredUserLeaveBackups,
+  purgeDueStaffGraceProfiles,
+  startStaffGracePurgeLoop,
+  clearStaffPendingPurgeAt,
+};

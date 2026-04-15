@@ -27,6 +27,7 @@ const MAIN_GUILD_ID = IDs.guilds?.main || "1329080093599076474";
 const SPONSOR_GUILD_IDS = IDs.guilds?.sponsorGuildIds || [];
 const OFFICIAL_INVITE_URL = "https://discord.gg/viniliecaffe";
 const REJOIN_DEADLINE_MS = 24 * 60 * 60 * 1000;
+const STAFF_DB_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOIN_GATE_KICK_REASON_PATTERNS = ["account is too young to be allowed", "account too young to be allowed", "unverified bot addition", "bot added by unauthorized member", "advertising invite link in username", "username matches blocked pattern", "post-join filter",];
 
 function formatActor(actor) {
@@ -229,11 +230,15 @@ function buildStaffLeaveResignationContent(member, roleLabel, userRoleLabel) {
 
 async function handleTrackedStaffLeave(member) {
   const guild = member.guild;
-  const result = await ActivityUserProfile.updateOne(
-    { guildId: guild.id, userId: member.id, staff: { $exists: true } },
-    { $unset: { staff: "" } },
-  ).catch(() => ({ modifiedCount: 0 }));
-  if (result?.modifiedCount === 0) return;
+  const highestStaffExPm = getHighestStaffTrackedRoleExcludingPm(member);
+  const hasPm = Boolean(PARTNER_MANAGER_ROLE_ID && member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID));
+  if (!highestStaffExPm && !hasPm) return;
+
+  const pruneAt = new Date(Date.now() + REJOIN_DEADLINE_MS * 7);
+  await ActivityUserProfile.updateOne(
+    { guildId: guild.id, userId: member.id },
+    { $set: { staffPendingPurgeAt: pruneAt, updatedAt: new Date() } },
+  ).catch(() => { });
 
   const resignChannel = guild.channels.cache.get(IDs.channels.pexDepex) || (await getGuildChannelCached(guild, IDs.channels.pexDepex)) || (await getClientChannelCached(member.client, IDs.channels.pexDepex));
   if (!resignChannel?.isTextBased?.()) return;
@@ -241,8 +246,6 @@ async function handleTrackedStaffLeave(member) {
   const userRole = guild.roles.cache.get(IDs.roles.Member);
   const userRoleLabel = userRole?.name || "User";
 
-  const highestStaffExPm = getHighestStaffTrackedRoleExcludingPm(member);
-  const hasPm = Boolean(PARTNER_MANAGER_ROLE_ID && member.roles?.cache?.has(PARTNER_MANAGER_ROLE_ID));
   const pmRole = hasPm ? guild.roles.cache.get(PARTNER_MANAGER_ROLE_ID) : null;
   const pmLabel = pmRole?.name || "Partner Manager";
 
@@ -253,10 +256,6 @@ async function handleTrackedStaffLeave(member) {
   if (hasPm) {
     const contentPm = buildStaffLeaveResignationContent(member, pmLabel, userRoleLabel);
     await resignChannel.send({ content: contentPm }).catch(() => { });
-  }
-  if (!highestStaffExPm && !hasPm) {
-    const content = buildStaffLeaveResignationContent(member, "Staff/PM", userRoleLabel);
-    await resignChannel.send({ content }).catch(() => { });
   }
 }
 
@@ -423,6 +422,12 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
     .catch(() => null);
   if (!doc) return;
 
+  const staffBlock = doc.staff;
+  const staffPendingPurgeAt = doc.staffPendingPurgeAt;
+  const keepStaffGrace =
+    Boolean(staffPendingPurgeAt) ||
+    (staffBlock != null && typeof staffBlock === "object" && Object.keys(staffBlock).length > 0);
+
   const keepModeration =
     doc.moderation != null && typeof doc.moderation === "object";
   const keepEventWeekWinners =
@@ -438,19 +443,33 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
     if (doc.createdAt) payload.createdAt = doc.createdAt;
     if (keepModeration) payload.moderation = doc.moderation;
     if (keepEventWeekWinners) payload.profile = { totals: { exp: { event: { weekWinners: doc.profile.totals.exp.event.weekWinners } } } };
+    if (keepStaffGrace && staffBlock) payload.staff = staffBlock;
+    if (staffPendingPurgeAt) payload.staffPendingPurgeAt = staffPendingPurgeAt;
     await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
-  } else {
-    await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
+    return;
   }
+
+  if (keepStaffGrace && (staffBlock || staffPendingPurgeAt)) {
+    const payload = {
+      _id: doc._id,
+      guildId: gid,
+      userId: uid,
+      updatedAt: new Date(),
+      ...(doc.createdAt ? { createdAt: doc.createdAt } : {}),
+      ...(staffBlock ? { staff: staffBlock } : {}),
+      ...(staffPendingPurgeAt ? { staffPendingPurgeAt: staffPendingPurgeAt } : {}),
+    };
+    await ActivityUserProfile.collection.replaceOne({ _id: doc._id }, payload).catch(() => { });
+    return;
+  }
+
+  await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
 }
 
 async function cleanupUserData(guildId, userId) {
   const gid = String(guildId);
   const uid = String(userId);
-  await Promise.allSettled([
-    cleanupActivityUserProfileOnGuildLeave(gid, uid),
-    ActivityUserProfile.updateOne({ guildId: gid, userId: uid, staff: { $exists: true } }, { $unset: { staff: "" } }).catch(() => {}),
-  ]);
+  await Promise.allSettled([cleanupActivityUserProfileOnGuildLeave(gid, uid)]);
 }
 
 module.exports = {

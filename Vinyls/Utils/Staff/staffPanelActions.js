@@ -7,6 +7,7 @@ const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/I
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers");
+const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_STAFF = IDs.roles.Staff;
@@ -340,6 +341,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   s.rolesHistory.push({ oldRole: roleBeforeForHistory, newRole: roleAfter, reason, date: new Date() });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   await pexDepexChannel
@@ -412,6 +414,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   s.rolesHistory.push({ oldRole: roleBeforeForHistory, newRole: roleAfter, reason, date: new Date() });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   await pexDepexChannel
@@ -484,6 +487,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   s.rolesHistory.push({ oldRole: roleBefore, newRole: roleAfter, reason, date: new Date() });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   const rb = guild.roles.cache.get(roleBefore);
   const ra = guild.roles.cache.get(roleAfter);
   await pexDepexChannel

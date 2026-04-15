@@ -110,6 +110,15 @@ function viewerIsFounderOrCoFounder(member) {
   );
 }
 
+function targetIsFounderOrCoFounder(member) {
+  if (!member?.roles?.cache) return false;
+  const c = member.roles.cache;
+  return Boolean(
+    (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
+      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
+  );
+}
+
 function viewerIsCoordinatorOrAbove(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
@@ -382,7 +391,16 @@ function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, s
   ];
 }
 
-function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsHighStaff, profileKind, viewerMember, suppressPexDepex = false) {
+function shouldAttachHighStaffActions(
+  section,
+  viewerId,
+  targetUserId,
+  viewerIsHighStaff,
+  profileKind,
+  viewerMember,
+  suppressPexDepex = false,
+  targetMember = null,
+) {
   if (suppressPexDepex) return false;
   const sec = String(section || "").toLowerCase();
   const pmHome = profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME;
@@ -391,6 +409,9 @@ function shouldAttachHighStaffActions(section, viewerId, targetUserId, viewerIsH
   if (self) {
     if (!viewerIsFounderOrCoFounder(viewerMember)) return false;
   } else if (!viewerIsHighStaff) {
+    return false;
+  }
+  if (targetIsFounderOrCoFounder(targetMember) && (sec === SECTION_VALUTAZIONI || sec === SECTION_WARN)) {
     return false;
   }
   return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
@@ -448,12 +469,22 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
         .addOptions(...opts),
     );
   }
+  const hideValWarn = selectOptions.hideValutazioniWarn === true;
   const opts = [
     { label: "Home", value: SECTION_HOME, emoji: "<:staff:1443651912179388548>", default: sec === SECTION_HOME },
-    { label: "Valutazioni", value: SECTION_VALUTAZIONI, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_VALUTAZIONI },
+  ];
+  if (!hideValWarn) {
+    opts.push({
+      label: "Valutazioni & Warn",
+      value: SECTION_VALUTAZIONI,
+      emoji: "<:VC_Stats:1482527532682055780>",
+      default: sec === SECTION_VALUTAZIONI,
+    });
+  }
+  opts.push(
     { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
     { label: "Modstats", value: SECTION_MODSTATS, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_MODSTATS },
-  ];
+  );
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(formatStaffProfileSelectCustomId(viewerId, targetId, sourceMessageId))
@@ -565,6 +596,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     if (!allowedPm.has(sec)) sec = SECTION_HOME;
   }
 
+  const hideValutazioniWarnForTarget = Boolean(
+    member && profileKind === PROFILE_FULL && !usePartnersCmdsPmPanel && targetIsFounderOrCoFounder(member),
+  );
+  if (hideValutazioniWarnForTarget && (sec === SECTION_VALUTAZIONI || sec === SECTION_WARN)) {
+    sec = SECTION_HOME;
+  }
+
   const selfForPts = String(viewerId) === tid;
   const canHsPartnerPoints =
     viewerCanPartnerPointsPanel &&
@@ -583,9 +621,19 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const profileKindForSelect = usePartnersCmdsPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
     partnersCmdsHomeLabel: usePartnersCmdsPmPanel,
+    hideValutazioniWarn: hideValutazioniWarnForTarget,
   });
   const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
-  const highStaffRows = shouldAttachHighStaffActions(sec, viewerId, tid, viewerIsHighStaff, profileKind, viewerMemForPanel, usePartnersCmdsPmPanel)
+  const highStaffRows = shouldAttachHighStaffActions(
+    sec,
+    viewerId,
+    tid,
+    viewerIsHighStaff,
+    profileKind,
+    viewerMemForPanel,
+    usePartnersCmdsPmPanel,
+    member,
+  )
     ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId)
     : [];
   const hsRows = [...highStaffRows];
@@ -637,6 +685,14 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const negLines = negReasons.map((r, i) => `**−${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const warnLines = warnReasons.map((r, i) => `**!${i + 1}.** ${String(r || "—").slice(0, 900)}`);
+    const warnBlock = warnLines.length
+      ? [
+          "<:banhammer:1443651875441217639> **Warn**",
+          warnResetLine(s.firstWarnStaffAt),
+          "",
+          ...warnLines,
+        ]
+      : ["<:banhammer:1443651875441217639> **Warn** — nessun warn."];
     const body = [
       posLines.length ? "<:thumbsup:1471292172145004768> **Positive**" : "<:thumbsup:1471292172145004768> **Positive** — nessuna.",
       ...posLines,
@@ -644,10 +700,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       negLines.length ? "<:thumbsdown:1471292163957457013> **Negative**" : "<:thumbsdown:1471292163957457013> **Negative** — nessuna.",
       ...negLines,
       "",
-      "<:banhammer:1443651875441217639> **Warn staff**",
-      warnResetLine(s.firstWarnStaffAt),
-      "",
-      ...(warnLines.length ? warnLines : ["<a:VC_Cross:1482532424570376253> Nessun warn registrato."]),
+      ...warnBlock,
     ].join("\n");
     const chunks = chunkString(body, 3800);
     const embeds = chunks.map((desc, i) =>
@@ -781,13 +834,17 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:**`,
     `${pauseShort}`,
-    "",
-    `<:VC_Stats:1482527532682055780> **Valutazioni:** 
+  ];
+  if (!hideValutazioniWarnForTarget) {
+    homeDescParts.push(
+      "",
+      `<:VC_Stats:1482527532682055780> **Valutazioni:** 
     <:thumbsup:1471292172145004768> ${pos}
     <:thumbsdown:1471292163957457013> ${neg}`,
-    "",
-    `<:banhammer:1443651875441217639> **Warn staff:** ${warns}`,
-    ];
+      "",
+      `<:banhammer:1443651875441217639> **Warn staff:** ${warns}`,
+    );
+  }
   if (hasPm) {
     homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
   }

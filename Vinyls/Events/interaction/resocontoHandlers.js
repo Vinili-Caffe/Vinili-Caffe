@@ -5,6 +5,7 @@ const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("..
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
@@ -362,6 +363,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     });
     profileDoc.markModified("staff");
     await profileDoc.save();
+    await clearStaffPendingPurgeAt(guild.id, payload.userId);
     await sendPexDepexLog(guild, "pex", targetUser, roleBeforeId, roleAfterId, reason);
     return "<:success:1461731530333229226> Pex applicato.";
   }

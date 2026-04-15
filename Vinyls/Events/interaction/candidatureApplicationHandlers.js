@@ -5,6 +5,7 @@ const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../U
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
+const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
@@ -761,6 +762,7 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
   });
   profileDoc.markModified("staff");
   await profileDoc.save();
+  await clearStaffPendingPurgeAt(guild.id, member.id);
   if (guild.client && guild.id === IDs.guilds?.main) {
     scheduleStaffListRefresh(guild.client, guild.id, 800);
     const t = setTimeout(() => scheduleStaffListRefresh(guild.client, guild.id, 500), 2500);
