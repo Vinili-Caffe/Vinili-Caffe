@@ -313,7 +313,7 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
           .setCustomId(formatStaffHpButtonCustomId("val_remove_menu", v, t, sec, sourceMessageId))
           .setLabel("Rimuovi")
           .setEmoji("<:thumbsdown:1471292163957457013>")
-          .setStyle(ButtonStyle.Secondary),
+          .setStyle(ButtonStyle.Danger),
       ),
     ];
   }
@@ -324,12 +324,12 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
           .setCustomId(formatStaffHpButtonCustomId("warn", v, t, sec, sourceMessageId))
           .setLabel("Aggiungi")
           .setEmoji("<:thumbsup:1471292172145004768>")
-          .setStyle(ButtonStyle.Danger),
+          .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t, sec, sourceMessageId))
           .setLabel("Rimuovi")
           .setEmoji("<:thumbsdown:1471292163957457013>")
-          .setStyle(ButtonStyle.Secondary),
+          .setStyle(ButtonStyle.Danger),
       ),
     ];
   }
