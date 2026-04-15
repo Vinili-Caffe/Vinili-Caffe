@@ -376,7 +376,7 @@ function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, s
         .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
         .setLabel("Rimuovi punti")
         .setEmoji("<:thumbsdown:1471292163957457013>")
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Danger),
     ),
   ];
 }
@@ -412,7 +412,7 @@ function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null) {
     new ButtonBuilder()
       .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId), sourceMessageId))
       .setEmoji("<:cancel:1461730653677551691>")
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Danger),
   );
 }
 

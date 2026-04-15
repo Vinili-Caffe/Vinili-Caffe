@@ -507,9 +507,22 @@ async function execute(interaction) {
       return true;
     }
     const reason = getModalTextInputTrimmed(interaction, IN_REASON, 500);
+    const sendModalReply = async (payload) => {
+      const base = { ...(payload || {}) };
+      if (base.flags == null) base.flags = PRIVATE_FLAG;
+      if (interaction.deferred || interaction.replied) {
+        const editPayload = { ...base };
+        delete editPayload.flags;
+        await interaction.editReply(editPayload).catch(async () => {
+          await interaction.followUp(base).catch(() => {});
+        });
+        return;
+      }
+      await interaction.reply(base).catch(() => {});
+    };
     const targetUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
     if (!targetUser) {
-      await interaction.reply({ content: "<:vegax:1443934876440068179> Utente non trovato.", flags: PRIVATE_FLAG }).catch(() => {});
+      await sendModalReply({ content: "<:vegax:1443934876440068179> Utente non trovato." });
       return true;
     }
     let res;
@@ -643,9 +656,10 @@ async function execute(interaction) {
       res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "auto");
     } else if (parsed.action === "depex_full") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio.", flags: PRIVATE_FLAG }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
+      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
       res = await runProfileStaffCompleteDepex(guild, interaction.client, targetUser, interaction.member, reason);
     } else if (parsed.action === "depex_staff") {
       if (!reason) {
@@ -711,25 +725,19 @@ async function execute(interaction) {
         );
       }
     } else {
-      await interaction.reply({ content: "<:vegax:1443934876440068179> Azione non riconosciuta.", flags: PRIVATE_FLAG }).catch(() => {});
+      await sendModalReply({ content: "<:vegax:1443934876440068179> Azione non riconosciuta." });
       return true;
     }
     if (!res || !res.ok) {
-      await interaction
-        .reply({
-          content: res?.message || "<:vegax:1443934876440068179> Operazione non riuscita.",
-          flags: PRIVATE_FLAG,
-        })
-        .catch(() => {});
+      await sendModalReply({
+        content: res?.message || "<:vegax:1443934876440068179> Operazione non riuscita.",
+      });
       return true;
     }
     await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-    await interaction
-      .reply({
-        content: "<:vegacheckmark:1443666279058772028> Azione registrata.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
+    await sendModalReply({
+      content: "<:vegacheckmark:1443666279058772028> Azione registrata.",
+    });
     return true;
   }
 

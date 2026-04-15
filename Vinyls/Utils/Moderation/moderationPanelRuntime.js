@@ -173,7 +173,7 @@ function buildCloseRow(guildId, viewerId, targetId, sourceMessageId = null) {
     new ButtonBuilder()
       .setCustomId(formatCloseCustomId(guildId, viewerId, targetId, sourceMessageId))
       .setEmoji("<:cancel:1461730653677551691>")
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Danger),
   );
 }
 
