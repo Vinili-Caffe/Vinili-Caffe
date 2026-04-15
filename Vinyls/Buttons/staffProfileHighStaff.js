@@ -1,4 +1,4 @@
-const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const {
   STAFF_HP_PREFIX,
@@ -86,6 +86,8 @@ function parseStaffHpButton(customId) {
   const targetId = String(parts[3] || "");
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
   const allowed = new Set([
+    "pex_menu",
+    "depex_menu",
     "pex",
     "pex_helper",
     "pex_mod",
@@ -356,6 +358,56 @@ async function execute(interaction) {
       return true;
     }
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
+    if (parsed.action === "pex_menu" || parsed.action === "depex_menu") {
+      const sourceSuffix = parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : "";
+      const targetMember = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
+      const hasPartnerManager = Boolean(targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager));
+      if (parsed.action === "pex_menu") {
+        const pexRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:pex:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+            .setLabel("Pex Staff")
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:pex_pm:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+            .setLabel("Pex Partner Manager")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(hasPartnerManager),
+        );
+        await interaction.reply({
+          content: "Scegli il tipo di pex:",
+          components: [pexRow],
+          flags: PRIVATE_FLAG,
+        }).catch(() => {});
+        return true;
+      }
+      const depexRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:depex:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setLabel("Depex Auto")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:depex_staff:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setLabel("Solo scala staff")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      const depexRow2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:depex_pm_only:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setLabel("Solo Partner Manager")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:depex_full:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setLabel("Depex completo")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      await interaction.reply({
+        content: "Scegli il tipo di depex:",
+        components: [depexRow, depexRow2],
+        flags: PRIVATE_FLAG,
+      }).catch(() => {});
+      return true;
+    }
     const selfHp = String(parsed.viewerId) === String(parsed.targetId);
     const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
     if (isPpmBtn) {

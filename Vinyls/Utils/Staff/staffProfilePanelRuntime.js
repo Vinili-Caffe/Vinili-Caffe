@@ -237,15 +237,15 @@ function getStaffPauseLine(staffDoc, opts = {}) {
     .filter((x) => today >= x.start && today <= x.end)
     .sort((a, b) => b.end.getTime() - a.end.getTime());
   if (active.length) {
-    return `<a:VC_Calendar:1482706208149475358> In pausa fino al **${active[0].p.dataRitorno}**`;
+    return `In pausa fino al **${active[0].p.dataRitorno}**`;
   }
   const recentlyReturned = accepted
     .filter((x) => x.end < today && x.end >= sevenDaysAgo)
     .sort((a, b) => b.end.getTime() - a.end.getTime());
   if (recentlyReturned.length) {
-    return `<a:VC_Calendar:1482706208149475358> Rientrato il **${recentlyReturned[0].p.dataRitorno}**`;
+    return `Rientrato il **${recentlyReturned[0].p.dataRitorno}**`;
   }
-  return "<a:VC_Cross:1482532424570376253> Nessuna pausa in corso.";
+  return "Nessuna pausa in corso <a:VC_Cross:1482532424570376253>";
 }
 
 
@@ -289,70 +289,18 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
   const t = String(targetId);
   const sec = String(section || "").toLowerCase();
   if (sec === SECTION_HOME) {
-    if (dualPmStaffDepex) {
-      const dualComps = [
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec, sourceMessageId))
-          .setLabel("Pex")
-          .setEmoji("<a:VC_Verified:1482532479637127188>")
-          .setStyle(ButtonStyle.Success),
-      ];
-      if (!targetHasPartnerManager) {
-        dualComps.push(
-          new ButtonBuilder()
-            .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec, sourceMessageId))
-            .setLabel("Pex Partner Manager")
-            .setEmoji("<:partnermanager:1443651916838998099>")
-            .setStyle(ButtonStyle.Secondary),
-        );
-      }
-      dualComps.push(
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_staff", v, t, sec, sourceMessageId))
-          .setLabel("Depex scala staff")
-          .setEmoji("<a:VC_Cross:1482532424570376253>")
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec, sourceMessageId))
-          .setLabel("Depex completo")
-          .setEmoji("<a:VC_Cross:1482532424570376253>")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec, sourceMessageId))
-          .setLabel("Depex Partner Manager")
-          .setEmoji("<:partnermanager:1443651916838998099>")
-          .setStyle(ButtonStyle.Secondary),
-      );
-      return [new ActionRowBuilder().addComponents(...dualComps)];
-    }
     const homeComps = [
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex", v, t, sec, sourceMessageId))
+        .setCustomId(formatStaffHpButtonCustomId("pex_menu", v, t, sec, sourceMessageId))
         .setLabel("Pex")
         .setEmoji("<a:VC_Verified:1482532479637127188>")
         .setStyle(ButtonStyle.Success),
-    ];
-    if (!targetHasPartnerManager) {
-      homeComps.push(
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, sec, sourceMessageId))
-          .setLabel("Pex Partner Manager")
-          .setEmoji("<:partnermanager:1443651916838998099>")
-          .setStyle(ButtonStyle.Secondary),
-      );
-    }
-    homeComps.push(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, sourceMessageId))
+        .setCustomId(formatStaffHpButtonCustomId("depex_menu", v, t, sec, sourceMessageId))
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex_full", v, t, sec, sourceMessageId))
-        .setLabel("Depex completo")
-        .setEmoji("<a:VC_Cross:1482532424570376253>")
-        .setStyle(ButtonStyle.Secondary),
-    );
+    ];
     return [new ActionRowBuilder().addComponents(...homeComps)];
   }
   if (sec === SECTION_VALUTAZIONI) {
