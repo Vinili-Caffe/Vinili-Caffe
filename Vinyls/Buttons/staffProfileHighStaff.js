@@ -427,9 +427,14 @@ async function execute(interaction) {
             .setLabel("Negativa")
             .setEmoji("<:thumbsdown:1471292163957457013>")
             .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:warn:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
+            .setLabel("Warn")
+            .setEmoji("<:banhammer:1443651875441217639>")
+            .setStyle(ButtonStyle.Danger),
         );
         await interaction.reply({
-          content: "Quale valutazione vuoi aggiungere?",
+          content: "Cosa vuoi aggiungere?",
           components: [addRow],
           flags: PRIVATE_FLAG,
         }).catch(() => {});
@@ -439,16 +444,21 @@ async function execute(interaction) {
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:valpos_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
           .setLabel("Positiva")
-          .setEmoji("<:thumbsdown:1471292163957457013>")
+          .setEmoji("<:thumbsup:1471292172145004768>")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:valneg_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
           .setLabel("Negativa")
           .setEmoji("<:thumbsdown:1471292163957457013>")
           .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:warn_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
+          .setLabel("Warn")
+          .setEmoji("<:banhammer:1443651875441217639>")
+          .setStyle(ButtonStyle.Secondary),
       );
       await interaction.reply({
-        content: "Quale valutazione vuoi rimuovere?",
+        content: "Cosa vuoi rimuovere?",
         components: [rmRow],
         flags: PRIVATE_FLAG,
       }).catch(() => {});

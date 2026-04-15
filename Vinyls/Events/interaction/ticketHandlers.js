@@ -667,7 +667,7 @@ async function handleTicketInteraction(interaction) {
         let claimReplyDeferred = false;
         async function replyTicketClaim(payload) {
           const base = { ...payload };
-          if (base.flags == null) base.flags = 1 << 6;
+          if (base.flags == null) base.flags = 0;
           if (claimReplyDeferred) {
             const editPayload = { ...base };
             delete editPayload.flags;
@@ -679,7 +679,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, base);
         }
         try {
-          await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
+          await interaction.deferReply().catch(() => {});
           claimReplyDeferred = Boolean(interaction.deferred);
           const ticket = await runtimeFindTicketByChannel(interaction.channel.id);
           if (!ticket) {
@@ -873,40 +873,6 @@ async function handleTicketInteraction(interaction) {
             new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji(`<:VC_reason:1478517122929004544>`).setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId("unclaim").setEmoji(`<a:VC_Unlock:1482532082466029608>`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
           );
-          try {
-            if (interaction.channel) {
-              let msg = null;
-              const panelMid = claimedTicket.messageId != null ? String(claimedTicket.messageId).trim() : "";
-              if (panelMid) {
-                msg = await interaction.channel.messages.fetch(panelMid).catch(() => null);
-              }
-              if (!msg) {
-                const fallback = new EmbedBuilder()
-                  .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-                  .setDescription(`<:VC_claim:1478517202016669887> Ticket claimato da <@${interaction.user.id}>`)
-                  .setColor("#6f4e37");
-                await interaction.channel
-                  .send({ embeds: [fallback], components: [claimedButtons] })
-                  .then(async (sent) => {
-                    if (sent?.id && claimedTicket._id) {
-                      await Ticket.updateOne({ _id: claimedTicket._id }, { $set: { messageId: sent.id } }).catch(() => {});
-                    }
-                  })
-                  .catch((err) => global.logger.error(err));
-              } else {
-                const embedDaUsare = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder();
-                embedDaUsare
-                  .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-                  .setDescription(`<:VC_claim:1478517202016669887> Ticket claimato da <@${interaction.user.id}>`)
-                  .setColor("#6f4e37");
-                await msg
-                  .edit({ embeds: [embedDaUsare], components: [claimedButtons] })
-                  .catch((err) => global.logger.error(err));
-              }
-            }
-          } catch (err) {
-            global.logger.error(err);
-          }
           await replyTicketClaim({
             embeds: [
               new EmbedBuilder()

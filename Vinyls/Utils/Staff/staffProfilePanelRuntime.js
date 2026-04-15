@@ -285,7 +285,8 @@ function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTI
 function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
-  const sec = String(section || "").toLowerCase();
+  let sec = String(section || "").toLowerCase();
+  if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
   if (sec === SECTION_HOME) {
     const homeComps = [
       new ButtonBuilder()
@@ -450,7 +451,6 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
   const opts = [
     { label: "Home", value: SECTION_HOME, emoji: "<:staff:1443651912179388548>", default: sec === SECTION_HOME },
     { label: "Valutazioni", value: SECTION_VALUTAZIONI, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_VALUTAZIONI },
-    { label: "Warn staff", value: SECTION_WARN, emoji: "<:banhammer:1443651875441217639>", default: sec === SECTION_WARN },
     { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
     { label: "Modstats", value: SECTION_MODSTATS, emoji: "<:VC_Stats:1482527532682055780>", default: sec === SECTION_MODSTATS },
   ];
@@ -559,6 +559,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   let sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === LEGACY_PARTNER_LB_SECTION) sec = SECTION_HOME;
+  if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
   if (profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel) {
     const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE]);
     if (!allowedPm.has(sec)) sec = SECTION_HOME;
@@ -635,35 +636,20 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === SECTION_VALUTAZIONI) {
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const negLines = negReasons.map((r, i) => `**−${i + 1}.** ${String(r || "—").slice(0, 900)}`);
+    const warnLines = warnReasons.map((r, i) => `**!${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const body = [
       posLines.length ? "<:thumbsup:1471292172145004768> **Positive**" : "<:thumbsup:1471292172145004768> **Positive** — nessuna.",
       ...posLines,
       "",
       negLines.length ? "<:thumbsdown:1471292163957457013> **Negative**" : "<:thumbsdown:1471292163957457013> **Negative** — nessuna.",
       ...negLines,
-    ].join("\n");
-    const chunks = chunkString(body, 3800);
-    const embeds = chunks.map((desc, i) =>
-      new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(desc)
-        .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
-    );
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId) };
-  }
-
-  if (sec === SECTION_WARN) {
-    const lines = [
+      "",
+      "<:banhammer:1443651875441217639> **Warn staff**",
       warnResetLine(s.firstWarnStaffAt),
       "",
-    ];
-    if (warnReasons.length) {
-      lines.push("<:VC_PinkQuestionMark:1471892611026391306> **Motivazioni**");
-      warnReasons.forEach((r, i) => lines.push(`**${i + 1}.** ${String(r || "—").slice(0, 900)}`));
-    } else {
-      lines.push("<a:VC_Cross:1482532424570376253> Nessun warn registrato.");
-    }
-    const chunks = chunkString(lines.join("\n"), 3800);
+      ...(warnLines.length ? warnLines : ["<a:VC_Cross:1482532424570376253> Nessun warn registrato."]),
+    ].join("\n");
+    const chunks = chunkString(body, 3800);
     const embeds = chunks.map((desc, i) =>
       new EmbedBuilder()
         .setColor("#6f4e37")
