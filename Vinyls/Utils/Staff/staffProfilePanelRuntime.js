@@ -224,17 +224,26 @@ function getStaffPauseLine(staffDoc, opts = {}) {
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-  for (const p of pauses) {
-    if (!p || p.status !== "accepted") continue;
-    const start = parseItalianDate(p.dataRichiesta);
-    const end = parseItalianDate(p.dataRitorno);
-    if (!start || !end) continue;
-    if (today >= start && today <= end) {
-      return `<a:VC_Calendar:1482706208149475358> In pausa fino al **${p.dataRitorno}**`;
-    }
-    if (end < today && end >= sevenDaysAgo) {
-      return `<a:VC_Calendar:1482706208149475358> Rientrato il **${p.dataRitorno}**`;
-    }
+  const accepted = pauses
+    .map((p) => {
+      if (!p || p.status !== "accepted") return null;
+      const start = parseItalianDate(p.dataRichiesta);
+      const end = parseItalianDate(p.dataRitorno);
+      if (!start || !end) return null;
+      return { p, start, end };
+    })
+    .filter(Boolean);
+  const active = accepted
+    .filter((x) => today >= x.start && today <= x.end)
+    .sort((a, b) => b.end.getTime() - a.end.getTime());
+  if (active.length) {
+    return `<a:VC_Calendar:1482706208149475358> In pausa fino al **${active[0].p.dataRitorno}**`;
+  }
+  const recentlyReturned = accepted
+    .filter((x) => x.end < today && x.end >= sevenDaysAgo)
+    .sort((a, b) => b.end.getTime() - a.end.getTime());
+  if (recentlyReturned.length) {
+    return `<a:VC_Calendar:1482706208149475358> Rientrato il **${recentlyReturned[0].p.dataRitorno}**`;
   }
   return "<a:VC_Cross:1482532424570376253> Nessuna pausa in corso.";
 }
@@ -476,6 +485,15 @@ function withCloseProfileComponents(components, viewerId, targetId, sourceMessag
   return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId)];
 }
 
+function limitExtraRowsForProfilePanel(extraRows = [], maxRows = 3) {
+  const rows = Array.isArray(extraRows) ? extraRows : [];
+  const cap = Math.max(0, Number(maxRows || 0));
+  if (rows.length <= cap) return rows;
+  if (cap === 0) return [];
+  if (cap === 1) return [rows[rows.length - 1]];
+  return [...rows.slice(0, cap - 1), rows[rows.length - 1]];
+}
+
 function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceMessageId = null, selectOptions = {}) {
   const v = String(viewerId);
   const t = String(targetId);
@@ -490,7 +508,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId(formatStaffProfileSelectCustomId(v, t, sourceMessageId))
-        .setPlaceholder("Profilo Partner Manager")
+        .setPlaceholder("Profilo")
         .addOptions(...opts),
     );
   }
@@ -504,7 +522,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(formatStaffProfileSelectCustomId(viewerId, targetId, sourceMessageId))
-      .setPlaceholder("Sezione profilo staff")
+      .setPlaceholder("Sezione profilo")
       .addOptions(...opts),
   );
 }
@@ -744,7 +762,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
     return {
       embeds: [...listPayload.embeds],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, listPayload.components || []), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(
+        mergeProfileComponents(selectRow, hsRows, limitExtraRowsForProfilePanel(listPayload.components || [], 3)),
+        viewerId,
+        tid,
+        sourceMessageId,
+      ),
     };
   }
 
