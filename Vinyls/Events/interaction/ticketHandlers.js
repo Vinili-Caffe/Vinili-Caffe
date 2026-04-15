@@ -894,10 +894,11 @@ async function handleTicketInteraction(interaction) {
                   })
                   .catch((err) => global.logger.error(err));
               } else {
-                const embedDaUsare = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder()
-                .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-                .setDescription(`<:VC_claim:1478517202016669887> Ticket claimato da <@${interaction.user.id}>`,)
-                .setColor("#6f4e37");
+                const embedDaUsare = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder();
+                embedDaUsare
+                  .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
+                  .setDescription(`<:VC_claim:1478517202016669887> Ticket claimato da <@${interaction.user.id}>`)
+                  .setColor("#6f4e37");
                 await msg
                   .edit({ embeds: [embedDaUsare], components: [claimedButtons] })
                   .catch((err) => global.logger.error(err));
@@ -1101,10 +1102,11 @@ async function handleTicketInteraction(interaction) {
                   })
                   .catch(() => { });
               } else {
-                const embedUsato = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder()
-                .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
-                .setDescription("<:VC_claim:1478517202016669887> Ticket non claimato")
-                .setColor("#6f4e37");
+                const embedUsato = msg.embeds && msg.embeds[0] ? EmbedBuilder.from(msg.embeds[0]) : new EmbedBuilder();
+                embedUsato
+                  .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**")
+                  .setDescription("<:VC_claim:1478517202016669887> Ticket non claimato")
+                  .setColor("#6f4e37");
                 await msg
                   .edit({
                     embeds: [embedUsato],
