@@ -1,6 +1,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
+const { WeeklyContestBundle } = require("../Schemas/Community/weeklyContestSchemas");
+const { EVENT_KEY } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
@@ -21,6 +23,7 @@ const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
+const SECTION_EVENT_VOTES = "eventvotes";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
@@ -31,6 +34,8 @@ const CUSTOM_ROLE_VOC_ROLE_IDS = [
   IDs?.roles?.ServerBooster,
   IDs?.roles?.Level50,
 ].filter(Boolean);
+const CONTEST_CHANNEL_MOBILE_ID = String(IDs.channels?.contestSfondiMobile || "").trim();
+const CONTEST_CHANNEL_PC_ID = String(IDs.channels?.contestSfondiPc || "").trim();
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
   const match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
@@ -100,6 +105,122 @@ function buildCustomVocName(emoji, baseName) {
   return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }
 
+function sumPositiveCountsMap(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return 0;
+  let total = 0;
+  for (const value of Object.values(raw)) {
+    const n = Math.floor(Number(value || 0));
+    if (Number.isFinite(n) && n > 0) total += n;
+  }
+  return total;
+}
+
+function mapHasKeys(raw) {
+  return Boolean(raw && typeof raw === "object" && !Array.isArray(raw) && Object.keys(raw).length > 0);
+}
+
+function bumpVoteCount(map, messageId, amount = 1) {
+  const mid = String(messageId || "").trim();
+  const n = Math.max(0, Math.floor(Number(amount || 0)));
+  if (!/^\d{17,22}$/.test(mid) || !n) return;
+  map[mid] = (Number(map[mid]) || 0) + n;
+}
+
+function buildContestVoteMap(voterLeaf, category) {
+  const isMobile = category === "mobile";
+  const mapField = isMobile ? "votesMobileCounts" : "votesPcCounts";
+  const legacyA = isMobile ? "votesMobile" : "votesPc";
+  const legacyB = isMobile ? "votesMobileSparkle" : "votesPcSparkle";
+  const mapRaw =
+    voterLeaf?.[mapField] && typeof voterLeaf[mapField] === "object" && !Array.isArray(voterLeaf[mapField])
+      ? voterLeaf[mapField]
+      : {};
+  const out = {};
+  if (mapHasKeys(mapRaw)) {
+    for (const [messageId, rawValue] of Object.entries(mapRaw)) {
+      bumpVoteCount(out, messageId, rawValue);
+    }
+    return out;
+  }
+  for (const messageId of Array.isArray(voterLeaf?.[legacyA]) ? voterLeaf[legacyA] : []) {
+    bumpVoteCount(out, messageId, 1);
+  }
+  for (const messageId of Array.isArray(voterLeaf?.[legacyB]) ? voterLeaf[legacyB] : []) {
+    bumpVoteCount(out, messageId, 1);
+  }
+  return out;
+}
+
+function findContestSubmissionByMessageId(bundle, messageId) {
+  const mid = String(messageId || "").trim();
+  if (!mid) return null;
+  const idx = bundle?.submissionMessageIndex?.[mid];
+  if (idx?.userId && idx?.category) {
+    return { userId: String(idx.userId), category: String(idx.category), messageId: mid };
+  }
+  for (const category of ["mobile", "pc"]) {
+    const map =
+      bundle?.submissions?.[category] &&
+      typeof bundle.submissions[category] === "object" &&
+      !Array.isArray(bundle.submissions[category])
+        ? bundle.submissions[category]
+        : {};
+    for (const [userId, subMid] of Object.entries(map)) {
+      if (String(subMid) === mid) return { userId: String(userId), category, messageId: mid };
+    }
+  }
+  return null;
+}
+
+function buildContestVoteTargets(bundle, guildId, category, voteMap) {
+  const channelId = category === "mobile" ? CONTEST_CHANNEL_MOBILE_ID : CONTEST_CHANNEL_PC_ID;
+  return Object.entries(voteMap || {})
+    .map(([messageId, votes]) => {
+      const sub = findContestSubmissionByMessageId(bundle, messageId);
+      const authorId = String(sub?.userId || "").trim();
+      const voteCount = Math.max(0, Math.floor(Number(votes || 0)));
+      const jump =
+        channelId && /^\d{17,22}$/.test(String(messageId || ""))
+          ? `[messaggio](https://discord.com/channels/${guildId}/${channelId}/${messageId})`
+          : "messaggio non trovato";
+      return {
+        messageId: String(messageId || ""),
+        authorId,
+        votes: voteCount,
+        jump,
+      };
+    })
+    .filter((row) => row.votes > 0)
+    .sort((a, b) => b.votes - a.votes || a.messageId.localeCompare(b.messageId));
+}
+
+async function fetchContestVotesState(guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) {
+    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [] };
+  }
+  const bundle = await WeeklyContestBundle.findOne({ guildId: gid, eventKey: EVENT_KEY })
+    .select("submissions submissionMessageIndex voters")
+    .lean()
+    .catch(() => null);
+  if (!bundle) {
+    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [] };
+  }
+  const voters =
+    bundle.voters && typeof bundle.voters === "object" && !Array.isArray(bundle.voters) ? bundle.voters : {};
+  const voterLeaf = voters[uid] && typeof voters[uid] === "object" ? voters[uid] : {};
+  const mobileMap = buildContestVoteMap(voterLeaf, "mobile");
+  const pcMap = buildContestVoteMap(voterLeaf, "pc");
+  return {
+    eventKey: String(EVENT_KEY || ""),
+    mobileUsed: sumPositiveCountsMap(mobileMap),
+    pcUsed: sumPositiveCountsMap(pcMap),
+    mobileTargets: buildContestVoteTargets(bundle, gid, "mobile", mobileMap),
+    pcTargets: buildContestVoteTargets(bundle, gid, "pc", pcMap),
+  };
+}
+
 function formatBirthday(profile) {
   const day = Number(profile?.day || 0);
   const month = Number(profile?.month || 0);
@@ -154,7 +275,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member] = await Promise.all([
+  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestVotes] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
@@ -163,6 +284,7 @@ async function fetchProfilePanelState(guild, userId, client) {
     BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
+    fetchContestVotesState(guildId, userId),
   ]);
   const hasCustomRoleVocAccess = Boolean(
     member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
@@ -179,6 +301,7 @@ async function fetchProfilePanelState(guild, userId, client) {
       banner: Boolean(bannerPrivacy?.blocked),
       quotes: Boolean(quotePrivacy?.blocked),
     },
+    contestVotes: contestVotes || { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [] },
     featureAccess: {
       customRoleVoc: hasCustomRoleVocAccess,
       customReaction: hasCustomReactionAccess,
@@ -311,6 +434,37 @@ function buildSectionEmbed(section, state, user, guild = null) {
     ].join("\n"));
   }
 
+  if (section === SECTION_EVENT_VOTES) {
+    const votesState = state?.contestVotes || {};
+    const mobileTargets = Array.isArray(votesState.mobileTargets) ? votesState.mobileTargets : [];
+    const pcTargets = Array.isArray(votesState.pcTargets) ? votesState.pcTargets : [];
+    const mobileLines = mobileTargets.length
+      ? mobileTargets
+        .slice(0, 8)
+        .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
+      : ["- Nessun voto mobile registrato."];
+    const pcLines = pcTargets.length
+      ? pcTargets
+        .slice(0, 8)
+        .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
+      : ["- Nessun voto PC registrato."];
+    return base.setDescription([
+      "<:VC_PinkQuestionMark:1471892611026391306> Stato voti del contest sfondi.",
+      "",
+      `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
+      `<:VC_Dot:1482532364222595303> Voti usati mobile: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,
+      `<:VC_Dot:1482532364222595303> Voti usati PC: **${Math.max(0, Number(votesState.pcUsed || 0))}**`,
+      "",
+      "**Per chi hai votato (Mobile)**",
+      ...mobileLines,
+      "",
+      "**Per chi hai votato (PC)**",
+      ...pcLines,
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina.",
+    ].join("\n"));
+  }
+
   return base
     .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`)
     .setDescription([
@@ -337,6 +491,7 @@ function buildRows(ownerId, section, state = null) {
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
+    { label: "Evento Sfondi", value: SECTION_EVENT_VOTES, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_EVENT_VOTES },
   ];
   if (canAccessCustomRoleVoc) {
     selectOptions.push(
