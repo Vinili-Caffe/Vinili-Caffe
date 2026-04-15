@@ -392,11 +392,11 @@ function buildWeeklyContestVoteRow(messageId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`wcVote:inc:${mid}`)
-      .setLabel("+1")
+      .setEmoji("<:thumbsup:1471292172145004768>")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`wcVote:dec:${mid}`)
-      .setLabel("\u22121")
+      .setEmoji("<:thumbsdown:1471292163957457013>")
       .setStyle(ButtonStyle.Secondary),
   );
 }

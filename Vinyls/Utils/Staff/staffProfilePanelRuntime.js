@@ -467,7 +467,7 @@ function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId), sourceMessageId))
-      .setLabel("Chiudi panel")
+      .setEmoji("<:cancel:1461730653677551691>")
       .setStyle(ButtonStyle.Secondary),
   );
 }

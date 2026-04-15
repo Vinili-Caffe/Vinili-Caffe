@@ -679,10 +679,7 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
   lastVoteFallbackSentAt.set(key, now);
 }
 
-/**
- * Registra un voto Discadia per utente. `profile.totals.exp.bumpVoteRewards.discadia_vote.voteCount` è sempre incrementato sul profilo
- * (1 voto = +1), mai preso dal testo del messaggio: Discadia espone spesso il totale voti del server.
- */
+
 async function recordDiscadiaVote(client, guildId, userId) {
   const now = new Date();
   const mainGuildId = IDs.guilds.main;
