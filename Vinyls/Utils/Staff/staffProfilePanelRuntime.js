@@ -307,24 +307,14 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valpos", v, t, sec, sourceMessageId))
-          .setLabel("Aggiungi Positiva")
-          .setEmoji("➕")
+          .setCustomId(formatStaffHpButtonCustomId("val_add_menu", v, t, sec, sourceMessageId))
+          .setLabel("Aggiungi")
+          .setEmoji("<:thumbsup:1471292172145004768>")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valneg", v, t, sec, sourceMessageId))
-          .setLabel("Aggiungi Negativa")
-          .setEmoji("➕")
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valpos_rm", v, t, sec, sourceMessageId))
-          .setLabel("Rimuovi Positiva")
-          .setEmoji("➖")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId(formatStaffHpButtonCustomId("valneg_rm", v, t, sec, sourceMessageId))
-          .setLabel("Rimuovi Negativa")
-          .setEmoji("➖")
+          .setCustomId(formatStaffHpButtonCustomId("val_remove_menu", v, t, sec, sourceMessageId))
+          .setLabel("Rimuovi")
+          .setEmoji("<:thumbsdown:1471292163957457013>")
           .setStyle(ButtonStyle.Secondary),
       ),
     ];

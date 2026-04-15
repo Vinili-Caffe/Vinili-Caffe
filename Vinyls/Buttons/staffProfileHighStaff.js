@@ -88,6 +88,8 @@ function parseStaffHpButton(customId) {
   const allowed = new Set([
     "pex_menu",
     "depex_menu",
+    "val_add_menu",
+    "val_remove_menu",
     "pex",
     "pex_helper",
     "pex_mod",
@@ -404,6 +406,50 @@ async function execute(interaction) {
       await interaction.reply({
         content: "Scegli il tipo di depex:",
         components: [depexRow, depexRow2],
+        flags: PRIVATE_FLAG,
+      }).catch(() => {});
+      return true;
+    }
+    if (parsed.action === "val_add_menu" || parsed.action === "val_remove_menu") {
+      const selfHp = String(parsed.viewerId) === String(parsed.targetId);
+      if (!selfHp && !(await ensureHighStaffViewer(interaction))) return true;
+      const sourceSuffix = parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : "";
+      const sec = parsed.section;
+      if (parsed.action === "val_add_menu") {
+        const addRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:valpos:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
+            .setLabel("Positiva")
+            .setEmoji("➕")
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:valneg:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
+            .setLabel("Negativa")
+            .setEmoji("➕")
+            .setStyle(ButtonStyle.Danger),
+        );
+        await interaction.reply({
+          content: "Cosa vuoi aggiungere?",
+          components: [addRow],
+          flags: PRIVATE_FLAG,
+        }).catch(() => {});
+        return true;
+      }
+      const rmRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:valpos_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
+          .setLabel("Positiva")
+          .setEmoji("➖")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`${STAFF_HP_PREFIX}:valneg_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}`)
+          .setLabel("Negativa")
+          .setEmoji("➖")
+          .setStyle(ButtonStyle.Secondary),
+      );
+      await interaction.reply({
+        content: "Cosa vuoi rimuovere?",
+        components: [rmRow],
         flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
