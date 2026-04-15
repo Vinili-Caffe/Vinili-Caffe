@@ -25,7 +25,6 @@ const LEGACY_PARTNER_LB_SECTION = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
-const TIME_ZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
   String(IDs.roles.Supervisor),
   String(IDs.roles.Coordinator),
@@ -92,7 +91,6 @@ function hasDisplayTierStaffBeforePartnerManager(member) {
   return false;
 }
 
-/** High Staff, Founder o Co-Founder: gestione punti partner su **altri** profili. */
 function viewerCanUsePartnerPointsPanel(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
@@ -324,13 +322,13 @@ function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex 
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn", v, t, sec, sourceMessageId))
-          .setLabel("Aggiungi Warn")
-          .setEmoji("➕")
+          .setLabel("Aggiungi")
+          .setEmoji("<:thumbsup:1471292172145004768>")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(formatStaffHpButtonCustomId("warn_rm", v, t, sec, sourceMessageId))
-          .setLabel("Rimuovi Warn")
-          .setEmoji("➖")
+          .setLabel("Rimuovi")
+          .setEmoji("<:thumbsdown:1471292163957457013>")
           .setStyle(ButtonStyle.Secondary),
       ),
     ];
@@ -352,18 +350,17 @@ function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_HOME, sour
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, sourceMessageId))
         .setLabel("Aggiungi punti")
-        .setEmoji("➕")
+        .setEmoji("<:thumbsup:1471292172145004768>")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
         .setLabel("Rimuovi punti")
-        .setEmoji("➖")
+        .setEmoji("<:thumbsdown:1471292163957457013>")
         .setStyle(ButtonStyle.Danger),
     ),
   ];
 }
 
-/** Solo punti partner (Home profilo staff con ruolo PM). */
 function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
@@ -373,12 +370,12 @@ function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, s
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, sourceMessageId))
         .setLabel("Aggiungi punti")
-        .setEmoji("➕")
+        .setEmoji("<:thumbsup:1471292172145004768>")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
         .setLabel("Rimuovi punti")
-        .setEmoji("➖")
+        .setEmoji("<:thumbsdown:1471292163957457013>")
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
