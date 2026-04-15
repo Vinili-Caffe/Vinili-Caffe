@@ -387,48 +387,6 @@ function canAddVoteToCategory(voterLean, category, baseMax) {
   return extraVotesUsed(nextM, nextP, baseMax) <= bonusTotal;
 }
 
-function computeRemainingVotesOneCategory(m, p, baseMax, bonusTotal, category) {
-  const excessP = Math.max(0, p - baseMax);
-  const excessM = Math.max(0, m - baseMax);
-  if (category === "mobile") {
-    const freeMobile = Math.max(0, baseMax - m);
-    const roomForMobileExcess = Math.max(0, bonusTotal - excessP);
-    const extraM = Math.max(0, m - baseMax);
-    const fromBonus = Math.max(0, roomForMobileExcess - extraM);
-    return freeMobile + fromBonus;
-  }
-  const freePc = Math.max(0, baseMax - p);
-  const roomForPcExcess = Math.max(0, bonusTotal - excessM);
-  const extraP = Math.max(0, p - baseMax);
-  const fromBonusPc = Math.max(0, roomForPcExcess - extraP);
-  return freePc + fromBonusPc;
-}
-
-async function getRemainingContestVoteBudgetForUser(guild, userId) {
-  const guildId = String(guild?.id || "").trim();
-  const uid = String(userId || "").trim();
-  if (!guildId || !uid) return null;
-  if (!isContestActiveNow()) return null;
-  if (guildId !== contestGuildId()) return null;
-  const member = await getGuildMemberCached(guild, uid).catch(() => null);
-  const baseMax = resolveBaseVoteCap(member);
-  const bundlePre = await getContestBundleLean(guildId, EVENT_KEY);
-  let voterLeaf = bundlePre?.voters?.[uid];
-  if (voterLeaf && typeof voterLeaf === "object") {
-    await migrateVoterLeafInBundleIfNeeded(guildId, EVENT_KEY, uid, voterLeaf);
-  }
-  const fresh = await getContestBundleLean(guildId, EVENT_KEY);
-  voterLeaf = fresh?.voters?.[uid] && typeof fresh.voters[uid] === "object" ? fresh.voters[uid] : {};
-  const voterLean = { guildId, eventKey: EVENT_KEY, voterId: uid, ...voterLeaf };
-  const m = mobileVoteCountUnified(voterLean);
-  const p = pcVoteCountUnified(voterLean);
-  const bonusTotal = totalBonusSlotsForContest(voterLean);
-  return {
-    mobileRemaining: computeRemainingVotesOneCategory(m, p, baseMax, bonusTotal, "mobile"),
-    pcRemaining: computeRemainingVotesOneCategory(m, p, baseMax, bonusTotal, "pc"),
-  };
-}
-
 function buildWeeklyContestVoteRow(messageId) {
   const mid = String(messageId || "");
   return new ActionRowBuilder().addComponents(
@@ -1821,6 +1779,22 @@ async function removeContestSfondiSubmissionsOnMemberLeave(client, guildId, user
   }
 }
 
+/** Budget voti weekly contest (base per ruoli + bonus giornalieri). Ritorna voti ancora assegnabili per categoria. */
+function contestVoteRemainingSlots(member, voterLean) {
+  const base = resolveBaseVoteCap(member);
+  const bonusTotal = totalBonusSlotsForContest(voterLean || {});
+  const m = mobileVoteCountUnified(voterLean || {});
+  const p = pcVoteCountUnified(voterLean || {});
+  const maxMobile = base + Math.max(0, bonusTotal - Math.max(0, p - base));
+  const maxPc = base + Math.max(0, bonusTotal - Math.max(0, m - base));
+  return {
+    baseMax: base,
+    bonusTotal,
+    remainingMobile: Math.max(0, maxMobile - m),
+    remainingPc: Math.max(0, maxPc - p),
+  };
+}
+
 module.exports = {
   EVENT_KEY,
   EVENT_KEY_PRODUCTION,
@@ -1842,5 +1816,5 @@ module.exports = {
   processContestFinalePrizeRoleRemovals,
   isContestActiveNow,
   removeContestSfondiSubmissionsOnMemberLeave,
-  getRemainingContestVoteBudgetForUser,
+  contestVoteRemainingSlots,
 };

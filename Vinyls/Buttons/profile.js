@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
 const { WeeklyContestBundle } = require("../Schemas/Community/weeklyContestSchemas");
-const { EVENT_KEY } = require("../Services/Community/weeklyContestService");
+const { EVENT_KEY, contestVoteRemainingSlots } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
@@ -198,14 +198,14 @@ async function fetchContestVotesState(guildId, userId) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
   if (!gid || !uid) {
-    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [] };
+    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [], voterLeaf: {} };
   }
   const bundle = await WeeklyContestBundle.findOne({ guildId: gid, eventKey: EVENT_KEY })
     .select("submissions submissionMessageIndex voters")
     .lean()
     .catch(() => null);
   if (!bundle) {
-    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [] };
+    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [], voterLeaf: {} };
   }
   const voters =
     bundle.voters && typeof bundle.voters === "object" && !Array.isArray(bundle.voters) ? bundle.voters : {};
@@ -218,6 +218,7 @@ async function fetchContestVotesState(guildId, userId) {
     pcUsed: sumPositiveCountsMap(pcMap),
     mobileTargets: buildContestVoteTargets(bundle, gid, "mobile", mobileMap),
     pcTargets: buildContestVoteTargets(bundle, gid, "pc", pcMap),
+    voterLeaf,
   };
 }
 
@@ -290,6 +291,9 @@ async function fetchProfilePanelState(guild, userId, client) {
     member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
   );
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
+  const { voterLeaf, ...contestVotesRest } = contestVotes && typeof contestVotes === "object" ? contestVotes : {};
+  const contestBudget = contestVoteRemainingSlots(member, voterLeaf && typeof voterLeaf === "object" ? voterLeaf : {});
+  const contestVotesMerged = { ...contestVotesRest, ...contestBudget };
 
   return {
     birthday: birthday || null,
@@ -301,7 +305,9 @@ async function fetchProfilePanelState(guild, userId, client) {
       banner: Boolean(bannerPrivacy?.blocked),
       quotes: Boolean(quotePrivacy?.blocked),
     },
-    contestVotes: contestVotes || { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [] },
+    contestVotes:
+      contestVotesMerged
+      || { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [], remainingMobile: 0, remainingPc: 0, baseMax: 1, bonusTotal: 0 },
     featureAccess: {
       customRoleVoc: hasCustomRoleVocAccess,
       customReaction: hasCustomReactionAccess,
@@ -346,6 +352,9 @@ function buildSectionEmbed(section, state, user, guild = null) {
   const profileDisplayName = user && typeof user === "object"
     ? String(user.globalName || user.username || user.tag || "").trim() || "Utente"
     : "Utente";
+  const cv = state?.contestVotes || {};
+  const remM = Math.max(0, Math.floor(Number(cv.remainingMobile ?? 0)));
+  const remP = Math.max(0, Math.floor(Number(cv.remainingPc ?? 0)));
 
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
@@ -454,6 +463,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
       `<:VC_Dot:1482532364222595303> Voti usati mobile: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,
       `<:VC_Dot:1482532364222595303> Voti usati PC: **${Math.max(0, Number(votesState.pcUsed || 0))}**`,
+      `<:VC_Dot:1482532364222595303> Voti ancora disponibili — Mobile: **${remM}** · PC: **${remP}**`,
       "",
       "**Per chi hai votato (Mobile)**",
       ...mobileLines,
@@ -475,6 +485,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
       `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
       `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
+      `<a:VC_Events:1482706144953897223> Contest sfondi — voti disponibili: **Mobile** ${remM} · **PC** ${remP}`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,

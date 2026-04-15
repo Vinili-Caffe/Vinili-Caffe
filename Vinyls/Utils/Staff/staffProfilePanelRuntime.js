@@ -7,7 +7,6 @@ const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { countValidAllTimePartners } = require("../Partner/partnerLeaderboardRuntime");
-const { getRemainingContestVoteBudgetForUser } = require("../../Services/Community/weeklyContestService");
 
 function resolveStaffPartnerPointsDisplay(staffObj) {
   if (!staffObj) return 0;
@@ -604,11 +603,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     sec = SECTION_HOME;
   }
 
-  let contestVoteRemain = null;
-  if (sec === SECTION_HOME) {
-    contestVoteRemain = await getRemainingContestVoteBudgetForUser(guild, viewerId).catch(() => null);
-  }
-
   const selfForPts = String(viewerId) === tid;
   const canHsPartnerPoints =
     viewerCanPartnerPointsPanel &&
@@ -665,19 +659,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if ((profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel) && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = resolveStaffPartnerPointsDisplay(s);
-    const pmHomeLines = [
+    const pmHomeDesc = [
       `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
-    ];
-    if (contestVoteRemain) {
-      pmHomeLines.push(
-        "",
-        `<a:VC_Events:1482706144953897223> **Contest sfondi:** voti disponibili — **Mobile ${contestVoteRemain.mobileRemaining}** · **PC ${contestVoteRemain.pcRemaining}**`,
-      );
-    }
-    pmHomeLines.push("", `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`);
-    const pmHomeDesc = pmHomeLines.join("\n");
+      "",
+      `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
+    ].join("\n");
     const pmTitle = usePartnersCmdsPmPanel
       ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
       : `<:VC_addperson:1485419347068588073> Profilo Staff ${name}`;
@@ -847,12 +835,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     `<a:VC_Calendar:1482706208149475358> **Pause:**`,
     `${pauseShort}`,
   ];
-  if (contestVoteRemain) {
-    homeDescParts.push(
-      "",
-      `<a:VC_Events:1482706144953897223> **Contest sfondi:** voti disponibili — **Mobile ${contestVoteRemain.mobileRemaining}** · **PC ${contestVoteRemain.pcRemaining}**`,
-    );
-  }
   if (!hideValutazioniWarnForTarget) {
     homeDescParts.push(
       "",
