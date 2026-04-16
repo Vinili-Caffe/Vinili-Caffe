@@ -74,7 +74,7 @@ const VIOLATION_KEY_LABEL_IT = {
   emoji_spam: "Troppe emoji (reg. 2.4)",
   new_lines: "Troppi a capo / wall of text (reg. 2.4)",
   zalgo: "Testo illeggibile / zalgo",
-  characters: "Messaggio troppo lungo (reg. 2.4)",
+  characters: "Densità caratteri / non conversazione normale (reg. 2.4)",
   invite: "Invito Discord non autorizzato",
   scam_pattern: "Link malevoli / scam (reg. 2.3)",
   nsfw_link: "Contenuto NSFW o link non consentito (reg. 2.1)",

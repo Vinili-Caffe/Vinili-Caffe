@@ -202,6 +202,7 @@
             ],
             "channels": [
                 "channels.partnersCmds",
+                "channels.partnersChat",
                 "channels.staffCmds"
             ]
         },
@@ -243,7 +244,8 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.partnersCmds"
+                "channels.partnersCmds",
+                "channels.partnersChat"
             ],
             "subcommands": {
                 "add": [

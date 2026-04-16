@@ -1444,13 +1444,9 @@ function looksLikeLegitConversation(content) {
   const hasSentencePunctuation = /[.!?;,]/.test(text);
   const hasSpaces = /\s/.test(text);
   const hasTooManyLinks = (text.match(/https?:\/\/\S+/gi) || []).length >= 2;
-  return (
-    text.length >= 120 &&
-    distinctWords >= 10 &&
-    hasSpaces &&
-    hasSentencePunctuation &&
-    !hasTooManyLinks
-  );
+  if (!hasSpaces || !hasSentencePunctuation || hasTooManyLinks) return false;
+  if (text.length >= 72 && distinctWords >= 8) return true;
+  return text.length >= 120 && distinctWords >= 10;
 }
 
 function stripQuotedAndCodeText(content) {
