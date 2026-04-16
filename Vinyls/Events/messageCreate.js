@@ -12,7 +12,9 @@ const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
-const FORCE_DELETE_CHANNEL_IDS=new Set([]);
+const FORCE_DELETE_CHANNEL_IDS = new Set(
+  [IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)),
+);
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
 const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set(
   [IDs.channels.media, IDs.channels.contestSfondiMobile, IDs.channels.contestSfondiPc].filter(Boolean).map((id) => String(id)),
@@ -123,7 +125,6 @@ module.exports = {
     if (!resolvedClient) return;
 
     const isAutomatedMessage=Boolean(message.author?.bot||message.webhookId||message.applicationId,);
-    const isOwnBotMessage=String(message.author?.id||"")===String(resolvedClient.user?.id||"");
     const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
     const defaultPrefix = String(resolvedClient?.config?.prefix || "+");
     let automodProcessed = false;
@@ -160,7 +161,6 @@ module.exports = {
       FORCE_DELETE_CHANNEL_IDS.has(String(message?.channelId || "")) &&
       !message?.system
     ) {
-      if (isAutomatedMessage && !isOwnBotMessage) return;
       if (!isEditedPrefixExecution) {
         try {
           const automodResult = await runAutomodOnce();

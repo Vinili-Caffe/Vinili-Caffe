@@ -29,7 +29,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
   voices: "Mostra le voci TTS disponibili.",
   membercount: "Mostra il numero totale di membri del server.",
   ping: "Mostra latenza bot, database e informazioni di uptime.",
-  ai: "Chat con l'AI locale (Ollama): `+ai <messaggio>` oppure rispondi al bot o menzionalo in chat (senza comando).",
   profile: "Hub profilo interattivo: birthday, DM, privacy, custom role/voc/reactions.",
   ship: "Calcola la compatibilità tra due utenti.",
   snipe: "Recupera l'ultimo messaggio eliminato nel canale.",

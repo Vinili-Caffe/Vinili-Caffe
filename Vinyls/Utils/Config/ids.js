@@ -177,6 +177,7 @@ const ids = {
     wrapForum: "1445792081271587000",
     commandLogChannel: "1466489404867481802",
     errorLogChannel: "1472733599496409292",
+    messagesAutoDelete: "1494113971488297001",
   },
   roles: {
     Wick: "1443565454260965471",
