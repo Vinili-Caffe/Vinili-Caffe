@@ -207,8 +207,23 @@ class TicketFindQuery {
 class TicketFindOneQuery {
   constructor(filter, projection) {
     this.filter = filter;
-    this.projection = projection;
+    this.projection = projection && typeof projection === "object" ? { ...projection } : null;
     this._lean = false;
+  }
+
+  select(fields) {
+    if (fields == null) return this;
+    const proj = {};
+    if (typeof fields === "string") {
+      for (const k of String(fields).split(/\s+/)) {
+        const key = k.trim();
+        if (key) proj[key] = 1;
+      }
+    } else if (typeof fields === "object" && !Array.isArray(fields)) {
+      Object.assign(proj, fields);
+    }
+    this.projection = { ...(this.projection || {}), ...proj };
+    return this;
   }
 
   lean() {

@@ -65,7 +65,7 @@ async function handleTicketInteraction(interaction) {
     if (interaction.client.ticketActionLocks.has(lockKey)) {
       let suffix = "";
       if (channelId) {
-        const t = await Ticket.findOne({ channelId, open: true }).select("claimedBy").lean().catch(() => null);
+        const t = await Ticket.findOne({ channelId, open: true }, { claimedBy: 1 }).lean().catch(() => null);
         const cid = t?.claimedBy != null ? String(t.claimedBy).trim() : "";
         if (cid) {
           suffix = `\n\n<:VC_claim:1478517202016669887> **In carico a:** <@${cid}>`;
@@ -679,7 +679,7 @@ async function handleTicketInteraction(interaction) {
           await safeReply(interaction, base);
         }
         try {
-          await interaction.deferReply().catch(() => {});
+          await interaction.deferReply({ flags: 1 << 6 }).catch(() => {});
           claimReplyDeferred = Boolean(interaction.deferred);
           const ticket = await runtimeFindTicketByChannel(interaction.channel.id);
           if (!ticket) {
@@ -873,16 +873,32 @@ async function handleTicketInteraction(interaction) {
             new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji(`<:VC_reason:1478517122929004544>`).setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId("unclaim").setEmoji(`<a:VC_Unlock:1482532082466029608>`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary),
           );
-          await replyTicketClaim({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET CLAIMATO__**")
-                .setDescription(
-                  `<:VC_claim:1478517202016669887> Ticket preso in carico da <@${claimedTicket.claimedBy}>`,
-                )
-                .setColor("#6f4e37"),
-            ],
-          });
+          const claimSuccessEmbed = new EmbedBuilder()
+            .setTitle("<:VC_Ticket:1482535175283019888> • **__TICKET CLAIMATO__**")
+            .setDescription(
+              `<:VC_claim:1478517202016669887> Ticket preso in carico da <@${claimedTicket.claimedBy}>`,
+            )
+            .setColor("#6f4e37");
+          let panelMessage = interaction.message;
+          const storedPanelId = ticket.messageId != null ? String(ticket.messageId).trim() : "";
+          if (storedPanelId && String(panelMessage?.id || "") !== storedPanelId) {
+            panelMessage = await interaction.channel.messages.fetch(storedPanelId).catch(() => null);
+          }
+          if (panelMessage && typeof panelMessage.edit === "function") {
+            const rawEmbeds = Array.isArray(panelMessage.embeds)
+              ? panelMessage.embeds
+              : [...(panelMessage.embeds?.values?.() ?? [])];
+            const editPayload = { components: [claimedButtons] };
+            if (rawEmbeds.length) editPayload.embeds = rawEmbeds.map((e) => EmbedBuilder.from(e));
+            if (String(panelMessage.content ?? "").length) editPayload.content = panelMessage.content;
+            await panelMessage
+              .edit(editPayload)
+              .catch((err) => global.logger?.warn?.("[ticketHandlers] claim panel edit:", err?.message || err));
+          }
+          await interaction.channel
+            .send({ embeds: [claimSuccessEmbed] })
+            .catch((err) => global.logger?.warn?.("[ticketHandlers] claim channel send:", err?.message || err));
+          await interaction.deleteReply().catch(() => {});
           return true;
         } finally {
           releaseTicketActionLock(claimLockKey);
