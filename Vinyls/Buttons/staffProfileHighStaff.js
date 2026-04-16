@@ -222,16 +222,24 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
     : SECTION_HOME;
   let msg = interaction.message;
   const panelMid = parsed?.panelMessageId ? String(parsed.panelMessageId).trim() : "";
-  if ((!msg || typeof msg.edit !== "function") && panelMid && interaction.channel?.messages?.fetch) {
-    msg = await interaction.channel.messages.fetch(panelMid).catch(() => null);
+  const channelId = String(interaction.channelId || interaction.channel?.id || "");
+  let channel = interaction.channel;
+  if ((!channel || typeof channel.messages?.fetch !== "function") && channelId) {
+    channel =
+      (await guild.channels.fetch(channelId).catch(() => null)) ||
+      (client?.channels?.cache?.get(channelId) ?? null);
+  }
+  if ((!msg || typeof msg.edit !== "function") && panelMid && channel?.messages?.fetch) {
+    msg = await channel.messages.fetch(panelMid).catch(() => null);
   }
   const opts = {};
   const preserved =
     parsed?.sourceMessageId ||
     (msg ? extractSourceFromStaffPanelMessage(msg) : null) ||
-    extractSourceFromStaffPanelMessage(interaction.message);
+    (interaction.message ? extractSourceFromStaffPanelMessage(interaction.message) : null);
   if (preserved) opts.sourceMessageId = preserved;
-  if (String(interaction.channel?.id || "") === String(IDs.channels?.partnersCmds || "")) opts.partnersCmdsChannel = true;
+  const partnersCh = String(IDs.channels?.partnersCmds || "");
+  if (partnersCh && channelId === partnersCh) opts.partnersCmdsChannel = true;
   try {
     const payload = await buildStaffProfilePayload(
       guild,
@@ -343,12 +351,6 @@ function buildPpmAddModal(customId, title) {
 
 function buildPpmRemoveModal(customId, title) {
   const modal = new ModalBuilder().setCustomId(customId).setTitle(String(title).slice(0, 45));
-  const amt = new TextInputBuilder()
-    .setCustomId(IN_PPM_AMOUNT)
-    .setLabel("Quantità da rimuovere")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(5);
   const reasonInput = new TextInputBuilder()
     .setCustomId(IN_REASON)
     .setLabel("Motivo")
@@ -361,11 +363,7 @@ function buildPpmRemoveModal(customId, title) {
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(200);
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(amt),
-    new ActionRowBuilder().addComponents(reasonInput),
-    new ActionRowBuilder().addComponents(linkInput),
-  );
+  modal.addComponents(new ActionRowBuilder().addComponents(reasonInput), new ActionRowBuilder().addComponents(linkInput));
   return modal;
 }
 
@@ -638,20 +636,9 @@ async function execute(interaction) {
       return true;
     }
     if (parsed.action === "ppm_remove") {
-      const rawAmt = getModalTextInputTrimmed(interaction, IN_PPM_AMOUNT);
-      const amount = parseInt(rawAmt, 10);
+      const amount = 1;
       const motivo = reason;
       const messageLink = getModalTextInputTrimmed(interaction, IN_PPM_LINK);
-      if (!Number.isInteger(amount) || amount < 1) {
-        await sendModalReply({ content: "<:vegax:1443934876440068179> Quantità non valida." });
-        return true;
-      }
-      if (amount > MAX_PPM_AMOUNT) {
-        await sendModalReply({
-          content: `<:vegax:1443934876440068179> Massimo \`${MAX_PPM_AMOUNT}\` punti per operazione.`,
-        });
-        return true;
-      }
       if (!motivo) {
         await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;

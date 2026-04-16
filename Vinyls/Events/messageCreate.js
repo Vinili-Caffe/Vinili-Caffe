@@ -19,7 +19,7 @@ const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
 const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set(
   [IDs.channels.media, IDs.channels.contestSfondiMobile, IDs.channels.contestSfondiPc].filter(Boolean).map((id) => String(id)),
 );
-const WRONG_PREFIX_HINT_CHANNEL_IDS=new Set([IDs.channels.commands,IDs.channels.staffCmds,IDs.channels.highCmds].filter(Boolean).map((id) => String(id)),);
+const WRONG_PREFIX_HINT_CHANNEL_IDS=new Set([IDs.channels.commands,IDs.channels.staffCmds].filter(Boolean).map((id) => String(id)),);
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
 const automationRecheckJobs = new Map();
 
@@ -57,6 +57,16 @@ function parseWrongPrefixAttempt(content, validPrefix = "+") {
     };
   }
   return null;
+}
+
+async function messageAuthorHasHighStaffRole(message) {
+  const roleId = String(IDs.roles?.HighStaff || "");
+  if (!roleId || !message?.guild || !message?.author?.id) return false;
+  let member = message.member;
+  if (!member) {
+    member = await getCachedOrFetchMember(message.guild, message.author.id).catch(() => null);
+  }
+  return Boolean(member?.roles?.cache?.has(roleId));
 }
 
 function shouldSendWrongPrefixHint(message, usedPrefix, commandName) {
@@ -169,8 +179,10 @@ module.exports = {
           logEventError(resolvedClient, "AUTOMOD ERROR", error);
         }
       }
-      await message.delete().catch(() => {});
-      return;
+      if (!(await messageAuthorHasHighStaffRole(message))) {
+        await message.delete().catch(() => {});
+        return;
+      }
     }
 
     if (!isEditedPrefixExecution) {

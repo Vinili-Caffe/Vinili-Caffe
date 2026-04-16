@@ -8,7 +8,7 @@ const BOT_MENTION_REGEX = /<@!?\d+>/;
 const OFFICIAL_MAIN_GUILD_ID = IDs.guilds?.main || null;
 const TEST_GUILD_ID = IDs.guilds?.test || null;
 const ALLOWED_GUILD_IDS = new Set([OFFICIAL_MAIN_GUILD_ID,TEST_GUILD_ID].filter(Boolean).map((id)=>String(id)),);
-const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels ?. commands,IDs.channels ?. staffCmds,IDs.channels ?. highCmds].filter(Boolean).map((id)=>String(id)),);
+const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set([IDs.channels ?. commands,IDs.channels ?. staffCmds].filter(Boolean).map((id)=>String(id)),);
 const TEMPORARY_NOTICE_LIFETIME_MS = 8000;
 
 function deleteMessageLater(message, delayMs = TEMPORARY_NOTICE_LIFETIME_MS) {

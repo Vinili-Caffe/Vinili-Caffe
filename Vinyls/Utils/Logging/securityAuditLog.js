@@ -4,7 +4,7 @@ const IDs = require("../Config/ids");
 const { getSecurityStaticsSnapshot } = require("../../Services/Moderation/securityProfilesService");
 const EMBED_DESCRIPTION_MAX = 4096;
 const EMBED_TITLE_MAX = 256;
-const DEFAULT_LOG_CHANNEL_IDS = [IDs.channels?.activityLogs, IDs.channels?.modLogs, IDs.channels?.highCmds,].filter(Boolean).map(String);
+const DEFAULT_LOG_CHANNEL_IDS = [IDs.channels?.activityLogs, IDs.channels?.modLogs].filter(Boolean).map(String);
 
 async function resolveSecurityLogChannel(guild) {
   if (!guild) return null;

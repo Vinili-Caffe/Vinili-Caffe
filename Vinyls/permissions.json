@@ -66,7 +66,6 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.highCmds",
                 "channels.staffCmds"
             ]
         },
@@ -86,7 +85,6 @@
                 "roles.CoFounder"
             ],
             "channels": [
-                "channels.highCmds",
                 "channels.staffCmds"
             ]
         },
@@ -96,8 +94,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "evento": {
@@ -119,8 +116,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "info": {
@@ -128,7 +124,6 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.highCmds",
                 "channels.staffCmds"
             ]
         },
@@ -147,7 +142,6 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.highCmds",
                 "channels.staffCmds"
             ]
         },
@@ -157,8 +151,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "user": {
@@ -167,8 +160,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "membercount": {
@@ -183,7 +175,6 @@
             "channels": [
                 "channels.commands",
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.chat"
             ]
         },
@@ -192,7 +183,7 @@
                 "roles.HighStaff"
             ],
             "channels": [
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "ping": {
@@ -201,8 +192,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "staff": {
@@ -212,8 +202,7 @@
             ],
             "channels": [
                 "channels.partnersCmds",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "purge": [
@@ -239,8 +228,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "recensione": {
@@ -255,7 +243,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.partnersCmds"
             ],
             "subcommands": {
@@ -277,8 +264,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "channel": {
@@ -312,8 +298,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.highCmds"
+                "channels.staffCmds"
             ]
         },
         "verify": {
@@ -329,7 +314,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -339,7 +323,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -349,7 +332,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -359,7 +341,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -369,7 +350,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -381,7 +361,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -391,7 +370,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -401,7 +379,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -411,7 +388,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -427,7 +403,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -437,7 +412,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -447,7 +421,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -457,7 +430,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -467,7 +439,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -477,7 +448,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -494,7 +464,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -504,7 +473,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ]
         },
@@ -648,7 +616,6 @@
             ],
             "channels": [
                 "channels.staffCmds",
-                "channels.highCmds",
                 "channels.sanzioniUtenti"
             ],
             "ownerSegment": 3

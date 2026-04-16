@@ -9,7 +9,7 @@ const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap 
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const topComponents = require("../../Buttons/topChannel/components");
 
-const TOP_CHANNEL_DIRECT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds, IDs.channels.highCmds].filter(Boolean).map(String));
+const TOP_CHANNEL_DIRECT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds].filter(Boolean).map(String));
 
 const {
   TOP_CHANNEL_REFRESH_CUSTOM_ID_PREFIX,

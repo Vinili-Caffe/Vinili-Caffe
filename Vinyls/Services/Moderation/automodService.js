@@ -572,7 +572,7 @@ function toLeetNormalized(input) {
 const WHITELISTED_WEBHOOK_IDS = new Set((Array.isArray(IDs.webhooks?.whitelist) ? IDs.webhooks.whitelist : []).filter(Boolean).map(String),);
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
 const TRUSTED_WEBHOOK_AUTHOR_IDS = new Set([IDs.bots?.DISBOARD, IDs.bots?.Discadia, IDs.bots?.VoteManager, IDs.bots?.Dyno, IDs.bots?.Wick, ...CORE_EXEMPT_USER_IDS,].filter(Boolean).map(String),);
-const EXEMPT_CHANNEL_IDS = new Set([IDs.channels.staffChat, IDs.channels.staffCmds, IDs.channels.highCmds, IDs.channels.modLogs, IDs.channels.activityLogs, IDs.channels.highChat, IDs.channels.midChat,].filter(Boolean).map(String),);
+const EXEMPT_CHANNEL_IDS = new Set([IDs.channels.staffChat, IDs.channels.staffCmds, IDs.channels.modLogs, IDs.channels.activityLogs, IDs.channels.midChat].filter(Boolean).map(String),);
 const EXEMPT_CATEGORY_IDS = new Set(["1442569074310643845"]);
 const SPAM_WHITELIST_CATEGORY_IDS = new Set([IDs?.categories?.categoryGames, "1442569074310643845",].filter(Boolean).map(String),);
 const INVITE_WHITELIST_CHANNEL_IDS = new Set([IDs?.channels?.partnerships, "1442569193470824448",].filter(Boolean).map(String),);
