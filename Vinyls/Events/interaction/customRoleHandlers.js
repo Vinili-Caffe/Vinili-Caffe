@@ -1553,6 +1553,16 @@ async function handleGrantButtons(interaction) {
     return true;
   }
 
+  await interaction.deferUpdate().catch(() => { });
+  const updateGrantMessage = async (payload) => {
+    const msg = interaction.message;
+    if (msg?.editable) {
+      await msg.edit(payload).catch(() => { });
+      return;
+    }
+    await interaction.update(payload).catch(() => { });
+  };
+
   const guild = await getClientGuildCached(interaction.client, request.guildId);
   const channel = await fetchGuildChannel(guild, request.channelId);
   const role = await fetchGuildRole(guild, request.roleId);
@@ -1601,30 +1611,26 @@ async function handleGrantButtons(interaction) {
         })
         .catch(() => { });
     }
-    await interaction
-      .update({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#e67e22")
-            .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
-            .setDescription("<:vegax:1443934876440068179> Hai rifiutato il ruolo."),
-        ],
-        components: [disabledRow],
-      })
-      .catch(() => { });
+    await updateGrantMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#e67e22")
+          .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
+          .setDescription("<:vegax:1443934876440068179> Hai rifiutato il ruolo."),
+      ],
+      components: [disabledRow],
+    });
     return true;
   }
 
   if (!guild || !channel || !role || !targetMember || !requester) {
     pendingRoleGrants.delete(token);
-    await interaction
-      .update({
-        content:
-          "<:vegax:1443934876440068179> Errore: dati richiesta non validi.",
-        embeds: [],
-        components: [disabledRow],
-      })
-      .catch(() => { });
+    await updateGrantMessage({
+      content:
+        "<:vegax:1443934876440068179> Errore: dati richiesta non validi.",
+      embeds: [],
+      components: [disabledRow],
+    });
     return true;
   }
   const me = guild.members.me || guild.members.cache.get(interaction.client.user.id);
@@ -1647,17 +1653,15 @@ async function handleGrantButtons(interaction) {
         })
         .catch(() => { });
     }
-    await interaction
-      .update({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setTitle("<:vegax:1443934876440068179> Errore")
-            .setDescription("<a:VC_Alert:1482706673176150077> Il bot non può assegnare questo ruolo."),
-        ],
-        components: [disabledRow],
-      })
-      .catch(() => { });
+    await updateGrantMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setTitle("<:vegax:1443934876440068179> Errore")
+          .setDescription("<a:VC_Alert:1482706673176150077> Il bot non può assegnare questo ruolo."),
+      ],
+      components: [disabledRow],
+    });
     return true;
   }
 
@@ -1688,17 +1692,15 @@ async function handleGrantButtons(interaction) {
         })
         .catch(() => { });
     }
-    await interaction
-      .update({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setTitle("<:vegax:1443934876440068179> Errore")
-            .setDescription("<a:VC_Alert:1482706673176150077> Il bot non è riuscito ad assegnare questo ruolo."),
-        ],
-        components: [disabledRow],
-      })
-      .catch(() => { });
+    await updateGrantMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setTitle("<:vegax:1443934876440068179> Errore")
+          .setDescription("<a:VC_Alert:1482706673176150077> Il bot non è riuscito ad assegnare questo ruolo."),
+      ],
+      components: [disabledRow],
+    });
     return true;
   }
   if (promptMsg) {
@@ -1727,17 +1729,15 @@ async function handleGrantButtons(interaction) {
       ],
     })
     .catch(() => { });
-  await interaction
-    .update({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#2ecc71")
-          .setTitle("<:success:1461731530333229226> Richiesta accettata")
-          .setDescription(`<:vegacheckmark:1443666279058772028> Hai accettato il ruolo **${role.name}**.`),
-      ],
-      components: [disabledRow],
-    })
-    .catch(() => { });
+  await updateGrantMessage({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#2ecc71")
+        .setTitle("<:success:1461731530333229226> Richiesta accettata")
+        .setDescription(`<:vegacheckmark:1443666279058772028> Hai accettato il ruolo **${role.name}**.`),
+    ],
+    components: [disabledRow],
+  });
   return true;
 }
 

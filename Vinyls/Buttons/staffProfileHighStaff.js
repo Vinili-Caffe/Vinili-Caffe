@@ -599,6 +599,9 @@ async function execute(interaction) {
       }
       await interaction.reply(base).catch(() => {});
     };
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
+    }
     const targetUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
     if (!targetUser) {
       await sendModalReply({ content: "<:vegax:1443934876440068179> Utente non trovato." });
@@ -720,7 +723,6 @@ async function execute(interaction) {
         await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
-      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
       res = await runProfileStaffCompleteDepex(guild, interaction.client, targetUser, interaction.member, reason);
     } else if (parsed.action === "depex_staff") {
       if (!reason) {

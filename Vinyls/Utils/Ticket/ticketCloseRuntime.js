@@ -42,7 +42,7 @@ function buildTicketClosedEmbed(data) {
     .setTitle("<:VC_Ticket:1482535175283019888> Ticket Chiuso")
     .setColor("#6f4e37")
     .addFields(fields.slice(0, 25))
-    .setFooter({ text: "© 2025 Vinili & Caffè. Tutti i diritti riservati." })
+    .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
     .setTimestamp();
 
   const reordered = [embed.data.fields?.[0], embed.data.fields?.[1], embed.data.fields?.[2], embed.data.fields?.[3], embed.data.fields?.[5], embed.data.fields?.[4], embed.data.fields?.[6], embed.data.fields?.[7],].filter(Boolean);

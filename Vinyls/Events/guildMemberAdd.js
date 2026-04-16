@@ -991,7 +991,7 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
             `${ARROW} **Member Punished?** ${punished ? "✅" : "❌"}`,
           ].join("\n"),
         )
-        .setFooter({ text: "© 2025 Vinili & Caffè. Tutti i diritti riservati." })
+        .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
         .setThumbnail(member.displayAvatarURL({ size: 256 }))
       : buildJoinGateTriggeredEmbed(member, reason);
     await logChannel.send({ embeds: [embed] }).catch(() => { });

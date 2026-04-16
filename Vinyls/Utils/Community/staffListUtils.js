@@ -45,6 +45,7 @@ const STAFF_GENERIC_ROLE_ID = String(IDs.roles.Staff || "");
 const STAFF_LIST_EXTRA_PM_SECTIONS = [
   { roleId: "1494089436680552638", emoji: "<:VC_SocialManager:1494287595109355580>" },
   { roleId: "1494089487863644330", emoji: "<:VC_EventManager:1494286896459681924>" },
+  { roleId: "1494329155284635668", emoji: "<:VC_Developer:1494329686983970948>" },
 ];
 const STAFF_LIST_WATCH_ROLE_IDS = Array.from(
   new Set([

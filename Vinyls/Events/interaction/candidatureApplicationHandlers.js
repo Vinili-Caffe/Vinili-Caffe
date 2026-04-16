@@ -1045,20 +1045,34 @@ async function handleCandidatureApplicationInteraction(interaction) {
     }
     candidatePexLocks.add(pexLockKey);
     try {
+      const sendPexModalReply = async (payload) => {
+        const base = { ...(payload || {}) };
+        if (base.flags == null) base.flags = 1 << 6;
+        if (interaction.deferred || interaction.replied) {
+          const editPayload = { ...base };
+          delete editPayload.flags;
+          await interaction.editReply(editPayload).catch(async () => {
+            await interaction.followUp(base).catch(() => null);
+          });
+          return;
+        }
+        await interaction.reply(base).catch(() => null);
+      };
       const reason = String(interaction.fields.getTextInputValue(APPLY_PEX_REASON_INPUT_ID) || "",).trim();
       if (!reason) {
-        await interaction.reply({
+        await sendPexModalReply({
           content: "<a:VC_Alert:1482706673176150077> Devi inserire un motivo valido.",
-          flags: 1 << 6,
-        }).catch(() => null);
+        });
         return true;
+      }
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
       }
       const srcMessage = await interaction.channel?.messages?.fetch(parsed.messageId).catch(() => null);
       const status = await applyCandidatePex(interaction.guild, interaction.user, parsed.type, parsed.userId, reason, srcMessage,);
-      await interaction.reply({
+      await sendPexModalReply({
         content: status,
-        flags: 1 << 6,
-      }).catch(() => null);
+      });
       return true;
     } finally {
       candidatePexLocks.delete(pexLockKey);

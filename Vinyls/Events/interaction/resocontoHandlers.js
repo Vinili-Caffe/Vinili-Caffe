@@ -591,6 +591,7 @@ async function handleResocontoButton(interaction) {
     await showReasonModal(interaction, payload, payload.messageId || interaction.message?.id);
     return true;
   }
+  await interaction.deferUpdate().catch(() => null);
 
   const statusText = payload.kind === "s"
     ? await applyStaffAction(interaction.guild, interaction.user, payload, autoReason || null)
@@ -606,13 +607,11 @@ async function handleResocontoButton(interaction) {
   );
   if (parsedOverride) {
     await interaction
-      .update({
+      .editReply({
         content: `<:success:1461731530333229226> Azione alternativa applicata: ${statusText}`,
         components: [],
       })
       .catch(() => null);
-  } else {
-    await interaction.deferUpdate().catch(() => null);
   }
   return true;
 }
@@ -654,6 +653,7 @@ async function handleResocontoModal(interaction) {
       .catch(() => null);
     return true;
   }
+  await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
 
   const statusText = await applyStaffAction(interaction.guild, interaction.user, parsed, reason);
   await appendOutcomeToMessage(
@@ -665,9 +665,8 @@ async function handleResocontoModal(interaction) {
     statusText,
   );
   await interaction
-    .reply({
+    .editReply({
       content: `<:success:1461731530333229226> Azione eseguita: ${statusText}`,
-      flags: 1 << 6,
     })
     .catch(() => null);
   return true;
