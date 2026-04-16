@@ -1,6 +1,6 @@
 const { safeMessageReply, safeChannelSend } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
-const { isChannelOrThreadUnderPartnersCmds } = require("../../Utils/Partner/partnersCmdsChannelUtils");
+const { isChannelOrThreadUnderPartnersChat } = require("../../Utils/Partner/partnersChatChannelUtils");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
 
 async function resolveTargetUser(message, rawArg) {
@@ -58,14 +58,14 @@ module.exports = {
       });
       return;
     }
-    const partnersCmdsChannel = isChannelOrThreadUnderPartnersCmds(message.channel);
+    const partnersChatPanel = isChannelOrThreadUnderPartnersChat(message.channel);
     const payload = await buildStaffProfilePayload(
       message.guild,
       targetUser.id,
       message.author.id,
       message.client,
       SECTION_HOME,
-      { sourceMessageId: message.id, partnersCmdsChannel },
+      { sourceMessageId: message.id, partnersChatPanel },
     );
     await safeChannelSend(message.channel, payload);
   },

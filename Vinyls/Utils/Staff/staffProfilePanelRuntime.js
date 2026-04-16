@@ -448,7 +448,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
-  const homeLabel = selectOptions.partnersCmdsHomeLabel ? "Home" : "Panoramica";
+  const homeLabel = selectOptions.partnersChatHomeLabel ? "Home" : "Panoramica";
   if (profileKind === PROFILE_PROSPECT) return null;
   if (profileKind === PROFILE_PM_ONLY) {
     const opts = [
@@ -528,16 +528,16 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const sourceMessageId = normalizeSourceMessageId(options?.sourceMessageId);
   const pmRoleId = IDs.roles.PartnerManager;
   const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
-  const partnersCmdsMode = options?.partnersCmdsChannel === true;
-  const usePartnersCmdsPmPanel = partnersCmdsMode && hasPm;
+  const partnersChatPanelMode = options?.partnersChatPanel === true;
+  const usePartnersChatPmPanel = partnersChatPanelMode && hasPm;
 
-  if (partnersCmdsMode && !hasPm) {
+  if (partnersChatPanelMode && !hasPm) {
     return {
       embeds: [
         new EmbedBuilder()
           .setColor("#992d22")
           .setDescription(
-            "<:VC_Attention:1482534443632558151> In **partner cmds** puoi consultare solo utenti con ruolo **Partner Manager**.",
+            "<:VC_Attention:1482534443632558151> In **#partners-chat** puoi consultare solo utenti con ruolo **Partner Manager**.",
           ),
       ],
       components: withCloseProfileComponents([], viewerId, tid, sourceMessageId),
@@ -563,7 +563,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
   let roleLabel = "—";
-  if (usePartnersCmdsPmPanel) {
+  if (usePartnersChatPmPanel) {
     roleLabel = pmRoleId ? guild.roles.cache.get(pmRoleId)?.name || "Partner Manager" : "Partner Manager";
   } else if (profileKind === PROFILE_FULL) {
     roleLabel = buildFullProfileRoleLabelForEmbed(guild, member);
@@ -584,13 +584,13 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   let sec = String(section || SECTION_HOME).toLowerCase();
   if (sec === LEGACY_PARTNER_LB_SECTION) sec = SECTION_HOME;
   if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
-  if (profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel) {
+  if (profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) {
     const allowedPm = new Set([SECTION_HOME, SECTION_PAUSE]);
     if (!allowedPm.has(sec)) sec = SECTION_HOME;
   }
 
   const hideValutazioniWarnForTarget = Boolean(
-    member && profileKind === PROFILE_FULL && !usePartnersCmdsPmPanel && targetIsFounderOrCoFounder(member),
+    member && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && targetIsFounderOrCoFounder(member),
   );
   if (hideValutazioniWarnForTarget && (sec === SECTION_VALUTAZIONI || sec === SECTION_WARN)) {
     sec = SECTION_HOME;
@@ -600,20 +600,20 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const canHsPartnerPoints =
     viewerCanPartnerPointsPanel &&
     (profileKind === PROFILE_PM_ONLY ||
-      usePartnersCmdsPmPanel ||
+      usePartnersChatPmPanel ||
       (profileKind === PROFILE_FULL && hasPm)) &&
     (!selfForPts || viewerIsFounderOrCoFounder(viewerMemForPanel));
   let partnerHomeRows = [];
   if (sec === SECTION_HOME && canHsPartnerPoints) {
     const vPts = String(viewerId);
-    if (usePartnersCmdsPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
+    if (usePartnersChatPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_PM_ONLY) partnerHomeRows = buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
   }
 
-  const profileKindForSelect = usePartnersCmdsPmPanel ? PROFILE_PM_ONLY : profileKind;
+  const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
-    partnersCmdsHomeLabel: usePartnersCmdsPmPanel,
+    partnersChatHomeLabel: usePartnersChatPmPanel,
     hideValutazioniWarn: hideValutazioniWarnForTarget,
   });
   const dualPmStaffDepex = profileKind === PROFILE_FULL && memberHasPmAndStaffLadderForDualDepex(member);
@@ -624,7 +624,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     viewerIsHighStaff,
     profileKind,
     viewerMemForPanel,
-    usePartnersCmdsPmPanel,
+    usePartnersChatPmPanel,
     member,
   )
     ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId)
@@ -633,7 +633,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (
     sec === SECTION_HOME &&
     profileKind === PROFILE_FULL &&
-    !usePartnersCmdsPmPanel &&
+    !usePartnersChatPmPanel &&
     String(viewerId) !== tid &&
     viewerCanFullDepex &&
     !viewerIsHighStaff
@@ -649,7 +649,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     );
   }
 
-  if ((profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel) && sec === SECTION_HOME) {
+  if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = resolveStaffPartnerPointsDisplay(s);
     const pmHomeDesc = [
@@ -659,7 +659,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       "",
       `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
     ].join("\n");
-    const pmTitle = usePartnersCmdsPmPanel
+    const pmTitle = usePartnersChatPmPanel
       ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
       : `<:VC_addperson:1485419347068588073> Profilo Staff ${name}`;
     return {
@@ -708,7 +708,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === SECTION_PAUSE) {
     const targetUserObj = targetUser || { id: tid, username: name };
     const pauseRoleFilter =
-      profileKind === PROFILE_PM_ONLY || usePartnersCmdsPmPanel ? "pm" : undefined;
+      profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel ? "pm" : undefined;
     const listPayload = await buildPauseListPayload({
       guildId: gid,
       requesterId: String(viewerId),
