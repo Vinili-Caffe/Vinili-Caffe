@@ -57,6 +57,19 @@ function isMainGuild(guildId) {
   return Boolean(MAIN_GUILD_ID) && String(guildId || "") === String(MAIN_GUILD_ID);
 }
 
+function channelMatchesPolicyChannelList(channel, policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (!ids.length) return false;
+  const ch = channel;
+  if (!ch?.id) return false;
+  if (ids.includes(String(ch.id))) return true;
+  if (typeof ch.isThread === "function" && ch.isThread()) {
+    const parent = String(ch.parentId || "");
+    return Boolean(parent && ids.includes(parent));
+  }
+  return false;
+}
+
 const VERIFY_OR_TICKET_IDS = new Set(["verify_start", "verify_enter", "ticket_partnership", "ticket_highstaff", "ticket_supporto", "claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo", "ticket_open_menu","ticket_panel_add_member","ticket_panel_remove_member","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_nav_add","ticket_panel_nav_remove","ticket_panel_nav_switch","ticket_panel_nav_rename","ticket_panel_nav_closerequest","ticket_panel_nav_transfer","ticket_panel_reopen_pick","modal_ticket_panel_rename","modal_ticket_panel_closerequest",]);
 function isBackupInteraction(customId) {
   const id = String(customId || "").trim();
@@ -691,8 +704,10 @@ async function checkSlashPermission(interaction, options = {}) {
   const channelPolicy = resolveSlashCommandChannels(data, String(interaction.commandName || "").toLowerCase(), group, sub) ?? resolveCommandChannelPolicy(data, buildSlashLookupKeys(interaction.commandName, group, sub));
   const bypassChannelPolicyForAntiNuke = String(interaction?.commandName || "").toLowerCase() === "antinuke";
   if (Array.isArray(channelPolicy) && channelPolicy.length > 0 && !bypassChannelPolicyForAntiNuke) {
-    const channelId = interaction?.channelId || interaction?.channel?.id || null;
-    const allowed = Boolean(channelId) && channelPolicy.includes(String(channelId));
+    const ch = interaction?.channel;
+    const allowed = ch
+      ? channelMatchesPolicyChannelList(ch, channelPolicy)
+      : Boolean(interaction?.channelId) && channelPolicy.includes(String(interaction.channelId));
     if (!allowed) {
       if (options.returnDetails) {
         return {
@@ -773,8 +788,10 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   const channelPolicy = resolvePrefixCommandChannels(data, safeCommand, subcommandName) ?? resolveCommandChannelPolicy(data, buildPrefixLookupKeys(commandName, subcommandName));
   const bypassChannelPolicyForAntiNuke = safeCommand === "antinuke";
   if (Array.isArray(channelPolicy) && channelPolicy.length > 0 && !bypassChannelPolicyForAntiNuke) {
-    const channelId = message?.channelId || message?.channel?.id || null;
-    const allowed = Boolean(channelId) && channelPolicy.includes(String(channelId));
+    const ch = message?.channel;
+    const allowed = ch
+      ? channelMatchesPolicyChannelList(ch, channelPolicy)
+      : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
     if (!allowed) {
       if (options.returnDetails) {
         return {
@@ -1010,8 +1027,10 @@ async function checkButtonPermission(interaction) {
   const hasChannelConstraint = Array.isArray(policy.channels) && policy.channels.length > 0;
   let channelPass = true;
   if (hasChannelConstraint) {
-    const chId = String(interaction?.channelId || interaction?.channel?.id || "");
-    channelPass = Boolean(chId && policy.channels.includes(chId));
+    const ch = interaction?.channel;
+    channelPass = ch
+      ? channelMatchesPolicyChannelList(ch, policy.channels)
+      : Boolean(interaction?.channelId) && policy.channels.includes(String(interaction.channelId));
   }
   if (hasChannelConstraint && !channelPass) {
     return {
@@ -1171,8 +1190,10 @@ async function checkStringSelectPermission(interaction) {
   const hasChannelConstraint = Array.isArray(policy.channels) && policy.channels.length > 0;
   let channelPass = true;
   if (hasChannelConstraint) {
-    const chId = String(interaction?.channelId || interaction?.channel?.id || "");
-    channelPass = Boolean(chId && policy.channels.includes(chId));
+    const ch = interaction?.channel;
+    channelPass = ch
+      ? channelMatchesPolicyChannelList(ch, policy.channels)
+      : Boolean(interaction?.channelId) && policy.channels.includes(String(interaction.channelId));
   }
   if (hasChannelConstraint && !channelPass) {
     return {
@@ -1344,8 +1365,10 @@ async function checkModalPermission(interaction) {
   const hasChannelConstraint = Array.isArray(policy.channels) && policy.channels.length > 0;
   let channelPass = true;
   if (hasChannelConstraint) {
-    const chId = String(interaction?.channelId || interaction?.channel?.id || "");
-    channelPass = Boolean(chId && policy.channels.includes(chId));
+    const ch = interaction?.channel;
+    channelPass = ch
+      ? channelMatchesPolicyChannelList(ch, policy.channels)
+      : Boolean(interaction?.channelId) && policy.channels.includes(String(interaction.channelId));
   }
   if (hasChannelConstraint && !channelPass) {
     return {

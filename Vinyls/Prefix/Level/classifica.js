@@ -6,6 +6,7 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Int
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const { isChannelOrThreadUnderPartnersCmds } = require("../../Utils/Partner/partnersCmdsChannelUtils");
 const TOP_LIMIT = 10;
 const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const CLASSIFICA_TOGGLE_PREFIX = "classifica_toggle:";
@@ -485,8 +486,7 @@ module.exports = {
 
   async execute(message) {
     await message.channel.sendTyping();
-    const channelId = String(message.channel?.id || "");
-    if (channelId && channelId === String(IDs.channels?.partnersCmds || "")) {
+    if (isChannelOrThreadUnderPartnersCmds(message.channel)) {
       const { buildPartnerLeaderboardPayload } = require("../../Utils/Partner/partnerLeaderboardRuntime");
       const partnerPayload = await buildPartnerLeaderboardPayload(message.client, message.guild, "settimanale", 1);
       await safeMessageReply(message, {

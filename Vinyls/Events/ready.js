@@ -17,6 +17,7 @@ const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("..
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
 const { startPartnershipChannelCleanupLoop } = require("../Services/Partner/partnershipChannelCleanupService");
+const { startPartnerPmDailyThreadLoop } = require("../Services/Partner/partnerPmDailyThreadService");
 const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../Services/Ticket/ticketMaintenanceService");
 const { startAutoBackupLoop } = require("../Services/Backup/autoBackupService");
 const { startModCaseLifecycleLoop } = require("../Services/Moderation/modCaseLifecycleService");
@@ -667,6 +668,11 @@ module.exports = {
         startPartnershipChannelCleanupLoop(client);
       } catch (err) {
         global.logger?.error?.("[PARTNERSHIP CHANNEL CLEANUP ERROR]", err);
+      }
+      try {
+        startPartnerPmDailyThreadLoop(client);
+      } catch (err) {
+        global.logger?.error?.("[PARTNER PM DAILY THREAD ERROR]", err);
       }
     }
 

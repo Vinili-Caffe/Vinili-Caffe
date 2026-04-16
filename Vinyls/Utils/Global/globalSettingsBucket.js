@@ -93,6 +93,26 @@ async function removePartnershipBlacklistGuildBucket(guildId) {
   return { ok: true, deleted: before > next.length, guildId: g };
 }
 
+async function getPartnerPmDailyThreadId() {
+  const coll = getCollection();
+  if (!coll || mongoose.connection?.readyState !== 1) return null;
+  await ensureBucketArrays();
+  const doc = await coll.findOne({ _counterKey: TICKET_COUNTER_KEY }, { projection: { partnerPmDailyThreadId: 1 } });
+  const id = doc?.partnerPmDailyThreadId;
+  return id != null && String(id).trim() !== "" ? String(id).trim() : null;
+}
+
+async function setPartnerPmDailyThreadId(threadId) {
+  const coll = getCollection();
+  if (!coll) return;
+  await ensureBucketArrays();
+  const id = threadId != null && String(threadId).trim() !== "" ? String(threadId).trim() : null;
+  await coll.updateOne(
+    { _counterKey: TICKET_COUNTER_KEY },
+    id ? { $set: { partnerPmDailyThreadId: id } } : { $unset: { partnerPmDailyThreadId: "" } },
+  );
+}
+
 async function listPartnershipBlacklistGuildsBucket(limit = 50) {
   const safe = Math.max(1, Math.min(100, Number(limit) || 50));
   const arr = await getPartnershipBlacklistEntries();
@@ -271,4 +291,6 @@ module.exports = {
   addPartnershipBlacklistGuildBucket,
   removePartnershipBlacklistGuildBucket,
   listPartnershipBlacklistGuildsBucket,
+  getPartnerPmDailyThreadId,
+  setPartnerPmDailyThreadId,
 };
