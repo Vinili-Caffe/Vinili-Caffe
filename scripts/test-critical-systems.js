@@ -135,7 +135,9 @@ function run(root) {
     assert(typeof explainDecision === "function", "automod __test buildAutoModDecisionExplain mancante");
     const explainText = explainDecision("timeout", 120, [{ key: "link_blacklist", heat: 100 }, { key: "attachment_image", heat: 20 }]);
     assert(
-      typeof explainText === "string" && explainText.includes("timeout") && explainText.includes("top_rules="),
+      typeof explainText === "string" &&
+        explainText.includes("timeout") &&
+        (explainText.includes("pesi violazioni:") || explainText.includes("top_rules=")),
       "automod decision explain non valido",
     );
   }

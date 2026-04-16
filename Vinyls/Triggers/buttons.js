@@ -13,27 +13,7 @@ const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, RO
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
-
-/** Testo regolamento (allineato a info_rules) per embed sanzioni guida staff */
-const MOD_RULE_DETAIL = {
-  "1.1": "**Rispettare** i [__ToS__](https://discord.com/terms) e le [__Linee Guida__](https://discord.com/guidelines) di Discord.",
-  "1.2": "**Non discriminare nessuno**, non accettiamo nessuna forma di razzismo, fascismo, omofobia. È __vietato__ **scrivere** o **dire** la `f-word` e la `n-word`.",
-  "1.3": "**Rispettare** gli __utenti__ e lo __staff__ del server.",
-  "1.4": "È __vietato__ **auto - promuoversi**.",
-  "1.5": "È __vietato__ **uscire** e **rientrare** continuamente dal server.",
-  "2.1": "È __vietato__ inviare **file** **gore**, **NSFW** o **dati sensibili** di un utente.",
-  "2.2": "È __vietato__ avere **comportamenti toxic** o **troll** che conducono al flame.",
-  "2.3": "È __vietato__ inviare **link** contenenti virus, grabber, sponsor o social.",
-  "2.4": "È __vietato__ inviare **flood** o **Wall Of Text** che intasano la chat.",
-  "2.5": "È __vietato__ abusare di **parolacce**, **bestemmie** e ogni tipo di **insulto** a **divinità**.",
-  "3.1": "È __vietato__ mostrare contenuti **gore**, **NSFW** o **dati sensibili** di un utente.",
-  "3.2": "È __vietato__ avere **comportamenti toxic** o **troll** che conducono al flame.",
-  "3.3": "È __vietato__ **disconnettere il bot** o cambiare musica mentre un utente sta ascoltando una canzone tramite il bot.",
-  "3.4": "È __vietato__ utilizzare **SoundBoard** o qualunque tipo di **VoiceChanger**.",
-  "3.5": "È __vietato__ **urlare** o fare **errori** col microfono.",
-  "3.6": "È __vietato__ abusare di **parolacce**, **bestemmie** e ogni tipo di **insulto** a **divinità**.",
-  "3.7": "È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
-};
+const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
 
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];

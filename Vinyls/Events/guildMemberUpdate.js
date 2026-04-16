@@ -15,6 +15,11 @@ const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGra
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
+const {
+  shouldSendPublicMemberAnnouncement,
+  verificationRoleAddedBetween,
+} = require("../Utils/Community/memberPublicAnnouncementGate");
+const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -194,6 +199,8 @@ async function sendMemberUpdateLog(oldMember, newMember) {
     if (hadTimeout && !hasTimeout) await sendTimeoutRemovedModLog(oldMember, newMember);
   }
 
+  if (!(await shouldSendPublicMemberAnnouncement(newMember))) return;
+
   const logChannel = await resolveActivityLogChannel(guild);
   if (!logChannel?.isTextBased?.()) return;
 
@@ -283,8 +290,11 @@ async function sendMemberRoleUpdateLog(oldMember, newMember) {
   const executorId = String(audit?.executor?.id || "");
   if (shouldSkipRoleUpdateLog(guild.id, newMember.id, additions, removals)) return;
 
+  const allowPublicAnn = await shouldSendPublicMemberAnnouncement(newMember);
+  const gainingVerify = verificationRoleAddedBetween(oldMember, newMember);
+
   const logChannel = await resolveChannelRolesLogChannel(guild);
-  if (logChannel?.isTextBased?.()) {
+  if (logChannel?.isTextBased?.() && (allowPublicAnn || gainingVerify)) {
     const lines = [
       `${ARROW} **Responsible:** ${responsible}`,
       `${ARROW} **Target:** ${newMember.user} \`${newMember.user.id}\``,
@@ -1070,6 +1080,14 @@ module.exports = {
   async execute(oldMember, newMember, client) {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;
+      if (
+        String(newMember.guild.id) === String(IDs.guilds?.main || "") &&
+        verificationRoleAddedBetween(oldMember, newMember)
+      ) {
+        await runDeferredJoinAnnouncements(newMember).catch((err) => {
+          global.logger?.warn?.("[guildMemberUpdate] deferred join announce:", newMember.guild.id, newMember.id, err?.message || err);
+        });
+      }
       await sendMemberUpdateLog(oldMember, newMember);
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);

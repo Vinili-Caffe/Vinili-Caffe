@@ -8,6 +8,7 @@ const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Commu
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt, } = require("../Services/Moderation/joinGateExemptUtils");
+const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
@@ -1106,8 +1107,7 @@ async function sendDmWelcome(member) {
   } catch (err) {
     if (isUserDmUnavailableError(err)) return;
     global.logger.warn(
-      `[guildMemberAdd] Could not send DM to ${member.user.tag}:`,
-      err.message,
+      `[guildMemberAdd] Could not send DM to ${member.user.tag}: ${err?.message || err}${err?.code != null ? ` [${err.code}]` : ""}`,
     );
   }
 }
@@ -1263,9 +1263,84 @@ async function maybeSendInviteNearRewardReminder(member, info) {
   ).catch(() => null);
 }
 
+async function markJoinAnnouncePending(member) {
+  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
+  if (member.user?.bot) return;
+  const guildId = String(member.guild.id);
+  const userId = String(member.id);
+  await ActivityUserProfile.updateOne(
+    { guildId, userId },
+    { $setOnInsert: { guildId, userId }, $set: { "profile.joinAnnouncePending": true } },
+    { upsert: true },
+  ).catch(() => null);
+}
+
+async function clearJoinAnnouncePending(member) {
+  if (!member?.guild?.id || !member?.id) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: String(member.guild.id), userId: String(member.id) },
+    { $unset: { "profile.joinAnnouncePending": "" } },
+  ).catch(() => null);
+}
+
+async function runDeferredJoinAnnouncements(member) {
+  if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
+  const guildId = String(member.guild.id);
+  const userId = String(member.id);
+  const cleared = await ActivityUserProfile.updateOne(
+    { guildId, userId, "profile.joinAnnouncePending": true },
+    { $unset: { "profile.joinAnnouncePending": "" } },
+  ).catch(() => ({ modifiedCount: 0 }));
+  if (!Number(cleared?.modifiedCount)) return;
+
+  const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
+  if (!fresh?.user) return;
+
+  const welcomeChannelId = IDs.channels.chat;
+  let welcomeChannel = await resolveGuildChannel(fresh.guild, welcomeChannelId);
+  if (!welcomeChannel && fresh.client) {
+    const mainGuild = await getClientGuildCached(fresh.client, IDs.guilds.main);
+    welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
+  }
+  if (!welcomeChannel) {
+    try {
+      const fetched = await fresh.guild.channels.fetch(String(welcomeChannelId)).catch(() => null);
+      if (fetched?.isTextBased?.()) welcomeChannel = fetched;
+    } catch (_) {}
+  }
+
+  const info = await resolveInviteInfo(fresh).catch(() => null);
+
+  if (welcomeChannel) {
+    await welcomeChannel
+      .send(applyDefaultFooterToEmbeds({
+        content: `Ciao ${fresh.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+        embeds: [buildWelcomeEmbed(fresh)],
+      }, fresh.guild))
+      .catch(() => { });
+
+    if (fresh.client) setWelcomeContextActive(fresh.guild.id, fresh.client);
+    await announceInviteInfo(fresh, welcomeChannel, info);
+  }
+
+  if (info && !info.isVanity && info.inviterId) {
+    await trackInviteJoin(fresh, info.inviterId).catch(() => { });
+  }
+  await maybeSendInviteNearRewardReminder(fresh, info);
+  await maybeSendInviteReward(fresh, info);
+
+  await sendJoinLog(fresh).catch(() => { });
+  await sendDmWelcome(fresh).catch(() => { });
+
+  if (fresh.guild?.id === IDs.guilds.main && fresh.client && memberHasStaffRole(fresh)) {
+    scheduleStaffListRefresh(fresh.client, fresh.guild.id);
+  }
+}
+
 module.exports = {
   name: "guildMemberAdd",
   kickForJoinGate,
+  runDeferredJoinAnnouncements,
   matchUsernameFilters,
   getJoinGateNameCandidate,
   async execute(member) {
@@ -1402,7 +1477,12 @@ module.exports = {
       }
 
       let info = null;
+      let canAnnounce = true;
       if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        canAnnounce = await shouldSendPublicMemberAnnouncement(member);
+        if (!canAnnounce) await markJoinAnnouncePending(member);
+        else await clearJoinAnnouncePending(member);
+
         const welcomeChannelId = IDs.channels.chat;
         let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
         if (!welcomeChannel && member.client) {
@@ -1437,7 +1517,7 @@ module.exports = {
           }
         }
 
-        if (welcomeChannel) {
+        if (welcomeChannel && canAnnounce) {
           await welcomeChannel
             .send(applyDefaultFooterToEmbeds({
               content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
@@ -1457,14 +1537,16 @@ module.exports = {
           try {
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
-            await sendJoinLog(member);
-            await sendDmWelcome(member);
+            if (canAnnounce) {
+              await sendJoinLog(member);
+              await sendDmWelcome(member);
 
-            if (info && !info.isVanity && info.inviterId) {
-              await trackInviteJoin(member, info.inviterId).catch(() => { });
+              if (info && !info.isVanity && info.inviterId) {
+                await trackInviteJoin(member, info.inviterId).catch(() => { });
+              }
+              await maybeSendInviteNearRewardReminder(member, info);
+              await maybeSendInviteReward(member, info);
             }
-            await maybeSendInviteNearRewardReminder(member, info);
-            await maybeSendInviteReward(member, info);
 
             if (member.guild?.id === IDs.guilds.main && member.client && memberHasStaffRole(member)) {
               scheduleStaffListRefresh(member.client, member.guild.id);

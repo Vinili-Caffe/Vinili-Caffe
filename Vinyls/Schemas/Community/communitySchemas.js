@@ -281,6 +281,8 @@ const activityUserProfileSchema = new Schema(
         lastAction: { type: String, default: null },
         activeStrikeReasons: { type: [String], default: [] },
         reasons: { type: [String], default: [] },
+        /** Conteggio timeout AutoMod per famiglia regola (chiavi tipo "2_4") */
+        regolaTimeoutStrikes: { type: Schema.Types.Mixed, default: {} },
       },
       /** Storico case compact. */
       modCases: { type: [modCaseEntrySchema], default: [] },

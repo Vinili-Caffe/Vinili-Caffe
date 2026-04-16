@@ -9,6 +9,14 @@ const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { automodBadUser } = require("../../Utils/Community/activityUserProfilePaths");
+const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
+const {
+  pickPrimaryAutomodRegolaBucket,
+  getAutomodRegolaSanction,
+  formatRegolaDotFromBucket,
+  buildAutomodRegolaSummaryLine,
+  violationKeyLabelIt,
+} = require("../../Utils/Moderation/modRegolamentoConstants");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -1019,6 +1027,46 @@ function isBadUserProfileStale(profile, at = nowMs()) {
   return at - lastActionAt > AUTO_TIMEOUT_PROFILE_RESET_MS;
 }
 
+function isSafeRegolaBucketId(bucketId) {
+  const b = String(bucketId || "").trim();
+  return /^[0-9]+_[0-9]+$/.test(b) && b.length <= 12;
+}
+
+async function getRegolaTimeoutStrikeCount(userId, bucketId) {
+  if (!isSafeRegolaBucketId(bucketId) || !isDbReady()) return 0;
+  const uid = String(userId || "").trim();
+  if (!isValidGuildUserId(ACTIVITY_MAIN_GUILD_ID, uid)) return 0;
+  try {
+    const doc = await ActivityUserProfile.findOne(
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId: uid },
+      { _id: 0, moderation: 1 },
+    )
+      .lean()
+      .catch(() => null);
+    const strikes = doc?.moderation?.automodBadUser?.regolaTimeoutStrikes || {};
+    return Math.max(0, Math.min(100, Number(strikes[String(bucketId)] || 0)));
+  } catch {
+    return 0;
+  }
+}
+
+async function incrementRegolaTimeoutStrike(userId, bucketId) {
+  if (!isSafeRegolaBucketId(bucketId) || !isDbReady()) return;
+  const uid = String(userId || "").trim();
+  if (!isValidGuildUserId(ACTIVITY_MAIN_GUILD_ID, uid)) return;
+  const path = `${automodBadUser("regolaTimeoutStrikes")}.${String(bucketId).trim()}`;
+  try {
+    await ActivityUserProfile.updateOne(
+      { guildId: ACTIVITY_MAIN_GUILD_ID, userId: uid },
+      { $inc: { [path]: 1 } },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+    BAD_USER_CACHE.delete(uid);
+  } catch (err) {
+    global.logger?.warn?.("[automod] ", err?.message || err);
+  }
+}
+
 async function getBadUserProfile(userId, guildId = "") {
   const cached = getCachedBadUser(userId);
   if (cached !== undefined) {
@@ -1085,11 +1133,26 @@ async function getBadUserProfile(userId, guildId = "") {
 
     const at = nowMs();
     const stale = isBadUserProfileStale(row, at);
-    const normalized = { ...row, warnPoints: stale ? 0 : Math.max(0, Number(row.warnPoints || 0)), activeStrikes: stale ? 0 : Math.max(0, Number(row.activeStrikes || 0)), activeStrikeReasons: stale ? [] : (Array.isArray(row.activeStrikeReasons) ? row.activeStrikeReasons : []), };
+    const regolaRaw = row.regolaTimeoutStrikes;
+    const hadRegolaStrikes =
+      regolaRaw &&
+      typeof regolaRaw === "object" &&
+      Object.keys(regolaRaw).some((k) => Number(regolaRaw[k] || 0) > 0);
+    const regolaTimeoutStrikes =
+      stale || typeof regolaRaw !== "object" || regolaRaw === null ? {} : { ...regolaRaw };
+    const normalized = {
+      ...row,
+      warnPoints: stale ? 0 : Math.max(0, Number(row.warnPoints || 0)),
+      activeStrikes: stale ? 0 : Math.max(0, Number(row.activeStrikes || 0)),
+      activeStrikeReasons: stale ? [] : (Array.isArray(row.activeStrikeReasons) ? row.activeStrikeReasons : []),
+      regolaTimeoutStrikes,
+    };
 
     if (
       stale &&
-      (Number(row.warnPoints || 0) > 0 || Number(row.activeStrikes || 0) > 0) &&
+      (Number(row.warnPoints || 0) > 0 ||
+        Number(row.activeStrikes || 0) > 0 ||
+        hadRegolaStrikes) &&
       (!guildId || !isExtraOwner(String(guildId), String(userId)))
     ) {
       ActivityUserProfile.updateOne(
@@ -1099,6 +1162,7 @@ async function getBadUserProfile(userId, guildId = "") {
             [automodBadUser("warnPoints")]: 0,
             [automodBadUser("activeStrikes")]: 0,
             [automodBadUser("activeStrikeReasons")]: [],
+            [automodBadUser("regolaTimeoutStrikes")]: {},
           },
         },
       ).catch(() => { });
@@ -1150,6 +1214,7 @@ async function markBadUserAction(message, action, violations = []) {
   if (normalizedAction === "warn") inc.warnPoints = 1;
   if (
     normalizedAction === "timeout" ||
+    normalizedAction === "ban" ||
     normalizedAction === "delete" ||
     normalizedAction === "delete_webhook"
   ) {
@@ -2248,9 +2313,11 @@ function truncateText(input, max = 700) {
 }
 
 function firstViolationLabel(violations = []) {
-  const key = String(violations?.[0]?.key || "unknown");
-  const labels = { regular_message: "Sending too many messages", suspicious_account: "Suspicious account message", similar_message: "Sending similar messages", emoji_spam: "Using too many emojis", new_lines: "Using too many newlines", zalgo: "Using zalgo characters", characters: "Using too many characters", invite: "Posting Discord Server Invites", scam_pattern: "Posting malicious/scam links", nsfw_link: "Posting NSFW links", word_blacklist: "Using blacklisted words", link_blacklist: "Posting blacklisted links", mention_user: "Mention spam (@user)", mention_role: "Mention spam (@role)", mention_everyone: "Mention spam (@everyone/@here)", mention_hour_cap: "Too many mentions in 1h", mentions_lockdown: "Mentions lockdown trigger", attachment_embed: "Embed spam", attachment_image: "Image spam", attachment_file: "File spam", attachment_link: "Link spam", attachment_sticker: "Sticker spam", unwhitelisted_webhook: "Unwhitelisted webhook message", panic_mode: "Panic mode active", };
-  return labels[key] || key.replace(/_/g, " ");
+  const v0 = violations?.[0];
+  const key = String(v0?.key || "unknown");
+  const base = violationKeyLabelIt(key);
+  const info = v0?.info ? ` (${v0.info})` : "";
+  return `${base}${info}`;
 }
 
 function formatDurationShort(ms) {
@@ -2265,25 +2332,31 @@ function buildAutoModDecisionExplain(action, heatValue, violations = [], context
   const topRules = (Array.isArray(violations) ? violations : []).map((v) => ({ key: String(v?.key || "unknown"), heat: Number(v?.heat || 0), })).sort((a, b) => b.heat - a.heat).slice(0, 3).map((v) => Number.isFinite(v.heat) && v.heat > 0 ? `${v.key}:${v.heat.toFixed(1)}`
     : v.key,
   );
-  const topRulesText = topRules.length ? topRules.join(" | ") : "n/a";
+  const topRulesText = topRules.length ? topRules.join(" | ") : "n/d";
   const thresholds = getThresholdsForProfile(context?.profile || null);
-  const reason = normalizedAction === "timeout" ? `heat >= timeout (${heat.toFixed(1)}>=${Number(thresholds.timeout || 0).toFixed(1)})`
+  const reason = normalizedAction === "timeout" ? `calore ≥ soglia timeout (${heat.toFixed(1)} ≥ ${Number(thresholds.timeout || 0).toFixed(1)})`
+    : normalizedAction === "ban"
+      ? `ban (regolamento / severità; calore ${heat.toFixed(1)})`
     : normalizedAction === "delete" || normalizedAction === "delete_webhook"
-      ? `heat>=delete(${heat.toFixed(1)}>=${Number(thresholds.delete || 0).toFixed(1)})`
+      ? `calore ≥ rimozione (${heat.toFixed(1)} ≥ ${Number(thresholds.delete || 0).toFixed(1)})`
       : normalizedAction === "warn"
-        ? `heat>=warn(${heat.toFixed(1)}>=${Number(thresholds.warn || 0).toFixed(1)})`
-        : `action=${normalizedAction || "unknown"}heat=${heat.toFixed(1)}`;
-  return `${reason}; top_rules=${topRulesText}`;
+        ? `calore ≥ avviso (${heat.toFixed(1)} ≥ ${Number(thresholds.warn || 0).toFixed(1)})`
+        : `azione=${normalizedAction || "sconosciuta"} calore=${heat.toFixed(1)}`;
+  const regolaLine = truncateText(buildAutomodRegolaSummaryLine(violations), 240);
+  const regolaBit = regolaLine ? ` | regolamento: ${regolaLine}` : "";
+  return `${reason}; pesi violazioni: ${topRulesText}${regolaBit}`;
 }
 
 function buildAutoModCaseReason(action, violations = [], context = {}) {
   const keys = Array.isArray(violations) ? violations.map((v) => String(v?.key || "").trim()).filter(Boolean).slice(0, 6) : [];
-  const rules = keys.length ? keys.join(", ") : "unknown";
+  const rules = keys.length ? keys.join(", ") : "sconosciuto";
   const timeoutText = context?.timeoutMs ? ` | timeout ${formatDuration(context.timeoutMs)}`
     : "";
   const snippetRaw = String(context?.content || "").trim();
   const snippet = snippetRaw ? ` | msg: ${truncateText(snippetRaw, 120)}` : "";
-  return `[AUTOMOD] ${String(action || "action").toUpperCase()} | rules: ${rules}${timeoutText}${snippet}`;
+  const regolaLine = truncateText(buildAutomodRegolaSummaryLine(violations), 280);
+  const regolaBit = regolaLine ? ` | regolamento: ${regolaLine}` : "";
+  return `[AUTOMOD] ${String(action || "azione").toUpperCase()} | filtri: ${rules}${timeoutText}${regolaBit}${snippet}`;
 }
 
 async function registerAutoModCase(message, action, violations = [], context = {}) {
@@ -2293,7 +2366,7 @@ async function registerAutoModCase(message, action, violations = [], context = {
     const modId = String(message?.client?.user?.id || "");
     if (!guild?.id || !userId || !modId) return null;
     const normalizedAction = String(action || "").trim().toLowerCase();
-    const mappedAction = normalizedAction === "timeout" ? "MUTE" : normalizedAction === "warn" ? "WARN" : "DELETE";
+    const mappedAction = normalizedAction === "timeout" ? "MUTE" : normalizedAction === "ban" ? "BAN" : normalizedAction === "warn" ? "WARN" : "DELETE";
     const durationMs = mappedAction === "MUTE" && Number(context?.timeoutMs) > 0 ? Number(context.timeoutMs) : null;
     const reason = buildAutoModCaseReason(action, violations, { timeoutMs: durationMs, content: message?.content || "", });
     const config = await getModConfig(guild.id);
@@ -2319,16 +2392,17 @@ async function sendAutomodActionInChannel(message, action, violations, context =
   const lastSentAt = ACTION_CHANNEL_LOG_COOLDOWN.get(cooldownKey) || 0;
   if (nowMs() - lastSentAt < ACTION_CHANNEL_LOG_COOLDOWN_MS) return;
   ACTION_CHANNEL_LOG_COOLDOWN.set(cooldownKey, nowMs());
-  const durationLabel = context.timeoutMs ? ` for ${formatDurationShort(context.timeoutMs)}`
+  const durationLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
     : "";
-  const title = action === "timeout" ? `${message.author.username} has been timed out${durationLabel}`
+  const title = action === "timeout" ? `${message.author.username}: timeout${durationLabel}`
+    : action === "ban" ? `${message.author.username}: ban dal server (AutoMod)`
     : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}'s message has been removed` : `${message.author.username} has been warned`;
+      ? `${message.author.username}: messaggio rimosso dall’AutoMod` : `${message.author.username}: avviso AutoMod`;
 
   const embed = new EmbedBuilder()
-    .setColor(action === "timeout" ? "#f4d35e" : action === "delete" || action === "delete_webhook" ? "#f59e0b" : "#5865f2",)
+    .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#f4d35e" : action === "delete" || action === "delete_webhook" ? "#f59e0b" : "#5865f2",)
     .setTitle(title)
-    .setDescription([`${ARROW} **Reason:** ${reason}`].join("\n"))
+    .setDescription([`${ARROW} **Motivo:** ${reason}`].join("\n"))
     .setFooter({ text: `${message.author.username} | ${message.author.id}` });
 
   const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
@@ -2348,29 +2422,32 @@ async function sendAutomodLog(message, action, violations, heatValue, context = 
   const preview = truncateText(message.content, 160);
   const fullMessage = truncateText(message.content, 800);
   const shouldShowFullMessage = Boolean(fullMessage) && String(fullMessage) !== String(preview) && String(message.content || "").trim().length > 160;
-  const timeoutLabel = context.timeoutMs ? ` for ${formatDurationShort(context.timeoutMs)}`
+  const timeoutLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
     : "";
-  const actionHeadline = action === "timeout" ? `${message.author.username} has been timed out${timeoutLabel}!`
+  const actionHeadline = action === "timeout" ? `${message.author.username}: timeout AutoMod${timeoutLabel}`
+    : action === "ban" ? `${message.author.username}: ban dal server (AutoMod)`
     : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}'s message has been removed!` : `${message.author.username} has triggered AutoMod!`;
+      ? `${message.author.username}: messaggio rimosso (AutoMod)` : `${message.author.username}: avviso AutoMod`;
 
+  const regolaSummary = truncateText(buildAutomodRegolaSummaryLine(violations), 400);
   const embed = new EmbedBuilder()
-    .setColor(action === "timeout" ? "#ED4245" : action === "delete" || action === "delete_webhook" ? "#F59E0B" : "#5865F2",)
+    .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#ED4245" : action === "delete" || action === "delete_webhook" ? "#F59E0B" : "#5865F2",)
     .setTitle(actionHeadline)
     .setDescription([
-      `<a:VC_Alert:1482706673176150077> **Automod Filter:** ${primaryFilter}`,
-      `<:channeltext:1443247596922470551> **Channel:** ${message.channel} [\`${message.channelId}\`]`, preview ? `<:VC_Chat:1482532573002465413> **Message:** ${preview}`
+      `<a:VC_Alert:1482706673176150077> **Filtro:** ${primaryFilter}`,
+      regolaSummary ? `<:VC_reason:1478517122929004544> **Regolamento (riferimento):** ${regolaSummary}` : null,
+      `<:channeltext:1443247596922470551> **Canale:** ${message.channel} [\`${message.channelId}\`]`, preview ? `<:VC_Chat:1482532573002465413> **Messaggio:** ${preview}`
         : null,
       "",
       shouldShowFullMessage ? `*${fullMessage}*` : null,
       "",
-      `<:member_role_icon:1330530086792728618> **Member:** ${message.author} [\`${message.author.id}\`]`, `<a:VC_Alarm:1482706641618079816> **Heat:** ${Number(heatValue || 0).toFixed(1)}`,
+      `<:member_role_icon:1330530086792728618> **Utente:** ${message.author} [\`${message.author.id}\`]`, `<a:VC_Alarm:1482706641618079816> **Calore (heat):** ${Number(heatValue || 0).toFixed(1)}`,
       context.timeoutMs
         ? `<:VC_Clock:1473359204189474886> **Timeout:** ${formatDurationShort(context.timeoutMs,)}`
         : null,
-      `<:VC_BanHammer:1482534474502897795> **Decision:** ${buildAutoModDecisionExplain(action, heatValue, violations, context,)}`,
+      `<:VC_BanHammer:1482534474502897795> **Decisione:** ${buildAutoModDecisionExplain(action, heatValue, violations, context,)}`,
       violations?.length
-        ? `<:VC_reason:1478517122929004544> **Rules:** ${violations.map((v) => `\`${v.key}\`${v.info ? ` (${v.info})` : ""}`).join(", ")}`
+        ? `<:VC_reason:1478517122929004544> **Violazioni tecniche:** ${violations.map((v) => `\`${v.key}\`${v.info ? ` (${v.info})` : ""}`).join(", ")}`
         : null,
     ]
       .filter(Boolean)
@@ -2467,33 +2544,130 @@ async function deleteMessage(message, state, violations) {
   return true;
 }
 
-async function timeoutMember(message, state, violations, options = {}) {
-  if (!AUTO_TIMEOUTS_ENABLED) return false;
+async function banMemberFromAutomod(message, state, violations, options = {}, meta = {}) {
   const member = message.member;
   if (!member) return false;
+  const guild = message.guild;
+  const me = guild?.members?.me;
+  if (!me?.permissions?.has(PermissionsBitField.Flags.BanMembers)) {
+    global.logger?.warn?.("[automod] ban: bot senza permesso BanMembers");
+    return false;
+  }
+  if (!member.bannable) {
+    global.logger?.warn?.("[automod] ban: membro non bannabile (owner, gerarchia ruoli, ecc.)", {
+      userId: member.id,
+    });
+    return false;
+  }
+  const userId = String(message.author?.id || "");
+  const gid = String(message.guildId || "");
+  if (gid && String(guild.ownerId) === userId) return false;
+  if (gid && isExtraOwner(gid, userId)) return false;
+
+  await message.delete().catch(() => {});
+
+  const primaryBucket = meta.primaryBucket ?? pickPrimaryAutomodRegolaBucket(violations);
+  const regolaDot = formatRegolaDotFromBucket(primaryBucket);
+  const banReason = truncateText(
+    regolaDot
+      ? `AutoMod: ban reg. ${regolaDot} (heat ${Number(state.heat || 0).toFixed(1)})`
+      : `AutoMod: ban (heat ${Number(state.heat || 0).toFixed(1)})`,
+    480,
+  );
+
+  const banned = await guild.members
+    .ban(userId, { deleteMessageSeconds: 604800, reason: banReason })
+    .then(() => true)
+    .catch((err) => {
+      global.logger?.warn?.("[automod] ban() fallito:", err?.message || err);
+      return false;
+    });
+  if (!banned) return false;
+
+  if (primaryBucket) {
+    await incrementRegolaTimeoutStrike(userId, primaryBucket);
+  }
+
+  const heatBeforeReset = Number(state.heat || 0);
+  await markBadUserAction(message, "ban", violations);
+  await registerAutoModCase(message, "ban", violations, {});
+  if (HEAT_RESET_ON_PUNISHMENT) {
+    state.heat = 0;
+  }
+  state.msgTimes = [];
+  state.normHistory = [];
+  state.mentionTimes = [];
+  state.mentionHourTimes = [];
+
+  await sendAutomodLog(message, "ban", violations, heatBeforeReset, {
+    primaryBucket,
+    regolaStrikeDisplay: primaryBucket ? Number(meta.prevRegolaStrikes || 0) + 1 : null,
+  });
+  recordAutomodMetric(message, "ban", violations);
+  const publicNoticeOk =
+    Boolean(options?.ignoreCooldown) || isAutomodPublicNoticeCooldownClear(message);
+  if (publicNoticeOk) {
+    touchAutomodPublicNoticeCooldown(message);
+    await sendAutomodActionInChannel(message, "ban", violations, {});
+  }
+  return true;
+}
+
+async function timeoutMember(message, state, violations, options = {}) {
+  const member = message.member;
+  if (!member) return false;
+
+  const userId = String(message.author?.id || "");
+  const primaryBucket = pickPrimaryAutomodRegolaBucket(violations);
+  let prevRegolaStrikes = 0;
+  if (primaryBucket) {
+    prevRegolaStrikes = await getRegolaTimeoutStrikeCount(userId, primaryBucket);
+  }
+  const regolaSanction = primaryBucket
+    ? getAutomodRegolaSanction(primaryBucket, prevRegolaStrikes)
+    : null;
+  if (regolaSanction?.type === "ban") {
+    return banMemberFromAutomod(message, state, violations, options, {
+      primaryBucket,
+      prevRegolaStrikes,
+    });
+  }
+
+  if (!AUTO_TIMEOUTS_ENABLED) return false;
   if (!member.moderatable) return false;
   const me = message.guild.members.me;
   if (!me?.permissions?.has(PermissionsBitField.Flags.ModerateMembers)) {
     return false;
   }
+  const regolaLadderMs = regolaSanction?.type === "timeout" ? regolaSanction.ms : 0;
   const preview = computeNextAutoTimeoutDuration(message, nowMs(), { dryRun: true });
   let durationMs = Number(preview.durationMs || REGULAR_TIMEOUT_MS);
   const forcedDuration = Number(options?.forceDurationMs || 0);
   if (Number.isFinite(forcedDuration) && forcedDuration > 0) {
-    durationMs = forcedDuration;
+    durationMs = Math.max(durationMs, forcedDuration);
   }
   const escalate1h = await shouldEscalateNextAutoTimeout(message);
   if (escalate1h) {
     durationMs = Math.max(durationMs, 60 * 60_000);
   }
+  if (regolaLadderMs > 0) {
+    durationMs = Math.max(durationMs, regolaLadderMs);
+  }
   durationMs = Math.max(60_000, Math.min(DISCORD_TIMEOUT_MAX_MS, durationMs));
   await message.delete().catch(() => { });
-  const timedOut = await member.timeout(durationMs, `AutoMod heat ${state.heat.toFixed(1)}`)
+  const regolaDot = formatRegolaDotFromBucket(primaryBucket);
+  const timeoutReason = regolaDot
+    ? `AutoMod: reg. ${regolaDot} (heat ${Number(state.heat || 0).toFixed(1)})`
+    : `AutoMod: heat ${Number(state.heat || 0).toFixed(1)}`;
+  const timedOut = await member.timeout(durationMs, truncateText(timeoutReason, 480))
     .then(() => true)
     .catch(() => false);
   if (!timedOut) return false;
   computeNextAutoTimeoutDuration(message, nowMs(), { dryRun: false });
   const heatBeforeReset = Number(state.heat || 0);
+  if (primaryBucket) {
+    await incrementRegolaTimeoutStrike(userId, primaryBucket);
+  }
   await registerAutoModTimeoutStrike(message);
   await markBadUserAction(message, "timeout", violations);
   await registerAutoModCase(message, "timeout", violations, {
@@ -2508,6 +2682,8 @@ async function timeoutMember(message, state, violations, options = {}) {
   state.mentionHourTimes = [];
   await sendAutomodLog(message, "timeout", violations, heatBeforeReset, {
     timeoutMs: durationMs,
+    primaryBucket,
+    regolaStrikeDisplay: primaryBucket ? prevRegolaStrikes + 1 : null,
   });
   recordAutomodMetric(message, "timeout", violations);
   const publicNoticeOk =

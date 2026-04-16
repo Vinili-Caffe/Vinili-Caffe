@@ -228,7 +228,16 @@ async function createPollForGuild(guild, payload = {}) {
   const pollNumber = Number(counter?.pollcount || 1);
   const pollMessage = await channel
     .send({ content: buildPollMessageContent(pollNumber, question, answersText) })
-    .catch(() => null);
+    .catch((err) => {
+      global.logger?.warn?.("[poll] channel.send failed:", {
+        guildId,
+        channelId: channel?.id,
+        source,
+        err: err?.message || err,
+        code: err?.code,
+      });
+      return null;
+    });
   if (!pollMessage) {
     await Poll.findOneAndUpdate(
       { guildId, domanda: COUNTER_FILTER_QUESTION },

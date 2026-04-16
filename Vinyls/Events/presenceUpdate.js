@@ -3,6 +3,7 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
+const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
@@ -488,6 +489,58 @@ function buildPendingEmbed(member) {
     .setImage(DIVIDER_URL);
 }
 
+async function scheduleSupporterRoleGrantWithoutChannelEmbed(member) {
+  const guildId = member.guild.id;
+  const userId = member.id;
+  if (hasPendingState(guildId, userId)) return;
+
+  setPendingState(guildId, userId, {
+    timeout: null,
+    messageId: null,
+    inFlight: true,
+  });
+
+  const timeout = setTimeout(async () => {
+    try {
+      const freshMember = await refreshMember(member.guild, userId);
+      if (!freshMember) {
+        deletePendingState(guildId, userId);
+        return;
+      }
+      const cached = getCachedState(guildId, userId);
+      const stillHasInvite = computeSupporterLinkState(cached || { hasLink: true }, freshMember.presence).newHas;
+      if (!stillHasInvite) {
+        deletePendingState(guildId, userId);
+        const current = getCachedState(guildId, userId);
+        setCachedState(guildId, userId, {
+          hasLink: false,
+          lastAnnounced: current?.lastAnnounced || 0,
+          lastMessageId: null,
+          lastSeenOnlineAt: current?.lastSeenOnlineAt || 0,
+          inviteMissSince: null,
+        });
+        return;
+      }
+      await addRoleIfPossible(freshMember);
+      deletePendingState(guildId, userId);
+    } catch (_) {
+      deletePendingState(guildId, userId);
+    }
+  }, PENDING_MS);
+  timeout.unref?.();
+
+  setPendingState(guildId, userId, {
+    timeout,
+    messageId: null,
+    inFlight: false,
+  });
+
+  await persistStatus(guildId, userId, {
+    hasLink: true,
+    lastMessageId: null,
+  });
+}
+
 async function startPendingFlow(member, channel) {
   const guildId = member.guild.id;
   const userId = member.id;
@@ -640,7 +693,11 @@ async function bootstrapSupporter(client) {
     const existing = getCachedState(guildId, freshMember.id);
     if (existing?.lastMessageId) continue;
 
-    await startPendingFlow(freshMember, channel);
+    if (await shouldSendPublicMemberAnnouncement(freshMember)) {
+      await startPendingFlow(freshMember, channel);
+    } else {
+      await scheduleSupporterRoleGrantWithoutChannelEmbed(freshMember);
+    }
   }
 }
 
@@ -759,7 +816,11 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
 
     const channel = await resolveSupportersChannel(member.guild);
     if (!channel) return;
-    await startPendingFlow(member, channel);
+    if (await shouldSendPublicMemberAnnouncement(member)) {
+      await startPendingFlow(member, channel);
+    } else {
+      await scheduleSupporterRoleGrantWithoutChannelEmbed(member);
+    }
     await addPerkRoleIfPossible(member);
     return;
   }

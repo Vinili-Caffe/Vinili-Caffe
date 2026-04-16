@@ -338,13 +338,26 @@ function buildGoogleTtsUrl(
   text,
   lang,
   baseHost = "https://translate.google.com",
+  client = "tw-ob",
 ) {
   const q = encodeURIComponent(String(text || ""));
   const tl = encodeURIComponent(String(lang || "it"));
-  return `${baseHost}/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${q}`;
+  const c = encodeURIComponent(String(client || "tw-ob"));
+  return `${baseHost}/translate_tts?ie=UTF-8&client=${c}&tl=${tl}&q=${q}`;
 }
 
 const TTS_HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.8", Referer: "https://translate.google.com/", };
+
+const GOOGLE_TTS_GET_CLIENTS = ["tw-ob", "gtx"];
+const GOOGLE_TTS_RPC = "jQ1olc";
+const GOOGLE_TTS_BATCH_CHUNK = 100;
+const GOOGLE_TTS_BATCH_HEADERS = {
+  "User-Agent": TTS_HEADERS["User-Agent"],
+  Accept: "*/*",
+  Referer: "https://translate.google.com/",
+  Origin: "https://translate.google.com",
+  "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+};
 
 function looksLikeMpegAudio(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 4) return false;
@@ -355,6 +368,64 @@ function looksLikeMpegAudio(buffer) {
 function readTtsErrorPreview(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) return "";
   return buffer.subarray(0, 240).toString("utf8").replace(/\s+/g, " ").trim();
+}
+
+function extractGoogleBatchexecuteMp3FromLine(line) {
+  const audioSearch = String(line || "").match(/jQ1olc","\[\\"(.*)\\"]/);
+  if (!audioSearch?.[1]) return null;
+  const b64 = String(audioSearch[1]).replace(/\\\//g, "/").replace(/\s+/g, "").trim();
+  if (!b64) return null;
+  try {
+    const audio = Buffer.from(b64, "base64");
+    if (audio.length && looksLikeMpegAudio(audio)) return audio;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function fetchGoogleTtsBatchexecuteChunk(text, langBase) {
+  const parameter = [String(text || ""), String(langBase || "it"), null, "null"];
+  const escapedParameter = JSON.stringify(parameter);
+  const rpc = [[[GOOGLE_TTS_RPC, escapedParameter, null, "generic"]]];
+  const body = `f.req=${encodeURIComponent(JSON.stringify(rpc))}&`;
+  const url = "https://translate.google.com/_/TranslateWebserverUi/data/batchexecute";
+  const res = await axios.post(url, body, {
+    timeout: 20000,
+    responseType: "text",
+    headers: GOOGLE_TTS_BATCH_HEADERS,
+    validateStatus: () => true,
+  });
+  const status = Number(res?.status || 0);
+  if (status < 200 || status >= 300) {
+    throw new Error(`GoogleTTS-batchexecute: HTTP ${status}`);
+  }
+  let raw = String(res.data || "");
+  if (raw.startsWith(")]}'")) raw = raw.slice(4).trimStart();
+  for (const line of raw.split("\n")) {
+    if (!line.includes("jQ1olc")) continue;
+    const mp3 = extractGoogleBatchexecuteMp3FromLine(line);
+    if (mp3) return mp3;
+  }
+  throw new Error("GoogleTTS-batchexecute: nessun audio nella risposta");
+}
+
+async function fetchGoogleTtsBatchexecuteConcat(textStr, langBase) {
+  const s = String(textStr || "");
+  const chunks = [];
+  for (let i = 0; i < s.length; i += GOOGLE_TTS_BATCH_CHUNK) {
+    const part = s.slice(i, i + GOOGLE_TTS_BATCH_CHUNK);
+    if (!part.trim()) continue;
+    const buf = await fetchGoogleTtsBatchexecuteChunk(part, langBase);
+    chunks.push(buf);
+    if (i + GOOGLE_TTS_BATCH_CHUNK < s.length) {
+      await new Promise((r) => {
+        const t = setTimeout(r, 80);
+        t.unref?.();
+      });
+    }
+  }
+  return chunks.length ? Buffer.concat(chunks) : null;
 }
 
 function safeUnlinkTtsFile(filePath) {
@@ -480,14 +551,25 @@ async function createTtsStreamOnce(textStr, lang) {
   const hosts = ["https://translate.google.com.vn", "https://translate.google.com",];
   for (const baseHost of hosts) {
     for (const googleLang of googleLangCandidates) {
-      try {
-        const url = buildGoogleTtsUrl(textStr, googleLang, baseHost);
-        const data = await fetchTtsAudio(url, `GoogleTTS:${baseHost}:${googleLang}`,);
-        if (data) return Readable.from(Buffer.from(data));
-      } catch (err) {
-        lastErr = err;
+      for (const gClient of GOOGLE_TTS_GET_CLIENTS) {
+        try {
+          const url = buildGoogleTtsUrl(textStr, googleLang, baseHost, gClient);
+          const data = await fetchTtsAudio(
+            url,
+            `GoogleTTS:${baseHost}:${googleLang}:${gClient}`,
+          );
+          if (data) return Readable.from(Buffer.from(data));
+        } catch (err) {
+          lastErr = err;
+        }
       }
     }
+  }
+  try {
+    const rpcBuf = await fetchGoogleTtsBatchexecuteConcat(textStr, langBase);
+    if (rpcBuf?.length) return Readable.from(Buffer.from(rpcBuf));
+  } catch (err) {
+    lastErr = err;
   }
   const voicerssKey = typeof process !== "undefined" && process.env && process.env.TTS_VOICERSS_KEY;
   if (voicerssKey && !voicerssDisabledByInactive) {
