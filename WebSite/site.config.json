@@ -2,12 +2,37 @@
   "siteName": "Vinili & Caffè",
   "siteUrl": "https://www.viniliecaffe.it",
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
+  "discordInviteCode": "",
+  "useDiscordGuildBanner": true,
+  "useDiscordGuildIcon": true,
+  "useDiscordGuildFoundedDate": true,
+  "discordStaffListBuild": {
+    "enabled": true,
+    "guildId": "1329080093599076474",
+    "staffRoleIds": [
+      "1442568886988963923",
+      "1442568893435478097",
+      "1442568894349840435",
+      "1442568897902678038",
+      "1442568901887000618",
+      "1442568904311570555",
+      "1442568910070349985"
+    ],
+    "excludeFromStaffListRoleIds": ["1442568905582317740"],
+    "maxMembersToScan": 4000
+  },
   "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
   "metaKeywords": "vinili, caffè, discord, community, musica, vinyl, italia",
   "supportEmail": "supporto@viniliecaffe.it",
   "siteModeratorEmail": "moderatori@viniliecaffe.it",
   "siteAdminEmail": "admin@viniliecaffe.it",
-  "foundedDisplay": "—",
+  "foundedDisplay": "",
+  "liveStats": {
+    "enabled": true,
+    "inviteProxyPath": "/discord-invite.json",
+    "extraStatsPath": "/live-stats-extra.json",
+    "pollIntervalMs": 45000
+  },
   "statMembers": "0",
   "statBoosts": "0",
   "statStaff": "0",
