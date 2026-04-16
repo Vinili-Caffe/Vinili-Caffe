@@ -11,6 +11,7 @@ const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePath
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
 const { removeContestSfondiSubmissionsOnMemberLeave } = require("../Services/Community/weeklyContestService");
@@ -220,12 +221,19 @@ function getHighestStaffTrackedRoleExcludingPm(member) {
     .first();
 }
 
-function buildStaffLeaveResignationContent(member, roleLabel, userRoleLabel) {
-  const label = String(roleLabel || "Staff/PM").trim() || "Staff/PM";
+const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = "<:member_role_icon:1330530086792728618>";
+
+function formatStaffRoleLeadingEmoji(role) {
+  return getStaffRoleEmojiByRoleId(role?.id, STAFF_LEAVE_FALLBACK_ROLE_EMOJI);
+}
+
+function buildStaffLeaveResignationContent(member, staffRole, userRoleLabel) {
+  const label = String(staffRole?.name || "Staff/PM").trim() || "Staff/PM";
   const dest = String(userRoleLabel || "User").trim() || "User";
-  return `**<a:laydowntorest:1444006796661358673> DEPEX** ${member.user}
-    <:member_role_icon:1330530086792728618>\`${label}\` <a:vegarightarrow:1443673039156936837> \`${dest}\`
-<:discordstaff:1443651872258003005> __Dimissioni (Esce dal server)__`;
+  const lead = formatStaffRoleLeadingEmoji(staffRole);
+  return `**<:cancel:1461730653677551691> DEPEX** ${member.user}
+${lead}\`${label}\` <a:VC_Arrow:1482706699365257397> \`${dest}\`
+<:VC_reason:1478517122929004544> __Dimissioni (Esce dal server)__`;
 }
 
 async function handleTrackedStaffLeave(member) {
@@ -250,11 +258,15 @@ async function handleTrackedStaffLeave(member) {
   const pmLabel = pmRole?.name || "Partner Manager";
 
   if (highestStaffExPm) {
-    const content = buildStaffLeaveResignationContent(member, highestStaffExPm.name, userRoleLabel);
+    const content = buildStaffLeaveResignationContent(member, highestStaffExPm, userRoleLabel);
     await resignChannel.send({ content }).catch(() => { });
   }
   if (hasPm) {
-    const contentPm = buildStaffLeaveResignationContent(member, pmLabel, userRoleLabel);
+    const contentPm = buildStaffLeaveResignationContent(
+      member,
+      pmRole || { id: PARTNER_MANAGER_ROLE_ID, name: pmLabel },
+      userRoleLabel,
+    );
     await resignChannel.send({ content: contentPm }).catch(() => { });
   }
 }
