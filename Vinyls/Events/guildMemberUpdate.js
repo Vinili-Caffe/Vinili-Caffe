@@ -17,7 +17,7 @@ const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCom
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
 const {
   shouldSendPublicMemberAnnouncement,
-  verificationRoleAddedBetween,
+  normalVerificationCompletedBetween,
 } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const AUDIT_FETCH_LIMIT = 20;
@@ -291,10 +291,10 @@ async function sendMemberRoleUpdateLog(oldMember, newMember) {
   if (shouldSkipRoleUpdateLog(guild.id, newMember.id, additions, removals)) return;
 
   const allowPublicAnn = await shouldSendPublicMemberAnnouncement(newMember);
-  const gainingVerify = verificationRoleAddedBetween(oldMember, newMember);
+  const gainingNormalVerification = normalVerificationCompletedBetween(oldMember, newMember);
 
   const logChannel = await resolveChannelRolesLogChannel(guild);
-  if (logChannel?.isTextBased?.() && (allowPublicAnn || gainingVerify)) {
+  if (logChannel?.isTextBased?.() && (allowPublicAnn || gainingNormalVerification)) {
     const lines = [
       `${ARROW} **Responsible:** ${responsible}`,
       `${ARROW} **Target:** ${newMember.user} \`${newMember.user.id}\``,
@@ -1082,7 +1082,7 @@ module.exports = {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;
       if (
         String(newMember.guild.id) === String(IDs.guilds?.main || "") &&
-        verificationRoleAddedBetween(oldMember, newMember)
+        normalVerificationCompletedBetween(oldMember, newMember)
       ) {
         await runDeferredJoinAnnouncements(newMember).catch((err) => {
           global.logger?.warn?.("[guildMemberUpdate] deferred join announce:", newMember.guild.id, newMember.id, err?.message || err);
