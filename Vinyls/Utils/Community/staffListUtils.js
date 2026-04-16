@@ -206,7 +206,7 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
     pmExtras += buildRoleSectionWithCustomEmoji(roleId, section?.emoji, guild, membersSource);
   }
   const mainWithNaturalGap = `${String(main || "").trimEnd()}\n\n`;
-  const pmWithNaturalGap = `${STAFF_LIST_PM_TOP_SPACER}\n\n\n${pm}${pmExtras ? `\n${pmExtras}` : ""}`;
+  const pmWithNaturalGap = `${STAFF_LIST_PM_TOP_SPACER}\n\n${pm}${pmExtras ? `\n${pmExtras}` : ""}`;
   return { main: mainWithNaturalGap, pm: pmWithNaturalGap };
 }
 
