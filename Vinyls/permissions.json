@@ -323,7 +323,9 @@
         },
         "ban": {
             "roles": [
-                "roles.HighStaff"
+                "roles.Admin",
+                "roles.CoFounder",
+                "roles.Founder"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -373,7 +375,9 @@
         },
         "kick": {
             "roles": [
-                "roles.HighStaff"
+                "roles.Admin",
+                "roles.CoFounder",
+                "roles.Founder"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -413,7 +417,13 @@
         },
         "mute": {
             "roles": [
-                "roles.Staff"
+                "roles.Mod",
+                "roles.Coordinator",
+                "roles.Supervisor",
+                "roles.HighStaff",
+                "roles.Admin",
+                "roles.CoFounder",
+                "roles.Founder"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -473,7 +483,14 @@
         },
         "warn": {
             "roles": [
-                "roles.Staff"
+                "roles.Helper",
+                "roles.Mod",
+                "roles.Coordinator",
+                "roles.Supervisor",
+                "roles.HighStaff",
+                "roles.Admin",
+                "roles.CoFounder",
+                "roles.Founder"
             ],
             "channels": [
                 "channels.staffCmds",

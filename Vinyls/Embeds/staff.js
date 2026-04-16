@@ -67,10 +67,10 @@ async function run(client) {
       new ButtonBuilder().setCustomId("sanzioni").setLabel("︲SANZIONI").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
     );
   }
-  const rowGuideMain = new ActionRowBuilder().addComponents(...rowGuideMainButtons);
-  const rowGuideWarn = new ActionRowBuilder().addComponents(
+  rowGuideMainButtons.push(
     new ButtonBuilder().setCustomId("warnstaff").setLabel("︲WARN STAFF").setEmoji("<:banhammer:1443651875441217639>").setStyle(ButtonStyle.Secondary),
   );
+  const rowGuideMain = new ActionRowBuilder().addComponents(...rowGuideMainButtons);
   const rowModeration = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("generalimoderazione").setLabel("︲GENERALI").setEmoji("<:appdirectoryallwhite:1443308556995788840>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("testualimoderazione").setLabel("︲TESTUALI").setEmoji("<:discordchannelwhite:1443308552536985810>").setStyle(ButtonStyle.Secondary),
@@ -86,7 +86,7 @@ async function run(client) {
   if (guideChannel?.isTextBased?.()) {
     await upsertPanelMessage(guideChannel, client, {
       embeds: [embeds[1]],
-      components: [rowGuideMain, rowGuideWarn],
+      components: [rowGuideMain],
     });
   }
   if (moderationChannel?.isTextBased?.()) {
