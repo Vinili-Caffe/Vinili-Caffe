@@ -38,7 +38,7 @@ const MOD_RULE_DETAIL = {
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
   if (!body) return "";
-  return `<:VC_Dot:1482532364222595303> ${body}\n\n`;
+  return `<:VC_Dot:1482532364222595303> ${body}\n`;
 }
 const IGNORED_BUTTON_LOG_CODES = new Set([
   10062, // Unknown interaction
