@@ -2,6 +2,7 @@ const IDs = require("../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const STAFF_LIST_HASH_SPLIT = "\n---STAFF_LIST_SPLIT---\n";
+const STAFF_LIST_PM_TOP_SPACER = "\u200B";
 
 function staffListFirstLine(content) {
   return String(content || "").trimStart().split("\n")[0] || "";
@@ -205,7 +206,7 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
     pmExtras += buildRoleSectionWithCustomEmoji(roleId, section?.emoji, guild, membersSource);
   }
   const mainWithNaturalGap = `${String(main || "").trimEnd()}\n\n`;
-  const pmWithNaturalGap = `\n\n${pm}${pmExtras ? `\n${pmExtras}` : ""}`;
+  const pmWithNaturalGap = `${STAFF_LIST_PM_TOP_SPACER}\n\n${pm}${pmExtras ? `\n${pmExtras}` : ""}`;
   return { main: mainWithNaturalGap, pm: pmWithNaturalGap };
 }
 
