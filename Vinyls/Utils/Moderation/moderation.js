@@ -98,7 +98,7 @@ async function logModCase({ client, guild, modCase, config }) {
   const isUserId = /^\d{17,20}$/.test(String(modCase.userId));
   const userLabel = isUserId ? `<@${modCase.userId}>(\`${modCase.userId}\`)` : String(modCase.userId);
   const embed = new EmbedBuilder().setColor(client?.config?.embedModLight || "#6f4e37").setTitle(`Case #${modCase.caseId}-${modCase.action}`);
-  const fields = [{ name: "<:member_role_icon:1330530086792728618> Utente", value: userLabel, inline: true }, { name: "<:staff:1443651912179388548> Moderatore", value: `<@${modCase.modId}>`, inline: true },
+  const fields = [{ name: "<:member_role_icon:1330530086792728618> Utente", value: userLabel, inline: true }, { name: "<:VC_Staff:1494286904089247754> Moderatore", value: `<@${modCase.modId}>`, inline: true },
   ];
   if (duration) {
     fields.push({ name: "<:VC_Clock:1473359204189474886> Durata", value: duration, inline: true });

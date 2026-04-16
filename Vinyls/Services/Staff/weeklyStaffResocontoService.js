@@ -8,6 +8,7 @@ const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazio
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = { [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 }, [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 }, [String(IDs.roles.Coordinator)]: { messages: 350, hours: 2.5 }, [String(IDs.roles.Supervisor)]: { messages: 400, hours: 3.5 }, };
 const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 1, [String(IDs.roles.Coordinator)]: 2, [String(IDs.roles.Supervisor)]: 3 };
@@ -358,6 +359,21 @@ function wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, sectionRole = null) 
   return false;
 }
 
+function didPauseEndDuringWeek(staffDoc, weekStart, weekEnd, sectionRole = null) {
+  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  const ws = weekStart.getTime();
+  const we = weekEnd.getTime();
+  for (const p of pauses) {
+    if (!p || p.status !== "accepted") continue;
+    if (!pauseRoleAppliesToSection(p.ruolo || p.ruoloRichiesto, sectionRole)) continue;
+    const end = parseItalianDate(p.dataRitorno);
+    if (!end) continue;
+    const pe = end.getTime();
+    if (pe >= ws && pe <= we) return true;
+  }
+  return false;
+}
+
 /** Pausa rilevante per il blocco resoconto PM: ruolo PM/Entrambi, oppure pausa “staff” se l’utente è comunque Partner Manager (stesso periodo di assenza). */
 function wasPartnerManagerInPauseForResocontoWeek(staffDoc, weekStart, weekEnd, member) {
   if (wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, "PartnerManager")) return true;
@@ -545,6 +561,20 @@ function wasPmPexedInWeek(staffDoc, weekStart) {
   });
 }
 
+function wasPromotedToRoleInLastDays(staffDoc, roleId, days, now = new Date()) {
+  const targetRoleId = String(roleId || "");
+  if (!targetRoleId) return false;
+  const safeDays = Math.max(1, Math.floor(toSafeNumber(days)));
+  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  const thresholdMs = now.getTime() - safeDays * 24 * 60 * 60 * 1000;
+  return history.some((row) => {
+    if (String(row?.newRole || "") !== targetRoleId) return false;
+    const when = row?.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) return false;
+    return when.getTime() >= thresholdMs;
+  });
+}
+
 /** Soglie PM: ≤5 Depex, 6–(min−1) Richiamo, ≥min Nulla. */
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
@@ -583,7 +613,102 @@ function buildResocontoButtons(kind, userId, actionKey, roleId = null) {
   );
 }
 
-async function createResocontoThread(message, userId, userLabel = null) {
+function formatThreadDateTime(value) {
+  const when = value instanceof Date ? value : new Date(value);
+  if (!when || Number.isNaN(when.getTime())) return null;
+  return when.toLocaleString("it-IT", {
+    timeZone: TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function getLatestAcceptedPause(staffDoc) {
+  const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
+  let best = null;
+  let bestMs = -Infinity;
+  for (const pause of pauses) {
+    if (!pause || pause.status !== "accepted") continue;
+    const start = parseItalianDate(pause.dataRichiesta);
+    const end = parseItalianDate(pause.dataRitorno);
+    if (!start && !end) continue;
+    const refMs = Math.max(start?.getTime?.() || -Infinity, end?.getTime?.() || -Infinity);
+    if (refMs > bestMs) {
+      bestMs = refMs;
+      best = { start, end };
+    }
+  }
+  return best;
+}
+
+function getPexHistoryRows(staffDoc) {
+  const history = Array.isArray(staffDoc?.rolesHistory) ? staffDoc.rolesHistory : [];
+  return history
+    .filter((row) => isStaffRolesHistoryPexRow(row))
+    .map((row) => {
+      const when = row?.date ? new Date(row.date) : null;
+      if (!when || Number.isNaN(when.getTime())) return null;
+      return {
+        oldRole: String(row?.oldRole || ""),
+        newRole: String(row?.newRole || ""),
+        when,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.when.getTime() - a.when.getTime());
+}
+
+function roleLabelById(guild, roleId) {
+  const id = String(roleId || "");
+  if (!id) return "Sconosciuto";
+  return guild?.roles?.cache?.get(id)?.name || `<@&${id}>`;
+}
+
+async function sendResocontoThreadSummary(thread, guild, staffDoc) {
+  if (!thread?.isTextBased?.()) return;
+  const lines = [];
+
+  const latestPause = getLatestAcceptedPause(staffDoc);
+  if (latestPause?.start && latestPause?.end) {
+    lines.push(
+      `<a:VC_Calendar:1482706208149475358> **Pausa:** iniziata il **${formatThreadDateTime(latestPause.start)}**, finita il **${formatThreadDateTime(latestPause.end)}**`,
+    );
+  }
+
+  const positive = Math.max(0, Math.floor(toSafeNumber(staffDoc?.positiveCount)));
+  const negative = Math.max(0, Math.floor(toSafeNumber(staffDoc?.negativeCount)));
+  if (positive > 0 || negative > 0) {
+    lines.push(`<:VC_Eye:1331619214410383381> **Valutazioni:** positive **${positive}**, negative **${negative}**`);
+  }
+
+  const warnCount = Math.max(0, Math.floor(toSafeNumber(staffDoc?.warnCount)));
+  if (warnCount > 0) {
+    lines.push(`<:VC_BanHammer:1482534474502897795> **Warn staff:** **${warnCount}**`);
+  }
+
+  const pexRows = getPexHistoryRows(staffDoc).slice(0, 5);
+  if (pexRows.length > 0) {
+    lines.push("<:success:1461731530333229226> **Storico PEX recente:**");
+    for (const row of pexRows) {
+      lines.push(
+        `- ${formatThreadDateTime(row.when)} -> \`${roleLabelById(guild, row.oldRole)}\` -> \`${roleLabelById(guild, row.newRole)}\``,
+      );
+    }
+  }
+
+  if (!lines.length) return;
+  await thread
+    .send({
+      content: lines.join("\n").slice(0, 1900),
+    })
+    .catch(() => null);
+}
+
+async function createResocontoThread(message, userId, userLabel = null, staffDoc = null) {
   if (!message?.startThread) return;
   const safeUserId = String(userId || "");
   if (!/^\d{16,20}$/.test(safeUserId)) return;
@@ -603,6 +728,7 @@ async function createResocontoThread(message, userId, userLabel = null) {
   if (mentionMsg) {
     await mentionMsg.delete().catch(() => null);
   }
+  await sendResocontoThreadSummary(thread, message?.guild, staffDoc);
 }
 
 function countPmWeeklyPartners(staffDoc, weekStart, weekEnd) {
@@ -694,6 +820,8 @@ async function runWeeklyStaffResoconti(client) {
   for (const member of candidateMembers) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
+    const helperPexedInLast7Days = wasPromotedToRoleInLastDays(staffDoc, IDs.roles.Helper, 7, now);
+    const pmPexedInLast7Days = wasPromotedToRoleInLastDays(staffDoc, IDs.roles.PartnerManager, 7, now);
     const skipForStaffPexInWindow = shouldSkipResocontoForPexInCalendarWeek(
       staffDoc,
       pexSkipWindow.windowStart,
@@ -704,9 +832,11 @@ async function runWeeklyStaffResoconti(client) {
       pexSkipWindow.windowStart,
       pexSkipWindow.windowEndExclusive,
     );
+    const shouldSkipStaffResoconto = skipForStaffPexInWindow && !helperPexedInLast7Days;
+    const shouldSkipPmResoconto = skipForPmPromotionInWindow && !pmPexedInLast7Days;
 
     const staffRoleId = resolveStaffRole(member);
-    if (staffRoleId && !skipForStaffPexInWindow) {
+    if (staffRoleId && !shouldSkipStaffResoconto) {
       const overview = overviewMap.get(userId);
       const d7 = overview?.windows?.d7;
       const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)),);
@@ -715,12 +845,23 @@ async function runWeeklyStaffResoconti(client) {
       const activityGrade = computeActivityGrade(staffRoleId, weeklyMessages, weeklyVoiceHours,);
       const behaviorGrade = computeBehaviorGrade(staffDoc?.positiveCount, staffDoc?.negativeCount,);
       const pexedInWeek = wasPexedInWeek(staffDoc, weekStart);
-      const inPauseDuringWeek = wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
-      const staffNewBadge = pexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
+      const endedPauseDuringWeek = didPauseEndDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
+      const baseAction = endedPauseDuringWeek
+        ? "Nulla"
+        : computeStaffAction(
+            activityGrade,
+            behaviorGrade,
+            pexedInWeek,
+            staffDoc?.positiveCount,
+            staffDoc?.negativeCount,
+          );
+      const action = helperPexedInLast7Days ? "Nulla" : baseAction;
+      const staffNewBadge = action === "Nulla" && helperPexedInLast7Days ? ` ${STAFF_NEW_EMOJI}` : "";
 
       const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
+      const staffRoleEmoji = getStaffRoleEmojiByRoleId(staffRoleId);
       const contentLines = [
-        `<:staff:1443651912179388548> **Staffer:** __**<@${userId}>**__${staffNewBadge}`,
+        `${staffRoleEmoji} **Staffer:** __**<@${userId}>**__${staffNewBadge}`,
         `<:VC_Mention:1482526855289634997> **Ruolo:** __<@&${staffRoleId}>__`,
         `<:VC_Chat:1482532573002465413> **Messaggi in una settimana:** __${weeklyMessages}__`,
         `<:voice:1467639623735054509> **Ore in una settimana:** __${formatHoursFromSeconds(weeklyVoiceSeconds)}__`,
@@ -732,20 +873,11 @@ async function runWeeklyStaffResoconti(client) {
         const weeklySanctions = sanctionCountByModId.get(userId) || 0;
         contentLines.push(`<:VC_Dot:1443660294596329582> **Sanzioni nella settimana:** __${weeklySanctions}__ (minimo __${sanctionLimit}__)`);
       }
-      const action = inPauseDuringWeek
-        ? "Nulla"
-        : computeStaffAction(
-            activityGrade,
-            behaviorGrade,
-            pexedInWeek,
-            staffDoc?.positiveCount,
-            staffDoc?.negativeCount,
-          );
       contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
       const pauseLine = getStaffPauseLine(staffDoc, "Staff");
       if (pauseLine) contentLines.push(pauseLine);
 
-      if (sanctionLimit != null && !inPauseDuringWeek) {
+      if (sanctionLimit != null) {
         const weeklySanctions = sanctionCountByModId.get(userId) || 0;
         const sanctionMet = weeklySanctions >= sanctionLimit;
         if (sanctionMet) {
@@ -753,40 +885,33 @@ async function runWeeklyStaffResoconti(client) {
         }
       }
 
-      const staffComponents =
-        action === "Nulla"
-          ? []
-          : [
-              buildResocontoButtons(
-                "s",
-                userId,
-                staffActionToKey(action),
-                staffRoleId,
-              ),
-            ];
+      const staffComponents = [
+        buildResocontoButtons(
+          "s",
+          userId,
+          staffActionToKey(action),
+          staffRoleId,
+        ),
+      ];
 
       await channel
         .send({
           content: contentLines.join("\n"),
           ...(staffComponents.length ? { components: staffComponents } : {}),
         })
-        .then((msg) => {
-          if (action !== "Nulla" && action !== "Richiamo") {
-            return createResocontoThread(msg, userId, member.user?.username);
-          }
-          return null;
-        })
+        .then((msg) => createResocontoThread(msg, userId, member.user?.username, staffDoc))
         .catch(() => null);
     }
 
-    if (member.roles.cache.has(String(IDs.roles.PartnerManager)) && !skipForPmPromotionInWindow) {
+    if (member.roles.cache.has(String(IDs.roles.PartnerManager)) && !shouldSkipPmResoconto) {
       const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd,);
       const pmPexedInWeek = wasPmPexedInWeek(staffDoc, pmWindow.weekStart);
       const pmInPauseDuringWeek = wasPartnerManagerInPauseForResocontoWeek(staffDoc, pmWindow.weekStart, pmWindow.weekEnd, member);
-      const action = pmInPauseDuringWeek ? "Nulla" : computePmAction(weeklyPartners, pmPexedInWeek);
+      const basePmAction = pmInPauseDuringWeek ? "Nulla" : computePmAction(weeklyPartners, pmPexedInWeek);
+      const action = pmPexedInLast7Days ? "Nulla" : basePmAction;
       const pmPauseLine = getPmResocontoPauseDisplayLine(staffDoc, member);
-      const pmNewBadge = pmPexedInWeek ? ` ${STAFF_NEW_EMOJI}` : "";
+      const pmNewBadge = action === "Nulla" && pmPexedInLast7Days ? ` ${STAFF_NEW_EMOJI}` : "";
       const pmContentLines = [
         `<:partnermanager:1443651916838998099> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
         `<:partneredserverowner:1443651871125409812> **Partner:** __${weeklyPartners}__`,
@@ -794,21 +919,13 @@ async function runWeeklyStaffResoconti(client) {
       ];
       if (pmPauseLine) pmContentLines.push(pmPauseLine);
 
-      const pmComponents =
-        action === "Nulla" || action === "Richiamo"
-          ? []
-          : [buildResocontoButtons("p", userId, pmActionToKey(action))];
+      const pmComponents = [buildResocontoButtons("p", userId, pmActionToKey(action))];
       await channel
         .send({
           content: pmContentLines.join("\n"),
           ...(pmComponents.length ? { components: pmComponents } : {}),
         })
-        .then((msg) => {
-          if (action !== "Nulla" && action !== "Richiamo") {
-            return createResocontoThread(msg, userId, member.user?.username);
-          }
-          return null;
-        })
+        .then((msg) => createResocontoThread(msg, userId, member.user?.username, staffDoc))
         .catch(() => null);
     }
   }
@@ -879,7 +996,7 @@ async function runPreResocontoReminders(client) {
           const parts = [];
           if (needMsg > 0) parts.push(`**${needMsg}** messaggi`);
           if (needHours > 0) parts.push(`**${needHours.toFixed(2)}** ore in vocale`);
-          const text = `<:staff:1443651912179388548> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nPer rientrare nei limiti ti mancano: ${parts.join(" e ")}.`;
+          const text = `<:VC_Staff:1494286904089247754> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nPer rientrare nei limiti ti mancano: ${parts.join(" e ")}.`;
           await member.send({ content: text }).catch(() => null);
         }
       }

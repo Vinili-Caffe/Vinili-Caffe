@@ -16,6 +16,7 @@ function resolveStaffPartnerPointsDisplay(staffObj) {
 }
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
+const STAFF_HP_SELECT_PREFIX = "staff_hp_select";
 const SECTION_HOME = "home";
 const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
@@ -178,35 +179,22 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null) {
         .setLabel("Member → Helper")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_mod", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Mod")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_coord", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Coord")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_supervisor", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Supervisor")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_admin", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Admin")
-        .setStyle(ButtonStyle.Primary),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_cofounder", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Co-Founder")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("pex_founder", v, t, SECTION_HOME, sourceMessageId))
-        .setLabel("Member → Founder")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME, sourceMessageId))
         .setLabel("Member → Partner Manager")
         .setStyle(ButtonStyle.Secondary),
+    ),
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(formatStaffHpSelectCustomId("prospect_pex", v, t, SECTION_HOME, sourceMessageId))
+        .setPlaceholder("Promuovi a ruolo staff avanzato")
+        .addOptions(
+          { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
+          { label: "Member → Coord", value: "pex_coord", emoji: "<:VC_Staff:1494286904089247754>" },
+          { label: "Member → Supervisor", value: "pex_supervisor", emoji: "<:VC_Staff:1494286904089247754>" },
+          { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
+          { label: "Member → Co-Founder", value: "pex_cofounder", emoji: "<:VC_Staff:1494286904089247754>" },
+          { label: "Member → Founder", value: "pex_founder", emoji: "<:VC_Staff:1494286904089247754>" },
+        ),
     ),
   ];
 }
@@ -289,6 +277,11 @@ function withSourceSuffix(baseCustomId, sourceMessageId) {
 function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
   const sec = String(section || SECTION_HOME).toLowerCase();
   return withSourceSuffix(`${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`, sourceMessageId);
+}
+
+function formatStaffHpSelectCustomId(action, viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  return withSourceSuffix(`${STAFF_HP_SELECT_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`, sourceMessageId);
 }
 
 function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false, sourceMessageId = null) {
@@ -471,7 +464,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
   }
   const hideValWarn = selectOptions.hideValutazioniWarn === true;
   const opts = [
-    { label: "Home", value: SECTION_HOME, emoji: "<:staff:1443651912179388548>", default: sec === SECTION_HOME },
+    { label: "Home", value: SECTION_HOME, emoji: "<:VC_Staff:1494286904089247754>", default: sec === SECTION_HOME },
   ];
   if (!hideValWarn) {
     opts.push({
@@ -559,7 +552,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         new EmbedBuilder()
           .setColor("#6f4e37")
           .setDescription(
-            `<:VC_Staff:1479443779571155086> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
+            `<:VC_Staff:1494286904089247754> **${name}** non ha ruoli Staff né Partner Manager.\n\n` +
             "<a:VC_Verified:1482532479637127188> Usa i pulsanti per pexare direttamente da **Member** verso un ruolo Staff o Partner Manager.",
           )
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
@@ -660,7 +653,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = resolveStaffPartnerPointsDisplay(s);
     const pmHomeDesc = [
-      `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
+      `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
@@ -830,7 +823,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   const puntiPartner = resolveStaffPartnerPointsDisplay(s);
   const homeDescParts = [
-    `<:VC_Staff:1479443779571155086> **Ruolo:** ${roleLabel}`,
+    `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:**`,
     `${pauseShort}`,
@@ -865,6 +858,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 module.exports = {
   PANEL_PREFIX,
   STAFF_HP_PREFIX,
+  STAFF_HP_SELECT_PREFIX,
   SECTION_HOME,
   SECTION_VALUTAZIONI,
   SECTION_WARN,

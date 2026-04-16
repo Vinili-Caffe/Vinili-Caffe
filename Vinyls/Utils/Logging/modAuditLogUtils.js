@@ -85,7 +85,7 @@ function buildStaffActionModLogEmbed(modCase, options = {}) {
   );
   const hasDuration = Number.isFinite(modCase.durationMs) && modCase.durationMs > 0;
   const fields = [{ name: "<:member_role_icon:1330530086792728618> User", value: `<@${modCase.userId}>`, inline: true },
-  { name: "<:staff:1443651912179388548> Moderator", value: `<@${moderatorId}>`, inline: true },
+  { name: "<:VC_Staff:1494286904089247754> Moderator", value: `<@${moderatorId}>`, inline: true },
   ];
   if (hasDuration) {
     fields.push({

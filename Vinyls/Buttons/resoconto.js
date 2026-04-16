@@ -2,7 +2,10 @@ const { handleResocontoActionInteraction } = require("../Events/interaction/reso
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
-  if (interaction?.isButton?.() && (id.startsWith("resoconto_apply:") || id.startsWith("resoconto_reject:"))) return true;
+  if (
+    interaction?.isButton?.() &&
+    (id.startsWith("resoconto_apply:") || id.startsWith("resoconto_reject:") || id.startsWith("resoconto_override:"))
+  ) return true;
   if (interaction?.isModalSubmit?.() && id.startsWith("resoconto_reason:")) return true;
   return false;
 }

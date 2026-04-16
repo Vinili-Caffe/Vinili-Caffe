@@ -522,7 +522,7 @@ async function runNamed(name, message, args, client) {
       }
       const when = row.createdAt ? `<t:${Math.floor(new Date(row.createdAt).getTime() / 1000)}:R>`
         : "data sconosciuta";
-      lines.push(`<:staff:1443651912179388548> **Moderatore:** ${moderator}\n<:VC_reason:1478517122929004544> ${row.reason || "Nessun motivo"} - ${when}`);
+      lines.push(`<:VC_Staff:1494286904089247754> **Moderatore:** ${moderator}\n<:VC_reason:1478517122929004544> ${row.reason || "Nessun motivo"} - ${when}`);
     }
     const warningEmbed = new EmbedBuilder().setColor("#ED4245").setTitle(String(`${titleCount}per ${targetUser?.username || userId}(${userId})`).slice(0, 256))
       .setDescription(String(lines.join("\n\n")).slice(0, 4096))
@@ -572,7 +572,7 @@ async function runNamed(name, message, args, client) {
       const responsibleLabel = message.author?.bot ? `${message.author} [BOT] \`${message.author.id}\`` : `${message.author} \`${message.author.id}\``;
       const warnRemovedEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warning Removed").setDescription([
         `<:VC_BanHammer:1482534474502897795> **Warning for** ${targetLabel} **has been removed**`,
-        `<:staff:1443651912179388548> **Responsible:** ${responsibleLabel}`,
+        `<:VC_Staff:1494286904089247754> **Responsible:** ${responsibleLabel}`,
         `<:VC_Clock:1473359204189474886> <t:${Math.floor(Date.now() / 1000)}:F>`,
         `<:VC_reason:1478517122929004544> **Warning text:** ${(warningText || "").slice(0, 200)}${(warningText || "").length > 200 ? "…" : ""}`,
       ].join("\n"),
@@ -631,7 +631,7 @@ async function runNamed(name, message, args, client) {
       const responsibleLabel = message.author?.bot ? `${message.author} [BOT] \`${message.author.id}\`` : `${message.author} \`${message.author.id}\``;
       const clearWarnEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warning Cleared").setDescription([
         `<a:VC_Alert:1482706673176150077> **Tutti i warning per** ${targetLabel} **sono stati rimossi** (${rows.length} ${rows.length === 1 ? "avviso" : "avvisi"})`,
-        `<:staff:1443651912179388548> **Responsabile:** ${responsibleLabel}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleLabel}`,
         `<:VC_Clock:1473359204189474886> <t:${Math.floor(Date.now() / 1000)}:F>`,
       ].join("\n"),
       )
@@ -688,7 +688,7 @@ async function runNamed(name, message, args, client) {
       const caseEmbed = new EmbedBuilder().setColor("#FEE75C").setTitle(`Case ${caseId} · ${action} · ${targetUser?.username || row.userId}`)
         .addFields(
           { name: "<:member_role_icon:1330530086792728618> Utente", value: targetUser?.username || String(row.userId || "Sconosciuto"), inline: true },
-          { name: "<:staff:1443651912179388548> Moderatore", value: modUser ? `<@${modUser.id}>` : String(row.modId || "Sconosciuto"), inline: true },
+          { name: "<:VC_Staff:1494286904089247754> Moderatore", value: modUser ? `<@${modUser.id}>` : String(row.modId || "Sconosciuto"), inline: true },
           { name: "<:VC_reason:1478517122929004544> Motivo", value: row.reason || "Nessun motivo fornito", inline: true },
         )
         .setFooter({
@@ -877,7 +877,7 @@ async function runNamed(name, message, args, client) {
         `<:VC_id:1478517313618575419> **Case ${row.caseId}**`,
         `<:VC_InactiveStatus:1482526984234860574> **Tipo:** ${type}`,
         `<:member_role_icon:1330530086792728618> **Utente:** \`${target.userId}\` · ${targetUser?.username || "Sconosciuto"}`,
-        `<:staff:1443651912179388548> **Moderatore:** ${modUser?.username || row.modId || "Sconosciuto"}`,
+        `<:VC_Staff:1494286904089247754> **Moderatore:** ${modUser?.username || row.modId || "Sconosciuto"}`,
       ];
       if (length) blockLines.push(`<:VC_Clock:1473359204189474886> **Durata:** ${length}`);
       blockLines.push(`<:VC_reason:1478517122929004544> **Motivo:** ${row.reason || "Nessun motivo fornito."} - ${createdAt}`);

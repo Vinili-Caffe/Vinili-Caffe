@@ -347,7 +347,7 @@ async function buildModerationPanelPayload(guild, viewerId, targetId, client, se
   const sourceMessageId = normalizeSourceMessageId(options?.sourceMessageId);
 
   const lines = [
-    `<:staff:1443651912179388548> **Target:** ${targetUser ? `${targetUser} (\`${tid}\`)` : `\`${tid}\``}`,
+    `<:VC_Staff:1494286904089247754> **Target:** ${targetUser ? `${targetUser} (\`${tid}\`)` : `\`${tid}\``}`,
     member ? `<:VC_OnlineStatus:1482527088912240650> **Nel server:** sì` : `<:VC_InactiveStatus:1482526984234860574> **Nel server:** no (alcune azioni richiedono la presenza)`,
     "",
     "<:VC_Info:1482526956703580372> **Home:** menu consultazioni (warnings, moderazioni, modlogs) e sotto i pulsanti **Case / Reason / Duration**. **Sanzioni:** pulsanti sanzione. Il menu in alto passa tra Home e Sanzioni.",

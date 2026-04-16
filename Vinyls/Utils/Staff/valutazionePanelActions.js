@@ -39,7 +39,7 @@ function makeLogEmbed(
     .setThumbnail(user.displayAvatarURL())
     .setDescription(
       [
-        `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${user}`,
+        `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${user}`,
         `<:VC_reason:1478517122929004544> __${reason}__`,
         `<:VC_id:1478517313618575419> **ID Valutazione** __\`${idValue}\`__`,
       ].join("\n"),
@@ -52,7 +52,7 @@ function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel,
   const safeDescriptionRaw = String(description || "").trim();
   const safeDescription = safeDescriptionRaw
     ? safeDescriptionRaw.replace("{user}", user.toString())
-    : `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${user}`;
+    : `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${user}`;
   const safeReasonField = String(reason || "").trim() || "—";
   const safeUpdatedLabel = String(updatedLabel || "").trim() || "Aggiornamento";
   const safeUpdatedValue = String(updatedValue || "").trim() || "—";
@@ -163,7 +163,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
         if (pexDepexChannel?.isTextBased?.()) {
           await pexDepexChannel.send({
             content: `**<:cancel:1461730653677551691> DEPEX** ${staffUser}\n` +
-              `<:staff:1443651912179388548> \`${currentRoleId}\` <a:VC_Arrow:1482706699365257397> Nessuno\n` +
+              `<:VC_Staff:1494286904089247754> \`${currentRoleId}\` <a:VC_Arrow:1482706699365257397> Nessuno\n` +
               `<:VC_reason:1478517122929004544> __Depex automatico: 3 warn staff (valutazioni negative).__`,
           }).catch(() => null);
         }

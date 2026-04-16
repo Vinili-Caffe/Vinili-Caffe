@@ -86,7 +86,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle("<:VC_Ticket:1482535175283019888> Serve aiuto, partnership o vuoi segnalare?")
       .setDescription([
-        `<:VC_Staff:1479443779571155086> Apri subito un ticket su <#1442569095068254219>: lo Staff è pronto ad aiutarti per qualsiasi cosa ti serva!`,
+        `<:VC_Staff:1494286904089247754> Apri subito un ticket su <#1442569095068254219>: lo Staff è pronto ad aiutarti per qualsiasi cosa ti serva!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()

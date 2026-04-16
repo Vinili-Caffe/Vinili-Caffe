@@ -27,13 +27,13 @@ const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const ROLE_EMOJIS = {
   [IDs.roles.PartnerManager]: { emoji: "<:VC_partnermanager:1479442411037003897>" },
-  [IDs.roles.Helper]: { emoji: "<:VC_Helper:1479442372994666607>" },
-  [IDs.roles.Mod]: { emoji: "<:VC_mod:1479442444939690117>" },
-  [IDs.roles.Coordinator]: { emoji: "<:VC_coordinator:1479442481308373032>" },
-  [IDs.roles.Supervisor]: { emoji: "<:VC_supervisor:1479442514430656532>" },
-  [IDs.roles.Admin]: { emoji: "<:VC_admin:1479442544831103109>" },
-  [IDs.roles.CoFounder]: { emoji: "<:VC_cofounder:1479442609112879276>" },
-  [IDs.roles.Founder]: { emoji: "<:VC_founder:1479442642671632557>" },
+  [IDs.roles.Helper]: { emoji: "<:VC_Helper:1494287601266331829>" },
+  [IDs.roles.Mod]: { emoji: "<:VC_Mod:1494287597952958514>" },
+  [IDs.roles.Coordinator]: { emoji: "<:VC_Coordinator:1494286913744539648>" },
+  [IDs.roles.Supervisor]: { emoji: "<:VC_Supervisor:1494286915778641941>" },
+  [IDs.roles.Admin]: { emoji: "<:VC_Admin:1494286848686686209>" },
+  [IDs.roles.CoFounder]: { emoji: "<:VC_CoFounder:1494286898535862333>" },
+  [IDs.roles.Founder]: { emoji: "<:VC_Founder:1494286918974963732>" },
 };
 const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };
 const STAFF_ROLE_IDS = Object.keys(ROLE_EMOJIS);
@@ -41,6 +41,10 @@ const STAFF_LIST_ROLE_ID_SET = new Set(STAFF_ROLE_IDS.map((id) => String(id)));
 const MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const PM_ROLE_ID = String(IDs.roles.PartnerManager || "");
 const STAFF_GENERIC_ROLE_ID = String(IDs.roles.Staff || "");
+const STAFF_LIST_EXTRA_PM_SECTIONS = [
+  { roleId: "1494089436680552638", emoji: "<:VC_SocialManager:1494287595109355580>" },
+  { roleId: "1494089487863644330", emoji: "<:VC_EventManager:1494286896459681924>" },
+];
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -151,6 +155,21 @@ function buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser) {
   return `${emoji} **<@&${roleId}>︲\`${memberCount}\`**\n\n${membersList}\n\n`;
 }
 
+function buildRoleSectionWithCustomEmoji(roleId, emoji, guild, membersSource) {
+  const role = guild.roles.cache.get(String(roleId));
+  if (!role) return "";
+  const filteredMembers = [];
+  for (const member of iterMembers(membersSource)) {
+    if (!member?.roles?.cache?.has?.(String(roleId))) continue;
+    filteredMembers.push(member);
+  }
+  const memberCount = filteredMembers.length;
+  const membersList = filteredMembers
+    .map((member) => `<:VC_Dot:1482532364222595303> <@${member.id}>`)
+    .join("\n") || "<:VC_Dot:1482532364222595303>";
+  return `${String(emoji || "")} **<@&${roleId}>︲\`${memberCount}\`**\n\n${membersList}\n\n`;
+}
+
 function buildStaffListParts(guild, membersSource = guild.members.cache, newBadgeRoleIdsByUser = new Map()) {
   const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
   const pmRoleId = String(IDs.roles.PartnerManager || "");
@@ -173,7 +192,13 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
       pm = "<:VC_Dot:1482532364222595303>";
     }
   }
-  return { main, pm: `\n${pm}` };
+  let pmExtras = "";
+  for (const section of STAFF_LIST_EXTRA_PM_SECTIONS) {
+    const roleId = String(section?.roleId || "");
+    if (!roleId) continue;
+    pmExtras += buildRoleSectionWithCustomEmoji(roleId, section?.emoji, guild, membersSource);
+  }
+  return { main, pm: `\n${pm}${pmExtras ? `\n${pmExtras}` : ""}` };
 }
 
 async function fetchChannelMessage(channel, messageId) {

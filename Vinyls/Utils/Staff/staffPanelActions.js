@@ -3,6 +3,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const IDs = require("../../Utils/Config/ids");
+const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
@@ -45,8 +46,12 @@ async function ensureMultipleRoleStates(member, checks) {
 
 async function fetchMember(guild, userId) {
   if (!guild || !userId) return null;
-  return guild.members.cache.get(userId) ||
-    guild.members.fetch(userId).catch(() => null);
+  const cached = guild.members.cache.get(userId);
+  if (cached) return cached;
+  const first = await guild.members.fetch(userId).catch(() => null);
+  if (first) return first;
+  // Discord API can occasionally fail transiently; retry once before giving up.
+  return guild.members.fetch(userId).catch(() => null);
 }
 
 function createMemberResolver(guild) {
@@ -102,21 +107,21 @@ async function sendPartnerManagerWelcome(pmChannel, user) {
 > **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
 <:VC_Reply:1482532158080942191> <#1442569199229730836>
 
-__Per qualsiasi cosa l'High Staff è disponibile__ <:staff:1443651912179388548>`,
+__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
   }).catch(() => null);
 }
 
 async function sendHelperWelcome(staffChannel, user) {
   await staffChannel.send({
     content: `${user}
-# Benvenutx nello staff <:staff:1443651912179388548>
+# Benvenutx nello staff <:VC_Staff:1494286904089247754>
 
 > **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
 <:VC_DoubleReply:1482532332509466797> <#1442569237142044773>
 <:VC_DoubleReply:1482532332509466797> <#1442569239063167139>
 <:VC_Reply:1482532158080942191> <#1442569243626307634>
 
-__Per qualsiasi cosa l'High Staff è disponibile__ <:staff:1443651912179388548>`,
+__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
   }).catch(() => null);
 }
 
@@ -344,10 +349,11 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
+  const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
   await pexDepexChannel
     ?.send?.({
       content: `**<:success:1461731530333229226> PEX** ${targetUser}
-<:staff:1443651912179388548> \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
+${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     })
     .catch(() => null);
@@ -417,10 +423,11 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
+  const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
   await pexDepexChannel
     ?.send?.({
       content: `**<:success:1461731530333229226> PEX** ${targetUser}
-<:staff:1443651912179388548> \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
+${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     })
     .catch(() => null);
@@ -490,10 +497,11 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
   const rb = guild.roles.cache.get(roleBefore);
   const ra = guild.roles.cache.get(roleAfter);
+  const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
   await pexDepexChannel
     ?.send?.({
       content: `**<:success:1461731530333229226> PEX** ${targetUser}
-<:staff:1443651912179388548> \`${rb?.name || roleBefore}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
+${actionEmoji} \`${rb?.name || roleBefore}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     })
     .catch(() => null);
@@ -597,10 +605,11 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
   const oldRoleObj = guild.roles.cache.get(oldRoleForLog);
   const newRoleObj = newRoleForLog ? guild.roles.cache.get(newRoleForLog) : null;
   const newLabel = newRoleObj?.name || newRoleForLog || "Nessuno";
+  const actionEmoji = getStaffRoleEmojiByRoleId(oldRoleForLog);
   await pexDepexChannel
     ?.send?.({
       content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
-<:staff:1443651912179388548> \`${oldRoleObj?.name || oldRoleForLog}\` <a:VC_Arrow:1482706699365257397> \`${newLabel}\`
+${actionEmoji} \`${oldRoleObj?.name || oldRoleForLog}\` <a:VC_Arrow:1482706699365257397> \`${newLabel}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     })
     .catch(() => null);
@@ -635,7 +644,7 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
     .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``)
     .setThumbnail((targetMember || targetUser).displayAvatarURL())
     .setDescription(
-      `<:staff:1443651912179388548> <a:VC_Arrow:1482706699365257397> ${targetUser} 
+      `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetUser}
             <:VC_reason:1478517122929004544> __${reason}__ 
             <:VC_id:1478517313618575419> **ID Valutazione:** __\`${s.idCount}\`__`,
     )
@@ -670,7 +679,7 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
       .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF RIMOSSO__**`)
       .setThumbnail(targetUser.displayAvatarURL())
       .setDescription(
-        `<:staff:1443651912179388548> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**`,
+        `<:VC_Staff:1494286904089247754> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**`,
       )
       .setColor(SUCCESS_COLOR);
     await warnChannel.send({ content: `${targetUser}`, embeds: [embed] }).catch(() => null);
@@ -740,10 +749,11 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     guild.channels.cache.get(IDs.channels?.pexDepex) ||
     (await getGuildChannelCached(guild, IDs.channels?.pexDepex));
   const oldRoleObj = guild.roles.cache.get(roleToRemove);
+  const actionEmoji = getStaffRoleEmojiByRoleId(roleToRemove);
   await pexDepexChannel
     ?.send?.({
       content: `**<:cancel:1461730653677551691> DEPEX** ${targetUser}
-<:staff:1443651912179388548> \`${oldRoleObj?.name || roleToRemove}\` <a:VC_Arrow:1482706699365257397> \`${guild.roles.cache.get(ROLE_MEMBER)?.name || "Member"}\`
+${actionEmoji} \`${oldRoleObj?.name || roleToRemove}\` <a:VC_Arrow:1482706699365257397> \`${guild.roles.cache.get(ROLE_MEMBER)?.name || "Member"}\`
 <:VC_reason:1478517122929004544> __${String(reason || "").slice(0, 500)}__`,
     })
     .catch(() => null);

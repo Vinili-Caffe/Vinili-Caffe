@@ -5,6 +5,7 @@ const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../U
 const { getGuildChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
@@ -347,7 +348,7 @@ function buildIntroEmbed(type) {
   }
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:helper:1443651909448630312> Candidatura Helper")
+    .setTitle("<:VC_Helper:1494287601266331829> Candidatura Helper")
     .setDescription(
       "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
       "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
@@ -690,7 +691,7 @@ async function sendPartnerManagerWelcome(pmChannel, user) {
 > **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
 <:VC_Reply:1482532158080942191> <#1442569199229730836>
 
-__Per qualsiasi cosa l'High Staff è disponibile__ <:staff:1443651912179388548>`,
+__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
   }).catch(() => null);
 }
 
@@ -698,14 +699,14 @@ async function sendHelperWelcome(staffChannel, user) {
   if (!staffChannel?.isTextBased?.()) return;
   await staffChannel.send({
     content: `${user}
-# Benvenutx nello staff <:staff:1443651912179388548>
+# Benvenutx nello staff <:VC_Staff:1494286904089247754>
 
 > **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
 <:VC_DoubleReply:1482532332509466797> <#1442569237142044773>
 <:VC_DoubleReply:1482532332509466797> <#1442569239063167139>
 <:VC_Reply:1482532158080942191> <#1442569243626307634>
 
-__Per qualsiasi cosa l'High Staff è disponibile__ <:staff:1443651912179388548>`,
+__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>`,
   }).catch(() => null);
 }
 
@@ -773,9 +774,10 @@ async function applyCandidatePex(guild, actor, type, userId, reason, sourceMessa
   if (pexDepexChannel?.isTextBased?.()) {
     const oldRole = guild.roles.cache.get(roleBeforeId);
     const newRole = guild.roles.cache.get(String(targetRoleId));
+    const actionEmoji = getStaffRoleEmojiByRoleId(targetRoleId);
     await pexDepexChannel.send({
       content: `**<:success:1461731530333229226> PEX** <@${member.id}>
-<:staff:1443651912179388548> \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
+${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || targetRoleId}\`
 <:VC_reason:1478517122929004544> __${reason}__`,
     }).catch(() => null);
   }

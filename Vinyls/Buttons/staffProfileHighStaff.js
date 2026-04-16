@@ -2,6 +2,7 @@ const { ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle, Button
 const IDs = require("../Utils/Config/ids");
 const {
   STAFF_HP_PREFIX,
+  STAFF_HP_SELECT_PREFIX,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,
   viewerIsFounderOrCoFounder,
@@ -128,6 +129,19 @@ function parseStaffHpButton(customId) {
     sourceMessageId,
     panelMessageId,
   };
+}
+
+function parseStaffHpSelect(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 5 || parts[0] !== STAFF_HP_SELECT_PREFIX) return null;
+  const action = String(parts[1] || "");
+  const viewerId = String(parts[2] || "");
+  const targetId = String(parts[3] || "");
+  if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
+  if (action !== "prospect_pex") return null;
+  const section = parseStaffPanelSection(parts);
+  const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
+  return { action, viewerId, targetId, section, sourceMessageId, panelMessageId };
 }
 
 function parseStaffHpModal(customId) {
@@ -358,11 +372,46 @@ function buildPpmRemoveModal(customId, title) {
 function match(interaction) {
   const id = String(interaction?.customId || "");
   if (interaction?.isButton?.() && id.startsWith(`${STAFF_HP_PREFIX}:`)) return true;
+  if (interaction?.isStringSelectMenu?.() && id.startsWith(`${STAFF_HP_SELECT_PREFIX}:`)) return true;
   if (interaction?.isModalSubmit?.() && id.startsWith(`${MODAL_PREFIX}:`)) return true;
   return false;
 }
 
 async function execute(interaction) {
+  if (interaction.isStringSelectMenu()) {
+    const parsed = parseStaffHpSelect(interaction.customId);
+    if (!parsed) return false;
+    if (String(interaction.user.id) !== parsed.viewerId) {
+      await interaction
+        .reply({
+          content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare questi controlli.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    }
+    if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
+    if (!(await ensureHighStaffViewer(interaction))) return true;
+    const chosenAction = String(interaction.values?.[0] || "");
+    const allowed = new Set(["pex_mod", "pex_coord", "pex_supervisor", "pex_admin", "pex_cofounder", "pex_founder"]);
+    if (!allowed.has(chosenAction)) {
+      await interaction
+        .reply({
+          content: "<:vegax:1443934876440068179> Selezione non valida.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    }
+    const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
+    const panelSuffix = panelForModal ? `:${panelForModal}` : "";
+    const modalId = `${MODAL_PREFIX}:${chosenAction}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${panelSuffix}`;
+    const title = TITLE_BY_ACTION[chosenAction] || "Azione staff";
+    const modal = buildReasonModal(modalId, title);
+    await interaction.showModal(modal).catch(() => {});
+    return true;
+  }
+
   if (interaction.isButton()) {
     const parsed = parseStaffHpButton(interaction.customId);
     if (!parsed) return false;
@@ -395,32 +444,32 @@ async function execute(interaction) {
         await interaction.reply({
           content: "Scegli il tipo di pex:",
           components: [pexRow],
+          flags: PRIVATE_FLAG,
         }).catch(() => {});
         return true;
       }
       const depexRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
-          .setLabel("Depex Auto")
+          .setCustomId(`${STAFF_HP_PREFIX}:depex_staff:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setLabel("Depex")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex_staff:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
-          .setLabel("Solo scala staff")
-          .setStyle(ButtonStyle.Secondary),
-      );
-      const depexRow2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex_pm_only:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
-          .setLabel("Solo Partner Manager")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:depex_full:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
-          .setLabel("Depex completo")
+          .setLabel("Depex Completo")
           .setStyle(ButtonStyle.Secondary),
       );
+      if (hasPartnerManager) {
+        depexRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`${STAFF_HP_PREFIX}:depex_pm_only:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+            .setLabel("Depex Partner Manager")
+            .setStyle(ButtonStyle.Secondary),
+        );
+      }
       await interaction.reply({
         content: "Scegli il tipo di depex:",
-        components: [depexRow, depexRow2],
+        components: [depexRow],
+        flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
     }
@@ -451,6 +500,7 @@ async function execute(interaction) {
         await interaction.reply({
           content: "Cosa vuoi aggiungere?",
           components: [addRow],
+          flags: PRIVATE_FLAG,
         }).catch(() => {});
         return true;
       }
@@ -474,6 +524,7 @@ async function execute(interaction) {
       await interaction.reply({
         content: "Cosa vuoi rimuovere?",
         components: [rmRow],
+        flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
     }
@@ -528,13 +579,16 @@ async function execute(interaction) {
     }
     const guild = interaction.guild;
     if (!guild) {
-      await interaction.reply({ content: "<:vegax:1443934876440068179> Solo nel server." }).catch(() => {});
+      await interaction.reply({
+        content: "<:vegax:1443934876440068179> Solo nel server.",
+        flags: PRIVATE_FLAG,
+      }).catch(() => {});
       return true;
     }
     const reason = getModalTextInputTrimmed(interaction, IN_REASON, 500);
     const sendModalReply = async (payload) => {
       const base = { ...(payload || {}) };
-      if (base.flags == null) delete base.flags;
+      if (base.flags == null) base.flags = PRIVATE_FLAG;
       if (interaction.deferred || interaction.replied) {
         const editPayload = { ...base };
         delete editPayload.flags;
@@ -555,35 +609,29 @@ async function execute(interaction) {
       const rawAmt = getModalTextInputTrimmed(interaction, IN_PPM_AMOUNT);
       const amount = parseInt(rawAmt, 10);
       if (!Number.isInteger(amount) || amount < 1) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Quantità non valida." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Quantità non valida." });
         return true;
       }
       if (amount > MAX_PPM_AMOUNT) {
-        await interaction
-          .reply({
-            content: `<:vegax:1443934876440068179> Massimo \`${MAX_PPM_AMOUNT}\` punti per operazione.`,
-          })
-          .catch(() => {});
+        await sendModalReply({
+          content: `<:vegax:1443934876440068179> Massimo \`${MAX_PPM_AMOUNT}\` punti per operazione.`,
+        });
         return true;
       }
       const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
       if (!targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> I punti partner si gestiscono solo per utenti con il ruolo **Partner Manager**.",
-          })
-          .catch(() => {});
+        await sendModalReply({
+          content:
+            "<:vegax:1443934876440068179> I punti partner si gestiscono solo per utenti con il ruolo **Partner Manager**.",
+        });
         return true;
       }
       const staffData = await addPartnerPoints(guild.id, targetUser.id, amount);
       const changeLabel = formatPartnerPointsChange("add", amount);
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-      await interaction
-        .reply({
-          content: `<:vegacheckmark:1443666279058772028> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.`,
-        })
-        .catch(() => {});
+      await sendModalReply({
+        content: `<:vegacheckmark:1443666279058772028> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.`,
+      });
       return true;
     }
     if (parsed.action === "ppm_remove") {
@@ -592,33 +640,29 @@ async function execute(interaction) {
       const motivo = reason;
       const messageLink = getModalTextInputTrimmed(interaction, IN_PPM_LINK);
       if (!Number.isInteger(amount) || amount < 1) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Quantità non valida." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Quantità non valida." });
         return true;
       }
       if (amount > MAX_PPM_AMOUNT) {
-        await interaction
-          .reply({
-            content: `<:vegax:1443934876440068179> Massimo \`${MAX_PPM_AMOUNT}\` punti per operazione.`,
-          })
-          .catch(() => {});
+        await sendModalReply({
+          content: `<:vegax:1443934876440068179> Massimo \`${MAX_PPM_AMOUNT}\` punti per operazione.`,
+        });
         return true;
       }
       if (!motivo) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       if (!messageLink) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Link messaggio obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Link messaggio obbligatorio." });
         return true;
       }
       const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
       if (!targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> I punti partner si gestiscono solo per utenti con il ruolo **Partner Manager**.",
-          })
-          .catch(() => {});
+        await sendModalReply({
+          content:
+            "<:vegax:1443934876440068179> I punti partner si gestiscono solo per utenti con il ruolo **Partner Manager**.",
+        });
         return true;
       }
       const staffData = await removePartnerPoints(guild.id, targetUser.id, amount);
@@ -635,16 +679,14 @@ async function execute(interaction) {
           .catch(() => null);
       }
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-      await interaction
-        .reply({
-          content: `<:vegacheckmark:1443666279058772028> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.`,
-        })
-        .catch(() => {});
+      await sendModalReply({
+        content: `<:vegacheckmark:1443666279058772028> **${changeLabel}** a ${targetUser}. Totale: \`${staffData?.staff?.partnerCount ?? 0}\`.`,
+      });
       return true;
     }
     if (parsed.action === "pex" || parsed.action.startsWith("pex_")) {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       if (parsed.action === "pex_pm") {
@@ -669,7 +711,7 @@ async function execute(interaction) {
       }
     } else if (parsed.action === "depex") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "auto");
@@ -678,35 +720,35 @@ async function execute(interaction) {
         await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
-      await interaction.deferReply().catch(() => {});
+      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
       res = await runProfileStaffCompleteDepex(guild, interaction.client, targetUser, interaction.member, reason);
     } else if (parsed.action === "depex_staff") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "ladder");
     } else if (parsed.action === "depex_pm_only") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       res = await runProfileStaffDepex(guild, interaction.client, targetUser, interaction.user, reason, "partner_manager");
     } else if (parsed.action === "valpos") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       res = await valutazioneCmd.runValutazionePositiveAddForPanel(guild, interaction.member, targetUser, reason);
     } else if (parsed.action === "valneg") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       res = await valutazioneCmd.runValutazioneNegativeAddForPanel(guild, interaction.member, targetUser, reason);
     } else if (parsed.action === "warn") {
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       res = await runProfileStaffWarnAdd(guild, interaction.client, targetUser, interaction.user, reason);
@@ -714,7 +756,7 @@ async function execute(interaction) {
       const rawId = getModalTextInputTrimmed(interaction, IN_IDX, 4);
       const removeId = parseInt(rawId, 10);
       if (!reason) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." }).catch(() => {});
+        await sendModalReply({ content: "<:vegax:1443934876440068179> Motivo obbligatorio." });
         return true;
       }
       if (parsed.action === "valpos_rm") {
