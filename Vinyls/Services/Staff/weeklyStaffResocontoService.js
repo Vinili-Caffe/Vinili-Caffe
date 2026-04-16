@@ -913,7 +913,7 @@ async function runWeeklyStaffResoconti(client) {
       const pmPauseLine = getPmResocontoPauseDisplayLine(staffDoc, member);
       const pmNewBadge = action === "Nulla" && pmPexedInLast7Days ? ` ${STAFF_NEW_EMOJI}` : "";
       const pmContentLines = [
-        `<:partnermanager:1443651916838998099> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
+        `<:VC_PartnerManager:1494286911286808576> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
         `<:partneredserverowner:1443651871125409812> **Partner:** __${weeklyPartners}__`,
         `<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`,
       ];
@@ -1010,7 +1010,7 @@ async function runPreResocontoReminders(client) {
       const mancano = minPartners - weeklyPartners;
       const depexHint = weeklyPartners < 5 ? " (sotto 5 rischi Depex)" : "";
       await member.send({
-        content: `<:partnermanager:1443651916838998099> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nCome Partner Manager ti mancano **${mancano}** partner per raggiungere il minimo di ${minPartners}${depexHint}. Attualmente ne hai **${weeklyPartners}**.`,
+        content: `<:VC_PartnerManager:1494286911286808576> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nCome Partner Manager ti mancano **${mancano}** partner per raggiungere il minimo di ${minPartners}${depexHint}. Attualmente ne hai **${weeklyPartners}**.`,
       }).catch(() => null);
     }
   }

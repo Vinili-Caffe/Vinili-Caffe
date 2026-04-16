@@ -452,7 +452,7 @@ function buildProfileSelectRow(viewerId, targetId, section, profileKind, sourceM
   if (profileKind === PROFILE_PROSPECT) return null;
   if (profileKind === PROFILE_PM_ONLY) {
     const opts = [
-      { label: homeLabel, value: SECTION_HOME, emoji: "<:partnermanager:1443651916838998099>", default: sec === SECTION_HOME },
+      { label: homeLabel, value: SECTION_HOME, emoji: "<:VC_PartnerManager:1494286911286808576>", default: sec === SECTION_HOME },
       { label: "Pause", value: SECTION_PAUSE, emoji: "<a:VC_Calendar:1482706208149475358>", default: sec === SECTION_PAUSE },
     ];
     return new ActionRowBuilder().addComponents(

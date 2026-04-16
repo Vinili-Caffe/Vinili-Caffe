@@ -124,7 +124,7 @@ async function logPointRemoval(guild, staffUserId, reason, action) {
 
   await channel
     .send({
-      content: `<:partnermanager:1443651916838998099> <@${staffUserId}>
+      content: `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
 <:VC_reason:1478517122929004544> ${reason}
 <:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
 <:link:1470064815899803668> Invite: ${inviteDb}`,

@@ -338,7 +338,7 @@ function buildIntroEmbed(type) {
   if (type === "partnermanager") {
     return new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<:partnermanager:1443651916838998099> Candidatura Partner Manager")
+      .setTitle("<:VC_PartnerManager:1494286911286808576> Candidatura Partner Manager")
       .setDescription(
         "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
         "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
@@ -686,7 +686,7 @@ async function sendPartnerManagerWelcome(pmChannel, user) {
   if (!pmChannel?.isTextBased?.()) return;
   await pmChannel.send({
     content: `${user}
-# Benvenutx nei Partner Manager <:partnermanager:1443651916838998099>
+# Benvenutx nei Partner Manager <:VC_PartnerManager:1494286911286808576>
 
 > **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
 <:VC_Reply:1482532158080942191> <#1442569199229730836>

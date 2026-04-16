@@ -102,7 +102,7 @@ async function ensureNotSelf(interaction, targetUser) {
 async function sendPartnerManagerWelcome(pmChannel, user) {
   await pmChannel.send({
     content: `${user}
-# Benvenutx nei Partner Manager <:partnermanager:1443651916838998099>
+# Benvenutx nei Partner Manager <:VC_PartnerManager:1494286911286808576>
 
 > **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>
 <:VC_Reply:1482532158080942191> <#1442569199229730836>

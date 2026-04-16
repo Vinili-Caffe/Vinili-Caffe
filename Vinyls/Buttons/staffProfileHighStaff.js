@@ -672,7 +672,7 @@ async function execute(interaction) {
         await removedPointsChannel
           .send({
             content: `
-<:partnermanager:1443651916838998099> ${targetUser}
+<:VC_PartnerManager:1494286911286808576> ${targetUser}
 <:VC_reason:1478517122929004544> ${motivo}
 <:VC_Link:1482460590894088222> ${messageLink}`,
           })

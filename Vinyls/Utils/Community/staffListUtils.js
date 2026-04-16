@@ -26,7 +26,7 @@ function isPmStaffListMessageContent(content) {
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const ROLE_EMOJIS = {
-  [IDs.roles.PartnerManager]: { emoji: "<:VC_partnermanager:1479442411037003897>" },
+  [IDs.roles.PartnerManager]: { emoji: "<:VC_PartnerManager:1494286911286808576>" },
   [IDs.roles.Helper]: { emoji: "<:VC_Helper:1494287601266331829>" },
   [IDs.roles.Mod]: { emoji: "<:VC_Mod:1494287597952958514>" },
   [IDs.roles.Coordinator]: { emoji: "<:VC_Coordinator:1494286913744539648>" },
@@ -45,6 +45,12 @@ const STAFF_LIST_EXTRA_PM_SECTIONS = [
   { roleId: "1494089436680552638", emoji: "<:VC_SocialManager:1494287595109355580>" },
   { roleId: "1494089487863644330", emoji: "<:VC_EventManager:1494286896459681924>" },
 ];
+const STAFF_LIST_WATCH_ROLE_IDS = Array.from(
+  new Set([
+    ...STAFF_ROLE_IDS.map((id) => String(id)),
+    ...STAFF_LIST_EXTRA_PM_SECTIONS.map((row) => String(row?.roleId || "")).filter(Boolean),
+  ]),
+);
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -80,8 +86,8 @@ function didStaffMembershipChange(oldMember, newMember) {
 }
 
 function didStaffRolesChange(oldMember, newMember) {
-  const oldStaffIds = new Set(STAFF_ROLE_IDS.filter((id) => oldMember?.roles?.cache?.has?.(id)));
-  const newStaffIds = new Set(STAFF_ROLE_IDS.filter((id) => newMember?.roles?.cache?.has?.(id)));
+  const oldStaffIds = new Set(STAFF_LIST_WATCH_ROLE_IDS.filter((id) => oldMember?.roles?.cache?.has?.(id)));
+  const newStaffIds = new Set(STAFF_LIST_WATCH_ROLE_IDS.filter((id) => newMember?.roles?.cache?.has?.(id)));
   if (oldStaffIds.size !== newStaffIds.size) return true;
   for (const id of oldStaffIds) if (!newStaffIds.has(id)) return true;
   for (const id of newStaffIds) if (!oldStaffIds.has(id)) return true;
@@ -198,7 +204,9 @@ function buildStaffListParts(guild, membersSource = guild.members.cache, newBadg
     if (!roleId) continue;
     pmExtras += buildRoleSectionWithCustomEmoji(roleId, section?.emoji, guild, membersSource);
   }
-  return { main, pm: `\n${pm}${pmExtras ? `\n${pmExtras}` : ""}` };
+  const mainWithNaturalGap = `${String(main || "").trimEnd()}\n\n`;
+  const pmWithNaturalGap = `\n\n${pm}${pmExtras ? `\n${pmExtras}` : ""}`;
+  return { main: mainWithNaturalGap, pm: pmWithNaturalGap };
 }
 
 async function fetchChannelMessage(channel, messageId) {
