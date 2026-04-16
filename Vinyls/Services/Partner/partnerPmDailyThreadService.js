@@ -16,19 +16,6 @@ function formatDateTitleRome(d = new Date()) {
   }).format(d);
 }
 
-async function addCachedPartnerManagersToThread(thread, guild) {
-  const pmId = String(IDs.roles?.PartnerManager || "").trim();
-  if (!pmId || !thread?.members?.add) return;
-  let role = guild.roles.cache.get(pmId);
-  if (!role) {
-    role = await guild.roles.fetch(pmId).catch(() => null);
-  }
-  if (!role) return;
-  for (const member of role.members.values()) {
-    await thread.members.add(member.id).catch(() => {});
-  }
-}
-
 async function deleteThreadIfAny(client, threadId) {
   const id = String(threadId || "").trim();
   if (!/^\d{16,22}$/.test(id)) return;
@@ -63,34 +50,21 @@ async function rotatePartnerPmDailyThread(client) {
   let name = `Comandi PM · ${dateLabel}`.replace(/\s+/g, " ").trim();
   if (name.length > 100) name = name.slice(0, 100);
 
-  let thread = await parent.threads
+  const thread = await parent.threads
     .create({
       name,
+      type: ChannelType.PublicThread,
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-      type: ChannelType.PrivateThread,
       invitable: false,
       reason: "Rotazione giornaliera comandi Partner Manager",
     })
     .catch((err) => {
-      global.logger?.warn?.("[PARTNER PM THREAD] Thread privato non creato, fallback pubblico:", err?.message || err);
+      global.logger?.error?.("[PARTNER PM THREAD] Creazione thread pubblico fallita:", err?.message || err);
       return null;
     });
-  if (!thread) {
-    thread = await parent.threads
-      .create({
-        name,
-        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-        reason: "Rotazione giornaliera comandi Partner Manager",
-      })
-      .catch((err) => {
-        global.logger?.error?.("[PARTNER PM THREAD] Creazione thread fallita:", err?.message || err);
-        return null;
-      });
-  }
   if (!thread) return;
 
   await setPartnerPmDailyThreadId(thread.id);
-  await addCachedPartnerManagersToThread(thread, guild);
 }
 
 async function syncPartnerPmThreadForMemberChange(oldMember, newMember) {
@@ -106,9 +80,7 @@ async function syncPartnerPmThreadForMemberChange(oldMember, newMember) {
   const thread =
     client.channels?.cache?.get(threadId) || (await client.channels.fetch(threadId).catch(() => null));
   if (!thread?.isThread?.() || !thread.members) return;
-  if (has && !had) {
-    await thread.members.add(newMember.id).catch(() => {});
-  } else if (had && !has) {
+  if (had && !has) {
     await thread.members.remove(newMember.id).catch(() => {});
   }
 }

@@ -1,0 +1,8 @@
+{
+  "name": "viniliecaffe-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-site.mjs"
+  }
+}

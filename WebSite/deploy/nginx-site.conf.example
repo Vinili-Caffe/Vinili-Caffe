@@ -1,0 +1,11 @@
+server {
+    listen 80;
+    server_name www.esempio.it esempio.it;
+    root /var/www/viniliecaffe;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    add_header X-Content-Type-Options nosniff;
+    add_header Referrer-Policy strict-origin-when-cross-origin;
+}
