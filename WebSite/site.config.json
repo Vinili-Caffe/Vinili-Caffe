@@ -2,10 +2,12 @@
   "siteName": "Vinili & Caffè",
   "siteUrl": "https://www.viniliecaffe.it",
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
-  "discordInviteCode": "",
+  "discordInviteCode": "viniliecaffe",
   "useDiscordGuildBanner": true,
   "useDiscordGuildIcon": true,
   "useDiscordGuildFoundedDate": true,
+  "useDiscordGuildDescription": true,
+  "aboutDescription": "",
   "discordStaffListBuild": {
     "enabled": true,
     "guildId": "1329080093599076474",

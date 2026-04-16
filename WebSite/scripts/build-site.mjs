@@ -156,6 +156,10 @@ async function fetchInviteGuildSnapshot(inviteCode) {
       icon: guild.icon,
       approximateMemberCount: data.approximate_member_count,
       boostCount: guild.premium_subscription_count,
+      guildDescription:
+        guild.description != null && String(guild.description).trim()
+          ? String(guild.description)
+          : "",
     };
   } catch (e) {
     console.warn("[build-site] JSON invite:", e?.message || e);
@@ -240,10 +244,15 @@ function memberRoleIds(m) {
   return [];
 }
 
-function memberDisplayName(m) {
+/** Nome in elenco tipo “Blear#3218” (discriminator) o display / @handle senza #0. */
+function memberStaffLineName(m) {
+  const u = m?.user;
+  if (!u) return "Utente";
+  const un = String(u.username || "").trim();
+  const disc = String(u.discriminator ?? "0");
   const nick = m?.nick != null ? String(m.nick).trim() : "";
-  const gn = m?.user?.global_name != null ? String(m.user.global_name).trim() : "";
-  const un = m?.user?.username != null ? String(m.user.username).trim() : "";
+  const gn = u.global_name != null ? String(u.global_name).trim() : "";
+  if (disc && disc !== "0") return `${un}#${disc}`;
   return nick || gn || un || "Utente";
 }
 
@@ -313,6 +322,11 @@ async function buildStaffListBlock(cfg, guildId) {
     return staffListFallback();
   }
 
+  const labelOverrides =
+    b.staffRoleLabels && typeof b.staffRoleLabels === "object" && !Array.isArray(b.staffRoleLabels)
+      ? b.staffRoleLabels
+      : {};
+
   const rows = [];
   for (const m of members) {
     if (m?.user?.bot) continue;
@@ -339,33 +353,80 @@ async function buildStaffListBlock(cfg, guildId) {
       }
     }
     if (!bestId) continue;
-    const roleLabel = roleMetas.get(bestId)?.name || bestId;
-    rows.push({ roleLabel, name: memberDisplayName(m), bestPos });
+    const rawLabel = roleMetas.get(bestId)?.name || bestId;
+    const roleLabel = String(labelOverrides[bestId] ?? labelOverrides[String(bestId)] ?? rawLabel).trim() || rawLabel;
+    rows.push({ bestId, bestPos, roleLabel, m });
   }
-
-  rows.sort((a, b) => {
-    if (b.bestPos !== a.bestPos) return b.bestPos - a.bestPos;
-    return String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" });
-  });
 
   if (!rows.length) {
     console.warn("[build-site] Staff list: nessun membro dopo filtri (ruoli o intent).");
     return staffListFallback();
   }
 
-  const li = rows
-    .map(
-      (row) =>
-        `            <li><strong>${escHtml(row.roleLabel)}</strong> <span>${escHtml(row.name)}</span></li>`,
-    )
+  const byRole = new Map();
+  for (const row of rows) {
+    if (!byRole.has(row.bestId)) {
+      byRole.set(row.bestId, { roleLabel: row.roleLabel, bestPos: row.bestPos, members: [] });
+    }
+    const g = byRole.get(row.bestId);
+    g.members.push(row.m);
+  }
+
+  const groups = [...byRole.values()].sort((a, b) => b.bestPos - a.bestPos);
+  for (const g of groups) {
+    g.members.sort((ma, mb) =>
+      memberStaffLineName(ma).localeCompare(memberStaffLineName(mb), "it", { sensitivity: "base" }),
+    );
+  }
+
+  const roleLines = groups
+    .map((g) => {
+      const parts = g.members.map((mem) => escHtml(memberStaffLineName(mem))).join(" | ");
+      return `            <p class="vc-staff-block__line"><strong>${escHtml(g.roleLabel)}:</strong> ${parts}</p>`;
+    })
     .join("\n");
 
-  const html =
-    `          <ul class="info-list" style="margin-top: 0.4rem;">\n${li}\n          </ul>\n` +
-    `          <p style="margin-top: 1.2rem; font-size: 1.35rem; color: #555;">\n` +
-    `            Elenco staff (ruoli configurati in site.config.json; Partner Manager escluso) aggiornato alla build.\n` +
-    `          </p>`;
+  const html = `          <div class="vc-staff-block">\n${roleLines}\n          </div>`;
   return { html, staffCount: rows.length };
+}
+
+/** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
+async function mainLiveStatsExtraOnly() {
+  if (!fs.existsSync(CONFIG_PATH)) {
+    console.error("Manca site.config.json in", ROOT);
+    process.exit(1);
+  }
+  const cfg = readJson(CONFIG_PATH);
+  const staffB = cfg.discordStaffListBuild || {};
+  const guildIdConfigured = String(staffB.guildId || "").trim();
+  const inviteCode = inviteCodeFromConfig(cfg);
+  let snap = null;
+  if (!guildIdConfigured) {
+    if (!inviteCode) {
+      console.error(
+        "[live-stats-extra] Impossibile ricavare guildId: imposta discordStaffListBuild.guildId o discordInviteUrl in site.config.json.",
+      );
+      process.exit(1);
+    }
+    snap = await fetchInviteGuildSnapshot(inviteCode);
+  }
+  const guildIdResolved = guildIdConfigured || snap?.guildId || "";
+  if (!guildIdResolved) {
+    console.error("[live-stats-extra] Invite API senza guild id.");
+    process.exit(1);
+  }
+  const staffResult = await buildStaffListBlock(cfg, guildIdResolved);
+  const n = staffResult.staffCount != null ? staffResult.staffCount : 0;
+  if (staffResult.staffCount == null) {
+    console.warn(
+      "[live-stats-extra] Conteggio staff non disponibile (token, intent o config). Scrivo staffNoPm: 0.",
+    );
+  }
+  const outRaw = process.env.VC_LIVE_STATS_JSON_OUT?.trim();
+  const out = outRaw || path.join(DIST, "live-stats-extra.json");
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, JSON.stringify({ staffNoPm: n }), "utf8");
+  console.log("[live-stats-extra] OK", out, "staffNoPm:", n);
 }
 
 async function main() {
@@ -401,6 +462,7 @@ async function main() {
   const wantBanner = cfg.useDiscordGuildBanner !== false;
   const wantIcon = cfg.useDiscordGuildIcon !== false;
   const wantFounded = cfg.useDiscordGuildFoundedDate !== false;
+  const wantGuildDescription = cfg.useDiscordGuildDescription !== false;
   const staffB = cfg.discordStaffListBuild || {};
   const staffEnabled = staffB.enabled === true;
   const guildIdConfigured = String(staffB.guildId || "").trim();
@@ -411,6 +473,7 @@ async function main() {
     (wantBanner ||
       wantIcon ||
       wantFounded ||
+      wantGuildDescription ||
       (staffEnabled && !guildIdConfigured) ||
       cfg.liveStats?.enabled !== false);
 
@@ -442,6 +505,17 @@ async function main() {
       const label = formatItalianDateRome(created);
       if (label) foundedDisplay = label;
     }
+  }
+
+  const siteName = cfg.siteName || "Vinili & Caffè";
+  const configuredAbout = String(cfg.aboutDescription ?? "").trim();
+  let aboutPlain = configuredAbout;
+  if (!aboutPlain && wantGuildDescription && snap?.guildDescription) {
+    const gd = String(snap.guildDescription).trim();
+    if (gd) aboutPlain = gd;
+  }
+  if (!aboutPlain) {
+    aboutPlain = `${siteName} è la community ufficiale collegata al bot e alle attività del server: canali tematici, strumenti per lo staff e spazio per condividere ascolti, consigli e novità. Entra su Discord per regolamento, ruoli e annunci aggiornati.`;
   }
 
   const guildIdResolved = guildIdConfigured || snap?.guildId || "";
@@ -476,7 +550,8 @@ async function main() {
     GUILD_ICON_URL: escAttr(guildIconUrl),
     STAFF_LIST_BLOCK: staffResult.html,
     LIVE_STATS_BOOT: liveStatsBoot,
-    SITE_NAME: cfg.siteName || "Vinili & Caffè",
+    ABOUT_DESCRIPTION: escHtml(aboutPlain),
+    SITE_NAME: siteName,
     SITE_URL: cfg.siteUrl || "",
     DISCORD_INVITE_URL: cfg.discordInviteUrl || "https://discord.gg/viniliecaffe",
     META_DESCRIPTION: cfg.metaDescription || "",
@@ -510,7 +585,8 @@ async function main() {
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }
 
-main().catch((e) => {
+const runExtraOnly = process.argv.includes("--only-live-stats-extra");
+(runExtraOnly ? mainLiveStatsExtraOnly() : main()).catch((e) => {
   console.error(e);
   process.exit(1);
 });
