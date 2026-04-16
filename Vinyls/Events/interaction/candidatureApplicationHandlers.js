@@ -20,6 +20,7 @@ const APPLY_PEX_PREFIX = "apply_pex";
 const APPLY_PEX_MODAL_PREFIX = "apply_pex_modal";
 const APPLY_REJECT_PREFIX = "apply_reject";
 const APPLY_PEX_REASON_INPUT_ID = "apply_pex_reason";
+const VISIONE_MODULI_AUTO_PEX_REASON = "candidatura accettata";
 const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const APPLICATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -809,6 +810,68 @@ function parseCandidatePexModalId(customId) {
   return { type: String(type), userId: String(userId), messageId: String(messageId) };
 }
 
+function isVisioneModuliChannelOrThread(interaction) {
+  const vid = String(IDs.channels?.visioneModuli || "").trim();
+  if (!vid) return false;
+  const cid = String(interaction.channelId || "");
+  if (cid === vid) return true;
+  const parentId = interaction.channel?.parentId != null ? String(interaction.channel.parentId) : "";
+  return parentId === vid;
+}
+
+async function executeCandidatePexInteraction(interaction, parsed, reason) {
+  const pexLockKey = `${String(interaction.guildId || "dm")}:${String(parsed.messageId)}`;
+  if (candidatePexLocks.has(pexLockKey)) {
+    await interaction.reply({
+      content:
+        "<a:VC_Alert:1482706673176150077> Questa candidatura è già in elaborazione.",
+      flags: 1 << 6,
+    }).catch(() => null);
+    return true;
+  }
+  candidatePexLocks.add(pexLockKey);
+  try {
+    const sendPexModalReply = async (payload) => {
+      const base = { ...(payload || {}) };
+      if (base.flags == null) base.flags = 1 << 6;
+      if (interaction.deferred || interaction.replied) {
+        const editPayload = { ...base };
+        delete editPayload.flags;
+        await interaction.editReply(editPayload).catch(async () => {
+          await interaction.followUp(base).catch(() => null);
+        });
+        return;
+      }
+      await interaction.reply(base).catch(() => null);
+    };
+    const trimmedReason = String(reason || "").trim();
+    if (!trimmedReason) {
+      await sendPexModalReply({
+        content: "<a:VC_Alert:1482706673176150077> Devi inserire un motivo valido.",
+      });
+      return true;
+    }
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
+    }
+    const srcMessage = await interaction.channel?.messages?.fetch(parsed.messageId).catch(() => null);
+    const status = await applyCandidatePex(
+      interaction.guild,
+      interaction.user,
+      parsed.type,
+      parsed.userId,
+      trimmedReason,
+      srcMessage,
+    );
+    await sendPexModalReply({
+      content: status,
+    });
+    return true;
+  } finally {
+    candidatePexLocks.delete(pexLockKey);
+  }
+}
+
 async function handleModalSubmit(interaction, type, stepRaw) {
   const stateKey = getStateKey(interaction, type);
   if (hasNoModuliRole(interaction)) {
@@ -933,6 +996,20 @@ async function handleCandidatureApplicationInteraction(interaction) {
         }).catch(() => null);
         return true;
       }
+      if (!interaction.message?.id) {
+        await interaction.reply({
+          content: "<a:VC_Alert:1482706673176150077> Messaggio candidatura non disponibile.",
+          flags: 1 << 6,
+        }).catch(() => null);
+        return true;
+      }
+      if (isVisioneModuliChannelOrThread(interaction)) {
+        return executeCandidatePexInteraction(interaction, {
+          type: parsed.type,
+          userId: parsed.userId,
+          messageId: String(interaction.message.id),
+        }, VISIONE_MODULI_AUTO_PEX_REASON);
+      }
       const modal = new ModalBuilder().setCustomId(`${APPLY_PEX_MODAL_PREFIX}:${parsed.type}:${parsed.userId}:${interaction.message.id}`)
         .setTitle("Motivo Pex Candidatura");
       const reasonInput = new TextInputBuilder().setCustomId(APPLY_PEX_REASON_INPUT_ID).setLabel("Motivo").setStyle(TextInputStyle.Paragraph).setRequired(true).setMinLength(3).setMaxLength(500);
@@ -1034,49 +1111,8 @@ async function handleCandidatureApplicationInteraction(interaction) {
       }).catch(() => null);
       return true;
     }
-    const pexLockKey = `${String(interaction.guildId || "dm")}:${String(parsed.messageId)}`;
-    if (candidatePexLocks.has(pexLockKey)) {
-      await interaction.reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Questa candidatura è già in elaborazione.",
-        flags: 1 << 6,
-      }).catch(() => null);
-      return true;
-    }
-    candidatePexLocks.add(pexLockKey);
-    try {
-      const sendPexModalReply = async (payload) => {
-        const base = { ...(payload || {}) };
-        if (base.flags == null) base.flags = 1 << 6;
-        if (interaction.deferred || interaction.replied) {
-          const editPayload = { ...base };
-          delete editPayload.flags;
-          await interaction.editReply(editPayload).catch(async () => {
-            await interaction.followUp(base).catch(() => null);
-          });
-          return;
-        }
-        await interaction.reply(base).catch(() => null);
-      };
-      const reason = String(interaction.fields.getTextInputValue(APPLY_PEX_REASON_INPUT_ID) || "",).trim();
-      if (!reason) {
-        await sendPexModalReply({
-          content: "<a:VC_Alert:1482706673176150077> Devi inserire un motivo valido.",
-        });
-        return true;
-      }
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply({ flags: 1 << 6 }).catch(() => null);
-      }
-      const srcMessage = await interaction.channel?.messages?.fetch(parsed.messageId).catch(() => null);
-      const status = await applyCandidatePex(interaction.guild, interaction.user, parsed.type, parsed.userId, reason, srcMessage,);
-      await sendPexModalReply({
-        content: status,
-      });
-      return true;
-    } finally {
-      candidatePexLocks.delete(pexLockKey);
-    }
+    const reason = String(interaction.fields.getTextInputValue(APPLY_PEX_REASON_INPUT_ID) || "").trim();
+    return executeCandidatePexInteraction(interaction, parsed, reason);
   }
 
   const raw = String(interaction.customId || "");

@@ -13,6 +13,33 @@ const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, RO
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
+
+/** Testo regolamento (allineato a info_rules) per embed sanzioni guida staff */
+const MOD_RULE_DETAIL = {
+  "1.1": "**Rispettare** i [__ToS__](https://discord.com/terms) e le [__Linee Guida__](https://discord.com/guidelines) di Discord.",
+  "1.2": "**Non discriminare nessuno**, non accettiamo nessuna forma di razzismo, fascismo, omofobia. È __vietato__ **scrivere** o **dire** la `f-word` e la `n-word`.",
+  "1.3": "**Rispettare** gli __utenti__ e lo __staff__ del server.",
+  "1.4": "È __vietato__ **auto - promuoversi**.",
+  "1.5": "È __vietato__ **uscire** e **rientrare** continuamente dal server.",
+  "2.1": "È __vietato__ inviare **file** **gore**, **NSFW** o **dati sensibili** di un utente.",
+  "2.2": "È __vietato__ avere **comportamenti toxic** o **troll** che conducono al flame.",
+  "2.3": "È __vietato__ inviare **link** contenenti virus, grabber, sponsor o social.",
+  "2.4": "È __vietato__ inviare **flood** o **Wall Of Text** che intasano la chat.",
+  "2.5": "È __vietato__ abusare di **parolacce**, **bestemmie** e ogni tipo di **insulto** a **divinità**.",
+  "3.1": "È __vietato__ mostrare contenuti **gore**, **NSFW** o **dati sensibili** di un utente.",
+  "3.2": "È __vietato__ avere **comportamenti toxic** o **troll** che conducono al flame.",
+  "3.3": "È __vietato__ **disconnettere il bot** o cambiare musica mentre un utente sta ascoltando una canzone tramite il bot.",
+  "3.4": "È __vietato__ utilizzare **SoundBoard** o qualunque tipo di **VoiceChanger**.",
+  "3.5": "È __vietato__ **urlare** o fare **errori** col microfono.",
+  "3.6": "È __vietato__ abusare di **parolacce**, **bestemmie** e ogni tipo di **insulto** a **divinità**.",
+  "3.7": "È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
+};
+
+function staffSanctionRuleIntro(ruleKey) {
+  const body = MOD_RULE_DETAIL[ruleKey];
+  if (!body) return "";
+  return `<:VC_Dot:1482532364222595303> ${body}\n\n`;
+}
 const IGNORED_BUTTON_LOG_CODES = new Set([
   10062, // Unknown interaction
   10015, // Unknown webhook
@@ -240,35 +267,35 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "generalimoderazione") {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`1.1\`__**
-                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
+${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.2\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.3\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __3h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.4\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
+${staffSanctionRuleIntro("1.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.5\`__**
-                <:VC_Reply:1482532158080942191> Sanzione: **Ban**`);
+${staffSanctionRuleIntro("1.5")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
   if (interaction.customId == "testualimoderazione") {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`2.1\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __18h__**
+${staffSanctionRuleIntro("2.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Mute __18h__**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.2\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("2.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Warn**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
@@ -276,16 +303,16 @@ async function handleStaffButtons(interaction) {
                 <:VC_Reply:1482532158080942191> 6° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.3\`__**
-                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
+${staffSanctionRuleIntro("2.3")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`2.4\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("2.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Warn**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
 
                 <:rules:1443307208543703131> **__Regola \`2.5\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("2.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -293,43 +320,43 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "vocalimoderazione") {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(`<:rules:1443307208543703131> **__Regola \`3.1\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.1")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __16h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`3.2\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __18h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __24h__**
                 <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`3.3\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __6h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __24h__**
                 <:VC_Reply:1482532158080942191> 5° Sanzione: **Mute __48h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.4\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.4")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __3h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __6h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 5° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`3.5\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.5")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __3h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`3.6\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.6")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**
 
                 <:rules:1443307208543703131> **__Regola \`3.7\`__**
-                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
+${staffSanctionRuleIntro("3.7")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
                 <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __4h__**
                 <:VC_Reply:1482532158080942191> 3° Sanzione: **Mute __12h__**
                 <:VC_Reply:1482532158080942191> 4° Sanzione: **Mute __18h__**
@@ -710,57 +737,57 @@ module.exports = {
         .setDescription("<:5751attentionfromvega:1443651874032062505> __Lo staff si riserva il diritto di cambiare sanzioni e regole in base alla situazione.__");
       const generalEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription([
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.1`**",
-        "<:VC_Reply:1482532158080942191> **Rispettare** i [__ToS__](https://discord.com/terms) e le [__Linee Guida__](https://discord.com/guidelines) di Discord.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.1"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.2`**",
-        "<:VC_Reply:1482532158080942191> **Non discriminare nessuno**, non accettiamo nessuna forma di razzismo, fascismo, omofobia. È __vietato__ **scrivere** o **dire** la `f-word` e la `n-word`.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.2"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.3`**",
-        "<:VC_Reply:1482532158080942191> **Rispettare** gli __utenti__ e lo __staff__ del server.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.3"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.4`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ **auto - promuoversi**.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.4"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.5`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ **uscire** e **rientrare** continuamente dal server.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.5"]}`,
       ].join("\n"));
       const textEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription([
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.1`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ inviare **file** **gore**, **NSFW** o **dati sensibili** di un utente.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.1"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.2`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ avere **comportamenti toxic** o **troll** che conducono al flame.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.2"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.3`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ inviare **link** contenenti virus, grabber, sponsor o social.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.3"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.4`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ inviare **flood** o **Wall Of Text** che intasano la chat.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.4"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.5`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ abusare di **parolacce**, **bestemmie** e ogni tipo di **insulto** a **divinità**.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.5"]}`,
       ].join("\n"));
       const voiceEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription([
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.1`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ mostrare contenuti **gore**, **NSFW** o **dati sensibili** di un utente.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.1"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.2`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ avere **comportamenti toxic** o **troll** che conducono al flame.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.2"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.3`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ **disconnettere il bot** o cambiare musica mentre un utente sta ascoltando una canzone tramite il bot.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.3"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.4`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ utilizzare **SoundBoard** o qualunque tipo di **VoiceChanger**.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.4"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.5`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ **urlare** o fare **errori** col microfono.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.5"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.6`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ abusare di **parolacce**, **bestemmie** e ogni tipo di **insulto** a **divinità**.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.6"]}`,
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.7`**",
-        "<:VC_Reply:1482532158080942191> È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
+        `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.7"]}`,
       ].join("\n"));
       await interaction.reply({ embeds: [generalEmbed, textEmbed, voiceEmbed, commonEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
