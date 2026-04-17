@@ -117,20 +117,41 @@
             </details>
           </nav>
           <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
-            <details class="vc-notif-dropdown">
-              <summary class="vc-icon-btn vc-notif-summary inline-flex" aria-label="Notifiche"
-                ><i class="fa fa-bell-o" aria-hidden="true"></i></summary>
+            <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"
+                ><i class="fa fa-bell-o" aria-hidden="true"></i>
+                <span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>
               <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
                 <div class="vc-notif-panel-head">
-                  <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
-                  <span class="vc-notif-panel-title">Notifiche</span>
+                  <div class="vc-notif-panel-head-start">
+                    <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                    <div class="vc-notif-panel-head-text">
+                      <span class="vc-notif-panel-title">Notifiche</span>
+                      <span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span>
+                    </div>
+                  </div>
+                  <div class="vc-notif-panel-head-actions">
+                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
+                      aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
+                    <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
+                      aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                  </div>
                 </div>
                 <div class="vc-notif-panel-body">
-                  <div class="vc-notif-empty">
-                    <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
-                    <p class="vc-notif-empty-title">Nessuna notifica</p>
-                    <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                  <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                    <div class="vc-notif-empty">
+                      <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                      <p class="vc-notif-empty-title">Nessuna notifica</p>
+                      <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                    </div>
                   </div>
+                  <div class="vc-notif-list-wrap" id="vc-notif-list-wrap">
+                    <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
+                  <a href="#" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
+                    <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
                 </div>
               </div>
             </details>
