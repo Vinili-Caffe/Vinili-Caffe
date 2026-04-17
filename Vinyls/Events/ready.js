@@ -31,7 +31,7 @@ const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanu
 const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
-const { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook } = require("../Services/Web/webhookService");
+const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
 const IDs = require("../Utils/Config/ids");
@@ -538,10 +538,10 @@ function startPrimaryLoops(client, engagementTick) {
     }],
     ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
     [
-      "[DISCADIA HTTP VOTE WEBHOOK] Failed to start",
+      "[BOT HTTP WEBHOOK] Failed to start",
       () => {
-        if (!shouldStartDiscadiaVoteHttpWebhook(client)) return;
-        startWebhookServer(client).catch((err) => global.logger?.error?.("[DISCADIA HTTP VOTE WEBHOOK]", err));
+        if (!shouldStartBotHttpServer(client)) return;
+        startWebhookServer(client).catch((err) => global.logger?.error?.("[BOT HTTP WEBHOOK]", err));
       },
     ],
   ];

@@ -54,14 +54,19 @@ async function execute(interaction) {
   } else if (parsed.prefix === CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX) view = "main";
 
   try {
+    await interaction.deferUpdate().catch(() => {});
     const payload = await buildChannelOverviewPayload(guild, channel, lookbackDays, view, parsed.ownerId || interaction.user?.id);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
-    } else {
-      await interaction.update(payload).catch(async () => {
-        await interaction.reply(payload).catch(() => { });
-      });
+    const msg = interaction.message;
+    if (!msg?.edit) {
+      await sendControlErrorFallback(interaction);
+      return true;
     }
+    await msg.edit({
+      files: payload.files || [],
+      components: payload.components || [],
+      embeds: Array.isArray(payload.embeds) ? payload.embeds : [],
+      content: typeof payload.content === "string" ? payload.content : null,
+    });
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/channel] execute", err);

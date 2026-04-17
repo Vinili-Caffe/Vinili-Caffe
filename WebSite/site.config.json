@@ -8,6 +8,8 @@
     "clientId": "1329118940110127204",
     "redirectUri": "https://www.viniliecaffe.it/"
   },
+  "candidatureSubmitApiUrl": "https://www.viniliecaffe.it/webhooks/site-candidature",
+  "candidatureSubmitApiUrlLocal": "http://127.0.0.1:3000/webhooks/site-candidature",
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
   "wikiUrl": "/wiki",
   "wikiBotViniliAvatarUrl": "",
@@ -61,8 +63,8 @@
   "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
   "metaKeywords": "vinili, caffè, discord, community, musica, vinyl, italia",
   "supportEmail": "supporto@viniliecaffe.it",
-  "siteModeratorEmail": "moderatori@viniliecaffe.it",
-  "siteAdminEmail": "admin@viniliecaffe.it",
+  "siteModeratorEmail": "supporto@viniliecaffe.it",
+  "siteAdminEmail": "ammministrazione@viniliecaffe.it",
   "foundedDisplay": "10 dicembre 2025",
   "liveStats": {
     "enabled": true,

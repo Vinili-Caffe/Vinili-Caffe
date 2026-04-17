@@ -18,6 +18,35 @@
   });
 })();
 (function () {
+  function normalizePathname(path) {
+    var p = String(path || "");
+    if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+    return p;
+  }
+
+  function markSnavDetailsCurrentFromLocation() {
+    var bar = document.querySelector(".vc-header-bar");
+    if (!bar) return;
+    var cur = normalizePathname(window.location.pathname);
+    bar.querySelectorAll("details.vc-snav-details").forEach(function (det) {
+      var hit = false;
+      det.querySelectorAll("a.vc-snav-row").forEach(function (a) {
+        if (a.classList.contains("vc-snav-row--active") || a.getAttribute("aria-current") === "page") {
+          hit = true;
+          return;
+        }
+        var href = a.getAttribute("href");
+        if (!href || href.charAt(0) === "#") return;
+        try {
+          var u = new URL(href, window.location.href);
+          if (u.origin !== window.location.origin) return;
+          if (normalizePathname(u.pathname) === cur) hit = true;
+        } catch (e) {}
+      });
+      if (hit) det.classList.add("vc-snav-details--current");
+    });
+  }
+
   function initHeaderNavAccordion() {
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
@@ -40,6 +69,7 @@
         });
       });
     }
+    markSnavDetailsCurrentFromLocation();
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initHeaderNavAccordion);

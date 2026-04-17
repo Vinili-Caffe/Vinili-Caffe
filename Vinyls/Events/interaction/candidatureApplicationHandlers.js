@@ -530,8 +530,7 @@ function capChunksToMaxEmbeds(chunks, maxEmbeds = DISCORD_MESSAGE_EMBEDS_MAX, ma
   return head;
 }
 
-async function resolveSubmissionChannel(interaction) {
-  const guild = interaction.guild;
+async function resolveSubmissionChannel(guild) {
   if (!guild) return null;
   const targetId = IDs.channels?.visioneModuli;
   if (targetId) {
@@ -606,21 +605,20 @@ async function handleStartButton(interaction, type, step = 1, forceStep = false)
   return true;
 }
 
-async function finalizeApplication(interaction, type, state, stateKey = null) {
+/**
+ * Invia in #visioneModuli come il flusso Discord (embed, bottoni HS, thread, reazioni, cooldown).
+ * @returns {{ ok: true, nextAllowedAt: number } | { ok: false, code: "no_channel" | "send_failed" }}
+ */
+async function postCandidatureToVisioneModuli(client, guild, user, type, answers, stateKey) {
   const cfg = APPLICATIONS[type];
-  const channel = await resolveSubmissionChannel(interaction);
+  if (!cfg) return { ok: false, code: "send_failed" };
+  const channel = await resolveSubmissionChannel(guild);
   if (!channel?.isTextBased?.()) {
-    await interaction.reply({
-      content:
-        "<a:VC_Alert:1482706673176150077> Non trovo il canale `visioneModuli` per inviare la candidatura.",
-      flags: 1 << 6,
-    }).catch(() => null);
-    return true;
+    return { ok: false, code: "no_channel" };
   }
 
-  const user = interaction.user;
   const applicationNumber = await nextApplicationNumber(type);
-  const fullText = formatApplicationDescription(type, state.answers);
+  const fullText = formatApplicationDescription(type, answers);
   const descChunks = capChunksToMaxEmbeds(chunkStringForEmbedDescriptions(fullText));
   const embeds = descChunks.map((chunk, idx) => {
     const e = new EmbedBuilder().setColor("#3498DB");
@@ -643,12 +641,7 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
   const sent = await channel.send({ content: mention || undefined, embeds, components: [buildCandidateActionRow(type, user.id)], }).catch(() => null);
   if (!sent) {
-    await interaction.reply({
-      content:
-        "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la candidatura. Riprova più tardi.",
-      flags: 1 << 6,
-    }).catch(() => null);
-    return true;
+    return { ok: false, code: "send_failed" };
   }
 
   if (typeof sent.startThread === "function") {
@@ -676,11 +669,238 @@ async function finalizeApplication(interaction, type, state, stateKey = null) {
   await setCooldown(user.id, nextAllowedAt, type);
   if (stateKey) await clearDraftState(stateKey);
 
+  return { ok: true, nextAllowedAt };
+}
+
+async function finalizeApplication(interaction, type, state, stateKey = null) {
+  const sk = stateKey || getStateKey(interaction, type);
+  const result = await postCandidatureToVisioneModuli(
+    interaction.client,
+    interaction.guild,
+    interaction.user,
+    type,
+    state.answers,
+    sk,
+  );
+  if (!result.ok) {
+    const content =
+      result.code === "no_channel"
+        ? "<a:VC_Alert:1482706673176150077> Non trovo il canale `visioneModuli` per inviare la candidatura."
+        : "<a:VC_Alert:1482706673176150077> Non sono riuscito a inviare la candidatura. Riprova più tardi.";
+    await interaction.reply({
+      content,
+      flags: 1 << 6,
+    }).catch(() => null);
+    return true;
+  }
   await interaction.reply({
-    embeds: [buildFinalThanksEmbed(nextAllowedAt, type)],
+    embeds: [buildFinalThanksEmbed(result.nextAllowedAt, type)],
     flags: 1 << 6,
   }).catch(() => null);
   return true;
+}
+
+function hasAnyRoleMember(member, roleIds) {
+  const cache = member?.roles?.cache;
+  if (!cache || typeof cache.has !== "function") return false;
+  return roleIds.some((id) => id && cache.has(id));
+}
+
+async function checkMemberCandidatureEligibility(member, type) {
+  if (NOMODULI_ROLE_ID && hasAnyRoleMember(member, [NOMODULI_ROLE_ID])) {
+    return { ok: false, code: "no_moduli", message: "Sei blacklistato dalle candidature." };
+  }
+  if (MEMBER_ROLE_ID && !hasAnyRoleMember(member, [MEMBER_ROLE_ID])) {
+    return { ok: false, code: "no_member_role", message: "Le candidature sono disponibili solo agli utenti con ruolo Member." };
+  }
+  const targetRoleId = getTargetRoleIdByType(type);
+  if (targetRoleId && hasAnyRoleMember(member, [targetRoleId])) {
+    return { ok: false, code: "already_role", message: "Sei già in questo ruolo: non puoi ricandidarti." };
+  }
+  if (type === "helper" && hasAnyRoleMember(member, HELPER_REAPPLY_BLOCK_ROLE_IDS)) {
+    return { ok: false, code: "helper_blocked", message: "Con i tuoi ruoli attuali non puoi inviare una nuova candidatura Helper." };
+  }
+  const until = await getCooldownUntil(member.user.id, type);
+  if (until) {
+    return {
+      ok: false,
+      code: "cooldown",
+      until,
+      message: "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown.",
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * @param {import("discord.js").Client} client
+ * @param {string} accessToken
+ * @returns {Promise<
+ *   | { ok: true, userId: string, member: import("discord.js").GuildMember, guild: import("discord.js").Guild }
+ *   | { ok: false, status: number, error: string, message: string, userId?: string }
+ * >}
+ */
+async function resolveWebsiteCandidatureMember(client, accessToken) {
+  const token = String(accessToken || "").trim();
+  if (!token) {
+    return { ok: false, status: 401, error: "missing_token", message: "Token mancante." };
+  }
+
+  let meJson;
+  try {
+    const meRes = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!meRes.ok) {
+      return { ok: false, status: 401, error: "invalid_token", message: "Sessione Discord non valida o scaduta: effettua di nuovo il login." };
+    }
+    meJson = await meRes.json();
+  } catch {
+    return { ok: false, status: 502, error: "discord_unreachable", message: "Impossibile contattare Discord." };
+  }
+
+  const userId = String(meJson?.id || "").trim();
+  if (!/^\d{17,20}$/.test(userId)) {
+    return { ok: false, status: 401, error: "invalid_user", message: "Profilo Discord non valido." };
+  }
+
+  const guildId = String(IDs.guilds?.main || "").trim();
+  if (!guildId) {
+    return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
+  }
+
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) {
+    return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord temporaneamente non disponibile." };
+  }
+
+  const member = await guild.members.fetch(userId).catch(() => null);
+  if (!member) {
+    return {
+      ok: false,
+      status: 403,
+      error: "not_in_guild",
+      message: "Non sei nel server Discord: entra prima con lo stesso account con cui hai fatto login.",
+      userId,
+    };
+  }
+
+  return { ok: true, userId, member, guild };
+}
+
+/**
+ * Preflight per il sito (GET + Bearer): stessi controlli di invio, per tipo Helper e Partner Manager.
+ * @param {import("discord.js").Client} client
+ * @param {string} accessToken
+ */
+async function getCandidatureEligibilitySummary(client, accessToken) {
+  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  if (!resolved.ok) {
+    if (resolved.error === "not_in_guild" && resolved.userId) {
+      const msg = resolved.message;
+      return {
+        ok: true,
+        status: 200,
+        userId: resolved.userId,
+        inGuild: false,
+        helper: { eligible: false, code: "not_in_guild", message: msg },
+        partnermanager: { eligible: false, code: "not_in_guild", message: msg },
+      };
+    }
+    return resolved;
+  }
+
+  const { member, userId } = resolved;
+  const helperRes = await checkMemberCandidatureEligibility(member, "helper");
+  const pmRes = await checkMemberCandidatureEligibility(member, "partnermanager");
+  const pack = (e) =>
+    e.ok
+      ? { eligible: true }
+      : {
+          eligible: false,
+          code: e.code,
+          message: e.message,
+          ...(e.until ? { cooldown_until_ms: e.until } : {}),
+        };
+
+  return {
+    ok: true,
+    status: 200,
+    userId,
+    inGuild: true,
+    noModuliBlocked: Boolean(NOMODULI_ROLE_ID && hasAnyRoleMember(member, [NOMODULI_ROLE_ID])),
+    helper: pack(helperRes),
+    partnermanager: pack(pmRes),
+  };
+}
+
+/**
+ * Stesso effetto del completamento moduli su Discord, con token OAuth utente (scope identify).
+ * @param {import("discord.js").Client} client
+ * @param {{ accessToken: string, type: string, answers: Record<string, string> }} payload
+ */
+async function submitCandidatureWebsite(client, payload) {
+  const accessToken = String(payload?.accessToken || "").trim();
+  const typeRaw = String(payload?.type || "").trim().toLowerCase();
+  const type = typeRaw === "partnermanager" ? "partnermanager" : "helper";
+  const answersIn = payload?.answers && typeof payload.answers === "object" ? payload.answers : {};
+
+  const resolved = await resolveWebsiteCandidatureMember(client, accessToken);
+  if (!resolved.ok) {
+    return { ok: false, status: resolved.status, error: resolved.error, message: resolved.message };
+  }
+
+  const { member, userId, guild } = resolved;
+
+  const eligibility = await checkMemberCandidatureEligibility(member, type);
+  if (!eligibility.ok) {
+    return {
+      ok: false,
+      status: 403,
+      error: eligibility.code,
+      message: eligibility.message,
+      ...(eligibility.until ? { cooldown_until_ms: eligibility.until } : {}),
+    };
+  }
+
+  const cfg = APPLICATIONS[type];
+  const mergedAnswers = { ...answersIn, id_discord: userId };
+  for (const q of cfg.questions) {
+    const v = String(mergedAnswers[q.id] || "").trim();
+    if (!v) {
+      return { ok: false, status: 400, error: "incomplete", field: q.id, message: "Compila tutti i campi del modulo." };
+    }
+  }
+
+  const discordUser = await client.users.fetch(userId).catch(() => null);
+  if (!discordUser) {
+    return { ok: false, status: 500, error: "user_fetch_failed", message: "Impossibile caricare il profilo Discord." };
+  }
+
+  const stateKey = `${guild.id}:${userId}:${type}`;
+  const post = await postCandidatureToVisioneModuli(client, guild, discordUser, type, mergedAnswers, stateKey);
+  if (!post.ok) {
+    const message =
+      post.code === "no_channel"
+        ? "Canale visioneModuli non disponibile: contatta lo staff."
+        : "Invio candidatura fallito: riprova più tardi.";
+    return { ok: false, status: 500, error: post.code, message };
+  }
+
+  const thanks = buildFinalThanksEmbed(post.nextAllowedAt, type);
+  const rawDesc =
+    (thanks && typeof thanks.toJSON === "function" && thanks.toJSON().description) ||
+    thanks?.data?.description ||
+    "";
+  return {
+    ok: true,
+    status: 200,
+    message: String(rawDesc || "Grazie per la candidatura.")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+    cooldown_until_ms: post.nextAllowedAt,
+  };
 }
 
 async function sendPartnerManagerWelcome(pmChannel, user) {
@@ -1123,4 +1343,8 @@ async function handleCandidatureApplicationInteraction(interaction) {
   return handleModalSubmit(interaction, type, step);
 }
 
-module.exports = { handleCandidatureApplicationInteraction };
+module.exports = {
+  handleCandidatureApplicationInteraction,
+  submitCandidatureWebsite,
+  getCandidatureEligibilitySummary,
+};

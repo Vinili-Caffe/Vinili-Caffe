@@ -16,6 +16,14 @@ function shouldStartDiscadiaVoteHttpWebhook(client) {
   return Boolean(client?.config?.discadia?.httpVoteWebhookEnabled);
 }
 
+function isCandidatureWebsiteApiEnabled() {
+  return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_CANDIDATURE_HTTP || "").trim().toLowerCase());
+}
+
+function shouldStartBotHttpServer(client) {
+  return shouldStartDiscadiaVoteHttpWebhook(client) || isCandidatureWebsiteApiEnabled();
+}
+
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
   const s = String(raw).trim();
@@ -23,6 +31,36 @@ function normalizeHeaderSecret(raw) {
   const lower = s.toLowerCase();
   if (lower.startsWith("bearer ")) return s.slice(7).trim();
   return s;
+}
+
+/** Es. `https://sito.it,http://localhost:3000` → il browser richiede `Access-Control-Allow-Origin` uguale all'Origin della pagina. */
+function parseCorsOriginAllowlist(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** `localhost` e `127.0.0.1` sono origini diverse per il browser: se ne elenchi una, accettiamo anche l’altra (stessa porta). */
+function expandCorsOriginAllowlist(origins) {
+  const set = new Set(origins);
+  for (const o of origins) {
+    try {
+      const u = new URL(o);
+      if (u.hostname === "localhost") {
+        const alt = new URL(o);
+        alt.hostname = "127.0.0.1";
+        set.add(alt.origin);
+      } else if (u.hostname === "127.0.0.1") {
+        const alt = new URL(o);
+        alt.hostname = "localhost";
+        set.add(alt.origin);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return [...set];
 }
 
 function extractVoteWebhookUserId(body) {
@@ -49,12 +87,12 @@ function extractVoteWebhookUserId(body) {
 
 async function startWebhookServer(client) {
   if (client._discadiaVoteHttpServerStarted) return;
-  if (!shouldStartDiscadiaVoteHttpWebhook(client)) return;
+  if (!shouldStartBotHttpServer(client)) return;
 
   const express = tryRequireExpress();
   if (!express) {
     global.logger?.error?.(
-      "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot (es. `npm install` in Vinyls). HTTP Discadia disabilitato.",
+      "[WEBHOOK] Modulo `express` non trovato. Installa le dipendenze del bot (es. `npm install` in Vinyls). HTTP disabilitato.",
     );
     return;
   }
@@ -66,7 +104,80 @@ async function startWebhookServer(client) {
   const secret = String(process.env.DISCADIA_WEBHOOK_SECRET || config.webhookSecret || "").trim();
 
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: "512kb" }));
+
+  if (isCandidatureWebsiteApiEnabled()) {
+    const candidatureCorsAllowlist = expandCorsOriginAllowlist(
+      parseCorsOriginAllowlist(
+        String(process.env.WEBSITE_CANDIDATURE_CORS_ORIGIN || process.env.WEBSITE_PUBLIC_ORIGIN || "").trim(),
+      ),
+    );
+    app.use((req, res, next) => {
+      const rawPath = String(req.originalUrl || req.url || req.path || "");
+      const pathStr = rawPath.split("?")[0];
+      if (!pathStr.startsWith("/webhooks/site-candidature")) return next();
+      const origin = String(req.headers.origin || "").trim();
+      let allowOrigin = "";
+      if (origin && candidatureCorsAllowlist.includes(origin)) {
+        allowOrigin = origin;
+      } else if (origin && candidatureCorsAllowlist.length === 0) {
+        try {
+          const u = new URL(origin);
+          const h = u.hostname.toLowerCase();
+          if (h === "localhost" || h === "127.0.0.1" || h === "[::1]") allowOrigin = origin;
+        } catch {
+          /* ignore */
+        }
+      }
+      if (allowOrigin) {
+        res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+        res.append("Vary", "Origin");
+      }
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      if (req.method === "OPTIONS") {
+        res.status(204).end();
+        return;
+      }
+      next();
+    });
+    const {
+      submitCandidatureWebsite,
+      getCandidatureEligibilitySummary,
+    } = require("../../Events/interaction/candidatureApplicationHandlers");
+    app.get("/webhooks/site-candidature/eligibility", async (req, res) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        const out = await getCandidatureEligibilitySummary(client, accessToken);
+        return res.status(Number(out.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.("[WEBHOOK] site-candidature eligibility:", err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    });
+    app.post("/webhooks/site-candidature", async (req, res) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        const body = req.body && typeof req.body === "object" ? req.body : {};
+        const type = body.type;
+        const answers = body.answers;
+        const out = await submitCandidatureWebsite(client, { accessToken, type, answers });
+        return res.status(Number(out.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.("[WEBHOOK] site-candidature:", err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    });
+    global.logger?.info?.(
+      "[WEBHOOK] Candidature sito: GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature (Bearer)",
+    );
+  }
 
   app.post("/webhooks/discadia", async (req, res) => {
     try {
@@ -119,8 +230,20 @@ async function startWebhookServer(client) {
   });
 
   app.listen(port, () => {
-    global.logger?.info?.("[WEBHOOK] Discadia vote HTTP listening on port " + port + " (POST /webhooks/discadia)");
+    global.logger?.info?.(
+      "[WEBHOOK] HTTP listening on port " +
+        port +
+        (shouldStartDiscadiaVoteHttpWebhook(client) ? " (POST /webhooks/discadia)" : "") +
+        (isCandidatureWebsiteApiEnabled()
+          ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature)"
+          : ""),
+    );
   });
 }
 
-module.exports = { startWebhookServer, shouldStartDiscadiaVoteHttpWebhook };
+module.exports = {
+  startWebhookServer,
+  shouldStartDiscadiaVoteHttpWebhook,
+  shouldStartBotHttpServer,
+  isCandidatureWebsiteApiEnabled,
+};

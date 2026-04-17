@@ -6,7 +6,11 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Int
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo, getCurrentWeekKey, } = require("../../Services/Community/expService");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
-const { isChannelOrThreadUnderPartnersChat } = require("../../Utils/Partner/partnersChatChannelUtils");
+const {
+  isPartnerPmDailyCommandsThread,
+  partnersChatPartnerCommandDeniedReplyContent,
+  sendPartnersChatDeniedPrefixCleanup,
+} = require("../../Utils/Partner/partnersChatChannelUtils");
 const TOP_LIMIT = 10;
 const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const CLASSIFICA_TOGGLE_PREFIX = "classifica_toggle:";
@@ -486,7 +490,12 @@ module.exports = {
 
   async execute(message) {
     await message.channel.sendTyping();
-    if (isChannelOrThreadUnderPartnersChat(message.channel)) {
+    const deniedPartnerZone = await partnersChatPartnerCommandDeniedReplyContent(message.channel);
+    if (deniedPartnerZone) {
+      await sendPartnersChatDeniedPrefixCleanup(message, deniedPartnerZone);
+      return;
+    }
+    if (await isPartnerPmDailyCommandsThread(message.channel)) {
       const { buildPartnerLeaderboardPayload } = require("../../Utils/Partner/partnerLeaderboardRuntime");
       const partnerPayload = await buildPartnerLeaderboardPayload(message.client, message.guild, "settimanale", 1);
       await safeMessageReply(message, {

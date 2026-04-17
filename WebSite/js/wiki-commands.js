@@ -111,8 +111,7 @@
   tabButtons.forEach(function (btn) {
     btn.addEventListener("click", function () {
       setTab(btn.getAttribute("data-bot") || "prod");
-      if (search) search.value = "";
-      filter("");
+      filter(search ? search.value : "");
     });
   });
 

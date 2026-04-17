@@ -65,6 +65,12 @@
     return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
   }
 
+  function emitProfile(user) {
+    try {
+      window.dispatchEvent(new CustomEvent("vc-discord-profile", { detail: { user: user || null } }));
+    } catch (e) {}
+  }
+
   function renderLoggedOut() {
     var loginBtn = byId("discord-login-btn");
     var state = byId("discord-login-state");
@@ -73,6 +79,7 @@
       state.hidden = true;
       state.innerHTML = "";
     }
+    emitProfile(null);
   }
 
   function renderLoggedIn(user) {
@@ -80,7 +87,7 @@
     var state = byId("discord-login-state");
     if (!state) return;
     if (loginBtn) loginBtn.hidden = true;
-    var name = user.global_name || user.username || "Utente";
+    var name = String(user.username || user.global_name || "Utente").trim() || "Utente";
     var img = avatarUrl(user);
     var label = escAttr(name);
     var avatarBlock = img
@@ -106,6 +113,7 @@
         renderLoggedOut();
       });
     }
+    emitProfile(user);
   }
 
   function fetchMe(token) {

@@ -19,7 +19,7 @@ const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerMan
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
-const { isChannelOrThreadUnderPartnersChat } = require("../Utils/Partner/partnersChatChannelUtils");
+const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const MODAL_PREFIX = "staff_hp_modal";
 const IN_REASON = "staff_hp_reason";
 const IN_IDX = "staff_hp_idx";
@@ -239,7 +239,7 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
     (msg ? extractSourceFromStaffPanelMessage(msg) : null) ||
     (interaction.message ? extractSourceFromStaffPanelMessage(interaction.message) : null);
   if (preserved) opts.sourceMessageId = preserved;
-  if (channel && isChannelOrThreadUnderPartnersChat(channel)) opts.partnersChatPanel = true;
+  if (channel && (await isPartnerPmDailyCommandsThread(channel))) opts.partnersChatPanel = true;
   try {
     const payload = await buildStaffProfilePayload(
       guild,

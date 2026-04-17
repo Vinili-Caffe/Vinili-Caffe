@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{CANDIDATURE_PAGE_TITLE}}</title>
+    <meta name="description" content="{{CANDIDATURE_META_DESCRIPTION}}" />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{CANDIDATURE_OG_TITLE}}" />
+    <meta property="og:description" content="{{CANDIDATURE_META_DESCRIPTION}}" />
+    <meta property="og:url" content="{{CANDIDATURE_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="../css/vc-landing.css" />
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top" class="vc-body vc-candidature-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#060912]/75 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+        <div
+          class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5"
+        >
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a
+              class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400/60"
+              href="{{DISCORD_INVITE_URL}}"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Entra su Discord"
+              ><img
+                src="../images/vc-header-logo.png"
+                width="40"
+                height="40"
+                class="h-9 w-9 rounded-2xl object-cover sm:h-10 sm:w-10"
+                alt=""
+                loading="eager"
+                decoding="async"
+            /></a>
+            <a
+              class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-cyan-200 hover:underline sm:text-xs"
+              href="{{SITE_URL}}"
+              aria-label="Vai alla homepage"
+              >{{SITE_NAME}}</a>
+          </div>
+          <nav
+            class="vc-sollary-nav vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+            aria-label="Collegamenti rapidi"
+          >
+            <a class="vc-snav-item" href="{{WIKI_URL}}"
+              ><i class="fa fa-book" aria-hidden="true"></i><span>Wiki</span></a>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
+                <a class="vc-snav-row" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+                <a class="vc-snav-row" href="{{DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+              </div>
+            </details>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+                <a class="vc-snav-row" href="{{FAQ_URL}}"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+              </div>
+            </details>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row vc-snav-row--active" href="{{RICHIESTE_CANDIDATURE_URL}}" aria-current="page"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+            <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"
+                ><i class="fa fa-bell-o" aria-hidden="true"></i>
+                <span class="vc-notif-badge" id="vc-notif-badge" hidden aria-live="polite">0</span></summary>
+              <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
+                <div class="vc-notif-panel-head">
+                  <div class="vc-notif-panel-head-start">
+                    <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                    <div class="vc-notif-panel-head-text">
+                      <span class="vc-notif-panel-title">Notifiche</span>
+                      <span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span>
+                    </div>
+                  </div>
+                  <div class="vc-notif-panel-head-actions">
+                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
+                      aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
+                    <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
+                      aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-body">
+                  <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                    <div class="vc-notif-empty">
+                      <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                      <p class="vc-notif-empty-title">Nessuna notifica</p>
+                      <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                    </div>
+                  </div>
+                  <div class="vc-notif-list-wrap" id="vc-notif-list-wrap">
+                    <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
+                  <a href="#" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
+                    <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
+                </div>
+              </div>
+            </details>
+            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="vc-candidature-root" class="relative z-10 mx-auto max-w-2xl px-4 pb-24 pt-28 sm:pt-32">
+      <a class="vc-wiki-back mb-8 inline-flex self-start" href="{{SITE_URL}}"
+        ><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Home</a>
+
+      <div class="text-center">
+        <div class="vc-candidature-hero-ico mx-auto mb-4" aria-hidden="true">
+          <i class="fa fa-users"></i>
+        </div>
+        <h1 class="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+          Candidatura <span class="text-cyan-200/95">staff</span>
+        </h1>
+        <p id="candidature-welcome" class="mt-4 text-sm leading-relaxed text-slate-400 sm:text-base">
+          Accedi con Discord per compilare il modulo.
+        </p>
+      </div>
+
+      <section class="vc-candidature-card vc-glass mt-10 rounded-2xl border border-white/[0.08] p-5 sm:p-6" aria-labelledby="candidature-requisiti-title">
+        <h2 id="candidature-requisiti-title" class="flex items-center gap-2 text-lg font-bold text-white">
+          <i class="fa fa-bookmark text-cyan-300/90" aria-hidden="true"></i> Requisiti
+        </h2>
+        <p class="mt-3 text-sm leading-relaxed text-slate-300">
+          Su <strong class="text-slate-200">{{SITE_NAME}}</strong> puoi candidarti a <strong class="text-slate-200">due</strong> ruoli:
+          <strong class="text-slate-200">Helper</strong> e <strong class="text-slate-200">Partner Manager</strong>. Per candidarti, è necessario
+          soddisfare i seguenti requisiti:
+        </p>
+        <ul class="mt-4 list-none space-y-2.5 p-0 text-sm text-slate-300">
+          <li class="flex gap-2"><span class="text-cyan-400/90" aria-hidden="true">①</span> Avere almeno <strong class="text-white">14 anni (compiuti)</strong></li>
+          <li class="flex gap-2">
+            <span class="text-cyan-400/90" aria-hidden="true">②</span> Rispettare i
+            <a class="text-cyan-300 underline decoration-cyan-500/40 underline-offset-2 hover:text-cyan-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
+            e le
+            <a class="text-cyan-300 underline decoration-cyan-500/40 underline-offset-2 hover:text-cyan-200" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
+            di Discord
+          </li>
+          <li class="flex gap-2"><span class="text-cyan-400/90" aria-hidden="true">③</span> Essere <strong class="text-white">maturi</strong> e <strong class="text-white">attivi</strong></li>
+          <li class="flex gap-2"><span class="text-cyan-400/90" aria-hidden="true">④</span> Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</li>
+        </ul>
+      </section>
+
+      <section id="vc-candidature-form-wrap" class="mt-10" hidden aria-labelledby="candidature-modulo-title">
+        <h2 id="candidature-modulo-title" class="text-lg font-bold text-white">Modulo di candidatura</h2>
+
+        <div
+          id="vc-candidature-gate"
+          class="mt-6 rounded-2xl border p-4 text-sm leading-relaxed"
+          role="alert"
+          aria-live="polite"
+          hidden
+        ></div>
+
+        <div id="vc-candidature-form-inner">
+        <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Tipo candidatura">
+          <button type="button" class="vc-candidature-tab vc-candidature-tab--on" id="vc-candidature-tab-helper" role="tab" aria-selected="true">
+            Helper
+          </button>
+          <button type="button" class="vc-candidature-tab" id="vc-candidature-tab-pm" role="tab" aria-selected="false">
+            Partner Manager
+          </button>
+        </div>
+
+        <div id="vc-candidature-fields" class="mt-6 space-y-5"></div>
+
+        <button
+          type="button"
+          id="vc-candidature-submit"
+          class="vc-candidature-submit mt-8 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white shadow-lg transition hover:opacity-95"
+        >
+          <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura
+        </button>
+
+        <div class="vc-candidature-info mt-6 rounded-xl border border-red-500/25 bg-red-950/35 p-4 text-sm text-red-100/95">
+          <p class="m-0 flex gap-2 font-semibold">
+            <i class="fa fa-exclamation-circle mt-0.5 shrink-0" aria-hidden="true"></i> Informazioni importanti
+          </p>
+          <p class="mb-0 mt-2 leading-relaxed text-red-100/85">
+            L’invio è lo stesso del bot: la candidatura finisce nel canale staff <strong class="text-red-100">visioneModuli</strong> con i bottoni di accettazione/rifiuto. Non aprire ticket e non pingare lo staff per l’esito. DM su Discord aperti.
+          </p>
+        </div>
+        </div>
+      </section>
+
+      <div class="mt-10 flex justify-center">
+        <a
+          class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition hover:border-cyan-400/40 hover:bg-white/[0.1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400/60"
+          href="{{SITE_URL}}"
+          ><i class="fa fa-home" aria-hidden="true"></i> Torna alla home</a>
+      </div>
+    </main>
+
+    <footer class="vc-footer vc-footer--wiki relative z-10 py-16">
+      <div class="mx-auto max-w-3xl px-4 text-center">
+        <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+          <a class="transition hover:text-cyan-300" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-cyan-300" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-cyan-300" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+        </nav>
+        <p class="mt-8 text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con ❤️ per la community.
+        </p>
+        <ul class="vc-footer-social mt-8 flex list-none flex-wrap items-center justify-center gap-3 p-0">
+{{INSTAGRAM_LI_FOOTER}}
+        </ul>
+      </div>
+    </footer>
+{{LIVE_STATS_BOOT_WIKI}}
+    <script>
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{CANDIDATURE_OAUTH_REDIRECT_URI}}",
+      };
+      window.__VC_CANDIDATURE = {
+        submitApiUrl: "{{CANDIDATURE_SUBMIT_API_URL}}",
+        submitApiUrlLocal: "{{CANDIDATURE_SUBMIT_API_URL_LOCAL}}",
+      };
+    </script>
+    <script src="../js/candidature-page.js" defer></script>
+    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/vc-landing.js" defer></script>
+  </body>
+</html>

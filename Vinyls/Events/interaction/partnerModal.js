@@ -5,6 +5,10 @@ const { initPartnerManagerFieldsIfMissing } = require("../../Utils/Staff/staffPm
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const {
+  partnersChatPartnerCommandDeniedReplyContent,
+  schedulePartnersDeniedDeleteReply,
+} = require("../../Utils/Partner/partnersChatChannelUtils");
 
 function extractInviteCode(text) {
   if (!text) return null;
@@ -75,6 +79,15 @@ async function handlePartnerModal(interaction) {
       ],
       flags: 1 << 6,
     }).catch(() => { });
+    return true;
+  }
+  const deniedChannel = await partnersChatPartnerCommandDeniedReplyContent(interaction.channel, { allowPartnership: true });
+  if (deniedChannel) {
+    await interaction.reply({
+      content: deniedChannel,
+      flags: 1 << 6,
+    }).catch(() => {});
+    schedulePartnersDeniedDeleteReply(interaction);
     return true;
   }
   await interaction

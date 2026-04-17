@@ -5,7 +5,11 @@ const {
   removePartnershipBlacklistGuild,
   listPartnershipBlacklistGuilds,
 } = require("../Services/Partner/partnershipBlacklistService");
-const blacklistCommand = require("../Prefix/Admin/blacklist");
+const blacklistCommand = require("../Prefix/Staff/blacklist");
+const {
+  partnersChatPartnerCommandDeniedReplyContent,
+  schedulePartnersDeniedDeleteReply,
+} = require("../Utils/Partner/partnersChatChannelUtils");
 
 const PREFIX = "blacklist_ui";
 const MODAL_PREFIX = "blacklist_ui_modal";
@@ -70,6 +74,12 @@ function match(interaction) {
 }
 
 async function execute(interaction) {
+  const deniedZone = await partnersChatPartnerCommandDeniedReplyContent(interaction.channel);
+  if (deniedZone) {
+    await interaction.reply({ content: deniedZone, flags: PRIVATE_FLAG }).catch(() => {});
+    schedulePartnersDeniedDeleteReply(interaction);
+    return true;
+  }
   if (interaction.isButton?.()) {
     const parsed = parseCustomId(interaction.customId);
     if (!parsed) return false;

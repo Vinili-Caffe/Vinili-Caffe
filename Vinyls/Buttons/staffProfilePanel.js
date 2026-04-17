@@ -1,5 +1,5 @@
 const IDs = require("../Utils/Config/ids");
-const { isChannelOrThreadUnderPartnersChat } = require("../Utils/Partner/partnersChatChannelUtils");
+const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const {
   PANEL_PREFIX,
   parseStaffProfileSelectCustomId,
@@ -74,7 +74,7 @@ async function execute(interaction) {
   }
   const section = String(interaction.values?.[0] || SECTION_HOME);
   const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
-  const partnersChatPanel = isChannelOrThreadUnderPartnersChat(interaction.channel);
+  const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
   const payload = await buildStaffProfilePayload(
     interaction.guild,
     parsed.targetId,

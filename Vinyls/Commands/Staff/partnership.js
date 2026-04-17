@@ -1,5 +1,9 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, } = require("discord.js");
 const { safeReply } = require("../../../shared/discord/replyRuntime");
+const {
+  partnersChatPartnerCommandDeniedReplyContent,
+  schedulePartnersDeniedDeleteReply,
+} = require("../../Utils/Partner/partnersChatChannelUtils");
 const EPHEMERAL_FLAG = 1 << 6;
 
 module.exports = {
@@ -15,6 +19,15 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const denied = await partnersChatPartnerCommandDeniedReplyContent(interaction.channel, { allowPartnership: true });
+    if (denied) {
+      await safeReply(interaction, {
+        content: denied,
+        flags: EPHEMERAL_FLAG,
+      });
+      schedulePartnersDeniedDeleteReply(interaction);
+      return;
+    }
     const manager = interaction.options.getUser("manager");
     if (!manager?.id) {
       await safeReply(interaction, {

@@ -42,16 +42,21 @@ async function execute(interaction, client) {
   else if (parsed.prefix === ME_PERIOD_BACK_CUSTOM_ID_PREFIX) view = "main";
 
   try {
+    await interaction.deferUpdate().catch(() => {});
     const member = await guild.members.fetch(userId).catch(() => null);
     const user = member?.user ?? interaction.user;
     const payload = await buildMeOverviewPayload(guild, user, member, lookbackDays, view);
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
-    } else {
-      await interaction.update(payload).catch(async () => {
-        await interaction.reply(payload).catch(() => { });
-      });
+    const msg = interaction.message;
+    if (!msg?.edit) {
+      await sendControlErrorFallback(interaction);
+      return true;
     }
+    await msg.edit({
+      files: payload.files || [],
+      components: payload.components || [],
+      embeds: Array.isArray(payload.embeds) ? payload.embeds : [],
+      content: typeof payload.content === "string" ? payload.content : null,
+    });
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/me] execute", err);

@@ -42,18 +42,23 @@ async function execute(interaction, client) {
   else if (parsed.prefix === USER_PERIOD_BACK_CUSTOM_ID_PREFIX) view = "main";
 
   try {
+    await interaction.deferUpdate().catch(() => {});
     const payload = await buildUserOverviewPayload(guild, targetUserId, lookbackDays, view, client);
     const payloadWithComponents = {
       ...payload,
       components: buildUserComponents(parsed.ownerId || interaction.user?.id, targetUserId, lookbackDays, view),
     };
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payloadWithComponents).catch(() => interaction.followUp(payloadWithComponents).catch(() => { }));
-    } else {
-      await interaction.update(payloadWithComponents).catch(async () => {
-        await interaction.reply(payloadWithComponents).catch(() => { });
-      });
+    const msg = interaction.message;
+    if (!msg?.edit) {
+      await sendControlErrorFallback(interaction);
+      return true;
     }
+    await msg.edit({
+      files: payloadWithComponents.files || [],
+      components: payloadWithComponents.components || [],
+      embeds: Array.isArray(payloadWithComponents.embeds) ? payloadWithComponents.embeds : [],
+      content: typeof payloadWithComponents.content === "string" ? payloadWithComponents.content : null,
+    });
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/user] execute", err);

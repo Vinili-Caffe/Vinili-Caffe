@@ -717,6 +717,11 @@ async function main() {
   }
 
   const siteName = cfg.siteName || "Vinili & Caffè";
+  const siteUrlTrim =
+    String(process.env.VC_SITE_URL ?? "").trim() || String(cfg.siteUrl || "").trim();
+  if (String(process.env.VC_SITE_URL ?? "").trim()) {
+    console.log("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
+  }
   const configuredAbout = String(cfg.aboutDescription ?? "").trim();
   let aboutPlain = "";
   if (wantGuildDescription && snap?.guildDescription) {
@@ -773,13 +778,12 @@ async function main() {
     );
   }
 
-  const ogImageUrl = absUrlForMetadata(cfg.siteUrl || "", guildIconUrl);
+  const ogImageUrl = absUrlForMetadata(siteUrlTrim, guildIconUrl);
   const ogTitle = `${siteName} | Discord`;
   const ogDesc = String(cfg.metaDescription || "").trim();
-  const ogUrl = String(cfg.siteUrl || "").trim();
+  const ogUrl = siteUrlTrim;
 
   const discordInviteResolved = cfg.discordInviteUrl || "https://discord.gg/viniliecaffe";
-  const siteUrlTrim = String(cfg.siteUrl || "").trim();
   const siteBaseNoSlash = siteUrlTrim.replace(/\/+$/, "");
   const defaultLegalPath = (slug) =>
     siteBaseNoSlash ? `${siteBaseNoSlash}/${slug}` : `/${slug}`;
@@ -796,19 +800,16 @@ async function main() {
   const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
   const wikiUrlResolved =
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
-  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || String(cfg.siteUrl || "").trim() || discordInviteResolved;
+  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || siteUrlTrim || discordInviteResolved;
   const communityRulesUrlResolved =
     String(cfg.communityRulesUrl ?? "").trim() || discordInviteResolved;
   const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
   const supEmail = String(cfg.supportEmail || "").trim();
   const richiesteUnbanUrl =
     modEmail !== "" ? `mailto:${modEmail}?subject=${encodeURIComponent("Richiesta unban")}` : "#";
-  const richiesteCandidatureUrl =
-    supEmail !== "" ? `mailto:${supEmail}?subject=${encodeURIComponent("Candidatura")}` : "#";
+  const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const donationsUrlResolved =
-    String(cfg.donationsUrl ?? "").trim() ||
-    String(cfg.siteUrl || "").trim() ||
-    discordInviteResolved;
+    String(cfg.donationsUrl ?? "").trim() || siteUrlTrim || discordInviteResolved;
 
   const wikiViniliCfgUrl = String(cfg.wikiBotViniliAvatarUrl ?? "").trim();
   const wikiCaffeCfgUrl = String(cfg.wikiBotCaffeAvatarUrl ?? "").trim();
@@ -847,7 +848,7 @@ async function main() {
     wikiCaffeCfgUrl ||
     wikiCaffeFromApi ||
     "https://cdn.discordapp.com/embed/avatars/4.png";
-  const siteUrlForAbs = String(cfg.siteUrl || "").trim();
+  const siteUrlForAbs = siteUrlTrim;
   const wikiViniliAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiViniliAvatarRaw);
   const wikiCaffeAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiCaffeAvatarRaw);
 
@@ -857,14 +858,38 @@ async function main() {
   });
 
   let discordOauthRedirectRaw = String(cfg.discordOauth?.redirectUri || "").trim();
+  if (String(process.env.VC_SITE_URL ?? "").trim()) {
+    discordOauthRedirectRaw = "";
+  }
   if (discordOauthRedirectRaw.includes("discord.com/oauth2/authorize")) {
     console.warn(
       "[build-site] discordOauth.redirectUri sembra l’URL di invito del bot, non la callback del sito. Uso siteUrl.",
     );
     discordOauthRedirectRaw = "";
   }
-  const discordOauthRedirectResolved = discordOauthRedirectRaw || String(cfg.siteUrl || "").trim();
+  const discordOauthRedirectResolved = discordOauthRedirectRaw || siteUrlTrim;
   const discordOauthRedirectNoSlash = discordOauthRedirectResolved.replace(/\/+$/, "");
+  const candidatureOAuthRedirectRaw = (() => {
+    const base = String(discordOauthRedirectNoSlash || siteBaseNoSlash || "").replace(/\/+$/, "");
+    return base ? `${base}/candidature` : "";
+  })();
+  const candidatureSubmitApiFromEnv = String(process.env.VC_CANDIDATURE_SUBMIT_API_URL ?? "").trim();
+  const candidatureSubmitApiRaw =
+    candidatureSubmitApiFromEnv || String(cfg.candidatureSubmitApiUrl ?? "").trim();
+  if (candidatureSubmitApiFromEnv) {
+    console.log("[build-site] VC_CANDIDATURE_SUBMIT_API_URL (override):", candidatureSubmitApiFromEnv);
+  }
+  const candidatureSubmitApiResolved =
+    candidatureSubmitApiRaw && /^https?:\/\//i.test(candidatureSubmitApiRaw)
+      ? candidatureSubmitApiRaw
+      : candidatureSubmitApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${candidatureSubmitApiRaw.startsWith("/") ? "" : "/"}${candidatureSubmitApiRaw}`
+        : "";
+  const candidatureSubmitApiLocalRaw = String(cfg.candidatureSubmitApiUrlLocal ?? "").trim();
+  const candidatureSubmitApiLocalResolved =
+    candidatureSubmitApiLocalRaw && /^https?:\/\//i.test(candidatureSubmitApiLocalRaw)
+      ? candidatureSubmitApiLocalRaw
+      : "";
   if (discordOauthRedirectResolved) {
     console.log(
       "[build-site] OAuth2 Redirects (Discord Developer Portal): il sito invia redirect_uri uguale a questa stringa (copiala così com’è):",
@@ -895,7 +920,7 @@ async function main() {
     LIVE_STATS_BOOT_WIKI: liveStatsBootWiki,
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
-    SITE_URL: escAttr(cfg.siteUrl || ""),
+    SITE_URL: escAttr(siteUrlTrim),
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
@@ -915,6 +940,15 @@ async function main() {
     COMMUNITY_RULES_URL: escAttr(communityRulesUrlResolved),
     RICHIESTE_UNBAN_URL: escAttr(richiesteUnbanUrl),
     RICHIESTE_CANDIDATURE_URL: escAttr(richiesteCandidatureUrl),
+    CANDIDATURE_PAGE_TITLE: `${siteName} | Candidature staff`,
+    CANDIDATURE_META_DESCRIPTION: escAttr(
+      `Candidature Helper e Partner Manager: requisiti e modulo per ${siteName} su Discord.`,
+    ),
+    CANDIDATURE_OG_TITLE: escAttr(`${siteName} | Candidature`),
+    CANDIDATURE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/candidature` : ""),
+    CANDIDATURE_OAUTH_REDIRECT_URI: escAttr(candidatureOAuthRedirectRaw),
+    CANDIDATURE_SUBMIT_API_URL: escAttr(candidatureSubmitApiResolved),
+    CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(candidatureSubmitApiLocalResolved),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -951,6 +985,16 @@ async function main() {
     fs.writeFileSync(wikiIndexPath, wikiHtml, "utf8");
   } else {
     console.warn("[build-site] Manca wiki/index.html (saltato placeholder).");
+  }
+
+  const candidatureIndexPath = path.join(DIST, "candidature", "index.html");
+  if (fs.existsSync(candidatureIndexPath)) {
+    let candidatureHtml = fs.readFileSync(candidatureIndexPath, "utf8");
+    candidatureHtml = applyPlaceholderMap(candidatureHtml, map);
+    warnLeftoverPlaceholders(candidatureHtml, "candidature/index.html");
+    fs.writeFileSync(candidatureIndexPath, candidatureHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca candidature/index.html (saltato placeholder).");
   }
 
   const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];

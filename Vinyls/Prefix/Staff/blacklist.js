@@ -2,6 +2,10 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../../Utils/Config/ids");
 const { listPartnershipBlacklistGuilds } = require("../../Services/Partner/partnershipBlacklistService");
+const {
+  partnersChatPartnerCommandDeniedReplyContent,
+  sendPartnersChatDeniedPrefixCleanup,
+} = require("../../Utils/Partner/partnersChatChannelUtils");
 
 const PANEL_PREFIX = "blacklist_ui";
 
@@ -59,6 +63,10 @@ module.exports = {
   hasBlacklistManageRole,
   hasBlacklistViewRole,
   async execute(message, args) {
+    const denied = await partnersChatPartnerCommandDeniedReplyContent(message.channel);
+    if (denied) {
+      return sendPartnersChatDeniedPrefixCleanup(message, denied);
+    }
     const canView = hasBlacklistViewRole(message.member);
     const canManage = hasBlacklistManageRole(message.member);
     const rows = canView ? await listPartnershipBlacklistGuilds(200).catch(() => []) : [];
