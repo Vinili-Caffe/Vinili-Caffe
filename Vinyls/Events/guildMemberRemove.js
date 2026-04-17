@@ -16,6 +16,7 @@ const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
 const { removeContestSfondiSubmissionsOnMemberLeave } = require("../Services/Community/weeklyContestService");
 const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
+const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
@@ -489,6 +490,9 @@ module.exports = {
   async execute(member, client) {
     try {
       if (!member?.guild || !member?.user) return;
+      if (member?.user && !member.user.bot) {
+        sponsorVerifiedRequiresMain.handleGuildMemberRemoveFromSponsor(member);
+      }
       if (member?.user?.bot && member?.guild?.id) {
         if (client) queueIdsCatalogSync(client, member.guild.id, "botLeave");
       }

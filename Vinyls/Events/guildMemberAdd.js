@@ -18,6 +18,7 @@ const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGu
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
+const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -1465,6 +1466,10 @@ module.exports = {
       }
 
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
+
+      await sponsorVerifiedRequiresMain.handleGuildMemberAdd(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] sponsorVerifiedRequiresMain:", err?.message || err);
+      });
 
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });

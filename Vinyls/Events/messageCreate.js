@@ -15,6 +15,9 @@ const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlag
 const FORCE_DELETE_CHANNEL_IDS = new Set(
   [IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)),
 );
+const VERIFY_PURGE_CHANNEL_IDS = new Set(
+  [IDs.channels?.verify].filter(Boolean).map((id) => String(id)),
+);
 const MEDIA_BLOCK_EXEMPT_CATEGORY_ID = IDs.categories.categorChat;
 const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set(
   [IDs.channels.media, IDs.channels.contestSfondiMobile, IDs.channels.contestSfondiPc].filter(Boolean).map((id) => String(id)),
@@ -181,6 +184,23 @@ module.exports = {
       }
       if (!(await messageAuthorHasHighStaffRole(message))) {
         await message.delete().catch(() => {});
+        return;
+      }
+    }
+
+    if (
+      VERIFY_PURGE_CHANNEL_IDS.has(String(message?.channelId || "")) &&
+      message.guild &&
+      !message?.system &&
+      !isEditedPrefixExecution
+    ) {
+      const botId = String(resolvedClient?.user?.id || "");
+      if (message.author?.id !== botId && !(await messageAuthorHasHighStaffRole(message))) {
+        try {
+          await message.delete().catch(() => {});
+        } catch (error) {
+          logEventError(resolvedClient, "VERIFY CHANNEL PURGE ERROR", error);
+        }
         return;
       }
     }

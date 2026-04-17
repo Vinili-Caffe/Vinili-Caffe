@@ -66,6 +66,23 @@ function escHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function applyPlaceholderMap(html, map) {
+  for (const [key, value] of Object.entries(map)) {
+    const ph = `{{${key}}}`;
+    if (html.includes(ph)) {
+      html = html.split(ph).join(String(value ?? ""));
+    }
+  }
+  return html;
+}
+
+function warnLeftoverPlaceholders(html, label) {
+  const leftover = [...html.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)].map((m) => m[1]);
+  if (leftover.length) {
+    console.warn(`Placeholder non sostituiti (${label}):`, [...new Set(leftover)].join(", "));
+  }
+}
+
 function inviteCodeFromConfig(cfg) {
   const explicit = String(cfg.discordInviteCode || "").trim();
   if (explicit) return explicit;
@@ -718,6 +735,21 @@ async function main() {
   const ogUrl = String(cfg.siteUrl || "").trim();
 
   const discordInviteResolved = cfg.discordInviteUrl || "https://discord.gg/viniliecaffe";
+  const siteUrlTrim = String(cfg.siteUrl || "").trim();
+  const siteBaseNoSlash = siteUrlTrim.replace(/\/+$/, "");
+  const defaultLegalPath = (slug) =>
+    siteBaseNoSlash ? `${siteBaseNoSlash}/${slug}` : `/${slug}`;
+  const termsUrlResolved = String(cfg.termsUrl ?? "").trim() || defaultLegalPath("terms");
+  const privacyUrlResolved = String(cfg.privacyUrl ?? "").trim() || defaultLegalPath("privacy");
+  const cookiePolicyUrlResolved =
+    String(cfg.cookiePolicyUrl ?? "").trim() || defaultLegalPath("cookie");
+  const legalTermsDate =
+    String(cfg.legalTermsUpdated ?? "").trim() || "17 aprile 2026";
+  const legalPrivacyDate =
+    String(cfg.legalPrivacyUpdated ?? "").trim() || "17 aprile 2026";
+  const legalCookieDate =
+    String(cfg.legalCookieUpdated ?? "").trim() || "17 aprile 2026";
+  const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
   const wikiUrlResolved = String(cfg.wikiUrl ?? "").trim() || discordInviteResolved;
   const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || String(cfg.siteUrl || "").trim() || discordInviteResolved;
   const communityRulesUrlResolved =
@@ -728,6 +760,10 @@ async function main() {
     modEmail !== "" ? `mailto:${modEmail}?subject=${encodeURIComponent("Richiesta unban")}` : "#";
   const richiesteCandidatureUrl =
     supEmail !== "" ? `mailto:${supEmail}?subject=${encodeURIComponent("Candidatura")}` : "#";
+  const donationsUrlResolved =
+    String(cfg.donationsUrl ?? "").trim() ||
+    String(cfg.siteUrl || "").trim() ||
+    discordInviteResolved;
 
   const map = {
     COOKIEYES_BLOCK: cookieYesBlock,
@@ -743,8 +779,17 @@ async function main() {
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(cfg.siteUrl || ""),
+    TERMS_URL: escAttr(termsUrlResolved),
+    PRIVACY_URL: escAttr(privacyUrlResolved),
+    COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
+    LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
+    LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
+    LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
+    DISCORD_INVITE_DISPLAY: escHtml(discordInviteDisplay),
+    SUPPORT_MAILTO: supEmail ? escAttr(`mailto:${supEmail}`) : escAttr("#"),
     VOTE_URL: cfg.voteUrl || "https://discadia.com/vote/viniliecaffe/",
     REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
+    DONATIONS_URL: escAttr(donationsUrlResolved),
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
     DISCORD_OAUTH_REDIRECT_URI:
       String(cfg.discordOauth?.redirectUri || "").trim() || String(cfg.siteUrl || "").trim(),
@@ -768,20 +813,24 @@ async function main() {
     INSTAGRAM_LI_FOOTER: instagramLi,
   };
 
-  for (const [key, value] of Object.entries(map)) {
-    const ph = `{{${key}}}`;
-    if (!html.includes(ph)) {
-      continue;
-    }
-    html = html.split(ph).join(String(value ?? ""));
-  }
-
-  const leftover = [...html.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)].map((m) => m[1]);
-  if (leftover.length) {
-    console.warn("Placeholder non sostituiti:", [...new Set(leftover)].join(", "));
-  }
+  html = applyPlaceholderMap(html, map);
+  warnLeftoverPlaceholders(html, "index.html");
 
   fs.writeFileSync(indexPath, html, "utf8");
+
+  const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];
+  for (const rel of legalRel) {
+    const legalPath = path.join(DIST, rel);
+    if (!fs.existsSync(legalPath)) {
+      console.warn("[build-site] Manca pagina legale:", rel);
+      continue;
+    }
+    let legalHtml = fs.readFileSync(legalPath, "utf8");
+    legalHtml = applyPlaceholderMap(legalHtml, map);
+    warnLeftoverPlaceholders(legalHtml, rel);
+    fs.writeFileSync(legalPath, legalHtml, "utf8");
+  }
+
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }
 

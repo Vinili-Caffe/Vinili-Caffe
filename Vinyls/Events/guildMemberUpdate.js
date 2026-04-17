@@ -21,6 +21,7 @@ const {
 } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
+const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -1090,6 +1091,11 @@ module.exports = {
         });
       }
       await syncPartnerPmThreadForMemberChange(oldMember, newMember).catch(() => {});
+      await sponsorVerifiedRequiresMain
+        .handleGuildMemberUpdate(oldMember, newMember, client)
+        .catch((err) => {
+          global.logger?.warn?.("[guildMemberUpdate] sponsorVerifiedRequiresMain:", err?.message || err);
+        });
       await sendMemberUpdateLog(oldMember, newMember);
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);

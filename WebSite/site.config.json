@@ -3,6 +3,7 @@
   "siteUrl": "https://www.viniliecaffe.it/",
   "voteUrl": "https://discadia.com/vote/viniliecaffe/",
   "reviewsUrl": "https://disboard.org/it/server/1329080093599076474",
+  "donationsUrl": "",
   "discordOauth": {
     "clientId": "1329118940110127204",
     "redirectUri": "https://www.viniliecaffe.it/"
@@ -12,7 +13,7 @@
   "faqUrl": "",
   "communityRulesUrl": "",
   "discordInviteCode": "viniliecaffe",
-  "useDiscordGuildBanner": true,
+  "useDiscordGuildBanner": false,
   "useDiscordGuildIcon": true,
   "useDiscordGuildFoundedDate": false,
   "useDiscordGuildDescription": true,
@@ -20,8 +21,30 @@
   "discordStaffListBuild": {
     "enabled": true,
     "guildId": "1329080093599076474",
-    "staffRoleIds": ["1494089487863644330"],
-    "staffRoleDisplayOrder": ["1494089487863644330"],
+    "staffRoleIds": [
+      "1442568886988963923",
+      "1442568889052430609",
+      "1442568893435478097",
+      "1442568894349840435",
+      "1442568896237277295",
+      "1442568897902678038",
+      "1442568901887000618",
+      "1442568904311570555",
+      "1442568910070349985",
+      "1494089487863644330"
+    ],
+    "staffRoleDisplayOrder": [
+      "1442568886988963923",
+      "1442568889052430609",
+      "1442568893435478097",
+      "1442568894349840435",
+      "1442568896237277295",
+      "1442568897902678038",
+      "1442568901887000618",
+      "1442568904311570555",
+      "1442568910070349985",
+      "1494089487863644330"
+    ],
     "staffRoleLabels": {
       "1494089487863644330": "Community Manager"
     },
@@ -50,5 +73,8 @@
   "statStaff": "0",
   "instagramUrl": "",
   "cookieYesClientId": "",
-  "googleAnalyticsMeasurementId": ""
+  "googleAnalyticsMeasurementId": "",
+  "termsUrl": "",
+  "privacyUrl": "",
+  "cookiePolicyUrl": ""
 }

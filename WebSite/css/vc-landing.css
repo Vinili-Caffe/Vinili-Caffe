@@ -1,12 +1,46 @@
 html {
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: #6b4e3d #140f0c;
+  min-height: 100%;
 }
 body {
   margin: 0;
+  min-height: 100%;
+}
+html::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+html::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, #140f0c 0%, #0a0806 100%);
+  border-radius: 999px;
+}
+html::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7a5a45 0%, #4a3428 55%, #3d2a1f 100%);
+  border-radius: 999px;
+  border: 2px solid #0f0b09;
+  box-shadow: inset 0 1px 0 rgba(212, 181, 152, 0.22);
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #8f6b52 0%, #5c4033 100%);
 }
 .vc-body {
-  background-color: #03050a;
+  min-height: 100vh;
   color: #e2e8f0;
+  background-color: #080605;
+  background-image:
+    radial-gradient(ellipse 130% 95% at 50% -8%, rgba(130, 78, 48, 0.36), transparent 62%),
+    radial-gradient(ellipse 100% 75% at 100% 32%, rgba(72, 44, 30, 0.26), transparent 56%),
+    radial-gradient(ellipse 90% 70% at 0% 68%, rgba(48, 32, 22, 0.28), transparent 58%),
+    linear-gradient(180deg, #100b08 0%, #15100c 20%, #120d0a 45%, #0e0a07 72%, #080605 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+@media (max-width: 48rem) {
+  .vc-body {
+    background-attachment: scroll;
+  }
 }
 .vc-blob {
   position: fixed;
@@ -20,7 +54,7 @@ body {
   left: 5rem;
   width: 22rem;
   height: 22rem;
-  background: rgba(37, 99, 235, 0.35);
+  background: rgba(120, 72, 48, 0.28);
   animation: vc-pulse 5s ease-in-out infinite;
 }
 .vc-blob-b {
@@ -28,7 +62,7 @@ body {
   right: 5rem;
   width: 22rem;
   height: 22rem;
-  background: rgba(6, 182, 212, 0.28);
+  background: rgba(180, 120, 72, 0.2);
   animation: vc-pulse 5s ease-in-out infinite 1s;
 }
 .vc-blob-c {
@@ -36,7 +70,7 @@ body {
   left: 55%;
   width: 26rem;
   height: 26rem;
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(90, 52, 38, 0.26);
   animation: vc-pulse 6.5s ease-in-out infinite 0.4s;
 }
 @keyframes vc-pulse {
@@ -166,7 +200,7 @@ button.vc-header-pill {
 }
 #intro {
   position: relative;
-  background-color: #03050a;
+  background: transparent;
 }
 .vc-hero-head {
   border-radius: 1.25rem;
@@ -483,6 +517,29 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 .vc-sollary-nav {
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+.vc-header-bar {
+  overflow: visible;
+}
+.vc-header-snav {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 12, 30, 0.9);
+}
+.vc-header-snav .vc-snav-panel {
+  z-index: 70;
+}
+.vc-header-snav .vc-snav-summary,
+.vc-header-snav .vc-snav-item {
+  padding: 0.38rem 0.55rem;
+  font-size: 0.8rem;
+}
+@media (min-width: 640px) {
+  .vc-header-snav .vc-snav-summary,
+  .vc-header-snav .vc-snav-item {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.875rem;
+  }
 }
 .vc-snav-item {
   display: inline-flex;

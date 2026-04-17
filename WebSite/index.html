@@ -47,9 +47,11 @@
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 rounded-2xl border border-white/[0.08] bg-[#060912]/75 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
-        <div class="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-          <div class="flex min-w-0 shrink items-center gap-2.5 sm:gap-3">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#060912]/75 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+        <div
+          class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5"
+        >
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a
               class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400/60"
               href="{{DISCORD_INVITE_URL}}"
@@ -71,7 +73,50 @@
               aria-label="Vai alla homepage"
               >{{SITE_NAME}}</a>
           </div>
-          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2" id="header-quick-actions">
+          <nav
+            class="vc-sollary-nav vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+            aria-label="Collegamenti rapidi"
+          >
+            <a class="vc-snav-item" href="{{WIKI_URL}}" target="_blank" rel="noopener noreferrer"
+              ><i class="fa fa-book" aria-hidden="true"></i><span>Wiki</span></a>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
+                <a class="vc-snav-row" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+                <a class="vc-snav-row" href="{{DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+              </div>
+            </details>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}" target="_blank" rel="noopener noreferrer"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+                <a class="vc-snav-row" href="{{FAQ_URL}}"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+              </div>
+            </details>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"
+                  ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
             <details class="vc-notif-dropdown">
               <summary class="vc-icon-btn vc-notif-summary inline-flex" aria-label="Notifiche"
                 ><i class="fa fa-bell-o" aria-hidden="true"></i></summary>
@@ -97,7 +142,6 @@
     </header>
 
     <section id="intro" class="relative z-10 flex flex-col justify-start pb-6 pt-20 sm:pb-8 sm:pt-24">
-      <div class="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-[#03050a]/93 via-[#050810]/78 to-[#03050a]/96"></div>
       <div class="relative z-10 mx-auto max-w-4xl px-4 pb-0 pt-1 text-center">
         <div class="vc-hero-head mx-auto max-w-full px-4 py-3 text-center sm:px-6 sm:py-4">
           <p class="vc-hero-kicker">Benvenuto su</p>
@@ -186,47 +230,6 @@
             </div>
           </div>
         </div>
-        <nav
-          class="vc-sollary-nav vc-glass mx-auto mt-10 flex flex-wrap items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-[#120c1e]/85 px-2 py-1.5 sm:gap-0 sm:px-3"
-          aria-label="Collegamenti rapidi"
-        >
-          <a class="vc-snav-item" href="{{WIKI_URL}}" target="_blank" rel="noopener noreferrer"
-            ><i class="fa fa-book" aria-hidden="true"></i><span>Wiki</span></a>
-          <span class="vc-snav-sep mx-1 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
-          <details class="vc-snav-details">
-            <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
-            <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
-              <a class="vc-snav-row" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
-            </div>
-          </details>
-          <span class="vc-snav-sep mx-1 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
-          <details class="vc-snav-details">
-            <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
-            <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
-              <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
-              <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}" target="_blank" rel="noopener noreferrer"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
-              <a class="vc-snav-row" href="{{FAQ_URL}}"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
-            </div>
-          </details>
-          <span class="vc-snav-sep mx-1 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
-          <details class="vc-snav-details">
-            <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
-            <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
-              <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"
-                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
-            </div>
-          </details>
-        </nav>
       </section>
 
       <section id="stats" class="mx-auto max-w-6xl scroll-mt-28 px-4 pb-20 pt-2">
@@ -255,24 +258,13 @@
 
     <footer class="vc-footer relative z-10 border-t border-white/[0.06] py-16">
       <div class="mx-auto max-w-3xl px-4 text-center">
-        <div class="inline-flex rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-8 py-3">
-          <span class="text-sm font-bold uppercase tracking-[0.2em] text-cyan-200">{{SITE_NAME}}</span>
-        </div>
-        <nav class="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <a class="transition hover:text-cyan-300" href="{{SITE_URL}}">Sito</a>
-          <a class="transition hover:text-cyan-300" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">Discord</a>
-          <a class="transition hover:text-cyan-300" href="mailto:{{SUPPORT_EMAIL}}">Supporto</a>
+        <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+          <a class="transition hover:text-cyan-300" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-cyan-300" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-cyan-300" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
-        <p class="mt-8 text-sm text-slate-500">
-          © {{YEAR}} <a class="text-cyan-400/90 hover:underline" href="{{DISCORD_INVITE_URL}}">{{SITE_NAME}}</a>. Community su
-          <a class="text-cyan-400/90 hover:underline" href="{{DISCORD_INVITE_URL}}">Discord</a> con dedizione per chi ama musica e caffè.
-        </p>
-        <p class="mt-4 text-xs text-slate-600">
-          <span class="text-slate-500">{{FOUNDED_DISPLAY}}</span>
-          <span class="mx-2 text-slate-700">·</span>
-          <span data-live-stat="members">{{STAT_MEMBERS}}</span> membri
-          <span class="mx-2 text-slate-700">·</span>
-          server attivo
+        <p class="mt-8 text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con ❤️ per la community.
         </p>
         <ul class="vc-footer-social mt-8 flex list-none flex-wrap items-center justify-center gap-3 p-0">
 {{INSTAGRAM_LI_FOOTER}}
