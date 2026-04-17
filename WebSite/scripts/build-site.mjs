@@ -90,6 +90,16 @@ function guildIconCdnUrl(guildId, iconHash) {
   return `https://cdn.discordapp.com/icons/${gid}/${h}.${ext}?size=256`;
 }
 
+/** URL assoluto per og:image (Discord anteprima link) se path è relativo. */
+function absUrlForMetadata(siteUrl, pathOrUrl) {
+  const p = String(pathOrUrl || "").trim();
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  const base = String(siteUrl || "").trim().replace(/\/+$/, "");
+  if (!base) return p;
+  return `${base}/${p.replace(/^\//, "")}`;
+}
+
 /** Data approssimativa di creazione guild dall’ID snowflake (l’API invite non espone created_at). */
 function snowflakeGuildCreatedUtcDate(guildId) {
   try {
@@ -127,10 +137,11 @@ function buildHeroBannerStyleBlock(bannerUrl) {
   );
 }
 
-async function fetchInviteGuildSnapshot(inviteCode) {
+/** Stesso query string usato da `js/live-stats.js` sul fallback Discord. */
+async function fetchInviteInvitePayload(inviteCode) {
   const code = String(inviteCode || "").trim();
   if (!code) return null;
-  const url = `https://discord.com/api/v10/invites/${encodeURIComponent(code)}?with_counts=1`;
+  const url = `https://discord.com/api/v10/invites/${encodeURIComponent(code)}?with_counts=true`;
   let res;
   try {
     res = await fetch(url, {
@@ -149,22 +160,30 @@ async function fetchInviteGuildSnapshot(inviteCode) {
   try {
     const data = await res.json();
     const guild = data?.guild;
-    if (!guild?.id) return null;
-    return {
-      guildId: guild.id,
-      banner: guild.banner,
-      icon: guild.icon,
-      approximateMemberCount: data.approximate_member_count,
-      boostCount: guild.premium_subscription_count,
-      guildDescription:
-        guild.description != null && String(guild.description).trim()
-          ? String(guild.description)
-          : "",
-    };
+    const snap =
+      guild?.id != null
+        ? {
+            guildId: guild.id,
+            banner: guild.banner,
+            icon: guild.icon,
+            approximateMemberCount: data.approximate_member_count,
+            boostCount: guild.premium_subscription_count,
+            guildDescription:
+              guild.description != null && String(guild.description).trim()
+                ? String(guild.description)
+                : "",
+          }
+        : null;
+    return { snap, raw: data };
   } catch (e) {
     console.warn("[build-site] JSON invite:", e?.message || e);
     return null;
   }
+}
+
+async function fetchInviteGuildSnapshot(inviteCode) {
+  const p = await fetchInviteInvitePayload(inviteCode);
+  return p?.snap ?? null;
 }
 
 async function discordBotGet(path, botToken, attempt = 0) {
@@ -248,10 +267,18 @@ function memberRoleIds(m) {
 function memberStaffLineName(m) {
   const u = m?.user;
   if (!u) return "Utente";
-  const un = String(u.username || "").trim();
+  const cleanup = (v) =>
+    String(v || "")
+      .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+      .trim();
+  const meaningful = (v) => {
+    const s = cleanup(v);
+    return /\p{L}|\p{N}/u.test(s) ? s : "";
+  };
+  const un = meaningful(u.username);
   const disc = String(u.discriminator ?? "0");
-  const nick = m?.nick != null ? String(m.nick).trim() : "";
-  const gn = u.global_name != null ? String(u.global_name).trim() : "";
+  const nick = m?.nick != null ? meaningful(m.nick) : "";
+  const gn = u.global_name != null ? meaningful(u.global_name) : "";
   if (disc && disc !== "0") return `${un}#${disc}`;
   return nick || gn || un || "Utente";
 }
@@ -315,35 +342,78 @@ async function buildStaffListBlock(cfg, guildId) {
   }
 
   const roleMetas = await fetchGuildRoleMetas(gid, botToken);
-  const maxScan = Number.isFinite(Number(b.maxMembersToScan)) ? Number(b.maxMembersToScan) : 4000;
+  for (const rid of staffRoleIds) {
+    if (!roleMetas.has(rid)) {
+      console.warn("[build-site] staffRoleIds: ruolo non trovato in guild (ID errato o ruolo rimosso):", rid);
+    }
+  }
+
+  const maxScan = Number.isFinite(Number(b.maxMembersToScan)) ? Number(b.maxMembersToScan) : 10000;
   const members = await fetchGuildMembersUpTo(gid, botToken, maxScan);
   if (!members.length) {
     console.warn("[build-site] Nessun membro scaricato per la staff list.");
     return staffListFallback();
+  }
+  if (members.length >= maxScan) {
+    console.warn(
+      "[build-site] Staff list: raggiunto maxMembersToScan=",
+      maxScan,
+      "; possibili membri non scansionati. Aumenta maxMembersToScan in site.config.json.",
+    );
   }
 
   const labelOverrides =
     b.staffRoleLabels && typeof b.staffRoleLabels === "object" && !Array.isArray(b.staffRoleLabels)
       ? b.staffRoleLabels
       : {};
+  const staffRoleCdnEmojiByRoleId =
+    b.staffRoleCdnEmojiByRoleId &&
+    typeof b.staffRoleCdnEmojiByRoleId === "object" &&
+    !Array.isArray(b.staffRoleCdnEmojiByRoleId)
+      ? b.staffRoleCdnEmojiByRoleId
+      : {};
+  function staffRoleIconHtml(roleId) {
+    const eid = String(staffRoleCdnEmojiByRoleId[roleId] ?? staffRoleCdnEmojiByRoleId[String(roleId)] ?? "").trim();
+    if (!/^\d{5,25}$/.test(eid)) return "";
+    const src = `https://cdn.discordapp.com/emojis/${eid}.webp?size=48&quality=lossless`;
+    return `<span class="vc-staff-role-ico" aria-hidden="true"><img src="${escAttr(src)}" alt="" width="20" height="20" loading="lazy" decoding="async" /></span>`;
+  }
+  const displayOrder = Array.isArray(b.staffRoleDisplayOrder)
+    ? b.staffRoleDisplayOrder.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  const showEachRole = b.staffListShowEachRole === true;
+  const showEmptyRoles = b.showEmptyStaffRoles !== false;
 
-  const rows = [];
-  for (const m of members) {
-    if (m?.user?.bot) continue;
-    const rids = memberRoleIds(m);
+  for (const id of staffRoleIds) {
+    if (excludeRoleIds.has(id)) {
+      console.warn(
+        "[build-site] excludeFromStaffListRoleIds contiene un ID presente anche in staffRoleIds (conflitto). Rimuovilo da uno dei due elenchi:",
+        id,
+      );
+    }
+  }
+
+  const ladderIds =
+    displayOrder.length > 0
+      ? displayOrder
+      : [...staffRoleIds].sort(
+          (a, b) =>
+            (roleMetas.get(b)?.position ?? 0) - (roleMetas.get(a)?.position ?? 0),
+        );
+
+  function pickStaffBucketRoleId(rids) {
     const rset = new Set(rids);
-    let excluded = false;
-    for (const ex of excludeRoleIds) {
-      if (rset.has(ex)) {
-        excluded = true;
-        break;
+    if (displayOrder.length > 0) {
+      for (const rid of displayOrder) {
+        if (excludeRoleIds.has(rid)) continue;
+        if (!staffRoleIds.has(rid)) continue;
+        if (rset.has(rid)) return rid;
       }
     }
-    if (excluded) continue;
-
     let bestId = null;
     let bestPos = -999999;
     for (const rid of rids) {
+      if (excludeRoleIds.has(rid)) continue;
       if (!staffRoleIds.has(rid)) continue;
       const meta = roleMetas.get(rid);
       const pos = meta ? Number(meta.position) : 0;
@@ -352,11 +422,51 @@ async function buildStaffListBlock(cfg, guildId) {
         bestId = rid;
       }
     }
+    return bestId;
+  }
+
+  const rows = [];
+  for (const m of members) {
+    if (m?.user?.bot) continue;
+    const rids = memberRoleIds(m);
+    if (showEachRole) {
+      const seenRid = new Set();
+      for (const rid of rids) {
+        if (excludeRoleIds.has(rid)) continue;
+        if (!staffRoleIds.has(rid)) continue;
+        if (seenRid.has(rid)) continue;
+        seenRid.add(rid);
+        const bestPos = roleMetas.get(rid)?.position ?? 0;
+        const rawLabel = roleMetas.get(rid)?.name || rid;
+        const roleLabel =
+          String(labelOverrides[rid] ?? labelOverrides[String(rid)] ?? rawLabel).trim() || rawLabel;
+        rows.push({ bestId: rid, bestPos, roleLabel, m });
+      }
+      continue;
+    }
+    const bestId = pickStaffBucketRoleId(rids);
     if (!bestId) continue;
+    const bestPos = roleMetas.get(bestId)?.position ?? 0;
     const rawLabel = roleMetas.get(bestId)?.name || bestId;
     const roleLabel = String(labelOverrides[bestId] ?? labelOverrides[String(bestId)] ?? rawLabel).trim() || rawLabel;
     rows.push({ bestId, bestPos, roleLabel, m });
   }
+
+  const humans = members.filter((m) => m?.user && !m.user.bot).length;
+  const withStaff = new Set(
+    rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean),
+  ).size;
+  console.log(
+    "[build-site] Staff list:",
+    members.length,
+    "membri scaricati (",
+    humans,
+    "umani),",
+    withStaff,
+    "con almeno un ruolo in staffRoleIds,",
+    rows.length,
+    showEachRole ? "righe (una per ruolo staff)." : "righe (una persona = una fascia).",
+  );
 
   if (!rows.length) {
     console.warn("[build-site] Staff list: nessun membro dopo filtri (ruoli o intent).");
@@ -366,13 +476,47 @@ async function buildStaffListBlock(cfg, guildId) {
   const byRole = new Map();
   for (const row of rows) {
     if (!byRole.has(row.bestId)) {
-      byRole.set(row.bestId, { roleLabel: row.roleLabel, bestPos: row.bestPos, members: [] });
+      byRole.set(row.bestId, {
+        roleId: row.bestId,
+        roleLabel: row.roleLabel,
+        bestPos: row.bestPos,
+        members: [],
+      });
     }
     const g = byRole.get(row.bestId);
+    const uid = String(row.m?.user?.id || "");
+    if (uid && g.members.some((x) => String(x?.user?.id || "") === uid)) continue;
     g.members.push(row.m);
   }
 
-  const groups = [...byRole.values()].sort((a, b) => b.bestPos - a.bestPos);
+  if (showEmptyRoles) {
+    for (const roleId of ladderIds) {
+      if (!staffRoleIds.has(roleId)) continue;
+      if (excludeRoleIds.has(roleId)) continue;
+      if (byRole.has(roleId)) continue;
+      const rawLabel = roleMetas.get(roleId)?.name || roleId;
+      const roleLabel =
+        String(labelOverrides[roleId] ?? labelOverrides[String(roleId)] ?? rawLabel).trim() || rawLabel;
+      byRole.set(roleId, {
+        roleId,
+        roleLabel,
+        bestPos: roleMetas.get(roleId)?.position ?? -999999,
+        members: [],
+      });
+    }
+  }
+
+  const groups = [...byRole.values()];
+  groups.sort((a, b) => {
+    const ia = ladderIds.indexOf(a.roleId);
+    const ib = ladderIds.indexOf(b.roleId);
+    const aKnown = ia !== -1;
+    const bKnown = ib !== -1;
+    if (aKnown && bKnown && ia !== ib) return ia - ib;
+    if (aKnown && !bKnown) return -1;
+    if (!aKnown && bKnown) return 1;
+    return b.bestPos - a.bestPos;
+  });
   for (const g of groups) {
     g.members.sort((ma, mb) =>
       memberStaffLineName(ma).localeCompare(memberStaffLineName(mb), "it", { sensitivity: "base" }),
@@ -381,13 +525,17 @@ async function buildStaffListBlock(cfg, guildId) {
 
   const roleLines = groups
     .map((g) => {
-      const parts = g.members.map((mem) => escHtml(memberStaffLineName(mem))).join(" | ");
-      return `            <p class="vc-staff-block__line"><strong>${escHtml(g.roleLabel)}:</strong> ${parts}</p>`;
+      const parts = g.members.length
+        ? g.members.map((mem) => escHtml(memberStaffLineName(mem))).join(" | ")
+        : "—";
+      const icon = staffRoleIconHtml(g.roleId);
+      return `            <p class="vc-staff-block__line">${icon}<strong>${escHtml(g.roleLabel)}:</strong> ${parts}</p>`;
     })
     .join("\n");
 
   const html = `          <div class="vc-staff-block">\n${roleLines}\n          </div>`;
-  return { html, staffCount: rows.length };
+  const staffCount = new Set(rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean)).size;
+  return { html, staffCount };
 }
 
 /** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
@@ -477,10 +625,11 @@ async function main() {
       (staffEnabled && !guildIdConfigured) ||
       cfg.liveStats?.enabled !== false);
 
-  let snap = null;
+  let invitePayload = null;
   if (needInvite) {
-    snap = await fetchInviteGuildSnapshot(inviteCode);
+    invitePayload = await fetchInviteInvitePayload(inviteCode);
   }
+  const snap = invitePayload?.snap ?? null;
 
   let heroBannerBlock = "";
   let guildIconUrl = FALLBACK_GUILD_ICON;
@@ -509,10 +658,13 @@ async function main() {
 
   const siteName = cfg.siteName || "Vinili & Caffè";
   const configuredAbout = String(cfg.aboutDescription ?? "").trim();
-  let aboutPlain = configuredAbout;
-  if (!aboutPlain && wantGuildDescription && snap?.guildDescription) {
+  let aboutPlain = "";
+  if (wantGuildDescription && snap?.guildDescription) {
     const gd = String(snap.guildDescription).trim();
     if (gd) aboutPlain = gd;
+  }
+  if (!aboutPlain) {
+    aboutPlain = configuredAbout;
   }
   if (!aboutPlain) {
     aboutPlain = `${siteName} è la community ufficiale collegata al bot e alle attività del server: canali tematici, strumenti per lo staff e spazio per condividere ascolti, consigli e novità. Entra su Discord per regolamento, ruoli e annunci aggiornati.`;
@@ -543,17 +695,65 @@ async function main() {
     );
   }
 
+  const lsForProxy = cfg.liveStats || {};
+  const inviteProxyForSnapshot =
+    lsForProxy.inviteProxyPath === ""
+      ? ""
+      : String(lsForProxy.inviteProxyPath != null ? lsForProxy.inviteProxyPath : "/discord-invite.json");
+  if (
+    lsForProxy.enabled !== false &&
+    String(inviteCode || "").trim() &&
+    inviteProxyForSnapshot &&
+    invitePayload?.raw
+  ) {
+    fs.writeFileSync(path.join(DIST, "discord-invite.json"), JSON.stringify(invitePayload.raw), "utf8");
+    console.log(
+      "[build-site] Scritto discord-invite.json (snapshot all’avvio del build; in produzione nginx può sostituirlo con il proxy live).",
+    );
+  }
+
+  const ogImageUrl = absUrlForMetadata(cfg.siteUrl || "", guildIconUrl);
+  const ogTitle = `${siteName} | Discord`;
+  const ogDesc = String(cfg.metaDescription || "").trim();
+  const ogUrl = String(cfg.siteUrl || "").trim();
+
+  const discordInviteResolved = cfg.discordInviteUrl || "https://discord.gg/viniliecaffe";
+  const wikiUrlResolved = String(cfg.wikiUrl ?? "").trim() || discordInviteResolved;
+  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || String(cfg.siteUrl || "").trim() || discordInviteResolved;
+  const communityRulesUrlResolved =
+    String(cfg.communityRulesUrl ?? "").trim() || discordInviteResolved;
+  const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
+  const supEmail = String(cfg.supportEmail || "").trim();
+  const richiesteUnbanUrl =
+    modEmail !== "" ? `mailto:${modEmail}?subject=${encodeURIComponent("Richiesta unban")}` : "#";
+  const richiesteCandidatureUrl =
+    supEmail !== "" ? `mailto:${supEmail}?subject=${encodeURIComponent("Candidatura")}` : "#";
+
   const map = {
     COOKIEYES_BLOCK: cookieYesBlock,
     GA_BLOCK: gaBlock,
     HERO_BANNER_BLOCK: heroBannerBlock,
     GUILD_ICON_URL: escAttr(guildIconUrl),
+    OG_IMAGE_URL: escAttr(ogImageUrl),
+    OG_TITLE: escAttr(ogTitle),
+    OG_DESCRIPTION: escAttr(ogDesc),
+    OG_URL: escAttr(ogUrl),
     STAFF_LIST_BLOCK: staffResult.html,
     LIVE_STATS_BOOT: liveStatsBoot,
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
-    SITE_URL: cfg.siteUrl || "",
-    DISCORD_INVITE_URL: cfg.discordInviteUrl || "https://discord.gg/viniliecaffe",
+    SITE_URL: escAttr(cfg.siteUrl || ""),
+    VOTE_URL: cfg.voteUrl || "https://discadia.com/vote/viniliecaffe/",
+    REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
+    DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
+    DISCORD_OAUTH_REDIRECT_URI:
+      String(cfg.discordOauth?.redirectUri || "").trim() || String(cfg.siteUrl || "").trim(),
+    DISCORD_INVITE_URL: discordInviteResolved,
+    WIKI_URL: escAttr(wikiUrlResolved),
+    FAQ_URL: escAttr(faqUrlResolved),
+    COMMUNITY_RULES_URL: escAttr(communityRulesUrlResolved),
+    RICHIESTE_UNBAN_URL: escAttr(richiesteUnbanUrl),
+    RICHIESTE_CANDIDATURE_URL: escAttr(richiesteCandidatureUrl),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",

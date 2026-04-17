@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="no-js" lang="it">
+<html lang="it">
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
@@ -16,282 +16,283 @@
     <meta name="url" content="{{SITE_URL}}" />
     <meta name="identifier-URL" content="{{SITE_URL}}" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <link rel="stylesheet" href="css/base.css" />
-    <link rel="stylesheet" href="css/main.css" />
-    <link rel="stylesheet" href="css/vendor.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{OG_TITLE}}" />
+    <meta property="og:description" content="{{OG_DESCRIPTION}}" />
+    <meta property="og:url" content="{{OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="css/vc-landing.css" />
 {{HERO_BANNER_BLOCK}}
-    <script src="js/modernizr.js"></script>
-    <script src="js/pace.min.js"></script>
-    <link rel="icon" type="image/png" href="ocean.png" />
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
+  <body id="top" class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
-  <body id="top">
-    <header>
-      <div class="">
-        <div class="bar">
-          <a class="menu-toggle" href="#"><span>Menu</span></a>
-          <div class="logo">
-            <a href="index.html"></a>
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 rounded-2xl border border-white/[0.08] bg-[#060912]/75 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+        <div class="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+          <div class="flex min-w-0 shrink items-center gap-2.5 sm:gap-3">
+            <a
+              class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400/60"
+              href="{{DISCORD_INVITE_URL}}"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Entra su Discord"
+              ><img
+                src="images/vc-header-logo.png"
+                width="40"
+                height="40"
+                class="h-9 w-9 rounded-2xl object-cover sm:h-10 sm:w-10"
+                alt=""
+                loading="eager"
+                decoding="async"
+            /></a>
+            <a
+              class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-cyan-200 hover:underline sm:text-xs"
+              href="#intro"
+              aria-label="Vai alla homepage"
+              >{{SITE_NAME}}</a>
           </div>
-          <nav id="main-nav-wrap">
-            <ul class="main-navigation">
-              <li class="current">
-                <a class="smoothscroll" href="#intro" title="">Home</a>
-              </li>
-              <li>
-                <a class="smoothscroll" href="#about" title="">Chi siamo</a>
-              </li>
-              <li>
-                <a class="smoothscroll" href="#resume" title="">Eventi</a>
-              </li>
-              <li>
-                <a class="smoothscroll" href="#contact" title="">Contatti</a>
-              </li>
-            </ul>
-          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2" id="header-quick-actions">
+            <details class="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary inline-flex" aria-label="Notifiche"
+                ><i class="fa fa-bell-o" aria-hidden="true"></i></summary>
+              <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
+                <div class="vc-notif-panel-head">
+                  <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                  <span class="vc-notif-panel-title">Notifiche</span>
+                </div>
+                <div class="vc-notif-panel-body">
+                  <div class="vc-notif-empty">
+                    <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                    <p class="vc-notif-empty-title">Nessuna notifica</p>
+                    <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                  </div>
+                </div>
+              </div>
+            </details>
+            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+          </div>
         </div>
       </div>
     </header>
 
-    <section id="intro">
-      <div class="intro-overlay"></div>
-      <div class="intro-content">
-        <div class="row">
-          <div class="col-twelve">
-            <h5>Benvenuto</h5>
-            <h1>Sei su <span style="color: #6f4e37">{{SITE_NAME}}</span>!</h1>
-            <p class="intro-position">
-              <span>Musica</span>
-              <span>Community</span>
-              <span>Caffè</span>
-            </p>
-            <a class="button stroke smoothscroll" href="#about" title="">Scopri di più</a>
-          </div>
-        </div>
-      </div>
-      <ul class="intro-social">
-{{INSTAGRAM_LI_INTRO}}
-        <li>
-          <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
-            ><i class="fa fa-link"></i
-          ></a>
-        </li>
-      </ul>
-    </section>
-
-    <section id="about">
-      <div class="row section-intro">
-        <div class="col-twelve">
-          <h5>Chi siamo</h5>
-          <h2>Informazioni</h2>
-          <div class="intro-info">
-            <img src="{{GUILD_ICON_URL}}" alt="{{SITE_NAME}}" width="200" height="200" loading="lazy" decoding="async" />
-            <p class="lead">
-              Un angolo Discord per chi ama i <strong>vinili</strong>, il <strong>caffè</strong> e stare in compagnia senza fretta.
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="row about-content">
-        <div class="col-six tab-full">
-          <h3>Descrizione</h3>
-          <p style="white-space: pre-wrap">{{ABOUT_DESCRIPTION}}</p>
-          <ul class="info-list about-meta">
-            <li>
-              <strong>Data creazione</strong>
-              <span>{{FOUNDED_DISPLAY}}</span>
-            </li>
-            <li>
-              <strong>Sito</strong>
-              <span><a href="{{SITE_URL}}">{{SITE_URL}}</a></span>
-            </li>
-            <li>
-              <strong>Email</strong>
-              <span><a href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a></span>
-            </li>
-          </ul>
-        </div>
-        <div class="col-six tab-full">
-          <h3>Lo staff</h3>
-{{STAFF_LIST_BLOCK}}
+    <section id="intro" class="relative z-10 flex flex-col justify-start pb-6 pt-20 sm:pb-8 sm:pt-24">
+      <div class="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-[#03050a]/93 via-[#050810]/78 to-[#03050a]/96"></div>
+      <div class="relative z-10 mx-auto max-w-4xl px-4 pb-0 pt-1 text-center">
+        <div class="vc-hero-head mx-auto max-w-full px-4 py-3 text-center sm:px-6 sm:py-4">
+          <p class="vc-hero-kicker">Benvenuto su</p>
+          <h1 class="vc-brand-glow mt-1 text-balance text-5xl font-extrabold tracking-tight text-white md:text-7xl lg:text-8xl">{{SITE_NAME}}</h1>
+          <p class="vc-hero-about">{{ABOUT_DESCRIPTION}}</p>
         </div>
       </div>
     </section>
 
-    <section id="resume" class="grey-section">
-      <div class="row section-intro">
-        <div class="col-twelve">
-          <h5>Eventi</h5>
-          <h2>Ecco il programma di questo mese!</h2>
-        </div>
-      </div>
-      <div class="row resume-timeline">
-        <div class="col-twelve resume-header">
-          <h2 id="resume-month-year" class="resume-month-heading"></h2>
-        </div>
-        <div class="col-twelve">
-          <div class="timeline-wrap">
-            <div class="timeline-block">
-              <div class="timeline-ico">
-                <i class="fa fa-calendar"></i>
-              </div>
-              <div class="timeline-header">
-                <h3>Indovina il brano</h3>
-                <p class="timeline-meta">Data e ora nel canale eventi · <a href="{{DISCORD_INVITE_URL}}">Discord</a></p>
-              </div>
-              <div class="timeline-content">
-                <p class="timeline-week">Prima settimana</p>
-                <p class="timeline-body">
-                  Quiz musicale in chat: la staff lancia indizi legati a titoli, artisti o copertine e i partecipanti indovinano. Classifica e premi quando previsto dal calendario del mese.
-                </p>
-              </div>
+    <main class="relative z-10">
+      <section class="mx-auto max-w-6xl px-4 pb-6 pt-8" aria-label="In sintesi">
+        <div class="grid gap-4 sm:grid-cols-3 sm:gap-5">
+          <div class="vc-glass rounded-2xl border border-white/[0.07] bg-[#060910]/65 p-5 sm:p-6">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-lg text-cyan-300">
+              <i class="fa fa-line-chart" aria-hidden="true"></i>
             </div>
-            <div class="timeline-block">
-              <div class="timeline-ico">
-                <i class="fa fa-calendar"></i>
-              </div>
-              <div class="timeline-header">
-                <h3>Vetrina copertine</h3>
-                <p class="timeline-meta">Data e ora nel canale eventi · <a href="{{DISCORD_INVITE_URL}}">Discord</a></p>
-              </div>
-              <div class="timeline-content">
-                <p class="timeline-week">Seconda settimana</p>
-                <p class="timeline-body">
-                  Condividi un vinile o un ascolto: tema della settimana (es. colore, anno, etichetta). Commenti, consigli e scambi tra appassionati, con thread dedicati.
-                </p>
-              </div>
+            <h2 class="text-base font-bold text-white">Accogliente e organizzato</h2>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400">Canali chiari, regole leggibili e moderazione costante per stare tranquilli.</p>
+          </div>
+          <div class="vc-glass rounded-2xl border border-white/[0.07] bg-[#060910]/65 p-5 sm:p-6">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-lg text-cyan-300">
+              <i class="fa fa-magic" aria-hidden="true"></i>
             </div>
-            <div class="timeline-block">
-              <div class="timeline-ico">
-                <i class="fa fa-calendar"></i>
-              </div>
-              <div class="timeline-header">
-                <h3>Caffè &amp; chiacchiere</h3>
-                <p class="timeline-meta">Data e ora nel canale eventi · <a href="{{DISCORD_INVITE_URL}}">Discord</a></p>
-              </div>
-              <div class="timeline-content">
-                <p class="timeline-week">Terza settimana</p>
-                <p class="timeline-body">
-                  Momento leggero in voice o testo: presentazioni, raccomandazioni e domande libere. Ideale per chi entra nel server e vuole conoscere la community.
-                </p>
-              </div>
+            <h2 class="text-base font-bold text-white">Eventi &amp; attività</h2>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400">Quiz, vetrine musicali e momenti in voice: qualcosa ogni settimana sul server.</p>
+          </div>
+          <div class="vc-glass rounded-2xl border border-white/[0.07] bg-[#060910]/65 p-5 sm:p-6">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-lg text-cyan-300">
+              <i class="fa fa-bolt" aria-hidden="true"></i>
             </div>
-            <div class="timeline-block">
-              <div class="timeline-ico">
-                <i class="fa fa-calendar"></i>
-              </div>
-              <div class="timeline-header">
-                <h3>Indovinello del mese</h3>
-                <p class="timeline-meta">Data e ora nel canale eventi · <a href="{{DISCORD_INVITE_URL}}">Discord</a></p>
-              </div>
-              <div class="timeline-content">
-                <p class="timeline-week">Quarta settimana</p>
-                <p class="timeline-body">
-                  Enigma o mini-gioco a sorpresa scelto dallo staff: regole e premi annunciati in settimana. Partecipazione sempre sul server Discord.
-                </p>
-              </div>
-            </div>
+            <h2 class="text-base font-bold text-white">Bot &amp; strumenti</h2>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400">Automazioni e comodi per la community, integrati con il progetto Vinili &amp; Caffè.</p>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section id="stats" class="count-up">
-      <div class="row">
-        <div class="col-twelve">
-          <div class="block-1-3 block-s-1-3 block-tab-1-2 block-mob-full stats-list">
-            <div class="bgrid stat">
-              <div class="icon-part">
-                <i class="fa fa-user"></i>
-              </div>
-              <h3 class="stat-count" data-live-stat="members">{{STAT_MEMBERS}}</h3>
-              <h5 class="stat-title">Utenti</h5>
+      <section id="pillars" class="mx-auto max-w-6xl scroll-mt-28 px-4 pb-12 pt-2">
+        <div class="grid gap-5 md:grid-cols-3 md:gap-6">
+          <div class="vc-pillar vc-glass flex flex-col rounded-2xl border border-white/[0.08] bg-[#070b14]/70 p-5 sm:p-6">
+            <div class="mb-5 flex items-center gap-2.5 text-sm font-semibold text-white">
+              <span class="vc-pillar-head-ico"><i class="fa fa-compass text-cyan-300" aria-hidden="true"></i></span>
+              Scopri
             </div>
-            <div class="bgrid stat">
-              <div class="icon-part">
-                <i class="fa fa-plus-square-o"></i>
-              </div>
-              <h3 class="stat-count" data-live-stat="boosts">{{STAT_BOOSTS}}</h3>
-              <h5 class="stat-title">Boost</h5>
+            <div class="flex flex-col gap-2.5">
+              <a class="vc-hub-tile" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer">
+                <span class="vc-hub-ico"><i class="fa fa-thumbs-o-up text-cyan-300" aria-hidden="true"></i></span>
+                <span class="vc-hub-text"><span class="vc-hub-title">Vota</span><span class="vc-hub-desc">Supporta il server</span></span>
+                <i class="fa fa-angle-right vc-hub-arrow text-slate-500" aria-hidden="true"></i>
+              </a>
+              <a class="vc-hub-tile" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">
+                <span class="vc-hub-ico"><i class="fa fa-star-o text-cyan-300" aria-hidden="true"></i></span>
+                <span class="vc-hub-text"><span class="vc-hub-title">Recensioni</span><span class="vc-hub-desc">Lascia un feedback</span></span>
+                <i class="fa fa-angle-right vc-hub-arrow text-slate-500" aria-hidden="true"></i>
+              </a>
             </div>
-            <div class="bgrid stat">
-              <div class="icon-part">
-                <i class="fa fa-gavel"></i>
-              </div>
-              <h3 class="stat-count" data-live-stat="staff">{{STAT_STAFF}}</h3>
-              <h5 class="stat-title">Staff</h5>
+          </div>
+          <div class="vc-pillar vc-glass flex flex-col rounded-2xl border border-white/[0.08] bg-[#070b14]/70 p-5 sm:p-6">
+            <div class="mb-5 flex items-center gap-2.5 text-sm font-semibold text-white">
+              <span class="vc-pillar-head-ico"><i class="fa fa-comments text-cyan-300" aria-hidden="true"></i></span>
+              Community
+            </div>
+            <div class="flex flex-col gap-2.5">
+              <a class="vc-hub-tile" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">
+                <span class="vc-hub-ico"><i class="fa fa-comments text-cyan-300" aria-hidden="true"></i></span>
+                <span class="vc-hub-text"><span class="vc-hub-title">Discord</span><span class="vc-hub-desc">Canali e voice attivi</span></span>
+                <i class="fa fa-angle-right vc-hub-arrow text-slate-500" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+          <div class="vc-pillar vc-glass flex flex-col rounded-2xl border border-white/[0.08] bg-[#070b14]/70 p-5 sm:p-6">
+            <div class="mb-5 flex items-center gap-2.5 text-sm font-semibold text-white">
+              <span class="vc-pillar-head-ico"><i class="fa fa-life-ring text-cyan-300" aria-hidden="true"></i></span>
+              Supporto
+            </div>
+            <div class="flex flex-col gap-2.5">
+              <a class="vc-hub-tile" href="mailto:{{SUPPORT_EMAIL}}">
+                <span class="vc-hub-ico"><i class="fa fa-envelope text-cyan-300" aria-hidden="true"></i></span>
+                <span class="vc-hub-text"><span class="vc-hub-title">Contatti</span><span class="vc-hub-desc">Scrivi allo staff</span></span>
+                <i class="fa fa-angle-right vc-hub-arrow text-slate-500" aria-hidden="true"></i>
+              </a>
+              <a class="vc-hub-tile" href="mailto:{{SUPPORT_EMAIL}}">
+                <span class="vc-hub-ico"><i class="fa fa-paper-plane text-cyan-300" aria-hidden="true"></i></span>
+                <span class="vc-hub-text"><span class="vc-hub-title">Email</span><span class="vc-hub-desc">Richieste e segnalazioni</span></span>
+                <i class="fa fa-angle-right vc-hub-arrow text-slate-500" aria-hidden="true"></i>
+              </a>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+        <nav
+          class="vc-sollary-nav vc-glass mx-auto mt-10 flex flex-wrap items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-[#120c1e]/85 px-2 py-1.5 sm:gap-0 sm:px-3"
+          aria-label="Collegamenti rapidi"
+        >
+          <a class="vc-snav-item" href="{{WIKI_URL}}" target="_blank" rel="noopener noreferrer"
+            ><i class="fa fa-book" aria-hidden="true"></i><span>Wiki</span></a>
+          <span class="vc-snav-sep mx-1 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+          <details class="vc-snav-details">
+            <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+            <div class="vc-snav-panel">
+              <a class="vc-snav-row" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
+              <a class="vc-snav-row" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+            </div>
+          </details>
+          <span class="vc-snav-sep mx-1 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+          <details class="vc-snav-details">
+            <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+            <div class="vc-snav-panel">
+              <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+              <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+              <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}" target="_blank" rel="noopener noreferrer"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+              <a class="vc-snav-row" href="{{FAQ_URL}}"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+            </div>
+          </details>
+          <span class="vc-snav-sep mx-1 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+          <details class="vc-snav-details">
+            <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+            <div class="vc-snav-panel">
+              <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-unlock"></i></span><span>Unban</span></a>
+              <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"
+                ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+            </div>
+          </details>
+        </nav>
+      </section>
 
-    <section id="contact">
-      <div class="row section-intro">
-        <div class="col-twelve">
-          <h5>Contatti</h5>
-          <h2>Hai bisogno di qualcosa?</h2>
-        </div>
-      </div>
-      <div class="row contact-info">
-        <div class="col-four tab-full collapse">
-          <div class="icon">
-            <i class="icon-mail"></i>
+      <section id="stats" class="mx-auto max-w-6xl scroll-mt-28 px-4 pb-20 pt-2">
+        <div class="vc-glass vc-stat-strip rounded-2xl border border-cyan-500/10 bg-gradient-to-br from-[#070d18]/95 to-[#050810]/90 px-4 py-10 sm:px-8">
+          <div class="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-4">
+            <div class="text-center">
+              <p class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-cyan-100 sm:text-4xl" data-live-stat="members">{{STAT_MEMBERS}}</p>
+              <p class="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Membri</p>
+            </div>
+            <div class="text-center">
+              <p class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-cyan-100 sm:text-4xl" data-live-stat="boosts">{{STAT_BOOSTS}}</p>
+              <p class="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Boost</p>
+            </div>
+            <div class="text-center">
+              <p class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-cyan-100 sm:text-4xl" data-live-stat="staff">{{STAT_STAFF}}</p>
+              <p class="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Staff</p>
+            </div>
+            <div class="text-center">
+              <p class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-cyan-100 sm:text-4xl">24/7</p>
+              <p class="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Community</p>
+            </div>
           </div>
-          <h5>Moderazione sito</h5>
-          <p>{{SITE_MODERATOR_EMAIL}}<br /></p>
         </div>
-        <div class="col-four tab-full collapse">
-          <div class="icon">
-            <i class="icon-mail"></i>
-          </div>
-          <h5>Supporto</h5>
-          <p>{{SUPPORT_EMAIL}}</p>
-        </div>
-        <div class="col-four tab-full collapse">
-          <div class="icon">
-            <i class="icon-mail"></i>
-          </div>
-          <h5>Amministrazione</h5>
-          <p>{{SITE_ADMIN_EMAIL}}</p>
-        </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
-    <footer>
-      <div class="row">
-        <div class="col-six tab-full pull-right social">
-          <ul class="footer-social">
+    <footer class="vc-footer relative z-10 border-t border-white/[0.06] py-16">
+      <div class="mx-auto max-w-3xl px-4 text-center">
+        <div class="inline-flex rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-8 py-3">
+          <span class="text-sm font-bold uppercase tracking-[0.2em] text-cyan-200">{{SITE_NAME}}</span>
+        </div>
+        <nav class="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
+          <a class="transition hover:text-cyan-300" href="{{SITE_URL}}">Sito</a>
+          <a class="transition hover:text-cyan-300" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">Discord</a>
+          <a class="transition hover:text-cyan-300" href="mailto:{{SUPPORT_EMAIL}}">Supporto</a>
+        </nav>
+        <p class="mt-8 text-sm text-slate-500">
+          © {{YEAR}} <a class="text-cyan-400/90 hover:underline" href="{{DISCORD_INVITE_URL}}">{{SITE_NAME}}</a>. Community su
+          <a class="text-cyan-400/90 hover:underline" href="{{DISCORD_INVITE_URL}}">Discord</a> con dedizione per chi ama musica e caffè.
+        </p>
+        <p class="mt-4 text-xs text-slate-600">
+          <span class="text-slate-500">{{FOUNDED_DISPLAY}}</span>
+          <span class="mx-2 text-slate-700">·</span>
+          <span data-live-stat="members">{{STAT_MEMBERS}}</span> membri
+          <span class="mx-2 text-slate-700">·</span>
+          server attivo
+        </p>
+        <ul class="vc-footer-social mt-8 flex list-none flex-wrap items-center justify-center gap-3 p-0">
 {{INSTAGRAM_LI_FOOTER}}
-            <li>
-              <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
-                ><i class="fa fa-link"></i
-              ></a>
-            </li>
-          </ul>
-        </div>
-        <div class="col-six tab-full">
-          <div class="copyright">
-            <span>© Copyright {{YEAR}} </span>
-            <span
-              ><a href="{{DISCORD_INVITE_URL}}">{{SITE_NAME}}</a> ·
-              <a href="{{SITE_URL}}">Sito</a></span
-            >
-          </div>
-        </div>
-        <div id="go-top">
-          <a class="smoothscroll" title="Torna su" href="#top"><i class="fa fa-long-arrow-up"></i></a>
-        </div>
+        </ul>
       </div>
+      <a
+        class="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-cyan-500/20 bg-[#0a1020]/95 text-cyan-200 shadow-lg backdrop-blur transition hover:border-cyan-400/40 hover:bg-[#0d1528]"
+        href="#top"
+        title="Torna su"
+        aria-label="Torna su"
+        ><i class="fa fa-long-arrow-up" aria-hidden="true"></i></a>
     </footer>
-
-    <div id="preloader">
-      <div id="loader"></div>
-    </div>
 {{LIVE_STATS_BOOT}}
-    <script src="js/resume-calendar.js" defer></script>
-    <script src="js/jquery-2.1.3.min.js"></script>
-    <script src="js/plugins.js"></script>
-    <script src="js/main.js"></script>
+    <script>
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+      };
+    </script>
+    <script src="js/discord-auth.js" defer></script>
+    <script src="js/vc-landing.js" defer></script>
   </body>
 </html>

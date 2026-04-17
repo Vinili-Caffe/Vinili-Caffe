@@ -1,34 +1,44 @@
 {
   "siteName": "Vinili & Caffè",
-  "siteUrl": "https://www.viniliecaffe.it",
+  "siteUrl": "https://www.viniliecaffe.it/",
+  "voteUrl": "https://discadia.com/vote/viniliecaffe/",
+  "reviewsUrl": "https://disboard.org/it/server/1329080093599076474",
+  "discordOauth": {
+    "clientId": "1329118940110127204",
+    "redirectUri": "https://www.viniliecaffe.it/"
+  },
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
+  "wikiUrl": "",
+  "faqUrl": "",
+  "communityRulesUrl": "",
   "discordInviteCode": "viniliecaffe",
   "useDiscordGuildBanner": true,
   "useDiscordGuildIcon": true,
-  "useDiscordGuildFoundedDate": true,
+  "useDiscordGuildFoundedDate": false,
   "useDiscordGuildDescription": true,
-  "aboutDescription": "",
+  "aboutDescription": "Vinili & Caffè nasce il 10 dicembre 2025 con l'idea di offrire a tutti gli utenti una community chill in cui poter socializzare in totale libertà. Siamo un progetto italiano al 100% che unisce tutte le esigenze che un utente come te può avere. Ascolta buona musica con una tazza di caffè e partecipa ad eventi e minigiochi il tutto servito da un nostro personale bot studiato nei minimi dettagli. Esprimiti e personalizza il tuo profilo con più di 50 ruoli personalizzati: tutto ciò che una persona può desiderare! Una particolarità ci distingue dagli altri server ed è che disponiamo di solamente 2 bot! È tutto gestito completamente dai noi e questo rende la tua riservatezza ancora più privata!",
   "discordStaffListBuild": {
     "enabled": true,
     "guildId": "1329080093599076474",
-    "staffRoleIds": [
-      "1442568886988963923",
-      "1442568893435478097",
-      "1442568894349840435",
-      "1442568897902678038",
-      "1442568901887000618",
-      "1442568904311570555",
-      "1442568910070349985"
-    ],
+    "staffRoleIds": ["1494089487863644330"],
+    "staffRoleDisplayOrder": ["1494089487863644330"],
+    "staffRoleLabels": {
+      "1494089487863644330": "Community Manager"
+    },
+    "staffRoleCdnEmojiByRoleId": {
+      "1494089487863644330": "1494286896459681924"
+    },
     "excludeFromStaffListRoleIds": ["1442568905582317740"],
-    "maxMembersToScan": 4000
+    "maxMembersToScan": 50000,
+    "staffListShowEachRole": true,
+    "showEmptyStaffRoles": true
   },
   "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
   "metaKeywords": "vinili, caffè, discord, community, musica, vinyl, italia",
   "supportEmail": "supporto@viniliecaffe.it",
   "siteModeratorEmail": "moderatori@viniliecaffe.it",
   "siteAdminEmail": "admin@viniliecaffe.it",
-  "foundedDisplay": "",
+  "foundedDisplay": "10 dicembre 2025",
   "liveStats": {
     "enabled": true,
     "inviteProxyPath": "/discord-invite.json",

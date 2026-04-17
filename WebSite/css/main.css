@@ -1221,6 +1221,84 @@ header .logo a {
   font-family: "Comic Sans MS";
   /* background-size: 113px 30px; */
 }
+.header-quick-actions {
+  position: absolute;
+  right: 2rem;
+  top: 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  z-index: 700;
+}
+.header-pill,
+.header-pill:visited {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(10, 15, 28, 0.62);
+  color: #ffffff;
+  border-radius: 16px;
+  min-height: 38px;
+  padding: 0 1.35rem;
+  font-family: "poppins-medium", sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.06rem;
+  text-transform: uppercase;
+  line-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+button.header-pill {
+  line-height: 1;
+}
+.header-pill:hover,
+.header-pill:focus {
+  border-color: rgba(255, 255, 255, 0.56);
+  background: rgba(25, 32, 50, 0.82);
+  color: #ffffff;
+}
+.header-login-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.discord-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(72, 55, 101, 0.78);
+  border-radius: 16px;
+  padding: 0.4rem 1rem 0.4rem 0.55rem;
+  min-height: 38px;
+  color: #ffffff;
+  font-family: "poppins-medium", sans-serif;
+  font-size: 1.1rem;
+}
+.discord-user-chip img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.discord-logout-btn {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(25, 32, 50, 0.82);
+  color: #ffffff;
+  border-radius: 16px;
+  min-height: 38px;
+  padding: 0 1.35rem;
+  font-family: "poppins-medium", sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.04rem;
+  cursor: pointer;
+}
+.discord-logout-btn:hover,
+.discord-logout-btn:focus {
+  border-color: rgba(255, 255, 255, 0.56);
+}
 
 /**
  * menu toggle - (_layout.css)
@@ -1372,6 +1450,9 @@ header .logo a {
   }
 }
 @media only screen and (max-width: 768px) {
+  .header-quick-actions {
+    display: none;
+  }
   header .top-bar {
     /* left: 50px; */
   }
@@ -1437,7 +1518,7 @@ header .logo a {
   text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 .intro-content h5 {
-  color: var(--vc-accent-dark);
+  color: #ffffff;
   font-family: "poppins-bold", sans-serif;
   font-size: 2.3rem;
   line-height: 1.565;
@@ -1516,6 +1597,13 @@ header .logo a {
 .intro-social li a,
 .intro-social li a:visited {
   color: #ffffff;
+}
+.intro-social li a .discord-social-icon {
+  width: 2.8rem;
+  height: 2.8rem;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
 }
 .intro-social li a:hover,
 .intro-social li a:focus {
