@@ -1,4 +1,14 @@
 (function () {
+  if (window.location.hash !== "#intro") return;
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState(
+      null,
+      document.title,
+      window.location.pathname + window.location.search,
+    );
+  }
+})();
+(function () {
   var btn = document.getElementById("vc-mobile-menu-btn");
   var nav = document.getElementById("mobile-nav");
   if (!btn || !nav) return;

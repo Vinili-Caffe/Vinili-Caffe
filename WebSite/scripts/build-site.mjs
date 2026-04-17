@@ -304,7 +304,8 @@ function staffListFallback() {
   return { html: STAFF_LIST_FALLBACK_HTML, staffCount: null };
 }
 
-function buildLiveStatsBootHtml(cfg, inviteCode) {
+function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
+  const scriptPrefix = opts && typeof opts.scriptPrefix === "string" ? opts.scriptPrefix : "";
   const ls = cfg.liveStats || {};
   if (ls.enabled === false) return "";
   const code = String(inviteCode || "").trim();
@@ -327,7 +328,7 @@ function buildLiveStatsBootHtml(cfg, inviteCode) {
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (
     `    <script>window.__VC_LIVE=${json};</script>\n` +
-    `    <script src="js/live-stats.js" defer></script>\n`
+    `    <script src="${scriptPrefix}js/live-stats.js" defer></script>\n`
   );
 }
 
@@ -702,6 +703,7 @@ async function main() {
       : String(cfg.statStaff ?? "0");
 
   const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode);
+  const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
 
   if (staffResult.staffCount != null) {
     const extraPath = path.join(DIST, "live-stats-extra.json");
@@ -750,7 +752,8 @@ async function main() {
   const legalCookieDate =
     String(cfg.legalCookieUpdated ?? "").trim() || "17 aprile 2026";
   const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
-  const wikiUrlResolved = String(cfg.wikiUrl ?? "").trim() || discordInviteResolved;
+  const wikiUrlResolved =
+    String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
   const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || String(cfg.siteUrl || "").trim() || discordInviteResolved;
   const communityRulesUrlResolved =
     String(cfg.communityRulesUrl ?? "").trim() || discordInviteResolved;
@@ -765,6 +768,31 @@ async function main() {
     String(cfg.siteUrl || "").trim() ||
     discordInviteResolved;
 
+  let discordOauthRedirectRaw = String(cfg.discordOauth?.redirectUri || "").trim();
+  if (discordOauthRedirectRaw.includes("discord.com/oauth2/authorize")) {
+    console.warn(
+      "[build-site] discordOauth.redirectUri sembra l’URL di invito del bot, non la callback del sito. Uso siteUrl.",
+    );
+    discordOauthRedirectRaw = "";
+  }
+  const discordOauthRedirectResolved = discordOauthRedirectRaw || String(cfg.siteUrl || "").trim();
+  const discordOauthRedirectNoSlash = discordOauthRedirectResolved.replace(/\/+$/, "");
+  if (discordOauthRedirectResolved) {
+    console.log(
+      "[build-site] OAuth2 Redirects (Discord Developer Portal): il sito invia redirect_uri uguale a questa stringa (copiala così com’è):",
+      JSON.stringify(discordOauthRedirectResolved),
+    );
+    if (discordOauthRedirectNoSlash !== discordOauthRedirectResolved) {
+      console.log(
+        "[build-site] Se in portale hai solo la variante senza slash finale, aggiungi anche:",
+        JSON.stringify(discordOauthRedirectNoSlash),
+      );
+    }
+    console.log(
+      "[build-site] Stessa applicazione (client_id), sezione OAuth2: attiva «Implicit Grant» se usi response_type=token.",
+    );
+  }
+
   const map = {
     COOKIEYES_BLOCK: cookieYesBlock,
     GA_BLOCK: gaBlock,
@@ -776,6 +804,7 @@ async function main() {
     OG_URL: escAttr(ogUrl),
     STAFF_LIST_BLOCK: staffResult.html,
     LIVE_STATS_BOOT: liveStatsBoot,
+    LIVE_STATS_BOOT_WIKI: liveStatsBootWiki,
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(cfg.siteUrl || ""),
@@ -791,8 +820,7 @@ async function main() {
     REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
     DONATIONS_URL: escAttr(donationsUrlResolved),
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
-    DISCORD_OAUTH_REDIRECT_URI:
-      String(cfg.discordOauth?.redirectUri || "").trim() || String(cfg.siteUrl || "").trim(),
+    DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
     DISCORD_INVITE_URL: discordInviteResolved,
     WIKI_URL: escAttr(wikiUrlResolved),
     FAQ_URL: escAttr(faqUrlResolved),
@@ -811,12 +839,28 @@ async function main() {
     YEAR: year,
     INSTAGRAM_LI_INTRO: instagramLi,
     INSTAGRAM_LI_FOOTER: instagramLi,
+    WIKI_PAGE_TITLE: `${siteName} Wiki`,
+    WIKI_META_DESCRIPTION: escAttr(
+      `Documentazione, comandi e guide del server ${siteName} su Discord.`,
+    ),
+    WIKI_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : ""),
+    WIKI_OG_TITLE: escAttr(`${siteName} | Wiki`),
   };
 
   html = applyPlaceholderMap(html, map);
   warnLeftoverPlaceholders(html, "index.html");
 
   fs.writeFileSync(indexPath, html, "utf8");
+
+  const wikiIndexPath = path.join(DIST, "wiki", "index.html");
+  if (fs.existsSync(wikiIndexPath)) {
+    let wikiHtml = fs.readFileSync(wikiIndexPath, "utf8");
+    wikiHtml = applyPlaceholderMap(wikiHtml, map);
+    warnLeftoverPlaceholders(wikiHtml, "wiki/index.html");
+    fs.writeFileSync(wikiIndexPath, wikiHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca wiki/index.html (saltato placeholder).");
+  }
 
   const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];
   for (const rel of legalRel) {

@@ -482,6 +482,14 @@ ul.vc-footer-social:not(:has(> li)) {
   margin: 0;
   padding: 0;
 }
+.vc-footer {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 9, 7, 0.55) 0,
+    rgba(8, 6, 5, 0.22) 2.5rem,
+    transparent 5rem
+  );
+}
 .vc-hero-discord-cta {
   display: inline-flex;
   align-items: center;
@@ -557,6 +565,15 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 .vc-snav-item:hover {
   background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.vc-snav-item--active {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+.vc-snav-item--active:hover {
+  background: rgba(255, 255, 255, 0.07);
   color: #fff;
 }
 .vc-snav-details {
@@ -918,4 +935,340 @@ ul.vc-footer-social:not(:has(> li)) {
   font-size: 0.78rem;
   font-weight: 400;
   color: #737373;
+}
+.vc-body.vc-wiki-page {
+  background-color: #030306;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -18%, rgba(59, 130, 246, 0.14), transparent 52%),
+    radial-gradient(ellipse 55% 42% at 92% 42%, rgba(124, 58, 237, 0.11), transparent),
+    radial-gradient(ellipse 50% 38% at 6% 58%, rgba(6, 182, 212, 0.07), transparent),
+    linear-gradient(180deg, #04050a 0%, #08060c 38%, #0a0806 100%);
+}
+.vc-wiki-main {
+  text-align: center;
+}
+.vc-wiki-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.vc-wiki-back:hover {
+  color: #e2e8f0;
+}
+.vc-wiki-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.65);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+.vc-wiki-badge .fa {
+  opacity: 0.85;
+}
+.vc-wiki-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+  padding: 0.65rem 1.35rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.75);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+.vc-wiki-cta:hover {
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(30, 41, 59, 0.85);
+  color: #fff;
+}
+.vc-wiki-cta-chev {
+  font-size: 0.65rem;
+  opacity: 0.75;
+  margin-left: 0.15rem;
+}
+.vc-wiki-cards .grid {
+  text-align: left;
+}
+.vc-wiki-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.25rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.45);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.18s,
+    background 0.18s,
+    transform 0.18s;
+}
+.vc-wiki-card:hover {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(30, 41, 59, 0.55);
+  transform: translateY(-2px);
+}
+.vc-wiki-card-ico {
+  display: inline-flex;
+  width: 2.65rem;
+  height: 2.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  margin-bottom: 1rem;
+  font-size: 1.15rem;
+  color: #fff;
+}
+.vc-wiki-card-ico--cyan {
+  background: linear-gradient(145deg, #059669, #10b981);
+}
+.vc-wiki-card-ico--rose {
+  background: linear-gradient(145deg, #be123c, #e11d48);
+}
+.vc-wiki-card-ico--violet {
+  background: linear-gradient(145deg, #6d28d9, #8b5cf6);
+}
+.vc-wiki-card-ico--emerald {
+  background: linear-gradient(145deg, #047857, #10b981);
+}
+.vc-wiki-card-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+.vc-wiki-card-desc {
+  margin: 0 0 1rem;
+  flex: 1;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+.vc-wiki-card-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+.vc-wiki-card:hover .vc-wiki-card-link {
+  color: #94a3b8;
+}
+.vc-wiki-sections {
+  text-align: left;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+.vc-wiki-section + .vc-wiki-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.035);
+  padding-top: 2.5rem;
+}
+.vc-footer--wiki {
+  background: linear-gradient(
+    180deg,
+    rgba(12, 9, 7, 0.45) 0,
+    rgba(8, 6, 5, 0.18) 2.5rem,
+    transparent 5rem
+  );
+}
+.vc-cmd-panel {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+.vc-cmd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.75);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.vc-cmd-heading {
+  letter-spacing: -0.02em;
+}
+.vc-cmd-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.55);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+.vc-cmd-tab:hover {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(30, 41, 59, 0.65);
+}
+.vc-cmd-tab--on {
+  border-color: transparent;
+  background: linear-gradient(180deg, #16a34a, #22c55e);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.25);
+}
+.vc-cmd-tab[data-bot="test"].vc-cmd-tab--on {
+  background: linear-gradient(180deg, #6d28d9, #8b5cf6);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.28);
+}
+.vc-cmd-search {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 22, 0.72);
+  color: #64748b;
+}
+.vc-cmd-search:focus-within {
+  border-color: rgba(34, 211, 238, 0.25);
+  color: #94a3b8;
+}
+.vc-cmd-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  color: #f1f5f9;
+  outline: none;
+}
+.vc-cmd-search input::placeholder {
+  color: #64748b;
+}
+.vc-cmd-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.vc-cmd-acc {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(15, 23, 42, 0.5);
+  overflow: hidden;
+  transition: opacity 0.15s;
+}
+.vc-cmd-acc--hidden {
+  display: none !important;
+}
+.vc-cmd-acc-sum {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.vc-cmd-acc-sum::-webkit-details-marker {
+  display: none;
+}
+.vc-cmd-acc-ico {
+  flex-shrink: 0;
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  background: linear-gradient(145deg, #047857, #10b981);
+  font-size: 0.85rem;
+  color: #fff;
+}
+.vc-cmd-acc-ico--violet {
+  background: linear-gradient(145deg, #6d28d9, #8b5cf6);
+}
+.vc-cmd-acc-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.vc-cmd-acc-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+.vc-cmd-acc-meta {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+.vc-cmd-acc-chev {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+.vc-cmd-acc[open] .vc-cmd-acc-chev {
+  transform: rotate(180deg);
+}
+.vc-cmd-acc-body {
+  padding: 0 1rem 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.vc-cmd-list {
+  margin: 0;
+  padding: 0.5rem 0 0;
+  list-style: none;
+}
+.vc-cmd-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+}
+.vc-cmd-list li:last-child {
+  border-bottom: none;
+}
+.vc-cmd-name {
+  font-weight: 600;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+}
+.vc-cmd-hint {
+  color: #64748b;
+  font-size: 0.78rem;
 }

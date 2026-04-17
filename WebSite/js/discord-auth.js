@@ -48,7 +48,6 @@
       redirect_uri: redirect,
       response_type: "token",
       scope: "identify",
-      prompt: "none",
     });
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
