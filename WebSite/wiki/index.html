@@ -158,9 +158,9 @@
           {{SITE_NAME}} Wiki
         </h1>
         <p class="vc-wiki-lead mt-4 text-balance text-sm leading-relaxed text-slate-400 sm:text-base">
-          Due bot sviluppati dal team: documentazione, comandi e collegamenti utili al server Discord.
+          I bot <strong class="font-semibold text-slate-300">Vinili</strong> e <strong class="font-semibold text-slate-300">Caffè</strong>: documentazione, comandi e collegamenti utili al server Discord.
         </p>
-        <a class="vc-wiki-cta" href="#wiki-comandi-panel">
+        <a class="vc-wiki-cta" href="{{WIKI_URL}}" data-vc-wiki-scroll="wiki-comandi-panel">
           <i class="fa fa-search" aria-hidden="true"></i>
           <span>Vai ai comandi</span>
           <i class="fa fa-chevron-down vc-wiki-cta-chev" aria-hidden="true"></i>
@@ -169,21 +169,33 @@
 
       <section id="comandi" class="vc-wiki-cards mt-14 w-full scroll-mt-28 sm:mt-16" aria-label="Bot del server">
         <div class="mx-auto grid max-w-4xl gap-5 sm:grid-cols-2 sm:gap-6">
-          <a class="vc-wiki-card" href="#wiki-comandi-panel" data-select-cmd-tab="prod">
-            <span class="vc-wiki-card-ico vc-wiki-card-ico--emerald" aria-hidden="true"><i class="fa fa-diamond"></i></span>
-            <h2 class="vc-wiki-card-title">Bot ufficiale</h2>
+          <a class="vc-wiki-card" href="{{WIKI_URL}}" data-vc-wiki-scroll="wiki-comandi-panel" data-select-cmd-tab="prod">
+            <img
+              class="vc-wiki-card-avatar"
+              src="{{WIKI_BOT_VINILI_AVATAR_URL}}"
+              alt=""
+              width="48"
+              height="48"
+              decoding="async"
+            />
+            <h2 class="vc-wiki-card-title">Vinili</h2>
             <p class="vc-wiki-card-desc">
-              Slash command, community, eventi e minigiochi: tutto ciò che usi ogni giorno sul server, gestito dal bot
-              di produzione Vinili &amp; Caffè.
+              Slash command, prefisso, livelli, TTS, ticket, moderazione, minigiochi e statistiche.
             </p>
             <span class="vc-wiki-card-link">Apri Wiki <i class="fa fa-angle-right" aria-hidden="true"></i></span>
           </a>
-          <a class="vc-wiki-card" href="#wiki-comandi-panel" data-select-cmd-tab="test">
-            <span class="vc-wiki-card-ico vc-wiki-card-ico--violet" aria-hidden="true"><i class="fa fa-flask"></i></span>
-            <h2 class="vc-wiki-card-title">Bot di test</h2>
+          <a class="vc-wiki-card" href="{{WIKI_URL}}" data-vc-wiki-scroll="wiki-comandi-panel" data-select-cmd-tab="test">
+            <img
+              class="vc-wiki-card-avatar"
+              src="{{WIKI_BOT_CAFFE_AVATAR_URL}}"
+              alt=""
+              width="48"
+              height="48"
+              decoding="async"
+            />
+            <h2 class="vc-wiki-card-title">Caffè</h2>
             <p class="vc-wiki-card-desc">
-              Ambiente sandbox per provare nuove funzioni prima del rilascio sul bot ufficiale. Uso in genere riservato
-              allo staff.
+              TTS e Music di riserva.
             </p>
             <span class="vc-wiki-card-link">Apri Wiki <i class="fa fa-angle-right" aria-hidden="true"></i></span>
           </a>
@@ -196,123 +208,28 @@
         </p>
         <h2 class="vc-cmd-heading mt-4 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Seleziona un Bot</h2>
         <div class="vc-cmd-tabs mt-6 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Bot">
-          <button type="button" class="vc-cmd-tab vc-cmd-tab--on" role="tab" aria-selected="true" data-bot="prod" id="wiki-tab-prod">
-            <i class="fa fa-diamond" aria-hidden="true"></i><span>Bot ufficiale</span>
+          <button type="button" class="vc-cmd-tab vc-cmd-tab--on" role="tab" aria-selected="true" data-bot="prod" id="wiki-tab-prod" aria-label="Bot Vinili">
+            <img class="vc-cmd-tab-avatar" src="{{WIKI_BOT_VINILI_AVATAR_URL}}" alt="" width="22" height="22" decoding="async" /><span>Vinili</span>
           </button>
-          <button type="button" class="vc-cmd-tab" role="tab" aria-selected="false" data-bot="test" id="wiki-tab-test">
-            <i class="fa fa-flask" aria-hidden="true"></i><span>Bot di test</span>
+          <button type="button" class="vc-cmd-tab" role="tab" aria-selected="false" data-bot="test" id="wiki-tab-test" aria-label="Bot Caffè">
+            <img class="vc-cmd-tab-avatar" src="{{WIKI_BOT_CAFFE_AVATAR_URL}}" alt="" width="22" height="22" decoding="async" /><span>Caffè</span>
           </button>
         </div>
         <label class="vc-cmd-search mt-6">
           <i class="fa fa-search" aria-hidden="true"></i>
           <input id="wiki-cmd-search" type="search" placeholder="Cerca comandi..." autocomplete="off" spellcheck="false" />
         </label>
-        <div class="vc-cmd-panes mt-5 text-left">
-          <div class="vc-cmd-pane" id="wiki-cmd-pane-prod" role="tabpanel" aria-labelledby="wiki-tab-prod" data-pane="prod">
-            <details class="vc-cmd-acc" name="vc-cmd-prod">
-              <summary class="vc-cmd-acc-sum">
-                <span class="vc-cmd-acc-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span>
-                <span class="vc-cmd-acc-text">
-                  <span class="vc-cmd-acc-title">Generale</span>
-                  <span class="vc-cmd-acc-meta">2 comandi</span>
-                </span>
-                <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
-              </summary>
-              <div class="vc-cmd-acc-body">
-                <ul class="vc-cmd-list">
-                  <li><span class="vc-cmd-name">/help</span><span class="vc-cmd-hint">Panoramica comandi</span></li>
-                  <li><span class="vc-cmd-name">/ping</span><span class="vc-cmd-hint">Verifica latenza</span></li>
-                </ul>
-              </div>
-            </details>
-            <details class="vc-cmd-acc" name="vc-cmd-prod">
-              <summary class="vc-cmd-acc-sum">
-                <span class="vc-cmd-acc-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span>
-                <span class="vc-cmd-acc-text">
-                  <span class="vc-cmd-acc-title">Community</span>
-                  <span class="vc-cmd-acc-meta">3 comandi</span>
-                </span>
-                <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
-              </summary>
-              <div class="vc-cmd-acc-body">
-                <ul class="vc-cmd-list">
-                  <li><span class="vc-cmd-name">/profilo</span><span class="vc-cmd-hint">Scheda utente</span></li>
-                  <li><span class="vc-cmd-name">/ruoli</span><span class="vc-cmd-hint">Ruoli disponibili</span></li>
-                  <li><span class="vc-cmd-name">/evento</span><span class="vc-cmd-hint">Prossime attività</span></li>
-                </ul>
-              </div>
-            </details>
-            <details class="vc-cmd-acc" name="vc-cmd-prod">
-              <summary class="vc-cmd-acc-sum">
-                <span class="vc-cmd-acc-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span>
-                <span class="vc-cmd-acc-text">
-                  <span class="vc-cmd-acc-title">Musica &amp; minigiochi</span>
-                  <span class="vc-cmd-acc-meta">2 comandi</span>
-                </span>
-                <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
-              </summary>
-              <div class="vc-cmd-acc-body">
-                <ul class="vc-cmd-list">
-                  <li><span class="vc-cmd-name">/coda</span><span class="vc-cmd-hint">Brani in riproduzione</span></li>
-                  <li><span class="vc-cmd-name">/quiz</span><span class="vc-cmd-hint">Minigioco rapido</span></li>
-                </ul>
-              </div>
-            </details>
+        <div class="vc-cmd-search-results mt-5 text-left">
+          <div id="wiki-cmd-empty" class="vc-cmd-empty" hidden role="status" aria-live="polite">
+            <div class="vc-cmd-empty-ico" aria-hidden="true"><i class="fa fa-diamond"></i></div>
+            <p class="vc-cmd-empty-text">Nessun comando trovato</p>
           </div>
-          <div class="vc-cmd-pane" id="wiki-cmd-pane-test" role="tabpanel" aria-labelledby="wiki-tab-test" data-pane="test" hidden>
-            <details class="vc-cmd-acc" name="vc-cmd-test">
-              <summary class="vc-cmd-acc-sum">
-                <span class="vc-cmd-acc-ico vc-cmd-acc-ico--violet" aria-hidden="true"><i class="fa fa-flask"></i></span>
-                <span class="vc-cmd-acc-text">
-                  <span class="vc-cmd-acc-title">Generale</span>
-                  <span class="vc-cmd-acc-meta">1 comando</span>
-                </span>
-                <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
-              </summary>
-              <div class="vc-cmd-acc-body">
-                <ul class="vc-cmd-list">
-                  <li><span class="vc-cmd-name">/help</span><span class="vc-cmd-hint">Versione sandbox</span></li>
-                </ul>
-              </div>
-            </details>
-            <details class="vc-cmd-acc" name="vc-cmd-test">
-              <summary class="vc-cmd-acc-sum">
-                <span class="vc-cmd-acc-ico vc-cmd-acc-ico--violet" aria-hidden="true"><i class="fa fa-flask"></i></span>
-                <span class="vc-cmd-acc-text">
-                  <span class="vc-cmd-acc-title">Sperimentale</span>
-                  <span class="vc-cmd-acc-meta">2 comandi</span>
-                </span>
-                <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
-              </summary>
-              <div class="vc-cmd-acc-body">
-                <ul class="vc-cmd-list">
-                  <li><span class="vc-cmd-name">/beta-feature</span><span class="vc-cmd-hint">In prova sul test</span></li>
-                  <li><span class="vc-cmd-name">/reload-test</span><span class="vc-cmd-hint">Solo staff</span></li>
-                </ul>
-              </div>
-            </details>
+          <div class="vc-cmd-panes">
+{{WIKI_CMD_PANES_HTML}}
           </div>
         </div>
       </section>
 
-      <div class="vc-wiki-sections mt-16 w-full space-y-12 sm:mt-20">
-        <section id="wiki-bot-ufficiale" class="vc-wiki-section scroll-mt-28">
-          <h2 class="text-lg font-bold text-white">Bot ufficiale</h2>
-          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
-            Qui troverai l&apos;indice dei comandi, le integrazioni con i canali e le note di versione. Entra su
-            <a class="text-cyan-300 underline-offset-2 hover:underline" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
-              >Discord</a>
-            per usarlo in chat; la documentazione dettagliata verrà ampliata in questa pagina.
-          </p>
-        </section>
-        <section id="wiki-bot-test" class="vc-wiki-section scroll-mt-28">
-          <h2 class="text-lg font-bold text-white">Bot di test</h2>
-          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
-            Il bot di test replica in anticipo funzionalità del bot ufficiale: se non sei dello staff, ignora i comandi
-            che non ti rispondono. Torna alle schede con il pulsante <strong class="font-semibold text-slate-300">Vai ai comandi</strong> in alto.
-          </p>
-        </section>
-      </div>
     </main>
 
     <footer class="vc-footer vc-footer--wiki relative z-10 py-16">

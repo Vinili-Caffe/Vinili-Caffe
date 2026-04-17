@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
+import { createRequire } from "module";
 import { fileURLToPath } from "url";
+
+const require = createRequire(import.meta.url);
+import { buildWikiCommandPanesInnerHtml } from "./wiki-command-discovery.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -201,6 +205,42 @@ async function fetchInviteInvitePayload(inviteCode) {
 async function fetchInviteGuildSnapshot(inviteCode) {
   const p = await fetchInviteInvitePayload(inviteCode);
   return p?.snap ?? null;
+}
+
+function discordCdnUserAvatarUrl(userId, avatarHash) {
+  const id = String(userId || "").trim();
+  if (!id) return null;
+  const h = avatarHash != null ? String(avatarHash).trim() : "";
+  if (h) {
+    const ext = h.startsWith("a_") ? "gif" : "webp";
+    return `https://cdn.discordapp.com/avatars/${id}/${h}.${ext}?size=256`;
+  }
+  try {
+    const idx = Number((BigInt(id) >> 22n) % 6n);
+    return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+  } catch {
+    return "https://cdn.discordapp.com/embed/avatars/1.png";
+  }
+}
+
+/** Avatar dell’account bot da Discord API (richiede token del bot). */
+async function fetchBotSelfAvatarUrl(botToken, label) {
+  const t = String(botToken || "").trim();
+  if (!t) return null;
+  try {
+    const res = await discordBotGet("/users/@me", t);
+    if (!res.ok) {
+      console.warn(`[build-site] Wiki avatar ${label}: GET /users/@me HTTP`, res.status);
+      return null;
+    }
+    const u = await res.json().catch(() => null);
+    const id = String(u?.id || "").trim();
+    if (!id) return null;
+    return discordCdnUserAvatarUrl(id, u?.avatar);
+  } catch (e) {
+    console.warn(`[build-site] Wiki avatar ${label}:`, e?.message || e);
+    return null;
+  }
 }
 
 async function discordBotGet(path, botToken, attempt = 0) {
@@ -600,6 +640,8 @@ async function main() {
     console.error("Manca site.config.json in", ROOT);
     process.exit(1);
   }
+  const { loadEnvFiles } = require(path.join(__dirname, "..", "..", "shared", "runtime", "fsRuntime.js"));
+  loadEnvFiles(ROOT);
   const cfg = readJson(CONFIG_PATH);
   rmrf(DIST);
   copyRecursive(ROOT, DIST);
@@ -768,6 +810,52 @@ async function main() {
     String(cfg.siteUrl || "").trim() ||
     discordInviteResolved;
 
+  const wikiViniliCfgUrl = String(cfg.wikiBotViniliAvatarUrl ?? "").trim();
+  const wikiCaffeCfgUrl = String(cfg.wikiBotCaffeAvatarUrl ?? "").trim();
+  const tokenVinili =
+    process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN?.trim() ||
+    process.env.DISCORD_TOKEN?.trim();
+  const tokenCaffe = process.env.DISCORD_TOKEN_TEST?.trim();
+  let wikiViniliFromApi = null;
+  let wikiCaffeFromApi = null;
+  if (!wikiViniliCfgUrl && tokenVinili) {
+    wikiViniliFromApi = await fetchBotSelfAvatarUrl(tokenVinili, "Vinili");
+    if (wikiViniliFromApi) {
+      console.log("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
+    } else {
+      console.warn(
+        "[build-site] Wiki Vinili: impossibile ottenere l’avatar via API. Imposta DISCORD_TOKEN o DISCORD_WEBSITE_BUILD_BOT_TOKEN nel .env del build, oppure wikiBotViniliAvatarUrl in site.config.json.",
+      );
+    }
+  }
+  if (!wikiCaffeCfgUrl && tokenCaffe) {
+    wikiCaffeFromApi = await fetchBotSelfAvatarUrl(tokenCaffe, "Caffè");
+    if (wikiCaffeFromApi) {
+      console.log("[build-site] Wiki Caffè: avatar da Discord GET /users/@me (account bot).");
+    } else {
+      console.warn(
+        "[build-site] Wiki Caffè: impossibile ottenere l’avatar via API. Imposta DISCORD_TOKEN_TEST (token del bot Coffee) nel .env del build, oppure wikiBotCaffeAvatarUrl in site.config.json.",
+      );
+    }
+  }
+
+  const wikiViniliAvatarRaw =
+    wikiViniliCfgUrl ||
+    wikiViniliFromApi ||
+    "https://cdn.discordapp.com/embed/avatars/1.png";
+  const wikiCaffeAvatarRaw =
+    wikiCaffeCfgUrl ||
+    wikiCaffeFromApi ||
+    "https://cdn.discordapp.com/embed/avatars/4.png";
+  const siteUrlForAbs = String(cfg.siteUrl || "").trim();
+  const wikiViniliAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiViniliAvatarRaw);
+  const wikiCaffeAvatarUrl = absUrlForMetadata(siteUrlForAbs, wikiCaffeAvatarRaw);
+
+  const WIKI_CMD_PANES_HTML = buildWikiCommandPanesInnerHtml({
+    avatarProdUrl: wikiViniliAvatarUrl,
+    avatarTestUrl: wikiCaffeAvatarUrl,
+  });
+
   let discordOauthRedirectRaw = String(cfg.discordOauth?.redirectUri || "").trim();
   if (discordOauthRedirectRaw.includes("discord.com/oauth2/authorize")) {
     console.warn(
@@ -845,6 +933,9 @@ async function main() {
     ),
     WIKI_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : ""),
     WIKI_OG_TITLE: escAttr(`${siteName} | Wiki`),
+    WIKI_BOT_VINILI_AVATAR_URL: escAttr(wikiViniliAvatarUrl),
+    WIKI_BOT_CAFFE_AVATAR_URL: escAttr(wikiCaffeAvatarUrl),
+    WIKI_CMD_PANES_HTML,
   };
 
   html = applyPlaceholderMap(html, map);

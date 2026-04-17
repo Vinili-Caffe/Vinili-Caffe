@@ -344,12 +344,12 @@ async function handlePartnerModal(interaction) {
 
 function parsePartnershipModalId(customId) {
   const raw = String(customId || "");
-  const newFormat = raw.match(/^partnershipModal_(cmd|ctx)_(\d{16,20})_(\d{16,20})$/,);
+  const newFormat = raw.match(/^partnershipModal_cmd_(\d{16,20})_(\d{16,20})$/);
   if (newFormat) {
     return {
-      source: newFormat[1],
-      openerId: newFormat[2],
-      managerId: newFormat[3],
+      source: "cmd",
+      openerId: newFormat[1],
+      managerId: newFormat[2],
     };
   }
 

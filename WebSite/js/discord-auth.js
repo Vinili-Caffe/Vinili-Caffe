@@ -10,6 +10,13 @@
     return document.getElementById(id);
   }
 
+  function escAttr(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
+  }
+
   function parseHashToken() {
     var h = window.location.hash || "";
     if (!h || h.indexOf("access_token=") === -1) return null;
@@ -75,13 +82,22 @@
     if (loginBtn) loginBtn.hidden = true;
     var name = user.global_name || user.username || "Utente";
     var img = avatarUrl(user);
+    var label = escAttr(name);
+    var avatarBlock = img
+      ? '<img class="discord-avatar-img" src="' +
+        img +
+        '" alt="" width="38" height="38" decoding="async" title="' +
+        label +
+        '" aria-label="' +
+        label +
+        '">'
+      : '<span class="discord-avatar-img discord-avatar-img--fallback" title="' +
+        label +
+        '" aria-label="' +
+        label +
+        '"><i class="fa fa-user" aria-hidden="true"></i></span>';
     state.innerHTML =
-      '<div class="discord-user-chip">' +
-      (img ? '<img src="' + img + '" alt="Avatar">' : "") +
-      "<span>" +
-      name +
-      "</span></div>" +
-      '<button type="button" class="discord-logout-btn" id="discord-logout-btn">Logout</button>';
+      '<div class="discord-login-row">' + avatarBlock + '<button type="button" class="discord-logout-btn" id="discord-logout-btn">Logout</button></div>';
     state.hidden = false;
     var out = byId("discord-logout-btn");
     if (out) {

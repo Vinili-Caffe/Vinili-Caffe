@@ -411,25 +411,30 @@ button.vc-header-pill {
   gap: 0.5rem;
   flex-wrap: wrap;
 }
-.discord-user-chip {
+.discord-login-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(72, 55, 101, 0.78);
-  border-radius: 9999px;
-  padding: 0.35rem 0.85rem 0.35rem 0.4rem;
-  min-height: 36px;
-  color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 500;
+  gap: 0.45rem;
 }
-.discord-user-chip img {
-  width: 28px;
-  height: 28px;
+.discord-avatar-img {
+  width: 2.35rem;
+  height: 2.35rem;
   border-radius: 50%;
   object-fit: cover;
   display: block;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.35);
+}
+.discord-avatar-img--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(226, 232, 240, 0.75);
+  font-size: 1rem;
 }
 .discord-logout-btn {
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -1030,6 +1035,15 @@ ul.vc-footer-social:not(:has(> li)) {
   background: rgba(30, 41, 59, 0.55);
   transform: translateY(-2px);
 }
+.vc-wiki-card-avatar {
+  width: 2.65rem;
+  height: 2.65rem;
+  margin-bottom: 1rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
 .vc-wiki-card-ico {
   display: inline-flex;
   width: 2.65rem;
@@ -1114,6 +1128,17 @@ ul.vc-footer-social:not(:has(> li)) {
 .vc-cmd-heading {
   letter-spacing: -0.02em;
 }
+.vc-cmd-tab-avatar {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.vc-cmd-tab--on .vc-cmd-tab-avatar {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
 .vc-cmd-tab {
   display: inline-flex;
   align-items: center;
@@ -1173,6 +1198,49 @@ ul.vc-footer-social:not(:has(> li)) {
 .vc-cmd-search input::placeholder {
   color: #64748b;
 }
+.vc-cmd-search-results {
+  position: relative;
+  min-height: 0;
+}
+.vc-cmd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2.5rem 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.45);
+  text-align: center;
+}
+.vc-cmd-empty[hidden] {
+  display: none !important;
+}
+.vc-cmd-empty-ico {
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(30, 27, 45, 0.6);
+  color: rgba(148, 163, 184, 0.45);
+  font-size: 1.1rem;
+}
+.vc-cmd-empty-text {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+.vc-cmd-panes--search-miss {
+  display: none !important;
+}
+.vc-cmd-li--hidden {
+  display: none !important;
+}
 .vc-cmd-pane {
   display: flex;
   flex-direction: column;
@@ -1199,6 +1267,19 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 .vc-cmd-acc-sum::-webkit-details-marker {
   display: none;
+}
+.vc-cmd-acc-avatar {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.vc-cmd-invoke-kind {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
 }
 .vc-cmd-acc-ico {
   flex-shrink: 0;

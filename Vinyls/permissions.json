@@ -1395,9 +1395,6 @@
         "partnershipModal_cmd_*": {
             "ownerSegment": 1
         },
-        "partnershipModal_ctx_*": {
-            "ownerSegment": 1
-        },
         "stats_top_channel_page_modal:*": {
             "ownerSegment": 1
         },

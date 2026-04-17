@@ -80,7 +80,12 @@
     refreshExtraStaff().catch(function () {});
   }
 
+  function isLocalDevHost() {
+    var h = String(location.hostname || "").toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+  }
+
   tick();
   var ms = Number(cfg.pollIntervalMs) || 45000;
-  if (ms >= 5000) setInterval(tick, ms);
+  if (ms >= 5000 && !isLocalDevHost()) setInterval(tick, ms);
 })();

@@ -1,0 +1,427 @@
+/**
+ * Legge i file dei bot Vinyls / Coffee e genera l'HTML degli accordion comandi per la wiki.
+ * Slash / menu contestuale: stessa categoria della cartella Commands (Admin, Staff, Dev…), insieme ai prefix.
+ * Prefix: cartella Prefix, esclusi skipLoad / skipPrefix. Slash senza skipDeploy.
+ * Categorie admin e dev: omesse dalla wiki pubblica.
+ */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath, pathToFileURL } from "url";
+import { createRequire } from "module";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+const PREFIX_FOLDER_LABELS = {
+  utility: "Utility",
+  tts: "TTS",
+  level: "Livelli",
+  minigames: "Minigiochi",
+  stats: "Statistiche",
+  moderation: "Moderazione",
+  admin: "Admin",
+  staff: "Staff",
+  event: "Eventi",
+  dev: "Dev",
+};
+
+const CATEGORY_ORDER = [
+  "utility",
+  "tts",
+  "level",
+  "minigames",
+  "stats",
+  "staff",
+  "moderation",
+  "event",
+];
+
+/** Cartelle Admin / Dev: non mostrate sulla wiki (comandi sensibili o solo team). */
+function wikiPublicCategory(id) {
+  const k = String(id || "").toLowerCase();
+  return k !== "admin" && k !== "dev";
+}
+
+function read(p) {
+  return fs.readFileSync(p, "utf8");
+}
+
+function escAttr(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+function escHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function extractBracedBlock(src, openBraceIndex) {
+  let depth = 0;
+  for (let i = openBraceIndex; i < src.length; i++) {
+    const c = src[i];
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return src.slice(openBraceIndex + 1, i);
+    }
+  }
+  return null;
+}
+
+function parseConstStringMap(src, constName) {
+  const needle = `const ${constName} = {`;
+  const start = src.indexOf(needle);
+  if (start === -1) return {};
+  const brace = start + needle.length - 1;
+  const inner = extractBracedBlock(src, brace);
+  if (!inner) return {};
+  const out = {};
+  const re = /\s*(?:"([^"]+)"|([a-zA-Z0-9_.-]+))\s*:\s*"((?:[^"\\]|\\.)*)"\s*,?/g;
+  let m;
+  while ((m = re.exec(inner)) !== null) {
+    const key = m[1] || m[2];
+    out[key] = String(m[3] || "")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  }
+  return out;
+}
+
+function extractModuleExportsBlock(src) {
+  const token = "module.exports";
+  const pos = src.lastIndexOf(token);
+  if (pos === -1) return null;
+  const brace = src.indexOf("{", pos);
+  if (brace === -1) return null;
+  return extractBracedBlock(src, brace);
+}
+
+function resolvePrefixNameFromBinding(filePath, src, varName) {
+  const re = new RegExp(
+    `const\\s+${varName.replace(/[^$\w]/g, "")}\\s*=\\s*require\\(\\s*["']([^"']+)["']\\s*\\)(?:\\.(\\w+))?`,
+  );
+  const m = src.match(re);
+  if (!m) return null;
+  const rel = m[1];
+  const exportKey = m[2] || null;
+  try {
+    const dir = path.dirname(filePath);
+    const req = createRequire(pathToFileURL(filePath).href);
+    const mod = req(path.join(dir, rel));
+    const target = exportKey && mod && typeof mod[exportKey] === "object" ? mod[exportKey] : mod;
+    const n = target && typeof target.name === "string" ? target.name.trim() : "";
+    return n || null;
+  } catch {
+    return null;
+  }
+}
+
+function parsePrefixCommandFile(filePath, src) {
+  const block = extractModuleExportsBlock(src);
+  if (!block) return null;
+  if (/\bskipLoad:\s*true/.test(block) || /\bskipPrefix:\s*true/.test(block)) return null;
+  let name = null;
+  const literalM = block.match(/\bname:\s*["']([a-zA-Z0-9_-]+)["']/);
+  if (literalM) name = literalM[1];
+  else {
+    const varM = block.match(/\bname:\s*([\w$]+)\.name\b/);
+    if (varM) name = resolvePrefixNameFromBinding(filePath, src, varM[1]);
+  }
+  if (!name) {
+    const base = path.basename(filePath, ".js");
+    if (/^[a-z][a-z0-9_-]*$/i.test(base)) name = base;
+  }
+  if (!name) return null;
+  const descM = block.match(/\bdescription:\s*["']([^"']*)["']/);
+  const subDescBlock = block.match(/subcommandDescriptions:\s*\{([\s\S]*?)\n\s*\}/);
+  let subHints = null;
+  if (subDescBlock) {
+    const inner = subDescBlock[1];
+    const sm = [...inner.matchAll(/\b([a-zA-Z0-9_-]+)\s*:\s*"((?:[^"\\]|\\.)*)"/g)];
+    if (sm.length) subHints = Object.fromEntries(sm.map((x) => [x[1], x[2].replace(/\\"/g, '"')]));
+  }
+  return {
+    name,
+    fileDescription: descM ? descM[1] : null,
+    subHints,
+  };
+}
+
+function parseSlashFromSrc(src, categoryFolder) {
+  if (/\bskipDeploy:\s*true/.test(src)) return null;
+  const slashIdx = src.search(/\bdata:\s*new\s+SlashCommandBuilder\s*\(\s*\)/);
+  const ctxIdx = src.search(/\bdata:\s*new\s+ContextMenuCommandBuilder\s*\(\s*\)/);
+  if (slashIdx !== -1 && (ctxIdx === -1 || slashIdx < ctxIdx)) {
+    const endProbe = src.slice(slashIdx).search(/\n\s*async\s+execute\b/);
+    const end = endProbe === -1 ? slashIdx + 4000 : slashIdx + endProbe;
+    const chunk = src.slice(slashIdx, end);
+    const nameM = chunk.match(/\.setName\s*\(\s*["']([^"']+)["']\s*\)/);
+    const descM = chunk.match(/\.setDescription\s*\(\s*["']([^"']+)["']\s*\)/);
+    if (!nameM) return null;
+    return {
+      kind: "slash",
+      folder: categoryFolder,
+      name: nameM[1],
+      description: descM ? descM[1] : "",
+    };
+  }
+  if (ctxIdx !== -1) {
+    const end = ctxIdx + 1200;
+    const chunk = src.slice(ctxIdx, end);
+    const nameM = chunk.match(/\.setName\s*\(\s*["']([^"']+)["']\s*\)/);
+    if (!nameM) return null;
+    return {
+      kind: "context",
+      folder: categoryFolder,
+      name: nameM[1],
+      description: "",
+    };
+  }
+  return null;
+}
+
+function listPrefixFiles(prefixRoot) {
+  if (!fs.existsSync(prefixRoot)) return [];
+  const out = [];
+  for (const folder of fs.readdirSync(prefixRoot)) {
+    const folderPath = path.join(prefixRoot, folder);
+    if (!fs.statSync(folderPath).isDirectory()) continue;
+    for (const file of fs.readdirSync(folderPath)) {
+      if (!file.endsWith(".js")) continue;
+      out.push({ folder, file: path.join(folderPath, file) });
+    }
+  }
+  return out;
+}
+
+function listSlashFiles(commandsRoot) {
+  if (!fs.existsSync(commandsRoot)) return [];
+  const out = [];
+  for (const folder of fs.readdirSync(commandsRoot)) {
+    const folderPath = path.join(commandsRoot, folder);
+    if (!fs.statSync(folderPath).isDirectory()) continue;
+    for (const file of fs.readdirSync(folderPath)) {
+      if (!file.endsWith(".js")) continue;
+      out.push({ folder, file: path.join(folderPath, file) });
+    }
+  }
+  return out;
+}
+
+function hintForPrefixCommand(name, meta, prefixMap, subMap) {
+  const key = String(name || "").toLowerCase();
+  if (prefixMap[key]) return prefixMap[key];
+  if (meta.fileDescription) return meta.fileDescription;
+  const subLines = [];
+  if (subMap && typeof subMap === "object") {
+    for (const [sk, sv] of Object.entries(subMap)) {
+      const dot = sk.indexOf(".");
+      if (dot !== -1 && sk.slice(0, dot).toLowerCase() === key) {
+        subLines.push(`${sk.slice(dot + 1)}: ${sv}`);
+      }
+    }
+  }
+  if (meta.subHints && typeof meta.subHints === "object") {
+    for (const [k, v] of Object.entries(meta.subHints)) {
+      subLines.push(`${k}: ${v}`);
+    }
+  }
+  if (subLines.length) return subLines.join(" · ");
+  return "Comando con prefisso.";
+}
+
+function collectVinili() {
+  const vinylsRoot = path.join(REPO_ROOT, "Vinyls");
+  const helpPath = path.join(vinylsRoot, "Prefix", "Utility", "help.js");
+  const helpSrc = read(helpPath);
+  const prefixDesc = parseConstStringMap(helpSrc, "PREFIX_HELP_DESCRIPTIONS");
+  const subDesc = parseConstStringMap(helpSrc, "PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS");
+  const ctxDesc = parseConstStringMap(helpSrc, "CONTEXT_HELP_DESCRIPTIONS");
+
+  const cfg = JSON.parse(read(path.join(vinylsRoot, "config.json")));
+  const prefix = String(cfg.prefix ?? "+");
+
+  const categories = new Map();
+
+  function ensureCat(id) {
+    if (!categories.has(id)) {
+      categories.set(id, { id, title: PREFIX_FOLDER_LABELS[id] || id, commands: [] });
+    }
+    return categories.get(id);
+  }
+
+  for (const { folder, file } of listSlashFiles(path.join(vinylsRoot, "Commands"))) {
+    const src = read(file);
+    const parsed = parseSlashFromSrc(src, folder);
+    if (!parsed) continue;
+    const folderKey = String(parsed.folder || folder).toLowerCase();
+    if (!wikiPublicCategory(folderKey)) continue;
+    const cat = ensureCat(folderKey);
+    if (!cat.title || cat.title === folderKey) {
+      cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
+    }
+    if (parsed.kind === "slash") {
+      cat.commands.push({
+        search: `/${parsed.name} ${parsed.description}`,
+        invokeHtml: `<span class="vc-cmd-name">/${escHtml(parsed.name)}</span>`,
+        hint: parsed.description,
+      });
+    } else {
+      const hint =
+        ctxDesc[parsed.name] ||
+        "Menu contestuale (tasto destro sul messaggio o sull’utente).";
+      cat.commands.push({
+        search: `${parsed.name} ${hint}`,
+        invokeHtml: `<span class="vc-cmd-name">${escHtml(parsed.name)}</span><span class="vc-cmd-invoke-kind"> · menu</span>`,
+        hint,
+      });
+    }
+  }
+
+  for (const { folder, file } of listPrefixFiles(path.join(vinylsRoot, "Prefix"))) {
+    const src = read(file);
+    const meta = parsePrefixCommandFile(file, src);
+    if (!meta) continue;
+    const folderKey = String(folder).toLowerCase();
+    if (!wikiPublicCategory(folderKey)) continue;
+    const cat = ensureCat(folderKey);
+    if (!cat.title || cat.title === folderKey) {
+      cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
+    }
+    const hint = hintForPrefixCommand(meta.name, meta, prefixDesc, subDesc);
+    cat.commands.push({
+      search: `${prefix}${meta.name} ${hint}`,
+      invokeHtml: `<span class="vc-cmd-name">${escHtml(prefix)}${escHtml(meta.name)}</span>`,
+      hint,
+    });
+  }
+
+  for (const c of categories.values()) {
+    c.commands.sort((a, b) => a.search.localeCompare(b.search));
+  }
+
+  const ordered = [];
+  for (const id of CATEGORY_ORDER) {
+    const c = categories.get(id);
+    if (c && c.commands.length && wikiPublicCategory(id)) ordered.push(c);
+  }
+  for (const [id, c] of categories) {
+    if (!CATEGORY_ORDER.includes(id) && c.commands.length && wikiPublicCategory(id)) ordered.push(c);
+  }
+
+  return { prefix, categories: ordered };
+}
+
+function collectCaffe() {
+  const coffeeRoot = path.join(REPO_ROOT, "Coffee");
+  const helpPath = path.join(coffeeRoot, "Prefix", "Utility", "help.js");
+  const helpSrc = read(helpPath);
+  const prefixDesc = parseConstStringMap(helpSrc, "PREFIX_HELP_DESCRIPTIONS");
+  const subDesc = parseConstStringMap(helpSrc, "PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS");
+  const cfg = JSON.parse(read(path.join(coffeeRoot, "config.json")));
+  const prefix = String(cfg.prefix ?? "-");
+
+  const categories = new Map();
+  function ensureCat(id) {
+    if (!categories.has(id)) {
+      categories.set(id, { id, title: PREFIX_FOLDER_LABELS[id] || id, commands: [] });
+    }
+    return categories.get(id);
+  }
+
+  for (const { folder, file } of listPrefixFiles(path.join(coffeeRoot, "Prefix"))) {
+    const src = read(file);
+    const meta = parsePrefixCommandFile(file, src);
+    if (!meta) continue;
+    const folderKey = String(folder).toLowerCase();
+    if (!wikiPublicCategory(folderKey)) continue;
+    const cat = ensureCat(folderKey);
+    cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
+    const hint = hintForPrefixCommand(meta.name, meta, prefixDesc, subDesc);
+    cat.commands.push({
+      search: `${prefix}${meta.name} ${hint}`,
+      invokeHtml: `<span class="vc-cmd-name">${escHtml(prefix)}${escHtml(meta.name)}</span>`,
+      hint,
+    });
+  }
+
+  for (const c of categories.values()) {
+    c.commands.sort((a, b) => a.search.localeCompare(b.search));
+  }
+
+  const ordered = [];
+  for (const id of CATEGORY_ORDER) {
+    const c = categories.get(id);
+    if (c && c.commands.length && wikiPublicCategory(id)) ordered.push(c);
+  }
+  for (const [id, c] of categories) {
+    if (!CATEGORY_ORDER.includes(id) && c.commands.length && wikiPublicCategory(id)) ordered.push(c);
+  }
+
+  return { prefix, categories: ordered };
+}
+
+function comandoMetaLabel(n) {
+  if (n === 1) return "1 comando";
+  return `${n} comandi`;
+}
+
+function buildPaneInnerHtml(botAttrName, avatarUrlAttr, categories) {
+  const srcEsc = escAttr(avatarUrlAttr);
+  let html = "";
+  categories.forEach((cat, idx) => {
+    const n = cat.commands.length;
+    const open = idx === 0 ? " open" : "";
+    const title = escHtml(cat.title);
+    const meta = comandoMetaLabel(n);
+    html += `          <details class="vc-cmd-acc" name="vc-cmd-${botAttrName}"${open}>
+            <summary class="vc-cmd-acc-sum">
+              <img class="vc-cmd-acc-avatar" src="${srcEsc}" alt="" width="32" height="32" decoding="async" />
+              <span class="vc-cmd-acc-text">
+                <span class="vc-cmd-acc-title">${title}</span>
+                <span class="vc-cmd-acc-meta">${meta}</span>
+              </span>
+              <i class="fa fa-chevron-down vc-cmd-acc-chev" aria-hidden="true"></i>
+            </summary>
+            <div class="vc-cmd-acc-body">
+              <ul class="vc-cmd-list">
+`;
+    for (const cmd of cat.commands) {
+      html += `                <li>${cmd.invokeHtml}<span class="vc-cmd-hint">${escHtml(cmd.hint)}</span></li>\n`;
+    }
+    html += `              </ul>
+            </div>
+          </details>
+`;
+  });
+  return html;
+}
+
+/**
+ * @param {{ avatarProdUrl: string; avatarTestUrl: string }} opts URL già risolte (anche relative)
+ * @returns {string} HTML (senza wrapper esterno)
+ */
+export function buildWikiCommandPanesInnerHtml(opts) {
+  const { avatarProdUrl, avatarTestUrl } = opts;
+  try {
+    const vinili = collectVinili();
+    const caffe = collectCaffe();
+    let out = "";
+    out += `          <div class="vc-cmd-pane" id="wiki-cmd-pane-prod" role="tabpanel" aria-labelledby="wiki-tab-prod" data-pane="prod">\n`;
+    out += buildPaneInnerHtml("prod", avatarProdUrl, vinili.categories);
+    out += `          </div>\n`;
+    out += `          <div class="vc-cmd-pane" id="wiki-cmd-pane-test" role="tabpanel" aria-labelledby="wiki-tab-test" data-pane="test" hidden>\n`;
+    out += buildPaneInnerHtml("test", avatarTestUrl, caffe.categories);
+    out += `          </div>\n`;
+    return out;
+  } catch (err) {
+    console.warn("[build-site] wiki-command-discovery:", err?.message || err);
+    return `          <p class="text-sm text-slate-400">Impossibile generare l&apos;elenco comandi automatico.</p>\n`;
+  }
+}

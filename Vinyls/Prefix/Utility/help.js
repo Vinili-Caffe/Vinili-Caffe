@@ -77,8 +77,8 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
 };
-const CONTEXT_HELP_DESCRIPTIONS = { Partnership: "Esegui una partnership direttamente dal messaggio.", };
-const CONTEXT_CATEGORY_OVERRIDES = { partnership: "staff", };
+const CONTEXT_HELP_DESCRIPTIONS = {};
+const CONTEXT_CATEGORY_OVERRIDES = {};
 const PERMISSIONS_CACHE_TTL_MS = 30_000;
 let permissionsCache = null;
 let permissionsCacheAt = 0;
