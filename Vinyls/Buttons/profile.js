@@ -4,6 +4,7 @@ const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../S
 const { WeeklyContestBundle } = require("../Schemas/Community/weeklyContestSchemas");
 const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
+const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const {
@@ -860,6 +861,7 @@ async function handleBirthdaySetModal(interaction, ownerId) {
     birthYear,
     showAge: true,
   }).catch(() => { });
+  await applyZodiacRoleFromBirthday(interaction.guild, ownerId, parsedDate.month, parsedDate.day).catch(() => {});
 
   const payload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, SECTION_BIRTHDAY);
   if (interaction.message?.edit) await interaction.message.edit(payload).catch(() => { });
@@ -1057,6 +1059,7 @@ async function execute(interaction, client) {
         registrationMessageId: profile?.registrationMessageId,
         registrationChannelId: profile?.registrationChannelId,
       }).catch(() => { });
+      await applyZodiacRoleFromBirthday(interaction.guild, ownerId, month, day).catch(() => {});
       clearBirthdayDraft(interaction.guild.id, ownerId);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
       await safeUpdatePanelInteraction(interaction, payload);
@@ -1066,6 +1069,7 @@ async function execute(interaction, client) {
 
     if (action === "birthday_clear") {
       await clearBirthdayProfile(interaction.guild.id, ownerId).catch(() => { });
+      await stripAllZodiacRoles(interaction.guild, ownerId).catch(() => {});
       clearBirthdayDraft(interaction.guild.id, ownerId);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_BIRTHDAY);
       await safeUpdatePanelInteraction(interaction, payload);

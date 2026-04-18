@@ -1342,6 +1342,9 @@
         "personality_relationship": [
             "roles.Member"
         ],
+        "personality_zodiac": [
+            "roles.Member"
+        ],
         "stats_top_channel_view_select*": {
             "ownerSegment": 1
         },

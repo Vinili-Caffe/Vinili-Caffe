@@ -419,16 +419,25 @@ async function handleVoteManagerMessage(message, client) {
   if (user?.bot) user = null;
   if (!user) return false;
 
-  const handled = await processDiscadiaVote(message.guild, user, client);
+  const voteListing = /top\.gg|\btopgg\b/i.test(voteText) ? "topgg" : "discadia";
+  const handled = await processDiscadiaVote(message.guild, user, client, { voteListing });
   if (handled) {
     await message.delete().catch(() => { });
   }
   return true;
 }
 
-async function processDiscadiaVote(guild, user, client) {
+function resolveTopggVotePageUrl(client) {
+  const fromCfg = String(client?.config?.topgg?.votePageUrl || "").trim();
+  if (fromCfg) return fromCfg;
+  const bid = String(client?.user?.id || "").trim();
+  return bid ? `https://top.gg/bot/${bid}` : "https://top.gg/";
+}
+
+async function processDiscadiaVote(guild, user, client, options = {}) {
   if (!guild || !user || !client) return false;
-  
+  const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
+
   let expValue = 0;
   let resolvedVoteCount = null;
   const voteRewardExtras = [];
@@ -463,8 +472,13 @@ async function processDiscadiaVote(guild, user, client) {
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
   const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
     : "<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per 24 ore";
+  const topggVoteUrl = resolveTopggVotePageUrl(client);
+  const thankLine =
+    voteListing === "topgg"
+      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato il bot su [Top.gg](<${topggVoteUrl}>)!`
+      : `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su [Discadia](<https://discadia.com/server/viniliecaffe/>) il server!`;
   const descriptionLines = [
-    `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su [Discadia](<https://discadia.com/server/viniliecaffe/>) il server!`,
+    thankLine,
     "",
     "`Hai guadagnato:`",
     `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto**` : "**voto**"}`,
@@ -480,14 +494,15 @@ async function processDiscadiaVote(guild, user, client) {
     .setFooter({ text: "Ogni volta che voterai il valore dell'exp guadagnata varierà: a volte sarà più alto, altre volte più basso, mentre altre ancora uguale al precedente", }).setImage(dividerUrl);
 
   const components = [];
-  if (VOTE_URL) {
+  const linkVoteUrl = voteListing === "topgg" ? topggVoteUrl : VOTE_URL;
+  if (linkVoteUrl) {
     components.push(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
           .setEmoji("<a:VC_HeartPink:1448673486603292685>")
           .setLabel("Vota cliccando qui")
-          .setURL(VOTE_URL),
+          .setURL(linkVoteUrl),
       ),
     );
   }

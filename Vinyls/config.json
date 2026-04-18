@@ -43,6 +43,13 @@
       "bump done"
     ]
   },
+  "topgg": {
+    "httpVoteWebhookEnabled": false,
+    "webhookSecret": "",
+    "votePageUrl": "",
+    "statsDigestChannelId": null,
+    "statsDigestOnStartup": false
+  },
   "discadiaVoteReminder": {
     "enabled": true,
     "cooldownHours": 24,

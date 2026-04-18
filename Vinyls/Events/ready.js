@@ -38,6 +38,8 @@ const IDs = require("../Utils/Config/ids");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
+const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles");
+const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService");
 const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
@@ -57,6 +59,13 @@ function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();
   if (envValue) return ["1", "true", "yes", "on"].includes(envValue);
   return Boolean(client?.config?.verificationTenureBackfillOnStartup);
+}
+
+function shouldRunTopggStatsDigestOnStartup(client) {
+  const envValue = String(process.env.TOPGG_STATS_DIGEST_ON_STARTUP || "").trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(envValue)) return true;
+  if (["0", "false", "no", "off"].includes(envValue)) return false;
+  return Boolean(client?.config?.topgg?.statsDigestOnStartup);
 }
 
 const LOG_STARTUP = String(process.env.LOG_STARTUP || "0") === "1";
@@ -196,6 +205,16 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "startup sync clan tag roles",
       enabled: primaryScheduler,
       run: () => syncAllMembersClanTags(client),
+    },
+    {
+      label: "startup sync zodiac roles from birthday profiles",
+      enabled: primaryScheduler,
+      run: () => syncZodiacRolesFromStoredBirthdays(client),
+    },
+    {
+      label: "optional Top.gg stats digest",
+      enabled: primaryScheduler && shouldRunTopggStatsDigestOnStartup(client),
+      run: () => postTopggStatsDigestIfConfigured(client),
     },
     {
       label: "startup sync queue",

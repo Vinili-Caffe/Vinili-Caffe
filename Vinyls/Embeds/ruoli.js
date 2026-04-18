@@ -26,13 +26,26 @@ async function run(client) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:sparkledred:1470064814502973591> Personalità")
-    .setDescription(["Scegli in cosa ti identifichi, quanti anni hai e di dove sei. Utilizza i menù a tendina sottostanti.", "", "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria."].join("\n"))
+    .setDescription(
+      [
+        "Scegli in cosa ti identifichi, quanti anni hai, **segno zodiacale** e di dove sei. Utilizza i menù a tendina sottostanti.",
+        "Lo **stato DM** e le **notifiche** sono nel messaggio subito sotto.",
+        "",
+        "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
+      ].join("\n"),
+    )
     .setImage(DIVIDER_URL);
   const mentionsAttachment = fs.existsSync(MENTIONS_IMAGE_PATH) ? new AttachmentBuilder(MENTIONS_IMAGE_PATH, { name: MENTIONS_IMAGE_NAME }) : null;
   const mentionsEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:sparkledred:1470064814502973591> Personalità")
-    .setDescription(["Scegli quali notifiche ricevere dal server in base a cosa ti interessa maggiormente.", "", "<a:VC_Exclamation:1482534702077444217> Le notifiche di **@everyone** le riceveranno tutti."].join("\n"))
+    .setDescription(
+      [
+        "Scegli **stato DM** e quali **notifiche** ricevere dal server in base a cosa ti interessa maggiormente.",
+        "",
+        "<a:VC_Exclamation:1482534702077444217> Le notifiche di **@everyone** le riceveranno tutti.",
+      ].join("\n"),
+    )
     .setImage(DIVIDER_URL);
   const colorsAttachment = fs.existsSync(COLORS_IMAGE_PATH) ? new AttachmentBuilder(COLORS_IMAGE_PATH, { name: COLORS_IMAGE_NAME }) : null;
   const colorsEmbed = new EmbedBuilder()
@@ -105,6 +118,28 @@ async function run(client) {
         { label: "Centro", value: "1442569023303974922", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Sud", value: "1442569024486506498", emoji: "<a:peepoitaly:1470537719225520341>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Estero", value: "1442569025790939167", emoji: "<:wplace:1470537717426294886>", description: "Clicca qui per ottenere il ruolo" },
+      ),
+  );
+  const zodiacMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("personality_zodiac")
+      .setPlaceholder("💫 Segno zodiacale")
+      .setMinValues(1)
+      .setMaxValues(1)
+      .addOptions(
+        { label: "Rimuovi segno zodiacale", value: "remove", description: "Rimuovi ruolo dal tuo profilo", emoji: "<:vegax:1443934876440068179>" },
+        { label: "Aries", value: IDs.roles.zodiacAries, emoji: { name: "♈" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Taurus", value: IDs.roles.zodiacTaurus, emoji: { name: "♉" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Gemini", value: IDs.roles.zodiacGemini, emoji: { name: "♊" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Cancer", value: IDs.roles.zodiacCancer, emoji: { name: "♋" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Leo", value: IDs.roles.zodiacLeo, emoji: { name: "♌" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Virgo", value: IDs.roles.zodiacVirgo, emoji: { name: "♍" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Libra", value: IDs.roles.zodiacLibra, emoji: { name: "♎" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Scorpio", value: IDs.roles.zodiacScorpio, emoji: { name: "♏" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Sagittarius", value: IDs.roles.zodiacSagittarius, emoji: { name: "♐" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Capricorn", value: IDs.roles.zodiacCapricorn, emoji: { name: "♑" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Aquarius", value: IDs.roles.zodiacAquarius, emoji: { name: "♒" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Pisces", value: IDs.roles.zodiacPisces, emoji: { name: "♓" }, description: "Clicca qui per ottenere il ruolo" },
       ),
   );
   const dmStatus = new ActionRowBuilder().addComponents(
@@ -239,8 +274,20 @@ async function run(client) {
       global.logger?.warn?.("[embeds] updatePanel:", err?.message || err);
     }
   };
-  const personalityMessage = await upsertPanelMessage(channel, client, { messageId: panel?.personalityMessageId || null, embeds: [embed], components: [pronouns, age, region, dmStatus, relationship], files: attachment ? [attachment] : [], attachmentName: attachment ? IMAGE_NAME : undefined });
-  const mentionsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.mentionsMessageId || null, embeds: [mentionsEmbed], components: [mentionsMenu], files: mentionsAttachment ? [mentionsAttachment] : [], attachmentName: mentionsAttachment ? MENTIONS_IMAGE_NAME : undefined });
+  const personalityMessage = await upsertPanelMessage(channel, client, {
+    messageId: panel?.personalityMessageId || null,
+    embeds: [embed],
+    components: [pronouns, age, zodiacMenu, region, relationship],
+    files: attachment ? [attachment] : [],
+    attachmentName: attachment ? IMAGE_NAME : undefined,
+  });
+  const mentionsMessage = await upsertPanelMessage(channel, client, {
+    messageId: panel?.mentionsMessageId || null,
+    embeds: [mentionsEmbed],
+    components: [dmStatus, mentionsMenu],
+    files: mentionsAttachment ? [mentionsAttachment] : [],
+    attachmentName: mentionsAttachment ? MENTIONS_IMAGE_NAME : undefined,
+  });
   const colorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.colorsMessageId || null, embeds: [colorsEmbed], components: [colorsMenu1, colorsMenu2], files: colorsAttachment ? [colorsAttachment] : [], attachmentName: colorsAttachment ? COLORS_IMAGE_NAME : undefined });
   const plusColorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.plusColorsMessageId || null, embeds: [plusColorsEmbed], components: [plusColorsMenu], files: plusColorsAttachment ? [plusColorsAttachment] : [], attachmentName: plusColorsAttachment ? PLUS_COLORS_IMAGE_NAME : undefined });
 

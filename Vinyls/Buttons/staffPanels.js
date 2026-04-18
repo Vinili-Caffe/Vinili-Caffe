@@ -6,6 +6,7 @@ const STAFF_EMBED_ROLE_SELECT_IDS = new Set([
   "personality_region",
   "personality_dm",
   "personality_relationship",
+  "personality_zodiac",
   "personality_mentions",
   "personality_colors_1",
   "personality_colors_2",

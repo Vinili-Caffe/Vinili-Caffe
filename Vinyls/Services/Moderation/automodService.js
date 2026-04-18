@@ -18,6 +18,7 @@ const {
   violationKeyLabelIt,
 } = require("../../Utils/Moderation/modRegolamentoConstants");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
+const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
@@ -1871,6 +1872,7 @@ async function detectViolations(message, state, profile) {
   const mentionWhitelistSet = new Set([...MENTION_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
   const everyoneWhitelistSet = new Set([...EVERYONE_WHITELIST_CHANNEL_IDS, ...dynamicPartneringChannels,]);
   const spamWhitelisted = isWhitelistedByCategory(message.channel, SPAM_WHITELIST_CATEGORY_IDS);
+  const minigameFloodExempt = isMinigameFloodExemptChannel(message);
   const inviteWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, inviteWhitelistSet,);
   const mentionWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, mentionWhitelistSet,);
   const everyoneWhitelisted = isWhitelistedByChannel(channelId, parentChannelId, everyoneWhitelistSet,);
@@ -1893,6 +1895,7 @@ async function detectViolations(message, state, profile) {
 
   if (
     !spamWhitelisted &&
+    !minigameFloodExempt &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.regularMessage.enabled
   ) {
@@ -1917,6 +1920,7 @@ async function detectViolations(message, state, profile) {
 
   if (
     !spamWhitelisted &&
+    !minigameFloodExempt &&
     AUTOMOD_ANTISPAM_ENABLED &&
     TEXT_RULES.similarMessage.enabled &&
     normalized.length >= 8 &&

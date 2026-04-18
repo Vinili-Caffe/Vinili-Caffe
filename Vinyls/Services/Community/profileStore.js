@@ -136,6 +136,36 @@ async function markBirthdayCelebratedByIds(ids = [], year) {
   ).catch(() => ({ modifiedCount: 0 }));
 }
 
+/** Profili con compleanno salvato (data + anno) per sync ruoli zodiacali all'avvio. */
+async function listBirthdayProfilesForZodiacSync() {
+  const docs = await ActivityUserProfile.find({
+    "profile.birthday.month": { $gte: 1, $lte: 12 },
+    "profile.birthday.day": { $gte: 1, $lte: 31 },
+    "profile.birthday.birthYear": { $gte: 1900, $lte: 2100 },
+  })
+    .select("guildId userId profile.birthday.month profile.birthday.day")
+    .lean()
+    .catch(() => []);
+  return docs
+    .map((doc) => ({
+      guildId: String(doc?.guildId || ""),
+      userId: String(doc?.userId || ""),
+      month: Number(doc?.profile?.birthday?.month),
+      day: Number(doc?.profile?.birthday?.day),
+    }))
+    .filter(
+      (row) =>
+        row.guildId &&
+        row.userId &&
+        Number.isFinite(row.month) &&
+        Number.isFinite(row.day) &&
+        row.month >= 1 &&
+        row.month <= 12 &&
+        row.day >= 1 &&
+        row.day <= 31,
+    );
+}
+
 async function getNoDmPreference(guildId, userId) {
   const doc = await getProfile(guildId, userId, "profile.noDmPreference");
   return doc?.profile?.noDmPreference || null;
@@ -178,6 +208,7 @@ module.exports = {
   setBirthdayProfile,
   clearBirthdayProfile,
   listBirthdayDue,
+  listBirthdayProfilesForZodiacSync,
   markBirthdayCelebratedByIds,
   getNoDmPreference,
   setNoDmPreference,

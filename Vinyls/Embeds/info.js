@@ -34,15 +34,16 @@ async function run(client) {
         value: [
           "<:VC_bump:1482531857521311885> [Lascia una recensione su DISBOARD](<https://disboard.org/it/server/1329080093599076474>)",
           "<:link:1470064815899803668> [Votaci su Discadia](<https://discadia.com/vote/viniliecaffe/>)",
+          "<:VC_topgg:1495124467553275934> [Votaci e lascia una recensione su Top.gg](<https://top.gg/discord/servers/832911595289169920>)"
         ].join("\n"),
         inline: true,
       },
       {
         name: "<:VC_Dot:1482532364222595303> Informazioni",
         value: [
-          "<:exp:1470067108543987846> Owner: <@295500038401163264>",
-          "<:moon:1470064812615667827> Fondazione: ||<t:1765382400:F>||",
-          "<:nitroboost:1470064881674883326> Invite: <https://discord.gg/viniliecaffe>",
+          "<:exp:1470067108543987846> Founder: <@295500038401163264>",
+          "<:moon:1470064812615667827> Creazione: ||<t:1765382400:F>||",
+          "<:nitroboost:1470064881674883326> Invito: <https://discord.gg/viniliecaffe>",
         ].join("\n"),
         inline: true,
       },

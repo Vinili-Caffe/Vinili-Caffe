@@ -8019,4 +8019,18 @@ function clearGameForChannel(channelId, client = null, guildId = null) {
   }
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, handleMinigameMessage, handleMinigameButton, clearGameForChannel };
+function isMinigameFloodExemptChannel(message) {
+  const cfg = getConfig(message?.client);
+  if (!cfg || cfg.enabled === false) return false;
+  const mainChId = String(cfg.channelId || "");
+  const msgChId = String(message?.channelId || "");
+  if (!mainChId || !msgChId) return false;
+  const game = activeGames.get(mainChId);
+  if (!game || typeof game !== "object") return false;
+  if (isStaleOrInvalidActiveGame(game)) return false;
+  if (msgChId === mainChId) return true;
+  if (game.type === "findBot" && String(game.channelId || "") === msgChId) return true;
+  return false;
+}
+
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, handleMinigameMessage, handleMinigameButton, clearGameForChannel, isMinigameFloodExemptChannel };
