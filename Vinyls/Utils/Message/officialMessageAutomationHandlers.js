@@ -443,7 +443,7 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   const voteRewardExtras = [];
 
   try {
-    const result = await recordDiscadiaVote(client, guild.id, user.id);
+    const result = await recordDiscadiaVote(client, guild.id, user.id, { voteListing });
     if (result && typeof result.voteCount === "number") resolvedVoteCount = result.voteCount;
     const baseExpRandom = resolvedVoteCount === 1 ? 250 : getRandomExp();
     const voteCooldownMs = getVoteCooldownMs(client);

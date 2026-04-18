@@ -42,6 +42,12 @@ function parseOptionalContestEpochMs(raw) {
   return Number.isFinite(n) && n > 1e12 ? n : null;
 }
 
+function isDiscordUnknownMessageError(err) {
+  const code = err?.code ?? err?.status;
+  if (code === 10008) return true;
+  return /unknown message/i.test(String(err?.message || ""));
+}
+
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: TIME_ZONE,
@@ -831,6 +837,7 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
     });
 
     await message.delete().catch((err) => {
+      if (isDiscordUnknownMessageError(err)) return;
       global.logger?.warn?.("[WEEKLY_CONTEST] impossibile eliminare messaggio utente:", err?.message || err);
     });
 

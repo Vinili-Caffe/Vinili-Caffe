@@ -45,8 +45,9 @@
   },
   "topgg": {
     "httpVoteWebhookEnabled": false,
-    "webhookSecret": "",
-    "votePageUrl": "",
+    "webhookSecret": "whs_2ac9ba9449fc5d049d5efef575a420c0c80523d056e0179e0c98ad4c1630f0fe",
+    "votePageUrl": "https://top.gg/discord/servers/832911595289169920",
+    "reminderMessage": null,
     "statsDigestChannelId": null,
     "statsDigestOnStartup": false
   },

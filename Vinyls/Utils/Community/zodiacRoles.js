@@ -128,11 +128,6 @@ async function syncZodiacRolesFromStoredBirthdays(client) {
       await sleep(ZODIAC_STARTUP_SYNC_BATCH_DELAY_MS);
     }
   }
-  if (rows.length) {
-    global.logger?.info?.(
-      `[ZODIAC SYNC] startup birthday→zodiac: rows=${rows.length} applied=${applied} guildMissing=${guildMissing} badDate=${badTarget} errors=${errors}`,
-    );
-  }
   return {
     ok: true,
     processed: rows.length,

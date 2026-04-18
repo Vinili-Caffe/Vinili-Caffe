@@ -712,6 +712,42 @@ function normalizeUserAnswerText(raw) {
     .trim();
 }
 
+function countNonEmptyUserGuessLines(raw) {
+  return String(raw || "")
+    .split(/\r?\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean).length;
+}
+
+function isMultiLineListingShotgunGuess(raw) {
+  return countNonEmptyUserGuessLines(raw) > 1;
+}
+
+/** Una riga con tante voci tipo tracklist (| o barre con spazio). */
+function looksLikeInlineAnswerDump(raw) {
+  const single = String(raw || "").trim().replace(/\r?\n+/g, " ").trim();
+  if (!single) return false;
+  const pipeParts = single.split(/\s*\|\s*/).map((p) => p.trim()).filter(Boolean);
+  if (pipeParts.length >= 3) return true;
+  const slashParts = single.split(/\s+\/\s+/).map((p) => p.trim()).filter(Boolean);
+  if (slashParts.length >= 3) return true;
+  return false;
+}
+
+function isSongAlbumListingShotgunGuess(raw) {
+  return isMultiLineListingShotgunGuess(raw) || looksLikeInlineAnswerDump(raw);
+}
+
+async function rejectMinigameShotgunListingGuess(message, rawContent, mode) {
+  const hit =
+    mode === "songAlbum"
+      ? isSongAlbumListingShotgunGuess(rawContent)
+      : isMultiLineListingShotgunGuess(rawContent);
+  if (!hit) return false;
+  await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
+  return true;
+}
+
 function isValidWord(word) {
   if (!word) return false;
   if (word.length < 5 || word.length > 6) return false;
@@ -6325,6 +6361,7 @@ async function handleMinigameMessage(message, client) {
   const contentForGuess = normalizeUserAnswerText(content);
 
   if (game.type === "guessNumber") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (!/^\d+$/.test(content)) return false;
     const guess = Number(content);
     if (!Number.isFinite(guess)) return false;
@@ -6352,6 +6389,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessWord") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     const guessCandidates = extractWordGuessCandidates(contentForGuess);
     if (!guessCandidates.length) {
       return false;
@@ -6388,6 +6426,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessFlag") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 4,
@@ -6412,6 +6451,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessPlayer") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizePlayerGuess, {
         minGuessLength: 3,
@@ -6436,6 +6476,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessSong") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "songAlbum")) return false;
     const songAnswers = buildSongAnswerAliases(game.title);
     if (
       isSongGuessCorrect(contentForGuess, songAnswers.length ? songAnswers : game.title)
@@ -6462,6 +6503,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessCapital") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 3,
@@ -6486,6 +6528,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessReverseCapital") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 3,
@@ -6510,6 +6553,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessRegionCapital") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 3,
@@ -6561,6 +6605,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessTeam") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 3,
@@ -6585,6 +6630,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessSinger") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (isSingerGuessCorrect(contentForGuess, game.answers)) {
       clearTimeout(game.timeout);
       if (game.hintTimeout) clearTimeout(game.hintTimeout);
@@ -6603,6 +6649,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessAlbum") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "songAlbum")) return false;
     if (isSongGuessCorrect(contentForGuess, game.answers)) {
       clearTimeout(game.timeout);
       if (game.hintTimeout) clearTimeout(game.hintTimeout);
@@ -6622,6 +6669,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "italianGK") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 2,
@@ -6650,6 +6698,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "drivingQuiz") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     const isMultiple = game.questionType === "multiple" && Array.isArray(game.options) && Number.isFinite(game.correctIndex);
     let correct = false;
     if (isMultiple) {
@@ -6856,6 +6905,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessYear") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     const guessNum = parseInt(content.replace(/\D/g, ""), 10);
     if (!Number.isFinite(guessNum)) return false;
     if (guessNum === game.year) {
@@ -6875,6 +6925,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "completeVerse") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 2,
@@ -6897,6 +6948,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessEmoji") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 2,
@@ -6919,6 +6971,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "quoteFilm") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 2,
@@ -6941,6 +6994,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "completeProverb") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 1,
@@ -6963,6 +7017,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "synonymAntonym") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 2,
@@ -6985,6 +7040,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "guessCity") {
+    if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {
         minGuessLength: 2,

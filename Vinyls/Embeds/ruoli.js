@@ -28,8 +28,8 @@ async function run(client) {
     .setTitle("<:sparkledred:1470064814502973591> Personalità")
     .setDescription(
       [
-        "Scegli in cosa ti identifichi, quanti anni hai, **segno zodiacale** e di dove sei. Utilizza i menù a tendina sottostanti.",
-        "Lo **stato DM** e le **notifiche** sono nel messaggio subito sotto.",
+        "Scegli in cosa ti identifichi, quanti anni hai, **segno zodiacale**, **stato DM** e di dove sei. Utilizza i menù a tendina sottostanti.",
+        "Stato sentimentale e **notifiche** (ping) sono nel messaggio **Menzioni** subito sotto.",
         "",
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
@@ -38,10 +38,10 @@ async function run(client) {
   const mentionsAttachment = fs.existsSync(MENTIONS_IMAGE_PATH) ? new AttachmentBuilder(MENTIONS_IMAGE_PATH, { name: MENTIONS_IMAGE_NAME }) : null;
   const mentionsEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:sparkledred:1470064814502973591> Personalità")
+    .setTitle("<:sparkledred:1470064814502973591> Menzioni")
     .setDescription(
       [
-        "Scegli **stato DM** e quali **notifiche** ricevere dal server in base a cosa ti interessa maggiormente.",
+        "Scegli lo **stato sentimentale** e quali **notifiche** ricevere dal server in base a cosa ti interessa maggiormente.",
         "",
         "<a:VC_Exclamation:1482534702077444217> Le notifiche di **@everyone** le riceveranno tutti.",
       ].join("\n"),
@@ -128,18 +128,18 @@ async function run(client) {
       .setMaxValues(1)
       .addOptions(
         { label: "Rimuovi segno zodiacale", value: "remove", description: "Rimuovi ruolo dal tuo profilo", emoji: "<:vegax:1443934876440068179>" },
-        { label: "Aries", value: IDs.roles.zodiacAries, emoji: { name: "♈" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Taurus", value: IDs.roles.zodiacTaurus, emoji: { name: "♉" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Gemini", value: IDs.roles.zodiacGemini, emoji: { name: "♊" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Cancer", value: IDs.roles.zodiacCancer, emoji: { name: "♋" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Leo", value: IDs.roles.zodiacLeo, emoji: { name: "♌" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Virgo", value: IDs.roles.zodiacVirgo, emoji: { name: "♍" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Libra", value: IDs.roles.zodiacLibra, emoji: { name: "♎" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Scorpio", value: IDs.roles.zodiacScorpio, emoji: { name: "♏" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Sagittarius", value: IDs.roles.zodiacSagittarius, emoji: { name: "♐" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Capricorn", value: IDs.roles.zodiacCapricorn, emoji: { name: "♑" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Aquarius", value: IDs.roles.zodiacAquarius, emoji: { name: "♒" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Pisces", value: IDs.roles.zodiacPisces, emoji: { name: "♓" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Aries", value: IDs.roles.zodiacAries, emoji: { id: "1495124414168039684", name: "VC_ares" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Taurus", value: IDs.roles.zodiacTaurus, emoji: { id: "1495124440143499334", name: "VC_taurus" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Gemini", value: IDs.roles.zodiacGemini, emoji: { id: "1495124428298916001", name: "VC_gemini" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Cancer", value: IDs.roles.zodiacCancer, emoji: { id: "1495124417091735753", name: "VC_cancer" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Leo", value: IDs.roles.zodiacLeo, emoji: { id: "1495124442362282095", name: "VC_leo" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Virgo", value: IDs.roles.zodiacVirgo, emoji: { id: "1495124433105326211", name: "VC_virgo" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Libra", value: IDs.roles.zodiacLibra, emoji: { id: "1495124430177833143", name: "VC_libra" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Scorpio", value: IDs.roles.zodiacScorpio, emoji: { id: "1495124445688369253", name: "VC_scorpio" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Sagittarius", value: IDs.roles.zodiacSagittarius, emoji: { id: "1495124448250957996", name: "VC_sagittarius" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Capricorn", value: IDs.roles.zodiacCapricorn, emoji: { id: "1495124425648111768", name: "VC_capricorn" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Aquarius", value: IDs.roles.zodiacAquarius, emoji: { id: "1495124437421392124", name: "VC_aquarius" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Pisces", value: IDs.roles.zodiacPisces, emoji: { id: "1495124421449355466", name: "VC_pisces" }, description: "Clicca qui per ottenere il ruolo" },
       ),
   );
   const dmStatus = new ActionRowBuilder().addComponents(
@@ -277,14 +277,14 @@ async function run(client) {
   const personalityMessage = await upsertPanelMessage(channel, client, {
     messageId: panel?.personalityMessageId || null,
     embeds: [embed],
-    components: [pronouns, age, zodiacMenu, region, relationship],
+    components: [pronouns, age, zodiacMenu, region, dmStatus],
     files: attachment ? [attachment] : [],
     attachmentName: attachment ? IMAGE_NAME : undefined,
   });
   const mentionsMessage = await upsertPanelMessage(channel, client, {
     messageId: panel?.mentionsMessageId || null,
     embeds: [mentionsEmbed],
-    components: [dmStatus, mentionsMenu],
+    components: [relationship, mentionsMenu],
     files: mentionsAttachment ? [mentionsAttachment] : [],
     attachmentName: mentionsAttachment ? MENTIONS_IMAGE_NAME : undefined,
   });

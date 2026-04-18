@@ -12,6 +12,7 @@ const DISCADIA_BUMP_USER_ID = "__discadia_bump__";
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const DISCADIA_LAST_VOTE_AT_PATH = `${DISCADIA_VOTE_ROOT}.lastVoteAt`;
 const DISCADIA_LAST_REMINDED_AT_PATH = `${DISCADIA_VOTE_ROOT}.lastRemindedAt`;
+const DISCADIA_LAST_VOTE_LISTING_PATH = `${DISCADIA_VOTE_ROOT}.lastVoteListing`;
 const DISCADIA_VOTE_COUNT_PATH = `${DISCADIA_VOTE_ROOT}.voteCount`;
 
 async function resolveLean(queryOrValue) {
@@ -604,8 +605,43 @@ function getVoteReminderText(client) {
   );
 }
 
-function buildVoteReminderEmbed(client) {
-  const text = getVoteReminderText(client);
+function resolveTopggReminderVoteUrl(client) {
+  const fromCfg = String(client?.config?.topgg?.votePageUrl || "").trim();
+  if (fromCfg) return fromCfg;
+  const bid = String(client?.user?.id || "").trim();
+  return bid ? `https://top.gg/bot/${bid}` : "";
+}
+
+function getTopggVoteReminderText(client) {
+  const raw = client?.config?.topgg?.reminderMessage;
+  if (Array.isArray(raw) && raw.length) return raw;
+  if (typeof raw === "string" && raw.trim()) return raw;
+  return [
+    "<:VC_bump:1482531857521311885> Hey! Sono passate 24 ore: puoi votare di nuovo su **Top.gg**.",
+    "<a:VC_ThankYou:1330186319673950401> **Grazie per il supporto!**",
+    "<:link:1470064815899803668> Per votare su Top.gg, clicca sul pulsante sottostante:\n",
+  ];
+}
+
+async function buildVoteReminderEmbed(client, opts = {}) {
+  let voteListing = opts.voteListing;
+  if (voteListing !== "topgg" && voteListing !== "discadia") {
+    const gid = String(opts.guildId || "").trim();
+    const uid = String(opts.userId || "").trim();
+    if (gid && uid) {
+      const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+        .select(DISCADIA_VOTE_ROOT)
+        .lean()
+        .catch(() => null);
+      const raw = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote?.lastVoteListing;
+      voteListing = raw === "topgg" ? "topgg" : "discadia";
+    } else {
+      voteListing = "discadia";
+    }
+  }
+
+  const isTopgg = voteListing === "topgg";
+  const text = isTopgg ? getTopggVoteReminderText(client) : getVoteReminderText(client);
   const description = Array.isArray(text) ? text.join("\n") : (text ?? "");
   const embed = new EmbedBuilder()
     .setColor(client?.config?.embedInfo || "#6f4e37")
@@ -615,15 +651,17 @@ function buildVoteReminderEmbed(client) {
     });
 
   const components = [];
-  const VOTE_URL = client?.config?.discadiaVoteReminder?.voteUrl || IDs.links?.vote;
-  if (VOTE_URL) {
+  const voteUrl = isTopgg
+    ? resolveTopggReminderVoteUrl(client)
+    : client?.config?.discadiaVoteReminder?.voteUrl || IDs.links?.vote;
+  if (voteUrl) {
     components.push(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
           .setEmoji("<a:VC_HeartPink:1448673486603292685>")
           .setLabel("Vota cliccando qui")
-          .setURL(VOTE_URL),
+          .setURL(voteUrl),
       ),
     );
   }
@@ -668,7 +706,7 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
     return;
   const channel = client.channels.cache.get(fallbackId) || (await getClientChannelCached(client, fallbackId));
   if (!channel) return;
-  const { embed, components } = buildVoteReminderEmbed(client);
+  const { embed, components } = await buildVoteReminderEmbed(client, { guildId, userId });
   await channel
     .send({
       content: `<@${userId}>`,
@@ -680,7 +718,8 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId) {
 }
 
 
-async function recordDiscadiaVote(client, guildId, userId) {
+async function recordDiscadiaVote(client, guildId, userId, options = {}) {
+  const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
   const now = new Date();
   const mainGuildId = IDs.guilds.main;
   guildId = mainGuildId;
@@ -695,7 +734,10 @@ async function recordDiscadiaVote(client, guildId, userId) {
     { guildId: IDs.guilds.main, userId },
     {
       $setOnInsert: { guildId: IDs.guilds.main, userId },
-      $set: { [DISCADIA_LAST_VOTE_AT_PATH]: now },
+      $set: {
+        [DISCADIA_LAST_VOTE_AT_PATH]: now,
+        [DISCADIA_LAST_VOTE_LISTING_PATH]: voteListing,
+      },
       $inc: { [DISCADIA_VOTE_COUNT_PATH]: 1 },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -721,7 +763,35 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt) {
   const targetTime = new Date(lastVoteAt).getTime() + cooldownMs;
   const delay = targetTime - Date.now();
 
-  const run = async () => { try { const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid }).select(`${DISCADIA_VOTE_ROOT}`).lean(); const state = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || null; if (!state?.lastVoteAt) return; const cooldownMsRun = getVoteCooldownMs(client); if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return; if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return; if (await shouldSkipVoteDmByNoDm(client, gid, uid)) return; let user = await getUserCached(client, uid); if (!user && client?.users?.fetch) user = await client.users.fetch(uid).catch(() => null); if (!user) return; const { embed, components } = buildVoteReminderEmbed(client); try { await user.send({ embeds: [embed], ...(components.length ? { components } : {}) }); } catch { await sendVoteFallbackChannelReminder(client, gid, uid); } await ActivityUserProfile.updateOne({ guildId: gid, userId: uid }, { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },).catch(() => { }); } finally { discadiaVoteTimers.delete(key); } };
+  const run = async () => {
+    try {
+      const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+        .select(`${DISCADIA_VOTE_ROOT}`)
+        .lean();
+      const state = doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || null;
+      if (!state?.lastVoteAt) return;
+      const cooldownMsRun = getVoteCooldownMs(client);
+      if (Date.now() - new Date(state.lastVoteAt).getTime() < cooldownMsRun) return;
+      if (state.lastRemindedAt && new Date(state.lastRemindedAt).getTime() >= new Date(state.lastVoteAt).getTime()) return;
+      if (await shouldSkipVoteDmByNoDm(client, gid, uid)) return;
+      let user = await getUserCached(client, uid);
+      if (!user && client?.users?.fetch) user = await client.users.fetch(uid).catch(() => null);
+      if (!user) return;
+      const voteListing = state.lastVoteListing === "topgg" ? "topgg" : "discadia";
+      const { embed, components } = await buildVoteReminderEmbed(client, { voteListing });
+      try {
+        await user.send({ embeds: [embed], ...(components.length ? { components } : {}) });
+      } catch {
+        await sendVoteFallbackChannelReminder(client, gid, uid);
+      }
+      await ActivityUserProfile.updateOne(
+        { guildId: gid, userId: uid },
+        { $set: { [DISCADIA_LAST_REMINDED_AT_PATH]: new Date() } },
+      ).catch(() => {});
+    } finally {
+      discadiaVoteTimers.delete(key);
+    }
+  };
 
   if (delay <= 0) {
     void run();
@@ -822,7 +892,12 @@ async function sendDueDiscadiaVoteReminders(client) {
   try {
     docs = await ActivityUserProfile.find(
       { guildId, [DISCADIA_LAST_VOTE_AT_PATH]: { $lte: cutoff } },
-      { userId: 1, [DISCADIA_LAST_VOTE_AT_PATH]: 1, [DISCADIA_LAST_REMINDED_AT_PATH]: 1 },
+      {
+        userId: 1,
+        [DISCADIA_LAST_VOTE_AT_PATH]: 1,
+        [DISCADIA_LAST_REMINDED_AT_PATH]: 1,
+        [DISCADIA_LAST_VOTE_LISTING_PATH]: 1,
+      },
     ).lean();
   } catch (err) {
     global.logger?.error?.("[DISCADIA VOTE REMINDER] Failed to fetch voters:", err);
@@ -842,7 +917,8 @@ async function sendDueDiscadiaVoteReminders(client) {
     if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null);
     if (!user) continue;
 
-    const { embed, components } = buildVoteReminderEmbed(client);
+    const voteListing = state.lastVoteListing === "topgg" ? "topgg" : "discadia";
+    const { embed, components } = await buildVoteReminderEmbed(client, { voteListing });
     try {
       await user.send({
         embeds: [embed],
