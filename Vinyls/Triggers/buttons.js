@@ -983,6 +983,7 @@ module.exports = {
               `<@&${IDs.roles.Level10}>`,
               "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
+              "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
               "<:VC_Reply:1482532158080942191> Sblocchi il comando \`+quote\`",
             ].join("\n"),
             inline: true,

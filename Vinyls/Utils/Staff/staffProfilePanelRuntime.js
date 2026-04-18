@@ -711,12 +711,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
       `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
-      ...(pmStaffRedeemRows.length
-        ? [
-            "",
-            "**Premi staff pagati:** pulsanti **Riscatto** visibili a **High Staff / Founder / Co-Founder** che aprono questo profilo con `+staff @…` (50 / 75 / 150 punti).",
-          ]
-        : []),
     ].join("\n");
     const pmTitle = usePartnersChatPmPanel
       ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
@@ -888,12 +882,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   }
   if (hasPm) {
     homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
-  }
-  if (pmStaffRedeemRows.length) {
-    homeDescParts.push(
-      "",
-      "**Premi staff pagati:** **Riscatto** in basso (solo se hai aperto il profilo di un PM con `+staff @…` e sei HS/Founder/Co-Founder).",
-    );
   }
   homeDescParts.push("","Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
