@@ -239,6 +239,8 @@ const staffEmbeddedSchema = new Schema(
     negativeReasons: { type: [String], default: [] },
     valutazioniCount: { type: Number, default: 0 },
     partnerCount: { type: Number },
+    /** Somma punti tolti con riscatto premi PM (non modifica lo storico partnership). */
+    partnerRedeemSpend: { type: Number, default: 0 },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
     pauses: { type: [staffPauseEntrySchema], default: [] },

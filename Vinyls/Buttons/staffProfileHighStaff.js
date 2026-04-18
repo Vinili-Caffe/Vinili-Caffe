@@ -606,17 +606,6 @@ async function execute(interaction) {
             .catch(() => {});
           return true;
         }
-        if (redeemRes.code === "floor") {
-          const s = Math.max(0, Number(redeemRes.surplus ?? 0));
-          await interaction
-            .editReply({
-              content:
-                `<:vegax:1443934876440068179> Non puoi riscattare \`${redeemTier}\` punti: **${redeemRes.fromActions ?? 0}** sono vincolati allo storico partnership. ` +
-                `Ora puoi riscattare al massimo **${s}** punti (saldo mostrato \`${redeemRes.before ?? 0}\`).`,
-            })
-            .catch(() => {});
-          return true;
-        }
         await interaction
           .editReply({
             content: "<:vegax:1443934876440068179> Impossibile aggiornare i punti. Riprova.",

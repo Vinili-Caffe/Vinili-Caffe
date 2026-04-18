@@ -7,13 +7,10 @@ const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
-const { countValidAllTimePartners } = require("../Partner/partnerLeaderboardRuntime");
+const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
 
 function resolveStaffPartnerPointsDisplay(staffObj) {
-  if (!staffObj) return 0;
-  const fromCounter = Math.max(0, Math.floor(Number(staffObj.partnerCount ?? 0)));
-  const fromActions = countValidAllTimePartners(Array.isArray(staffObj.partnerActions) ? staffObj.partnerActions : []);
-  return Math.max(fromCounter, fromActions);
+  return resolvePartnerPointsShown(staffObj);
 }
 
 /** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder / Co-Founder) sul profilo **di un altro** PM. */

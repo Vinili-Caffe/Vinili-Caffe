@@ -4,6 +4,7 @@ const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Services/Staff/wee
 const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Prefix/Level/classifica");
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
+const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
 
 function countValidAllTimePartners(actions) {
   if (!Array.isArray(actions)) return 0;
@@ -14,11 +15,7 @@ function countValidAllTimePartners(actions) {
 }
 
 function computeTotalPartnerScore(staff) {
-  const s = staff || {};
-  const totalCount = Number(s.partnerCount);
-  const fromActions = countValidAllTimePartners(Array.isArray(s.partnerActions) ? s.partnerActions : []);
-  const safeCounter = Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : 0;
-  return Math.max(safeCounter, fromActions);
+  return resolvePartnerPointsShown(staff || {});
 }
 
 function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
@@ -63,7 +60,7 @@ async function buildPartnerLbEmbed(guild, visibleRows, isWeekly) {
 
 async function fetchSortedPartners(guild, isWeekly) {
   const allStaff = await ActivityUserProfile.find({ guildId: guild.id })
-    .select("userId staff.partnerCount staff.partnerActions")
+    .select("userId staff.partnerCount staff.partnerActions staff.partnerRedeemSpend")
     .lean();
   const weekBounds = isWeekly ? getPartnerLeaderboardWeekBoundsUtc(new Date()) : null;
   return allStaff
