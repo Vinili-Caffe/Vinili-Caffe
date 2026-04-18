@@ -9,7 +9,7 @@
     "redirectUri": "https://www.viniliecaffe.it/"
   },
   "candidatureSubmitApiUrl": "https://www.viniliecaffe.it/webhooks/site-candidature",
-  "candidatureSubmitApiUrlLocal": "http://localhost:3000/webhooks/site-candidature",
+  "candidatureSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-candidature",
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
   "wikiUrl": "/wiki",
   "wikiBotViniliAvatarUrl": "",

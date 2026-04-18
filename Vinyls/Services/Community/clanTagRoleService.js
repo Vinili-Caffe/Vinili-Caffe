@@ -117,6 +117,8 @@ const GUILDED_ANNOUNCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const lastGuildedChannelAnnounceByUserId = new Map();
 const lastGuildedAnnouncementMessageByUserId = new Map();
 const GUILDED_ANNOUNCE_SCAN_LIMIT = 200;
+/** Evita due embed se userUpdate e guildMemberUpdate annunciano in parallelo. */
+const guildedAnnounceTailByUserId = new Map();
 
 async function deleteGuildedAnnouncementForUser(member) {
   const uid = String(member?.id || "");
@@ -175,6 +177,15 @@ async function removeRolesFromMember(member, roleIds, label) {
   }
 }
 
+/** Allineato a verifyUtils (ruolo Member): niente ruolo/annuncio Guilded prima della verifica server. */
+function memberCanReceiveAutomatedGuildedOnMain(member) {
+  if (!member?.roles?.cache) return false;
+  if (member.pending === true) return false;
+  const verifiedRoleId = IDs.roles?.Member;
+  if (!verifiedRoleId) return true;
+  return member.roles.cache.has(verifiedRoleId);
+}
+
 async function applyClanTagGuildedRoles(member, client, options = {}) {
   if (!member || member.user?.bot || !client) return { added: false, addedMain: false, addedSponsor: false };
 
@@ -189,13 +200,22 @@ async function applyClanTagGuildedRoles(member, client, options = {}) {
 
   if (onMain) {
     if (match && GLOBAL_GUILDED_ROLE_ID) {
+      if (!memberCanReceiveAutomatedGuildedOnMain(member)) {
+        if (member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
+          await removeRolesFromMember(member, [GLOBAL_GUILDED_ROLE_ID], "Ruolo Guilded");
+          lastGuildedChannelAnnounceByUserId.delete(String(member.id));
+          await deleteGuildedAnnouncementForUser(member).catch(() => false);
+          lastGuildedAnnouncementMessageByUserId.delete(String(member.id));
+        }
+        return { added: false, addedMain: false, addedSponsor: false };
+      }
       if (!member.roles.cache.has(GLOBAL_GUILDED_ROLE_ID)) {
         const ok = await member.roles.add(GLOBAL_GUILDED_ROLE_ID).then(() => true).catch(() => false);
         if (ok) {
           addedMain = true;
           const swapAmongObtainable =
-            options.previousUserForClan &&
             match.type === "native" &&
+            options.previousUserForClan &&
             (await hadObtainableGuildTagBefore(member, client, options.previousUserForClan));
           if (!swapAmongObtainable) {
             await announceNewGuildedMember(member, match.tag, GLOBAL_GUILDED_ROLE_ID);
@@ -277,57 +297,69 @@ async function syncClanTagRolesForUserEverywhere(client, user, options = {}) {
 async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
   const uid = String(member?.id || "");
   if (!uid) return;
-  const now = Date.now();
-  const lastAnn = Number(lastGuildedChannelAnnounceByUserId.get(uid) || 0);
-  if (now - lastAnn < GUILDED_ANNOUNCE_COOLDOWN_MS) return;
 
-  const channelId = ANNOUNCE_CHANNEL_ID;
-  const channel = channelId ? (member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId))) : null;
-  if (!channel?.isTextBased?.()) return;
+  const prev = guildedAnnounceTailByUserId.get(uid) || Promise.resolve();
+  const mine = prev.catch(() => {}).then(async () => {
+    const now = Date.now();
+    const lastAnn = Number(lastGuildedChannelAnnounceByUserId.get(uid) || 0);
+    if (now - lastAnn < GUILDED_ANNOUNCE_COOLDOWN_MS) return;
 
-  const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
-  const avatarUrl = member.displayAvatarURL({ extension: "png", size: 256, forceStatic: false });
-  const roleLine = mentionRoleId
-    ? `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`
-    : `<:VC_Reply:1482532158080942191> Ti è stato assegnato un ruolo Guilded!`;
-  const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setAuthor({
-      name: member.user.username,
-      iconURL: avatarUrl,
-    })
-    .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
-    .setThumbnail(avatarUrl)
-    .setDescription(
-      [
-        `<a:VC_Arrow:1482706699365257397><@${member.id}>`,
-        "",
-        roleLine,
-        `Mettendo una delle nostre **Guild-TAGs**`,
-        "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
-        "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
-        "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
-        "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
-        "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
-        "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
-        "",
-        "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag!",
-      ].join("\n"),
-    )
-    .setFooter({ text: "Grazie per il tuo supporto!" });
+    const channelId = ANNOUNCE_CHANNEL_ID;
+    const channel = channelId
+      ? member.guild.channels.cache.get(channelId) || (await getGuildChannelCached(member.guild, channelId))
+      : null;
+    if (!channel?.isTextBased?.()) return;
 
-  const sent = await channel
-    .send({
-      content: `<@${member.id}>`,
-      embeds: [embed],
-    })
-    .catch(() => null);
-  if (sent) {
-    lastGuildedChannelAnnounceByUserId.set(uid, Date.now());
-    lastGuildedAnnouncementMessageByUserId.set(uid, {
-      channelId: String(channel.id || ""),
-      messageId: String(sent.id || ""),
-    });
+    const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
+    const avatarUrl = member.displayAvatarURL({ extension: "png", size: 256, forceStatic: false });
+    const roleLine = mentionRoleId
+      ? `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`
+      : `<:VC_Reply:1482532158080942191> Ti è stato assegnato un ruolo Guilded!`;
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setAuthor({
+        name: member.user.username,
+        iconURL: avatarUrl,
+      })
+      .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
+      .setThumbnail(avatarUrl)
+      .setDescription(
+        [
+          `<a:VC_Arrow:1482706699365257397><@${member.id}>`,
+          "",
+          roleLine,
+          `Mettendo una delle nostre **Guild-TAGs**`,
+          "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
+          "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
+          "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
+          "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
+          "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
+          "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
+          "",
+          "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag!",
+        ].join("\n"),
+      )
+      .setFooter({ text: "Grazie per il tuo supporto!" });
+
+    const sent = await channel
+      .send({
+        content: `<@${member.id}>`,
+        embeds: [embed],
+      })
+      .catch(() => null);
+    if (sent) {
+      lastGuildedChannelAnnounceByUserId.set(uid, Date.now());
+      lastGuildedAnnouncementMessageByUserId.set(uid, {
+        channelId: String(channel.id || ""),
+        messageId: String(sent.id || ""),
+      });
+    }
+  });
+  guildedAnnounceTailByUserId.set(uid, mine);
+  try {
+    await mine;
+  } finally {
+    if (guildedAnnounceTailByUserId.get(uid) === mine) guildedAnnounceTailByUserId.delete(uid);
   }
 }
 

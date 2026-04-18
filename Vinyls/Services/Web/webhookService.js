@@ -33,11 +33,27 @@ function normalizeHeaderSecret(raw) {
   return s;
 }
 
+/** Normalizza una voce .env (virgolette, spazi, slash finale) → stringa `origin` come la manda il browser. */
+function normalizeCorsOriginEntry(entry) {
+  const stripped = String(entry || "")
+    .trim()
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/\/+$/, "");
+  if (!stripped) return "";
+  try {
+    const u = new URL(stripped);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return u.origin;
+  } catch {
+    return "";
+  }
+}
+
 /** Es. `https://sito.it,http://localhost:3000` → il browser richiede `Access-Control-Allow-Origin` uguale all'Origin della pagina. */
 function parseCorsOriginAllowlist(raw) {
   return String(raw || "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => normalizeCorsOriginEntry(s))
     .filter(Boolean);
 }
 
@@ -61,6 +77,20 @@ function expandCorsOriginAllowlist(origins) {
     }
   }
   return [...set];
+}
+
+function isLoopbackBrowserOriginUrl(origin) {
+  try {
+    const h = new URL(origin).hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+/** Se in allowlist c’è almeno un http(s)://localhost… (qualsiasi porta), accetta qualsiasi porta loopback in richiesta (evita 5173 vs 3000 in dev). */
+function corsAllowlistPermitsAnyLoopbackDevOrigin(allowlist) {
+  return allowlist.some((o) => isLoopbackBrowserOriginUrl(o));
 }
 
 function extractVoteWebhookUserId(body) {
@@ -106,47 +136,52 @@ async function startWebhookServer(client) {
   const app = express();
   app.use(express.json({ limit: "512kb" }));
 
-  if (isCandidatureWebsiteApiEnabled()) {
-    const candidatureCorsAllowlist = expandCorsOriginAllowlist(
-      parseCorsOriginAllowlist(
-        String(process.env.WEBSITE_CANDIDATURE_CORS_ORIGIN || process.env.WEBSITE_PUBLIC_ORIGIN || "").trim(),
-      ),
+  const candidatureCorsAllowlist = expandCorsOriginAllowlist(
+    parseCorsOriginAllowlist(
+      String(process.env.WEBSITE_CANDIDATURE_CORS_ORIGIN || process.env.WEBSITE_PUBLIC_ORIGIN || "").trim(),
+    ),
+  );
+
+  const siteCandidatureCorsMiddleware = (req, res, next) => {
+    const rawPath = String(req.originalUrl || req.url || req.path || "");
+    const pathStr = rawPath.split("?")[0];
+    if (!pathStr.startsWith("/webhooks/site-candidature")) return next();
+    const originRaw = String(req.headers.origin || "").trim();
+    const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
+    let allowOrigin = "";
+    if (originNorm && candidatureCorsAllowlist.includes(originNorm)) {
+      allowOrigin = originRaw;
+    } else if (
+      originNorm &&
+      candidatureCorsAllowlist.length > 0 &&
+      corsAllowlistPermitsAnyLoopbackDevOrigin(candidatureCorsAllowlist) &&
+      isLoopbackBrowserOriginUrl(originNorm)
+    ) {
+      allowOrigin = originRaw;
+    } else if (originNorm && candidatureCorsAllowlist.length === 0) {
+      if (isLoopbackBrowserOriginUrl(originNorm)) allowOrigin = originRaw;
+    }
+    if (allowOrigin) {
+      res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+      res.append("Vary", "Origin");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, Access-Control-Request-Private-Network",
     );
-    app.use((req, res, next) => {
-      const rawPath = String(req.originalUrl || req.url || req.path || "");
-      const pathStr = rawPath.split("?")[0];
-      if (!pathStr.startsWith("/webhooks/site-candidature")) return next();
-      const origin = String(req.headers.origin || "").trim();
-      let allowOrigin = "";
-      if (origin && candidatureCorsAllowlist.includes(origin)) {
-        allowOrigin = origin;
-      } else if (origin && candidatureCorsAllowlist.length === 0) {
-        try {
-          const u = new URL(origin);
-          const h = u.hostname.toLowerCase();
-          if (h === "localhost" || h === "127.0.0.1" || h === "[::1]") allowOrigin = origin;
-        } catch {
-          /* ignore */
-        }
-      }
-      if (allowOrigin) {
-        res.setHeader("Access-Control-Allow-Origin", allowOrigin);
-        res.append("Vary", "Origin");
-      }
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      res.setHeader(
-        "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, Access-Control-Request-Private-Network",
-      );
-      if (allowOrigin) {
-        res.setHeader("Access-Control-Allow-Private-Network", "true");
-      }
-      if (req.method === "OPTIONS") {
-        res.status(204).end();
-        return;
-      }
-      next();
-    });
+    if (allowOrigin) {
+      res.setHeader("Access-Control-Allow-Private-Network", "true");
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  };
+
+  if (isCandidatureWebsiteApiEnabled()) {
+    app.use(siteCandidatureCorsMiddleware);
     const {
       submitCandidatureWebsite,
       getCandidatureEligibilitySummary,
@@ -182,6 +217,19 @@ async function startWebhookServer(client) {
     });
     global.logger?.info?.(
       "[WEBHOOK] Candidature sito: GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature (Bearer)",
+    );
+  } else {
+    const candidatureDisabledBody = {
+      ok: false,
+      error: "candidature_http_disabled",
+      message:
+        "API candidature sito disattivata: nel .env del bot imposta WEBSITE_CANDIDATURE_HTTP=1 e riavvia. Se il sito statico e il bot usano la stessa porta (es. tutto su 3000), il POST colpisce `serve` e non Express: avvia il sito su un'altra porta (es. 5173) e lascia la webhookPort al bot.",
+    };
+    app.use(siteCandidatureCorsMiddleware);
+    app.get("/webhooks/site-candidature/eligibility", (req, res) => res.status(503).json(candidatureDisabledBody));
+    app.post("/webhooks/site-candidature", (req, res) => res.status(503).json(candidatureDisabledBody));
+    global.logger?.warn?.(
+      "[WEBHOOK] Candidature sito: WEBSITE_CANDIDATURE_HTTP disattivo — GET/POST /webhooks/site-candidature rispondono 503 con spiegazione.",
     );
   }
 
@@ -244,6 +292,14 @@ async function startWebhookServer(client) {
           ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature)"
           : ""),
     );
+    if (isCandidatureWebsiteApiEnabled()) {
+      global.logger?.info?.(
+        "[WEBHOOK] CORS candidature (valori letti dal processo):",
+        candidatureCorsAllowlist.length
+          ? candidatureCorsAllowlist.join(" | ")
+          : "(lista vuota: consentiti tutti gli origin loopback)",
+      );
+    }
   });
 }
 

@@ -6,18 +6,21 @@ const {
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,
   viewerIsFounderOrCoFounder,
+  shouldOmitPexDepexHomeRow,
   SECTION_HOME,
   SECTION_VALUTAZIONI,
   SECTION_WARN,
   SECTION_PAUSE,
   SECTION_MODSTATS,
   buildStaffProfilePayload,
+  resolveStaffPartnerPointsDisplay,
   parseStaffProfileCloseCustomId,
   parseStaffProfileSelectCustomId,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
-const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange } = require("../Utils/Staff/partnerPointsUtils");
+const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
+const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange, partnerManagerRedeemTierFromAction } = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 const MODAL_PREFIX = "staff_hp_modal";
@@ -32,6 +35,18 @@ const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WA
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
   return /^\d{16,20}$/.test(id) ? id : null;
+}
+
+/** Segnaposto “nessun sourceMessageId” così il secondo segmento è sempre l’id messaggio pannello (reply ephemeral). */
+const STAFF_HP_TRAIL_NO_SOURCE = "0";
+
+function formatStaffHpTrail(sourceMessageId, panelMessageId) {
+  const p = normalizeSourceMessageId(panelMessageId);
+  const s = normalizeSourceMessageId(sourceMessageId);
+  if (p && s) return `:${s}:${p}`;
+  if (p) return `:${STAFF_HP_TRAIL_NO_SOURCE}:${p}`;
+  if (s) return `:${s}`;
+  return "";
 }
 
 function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
@@ -77,8 +92,16 @@ function parseTrailingStaffHpIds(parts) {
   let sourceMessageId = null;
   let panelMessageId = null;
   if (extras.length >= 2) {
-    sourceMessageId = normalizeSourceMessageId(extras[0]);
-    panelMessageId = normalizeSourceMessageId(extras[1]);
+    const a = String(extras[0] || "").trim();
+    const b = String(extras[1] || "").trim();
+    const aNorm = normalizeSourceMessageId(a);
+    const bNorm = normalizeSourceMessageId(b);
+    if (!aNorm && a === STAFF_HP_TRAIL_NO_SOURCE && bNorm) {
+      panelMessageId = bNorm;
+    } else {
+      sourceMessageId = aNorm;
+      panelMessageId = bNorm;
+    }
   } else if (extras.length === 1) {
     sourceMessageId = normalizeSourceMessageId(extras[0]);
   }
@@ -118,6 +141,9 @@ function parseStaffHpButton(customId) {
     "warn_rm",
     "ppm_add",
     "ppm_remove",
+    "ppm_r50",
+    "ppm_r75",
+    "ppm_r150",
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffPanelSection(parts);
@@ -177,13 +203,13 @@ function parseStaffHpModal(customId) {
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffPanelSection(parts);
-  const panelMessageId = parts.length >= 6 ? normalizeSourceMessageId(parts[5]) : null;
+  const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
   return {
     action,
     viewerId,
     targetId,
     section,
-    sourceMessageId: null,
+    sourceMessageId,
     panelMessageId,
   };
 }
@@ -221,7 +247,6 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
   const section = STAFF_HP_SECTIONS.has(String(parsed.section || "").toLowerCase())
     ? parsed.section
     : SECTION_HOME;
-  let msg = interaction.message;
   const panelMid = parsed?.panelMessageId ? String(parsed.panelMessageId).trim() : "";
   const channelId = String(interaction.channelId || interaction.channel?.id || "");
   let channel = interaction.channel;
@@ -230,8 +255,12 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
       (await guild.channels.fetch(channelId).catch(() => null)) ||
       (client?.channels?.cache?.get(channelId) ?? null);
   }
-  if ((!msg || typeof msg.edit !== "function") && panelMid && channel?.messages?.fetch) {
+  let msg = null;
+  if (panelMid && channel?.messages?.fetch) {
     msg = await channel.messages.fetch(panelMid).catch(() => null);
+  }
+  if ((!msg || typeof msg.edit !== "function") && interaction.message && typeof interaction.message.edit === "function") {
+    msg = interaction.message;
   }
   const opts = {};
   const preserved =
@@ -249,8 +278,18 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
       section,
       opts,
     );
-    if (msg && typeof msg.edit === "function") await msg.edit(payload);
-  } catch {
+    if (msg && typeof msg.edit === "function") {
+      await msg.edit(payload);
+      return;
+    }
+    global.logger?.warn?.(
+      "[staffProfileHighStaff] tryRefreshStaffPanelMessage: nessun messaggio da aggiornare",
+      guild?.id,
+      parsed?.targetId,
+      panelMid || null,
+    );
+  } catch (err) {
+    global.logger?.warn?.("[staffProfileHighStaff] tryRefreshStaffPanelMessage:", err?.message || err);
   }
 }
 
@@ -293,6 +332,18 @@ async function ensureCoordinatorPlusViewer(interaction) {
 async function ensureNoUnauthorizedSelfStaffHp(interaction, parsed) {
   const self = String(parsed.viewerId) === String(parsed.targetId);
   if (!self) return true;
+  const action = String(parsed.action || "");
+  if (action === "ppm_add" || action === "ppm_remove") {
+    if (viewerCanUsePartnerPointsPanel(interaction.member)) return true;
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return false;
+  }
   if (viewerIsFounderOrCoFounder(interaction.member)) return true;
   await interaction
     .reply({
@@ -301,6 +352,14 @@ async function ensureNoUnauthorizedSelfStaffHp(interaction, parsed) {
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
+  return false;
+}
+
+function staffHpActionIsPexOrDepex(action) {
+  const a = String(action || "");
+  if (a === "pex" || a === "pex_pm" || a === "depex") return true;
+  if (a.startsWith("pex_")) return true;
+  if (a.startsWith("depex")) return true;
   return false;
 }
 
@@ -402,8 +461,7 @@ async function execute(interaction) {
       return true;
     }
     const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
-    const panelSuffix = panelForModal ? `:${panelForModal}` : "";
-    const modalId = `${MODAL_PREFIX}:${chosenAction}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${panelSuffix}`;
+    const modalId = `${MODAL_PREFIX}:${chosenAction}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${formatStaffHpTrail(parsed.sourceMessageId, panelForModal)}`;
     const title = TITLE_BY_ACTION[chosenAction] || "Azione staff";
     const modal = buildReasonModal(modalId, title);
     await interaction.showModal(modal).catch(() => {});
@@ -423,18 +481,95 @@ async function execute(interaction) {
       return true;
     }
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
+    const redeemTier = partnerManagerRedeemTierFromAction(parsed.action);
+    if (redeemTier != null) {
+      if (String(parsed.viewerId) !== String(parsed.targetId)) {
+        await interaction
+          .reply({
+            content:
+              "<:vegax:1443934876440068179> Il **riscatto premi** è disponibile solo sul **tuo** profilo: usa `+staff` senza menzioni.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const guild = interaction.guild;
+      if (!guild) {
+        await interaction
+          .reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG })
+          .catch(() => {});
+        return true;
+      }
+      const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
+      const pmRoleId = IDs.roles.PartnerManager;
+      if (!pmRoleId || !targetMember?.roles?.cache?.has(pmRoleId)) {
+        await interaction
+          .reply({
+            content:
+              "<:vegax:1443934876440068179> Il riscatto è riservato al ruolo **Partner Manager**.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
+      const staffLean = await ActivityUserProfile.findOne({ guildId: guild.id, userId: parsed.targetId })
+        .select("staff")
+        .lean()
+        .catch(() => null);
+      const ptsBefore = resolveStaffPartnerPointsDisplay(staffLean?.staff);
+      if (ptsBefore < redeemTier) {
+        await interaction
+          .editReply({
+            content: `<:vegax:1443934876440068179> Punti insufficienti: ne hai \`${ptsBefore}\`, servono \`${redeemTier}\`.`,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const staffData = await removePartnerPoints(guild.id, parsed.targetId, redeemTier);
+      const ptsAfter = resolveStaffPartnerPointsDisplay(staffData?.staff);
+      const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
+      const actor = interaction.user;
+      if (removedPointsChannel) {
+        await removedPointsChannel
+          .send({
+            content:
+              `<:VC_PartnerManager:1494286911286808576> ${actor}\n` +
+              `<:VC_reason:1478517122929004544> **Riscatto premio staff pagato** (\`${redeemTier}\` punti).\n` +
+              `<:VC_Partner:1482527213780729896> Saldo: \`${ptsBefore}\` → \`${ptsAfter}\``,
+          })
+          .catch(() => null);
+      }
+      await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
+      await interaction
+        .editReply({
+          content: `<:vegacheckmark:1443666279058772028> Riscattati **${redeemTier}** punti (premio staff pagato). Nuovo saldo: \`${ptsAfter}\`.`,
+        })
+        .catch(() => {});
+      return true;
+    }
     if (parsed.action === "pex_menu" || parsed.action === "depex_menu") {
-      const sourceSuffix = parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : "";
       const targetMember = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
+      if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMember)) {
+        await interaction
+          .reply({
+            content:
+              "<:vegax:1443934876440068179> **Pex** e **Depex** non sono disponibili sul **tuo** profilo né su utenti con ruolo **Founder**.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const trail = formatStaffHpTrail(parsed.sourceMessageId, interaction.message?.id);
       const hasPartnerManager = Boolean(targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager));
       if (parsed.action === "pex_menu") {
         const pexRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:pex:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:pex:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
             .setLabel("Pex Staff")
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:pex_pm:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:pex_pm:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
             .setLabel("Pex Partner Manager")
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(hasPartnerManager),
@@ -448,18 +583,18 @@ async function execute(interaction) {
       }
       const depexRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex_staff:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:depex_staff:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
           .setLabel("Depex")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex_full:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:depex_full:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
           .setLabel("Depex Completo")
           .setStyle(ButtonStyle.Secondary),
       );
       if (hasPartnerManager) {
         depexRow.addComponents(
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:depex_pm_only:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${sourceSuffix}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:depex_pm_only:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
             .setLabel("Depex Partner Manager")
             .setStyle(ButtonStyle.Secondary),
         );
@@ -474,23 +609,22 @@ async function execute(interaction) {
     if (parsed.action === "val_add_menu" || parsed.action === "val_remove_menu") {
       const selfHp = String(parsed.viewerId) === String(parsed.targetId);
       if (!selfHp && !(await ensureHighStaffViewer(interaction))) return true;
-      const sourceSuffix = parsed.sourceMessageId ? `:${parsed.sourceMessageId}` : "";
-      const panelExtra = interaction.message?.id ? `:${interaction.message.id}` : "";
+      const trailVal = formatStaffHpTrail(parsed.sourceMessageId, interaction.message?.id);
       const sec = parsed.section;
       if (parsed.action === "val_add_menu") {
         const addRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:valpos:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}${panelExtra}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:valpos:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
             .setLabel("Positiva")
             .setEmoji("<:thumbsup:1471292172145004768>")
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:valneg:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}${panelExtra}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:valneg:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
             .setLabel("Negativa")
             .setEmoji("<:thumbsdown:1471292163957457013>")
             .setStyle(ButtonStyle.Danger),
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:warn:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}${panelExtra}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:warn:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
             .setLabel("Warn")
             .setEmoji("<:banhammer:1443651875441217639>")
             .setStyle(ButtonStyle.Danger),
@@ -504,17 +638,17 @@ async function execute(interaction) {
       }
       const rmRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:valpos_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}${panelExtra}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:valpos_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
           .setLabel("Positiva")
           .setEmoji("<:thumbsup:1471292172145004768>")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:valneg_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}${panelExtra}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:valneg_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
           .setLabel("Negativa")
           .setEmoji("<:thumbsdown:1471292163957457013>")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:warn_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${sourceSuffix}${panelExtra}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:warn_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
           .setLabel("Warn")
           .setEmoji("<:banhammer:1443651875441217639>")
           .setStyle(ButtonStyle.Secondary),
@@ -526,6 +660,19 @@ async function execute(interaction) {
       }).catch(() => {});
       return true;
     }
+    if (staffHpActionIsPexOrDepex(parsed.action)) {
+      const targetMemberGuard = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
+      if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMemberGuard)) {
+        await interaction
+          .reply({
+            content:
+              "<:vegax:1443934876440068179> **Pex** e **Depex** non sono disponibili sul **tuo** profilo né su utenti con ruolo **Founder**.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+    }
     const selfHp = String(parsed.viewerId) === String(parsed.targetId);
     const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
     if (isPpmBtn) {
@@ -536,8 +683,7 @@ async function execute(interaction) {
       return true;
     }
     const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
-    const panelSuffix = panelForModal ? `:${panelForModal}` : "";
-    const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${panelSuffix}`;
+    const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${formatStaffHpTrail(parsed.sourceMessageId, panelForModal)}`;
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
     if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
@@ -604,6 +750,16 @@ async function execute(interaction) {
     if (!targetUser) {
       await sendModalReply({ content: "<:vegax:1443934876440068179> Utente non trovato." });
       return true;
+    }
+    if (staffHpActionIsPexOrDepex(parsed.action)) {
+      const targetMemberModalGuard = await guild.members.fetch(parsed.targetId).catch(() => null);
+      if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMemberModalGuard)) {
+        await sendModalReply({
+          content:
+            "<:vegax:1443934876440068179> **Pex** e **Depex** non sono disponibili sul **tuo** profilo né su utenti con ruolo **Founder**.",
+        });
+        return true;
+      }
     }
     let res;
     if (parsed.action === "ppm_add") {

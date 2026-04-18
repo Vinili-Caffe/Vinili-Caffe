@@ -3,8 +3,12 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
-const { memberHasPartnerManagerRole, buildStaffPartnerManagerIdUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
-const { deleteStaffPauseRequestChannelMessages } = require("../Utils/Staff/staffDocUtils");
+const {
+  memberHasPartnerManagerRole,
+  memberHasAnyStaffPresenceForDepexSync,
+  buildStaffPartnerManagerIdUnsetUpdate,
+} = require("../Utils/Staff/staffPmUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
@@ -37,6 +41,8 @@ const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yell
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
+/** Slot boost per cui abbiamo già inviato l'embed (main); al ≥2 si assegna Double Booster. */
+const memberBoostSlotAnnounceByKey = new Map();
 function isPrimaryShard(client) {
   return !client?.shard || client.shard.ids?.[0] === 0;
 }
@@ -442,6 +448,28 @@ async function sendBoostEmbeds(channel, member, times, boostCount) {
   }
 }
 
+async function trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guildId, times) {
+  const mainId = String(IDs.guilds.main || "");
+  const doubleId = IDs?.roles?.DoubleBooster;
+  if (!mainId || String(member?.guild?.id || "") !== mainId || !doubleId) return;
+  if (!member?.roles?.add || member.user?.bot) return;
+  const me = member.guild.members.me;
+  if (!me?.permissions?.has(PermissionsBitField.Flags.ManageRoles)) return;
+  const role = member.guild.roles.cache.get(doubleId);
+  if (!role || role.position >= me.roles.highest.position) return;
+
+  const key = `${guildId}:${member.id}`;
+  const add = Math.max(0, Number(times || 0));
+  if (!add) return;
+  const next = Number(memberBoostSlotAnnounceByKey.get(key) || 0) + add;
+  memberBoostSlotAnnounceByKey.set(key, next);
+  if (next < 2 || member.roles.cache.has(doubleId)) return;
+  const ok = await member.roles.add(doubleId).then(() => true).catch(() => false);
+  if (!ok) {
+    global.logger?.warn?.("[guildMemberUpdate] Double Booster add failed:", member.guild.id, member.id);
+  }
+}
+
 function rolesChanged(oldMember, newMember) {
   const oldRoles = oldMember?.roles?.cache;
   const newRoles = newMember?.roles?.cache;
@@ -667,6 +695,7 @@ function scheduleBoostFollowup(
           missing,
           latestCount,
         );
+        await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, missing);
         boostAnnounceCache.set(boostKey, latestCount);
         boostCountCache.set(guildId, latestCount);
       }
@@ -689,6 +718,27 @@ async function handleBoostUpdate(oldMember, newMember) {
   const newBoostTs = newMember.premiumSinceTimestamp || 0;
   const guildId = newMember.guild.id;
   const boostKey = `${guildId}:${newMember.id}`;
+  const mainId = String(IDs.guilds.main || "");
+  const doubleBoosterId = IDs?.roles?.DoubleBooster || null;
+  if (
+    doubleBoosterId &&
+    mainId &&
+    String(guildId) === mainId &&
+    oldBoostTs > 0 &&
+    !newBoostTs &&
+    newMember.roles.cache.has(doubleBoosterId)
+  ) {
+    memberBoostSlotAnnounceByKey.delete(boostKey);
+    const me = newMember.guild.members.me;
+    const role = newMember.guild.roles.cache.get(doubleBoosterId);
+    if (
+      me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) &&
+      role &&
+      role.position < me.roles.highest.position
+    ) {
+      await newMember.roles.remove(doubleBoosterId).catch(() => {});
+    }
+  }
 
   const{currentCount,countIncreased,boostDelta}=computeBoostDelta(oldMember,newMember,guildId,);
   const alreadyBoostingBefore = oldBoostTs > 0;
@@ -736,6 +786,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     sendTimes,
     currentCount,
   );
+  await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
   boostAnnounceCache.set(boostKey, currentCount);
 
   scheduleBoostFollowup(
@@ -944,6 +995,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
 
     if (member) await addPerkRoleIfPossible(member).catch(() => {});
     await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, missing, currentCount).catch(() => {});
+    if (member) await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guild.id, missing);
 
     const boostKey = `${guild.id}:${String(targetId)}`;
     boostAnnounceCache.set(boostKey, currentCount);
@@ -1111,8 +1163,11 @@ module.exports = {
           if (!memberHasStaffRole(oldMember) && memberHasStaffRole(newMember)) {
             setWelcomeContextActive(newMember.guild.id, client);
           }
-          if (memberHasStaffRole(oldMember) && !memberHasStaffRole(newMember)) {
+          if (memberHasAnyStaffPresenceForDepexSync(oldMember) && !memberHasAnyStaffPresenceForDepexSync(newMember)) {
             await deleteStaffPauseRequestChannelMessages(newMember.guild, newMember.id);
+            await deleteStaffRelatedMessagesFromConfiguredChannels(newMember.guild, newMember.id).catch((err) => {
+              global.logger?.warn?.("[guildMemberUpdate] staff channels scan delete:", newMember.id, err?.message || err);
+            });
             await ActivityUserProfile.updateOne(
               { guildId: newMember.guild.id, userId: newMember.id, staff: { $exists: true } },
               { $unset: { staff: "" } },

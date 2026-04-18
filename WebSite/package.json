@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:candidature-proxy": "node scripts/dev-candidature-proxy.mjs",
     "build": "node scripts/build-site.mjs",
     "refresh-live-stats-extra": "node scripts/build-site.mjs --only-live-stats-extra",
     "list-guild-roles": "node scripts/list-guild-roles.mjs"

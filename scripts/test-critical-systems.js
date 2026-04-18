@@ -140,6 +140,11 @@ function run(root) {
         (explainText.includes("pesi violazioni:") || explainText.includes("top_rules=")),
       "automod decision explain non valido",
     );
+    const isMediaEmbed = automodService?.__test?.isAutomodMediaEmbedUrl;
+    assert(typeof isMediaEmbed === "function", "automod __test isAutomodMediaEmbedUrl mancante");
+    assert(isMediaEmbed(new URL("https://media.tenor.com/abc/tenor.gif")) === true, "URL Tenor deve contare come media embed");
+    assert(isMediaEmbed(new URL("https://cdn.discordapp.com/attachments/1/2/x.webp")) === true, "CDN Discord deve contare come media embed");
+    assert(isMediaEmbed(new URL("https://example.com/scam")) === false, "host generico non è media embed");
   }
 
   const setJsPath = path.join(root, "Prefix", "TTS", "set.js");

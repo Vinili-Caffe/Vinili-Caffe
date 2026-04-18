@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const IDs = require("../Config/ids");
 const {
   MS_PER_DAY,
   countOverlapDays,
@@ -13,15 +14,112 @@ const {
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
+const RESOCONTO_ROLE_RANK = new Map(
+  [
+    IDs.roles.Member,
+    IDs.roles.Helper,
+    IDs.roles.Mod,
+    IDs.roles.Coordinator,
+    IDs.roles.Supervisor,
+    IDs.roles.Admin,
+    IDs.roles.CoFounder,
+    IDs.roles.Founder,
+    IDs.roles.PartnerManager,
+  ]
+    .filter(Boolean)
+    .map((roleId, index) => [String(roleId), index]),
+);
+const ROLE_UP = {
+  [String(IDs.roles.Member || "")]: String(IDs.roles.Helper || ""),
+  [String(IDs.roles.Helper || "")]: String(IDs.roles.Mod || ""),
+  [String(IDs.roles.Mod || "")]: String(IDs.roles.Coordinator || ""),
+  [String(IDs.roles.Coordinator || "")]: String(IDs.roles.Supervisor || ""),
+};
+
+function isStaffRolesHistoryPexRow(row) {
+  const oldRole = String(row?.oldRole || "");
+  const newRole = String(row?.newRole || "");
+  const oldRank = RESOCONTO_ROLE_RANK.has(oldRole) ? Number(RESOCONTO_ROLE_RANK.get(oldRole)) : null;
+  const newRank = RESOCONTO_ROLE_RANK.has(newRole) ? Number(RESOCONTO_ROLE_RANK.get(newRole)) : null;
+  const isRankPromotion =
+    oldRank != null &&
+    newRank != null &&
+    newRole &&
+    oldRole &&
+    newRole !== oldRole &&
+    newRank > oldRank;
+  const isMappedPromotion = oldRole && newRole && ROLE_UP[oldRole] === newRole;
+  const reasonNorm = String(row?.reason || "").toLowerCase();
+  const reasonHasDepex = reasonNorm.includes("depex");
+  const reasonHasPex = reasonNorm.includes("pex") && !reasonHasDepex;
+  return Boolean(isRankPromotion || isMappedPromotion || reasonHasPex);
+}
+
+function getFirstRelevantStaffDateForPauseUi(staff, pauseRoleFilter) {
+  const prf = String(pauseRoleFilter || "").toLowerCase();
+  const history = Array.isArray(staff?.rolesHistory) ? staff.rolesHistory : [];
+  let best = null;
+  for (const row of history) {
+    if (!isStaffRolesHistoryPexRow(row)) continue;
+    const d = row?.date ? new Date(row.date) : null;
+    if (!d || Number.isNaN(d.getTime())) continue;
+    if (!best || d.getTime() < best.getTime()) best = d;
+  }
+  if (!best && prf === "pm") {
+    const pmId = String(IDs.roles.PartnerManager || "");
+    if (pmId) {
+      for (const row of history) {
+        if (String(row?.newRole || "") !== pmId) continue;
+        const d = row?.date ? new Date(row.date) : null;
+        if (!d || Number.isNaN(d.getTime())) continue;
+        if (!best || d.getTime() < best.getTime()) best = d;
+      }
+    }
+  }
+  return best;
+}
+
+function resolvePauseMonthButtonRange(displayYear, staff, pauseRoleFilter) {
+  const now = new Date();
+  const todayY = now.getUTCFullYear();
+  const todayM = now.getUTCMonth() + 1;
+  const y = Number(displayYear);
+  if (!Number.isFinite(y)) return { startMonth: 1, endMonth: 12 };
+  if (y < todayY) return { startMonth: 1, endMonth: 12 };
+  if (y > todayY) return { startMonth: 1, endMonth: 12 };
+
+  const first = getFirstRelevantStaffDateForPauseUi(staff, pauseRoleFilter);
+  let startMonth = 1;
+  if (first && !Number.isNaN(first.getTime())) {
+    const fy = first.getUTCFullYear();
+    if (fy < y) startMonth = 1;
+    else if (fy === y) startMonth = Math.max(1, Math.min(12, first.getUTCMonth() + 1));
+    else startMonth = 1;
+  }
+  let endMonth = Math.min(12, Math.max(1, todayM));
+  startMonth = Math.min(12, Math.max(1, startMonth));
+  endMonth = Math.min(12, Math.max(1, endMonth));
+  if (startMonth > endMonth) return { startMonth: endMonth, endMonth };
+  return { startMonth, endMonth };
+}
+
 function buildPauseListMonthRows(targetUserId, year, options = {}) {
   const uid = String(targetUserId ?? "").trim();
   const y = String(Number(year) || new Date().getUTCFullYear());
   if (!uid) return [];
   const prf = String(options.pauseRoleFilter || "").toLowerCase();
   const filtSuffix = prf === "pm" || prf === "staff" ? `:${prf}` : "";
+  const { startMonth, endMonth } = resolvePauseMonthButtonRange(Number(y), options.staff, prf);
+  const months = [];
+  for (let m = startMonth; m <= endMonth; m += 1) months.push(m);
+  if (!months.length) {
+    const fb = Math.min(12, Math.max(1, new Date().getUTCMonth() + 1));
+    months.push(fb);
+  }
+
   const rows = [];
   let current = new ActionRowBuilder();
-  for (let m = 1; m <= 12; m++) {
+  for (const m of months) {
     if (current.components.length >= 5) {
       rows.push(current);
       current = new ActionRowBuilder();
@@ -33,13 +131,15 @@ function buildPauseListMonthRows(targetUserId, year, options = {}) {
         .setStyle(ButtonStyle.Secondary),
     );
   }
-  if (current.components.length) rows.push(current);
 
   const yearCustomId = filtSuffix ? `pause_list:${uid}${filtSuffix}` : `pause_list:${uid}:`;
-  const rowYear = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(yearCustomId).setLabel("Anno intero").setStyle(ButtonStyle.Primary),
-  );
-  rows.push(rowYear);
+  const yearBtn = new ButtonBuilder().setCustomId(yearCustomId).setLabel("Anno intero").setStyle(ButtonStyle.Primary);
+  if (current.components.length >= 5) {
+    rows.push(current);
+    current = new ActionRowBuilder();
+  }
+  current.addComponents(yearBtn);
+  rows.push(current);
 
   return rows;
 }
@@ -172,10 +272,16 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
           .setColor("#6f4e37")
           .setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`),
       ],
-      components: buildPauseListMonthRows(u, y, monthOpts),
+      components: buildPauseListMonthRows(u, y, { ...monthOpts, staff: null }),
     };
   }
-  const stafferRecord = await ActivityUserProfile.findOne({ guildId: g, userId: u }, { "staff.pauses": 1 }).lean().catch(() => null);
+  const stafferRecord = await ActivityUserProfile.findOne(
+    { guildId: g, userId: u },
+    { "staff.pauses": 1, "staff.rolesHistory": 1 },
+  )
+    .lean()
+    .catch(() => null);
+  const monthOptsWithStaff = { ...monthOpts, staff: stafferRecord?.staff ?? null };
   let pauses = Array.isArray(stafferRecord?.staff?.pauses) ? stafferRecord.staff.pauses : [];
   if (prf === "pm") {
     pauses = pauses.filter((p) => roleChoiceAppliesTo(PAUSE_ROLE_PM, p?.ruolo || p?.ruoloRichiesto));
@@ -218,7 +324,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
       .setTitle(`<a:VC_Calendar:1482706208149475358> Pause ${titleSuffix}${chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : ""}`)
       .setDescription(`${chunk}\n\n<:VC_Clock:1473359204189474886> Totale giorni scalati${monthLabel ? " nel mese" : " anno corrente"}: \`${totalScaledDays}\``),
   );
-  return { ok: true, embeds, components: buildPauseListMonthRows(u, currentYear, monthOpts) };
+  return { ok: true, embeds, components: buildPauseListMonthRows(u, currentYear, monthOptsWithStaff) };
 }
 
 module.exports = { buildPauseListPayload, buildPauseListMonthRows };

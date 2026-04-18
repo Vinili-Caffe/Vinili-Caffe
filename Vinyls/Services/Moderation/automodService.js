@@ -1500,6 +1500,25 @@ function extractUrls(content) {
     .filter(Boolean);
 }
 
+/** Esclusi dal conteggio attachment_link (2.4); invite/scam/NSFW/blacklist usano extractUrls completo. */
+function isAutomodMediaEmbedUrl(url) {
+  if (!url) return false;
+  const host = String(url.hostname || "").toLowerCase();
+  const path = String(url.pathname || "").toLowerCase();
+  if (/\.discordapp\.(com|net)$/i.test(host)) return true;
+  if (/(?:^|\.)tenor\.(com|co)$/i.test(host)) return true;
+  if (host === "tenor.googleapis.com" || host.endsWith(".tenor.googleapis.com")) return true;
+  if (/(?:^|\.)giphy\.com$/i.test(host)) return true;
+  if (/(?:^|\.)gfycat\.com$/i.test(host)) return true;
+  if (/\.(gif|webm|mp4|png|jpe?g|jpeg|webp|avif)(?:\?|#|$)/i.test(path)) return true;
+  return false;
+}
+
+function filterUrlsForAttachmentLinkRule(urls) {
+  if (!Array.isArray(urls) || !urls.length) return [];
+  return urls.filter((u) => !isAutomodMediaEmbedUrl(u));
+}
+
 function toAbsoluteUrl(location, base) {
   try {
     return new URL(String(location || ""), base).toString();
@@ -2162,7 +2181,7 @@ async function detectViolations(message, state, profile) {
     const attachmentList = [...(message.attachments?.values?.() || [])];
     const imageCount = attachmentList.filter((att) => isImageAttachment(att)).length;
     const fileCount = Math.max(0, attachmentList.length - imageCount);
-    const linkCount = extractedUrls.length;
+    const linkCount = filterUrlsForAttachmentLinkRule(extractedUrls).length;
     const isImageOnlyGallery =
       hasMeaningfulTextPayload === false &&
       embedCount === 0 &&
@@ -3090,4 +3109,4 @@ function updateAutoModConfig(pathExpr, value) {
   return { ok: true, config: getAutoModConfigSnapshot() };
 }
 
-module.exports = { runAutoModMessage, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain } };
+module.exports = { runAutoModMessage, getAutoModMemberSnapshot, isAutoModRoleExemptMember, getAutoModConfigSnapshot, getAutoModRulesSnapshot, updateAutoModConfig, isPanicModeActiveForGuild: isPanicModeActive, getAutoModPanicSnapshot, triggerAutoModPanicExternal, clearAutoModPanicState, __test: { isLikelyCommandMessage, buildAutoModDecisionExplain, isAutomodMediaEmbedUrl } };

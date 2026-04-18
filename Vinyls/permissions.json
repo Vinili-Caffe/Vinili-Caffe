@@ -406,15 +406,6 @@
                 "channels.sanzioniUtenti"
             ]
         },
-        "moderazione": {
-            "roles": [
-                "roles.Staff"
-            ],
-            "channels": [
-                "channels.staffCmds",
-                "channels.sanzioniUtenti"
-            ]
-        },
         "reason": {
             "roles": [
                 "roles.HighStaff"

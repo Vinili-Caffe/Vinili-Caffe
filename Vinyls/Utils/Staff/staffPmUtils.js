@@ -84,6 +84,7 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
 module.exports = {
   ROLE_PM,
   memberHasPartnerManagerRole,
+  memberHasAnyStaffPresenceForDepexSync,
   initPartnerManagerFieldsIfMissing,
   buildStaffPartnerFieldsUnsetUpdate,
   buildStaffPartnerManagerIdUnsetUpdate,

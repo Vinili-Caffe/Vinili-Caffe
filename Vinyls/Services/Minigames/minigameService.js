@@ -2023,7 +2023,6 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
     ctx.stroke();
 
     const m = Math.min(7, Math.max(0, Number(misses) || 0));
-    const max = Math.max(1, Number(maxMisses) || 7);
 
     const leftZoneCenterX = 240;
     const wordCenterX = 600;
@@ -2108,10 +2107,6 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
     ctx.fillStyle = "#e8e0d5";
     ctx.font = fontStackPrimaryOnly(44, "700");
     ctx.fillText(wordStr, wordCenterX, (contentTop + contentBottom) / 2, width - 320);
-
-    ctx.fillStyle = CANVAS_STYLE.titleColor;
-    ctx.font = fontStackPrimaryOnly(28, "700");
-    ctx.fillText(`Errori: ${m}/${max}`, width / 2, height - 56);
 
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: "hangman.png" });
   } catch {

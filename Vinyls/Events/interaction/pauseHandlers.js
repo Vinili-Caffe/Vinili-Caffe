@@ -164,11 +164,10 @@ async function handlePauseButton(interaction) {
     const rows = (await Promise.all(rowPromises)).filter(Boolean);
     const memberLabel = interaction.guild?.members?.cache?.get(effectiveUserId)?.displayName || interaction.client?.users?.cache?.get(effectiveUserId)?.username || ` User ID: ${effectiveUserId}`;
 
-    const monthRows = buildPauseListMonthRows(
-      effectiveUserId,
-      year,
-      pauseListRoleFilter ? { pauseRoleFilter: pauseListRoleFilter } : {},
-    );
+    const monthRows = buildPauseListMonthRows(effectiveUserId, year, {
+      ...(pauseListRoleFilter ? { pauseRoleFilter: pauseListRoleFilter } : {}),
+      staff: stafferRecord?.staff || null,
+    });
     const payload = rows.length === 0
       ? { content: `<:VC_Staff:1494286904089247754> Staffer: <@${effectiveUserId}>\n<:VC_Attention:1482534443632558151> Nessuna pausa trovata nell'anno **${year}**.`, components: monthRows, flags: 1 << 6 }
       : {

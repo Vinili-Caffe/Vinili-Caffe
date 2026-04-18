@@ -59,7 +59,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
   reason: "Aggiorna il motivo di una case.",
   duration: "Aggiorna la durata di una case temporanea.",
   modlogs: "Mostra gli ultimi log moderazione di un utente.",
-  moderazione: "Pannello interattivo (menu e pulsanti) per warn, mute, ban, case, lock e altre azioni sul target.",
   moderations: "Mostra tutte le moderazioni temporanee attive.",
   lock: "Blocca un canale.",
   unlock: "Sblocca un canale.",
@@ -70,7 +69,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   security: "Pannello sicurezza con menu: stato, statics, panic, abilita/disabilita moduli.",
   level: "Configura il sistema livelli: imposta o modifica livelli, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
-  staff: "Mostra il profilo di uno/a staffer.",
+  staff: "Pannello profilo staff/Partner Manager; i PM riscattano i premi staff pagati (50/75/150 pt) con i pulsanti sul proprio profilo.",
   };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {

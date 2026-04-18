@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
+const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { STAFF_WARN_RESET_MS } = require("../../Services/Staff/staffWarnService");
 const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
@@ -13,6 +14,28 @@ function resolveStaffPartnerPointsDisplay(staffObj) {
   const fromCounter = Math.max(0, Math.floor(Number(staffObj.partnerCount ?? 0)));
   const fromActions = countValidAllTimePartners(Array.isArray(staffObj.partnerActions) ? staffObj.partnerActions : []);
   return Math.max(fromCounter, fromActions);
+}
+
+function buildPartnerManagerSelfRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_r50", v, t, sec, sourceMessageId))
+        .setLabel("Riscatto 50 pt")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_r75", v, t, sec, sourceMessageId))
+        .setLabel("Riscatto 75 pt")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_r150", v, t, sec, sourceMessageId))
+        .setLabel("Riscatto 150 pt")
+        .setStyle(ButtonStyle.Primary),
+    ),
+  ];
 }
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
@@ -284,12 +307,28 @@ function formatStaffHpSelectCustomId(action, viewerId, targetId, section = SECTI
   return withSourceSuffix(`${STAFF_HP_SELECT_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`, sourceMessageId);
 }
 
-function buildHighStaffActionRows(viewerId, targetId, section, dualPmStaffDepex = false, targetHasPartnerManager = false, sourceMessageId = null) {
+function shouldOmitPexDepexHomeRow(viewerId, targetUserId, targetMember) {
+  if (String(viewerId) === String(targetUserId)) return true;
+  const founderId = IDs.roles?.Founder;
+  if (founderId && targetMember?.roles?.cache?.has(founderId)) return true;
+  return false;
+}
+
+function buildHighStaffActionRows(
+  viewerId,
+  targetId,
+  section,
+  dualPmStaffDepex = false,
+  targetHasPartnerManager = false,
+  sourceMessageId = null,
+  omitPexDepexHome = false,
+) {
   const v = String(viewerId);
   const t = String(targetId);
   let sec = String(section || "").toLowerCase();
   if (sec === SECTION_WARN) sec = SECTION_VALUTAZIONI;
   if (sec === SECTION_HOME) {
+    if (omitPexDepexHome) return [];
     const homeComps = [
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_menu", v, t, sec, sourceMessageId))
@@ -517,10 +556,14 @@ async function fetchStaffLean(guildId, userId) {
 async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, section = SECTION_HOME, options = {}) {
   const gid = String(guild?.id || "");
   const tid = String(targetUserId || "");
-  const member = await guild.members.fetch(tid).catch(() => null);
+  const member =
+    (await getGuildMemberCached(guild, tid, { preferFresh: true }).catch(() => null)) ||
+    (await guild.members.fetch({ user: tid, force: true }).catch(() => null));
   const targetUser = member?.user || (await client.users.fetch(tid).catch(() => null));
   const name = member?.displayName || targetUser?.username || tid;
-  const viewerMemForPanel = await guild.members.fetch(String(viewerId)).catch(() => null);
+  const viewerMemForPanel =
+    (await getGuildMemberCached(guild, String(viewerId), { preferFresh: true }).catch(() => null)) ||
+    (await guild.members.fetch({ user: String(viewerId), force: true }).catch(() => null));
   const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
   const viewerCanFullDepex = viewerIsCoordinatorOrAbove(viewerMemForPanel);
   const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
@@ -596,20 +639,29 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     sec = SECTION_HOME;
   }
 
-  const selfForPts = String(viewerId) === tid;
   const canHsPartnerPoints =
     viewerCanPartnerPointsPanel &&
     (profileKind === PROFILE_PM_ONLY ||
       usePartnersChatPmPanel ||
-      (profileKind === PROFILE_FULL && hasPm)) &&
-    (!selfForPts || viewerIsFounderOrCoFounder(viewerMemForPanel));
+      (profileKind === PROFILE_FULL && hasPm));
+  const omitPexDepexHome = shouldOmitPexDepexHomeRow(viewerId, tid, member);
   let partnerHomeRows = [];
   if (sec === SECTION_HOME && canHsPartnerPoints) {
     const vPts = String(viewerId);
     if (usePartnersChatPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
-    else if (profileKind === PROFILE_PM_ONLY) partnerHomeRows = buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
+    else if (profileKind === PROFILE_PM_ONLY) {
+      partnerHomeRows = omitPexDepexHome
+        ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
+        : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
+    }
   }
+
+  const pmSelfRedeemRows =
+    sec === SECTION_HOME && String(viewerId) === tid && hasPm
+      ? buildPartnerManagerSelfRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId)
+      : [];
+  const homeBottomRows = [...partnerHomeRows, ...pmSelfRedeemRows];
 
   const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
@@ -627,7 +679,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     usePartnersChatPmPanel,
     member,
   )
-    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId)
+    ? buildHighStaffActionRows(String(viewerId), tid, sec, dualPmStaffDepex, hasPm, sourceMessageId, omitPexDepexHome)
     : [];
   const hsRows = [...highStaffRows];
   if (
@@ -658,6 +710,12 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
       `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
+      ...(pmSelfRedeemRows.length
+        ? [
+            "",
+            "**Premi staff pagati:** pulsanti **Riscatto** sotto (50 / 75 / 150 punti, solo sul tuo profilo).",
+          ]
+        : []),
     ].join("\n");
     const pmTitle = usePartnersChatPmPanel
       ? `<:VC_addperson:1485419347068588073> Profilo Partner Manager ${name}`
@@ -670,7 +728,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -702,7 +760,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     );
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId) };
   }
 
   if (sec === SECTION_PAUSE) {
@@ -724,7 +782,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setColor("Red")
             .setDescription(listPayload.error || "Errore caricamento pause."),
         ],
-        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId),
+        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
       };
     }
     return {
@@ -761,17 +819,6 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const t7 = Number(m7) + Number(b7) + Number(k7) + Number(w7);
     const t30 = Number(m30) + Number(b30) + Number(k30) + Number(w30);
     const tall = Number(mall) + Number(ball) + Number(kall) + Number(wall);
-    if (tall === 0) {
-      return {
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#6f4e37")
-            .setDescription("<:cancel:1461730653677551691> **Nessun log moderazione trovato.**")
-            .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
-        ],
-        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId),
-      };
-    }
     const hh = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false });
     return {
       embeds: [
@@ -803,7 +850,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
           .setTimestamp(),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
     };
   }
 
@@ -841,6 +888,9 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (hasPm) {
     homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
   }
+  if (pmSelfRedeemRows.length) {
+    homeDescParts.push("", "**Premi staff pagati:** usa i pulsanti **Riscatto** in basso (solo sul tuo profilo).");
+  }
   homeDescParts.push("","Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");
   return {
@@ -851,7 +901,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(homeDesc)
         .setThumbnail(targetUser?.displayAvatarURL?.({ size: 128 }) || null),
     ],
-    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, partnerHomeRows), viewerId, tid, sourceMessageId),
+    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
   };
 }
 
@@ -870,7 +920,9 @@ module.exports = {
   parseStaffProfileCloseCustomId,
   formatStaffHpButtonCustomId,
   buildStaffProfilePayload,
+  resolveStaffPartnerPointsDisplay,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,
   viewerIsFounderOrCoFounder,
+  shouldOmitPexDepexHomeRow,
 };

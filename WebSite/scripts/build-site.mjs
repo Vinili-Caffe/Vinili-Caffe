@@ -800,7 +800,8 @@ async function main() {
   const discordInviteDisplay = inviteCode ? `discord.gg/${inviteCode}` : "Discord";
   const wikiUrlResolved =
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
-  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || siteUrlTrim || discordInviteResolved;
+  // Non usare siteUrlTrim come fallback: href alla home fa scattare vc-landing.js e segna tutto il menu "corrente".
+  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || "#";
   const communityRulesUrlResolved =
     String(cfg.communityRulesUrl ?? "").trim() || discordInviteResolved;
   const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
@@ -809,7 +810,7 @@ async function main() {
     modEmail !== "" ? `mailto:${modEmail}?subject=${encodeURIComponent("Richiesta unban")}` : "#";
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const donationsUrlResolved =
-    String(cfg.donationsUrl ?? "").trim() || siteUrlTrim || discordInviteResolved;
+    String(cfg.donationsUrl ?? "").trim() || discordInviteResolved || "#";
 
   const wikiViniliCfgUrl = String(cfg.wikiBotViniliAvatarUrl ?? "").trim();
   const wikiCaffeCfgUrl = String(cfg.wikiBotCaffeAvatarUrl ?? "").trim();
@@ -885,7 +886,17 @@ async function main() {
       : candidatureSubmitApiRaw && siteBaseNoSlash
         ? `${siteBaseNoSlash.replace(/\/+$/, "")}${candidatureSubmitApiRaw.startsWith("/") ? "" : "/"}${candidatureSubmitApiRaw}`
         : "";
-  const candidatureSubmitApiLocalRaw = String(cfg.candidatureSubmitApiUrlLocal ?? "").trim();
+  const candidatureSubmitApiLocalFromEnv = String(
+    process.env.VC_CANDIDATURE_SUBMIT_API_URL_LOCAL ?? "",
+  ).trim();
+  const candidatureSubmitApiLocalRaw =
+    candidatureSubmitApiLocalFromEnv || String(cfg.candidatureSubmitApiUrlLocal ?? "").trim();
+  if (candidatureSubmitApiLocalFromEnv) {
+    console.log(
+      "[build-site] VC_CANDIDATURE_SUBMIT_API_URL_LOCAL (override):",
+      candidatureSubmitApiLocalFromEnv,
+    );
+  }
   const candidatureSubmitApiLocalResolved =
     candidatureSubmitApiLocalRaw && /^https?:\/\//i.test(candidatureSubmitApiLocalRaw)
       ? candidatureSubmitApiLocalRaw

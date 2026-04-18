@@ -11,6 +11,8 @@ const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePath
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
+const { memberHasAnyStaffPresenceForDepexSync } = require("../Utils/Staff/staffPmUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
@@ -530,6 +532,18 @@ module.exports = {
         wasKicked ? "Utente kickato dal server" : "Utente uscito dal server",
       );
       await handleTrackedStaffLeave(member);
+      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID) && memberHasAnyStaffPresenceForDepexSync(member)) {
+        await deleteStaffPauseRequestChannelMessages(guild, member.id).catch((err) => {
+          global.logger?.warn?.("[guildMemberRemove] pause doc cleanup:", member.id, err?.message || err);
+        });
+        await deleteStaffRelatedMessagesFromConfiguredChannels(guild, member.id).catch((err) => {
+          global.logger?.warn?.("[guildMemberRemove] staff channels scan delete:", member.id, err?.message || err);
+        });
+        await ActivityUserProfile.updateOne(
+          { guildId: guild.id, userId: member.id },
+          { $unset: { "staff.pauses": "" } },
+        ).catch(() => {});
+      }
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
       if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {

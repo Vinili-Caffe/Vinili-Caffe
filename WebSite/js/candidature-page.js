@@ -157,6 +157,60 @@
     return String(c.submitApiUrl || "").trim();
   }
 
+  /** Bot su IP/dominio diverso dalla pagina: senza CORS il fetch fallisce anche se /webhooks/status si apre in un tab. */
+  function hintCorsOriginForRemoteApi(apiUrl) {
+    var pageOrigin = "";
+    try {
+      pageOrigin = window.location.origin;
+    } catch (e) {
+      return "";
+    }
+    var host = "";
+    try {
+      host = String(new URL(String(apiUrl || "")).hostname || "").toLowerCase();
+    } catch (e2) {
+      return "";
+    }
+    if (!pageOrigin || !host) return "";
+    if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") return "";
+    var apiOrigin = "";
+    try {
+      apiOrigin = new URL(String(apiUrl || "")).origin;
+    } catch (e4) {
+      apiOrigin = "";
+    }
+    return (
+      " Sul .env del bot (VPS): WEBSITE_CANDIDATURE_CORS_ORIGIN deve includere esattamente " +
+      pageOrigin +
+      " (come nella barra degli indirizzi, porta inclusa), poi riavvia il bot. In DevTools — Rete, la risposta OPTIONS/POST deve avere Access-Control-Allow-Origin uguale a quella stringa." +
+      (apiOrigin
+        ? " Oppure sul PC: in un terminale lascia aperto: node WebSite/scripts/dev-candidature-proxy.mjs --target " +
+          apiOrigin +
+          " (se lo chiudi -> connessione rifiutata su 3042). Poi candidatureSubmitApiUrlLocal http://127.0.0.1:3042/webhooks/site-candidature e rebuild. Prova http://127.0.0.1:3042/webhooks/status nel browser."
+        : "")
+    );
+  }
+
+  /** localhost/127: o proxy dev (3042) o promemoria VPS. */
+  function hintLocalApiHostnameMismatch(api) {
+    try {
+      var u = new URL(String(api || ""));
+      var host = String(u.hostname || "").toLowerCase();
+      var path = String(u.pathname || "");
+      if (
+        (host === "localhost" || host === "127.0.0.1" || host === "[::1]") &&
+        path.indexOf("site-candidature") !== -1 &&
+        String(u.port || "") === "3042"
+      ) {
+        return " Stai usando il proxy su 3042: dalla root del repo avvia e NON chiudere il terminale con: node WebSite/scripts/dev-candidature-proxy.mjs --target http://IP_DEL_VPS:3000 (stessa porta del webhook sul server). Poi http://127.0.0.1:3042/webhooks/status deve dare JSON.";
+      }
+      if (host === "localhost" || host === "127.0.0.1") {
+        return " Nota: localhost/127.0.0.1 si riferisce al PC dove apri il browser. Se il bot gira su un VPS (PM2) o su un altro computer, imposta candidatureSubmitApiUrlLocal (o la variabile VC_CANDIDATURE_SUBMIT_API_URL_LOCAL in build) con un URL raggiungibile da qui (es. http://IP:3000/... o HTTPS dietro proxy), apri la porta sul server e WEBSITE_CANDIDATURE_CORS_ORIGIN con l'origine del sito (es. http://localhost:5173).";
+      }
+    } catch (e) {}
+    return "";
+  }
+
   function eligibilityApiUrl() {
     var api = resolvedSubmitApiUrl();
     if (!api) return "";
@@ -439,7 +493,21 @@
         data = {};
       }
       if (!res.ok || !data.ok) {
-        alert(data.message || data.error || "Invio non riuscito (" + res.status + ").");
+        var baseMsg = data.message || data.error || "Invio non riuscito (" + res.status + ").";
+        var hint404 = "";
+        if (res.status === 404) {
+          var origin = "";
+          try {
+            origin = window.location.origin;
+          } catch (e3) {}
+          hint404 =
+            " Di solito: 404 su POST significa che la richiesta non arriva al bot Express (route assente). Controlla: 1) non servire il sito sulla stessa porta del bot (es. `npx serve` su 3000 mentre il bot è sulla 3000 — usa 5173 per il sito); 2) sul bot WEBSITE_CANDIDATURE_HTTP=1; 3) prova GET " +
+            String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "") +
+            "/webhooks/status dalla stessa macchina. Origine pagina: " +
+            (origin || "?") +
+            ".";
+        }
+        alert(baseMsg + hint404);
         return;
       }
       alert(data.message || "Candidatura inviata.");
@@ -449,14 +517,18 @@
       try {
         pageOrigin = window.location.origin;
       } catch (e2) {}
+      var statusBase = String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "");
       alert(
         "Impossibile contattare l’API (" +
           String(api || "") +
           "). Origine: " +
           (pageOrigin || "?") +
-          ". In locale: 1) bot avviato con WEBSITE_CANDIDATURE_HTTP=1; 2) stessa porta di Vinyls/config discadia.webhookPort (di solito 3000); 3) candidatureSubmitApiUrlLocal in site.config come http://localhost:3000/webhooks/site-candidature se apri il sito su localhost; 4) prova nel browser " +
-          String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "") +
-          "/webhooks/status — se non risponde JSON, il server HTTP del bot non è in ascolto. Ricarica la pagina (Ctrl+F5) dopo ogni build.",
+          "." +
+          hintCorsOriginForRemoteApi(api) +
+          " Altre verifiche: WEBSITE_CANDIDATURE_HTTP=1; candidatureSubmitApiUrlLocal punta al bot (stessa porta di discadia.webhookPort); in browser apri " +
+          statusBase +
+          "/webhooks/status (deve dare JSON). Ricarica con Ctrl+F5 dopo ogni build." +
+          hintLocalApiHostnameMismatch(api),
       );
       if (typeof console !== "undefined" && console.warn) {
         console.warn("[candidatura] POST fallita", api, e && e.message);

@@ -930,9 +930,13 @@ module.exports = {
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
-          "<:blueflash:1470064803157643468> Possibilità di creare un **ruolo personalizzato** e una **vocale privata personalizzata**",
+          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
+          "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
           "<:exp:1470067108543987846> X2 EXP Boost",
+          "",
+          "Inoltre boostando il server due volte sbloccherai altri vantaggi:",
+          "<:VC_Dot:1482532364222595303> <@&${IDs.roles.ServerBooster}> con badge speciale",
         ].join("\n"))
         .setImage(DIVIDER_URL);
 

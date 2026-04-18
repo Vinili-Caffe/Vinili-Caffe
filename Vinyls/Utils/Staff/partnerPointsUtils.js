@@ -1,5 +1,14 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
+const PARTNER_MANAGER_REDEEM_TIERS = [50, 75, 150];
+
+function partnerManagerRedeemTierFromAction(action) {
+  const m = String(action || "").match(/^ppm_r(\d+)$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return PARTNER_MANAGER_REDEEM_TIERS.includes(n) ? n : null;
+}
+
 function formatPartnerPointsChange(action, amount) {
   const safeAmount = Number(amount || 0);
   const isSingular = Math.abs(safeAmount) === 1;
@@ -60,6 +69,8 @@ async function removePartnerPoints(guildId, userId, amount) {
 }
 
 module.exports = {
+  PARTNER_MANAGER_REDEEM_TIERS,
+  partnerManagerRedeemTierFromAction,
   addPartnerPoints,
   removePartnerPoints,
   formatPartnerPointsChange,

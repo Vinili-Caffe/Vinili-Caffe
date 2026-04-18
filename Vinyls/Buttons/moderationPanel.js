@@ -274,7 +274,7 @@ async function execute(interaction, client) {
       }
       const guild = resolveGuildFromInteraction(interaction, parsed);
       if (!guild) {
-        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
         return true;
       }
       const action = String(interaction.values?.[0] || "").toLowerCase();
@@ -291,7 +291,7 @@ async function execute(interaction, client) {
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
       return true;
     }
     const section = String(interaction.values?.[0] || SECTION_HOME);
@@ -330,7 +330,7 @@ async function execute(interaction, client) {
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
@@ -347,7 +347,7 @@ async function execute(interaction, client) {
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello con `+moderazione`.");
+      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
