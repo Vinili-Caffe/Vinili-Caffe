@@ -108,6 +108,12 @@ function encodeViewState(state) {
   return `${normalized.user ? 1 : 0}${normalized.server ? 1 : 0}`;
 }
 
+/** Hash Discord: `a_` = avatar animato (GIF sul CDN). */
+function avatarExtensionFromHash(hash) {
+  if (!hash || typeof hash !== "string") return "png";
+  return hash.startsWith("a_") ? "gif" : "png";
+}
+
 function buildAvatarRows(requesterId, targetUserId, mode = "user", viewState = null) {
   const activeMode = mode === "server" ? "server" : "user";
   const stateToken = encodeViewState(viewState);
@@ -163,9 +169,16 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
     return { embeds: [blockedEmbed], components: [row] };
   }
 
-  const userAvatar = user.displayAvatarURL({ extension: "png", size: 4096, forceStatic: true });
-  const memberAvatar = member?.displayAvatarURL?.({ extension: "png", size: 4096, forceStatic: true }) || userAvatar;
-  const hasServerAvatar = memberAvatar !== userAvatar;
+  const userExt = avatarExtensionFromHash(user.avatar);
+  const userAvatar = user.displayAvatarURL({ extension: userExt, size: 4096 });
+  const memberAvatar =
+    member?.avatar != null
+      ? member.displayAvatarURL({
+          extension: avatarExtensionFromHash(member.avatar),
+          size: 4096,
+        })
+      : userAvatar;
+  const hasServerAvatar = Boolean(member?.avatar);
   const activeMode = mode === "server" ? "server" : "user";
   const imageUrl = activeMode === "server" ? memberAvatar : userAvatar;
   const canCountThisMode = activeMode === "user" || hasServerAvatar;
@@ -195,7 +208,10 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
   const authorLabel = member?.displayName || member?.user?.username || user.tag;
   const embed = new EmbedBuilder()
     .setTitle(activeMode === "user" ? "User Avatar" : "Server Avatar")
-    .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL({ extension: "png", size: 256, forceStatic: true }) })
+    .setAuthor({
+      name: authorLabel,
+      iconURL: user.displayAvatarURL({ extension: userExt, size: 256 }),
+    })
     .setColor("#6f4e37")
     .setFooter({
       text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il comando +profile.\n${totalViews} Views 👁️`,

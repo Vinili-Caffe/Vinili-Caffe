@@ -394,10 +394,10 @@
   }
 
   async function submitCandidature() {
-    var api = String(cfgCandidature().submitApiUrl || "").trim();
+    var api = resolvedSubmitApiUrl();
     if (!api) {
       alert(
-        "Manca candidatureSubmitApiUrl in site.config.json (URL del bot che riceve POST /webhooks/site-candidature, es. https://www.viniliecaffe.it/webhooks/site-candidature dietro proxy).",
+        "Manca l’URL API candidature: in site.config.json imposta candidatureSubmitApiUrl (produzione) e, per provare da localhost, anche candidatureSubmitApiUrlLocal (stessa base URL del bot, es. http://127.0.0.1:3000/webhooks/site-candidature). Poi rifai il build del sito.",
       );
       return;
     }
@@ -454,7 +454,9 @@
           String(api || "") +
           "). Origine: " +
           (pageOrigin || "?") +
-          ". Se sei in locale: avvia il bot con WEBSITE_CANDIDATURE_HTTP=1 e CORS con questa origine; controlla che candidatureSubmitApiUrlLocal in site.config coincida con la porta HTTP del bot. Se invece usi l’API di produzione da localhost, serve WEBSITE_CANDIDATURE_CORS_ORIGIN sul server con questa origine.",
+          ". In locale: 1) bot avviato con WEBSITE_CANDIDATURE_HTTP=1; 2) stessa porta di Vinyls/config discadia.webhookPort (di solito 3000); 3) candidatureSubmitApiUrlLocal in site.config come http://localhost:3000/webhooks/site-candidature se apri il sito su localhost; 4) prova nel browser " +
+          String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "") +
+          "/webhooks/status — se non risponde JSON, il server HTTP del bot non è in ascolto. Ricarica la pagina (Ctrl+F5) dopo ogni build.",
       );
       if (typeof console !== "undefined" && console.warn) {
         console.warn("[candidatura] POST fallita", api, e && e.message);
