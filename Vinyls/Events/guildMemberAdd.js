@@ -29,7 +29,7 @@ const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
 const VOTE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [
   IDs.roles.VIP,
-  IDs.roles.ServerBooster,
+  IDs.roles.DoubleBooster,
   IDs.roles.Level50,
 ].filter(Boolean);
 const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1468938195348754515",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];

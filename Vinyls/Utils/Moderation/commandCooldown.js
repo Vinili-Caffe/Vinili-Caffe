@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const ROLE_COOLDOWN_BYPASS = IDs.roles.Staff;
+const ROLE_DOUBLE_BOOSTER = IDs.roles.DoubleBooster;
 const ROLE_LEVEL_30 = IDs.roles.Level30;
 const ROLE_LEVEL_50 = IDs.roles.Level50;
 const ROLE_LEVEL_100 = IDs.roles.Level100;
@@ -41,6 +42,7 @@ function computeCooldownSeconds(member, level) {
 
   if (hasBypassRole) return 0;
   if (hasRole100 || level >= 100) return 0;
+  if (hasRole(member, ROLE_DOUBLE_BOOSTER)) return 5;
   if (hasRole50 || level >= 50) return 5;
   if (hasRole30 || level >= 30) return 15;
   return 30;

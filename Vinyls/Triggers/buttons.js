@@ -794,7 +794,7 @@ module.exports = {
           "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
           "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
           "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
-          "<:VC_Dot:1482532364222595303> X3 EXP boost",
+          "<:VC_Dot:1482532364222595303> X4 EXP boost",
         ].join("\n"))
         .setImage(DIVIDER_URL);
 
@@ -815,7 +815,7 @@ module.exports = {
           "<:VC_Dot:1482532364222595303> Possibilità di creare una vocale privata per te e i tuoi amici",
           "<:VC_Dot:1482532364222595303> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
           "<:VC_Dot:1482532364222595303> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
-          "<:VC_Dot:1482532364222595303> X4 EXP boost",
+          "<:VC_Dot:1482532364222595303> X5 EXP boost",
           "",
           "<:VC_Attention:1482534443632558151> DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.",
           "I vantaggi segnati con \"✩\" vengono rimossi qualora l'utente violi il regolamento, porti un'immagine negativa al server o sia inattivo per mesi.",
@@ -933,17 +933,15 @@ module.exports = {
           "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
-          "<:exp:1470067108543987846> X2 EXP Boost",
           "",
           "<a:VC_Boost:1482706171386269830> **Inoltre boostando il server due volte sbloccherai altri vantaggi:**",
-          `<:sparkledred:1470064814502973591> Ruolo <@&1494996567214788818> con badge speciale`,
+          `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.DoubleBooster}> con badge speciale`,
           "<:moon:1470064812615667827> Tutti i perks precedenti",
-          "<:pinkstar:1470064804835229768> Aggiungere reazioni ai messaggi",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard esterne",
           "<:blueflash:1470064803157643468> Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**",
           "<a:VC_CrownYellow:1482706085440651428> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
           "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway",
-          "<:exp:1470067108543987846> X3 EXP Boost",
+          "<:exp:1470067108543987846> X3 EXP Boost (moltiplicatore ruolo Double Booster)",
         ].join("\n"))
         .setImage(DIVIDER_URL);
 

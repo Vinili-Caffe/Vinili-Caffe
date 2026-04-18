@@ -70,7 +70,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   level: "Configura il sistema livelli: imposta o modifica livelli, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
   staff: "Pannello profilo staff/Partner Manager; riscatto premi PM (50/75/150 pt): pulsanti visibili a HS/Founder/Co-Founder con +staff @PartnerManager.",
-  };
+};
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",

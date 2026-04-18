@@ -31,7 +31,7 @@ const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
 const CUSTOM_ROLE_VOC_ROLE_IDS = [
   IDs?.roles?.VIP,
-  IDs?.roles?.ServerBooster,
+  IDs?.roles?.DoubleBooster,
   IDs?.roles?.Level50,
 ].filter(Boolean);
 const CONTEST_CHANNEL_MOBILE_ID = String(IDs.channels?.contestSfondiMobile || "").trim();
@@ -670,7 +670,7 @@ async function ensureCustomReactionEnabled(interaction, ownerId, client) {
   if (status === "active") return true;
   await interaction.reply({
     content:
-      "<:VC_Attention:1482534443632558151> Serve VIP, Booster o Level 70 (come da profilo), oppure un custom role attivo. Usa `+profile`.",
+      "<:VC_Attention:1482534443632558151> Serve VIP, **Server Booster** (reazioni), **Double Booster**, Level 70 o un custom role attivo. Usa `+profile`.",
     flags: PRIVATE_FLAG,
   }).catch(() => { });
   return false;

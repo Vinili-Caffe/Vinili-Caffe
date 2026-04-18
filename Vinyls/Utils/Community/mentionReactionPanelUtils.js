@@ -5,6 +5,7 @@ const MAX_REACTIONS = 3;
 
 const CUSTOM_REACTION_ROLE_IDS = [
   IDs?.roles?.VIP,
+  IDs?.roles?.DoubleBooster,
   IDs?.roles?.ServerBooster,
   IDs?.roles?.Level70,
 ].filter(Boolean);

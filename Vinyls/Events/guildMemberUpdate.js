@@ -20,6 +20,12 @@ const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
 const {
+  getAnnouncedBoostSlots,
+  setAnnouncedBoostSlots,
+  addAnnouncedBoostSlots,
+  deleteAnnouncedBoostSlots,
+} = require("../Utils/Community/boostSlotAnnounceTracker");
+const {
   shouldSendPublicMemberAnnouncement,
   normalVerificationCompletedBetween,
 } = require("../Utils/Community/memberPublicAnnouncementGate");
@@ -36,13 +42,21 @@ const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
 
 const PLUS_COLOR_REQUIRED_ROLE_IDS=[IDs.roles.ServerBooster,IDs.roles.Level50,IDs.roles.Level70,IDs.roles.Donator,IDs.roles.vip,].filter(Boolean);
+/** Ruoli che mantengono custom role / vocale privata (senza Server Booster: serve Double Booster). */
+const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [
+  IDs.roles.VIP,
+  IDs.roles.DoubleBooster,
+  IDs.roles.Level50,
+  IDs.roles.Level70,
+  IDs.roles.Donator,
+  IDs.roles.vip,
+].filter(Boolean);
 const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,IDs.roles.YinYangPlus,].filter(Boolean);
 
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
-/** Slot boost per cui abbiamo già inviato l'embed (main); al ≥2 si assegna Double Booster. */
-const memberBoostSlotAnnounceByKey = new Map();
+/** Slot boost per cui abbiamo già inviato l'embed (main); al ≥2 si assegna Double Booster. Vedi `boostSlotAnnounceTracker`. */
 function isPrimaryShard(client) {
   return !client?.shard || client.shard.ids?.[0] === 0;
 }
@@ -458,11 +472,9 @@ async function trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guildI
   const role = member.guild.roles.cache.get(doubleId);
   if (!role || role.position >= me.roles.highest.position) return;
 
-  const key = `${guildId}:${member.id}`;
   const add = Math.max(0, Number(times || 0));
   if (!add) return;
-  const next = Number(memberBoostSlotAnnounceByKey.get(key) || 0) + add;
-  memberBoostSlotAnnounceByKey.set(key, next);
+  const next = addAnnouncedBoostSlots(guildId, member.id, add);
   if (next < 2 || member.roles.cache.has(doubleId)) return;
   const ok = await member.roles.add(doubleId).then(() => true).catch(() => false);
   if (!ok) {
@@ -667,8 +679,63 @@ function computeBoostDelta(oldMember, newMember, guildId) {
   );
   const countIncreased = currentCount > effectivePrev;
   const boostDelta = countIncreased ? Math.max(1, currentCount - effectivePrev) : 0;
+  const guildBoostDecreased = currentCount < effectivePrev;
+  const boostDrop = guildBoostDecreased ? Math.max(0, effectivePrev - currentCount) : 0;
 
-  return { currentCount, countIncreased, boostDelta };
+  return { currentCount, countIncreased, boostDelta, effectivePrev, guildBoostDecreased, boostDrop };
+}
+
+async function auditShowsRecentPremiumSinceChangeForMember(guild, memberId, maxAgeMs = 15000) {
+  if (!guild?.members?.me?.permissions?.has?.(PermissionsBitField.Flags.ViewAuditLog)) return false;
+  const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: 25 }).catch(() => null);
+  if (!logs?.entries?.size) return false;
+  const now = Date.now();
+  const mid = String(memberId || "");
+  for (const entry of logs.entries.values()) {
+    if (String(entry.targetId || "") !== mid) continue;
+    const age = now - entry.createdTimestamp;
+    if (age > maxAgeMs || age < 0) continue;
+    const changes = entry.changes || [];
+    if (changes.some((c) => String(c.key) === "premium_since")) return true;
+  }
+  return false;
+}
+
+async function maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, guildId, drop }) {
+  const mainId = String(IDs.guilds.main || "");
+  const doubleBoosterId = IDs?.roles?.DoubleBooster || null;
+  if (!doubleBoosterId || mainId !== String(guildId) || !newMember?.roles?.cache) return;
+  if (!newMember.roles.cache.has(doubleBoosterId)) return;
+  const newBoostTs = newMember.premiumSinceTimestamp || 0;
+  if (!newBoostTs) return;
+  const d = Math.max(0, Math.floor(Number(drop || 0)));
+  if (d < 1) return;
+
+  const oldBoostTs = oldMember.premiumSinceTimestamp || 0;
+  const premiumChanged = (oldBoostTs || 0) !== (newBoostTs || 0);
+  let treatAsThisMemberBoostChange = premiumChanged;
+  if (!treatAsThisMemberBoostChange) {
+    treatAsThisMemberBoostChange = await auditShowsRecentPremiumSinceChangeForMember(newMember.guild, newMember.id);
+  }
+  if (!treatAsThisMemberBoostChange) return;
+
+  let slots = getAnnouncedBoostSlots(guildId, newMember.id);
+  if (slots < 2) slots = 2;
+  slots = Math.max(0, slots - d);
+  setAnnouncedBoostSlots(guildId, newMember.id, slots);
+
+  if (slots < 2) {
+    const me = newMember.guild.members.me;
+    const role = newMember.guild.roles.cache.get(doubleBoosterId);
+    if (
+      me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) &&
+      role &&
+      role.position < me.roles.highest.position
+    ) {
+      await newMember.roles.remove(doubleBoosterId).catch(() => {});
+    }
+  }
+  if (slots <= 0) deleteAnnouncedBoostSlots(guildId, newMember.id);
 }
 
 function scheduleBoostFollowup(
@@ -728,7 +795,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     !newBoostTs &&
     newMember.roles.cache.has(doubleBoosterId)
   ) {
-    memberBoostSlotAnnounceByKey.delete(boostKey);
+    deleteAnnouncedBoostSlots(guildId, newMember.id);
     const me = newMember.guild.members.me;
     const role = newMember.guild.roles.cache.get(doubleBoosterId);
     if (
@@ -740,7 +807,13 @@ async function handleBoostUpdate(oldMember, newMember) {
     }
   }
 
-  const{currentCount,countIncreased,boostDelta}=computeBoostDelta(oldMember,newMember,guildId,);
+  const { currentCount, countIncreased, boostDelta, guildBoostDecreased, boostDrop } = computeBoostDelta(oldMember, newMember, guildId);
+  if (guildBoostDecreased && boostDrop > 0) {
+    await maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, guildId, drop: boostDrop }).catch((err) => {
+      global.logger?.warn?.("[guildMemberUpdate] Double Booster partial revoke:", newMember?.id, err?.message || err);
+    });
+  }
+
   const alreadyBoostingBefore = oldBoostTs > 0;
   const startedBoostingNow = !alreadyBoostingBefore && newBoostTs > 0;
   const boosterRoleId = IDs?.roles?.ServerBooster || null;
@@ -1074,7 +1147,7 @@ async function syncCustomVocEligibilityWindow(newMember) {
   const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
   if (!doc?.customVocChannelId) return;
 
-  const hasRequiredRole = PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
+  const hasRequiredRole = CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
   const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
   const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant;
@@ -1106,7 +1179,7 @@ async function syncCustomRoleEligibilityWindow(newMember) {
   const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
   if (!doc?.roleId) return;
 
-  const hasRequiredRole = PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
+  const hasRequiredRole = CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
   const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
   const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant;

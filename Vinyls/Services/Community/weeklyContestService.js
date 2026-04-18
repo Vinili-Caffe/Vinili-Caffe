@@ -101,7 +101,7 @@ const STAFF_ROLE_IDS = new Set(
 );
 
 const PREMIUM_ROLE_IDS = new Set(
-  [IDs.roles?.VIP, IDs.roles?.Donator, IDs.roles?.ServerBooster].filter(Boolean).map((id) => String(id)),
+  [IDs.roles?.VIP, IDs.roles?.Donator, IDs.roles?.ServerBooster, IDs.roles?.DoubleBooster].filter(Boolean).map((id) => String(id)),
 );
 
 const CHANNEL_TO_CATEGORY = new Map(

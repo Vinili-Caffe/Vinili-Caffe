@@ -8,32 +8,31 @@ const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
+const { PARTNER_MANAGER_REDEEM_TIERS } = require("./partnerPointsUtils");
 
 function resolveStaffPartnerPointsDisplay(staffObj) {
   return resolvePartnerPointsShown(staffObj);
 }
 
-/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder / Co-Founder) sul profilo **di un altro** PM. */
-function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
+/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder / Co-Founder) sul profilo **di un altro** PM. Mostra solo tier con saldo ≥ soglia. */
+function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, partnerPointsShown = 0) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_r50", v, t, sec, sourceMessageId))
-        .setLabel("Riscatto 50 pt")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_r75", v, t, sec, sourceMessageId))
-        .setLabel("Riscatto 75 pt")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_r150", v, t, sec, sourceMessageId))
-        .setLabel("Riscatto 150 pt")
-        .setStyle(ButtonStyle.Primary),
-    ),
-  ];
+  const pts = Math.max(0, Math.floor(Number(partnerPointsShown || 0)));
+  const tiers = PARTNER_MANAGER_REDEEM_TIERS.filter((n) => pts >= n);
+  if (!tiers.length) return [];
+  const buttons = tiers.map((tier) =>
+    new ButtonBuilder()
+      .setCustomId(formatStaffHpButtonCustomId(`ppm_r${tier}`, v, t, sec, sourceMessageId))
+      .setLabel(`Riscatto ${tier} pt`)
+      .setStyle(ButtonStyle.Primary),
+  );
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+  }
+  return rows;
 }
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
@@ -655,9 +654,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
   }
 
+  const partnerPtsForRedeem = resolveStaffPartnerPointsDisplay(s);
   const pmStaffRedeemRows =
     sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
-      ? buildPartnerManagerRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId)
+      ? buildPartnerManagerRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId, partnerPtsForRedeem)
       : [];
   const homeBottomRows = [...partnerHomeRows, ...pmStaffRedeemRows];
 
@@ -701,7 +701,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   if ((profileKind === PROFILE_PM_ONLY || usePartnersChatPmPanel) && sec === SECTION_HOME) {
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
-    const punti = resolveStaffPartnerPointsDisplay(s);
+    const punti = partnerPtsForRedeem;
     const pmHomeDesc = [
       `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
       "",

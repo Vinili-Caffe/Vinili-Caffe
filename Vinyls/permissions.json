@@ -673,7 +673,7 @@
         "customrole_color:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -681,7 +681,7 @@
         "customrole_delete:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -689,7 +689,7 @@
         "customrole_emoji:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -698,7 +698,7 @@
             "roles": [
                 "roles.VIP",
                 "roles.donator",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50",
                 "roles.Level70"
             ],
@@ -707,7 +707,7 @@
         "customrole_members:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -715,7 +715,7 @@
         "customrole_name:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -723,7 +723,7 @@
         "customvoc_emoji:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -731,7 +731,7 @@
         "customvoc_name:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -1218,7 +1218,7 @@
         "customrole_add_select:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -1226,7 +1226,7 @@
         "customrole_color_type_select:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -1234,7 +1234,7 @@
         "customrole_remove_select:*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -1318,7 +1318,7 @@
         "customrole_modal_*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
@@ -1326,7 +1326,7 @@
         "customvoc_modal_*": {
             "roles": [
                 "roles.VIP",
-                "roles.ServerBooster",
+                "roles.DoubleBooster",
                 "roles.Level50"
             ],
             "ownerSegment": 1
