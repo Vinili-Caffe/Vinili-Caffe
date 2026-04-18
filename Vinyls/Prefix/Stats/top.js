@@ -118,21 +118,15 @@ async function resolveTopUserEntriesForCanvas(guild, entries = []) {
     const cachedMember = guild.members.cache.get(userId);
     const fetchedMember =
       cachedMember || (await getGuildMemberCached(guild, userId).catch(() => null));
-    if (fetchedMember) {
-      raw =
-        fetchedMember.displayName ||
-        fetchedMember.user?.globalName ||
-        fetchedMember.user?.username ||
-        "";
-    }
-    if (!raw && guild.client?.users?.fetch) {
+    let userObj = fetchedMember?.user || null;
+    if (!userObj && guild.client?.users?.fetch) {
       try {
-        const u = await guild.client.users.fetch(userId);
-        raw = u?.globalName || u?.username || "";
+        userObj = await guild.client.users.fetch(userId);
       } catch (_) {
-        raw = "";
+        userObj = null;
       }
     }
+    if (userObj) raw = String(userObj.username || "").trim();
     const label = normalizeCanvasLabel(raw, `utente_${userId.slice(-6)}`);
     out.push({
       id: userId,
