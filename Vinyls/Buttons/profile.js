@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
 const { WeeklyContestBundle } = require("../Schemas/Community/weeklyContestSchemas");
-const { EVENT_KEY, contestVoteRemainingSlots } = require("../Services/Community/weeklyContestService");
+const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
@@ -34,8 +34,10 @@ const CUSTOM_ROLE_VOC_ROLE_IDS = [
   IDs?.roles?.DoubleBooster,
   IDs?.roles?.Level50,
 ].filter(Boolean);
-const CONTEST_CHANNEL_MOBILE_ID = String(IDs.channels?.contestSfondiMobile || "").trim();
-const CONTEST_CHANNEL_PC_ID = String(IDs.channels?.contestSfondiPc || "").trim();
+const CONTEST_CHANNEL_MOBILE_ID = IS_DISEGNI_CONTEST
+  ? String(IDs.channels?.contestDisegni || "").trim()
+  : String(IDs.channels?.contestSfondiMobile || "").trim();
+const CONTEST_CHANNEL_PC_ID = IS_DISEGNI_CONTEST ? "" : String(IDs.channels?.contestSfondiPc || "").trim();
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
   const match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
@@ -447,6 +449,25 @@ function buildSectionEmbed(section, state, user, guild = null) {
     const votesState = state?.contestVotes || {};
     const mobileTargets = Array.isArray(votesState.mobileTargets) ? votesState.mobileTargets : [];
     const pcTargets = Array.isArray(votesState.pcTargets) ? votesState.pcTargets : [];
+    if (IS_DISEGNI_CONTEST) {
+      const lines = mobileTargets.length
+        ? mobileTargets
+          .slice(0, 12)
+          .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
+        : ["- Nessun voto registrato."];
+      return base.setDescription([
+        "<:VC_PinkQuestionMark:1471892611026391306> Stato voti del **contest disegni** (stessa logica degli sfondi: ruoli, bonus top 3, ecc.).",
+        "",
+        `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
+        `<:VC_Dot:1482532364222595303> Voti usati: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,
+        `<:VC_Dot:1482532364222595303> Voti ancora disponibili: **${remM}**`,
+        "",
+        "**Per chi hai votato**",
+        ...lines,
+        "",
+        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina.",
+      ].join("\n"));
+    }
     const mobileLines = mobileTargets.length
       ? mobileTargets
         .slice(0, 8)
@@ -485,7 +506,9 @@ function buildSectionEmbed(section, state, user, guild = null) {
       `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
       `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
       `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
-      `<a:VC_Events:1482706144953897223> Contest sfondi — voti disponibili: **Mobile** ${remM} · **PC** ${remP}`,
+      IS_DISEGNI_CONTEST
+        ? `<a:VC_Events:1482706144953897223> Contest disegni — voti disponibili: **${remM}**`
+        : `<a:VC_Events:1482706144953897223> Contest sfondi — voti disponibili: **Mobile** ${remM} · **PC** ${remP}`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
@@ -502,7 +525,12 @@ function buildRows(ownerId, section, state = null) {
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
-    { label: "Evento Sfondi", value: SECTION_EVENT_VOTES, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_EVENT_VOTES },
+    {
+      label: IS_DISEGNI_CONTEST ? "Contest disegni" : "Evento Sfondi",
+      value: SECTION_EVENT_VOTES,
+      emoji: "<a:VC_Events:1482706144953897223>",
+      default: section === SECTION_EVENT_VOTES,
+    },
   ];
   if (canAccessCustomRoleVoc) {
     selectOptions.push(

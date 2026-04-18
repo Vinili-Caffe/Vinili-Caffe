@@ -9,7 +9,7 @@ const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPm
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
-const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_BOT_HIERARCHY, ROLE_TRY_AGAIN, ROLE_DM_OLD_STATE, ROLE_COLOR_OLD, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
+const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_TRY_AGAIN, ROLE_DM_OLD_STATE, ROLE_COLOR_OLD, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
@@ -515,11 +515,6 @@ module.exports = {
           } else {
             await removeMemberRolesSequential(member, rolesToRemoveExisting);
           }
-          const refreshedMember = await interaction.guild?.members?.fetch?.(interaction.user.id).catch((err) => { logButtonErr(err); return null; });
-          const stillHasManagedRole = rolesToRemoveExisting.some((roleId) => refreshedMember?.roles?.cache?.has?.(roleId));
-          if (stillHasManagedRole) {
-            return replyOrEdit({ content: ROLE_BOT_HIERARCHY });
-          }
           return replyOrEdit({ content: ROLE_REMOVED });
         }
         if (menuId === "personality_colors_plus") {
@@ -933,6 +928,7 @@ module.exports = {
           "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
+          "<:exp:1470067108543987846> X2 EXP Boost",
           "",
           "<a:VC_Boost:1482706171386269830> **Inoltre boostando il server due volte sbloccherai altri vantaggi:**",
           `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.DoubleBooster}> con badge speciale`,
@@ -941,7 +937,7 @@ module.exports = {
           "<:blueflash:1470064803157643468> Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**",
           "<a:VC_CrownYellow:1482706085440651428> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
           "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway",
-          "<:exp:1470067108543987846> X3 EXP Boost (moltiplicatore ruolo Double Booster)",
+          "<:exp:1470067108543987846> X3 EXP Boost",
         ].join("\n"))
         .setImage(DIVIDER_URL);
 

@@ -17,15 +17,25 @@ function parseEnvFlag(raw, defaultWhenEmpty = false) {
   return s === "1" || s === "true" || s === "yes";
 }
 
-const EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_SFONDI_EVENT_KEY || "sfondi-2026-04-13").trim();
+/** `sfondi` (default) = due canali mobile/pc. `disegni` = un solo canale submission (categoria `mobile` in DB). */
+const ACTIVE_CONTEST_PROFILE = String(process.env.WEEKLY_CONTEST_ACTIVE_PROFILE || "sfondi").trim().toLowerCase();
+const IS_DISEGNI_CONTEST = ACTIVE_CONTEST_PROFILE === "disegni";
+
+const SFONDI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_SFONDI_EVENT_KEY || "sfondi-2026-04-13").trim();
+const DISEGNI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_DISEGNI_EVENT_KEY || "disegni-2026-04-20").trim();
+const EVENT_KEY_PRODUCTION = IS_DISEGNI_CONTEST ? DISEGNI_EVENT_KEY_PRODUCTION : SFONDI_EVENT_KEY_PRODUCTION;
 const CONTEST_TEST_MODE = parseEnvFlag(process.env.WEEKLY_CONTEST_SFONDI_TEST_MODE, false);
 const EVENT_KEY_TEST = String(process.env.WEEKLY_CONTEST_SFONDI_TEST_EVENT_KEY || "sfondi-sandbox").trim();
 const EVENT_KEY = CONTEST_TEST_MODE ? EVENT_KEY_TEST : EVENT_KEY_PRODUCTION;
 const CONTEST_TEST_IGNORE_TIME_WINDOW =
   CONTEST_TEST_MODE && parseEnvFlag(process.env.WEEKLY_CONTEST_SFONDI_TEST_IGNORE_TIME_WINDOW, true);
 
-const CONTEST_FIRST_DAY = String(process.env.WEEKLY_CONTEST_SFONDI_FIRST_DAY || "2026-04-13").trim();
-const CONTEST_LAST_DAY = String(process.env.WEEKLY_CONTEST_SFONDI_LAST_DAY || "2026-04-19").trim();
+const SFONDI_FIRST_DAY = String(process.env.WEEKLY_CONTEST_SFONDI_FIRST_DAY || "2026-04-13").trim();
+const SFONDI_LAST_DAY = String(process.env.WEEKLY_CONTEST_SFONDI_LAST_DAY || "2026-04-19").trim();
+const DISEGNI_FIRST_DAY = String(process.env.WEEKLY_CONTEST_DISEGNI_FIRST_DAY || "2026-04-20").trim();
+const DISEGNI_LAST_DAY = String(process.env.WEEKLY_CONTEST_DISEGNI_LAST_DAY || "2026-04-26").trim();
+const CONTEST_FIRST_DAY = IS_DISEGNI_CONTEST ? DISEGNI_FIRST_DAY : SFONDI_FIRST_DAY;
+const CONTEST_LAST_DAY = IS_DISEGNI_CONTEST ? DISEGNI_LAST_DAY : SFONDI_LAST_DAY;
 
 function parseOptionalContestEpochMs(raw) {
   const n = Number(raw);
@@ -56,20 +66,35 @@ function createUtcFromRomeLocal(year, month, day, hour, minute, second) {
   return new Date(utcMs);
 }
 
-// Default: lunedì 13 aprile 2026, 12:00 Europe/Rome
-const CONTEST_WINDOW_START_MS =
+// Sfondi default: lunedì 13 aprile 2026, 12:00 Europe/Rome → domenica 19, 21:00 Roma
+const SFONDI_WINDOW_START_MS =
   parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_SFONDI_START_MS) ??
   createUtcFromRomeLocal(2026, 4, 13, 12, 0, 0).getTime();
-const CONTEST_WINDOW_END_MS =
+const SFONDI_WINDOW_END_MS =
   parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_SFONDI_END_MS) ??
   createUtcFromRomeLocal(2026, 4, 19, 21, 0, 0).getTime();
+// Disegni: come sfondi — lunedì 20 aprile 12:00 Europe/Rome → domenica 26, 21:00 Roma
+const DISEGNI_WINDOW_START_MS =
+  parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_DISEGNI_START_MS) ??
+  createUtcFromRomeLocal(2026, 4, 20, 12, 0, 0).getTime();
+const DISEGNI_WINDOW_END_MS =
+  parseOptionalContestEpochMs(process.env.WEEKLY_CONTEST_DISEGNI_END_MS) ??
+  createUtcFromRomeLocal(2026, 4, 26, 21, 0, 0).getTime();
 
 function getContestWindowMs() {
-  return { start: CONTEST_WINDOW_START_MS, end: CONTEST_WINDOW_END_MS };
+  return IS_DISEGNI_CONTEST
+    ? { start: DISEGNI_WINDOW_START_MS, end: DISEGNI_WINDOW_END_MS }
+    : { start: SFONDI_WINDOW_START_MS, end: SFONDI_WINDOW_END_MS };
 }
 
-const CHANNEL_MOBILE_ID = String(IDs.channels?.contestSfondiMobile || "").trim();
-const CHANNEL_PC_ID = String(IDs.channels?.contestSfondiPc || "").trim();
+const CHANNEL_MOBILE_ID = String(
+  IS_DISEGNI_CONTEST
+    ? process.env.WEEKLY_CONTEST_DISEGNI_CHANNEL_ID || IDs.channels?.contestDisegni || ""
+    : process.env.WEEKLY_CONTEST_SFONDI_MOBILE_CHANNEL_ID || IDs.channels?.contestSfondiMobile || "",
+).trim();
+const CHANNEL_PC_ID = String(
+  IS_DISEGNI_CONTEST ? "" : process.env.WEEKLY_CONTEST_SFONDI_PC_CHANNEL_ID || IDs.channels?.contestSfondiPc || "",
+).trim();
 const CHANNEL_BONUS_ANNOUNCE_ID = String(IDs.channels?.contestBonusVotesAnnounce || "").trim();
 const INFO_CHANNEL_ID = String(IDs.channels?.info || "").trim();
 
@@ -107,9 +132,11 @@ const PREMIUM_ROLE_IDS = new Set(
 const CHANNEL_TO_CATEGORY = new Map(
   [
     [CHANNEL_MOBILE_ID, "mobile"],
-    [CHANNEL_PC_ID, "pc"],
+    ...(CHANNEL_PC_ID ? [[CHANNEL_PC_ID, "pc"]] : []),
   ].filter(([id]) => id),
 );
+
+const CONTEST_SUBMISSION_KIND_LABEL = IS_DISEGNI_CONTEST ? "disegno" : "sfondo";
 
 function normalizeSubmissionsCategoryMap(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -259,7 +286,7 @@ async function buildWeeklyContestSubmissionPayload(message, client) {
   const embed = new EmbedBuilder()
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setAuthor({
-      name: `Sfondo di ${display}`,
+      name: `${CONTEST_SUBMISSION_KIND_LABEL === "disegno" ? "Disegno" : "Sfondo"} di ${display}`,
       ...(avatarUrl ? { iconURL: avatarUrl } : {}),
     });
   const files = [];
@@ -407,7 +434,7 @@ async function ensureContestChannelsHideReactionCounts(client) {
   const guild = await client.guilds.fetch(gid).catch(() => null);
   if (!guild?.roles?.everyone?.id) return;
   const everyoneId = guild.roles.everyone.id;
-  for (const cid of [CHANNEL_MOBILE_ID, CHANNEL_PC_ID]) {
+  for (const cid of [CHANNEL_MOBILE_ID, CHANNEL_PC_ID].filter(Boolean)) {
     if (!cid) continue;
     const ch =
       guild.channels.cache.get(cid) || (await guild.channels.fetch(cid).catch(() => null));
@@ -427,7 +454,8 @@ async function runContestMemberSendChannelsOpenJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   const memberRoleId = MEMBER_ROLE_ID;
-  if (!memberRoleId || !CHANNEL_MOBILE_ID || !CHANNEL_PC_ID) return;
+  if (!memberRoleId || !CHANNEL_MOBILE_ID) return;
+  if (!IS_DISEGNI_CONTEST && !CHANNEL_PC_ID) return;
 
   const firstDay = String(CONTEST_FIRST_DAY || "").trim();
   if (!firstDay) return;
@@ -444,7 +472,8 @@ async function runContestMemberSendChannelsOpenJob(client) {
   const guild = await client.guilds.fetch(gid).catch(() => null);
   if (!guild) return;
 
-  for (const cid of [CHANNEL_MOBILE_ID, CHANNEL_PC_ID]) {
+  const openIds = [CHANNEL_MOBILE_ID, CHANNEL_PC_ID].filter(Boolean);
+  for (const cid of openIds) {
     const ch = guild.channels.cache.get(cid) || (await guild.channels.fetch(cid).catch(() => null));
     if (!ch?.permissionOverwrites?.edit) {
       global.logger?.warn?.("[WEEKLY_CONTEST] apertura Member SendMessages: canale non editabile:", cid);
@@ -626,7 +655,7 @@ async function handleWeeklyContestVoteButton(interaction) {
   if (String(submission.userId || "").trim() === voterId) {
     await safeEditReply(interaction, {
       content:
-        "<:VC_Attention:1482534443632558151> **Non puoi votare per te stesso:** non si possono dare o togliere voti sul **proprio** sfondo.",
+        `<:VC_Attention:1482534443632558151> **Non puoi votare per te stesso:** non si possono dare o togliere voti sul **proprio** ${CONTEST_SUBMISSION_KIND_LABEL}.`,
       flags: MessageFlags.Ephemeral,
     }).catch(() => {});
     return true;
@@ -749,7 +778,7 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       if (oldAlive) {
         const warn = await message.channel
           .send({
-            content: `${message.author} Hai già inviato **uno sfondo** in questa categoria.`,
+            content: `${message.author} Hai già inviato **un ${CONTEST_SUBMISSION_KIND_LABEL}** in questa categoria.`,
             allowedMentions: { users: [message.author.id] },
           })
           .catch(() => null);
@@ -951,18 +980,26 @@ async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, to
       ].join("\n"),
     )
     .setThumbnail(guild.iconURL({ size: 256 }) || null);
-  const buttons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setLabel("Sfondi Mobile")
-      .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_FrogCute:1331620415185096746>")
-      .setURL(`https://discord.com/channels/${guild.id}/${CHANNEL_MOBILE_ID}`),
-    new ButtonBuilder()
-      .setLabel("Sfondi PC")
-      .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_FrogJuice:1331620486517358613>")
-      .setURL(`https://discord.com/channels/${guild.id}/${CHANNEL_PC_ID}`),
-  );
+  const buttons = CHANNEL_PC_ID
+    ? new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel("Sfondi Mobile")
+          .setStyle(ButtonStyle.Link)
+          .setEmoji("<:VC_FrogCute:1331620415185096746>")
+          .setURL(`https://discord.com/channels/${guild.id}/${CHANNEL_MOBILE_ID}`),
+        new ButtonBuilder()
+          .setLabel("Sfondi PC")
+          .setStyle(ButtonStyle.Link)
+          .setEmoji("<:VC_FrogJuice:1331620486517358613>")
+          .setURL(`https://discord.com/channels/${guild.id}/${CHANNEL_PC_ID}`),
+      )
+    : new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel("Canale contest")
+          .setStyle(ButtonStyle.Link)
+          .setEmoji("🎨")
+          .setURL(`https://discord.com/channels/${guild.id}/${CHANNEL_MOBILE_ID}`),
+      );
   try {
     await channel.send({ embeds: [embed], components: [buttons] });
   } catch (err) {
@@ -1104,7 +1141,8 @@ async function runDailyTopThreeBonusJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (CONTEST_TEST_MODE) return;
-  if (!CHANNEL_MOBILE_ID || !CHANNEL_PC_ID) return;
+  if (!CHANNEL_MOBILE_ID) return;
+  if (!IS_DISEGNI_CONTEST && !CHANNEL_PC_ID) return;
   if (isRomeSunday()) return;
 
   const guild = await client.guilds.fetch(gid).catch(() => null);
@@ -1482,6 +1520,7 @@ let contestCronNoonTask = null;
 function startWeeklyContestCron(client) {
   if (contestCronEveningTask) return { evening: contestCronEveningTask, noon: contestCronNoonTask };
   if (!MAIN_GUILD_ID || !CHANNEL_MOBILE_ID) return null;
+  if (!IS_DISEGNI_CONTEST && !CHANNEL_PC_ID) return null;
   if (CONTEST_TEST_MODE) {
     global.logger?.warn?.(
       `[WEEKLY_CONTEST] TEST MODE attivo: scrivo su eventKey="${EVENT_KEY}" (sandbox), evento reale="${EVENT_KEY_PRODUCTION}". Finestre ignorate=${CONTEST_TEST_IGNORE_TIME_WINDOW}. Cron 21:00 ${TIME_ZONE}: bonus top-3 (attività 00–21 giorno corrente) disattivo in test; altri job attivi; prune votanti solo su evento reale.`,
@@ -1570,7 +1609,17 @@ async function getSfondiVoteTotalsForCategory(guildId, eventKey, category) {
   return totals;
 }
 
-function buildSfondiClassificaButtonRow(activeCategory) {
+function buildSfondiClassificaButtonRow(activeCategory, guildIdForLink) {
+  const gid = String(guildIdForLink || IDs.guilds?.main || "").trim();
+  if (!CHANNEL_PC_ID) {
+    return new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Link)
+        .setLabel("Canale submission")
+        .setEmoji("🎨")
+        .setURL(`https://discord.com/channels/${gid}/${CHANNEL_MOBILE_ID}`),
+    );
+  }
   const mobileOn = activeCategory !== "pc";
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -1589,8 +1638,8 @@ function buildSfondiClassificaButtonRow(activeCategory) {
 async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverride = null) {
   const guildId = String(guild?.id || "");
   const eventKey = String(eventKeyOverride != null ? eventKeyOverride : EVENT_KEY).trim();
-  const cat = categoryMode === "pc" ? "pc" : "mobile";
-  const rowButtons = buildSfondiClassificaButtonRow(cat);
+  const cat = !CHANNEL_PC_ID ? "mobile" : categoryMode === "pc" ? "pc" : "mobile";
+  const rowButtons = buildSfondiClassificaButtonRow(cat, guildId);
 
   if (!guildId) {
     const embed = new EmbedBuilder()
@@ -1650,7 +1699,7 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
     lines.push("Nessun voto in questa categoria (o submission ancora assenti).");
   }
 
-  const titleSuffix = cat === "mobile" ? "Sfondi mobile" : "Sfondi PC";
+  const titleSuffix = !CHANNEL_PC_ID ? "Contest disegni" : cat === "mobile" ? "Sfondi mobile" : "Sfondi PC";
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
@@ -1709,7 +1758,11 @@ async function removeContestSfondiSubmissionsOnMemberLeave(client, guildId, user
 
   const guild = await client.guilds.fetch(gid).catch(() => null);
   const eventKeys = Array.from(
-    new Set([EVENT_KEY_PRODUCTION, EVENT_KEY_TEST].map((k) => String(k || "").trim()).filter(Boolean)),
+    new Set(
+      [EVENT_KEY_PRODUCTION, EVENT_KEY_TEST, SFONDI_EVENT_KEY_PRODUCTION, DISEGNI_EVENT_KEY_PRODUCTION]
+        .map((k) => String(k || "").trim())
+        .filter(Boolean),
+    ),
   );
 
   for (const eventKey of eventKeys) {
@@ -1785,6 +1838,15 @@ function contestVoteRemainingSlots(member, voterLean) {
   const bonusTotal = totalBonusSlotsForContest(voterLean || {});
   const m = mobileVoteCountUnified(voterLean || {});
   const p = pcVoteCountUnified(voterLean || {});
+  if (IS_DISEGNI_CONTEST) {
+    const maxMobile = base + bonusTotal;
+    return {
+      baseMax: base,
+      bonusTotal,
+      remainingMobile: Math.max(0, maxMobile - m),
+      remainingPc: 0,
+    };
+  }
   const maxMobile = base + Math.max(0, bonusTotal - Math.max(0, p - base));
   const maxPc = base + Math.max(0, bonusTotal - Math.max(0, m - base));
   return {
@@ -1798,6 +1860,10 @@ function contestVoteRemainingSlots(member, voterLean) {
 module.exports = {
   EVENT_KEY,
   EVENT_KEY_PRODUCTION,
+  ACTIVE_CONTEST_PROFILE,
+  IS_DISEGNI_CONTEST,
+  SFONDI_EVENT_KEY_PRODUCTION,
+  DISEGNI_EVENT_KEY_PRODUCTION,
   CONTEST_TEST_MODE,
   EVENTO_SFONDI_CLASSIFICA_BTN_PREFIX,
   buildSfondiClassificaPayload,

@@ -14,6 +14,31 @@ const {
 
 const MONTH_LABELS = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
+function resolvePauseListTargetDisplay(targetUser, userId) {
+  const uid = String(userId ?? targetUser?.id ?? "").trim();
+  const display =
+    (typeof targetUser?.displayName === "string" && targetUser.displayName.trim()) ||
+    (typeof targetUser?.globalName === "string" && targetUser.globalName.trim()) ||
+    (typeof targetUser?.username === "string" && targetUser.username.trim()) ||
+    "";
+  return { uid, display };
+}
+
+/** Testo da usare in frasi tipo "Nessuna pausa trovata per …" (mai `[object Object]`). */
+function formatPauseListTargetForSentence(targetUser, userId) {
+  const { uid, display } = resolvePauseListTargetDisplay(targetUser, userId);
+  if (display) return display;
+  if (uid) return `<@${uid}>`;
+  return "questo utente";
+}
+
+function formatPauseListTargetForTitle(targetUser, userId) {
+  const { uid, display } = resolvePauseListTargetDisplay(targetUser, userId);
+  if (display) return display.replace(/\n/g, " ").slice(0, 80);
+  if (uid) return uid;
+  return "user";
+}
+
 const RESOCONTO_ROLE_RANK = new Map(
   [
     IDs.roles.Member,
@@ -263,6 +288,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const monthOpts = prf === "pm" || prf === "staff" ? { pauseRoleFilter: prf } : {};
   const g = String(guildId ?? "").trim();
   const u = String(targetUser?.id ?? "").trim();
+  const targetLabel = formatPauseListTargetForSentence(targetUser, u);
   if (!g || !u) {
     const y = getCurrentYearBoundsUtc().yearStart.getUTCFullYear();
     return {
@@ -270,7 +296,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${y}**.`),
+          .setDescription(`<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetLabel} nell'anno **${y}**.`),
       ],
       components: buildPauseListMonthRows(u, y, { ...monthOpts, staff: null }),
     };
@@ -308,8 +334,8 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
   const monthLabel = monthFilter >= 1 && monthFilter <= 12 ? ` ${MONTH_LABELS[monthFilter - 1]} ${currentYear}` : "";
   if (!rows.length) {
     const desc = monthLabel
-      ? `<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nel mese **${MONTH_LABELS[monthFilter - 1]} ${currentYear}**.`
-      : `<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetUser} nell'anno **${currentYear}**.`;
+      ? `<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetLabel} nel mese **${MONTH_LABELS[monthFilter - 1]} ${currentYear}**.`
+      : `<:VC_Attention:1482534443632558151> Nessuna pausa trovata per ${targetLabel} nell'anno **${currentYear}**.`;
     return {
       ok: true,
       embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(desc)],
@@ -317,7 +343,9 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     };
   }
   const totalScaledDays = computeConsumedPauseDays(pauses);
-  const titleSuffix = monthLabel ? `${MONTH_LABELS[monthFilter - 1]} ${currentYear}` : `${currentYear}-${targetUser.username}`;
+  const titleSuffix = monthLabel
+    ? `${MONTH_LABELS[monthFilter - 1]} ${currentYear}`
+    : `${currentYear}-${formatPauseListTargetForTitle(targetUser, u)}`;
   const embeds = splitRowsForEmbeds(rows).map((chunk, index, chunks) =>
     new EmbedBuilder()
       .setColor("#6f4e37")

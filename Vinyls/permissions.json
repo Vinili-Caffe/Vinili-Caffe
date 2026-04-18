@@ -840,7 +840,7 @@
             "permissions": "Administrator"
         },
         "evtSfondiLb:*": [
-            "roles.Member"
+            "roles.HighStaff"
         ],
         "generalimoderazione": [
             "roles.Staff"
