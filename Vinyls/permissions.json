@@ -523,6 +523,14 @@
         "backup_list_prev:*": {
             "ownerSegment": 1
         },
+        "backup_load_*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.staffCmds"
+            ]
+        },
         "banner_unblock:*": {
             "ownerSegment": 1
         },
@@ -831,8 +839,17 @@
         "error_unsolved": {
             "permissions": "Administrator"
         },
+        "evtSfondiLb:*": [
+            "roles.Member"
+        ],
         "generalimoderazione": [
             "roles.Staff"
+        ],
+        "help_next_*": [
+            "roles.Member"
+        ],
+        "help_prev_*": [
+            "roles.Member"
         ],
         "info_badges_roles": [
             "roles.Member"
@@ -879,6 +896,9 @@
         "metodi": [
             "roles.Member"
         ],
+        "minigame_*": [
+            "roles.Member"
+        ],
         "next": [
             "roles.PartnerManager",
             "roles.HighStaff"
@@ -904,7 +924,15 @@
         "pause_reject:*": [
             "roles.HighStaff"
         ],
+        "pause_rolepick:*": [
+            "roles.Staff",
+            "roles.PartnerManager",
+            "roles.HighStaff"
+        ],
         "ping": [
+            "roles.Member"
+        ],
+        "plb_*": [
             "roles.Member"
         ],
         "prev": [
@@ -921,6 +949,9 @@
             "roles.HighStaff"
         ],
         "resoconto_reject:*": [
+            "roles.HighStaff"
+        ],
+        "resoconto_override:*": [
             "roles.HighStaff"
         ],
         "rifiuta": {
@@ -1269,6 +1300,14 @@
         },
         "backup_panel:select:*": {
             "ownerSegment": 2
+        },
+        "backup_load_*": {
+            "roles": [
+                "roles.HighStaff"
+            ],
+            "channels": [
+                "channels.staffCmds"
+            ]
         },
         "usage_guide:*": {
             "ownerSegment": 2
