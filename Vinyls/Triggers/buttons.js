@@ -10,7 +10,7 @@ const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPm
 const { sendPexDepexLog } = require("../Events/interaction/resocontoHandlers");
 const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
-const { ROLE_REMOVED, ROLE_UPDATE_FAILED, ROLE_TRY_AGAIN, ROLE_DM_OLD_STATE, ROLE_COLOR_OLD, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
+const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
@@ -56,19 +56,6 @@ function partitionRoleIdsByExisting(guild, roleIds, context) {
     global.logger?.warn?.("[buttons] Ruolo/i non più presenti sul server (Unknown Role).", context, "ID eliminati:", missing);
   }
   return { existing, missing };
-}
-
-function findStringSelectOptionLabel(message, customId, value) {
-  const rows = message?.components || [];
-  for (const row of rows) {
-    for (const c of row.components || []) {
-      if (c.customId === customId && Array.isArray(c.options)) {
-        const opt = c.options.find((o) => String(o.value) === String(value));
-        if (opt?.label) return opt.label;
-      }
-    }
-  }
-  return null;
 }
 
 async function removeMemberRolesSequential(member, roleIds) {
@@ -502,12 +489,46 @@ module.exports = {
       const guild = interaction.guild;
       const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, rolesToRemove || [], `menu=${menuId} (config)`);
 
-      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
-      if (!interaction.deferred) {
-        return interaction.reply({ content: ROLE_TRY_AGAIN, flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      if (menuId === "personality_colors_plus" && values.length && !values.includes("remove")) {
+        const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
+        const hasEventWeek2 =
+          interaction.guildId &&
+          interaction.user?.id &&
+          (await hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 2).catch((err) => {
+            logButtonErr(err, { warn: true });
+            return false;
+          }));
+        const hasEventWeek3 =
+          interaction.guildId &&
+          interaction.user?.id &&
+          (await hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 3).catch((err) => {
+            logButtonErr(err, { warn: true });
+            return false;
+          }));
+        const allowed =
+          member.roles.cache.has(IDs.roles.ServerBooster) ||
+          member.roles.cache.has(IDs.roles.Level50) ||
+          member.roles.cache.has(IDs.roles.Level70) ||
+          hasEventWeek2 ||
+          hasEventWeek3;
+        if (!allowed) {
+          return interaction.reply({ content: ROLE_PLUS_FORBIDDEN, flags: PRIVATE_FLAG }).catch((err) => {
+            logButtonErr(err);
+            return null;
+          });
+        }
       }
 
-      const replyOrEdit = (payload) => interaction.editReply(payload).catch((err) => { logButtonErr(err); return null; });
+      await interaction.deferUpdate().catch((err) => {
+        logButtonErr(err);
+        return null;
+      });
+      if (!interaction.deferred) {
+        return interaction.reply({ content: ROLE_TRY_AGAIN, flags: PRIVATE_FLAG }).catch((err) => {
+          logButtonErr(err);
+          return null;
+        });
+      }
 
       try {
         if (!values.length || values.includes("remove")) {
@@ -516,49 +537,45 @@ module.exports = {
           } else {
             await removeMemberRolesSequential(member, rolesToRemoveExisting);
           }
-          return replyOrEdit({ content: ROLE_REMOVED });
-        }
-        if (menuId === "personality_colors_plus") {
-          const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
-          const hasEventWeek2 = interaction.guildId && interaction.user?.id && (await hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 2).catch((err) => { logButtonErr(err, { warn: true }); return false; }));
-          const hasEventWeek3 = interaction.guildId && interaction.user?.id && (await hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 3).catch((err) => { logButtonErr(err, { warn: true }); return false; }));
-          const allowed = member.roles.cache.has(IDs.roles.ServerBooster) || member.roles.cache.has(IDs.roles.Level50) || member.roles.cache.has(IDs.roles.Level70) || hasEventWeek2 || hasEventWeek3;
-          if (!allowed) {
-            return replyOrEdit({ content: ROLE_PLUS_FORBIDDEN });
-          }
+          return;
         }
         const { existing: valuesExisting } = partitionRoleIdsByExisting(guild, values, `menu=${menuId} (selezione utente)`);
         if (colorMenuIds.includes(menuId)) {
           await setMemberRolesBulk(member, rolesToRemoveExisting, valuesExisting);
         } else {
           await removeMemberRolesSequential(member, rolesToRemoveExisting);
-          const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => { logButtonErr(err, { warn: true }); return member; });
-          await m.roles.add(valuesExisting).catch((err) => { logButtonErr(err); });
+          const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
+            logButtonErr(err, { warn: true });
+            return member;
+          });
+          await m.roles.add(valuesExisting).catch((err) => {
+            logButtonErr(err);
+          });
         }
-        let m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => { logButtonErr(err, { warn: true }); return member; });
+        let m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
+          logButtonErr(err, { warn: true });
+          return member;
+        });
         const appliedAll = valuesExisting.length ? valuesExisting.every((roleId) => m?.roles?.cache?.has?.(roleId)) : false;
-        const stillOld = rolesToRemoveExisting.some((rid) => valuesExisting.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid));
+        const stillOld = rolesToRemoveExisting.some(
+          (rid) => valuesExisting.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid),
+        );
         if (menuId === "personality_dm" && stillOld) {
-          return replyOrEdit({ content: ROLE_DM_OLD_STATE });
+          logButtonErr(new Error("personality_dm: vecchio ruolo DM ancora presente dopo sync"), { warn: true });
+          return;
         }
         if (colorMenuIds.includes(menuId) && stillOld) {
-          return replyOrEdit({ content: ROLE_COLOR_OLD });
+          logButtonErr(new Error(`personality color menu ${menuId}: vecchio colore ancora presente`), { warn: true });
+          return;
         }
         if (!appliedAll) {
-          return replyOrEdit({ content: ROLE_UPDATE_FAILED });
+          logButtonErr(new Error(`ruoli pannello non applicati del tutto (menu=${menuId})`), { warn: true });
+          return;
         }
-        const primary = values[0];
-        const label =
-          findStringSelectOptionLabel(interaction.message, menuId, primary) ||
-          (values.length > 1 ? `${values.length} notifiche` : primary);
-        return replyOrEdit({
-          content:
-            values.length > 1
-              ? `Notifiche aggiornate: **${values.length}** ruoli.`
-              : `Aggiornato: **${label}**`,
-        });
-      } catch {
-        return replyOrEdit({ content: ROLE_UPDATE_FAILED });
+        return;
+      } catch (err) {
+        logButtonErr(err);
+        return;
       }
     }
     if (!interaction.isButton()) return;

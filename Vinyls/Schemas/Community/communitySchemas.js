@@ -87,6 +87,7 @@ const personalityPanelEntrySchema = new Schema(
   {
     channelId: { type: String, required: true },
     personalityMessageId: { type: String, default: null },
+    dmPanelMessageId: { type: String, default: null },
     mentionsMessageId: { type: String, default: null },
     colorsMessageId: { type: String, default: null },
     plusColorsMessageId: { type: String, default: null },

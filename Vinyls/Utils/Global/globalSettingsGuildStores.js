@@ -25,6 +25,7 @@ function panelRowFromDoc(row) {
   return {
     channelId: String(o.channelId || ""),
     personalityMessageId: o.personalityMessageId ?? null,
+    dmPanelMessageId: o.dmPanelMessageId ?? null,
     mentionsMessageId: o.mentionsMessageId ?? null,
     colorsMessageId: o.colorsMessageId ?? null,
     plusColorsMessageId: o.plusColorsMessageId ?? null,

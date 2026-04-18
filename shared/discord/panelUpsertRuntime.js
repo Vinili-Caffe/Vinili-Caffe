@@ -221,8 +221,19 @@ function buildEmbedSignatureFromMessage(msgEmbeds = []) {
   return buildStableEmbedIdentity(raw);
 }
 
+function preparePanelDiscordPayload(payload) {
+  const p = payload && typeof payload === "object" ? { ...payload } : {};
+  delete p.messageId;
+  delete p.attachmentName;
+  if (!("content" in p) || p.content === undefined) {
+    p.content = "";
+  }
+  return p;
+}
+
 async function shouldEditMessage(message, payload) {
   if (!message) return true;
+  if (String(message.content ?? "") !== String(payload?.content ?? "")) return true;
   if (toComparableEmbeds(message?.embeds || []) !== toComparableEmbeds(payload?.embeds || [])) return true;
   if (toComparableComponents(message?.components || []) !== toComparableComponents(payload?.components || [])) return true;
   return false;
@@ -234,9 +245,7 @@ async function upsertPanelMessage(channel, client, payload) {
   if (messageId) {
     const direct = await channel.messages.fetch(messageId).catch(() => null);
     if (direct) {
-      const editPayload = { ...payload };
-      delete editPayload.messageId;
-      delete editPayload.attachmentName;
+      const editPayload = preparePanelDiscordPayload(payload);
       const needsEdit = await shouldEditMessage(direct, editPayload);
       if (needsEdit) {
         const edited = await direct.edit(editPayload).catch((error) => { if (error?.code !== 50005) global.logger?.error?.("[panelUpsert] edit by messageId failed:", error); return null; });
@@ -289,9 +298,7 @@ async function upsertPanelMessage(channel, client, payload) {
     if (ranked[0]?.score >= 3) existing = ranked[0].msg;
   }
 
-  const cleanPayload = { ...payload };
-  delete cleanPayload.messageId;
-  delete cleanPayload.attachmentName;
+  const cleanPayload = preparePanelDiscordPayload(payload);
 
   if (!existing) {
     const sent = await channel.send(cleanPayload).catch((error) => { global.logger?.error?.("[panelUpsert] send failed:", error); return null; });
