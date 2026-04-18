@@ -36,7 +36,7 @@ async function resolveTargetUser(message, rawArg) {
 module.exports = {
   name: "staff",
   allowEmptyArgs: true,
-  usage: "`+staff` · `+staff @staffer` (i **Partner Manager** sul proprio profilo: pulsanti riscatto 50/75/150 pt)",
+  usage: "`+staff` · `+staff @staffer` (riscatto premi PM: **HS / Founder / Co-Founder** su `+staff @PartnerManager`)",
   examples: ["+staff", "+staff @Mod"],
 
   async execute(message, args = []) {

@@ -16,7 +16,8 @@ function resolveStaffPartnerPointsDisplay(staffObj) {
   return Math.max(fromCounter, fromActions);
 }
 
-function buildPartnerManagerSelfRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
+/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder / Co-Founder) sul profilo **di un altro** PM. */
+function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
   const v = String(viewerId);
   const t = String(targetId);
   const sec = String(section || SECTION_HOME).toLowerCase();
@@ -657,11 +658,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     }
   }
 
-  const pmSelfRedeemRows =
-    sec === SECTION_HOME && String(viewerId) === tid && hasPm
-      ? buildPartnerManagerSelfRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId)
+  const pmStaffRedeemRows =
+    sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
+      ? buildPartnerManagerRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId)
       : [];
-  const homeBottomRows = [...partnerHomeRows, ...pmSelfRedeemRows];
+  const homeBottomRows = [...partnerHomeRows, ...pmStaffRedeemRows];
 
   const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
@@ -710,10 +711,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
       `<:VC_Partner:1482527213780729896> **Punti partner:** ${punti}`,
-      ...(pmSelfRedeemRows.length
+      ...(pmStaffRedeemRows.length
         ? [
             "",
-            "**Premi staff pagati:** pulsanti **Riscatto** sotto (50 / 75 / 150 punti, solo sul tuo profilo).",
+            "**Premi staff pagati:** pulsanti **Riscatto** visibili a **High Staff / Founder / Co-Founder** che aprono questo profilo con `+staff @…` (50 / 75 / 150 punti).",
           ]
         : []),
     ].join("\n");
@@ -888,8 +889,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (hasPm) {
     homeDescParts.push("",`<:VC_Partner:1482527213780729896> **Punti:** ${puntiPartner}`);
   }
-  if (pmSelfRedeemRows.length) {
-    homeDescParts.push("", "**Premi staff pagati:** usa i pulsanti **Riscatto** in basso (solo sul tuo profilo).");
+  if (pmStaffRedeemRows.length) {
+    homeDescParts.push(
+      "",
+      "**Premi staff pagati:** **Riscatto** in basso (solo se hai aperto il profilo di un PM con `+staff @…` e sei HS/Founder/Co-Founder).",
+    );
   }
   homeDescParts.push("","Seleziona una sezione dal menu per i dettagli.");
   const homeDesc = homeDescParts.join("\n");

@@ -1358,6 +1358,13 @@
                 "roles.CoFounder"
             ]
         },
+        "vcsm:*": {
+            "roles": [
+                "roles.HighStaff",
+                "roles.Founder",
+                "roles.CoFounder"
+            ]
+        },
         "dm_broadcast:*": {
             "ownerSegment": 1
         },

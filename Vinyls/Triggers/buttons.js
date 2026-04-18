@@ -936,7 +936,14 @@ module.exports = {
           "<:exp:1470067108543987846> X2 EXP Boost",
           "",
           "Inoltre boostando il server due volte sbloccherai altri vantaggi:",
-          "<:VC_Dot:1482532364222595303> <@&${IDs.roles.ServerBooster}> con badge speciale",
+          `<:sparkledred:1470064814502973591> <@&1494996567214788818> con badge speciale`,
+          "<:moon:1470064812615667827> Tutti i perks precedenti",
+          "<:pinkstar:1470064804835229768> Aggiungere reazioni ai messaggi",
+          "<:sparkle:1470064801811140866> Permesso di usare le Soundboard esterne",
+          "<:blueflash:1470064803157643468> Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**",
+          "<a:VC_CrownYellow:1482706085440651428> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+          "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway",
+          "<:exp:1470067108543987846> X3 EXP Boost",
         ].join("\n"))
         .setImage(DIVIDER_URL);
 

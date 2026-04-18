@@ -313,7 +313,7 @@ async function buildPauseListPayload({ guildId, requesterId, targetUser, isHighS
     return {
       ok: true,
       embeds: [new EmbedBuilder().setColor("#6f4e37").setDescription(desc)],
-      components: buildPauseListMonthRows(u, currentYear, monthOpts),
+      components: buildPauseListMonthRows(u, currentYear, monthOptsWithStaff),
     };
   }
   const totalScaledDays = computeConsumedPauseDays(pauses);

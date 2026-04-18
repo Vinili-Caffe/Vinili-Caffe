@@ -23,7 +23,8 @@ const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas")
 const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange, partnerManagerRedeemTierFromAction } = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
-const MODAL_PREFIX = "staff_hp_modal";
+/** Max 100 caratteri per custom_id modal Discord: prefisso corto + azione 3 char + sezione 1 char + trail solo panel. */
+const MODAL_PREFIX = "vcsm";
 const IN_REASON = "staff_hp_reason";
 const IN_IDX = "staff_hp_idx";
 const IN_PPM_AMOUNT = "staff_hp_ppm_amount";
@@ -47,6 +48,87 @@ function formatStaffHpTrail(sourceMessageId, panelMessageId) {
   if (p) return `:${STAFF_HP_TRAIL_NO_SOURCE}:${p}`;
   if (s) return `:${s}`;
   return "";
+}
+
+/** Trail modal: solo id messaggio pannello (la source si ricava con extractSourceFromStaffPanelMessage). */
+function formatStaffHpTrailForModal(sourceMessageId, panelMessageId) {
+  const p = normalizeSourceMessageId(panelMessageId);
+  if (p) return `:${p}`;
+  return formatStaffHpTrail(sourceMessageId, panelMessageId);
+}
+
+const STAFF_HP_MODAL_ACTION_CODE = {
+  pex: "pex",
+  pex_helper: "phl",
+  pex_mod: "pmo",
+  pex_coord: "pco",
+  pex_supervisor: "psu",
+  pex_admin: "pxa",
+  pex_cofounder: "pcf",
+  pex_founder: "pfn",
+  pex_pm: "ppm",
+  depex: "dpx",
+  depex_full: "dff",
+  depex_staff: "dst",
+  depex_pm_only: "dpo",
+  valpos: "vps",
+  valneg: "vng",
+  warn: "wrn",
+  valpos_rm: "vpr",
+  valneg_rm: "vnr",
+  warn_rm: "wrr",
+  ppm_add: "pma",
+  ppm_remove: "pmr",
+};
+
+const STAFF_HP_MODAL_CODE_ACTION = Object.fromEntries(
+  Object.entries(STAFF_HP_MODAL_ACTION_CODE).map(([full, short]) => [short, full]),
+);
+
+const SECTION_CHAR_FOR_MODAL = {
+  [SECTION_HOME]: "h",
+  [SECTION_VALUTAZIONI]: "v",
+  [SECTION_WARN]: "w",
+  [SECTION_PAUSE]: "p",
+  [SECTION_MODSTATS]: "m",
+};
+
+const MODAL_CHAR_TO_SECTION = {
+  h: SECTION_HOME,
+  v: SECTION_VALUTAZIONI,
+  w: SECTION_WARN,
+  p: SECTION_PAUSE,
+  m: SECTION_MODSTATS,
+};
+
+function formatStaffHpModalSectionShort(section) {
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  return SECTION_CHAR_FOR_MODAL[sec] || "h";
+}
+
+function parseStaffHpModalSectionToken(raw) {
+  const t = String(raw || "").toLowerCase();
+  if (MODAL_CHAR_TO_SECTION[t]) return MODAL_CHAR_TO_SECTION[t];
+  if (STAFF_HP_SECTIONS.has(t)) return t;
+  return SECTION_HOME;
+}
+
+function parseTrailingStaffHpModalIds(parts) {
+  const extras = parts.slice(5);
+  if (extras.length >= 2) return parseTrailingStaffHpIds(parts);
+  if (extras.length === 1) {
+    const panelOnly = normalizeSourceMessageId(extras[0]);
+    return { sourceMessageId: null, panelMessageId: panelOnly };
+  }
+  return { sourceMessageId: null, panelMessageId: null };
+}
+
+function buildStaffHpModalCustomId(action, viewerId, targetId, section, sourceMessageId, panelMessageId) {
+  const code = STAFF_HP_MODAL_ACTION_CODE[String(action || "")];
+  if (!code) return null;
+  const secChar = formatStaffHpModalSectionShort(section);
+  const trail = formatStaffHpTrailForModal(sourceMessageId, panelMessageId);
+  return `${MODAL_PREFIX}:${code}:${viewerId}:${targetId}:${secChar}${trail}`;
 }
 
 function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
@@ -173,37 +255,15 @@ function parseStaffHpSelect(customId) {
 
 function parseStaffHpModal(customId) {
   const parts = String(customId || "").split(":");
-  if (parts.length < 4 || parts[0] !== MODAL_PREFIX) return null;
-  const action = String(parts[1] || "");
+  if (parts.length < 5 || parts[0] !== MODAL_PREFIX) return null;
+  const code = String(parts[1] || "");
+  const action = STAFF_HP_MODAL_CODE_ACTION[code];
+  if (!action) return null;
   const viewerId = String(parts[2] || "");
   const targetId = String(parts[3] || "");
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
-  const allowed = new Set([
-    "pex",
-    "pex_helper",
-    "pex_mod",
-    "pex_coord",
-    "pex_supervisor",
-    "pex_admin",
-    "pex_cofounder",
-    "pex_founder",
-    "pex_pm",
-    "depex",
-    "depex_full",
-    "depex_staff",
-    "depex_pm_only",
-    "valpos",
-    "valneg",
-    "warn",
-    "valpos_rm",
-    "valneg_rm",
-    "warn_rm",
-    "ppm_add",
-    "ppm_remove",
-  ]);
-  if (!allowed.has(action)) return null;
-  const section = parseStaffPanelSection(parts);
-  const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
+  const section = parseStaffHpModalSectionToken(parts[4]);
+  const { sourceMessageId, panelMessageId } = parseTrailingStaffHpModalIds(parts);
   return {
     action,
     viewerId,
@@ -461,7 +521,14 @@ async function execute(interaction) {
       return true;
     }
     const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
-    const modalId = `${MODAL_PREFIX}:${chosenAction}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${formatStaffHpTrail(parsed.sourceMessageId, panelForModal)}`;
+    const modalId = buildStaffHpModalCustomId(
+      chosenAction,
+      parsed.viewerId,
+      parsed.targetId,
+      parsed.section,
+      parsed.sourceMessageId,
+      panelForModal,
+    );
     const title = TITLE_BY_ACTION[chosenAction] || "Azione staff";
     const modal = buildReasonModal(modalId, title);
     await interaction.showModal(modal).catch(() => {});
@@ -483,11 +550,21 @@ async function execute(interaction) {
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
     const redeemTier = partnerManagerRedeemTierFromAction(parsed.action);
     if (redeemTier != null) {
-      if (String(parsed.viewerId) !== String(parsed.targetId)) {
+      if (String(parsed.viewerId) === String(parsed.targetId)) {
         await interaction
           .reply({
             content:
-              "<:vegax:1443934876440068179> Il **riscatto premi** è disponibile solo sul **tuo** profilo: usa `+staff` senza menzioni.",
+              "<:vegax:1443934876440068179> Il **riscatto premi** lo usa **High Staff / Founder / Co-Founder** sul profilo del PM: chiedi a qualcuno con quel ruolo di fare `+staff` menzionandoti.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      if (!viewerCanUsePartnerPointsPanel(interaction.member)) {
+        await interaction
+          .reply({
+            content:
+              "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono usare il **riscatto premi** sul profilo di un Partner Manager.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => {});
@@ -530,20 +607,23 @@ async function execute(interaction) {
       const ptsAfter = resolveStaffPartnerPointsDisplay(staffData?.staff);
       const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
       const actor = interaction.user;
+      const targetPmUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
+      const pmMention = targetPmUser ? String(targetPmUser) : `<@${parsed.targetId}>`;
       if (removedPointsChannel) {
         await removedPointsChannel
           .send({
             content:
-              `<:VC_PartnerManager:1494286911286808576> ${actor}\n` +
+              `<:VC_PartnerManager:1494286911286808576> PM: ${pmMention}\n` +
+              `<:VC_Staff:1494286904089247754> Operatore: ${actor}\n` +
               `<:VC_reason:1478517122929004544> **Riscatto premio staff pagato** (\`${redeemTier}\` punti).\n` +
-              `<:VC_Partner:1482527213780729896> Saldo: \`${ptsBefore}\` → \`${ptsAfter}\``,
+              `<:VC_Partner:1482527213780729896> Saldo PM: \`${ptsBefore}\` → \`${ptsAfter}\``,
           })
           .catch(() => null);
       }
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
       await interaction
         .editReply({
-          content: `<:vegacheckmark:1443666279058772028> Riscattati **${redeemTier}** punti (premio staff pagato). Nuovo saldo: \`${ptsAfter}\`.`,
+          content: `<:vegacheckmark:1443666279058772028> Riscattati **${redeemTier}** punti a ${pmMention} (premio staff pagato). Nuovo saldo: \`${ptsAfter}\`.`,
         })
         .catch(() => {});
       return true;
@@ -683,7 +763,14 @@ async function execute(interaction) {
       return true;
     }
     const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
-    const modalId = `${MODAL_PREFIX}:${parsed.action}:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${formatStaffHpTrail(parsed.sourceMessageId, panelForModal)}`;
+    const modalId = buildStaffHpModalCustomId(
+      parsed.action,
+      parsed.viewerId,
+      parsed.targetId,
+      parsed.section,
+      parsed.sourceMessageId,
+      panelForModal,
+    );
     const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
     let modal;
     if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
