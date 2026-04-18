@@ -20,7 +20,13 @@ const {
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
-const { addPartnerPoints, removePartnerPoints, formatPartnerPointsChange, partnerManagerRedeemTierFromAction } = require("../Utils/Staff/partnerPointsUtils");
+const {
+  addPartnerPoints,
+  removePartnerPoints,
+  formatPartnerPointsChange,
+  partnerManagerRedeemTierFromAction,
+  redeemPartnerManagerPointsForDisplay,
+} = require("../Utils/Staff/partnerPointsUtils");
 const { memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
 /** Max 100 caratteri per custom_id modal Discord: prefisso corto + azione 3 char + sezione 1 char + trail solo panel. */
@@ -590,21 +596,37 @@ async function execute(interaction) {
         return true;
       }
       await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
-      const staffLean = await ActivityUserProfile.findOne({ guildId: guild.id, userId: parsed.targetId })
-        .select("staff")
-        .lean()
-        .catch(() => null);
-      const ptsBefore = resolveStaffPartnerPointsDisplay(staffLean?.staff);
-      if (ptsBefore < redeemTier) {
+      const redeemRes = await redeemPartnerManagerPointsForDisplay(guild.id, parsed.targetId, redeemTier);
+      if (!redeemRes.ok) {
+        if (redeemRes.code === "insufficient") {
+          await interaction
+            .editReply({
+              content: `<:vegax:1443934876440068179> Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${redeemTier}\`.`,
+            })
+            .catch(() => {});
+          return true;
+        }
+        if (redeemRes.code === "floor") {
+          const s = Math.max(0, Number(redeemRes.surplus ?? 0));
+          await interaction
+            .editReply({
+              content:
+                `<:vegax:1443934876440068179> Non puoi riscattare \`${redeemTier}\` punti: **${redeemRes.fromActions ?? 0}** sono vincolati allo storico partnership. ` +
+                `Ora puoi riscattare al massimo **${s}** punti (saldo mostrato \`${redeemRes.before ?? 0}\`).`,
+            })
+            .catch(() => {});
+          return true;
+        }
         await interaction
           .editReply({
-            content: `<:vegax:1443934876440068179> Punti insufficienti: ne hai \`${ptsBefore}\`, servono \`${redeemTier}\`.`,
+            content: "<:vegax:1443934876440068179> Impossibile aggiornare i punti. Riprova.",
           })
           .catch(() => {});
         return true;
       }
-      const staffData = await removePartnerPoints(guild.id, parsed.targetId, redeemTier);
-      const ptsAfter = resolveStaffPartnerPointsDisplay(staffData?.staff);
+      const ptsBefore = redeemRes.before;
+      const ptsAfter = redeemRes.after;
+      const staffData = redeemRes.doc;
       const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
       const actor = interaction.user;
       const targetPmUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
