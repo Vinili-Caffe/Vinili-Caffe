@@ -2,6 +2,7 @@ const { safeMessageReply, safeChannelSend } = require("../../../shared/discord/r
 const IDs = require("../../Utils/Config/ids");
 const { isPartnerPmDailyCommandsThread } = require("../../Utils/Partner/partnersChatChannelUtils");
 const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/staffProfilePanelRuntime");
+const { buildStaffHsPickerMessage } = require("../../Buttons/staffCommandSelect");
 
 async function resolveTargetUser(message, rawArg) {
   const mentioned = message.mentions?.users?.first();
@@ -36,13 +37,25 @@ async function resolveTargetUser(message, rawArg) {
 module.exports = {
   name: "staff",
   allowEmptyArgs: true,
-  usage: "`+staff` · `+staff @staffer` (riscatto premi PM: **HS / Founder / Co-Founder** su `+staff @PartnerManager`)",
+  usage:
+    "`+staff` (profilo tuo) · **High Staff:** `+staff` senza argomenti apre il menu Staff/PM · `+staff @staffer` (riscatto premi PM: **HS / Founder / Co-Founder** su `+staff @PartnerManager`)",
   examples: ["+staff", "+staff @Mod"],
 
   async execute(message, args = []) {
     if (!message.guild || !message.member) return;
     await message.channel.sendTyping().catch(() => {});
-    const targetUser = await resolveTargetUser(message, args.join(" "));
+    const rawArg = String(args.join(" ") || "").trim();
+    const isHighStaff = Boolean(IDs.roles?.HighStaff && message.member.roles?.cache?.has(IDs.roles.HighStaff));
+    if (!rawArg && isHighStaff) {
+      const picker = buildStaffHsPickerMessage(message.guild, message.author.id);
+      if (picker.error) {
+        await safeMessageReply(message, { content: picker.error, allowedMentions: { repliedUser: false } });
+        return;
+      }
+      await safeChannelSend(message.channel, picker);
+      return;
+    }
+    const targetUser = await resolveTargetUser(message, rawArg);
     if (!targetUser) {
       await safeMessageReply(message, {
         content: "<:vegax:1443934876440068179> Utente non trovato.",
