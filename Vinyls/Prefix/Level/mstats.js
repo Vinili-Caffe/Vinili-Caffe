@@ -6,7 +6,7 @@ const IDs = require("../../Utils/Config/ids");
 const MSTATS_CACHE_TTL_MS = 45 * 1000;
 const mstatsCache = new Map();
 
-const EXP_REWARDS=[{exp:100,roleId:IDs.roles.Initiate},{exp:500,roleId:IDs.roles.Rookie},{exp:1000,roleId:IDs.roles.Scout},{exp:1500,roleId:IDs.roles.Explorer},{exp:2500,roleId:IDs.roles.Tracker},{exp:5000,roleId:IDs.roles.Achiever},{exp:10000,roleId:IDs.roles.Vanguard},{exp:50000,roleId:IDs.roles.Mentor},{exp:100000,roleId:IDs.roles.Strategist},];
+const EXP_REWARDS=[{exp:500,roleId:IDs.roles.Rookie},{exp:1000,roleId:IDs.roles.Scout},{exp:1500,roleId:IDs.roles.Explorer},{exp:2500,roleId:IDs.roles.Tracker},{exp:5000,roleId:IDs.roles.Achiever},{exp:10000,roleId:IDs.roles.Vanguard},{exp:50000,roleId:IDs.roles.Mentor},{exp:100000,roleId:IDs.roles.Strategist},];
 
 function getUnlockedRewards(totalExp) {
   const expValue = Number(totalExp || 0);
