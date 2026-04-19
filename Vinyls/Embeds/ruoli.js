@@ -28,8 +28,7 @@ async function run(client) {
     .setTitle("<:sparkledred:1470064814502973591> Personalità")
     .setDescription(
       [
-        "Scegli in cosa ti identifichi, quanti anni hai, **segno zodiacale**, **stato sentimentale** e di dove sei. Utilizza i menù a tendina sottostanti.",
-        "Lo **stato DM** e le **notifiche** (ping) sono nel messaggio **Menzioni** subito sotto.",
+        "Scegli in cosa ti identifichi, quanti anni hai, segno zodiacale, stato sentimentale e di dove sei. Utilizza i menù a tendina sottostanti.",
         "",
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
@@ -41,11 +40,9 @@ async function run(client) {
     .setTitle("<:sparkledred:1470064814502973591> Menzioni")
     .setDescription(
       [
-        "Scegli lo **stato DM** (aperti, chiusi o su richiesta) e quali **notifiche** ricevere dal server in base a cosa ti interessa maggiormente.",
+        "Scegli lo stato DM e quali notifiche ricevere dal server in base a cosa ti interessa maggiormente.",
         "",
-        "<a:VC_Exclamation:1482534702077444217> Le notifiche di **@everyone** le riceveranno tutti.",
-        "",
-        "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria (DM e ogni voce del menu notifiche).",
+        "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
     )
     .setImage(DIVIDER_URL);
