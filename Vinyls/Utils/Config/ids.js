@@ -143,6 +143,7 @@ const ids = {
     contestSfondiMobile: "1491741990860099726",
     contestSfondiPc: "1491742064142979184",
     contestDisegni: "1493306970743242923",
+    contestDisegniEventVerifyPing: "1493306817126596828",
     contestBonusVotesAnnounce: "1491741654049226802",
     staffNews: "1442569239063167139",
     media: "1442569136067575809",

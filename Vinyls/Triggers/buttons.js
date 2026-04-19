@@ -845,7 +845,7 @@ module.exports = {
         .setImage(DIVIDER_URL)
         .setColor("#6f4e37")
         .setTitle("Acquista ora!")
-        .setDescription("<:blueflash:1470064803157643468> Apri un ticket nella **HIGH STAFF** su: <#1442569095068254219>.");
+        .setDescription("<:blueflash:1470064803157643468> Apri un ticket `HIGH STAFF` in: <#1442569095068254219>.");
       await interaction.reply({ embeds: [donations, vip, ticket], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
