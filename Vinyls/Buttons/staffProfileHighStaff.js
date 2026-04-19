@@ -16,6 +16,10 @@ const {
   resolveStaffPartnerPointsDisplay,
   parseStaffProfileCloseCustomId,
   parseStaffProfileSelectCustomId,
+  encodeStaffHpButtonAction,
+  decodeStaffHpButtonActionToken,
+  staffHpSectionToken,
+  parseStaffHpButtonSectionToken,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
 const { runProfileStaffPex, runProspectStaffPex, runProspectStaffPexToPartnerManager, runProfileStaffDepex, runProfileStaffCompleteDepex, runProfileStaffWarnAdd, runProfileStaffWarnRemove } = require("../Utils/Staff/staffPanelActions");
 const valutazioneCmd = require("../Utils/Staff/valutazionePanelActions");
@@ -169,12 +173,6 @@ const TITLE_BY_ACTION = { pex: "Motivo pex",
   ppm_remove: "Rimuovi punti partner",
 };
 
-function parseStaffPanelSection(parts) {
-  const raw = parts.length >= 5 ? String(parts[4] || "").toLowerCase() : "";
-  if (raw && STAFF_HP_SECTIONS.has(raw)) return raw;
-  return SECTION_HOME;
-}
-
 function parseTrailingStaffHpIds(parts) {
   const extras = parts.slice(5);
   let sourceMessageId = null;
@@ -199,7 +197,7 @@ function parseTrailingStaffHpIds(parts) {
 function parseStaffHpButton(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== STAFF_HP_PREFIX) return null;
-  const action = String(parts[1] || "");
+  const action = decodeStaffHpButtonActionToken(String(parts[1] || ""));
   const viewerId = String(parts[2] || "");
   const targetId = String(parts[3] || "");
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
@@ -234,7 +232,7 @@ function parseStaffHpButton(customId) {
     "ppm_r150",
   ]);
   if (!allowed.has(action)) return null;
-  const section = parseStaffPanelSection(parts);
+  const section = parseStaffHpButtonSectionToken(parts.length >= 5 ? parts[4] : "");
   const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
   return {
     action,
@@ -254,7 +252,7 @@ function parseStaffHpSelect(customId) {
   const targetId = String(parts[3] || "");
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
   if (action !== "prospect_pex") return null;
-  const section = parseStaffPanelSection(parts);
+  const section = parseStaffHpButtonSectionToken(parts.length >= 5 ? parts[4] : "");
   const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
   return { action, viewerId, targetId, section, sourceMessageId, panelMessageId };
 }
@@ -652,15 +650,16 @@ async function execute(interaction) {
         return true;
       }
       const trail = formatStaffHpTrail(parsed.sourceMessageId, interaction.message?.id);
+      const secTok = staffHpSectionToken(parsed.section);
       const hasPartnerManager = Boolean(targetMember?.roles?.cache?.has?.(IDs.roles.PartnerManager));
       if (parsed.action === "pex_menu") {
         const pexRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:pex:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("pex")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
             .setLabel("Pex Staff")
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:pex_pm:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("pex_pm")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
             .setLabel("Pex Partner Manager")
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(hasPartnerManager),
@@ -674,18 +673,18 @@ async function execute(interaction) {
       }
       const depexRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex_staff:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_staff")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
           .setLabel("Depex")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:depex_full:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_full")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
           .setLabel("Depex Completo")
           .setStyle(ButtonStyle.Secondary),
       );
       if (hasPartnerManager) {
         depexRow.addComponents(
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:depex_pm_only:${parsed.viewerId}:${parsed.targetId}:${parsed.section}${trail}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_pm_only")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
             .setLabel("Depex Partner Manager")
             .setStyle(ButtonStyle.Secondary),
         );
@@ -701,21 +700,21 @@ async function execute(interaction) {
       const selfHp = String(parsed.viewerId) === String(parsed.targetId);
       if (!selfHp && !(await ensureHighStaffViewer(interaction))) return true;
       const trailVal = formatStaffHpTrail(parsed.sourceMessageId, interaction.message?.id);
-      const sec = parsed.section;
+      const secTokVal = staffHpSectionToken(parsed.section);
       if (parsed.action === "val_add_menu") {
         const addRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:valpos:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("valpos")}:${parsed.viewerId}:${parsed.targetId}:${secTokVal}${trailVal}`)
             .setLabel("Positiva")
             .setEmoji("<:thumbsup:1471292172145004768>")
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:valneg:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("valneg")}:${parsed.viewerId}:${parsed.targetId}:${secTokVal}${trailVal}`)
             .setLabel("Negativa")
             .setEmoji("<:thumbsdown:1471292163957457013>")
             .setStyle(ButtonStyle.Danger),
           new ButtonBuilder()
-            .setCustomId(`${STAFF_HP_PREFIX}:warn:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
+            .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("warn")}:${parsed.viewerId}:${parsed.targetId}:${secTokVal}${trailVal}`)
             .setLabel("Warn")
             .setEmoji("<:banhammer:1443651875441217639>")
             .setStyle(ButtonStyle.Danger),

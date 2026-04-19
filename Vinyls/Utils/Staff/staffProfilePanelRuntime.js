@@ -42,6 +42,82 @@ const SECTION_VALUTAZIONI = "valutazioni";
 const SECTION_WARN = "warn";
 const SECTION_PAUSE = "pause";
 const SECTION_MODSTATS = "modstats";
+const STAFF_HP_BUTTON_SECTION_IDS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS]);
+const STAFF_HP_SECTION_CHAR_MAP = {
+  [SECTION_HOME]: "h",
+  [SECTION_VALUTAZIONI]: "v",
+  [SECTION_WARN]: "w",
+  [SECTION_PAUSE]: "p",
+  [SECTION_MODSTATS]: "m",
+};
+const STAFF_HP_SECTION_CHAR_REVERSE = Object.fromEntries(
+  Object.entries(STAFF_HP_SECTION_CHAR_MAP).map(([sec, ch]) => [ch, sec]),
+);
+const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = {
+  pex_menu: "pxm",
+  depex_menu: "dxm",
+  val_add_menu: "vam",
+  val_remove_menu: "vrm",
+  pex: "pex",
+  pex_helper: "phl",
+  pex_mod: "pmo",
+  pex_coord: "pco",
+  pex_supervisor: "psu",
+  pex_admin: "pxa",
+  pex_cofounder: "pcf",
+  pex_founder: "pfn",
+  pex_pm: "ppm",
+  depex: "dpx",
+  depex_full: "dff",
+  depex_staff: "dst",
+  depex_pm_only: "dpo",
+  valpos: "vps",
+  valneg: "vng",
+  warn: "wrn",
+  valpos_rm: "vpr",
+  valneg_rm: "vnr",
+  warn_rm: "wrr",
+  ppm_add: "pma",
+  ppm_remove: "pmr",
+};
+const STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL = Object.fromEntries(
+  Object.entries(STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT).map(([full, short]) => [short, full]),
+);
+
+function encodeStaffHpButtonAction(action) {
+  const a = String(action || "");
+  if (STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT[a]) return STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT[a];
+  const m = /^ppm_r(\d+)$/.exec(a);
+  if (m) {
+    const n = Number(m[1]);
+    if (PARTNER_MANAGER_REDEEM_TIERS.includes(n)) return `r${m[1]}`;
+  }
+  return a;
+}
+
+function decodeStaffHpButtonActionToken(token) {
+  const t = String(token || "");
+  if (STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL[t]) return STAFF_HP_BUTTON_ACTION_SHORT_TO_FULL[t];
+  const m = /^r(\d+)$/.exec(t);
+  if (m) {
+    const n = Number(m[1]);
+    if (PARTNER_MANAGER_REDEEM_TIERS.includes(n)) return `ppm_r${m[1]}`;
+  }
+  return t;
+}
+
+function staffHpSectionToken(section) {
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  return STAFF_HP_SECTION_CHAR_MAP[sec] || "h";
+}
+
+function parseStaffHpButtonSectionToken(raw) {
+  const x = String(raw || "").toLowerCase();
+  if (STAFF_HP_SECTION_CHAR_REVERSE[x]) return STAFF_HP_SECTION_CHAR_REVERSE[x];
+  if (STAFF_HP_BUTTON_SECTION_IDS.has(x)) return x;
+  return SECTION_HOME;
+}
+
 const LEGACY_PARTNER_LB_SECTION = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
@@ -295,13 +371,14 @@ function withSourceSuffix(baseCustomId, sourceMessageId) {
 }
 
 function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return withSourceSuffix(`${STAFF_HP_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`, sourceMessageId);
+  const secTok = staffHpSectionToken(section);
+  const actTok = encodeStaffHpButtonAction(action);
+  return withSourceSuffix(`${STAFF_HP_PREFIX}:${actTok}:${viewerId}:${targetId}:${secTok}`, sourceMessageId);
 }
 
 function formatStaffHpSelectCustomId(action, viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return withSourceSuffix(`${STAFF_HP_SELECT_PREFIX}:${action}:${viewerId}:${targetId}:${sec}`, sourceMessageId);
+  const secTok = staffHpSectionToken(section);
+  return withSourceSuffix(`${STAFF_HP_SELECT_PREFIX}:${action}:${viewerId}:${targetId}:${secTok}`, sourceMessageId);
 }
 
 function shouldOmitPexDepexHomeRow(viewerId, targetUserId, targetMember) {
@@ -908,6 +985,10 @@ module.exports = {
   formatStaffProfileCloseCustomId,
   parseStaffProfileCloseCustomId,
   formatStaffHpButtonCustomId,
+  encodeStaffHpButtonAction,
+  decodeStaffHpButtonActionToken,
+  staffHpSectionToken,
+  parseStaffHpButtonSectionToken,
   buildStaffProfilePayload,
   resolveStaffPartnerPointsDisplay,
   viewerCanUsePartnerPointsPanel,
