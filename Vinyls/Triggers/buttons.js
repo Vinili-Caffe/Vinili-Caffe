@@ -189,16 +189,13 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> **1** Gennaio\n" +
       "<:VC_Dot:1482532364222595303> **Pasqua** e **Pasquetta**\n\n" +
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __Nessun limite__\n" +
+      "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&" +
         IDs.roles.Mod +
-        "> <a:VC_Arrow:1482706699365257397> __3__ **staffer**\n" +
-        "<:VC_Dot:1482532364222595303> <@&" +
-        IDs.roles.HighStaff +
-        "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
+        "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
         "<:VC_Dot:1482532364222595303> <@&" +
         IDs.roles.Admin +
-        "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
+        "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568889052430609> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
       "<:infoglowingdot:1443660296823767110> Gli __`Helper`__ potranno richiedere una __pausa__ nella loro prima settimana **solo** per **__problemi personali__ o __familiari gravi__**. Se l'<@&1442568894349840435> viene a conoscenza di un **__falso__ motivo** per usare una pausa, **in qualsiasi circostanza**, si verrà **__depexati__** all'**__istante__**.\n\n" +
@@ -219,15 +216,10 @@ async function handleStaffButtons(interaction) {
       "<:VC_DoubleReply:1482532332509466797> **__450__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__4.5h__** in vocale\n\n" +
       "<a:VC_Arrow:1482706699365257397> <@&" +
-        IDs.roles.HighStaff +
-        ">\n" +
-        "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
-        "<:VC_Reply:1482532158080942191> **__2.5h__** in vocale\n\n" +
-        "<a:VC_Arrow:1482706699365257397> <@&" +
         IDs.roles.Admin +
         ">\n" +
-      "<:VC_DoubleReply:1482532332509466797> **__400__** messaggi\n" +
-      "<:VC_Reply:1482532158080942191> **__3.5h__** in vocale\n\n" +
+      "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
+      "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
       "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
@@ -908,7 +900,8 @@ module.exports = {
           "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`HIGH STAFF`__**\n\n" +
           "<:VC_Dot:1482532364222595303> **__`50`__** partner <a:vegarightarrow:1443673039156936837> **__2.50__ euro** <:paypal:1329524292446191676>\n" +
           "<:VC_Dot:1482532364222595303> **__`75`__** partner <a:vegarightarrow:1443673039156936837> **__5__ euro** <:paypal:1329524292446191676> / **Nitro __Basic__** <:sparkles_nitro_basic:1330196488336310383>\n" +
-          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n\n" +
+          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n" +
+          "<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior staffer riceverà un **Nitro __Boost__** come premio.\n\n" +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente, in caso di riscatto del **Nitro __Boost__**, almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )
         .setImage(DIVIDER_URL);

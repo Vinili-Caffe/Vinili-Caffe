@@ -350,8 +350,7 @@ function buildIntroEmbed(type) {
       .setTitle("<:VC_PartnerManager:1494286911286808576> Candidatura Partner Manager")
       .setDescription(
         "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
-        "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
-        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket HIGH STAFF.",
+        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
         "",
         "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",);
   }
@@ -360,8 +359,8 @@ function buildIntroEmbed(type) {
     .setTitle("<:VC_Helper:1494287601266331829> Candidatura Helper")
     .setDescription(
       "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
-      "<a:VC_Timer:1482527426557775954> In caso verrete accettati farete una prova di 1/2 settimane",
-      "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket HIGH STAFF.",
+      "<a:VC_Timer:1482527426557775954> È assolutamente vietato il **double staff** su altri server, se lo staffer dopo essere stato accettato viene trovato staffer su altri server verrà immadiatamente depexato.",
+      "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
       "",
       "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
     );
@@ -379,9 +378,9 @@ function buildFinalThanksEmbed(untilTs, type) {
         "<a:VC_ThankYou:1330186319673950401> Grazie per esserti candidato.",
         "",
         `<:VC_update:1478721333096349817> Per **un'altra candidatura ${label}** dovrai attendere fino a: <t:${unix}:F> (<t:${unix}:R>).`,
-        "<:VC_InactiveStatus:1482526984234860574> Puoi comunque candidarti all’**altro** ruolo (Helper / Partner Manager) se non l’hai già fatto di recente per quello.",
+        "<:VC_InactiveStatus:1482526984234860574> Puoi comunque candidarti all’**altro** ruolo se non l’hai già fatto.",
         "",
-        "<a:VC_Alert:1482706673176150077> Non aprire ticket e non pingare lo staff per chiedere l'esito, altrimenti la candidatura verrà automaticamente scartata.",
+        "<a:VC_Alert:1482706673176150077> Non chiedere l'esito o di guardare la candidatura in qualsiasi modo, altrimenti essa verrà automaticamente scartata.",
       ].join("\n"),
     );
 }
