@@ -615,9 +615,9 @@ function warnResetLine(firstWarnStaffAt) {
   if (Number.isNaN(first.getTime())) return "";
   const resetAt = first.getTime() + STAFF_WARN_RESET_MS;
   const left = resetAt - Date.now();
-  if (left <= 0) return "<a:VC_Clock:1473359204189474886> I warn possono essere stati azzerati dal ciclo automatico.";
+  if (left <= 0) return "<:VC_Clock:1473359204189474886> I warn possono essere stati azzerati dal ciclo automatico.";
   const days = Math.ceil(left / (24 * 60 * 60 * 1000));
-  return `<a:VC_Clock:1473359204189474886> Prossimo reset automatico warn: tra ~**${days}** giorni (<t:${Math.floor(resetAt / 1000)}:R>).`;
+  return `<:VC_Clock:1473359204189474886> Prossimo reset automatico warn: tra ~**${days}** giorni (<t:${Math.floor(resetAt / 1000)}:R>).`;
 }
 
 async function fetchStaffLean(guildId, userId) {
@@ -804,13 +804,14 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   if (sec === SECTION_VALUTAZIONI) {
     const posLines = posReasons.map((r, i) => `**+${i + 1}.** ${String(r || "—").slice(0, 900)}`);
     const negLines = negReasons.map((r, i) => `**−${i + 1}.** ${String(r || "—").slice(0, 900)}`);
-    const warnLines = warnReasons.map((r, i) => `**!${i + 1}.** ${String(r || "—").slice(0, 900)}`);
+    const warnLines = warnReasons.map((r, i) => `**-${i + 1}.** ${String(r || "—").slice(0, 900)}`);
+    const warnReset = warnResetLine(s.firstWarnStaffAt);
     const warnBlock = warnLines.length
       ? [
           "<:banhammer:1443651875441217639> **Warn**",
-          warnResetLine(s.firstWarnStaffAt),
           "",
           ...warnLines,
+          ...(warnReset ? ["", warnReset] : []),
         ]
       : ["<:banhammer:1443651875441217639> **Warn** — nessun warn."];
     const body = [

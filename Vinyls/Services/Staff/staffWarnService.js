@@ -6,6 +6,8 @@ const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDoc
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 const NEGATIVES_PER_STAFF_WARN = 3;
+/** Testo salvato su `warnReasons` e mostrato nell'embed warn automatico (3 negative). */
+const STAFF_WARN_THREE_NEGATIVES_REASON = "Warn assegnato per aver raggiunto le 3 valutazioni negative";
 const STAFF_WARN_RESET_MONTHS = 6;
 const STAFF_WARN_RESET_MS = STAFF_WARN_RESET_MONTHS * 30 * 24 * 60 * 60 * 1000;
 
@@ -178,6 +180,7 @@ function startStaffWarnResetLoop(client) {
 module.exports = {
   NEGATIVES_PER_STAFF_WARN,
   STAFF_WARN_RESET_MS,
+  STAFF_WARN_THREE_NEGATIVES_REASON,
   addStaffWarnFromNegatives,
   getHighestStaffRoleId,
   applyDepexOneLevel,

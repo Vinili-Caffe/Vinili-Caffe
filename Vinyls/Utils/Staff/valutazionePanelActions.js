@@ -3,7 +3,12 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
+const {
+  addStaffWarnFromNegatives,
+  applyFullDepex,
+  getHighestStaffRoleId,
+  STAFF_WARN_THREE_NEGATIVES_REASON,
+} = require("../../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 
 async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
@@ -45,6 +50,31 @@ function makeLogEmbed(
       ].join("\n"),
     )
     .setColor(color);
+}
+
+/** Embed warn automatico: stesso author/descrizione delle valutazioni da pannello (`makeLogEmbed`). */
+function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, valutazioniCount) {
+  const userObj = actorLike?.user || actorLike;
+  const memberObj = actorLike?.user ? actorLike : null;
+  const iconSource = memberObj || userObj;
+  const username = userObj?.username || "Staff";
+  const targetMention = targetUser?.id ? `<@${targetUser.id}>` : String(targetUser || "");
+  const thumb = typeof targetUser?.displayAvatarURL === "function" ? targetUser.displayAvatarURL() : null;
+  return new EmbedBuilder()
+    .setAuthor({
+      name: `Valutazione eseguita da ${username}`,
+      iconURL: iconSource?.displayAvatarURL?.() || userObj?.displayAvatarURL?.() || undefined,
+    })
+    .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnCount}\``)
+    .setThumbnail(thumb)
+    .setDescription(
+      [
+        `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetMention}`,
+        `<:VC_reason:1478517122929004544> __${STAFF_WARN_THREE_NEGATIVES_REASON}__`,
+        `<:VC_id:1478517313618575419> **ID Valutazione** __\`${valutazioniCount}\`__`,
+      ].join("\n"),
+    )
+    .setColor("#E74C3C");
 }
 
 function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel, updatedValue) {
@@ -127,12 +157,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
-    const warnEmbed = new EmbedBuilder()
-      .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${actor.user.username}`, iconURL: (actor.member || actor.user).displayAvatarURL() })
-      .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
-      .setThumbnail(staffUser.displayAvatarURL())
-      .setDescription(`${staffUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 400)}__`)
-      .setColor("#E74C3C");
+    const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, s.valutazioniCount);
     await warnChannel.send({ content: `${staffUser}`, embeds: [warnEmbed] }).catch(() => null);
     if (warnResult.shouldAskDepex) {
       const promptEmbed = new EmbedBuilder()
@@ -291,6 +316,7 @@ async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUse
 }
 
 module.exports = {
+  buildAutoStaffWarnFromNegativesEmbed,
   runValutazionePositiveAddForPanel,
   runValutazioneNegativeAddForPanel,
   runValutazionePositiveRemoveForPanel,

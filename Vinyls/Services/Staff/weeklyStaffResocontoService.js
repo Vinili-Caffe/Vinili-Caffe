@@ -4,7 +4,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, } = require("
 const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCaseStore");
-const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazione } = require("../../Events/interaction/resocontoHandlers");
+const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
@@ -876,14 +876,6 @@ async function runWeeklyStaffResoconti(client) {
       contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
       const pauseLine = getStaffPauseLine(staffDoc, "Staff");
       if (pauseLine) contentLines.push(pauseLine);
-
-      if (sanctionLimit != null) {
-        const weeklySanctions = sanctionCountByModId.get(userId) || 0;
-        const sanctionMet = weeklySanctions >= sanctionLimit;
-        if (sanctionMet) {
-          await applyAutomaticValutazione(guild, client, member.user, true, "Limite sanzioni settimanale completato").catch(() => null);
-        }
-      }
 
       const staffComponents = [
         buildResocontoButtons(

@@ -4,6 +4,7 @@ const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } =
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
 const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
+const { buildAutoStaffWarnFromNegativesEmbed } = require("../../Utils/Staff/valutazionePanelActions");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
@@ -194,26 +195,6 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
   await channel.send({ content: `<@${targetUser.id}>`, embeds: [embed] }).catch(() => null);
 }
 
-async function applyAutomaticValutazione(guild, client, targetUser, positive, reason) {
-  if (!guild || !client?.user || !targetUser?.id) return;
-  const profileDoc = await getOrCreateStaffDoc(guild.id, targetUser.id);
-  const s = ensureStaff(profileDoc);
-  const reasonStr = String(reason || "").trim() || (positive ? "Limite sanzioni settimanale completato" : "Limite sanzioni settimanale non completato");
-  s.valutazioniCount = Math.max(0, Number(s.valutazioniCount || 0)) + 1;
-  if (positive) {
-    s.positiveCount = Math.max(0, Number(s.positiveCount || 0)) + 1;
-    if (!Array.isArray(s.positiveReasons)) s.positiveReasons = [];
-    s.positiveReasons.push(reasonStr);
-  } else {
-    s.negativeCount = Math.max(0, Number(s.negativeCount || 0)) + 1;
-    if (!Array.isArray(s.negativeReasons)) s.negativeReasons = [];
-    s.negativeReasons.push(reasonStr);
-  }
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  await sendValutazioneLogEmbed(guild, client.user, targetUser, reasonStr, positive);
-}
-
 async function applyPexSideEffects(guild, member, roleId) {
   if (roleId === ROLE_HELPER) {
     return ensureRoleAdded(guild, member, ROLE_STAFF);
@@ -362,12 +343,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (warnResult.added) {
       const warnChannel = await getGuildChannelCached(guild, IDs.channels?.warnStaff);
       if (warnChannel?.isTextBased?.()) {
-        const warnLogEmbed = new EmbedBuilder()
-          .setAuthor({ name: `Warn automatico (3 valutazioni negative) da ${actor.username}`, iconURL: actor.displayAvatarURL() })
-          .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnResult.warnCount}\``)
-          .setThumbnail(targetUser.displayAvatarURL())
-          .setDescription(`<@${payload.userId}>\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 400)}__`)
-          .setColor("#E74C3C");
+        const warnLogEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, targetUser, warnResult.warnCount, s.valutazioniCount);
         await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [warnLogEmbed] }).catch(() => null);
         if (warnResult.shouldAskDepex) {
           const embed = new EmbedBuilder()
@@ -682,4 +658,4 @@ async function handleResocontoActionInteraction(interaction) {
   return false;
 }
 
-module.exports = { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, applyAutomaticValutazione, handleResocontoActionInteraction, applyDepexSideEffects, sendPexDepexLog };
+module.exports = { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX, handleResocontoActionInteraction, applyDepexSideEffects, sendPexDepexLog };
