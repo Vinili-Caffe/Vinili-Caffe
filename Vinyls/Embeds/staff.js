@@ -1,16 +1,10 @@
 const IDs = require("../Utils/Config/ids");
-const {
-  getClientChannelCached,
-  getClientGuildCached,
-  getGuildChannelCached,
-} = require("../Utils/Interaction/interactionEntityCache");
+const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const SHOW_SANZIONI_IN_GUIDA_STAFF = false;
 
-/** Staff del Mese: sempre `IDs.channels.bestStaff` (cache client → fetch canale → guild principale). */
 async function resolveBestStaffChannel(client) {
   const channelId = String(IDs.channels?.bestStaff || "").trim();
   if (!client || !channelId) return null;
@@ -33,10 +27,6 @@ async function run(client) {
 
   const stafferDelMeseRoleId = String(IDs.roles?.StafferDelMese || "").trim();
   const stafferDelMeseMention = stafferDelMeseRoleId ? `<@&${stafferDelMeseRoleId}>` : "**Staffer del Mese**";
-  const pollBestStaffCh = String(IDs.channels?.pollBestStaff || "").trim();
-  const pollBestStaffLine = pollBestStaffCh
-    ? `Le indicazioni e il voto del mese sono nel canale ${`<#${pollBestStaffCh}>`}.`
-    : "Le indicazioni del mese sono pubblicate nel canale dedicato al sondaggio staff.";
 
   const embedStaffDelMese = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -46,7 +36,7 @@ async function run(client) {
         "Ogni mese viene scelto **un solo** staffer da premiare tra **Helper, Mod e Admin**.",
         "",
         "**Come si decide?**",
-        "La scelta tiene conto di **attività nel server**, **presenza** e **contributo** allo staff. " + pollBestStaffLine,
+        "La scelta tiene conto di **attività nel server**, **presenza** e **contributo** allo staff.",
         "",
         "**Premi per il vincitore**",
         `<:VC_Dot:1482532364222595303> Ruolo ${stafferDelMeseMention} per il mese di riferimento`,
