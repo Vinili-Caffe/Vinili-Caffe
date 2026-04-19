@@ -1,33 +1,64 @@
 const IDs = require("../Utils/Config/ids");
-const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const {
+  getClientChannelCached,
+  getClientGuildCached,
+  getGuildChannelCached,
+} = require("../Utils/Interaction/interactionEntityCache");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const SHOW_SANZIONI_IN_GUIDA_STAFF = false;
 
+/** Staff del Mese: sempre `IDs.channels.bestStaff` (cache client → fetch canale → guild principale). */
+async function resolveBestStaffChannel(client) {
+  const channelId = String(IDs.channels?.bestStaff || "").trim();
+  if (!client || !channelId) return null;
+  const fromCache = client.channels?.cache?.get(channelId) || null;
+  if (fromCache?.isTextBased?.()) return fromCache;
+  const fromClient = (await getClientChannelCached(client, channelId).catch(() => null)) || null;
+  if (fromClient?.isTextBased?.()) return fromClient;
+
+  const guildId = String(IDs.guilds?.main || "").trim();
+  if (!guildId) return null;
+  const guild = (await getClientGuildCached(client, guildId).catch(() => null)) || null;
+  if (!guild) return null;
+  const fromGuild = (await getGuildChannelCached(guild, channelId).catch(() => null)) || null;
+  return fromGuild?.isTextBased?.() ? fromGuild : null;
+}
+
 async function run(client) {
   const moderationChannel = client.channels.cache.get(IDs.channels.moderazioneStaff) || (await getClientChannelCached(client, IDs.channels.moderazioneStaff));
-  const bestStaffChannel = client.channels.cache.get(IDs.channels.bestStaff) || (await getClientChannelCached(client, IDs.channels.bestStaff));
   const guideChannel = client.channels.cache.get(IDs.channels.guidaStaff) || (await getClientChannelCached(client, IDs.channels.guidaStaff));
 
+  const stafferDelMeseRoleId = String(IDs.roles?.StafferDelMese || "").trim();
+  const stafferDelMeseMention = stafferDelMeseRoleId ? `<@&${stafferDelMeseRoleId}>` : "**Staffer del Mese**";
+  const pollBestStaffCh = String(IDs.channels?.pollBestStaff || "").trim();
+  const pollBestStaffLine = pollBestStaffCh
+    ? `Le indicazioni e il voto del mese sono nel canale ${`<#${pollBestStaffCh}>`}.`
+    : "Le indicazioni del mese sono pubblicate nel canale dedicato al sondaggio staff.";
+
+  const embedStaffDelMese = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("Staffer del Mese")
+    .setDescription(
+      [
+        "Ogni mese viene scelto **un solo** staffer da premiare tra **Helper, Mod e Admin**.",
+        "",
+        "**Come si decide?**",
+        "La scelta tiene conto di **attività nel server**, **presenza** e **contributo** allo staff. " + pollBestStaffLine,
+        "",
+        "**Premi per il vincitore**",
+        `<:VC_Dot:1482532364222595303> Ruolo ${stafferDelMeseMention} per il mese di riferimento`,
+        "<:VC_Dot:1482532364222595303> **5 giorni di pausa in più**",
+        "<:VC_Dot:1482532364222595303> **Nitro Boost** __mensile__",
+        "",
+        "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
+      ].join("\n"),
+    )
+    .setImage(DIVIDER_URL);
+
   const embeds = [
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(
-        `<a:questionexclaimanimated:1443660299994533960>  **__COME FUNZIONA?__**
-
-> Il premio _Staffer del Mese_ serve per premiare lo staffer **migliore** del \`mese\`. I premi li riceveranno sia un __**High Staff**__ che un __**Low Staff**__.
-
-<a:vegarightarrow:1443673039156936837> Il premio viene deciso in base all'**attività** e al **contributo** che lo staffer ha dato al server.
-
-<a:questionexclaimanimated:1443660299994533960>  **__QUALI SONO I VANTAGGI?__**
-> Lo __Staffer del Mese__ ha anche dei **vantaggi** che sono _uguali_ per entrambi gli staffer:
-<:VC_Dot:1482532364222595303> Ruolo __<@&1442568895251611924>__
-<:VC_Dot:1482532364222595303> Ruolo __<@&1442568950805430312>__  per quel mese
-<:VC_Dot:1482532364222595303> **__5__ giorni** di __pausa__ aggiuntivi`,
-      )
-      .setImage(DIVIDER_URL),
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setDescription(
@@ -77,10 +108,18 @@ async function run(client) {
     new ButtonBuilder().setCustomId("vocalimoderazione").setLabel("︲VOCALI").setEmoji("<:microphone:1443307206824169573>").setStyle(ButtonStyle.Secondary),
   );
 
-  if (bestStaffChannel?.isTextBased?.()) {
+  const bestStaffChannel = await resolveBestStaffChannel(client);
+  if (!bestStaffChannel) {
+    global.logger?.error?.(
+      "[staff embed] Staff del Mese: canale `bestStaff` non risolvibile o non postabile (serve un canale testuale). ID:",
+      String(IDs.channels?.bestStaff || ""),
+    );
+  } else {
     await upsertPanelMessage(bestStaffChannel, client, {
-      embeds: [embeds[0]],
+      embeds: [embedStaffDelMese],
       components: [],
+    }).catch((err) => {
+      global.logger?.error?.("[staff embed] Staff del Mese: upsert su bestStaff fallito:", err?.message || err);
     });
   }
   if (guideChannel?.isTextBased?.()) {

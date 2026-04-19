@@ -24,7 +24,8 @@ Per candidarsi, è necessario **soddisfare** i seguenti __requisiti__:
 <:1_:1444099163116535930> Avere almeno **__14 anni (compiuti)__**
 <:2_:1444099161673826368> Rispettare i **[ToS](https://discord.com/terms)** e le **[Linee Guida](https://discord.com/guidelines)** di **Discord**
 <:3_:1444099160294031471> Essere **maturi** e **attivi**
-<:4_:1444099158859321435> Non essere mai stato **sanzionato** nel server.`,
+<:4_:1444099158859321435> Non essere mai stato **sanzionato** nel server.
+<:VC_5:1482706459765637272> Non essere staffer in altri server, questo solo per chi sceglie il percorso staff.`,
     )
     .setImage(DIVIDER_URL);
   const candidatureAttachment = new AttachmentBuilder(CANDIDATURE_MEDIA_PATH, { name: CANDIDATURE_MEDIA_NAME });
