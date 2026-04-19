@@ -10,6 +10,7 @@ const {
 } = require("../Utils/Staff/staffPmUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
+const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
@@ -1233,6 +1234,16 @@ module.exports = {
 
       const botClient = client || newMember.client;
       if (newMember?.guild?.id === IDs.guilds.main && botClient) {
+        const stafferDelMeseId = String(IDs.roles?.StafferDelMese || "").trim();
+        if (
+          stafferDelMeseId &&
+          !oldMember.roles.cache.has(stafferDelMeseId) &&
+          newMember.roles.cache.has(stafferDelMeseId)
+        ) {
+          await grantBestStaffPauseBonusYear(newMember.guild.id, newMember.id).catch((err) => {
+            global.logger?.warn?.("[guildMemberUpdate] bestStaffPauseBonusYear:", newMember.id, err?.message || err);
+          });
+        }
         if (didStaffMembershipChange(oldMember, newMember) || didStaffRolesChange(oldMember, newMember)) {
           scheduleStaffListRefresh(botClient, newMember.guild.id);
           if (!memberHasStaffRole(oldMember) && memberHasStaffRole(newMember)) {

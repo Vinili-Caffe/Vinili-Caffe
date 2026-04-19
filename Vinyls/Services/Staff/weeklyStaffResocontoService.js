@@ -14,12 +14,13 @@ const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
   [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
   [String(IDs.roles.HighStaff)]: { messages: 350, hours: 2.5 },
-  [String(IDs.roles.Admin)]: { messages: 400, hours: 3.5 },
+  /** Admin in resoconto: soglie allineate al ruolo (≥ Mod). */
+  [String(IDs.roles.Admin)]: { messages: 500, hours: 5 },
 };
 const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Mod)]: 1,
   [String(IDs.roles.HighStaff)]: 2,
-  [String(IDs.roles.Admin)]: 3,
+  [String(IDs.roles.Admin)]: 4,
 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
 const STAFF_ROLE_PRIORITY = [
@@ -420,6 +421,23 @@ function resolveStaffRole(member) {
   return null;
 }
 
+/**
+ * Esclude dal flusso resoconto chi ha solo High Staff (permessi) senza Helper/Mod/Admin.
+ * Admin/Mod/Helper con anche High Staff restano inclusi (`resolveStaffRole` dà la scala operativa).
+ */
+function shouldSkipResocontoForHighStaffPermissionsOnly(member) {
+  if (!member?.roles?.cache) return false;
+  const pm = String(IDs.roles.PartnerManager || "");
+  if (pm && member.roles.cache.has(pm)) return false;
+  const hs = String(IDs.roles.HighStaff || "");
+  if (!hs || !member.roles.cache.has(hs)) return false;
+  for (const id of [IDs.roles.Admin, IDs.roles.Mod, IDs.roles.Helper]) {
+    const rid = String(id || "");
+    if (rid && member.roles.cache.has(rid)) return false;
+  }
+  return true;
+}
+
 function getResocontoMemberRank(member) {
   const staffRoleId = resolveStaffRole(member);
   if (staffRoleId) {
@@ -813,7 +831,7 @@ async function runWeeklyStaffResoconti(client) {
   for (const member of fetchedMembers) {
     if (!member) continue;
     if (member.user?.bot) continue;
-    if (member.roles.cache.has(String(IDs.roles.HighStaff))) continue;
+    if (shouldSkipResocontoForHighStaffPermissionsOnly(member)) continue;
 
     const hasStaffRole = Boolean(resolveStaffRole(member));
     const hasPmRole = member.roles.cache.has(String(IDs.roles.PartnerManager));
@@ -842,7 +860,9 @@ async function runWeeklyStaffResoconti(client) {
   for (const member of candidateMembers) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
-    const helperPexedInLast7Days = wasPromotedToRoleInLastDays(staffDoc, IDs.roles.Helper, 7, now);
+    const staffRoleId = resolveStaffRole(member);
+    const graceNewStaffRole =
+      Boolean(staffRoleId) && wasPromotedToRoleInLastDays(staffDoc, staffRoleId, 7, now);
     const pmPexedInLast7Days = wasPromotedToRoleInLastDays(staffDoc, IDs.roles.PartnerManager, 7, now);
     const skipForStaffPexInWindow = shouldSkipResocontoForPexInCalendarWeek(
       staffDoc,
@@ -854,10 +874,9 @@ async function runWeeklyStaffResoconti(client) {
       pexSkipWindow.windowStart,
       pexSkipWindow.windowEndExclusive,
     );
-    const shouldSkipStaffResoconto = skipForStaffPexInWindow && !helperPexedInLast7Days;
+    const shouldSkipStaffResoconto = skipForStaffPexInWindow && !graceNewStaffRole;
     const shouldSkipPmResoconto = skipForPmPromotionInWindow && !pmPexedInLast7Days;
 
-    const staffRoleId = resolveStaffRole(member);
     if (staffRoleId && !shouldSkipStaffResoconto) {
       const overview = overviewMap.get(userId);
       const d7 = overview?.windows?.d7;
@@ -877,8 +896,8 @@ async function runWeeklyStaffResoconti(client) {
             staffDoc?.positiveCount,
             staffDoc?.negativeCount,
           );
-      const action = helperPexedInLast7Days ? "Nulla" : baseAction;
-      const staffNewBadge = action === "Nulla" && helperPexedInLast7Days ? ` ${STAFF_NEW_EMOJI}` : "";
+      const action = graceNewStaffRole ? "Nulla" : baseAction;
+      const staffNewBadge = action === "Nulla" && graceNewStaffRole ? ` ${STAFF_NEW_EMOJI}` : "";
 
       const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
       const staffRoleEmoji = getStaffRoleEmojiByRoleId(staffRoleId);
@@ -968,7 +987,11 @@ async function runPreResocontoReminders(client) {
   const hasStaffRole = (m) => Boolean(resolveStaffRole(m));
   const hasPmRole = (m) => m.roles.cache.has(String(IDs.roles.PartnerManager));
   const reminderMembers = fetchedMembers.filter(
-    (m) => m && !m.user?.bot && !m.roles.cache.has(String(IDs.roles.HighStaff)) && (hasStaffRole(m) || hasPmRole(m)),
+    (m) =>
+      m &&
+      !m.user?.bot &&
+      !shouldSkipResocontoForHighStaffPermissionsOnly(m) &&
+      (hasStaffRole(m) || hasPmRole(m)),
   );
   if (!reminderMembers.length) return;
 

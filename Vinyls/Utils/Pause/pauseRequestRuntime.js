@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils");
 const IDs = require("../Config/ids");
-const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, normalizePauseRoleChoice, PAUSE_ROLE_STAFF } = require("./pauseHandlersUtils");
+const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRoleChoice, PAUSE_ROLE_STAFF } = require("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
@@ -184,9 +184,6 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   }
   if (getOneWeekBetweenWarning(stafferDoc, pauseId)) {
     requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Almeno 1 settimana tra richieste:** l'ultima richiesta pausa è stata fatta da meno di 7 giorni.");
-  }
-  if (member && isHelperFirstWeek(member, stafferDoc)) {
-    requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Helper in prima settimana:** le pause richieste dagli Helper nella prima settimana sono consentite solo per problemi personali o familiari gravi.");
   }
   const warningBlock = requisitiNonRispettati.length
     ? "\n\n<a:VC_Alert:1482706673176150077> **Requisiti non rispettati:**\n" + requisitiNonRispettati.map((r) => `• ${r}`).join("\n") + "\n\n_L'High Staff può accettare comunque._"

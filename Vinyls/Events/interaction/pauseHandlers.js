@@ -7,7 +7,7 @@ async function deletePauseThreadIfAny(guild, requestThreadId) {
   const thread = await guild.channels.fetch(requestThreadId).catch(() => null);
   if (thread?.isThread?.()) await thread.delete().catch(() => null);
 }
-const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH } = require("../../Utils/Pause/pauseHandlersUtils");
+const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
 const pauseActionLocks = new Set();
 
@@ -363,7 +363,7 @@ async function handlePauseButton(interaction) {
 
     const roleChoiceForPause = normalizePauseRoleChoice(targetPause?.ruolo || targetPause?.ruoloRichiesto) || PAUSE_ROLE_STAFF;
     const baseLimit = getBasePauseLimit(member, roleChoiceForPause);
-    const bonusBestStaff=member.roles.cache.has(IDs.roles.StafferDelMese)?5:0;
+    const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
     const maxGiorni = baseLimit + bonusBestStaff;
     const giorniTotaliUsati = computeConsumedPauseDays(stafferRecord.staff?.pauses);
     const giorniRimanenti = Math.max(0, maxGiorni - giorniTotaliUsati);
@@ -434,7 +434,7 @@ async function handlePauseButton(interaction) {
 
   const roleChoice = resolveAcceptedPauseRoleChoice(member, targetPause);
   const baseLimit = getBasePauseLimit(member, roleChoice);
-  const bonusBestStaff=member.roles.cache.has(IDs.roles.StafferDelMese)?5:0;
+  const bonusBestStaff = getBestStaffPauseBonusDays(member, stafferRecord);
   const maxGiorni = baseLimit + bonusBestStaff;
   const usedBefore = computeConsumedPauseDays(stafferRecord.staff?.pauses);
   const giorniUsati = usedBefore + giorniRichiesti;
@@ -482,6 +482,10 @@ async function handlePauseButton(interaction) {
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
   targetPause.stafferInPausa = sameRoleActiveCount;
+
+  if (bonusBestStaff >= 5) {
+    await grantBestStaffPauseBonusYear(guildId, effectiveUserId).catch(() => {});
+  }
 
   const roleLimit = roleChoice === PAUSE_ROLE_BOTH ? null : getPauseRoleLimit(roleChoice);
   const roleLimitWarning = roleChoice !== PAUSE_ROLE_BOTH && roleLimit != null && sameRoleActiveCount > roleLimit

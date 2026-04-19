@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { isValidGuildUserId } = require("../DB/validateWriteIds");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -56,6 +57,10 @@ function getFestiviSetForYear(year) {
   set.add(`${y}-12-26`);
   set.add(`${y}-12-31`);
   set.add(`${y}-01-01`);
+  /** Festività nazionali (Europe/Rome): non contano nel limite giorni pausa per tutti. */
+  set.add(`${y}-04-25`);
+  set.add(`${y}-05-01`);
+  set.add(`${y}-06-02`);
   const pasqua = getEasterSunday(y);
   if (pasqua) {
     set.add(`${y}-${pad(pasqua.month)}-${pad(pasqua.day)}`);
@@ -437,19 +442,6 @@ function getSpanTwoMonthsFiveDaysWarning(normalized) {
   return null;
 }
 
-function isHelperFirstWeek(member, staffDoc) {
-  if (!member?.roles?.cache?.has(IDs.roles.Helper)) return false;
-  const history = Array.isArray(staffDoc?.staff?.rolesHistory) ? staffDoc.staff.rolesHistory : [];
-  const helperRoleId = String(IDs.roles.Helper || "");
-  const promotedAt = history
-    .filter((r) => String(r?.newRole || "") === helperRoleId)
-    .sort((a, b) => (new Date(b?.date || 0)).getTime() - (new Date(a?.date || 0)).getTime())[0]?.date;
-  if (!promotedAt) return false;
-  const then = new Date(promotedAt);
-  const weekAgo = new Date(Date.now() - 7 * MS_PER_DAY);
-  return then > weekAgo;
-}
-
 function getBasePauseLimit(member, requestedRole = null) {
   const targets = getPauseRoleTargets(requestedRole, member);
   const values = targets.map((t) => (t === PAUSE_ROLE_PM ? 45 : 60));
@@ -665,6 +657,47 @@ function schedulePauseStatusRefresh(guild, userId, pause) {
   }
 }
 
+function pauseHistoryImpliesBestStaffBonusForYear(pauses, year) {
+  if (!Number.isFinite(year)) return false;
+  if (!Array.isArray(pauses)) return false;
+  for (const p of pauses) {
+    if (!p || (p.status !== "accepted" && p.status !== "cancelled")) continue;
+    if (Number(p.giorniAggiuntivi) < 5) continue;
+    const start = parseItalianDate(p.dataRichiesta);
+    if (start && start.getUTCFullYear() === year) return true;
+    if (p.createdAt) {
+      const c = new Date(p.createdAt);
+      if (Number.isFinite(c.getTime()) && c.getUTCFullYear() === year) return true;
+    }
+  }
+  return false;
+}
+
+function getBestStaffPauseBonusDays(member, staffDoc) {
+  const roleId = String(IDs.roles?.StafferDelMese || "").trim();
+  if (roleId && member?.roles?.cache?.has(roleId)) return 5;
+  const y = getTodayUtc().getUTCFullYear();
+  const years = Array.isArray(staffDoc?.staff?.bestStaffPauseBonusYears)
+    ? staffDoc.staff.bestStaffPauseBonusYears
+    : [];
+  if (years.includes(y)) return 5;
+  const pauses = Array.isArray(staffDoc?.staff?.pauses) ? staffDoc.staff.pauses : [];
+  return pauseHistoryImpliesBestStaffBonusForYear(pauses, y) ? 5 : 0;
+}
+
+async function grantBestStaffPauseBonusYear(guildId, userId, year = null) {
+  const g = String(guildId ?? "").trim();
+  const u = String(userId ?? "").trim();
+  if (!isValidGuildUserId(g, u)) return;
+  const y = year == null ? getTodayUtc().getUTCFullYear() : Number(year);
+  if (!Number.isFinite(y)) return;
+  await ActivityUserProfile.findOneAndUpdate(
+    { guildId: g, userId: u },
+    { $setOnInsert: { guildId: g, userId: u }, $addToSet: { "staff.bestStaffPauseBonusYears": y } },
+    { upsert: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+}
+
 async function restorePauseMessageStatusSync(client) {
   const guildId = String(IDs.guilds?.main || client?.guilds?.cache?.first?.()?.id || "").trim();
   if (!guildId) return;
@@ -688,4 +721,4 @@ async function restorePauseMessageStatusSync(client) {
   }
 }
 
-module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, isHelperFirstWeek, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo };
+module.exports = { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, getMonthBoundsUtc, filterPausesByMonth, countOverlapDays, countEffectiveOverlapDays, rangesOverlap, computeStaffersInPauseByRoleForRange, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, computeConsumedPauseDays, getMemberRoleLabel, getBasePauseLimit, getPauseRoleLimit, getPauseStatusLabel, getPauseTimingText, computePauseScaledDaysThisYear, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, restorePauseMessageStatusSync, getRomeMonthKey, getOnePausePerMonthWarning, getOneWeekBetweenWarning, getPauseReasonFromMessage, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, normalizePauseRoleChoice, getMemberPauseRoleChoices, getPauseRoleTargets, roleChoiceAppliesTo, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear };

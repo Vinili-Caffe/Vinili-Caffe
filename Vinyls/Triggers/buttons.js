@@ -180,14 +180,18 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "pause") {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
-      "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n\n" +
-      "> Per __richiedere__ una pausa basta scrivere nel canale <#1442569262689554444> usando il formato corretto.\n\n" +
+      "<:Clock:1330530065133338685> Vinili & Caffè presenta un **sistema** di **`pause`** _sofisticato_, infatti è tutto __organizzato__ per **garantire** al meglio l'__attività__ del server.\n" +
+      "> Per __richiedere__ una pausa basta scrivere nel canale <#1442569255315832945> usando il formato corretto.\n\n" +
       "<a:VC_Arrow:1482706699365257397> **__LIMITI__**\n" +
-      "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno. Gli <@&1442568895251611924> avranno **__`5`__** giorni in più.\n\n" +
+      "<a:loading:1443934440614264924> In un anno si possono chiedere __massimo__ **`60 giorni`** di pausa che si possono usufruire in __tutti__ i **12 mesi** dell'anno.\n\n" +
       "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
       "<:VC_Dot:1482532364222595303> **24**, **25**, **26**, **31** __Dicembre__\n" +
       "<:VC_Dot:1482532364222595303> **1** Gennaio\n" +
       "<:VC_Dot:1482532364222595303> **Pasqua** e **Pasquetta**\n\n" +
+      "<:VC_Dot:1482532364222595303> **25** __Aprile__\n" +
+      "<:VC_Dot:1482532364222595303> **1** __Maggio__\n" +
+      "<:VC_Dot:1482532364222595303> **2** __Giugno__\n" +
+
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&" +
@@ -195,10 +199,8 @@ async function handleStaffButtons(interaction) {
         "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
         "<:VC_Dot:1482532364222595303> <@&" +
         IDs.roles.Admin +
-        "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568889052430609> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
+        "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
-      "<:infoglowingdot:1443660296823767110> Gli __`Helper`__ potranno richiedere una __pausa__ nella loro prima settimana **solo** per **__problemi personali__ o __familiari gravi__**. Se l'<@&1442568894349840435> viene a conoscenza di un **__falso__ motivo** per usare una pausa, **in qualsiasi circostanza**, si verrà **__depexati__** all'**__istante__**.\n\n" +
       "> <:banhammer:1443651875441217639> Se l'<@&1442568894349840435> verrà a conoscenza di uno **staffer** __in pausa__ ma **attivo** in un **altro server** nel periodo di tempo della pausa, **toglierà** la pausa e **sanzionerà** lo staffer."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
@@ -229,19 +231,13 @@ async function handleStaffButtons(interaction) {
   if (interaction.customId == "regolamento") {
     const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(`<:VC_Dot:1482532364222595303> **Rispettare** le regole (<#1442569111119990887>) del server;
 
-            <:VC_Dot:1482532364222595303> __Non__ **chiedere** pex _continuamente_;
-
-            <:VC_Dot:1482532364222595303> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**;
-
-            <:VC_Dot:1482532364222595303> __Non__ **abusare** di potere, ad esempio **sanzionando** un __utente__ \`senza un vero motivo\`;
-
-            <:VC_Dot:1482532364222595303> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>;
-
-            <:VC_Dot:1482532364222595303> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**
-
-            <:VC_Dot:1482532364222595303> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__
-
-            <:VC_Dot:1482532364222595303> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__`);
+            <:VC_1:1482706338021642333> __Non__ **chiedere** pex _continuamente_;
+            <:VC_2:1482706376525611090> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**;
+            <:VC_3:1482706404773990460> __Non__ **abusare** di potere, ad esempio **sanzionando** un __utente__ \`senza un vero motivo\`;
+            <:VC_4:1482706432347344916> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>;
+            <:VC_5:1482706459765637272> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**
+            <:VC_6:1482706490769801327> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__
+            <:VC_7:1482706523330183218> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }

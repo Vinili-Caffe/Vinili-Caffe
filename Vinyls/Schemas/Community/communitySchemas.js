@@ -247,6 +247,8 @@ const staffEmbeddedSchema = new Schema(
     partnerActions: { type: [staffPartnerActionSchema] },
     /** Soglie premio PM (50/75/150) per cui è già stato inviato il promemoria in DM. */
     partnerMilestoneDmSent: { type: [Number], default: [] },
+    /** Anni (UTC) in cui vale +5 giorni pausa Staff del mese, anche dopo rimozione del ruolo. */
+    bestStaffPauseBonusYears: { type: [Number], default: [] },
     pauses: { type: [staffPauseEntrySchema], default: [] },
   },
   { _id: false },

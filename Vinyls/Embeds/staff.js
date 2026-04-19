@@ -54,30 +54,30 @@ async function run(client) {
         `<:discordstaff:1443651872258003005> La **__guida staff__** di __Vinili & Caffè__ serve per portare **ordine** tra lo __staff__, infatti sono presenti delle **__regole__** che __tutti__ dovranno **rispettare**; in __caso__ vengano \`trasgredite\`, potreste andare **incontro** a **__sanzioni__**, come **__\`valutazioni negative\`__** o in casi estremi il **__\`depex\`__**.
 
 > La __guida staff__ si divide in **__\`5\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
-<:VC_Dot:1482532364222595303> **Regolamento**
-<:VC_Dot:1482532364222595303> **Limiti Settimanali**
-<:VC_Dot:1482532364222595303> **Pause**
-<:VC_Dot:1482532364222595303> **Valutazioni**
-<:VC_Dot:1482532364222595303> **Warn Staff**`,
+<:VC_1:1482706338021642333> **Regolamento**
+<:VC_2:1482706376525611090> **Limiti Settimanali**
+<:VC_3:1482706404773990460> **Pause**
+<:VC_4:1482706432347344916> **Valutazioni**
+<:VC_5:1482706459765637272> **Warn Staff**`,
       )
       .setImage(DIVIDER_URL),
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setDescription(
-        `<a:questionexclaimanimated:1443660299994533960> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
+        `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
 
-<:VC_Dot:1482532364222595303> **__\`1\`__** <a:vegarightarrow:1443673039156936837> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
-<:VC_Dot:1482532364222595303> **__\`2\`__** <a:vegarightarrow:1443673039156936837> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
-<:VC_Dot:1482532364222595303> **__\`3\`__** <a:vegarightarrow:1443673039156936837> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
-<:VC_Dot:1482532364222595303> **__\`4\`__** <a:vegarightarrow:1443673039156936837> Per visualizzare **quante** volte un __utente__ è stato **sanzionato** usate il comando +modlogs **__\`ID\`__**
-<:VC_Dot:1482532364222595303> **__\`5\`__** <a:vegarightarrow:1443673039156936837> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
-<:VC_Dot:1482532364222595303> **__\`6\`__** <a:vegarightarrow:1443673039156936837> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
+<:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
+<:VC_2:1482706376525611090> <a:VC_Arrow:1482706699365257397> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
+<:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
+<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato** usate il comando +modlogs **__\`ID\`__**
+<:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
+<:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
       )
       .setImage(DIVIDER_URL),
   ];
 
   const rowGuideMainButtons = [
-    new ButtonBuilder().setCustomId("regolamento").setLabel("︲REGOLE").setEmoji("<:rules:1443307208543703131>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("regolamento").setLabel("︲REGOLAMENTO").setEmoji("<:rules:1443307208543703131>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("limiti").setLabel("︲LIMITI SETTIMANALI").setEmoji("<:reportmessage:1443670575376765130>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("pause").setLabel("︲PAUSE").setEmoji("<:Clock:1330530065133338685>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("valutazioni").setLabel("︲VALUTAZIONI").setEmoji("<a:loading:1443934440614264924>").setStyle(ButtonStyle.Secondary),

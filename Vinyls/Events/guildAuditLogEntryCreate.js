@@ -2,12 +2,45 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handlePruneAction: antiNukeHandlePruneAction } = require("../Services/Moderation/antiNukeService");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
+const IDs = require("../Utils/Config/ids");
+const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
+
+const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
+
+function auditEntryChangeAddsRoleId(entry, roleId) {
+  if (!roleId) return false;
+  const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+  for (const change of changes) {
+    if (String(change?.key || "") !== "$add") continue;
+    const raw = Array.isArray(change?.new) ? change.new : [];
+    for (const item of raw) {
+      const id = String(item?.id ?? item?.role_id ?? "").trim();
+      if (id === roleId) return true;
+    }
+  }
+  return false;
+}
+
+async function maybeGrantBestStaffPauseBonusFromAudit(entry, guild) {
+  if (String(guild?.id || "") !== String(IDs.guilds?.main || "")) return;
+  if (entry.action !== MEMBER_ROLE_UPDATE_ACTION) return;
+  const stafferDelMeseId = String(IDs.roles?.StafferDelMese || "").trim();
+  if (!stafferDelMeseId || !auditEntryChangeAddsRoleId(entry, stafferDelMeseId)) return;
+  const userId = String(entry.targetId ?? entry.target?.id ?? "").trim();
+  if (!/^\d{17,20}$/.test(userId)) return;
+  await grantBestStaffPauseBonusYear(guild.id, userId).catch((err) => {
+    global.logger?.warn?.("[guildAuditLogEntryCreate] bestStaffPauseBonusYear:", userId, err?.message || err);
+  });
+}
 
 module.exports = {
   name: "guildAuditLogEntryCreate",
   async execute(entry, guild) {
     try {
       if (!entry || !guild) return;
+
+      await maybeGrantBestStaffPauseBonusFromAudit(entry, guild);
+
       if (entry.action !== AuditLogEvent.MemberPrune) return;
 
       const logChannel = await resolveModLogChannel(guild);
