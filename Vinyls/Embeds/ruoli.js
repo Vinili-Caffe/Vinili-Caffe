@@ -29,32 +29,23 @@ async function run(client) {
     .setDescription(
       [
         "Scegli in cosa ti identifichi, quanti anni hai, **segno zodiacale**, **stato sentimentale** e di dove sei. Utilizza i menù a tendina sottostanti.",
-        "Lo **stato DM** è nel messaggio subito sotto. Le **notifiche** (ping) sono nel messaggio **Menzioni** ancora più sotto.",
+        "Lo **stato DM** e le **notifiche** (ping) sono nel messaggio **Menzioni** subito sotto.",
         "",
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
     )
     .setImage(DIVIDER_URL);
   const mentionsAttachment = fs.existsSync(MENTIONS_IMAGE_PATH) ? new AttachmentBuilder(MENTIONS_IMAGE_PATH, { name: MENTIONS_IMAGE_NAME }) : null;
-  const dmPanelEmbed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("<:sparkledred:1470064814502973591> Stato DM")
-    .setDescription(
-      [
-        "Scegli se vuoi ricevere **DM aperti**, **chiusi** o **su richiesta**. Utilizza il menù sottostante.",
-        "",
-        "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
-      ].join("\n"),
-    )
-    .setImage(DIVIDER_URL);
   const mentionsEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:sparkledred:1470064814502973591> Menzioni")
     .setDescription(
       [
-        "Scegli quali **notifiche** ricevere dal server in base a cosa ti interessa maggiormente.",
+        "Scegli lo **stato DM** (aperti, chiusi o su richiesta) e quali **notifiche** ricevere dal server in base a cosa ti interessa maggiormente.",
         "",
         "<a:VC_Exclamation:1482534702077444217> Le notifiche di **@everyone** le riceveranno tutti.",
+        "",
+        "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria (DM e ogni voce del menu notifiche).",
       ].join("\n"),
     )
     .setImage(DIVIDER_URL);
@@ -295,25 +286,20 @@ async function run(client) {
     files: attachment ? [attachment] : [],
     attachmentName: attachment ? IMAGE_NAME : undefined,
   });
-  const dmPanelMessage = await upsertPanelMessage(channel, client, {
-    messageId: panel?.dmPanelMessageId || null,
-    embeds: [dmPanelEmbed],
-    components: [dmStatus],
-  });
   const mentionsMessage = await upsertPanelMessage(channel, client, {
     messageId: panel?.mentionsMessageId || null,
     embeds: [mentionsEmbed],
-    components: [mentionsMenu],
+    components: [dmStatus, mentionsMenu],
     files: mentionsAttachment ? [mentionsAttachment] : [],
     attachmentName: mentionsAttachment ? MENTIONS_IMAGE_NAME : undefined,
   });
   const colorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.colorsMessageId || null, embeds: [colorsEmbed], components: [colorsMenu1, colorsMenu2], files: colorsAttachment ? [colorsAttachment] : [], attachmentName: colorsAttachment ? COLORS_IMAGE_NAME : undefined });
   const plusColorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.plusColorsMessageId || null, embeds: [plusColorsEmbed], components: [plusColorsMenu], files: plusColorsAttachment ? [plusColorsAttachment] : [], attachmentName: plusColorsAttachment ? PLUS_COLORS_IMAGE_NAME : undefined });
 
-  if (personalityMessage || dmPanelMessage || mentionsMessage || colorsMessage || plusColorsMessage) {
+  if (personalityMessage || mentionsMessage || colorsMessage || plusColorsMessage) {
     await updatePanel(
       personalityMessage?.id || panel?.personalityMessageId || null,
-      dmPanelMessage?.id || panel?.dmPanelMessageId || null,
+      null,
       mentionsMessage?.id || panel?.mentionsMessageId || null,
       colorsMessage?.id || panel?.colorsMessageId || null,
       plusColorsMessage?.id || panel?.plusColorsMessageId || null,

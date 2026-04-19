@@ -88,6 +88,17 @@ function encodeViewState(state) {
   return `${normalized.user ? 1 : 0}${normalized.server ? 1 : 0}`;
 }
 
+/** Banner profilo/server: se hash `a_*` è animato → URL `.gif`, altrimenti PNG statico ad alta risoluzione. */
+function resolveDisplayBannerUrl(subject, size = 4096) {
+  if (!subject?.banner) return null;
+  const animated = String(subject.banner || "").startsWith("a_");
+  return subject.bannerURL({
+    extension: animated ? "gif" : "png",
+    size,
+    forceStatic: !animated,
+  });
+}
+
 function buildBannerRows(requesterId, targetUserId, mode = "user", viewState = null) {
   const activeMode = mode === "server" ? "server" : "user";
   const stateToken = encodeViewState(viewState);
@@ -151,8 +162,8 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   }
 
   const activeMode = mode === "server" ? "server" : "user";
-  const userBanner = fetchedUser.bannerURL({ extension: "png", size: 4096, forceStatic: true });
-  const serverBanner = member?.bannerURL?.({ extension: "png", size: 4096, forceStatic: true }) || null;
+  const userBanner = resolveDisplayBannerUrl(fetchedUser);
+  const serverBanner = member ? resolveDisplayBannerUrl(member) : null;
   const canCountThisMode = activeMode === "user" ? Boolean(userBanner) : Boolean(serverBanner);
   const nextViewState = normalizeViewState(viewState);
   let privacyCount = null;

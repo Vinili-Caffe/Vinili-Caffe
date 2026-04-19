@@ -1,5 +1,9 @@
+const crypto = require("node:crypto");
 const IDs = require("../../Utils/Config/ids");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
+
+/** Allineato a @top-gg/sdk (structs/Webhook.ts): finestra anti-replay in ms. */
+const TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS = 30_000;
 
 function tryRequireExpress() {
   try {
@@ -130,6 +134,64 @@ function extractVoteWebhookUserId(body) {
   return null;
 }
 
+/** Top.gg API v1: `vote.create` / `webhook.test` → Discord ID in `data.user.platform_id`. */
+function extractTopggVoteDiscordUserId(body) {
+  if (!body || typeof body !== "object") return null;
+  const type = String(body.type || "").toLowerCase();
+  if (type === "vote.create" || type === "webhook.test") {
+    const pid = body.data?.user?.platform_id;
+    if (pid != null) {
+      const id = String(pid).trim();
+      if (/^\d{17,22}$/.test(id)) return id;
+    }
+  }
+  return extractVoteWebhookUserId(body);
+}
+
+function parseTopggV1SignatureHeader(raw) {
+  if (raw == null) return null;
+  const s = Array.isArray(raw) ? raw[0] : String(raw);
+  const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
+  const map = {};
+  for (const part of parts) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    map[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+  }
+  const t = map.t;
+  const v1 = map.v1;
+  if (!t || !v1) return null;
+  return { t, v1 };
+}
+
+/** Stesso algoritmo di @top-gg/sdk Webhook._parseRequest: messaggio `${t}.${rawBodyUtf8}`. */
+function verifyTopggV1Signature(secret, timestampSec, rawBodyBuffer, signatureHex) {
+  const t = String(timestampSec);
+  const bodyStr = Buffer.isBuffer(rawBodyBuffer) ? rawBodyBuffer.toString("utf8") : String(rawBodyBuffer);
+  const hmac = crypto.createHmac("sha256", secret);
+  const digest = Buffer.from(hmac.update(`${t}.${bodyStr}`).digest("hex"), "hex");
+  const sigBuf = Buffer.from(String(signatureHex).trim(), "hex");
+  if (sigBuf.length !== digest.length) return false;
+  return crypto.timingSafeEqual(sigBuf, digest);
+}
+
+function isTopggWebhookAuthorized(req, topggSecret) {
+  const sigRaw = req.headers["x-topgg-signature"];
+  const rawBuf = req._topggRawBody;
+  if (sigRaw && Buffer.isBuffer(rawBuf)) {
+    const parsed = parseTopggV1SignatureHeader(sigRaw);
+    if (!parsed) return false;
+    const tsMs = parseInt(parsed.t, 10) * 1000;
+    if (!Number.isFinite(tsMs)) return false;
+    if (Math.abs(Date.now() - tsMs) > TOPGG_V1_SIGNATURE_TIMESTAMP_WINDOW_MS) return false;
+    return verifyTopggV1Signature(topggSecret, parsed.t, rawBuf, parsed.v1);
+  }
+  const receivedSecret = normalizeHeaderSecret(
+    req.headers["authorization"] || req.headers["x-topgg-secret"] || req.headers["x-topgg-authorization"],
+  );
+  return receivedSecret === topggSecret;
+}
+
 async function startWebhookServer(client) {
   if (client._discadiaVoteHttpServerStarted) return;
   if (!shouldStartBotHttpServer(client)) return;
@@ -150,7 +212,17 @@ async function startWebhookServer(client) {
   const topggSecret = String(process.env.TOPGG_WEBHOOK_SECRET || client?.config?.topgg?.webhookSecret || "").trim();
 
   const app = express();
-  app.use(express.json({ limit: "512kb" }));
+  app.use(
+    express.json({
+      limit: "512kb",
+      verify: (req, res, buf) => {
+        const pathOnly = String(req.originalUrl || req.url || "").split("?")[0];
+        if (pathOnly === "/webhooks/topgg") {
+          req._topggRawBody = buf;
+        }
+      },
+    }),
+  );
 
   const candidatureCorsAllowlist = expandCorsOriginAllowlist(
     parseCorsOriginAllowlist(
@@ -257,21 +329,21 @@ async function startWebhookServer(client) {
     } else {
       app.post("/webhooks/topgg", async (req, res) => {
         try {
-          const receivedSecret = normalizeHeaderSecret(
-            req.headers["authorization"] || req.headers["x-topgg-secret"] || req.headers["x-topgg-authorization"],
-          );
-          if (receivedSecret !== topggSecret) {
-            global.logger?.warn?.("[WEBHOOK] Top.gg: Unauthorized (secret mismatch)");
+          if (!isTopggWebhookAuthorized(req, topggSecret)) {
+            global.logger?.warn?.("[WEBHOOK] Top.gg: Unauthorized (firma v1 o Authorization non valida)");
             return res.status(401).send("Unauthorized");
           }
 
           const body = req.body && typeof req.body === "object" ? req.body : {};
           const evtType = String(body.type || "").toLowerCase();
-          if (evtType === "test") {
+          if (evtType === "test" || evtType === "webhook.test") {
+            return res.status(200).send("OK");
+          }
+          if (evtType === "integration.create" || evtType === "integration.delete") {
             return res.status(200).send("OK");
           }
 
-          const user_id = extractVoteWebhookUserId(body);
+          const user_id = extractTopggVoteDiscordUserId(body);
           if (!user_id) {
             global.logger?.warn?.(
               "[WEBHOOK] Top.gg: User ID missing; body keys: " +

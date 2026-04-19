@@ -382,15 +382,76 @@ async function ensurePartnerPointsViewer(interaction) {
   return false;
 }
 
-async function ensureCoordinatorPlusViewer(interaction) {
-  if (viewerIsCoordinatorOrAbove(interaction.member)) return true;
+function viewerMayRunDepexFull(member) {
+  if (!member?.roles?.cache) return false;
+  if (viewerIsCoordinatorOrAbove(member)) return true;
+  return Boolean(IDs.roles.Mod && member.roles.cache.has(IDs.roles.Mod));
+}
+
+async function ensureDepexFullViewer(interaction) {
+  if (viewerMayRunDepexFull(interaction.member)) return true;
   await interaction
     .reply({
-      content: "<:vegax:1443934876440068179> Solo da **Coordinator** in su puoi usare questo pulsante.",
+      content:
+        "<:vegax:1443934876440068179> Solo **Coordinator** in su oppure un **Mod** possono usare **Depex completo**.",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
   return false;
+}
+
+/** Mod senza ruolo Coordinator+ → niente menu Depex/Depex completo: si apre subito il modale Depex completo. */
+function shouldAutoDepexFullForModViewer(member) {
+  if (!member?.roles?.cache || !IDs.roles.Mod) return false;
+  if (!member.roles.cache.has(IDs.roles.Mod)) return false;
+  return !viewerIsCoordinatorOrAbove(member);
+}
+
+async function openStaffHpReasonModalFromButton(interaction, parsed) {
+  if (staffHpActionIsPexOrDepex(parsed.action)) {
+    const targetMemberGuard = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
+    if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMemberGuard)) {
+      await interaction
+        .reply({
+          content:
+            "<:vegax:1443934876440068179> **Pex** e **Depex** non sono disponibili sul **tuo** profilo né su utenti con ruolo **Founder**.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    }
+  }
+  const selfHp = String(parsed.viewerId) === String(parsed.targetId);
+  const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
+  if (isPpmBtn) {
+    if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
+  } else if (parsed.action === "depex_full") {
+    if (!(await ensureDepexFullViewer(interaction))) return true;
+  } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
+    return true;
+  }
+  const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
+  const modalId = buildStaffHpModalCustomId(
+    parsed.action,
+    parsed.viewerId,
+    parsed.targetId,
+    parsed.section,
+    parsed.sourceMessageId,
+    panelForModal,
+  );
+  const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
+  let modal;
+  if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
+    modal = buildIdReasonModal(modalId, title);
+  } else if (parsed.action === "ppm_add") {
+    modal = buildPpmAddModal(modalId, title);
+  } else if (parsed.action === "ppm_remove") {
+    modal = buildPpmRemoveModal(modalId, title);
+  } else {
+    modal = buildReasonModal(modalId, title);
+  }
+  await interaction.showModal(modal).catch(() => {});
+  return true;
 }
 
 async function ensureNoUnauthorizedSelfStaffHp(interaction, parsed) {
@@ -671,6 +732,9 @@ async function execute(interaction) {
         }).catch(() => {});
         return true;
       }
+      if (shouldAutoDepexFullForModViewer(interaction.member)) {
+        return await openStaffHpReasonModalFromButton(interaction, { ...parsed, action: "depex_full" });
+      }
       const depexRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_staff")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
@@ -750,50 +814,7 @@ async function execute(interaction) {
       }).catch(() => {});
       return true;
     }
-    if (staffHpActionIsPexOrDepex(parsed.action)) {
-      const targetMemberGuard = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
-      if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMemberGuard)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> **Pex** e **Depex** non sono disponibili sul **tuo** profilo né su utenti con ruolo **Founder**.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-    }
-    const selfHp = String(parsed.viewerId) === String(parsed.targetId);
-    const isPpmBtn = parsed.action === "ppm_add" || parsed.action === "ppm_remove";
-    if (isPpmBtn) {
-      if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
-    } else if (parsed.action === "depex_full") {
-      if (!(await ensureCoordinatorPlusViewer(interaction))) return true;
-    } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
-      return true;
-    }
-    const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
-    const modalId = buildStaffHpModalCustomId(
-      parsed.action,
-      parsed.viewerId,
-      parsed.targetId,
-      parsed.section,
-      parsed.sourceMessageId,
-      panelForModal,
-    );
-    const title = TITLE_BY_ACTION[parsed.action] || "Azione staff";
-    let modal;
-    if (parsed.action === "valpos_rm" || parsed.action === "valneg_rm" || parsed.action === "warn_rm") {
-      modal = buildIdReasonModal(modalId, title);
-    } else if (parsed.action === "ppm_add") {
-      modal = buildPpmAddModal(modalId, title);
-    } else if (parsed.action === "ppm_remove") {
-      modal = buildPpmRemoveModal(modalId, title);
-    } else {
-      modal = buildReasonModal(modalId, title);
-    }
-    await interaction.showModal(modal).catch(() => {});
-    return true;
+    return await openStaffHpReasonModalFromButton(interaction, parsed);
   }
 
   if (interaction.isModalSubmit()) {
@@ -814,7 +835,7 @@ async function execute(interaction) {
     if (isPpmModal) {
       if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
     } else if (parsed.action === "depex_full") {
-      if (!(await ensureCoordinatorPlusViewer(interaction))) return true;
+      if (!(await ensureDepexFullViewer(interaction))) return true;
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }
