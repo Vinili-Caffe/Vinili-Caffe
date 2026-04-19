@@ -7,7 +7,7 @@ const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { scheduleStaffListRefresh, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { processJoinRaidForMember, registerJoinRaidSecuritySignal, } = require("../Services/Moderation/joinRaidService");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt, } = require("../Services/Moderation/joinGateExemptUtils");
+const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
@@ -425,6 +425,23 @@ async function sendBotAddLog(member) {
 async function handleBotJoin(member, joinGateConfig) {
   queueIdsCatalogSync(member.client, member.guild.id, "botJoin");
   await sendBotAddLog(member).catch(() => { });
+  if (isSponsorJoinGateGuildId(member.guild.id)) {
+    try {
+      await addBotRoles(member);
+    } catch (error) {
+      global.logger.error("[guildMemberAdd] Failed to add bot roles:", error);
+    }
+    const welcomeChannelSponsor = await resolveGuildChannel(member.guild, IDs.channels.chat,);
+    if (welcomeChannelSponsor) {
+      await welcomeChannelSponsor
+        .send(applyDefaultFooterToEmbeds({
+          content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+          embeds: [buildWelcomeEmbed(member)],
+        }, member.guild))
+        .catch(() => { });
+    }
+    return;
+  }
   await sendJoinGateNoAvatarLog(member).catch(() => { });
 
   const botAddEntry = await fetchRecentBotAddEntry(member.guild, member.user.id);
@@ -1350,7 +1367,8 @@ module.exports = {
       if (!member?.guild || !member?.user) return;
       const joinGateConfig = getJoinGateConfigSnapshot();
       const isCoreExempt = await resolveJoinGateConfiguredExempt(member?.guild, member?.id, member);
-      if (!isCoreExempt) {
+      const sponsorNoJoinGate = isSponsorJoinGateGuildId(member.guild.id);
+      if (!isCoreExempt && !sponsorNoJoinGate) {
         const lockState = await getSecurityLockState(member.guild);
         if (lockState.joinLockActive) {
           await kickForJoinGate(
@@ -1376,7 +1394,7 @@ module.exports = {
         return;
       }
 
-      if (!isCoreExempt) {
+      if (!isCoreExempt && !sponsorNoJoinGate) {
         trackRecentJoinSignal(member);
         let joinGateMatch = null;
         if (

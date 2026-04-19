@@ -11,7 +11,7 @@ const {
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
-const { resolveJoinGateConfiguredExempt } = require("../Services/Moderation/joinGateExemptUtils");
+const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
 const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Services/Moderation/antiNukeService");
@@ -558,6 +558,7 @@ async function sendJoinGatePostJoinDm(member, reason, extraLines = []) {
 async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
   if (!oldMember?.guild || !newMember?.user) return;
   if (newMember.user.bot) return;
+  if (isSponsorJoinGateGuildId(newMember.guild.id)) return;
   if (await resolveJoinGateConfiguredExempt(newMember.guild, newMember.id, newMember)) return;
 
   const cfg = getJoinGateConfigSnapshot();
