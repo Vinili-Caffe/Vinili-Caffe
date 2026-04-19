@@ -1,6 +1,5 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { PermissionFlagsBits } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 
 /** Titoli Discord: inizio riga con 1–6 `#` seguiti da spazio (testo ingrandito). */
@@ -22,8 +21,8 @@ function memberHasDiscordAdministrator(member) {
 }
 
 /**
- * Elimina messaggi che usano titoli Markdown (# …) in chat: consentito solo con permesso **Amministratore** (Discord).
- * @returns {Promise<boolean>} true se il messaggio è stato rimosso.
+ * Elimina silenziosamente messaggi che usano titoli Markdown (# …) in chat: consentito solo con permesso **Amministratore** (Discord).
+ * @returns {Promise<boolean>} true se il messaggio è stato rimosso (o tentato).
  */
 async function maybeBlockDiscordHeadingMarkdown(message) {
   if (!message?.guild || message.system) return false;
@@ -41,20 +40,6 @@ async function maybeBlockDiscordHeadingMarkdown(message) {
   if (memberHasDiscordAdministrator(member)) return false;
 
   await message.delete().catch(() => {});
-  const tip = await channel
-    .send({
-      content: `${message.author}`,
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#6f4e37")
-          .setDescription(
-            "<:VC_Attention:1482534443632558151> In questa chat **non** puoi usare titoli con `#`, `##`, ecc. a inizio riga (Discord li rende troppo grandi). " +
-              "Possono farlo **solo** gli utenti con permesso **Amministratore**.",
-          ),
-      ],
-    })
-    .catch(() => null);
-  if (tip) scheduleMessageDeletion(tip, EPHEMERAL_TTL_SHORT_MS);
   return true;
 }
 

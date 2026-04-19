@@ -10,17 +10,30 @@ const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = 
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const TIME_ZONE = "Europe/Rome";
-const STAFF_ACTIVITY_LIMITS = { [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 }, [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 }, [String(IDs.roles.Coordinator)]: { messages: 350, hours: 2.5 }, [String(IDs.roles.Supervisor)]: { messages: 400, hours: 3.5 }, };
-const STAFF_SANCTION_LIMITS = { [String(IDs.roles.Mod)]: 1, [String(IDs.roles.Coordinator)]: 2, [String(IDs.roles.Supervisor)]: 3 };
+const STAFF_ACTIVITY_LIMITS = {
+  [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
+  [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
+  [String(IDs.roles.HighStaff)]: { messages: 350, hours: 2.5 },
+  [String(IDs.roles.Admin)]: { messages: 400, hours: 3.5 },
+};
+const STAFF_SANCTION_LIMITS = {
+  [String(IDs.roles.Mod)]: 1,
+  [String(IDs.roles.HighStaff)]: 2,
+  [String(IDs.roles.Admin)]: 3,
+};
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
-const STAFF_ROLE_PRIORITY = [String(IDs.roles.Supervisor), String(IDs.roles.Coordinator), String(IDs.roles.Mod), String(IDs.roles.Helper),];
+const STAFF_ROLE_PRIORITY = [
+  String(IDs.roles.Admin),
+  String(IDs.roles.HighStaff),
+  String(IDs.roles.Mod),
+  String(IDs.roles.Helper),
+];
 const RESOCONTO_ROLE_RANK = new Map(
   [
     IDs.roles.Member,
     IDs.roles.Helper,
     IDs.roles.Mod,
-    IDs.roles.Coordinator,
-    IDs.roles.Supervisor,
+    IDs.roles.HighStaff,
     IDs.roles.Admin,
     IDs.roles.CoFounder,
     IDs.roles.Founder,
@@ -34,8 +47,7 @@ const PM_WEEKLY_PARTNER_MIN_FOR_OK = 25;
 const ROLE_UP = {
   [String(IDs.roles.Member || "")]: String(IDs.roles.Helper),
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
-  [String(IDs.roles.Mod)]: String(IDs.roles.Coordinator),
-  [String(IDs.roles.Coordinator)]: String(IDs.roles.Supervisor),
+  [String(IDs.roles.Mod)]: String(IDs.roles.Admin),
 };
 
 let weeklyStaffResocontoTask = null;
@@ -300,6 +312,7 @@ function buildCostanzaLines(overview) {
   ];
 }
 
+/** Data calendario `dd/mm/yyyy` come inizio del giorno in **Europe/Rome** (non UTC). */
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
   const m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -307,9 +320,16 @@ function parseItalianDate(value) {
   const d = Number(m[1]);
   const mo = Number(m[2]);
   const y = Number(m[3]);
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
+  if (!Number.isFinite(d) || !Number.isFinite(mo) || !Number.isFinite(y)) return null;
+  const date = createUtcFromRomeLocal(y, mo, d, 0, 0, 0);
+  const chk = getRomeDateParts(date);
+  if (chk.year !== y || chk.month !== mo || chk.day !== d) return null;
   return date;
+}
+
+function getRomeStartOfDayUtc(reference = new Date()) {
+  const p = getRomeDateParts(reference);
+  return createUtcFromRomeLocal(p.year, p.month, p.day, 0, 0, 0);
 }
 
 function pauseRoleAppliesToSection(pauseRole, sectionRole) {
@@ -324,8 +344,10 @@ function pauseRoleAppliesToSection(pauseRole, sectionRole) {
 function getStaffPauseLine(staffDoc, sectionRole = null) {
   const pauses = Array.isArray(staffDoc?.pauses) ? staffDoc.pauses : [];
   const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const today = getRomeStartOfDayUtc(now);
+  const romeToday = getRomeDateParts(now);
+  const agoParts = addDaysToRomeYmd(romeToday.year, romeToday.month, romeToday.day, -7);
+  const sevenDaysAgo = createUtcFromRomeLocal(agoParts.year, agoParts.month, agoParts.day, 0, 0, 0);
   for (const p of pauses) {
     if (!p || p.status !== "accepted") continue;
     if (!pauseRoleAppliesToSection(p.ruolo || p.ruoloRichiesto, sectionRole)) continue;

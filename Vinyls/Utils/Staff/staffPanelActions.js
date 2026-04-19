@@ -15,8 +15,6 @@ const ROLE_STAFF = IDs.roles.Staff;
 const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
 const ROLE_HELPER = IDs.roles.Helper;
 const ROLE_MODERATOR = IDs.roles.Mod;
-const ROLE_COORDINATOR = IDs.roles.Coordinator;
-const ROLE_SUPERVISOR = IDs.roles.Supervisor;
 const ROLE_ADMIN = IDs.roles.Admin;
 const ROLE_CO_OWNER = IDs.roles.CoFounder;
 const ROLE_OWNER = IDs.roles.Founder;
@@ -125,7 +123,7 @@ __Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:149428690408924775
   }).catch(() => null);
 }
 
-const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_COORDINATOR, ROLE_SUPERVISOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
+const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
 const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
 
 async function applyPexSideEffects(
@@ -165,24 +163,13 @@ async function applyPexSideEffects(
     member = verification.member;
   }
 
-  if (roleId === ROLE_COORDINATOR) {
-    await member.roles.remove(ROLE_MODERATOR);
-    const verification = await ensureRoleState(member, ROLE_MODERATOR, false);
-    if (!verification.ok) throw new Error("Pex side effect failed: moderator role still present after coordinator promotion.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_SUPERVISOR) {
-    await member.roles.remove(ROLE_COORDINATOR);
-    const verification = await ensureRoleState(member, ROLE_COORDINATOR, false);
-    if (!verification.ok) throw new Error("Pex side effect failed: coordinator role still present after supervisor promotion.");
-    member = verification.member;
-  }
-
   if (roleId === ROLE_ADMIN) {
-    await member.roles.remove(ROLE_SUPERVISOR);
+    await member.roles.remove(ROLE_MODERATOR);
     await member.roles.add(ROLE_HIGH_STAFF);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId: ROLE_SUPERVISOR, shouldHaveRole: false }, { roleId: ROLE_HIGH_STAFF, shouldHaveRole: true }]);
+    const verification = await ensureMultipleRoleStates(member, [
+      { roleId: ROLE_MODERATOR, shouldHaveRole: false },
+      { roleId: ROLE_HIGH_STAFF, shouldHaveRole: true },
+    ]);
     if (!verification.ok) throw new Error("Pex side effect failed: admin side effects not applied.");
     member = verification.member;
   }
@@ -227,22 +214,6 @@ async function applyDepexSideEffects(member, roleId) {
     await member.roles.remove(ROLE_STAFF);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
     if (!verification.ok) throw new Error("Depex side effect failed: moderator/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_COORDINATOR) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: coordinator/staff roles still present.");
-    member = verification.member;
-  }
-
-  if (roleId === ROLE_SUPERVISOR) {
-    await member.roles.remove(roleId);
-    await member.roles.remove(ROLE_STAFF);
-    const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
-    if (!verification.ok) throw new Error("Depex side effect failed: supervisor/staff roles still present.");
     member = verification.member;
   }
 
@@ -646,7 +617,7 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
     .setDescription(
       `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetUser}
             <:VC_reason:1478517122929004544> __${reason}__ 
-            <:VC_id:1478517313618575419> **ID Valutazione:** __\`${s.idCount}\`__`,
+            <:VC_id:1478517313618575419> **ID Warn:** __\`${s.warnCount}\`__`,
     )
     .setColor(SUCCESS_COLOR);
   if (warnChannel) {
@@ -687,12 +658,10 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
   return { ok: true };
 }
 
-function actorIsCoordinatorPlus(member) {
+function actorIsHighStaffOrAbove(member) {
   const cache = member?.roles?.cache;
   if (!cache) return false;
   const allowRoles = [
-    IDs.roles.Coordinator,
-    IDs.roles.Supervisor,
     IDs.roles.Admin,
     IDs.roles.CoFounder,
     IDs.roles.Founder,
@@ -706,21 +675,15 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!actorUser || String(targetUser?.id || "") === String(actorUser.id || "")) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
   }
-  if (!actorIsCoordinatorPlus(actorMember)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo da **Coordinator** in su." };
+  if (!actorIsHighStaffOrAbove(actorMember)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo da **High Staff** in su." };
   }
   const resolveMember = createMemberResolver(guild);
   const member = await resolveMember(targetUser.id);
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  const completeDepexRoleChain = [
-    ROLE_COORDINATOR,
-    ROLE_SUPERVISOR,
-    ROLE_ADMIN,
-    ROLE_CO_OWNER,
-    ROLE_OWNER,
-  ].filter(Boolean);
+  const completeDepexRoleChain = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
   let roleToRemove = null;
   for (let i = completeDepexRoleChain.length - 1; i >= 0; i--) {
     const roleId = completeDepexRoleChain[i];
@@ -730,7 +693,7 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     }
   }
   if (!roleToRemove) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Coordinator** in su da depexare." };
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Admin** in su da depexare." };
   }
   const isAdminOrAbove = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
   const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);

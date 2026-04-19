@@ -245,6 +245,8 @@ const staffEmbeddedSchema = new Schema(
     partnerRedeemSpend: { type: Number, default: 0 },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
+    /** Soglie premio PM (50/75/150) per cui è già stato inviato il promemoria in DM. */
+    partnerMilestoneDmSent: { type: [Number], default: [] },
     pauses: { type: [staffPauseEntrySchema], default: [] },
   },
   { _id: false },

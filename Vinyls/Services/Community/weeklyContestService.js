@@ -121,8 +121,6 @@ const STAFF_ROLE_IDS = new Set(
     IDs.roles?.HighStaff,
     IDs.roles?.Mod,
     IDs.roles?.Helper,
-    IDs.roles?.Supervisor,
-    IDs.roles?.Coordinator,
     IDs.roles?.Admin,
     IDs.roles?.CoFounder,
     IDs.roles?.Founder,

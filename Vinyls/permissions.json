@@ -394,8 +394,6 @@
         "mute": {
             "roles": [
                 "roles.Mod",
-                "roles.Coordinator",
-                "roles.Supervisor",
                 "roles.HighStaff",
                 "roles.Admin",
                 "roles.CoFounder",
@@ -446,8 +444,6 @@
             "roles": [
                 "roles.Helper",
                 "roles.Mod",
-                "roles.Coordinator",
-                "roles.Supervisor",
                 "roles.HighStaff",
                 "roles.Admin",
                 "roles.CoFounder",

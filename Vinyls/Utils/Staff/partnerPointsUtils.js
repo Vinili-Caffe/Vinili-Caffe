@@ -1,7 +1,8 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
+const { PARTNER_MILESTONE_POINT_TIERS } = require("./partnerManagerMilestoneDm");
 
-const PARTNER_MANAGER_REDEEM_TIERS = [50, 75, 150];
+const PARTNER_MANAGER_REDEEM_TIERS = [...PARTNER_MILESTONE_POINT_TIERS];
 
 function partnerManagerRedeemTierFromAction(action) {
   const m = String(action || "").match(/^ppm_r(\d+)$/);
@@ -19,11 +20,13 @@ function formatPartnerPointsChange(action, amount) {
   return `${isSingular ? "Rimosso" : "Rimossi"} \`${safeAmount}\` ${isSingular ? "punto" : "punti"}`;
 }
 
-async function addPartnerPoints(guildId, userId, amount) {
+async function addPartnerPoints(guildId, userId, amount, milestoneNotify = null) {
   const g = String(guildId ?? "").trim();
   const u = String(userId ?? "").trim();
   if (!g || !u) return null;
-  return ActivityUserProfile.findOneAndUpdate(
+  const beforeLean = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select("staff").lean().catch(() => null);
+  const beforePoints = resolvePartnerPointsShown(beforeLean?.staff);
+  const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
     {
       $inc: { "staff.partnerCount": amount },
@@ -34,7 +37,19 @@ async function addPartnerPoints(guildId, userId, amount) {
       upsert: true,
       setDefaultsOnInsert: true,
     },
-  );
+  ).catch(() => null);
+  if (updated && milestoneNotify?.client && milestoneNotify?.guild) {
+    const afterPoints = resolvePartnerPointsShown(updated.staff);
+    const { maybeSendPartnerManagerRewardMilestoneDms } = require("./partnerManagerMilestoneDm");
+    void maybeSendPartnerManagerRewardMilestoneDms(
+      milestoneNotify.client,
+      milestoneNotify.guild,
+      u,
+      beforePoints,
+      afterPoints,
+    ).catch(() => null);
+  }
+  return updated;
 }
 
 async function removePartnerPoints(guildId, userId, amount) {

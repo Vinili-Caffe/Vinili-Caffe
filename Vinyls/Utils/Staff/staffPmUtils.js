@@ -22,6 +22,7 @@ function initPartnerManagerFieldsIfMissing(staffObj) {
   if (staffObj.partnerCount === undefined) staffObj.partnerCount = 0;
   if (!Array.isArray(staffObj.partnerActions)) staffObj.partnerActions = [];
   if (staffObj.managerId === undefined) staffObj.managerId = null;
+  if (!Array.isArray(staffObj.partnerMilestoneDmSent)) staffObj.partnerMilestoneDmSent = [];
 }
 
 function buildStaffPartnerFieldsUnsetUpdate() {

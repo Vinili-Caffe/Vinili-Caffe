@@ -71,8 +71,6 @@ const STAFF_HP_MODAL_ACTION_CODE = {
   pex: "pex",
   pex_helper: "phl",
   pex_mod: "pmo",
-  pex_coord: "pco",
-  pex_supervisor: "psu",
   pex_admin: "pxa",
   pex_cofounder: "pcf",
   pex_founder: "pfn",
@@ -153,8 +151,6 @@ function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
 const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_helper: "Motivo pex Helper",
   pex_mod: "Motivo pex Mod",
-  pex_coord: "Motivo pex Coordinator",
-  pex_supervisor: "Motivo pex Supervisor",
   pex_admin: "Motivo pex Admin",
   pex_cofounder: "Motivo pex Co-Founder",
   pex_founder: "Motivo pex Founder",
@@ -209,8 +205,6 @@ function parseStaffHpButton(customId) {
     "pex",
     "pex_helper",
     "pex_mod",
-    "pex_coord",
-    "pex_supervisor",
     "pex_admin",
     "pex_cofounder",
     "pex_founder",
@@ -393,14 +387,14 @@ async function ensureDepexFullViewer(interaction) {
   await interaction
     .reply({
       content:
-        "<:vegax:1443934876440068179> Solo **Coordinator** in su oppure un **Mod** possono usare **Depex completo**.",
+        "<:vegax:1443934876440068179> Solo **High Staff** in su oppure un **Mod** possono usare **Depex completo**.",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
   return false;
 }
 
-/** Mod senza ruolo Coordinator+ → niente menu Depex/Depex completo: si apre subito il modale Depex completo. */
+/** Mod senza High Staff / Admin+ → niente menu Depex/Depex completo: si apre subito il modale Depex completo. */
 function shouldAutoDepexFullForModViewer(member) {
   if (!member?.roles?.cache || !IDs.roles.Mod) return false;
   if (!member.roles.cache.has(IDs.roles.Mod)) return false;
@@ -575,7 +569,7 @@ async function execute(interaction) {
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
     if (!(await ensureHighStaffViewer(interaction))) return true;
     const chosenAction = String(interaction.values?.[0] || "");
-    const allowed = new Set(["pex_mod", "pex_coord", "pex_supervisor", "pex_admin", "pex_cofounder", "pex_founder"]);
+    const allowed = new Set(["pex_mod", "pex_admin", "pex_cofounder", "pex_founder"]);
     if (!allowed.has(chosenAction)) {
       await interaction
         .reply({
@@ -901,7 +895,10 @@ async function execute(interaction) {
         });
         return true;
       }
-      const staffData = await addPartnerPoints(guild.id, targetUser.id, amount);
+      const staffData = await addPartnerPoints(guild.id, targetUser.id, amount, {
+        client: interaction.client,
+        guild,
+      });
       const changeLabel = formatPartnerPointsChange("add", amount);
       await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
       await sendModalReply({
@@ -963,8 +960,6 @@ async function execute(interaction) {
           const roleByAction = {
             pex_helper: IDs.roles.Helper,
             pex_mod: IDs.roles.Mod,
-            pex_coord: IDs.roles.Coordinator,
-            pex_supervisor: IDs.roles.Supervisor,
             pex_admin: IDs.roles.Admin,
             pex_cofounder: IDs.roles.CoFounder,
             pex_founder: IDs.roles.Founder,

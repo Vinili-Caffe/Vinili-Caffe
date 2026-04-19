@@ -16,8 +16,6 @@ const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
-const ROLE_COORDINATOR = String(IDs.roles.Coordinator);
-const ROLE_SUPERVISOR = String(IDs.roles.Supervisor);
 const ROLE_ADMIN = String(IDs.roles.Admin);
 const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
 const ROLE_OWNER = String(IDs.roles.Founder || "");
@@ -26,8 +24,6 @@ const STAFF_ROLES_HIGH_TO_LOW = [
   ROLE_OWNER,
   ROLE_CO_OWNER,
   ROLE_ADMIN,
-  ROLE_SUPERVISOR,
-  ROLE_COORDINATOR,
   ROLE_MODERATOR,
   ROLE_HELPER,
 ].filter(Boolean);
@@ -105,20 +101,7 @@ async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
   }
   if (roleId === ROLE_ADMIN) {
     await member.roles.remove(ROLE_ADMIN).catch(() => null);
-    await member.roles.remove(ROLE_STAFF).catch(() => null);
     await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
-    await member.roles.add(ROLE_SUPERVISOR).catch(() => null);
-    await member.roles.add(ROLE_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_SUPERVISOR };
-  }
-  if (roleId === ROLE_SUPERVISOR) {
-    await member.roles.remove(ROLE_SUPERVISOR).catch(() => null);
-    await member.roles.add(ROLE_COORDINATOR).catch(() => null);
-    await member.roles.add(ROLE_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_COORDINATOR };
-  }
-  if (roleId === ROLE_COORDINATOR) {
-    await member.roles.remove(ROLE_COORDINATOR).catch(() => null);
     await member.roles.add(ROLE_MODERATOR).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_MODERATOR };

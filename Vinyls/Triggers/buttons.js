@@ -137,9 +137,15 @@ async function handleStaffButtons(interaction) {
       .setDescription(
         "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.\n\n" +
         "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
-        "<:VC_Dot:1482532364222595303> Ogni <@&1442568901887000618> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
-        "<:VC_Dot:1482532364222595303> Ogni <@&1442568897902678038> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
-        "<:VC_Dot:1482532364222595303> Ogni <@&1442568896237277295> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
+        "<:VC_Dot:1482532364222595303> Ogni <@&" +
+        IDs.roles.Mod +
+        "> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
+        "<:VC_Dot:1482532364222595303> Ogni <@&" +
+        IDs.roles.HighStaff +
+        "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+        "<:VC_Dot:1482532364222595303> Ogni <@&" +
+        IDs.roles.Admin +
+        "> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
         "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**."
       );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
@@ -184,10 +190,15 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> **Pasqua** e **Pasquetta**\n\n" +
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __Nessun limite__\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568901887000618> <a:VC_Arrow:1482706699365257397> __3__ **staffer**\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568897902678038> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568896237277295> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
-      "<:VC_Dot:1482532364222595303> <@&1442568893435478097> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
+      "<:VC_Dot:1482532364222595303> <@&" +
+        IDs.roles.Mod +
+        "> <a:VC_Arrow:1482706699365257397> __3__ **staffer**\n" +
+        "<:VC_Dot:1482532364222595303> <@&" +
+        IDs.roles.HighStaff +
+        "> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n" +
+        "<:VC_Dot:1482532364222595303> <@&" +
+        IDs.roles.Admin +
+        "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568889052430609> <a:VC_Arrow:1482706699365257397> __1__ **staffer**\n\n" +
       "<:VC_Attention:1482534443632558151> Potrai chiedere __una pausa__ **ogni mese**. Se quest'ultima cade in `2` **__mesi diversi__**, verrà contato il mese in cui viene **chiesta** la __pausa__, a patto che non superi i primi __`5` giorni__ dell'altro mese. Per chiedere un'altra pausa dovrai aspettare almeno **__`1 settimana`__**\n\n" +
       "<:infoglowingdot:1443660296823767110> Gli __`Helper`__ potranno richiedere una __pausa__ nella loro prima settimana **solo** per **__problemi personali__ o __familiari gravi__**. Se l'<@&1442568894349840435> viene a conoscenza di un **__falso__ motivo** per usare una pausa, **in qualsiasi circostanza**, si verrà **__depexati__** all'**__istante__**.\n\n" +
@@ -207,10 +218,14 @@ async function handleStaffButtons(interaction) {
       "<a:VC_Arrow:1482706699365257397> <@&1442568901887000618>\n" +
       "<:VC_DoubleReply:1482532332509466797> **__450__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__4.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&1442568897902678038>\n" +
-      "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
-      "<:VC_Reply:1482532158080942191> **__2.5h__** in vocale\n\n" +
-      "<a:VC_Arrow:1482706699365257397> <@&1442568896237277295>\n" +
+      "<a:VC_Arrow:1482706699365257397> <@&" +
+        IDs.roles.HighStaff +
+        ">\n" +
+        "<:VC_DoubleReply:1482532332509466797> **__350__** messaggi\n" +
+        "<:VC_Reply:1482532158080942191> **__2.5h__** in vocale\n\n" +
+        "<a:VC_Arrow:1482706699365257397> <@&" +
+        IDs.roles.Admin +
+        ">\n" +
       "<:VC_DoubleReply:1482532332509466797> **__400__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__3.5h__** in vocale\n\n" +
       "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
@@ -928,7 +943,7 @@ module.exports = {
           "<:VC_Reply:1482532158080942191> successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
           "con il vostro nickname scritto su un foglio cartaceo o altrimenti con il cellulare nella schermata del vostro profilo Discord",
           "",
-          "<:sparkledred:1470064814502973591> Ruolo <@&1469040179799920801> o <@&1469040190730408018> con badge speciale",
+          "<:sparkledred:1470064814502973591> Ruolo <@&1469040179799920801>, <@&1469040190730408018> o <@&1495449189390356521> con badge speciale",
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di scrivere in <#1470029899740873029>",
         ].join("\n"));

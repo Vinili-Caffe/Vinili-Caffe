@@ -4,8 +4,6 @@ const STAFF_EMOJI_BY_ROLE_ID = new Map(
   [
     [IDs.roles.Helper, "<:VC_Helper:1494287601266331829>"],
     [IDs.roles.Mod, "<:VC_Mod:1494287597952958514>"],
-    [IDs.roles.Coordinator, "<:VC_Coordinator:1494286913744539648>"],
-    [IDs.roles.Supervisor, "<:VC_Supervisor:1494286915778641941>"],
     [IDs.roles.Admin, "<:VC_Admin:1494286848686686209>"],
     [IDs.roles.CoFounder, "<:VC_CoFounder:1494286898535862333>"],
     [IDs.roles.Founder, "<:VC_Founder:1494286918974963732>"],

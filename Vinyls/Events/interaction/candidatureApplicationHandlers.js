@@ -29,7 +29,15 @@ const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
 const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
-const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.Coordinator, IDs.roles.Supervisor, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.CoFounder, IDs.roles.Founder,].filter(Boolean);
+const HELPER_REAPPLY_BLOCK_ROLE_IDS = [
+  IDs.roles.Staff,
+  IDs.roles.Helper,
+  IDs.roles.Mod,
+  IDs.roles.HighStaff,
+  IDs.roles.Admin,
+  IDs.roles.CoFounder,
+  IDs.roles.Founder,
+].filter(Boolean);
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;

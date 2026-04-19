@@ -16,7 +16,16 @@ const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const HIGH_STAFF_ROLE_ID = String(IDs.roles?.HighStaff || "");
 const HIGH_STAFF_MENTION = HIGH_STAFF_ROLE_ID ? `<@&${HIGH_STAFF_ROLE_ID}>` : null;
 const VERIFIED_BOT_IDS = new Set(Object.values(IDs?.bots || {}).filter(Boolean).map(String),);
-const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [IDs.roles.Founder, IDs.roles.CoFounder, IDs.roles.Admin, IDs.roles.Supervisor, IDs.roles.Coordinator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.HighStaff,].filter(Boolean).map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
+const JOIN_RAID_CONFIG = { enabled: true, lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, warnedRoleIds: [
+      IDs.roles.Founder,
+      IDs.roles.CoFounder,
+      IDs.roles.Admin,
+      IDs.roles.HighStaff,
+      IDs.roles.Mod,
+      IDs.roles.Helper,
+    ]
+      .filter(Boolean)
+      .map(String), idFlag: { enabled: true, categorization: "adaptive", minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, noPfpFlag: { enabled: true, }, ageFlag: { enabled: true, minimumAgeMs: 3 * 24 * 60 * 60_000, }, };
 const JOIN_RAID_PRESETS = { safe: { lockCommands: false, triggerAction: "kick", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 12, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 20 * 60_000, idFlag: { minimumMatches: 5, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 2 * 24 * 60 * 60_000 }, }, balanced: { lockCommands: true, triggerAction: "quarantine", triggerType: "unique", accountType: "young_or_no_pfp", punishOnActiveRaid: true, triggerCount: 10, triggerWindowMs: 3 * 60 * 60_000, raidDurationMs: 30 * 60_000, idFlag: { minimumMatches: 4, compareWindowMs: 3 * 60 * 60_000, createdAtDeltaMs: 20 * 60_000, }, ageFlag: { minimumAgeMs: 3 * 24 * 60 * 60_000 }, }, strict: { lockCommands: true, triggerAction: "ban", triggerType: "events", accountType: "any", punishOnActiveRaid: true, triggerCount: 8, triggerWindowMs: 2 * 60 * 60_000, raidDurationMs: 45 * 60_000, idFlag: { minimumMatches: 3, compareWindowMs: 2 * 60 * 60_000, createdAtDeltaMs: 25 * 60_000, }, ageFlag: { minimumAgeMs: 5 * 24 * 60 * 60_000 }, }, };
 const GUILD_STATE = new Map();
 const TEMP_BAN_TIMERS = new Map();

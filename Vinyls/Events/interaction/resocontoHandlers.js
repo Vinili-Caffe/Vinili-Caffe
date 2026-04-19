@@ -15,15 +15,16 @@ const RESOCONTO_REASON_MODAL_PREFIX = "resoconto_reason";
 const RESOCONTO_REASON_INPUT_ID = "reason";
 const STAFF_ACTIONS = new Set(["px", "dp", "vp", "vn", "nl"]);
 const PM_ACTIONS = new Set(["dp", "rc", "nl"]);
-const ROLE_UP = { [String(IDs.roles.Helper)]: String(IDs.roles.Mod), [String(IDs.roles.Mod)]: String(IDs.roles.Coordinator), [String(IDs.roles.Coordinator)]: String(IDs.roles.Supervisor), };
+const ROLE_UP = {
+  [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
+  [String(IDs.roles.Mod)]: String(IDs.roles.Admin),
+};
 const ROLE_PARTNER_MANAGER = String(IDs.roles.PartnerManager);
 const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_STAFF = String(IDs.roles.Staff);
 const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
-const ROLE_COORDINATOR = String(IDs.roles.Coordinator);
-const ROLE_SUPERVISOR = String(IDs.roles.Supervisor);
 const ROLE_ADMIN = String(IDs.roles.Admin);
 const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
 const ROLE_OWNER = String(IDs.roles.Founder);
@@ -99,8 +100,7 @@ function isModOrAboveRoleId(roleId) {
   const normalized = String(roleId || "");
   const modOrAbove = [
     ROLE_MODERATOR,
-    ROLE_COORDINATOR,
-    ROLE_SUPERVISOR,
+    ROLE_HIGH_STAFF,
     ROLE_ADMIN,
     ROLE_CO_OWNER,
     ROLE_OWNER,
@@ -208,12 +208,10 @@ async function applyPexSideEffects(guild, member, roleId) {
     return ensureRoleAdded(guild, member, ROLE_STAFF);
   }
   if (roleId === ROLE_MODERATOR) return ensureRoleRemoved(guild, member, ROLE_HELPER);
-  if (roleId === ROLE_COORDINATOR) return ensureRoleRemoved(guild, member, ROLE_MODERATOR);
-  if (roleId === ROLE_SUPERVISOR) return ensureRoleRemoved(guild, member, ROLE_COORDINATOR);
   if (roleId === ROLE_ADMIN) {
-    const supervisorRemoved = await ensureRoleRemoved(guild, member, ROLE_SUPERVISOR);
+    const modRemoved = await ensureRoleRemoved(guild, member, ROLE_MODERATOR);
     const highStaffAdded = await ensureRoleAdded(guild, member, ROLE_HIGH_STAFF);
-    return supervisorRemoved && highStaffAdded;
+    return modRemoved && highStaffAdded;
   }
   if (roleId === ROLE_CO_OWNER) return ensureRoleRemoved(guild, member, ROLE_ADMIN);
   if (roleId === ROLE_OWNER) return ensureRoleRemoved(guild, member, ROLE_CO_OWNER);
@@ -231,18 +229,6 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
     return roleRemoved && staffRemoved && memberAdded;
-  }
-  if (roleId === ROLE_COORDINATOR) {
-    const coordinatorRemoved = await ensureRoleRemoved(guild, member, ROLE_COORDINATOR);
-    const moderatorAdded = await ensureRoleAdded(guild, member, ROLE_MODERATOR);
-    const staffAdded = await ensureRoleAdded(guild, member, ROLE_STAFF);
-    return coordinatorRemoved && moderatorAdded && staffAdded;
-  }
-  if (roleId === ROLE_SUPERVISOR) {
-    const supervisorRemoved = await ensureRoleRemoved(guild, member, ROLE_SUPERVISOR);
-    const coordinatorAdded = await ensureRoleAdded(guild, member, ROLE_COORDINATOR);
-    const staffAdded = await ensureRoleAdded(guild, member, ROLE_STAFF);
-    return supervisorRemoved && coordinatorAdded && staffAdded;
   }
   if (roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
@@ -351,7 +337,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     if (warnResult.added) {
       const warnChannel = await getGuildChannelCached(guild, IDs.channels?.warnStaff);
       if (warnChannel?.isTextBased?.()) {
-        const warnLogEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, targetUser, warnResult.warnCount, s.valutazioniCount);
+        const warnLogEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, targetUser, warnResult.warnCount);
         await warnChannel.send({ content: `<@${payload.userId}>`, embeds: [warnLogEmbed] }).catch(() => null);
         if (warnResult.shouldAskDepex) {
           const embed = new EmbedBuilder()
@@ -445,8 +431,6 @@ async function applyPmAction(guild, payload, reasonOverride = null) {
   if (!partnerRoleRemoved) return "<a:VC_Alert:1482706673176150077> Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.";
   await member.roles.remove(ROLE_HELPER).catch(() => null);
   await member.roles.remove(ROLE_MODERATOR).catch(() => null);
-  await member.roles.remove(ROLE_COORDINATOR).catch(() => null);
-  await member.roles.remove(ROLE_SUPERVISOR).catch(() => null);
   await member.roles.remove(ROLE_STAFF).catch(() => null);
   await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
   if (ROLE_MEMBER) {

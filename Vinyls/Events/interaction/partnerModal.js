@@ -9,6 +9,8 @@ const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
 } = require("../../Utils/Partner/partnersChatChannelUtils");
+const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
+const { maybeSendPartnerManagerRewardMilestoneDms } = require("../../Utils/Staff/partnerManagerMilestoneDm");
 
 function extractInviteCode(text) {
   if (!text) return null;
@@ -275,6 +277,7 @@ async function handlePartnerModal(interaction) {
     }
 
     const s = staffDoc.staff;
+    const beforePoints = resolvePartnerPointsShown(s);
     s.partnerCount++;
     s.managerId = managerId;
     const actionEntry = { action: "create", partner: serverName, invite: inviteUrl, managerId, partnershipChannelId: IDs.channels.partnerships, partnerMessageIds: [], };
@@ -334,6 +337,14 @@ async function handlePartnerModal(interaction) {
       staffDoc.markModified("staff");
       await staffDoc.save().catch(() => { });
     }
+
+    void maybeSendPartnerManagerRewardMilestoneDms(
+      interaction.client,
+      guild,
+      interaction.user.id,
+      beforePoints,
+      resolvePartnerPointsShown(s),
+    ).catch(() => null);
 
     const doneEmbed = new EmbedBuilder()
       .setDescription(`<:success:1461731530333229226> Partner inviata in ${partnershipChannel}`,)

@@ -53,7 +53,7 @@ function makeLogEmbed(
 }
 
 /** Embed warn automatico: stesso author/descrizione delle valutazioni da pannello (`makeLogEmbed`). */
-function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, valutazioniCount) {
+function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount) {
   const userObj = actorLike?.user || actorLike;
   const memberObj = actorLike?.user ? actorLike : null;
   const iconSource = memberObj || userObj;
@@ -71,7 +71,7 @@ function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, 
       [
         `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetMention}`,
         `<:VC_reason:1478517122929004544> __${STAFF_WARN_THREE_NEGATIVES_REASON}__`,
-        `<:VC_id:1478517313618575419> **ID Valutazione** __\`${valutazioniCount}\`__`,
+        `<:VC_id:1478517313618575419> **ID Warn** __\`${warnCount}\`__`,
       ].join("\n"),
     )
     .setColor("#E74C3C");
@@ -157,7 +157,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
-    const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, s.valutazioniCount);
+    const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount);
     await warnChannel.send({ content: `${staffUser}`, embeds: [warnEmbed] }).catch(() => null);
     if (warnResult.shouldAskDepex) {
       const promptEmbed = new EmbedBuilder()

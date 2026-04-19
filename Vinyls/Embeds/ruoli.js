@@ -122,7 +122,7 @@ async function run(client) {
   const zodiacMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("personality_zodiac")
-      .setPlaceholder("💫 Segno zodiacale")
+      .setPlaceholder("💫 Seleziona il tuo segno zodiacale")
       .setMinValues(1)
       .setMaxValues(1)
       .addOptions(

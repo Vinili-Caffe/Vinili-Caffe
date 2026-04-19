@@ -61,8 +61,6 @@ const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = {
   pex: "pex",
   pex_helper: "phl",
   pex_mod: "pmo",
-  pex_coord: "pco",
-  pex_supervisor: "psu",
   pex_admin: "pxa",
   pex_cofounder: "pcf",
   pex_founder: "pfn",
@@ -122,20 +120,12 @@ const LEGACY_PARTNER_LB_SECTION = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
-const STAFF_ROLE_PRIORITY = [
-  String(IDs.roles.Supervisor),
-  String(IDs.roles.Coordinator),
-  String(IDs.roles.Mod),
-  String(IDs.roles.Helper),
-  String(IDs.roles.Staff),
-].filter(Boolean);
+const STAFF_ROLE_PRIORITY = [String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
 const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
   IDs.roles.Founder,
   IDs.roles.CoFounder,
   IDs.roles.Admin,
   IDs.roles.HighStaff,
-  IDs.roles.Supervisor,
-  IDs.roles.Coordinator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.PartnerManager,
@@ -216,13 +206,12 @@ function targetIsFounderOrCoFounder(member) {
   );
 }
 
+/** Depex completo su Admin+: High Staff (senza scala Mod), Admin, Co-Founder, Founder. */
 function viewerIsCoordinatorOrAbove(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
   return Boolean(
-    (IDs.roles.Coordinator && c.has(IDs.roles.Coordinator)) ||
-      (IDs.roles.Supervisor && c.has(IDs.roles.Supervisor)) ||
-      (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
+    (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
       (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)) ||
       (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
       (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)),
@@ -243,8 +232,6 @@ function resolveStaffProfileKind(member) {
 const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [
   IDs.roles.Helper,
   IDs.roles.Mod,
-  IDs.roles.Coordinator,
-  IDs.roles.Supervisor,
   IDs.roles.Admin,
   IDs.roles.CoFounder,
   IDs.roles.Founder,
@@ -285,8 +272,6 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null) {
         .setPlaceholder("Promuovi a ruolo staff avanzato")
         .addOptions(
           { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
-          { label: "Member → Coord", value: "pex_coord", emoji: "<:VC_Staff:1494286904089247754>" },
-          { label: "Member → Supervisor", value: "pex_supervisor", emoji: "<:VC_Staff:1494286904089247754>" },
           { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
           { label: "Member → Co-Founder", value: "pex_cofounder", emoji: "<:VC_Staff:1494286904089247754>" },
           { label: "Member → Founder", value: "pex_founder", emoji: "<:VC_Staff:1494286904089247754>" },
