@@ -7,7 +7,7 @@ function partnersChatChannelId() {
   return String(IDs.channels?.partnersChat || "").trim();
 }
 
-/** #partners-chat o thread sotto quel canale (comandi PM / thread giornaliero). */
+/** #partners-chat o thread sotto quel canale (comandi PM / thread comandi PM persistito). */
 function isChannelOrThreadUnderPartnersChat(channel) {
   const chat = partnersChatChannelId();
   if (!channel) return false;
@@ -20,7 +20,7 @@ function isChannelOrThreadUnderPartnersChat(channel) {
   return false;
 }
 
-/** Thread giornaliero «Comandi PM» sotto #partners-chat (id persistito in globalsettings). */
+/** Thread «Comandi PM» sotto #partners-chat (id persistito in globalsettings). */
 async function isPartnerPmDailyCommandsThread(channel) {
   if (!channel || typeof channel.isThread !== "function" || !channel.isThread()) return false;
   const chatId = partnersChatChannelId();
@@ -38,7 +38,7 @@ async function isOpenPartnershipTicketChannel(channel) {
 }
 
 /**
- * Se il comando è in #partners-chat o in un suo thread che non è il thread giornaliero PM,
+ * Se il comando è in #partners-chat o in un suo thread che non è il thread comandi PM,
  * restituisce il testo di rifiuto; altrimenti null (canali fuori da partners-chat: nessun blocco).
  * Con `allowPartnership: true`, un ticket partnership aperto sul canale corrente non viene bloccato (slash/modal partnership).
  */
@@ -48,9 +48,9 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {
   if (await isPartnerPmDailyCommandsThread(channel)) return null;
   const tid = await getPartnerPmDailyThreadId();
   const safe = tid && /^\d{16,22}$/.test(String(tid).trim()) ? String(tid).trim() : "";
-  const hint = safe ? ` Spostati in <#${safe}>.` : " Apri il thread **Comandi PM** del giorno (sotto #partners-chat).";
+  const hint = safe ? ` Spostati in <#${safe}>.` : " Apri il thread **Comandi PM** (sotto #partners-chat).";
   return (
-    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e `+staff` in vista PM vanno usati solo nel **thread giornaliero Comandi PM**, non qui." +
+    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e `+staff` in vista PM vanno usati solo nel **thread Comandi PM**, non qui." +
     hint
   );
 }

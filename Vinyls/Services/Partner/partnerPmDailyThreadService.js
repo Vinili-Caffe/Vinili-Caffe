@@ -1,11 +1,9 @@
-const cron = require("node-cron");
 const { ThreadAutoArchiveDuration, ChannelType, MessageType } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { getPartnerPmDailyThreadId, setPartnerPmDailyThreadId } = require("../../Utils/Global/globalSettingsBucket");
 
 const TIME_ZONE = "Europe/Rome";
-let task = null;
 
 function formatDateTitleRome(d = new Date()) {
   return new Intl.DateTimeFormat("it-IT", {
@@ -54,8 +52,8 @@ async function notifyPartnerManagersInNewThread(thread, guild) {
   }
 
   const line =
-    `<@&${pmRoleId}> **Nuovo thread comandi PM** (${formatDateTitleRome(new Date())}).\n` +
-    "Usate questo thread per i comandi / interazioni PM della giornata.";
+    `<@&${pmRoleId}> **Thread comandi PM** (${formatDateTitleRome(new Date())}).\n` +
+    "Usate questo thread per i comandi e le interazioni PM.";
   await thread
     .send({
       content: line,
@@ -71,14 +69,14 @@ async function deleteThreadIfAny(client, threadId) {
   if (!/^\d{16,22}$/.test(id)) return;
   const ch = client.channels?.cache?.get(id) || (await client.channels.fetch(id).catch(() => null));
   if (!ch?.isThread?.()) return;
-  await ch.delete("Rotazione giornaliera thread comandi PM").catch((err) => {
+  await ch.delete("Sostituzione thread comandi PM").catch((err) => {
     global.logger?.warn?.("[PARTNER PM THREAD] Eliminazione thread precedente fallita:", id, err?.message || err);
   });
 }
 
 /**
- * All’avvio del bot: non ruotare se il thread salvato esiste ancora sotto #partnersChat.
- * La rotazione (delete + create) resta solo al cron di mezzanotte.
+ * All’avvio del bot: se il thread salvato esiste ancora sotto #partnersChat, non fare nulla.
+ * Se manca o non è più valido, ne viene creato uno nuovo (senza rotazione automatica giornaliera).
  */
 async function ensurePartnerPmDailyThreadOnReady(client) {
   const guildId = String(IDs.guilds?.main || "");
@@ -130,7 +128,7 @@ async function rotatePartnerPmDailyThread(client) {
       type: ChannelType.PublicThread,
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       invitable: false,
-      reason: "Rotazione giornaliera comandi Partner Manager",
+      reason: "Thread comandi Partner Manager",
     })
     .catch((err) => {
       global.logger?.error?.("[PARTNER PM THREAD] Creazione thread pubblico fallita:", err?.message || err);
@@ -165,24 +163,11 @@ async function syncPartnerPmThreadForMemberChange(oldMember, newMember) {
 }
 
 function startPartnerPmDailyThreadLoop(client) {
-  if (task) return task;
-  task = cron.schedule(
-    "0 0 * * *",
-    async () => {
-      try {
-        await rotatePartnerPmDailyThread(client);
-      } catch (err) {
-        global.logger?.error?.("[PARTNER PM THREAD] Tick fallito:", err);
-      }
-    },
-    { timezone: TIME_ZONE },
-  );
   setImmediate(() => {
     ensurePartnerPmDailyThreadOnReady(client).catch((err) =>
       global.logger?.warn?.("[PARTNER PM THREAD] Avvio immediato fallito:", err?.message || err),
     );
   });
-  return task;
 }
 
 module.exports = {

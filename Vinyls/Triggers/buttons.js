@@ -187,10 +187,10 @@ async function handleStaffButtons(interaction) {
       "> Nei giorni **festivi** avrete anche dei giorni in più **ulteriori** al __normale mese__:\n" +
       "<:VC_Dot:1482532364222595303> **24**, **25**, **26**, **31** __Dicembre__\n" +
       "<:VC_Dot:1482532364222595303> **1** Gennaio\n" +
-      "<:VC_Dot:1482532364222595303> **Pasqua** e **Pasquetta**\n\n" +
+      "<:VC_Dot:1482532364222595303> **Pasqua** e **Pasquetta**\n" +
       "<:VC_Dot:1482532364222595303> **25** __Aprile__\n" +
       "<:VC_Dot:1482532364222595303> **1** __Maggio__\n" +
-      "<:VC_Dot:1482532364222595303> **2** __Giugno__\n" +
+      "<:VC_Dot:1482532364222595303> **2** __Giugno__\n\n" +
 
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +

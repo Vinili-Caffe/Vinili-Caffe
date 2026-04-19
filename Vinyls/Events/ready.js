@@ -691,7 +691,7 @@ module.exports = {
       try {
         startPartnerPmDailyThreadLoop(client);
       } catch (err) {
-        global.logger?.error?.("[PARTNER PM DAILY THREAD ERROR]", err);
+        global.logger?.error?.("[PARTNER PM THREAD INIT ERROR]", err);
       }
     }
 
