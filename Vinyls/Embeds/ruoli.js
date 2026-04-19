@@ -183,49 +183,23 @@ async function run(client) {
         { label: "Forum", value: IDs.roles.Forum, emoji: "<:forum:1470541157724328059>", description: "Clicca qui per ottenere il ruolo" },
       ),
   );
-  const colorsMenu1 = new ActionRowBuilder().addComponents(
+  const colorsMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("personality_colors_1")
       .setPlaceholder("🎨 Scegli un colore per il tuo profilo")
       .setMinValues(1)
       .setMaxValues(1)
       .addOptions(
-        { label: "Rimuovi", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi ruoli dal tuo profilo" },
-        { label: "Cherry", value: "1442568958656905318", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Blood", value: "1442568956832645212", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Scarlet", value: "1442568961077153994", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Coral", value: "1442568960016121998", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Carrot", value: "1442568963836874886", emoji: "<:76708orangemidnightheart:1470543838392352940>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Pumpkin", value: "1442568965040636019", emoji: "<:76708orangemidnightheart:1470543838392352940>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "Rimuovi ruolo", value: "remove", emoji: "<:vegax:1443934876440068179>", description: "Rimuovi i colori normali dal profilo" },
+        { label: "Red", value: "1442568956832645212", emoji: "<:67241redmidnightheart:1470543833325633638>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Orange", value: "1442568967045648412", emoji: "<:76708orangemidnightheart:1470543838392352940>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Peach", value: "1442568962167541760", emoji: "<:76708orangemidnightheart:1470543838392352940>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Mais", value: "1442568968371048449", emoji: "<:59095yellowmidnightheart:1470543825704321107>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Gold", value: "1442568969528541225", emoji: "<:59095yellowmidnightheart:1470543825704321107>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Amber", value: "1442568970497687717", emoji: "<:59095yellowmidnightheart:1470543825704321107>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Lime", value: "1442568971357388912", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Pear", value: "1442568972745838667", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Moss", value: "1442568975966797926", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
-      ),
-  );
-  const colorsMenu2 = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId("personality_colors_2")
-      .setPlaceholder("🎨 Scegli un colore per il tuo profilo")
-      .setMinValues(1)
-      .setMaxValues(1)
-      .addOptions(
+        { label: "Yellow", value: "1442568969528541225", emoji: "<:59095yellowmidnightheart:1470543825704321107>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Green", value: "1442568976944201828", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Olive", value: "1442568974486208634", emoji: "<:56389greenmidnightheart:1470543822491619562>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Aqua", value: "1442568977896439960", emoji: "<:16576lightbluemidnightheart:1470543819958386862>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Blue", value: "1442568979473371258", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Electric Blue", value: "1442568980626673685", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Midnight Blue", value: "1442568981792948304", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Eggplant", value: "1442568982769959002", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "Blue", value: "1442568980626673685", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Purple", value: "1442568983898357954", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Lilac", value: "1442568985278156971", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Sangria", value: "1442568986720993350", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Black Cat", value: "1442568987887276133", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Grey Smoke", value: "1442568988961013821", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "Pink", value: "1442568985278156971", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "Black", value: "1442568987887276133", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Grey", value: "1442568989866725468", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
         { label: "White", value: "1442568991150309578", emoji: "<:70505whitemidnightheart:1470543836836135067>", description: "Clicca qui per ottenere il ruolo" },
       ),
@@ -290,7 +264,7 @@ async function run(client) {
     files: mentionsAttachment ? [mentionsAttachment] : [],
     attachmentName: mentionsAttachment ? MENTIONS_IMAGE_NAME : undefined,
   });
-  const colorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.colorsMessageId || null, embeds: [colorsEmbed], components: [colorsMenu1, colorsMenu2], files: colorsAttachment ? [colorsAttachment] : [], attachmentName: colorsAttachment ? COLORS_IMAGE_NAME : undefined });
+  const colorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.colorsMessageId || null, embeds: [colorsEmbed], components: [colorsMenu], files: colorsAttachment ? [colorsAttachment] : [], attachmentName: colorsAttachment ? COLORS_IMAGE_NAME : undefined });
   const plusColorsMessage = await upsertPanelMessage(channel, client, { messageId: panel?.plusColorsMessageId || null, embeds: [plusColorsEmbed], components: [plusColorsMenu], files: plusColorsAttachment ? [plusColorsAttachment] : [], attachmentName: plusColorsAttachment ? PLUS_COLORS_IMAGE_NAME : undefined });
 
   if (personalityMessage || mentionsMessage || colorsMessage || plusColorsMessage) {

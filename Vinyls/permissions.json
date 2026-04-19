@@ -1318,9 +1318,6 @@
         "personality_colors_1": [
             "roles.Member"
         ],
-        "personality_colors_2": [
-            "roles.Member"
-        ],
         "personality_colors_plus": [
             "roles.Donator",
             "roles.VIP",
