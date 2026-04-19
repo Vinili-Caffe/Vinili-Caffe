@@ -21,7 +21,7 @@ async function run(client) {
 > <:5751attentionfromvega:1443651874032062505> Per **candidarti** dovrai __cliccare__ il bottone in base al **ruolo** che vuoi __ricoprire__
 
 Per candidarsi, è necessario **soddisfare** i seguenti __requisiti__:
-<:1_:1444099163116535930> Avere almeno **__14 anni (compiuti)__**
+<:1_:1444099163116535930> Avere almeno **__14 anni__**
 <:2_:1444099161673826368> Rispettare i **[ToS](https://discord.com/terms)** e le **[Linee Guida](https://discord.com/guidelines)** di **Discord**
 <:3_:1444099160294031471> Essere **maturi** e **attivi**
 <:4_:1444099158859321435> Non essere mai stato **sanzionato** nel server.`,
