@@ -172,15 +172,22 @@ async function ensureRoleRemoved(guild, member, roleId) {
   return !stillHasRole;
 }
 
-async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positive) {
+async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positive, valutazioniCount, sectionOrdinal) {
   const channel = await getGuildChannelCached(guild, IDs.channels.valutazioniStaff);
   if (!channel?.isTextBased?.()) return;
 
-  const title = positive ? "<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__**" : "<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__**";
+  const ord = Math.max(0, Math.floor(Number(sectionOrdinal || 0)));
+  const vid = Math.max(0, Math.floor(Number(valutazioniCount || 0)));
+  const actorUser = actor?.user || actor;
+  const iconSource = actor?.user ? actor : actorUser;
+  const actorName = String(actorUser?.username || actor?.username || "Staff");
+  const title = positive
+    ? `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${ord}`
+    : `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${ord}`;
   const embed = new EmbedBuilder()
     .setAuthor({
-      name: `Valutazione eseguita da ${actor.username}`,
-      iconURL: actor.displayAvatarURL(),
+      name: `Valutazione eseguita da ${actorName}`,
+      iconURL: typeof iconSource?.displayAvatarURL === "function" ? iconSource.displayAvatarURL() : undefined,
     })
     .setTitle(title)
     .setThumbnail(targetUser.displayAvatarURL())
@@ -188,6 +195,7 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
       [
         `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> <@${targetUser.id}>`,
         `<:VC_reason:1478517122929004544> __${reason}__`,
+        `<:VC_id:1478517313618575419> **ID Valutazione** __\`${vid}\`__`,
       ].join("\n"),
     )
     .setColor("#6f4e37");
@@ -323,7 +331,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     s.positiveReasons.push(reason);
     profileDoc.markModified("staff");
     await profileDoc.save();
-    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, true);
+    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, true, s.valutazioniCount, s.positiveCount);
     return "<:thumbsup:1471292172145004768> Registrata Valutazione Positiva.";
   }
 
@@ -337,7 +345,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     s.negativeReasons.push(reason);
     profileDoc.markModified("staff");
     await profileDoc.save();
-    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, false);
+    await sendValutazioneLogEmbed(guild, actor, targetUser, reason, false, s.valutazioniCount, s.negativeCount);
 
     const warnResult = await addStaffWarnFromNegatives(guild.id, payload.userId, s.negativeCount, reason);
     if (warnResult.added) {
