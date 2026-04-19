@@ -212,6 +212,14 @@ module.exports = {
       } catch (error) {
         logEventError(resolvedClient, "AUTOMOD ERROR", error);
       }
+      if (message.guild && !message.system) {
+        try {
+          const { maybeBlockDiscordHeadingMarkdown } = require("../Services/Moderation/discordHeadingMarkdownBlock");
+          if (await maybeBlockDiscordHeadingMarkdown(message)) return;
+        } catch (error) {
+          logEventError(resolvedClient, "HEADING MARKDOWN BLOCK ERROR", error);
+        }
+      }
     }
 
     try {

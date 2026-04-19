@@ -226,6 +226,12 @@ module.exports = {
         } catch (error) {
           global.logger?.error?.("[messageUpdate] automod failed:", error);
         }
+        try {
+          const { maybeBlockDiscordHeadingMarkdown } = require("../Services/Moderation/discordHeadingMarkdownBlock");
+          if (await maybeBlockDiscordHeadingMarkdown(updated)) return;
+        } catch (error) {
+          global.logger?.error?.("[messageUpdate] heading markdown block failed:", error);
+        }
       }
 
       await sendMessageEditLog(previous, updated);

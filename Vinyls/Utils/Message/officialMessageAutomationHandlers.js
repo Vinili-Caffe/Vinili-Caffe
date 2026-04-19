@@ -12,7 +12,6 @@ const COMMANDS_CHANNEL_ID = IDs.channels.commands;
 const PAUSE_CHANNEL_ID = IDs.channels.pause;
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
-const VOTE_ROLE_DURATION_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_THREAD_VOTE_REACTION = "👍";
 const DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT = 100;
 const MEDIA_BLOCK_ROLE_IDS = [IDs.roles.PicPerms].filter(Boolean);
@@ -437,6 +436,7 @@ function resolveTopggVotePageUrl(client) {
 async function processDiscadiaVote(guild, user, client, options = {}) {
   if (!guild || !user || !client) return false;
   const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
+  const voteCooldownMs = getVoteCooldownMs(client, voteListing);
 
   let expValue = 0;
   let resolvedVoteCount = null;
@@ -446,7 +446,6 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     const result = await recordDiscadiaVote(client, guild.id, user.id, { voteListing });
     if (result && typeof result.voteCount === "number") resolvedVoteCount = result.voteCount;
     const baseExpRandom = resolvedVoteCount === 1 ? 250 : getRandomExp();
-    const voteCooldownMs = getVoteCooldownMs(client);
     const reward = await awardBumpVoteExp(client, guild, user.id, "discadia_vote", result?.previousLastVoteAt ?? null, voteCooldownMs, baseExpRandom);
     if (reward?.effectiveExp != null) {
       expValue = reward.effectiveExp;
@@ -458,7 +457,7 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   }
 
   try {
-    const expiresAt = new Date(Date.now() + VOTE_ROLE_DURATION_MS);
+    const expiresAt = new Date(Date.now() + voteCooldownMs);
     await upsertVoteRole(guild.id, user.id, expiresAt);
     const member = await getCachedOrFetchMember(guild, user.id);
     if (member && !member.roles.cache.has(VOTE_ROLE_ID)) {
@@ -469,9 +468,13 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   }
 
   const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants");
+  const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
+  const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
-  const voteRoleText = VOTE_ROLE_ID ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per 24 ore`
-    : "<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per 24 ore";
+  const votePlatformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
+  const voteRoleText = VOTE_ROLE_ID
+    ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per ${voteAgainHoursLabel}`
+    : `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per ${voteAgainHoursLabel}`;
   const topggVoteUrl = resolveTopggVotePageUrl(client);
   const thankLine =
     voteListing === "topgg"
@@ -481,11 +484,11 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     thankLine,
     "",
     "`Hai guadagnato:`",
-    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto**` : "**voto**"}`,
+    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto** su **${votePlatformLabel}**` : `**voto** su **${votePlatformLabel}**`}`,
     ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
     voteRoleText,
     "",
-    "<:VC_update:1478721333096349817> Vota di nuovo tra __24 ore__ per ottenere **altri exp** dal **bottone sottostante**.",
+    `<:VC_update:1478721333096349817> Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
   ];
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")

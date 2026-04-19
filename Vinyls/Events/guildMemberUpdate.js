@@ -1207,13 +1207,14 @@ module.exports = {
   async execute(oldMember, newMember, client) {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;
-      if (
-        String(newMember.guild.id) === String(IDs.guilds?.main || "") &&
-        normalVerificationCompletedBetween(oldMember, newMember)
-      ) {
-        await runDeferredJoinAnnouncements(newMember).catch((err) => {
-          global.logger?.warn?.("[guildMemberUpdate] deferred join announce:", newMember.guild.id, newMember.id, err?.message || err);
-        });
+      if (String(newMember.guild.id) === String(IDs.guilds?.main || "")) {
+        const canAnnNow = await shouldSendPublicMemberAnnouncement(newMember);
+        const couldAnnBefore = await shouldSendPublicMemberAnnouncement(oldMember);
+        if (canAnnNow && !couldAnnBefore) {
+          await runDeferredJoinAnnouncements(newMember).catch((err) => {
+            global.logger?.warn?.("[guildMemberUpdate] deferred join announce:", newMember.guild.id, newMember.id, err?.message || err);
+          });
+        }
       }
       await syncPartnerPmThreadForMemberChange(oldMember, newMember).catch(() => {});
       await sponsorVerifiedRequiresMain

@@ -1292,7 +1292,8 @@ async function runDeferredJoinAnnouncements(member) {
     { guildId, userId, "profile.joinAnnouncePending": true },
     { $unset: { "profile.joinAnnouncePending": "" } },
   ).catch(() => ({ modifiedCount: 0 }));
-  if (!Number(cleared?.modifiedCount)) return;
+  const clearedCount = Number(cleared?.modifiedCount ?? cleared?.nModified ?? 0);
+  if (!clearedCount) return;
 
   const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member);
   if (!fresh?.user) return;

@@ -1,6 +1,35 @@
 const axios = require("axios");
 const { EmbedBuilder } = require("discord.js");
 const { getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+
+const TOPGG_REVIEW_SNAPSHOT_KEY = "topgg_review_digest_snapshot";
+
+function readFirstDefined(data, keys) {
+  if (!data || typeof data !== "object") return undefined;
+  for (const k of keys) {
+    if (!k) continue;
+    const v = data[k];
+    if (v != null && v !== "") return v;
+  }
+  return undefined;
+}
+
+function toFiniteNumber(v) {
+  if (v == null || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Conteggio e media aggregati se l’API li espone (chiavi legacy / camelCase). */
+function extractReviewAggregate(data) {
+  const countRaw = readFirstDefined(data, ["review_count", "reviewCount", "reviews_count", "reviewsCount"]);
+  const scoreRaw = readFirstDefined(data, ["review_score", "reviewScore", "reviews_average", "reviewsAverage"]);
+  const count = countRaw != null ? Math.trunc(Number(countRaw)) : null;
+  const score = toFiniteNumber(scoreRaw);
+  const safeCount = count != null && Number.isFinite(count) && count >= 0 ? count : null;
+  return { count: safeCount, score };
+}
 
 function pickTopggStatsFields(data) {
   if (!data || typeof data !== "object") return [];
@@ -17,6 +46,14 @@ function pickTopggStatsFields(data) {
   add("Voti mensili", "monthlyVotes");
   add("Tot. voti", "totalVotes");
   add("Server", "server_count");
+  const { count: rc, score: rs } = extractReviewAggregate(data);
+  if (rc != null) {
+    rows.push({ name: "Recensioni (n.)", value: String(rc), inline: true });
+  }
+  if (rs != null) {
+    const label = rs <= 5 ? "Media recensioni (/5)" : "Media recensioni";
+    rows.push({ name: label, value: String(rs).slice(0, 32), inline: true });
+  }
   return rows.slice(0, 25);
 }
 
@@ -27,10 +64,20 @@ function resolveTopggBotUrl(client) {
   return bid ? `https://top.gg/bot/${bid}` : "";
 }
 
+/** URL tab recensioni: override `topgg.reviewsPageUrl`, altrimenti `/reviews` sulla scheda bot/server. */
+function resolveTopggReviewsUrl(client, botId) {
+  const explicit = String(client?.config?.topgg?.reviewsPageUrl || "").trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const base = resolveTopggBotUrl(client) || (botId ? `https://top.gg/bot/${botId}` : "");
+  if (!base) return "";
+  return `${base.replace(/\/+$/, "")}/reviews`;
+}
+
 /**
  * Opzionale: se in .env c’è TOPGG_API_TOKEN e in config `topgg.statsDigestChannelId`,
- * invia un embed con le statistiche pubbliche del bot e il link alla pagina Top.gg (dove si lasciano le recensioni).
- * L’API Top.gg non espone il testo delle singole recensioni in modo documentato per webhook.
+ * invia un embed con statistiche pubbliche + link recensioni.
+ * L’API non espone in modo stabile il **testo** delle singole recensioni; non esiste webhook recensioni documentato.
+ * Confronta `review_count` con l’ultimo digest salvato in BotState e segnala incrementi.
  */
 async function postTopggStatsDigestIfConfigured(client) {
   const channelId = String(client?.config?.topgg?.statsDigestChannelId || "").trim();
@@ -62,21 +109,45 @@ async function postTopggStatsDigestIfConfigured(client) {
   }
 
   const baseUrl = resolveTopggBotUrl(client) || `https://top.gg/bot/${botId}`;
+  const reviewsUrl = resolveTopggReviewsUrl(client, botId);
+  const { count: reviewCount, score: reviewScore } = extractReviewAggregate(data);
+  const prevSnap = await getBotState(TOPGG_REVIEW_SNAPSHOT_KEY);
+  const prevCount = Number(prevSnap?.count);
+  let deltaLine = "";
+  if (reviewCount != null && Number.isFinite(prevCount) && reviewCount > prevCount) {
+    deltaLine = `\n\n**Recensioni:** rispetto all’ultimo digest risultano **+${reviewCount - prevCount}** (${prevCount} → ${reviewCount}).`;
+  }
+
   const fields = pickTopggStatsFields(data);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("Top.gg — statistiche bot")
+    .setTitle("Top.gg — statistiche e recensioni")
     .setDescription(
-      "Le **recensioni** restano sulla scheda Top.gg (nessun webhook recensioni documentato).\n" +
-        `· [Scheda bot su Top.gg](${baseUrl})`,
+      [
+        "L’API del bot fornisce di solito solo **aggregati** (conteggio / media). Il **testo** delle singole recensioni non è disponibile in modo affidabile; **non** esiste un webhook ufficiale solo-recensioni.",
+        "",
+        `· [Scheda](${baseUrl})`,
+        reviewsUrl ? `· [Recensioni](${reviewsUrl})` : "",
+        deltaLine,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     )
     .setTimestamp(new Date());
   if (fields.length) embed.addFields(fields);
 
-  await channel.send({ embeds: [embed] }).catch((err) => {
+  const sent = await channel.send({ embeds: [embed] }).catch((err) => {
     global.logger?.warn?.("[TOPGG] stats digest send failed:", err?.message || err);
+    return null;
   });
-  return { ok: true, fields: fields.length };
+  if (sent && reviewCount != null) {
+    await setBotState(TOPGG_REVIEW_SNAPSHOT_KEY, {
+      count: reviewCount,
+      score: reviewScore != null ? reviewScore : null,
+      at: Date.now(),
+    });
+  }
+  return { ok: Boolean(sent), fields: fields.length, reviewCount };
 }
 
-module.exports = { postTopggStatsDigestIfConfigured, resolveTopggBotUrl };
+module.exports = { postTopggStatsDigestIfConfigured, resolveTopggBotUrl, resolveTopggReviewsUrl };

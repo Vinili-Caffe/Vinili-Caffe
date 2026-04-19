@@ -28,7 +28,7 @@ async function run(client) {
     .setTitle("<:sparkledred:1470064814502973591> Personalità")
     .setDescription(
       [
-        "Scegli in cosa ti identifichi, quanti anni hai, segno zodiacale, stato sentimentale e di dove sei. Utilizza i menù a tendina sottostanti.",
+        `Scegli in cosa ti identifichi, quanti anni hai, segno zodiacale, stato sentimentale e di dove sei. Utilizza il menù a tendina sottostante. __Rimuovi i colori__ con la "<:vegax:1443934876440068179>" in alto.`,
         "",
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
@@ -40,7 +40,7 @@ async function run(client) {
     .setTitle("<:sparkledred:1470064814502973591> Menzioni")
     .setDescription(
       [
-        "Scegli lo stato DM e quali notifiche ricevere dal server in base a cosa ti interessa maggiormente.",
+        `Scegli lo stato DM e quali notifiche ricevere dal server in base a cosa ti interessa maggiormente. Utilizza il menù a tendina sottostante. __Rimuovi i colori__ con la "<:vegax:1443934876440068179>" in alto.`,
         "",
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
