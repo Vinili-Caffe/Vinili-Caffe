@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
+const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 
 /** Titoli Discord: inizio riga con 1–6 `#` seguiti da spazio (testo ingrandito). */
 const DISCORD_HEADING_LINE_RE = /^#{1,6}\s+/m;
@@ -29,6 +30,7 @@ async function maybeBlockDiscordHeadingMarkdown(message) {
   if (message.author?.bot || message.webhookId) return false;
   const channel = message.channel;
   if (!channel?.isTextBased?.()) return false;
+  if (isChannelInTicketCategory(channel)) return false;
   if (!discordMessageUsesHeadingMarkdown(message.content)) return false;
 
   let member = message.member;
