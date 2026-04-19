@@ -26,18 +26,24 @@ function isPmStaffListMessageContent(content) {
 }
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+/** Ruoli con sezione dedicata nella STAFF LIST (High Staff è escluso su richiesta). */
 const ROLE_EMOJIS = {
   [IDs.roles.PartnerManager]: { emoji: "<:VC_PartnerManager:1494286911286808576>" },
   [IDs.roles.Helper]: { emoji: "<:VC_Helper:1494287601266331829>" },
   [IDs.roles.Mod]: { emoji: "<:VC_Mod:1494287597952958514>" },
-  [IDs.roles.HighStaff]: { emoji: "<:VC_Staff:1494286904089247754>" },
   [IDs.roles.Admin]: { emoji: "<:VC_Admin:1494286848686686209>" },
   [IDs.roles.CoFounder]: { emoji: "<:VC_CoFounder:1494286898535862333>" },
   [IDs.roles.Founder]: { emoji: "<:VC_Founder:1494286918974963732>" },
 };
 const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };
-const STAFF_ROLE_IDS = Object.keys(ROLE_EMOJIS);
-const STAFF_LIST_ROLE_ID_SET = new Set(STAFF_ROLE_IDS.map((id) => String(id)));
+const STAFF_LIST_SECTION_ROLE_IDS = Object.keys(ROLE_EMOJIS);
+const HIGH_STAFF_ROLE_ID = String(IDs.roles.HighStaff || "").trim();
+/** Include High Staff: serve a `memberHasStaffRole` e logica staff, ma non genera riga in lista. */
+const STAFF_ROLE_IDS =
+  HIGH_STAFF_ROLE_ID && !STAFF_LIST_SECTION_ROLE_IDS.includes(HIGH_STAFF_ROLE_ID)
+    ? [...STAFF_LIST_SECTION_ROLE_IDS, HIGH_STAFF_ROLE_ID]
+    : [...STAFF_LIST_SECTION_ROLE_IDS];
+const STAFF_LIST_ROLE_ID_SET = new Set(STAFF_LIST_SECTION_ROLE_IDS.map((id) => String(id)));
 const MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const PM_ROLE_ID = String(IDs.roles.PartnerManager || "");
 const STAFF_GENERIC_ROLE_ID = String(IDs.roles.Staff || "");
@@ -46,7 +52,7 @@ const STAFF_LIST_EXTRA_PM_SECTIONS = [
 ];
 const STAFF_LIST_WATCH_ROLE_IDS = Array.from(
   new Set([
-    ...STAFF_ROLE_IDS.map((id) => String(id)),
+    ...STAFF_LIST_SECTION_ROLE_IDS.map((id) => String(id)),
     ...STAFF_LIST_EXTRA_PM_SECTIONS.map((row) => String(row?.roleId || "")).filter(Boolean),
   ]),
 );
@@ -103,7 +109,9 @@ function rowQualifiesForStaffListNewBadge(row) {
   const oldWasStaffForPm =
     oldRole &&
     oldRole !== PM_ROLE_ID &&
-    (STAFF_LIST_ROLE_ID_SET.has(oldRole) || (STAFF_GENERIC_ROLE_ID && oldRole === STAFF_GENERIC_ROLE_ID));
+    (STAFF_LIST_ROLE_ID_SET.has(oldRole) ||
+      (HIGH_STAFF_ROLE_ID && oldRole === HIGH_STAFF_ROLE_ID) ||
+      (STAFF_GENERIC_ROLE_ID && oldRole === STAFF_GENERIC_ROLE_ID));
   const staffToPm = newRole === PM_ROLE_ID && oldWasStaffForPm;
 
   return fromMember || staffToPm;
@@ -176,7 +184,7 @@ function buildRoleSectionWithCustomEmoji(roleId, emoji, guild, membersSource) {
 }
 
 function buildStaffListParts(guild, membersSource = guild.members.cache, newBadgeRoleIdsByUser = new Map()) {
-  const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
+  const staffRoleIds = STAFF_LIST_SECTION_ROLE_IDS.slice().reverse();
   const pmRoleId = String(IDs.roles.PartnerManager || "");
   let main = "## STAFF LIST\n\n";
   let pm = "";
@@ -281,7 +289,7 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   const serial = `${parts.main}${STAFF_LIST_HASH_SPLIT}${parts.pm}`;
 
   if (parts.main.trim() === "## STAFF LIST") {
-    const staffRoleIds = STAFF_ROLE_IDS.slice().reverse();
+    const staffRoleIds = STAFF_LIST_SECTION_ROLE_IDS.slice().reverse();
     const roleDebug = staffRoleIds.map((roleId) => {
       const role = guild.roles.cache.get(roleId);
       if (!role) return { roleId, name: null, memberCount: 0 };
