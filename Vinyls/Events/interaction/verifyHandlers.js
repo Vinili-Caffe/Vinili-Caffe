@@ -1,10 +1,24 @@
 const { EmbedBuilder, AttachmentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { safeReply, safeEditReply, safeDeferReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, addRolesAndGetMember } = require("../../Utils/Interaction/interactionEntityCache");
 const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
 const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
+
+const CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID = String(IDs.channels?.contestDisegniEventVerifyPing || "").trim();
+const VERIFY_GHOST_PING_DELETE_MS = 2500;
+
+function verifyInteractionIsInDisegniVerifyFlowChannel(interaction) {
+  if (!CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID) return false;
+  const target = CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID;
+  if (String(interaction.channelId || "") === target) return true;
+  const ch = interaction.channel;
+  if (ch?.isThread?.() && String(ch.parentId || "") === target) return true;
+  return false;
+}
+
 function withFooter(interaction, payload) {
   return payload?.embeds?.length ? applyDefaultFooterToEmbeds(payload, interaction?.guild) : payload;
 }
@@ -117,8 +131,22 @@ async function finalizeVerification(interaction, member) {
         return null;
       });
       if (pingMsg) {
-        const t = setTimeout(() => pingMsg.delete().catch(() => {}), 2500);
+        const t = setTimeout(() => pingMsg.delete().catch(() => {}), VERIFY_GHOST_PING_DELETE_MS);
         if (t?.unref) t.unref();
+      }
+    }
+
+    if (verifyInteractionIsInDisegniVerifyFlowChannel(interaction)) {
+      const disegniCh = guildForPing ? await getGuildChannelCached(guildForPing, CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID) : null;
+      if (disegniCh?.isTextBased?.()) {
+        const pingMsg = await disegniCh.send({ content: pingContent, allowedMentions }).catch((err) => {
+          global.logger?.warn?.("[VERIFY] Ghost ping canale contest disegni:", err?.message || err);
+          return null;
+        });
+        if (pingMsg) {
+          const t = setTimeout(() => pingMsg.delete().catch(() => {}), VERIFY_GHOST_PING_DELETE_MS);
+          if (t?.unref) t.unref();
+        }
       }
     }
   }
