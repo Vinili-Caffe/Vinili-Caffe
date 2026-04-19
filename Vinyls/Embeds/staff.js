@@ -30,15 +30,14 @@ async function run(client) {
 
   const embedStaffDelMese = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("Staffer del Mese")
     .setDescription(
       [
-        "Ogni mese viene scelto **un solo** staffer da premiare tra **Helper, Mod e Admin**.",
+        "<:VC_Leaderboard:1482534806314287387> Ogni mese viene scelto **un solo** staffer da premiare tra **Helper, Mod e Admin**.",
         "",
-        "**Come si decide?**",
+        "<:VC_PinkQuestionMark:1471892611026391306> **Come si decide?**",
         "La scelta tiene conto di **attività nel server**, **presenza** e **contributo** allo staff.",
         "",
-        "**Premi per il vincitore**",
+        "<a:VC_Winner:1482535294757507255> **Premi per il vincitore**",
         `<:VC_Dot:1482532364222595303> Ruolo ${stafferDelMeseMention} per il mese di riferimento`,
         "<:VC_Dot:1482532364222595303> **5 giorni di pausa in più**",
         "<:VC_Dot:1482532364222595303> **Nitro Boost** __mensile__",
@@ -114,13 +113,13 @@ async function run(client) {
   }
   if (guideChannel?.isTextBased?.()) {
     await upsertPanelMessage(guideChannel, client, {
-      embeds: [embeds[1]],
+      embeds: [embeds[0]],
       components: [rowGuideMain],
     });
   }
   if (moderationChannel?.isTextBased?.()) {
     await upsertPanelMessage(moderationChannel, client, {
-      embeds: [embeds[2]],
+      embeds: [embeds[1]],
       components: [rowModeration],
     });
   }
