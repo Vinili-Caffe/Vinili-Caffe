@@ -728,17 +728,17 @@ async function execute(interaction) {
       }
       const rmRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:valpos_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("valpos_rm")}:${parsed.viewerId}:${parsed.targetId}:${secTokVal}${trailVal}`)
           .setLabel("Positiva")
           .setEmoji("<:thumbsup:1471292172145004768>")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:valneg_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("valneg_rm")}:${parsed.viewerId}:${parsed.targetId}:${secTokVal}${trailVal}`)
           .setLabel("Negativa")
           .setEmoji("<:thumbsdown:1471292163957457013>")
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId(`${STAFF_HP_PREFIX}:warn_rm:${parsed.viewerId}:${parsed.targetId}:${sec}${trailVal}`)
+          .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("warn_rm")}:${parsed.viewerId}:${parsed.targetId}:${secTokVal}${trailVal}`)
           .setLabel("Warn")
           .setEmoji("<:banhammer:1443651875441217639>")
           .setStyle(ButtonStyle.Secondary),
