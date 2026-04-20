@@ -83,15 +83,6 @@ async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
 
   if (ROLE_OWNER && roleId === ROLE_OWNER) {
     await member.roles.remove(ROLE_OWNER).catch(() => null);
-    await member.roles.add(ROLE_CO_OWNER).catch(() => null);
-    await member.roles.add(ROLE_STAFF).catch(() => null);
-    await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
-    return { ok: true, roleRemoved: roleId, newRole: ROLE_CO_OWNER };
-  }
-  if (roleId === ROLE_CO_OWNER) {
-    await member.roles.remove(ROLE_CO_OWNER).catch(() => null);
-    await member.roles.remove(ROLE_STAFF).catch(() => null);
-    await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
     await member.roles.add(ROLE_ADMIN).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
     await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
