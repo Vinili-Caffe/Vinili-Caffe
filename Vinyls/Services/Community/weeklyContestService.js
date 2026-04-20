@@ -1726,6 +1726,157 @@ function legacyVoteArrayContainsMid(arr, mid) {
 }
 
 const THREAD_DELETE_REASON = "Contest sfondi: autore uscito dal server";
+const THREAD_DELETE_DISQUALIFY_REASON = "Contest disegni: submission squalificata";
+
+async function deleteContestThreadForMessageOnly(guild, channel, msgId) {
+  const mid = String(msgId || "");
+  if (!guild || !channel?.messages?.fetch || !/^\d{17,22}$/.test(mid)) return;
+  const msg = await channel.messages.fetch(mid).catch(() => null);
+  if (!msg) return;
+  const fromMessage = msg.thread;
+  const fromFlag =
+    !fromMessage && msg.hasThread ? await guild.channels.fetch(mid).catch(() => null) : null;
+  const thread = fromMessage || (fromFlag?.isThread?.() ? fromFlag : null);
+  if (thread?.isThread?.()) await thread.delete(THREAD_DELETE_DISQUALIFY_REASON).catch(() => {});
+}
+
+async function removeContestSubmissionAndStripVotesForMessage(guildId, eventKey, bundle, authorUserId, category, messageId) {
+  const gid = String(guildId || "");
+  const ek = String(eventKey || "").trim();
+  const uid = String(authorUserId || "").trim();
+  const cat = String(category || "").trim();
+  const mid = String(messageId || "").trim();
+  if (!gid || !ek || !uid || !cat || !/^\d{17,22}$/.test(mid)) return false;
+  if (cat !== "mobile" && cat !== "pc") return false;
+
+  const votersObj = bundle?.voters && typeof bundle.voters === "object" && !Array.isArray(bundle.voters) ? bundle.voters : {};
+  const voterIds = Object.keys(votersObj);
+  const mids = [mid];
+
+  const $unset = {
+    [`submissions.${cat}.${uid}`]: "",
+    [`submissionMessageIndex.${mid}`]: "",
+  };
+  for (const vid of voterIds) {
+    const leaf = votersObj[vid] || {};
+    const mCounts = leaf.votesMobileCounts && typeof leaf.votesMobileCounts === "object" && !Array.isArray(leaf.votesMobileCounts) ? leaf.votesMobileCounts : {};
+    const pCounts = leaf.votesPcCounts && typeof leaf.votesPcCounts === "object" && !Array.isArray(leaf.votesPcCounts) ? leaf.votesPcCounts : {};
+    for (const m of mids) {
+      if (Object.prototype.hasOwnProperty.call(mCounts, m)) $unset[`voters.${vid}.votesMobileCounts.${m}`] = "";
+      if (Object.prototype.hasOwnProperty.call(pCounts, m)) $unset[`voters.${vid}.votesPcCounts.${m}`] = "";
+    }
+  }
+
+  const $pullAll = {};
+  for (const vid of voterIds) {
+    const leaf = votersObj[vid] || {};
+    const pm = mids.filter((m) => legacyVoteArrayContainsMid(leaf.votesMobile, m));
+    if (pm.length) $pullAll[`voters.${vid}.votesMobile`] = [...new Set(pm.map(String))];
+    const pms = mids.filter((m) => legacyVoteArrayContainsMid(leaf.votesMobileSparkle, m));
+    if (pms.length) $pullAll[`voters.${vid}.votesMobileSparkle`] = [...new Set(pms.map(String))];
+    const pp = mids.filter((m) => legacyVoteArrayContainsMid(leaf.votesPc, m));
+    if (pp.length) $pullAll[`voters.${vid}.votesPc`] = [...new Set(pp.map(String))];
+    const pps = mids.filter((m) => legacyVoteArrayContainsMid(leaf.votesPcSparkle, m));
+    if (pps.length) $pullAll[`voters.${vid}.votesPcSparkle`] = [...new Set(pps.map(String))];
+  }
+
+  for (const k of Object.keys($pullAll)) {
+    const arr = $pullAll[k];
+    if (!Array.isArray(arr) || arr.length === 0) delete $pullAll[k];
+  }
+  const update = { $unset };
+  if (Object.keys($pullAll).length) update.$pullAll = $pullAll;
+  const res = await WeeklyContestBundle.updateOne({ guildId: gid, eventKey: ek }, update).catch((err) => {
+    global.logger?.error?.("[WEEKLY_CONTEST] disqualify bundle:", err?.message || err);
+    return null;
+  });
+  const matched = Number(res?.matchedCount ?? res?.n ?? 0);
+  return matched >= 1;
+}
+
+async function handleContestDisegniSqualifica(interaction, client) {
+  if (!interaction?.isMessageContextMenuCommand?.()) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Comando non valido." };
+  }
+  if (!IS_DISEGNI_CONTEST) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> **Squalifica** è disponibile solo con il profilo contest **disegni** attivo sul bot.",
+    };
+  }
+  if (!interaction.guild || String(interaction.guild.id) !== contestGuildId()) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Usa questo comando nel server principale." };
+  }
+  if (!isContestActiveNow()) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Il contest non è attivo in questo momento." };
+  }
+  const target = interaction.targetMessage;
+  if (!target?.id || !target.channelId) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Messaggio non valido." };
+  }
+  const botId = String(client?.user?.id || "");
+  if (!botId || String(target.author?.id || "") !== botId) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> Puoi squalificare solo i messaggi **bot** del contest (post con i pulsanti di voto).",
+    };
+  }
+  if (String(target.channelId) !== String(CHANNEL_MOBILE_ID)) {
+    return {
+      ok: false,
+      message: "<:VC_Attention:1482534443632558151> Il messaggio deve essere nel canale **contest disegni**.",
+    };
+  }
+
+  const guildId = String(interaction.guild.id);
+  const mid = String(target.id);
+  const bundle = await getContestBundleLean(guildId, EVENT_KEY);
+  const submission = findSubmissionByMessageId(bundle, mid);
+  if (!submission?.userId) {
+    return {
+      ok: false,
+      message:
+        "<:VC_Attention:1482534443632558151> Questo messaggio non risulta una **submission** registrata nel contest attuale.",
+    };
+  }
+
+  const okDb = await removeContestSubmissionAndStripVotesForMessage(
+    guildId,
+    EVENT_KEY,
+    bundle,
+    submission.userId,
+    submission.category,
+    mid,
+  );
+  if (!okDb) {
+    return {
+      ok: false,
+      message: "<:VC_Attention:1482534443632558151> Impossibile aggiornare i dati del contest (database). Riprova.",
+    };
+  }
+
+  const guild = interaction.guild;
+  const channel =
+    guild.channels.cache.get(target.channelId) || (await getGuildChannelCached(guild, target.channelId).catch(() => null));
+  if (channel) await deleteContestThreadForMessageOnly(guild, channel, mid);
+
+  const disqualifyEmbed = new EmbedBuilder().setColor("#ed4245").setDescription("Questo disegno è stato squalificato.");
+  const msgToEdit =
+    channel && channel.messages?.fetch
+      ? await channel.messages.fetch(mid).catch(() => null) || target
+      : target;
+  await msgToEdit
+    .edit({ embeds: [disqualifyEmbed], components: [], files: [] })
+    .catch((err) => global.logger?.warn?.("[WEEKLY_CONTEST] disqualify message edit:", err?.message || err));
+
+  return {
+    ok: true,
+    message:
+      "Submission squalificata: voti rimossi e restituiti ai votanti, thread eliminato, pulsanti tolti e embed aggiornato.",
+  };
+}
 
 async function deleteContestSubmissionMessageAndThread(guild, channel, msgId) {
   const mid = String(msgId || "");
@@ -1889,4 +2040,5 @@ module.exports = {
   isContestActiveNow,
   removeContestSfondiSubmissionsOnMemberLeave,
   contestVoteRemainingSlots,
+  handleContestDisegniSqualifica,
 };

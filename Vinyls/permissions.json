@@ -5,6 +5,14 @@
                 "roles.PartnerManager"
             ]
         },
+        "squalifica": {
+            "roles": [
+                "roles.HighStaff",
+                "roles.Staff",
+                "roles.Admin",
+                "roles.Founder"
+            ]
+        },
         "giveaway": {
             "roles": [
                 "roles.HighStaff"
