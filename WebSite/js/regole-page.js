@@ -98,6 +98,7 @@
       root.appendChild(empty);
       return;
     }
+    var cards = [];
     rules.forEach(function (r) {
       var det = document.createElement("details");
       det.className = "vc-regole-card";
@@ -113,9 +114,15 @@
       var h = document.createElement("p");
       h.className = "vc-regole-card-title";
       h.textContent = String(r.title || "");
-      var sn = document.createElement("p");
-      sn.className = "vc-regole-card-snippet";
-      sn.textContent = String(r.body || "").slice(0, 160) + (String(r.body || "").length > 160 ? "…" : "");
+      var bodyStr = String(r.body != null ? r.body : "").trim();
+      var summaryStr = String(r.summary != null ? r.summary : "").trim() || bodyStr;
+      var showSummaryLine = summaryStr !== bodyStr;
+      var sn = null;
+      if (showSummaryLine && summaryStr) {
+        sn = document.createElement("p");
+        sn.className = "vc-regole-card-snippet";
+        sn.textContent = summaryStr;
+      }
       var tag = document.createElement("div");
       tag.className = "vc-regole-card-tag";
       var ti = document.createElement("i");
@@ -124,7 +131,7 @@
       tag.appendChild(ti);
       tag.appendChild(document.createTextNode(" " + String(r.tag || "")));
       main.appendChild(h);
-      main.appendChild(sn);
+      if (sn) main.appendChild(sn);
       main.appendChild(tag);
       var chev = document.createElement("span");
       chev.className = "vc-regole-card-chev";
@@ -135,12 +142,51 @@
       sum.appendChild(chev);
       var body = document.createElement("div");
       body.className = "vc-regole-card-body";
+      var inner = document.createElement("div");
+      inner.className = "vc-regole-card-body-inner";
+      var lab = document.createElement("span");
+      lab.className = "vc-regole-body-label";
+      lab.textContent = "DESCRIZIONE";
       var p = document.createElement("p");
-      p.textContent = String(r.body || "");
-      body.appendChild(p);
+      p.className = "vc-regole-body-text";
+      p.textContent = bodyStr;
+      inner.appendChild(lab);
+      inner.appendChild(p);
+      body.appendChild(inner);
+      var links = Array.isArray(r.links) ? r.links : [];
+      if (links.length) {
+        var row = document.createElement("div");
+        row.className = "vc-regole-card-links";
+        links.forEach(function (lk) {
+          var href = String((lk && lk.href) || "").trim();
+          var label = String((lk && lk.label) || "").trim();
+          if (!label || !/^https:\/\/discord\.com\//i.test(href)) return;
+          var a = document.createElement("a");
+          a.className = "vc-regole-card-linkbtn";
+          a.href = href;
+          a.rel = "noopener noreferrer";
+          a.target = "_blank";
+          var ic = document.createElement("i");
+          ic.className = "fa fa-file-text-o";
+          ic.setAttribute("aria-hidden", "true");
+          a.appendChild(ic);
+          a.appendChild(document.createTextNode(" " + label));
+          row.appendChild(a);
+        });
+        if (row.childNodes.length) body.appendChild(row);
+      }
       det.appendChild(sum);
       det.appendChild(body);
+      cards.push(det);
       root.appendChild(det);
+    });
+    cards.forEach(function (det) {
+      det.addEventListener("toggle", function () {
+        if (!det.open) return;
+        cards.forEach(function (other) {
+          if (other !== det) other.open = false;
+        });
+      });
     });
   }
 

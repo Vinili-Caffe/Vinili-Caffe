@@ -7,7 +7,8 @@ Vetrina HTML/CSS/JS per la community Discord **Vinili & Caffè**. Testi e link s
 1. Copia o modifica `site.config.json`:
    - `siteUrl`: URL pubblico definitivo (meta e link).
    - `voteUrl` / `reviewsUrl`: link dei pulsanti in alto a destra (Vota / Recensioni).
-   - `discordOauth.clientId` / `discordOauth.redirectUri`: OAuth Discord del pulsante Login (scope `identify`, implicit flow). Nel Developer Portal Discord devi inserire la stessa `redirectUri` tra i Redirects autorizzati.
+   - `discordOauth.clientId` / `discordOauth.redirectUri`: OAuth Discord del pulsante Login (scope `identify`, implicit flow). Nel Developer Portal Discord registra **un solo** URL in Redirects (di solito la home, come `siteUrl`): tutte le pagine usano quella callback; il ritorno a wiki / candidature / unban avviene con il parametro `state` (gestito da `js/discord-auth.js`).
+   - `usersLeaderboardApiUrl` / `usersLeaderboardApiUrlLocal`: GET JSON per la pagina `/user` (classifica livelli). In produzione deve rispondere il bot su `GET /webhooks/site-users` (stesso host del sito se nginx fa proxy, altrimenti URL completo verso la `webhookPort` del bot). Locale: tipicamente `http://127.0.0.1:PORTA_BOT/webhooks/site-users`.
    - `discordInviteUrl`: stesso invite del catalogo bot (`https://discord.gg/viniliecaffe`).
    - `useDiscordGuildBanner`: `true` (default) = in build si legge il **banner del server** da Discord (API invite pubblica) e si usa come sfondo della hero. Serve **rete** durante `npm run build`. Se il server non ha banner, resta lo sfondo del CSS (GIF legacy).
    - `useDiscordGuildIcon`: `true` (default) = stessa API; l’**icona della guild** sostituisce l’immagine circolare in “Chi siamo”. Se manca o il fetch fallisce, si usa `images/vc-header-logo.png`.
@@ -47,9 +48,9 @@ Il sito è in ascolto sulla porta **8080** dell’host (`docker-compose.yml`). D
 
 ## Deploy senza Docker (solo file)
 
-Dopo `npm run build`, copia l’intera cartella `dist/` nella root del virtual host nginx, es. `/var/www/viniliecaffe/`, con owner leggibile da `www-data`. Esempio blocco server (certificati gestiti a parte):
+Dopo `npm run build`, copia l’intera cartella `dist/` nella root del virtual host nginx, es. `/var/www/viniliecaffe/`, con owner leggibile da `www-data`. Lo script **`scripts/deploy-site.ps1`** (o `WebSite/deploy-site.ps1`) crea un **unico `.tar.gz`** da `dist/` e lo estrae sul server (molto più veloce di centinaia di `scp` separati; fallback a `scp -r` con **`-SlowScpRecursive`** o se manca `tar`). Con **`-SkipBuild`** riusa `dist/` senza rilanciare `npm run build`. Dopo l’upload esegue via **SSH** `chown`/`chmod` sulla docroot (403 se nginx non legge i file). Esempio blocco server (certificati gestiti a parte):
 
-Vedi `deploy/nginx-site.conf.example`.
+Vedi `deploy/nginx-site.conf.example`. Se vedi **403** solo su path tipo `/regole` o `/wiki`, aggiorna `try_files` sul server come nell’esempio (**senza** `$uri/` tra le prove: con cartella vuota o senza `index.html` nginx risponde 403) e verifica in docroot **`regole/index.html`** (rifai `npm run build` e deploy completo di `dist/`). Ricorda anche **permessi** `www-data` sulla sottocartella.
 
 ## Statistiche live nel browser
 

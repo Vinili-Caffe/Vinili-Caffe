@@ -1,4 +1,13 @@
 (function () {
+  function hideTransitionOverlay() {
+    var ov = document.getElementById("vc-page-transition");
+    if (ov) ov.classList.remove("vc-page-transition--on");
+  }
+
+  window.addEventListener("pageshow", function () {
+    hideTransitionOverlay();
+  });
+
   function isInternalNavigableLink(a) {
     if (!a || !a.getAttribute) return false;
     var hrefAttr = String(a.getAttribute("href") || "").trim();
@@ -39,6 +48,7 @@
   }
 
   function initPageTransition() {
+    hideTransitionOverlay();
     document.addEventListener("click", function (ev) {
       if (ev.defaultPrevented || ev.button !== 0) return;
       if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;

@@ -32,13 +32,13 @@
   </head>
   <body id="top" class="vc-body vc-wiki-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#060912]/75 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div
           class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5"
         >
           <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
             <a
-              class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400/60"
+              class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
               href="{{DISCORD_INVITE_URL}}"
               target="_blank"
               rel="noopener noreferrer"
@@ -47,13 +47,13 @@
                 src="../images/vc-header-logo.png"
                 width="40"
                 height="40"
-                class="h-9 w-9 rounded-2xl object-cover sm:h-10 sm:w-10"
+                class="vc-header-logo-img"
                 alt=""
                 loading="eager"
                 decoding="async"
             /></a>
             <a
-              class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-cyan-200 hover:underline sm:text-xs"
+              class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
               href="{{SITE_URL}}"
               aria-label="Vai alla homepage"
               >{{SITE_NAME}}</a>
@@ -80,7 +80,7 @@
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
-                <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                <a class="vc-snav-row" href="{{USER_PAGE_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
                 <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
@@ -235,9 +235,9 @@
     <footer class="vc-footer vc-footer--wiki relative z-10 py-16">
       <div class="mx-auto max-w-3xl px-4 text-center">
         <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <a class="transition hover:text-cyan-300" href="{{TERMS_URL}}">Termini di Servizio</a>
-          <a class="transition hover:text-cyan-300" href="{{PRIVACY_URL}}">Privacy Policy</a>
-          <a class="transition hover:text-cyan-300" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+          <a class="transition hover:text-[#d4a888]" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-[#d4a888]" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-[#d4a888]" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
         <p class="mt-8 text-sm leading-relaxed text-slate-400">
           © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con ❤️ per la community.

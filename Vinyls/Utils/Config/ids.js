@@ -143,9 +143,8 @@ const ids = {
     contestSfondiMobile: "1491741990860099726",
     contestSfondiPc: "1491742064142979184",
     contestDisegni: "1493306970743242923",
-    /** Verifica contest disegni: ghost ping utente qui se completa il captcha da questo canale (o thread sotto). */
     contestDisegniEventVerifyPing: "1493306817126596828",
-    contestBonusVotesAnnounce: "1491741654049226802",
+    contestBonusVotesAnnounce: "1493306817126596828",
     staffNews: "1442569239063167139",
     media: "1442569136067575809",
     selfieVerificati: "1470029899740873029",

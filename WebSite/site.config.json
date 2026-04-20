@@ -20,6 +20,8 @@
   "communityRulesUrl": "",
   "communityRulesApiUrl": "https://www.viniliecaffe.it/webhooks/site-rules",
   "communityRulesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-rules",
+  "usersLeaderboardApiUrl": "https://www.viniliecaffe.it/webhooks/site-users",
+  "usersLeaderboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-users",
   "discordInviteCode": "viniliecaffe",
   "useDiscordGuildBanner": false,
   "useDiscordGuildIcon": true,
@@ -31,7 +33,6 @@
     "guildId": "1329080093599076474",
     "staffRoleIds": [
       "1442568886988963923",
-      "1442568889052430609",
       "1442568893435478097",
       "1442568894349840435",
       "1442568901887000618",
@@ -41,7 +42,6 @@
     ],
     "staffRoleDisplayOrder": [
       "1442568886988963923",
-      "1442568889052430609",
       "1442568893435478097",
       "1442568894349840435",
       "1442568901887000618",

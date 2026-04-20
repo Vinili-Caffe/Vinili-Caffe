@@ -48,8 +48,8 @@ function stripDiscordMarkup(s) {
   t = t.replace(/\*\*/g, "");
   t = t.replace(/__/g, "");
   t = t.replace(/`([^`]+)`/g, "$1");
-  t = t.replace(/\[__([^[\]]+)__\]\(([^)]+)\)/g, "$1 ($2)");
-  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)");
+  t = t.replace(/\[__([^[\]]+)__\]\(([^)]+)\)/g, "$1");
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
   return t.replace(/\s+/g, " ").trim();
 }
 
@@ -75,18 +75,57 @@ function sortRuleIds(ids) {
   });
 }
 
+/** Anteprima chiusa: prima frase o troncamento; corpo = testo completo. */
+function defaultSummaryFromBody(body) {
+  const d = String(body || "").trim();
+  if (!d) return { summary: "", body: "" };
+  const max = 130;
+  const dot = d.indexOf(". ");
+  if (dot > 8 && dot < max + 40) {
+    return { summary: d.slice(0, dot + 1).trim(), body: d };
+  }
+  if (d.length <= max) return { summary: d, body: d };
+  const cut = d.slice(0, max - 1).trim();
+  const sp = cut.lastIndexOf(" ");
+  const head = sp > 40 ? cut.slice(0, sp) : cut;
+  return { summary: `${head}…`, body: d };
+}
+
+const SITE_RULE_OVERRIDES = {
+  "1.1": {
+    title: "Discord ToS",
+    summary: "Rispetta i Termini di Servizio di Discord.",
+    body:
+      "Rispetta i Termini di Servizio di Discord, dove vengono elencate tutte le regole che vanno rispettate all'interno della piattaforma. La violazione dei ToS di Discord comporta sanzioni anche sul nostro server.",
+    links: [
+      { label: "Termini di Servizio Discord", href: "https://discord.com/terms" },
+      { label: "Linee Guida Community", href: "https://discord.com/guidelines" },
+    ],
+  },
+};
+
 function buildCommunityRulesSitePayload() {
   const ids = sortRuleIds(Object.keys(MOD_RULE_DETAIL));
   const rules = ids.map((id) => {
     const category = categoryFromId(id);
-    return {
+    const raw = stripDiscordMarkup(MOD_RULE_DETAIL[id]);
+    const ov = SITE_RULE_OVERRIDES[id] || {};
+    const body = String(ov.body != null ? ov.body : raw).trim();
+    const summaryRaw = ov.summary != null ? String(ov.summary).trim() : defaultSummaryFromBody(raw).summary;
+    const summary = summaryRaw || body;
+    const title = String(ov.title || "").trim() || MOD_RULE_TITLE_IT[id] || `Regola ${id}`;
+    const links = Array.isArray(ov.links) ? ov.links : [];
+    const out = {
       id,
       category,
       tag: tagLabelForCategory(category),
-      title: MOD_RULE_TITLE_IT[id] || `Regola ${id}`,
-      body: stripDiscordMarkup(MOD_RULE_DETAIL[id]),
+      title,
+      summary,
+      body,
       icon: ICON_BY_ID[id] || "file-text-o",
     };
+    if (links.length) out.links = links;
+    return out;
   });
   return {
     ok: true,

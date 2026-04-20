@@ -30,15 +30,15 @@
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#060912]/75 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="flex min-w-0 items-center gap-2.5">
-          <a class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"
-            ><img src="/images/vc-header-logo.png" width="40" height="40" class="h-9 w-9 rounded-2xl object-cover sm:h-10 sm:w-10" alt="" loading="eager" decoding="async"
+          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"
+            ><img src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async"
           /></a>
-          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-cyan-200 hover:underline sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
+          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
         </div>
         <nav class="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.12em] sm:gap-3 sm:text-xs" aria-label="Documenti legali">
-          <a class="rounded-lg px-2 py-1 text-cyan-200 ring-1 ring-cyan-400/40" href="{{TERMS_URL}}" aria-current="page">Termini</a>
+          <a class="rounded-lg px-2 py-1 text-[#e8c9a8] ring-1 ring-[#d4a888]/40" href="{{TERMS_URL}}" aria-current="page">Termini</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{PRIVACY_URL}}">Privacy</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{SITE_URL}}"><i class="fa fa-home mr-1" aria-hidden="true"></i>Sito</a>
@@ -47,7 +47,7 @@
     </header>
 
     <main class="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-28 sm:pt-32">
-      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#060912]/55 px-5 py-8 sm:px-8 sm:py-10">
+      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#140f0c]/56 px-5 py-8 sm:px-8 sm:py-10">
         <h1 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">Termini di Servizio</h1>
         <p class="mt-2 text-sm text-slate-400">Ultimo aggiornamento: {{LEGAL_TERMS_UPDATED}}</p>
 
@@ -72,11 +72,11 @@
           <h2 class="pt-4 text-lg font-semibold text-white">Requisiti di Accesso</h2>
           <p>Per utilizzare i nostri servizi, devi:</p>
           <ul class="list-disc space-y-2 pl-5">
-            <li>avere almeno 14 anni, in conformità con i <a class="text-cyan-300 underline hover:text-cyan-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a>;</li>
+            <li>avere almeno 14 anni, in conformità con i <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a>;</li>
             <li>possedere un account Discord valido;</li>
             <li>fornire informazioni veritiere quando richiesto (es. moduli o ticket di supporto);</li>
             <li>mantenere la sicurezza del tuo account e non cedere l&apos;accesso a terzi in modo illecito;</li>
-            <li>rispettare i presenti Termini, la <a class="text-cyan-300 underline hover:text-cyan-200" href="{{PRIVACY_URL}}">Privacy Policy</a>, le regole del Server e le norme applicabili.</li>
+            <li>rispettare i presenti Termini, la <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{PRIVACY_URL}}">Privacy Policy</a>, le regole del Server e le norme applicabili.</li>
           </ul>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Regole di Comportamento</h2>
@@ -96,7 +96,7 @@
 
           <h2 class="pt-4 text-lg font-semibold text-white">Voti e servizi di terze parti</h2>
           <p>
-            Ove disponibili, le pagine di voto o le recensioni su directory di server (ad esempio <a class="text-cyan-300 underline hover:text-cyan-200" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer">votazione</a> o <a class="text-cyan-300 underline hover:text-cyan-200" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">scheda server</a>) sono gestite anche da fornitori esterni. I voti devono essere legittimi e conformi alle regole di tali piattaforme. Possiamo segnalare abusi ai fornitori e adottare provvedimenti sul Server.
+            Ove disponibili, le pagine di voto o le recensioni su directory di server (ad esempio <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer">votazione</a> o <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">scheda server</a>) sono gestite anche da fornitori esterni. I voti devono essere legittimi e conformi alle regole di tali piattaforme. Possiamo segnalare abusi ai fornitori e adottare provvedimenti sul Server.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Candidature e ruoli staff</h2>
@@ -141,25 +141,25 @@
 
           <h2 class="pt-4 text-lg font-semibold text-white">Discord Terms of Service</h2>
           <p>
-            Il Server è ospitato su Discord. Utilizzandolo accetti anche i <a class="text-cyan-300 underline hover:text-cyan-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a> e le loro informative. In caso di conflitto tra il presente documento e le policy di Discord su materie proprie della piattaforma, prevalgono le policy di Discord.
+            Il Server è ospitato su Discord. Utilizzandolo accetti anche i <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a> e le loro informative. In caso di conflitto tra il presente documento e le policy di Discord su materie proprie della piattaforma, prevalgono le policy di Discord.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Contatti</h2>
           <p>
-            Per domande sui Termini: server Discord <a class="text-cyan-300 underline hover:text-cyan-200" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
+            Per domande sui Termini: server Discord <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
             <span class="text-slate-400"> · </span>
-            email <a class="text-cyan-300 underline hover:text-cyan-200" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
+            email <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
           </p>
         </section>
       </article>
 
       <footer class="mt-10 text-center text-[0.7rem] text-slate-500">
         <p>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{TERMS_URL}}">Termini</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{TERMS_URL}}">Termini</a>
           <span class="text-slate-600"> · </span>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{PRIVACY_URL}}">Privacy</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{PRIVACY_URL}}">Privacy</a>
           <span class="text-slate-600"> · </span>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{COOKIE_POLICY_URL}}">Cookie</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{COOKIE_POLICY_URL}}">Cookie</a>
         </p>
         <p class="mt-2">© {{YEAR}} {{SITE_NAME}}</p>
       </footer>

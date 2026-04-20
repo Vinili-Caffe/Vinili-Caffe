@@ -101,7 +101,9 @@ const CHANNEL_MOBILE_ID = String(
 const CHANNEL_PC_ID = String(
   IS_DISEGNI_CONTEST ? "" : process.env.WEEKLY_CONTEST_SFONDI_PC_CHANNEL_ID || IDs.channels?.contestSfondiPc || "",
 ).trim();
-const CHANNEL_BONUS_ANNOUNCE_ID = String(IDs.channels?.contestBonusVotesAnnounce || "").trim();
+const CHANNEL_BONUS_ANNOUNCE_ID = String(
+  process.env.WEEKLY_CONTEST_BONUS_ANNOUNCE_CHANNEL_ID || IDs.channels?.contestBonusVotesAnnounce || "",
+).trim();
 const INFO_CHANNEL_ID = String(IDs.channels?.info || "").trim();
 
 const MEMBER_ROLE_ID = String(IDs.roles?.Member || "").trim();

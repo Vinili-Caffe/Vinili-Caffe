@@ -30,16 +30,16 @@
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#060912]/75 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="flex min-w-0 items-center gap-2.5">
-          <a class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"
-            ><img src="/images/vc-header-logo.png" width="40" height="40" class="h-9 w-9 rounded-2xl object-cover sm:h-10 sm:w-10" alt="" loading="eager" decoding="async"
+          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"
+            ><img src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async"
           /></a>
-          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-cyan-200 hover:underline sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
+          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
         </div>
         <nav class="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.12em] sm:gap-3 sm:text-xs" aria-label="Documenti legali">
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{TERMS_URL}}">Termini</a>
-          <a class="rounded-lg px-2 py-1 text-cyan-200 ring-1 ring-cyan-400/40" href="{{PRIVACY_URL}}" aria-current="page">Privacy</a>
+          <a class="rounded-lg px-2 py-1 text-[#e8c9a8] ring-1 ring-[#d4a888]/40" href="{{PRIVACY_URL}}" aria-current="page">Privacy</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{SITE_URL}}"><i class="fa fa-home mr-1" aria-hidden="true"></i>Sito</a>
         </nav>
@@ -47,24 +47,24 @@
     </header>
 
     <main class="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-28 sm:pt-32">
-      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#060912]/55 px-5 py-8 sm:px-8 sm:py-10">
+      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#140f0c]/56 px-5 py-8 sm:px-8 sm:py-10">
         <h1 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">Privacy Policy</h1>
         <p class="mt-2 text-sm text-slate-400">Ultimo aggiornamento: {{LEGAL_PRIVACY_UPDATED}}</p>
 
         <section class="mt-8 space-y-4 text-[0.95rem] leading-relaxed text-slate-200/95">
           <h2 class="text-lg font-semibold text-white">Introduzione</h2>
           <p>
-            La presente informativa descrive come <strong>{{SITE_NAME}}</strong> (&quot;noi&quot;) tratta i dati personali in relazione al sito <a class="text-cyan-300 underline hover:text-cyan-200" href="{{SITE_URL}}">{{SITE_URL}}</a> (&quot;Sito&quot;) e al server Discord della community (&quot;Server&quot;). Il trattamento avviene nel rispetto del Regolamento (UE) 2016/679 (GDPR) e della normativa italiana applicabile in materia di privacy e cookie.
+            La presente informativa descrive come <strong>{{SITE_NAME}}</strong> (&quot;noi&quot;) tratta i dati personali in relazione al sito <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SITE_URL}}">{{SITE_URL}}</a> (&quot;Sito&quot;) e al server Discord della community (&quot;Server&quot;). Il trattamento avviene nel rispetto del Regolamento (UE) 2016/679 (GDPR) e della normativa italiana applicabile in materia di privacy e cookie.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Titolare del trattamento</h2>
           <p>
-            Il titolare del trattamento dei dati raccolti tramite il Sito è la comunità/progetto <strong>{{SITE_NAME}}</strong>, contattabile tramite email <a class="text-cyan-300 underline hover:text-cyan-200" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a> e sul Server Discord all&apos;indirizzo <a class="text-cyan-300 underline hover:text-cyan-200" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>. Per segnalazioni di moderazione puoi utilizzare anche <a class="text-cyan-300 underline hover:text-cyan-200" href="mailto:{{SITE_MODERATOR_EMAIL}}">{{SITE_MODERATOR_EMAIL}}</a>.
+            Il titolare del trattamento dei dati raccolti tramite il Sito è la comunità/progetto <strong>{{SITE_NAME}}</strong>, contattabile tramite email <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a> e sul Server Discord all&apos;indirizzo <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>. Per segnalazioni di moderazione puoi utilizzare anche <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="mailto:{{SITE_MODERATOR_EMAIL}}">{{SITE_MODERATOR_EMAIL}}</a>.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Dati trattati tramite Discord</h2>
           <p>
-            L&apos;attività principale della community avviene su Discord. Discord Inc. tratta autonomamente i dati degli account secondo le proprie informative. Ti invitiamo a consultare la <a class="text-cyan-300 underline hover:text-cyan-200" href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy di Discord</a> e i <a class="text-cyan-300 underline hover:text-cyan-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a>.
+            L&apos;attività principale della community avviene su Discord. Discord Inc. tratta autonomamente i dati degli account secondo le proprie informative. Ti invitiamo a consultare la <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy di Discord</a> e i <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a>.
           </p>
           <p>
             Se sul Sito è attiva una funzione di accesso tramite Discord OAuth, possiamo ricevere dal tuo account (in base agli ambiti autorizzati) informazioni quali identificativo utente, nome visualizzato, avatar ed eventualmente indirizzo email se lo concedi esplicitamente a Discord per l&apos;applicazione.
@@ -77,12 +77,12 @@
 
           <h2 class="pt-4 text-lg font-semibold text-white">Cookie e tecnologie simili</h2>
           <p>
-            Utilizziamo cookie e strumenti analoghi secondo quanto descritto nella nostra <a class="text-cyan-300 underline hover:text-cyan-200" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>. Ove siano integrati strumenti di consenso o misurazione del traffico (ad esempio banner cookie o analytics), si applicano anche le informative dei rispettivi fornitori terzi.
+            Utilizziamo cookie e strumenti analoghi secondo quanto descritto nella nostra <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>. Ove siano integrati strumenti di consenso o misurazione del traffico (ad esempio banner cookie o analytics), si applicano anche le informative dei rispettivi fornitori terzi.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Voti, recensioni e terze parti</h2>
           <p>
-            Se utilizzi servizi esterni collegati al Server (ad esempio <a class="text-cyan-300 underline hover:text-cyan-200" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer">piattaforme di voto</a> o <a class="text-cyan-300 underline hover:text-cyan-200" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">directory di server</a>), il trattamento dei dati su tali siti è regolato dalle informative dei rispettivi titolari.
+            Se utilizzi servizi esterni collegati al Server (ad esempio <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer">piattaforme di voto</a> o <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">directory di server</a>), il trattamento dei dati su tali siti è regolato dalle informative dei rispettivi titolari.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Finalità e basi giuridiche (GDPR)</h2>
@@ -106,7 +106,7 @@
 
           <h2 class="pt-4 text-lg font-semibold text-white">Diritti dell&apos;interessato</h2>
           <p>
-            Hai diritto di chiedere accesso, rettifica, cancellazione, limitazione, portabilità (ove applicabile) e opposizione nei casi previsti dagli artt. 15–22 GDPR, nonché di revocare il consenso ove prestato. Puoi contattarci a <a class="text-cyan-300 underline hover:text-cyan-200" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>. Hai inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali (<a class="text-cyan-300 underline hover:text-cyan-200" href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">www.garanteprivacy.it</a>).
+            Hai diritto di chiedere accesso, rettifica, cancellazione, limitazione, portabilità (ove applicabile) e opposizione nei casi previsti dagli artt. 15–22 GDPR, nonché di revocare il consenso ove prestato. Puoi contattarci a <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>. Hai inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali (<a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">www.garanteprivacy.it</a>).
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Minori</h2>
@@ -123,11 +123,11 @@
 
       <footer class="mt-10 text-center text-[0.7rem] text-slate-500">
         <p>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{TERMS_URL}}">Termini</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{TERMS_URL}}">Termini</a>
           <span class="text-slate-600"> · </span>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{PRIVACY_URL}}">Privacy</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{PRIVACY_URL}}">Privacy</a>
           <span class="text-slate-600"> · </span>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{COOKIE_POLICY_URL}}">Cookie</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{COOKIE_POLICY_URL}}">Cookie</a>
         </p>
         <p class="mt-2">© {{YEAR}} {{SITE_NAME}}</p>
       </footer>

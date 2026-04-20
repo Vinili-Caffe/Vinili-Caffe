@@ -3,6 +3,7 @@
   var EXPIRES_AT_KEY = "vc_discord_expires_at";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var OAUTH_LOGIN_COUNT_KEY = "vc_discord_oauth_login_count_v1";
+  var OAUTH_FRESH_AFTER_BOUNCE_KEY = "vc_oauth_fresh_after_bounce_v1";
 
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_AUTH) || {};
@@ -52,20 +53,49 @@
       .replace(/</g, "&lt;");
   }
 
+  function normalizeReturnPath(stateRaw) {
+    var s = String(stateRaw == null ? "" : stateRaw).trim();
+    if (!s) return "";
+    try {
+      s = decodeURIComponent(s);
+    } catch (e) {
+      return "";
+    }
+    if (s.indexOf("://") !== -1) return "";
+    if (!s.startsWith("/")) return "";
+    if (s.startsWith("//")) return "";
+    if (s.indexOf("\0") !== -1) return "";
+    return s;
+  }
+
+  function currentPathPlusQuery() {
+    try {
+      var path = String(window.location.pathname || "");
+      if (!path) path = "/";
+      var q = String(window.location.search || "");
+      return path + q;
+    } catch (e2) {
+      return "/";
+    }
+  }
+
   function parseHashToken() {
     var h = window.location.hash || "";
-    if (!h || h.indexOf("access_token=") === -1) return { token: "", freshLogin: false };
+    if (!h || h.indexOf("access_token=") === -1) {
+      return { token: "", freshLogin: false, returnPath: "" };
+    }
     var p = new URLSearchParams(h.slice(1));
     var t = p.get("access_token");
     var sec = Number(p.get("expires_in") || "0");
-    if (!t) return { token: "", freshLogin: false };
+    var returnPath = normalizeReturnPath(p.get("state"));
+    if (!t) return { token: "", freshLogin: false, returnPath: "" };
     var exp = Date.now() + Math.max(60, sec) * 1000;
     localStorage.setItem(ACCESS_TOKEN_KEY, t);
     localStorage.setItem(EXPIRES_AT_KEY, String(exp));
     if (history && history.replaceState) {
       history.replaceState({}, document.title, window.location.pathname + window.location.search);
     }
-    return { token: t, freshLogin: true };
+    return { token: t, freshLogin: true, returnPath: returnPath };
   }
 
   function getToken() {
@@ -85,12 +115,16 @@
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
     var redirect = String(c.redirectUri || "").trim() || window.location.origin + window.location.pathname;
+    var here = currentPathPlusQuery();
     var q = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirect,
       response_type: "token",
       scope: "identify",
     });
+    if (here && here !== "/") {
+      q.set("state", here);
+    }
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
 
@@ -179,9 +213,14 @@
           openUrl: home,
         }
         : {
-          title: "Accesso completato",
-          body: "Ciao " + displayName + "! Login con Discord effettuato con successo.",
-          kind: "info",
+          title: "Benvenuto",
+          body:
+            "Ciao " +
+            displayName +
+            "! Benvenuto su " +
+            site +
+            ": il login con Discord è andato a buon fine. Da qui puoi esplorare il sito e le funzioni riservate agli utenti collegati.",
+          kind: "success",
           at: Date.now(),
           openUrl: home,
         };
@@ -207,8 +246,26 @@
     emitProfile(null);
   }
 
+  function postOAuthAccessoRedirectPath() {
+    try {
+      var p = String(window.location.pathname || "").replace(/\/+$/, "") || "/";
+      if (p.endsWith("/unban/accesso-richiesto")) return "/unban/";
+      if (p.endsWith("/candidature/accesso-richiesto")) return "/candidature/";
+    } catch (e) {}
+    return "";
+  }
+
   function renderLoggedIn(user) {
     hideSessionVerifyOverlay();
+    var jump = postOAuthAccessoRedirectPath();
+    if (jump) {
+      try {
+        window.location.replace(jump);
+      } catch (e2) {
+        window.location.href = jump;
+      }
+      return;
+    }
     var loginBtn = byId("discord-login-btn");
     var state = byId("discord-login-state");
     if (!state) return;
@@ -253,7 +310,30 @@
 
   function main() {
     var parsed = parseHashToken();
-    var freshLogin = Boolean(parsed && parsed.freshLogin);
+    var here = currentPathPlusQuery();
+    var bounce =
+      Boolean(parsed && parsed.token && parsed.returnPath) && parsed.returnPath !== here;
+    if (bounce) {
+      try {
+        if (parsed.freshLogin) {
+          sessionStorage.setItem(OAUTH_FRESH_AFTER_BOUNCE_KEY, "1");
+        }
+      } catch (e0) {}
+      try {
+        window.location.replace(window.location.origin + parsed.returnPath);
+      } catch (e1) {
+        window.location.href = window.location.origin + parsed.returnPath;
+      }
+      return;
+    }
+    var freshFromBounce = false;
+    try {
+      if (sessionStorage.getItem(OAUTH_FRESH_AFTER_BOUNCE_KEY) === "1") {
+        freshFromBounce = true;
+        sessionStorage.removeItem(OAUTH_FRESH_AFTER_BOUNCE_KEY);
+      }
+    } catch (e2) {}
+    var freshLogin = Boolean(parsed && parsed.freshLogin) || freshFromBounce;
     var loginBtn = byId("discord-login-btn");
     var url = authUrl();
     if (loginBtn) {

@@ -37,8 +37,8 @@
 
     <main class="relative z-10 mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 py-10">
       <section class="vc-auth-required-card w-full max-w-md rounded-3xl border border-white/10 p-6 sm:p-7" aria-labelledby="auth-required-title">
-        <div class="vc-auth-required-icon mx-auto mb-6" aria-hidden="true">
-          <i class="fa fa-star-o"></i>
+        <div class="vc-auth-required-icon mb-6" aria-hidden="true">
+          <i class="fa fa-shield"></i>
         </div>
         <h1 id="auth-required-title" class="text-center text-4xl font-extrabold leading-[1.05] tracking-tight text-white">
           Accesso<br />Richiesto
@@ -49,48 +49,25 @@
           <p class="m-0 flex items-center gap-2"><i class="fa fa-lock" aria-hidden="true"></i> Devi effettuare il login con Discord</p>
         </div>
 
-        <button id="vc-auth-required-login" type="button" class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
+        <button id="discord-login-btn" type="button" class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
           <i class="fa fa-discord-alt" aria-hidden="true"></i> Accedi con Discord
         </button>
+        <div id="discord-login-state" class="hidden" hidden aria-hidden="true"></div>
 
-        <div class="mt-4 grid grid-cols-1 gap-2">
-          <a class="vc-auth-required-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{RICHIESTE_CANDIDATURE_URL}}">
-            <i class="fa fa-file-text-o" aria-hidden="true"></i> Torna alle candidature
-          </a>
-          <a class="vc-auth-required-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{SITE_URL}}">
-            <i class="fa fa-long-arrow-left" aria-hidden="true"></i> Torna alla Home
-          </a>
-        </div>
+        <a class="vc-auth-required-secondary mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{SITE_URL}}">
+          <i class="fa fa-long-arrow-left" aria-hidden="true"></i> Torna alla Home
+        </a>
       </section>
     </main>
 
     <script>
-      (function () {
-        function authUrl() {
-          var clientId = String("{{DISCORD_OAUTH_CLIENT_ID}}" || "").trim();
-          if (!clientId) return "";
-          var redirect = String("{{CANDIDATURE_OAUTH_REDIRECT_URI}}" || "").trim() || "{{RICHIESTE_CANDIDATURE_URL}}";
-          var q = new URLSearchParams({
-            client_id: clientId,
-            redirect_uri: redirect,
-            response_type: "token",
-            scope: "identify",
-          });
-          return "https://discord.com/oauth2/authorize?" + q.toString();
-        }
-
-        var btn = document.getElementById("vc-auth-required-login");
-        if (!btn) return;
-        btn.addEventListener("click", function () {
-          var url = authUrl();
-          if (!url) {
-            alert("Configurazione OAuth Discord mancante.");
-            return;
-          }
-          window.location.href = url;
-        });
-      })();
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+      };
     </script>
+    <script src="../../js/discord-auth.js" defer></script>
     <script src="../../js/vc-landing.js" defer></script>
   </body>
 </html>

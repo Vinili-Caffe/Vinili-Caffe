@@ -22,6 +22,7 @@ const STAFF_LIST_FALLBACK_HTML = `          <p>
 const EXCLUDE = new Set([
   "dist",
   "scripts",
+  "deploy-site.ps1",
   "site.config.json",
   "Dockerfile",
   "docker-compose.yml",
@@ -751,6 +752,7 @@ async function main() {
 
   const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode);
   const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
+  const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
 
   if (staffResult.staffCount != null) {
     const extraPath = path.join(DIST, "live-stats-extra.json");
@@ -869,10 +871,6 @@ async function main() {
   }
   const discordOauthRedirectResolved = discordOauthRedirectRaw || siteUrlTrim;
   const discordOauthRedirectNoSlash = discordOauthRedirectResolved.replace(/\/+$/, "");
-  const candidatureOAuthRedirectRaw = (() => {
-    const base = String(discordOauthRedirectNoSlash || siteBaseNoSlash || "").replace(/\/+$/, "");
-    return base ? `${base}/candidature` : "";
-  })();
   const candidatureSubmitApiFromEnv = String(process.env.VC_CANDIDATURE_SUBMIT_API_URL ?? "").trim();
   const candidatureSubmitApiRaw =
     candidatureSubmitApiFromEnv || String(cfg.candidatureSubmitApiUrl ?? "").trim();
@@ -934,9 +932,28 @@ async function main() {
     communityRulesApiLocalRaw && /^https?:\/\//i.test(communityRulesApiLocalRaw)
       ? communityRulesApiLocalRaw
       : "";
+  const usersLeaderboardApiFromEnv = String(process.env.VC_USERS_LEADERBOARD_API_URL ?? "").trim();
+  const usersLeaderboardApiRaw =
+    usersLeaderboardApiFromEnv || String(cfg.usersLeaderboardApiUrl ?? "").trim();
+  const usersLeaderboardApiResolved =
+    usersLeaderboardApiRaw && /^https?:\/\//i.test(usersLeaderboardApiRaw)
+      ? usersLeaderboardApiRaw
+      : usersLeaderboardApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${usersLeaderboardApiRaw.startsWith("/") ? "" : "/"}${usersLeaderboardApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-users`
+          : "/webhooks/site-users";
+  const usersLeaderboardApiLocalFromEnv = String(process.env.VC_USERS_LEADERBOARD_API_URL_LOCAL ?? "").trim();
+  const usersLeaderboardApiLocalRaw =
+    usersLeaderboardApiLocalFromEnv || String(cfg.usersLeaderboardApiUrlLocal ?? "").trim();
+  const usersLeaderboardApiLocalResolved =
+    usersLeaderboardApiLocalRaw && /^https?:\/\//i.test(usersLeaderboardApiLocalRaw)
+      ? usersLeaderboardApiLocalRaw
+      : "";
+  const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   if (discordOauthRedirectResolved) {
     console.log(
-      "[build-site] OAuth2 Redirects (Discord Developer Portal): il sito invia redirect_uri uguale a questa stringa (copiala così com’è):",
+      "[build-site] OAuth2 Redirect (Discord Developer Portal): registra solo questa callback (stesso redirect da tutte le pagine; il ritorno alla pagina corretta usa state):",
       JSON.stringify(discordOauthRedirectResolved),
     );
     if (discordOauthRedirectNoSlash !== discordOauthRedirectResolved) {
@@ -962,6 +979,7 @@ async function main() {
     STAFF_LIST_BLOCK: staffResult.html,
     LIVE_STATS_BOOT: liveStatsBoot,
     LIVE_STATS_BOOT_WIKI: liveStatsBootWiki,
+    LIVE_STATS_BOOT_USER: liveStatsBootUser,
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(siteUrlTrim),
@@ -990,13 +1008,21 @@ async function main() {
     ),
     CANDIDATURE_OG_TITLE: escAttr(`${siteName} | Candidature`),
     CANDIDATURE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/candidature` : ""),
-    CANDIDATURE_OAUTH_REDIRECT_URI: escAttr(candidatureOAuthRedirectRaw),
     CANDIDATURE_SUBMIT_API_URL: escAttr(candidatureSubmitApiResolved),
     CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(candidatureSubmitApiLocalResolved),
     UNBAN_SUBMIT_API_URL: escAttr(unbanSubmitApiResolved),
     UNBAN_SUBMIT_API_URL_LOCAL: escAttr(unbanSubmitApiLocalResolved),
     COMMUNITY_RULES_API_URL: escAttr(communityRulesApiResolved),
     COMMUNITY_RULES_API_URL_LOCAL: escAttr(communityRulesApiLocalResolved),
+    USER_PAGE_URL: escAttr(userPageUrl),
+    USERS_LEADERBOARD_API_URL: escAttr(usersLeaderboardApiResolved),
+    USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
+    USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
+    USER_META_DESCRIPTION: escAttr(
+      `Classifica livelli ed EXP del server Discord ${siteName}: utenti ordinati per esperienza totale.`,
+    ),
+    USER_OG_TITLE: escAttr(`${siteName} | Community`),
+    USER_OG_URL: escAttr(userPageUrl),
     REGOLE_PAGE_TITLE: `${siteName} | Regole della community`,
     REGOLE_META_DESCRIPTION: escAttr(`Regole del server Discord ${siteName}: generali, chat testuali e vocali.`),
     REGOLE_OG_TITLE: escAttr(`${siteName} | Regole`),
@@ -1077,6 +1103,16 @@ async function main() {
     nHtml = applyPlaceholderMap(nHtml, map);
     warnLeftoverPlaceholders(nHtml, "notifications/index.html");
     fs.writeFileSync(notificationsIndexPath, nHtml, "utf8");
+  }
+
+  const userIndexPath = path.join(DIST, "user", "index.html");
+  if (fs.existsSync(userIndexPath)) {
+    let userHtml = fs.readFileSync(userIndexPath, "utf8");
+    userHtml = applyPlaceholderMap(userHtml, map);
+    warnLeftoverPlaceholders(userHtml, "user/index.html");
+    fs.writeFileSync(userIndexPath, userHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca user/index.html (saltato placeholder).");
   }
 
   const regoleIndexPath = path.join(DIST, "regole", "index.html");

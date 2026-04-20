@@ -236,7 +236,8 @@ async function startWebhookServer(client) {
     const isCandidature = pathStr.startsWith("/webhooks/site-candidature");
     const isUnban = pathStr.startsWith("/webhooks/site-unban");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
-    if (!isCandidature && !isUnban && !isSiteRules) return next();
+    const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
+    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -419,6 +420,7 @@ async function startWebhookServer(client) {
   }
 
   const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
+  const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -427,6 +429,9 @@ async function startWebhookServer(client) {
       global.logger?.error?.("[WEBHOOK] site-rules:", err);
       return res.status(500).json({ ok: false, error: "internal" });
     }
+  });
+  app.get("/webhooks/site-users", (req, res) => {
+    return handleSiteUsersLeaderboardGet(client, req, res);
   });
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
@@ -487,7 +492,7 @@ async function startWebhookServer(client) {
         port +
         (shouldStartDiscadiaVoteHttpWebhook(client) ? " (POST /webhooks/discadia)" : "") +
         (shouldStartTopggVoteHttpWebhook(client) ? " (POST /webhooks/topgg)" : "") +
-        " (GET /webhooks/site-rules)" +
+        " (GET /webhooks/site-rules, GET /webhooks/site-users)" +
         (isCandidatureWebsiteApiEnabled()
           ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature, GET /webhooks/site-unban/eligibility, POST /webhooks/site-unban)"
           : ""),

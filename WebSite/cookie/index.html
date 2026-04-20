@@ -30,24 +30,24 @@
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#060912]/75 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.45)]">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 px-4 py-3 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
         <div class="flex min-w-0 items-center gap-2.5">
-          <a class="shrink-0 rounded-2xl ring-1 ring-cyan-400/35 transition hover:ring-cyan-400/55" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"
-            ><img src="/images/vc-header-logo.png" width="40" height="40" class="h-9 w-9 rounded-2xl object-cover sm:h-10 sm:w-10" alt="" loading="eager" decoding="async"
+          <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"
+            ><img src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager" decoding="async"
           /></a>
-          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-cyan-200 hover:underline sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
+          <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs" href="{{SITE_URL}}">{{SITE_NAME}}</a>
         </div>
         <nav class="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.12em] sm:gap-3 sm:text-xs" aria-label="Documenti legali">
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{TERMS_URL}}">Termini</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{PRIVACY_URL}}">Privacy</a>
-          <a class="rounded-lg px-2 py-1 text-cyan-200 ring-1 ring-cyan-400/40" href="{{COOKIE_POLICY_URL}}" aria-current="page">Cookie</a>
+          <a class="rounded-lg px-2 py-1 text-[#e8c9a8] ring-1 ring-[#d4a888]/40" href="{{COOKIE_POLICY_URL}}" aria-current="page">Cookie</a>
           <a class="rounded-lg px-2 py-1 text-slate-300 transition hover:text-white" href="{{SITE_URL}}"><i class="fa fa-home mr-1" aria-hidden="true"></i>Sito</a>
         </nav>
       </div>
     </header>
 
     <main class="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-28 sm:pt-32">
-      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#060912]/55 px-5 py-8 sm:px-8 sm:py-10">
+      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#140f0c]/56 px-5 py-8 sm:px-8 sm:py-10">
         <h1 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">Cookie Policy</h1>
         <p class="mt-2 text-sm text-slate-400">Ultimo aggiornamento: {{LEGAL_COOKIE_UPDATED}}</p>
 
@@ -74,7 +74,7 @@
 
           <h2 class="pt-4 text-lg font-semibold text-white">Discord e OAuth</h2>
           <p>
-            Durante l&apos;accesso tramite Discord, potresti essere reindirizzato su <strong>discord.com</strong> o domini collegati: in quella fase possono essere impostati cookie o tecnologie analoghe da <strong>Discord Inc.</strong>, soggetti autonomo del trattamento. Consulta la <a class="text-cyan-300 underline hover:text-cyan-200" href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy di Discord</a>.
+            Durante l&apos;accesso tramite Discord, potresti essere reindirizzato su <strong>discord.com</strong> o domini collegati: in quella fase possono essere impostati cookie o tecnologie analoghe da <strong>Discord Inc.</strong>, soggetti autonomo del trattamento. Consulta la <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy di Discord</a>.
           </p>
 
           <h2 class="pt-4 text-lg font-semibold text-white">Come gestire i cookie</h2>
@@ -89,23 +89,23 @@
 
           <h2 class="pt-4 text-lg font-semibold text-white">Contatti</h2>
           <p>
-            Per domande su questa Cookie Policy: <a class="text-cyan-300 underline hover:text-cyan-200" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
+            Per domande su questa Cookie Policy: <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
             <span class="text-slate-400"> · </span>
-            <a class="text-cyan-300 underline hover:text-cyan-200" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
+            <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
           </p>
           <p class="text-sm text-slate-400">
-            Per il trattamento dei dati personali collegati all&apos;uso del Sito vedi anche la <a class="text-cyan-300 underline hover:text-cyan-200" href="{{PRIVACY_URL}}">Privacy Policy</a> e i <a class="text-cyan-300 underline hover:text-cyan-200" href="{{TERMS_URL}}">Termini di Servizio</a>.
+            Per il trattamento dei dati personali collegati all&apos;uso del Sito vedi anche la <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{PRIVACY_URL}}">Privacy Policy</a> e i <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{TERMS_URL}}">Termini di Servizio</a>.
           </p>
         </section>
       </article>
 
       <footer class="mt-10 text-center text-[0.7rem] text-slate-500">
         <p>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{TERMS_URL}}">Termini</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{TERMS_URL}}">Termini</a>
           <span class="text-slate-600"> · </span>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{PRIVACY_URL}}">Privacy</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{PRIVACY_URL}}">Privacy</a>
           <span class="text-slate-600"> · </span>
-          <a class="text-slate-400 underline hover:text-cyan-200" href="{{COOKIE_POLICY_URL}}">Cookie</a>
+          <a class="text-slate-400 underline hover:text-[#e8c9a8]" href="{{COOKIE_POLICY_URL}}">Cookie</a>
         </p>
         <p class="mt-2">© {{YEAR}} {{SITE_NAME}}</p>
       </footer>

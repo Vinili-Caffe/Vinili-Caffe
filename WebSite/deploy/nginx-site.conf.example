@@ -1,10 +1,14 @@
+# Docroot: owner/gruppo leggibile da nginx (su Ubuntu: user "www-data").
+# Dopo upload come root: chown -R www-data:www-data /var/www/viniliecaffe
+# e chmod 755 sulle directory, 644 sui file (lo fa scripts/deploy-site.ps1 via ssh).
 server {
     listen 80;
     server_name www.esempio.it esempio.it;
     root /var/www/viniliecaffe;
     index index.html;
     location / {
-        try_files $uri $uri/ /index.html;
+        # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
+        try_files $uri $uri/index.html /index.html;
     }
     # Stesso codice invite di site.config.json (path /api/v10/invites/CODICE?with_counts=true).
     location = /discord-invite.json {
