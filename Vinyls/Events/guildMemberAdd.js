@@ -339,6 +339,7 @@ async function addBotRoles(member) {
 }
 
 function buildWelcomeEmbed(member) {
+  const visibleCount = getVerifiedPlusBotsCount(member.guild);
   return new EmbedBuilder()
     .setAuthor({
       name: member.user.username,
@@ -354,10 +355,11 @@ function buildWelcomeEmbed(member) {
     .setThumbnail(member.displayAvatarURL({ size: 256 }))
     .setImage(DIVIDER_URL)
     .setColor("#6f4e37")
-    .setFooter({ text: `Ora siamo in ${member.guild.memberCount} membri` });
+    .setFooter({ text: `Ora siamo in ${visibleCount} membri verificati + bot` });
 }
 
 function buildDmWelcomeEmbed(member) {
+  const visibleCount = getVerifiedPlusBotsCount(member.guild);
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<a:VC_RightWing:1448672889845973214> Welcome to Vinili & Caffè!")
@@ -380,10 +382,25 @@ function buildDmWelcomeEmbed(member) {
     )
     .setThumbnail(member.guild.iconURL({ size: 256 }))
     .setFooter({
-      text: `${member.guild.name} • Ora siamo in ${member.guild.memberCount}`,
+      text: `${member.guild.name} • Ora siamo in ${visibleCount} verificati + bot`,
       iconURL: member.guild.iconURL(),
     })
     .setTimestamp();
+}
+
+function getVerifiedPlusBotsCount(guild) {
+  if (!guild?.members?.cache) return Number(guild?.memberCount || 0);
+  const memberRoleId = String(IDs.roles?.Member || "").trim();
+  if (!memberRoleId) return Number(guild.memberCount || 0);
+  let total = 0;
+  for (const m of guild.members.cache.values()) {
+    if (m?.user?.bot) {
+      total += 1;
+      continue;
+    }
+    if (m?.roles?.cache?.has(memberRoleId)) total += 1;
+  }
+  return total;
 }
 
 async function sendBotAddLog(member) {
