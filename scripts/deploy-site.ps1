@@ -1,12 +1,12 @@
 param(
-  [string]$Host = "45.143.196.131",
+  [string]$Server = "45.143.196.131",
   [string]$User = "root",
   [string]$RemotePath = "/var/www/viniliecaffe"
 )
 
 $ErrorActionPreference = "Stop"
 
-Set-Location "$PSScriptRoot\WebSite"
+Set-Location "$PSScriptRoot\..\WebSite"
 
 # Build produzione (forzata)
 $env:VC_SITE_URL = "https://www.viniliecaffe.it/"
@@ -23,6 +23,6 @@ if ($hits) {
 }
 
 # Upload
-scp -r .\dist\* "${User}@${Host}:${RemotePath}/"
+scp -r .\dist\* "${User}@${Server}:${RemotePath}/"
 
-Write-Host "Deploy completato su ${User}@${Host}:${RemotePath}"
+Write-Host "Deploy completato su ${User}@${Server}:${RemotePath}"

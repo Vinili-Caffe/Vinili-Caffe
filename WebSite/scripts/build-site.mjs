@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 const CONFIG_PATH = path.join(ROOT, "site.config.json");
-const FALLBACK_GUILD_ICON = "images/ocean.png";
+const FALLBACK_GUILD_ICON = "images/vc-header-logo.png";
 /** Discord snowflake epoch (2015-01-01 UTC), ms since Unix epoch. */
 const DISCORD_EPOCH_MS = 1420070400000;
 

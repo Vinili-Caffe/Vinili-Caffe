@@ -355,7 +355,7 @@ function buildWelcomeEmbed(member) {
     .setThumbnail(member.displayAvatarURL({ size: 256 }))
     .setImage(DIVIDER_URL)
     .setColor("#6f4e37")
-    .setFooter({ text: `Ora siamo in ${visibleCount} membri verificati + bot` });
+    .setFooter({ text: `Ora siamo in ${visibleCount} membri` });
 }
 
 function buildDmWelcomeEmbed(member) {
@@ -382,7 +382,7 @@ function buildDmWelcomeEmbed(member) {
     )
     .setThumbnail(member.guild.iconURL({ size: 256 }))
     .setFooter({
-      text: `${member.guild.name} • Ora siamo in ${visibleCount} verificati + bot`,
+      text: `${member.guild.name} • Ora siamo in ${visibleCount} membri`,
       iconURL: member.guild.iconURL(),
     })
     .setTimestamp();
