@@ -13,7 +13,6 @@ const STAFF_BYPASS_ROLE_IDS = new Set(
     IDs.roles.PartnerManager,
     IDs.roles.HighStaff,
     IDs.roles.Admin,
-    IDs.roles.CoFounder,
     IDs.roles.Founder,
   ].filter(Boolean),
 );

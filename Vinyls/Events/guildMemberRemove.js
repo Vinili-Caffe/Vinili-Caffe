@@ -31,7 +31,6 @@ const STAFF_TRACKED_ROLE_IDS = new Set([
   IDs.roles.Mod,
   IDs.roles.HighStaff,
   IDs.roles.Admin,
-  IDs.roles.CoFounder,
   IDs.roles.Founder,
 ]);
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;

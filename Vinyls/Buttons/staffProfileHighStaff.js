@@ -5,7 +5,7 @@ const {
   STAFF_HP_SELECT_PREFIX,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,
-  viewerIsFounderOrCoFounder,
+  viewerIsFounder,
   shouldOmitPexDepexHomeRow,
   SECTION_HOME,
   SECTION_VALUTAZIONI,
@@ -72,7 +72,6 @@ const STAFF_HP_MODAL_ACTION_CODE = {
   pex_helper: "phl",
   pex_mod: "pmo",
   pex_admin: "pxa",
-  pex_cofounder: "pcf",
   pex_founder: "pfn",
   pex_pm: "ppm",
   depex: "dpx",
@@ -152,7 +151,6 @@ const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_helper: "Motivo pex Helper",
   pex_mod: "Motivo pex Mod",
   pex_admin: "Motivo pex Admin",
-  pex_cofounder: "Motivo pex Co-Founder",
   pex_founder: "Motivo pex Founder",
   pex_pm: "Motivo pex Partner Manager",
   depex: "Motivo depex",
@@ -206,7 +204,6 @@ function parseStaffHpButton(customId) {
     "pex_helper",
     "pex_mod",
     "pex_admin",
-    "pex_cofounder",
     "pex_founder",
     "pex_pm",
     "depex",
@@ -369,7 +366,7 @@ async function ensurePartnerPointsViewer(interaction) {
   await interaction
     .reply({
       content:
-        "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner (su altri profili).",
+        "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono gestire i punti partner (su altri profili).",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
@@ -457,17 +454,17 @@ async function ensureNoUnauthorizedSelfStaffHp(interaction, parsed) {
     await interaction
       .reply({
         content:
-          "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono gestire i punti partner.",
+          "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono gestire i punti partner.",
         flags: PRIVATE_FLAG,
       })
       .catch(() => {});
     return false;
   }
-  if (viewerIsFounderOrCoFounder(interaction.member)) return true;
+  if (viewerIsFounder(interaction.member)) return true;
   await interaction
     .reply({
       content:
-        "<:vegax:1443934876440068179> Sul **tuo** profilo queste azioni sono consentite solo a **Founder** e **Co-Founder**.",
+        "<:vegax:1443934876440068179> Sul **tuo** profilo queste azioni sono consentite solo a **Founder**.",
       flags: PRIVATE_FLAG,
     })
     .catch(() => {});
@@ -569,7 +566,7 @@ async function execute(interaction) {
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
     if (!(await ensureHighStaffViewer(interaction))) return true;
     const chosenAction = String(interaction.values?.[0] || "");
-    const allowed = new Set(["pex_mod", "pex_admin", "pex_cofounder", "pex_founder"]);
+    const allowed = new Set(["pex_mod", "pex_admin", "pex_founder"]);
     if (!allowed.has(chosenAction)) {
       await interaction
         .reply({
@@ -613,7 +610,7 @@ async function execute(interaction) {
         await interaction
           .reply({
             content:
-              "<:vegax:1443934876440068179> Il **riscatto premi** lo usa **High Staff / Founder / Co-Founder** sul profilo del PM: chiedi a qualcuno con quel ruolo di fare `+staff` menzionandoti.",
+              "<:vegax:1443934876440068179> Il **riscatto premi** lo usa **High Staff / Founder** sul profilo del PM: chiedi a qualcuno con quel ruolo di fare `+staff` menzionandoti.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => {});
@@ -623,7 +620,7 @@ async function execute(interaction) {
         await interaction
           .reply({
             content:
-              "<:vegax:1443934876440068179> Solo **High Staff**, **Founder** o **Co-Founder** possono usare il **riscatto premi** sul profilo di un Partner Manager.",
+              "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono usare il **riscatto premi** sul profilo di un Partner Manager.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => {});
@@ -961,7 +958,6 @@ async function execute(interaction) {
             pex_helper: IDs.roles.Helper,
             pex_mod: IDs.roles.Mod,
             pex_admin: IDs.roles.Admin,
-            pex_cofounder: IDs.roles.CoFounder,
             pex_founder: IDs.roles.Founder,
           };
           const selectedRoleId = roleByAction[parsed.action] || IDs.roles.Helper;

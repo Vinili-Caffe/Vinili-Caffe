@@ -52,7 +52,7 @@ const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [
   IDs.roles.Donator,
   IDs.roles.vip,
 ].filter(Boolean);
-const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,IDs.roles.YinYangPlus,].filter(Boolean);
+const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,].filter(Boolean);
 
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();

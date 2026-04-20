@@ -22,7 +22,6 @@ const STAFF_ROLE_IDS = [
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.Founder,
-  IDs.roles.CoFounder,
 ]
   .map((id) => String(id || "").trim())
   .filter(Boolean);

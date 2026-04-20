@@ -29,7 +29,7 @@ Per candidarsi, è necessario **soddisfare** i seguenti __requisiti__:
     .setImage(DIVIDER_URL);
   const candidatureAttachment = new AttachmentBuilder(CANDIDATURE_MEDIA_PATH, { name: CANDIDATURE_MEDIA_NAME });
   const rowCandidature = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setLabel("︲HELPER").setEmoji("<:VC_Helper:1494287601266331829>").setStyle(ButtonStyle.Secondary).setCustomId("apply_helper"),
+    new ButtonBuilder().setLabel("︲HELPER").setEmoji("<:VC_Helper:1494287597952958514>").setStyle(ButtonStyle.Secondary).setCustomId("apply_helper"),
     new ButtonBuilder().setLabel("︲PARTNER MANAGER").setEmoji("<:VC_PartnerManager:1494286911286808576>").setStyle(ButtonStyle.Secondary).setCustomId("apply_partnermanager"),
     new ButtonBuilder().setLabel("︲STAFF PAGATO").setEmoji("<:partneredserverowner:1443651871125409812>").setStyle(ButtonStyle.Secondary).setCustomId("candidature_premi_partner"),
   );

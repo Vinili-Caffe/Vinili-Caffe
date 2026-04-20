@@ -73,7 +73,6 @@ async function run(client) {
         `<:VC_8:1482706553281708092> <@&${IDs.roles.blackPlus}>`,
         `<:VC_9:1482706583438889051> <@&${IDs.roles.grayPlus}>`,
         `<:VC_10:1482706613663174707> <@&${IDs.roles.whitePlus}>`,
-        `<:VC_11:1469772033410859173> <@&${IDs.roles.YinYangPlus}>`,
       ].join("\n"),
     )
     .setImage(DIVIDER_URL);
@@ -198,7 +197,7 @@ async function run(client) {
         { label: "Aqua", value: "1442568977896439960", emoji: "<:16576lightbluemidnightheart:1470543819958386862>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Blue", value: "1442568980626673685", emoji: "<:69616midnightheart:1470543834856554722>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Purple", value: "1442568983898357954", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
-        { label: "Pink", value: "1442568985278156971", emoji: "<:79202purplemidnightheart:1470543839973605397>", description: "Clicca qui per ottenere il ruolo" },
+        { label: "Pink", value: "1442568985278156971", emoji: "<:66893pinkmidnightheart:1495723265467875388>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Black", value: "1442568987887276133", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
         { label: "Grey", value: "1442568989866725468", emoji: "<:63324blackmidnightheart:1470543828569034757>", description: "Clicca qui per ottenere il ruolo" },
         { label: "White", value: "1442568991150309578", emoji: "<:70505whitemidnightheart:1470543836836135067>", description: "Clicca qui per ottenere il ruolo" },
@@ -222,7 +221,6 @@ async function run(client) {
         { label: "Black Gradient", value: IDs.roles.blackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         { label: "Gray Gradient", value: IDs.roles.grayPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         { label: "White Gradient", value: IDs.roles.whitePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
-        { label: "Yin & Yang Special", value: IDs.roles.YinYangPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
       ),
   );
 

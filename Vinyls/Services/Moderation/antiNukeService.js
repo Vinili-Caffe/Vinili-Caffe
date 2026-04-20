@@ -440,7 +440,7 @@ function getMainRoleIds(guild) {
 
 function hasStaffProtection(member) {
   if (!member?.roles?.cache) return false;
-  const protectedRoleIds = [IDs.roles.Founder, IDs.roles.CoFounder,].map((id) => String(id || "").trim()).filter(Boolean);
+  const protectedRoleIds = [IDs.roles.Founder].map((id) => String(id || "").trim()).filter(Boolean);
   if (!protectedRoleIds.length) return false;
   return protectedRoleIds.some((roleId) => member.roles.cache.has(roleId));
 }
@@ -476,10 +476,7 @@ function isWhitelistedExecutor(guild, executorId) {
   if (CORE_EXEMPT_USER_IDS.has(userId)) return true;
   if (VERIFIED_BOT_IDS.has(userId)) return true;
   if (!member) return false;
-  if (
-    member.roles.cache.has(String(IDs.roles.Founder || "")) ||
-    member.roles.cache.has(String(IDs.roles.CoFounder || ""))
-  ) {
+  if (member.roles.cache.has(String(IDs.roles.Founder || ""))) {
     return true;
   }
   return false;
@@ -520,10 +517,7 @@ async function isWhitelistedExecutorAsync(guild, executorId) {
   if (!member) member = await guild?.members?.fetch(userId).catch(() => null);
   if (hasAdminsProfileCapability(member, "fullImmunity")) return true;
   if (!member) return false;
-  if (
-    member.roles.cache.has(String(IDs.roles.Founder || "")) ||
-    member.roles.cache.has(String(IDs.roles.CoFounder || ""))
-  ) {
+  if (member.roles.cache.has(String(IDs.roles.Founder || ""))) {
     return true;
   }
   return false;
@@ -3030,7 +3024,7 @@ async function shouldBlockModerationCommands(guild, userId) {
   if (!panicActive) return false;
   if (String(guild.ownerId || "") === String(userId)) return false;
   const member = guild.members.cache.get(String(userId)) || (await getGuildMemberCached(guild, String(userId), { ttlMs: 30_000 }));
-  const emergencyBypassRoleIds = new Set([IDs.roles.Founder, IDs.roles.CoFounder,].filter(Boolean).map(String),);
+  const emergencyBypassRoleIds = new Set([IDs.roles.Founder].filter(Boolean).map(String),);
   if (
     member &&
     [...emergencyBypassRoleIds].some((roleId) =>

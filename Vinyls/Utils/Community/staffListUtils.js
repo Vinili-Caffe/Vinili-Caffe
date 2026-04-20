@@ -29,10 +29,9 @@ const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 /** Ruoli con sezione dedicata nella STAFF LIST (High Staff è escluso su richiesta). */
 const ROLE_EMOJIS = {
   [IDs.roles.PartnerManager]: { emoji: "<:VC_PartnerManager:1494286911286808576>" },
-  [IDs.roles.Helper]: { emoji: "<:VC_Helper:1494287601266331829>" },
-  [IDs.roles.Mod]: { emoji: "<:VC_Mod:1494287597952958514>" },
-  [IDs.roles.Admin]: { emoji: "<:VC_Admin:1494286848686686209>" },
-  [IDs.roles.CoFounder]: { emoji: "<:VC_CoFounder:1494286898535862333>" },
+  [IDs.roles.Helper]: { emoji: "<:VC_Helper:1494287597952958514>" },
+  [IDs.roles.Mod]: { emoji: "<:VC_Mod:1494286913744539648>" },
+  [IDs.roles.Admin]: { emoji: "<:VC_Admin:1494286915778641941>" },
   [IDs.roles.Founder]: { emoji: "<:VC_Founder:1494286918974963732>" },
 };
 const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };

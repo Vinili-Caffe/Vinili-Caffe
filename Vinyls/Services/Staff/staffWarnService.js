@@ -17,12 +17,10 @@ const ROLE_MEMBER = String(IDs.roles.Member || "");
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
 const ROLE_ADMIN = String(IDs.roles.Admin);
-const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
 const ROLE_OWNER = String(IDs.roles.Founder || "");
 
 const STAFF_ROLES_HIGH_TO_LOW = [
   ROLE_OWNER,
-  ROLE_CO_OWNER,
   ROLE_ADMIN,
   ROLE_MODERATOR,
   ROLE_HELPER,

@@ -16,7 +16,7 @@ const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
 const ROLE_HELPER = IDs.roles.Helper;
 const ROLE_MODERATOR = IDs.roles.Mod;
 const ROLE_ADMIN = IDs.roles.Admin;
-const ROLE_CO_OWNER = IDs.roles.CoFounder;
+const ROLE_CO_OWNER = "";
 const ROLE_OWNER = IDs.roles.Founder;
 const SUCCESS_COLOR = "#6f4e37";
 
@@ -663,7 +663,6 @@ function actorIsHighStaffOrAbove(member) {
   if (!cache) return false;
   const allowRoles = [
     IDs.roles.Admin,
-    IDs.roles.CoFounder,
     IDs.roles.Founder,
     IDs.roles.HighStaff,
   ].filter(Boolean);

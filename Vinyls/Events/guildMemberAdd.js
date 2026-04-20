@@ -111,7 +111,7 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
 }
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
-const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder, IDs.roles.CoFounder,].filter(Boolean).map(String),);
+const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder].filter(Boolean).map(String),);
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const SUSPICIOUS_JOIN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;

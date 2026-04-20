@@ -20,7 +20,6 @@ const NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS = new Set(
     IDs.roles?.Mod,
     IDs.roles?.HighStaff,
     IDs.roles?.Admin,
-    IDs.roles?.CoFounder,
     IDs.roles?.Founder,
   ]
     .filter(Boolean)

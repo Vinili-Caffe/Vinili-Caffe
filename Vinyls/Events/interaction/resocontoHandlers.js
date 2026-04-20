@@ -26,7 +26,7 @@ const ROLE_HIGH_STAFF = String(IDs.roles.HighStaff);
 const ROLE_HELPER = String(IDs.roles.Helper);
 const ROLE_MODERATOR = String(IDs.roles.Mod);
 const ROLE_ADMIN = String(IDs.roles.Admin);
-const ROLE_CO_OWNER = String(IDs.roles.CoFounder);
+const ROLE_CO_OWNER = "";
 const ROLE_OWNER = String(IDs.roles.Founder);
 
 function resolvePexDepexLogRoleAfterId(member) {

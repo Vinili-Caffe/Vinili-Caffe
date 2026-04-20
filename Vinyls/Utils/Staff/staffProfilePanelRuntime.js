@@ -14,7 +14,7 @@ function resolveStaffPartnerPointsDisplay(staffObj) {
   return resolvePartnerPointsShown(staffObj);
 }
 
-/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder / Co-Founder) sul profilo **di un altro** PM. Mostra solo tier con saldo ≥ soglia. */
+/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder) sul profilo **di un altro** PM. Mostra solo tier con saldo ≥ soglia. */
 function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, partnerPointsShown = 0) {
   const v = String(viewerId);
   const t = String(targetId);
@@ -62,7 +62,6 @@ const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = {
   pex_helper: "phl",
   pex_mod: "pmo",
   pex_admin: "pxa",
-  pex_cofounder: "pcf",
   pex_founder: "pfn",
   pex_pm: "ppm",
   depex: "dpx",
@@ -123,7 +122,6 @@ const PROFILE_PROSPECT = "prospect";
 const STAFF_ROLE_PRIORITY = [String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
 const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
   IDs.roles.Founder,
-  IDs.roles.CoFounder,
   IDs.roles.Admin,
   IDs.roles.HighStaff,
   IDs.roles.Mod,
@@ -183,36 +181,28 @@ function viewerCanUsePartnerPointsPanel(member) {
   const c = member.roles.cache;
   return Boolean(
     (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)) ||
-      (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
-      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
+      (IDs.roles.Founder && c.has(IDs.roles.Founder)),
   );
 }
 
-function viewerIsFounderOrCoFounder(member) {
+function viewerIsFounder(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
-  return Boolean(
-    (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
-      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
-  );
+  return Boolean(IDs.roles.Founder && c.has(IDs.roles.Founder));
 }
 
-function targetIsFounderOrCoFounder(member) {
+function targetIsFounder(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
-  return Boolean(
-    (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
-      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)),
-  );
+  return Boolean(IDs.roles.Founder && c.has(IDs.roles.Founder));
 }
 
-/** Depex completo su Admin+: High Staff (senza scala Mod), Admin, Co-Founder, Founder. */
+/** Depex completo su Admin+: High Staff (senza scala Mod), Admin, Founder. */
 function viewerIsCoordinatorOrAbove(member) {
   if (!member?.roles?.cache) return false;
   const c = member.roles.cache;
   return Boolean(
     (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
-      (IDs.roles.CoFounder && c.has(IDs.roles.CoFounder)) ||
       (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
       (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)),
   );
@@ -233,7 +223,6 @@ const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [
   IDs.roles.Helper,
   IDs.roles.Mod,
   IDs.roles.Admin,
-  IDs.roles.CoFounder,
   IDs.roles.Founder,
 ].filter(Boolean);
 
@@ -273,7 +262,6 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null) {
         .addOptions(
           { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
           { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
-          { label: "Member → Co-Founder", value: "pex_cofounder", emoji: "<:VC_Staff:1494286904089247754>" },
           { label: "Member → Founder", value: "pex_founder", emoji: "<:VC_Staff:1494286904089247754>" },
         ),
     ),
@@ -498,11 +486,11 @@ function shouldAttachHighStaffActions(
   if (profileKind !== PROFILE_FULL && !pmHome) return false;
   const self = String(viewerId) === String(targetUserId);
   if (self) {
-    if (!viewerIsFounderOrCoFounder(viewerMember)) return false;
+    if (!viewerIsFounder(viewerMember)) return false;
   } else if (!viewerIsHighStaff) {
     return false;
   }
-  if (targetIsFounderOrCoFounder(targetMember) && (sec === SECTION_VALUTAZIONI || sec === SECTION_WARN)) {
+  if (targetIsFounder(targetMember) && (sec === SECTION_VALUTAZIONI || sec === SECTION_WARN)) {
     return false;
   }
   return sec === SECTION_HOME || sec === SECTION_VALUTAZIONI || sec === SECTION_WARN;
@@ -692,7 +680,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   }
 
   const hideValutazioniWarnForTarget = Boolean(
-    member && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && targetIsFounderOrCoFounder(member),
+    member && profileKind === PROFILE_FULL && !usePartnersChatPmPanel && targetIsFounder(member),
   );
   if (hideValutazioniWarnForTarget && (sec === SECTION_VALUTAZIONI || sec === SECTION_WARN)) {
     sec = SECTION_HOME;
@@ -979,6 +967,6 @@ module.exports = {
   resolveStaffPartnerPointsDisplay,
   viewerCanUsePartnerPointsPanel,
   viewerIsCoordinatorOrAbove,
-  viewerIsFounderOrCoFounder,
+  viewerIsFounder,
   shouldOmitPexDepexHomeRow,
 };

@@ -8,7 +8,6 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
   IDs.roles.Founder,
-  IDs.roles.CoFounder,
   IDs.roles.Admin,
   IDs.roles.HighStaff,
   IDs.roles.Mod,
@@ -90,8 +89,6 @@ const PAUSE_ROLE_LIMITS = {
   Mod: 3,
   HighStaff: 1,
   Admin: 2,
-  "Co-Founder": 1,
-  CoFounder: 1,
   Founder: 1,
   Staff: null,
   PartnerManager: null,

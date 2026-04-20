@@ -11,7 +11,6 @@ const { sendSecurityAuditLog } = require("../../Utils/Logging/securityAuditLog")
 
 const STAFF_ROLE_IDS = [
   IDs.roles.Founder,
-  IDs.roles.CoFounder,
   IDs.roles.Admin,
   IDs.roles.HighStaff,
   IDs.roles.Mod,
@@ -19,7 +18,7 @@ const STAFF_ROLE_IDS = [
   IDs.roles.Staff,
 ].filter(Boolean);
 
-const PANIC_CONTROL_ROLE_IDS=[IDs.roles.Founder,IDs.roles.CoFounder,].filter(Boolean);
+const PANIC_CONTROL_ROLE_IDS=[IDs.roles.Founder].filter(Boolean);
 
 const PAGE_ROLES = 0;
 const PAGE_CHANNELS = 1;
@@ -612,9 +611,9 @@ function buildSecurityHubPayload(guild, ownerId, openerUser = null, member = nul
     "- **Panic / runtime**: overview panic e lock attivi",
   ];
   if (canPanic) {
-    lines.push("", "<:VC_Modifica:1478859646587633717> **Founder/CoFounder**: abilita o disabilita moduli dal menu.");
+    lines.push("", "<:VC_Modifica:1478859646587633717> **Founder**: abilita o disabilita moduli dal menu.");
   } else {
-    lines.push("", "<:VC_InactiveStatus:1482526984234860574> Abilitazione/disabilitazione moduli: solo Founder/CoFounder.");
+    lines.push("", "<:VC_InactiveStatus:1482526984234860574> Abilitazione/disabilitazione moduli: solo Founder.");
   }
   lines.push("", "<:VC_Modifica:1478859646587633717> Seleziona un'azione dal menu qui sotto.");
   const embed = new EmbedBuilder()
@@ -703,7 +702,7 @@ module.exports = {
             .setColor("#6f4e37")
             .setTitle("Security")
             .setDescription(
-              "<:vegax:1443934876440068179> Usa solo **`+security`** senza argomenti. Si apre il **pannello** (menu: stato, statics, panic; Founder/CoFounder anche abilita/disabilita moduli).",
+              "<:vegax:1443934876440068179> Usa solo **`+security`** senza argomenti. Si apre il **pannello** (menu: stato, statics, panic; Founder puo anche abilitare/disabilitare moduli).",
             ),
         ],
         allowedMentions: { repliedUser: false },

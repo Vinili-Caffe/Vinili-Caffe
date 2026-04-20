@@ -35,7 +35,6 @@ const HELPER_REAPPLY_BLOCK_ROLE_IDS = [
   IDs.roles.Mod,
   IDs.roles.HighStaff,
   IDs.roles.Admin,
-  IDs.roles.CoFounder,
   IDs.roles.Founder,
 ].filter(Boolean);
 const pendingApplications = new Map();
@@ -356,7 +355,7 @@ function buildIntroEmbed(type) {
   }
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Helper:1494287601266331829> Candidatura Helper")
+    .setTitle("<:VC_Helper:1494287597952958514> Candidatura Helper")
     .setDescription(
       "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
       "<a:VC_Timer:1482527426557775954> È assolutamente vietato il **double staff** su altri server, se lo staffer dopo essere stato accettato viene trovato staffer su altri server verrà immadiatamente depexato.",

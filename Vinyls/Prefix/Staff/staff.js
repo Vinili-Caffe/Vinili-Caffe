@@ -38,7 +38,7 @@ module.exports = {
   name: "staff",
   allowEmptyArgs: true,
   usage:
-    "`+staff` (profilo tuo) · **High Staff:** `+staff` senza argomenti apre il menu Staff/PM · `+staff @staffer` (riscatto premi PM: **HS / Founder / Co-Founder** su `+staff @PartnerManager`)",
+    "`+staff` (profilo tuo) · **High Staff:** `+staff` senza argomenti apre il menu Staff/PM · `+staff @staffer` (riscatto premi PM: **HS / Founder** su `+staff @PartnerManager`)",
   examples: ["+staff", "+staff @Mod"],
 
   async execute(message, args = []) {

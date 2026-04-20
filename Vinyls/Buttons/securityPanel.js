@@ -145,7 +145,7 @@ async function execute(interaction) {
       if (!sec.hasPanicControlAccess(member, guild)) {
         await interaction
           .reply({
-            content: "<:vegax:1443934876440068179> Solo Founder/CoFounder possono abilitare o disabilitare i moduli.",
+            content: "<:vegax:1443934876440068179> Solo Founder puo abilitare o disabilitare i moduli.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => {});
@@ -174,7 +174,7 @@ async function execute(interaction) {
     if (!sec.hasPanicControlAccess(member, guild)) {
       await interaction
         .reply({
-          content: "<:vegax:1443934876440068179> Solo Founder/CoFounder possono abilitare o disabilitare i moduli.",
+          content: "<:vegax:1443934876440068179> Solo Founder puo abilitare o disabilitare i moduli.",
           flags: PRIVATE_FLAG,
         })
         .catch(() => {});
