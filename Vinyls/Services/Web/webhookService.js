@@ -233,7 +233,10 @@ async function startWebhookServer(client) {
   const siteCandidatureCorsMiddleware = (req, res, next) => {
     const rawPath = String(req.originalUrl || req.url || req.path || "");
     const pathStr = rawPath.split("?")[0];
-    if (!pathStr.startsWith("/webhooks/site-candidature")) return next();
+    const isCandidature = pathStr.startsWith("/webhooks/site-candidature");
+    const isUnban = pathStr.startsWith("/webhooks/site-unban");
+    const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
+    if (!isCandidature && !isUnban && !isSiteRules) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -274,6 +277,10 @@ async function startWebhookServer(client) {
       submitCandidatureWebsite,
       getCandidatureEligibilitySummary,
     } = require("../../Events/interaction/candidatureApplicationHandlers");
+    const {
+      getWebsiteUnbanEligibility,
+      submitWebsiteUnban,
+    } = require("../../Events/interaction/unbanWebsiteHandlers");
     app.get("/webhooks/site-candidature/eligibility", async (req, res) => {
       try {
         const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -303,8 +310,39 @@ async function startWebhookServer(client) {
         return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
       }
     });
+    app.get("/webhooks/site-unban/eligibility", async (req, res) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        const out = await getWebsiteUnbanEligibility(client, accessToken);
+        return res.status(Number(out.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.("[WEBHOOK] site-unban eligibility:", err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    });
+    app.post("/webhooks/site-unban", async (req, res) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        const body = req.body && typeof req.body === "object" ? req.body : {};
+        const out = await submitWebsiteUnban(client, {
+          accessToken,
+          answers: body.answers,
+          acceptedRules: body.acceptedRules,
+        });
+        return res.status(Number(out.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.("[WEBHOOK] site-unban:", err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    });
     global.logger?.info?.(
-      "[WEBHOOK] Candidature sito: GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature (Bearer)",
+      "[WEBHOOK] Sito: GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature, GET /webhooks/site-unban/eligibility, POST /webhooks/site-unban (Bearer)",
     );
   } else {
     const candidatureDisabledBody = {
@@ -316,8 +354,10 @@ async function startWebhookServer(client) {
     app.use(siteCandidatureCorsMiddleware);
     app.get("/webhooks/site-candidature/eligibility", (req, res) => res.status(503).json(candidatureDisabledBody));
     app.post("/webhooks/site-candidature", (req, res) => res.status(503).json(candidatureDisabledBody));
+    app.get("/webhooks/site-unban/eligibility", (req, res) => res.status(503).json(candidatureDisabledBody));
+    app.post("/webhooks/site-unban", (req, res) => res.status(503).json(candidatureDisabledBody));
     global.logger?.warn?.(
-      "[WEBHOOK] Candidature sito: WEBSITE_CANDIDATURE_HTTP disattivo — GET/POST /webhooks/site-candidature rispondono 503 con spiegazione.",
+      "[WEBHOOK] API sito disattive: WEBSITE_CANDIDATURE_HTTP disattivo — GET/POST su /webhooks/site-candidature e /webhooks/site-unban rispondono 503.",
     );
   }
 
@@ -378,6 +418,17 @@ async function startWebhookServer(client) {
     }
   }
 
+  const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
+  app.get("/webhooks/site-rules", (req, res) => {
+    try {
+      res.setHeader("Cache-Control", "public, max-age=120");
+      return res.json(buildCommunityRulesSitePayload());
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-rules:", err);
+      return res.status(500).json({ ok: false, error: "internal" });
+    }
+  });
+
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
     app.post("/webhooks/discadia", async (req, res) => {
       try {
@@ -436,8 +487,9 @@ async function startWebhookServer(client) {
         port +
         (shouldStartDiscadiaVoteHttpWebhook(client) ? " (POST /webhooks/discadia)" : "") +
         (shouldStartTopggVoteHttpWebhook(client) ? " (POST /webhooks/topgg)" : "") +
+        " (GET /webhooks/site-rules)" +
         (isCandidatureWebsiteApiEnabled()
-          ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature)"
+          ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature, GET /webhooks/site-unban/eligibility, POST /webhooks/site-unban)"
           : ""),
     );
     if (isCandidatureWebsiteApiEnabled()) {

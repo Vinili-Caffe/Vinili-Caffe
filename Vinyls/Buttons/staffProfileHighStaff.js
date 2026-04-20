@@ -418,6 +418,26 @@ async function openStaffHpReasonModalFromButton(interaction, parsed) {
     if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
   } else if (parsed.action === "depex_full") {
     if (!(await ensureDepexFullViewer(interaction))) return true;
+  } else if (!selfHp && parsed.action === "pex_founder") {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> Il pex **Member → Founder** da prospect non è più disponibile.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  } else if (!selfHp && (parsed.action === "pex_mod" || parsed.action === "pex_admin")) {
+    if (!viewerIsFounder(interaction.member)) {
+      await interaction
+        .reply({
+          content:
+            "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod** e **Member → Admin**.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    }
   } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
     return true;
   }
@@ -564,9 +584,18 @@ async function execute(interaction) {
       return true;
     }
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
-    if (!(await ensureHighStaffViewer(interaction))) return true;
+    if (!viewerIsFounder(interaction.member)) {
+      await interaction
+        .reply({
+          content:
+            "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod** e **Member → Admin** da questo menu.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    }
     const chosenAction = String(interaction.values?.[0] || "");
-    const allowed = new Set(["pex_mod", "pex_admin", "pex_founder"]);
+    const allowed = new Set(["pex_mod", "pex_admin"]);
     if (!allowed.has(chosenAction)) {
       await interaction
         .reply({
@@ -827,6 +856,26 @@ async function execute(interaction) {
       if (!selfHp && !(await ensurePartnerPointsViewer(interaction))) return true;
     } else if (parsed.action === "depex_full") {
       if (!(await ensureDepexFullViewer(interaction))) return true;
+    } else if (!selfHp && parsed.action === "pex_founder") {
+      await interaction
+        .reply({
+          content:
+            "<:vegax:1443934876440068179> Il pex **Member → Founder** da prospect non è più disponibile.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    } else if (!selfHp && (parsed.action === "pex_mod" || parsed.action === "pex_admin")) {
+      if (!viewerIsFounder(interaction.member)) {
+        await interaction
+          .reply({
+            content:
+              "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod** e **Member → Admin**.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
     } else if (!selfHp && !(await ensureHighStaffViewer(interaction))) {
       return true;
     }

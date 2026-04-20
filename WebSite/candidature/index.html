@@ -88,7 +88,7 @@
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
                 <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
-                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}" target="_blank" rel="noopener noreferrer"
+                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
                 <a class="vc-snav-row" href="{{FAQ_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
@@ -160,7 +160,7 @@
           <i class="fa fa-users"></i>
         </div>
         <h1 class="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-          Candidatura <span class="text-cyan-200/95">staff</span>
+          Candidatura <span class="text-red-400">STAFF</span>
         </h1>
         <p id="candidature-welcome" class="mt-4 text-sm leading-relaxed text-slate-400 sm:text-base">
           Accedi con Discord per compilare il modulo.
@@ -220,13 +220,20 @@
         >
           <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura
         </button>
+        <div id="vc-candidature-submit-success" class="vc-candidature-success mt-4" hidden role="status" aria-live="polite">
+          <i class="fa fa-check-circle-o vc-candidature-success-ico" aria-hidden="true"></i>
+          <div>
+            <p class="vc-candidature-success-title">Candidatura inviata con successo!</p>
+            <p class="vc-candidature-success-text">Il nostro staff esaminerà attentamente la tua candidatura e ti contatterà tramite messaggio diretto (DM) su Discord. Se non ricevi risposta entro 14 giorni, considera la candidatura rifiutata.</p>
+          </div>
+        </div>
 
         <div class="vc-candidature-info mt-6 rounded-xl border border-red-500/25 bg-red-950/35 p-4 text-sm text-red-100/95">
           <p class="m-0 flex gap-2 font-semibold">
             <i class="fa fa-exclamation-circle mt-0.5 shrink-0" aria-hidden="true"></i> Informazioni importanti
           </p>
           <p class="mb-0 mt-2 leading-relaxed text-red-100/85">
-            L’invio è lo stesso del bot: la candidatura finisce nel canale staff <strong class="text-red-100">visioneModuli</strong> con i bottoni di accettazione/rifiuto. Non aprire ticket e non pingare lo staff per l’esito. DM su Discord aperti.
+            Non aprire ticket e non pingare lo staff per l’esito. DM su Discord aperti.
           </p>
         </div>
         </div>
@@ -260,12 +267,14 @@
       window.__VC_AUTH = {
         clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
         redirectUri: "{{CANDIDATURE_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
       };
       window.__VC_CANDIDATURE = {
         submitApiUrl: "{{CANDIDATURE_SUBMIT_API_URL}}",
         submitApiUrlLocal: "{{CANDIDATURE_SUBMIT_API_URL_LOCAL}}",
       };
     </script>
+    <script src="../js/form-field-validation-tip.js" defer></script>
     <script src="../js/candidature-page.js" defer></script>
     <script src="../js/discord-auth.js" defer></script>
     <script src="../js/vc-landing.js" defer></script>

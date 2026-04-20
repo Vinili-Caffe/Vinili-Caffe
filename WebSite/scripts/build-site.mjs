@@ -803,11 +803,10 @@ async function main() {
   // Non usare siteUrlTrim come fallback: href alla home fa scattare vc-landing.js e segna tutto il menu "corrente".
   const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || "#";
   const communityRulesUrlResolved =
-    String(cfg.communityRulesUrl ?? "").trim() || discordInviteResolved;
+    String(cfg.communityRulesUrl ?? "").trim() || defaultLegalPath("regole");
   const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
   const supEmail = String(cfg.supportEmail || "").trim();
-  const richiesteUnbanUrl =
-    modEmail !== "" ? `mailto:${modEmail}?subject=${encodeURIComponent("Richiesta unban")}` : "#";
+  const richiesteUnbanUrl = defaultLegalPath("unban");
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const donationsUrlResolved =
     String(cfg.donationsUrl ?? "").trim() || discordInviteResolved || "#";
@@ -901,6 +900,40 @@ async function main() {
     candidatureSubmitApiLocalRaw && /^https?:\/\//i.test(candidatureSubmitApiLocalRaw)
       ? candidatureSubmitApiLocalRaw
       : "";
+  const unbanSubmitApiFromEnv = String(process.env.VC_UNBAN_SUBMIT_API_URL ?? "").trim();
+  const unbanSubmitApiRaw =
+    unbanSubmitApiFromEnv || String(cfg.unbanSubmitApiUrl ?? "").trim();
+  const unbanSubmitApiResolved =
+    unbanSubmitApiRaw && /^https?:\/\//i.test(unbanSubmitApiRaw)
+      ? unbanSubmitApiRaw
+      : unbanSubmitApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${unbanSubmitApiRaw.startsWith("/") ? "" : "/"}${unbanSubmitApiRaw}`
+        : "";
+  const unbanSubmitApiLocalFromEnv = String(process.env.VC_UNBAN_SUBMIT_API_URL_LOCAL ?? "").trim();
+  const unbanSubmitApiLocalRaw =
+    unbanSubmitApiLocalFromEnv || String(cfg.unbanSubmitApiUrlLocal ?? "").trim();
+  const unbanSubmitApiLocalResolved =
+    unbanSubmitApiLocalRaw && /^https?:\/\//i.test(unbanSubmitApiLocalRaw)
+      ? unbanSubmitApiLocalRaw
+      : "";
+  const communityRulesApiFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL ?? "").trim();
+  const communityRulesApiRaw =
+    communityRulesApiFromEnv || String(cfg.communityRulesApiUrl ?? "").trim();
+  const communityRulesApiResolved =
+    communityRulesApiRaw && /^https?:\/\//i.test(communityRulesApiRaw)
+      ? communityRulesApiRaw
+      : communityRulesApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${communityRulesApiRaw.startsWith("/") ? "" : "/"}${communityRulesApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-rules`
+          : "/webhooks/site-rules";
+  const communityRulesApiLocalFromEnv = String(process.env.VC_COMMUNITY_RULES_API_URL_LOCAL ?? "").trim();
+  const communityRulesApiLocalRaw =
+    communityRulesApiLocalFromEnv || String(cfg.communityRulesApiUrlLocal ?? "").trim();
+  const communityRulesApiLocalResolved =
+    communityRulesApiLocalRaw && /^https?:\/\//i.test(communityRulesApiLocalRaw)
+      ? communityRulesApiLocalRaw
+      : "";
   if (discordOauthRedirectResolved) {
     console.log(
       "[build-site] OAuth2 Redirects (Discord Developer Portal): il sito invia redirect_uri uguale a questa stringa (copiala così com’è):",
@@ -960,6 +993,14 @@ async function main() {
     CANDIDATURE_OAUTH_REDIRECT_URI: escAttr(candidatureOAuthRedirectRaw),
     CANDIDATURE_SUBMIT_API_URL: escAttr(candidatureSubmitApiResolved),
     CANDIDATURE_SUBMIT_API_URL_LOCAL: escAttr(candidatureSubmitApiLocalResolved),
+    UNBAN_SUBMIT_API_URL: escAttr(unbanSubmitApiResolved),
+    UNBAN_SUBMIT_API_URL_LOCAL: escAttr(unbanSubmitApiLocalResolved),
+    COMMUNITY_RULES_API_URL: escAttr(communityRulesApiResolved),
+    COMMUNITY_RULES_API_URL_LOCAL: escAttr(communityRulesApiLocalResolved),
+    REGOLE_PAGE_TITLE: `${siteName} | Regole della community`,
+    REGOLE_META_DESCRIPTION: escAttr(`Regole del server Discord ${siteName}: generali, chat testuali e vocali.`),
+    REGOLE_OG_TITLE: escAttr(`${siteName} | Regole`),
+    REGOLE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/regole` : ""),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -1006,6 +1047,46 @@ async function main() {
     fs.writeFileSync(candidatureIndexPath, candidatureHtml, "utf8");
   } else {
     console.warn("[build-site] Manca candidature/index.html (saltato placeholder).");
+  }
+  const unbanIndexPath = path.join(DIST, "unban", "index.html");
+  if (fs.existsSync(unbanIndexPath)) {
+    let unbanHtml = fs.readFileSync(unbanIndexPath, "utf8");
+    unbanHtml = applyPlaceholderMap(unbanHtml, map);
+    warnLeftoverPlaceholders(unbanHtml, "unban/index.html");
+    fs.writeFileSync(unbanIndexPath, unbanHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca unban/index.html (saltato placeholder).");
+  }
+  const candidatureAccessRequiredPath = path.join(DIST, "candidature", "accesso-richiesto", "index.html");
+  if (fs.existsSync(candidatureAccessRequiredPath)) {
+    let arHtml = fs.readFileSync(candidatureAccessRequiredPath, "utf8");
+    arHtml = applyPlaceholderMap(arHtml, map);
+    warnLeftoverPlaceholders(arHtml, "candidature/accesso-richiesto/index.html");
+    fs.writeFileSync(candidatureAccessRequiredPath, arHtml, "utf8");
+  }
+  const unbanAccessRequiredPath = path.join(DIST, "unban", "accesso-richiesto", "index.html");
+  if (fs.existsSync(unbanAccessRequiredPath)) {
+    let arHtml = fs.readFileSync(unbanAccessRequiredPath, "utf8");
+    arHtml = applyPlaceholderMap(arHtml, map);
+    warnLeftoverPlaceholders(arHtml, "unban/accesso-richiesto/index.html");
+    fs.writeFileSync(unbanAccessRequiredPath, arHtml, "utf8");
+  }
+  const notificationsIndexPath = path.join(DIST, "notifications", "index.html");
+  if (fs.existsSync(notificationsIndexPath)) {
+    let nHtml = fs.readFileSync(notificationsIndexPath, "utf8");
+    nHtml = applyPlaceholderMap(nHtml, map);
+    warnLeftoverPlaceholders(nHtml, "notifications/index.html");
+    fs.writeFileSync(notificationsIndexPath, nHtml, "utf8");
+  }
+
+  const regoleIndexPath = path.join(DIST, "regole", "index.html");
+  if (fs.existsSync(regoleIndexPath)) {
+    let regoleHtml = fs.readFileSync(regoleIndexPath, "utf8");
+    regoleHtml = applyPlaceholderMap(regoleHtml, map);
+    warnLeftoverPlaceholders(regoleHtml, "regole/index.html");
+    fs.writeFileSync(regoleIndexPath, regoleHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca regole/index.html (saltato placeholder).");
   }
 
   const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];

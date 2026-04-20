@@ -89,6 +89,7 @@
 
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
+  var ACCESS_REQUIRED_PATH = "/candidature/accesso-richiesto/";
 
   function byId(id) {
     return document.getElementById(id);
@@ -108,6 +109,28 @@
       if (!r.ok) throw new Error(String(r.status));
       return r.json();
     });
+  }
+
+  function accessRequiredUrl() {
+    try {
+      var from = window.location.pathname + window.location.search;
+      var u = new URL(ACCESS_REQUIRED_PATH, window.location.origin);
+      if (from) u.searchParams.set("from", from);
+      return u.toString();
+    } catch (e) {
+      return ACCESS_REQUIRED_PATH;
+    }
+  }
+
+  function redirectToAccessRequired() {
+    var path = "";
+    try {
+      path = String(window.location.pathname || "");
+    } catch (e) {
+      path = "";
+    }
+    if (path.indexOf(ACCESS_REQUIRED_PATH) !== -1) return;
+    window.location.href = accessRequiredUrl();
   }
 
   var currentUser = null;
@@ -437,14 +460,80 @@
     return out;
   }
 
-  function validateAnswers(ans) {
+  function firstMissingQuestionId(ans) {
     var cfg = APPLICATIONS[activeKind];
     for (var i = 0; i < cfg.questions.length; i++) {
       var q = cfg.questions[i];
-      var v = ans[q.id];
-      if (!v) return "Compila il campo: " + q.text;
+      if (!ans[q.id]) return q.id;
     }
     return "";
+  }
+
+  function setSubmitLoading(loading) {
+    var sub = byId("vc-candidature-submit");
+    if (!sub) return;
+    if (!sub.getAttribute("data-default-html")) {
+      sub.setAttribute("data-default-html", sub.innerHTML);
+    }
+    if (loading) {
+      sub.disabled = true;
+      sub.classList.add("vc-candidature-submit--loading");
+      sub.innerHTML = '<span class="vc-submit-spinner" aria-hidden="true"></span><span>Invio in corso...</span>';
+      return;
+    }
+    sub.classList.remove("vc-candidature-submit--loading");
+    var fallback = '<i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura';
+    sub.innerHTML = sub.getAttribute("data-default-html") || fallback;
+    sub.disabled = false;
+  }
+
+  function setSubmitSuccessVisible(visible) {
+    var box = byId("vc-candidature-submit-success");
+    if (!box) return;
+    box.hidden = !visible;
+  }
+
+  function formatCooldownUntil(ms) {
+    var ts = Number(ms || 0);
+    if (!ts || !isFinite(ts) || ts <= 0) return "";
+    try {
+      return new Date(ts).toLocaleString("it-IT", {
+        timeZone: "Europe/Rome",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function applyLocalCooldown(type, untilMs) {
+    var t = type === "partnermanager" ? "partnermanager" : "helper";
+    var untilText = formatCooldownUntil(untilMs);
+    var msg = untilText
+      ? "Hai già inviato una candidatura di questo tipo: attendi fino al " + untilText + "."
+      : "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown.";
+    var base =
+      eligibilityState && eligibilityState.data && eligibilityState.data.ok === true
+        ? eligibilityState.data
+        : {
+          ok: true,
+          inGuild: true,
+          noModuliBlocked: false,
+          helper: { eligible: true, code: "", message: "" },
+          partnermanager: { eligible: true, code: "", message: "" },
+        };
+    base[t] = {
+      eligible: false,
+      code: "cooldown",
+      message: msg,
+      cooldown_until_ms: Number(untilMs || 0),
+    };
+    eligibilityState = { loading: false, data: base };
+    syncEligibilityToDom();
   }
 
   async function submitCandidature() {
@@ -456,7 +545,7 @@
       return;
     }
     if (!currentUser) {
-      alert("Accedi con Discord per inviare.");
+      redirectToAccessRequired();
       return;
     }
     var token = getToken();
@@ -470,13 +559,15 @@
       return;
     }
     var ans = collectAnswers();
-    var err = validateAnswers(ans);
-    if (err) {
-      alert(err);
+    var missingId = firstMissingQuestionId(ans);
+    if (missingId) {
+      var fieldEl = byId("vc-cf-" + missingId);
+      if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(fieldEl);
+      else alert("Compila tutti i campi obbligatori.");
       return;
     }
-    var sub = byId("vc-candidature-submit");
-    if (sub) sub.disabled = true;
+    setSubmitSuccessVisible(false);
+    setSubmitLoading(true);
     try {
       var res = await fetch(api, {
         method: "POST",
@@ -493,6 +584,10 @@
         data = {};
       }
       if (!res.ok || !data.ok) {
+        if (res.status === 401 && (data.error === "missing_token" || data.error === "invalid_token")) {
+          redirectToAccessRequired();
+          return;
+        }
         var baseMsg = data.message || data.error || "Invio non riuscito (" + res.status + ").";
         var hint404 = "";
         if (res.status === 404) {
@@ -510,7 +605,8 @@
         alert(baseMsg + hint404);
         return;
       }
-      alert(data.message || "Candidatura inviata.");
+      setSubmitSuccessVisible(true);
+      applyLocalCooldown(activeKind, data.cooldown_until_ms);
       await refreshEligibility();
     } catch (e) {
       var pageOrigin = "";
@@ -534,6 +630,7 @@
         console.warn("[candidatura] POST fallita", api, e && e.message);
       }
     } finally {
+      setSubmitLoading(false);
       syncEligibilityToDom();
     }
   }
@@ -572,9 +669,11 @@
         })
         .catch(function () {
           applyUser(null);
+          redirectToAccessRequired();
         });
     } else {
       applyUser(null);
+      redirectToAccessRequired();
     }
   }
 

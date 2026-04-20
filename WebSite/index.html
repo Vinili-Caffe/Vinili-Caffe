@@ -99,7 +99,7 @@
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
                 <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
-                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}" target="_blank" rel="noopener noreferrer"
+                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
                 <a class="vc-snav-row" href="{{FAQ_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
@@ -174,27 +174,21 @@
 
     <main class="relative z-10">
       <section class="mx-auto max-w-6xl px-4 pb-6 pt-8" aria-label="In sintesi">
-        <div class="grid gap-4 sm:grid-cols-3 sm:gap-5">
-          <div class="vc-glass rounded-2xl border border-white/[0.07] bg-[#060910]/65 p-5 sm:p-6">
-            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-lg text-cyan-300">
-              <i class="fa fa-line-chart" aria-hidden="true"></i>
-            </div>
-            <h2 class="text-base font-bold text-white">Accogliente e organizzato</h2>
-            <p class="mt-2 text-sm leading-relaxed text-slate-400">Canali chiari, regole leggibili e moderazione costante per stare tranquilli.</p>
+        <div class="vc-home-highlights grid gap-4 sm:grid-cols-3 sm:gap-5">
+          <div class="vc-home-highlight-card">
+            <div class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-line-chart"></i></div>
+            <h2 class="vc-home-highlight-title">In Crescita Costante</h2>
+            <p class="vc-home-highlight-desc">Espansione continua con pubblico italiano giovane e coinvolto</p>
           </div>
-          <div class="vc-glass rounded-2xl border border-white/[0.07] bg-[#060910]/65 p-5 sm:p-6">
-            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-lg text-cyan-300">
-              <i class="fa fa-magic" aria-hidden="true"></i>
-            </div>
-            <h2 class="text-base font-bold text-white">Eventi &amp; attività</h2>
-            <p class="mt-2 text-sm leading-relaxed text-slate-400">Quiz, vetrine musicali e momenti in voice: qualcosa ogni settimana sul server.</p>
+          <div class="vc-home-highlight-card">
+            <div class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-magic"></i></div>
+            <h2 class="vc-home-highlight-title">Eventi &amp; Giveaway</h2>
+            <p class="vc-home-highlight-desc">Eventi e giveaway frequenti per la nostra community</p>
           </div>
-          <div class="vc-glass rounded-2xl border border-white/[0.07] bg-[#060910]/65 p-5 sm:p-6">
-            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-lg text-cyan-300">
-              <i class="fa fa-bolt" aria-hidden="true"></i>
-            </div>
-            <h2 class="text-base font-bold text-white">Bot &amp; strumenti</h2>
-            <p class="mt-2 text-sm leading-relaxed text-slate-400">Automazioni e comodi per la community, integrati con il progetto Vinili &amp; Caffè.</p>
+          <div class="vc-home-highlight-card">
+            <div class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-bolt"></i></div>
+            <h2 class="vc-home-highlight-title">Bot Personalizzati</h2>
+            <p class="vc-home-highlight-desc">Bot personalizzati, moderazione avanzata e funzioni esclusive</p>
           </div>
         </div>
       </section>
@@ -297,6 +291,7 @@
       window.__VC_AUTH = {
         clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
         redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
       };
     </script>
     <script src="js/discord-auth.js" defer></script>

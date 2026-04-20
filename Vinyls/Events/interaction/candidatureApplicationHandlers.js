@@ -384,6 +384,30 @@ function buildFinalThanksEmbed(untilTs, type) {
     );
 }
 
+function buildFinalThanksPlainMessage(untilTs, type) {
+  const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+  const ms = Number(untilTs);
+  const hasDate = Number.isFinite(ms) && ms > 0;
+  const untilText = hasDate
+    ? new Date(ms).toLocaleString("it-IT", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    : null;
+  return [
+    "Grazie per esserti candidato.",
+    untilText
+      ? `Per un'altra candidatura ${label} dovrai attendere fino al ${untilText}.`
+      : `Per un'altra candidatura ${label} dovrai attendere il tempo di cooldown previsto.`,
+    "Puoi comunque candidarti all'altro ruolo se non l'hai già fatto.",
+    "Non chiedere l'esito o di guardare la candidatura in qualsiasi modo, altrimenti essa verrà automaticamente scartata.",
+  ].join(" ");
+}
+
 function buildCandidateActionRow(type, userId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -893,18 +917,10 @@ async function submitCandidatureWebsite(client, payload) {
     return { ok: false, status: 500, error: post.code, message };
   }
 
-  const thanks = buildFinalThanksEmbed(post.nextAllowedAt, type);
-  const rawDesc =
-    (thanks && typeof thanks.toJSON === "function" && thanks.toJSON().description) ||
-    thanks?.data?.description ||
-    "";
   return {
     ok: true,
     status: 200,
-    message: String(rawDesc || "Grazie per la candidatura.")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim(),
+    message: buildFinalThanksPlainMessage(post.nextAllowedAt, type),
     cooldown_until_ms: post.nextAllowedAt,
   };
 }
@@ -1353,4 +1369,5 @@ module.exports = {
   handleCandidatureApplicationInteraction,
   submitCandidatureWebsite,
   getCandidatureEligibilitySummary,
+  resolveSubmissionChannel,
 };

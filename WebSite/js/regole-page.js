@@ -1,0 +1,194 @@
+(function () {
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function cfg() {
+    return (typeof window !== "undefined" && window.__VC_REGOLE) || {};
+  }
+
+  function isLocalFrontendOrigin() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function resolvedApiUrl() {
+    var c = cfg();
+    var local = String(c.apiUrlLocal || "").trim();
+    if (isLocalFrontendOrigin() && local) return local;
+    return String(c.apiUrl || "").trim();
+  }
+
+  var FA_ICON = {
+    shield: "fa-shield",
+    "balance-scale": "fa-balance-scale",
+    users: "fa-users",
+    bullhorn: "fa-bullhorn",
+    refresh: "fa-refresh",
+    ban: "fa-ban",
+    comments: "fa-comments",
+    link: "fa-link",
+    "align-left": "fa-align-left",
+    warning: "fa-exclamation-triangle",
+    "eye-slash": "fa-eye-slash",
+    music: "fa-music",
+    "volume-off": "fa-volume-off",
+    microphone: "fa-microphone",
+    "file-text-o": "fa-file-text-o",
+  };
+
+  function faClass(iconKey) {
+    var k = String(iconKey || "").trim();
+    return FA_ICON[k] || "fa-file-text-o";
+  }
+
+  function faForCategoryIcon(iconKey) {
+    return faClass(iconKey === "shield" ? "shield" : iconKey === "comments" ? "comments" : "microphone");
+  }
+
+  var payload = null;
+  var activeCategory = "generale";
+
+  function setState(msg, isErr) {
+    var el = byId("vc-regole-state");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "vc-regole-state" + (isErr ? " vc-regole-state--err" : "");
+    el.hidden = !msg;
+  }
+
+  function renderTabs() {
+    var root = byId("vc-regole-tabs");
+    if (!root || !payload || !payload.categories) return;
+    root.innerHTML = "";
+    payload.categories.forEach(function (cat) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "vc-regole-tab" + (cat.id === activeCategory ? " vc-regole-tab--on" : "");
+      btn.setAttribute("data-cat", cat.id);
+      var ic = document.createElement("i");
+      ic.className = "fa " + faForCategoryIcon(cat.icon);
+      ic.setAttribute("aria-hidden", "true");
+      btn.appendChild(ic);
+      btn.appendChild(document.createTextNode(" " + String(cat.label || cat.id)));
+      btn.addEventListener("click", function () {
+        activeCategory = cat.id;
+        renderTabs();
+        renderList();
+      });
+      root.appendChild(btn);
+    });
+  }
+
+  function renderList() {
+    var root = byId("vc-regole-list");
+    if (!root || !payload || !payload.rules) return;
+    root.innerHTML = "";
+    var rules = payload.rules.filter(function (r) {
+      return String(r.category || "") === activeCategory;
+    });
+    if (!rules.length) {
+      var empty = document.createElement("p");
+      empty.className = "vc-regole-state";
+      empty.textContent = "Nessuna regola in questa categoria.";
+      root.appendChild(empty);
+      return;
+    }
+    rules.forEach(function (r) {
+      var det = document.createElement("details");
+      det.className = "vc-regole-card";
+      var sum = document.createElement("summary");
+      var ico = document.createElement("span");
+      ico.className = "vc-regole-card-ico";
+      var ii = document.createElement("i");
+      ii.className = "fa " + faClass(r.icon);
+      ii.setAttribute("aria-hidden", "true");
+      ico.appendChild(ii);
+      var main = document.createElement("div");
+      main.className = "vc-regole-card-main";
+      var h = document.createElement("p");
+      h.className = "vc-regole-card-title";
+      h.textContent = String(r.title || "");
+      var sn = document.createElement("p");
+      sn.className = "vc-regole-card-snippet";
+      sn.textContent = String(r.body || "").slice(0, 160) + (String(r.body || "").length > 160 ? "…" : "");
+      var tag = document.createElement("div");
+      tag.className = "vc-regole-card-tag";
+      var ti = document.createElement("i");
+      ti.className = "fa fa-shield";
+      ti.setAttribute("aria-hidden", "true");
+      tag.appendChild(ti);
+      tag.appendChild(document.createTextNode(" " + String(r.tag || "")));
+      main.appendChild(h);
+      main.appendChild(sn);
+      main.appendChild(tag);
+      var chev = document.createElement("span");
+      chev.className = "vc-regole-card-chev";
+      chev.setAttribute("aria-hidden", "true");
+      chev.innerHTML = '<i class="fa fa-chevron-down"></i>';
+      sum.appendChild(ico);
+      sum.appendChild(main);
+      sum.appendChild(chev);
+      var body = document.createElement("div");
+      body.className = "vc-regole-card-body";
+      var p = document.createElement("p");
+      p.textContent = String(r.body || "");
+      body.appendChild(p);
+      det.appendChild(sum);
+      det.appendChild(body);
+      root.appendChild(det);
+    });
+  }
+
+  function applyDisclaimer() {
+    var el = byId("vc-regole-disclaimer");
+    if (!el || !payload) return;
+    el.textContent = String(payload.disclaimer || "").trim() || el.textContent;
+  }
+
+  async function load() {
+    var url = resolvedApiUrl();
+    if (!url) {
+      setState("API regole non configurata: imposta communityRulesApiUrl in site.config.json.", true);
+      return;
+    }
+    setState("Caricamento regole…", false);
+    try {
+      var res = await fetch(url, { method: "GET", credentials: "omit" });
+      var data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = {};
+      }
+      if (!res.ok || !data.ok) {
+        setState(
+          "Impossibile caricare le regole dal bot. Verifica WEBSITE_CANDIDATURE_HTTP e CORS, oppure l’URL in site.config.",
+          true,
+        );
+        return;
+      }
+      payload = data;
+      setState("", false);
+      applyDisclaimer();
+      renderTabs();
+      renderList();
+    } catch (e2) {
+      setState("Errore di rete nel caricamento delle regole.", true);
+    }
+  }
+
+  function init() {
+    load();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();

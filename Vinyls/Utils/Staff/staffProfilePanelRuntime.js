@@ -241,10 +241,10 @@ function memberHasPmAndStaffLadderForDualDepex(member) {
   return Boolean(getHighestStaffLadderRoleIdForPanel(member));
 }
 
-function buildProspectPexRows(viewerId, targetId, sourceMessageId = null) {
+function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includeFounderOnlyAdvanceSelect = false) {
   const v = String(viewerId);
   const t = String(targetId);
-  return [
+  const rows = [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, sourceMessageId))
@@ -255,17 +255,21 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null) {
         .setLabel("Member → Partner Manager")
         .setStyle(ButtonStyle.Secondary),
     ),
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(formatStaffHpSelectCustomId("prospect_pex", v, t, SECTION_HOME, sourceMessageId))
-        .setPlaceholder("Promuovi a ruolo staff avanzato")
-        .addOptions(
-          { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
-          { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
-          { label: "Member → Founder", value: "pex_founder", emoji: "<:VC_Staff:1494286904089247754>" },
-        ),
-    ),
   ];
+  if (includeFounderOnlyAdvanceSelect) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(formatStaffHpSelectCustomId("prospect_pex", v, t, SECTION_HOME, sourceMessageId))
+          .setPlaceholder("Promuovi a ruolo staff avanzato (solo Founder)")
+          .addOptions(
+            { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
+            { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
+          ),
+      ),
+    );
+  }
+  return rows;
 }
 
 function parseItalianDate(value) {
@@ -636,7 +640,14 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   if (profileKind === PROFILE_PROSPECT) {
     const pexComps =
-      viewerIsHighStaff && String(viewerId) !== tid ? buildProspectPexRows(String(viewerId), tid, sourceMessageId) : [];
+      viewerIsHighStaff && String(viewerId) !== tid
+        ? buildProspectPexRows(
+            String(viewerId),
+            tid,
+            sourceMessageId,
+            viewerIsFounder(viewerMemForPanel),
+          )
+        : [];
     return {
       embeds: [
         new EmbedBuilder()
@@ -692,15 +703,29 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       usePartnersChatPmPanel ||
       (profileKind === PROFILE_FULL && hasPm));
   const omitPexDepexHome = shouldOmitPexDepexHomeRow(viewerId, tid, member);
+  const showHsPexDepexOnHome =
+    sec === SECTION_HOME &&
+    shouldAttachHighStaffActions(
+      sec,
+      viewerId,
+      tid,
+      viewerIsHighStaff,
+      profileKind,
+      viewerMemForPanel,
+      usePartnersChatPmPanel,
+      member,
+    ) &&
+    !omitPexDepexHome;
   let partnerHomeRows = [];
   if (sec === SECTION_HOME && canHsPartnerPoints) {
     const vPts = String(viewerId);
     if (usePartnersChatPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_PM_ONLY) {
-      partnerHomeRows = omitPexDepexHome
-        ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
-        : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
+      partnerHomeRows =
+        omitPexDepexHome || showHsPexDepexOnHome
+          ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
+          : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
     }
   }
 
