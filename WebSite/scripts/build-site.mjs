@@ -360,6 +360,12 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
       : String(ls.extraStatsPath != null ? ls.extraStatsPath : "/live-stats-extra.json");
   const pollMs = Number.isFinite(Number(ls.pollIntervalMs)) ? Number(ls.pollIntervalMs) : 45000;
   const introFallbackMs = Number.isFinite(Number(ls.introFallbackMs)) ? Number(ls.introFallbackMs) : 45000;
+  const liveEventApiUrl = String(cfg.liveEventApiUrl || "").trim();
+  const liveEventApiUrlLocal = String(cfg.liveEventApiUrlLocal || "").trim();
+  const liveEventPollMsRaw = ls.liveEventPollMs != null ? Number(ls.liveEventPollMs) : 90000;
+  const liveEventPollMs = Number.isFinite(liveEventPollMsRaw)
+    ? Math.max(20000, Math.min(600000, liveEventPollMsRaw))
+    : 90000;
   const payload = {
     enabled: true,
     inviteCode: code,
@@ -367,6 +373,9 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
     extraStatsPath: extraStats,
     pollIntervalMs: pollMs,
     introFallbackMs,
+    liveEventApiUrl,
+    liveEventApiUrlLocal,
+    liveEventPollMs,
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (

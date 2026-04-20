@@ -22,6 +22,8 @@
   "communityRulesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-rules",
   "usersLeaderboardApiUrl": "https://www.viniliecaffe.it/webhooks/site-users",
   "usersLeaderboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-users",
+  "liveEventApiUrl": "https://www.viniliecaffe.it/webhooks/site-live-event",
+  "liveEventApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-live-event",
   "discordInviteCode": "viniliecaffe",
   "useDiscordGuildBanner": false,
   "useDiscordGuildIcon": true,
@@ -71,7 +73,8 @@
     "inviteProxyPath": "/discord-invite.json",
     "extraStatsPath": "/live-stats-extra.json",
     "pollIntervalMs": 45000,
-    "introFallbackMs": 45000
+    "introFallbackMs": 45000,
+    "liveEventPollMs": 90000
   },
   "statMembers": "0",
   "statBoosts": "0",

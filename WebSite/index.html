@@ -290,6 +290,43 @@
       </section>
     </main>
 
+    <div id="vc-live-event-modal" class="vc-live-event-modal" hidden aria-hidden="true">
+      <div class="vc-live-event-modal__backdrop" data-vc-live-event-close tabindex="-1"></div>
+      <div
+        class="vc-live-event-modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vc-live-event-title"
+        aria-describedby="vc-live-event-desc"
+      >
+        <button type="button" class="vc-live-event-modal__x" data-vc-live-event-close aria-label="Chiudi">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+        <p class="vc-live-event-modal__badge">
+          <i class="fa fa-bolt" aria-hidden="true"></i> Evento live su Discord
+        </p>
+        <h2 id="vc-live-event-title" class="vc-live-event-modal__title">Evento in corso</h2>
+        <p id="vc-live-event-desc" class="vc-live-event-modal__desc"></p>
+        <div class="vc-live-event-modal__actions">
+          <a
+            id="vc-live-event-primary"
+            class="vc-live-event-modal__btn"
+            href="{{DISCORD_INVITE_URL}}"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Partecipa</a>
+          <a
+            id="vc-live-event-invite"
+            class="vc-live-event-modal__link"
+            href="{{DISCORD_INVITE_URL}}"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Invito al server</a>
+        </div>
+        <button type="button" class="vc-live-event-modal__dismiss" data-vc-live-event-close>Chiudi</button>
+      </div>
+    </div>
+
     <footer class="vc-footer relative z-10 py-16">
       <div class="mx-auto max-w-3xl px-4 text-center">
         <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">

@@ -1,6 +1,7 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier } = require("../../Services/Community/expService");
+const { computeLeaderboardRows } = require("../../Prefix/Level/classifica");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -138,10 +139,23 @@ function parseSearchUserId(raw) {
   return s;
 }
 
+function sortHourlyBreakdownForBoard(breakdown, board) {
+  const base = Array.isArray(breakdown) ? breakdown : [];
+  if (board === "weekly") return base.slice();
+  if (board === "messages") {
+    return base.filter((r) => nInt(r?.textCount) > 0).sort((a, b) => nInt(b.textCount) - nInt(a.textCount));
+  }
+  if (board === "voice") {
+    return base.filter((r) => nInt(r?.voiceSeconds) > 0).sort((a, b) => nInt(b.voiceSeconds) - nInt(a.voiceSeconds));
+  }
+  return base.slice();
+}
+
 const SEARCH_SELECT =
   "userId profile.totals.exp profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds";
 
-async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier) {
+async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides) {
+  const ov = overrides && typeof overrides === "object" ? overrides : null;
   const userId = String(d.userId || "");
   const id = await fetchUserIdentity(client, guild, userId);
   if (board === "level") {
@@ -163,7 +177,7 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
     };
   }
   if (board === "weekly") {
-    const weeklyExp = nInt(d.profile?.totals?.exp?.weeklyExp);
+    const weeklyExp = ov && ov.weeklyExp != null ? nInt(ov.weeklyExp) : nInt(d.profile?.totals?.exp?.weeklyExp);
     const totalExp = nInt(d.profile?.totals?.exp?.totalExp);
     const li = getLevelInfo(totalExp);
     let level = Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.level || 0)));
@@ -186,7 +200,8 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
   }
   if (board === "messages") {
     const messagesTotal = nInt(d.profile?.totals?.messagesTotal);
-    const messagesWeekly = nInt(d.profile?.totals?.messagesWeekly);
+    const messagesWeekly =
+      ov && ov.messagesWeekly != null ? nInt(ov.messagesWeekly) : nInt(d.profile?.totals?.messagesWeekly);
     const messagesDaily = nInt(d.profile?.totals?.messagesDaily);
     return {
       rank,
@@ -204,7 +219,10 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
   }
   if (board === "voice") {
     const voiceTotalSeconds = nInt(d.profile?.totals?.voiceTotalSeconds);
-    const voiceWeeklySeconds = nInt(d.profile?.totals?.voiceWeeklySeconds);
+    const voiceWeeklySeconds =
+      ov && ov.voiceWeeklySeconds != null
+        ? nInt(ov.voiceWeeklySeconds)
+        : nInt(d.profile?.totals?.voiceWeeklySeconds);
     const voiceDailySeconds = nInt(d.profile?.totals?.voiceDailySeconds);
     return {
       rank,
@@ -223,7 +241,7 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
   return { rank, userId, username: id.username, displayName: id.displayName };
 }
 
-function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult) {
+function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, hourlySingular) {
   let topLevel = 0;
   let topWeeklyExp = 0;
   let topMessagesTotal = 0;
@@ -233,11 +251,20 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult) {
     const li = getLevelInfo(te);
     topLevel = Math.max(Math.floor(Number(d.profile?.totals?.exp?.level || 0)), li.level);
   } else if (board === "weekly") {
-    topWeeklyExp = Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.weeklyExp || 0)));
+    topWeeklyExp =
+      hourlySingular && hourlySingular.weeklyExp != null
+        ? nInt(hourlySingular.weeklyExp)
+        : Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.weeklyExp || 0)));
   } else if (board === "messages") {
-    topMessagesTotal = Math.max(0, Math.floor(Number(d.profile?.totals?.messagesTotal || 0)));
+    topMessagesTotal =
+      hourlySingular && hourlySingular.messagesWeekly != null
+        ? nInt(hourlySingular.messagesWeekly)
+        : Math.max(0, Math.floor(Number(d.profile?.totals?.messagesTotal || 0)));
   } else if (board === "voice") {
-    topVoiceSeconds = Math.max(0, Math.floor(Number(d.profile?.totals?.voiceTotalSeconds || 0)));
+    topVoiceSeconds =
+      hourlySingular && hourlySingular.voiceWeeklySeconds != null
+        ? nInt(hourlySingular.voiceWeeklySeconds)
+        : Math.max(0, Math.floor(Number(d.profile?.totals?.voiceTotalSeconds || 0)));
   }
   const gm =
     board === "weekly" && globalExpMult != null && Number.isFinite(Number(globalExpMult)) && Number(globalExpMult) > 0
@@ -268,7 +295,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     }
     const q = req.query || {};
     const board = parseBoard(q.board);
-    const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id);
+    const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id ?? q.searchUserId ?? q.uid);
 
     if (searchId) {
       const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
@@ -299,7 +326,27 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         });
       }
       let pageMaxSecondary = 1;
-      if (board === "weekly") {
+      let hourlySingular = null;
+      let searchRank = 1;
+      const useHourlyBoard = Boolean(guild) && (board === "weekly" || board === "messages" || board === "voice");
+      if (useHourlyBoard) {
+        const cap = 8000;
+        const breakdown = await computeLeaderboardRows(guild, "weekly", cap).catch(() => []);
+        const sorted = sortHourlyBreakdownForBoard(breakdown, board);
+        const idx = sorted.findIndex((r) => String(r.userId) === searchId);
+        const agg = idx >= 0 ? sorted[idx] : null;
+        searchRank = idx >= 0 ? idx + 1 : 0;
+        if (board === "weekly") {
+          pageMaxSecondary = Math.max(1, nInt(agg?.exp ?? 0));
+          hourlySingular = { weeklyExp: nInt(agg?.exp ?? 0) };
+        } else if (board === "messages") {
+          pageMaxSecondary = Math.max(1, nInt(agg?.textCount ?? 0));
+          hourlySingular = { messagesWeekly: nInt(agg?.textCount ?? 0) };
+        } else {
+          pageMaxSecondary = Math.max(1, nInt(agg?.voiceSeconds ?? 0));
+          hourlySingular = { voiceWeeklySeconds: nInt(agg?.voiceSeconds ?? 0) };
+        }
+      } else if (board === "weekly") {
         pageMaxSecondary = Math.max(1, Math.floor(Number(doc.profile?.totals?.exp?.weeklyExp || 0)));
       } else if (board === "messages") {
         pageMaxSecondary = Math.max(1, Math.floor(Number(doc.profile?.totals?.messagesWeekly || 0)));
@@ -311,8 +358,16 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
         if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
       }
-      const row = await buildRowFromDoc(client, guild, board, doc, 1, pageMaxSecondary, globalExpMultiplier);
-      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier);
+      const overrides =
+        useHourlyBoard && hourlySingular
+          ? board === "weekly"
+            ? { weeklyExp: hourlySingular.weeklyExp }
+            : board === "messages"
+              ? { messagesWeekly: hourlySingular.messagesWeekly }
+              : { voiceWeeklySeconds: hourlySingular.voiceWeeklySeconds }
+          : null;
+      const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides);
+      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular);
       res.setHeader("Cache-Control", "no-store");
       return res.json({
         ok: true,
@@ -330,19 +385,112 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
 
     const page = parseIntSafe(q.page, 1, 100000, 1);
     const perPage = parseIntSafe(q.perPage, 1, 24, 12);
-    const cacheKey = `v2:${guildId}:${board}:p${page}:n${perPage}`;
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    const hourlyBoard = Boolean(guild) && (board === "weekly" || board === "messages" || board === "voice");
+    const cacheKey = hourlyBoard
+      ? `v4:${guildId}:${board}:hourly:p${page}:n${perPage}`
+      : `v3:${guildId}:${board}:p${page}:n${perPage}`;
     const cached = cacheGet(cacheKey);
     if (cached) {
       res.setHeader("Cache-Control", "public, max-age=15");
       return res.json(cached);
     }
 
+    const skip = (page - 1) * perPage;
+
+    if (hourlyBoard) {
+      const cap = Math.min(8000, Math.max(1200, page * perPage + 800));
+      const breakdown = await computeLeaderboardRows(guild, "weekly", cap).catch(() => []);
+      const sorted = sortHourlyBreakdownForBoard(breakdown, board);
+      const total = sorted.length;
+      const slice = sorted.slice(skip, skip + perPage);
+      let pageMaxSecondary = 1;
+      for (const agg of slice) {
+        if (board === "weekly") pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.exp));
+        else if (board === "messages") pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.textCount));
+        else pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.voiceSeconds));
+      }
+      if (pageMaxSecondary < 1) pageMaxSecondary = 1;
+      let globalExpMultiplier = 1;
+      if (board === "weekly") {
+        globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
+        if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
+      }
+      const userIds = slice.map((r) => String(r.userId || "")).filter(Boolean);
+      const profileDocs = userIds.length
+        ? await ActivityUserProfile.find({ guildId, userId: { $in: userIds } })
+            .select(SEARCH_SELECT)
+            .lean()
+            .catch(() => [])
+        : [];
+      const docMap = new Map(profileDocs.map((d) => [String(d.userId), d]));
+      const rows = [];
+      for (let i = 0; i < slice.length; i += 1) {
+        const agg = slice[i];
+        const d = docMap.get(String(agg.userId));
+        if (!d) continue;
+        const rank = skip + i + 1;
+        const overrides =
+          board === "weekly"
+            ? { weeklyExp: nInt(agg.exp) }
+            : board === "messages"
+              ? { messagesWeekly: nInt(agg.textCount) }
+              : { voiceWeeklySeconds: nInt(agg.voiceSeconds) };
+        rows.push(
+          await buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides),
+        );
+      }
+      const first = sorted[0];
+      let topDisplayName = "";
+      let topWeeklyExp = 0;
+      let topMessagesTotal = 0;
+      let topVoiceSeconds = 0;
+      if (first) {
+        const uid = String(first.userId || "");
+        if (uid) {
+          const u = await fetchDiscordUserForIdentity(client, guild, uid);
+          if (u) topDisplayName = accountUsernameFromUser(u);
+        }
+        if (board === "weekly") topWeeklyExp = nInt(first.exp);
+        else if (board === "messages") topMessagesTotal = nInt(first.textCount);
+        else topVoiceSeconds = nInt(first.voiceSeconds);
+      }
+      if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
+        const fb = String(rows[0].username || "").trim();
+        if (fb) topDisplayName = fb;
+      }
+      const stats = {
+        rankedUsers: total,
+        membersApprox: guild?.memberCount ?? null,
+        topDisplayName,
+        topPlayerUsername: topDisplayName,
+        topLevel: null,
+        topWeeklyExp: board === "weekly" ? topWeeklyExp : null,
+        topMessagesTotal: board === "messages" ? topMessagesTotal : null,
+        topVoiceSeconds: board === "voice" ? topVoiceSeconds : null,
+        globalExpMultiplier: board === "weekly" ? globalExpMultiplier : null,
+      };
+      const payload = {
+        ok: true,
+        board,
+        page,
+        perPage,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / perPage)),
+        stats,
+        rows,
+      };
+      cacheSet(cacheKey, payload);
+      res.setHeader("Cache-Control", "public, max-age=20");
+      return res.json(payload);
+    }
+
     const filter = boardQuery(board, guildId);
     const sort = boardSort(board);
     const select = boardSelect();
-    const skip = (page - 1) * perPage;
 
-    const [total, docs, topDoc, guild] = await Promise.all([
+    const [total, docs, topDoc] = await Promise.all([
       ActivityUserProfile.countDocuments(filter).catch(() => 0),
       ActivityUserProfile.find(filter)
         .select(select)
@@ -352,7 +500,6 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         .lean()
         .catch(() => []),
       ActivityUserProfile.findOne(filter).select(select).sort(sort).lean().catch(() => null),
-      client.guilds.cache.get(guildId) || client.guilds.fetch(guildId).catch(() => null),
     ]);
 
     let topDisplayName = "";
@@ -403,9 +550,14 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
 
     const rows = await Promise.all(
       docs.map((d, i) =>
-        buildRowFromDoc(client, guild, board, d, skip + i + 1, pageMaxSecondary, globalExpMultiplier),
+        buildRowFromDoc(client, guild, board, d, skip + i + 1, pageMaxSecondary, globalExpMultiplier, null),
       ),
     );
+
+    if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
+      const fb = String(rows[0].username || "").trim();
+      if (fb) topDisplayName = fb;
+    }
 
     const stats = {
       rankedUsers: total,

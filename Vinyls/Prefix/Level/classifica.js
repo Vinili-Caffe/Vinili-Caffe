@@ -253,7 +253,13 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
         const baseExpFromText = entry.textCount * MESSAGE_EXP;
         const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
         const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
-        return { userId: entry.userId, exp, level: getLevelInfo(exp).level };
+        return {
+          userId: entry.userId,
+          exp,
+          level: getLevelInfo(exp).level,
+          textCount: entry.textCount,
+          voiceSeconds: entry.voiceSeconds,
+        };
       })
       .filter((entry) => entry.userId && entry.exp > 0)
       .sort((a, b) => b.exp - a.exp)
@@ -552,4 +558,6 @@ module.exports = {
   },
   CLASSIFICA_TOGGLE_PREFIX,
   buildClassificaPayload,
+  /** Stessa finestra domenica 21 → ora di +classifica weekly (hourly), usata anche dal sito /user */
+  computeLeaderboardRows,
 };

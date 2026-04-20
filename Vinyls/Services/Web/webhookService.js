@@ -244,7 +244,8 @@ async function startWebhookServer(client) {
     const isUnban = pathStr.startsWith("/webhooks/site-unban");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
-    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers) return next();
+    const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
+    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteLiveEvent) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -263,7 +264,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isSiteRules || isSiteUsers) {
+    } else if (isSiteRules || isSiteUsers || isSiteLiveEvent) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -430,6 +431,7 @@ async function startWebhookServer(client) {
 
   const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
   const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
+  const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -441,6 +443,9 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-users", (req, res) => {
     return handleSiteUsersLeaderboardGet(client, req, res);
+  });
+  app.get("/webhooks/site-live-event", (req, res) => {
+    return handleSiteLiveEventGet(client, req, res);
   });
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
@@ -501,7 +506,7 @@ async function startWebhookServer(client) {
         port +
         (shouldStartDiscadiaVoteHttpWebhook(client) ? " (POST /webhooks/discadia)" : "") +
         (shouldStartTopggVoteHttpWebhook(client) ? " (POST /webhooks/topgg)" : "") +
-        " (GET /webhooks/site-rules, GET /webhooks/site-users)" +
+        " (GET /webhooks/site-rules, GET /webhooks/site-users, GET /webhooks/site-live-event)" +
         (isCandidatureWebsiteApiEnabled()
           ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature, GET /webhooks/site-unban/eligibility, POST /webhooks/site-unban)"
           : ""),

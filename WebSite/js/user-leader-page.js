@@ -84,13 +84,16 @@
   }
 
   function rankClass(rank) {
-    if (rank === 1) return "vc-ul-rank vc-ul-rank--1";
-    if (rank === 2) return "vc-ul-rank vc-ul-rank--2";
-    if (rank === 3) return "vc-ul-rank vc-ul-rank--3";
+    var r = Number(rank) || 0;
+    if (r <= 0) return "vc-ul-rank vc-ul-rank--n";
+    if (r === 1) return "vc-ul-rank vc-ul-rank--1";
+    if (r === 2) return "vc-ul-rank vc-ul-rank--2";
+    if (r === 3) return "vc-ul-rank vc-ul-rank--3";
     return "vc-ul-rank vc-ul-rank--n";
   }
 
   function rankInner(rank) {
+    if (rank <= 0) return '<span class="vc-ul-rank-num">—</span>';
     if (rank <= 3) return '<i class="fa fa-star" aria-hidden="true"></i>';
     return '<span class="vc-ul-rank-num">#' + esc(String(rank)) + "</span>";
   }
@@ -128,6 +131,7 @@
     var rawName = String(row.username || "").trim();
     var name = rawName || "Utente";
     var rank = Number(row.rank) || 0;
+    var rankAria = rank > 0 ? "Posizione " + String(rank) : "Non in classifica";
     var idShort = String(row.userId || "").slice(0, 10);
     var avSrc = esc(avatarUrl(row));
     var avFb = defaultEmbedAvatarUrl(row);
@@ -146,8 +150,8 @@
       "</span>" +
       '<span class="' +
       rankClass(rank) +
-      '" aria-label="Posizione ' +
-      esc(String(rank)) +
+      '" aria-label="' +
+      esc(rankAria) +
       '">' +
       rankInner(rank) +
       "</span>" +
@@ -419,7 +423,10 @@
       "&board=" +
       encodeURIComponent(String(state.board || "level"));
     if (state.searchUserId) {
-      url += "&userId=" + encodeURIComponent(state.searchUserId);
+      var sid = encodeURIComponent(state.searchUserId);
+      url += "&userId=" + sid;
+      url += "&id=" + sid;
+      url += "&searchUserId=" + sid;
       /* CDN/proxy che ignorano la query o cache GET: varia l’URL e disabilita cache browser */
       url += "&_vcq=" + encodeURIComponent(String(Date.now()));
     }
@@ -444,9 +451,27 @@
           return;
         }
         setState("", false);
-        if (out.body.board) state.board = String(out.body.board);
-        applyStats(out.body);
-        render(out.body);
+        var body = out.body;
+        if (state.searchUserId && body && Array.isArray(body.rows)) {
+          var want = String(state.searchUserId);
+          var orig = body.rows;
+          var filtered = orig.filter(function (r) {
+            return String(r.userId || "") === want;
+          });
+          if (filtered.length !== orig.length) {
+            body = Object.assign({}, body, {
+              rows: filtered,
+              total: filtered.length,
+              totalPages: 1,
+              page: 1,
+              search: true,
+              notFound: filtered.length === 0,
+            });
+          }
+        }
+        if (body.board) state.board = String(body.board);
+        applyStats(body);
+        render(body);
         syncSearchUi();
       })
       .catch(function () {
@@ -498,6 +523,8 @@
         }
         this.classList.add("vc-notify-filter-btn--on");
         this.setAttribute("aria-current", "true");
+        var sidInp = byId("vc-ul-search-id");
+        if (sidInp && state.searchUserId) sidInp.value = state.searchUserId;
         load();
       });
     }

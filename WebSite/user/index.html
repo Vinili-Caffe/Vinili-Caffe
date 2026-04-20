@@ -182,65 +182,67 @@
       </section>
 
       <section class="mt-8 flex w-full max-w-5xl flex-col gap-3">
-        <div
-          id="vc-ul-board-tabs"
-          class="vc-ul-board-tabs flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2"
-        >
-          <button type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on" id="vc-ul-tab-level" data-board="level" aria-current="true">
-            <i class="fa fa-trophy" aria-hidden="true"></i> Top livello
-          </button>
-          <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-weekly" data-board="weekly">
-            <i class="fa fa-line-chart" aria-hidden="true"></i> Top settimanale
-          </button>
-          <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-msg" data-board="messages">
-            <i class="fa fa-comments-o" aria-hidden="true"></i> Top messaggi
-          </button>
-          <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-voice" data-board="voice">
-            <i class="fa fa-microphone" aria-hidden="true"></i> Top voice
-          </button>
-          <button
-            type="button"
-            class="vc-notify-filter-btn vc-ul-filter-tab"
-            id="vc-ul-open-filters"
-            aria-expanded="false"
-            aria-controls="vc-ul-filters-wrap"
+        <div class="vc-ul-toolbar flex max-w-full flex-col gap-2 self-start">
+          <div
+            id="vc-ul-board-tabs"
+            class="vc-ul-board-tabs flex w-auto min-w-0 max-w-full flex-wrap items-center gap-2 self-start rounded-xl border border-white/10 bg-white/[0.03] p-2"
           >
-            <i class="fa fa-filter" aria-hidden="true"></i> Filtri
-            <i class="fa fa-chevron-down vc-ul-filter-chevron" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div id="vc-ul-filters-wrap" class="vc-ul-filters-wrap" hidden>
-          <div id="vc-ul-filters-panel" class="vc-ul-filters-panel" role="region" aria-label="Cerca per ID Discord">
-            <p class="vc-ul-filters-heading">Cerca un utente per ID Discord</p>
-            <form class="vc-ul-filters-form" id="vc-ul-filters-form" action="#" method="get">
-              <div class="vc-ul-filters-inputwrap">
-                <div class="vc-ul-filters-infield">
-                  <i class="fa fa-search vc-ul-filters-ico" aria-hidden="true"></i>
-                  <input
-                    type="text"
-                    class="vc-ul-filters-input"
-                    id="vc-ul-search-id"
-                    placeholder="Es: 687026611996197069"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    spellcheck="false"
-                    maxlength="22"
-                  />
+            <button type="button" class="vc-notify-filter-btn vc-notify-filter-btn--on" id="vc-ul-tab-level" data-board="level" aria-current="true">
+              <i class="fa fa-trophy" aria-hidden="true"></i> Top livello
+            </button>
+            <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-weekly" data-board="weekly">
+              <i class="fa fa-line-chart" aria-hidden="true"></i> Top settimanale
+            </button>
+            <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-msg" data-board="messages">
+              <i class="fa fa-comments-o" aria-hidden="true"></i> Top messaggi
+            </button>
+            <button type="button" class="vc-notify-filter-btn" id="vc-ul-tab-voice" data-board="voice">
+              <i class="fa fa-microphone" aria-hidden="true"></i> Top voice
+            </button>
+            <button
+              type="button"
+              class="vc-notify-filter-btn vc-ul-filter-tab"
+              id="vc-ul-open-filters"
+              aria-expanded="false"
+              aria-controls="vc-ul-filters-wrap"
+            >
+              <i class="fa fa-filter" aria-hidden="true"></i> Filtri
+              <i class="fa fa-chevron-down vc-ul-filter-chevron" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div id="vc-ul-filters-wrap" class="vc-ul-filters-wrap" hidden>
+            <div id="vc-ul-filters-panel" class="vc-ul-filters-panel" role="region" aria-label="Cerca per ID Discord">
+              <p class="vc-ul-filters-heading">Cerca un utente per ID Discord</p>
+              <form class="vc-ul-filters-form" id="vc-ul-filters-form" action="#" method="get">
+                <div class="vc-ul-filters-inputwrap">
+                  <div class="vc-ul-filters-infield">
+                    <i class="fa fa-search vc-ul-filters-ico" aria-hidden="true"></i>
+                    <input
+                      type="text"
+                      class="vc-ul-filters-input"
+                      id="vc-ul-search-id"
+                      placeholder="Es: 687026611996197069"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      spellcheck="false"
+                      maxlength="22"
+                    />
+                  </div>
+                  <button type="submit" class="vc-ul-filters-submit" id="vc-ul-search-go">
+                    <i class="fa fa-search" aria-hidden="true"></i> Cerca
+                  </button>
                 </div>
-                <button type="submit" class="vc-ul-filters-submit" id="vc-ul-search-go">
-                  <i class="fa fa-search" aria-hidden="true"></i> Cerca
-                </button>
+              </form>
+              <div class="vc-ul-filters-hint">
+                <p class="vc-ul-filters-hint-title">
+                  <i class="fa fa-info-circle" aria-hidden="true"></i> Come copiare il tuo ID
+                </p>
+                <ol class="vc-ul-filters-hint-ol">
+                  <li>Discord <strong>Impostazioni</strong> → <strong>Avanzate</strong> → attiva <strong>Modalità sviluppatore</strong>.</li>
+                  <li>Tasto destro sul tuo profilo o avatar → <strong>Copia ID utente</strong>.</li>
+                  <li>Incolla qui e premi Cerca. Lascia il campo vuoto e premi Cerca per tornare alla classifica completa.</li>
+                </ol>
               </div>
-            </form>
-            <div class="vc-ul-filters-hint">
-              <p class="vc-ul-filters-hint-title">
-                <i class="fa fa-info-circle" aria-hidden="true"></i> Come copiare il tuo ID
-              </p>
-              <ol class="vc-ul-filters-hint-ol">
-                <li>Discord <strong>Impostazioni</strong> → <strong>Avanzate</strong> → attiva <strong>Modalità sviluppatore</strong>.</li>
-                <li>Tasto destro sul tuo profilo o avatar → <strong>Copia ID utente</strong>.</li>
-                <li>Incolla qui e premi Cerca. Lascia il campo vuoto e premi Cerca per tornare alla classifica completa.</li>
-              </ol>
             </div>
           </div>
         </div>

@@ -267,3 +267,149 @@
 
   wireIntroObserver();
 })();
+(function () {
+  var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
+  if (!cfg || cfg.enabled !== true) return;
+  var apiProd = String(cfg.liveEventApiUrl || "").trim();
+  if (!apiProd) return;
+
+  function isLocalOrigin() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function resolvedLiveEventUrl() {
+    var local = String(cfg.liveEventApiUrlLocal || "").trim();
+    if (isLocalOrigin() && local) return local;
+    return apiProd;
+  }
+
+  function isHomePath() {
+    try {
+      var raw = String(location.pathname || "/");
+      var p = raw.replace(/\/+$/, "") || "/";
+      if (p === "/" || p === "") return true;
+      return /^\/index\.html$/i.test(raw);
+    } catch (e2) {
+      return true;
+    }
+  }
+
+  if (!isHomePath()) return;
+
+  var DISMISS_KEY = "vc_live_event_hide_sess_v1";
+  var root = document.getElementById("vc-live-event-modal");
+  if (!root) return;
+  var titleEl = document.getElementById("vc-live-event-title");
+  var descEl = document.getElementById("vc-live-event-desc");
+  var prim = document.getElementById("vc-live-event-primary");
+  var inv = document.getElementById("vc-live-event-invite");
+  if (!titleEl || !descEl || !prim || !inv) return;
+
+  var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
+  var escBound = false;
+  var lastShownId = "";
+
+  function isDismissedSession(eid) {
+    try {
+      return sessionStorage.getItem(DISMISS_KEY) === String(eid);
+    } catch (e3) {
+      return false;
+    }
+  }
+
+  function dismissSession(eid) {
+    try {
+      sessionStorage.setItem(DISMISS_KEY, String(eid));
+    } catch (e4) {}
+  }
+
+  function hideModal() {
+    root.hidden = true;
+    root.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    if (escBound) {
+      document.removeEventListener("keydown", onKey);
+      escBound = false;
+    }
+  }
+
+  function onKey(ev) {
+    if (ev.key === "Escape") hideModal();
+  }
+
+  function showModal(data) {
+    var ev = data && data.event ? data.event : null;
+    if (!ev || !ev.id) return;
+    if (isDismissedSession(ev.id)) return;
+    if (lastShownId === ev.id && !root.hidden) return;
+
+    lastShownId = String(ev.id);
+    titleEl.textContent = ev.name || "Evento in corso";
+    descEl.textContent =
+      "In questo momento sul server Discord c’è un evento attivo. Unisciti dalla app o dal browser.";
+    if (ev.description && String(ev.description).trim()) {
+      descEl.textContent = String(ev.description).trim();
+    }
+    var invite = String(data.inviteUrl || inv.getAttribute("href") || "").trim();
+    if (invite) inv.setAttribute("href", invite);
+    var url = String(ev.buttonUrl || ev.eventUrl || invite).trim();
+    var label = String(ev.buttonLabel || "Partecipa").trim() || "Partecipa";
+    prim.setAttribute("href", url || invite);
+    prim.textContent = label;
+
+    root.hidden = false;
+    root.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    if (!escBound) {
+      document.addEventListener("keydown", onKey);
+      escBound = true;
+    }
+    try {
+      prim.focus();
+    } catch (e5) {}
+  }
+
+  root.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest("[data-vc-live-event-close]")) {
+      if (lastShownId) dismissSession(lastShownId);
+      hideModal();
+    }
+  });
+
+  function poll() {
+    var u = resolvedLiveEventUrl();
+    if (!u) return;
+    fetch(u, { credentials: "omit", cache: "no-store" })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return null;
+        });
+      })
+      .then(function (j) {
+        if (!j || j.ok !== true) return;
+        if (j.active && j.event && j.event.id) {
+          showModal(j);
+        } else {
+          if (!root.hidden) hideModal();
+          lastShownId = "";
+        }
+      })
+      .catch(function () {});
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setTimeout(poll, 1800);
+    });
+  } else {
+    setTimeout(poll, 1800);
+  }
+  setInterval(poll, pollMs);
+})();
