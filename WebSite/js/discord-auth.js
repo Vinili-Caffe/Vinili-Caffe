@@ -35,6 +35,9 @@
 
   function showSessionVerifyOverlay() {
     var el = ensureSessionVerifyOverlay();
+    try {
+      document.documentElement.classList.remove("vc-session-verify-pending");
+    } catch (e) {}
     el.classList.remove("vc-session-verify-overlay--hidden");
     el.setAttribute("aria-busy", "true");
   }
@@ -235,6 +238,9 @@
   }
 
   function renderLoggedOut() {
+    try {
+      document.documentElement.classList.remove("vc-session-verify-pending");
+    } catch (e) {}
     hideSessionVerifyOverlay();
     var loginBtn = byId("discord-login-btn");
     var state = byId("discord-login-state");
@@ -347,6 +353,9 @@
     }
     var t = getToken();
     if (!t) {
+      try {
+        document.documentElement.classList.remove("vc-session-verify-pending");
+      } catch (e2) {}
       renderLoggedOut();
       return;
     }

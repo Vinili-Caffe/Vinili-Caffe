@@ -121,11 +121,6 @@ function getWeekKey(date) {
   return `${utcDate.getUTCFullYear()}-W${pad2(weekNr)}`;
 }
 
-function getNextWeekKey(date) {
-  const next = new Date(date.getTime() + 24 * 60 * 60 * 1000);
-  return getWeekKey(next);
-}
-
 function getWeekdayRome(date) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" });
   return formatter.format(date);
@@ -529,7 +524,10 @@ async function resetWeeklyActivityCounters(client, options = {}) {
     return;
   }
   const now = new Date();
-  const nextWeekKey = options.nextWeekKey != null ? options.nextWeekKey : getNextWeekKey(now);
+  /* Deve coincidere con getWeekKey/getIsoWeekKey usati da activityService e expService su “ora”:
+     getNextWeekKey (lunedì) sulla domenica sera metteva una chiave avanti di una settimana ISO,
+     quindi mismatch → contatori settimanali sempre azzerati e sito a 0. */
+  const nextWeekKey = options.nextWeekKey != null ? options.nextWeekKey : getWeekKey(now);
   await ActivityUserProfile.updateMany(
     { guildId },
     {

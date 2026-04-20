@@ -34,6 +34,8 @@
   }
 
   function avatarUrl(row) {
+    var fromApi = String(row.avatarUrl || "").trim();
+    if (/^https?:\/\//i.test(fromApi)) return fromApi;
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
@@ -42,7 +44,19 @@
     }
     var disc = parseInt(String(row.discriminator || "0"), 10);
     if (!Number.isFinite(disc)) disc = 0;
-    return "https://cdn.discordapp.com/embed/avatars/" + (disc % 5) + ".png";
+    var idx;
+    if (disc !== 0) {
+      idx = disc % 5;
+    } else if (id && /^\d{5,22}$/.test(id)) {
+      try {
+        idx = Number((BigInt(id) >> 22n) % 6n);
+      } catch (e) {
+        idx = 0;
+      }
+    } else {
+      idx = 0;
+    }
+    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
   }
 
   function formatIntIt(n) {
@@ -53,6 +67,20 @@
     } catch (e) {
       return String(Math.round(x));
     }
+  }
+
+  function formatHoursIt(sec) {
+    var s = Number(sec);
+    if (!Number.isFinite(s) || s < 0) return "0h";
+    var h = s / 3600;
+    return String(h.toFixed(1)).replace(".", ",") + "h";
+  }
+
+  function formatMult(m) {
+    var x = Number(m);
+    if (!Number.isFinite(x) || x <= 0) return "x1";
+    if (Math.abs(x - Math.round(x)) < 0.02) return "x" + String(Math.round(x));
+    return "x" + String(x.toFixed(1)).replace(".", ",");
   }
 
   function rankClass(rank) {
@@ -67,7 +95,26 @@
     return '<span class="vc-ul-rank-num">#' + esc(String(rank)) + "</span>";
   }
 
-  var state = { page: 1, totalPages: 1, loading: false };
+  function defaultEmbedAvatarUrl(row) {
+    var id = String(row.userId || "").trim();
+    var disc = parseInt(String(row.discriminator || "0"), 10);
+    var idx;
+    if (!Number.isFinite(disc)) disc = 0;
+    if (disc !== 0) {
+      idx = disc % 5;
+    } else if (id && /^\d{5,22}$/.test(id)) {
+      try {
+        idx = Number((BigInt(id) >> 22n) % 6n);
+      } catch (e) {
+        idx = 0;
+      }
+    } else {
+      idx = 0;
+    }
+    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+  }
+
+  var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false };
 
   function setState(msg, isErr) {
     var el = byId("vc-user-leader-state");
@@ -77,18 +124,21 @@
     el.hidden = !msg;
   }
 
-  function renderCard(row) {
-    var name = String(row.displayName || row.username || "Utente").trim() || "Utente";
+  function cardHead(row) {
+    var rawName = String(row.username || "").trim();
+    var name = rawName || "Utente";
     var rank = Number(row.rank) || 0;
-    var pct = Math.max(0, Math.min(100, Number(row.progressPercent) || 0));
     var idShort = String(row.userId || "").slice(0, 10);
+    var avSrc = esc(avatarUrl(row));
+    var avFb = defaultEmbedAvatarUrl(row);
     return (
-      '<article class="vc-ul-card" role="listitem">' +
       '<div class="vc-ul-card-head">' +
       '<div class="vc-ul-card-user">' +
       '<img class="vc-ul-avatar" src="' +
-      esc(avatarUrl(row)) +
-      '" alt="" width="48" height="48" loading="lazy" decoding="async" />' +
+      avSrc +
+      '" alt="" width="48" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+      avFb +
+      '\'" />' +
       '<div class="vc-ul-card-names">' +
       '<div class="vc-ul-card-title-row">' +
       '<span class="vc-ul-card-name">' +
@@ -107,7 +157,15 @@
       "…</p>" +
       "</div>" +
       "</div>" +
-      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderCardLevel(row) {
+    var pct = Math.max(0, Math.min(100, Number(row.progressPercent) || 0));
+    return (
+      '<article class="vc-ul-card" role="listitem">' +
+      cardHead(row) +
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Livello</span>' +
@@ -136,12 +194,137 @@
     );
   }
 
+  function renderCardWeekly(row) {
+    var pct = Math.max(0, Math.min(100, Number(row.progressPercent) || 0));
+    var wPct = Math.max(0, Math.min(100, Number(row.weeklyBarPct) || 0));
+    var mult = formatMult(row.expMultiplier != null ? row.expMultiplier : 1);
+    return (
+      '<article class="vc-ul-card vc-ul-card--weekly" role="listitem">' +
+      cardHead(row) +
+      '<div class="vc-ul-card-stats">' +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Livello</span>' +
+      '<span class="vc-ul-statbox-val">' +
+      esc(String(row.level != null ? row.level : "0")) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">EXP</span>' +
+      '<span class="vc-ul-statbox-val">' +
+      esc(formatIntIt(row.exp)) +
+      "</span>" +
+      "</div>" +
+      "</div>" +
+      '<div class="vc-ul-stat-wide">' +
+      '<div class="vc-ul-stat-wide-row">' +
+      '<span class="vc-ul-stat-wide-label">EXP settimanale</span>' +
+      '<span class="vc-ul-stat-wide-val">' +
+      esc(formatIntIt(row.weeklyExp)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-progress vc-ul-progress--inset" aria-hidden="true"><span class="vc-ul-progress-fill" style="width:' +
+      esc(String(wPct)) +
+      '%"></span></div>' +
+      "</div>" +
+      '<div class="vc-ul-progress" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--muted" style="width:' +
+      esc(String(pct)) +
+      '%"></span></div>' +
+      '<div class="vc-ul-card-foot">' +
+      '<span class="vc-ul-foot-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>' +
+      '<span class="vc-ul-foot-label">Moltiplicatore</span>' +
+      '<span class="vc-ul-foot-val">' +
+      esc(mult) +
+      "</span>" +
+      "</div>" +
+      "</article>"
+    );
+  }
+
+  function renderCardMessages(row) {
+    var wPct = Math.max(0, Math.min(100, Number(row.messagesWeeklyBarPct) || 0));
+    return (
+      '<article class="vc-ul-card vc-ul-card--messages" role="listitem">' +
+      cardHead(row) +
+      '<div class="vc-ul-card-stats">' +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Messaggi</span>' +
+      '<span class="vc-ul-statbox-val">' +
+      esc(formatIntIt(row.messagesTotal)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Msg settimanali</span>' +
+      '<span class="vc-ul-statbox-val">' +
+      esc(formatIntIt(row.messagesWeekly)) +
+      "</span>" +
+      "</div>" +
+      "</div>" +
+      '<div class="vc-ul-stat-wide">' +
+      '<div class="vc-ul-stat-wide-row">' +
+      '<span class="vc-ul-stat-wide-label">Messaggi giornalieri</span>' +
+      '<span class="vc-ul-stat-wide-val">' +
+      esc(formatIntIt(row.messagesDaily)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-progress vc-ul-progress--inset" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--msg" style="width:' +
+      esc(String(wPct)) +
+      '%"></span></div>' +
+      "</div>" +
+      "</article>"
+    );
+  }
+
+  function renderCardVoice(row) {
+    var wPct = Math.max(0, Math.min(100, Number(row.voiceWeeklyBarPct) || 0));
+    return (
+      '<article class="vc-ul-card vc-ul-card--voice" role="listitem">' +
+      cardHead(row) +
+      '<div class="vc-ul-card-stats">' +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Ore totali</span>' +
+      '<span class="vc-ul-statbox-val">' +
+      esc(formatHoursIt(row.voiceTotalSeconds)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-statbox">' +
+      '<span class="vc-ul-statbox-label">Ore settimanali</span>' +
+      '<span class="vc-ul-statbox-val">' +
+      esc(formatHoursIt(row.voiceWeeklySeconds)) +
+      "</span>" +
+      "</div>" +
+      "</div>" +
+      '<div class="vc-ul-stat-wide">' +
+      '<div class="vc-ul-stat-wide-row">' +
+      '<span class="vc-ul-stat-wide-label">Ore giornaliere</span>' +
+      '<span class="vc-ul-stat-wide-val">' +
+      esc(formatHoursIt(row.voiceDailySeconds)) +
+      "</span>" +
+      "</div>" +
+      '<div class="vc-ul-progress vc-ul-progress--inset" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--voice" style="width:' +
+      esc(String(wPct)) +
+      '%"></span></div>' +
+      "</div>" +
+      "</article>"
+    );
+  }
+
+  function renderCard(row, board) {
+    if (board === "weekly") return renderCardWeekly(row);
+    if (board === "messages") return renderCardMessages(row);
+    if (board === "voice") return renderCardVoice(row);
+    return renderCardLevel(row);
+  }
+
   function updatePager() {
     var nav = byId("vc-ul-pager");
     var prev = byId("vc-ul-prev");
     var next = byId("vc-ul-next");
     var lab = byId("vc-ul-page-label");
     if (!nav || !prev || !next || !lab) return;
+    if (state.searchUserId) {
+      nav.hidden = true;
+      return;
+    }
     var tp = Math.max(1, state.totalPages);
     nav.hidden = tp <= 1;
     prev.disabled = state.page <= 1;
@@ -151,8 +334,10 @@
 
   function applyStats(data) {
     var st = data && data.stats ? data.stats : {};
+    var board = String((data && data.board) || state.board || "level");
     var mem = byId("vc-ul-stat-members");
-    var tl = byId("vc-ul-stat-toplvl");
+    var midLabel = byId("vc-ul-stat-mid-label");
+    var midVal = byId("vc-ul-stat-mid-value");
     var tn = byId("vc-ul-stat-topname");
     var sub = byId("vc-user-leader-sub");
     if (mem) {
@@ -161,15 +346,36 @@
           ? formatIntIt(st.membersApprox)
           : "—";
     }
-    if (tl) tl.textContent = st.topLevel != null ? formatIntIt(st.topLevel) : "—";
-    if (tn) tn.textContent = String(st.topDisplayName || "—").trim() || "—";
-    if (sub) {
-      var ranked = data && data.total != null ? formatIntIt(data.total) : "0";
-      var line = ranked + " utenti in classifica per EXP totale";
-      if (st.membersApprox != null && Number.isFinite(Number(st.membersApprox))) {
-        line = formatIntIt(st.membersApprox) + " membri · " + line;
+    if (midLabel && midVal) {
+      if (board === "level") {
+        midLabel.textContent = "Livello più alto";
+        midVal.textContent = st.topLevel != null ? formatIntIt(st.topLevel) : "—";
+      } else if (board === "weekly") {
+        midLabel.textContent = "EXP settimanale più alto";
+        midVal.textContent = st.topWeeklyExp != null ? formatIntIt(st.topWeeklyExp) : "—";
+      } else if (board === "messages") {
+        midLabel.textContent = "Messaggi più alti";
+        midVal.textContent = st.topMessagesTotal != null ? formatIntIt(st.topMessagesTotal) : "—";
+      } else if (board === "voice") {
+        midLabel.textContent = "Ore più alte";
+        midVal.textContent = st.topVoiceSeconds != null ? formatHoursIt(st.topVoiceSeconds) : "—";
+      } else {
+        midLabel.textContent = "—";
+        midVal.textContent = "—";
       }
-      sub.textContent = line;
+    }
+    if (tn) {
+      var topUser = String(st.topPlayerUsername || st.topDisplayName || "—").trim() || "—";
+      tn.textContent = topUser;
+    }
+    if (sub) {
+      var blurb = "";
+      if (board === "level") blurb = "Classifica per EXP totale e livello.";
+      else if (board === "weekly") blurb = "Classifica per EXP guadagnata nella settimana corrente.";
+      else if (board === "messages") blurb = "Classifica per messaggi contati dal bot sul server.";
+      else if (board === "voice") blurb = "Classifica per tempo in canali vocali.";
+      else blurb = "";
+      sub.textContent = blurb;
     }
   }
 
@@ -178,15 +384,23 @@
     var empty = byId("vc-ul-empty");
     if (!grid || !empty) return;
     var rows = (data && data.rows) || [];
+    var board = String((data && data.board) || state.board || "level");
     if (!rows.length) {
       grid.innerHTML = "";
       empty.hidden = false;
       return;
     }
     empty.hidden = true;
-    grid.innerHTML = rows.map(renderCard).join("");
+    grid.innerHTML = rows.map(function (r) {
+      return renderCard(r, board);
+    }).join("");
     state.totalPages = Math.max(1, Number(data.totalPages) || 1);
     updatePager();
+  }
+
+  function syncSearchUi() {
+    var fbtn = byId("vc-ul-open-filters");
+    if (fbtn) fbtn.classList.toggle("vc-ul-filter-tab--has-search", Boolean(state.searchUserId));
   }
 
   function load() {
@@ -201,10 +415,17 @@
       "page=" +
       encodeURIComponent(String(state.page)) +
       "&perPage=" +
-      encodeURIComponent(String(PER_PAGE));
+      encodeURIComponent(String(PER_PAGE)) +
+      "&board=" +
+      encodeURIComponent(String(state.board || "level"));
+    if (state.searchUserId) {
+      url += "&userId=" + encodeURIComponent(state.searchUserId);
+      /* CDN/proxy che ignorano la query o cache GET: varia l’URL e disabilita cache browser */
+      url += "&_vcq=" + encodeURIComponent(String(Date.now()));
+    }
     state.loading = true;
     setState("Caricamento…", false);
-    fetch(url, { credentials: "omit" })
+    fetch(url, { credentials: "omit", cache: "no-store" })
       .then(function (r) {
         return r.json().then(function (j) {
           return { ok: r.ok, status: r.status, body: j };
@@ -217,13 +438,16 @@
             (out.body && (out.body.message || out.body.error)) ||
             ("HTTP " + String(out.status || "") + " — dati non disponibili.");
           setState(String(msg), true);
-          render({ rows: [], total: 0, totalPages: 1 });
+          render({ rows: [], total: 0, totalPages: 1, board: state.board });
           updatePager();
+          syncSearchUi();
           return;
         }
         setState("", false);
+        if (out.body.board) state.board = String(out.body.board);
         applyStats(out.body);
         render(out.body);
+        syncSearchUi();
       })
       .catch(function () {
         state.loading = false;
@@ -231,8 +455,9 @@
           "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
           true,
         );
-        render({ rows: [], total: 0, totalPages: 1 });
+        render({ rows: [], total: 0, totalPages: 1, board: state.board });
         updatePager();
+        syncSearchUi();
       });
   }
 
@@ -257,8 +482,92 @@
     }
   }
 
+  function initBoardTabs() {
+    var wrap = byId("vc-ul-board-tabs");
+    if (!wrap) return;
+    var tabs = wrap.querySelectorAll("[data-board]");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener("click", function () {
+        var b = this.getAttribute("data-board");
+        if (!b || b === state.board) return;
+        state.board = b;
+        state.page = 1;
+        for (var j = 0; j < tabs.length; j++) {
+          tabs[j].classList.remove("vc-notify-filter-btn--on");
+          tabs[j].removeAttribute("aria-current");
+        }
+        this.classList.add("vc-notify-filter-btn--on");
+        this.setAttribute("aria-current", "true");
+        load();
+      });
+    }
+  }
+
+  function setFiltersOpen(open) {
+    state.filtersOpen = open;
+    var panel = byId("vc-ul-filters-wrap");
+    var btn = byId("vc-ul-open-filters");
+    if (panel) panel.hidden = !open;
+    if (btn) {
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      btn.classList.toggle("vc-notify-filter-btn--on", open);
+    }
+  }
+
+  function initFilters() {
+    var btn = byId("vc-ul-open-filters");
+    var form = byId("vc-ul-filters-form");
+    var inp = byId("vc-ul-search-id");
+    var go = byId("vc-ul-search-go");
+    if (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        setFiltersOpen(!state.filtersOpen);
+      });
+    }
+    function doSearch() {
+      var raw = inp ? String(inp.value || "").trim() : "";
+      if (!raw) {
+        setState("", false);
+        state.searchUserId = "";
+        if (inp) inp.value = "";
+        state.page = 1;
+        setFiltersOpen(false);
+        load();
+        syncSearchUi();
+        return;
+      }
+      var digits = raw.replace(/\D/g, "");
+      if (!/^\d{17,20}$/.test(digits)) {
+        setState("Inserisci un ID valido (17–20 cifre) oppure lascia vuoto per la classifica intera.", true);
+        return;
+      }
+      setState("", false);
+      state.searchUserId = digits;
+      state.page = 1;
+      if (inp) inp.value = digits;
+      setFiltersOpen(false);
+      load();
+      syncSearchUi();
+    }
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        doSearch();
+      });
+    }
+    if (go) {
+      go.addEventListener("click", function (e) {
+        e.preventDefault();
+        doSearch();
+      });
+    }
+  }
+
   function main() {
     initPager();
+    initBoardTabs();
+    initFilters();
     load();
   }
 

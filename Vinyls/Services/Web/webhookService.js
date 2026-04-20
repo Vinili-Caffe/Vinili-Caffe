@@ -445,50 +445,50 @@ async function startWebhookServer(client) {
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
     app.post("/webhooks/discadia", async (req, res) => {
-      try {
-        if (secret) {
-          const receivedSecret = normalizeHeaderSecret(
-            req.headers["authorization"] || req.headers["x-discadia-secret"],
-          );
-          if (receivedSecret !== secret) {
-            global.logger?.warn?.("[WEBHOOK] Discadia: Unauthorized request (secret mismatch)");
-            return res.status(401).send("Unauthorized");
-          }
+    try {
+      if (secret) {
+        const receivedSecret = normalizeHeaderSecret(
+          req.headers["authorization"] || req.headers["x-discadia-secret"],
+        );
+        if (receivedSecret !== secret) {
+          global.logger?.warn?.("[WEBHOOK] Discadia: Unauthorized request (secret mismatch)");
+          return res.status(401).send("Unauthorized");
         }
+      }
 
-        const user_id = extractVoteWebhookUserId(req.body);
-        if (!user_id) {
-          global.logger?.warn?.(
-            "[WEBHOOK] Discadia: User ID missing; body keys: " +
-              (req.body && typeof req.body === "object" ? Object.keys(req.body).join(", ") : "(non-object)"),
-          );
-          return res.status(400).send("User ID missing");
-        }
+      const user_id = extractVoteWebhookUserId(req.body);
+      if (!user_id) {
+        global.logger?.warn?.(
+          "[WEBHOOK] Discadia: User ID missing; body keys: " +
+            (req.body && typeof req.body === "object" ? Object.keys(req.body).join(", ") : "(non-object)"),
+        );
+        return res.status(400).send("User ID missing");
+      }
 
-        const guildId = client.config.mainGuildId || IDs.guilds.main;
+      const guildId = client.config.mainGuildId || IDs.guilds.main;
         const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
 
-        if (!guild) {
-          global.logger?.error?.("[WEBHOOK] Discadia: Guild not found for ID " + guildId);
-          return res.status(500).send("Guild not found");
-        }
+      if (!guild) {
+        global.logger?.error?.("[WEBHOOK] Discadia: Guild not found for ID " + guildId);
+        return res.status(500).send("Guild not found");
+      }
 
-        const user = await client.users.fetch(user_id).catch(() => null);
-        if (!user) {
-          global.logger?.warn?.("[WEBHOOK] Discadia: User not found for ID " + user_id);
-          return res.status(404).send("User not found");
-        }
+      const user = await client.users.fetch(user_id).catch(() => null);
+      if (!user) {
+        global.logger?.warn?.("[WEBHOOK] Discadia: User not found for ID " + user_id);
+        return res.status(404).send("User not found");
+      }
 
         const handled = await processDiscadiaVote(guild, user, client, { voteListing: "discadia" });
-        if (handled) {
-          return res.status(200).send("Vote Processed");
-        }
-        return res.status(500).send("Vote processing failed");
-      } catch (err) {
-        global.logger?.error?.("[WEBHOOK] Discadia: Error handling webhook", err);
-        return res.status(500).send("Internal Server Error");
+      if (handled) {
+        return res.status(200).send("Vote Processed");
       }
-    });
+      return res.status(500).send("Vote processing failed");
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] Discadia: Error handling webhook", err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
   }
 
   app.get("/webhooks/status", (req, res) => {

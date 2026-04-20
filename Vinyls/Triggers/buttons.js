@@ -563,6 +563,8 @@ module.exports = {
           valuesExisting = partitioned.existing;
         }
 
+        /** `roles.add` restituisce il membro aggiornato; il refetch subito dopo può dare falsi "non applicati". */
+        let memberAfterDirectAdd = null;
         if (isRemoveAction) {
           if (colorMenuIds.includes(menuId)) {
             await setMemberRolesBulk(member, rolesToRemoveExisting, []);
@@ -581,17 +583,21 @@ module.exports = {
             logButtonErr(err);
             return null;
           });
+          if (afterAdd) memberAfterDirectAdd = afterAdd;
           if (!afterAdd && valuesExisting.length) {
             logButtonErr(new Error(`roles.add fallita (menu=${menuId})`), { warn: true });
           }
         }
 
-        const m = await interaction.guild.members
-          .fetch({ user: interaction.user.id, force: true })
-          .catch((err) => {
-            logButtonErr(err, { warn: true });
-            return member;
-          });
+        let m = memberAfterDirectAdd;
+        if (!m) {
+          m = await interaction.guild.members
+            .fetch({ user: interaction.user.id, force: true })
+            .catch((err) => {
+              logButtonErr(err, { warn: true });
+              return member;
+            });
+        }
         const afterRoleSet = new Set(m?.roles?.cache?.keys?.() || []);
         const removedRoleIds = trackedRoleIds.filter((rid) => beforeRoleSet.has(rid) && !afterRoleSet.has(rid));
         const addedRoleIds = trackedRoleIds.filter((rid) => !beforeRoleSet.has(rid) && afterRoleSet.has(rid));
