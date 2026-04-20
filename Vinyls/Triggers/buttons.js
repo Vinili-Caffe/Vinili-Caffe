@@ -573,19 +573,25 @@ module.exports = {
           await setMemberRolesBulk(member, rolesToRemoveExisting, valuesExisting);
         } else {
           await removeMemberRolesSequential(member, rolesToRemoveExisting);
-          const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
+          const mAdd = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
             logButtonErr(err, { warn: true });
             return member;
           });
-          await m.roles.add(valuesExisting).catch((err) => {
+          const afterAdd = await mAdd.roles.add(valuesExisting).catch((err) => {
             logButtonErr(err);
+            return null;
           });
+          if (!afterAdd && valuesExisting.length) {
+            logButtonErr(new Error(`roles.add fallita (menu=${menuId})`), { warn: true });
+          }
         }
 
-        const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
-          logButtonErr(err, { warn: true });
-          return member;
-        });
+        const m = await interaction.guild.members
+          .fetch({ user: interaction.user.id, force: true })
+          .catch((err) => {
+            logButtonErr(err, { warn: true });
+            return member;
+          });
         const afterRoleSet = new Set(m?.roles?.cache?.keys?.() || []);
         const removedRoleIds = trackedRoleIds.filter((rid) => beforeRoleSet.has(rid) && !afterRoleSet.has(rid));
         const addedRoleIds = trackedRoleIds.filter((rid) => !beforeRoleSet.has(rid) && afterRoleSet.has(rid));

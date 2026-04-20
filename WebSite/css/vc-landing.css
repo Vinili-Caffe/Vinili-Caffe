@@ -2252,10 +2252,15 @@ textarea.vc-candidature-input {
   color: #fff;
 }
 .vc-notify-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid transparent;
   border-radius: 0.6rem;
   min-height: 2.2rem;
   padding: 0 0.8rem;
+  box-sizing: border-box;
+  line-height: 1.2;
   background: transparent;
   color: rgba(226, 232, 240, 0.88);
   font-size: 0.86rem;

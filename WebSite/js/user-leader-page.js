@@ -227,7 +227,10 @@
       })
       .catch(function () {
         state.loading = false;
-        setState("Impossibile contattare l’API classifica (rete o CORS). Verifica che il bot esponga GET /webhooks/site-users.", true);
+        setState(
+          "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
+          true,
+        );
         render({ rows: [], total: 0, totalPages: 1 });
         updatePager();
       });

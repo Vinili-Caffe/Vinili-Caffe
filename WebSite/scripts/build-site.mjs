@@ -359,12 +359,14 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
       ? ""
       : String(ls.extraStatsPath != null ? ls.extraStatsPath : "/live-stats-extra.json");
   const pollMs = Number.isFinite(Number(ls.pollIntervalMs)) ? Number(ls.pollIntervalMs) : 45000;
+  const introFallbackMs = Number.isFinite(Number(ls.introFallbackMs)) ? Number(ls.introFallbackMs) : 45000;
   const payload = {
     enabled: true,
     inviteCode: code,
     inviteProxyPath: inviteProxy,
     extraStatsPath: extraStats,
     pollIntervalMs: pollMs,
+    introFallbackMs,
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
   return (

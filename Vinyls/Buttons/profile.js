@@ -457,7 +457,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
           .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
         : ["- Nessun voto registrato."];
       return base.setDescription([
-        "<:VC_PinkQuestionMark:1471892611026391306> Stato voti del **contest disegni** (stessa logica degli sfondi: ruoli, bonus top 3, ecc.).",
+        "<:VC_PinkQuestionMark:1471892611026391306> Stato voti del **contest disegni**.",
         "",
         `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
         `<:VC_Dot:1482532364222595303> Voti usati: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,

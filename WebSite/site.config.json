@@ -70,7 +70,8 @@
     "enabled": true,
     "inviteProxyPath": "/discord-invite.json",
     "extraStatsPath": "/live-stats-extra.json",
-    "pollIntervalMs": 45000
+    "pollIntervalMs": 45000,
+    "introFallbackMs": 45000
   },
   "statMembers": "0",
   "statBoosts": "0",

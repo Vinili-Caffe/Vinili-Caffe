@@ -31,11 +31,18 @@ function isCandidatureWebsiteApiEnabled() {
   return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_CANDIDATURE_HTTP || "").trim().toLowerCase());
 }
 
+function shouldStartPublicSiteReadonlyHttp() {
+  const raw = process.env.WEBSITE_PUBLIC_HTTP;
+  if (raw == null || String(raw).trim() === "") return true;
+  return ["1", "true", "yes", "on"].includes(String(raw).trim().toLowerCase());
+}
+
 function shouldStartBotHttpServer(client) {
   return (
     shouldStartDiscadiaVoteHttpWebhook(client) ||
     shouldStartTopggVoteHttpWebhook(client) ||
-    isCandidatureWebsiteApiEnabled()
+    isCandidatureWebsiteApiEnabled() ||
+    shouldStartPublicSiteReadonlyHttp()
   );
 }
 
@@ -256,6 +263,8 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
+    } else if (isSiteRules || isSiteUsers) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader(
@@ -513,5 +522,6 @@ module.exports = {
   shouldStartDiscadiaVoteHttpWebhook,
   shouldStartTopggVoteHttpWebhook,
   shouldStartBotHttpServer,
+  shouldStartPublicSiteReadonlyHttp,
   isCandidatureWebsiteApiEnabled,
 };

@@ -213,8 +213,15 @@
     return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
   }
 
+  function statsIntroTargetEl() {
+    var sec = document.getElementById("stats");
+    if (!sec) return null;
+    var strip = sec.querySelector(".vc-stat-strip");
+    return strip || sec;
+  }
+
   function wireIntroObserver() {
-    var root = document.getElementById("stats");
+    var root = statsIntroTargetEl();
     if (!root) {
       startIntroThenPoll();
       return;
@@ -227,27 +234,35 @@
       startIntroThenPoll();
       return;
     }
+    var introThreshold = 0.38;
     var obs = new IntersectionObserver(
       function (entries) {
         for (var i = 0; i < entries.length; i += 1) {
-          if (entries[i].isIntersecting) {
-            obs.disconnect();
-            if (ioFallbackTimer) {
-              clearTimeout(ioFallbackTimer);
-              ioFallbackTimer = null;
-            }
-            startIntroThenPoll();
-            return;
+          var e = entries[i];
+          if (!e.isIntersecting) continue;
+          var ratio = typeof e.intersectionRatio === "number" ? e.intersectionRatio : 0;
+          if (ratio < introThreshold) continue;
+          obs.disconnect();
+          if (ioFallbackTimer) {
+            clearTimeout(ioFallbackTimer);
+            ioFallbackTimer = null;
           }
+          startIntroThenPoll();
+          return;
         }
       },
-      { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.15 },
+      {
+        root: null,
+        rootMargin: "0px 0px -18% 0px",
+        threshold: [0, 0.12, 0.25, introThreshold, 0.5, 0.75, 1],
+      },
     );
     obs.observe(root);
+    var fallbackMs = Math.max(12000, Math.min(120000, Number(cfg.introFallbackMs) || 45000));
     ioFallbackTimer = setTimeout(function () {
       obs.disconnect();
       if (!introHasStarted) startIntroThenPoll();
-    }, 5000);
+    }, fallbackMs);
   }
 
   wireIntroObserver();
