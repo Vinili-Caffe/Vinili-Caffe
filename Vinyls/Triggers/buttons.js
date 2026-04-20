@@ -7,8 +7,17 @@ const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles");
 
 /** Unione dei ruoli colore “normali” (ex menu 1+2): serve a toglierli tutti quando si cambia colore o si usa Plus. */
 const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
-  "1442568958656905318", "1442568956832645212", "1442568961077153994", "1442568960016121998", "1442568963836874886", "1442568965040636019", "1442568967045648412", "1442568962167541760", "1442568968371048449", "1442568969528541225", "1442568970497687717", "1442568971357388912", "1442568972745838667", "1442568975966797926",
-  "1442568976944201828", "1442568974486208634", "1442568977896439960", "1442568979473371258", "1442568980626673685", "1442568981792948304", "1442568982769959002", "1442568983898357954", "1442568985278156971", "1442568986720993350", "1442568987887276133", "1442568988961013821", "1442568989866725468", "1442568991150309578",
+  "1442568956832645212",
+  "1442568967045648412",
+  "1442568969528541225",
+  "1442568976944201828",
+  "1442568977896439960",
+  "1442568980626673685",
+  "1442568983898357954",
+  "1442568985278156971",
+  "1442568987887276133",
+  "1442568989866725468",
+  "1442568991150309578",
 ];
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
@@ -540,16 +549,27 @@ module.exports = {
       }
 
       try {
-        if (!values.length || values.includes("remove")) {
+        const beforeMember = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
+          logButtonErr(err, { warn: true });
+          return member;
+        });
+        const trackedRoleIds = (colorMenuIds.includes(menuId) ? allColorRoleIds : roleIds).filter(Boolean);
+        const beforeRoleSet = new Set(beforeMember?.roles?.cache?.keys?.() || []);
+        const isRemoveAction = !values.length || values.includes("remove");
+        let valuesExisting = [];
+
+        if (!isRemoveAction) {
+          const partitioned = partitionRoleIdsByExisting(guild, values, `menu=${menuId} (selezione utente)`);
+          valuesExisting = partitioned.existing;
+        }
+
+        if (isRemoveAction) {
           if (colorMenuIds.includes(menuId)) {
             await setMemberRolesBulk(member, rolesToRemoveExisting, []);
           } else {
             await removeMemberRolesSequential(member, rolesToRemoveExisting);
           }
-          return;
-        }
-        const { existing: valuesExisting } = partitionRoleIdsByExisting(guild, values, `menu=${menuId} (selezione utente)`);
-        if (colorMenuIds.includes(menuId)) {
+        } else if (colorMenuIds.includes(menuId)) {
           await setMemberRolesBulk(member, rolesToRemoveExisting, valuesExisting);
         } else {
           await removeMemberRolesSequential(member, rolesToRemoveExisting);
@@ -561,11 +581,33 @@ module.exports = {
             logButtonErr(err);
           });
         }
-        let m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
+
+        const m = await interaction.guild.members.fetch(interaction.user.id).catch((err) => {
           logButtonErr(err, { warn: true });
           return member;
         });
-        const appliedAll = valuesExisting.length ? valuesExisting.every((roleId) => m?.roles?.cache?.has?.(roleId)) : false;
+        const afterRoleSet = new Set(m?.roles?.cache?.keys?.() || []);
+        const removedRoleIds = trackedRoleIds.filter((rid) => beforeRoleSet.has(rid) && !afterRoleSet.has(rid));
+        const addedRoleIds = trackedRoleIds.filter((rid) => !beforeRoleSet.has(rid) && afterRoleSet.has(rid));
+        const toRoleLabel = (rid) => {
+          const role = guild?.roles?.cache?.get?.(rid);
+          return role ? `<@&${rid}>` : null;
+        };
+        const removedRows = removedRoleIds.map(toRoleLabel).filter(Boolean).map((label) => `[-] ${label}`);
+        const addedRows = addedRoleIds.map(toRoleLabel).filter(Boolean).map((label) => `[+] ${label}`);
+        const header = colorMenuIds.includes(menuId) ? "Colore aggiornato:" : "Ruoli aggiornati:";
+        const summaryLines = [...removedRows, ...addedRows];
+        await interaction.followUp({
+          content: summaryLines.length ? [header, ...summaryLines].join("\n") : `${header}\nNessuna modifica.`,
+          flags: PRIVATE_FLAG,
+        }).catch((err) => {
+          logButtonErr(err);
+          return null;
+        });
+        if (isRemoveAction) {
+          return;
+        }
+        const appliedAll = valuesExisting.length ? valuesExisting.every((roleId) => m?.roles?.cache?.has?.(roleId)) : true;
         const stillOld = rolesToRemoveExisting.some(
           (rid) => valuesExisting.every((v) => String(v) !== String(rid)) && m?.roles?.cache?.has?.(rid),
         );
