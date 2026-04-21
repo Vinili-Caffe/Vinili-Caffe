@@ -9,7 +9,7 @@ const ENABLE_LOADER_GIT_PULL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_NPM_INSTALL || "").trim().toLowerCase());
-const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:1000}];
+const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:7000}];
 const NPM_CACHE_DIR = path.join(os.tmpdir(), '.npm-global');
 const processRefs = {};
 const npmInstallInProgressByDir = {};
