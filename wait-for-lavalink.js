@@ -6,14 +6,13 @@ const raw = (process.env.LAVALINK_HOST || "127.0.0.1:2333").trim().replace(/^htt
 const lastColon = raw.lastIndexOf(":");
 const host = lastColon > 0 ? raw.slice(0, lastColon) : raw;
 const port = parseInt(lastColon > 0 ? raw.slice(lastColon + 1) : "2333", 10) || 2333;
-const maxWaitMs = 120000;
 const intervalMs = 2000;
 const settleMs = 4000;
-let attempts = 0;
 let loaderChild = null;
 let stopping = false;
 let lavalinkReady = false;
 let settleTimer = null;
+let lavalinkUnavailableLogged = false;
 
 function killChildTree(pid) {
   if (!pid || Number.isNaN(pid)) return;
@@ -86,18 +85,15 @@ function scheduleNextCheck(delayMs = intervalMs) {
 
 function checkLavalinkStatus() {
   if (stopping) return;
-  attempts += 1;
-  if (attempts % 5 === 1 && attempts > 1) {
-    console.log("[wait-for-lavalink] Ancora in attesa su " + host + ":" + port + " (tentativo " + attempts + ")");
-  }
   check().then((ok) => {
     if (!ok) {
       if (settleTimer) {
         clearTimeout(settleTimer);
         settleTimer = null;
       }
-      if (lavalinkReady) {
+      if (lavalinkReady || !lavalinkUnavailableLogged) {
         lavalinkReady = false;
+        lavalinkUnavailableLogged = true;
         console.warn("[wait-for-lavalink] Lavalink non raggiungibile al momento. Il backend resta attivo, la musica no.");
       }
       scheduleNextCheck(intervalMs);
@@ -116,6 +112,7 @@ function checkLavalinkStatus() {
           return;
         }
         lavalinkReady = true;
+        lavalinkUnavailableLogged = false;
         console.log("[wait-for-lavalink] Lavalink pronto.");
         scheduleNextCheck(intervalMs);
       });
