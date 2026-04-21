@@ -239,7 +239,7 @@
       '<div class="vc-role-card-sep"></div>' +
       '<div class="vc-role-card-actions">' +
       '<button type="button" class="vc-role-card-open" data-role-id="' + esc(row.roleId) + '"><i class="fa fa-users" aria-hidden="true"></i> Vedi membri</button>' +
-      '<button type="button" class="vc-role-card-cta" data-request-role-id="' + esc(row.roleId) + '"><i class="fa fa-shield" aria-hidden="true"></i> Richiedi Ruolo</button>' +
+      '<button type="button" class="vc-role-card-cta" data-request-role-id="' + esc(row.roleId) + '" data-role-id="' + esc(row.roleId) + '"><i class="fa fa-shield" aria-hidden="true"></i> Richiedi Ruolo</button>' +
       "</div>" +
       "</article>"
     );
@@ -535,17 +535,40 @@
     var grid = byId("vc-roles-grid");
     if (grid) {
       grid.addEventListener("click", function (ev) {
-        var cta = ev.target && ev.target.closest ? ev.target.closest(".vc-role-card-cta") : null;
+        var target = ev.target;
+
+        var cta = target && target.closest ? target.closest(".vc-role-card-cta") : null;
         if (cta) {
           ev.preventDefault();
+          ev.stopPropagation();
+
           var requestRoleId = String(cta.getAttribute("data-request-role-id") || "").trim();
-          if (requestRoleId) openRequestModal(requestRoleId);
+          if (requestRoleId) {
+            openRequestModal(requestRoleId);
+          }
           return;
         }
-        var opener = ev.target && ev.target.closest ? ev.target.closest("[data-role-id]") : null;
-        if (!opener) return;
-        var roleId = String(opener.getAttribute("data-role-id") || "").trim();
+
+        var openBtn = target && target.closest ? target.closest(".vc-role-card-open") : null;
+        if (openBtn) {
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          var openRoleId = String(openBtn.getAttribute("data-role-id") || "").trim();
+          if (openRoleId) {
+            openRoleModal(openRoleId);
+          }
+          return;
+        }
+
+        var card = target && target.closest ? target.closest(".vc-role-card") : null;
+        if (!card) return;
+
+        if (target && target.closest && target.closest("button")) return;
+
+        var roleId = String(card.getAttribute("data-role-id") || "").trim();
         if (!roleId) return;
+
         openRoleModal(roleId);
       });
       grid.addEventListener("keydown", function (ev) {
