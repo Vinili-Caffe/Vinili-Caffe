@@ -15,6 +15,7 @@ const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Commun
 const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName } = require("../../Utils/Interaction/customRoleUtils");
 const pendingRoleGrants = new Map();
+const pendingSiteRoleRequests = new Map();
 const PRIVATE_FLAG = 1 << 6;
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
 
@@ -244,6 +245,129 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
   if (typeof expiryTimer?.unref === "function") expiryTimer.unref();
 
   return { ok: true, promptMessageId: promptMsg.id };
+}
+
+function buildSiteRoleRequestButtons(token, disabled = false) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`siterolerequest:${token}:approve`)
+      .setLabel("Approva")
+      .setEmoji("<:vegacheckmark:1443666279058772028>")
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(disabled),
+    new ButtonBuilder()
+      .setCustomId(`siterolerequest:${token}:reject`)
+      .setLabel("Rifiuta")
+      .setEmoji("<:vegax:1443934876440068179>")
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(disabled),
+  );
+}
+
+async function createSiteRoleJoinRequest({
+  client,
+  guildId,
+  requesterId,
+  ownerId,
+  roleId,
+  reason,
+  timeoutMs = 3 * 24 * 60 * 60 * 1000,
+}) {
+  const guild = await getClientGuildCached(client, guildId);
+  const ownerMember = await fetchGuildMember(guild, ownerId);
+  const requesterMember = await fetchGuildMember(guild, requesterId);
+  const role = await fetchGuildRole(guild, roleId);
+  if (!guild || !ownerMember || !requesterMember || !role) {
+    return { ok: false, error: "invalid_context" };
+  }
+
+  const now = Date.now();
+  for (const [token, request] of pendingSiteRoleRequests.entries()) {
+    if (!request) continue;
+    if (Number(request.expiresAt || 0) <= now) {
+      pendingSiteRoleRequests.delete(token);
+      continue;
+    }
+    if (
+      String(request.guildId || "") === String(guildId) &&
+      String(request.requesterId || "") === String(requesterId) &&
+      String(request.ownerId || "") === String(ownerId) &&
+      String(request.roleId || "") === String(roleId)
+    ) {
+      return { ok: false, error: "already_pending" };
+    }
+  }
+
+  const token = crypto.randomBytes(16).toString("hex");
+  const ownerUser = ownerMember.user || (await getUserCached(client, ownerId));
+  const requesterUser = requesterMember.user || (await getUserCached(client, requesterId));
+  const dmEmbed = new EmbedBuilder()
+    .setColor("#8b5cf6")
+    .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta di accesso al tuo ruolo")
+    .setDescription(
+      [
+        `${requesterMember} vuole ottenere il tuo ruolo personalizzato **${role.name}**.`,
+        "",
+        `**Utente:** ${requesterMember} (\`${requesterId}\`)`,
+        `**Ruolo:** ${role.name}`,
+        "",
+        "**Motivazione**",
+        String(reason || "Nessuna motivazione."),
+      ].join("\n"),
+    )
+    .setFooter({ text: "Puoi approvare o rifiutare direttamente da qui." })
+    .setTimestamp(new Date());
+  if (requesterUser?.displayAvatarURL) {
+    dmEmbed.setThumbnail(requesterUser.displayAvatarURL({ size: 256, dynamic: true }));
+  }
+
+  const dmSent = await ownerMember
+    .send({
+      embeds: [dmEmbed],
+      components: [buildSiteRoleRequestButtons(token, false)],
+    })
+    .catch(() => null);
+  if (!dmSent) {
+    return { ok: false, error: "dm_closed" };
+  }
+
+  pendingSiteRoleRequests.set(token, {
+    guildId,
+    requesterId,
+    ownerId,
+    roleId,
+    reason: String(reason || ""),
+    dmChannelId: dmSent.channelId,
+    dmMessageId: dmSent.id,
+    expiresAt: now + Math.max(15_000, Number(timeoutMs || 0)),
+  });
+
+  const expiryTimer = setTimeout(async () => {
+    const request = pendingSiteRoleRequests.get(token);
+    if (!request) return;
+    pendingSiteRoleRequests.delete(token);
+    const owner = await getUserCached(client, request.ownerId);
+    const dmChannel = owner?.dmChannel || (await owner?.createDM().catch(() => null));
+    const dmMsg =
+      dmChannel?.messages?.cache?.get(request.dmMessageId) ||
+      (await dmChannel?.messages?.fetch(request.dmMessageId).catch(() => null));
+    if (dmMsg) {
+      await dmMsg
+        .edit({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#e67e22")
+              .setTitle("<:VC_update:1478721333096349817> Richiesta scaduta")
+              .setDescription("La richiesta del ruolo non è più valida: tempo scaduto."),
+          ],
+          components: [buildSiteRoleRequestButtons(token, true)],
+        })
+        .catch(() => { });
+    }
+  }, Math.max(15_000, Number(timeoutMs || 0)));
+  if (typeof expiryTimer?.unref === "function") expiryTimer.unref();
+
+  return { ok: true };
 }
 
 async function handleRoleActionButton(interaction) {
@@ -1741,6 +1865,178 @@ async function handleGrantButtons(interaction) {
   return true;
 }
 
+async function handleSiteRoleRequestButtons(interaction) {
+  if (!interaction.isButton()) return false;
+  if (!String(interaction.customId || "").startsWith("siterolerequest:")) return false;
+
+  const parts = String(interaction.customId || "").split(":");
+  const token = String(parts[1] || "").trim();
+  const action = String(parts[2] || "").trim().toLowerCase();
+  const request = pendingSiteRoleRequests.get(token);
+  if (!request) {
+    await interaction
+      .reply({ content: "<:VC_Refresh:1473359252276904203> Questa richiesta non è più disponibile.", flags: PRIVATE_FLAG })
+      .catch(() => { });
+    return true;
+  }
+
+  if (String(interaction.user?.id || "") !== String(request.ownerId || "")) {
+    await interaction
+      .reply({
+        content: "<:VC_Attention:1482534443632558151> Solo il proprietario del ruolo può rispondere a questa richiesta.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => { });
+    return true;
+  }
+
+  const disabledRow = buildSiteRoleRequestButtons(token, true);
+  const updateMessage = async (payload) => {
+    const msg = interaction.message;
+    if (msg?.editable) {
+      await msg.edit(payload).catch(() => { });
+      return;
+    }
+    await interaction.update(payload).catch(() => { });
+  };
+
+  if (Date.now() > Number(request.expiresAt || 0)) {
+    pendingSiteRoleRequests.delete(token);
+    await updateMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#e67e22")
+          .setTitle("<:VC_update:1478721333096349817> Richiesta scaduta")
+          .setDescription("La richiesta del ruolo non è più valida: tempo scaduto."),
+      ],
+      components: [disabledRow],
+    });
+    return true;
+  }
+
+  await interaction.deferUpdate().catch(() => { });
+
+  const guild = await getClientGuildCached(interaction.client, request.guildId);
+  const role = await fetchGuildRole(guild, request.roleId);
+  const requesterMember = await fetchGuildMember(guild, request.requesterId);
+  const ownerMember = await fetchGuildMember(guild, request.ownerId);
+  const requesterUser = await getUserCached(interaction.client, request.requesterId);
+
+  if (action === "reject") {
+    pendingSiteRoleRequests.delete(token);
+    await updateMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#e67e22")
+          .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
+          .setDescription(
+            `${requesterMember || `<@${request.requesterId}>`} non riceverà il ruolo ${role ? `**${role.name}**` : "richiesto"}.`,
+          ),
+      ],
+      components: [disabledRow],
+    });
+    await requesterUser
+      ?.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#e67e22")
+            .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
+            .setDescription(
+              `La tua richiesta per il ruolo ${role ? `**${role.name}**` : "custom"} è stata rifiutata dal proprietario.`,
+            ),
+        ],
+      })
+      .catch(() => { });
+    return true;
+  }
+
+  if (!guild || !role || !requesterMember || !ownerMember) {
+    pendingSiteRoleRequests.delete(token);
+    await updateMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setTitle("<:vegax:1443934876440068179> Errore")
+          .setDescription("Non riesco più a recuperare i dati di questa richiesta."),
+      ],
+      components: [disabledRow],
+    });
+    return true;
+  }
+
+  if (requesterMember.roles.cache.has(role.id)) {
+    pendingSiteRoleRequests.delete(token);
+    await updateMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#60a5fa")
+          .setTitle("<:VC_Refresh:1473359252276904203> Richiesta già soddisfatta")
+          .setDescription(`${requesterMember} possiede già il ruolo **${role.name}**.`),
+      ],
+      components: [disabledRow],
+    });
+    return true;
+  }
+
+  const me = guild.members.me || guild.members.cache.get(interaction.client.user.id);
+  if (
+    !me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) ||
+    role.position >= me.roles.highest.position
+  ) {
+    pendingSiteRoleRequests.delete(token);
+    await updateMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setTitle("<:VC_Attention:1482534443632558151> Impossibile assegnare")
+          .setDescription("Il bot non può assegnare questo ruolo per permessi o gerarchia."),
+      ],
+      components: [disabledRow],
+    });
+    return true;
+  }
+
+  const granted = await requesterMember.roles
+    .add(role.id, `Custom role request approved by ${ownerMember.user?.tag || request.ownerId}`)
+    .then(() => true)
+    .catch(() => false);
+  pendingSiteRoleRequests.delete(token);
+
+  if (!granted) {
+    await updateMessage({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setTitle("<:vegax:1443934876440068179> Errore")
+          .setDescription("Non sono riuscito ad assegnare il ruolo all'utente richiesto."),
+      ],
+      components: [disabledRow],
+    });
+    return true;
+  }
+
+  await updateMessage({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#2ecc71")
+        .setTitle("<:success:1461731530333229226> Richiesta approvata")
+        .setDescription(`${requesterMember} ha ricevuto il ruolo **${role.name}**.`),
+    ],
+    components: [disabledRow],
+  });
+  await requesterUser
+    ?.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#2ecc71")
+          .setTitle("<:success:1461731530333229226> Richiesta approvata")
+          .setDescription(`Il proprietario ha approvato la tua richiesta: ora hai il ruolo **${role.name}**.`),
+      ],
+    })
+    .catch(() => { });
+  return true;
+}
+
 async function handleCustomRoleInteraction(interaction) {
   if (await handleCustomReactionButton(interaction)) return true;
   if (await handleCustomReactionModal(interaction)) return true;
@@ -1749,6 +2045,7 @@ async function handleCustomRoleInteraction(interaction) {
   if (await handleCustomVocModal(interaction)) return true;
   if (await handleAddRemoveSelectMenus(interaction)) return true;
   if (await handleGrantButtons(interaction)) return true;
+  if (await handleSiteRoleRequestButtons(interaction)) return true;
   if (await handleRoleColorTypeSelect(interaction)) return true;
   if (await handleRoleActionButton(interaction)) return true;
   if (await handleRoleActionModal(interaction)) return true;
@@ -1760,4 +2057,9 @@ function getPendingRoleGrantByToken(token) {
   return pendingRoleGrants.get(String(token)) || null;
 }
 
-module.exports = { handleCustomRoleInteraction, createCustomRoleGrantRequest, getPendingRoleGrantByToken };
+module.exports = {
+  handleCustomRoleInteraction,
+  createCustomRoleGrantRequest,
+  createSiteRoleJoinRequest,
+  getPendingRoleGrantByToken,
+};

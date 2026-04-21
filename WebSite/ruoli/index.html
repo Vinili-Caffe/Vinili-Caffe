@@ -214,6 +214,40 @@
       </section>
     </div>
 
+    <div class="vc-role-request-modal" id="vc-role-request-modal" hidden aria-hidden="true">
+      <div class="vc-role-modal-backdrop" data-close-role-request="true"></div>
+      <section class="vc-role-request-sheet" role="dialog" aria-modal="true" aria-labelledby="vc-role-request-title">
+        <div class="vc-role-request-head">
+          <div class="vc-role-request-brand">
+            <div class="vc-role-request-icon" id="vc-role-request-icon" aria-hidden="true"><i class="fa fa-shield"></i></div>
+            <div class="vc-role-request-headcopy">
+              <h2 class="vc-role-request-title" id="vc-role-request-title">Richiedi Ruolo</h2>
+              <p class="vc-role-request-sub" id="vc-role-request-sub">Ruolo custom</p>
+            </div>
+          </div>
+        </div>
+        <div class="vc-role-request-body">
+          <label class="vc-role-request-label" for="vc-role-request-reason">Perché vuoi questo ruolo? <span aria-hidden="true">*</span></label>
+          <textarea
+            id="vc-role-request-reason"
+            class="vc-role-request-textarea"
+            placeholder="Scrivi una breve motivazione (min. 10 caratteri)..."
+            minlength="10"
+            maxlength="500"
+            rows="6"
+          ></textarea>
+          <div class="vc-role-request-meta">
+            <p class="vc-role-request-state" id="vc-role-request-state" hidden></p>
+            <span class="vc-role-request-counter" id="vc-role-request-counter">0/500</span>
+          </div>
+        </div>
+        <div class="vc-role-request-actions">
+          <button type="button" class="vc-role-request-cancel" id="vc-role-request-cancel">Annulla</button>
+          <button type="button" class="vc-role-request-submit" id="vc-role-request-submit" disabled>Invia Richiesta</button>
+        </div>
+      </section>
+    </div>
+
 {{LIVE_STATS_BOOT_USER}}
     <script>
       window.__VC_AUTH = {
@@ -224,6 +258,8 @@
       window.__VC_ROLES = {
         apiUrl: "{{ROLES_API_URL}}",
         apiUrlLocal: "{{ROLES_API_URL_LOCAL}}",
+        requestApiUrl: "{{ROLES_REQUEST_API_URL}}",
+        requestApiUrlLocal: "{{ROLES_REQUEST_API_URL_LOCAL}}",
         inviteUrl: "{{DISCORD_INVITE_URL}}"
       };
     </script>

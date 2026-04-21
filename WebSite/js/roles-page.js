@@ -1,6 +1,19 @@
 (function () {
   var PER_PAGE = 9;
-  var state = { loading: false, page: 1, query: "", rows: [], filtered: [], totalPages: 1, summary: null, activeRoleId: "" };
+  var ACCESS_TOKEN_KEY = "vc_discord_access_token";
+  var EXPIRES_AT_KEY = "vc_discord_expires_at";
+  var state = {
+    loading: false,
+    page: 1,
+    query: "",
+    rows: [],
+    filtered: [],
+    totalPages: 1,
+    summary: null,
+    activeRoleId: "",
+    activeRequestRoleId: "",
+    submittingRequest: false
+  };
 
   function byId(id) {
     return document.getElementById(id);
@@ -28,6 +41,17 @@
 
   function inviteUrl() {
     return String(cfg().inviteUrl || "").trim() || "#";
+  }
+
+  function resolvedRequestApiUrl() {
+    var c = cfg();
+    var local = String(c.requestApiUrlLocal || "").trim();
+    var direct = String(c.requestApiUrl || "").trim();
+    if (isLocalFrontendOrigin() && local) return local;
+    if (direct) return direct;
+    var base = resolvedApiUrl();
+    if (!base) return "";
+    return base.replace(/\/site-roles(?:\?.*)?$/i, "/site-roles/request");
   }
 
   function esc(s) {
@@ -200,7 +224,7 @@
       '<div class="vc-role-card-sep"></div>' +
       '<div class="vc-role-card-actions">' +
       '<button type="button" class="vc-role-card-open" data-role-id="' + esc(row.roleId) + '"><i class="fa fa-users" aria-hidden="true"></i> Vedi membri</button>' +
-      '<a class="vc-role-card-cta" href="' + esc(inviteUrl()) + '" target="_blank" rel="noopener noreferrer"><i class="fa fa-shield" aria-hidden="true"></i> Richiedi Ruolo</a>' +
+      '<button type="button" class="vc-role-card-cta" data-request-role-id="' + esc(row.roleId) + '"><i class="fa fa-shield" aria-hidden="true"></i> Richiedi Ruolo</button>' +
       "</div>" +
       "</article>"
     );
@@ -268,6 +292,143 @@
     modal.hidden = true;
     modal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("vc-role-modal-open");
+  }
+
+  function getToken() {
+    try {
+      var token = localStorage.getItem(ACCESS_TOKEN_KEY);
+      var exp = Number(localStorage.getItem(EXPIRES_AT_KEY) || "0");
+      if (!token || !exp || Date.now() >= exp) return "";
+      return token;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function renderRequestRoleIcon(row) {
+    var icon = byId("vc-role-request-icon");
+    if (!icon) return;
+    var iconUrl = String((row && row.roleIconUrl) || "").trim();
+    var emoji = String((row && row.roleEmoji) || "").trim();
+    var swatch = '<span class="vc-role-request-swatch" style="background:' + esc(String((row && row.roleColor) || "#f8fafc")) + '"></span>';
+    if (/^https?:\/\//i.test(iconUrl)) {
+      icon.innerHTML = '<img class="vc-role-request-iconimg" src="' + esc(iconUrl) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" />' + swatch;
+      return;
+    }
+    if (emoji) {
+      icon.innerHTML = '<span class="vc-role-request-iconemoji" aria-hidden="true">' + esc(emoji) + "</span>" + swatch;
+      return;
+    }
+    icon.innerHTML = '<i class="fa fa-shield" aria-hidden="true"></i>' + swatch;
+  }
+
+  function setRequestState(msg, isErr) {
+    var el = byId("vc-role-request-state");
+    if (!el) return;
+    el.hidden = !msg;
+    el.className = "vc-role-request-state" + (isErr ? " vc-role-request-state--err" : " vc-role-request-state--ok");
+    el.textContent = msg || "";
+  }
+
+  function syncRequestModalState() {
+    var textarea = byId("vc-role-request-reason");
+    var submit = byId("vc-role-request-submit");
+    var counter = byId("vc-role-request-counter");
+    var len = textarea ? String(textarea.value || "").trim().length : 0;
+    if (counter) counter.textContent = len + "/500";
+    if (submit) submit.disabled = state.submittingRequest || !state.activeRequestRoleId || len < 10 || len > 500;
+  }
+
+  function openRequestModal(roleId) {
+    var row = findRow(roleId);
+    var modal = byId("vc-role-request-modal");
+    var title = byId("vc-role-request-title");
+    var sub = byId("vc-role-request-sub");
+    var textarea = byId("vc-role-request-reason");
+    if (!row || !modal || !title || !sub || !textarea) return;
+    state.activeRequestRoleId = String(row.roleId || "");
+    state.submittingRequest = false;
+    renderRequestRoleIcon(row);
+    title.textContent = "Richiedi Ruolo";
+    sub.textContent = String(row.roleName || "Ruolo custom");
+    textarea.value = "";
+    setRequestState("", false);
+    syncRequestModalState();
+    modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("vc-role-modal-open");
+    setTimeout(function () {
+      textarea.focus();
+    }, 0);
+  }
+
+  function closeRequestModal() {
+    var modal = byId("vc-role-request-modal");
+    if (!modal) return;
+    state.activeRequestRoleId = "";
+    state.submittingRequest = false;
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("vc-role-modal-open");
+    setRequestState("", false);
+    syncRequestModalState();
+  }
+
+  async function submitRoleRequest() {
+    var token = getToken();
+    var textarea = byId("vc-role-request-reason");
+    var api = resolvedRequestApiUrl();
+    var reason = textarea ? String(textarea.value || "").trim() : "";
+    if (!token) {
+      setRequestState("Effettua il login con Discord prima di inviare una richiesta.", true);
+      syncRequestModalState();
+      return;
+    }
+    if (!api) {
+      setRequestState("Manca l'endpoint API per inviare la richiesta ruolo.", true);
+      return;
+    }
+    if (!state.activeRequestRoleId || reason.length < 10) {
+      setRequestState("Scrivi una motivazione più chiara prima di continuare.", true);
+      syncRequestModalState();
+      return;
+    }
+
+    state.submittingRequest = true;
+    syncRequestModalState();
+    setRequestState("Invio richiesta in corso...", false);
+
+    try {
+      var res = await fetch(api, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: "Bearer " + token
+        },
+        body: JSON.stringify({
+          roleId: state.activeRequestRoleId,
+          reason: reason
+        })
+      });
+      var text = await res.text();
+      var data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (e) {
+        data = null;
+      }
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && data.message) || "Invio non riuscito");
+      }
+      setState("Richiesta inviata all'owner del ruolo tramite DM.", false);
+      closeRequestModal();
+    } catch (err) {
+      setRequestState(err && err.message ? err.message : "Non sono riuscito a inviare la richiesta.", true);
+    } finally {
+      state.submittingRequest = false;
+      syncRequestModalState();
+    }
   }
 
   function renderGrid() {
@@ -351,12 +512,21 @@
 
   function bindModal() {
     var modal = byId("vc-role-modal");
+    var requestModal = byId("vc-role-request-modal");
     var closeBtn = byId("vc-role-modal-close");
+    var requestCancel = byId("vc-role-request-cancel");
+    var requestSubmit = byId("vc-role-request-submit");
+    var requestTextarea = byId("vc-role-request-reason");
     var grid = byId("vc-roles-grid");
     if (grid) {
       grid.addEventListener("click", function (ev) {
         var cta = ev.target && ev.target.closest ? ev.target.closest(".vc-role-card-cta") : null;
-        if (cta) return;
+        if (cta) {
+          ev.preventDefault();
+          var requestRoleId = String(cta.getAttribute("data-request-role-id") || "").trim();
+          if (requestRoleId) openRequestModal(requestRoleId);
+          return;
+        }
         var opener = ev.target && ev.target.closest ? ev.target.closest("[data-role-id]") : null;
         if (!opener) return;
         var roleId = String(opener.getAttribute("data-role-id") || "").trim();
@@ -377,9 +547,32 @@
         if (closer) closeRoleModal();
       });
     }
+    if (requestModal) {
+      requestModal.addEventListener("click", function (ev) {
+        var closer = ev.target && ev.target.closest ? ev.target.closest("[data-close-role-request]") : null;
+        if (closer && !state.submittingRequest) closeRequestModal();
+      });
+    }
     if (closeBtn) closeBtn.addEventListener("click", closeRoleModal);
+    if (requestCancel) {
+      requestCancel.addEventListener("click", function () {
+        if (!state.submittingRequest) closeRequestModal();
+      });
+    }
+    if (requestSubmit) requestSubmit.addEventListener("click", submitRoleRequest);
+    if (requestTextarea) {
+      requestTextarea.addEventListener("input", syncRequestModalState);
+    }
     document.addEventListener("keydown", function (ev) {
       if (ev.key === "Escape" && state.activeRoleId) closeRoleModal();
+      if (ev.key === "Escape" && state.activeRequestRoleId && !state.submittingRequest) closeRequestModal();
+      if (ev.key === "Enter" && state.activeRequestRoleId && !ev.shiftKey) {
+        var target = ev.target;
+        if (target && target.id === "vc-role-request-reason") {
+          ev.preventDefault();
+          if (!state.submittingRequest) submitRoleRequest();
+        }
+      }
     });
   }
 

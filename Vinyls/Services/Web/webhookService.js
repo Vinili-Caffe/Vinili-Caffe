@@ -431,6 +431,7 @@ async function startWebhookServer(client) {
   const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
+  const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -448,6 +449,28 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-roles", (req, res) => {
     return handleSiteRolesGet(client, req, res);
+  });
+  app.post("/webhooks/site-roles/request", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await submitSiteRoleRequest(client, {
+        accessToken,
+        roleId: body.roleId,
+        reason: body.reason,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-roles request:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
   });
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
