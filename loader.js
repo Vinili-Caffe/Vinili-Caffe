@@ -13,8 +13,11 @@ const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0}
 const NPM_CACHE_DIR = path.join(os.tmpdir(), '.npm-global');
 const processRefs = {};
 const npmInstallInProgressByDir = {};
+const startupTimers = {};
 const silencedEnv=process.env.SHOW_NODE_WARNINGS==='1'?{...process.env}:{...process.env,NODE_NO_WARNINGS:'1'};
 const WORKSPACES_ENABLED = hasWorkspacesConfig();
+let shuttingDown = false;
+let requestedExitCode = 0;
 
 function normalizeComparableName(value) {
     return String(value || '')
@@ -152,6 +155,50 @@ function killPidTree(pid) {
     }
 }
 
+function clearStartupTimer(botKey) {
+    const timer = startupTimers[botKey];
+    if (!timer) return;
+    clearTimeout(timer);
+    delete startupTimers[botKey];
+}
+
+function clearAllStartupTimers() {
+    for (const bot of BOTS) {
+        clearStartupTimer(bot.key);
+    }
+}
+
+function activeChildCount() {
+    return Object.values(processRefs).filter((proc) => proc && proc.pid && isPidRunning(proc.pid)).length;
+}
+
+function finalizeShutdownIfIdle() {
+    if (!shuttingDown) return;
+    if (activeChildCount() > 0) return;
+    if (Object.keys(startupTimers).length > 0) return;
+    process.exit(requestedExitCode);
+}
+
+function requestShutdown(exitCode = 0, reason = "") {
+    requestedExitCode = Math.max(requestedExitCode, Number(exitCode) || 0);
+    if (shuttingDown) {
+        finalizeShutdownIfIdle();
+        return;
+    }
+
+    shuttingDown = true;
+    clearAllStartupTimers();
+    if (reason) {
+        console.log(`[Loader] Arresto coordinato: ${reason}`);
+    }
+
+    for (const proc of Object.values(processRefs)) {
+        if (proc?.pid) killPidTree(proc.pid);
+    }
+
+    setTimeout(finalizeShutdownIfIdle, 1500);
+}
+
 function cleanupStalePid(botKey) {
     const file = pidFile(botKey);
     if (!fs.existsSync(file)) return;
@@ -257,6 +304,11 @@ function buildNodePath(workingDir) {
 }
 
 function spawnBotProcess(bot, workingDir, file, resolve) {
+    if (shuttingDown) {
+        resolve();
+        return;
+    }
+
     console.log(`[Loader] Avvio ${bot.label}: ${bot.folderSuffix} (${file})`);
 
     const nodeBin = resolveNodeExecutable();
@@ -281,15 +333,23 @@ function spawnBotProcess(bot, workingDir, file, resolve) {
         }
         processRefs[bot.key] = null;
         console.log(`[Loader] Errore avvio ${bot.label}: ${err?.message || err}`);
+        if (!shuttingDown) {
+            requestShutdown(1, `${bot.label} non si e avviato correttamente`);
+        }
+        finalizeShutdownIfIdle();
         resolve();
     });
 
-    proc.on('exit', (code) => {
+    proc.on('exit', (code, signal) => {
         try { fs.unlinkSync(pidFile(bot.key)); } catch (e) {
           console.warn("[Loader]", e?.message || e);
         }
         processRefs[bot.key] = null;
-        console.log(`[Loader] ${bot.label} fermato (code ${code})`);
+        console.log(`[Loader] ${bot.label} fermato (code ${code}${signal ? `, signal ${signal}` : ''})`);
+        if (!shuttingDown) {
+            requestShutdown(code == null ? 1 : code || 0, `${bot.label} si e fermato; riavvio coordinato di tutto il gruppo`);
+        }
+        finalizeShutdownIfIdle();
         resolve();
     });
 }
@@ -301,16 +361,34 @@ function runfile(bot, options = {}) {
         const bypassDelay = Boolean(options.bypassDelay);
         const useWorkspaces = WORKSPACES_ENABLED;
 
-        const start=()=>{cleanupStalePid(bot.key);runSyncFromServerIfConfigured();const repoRoot=fs.existsSync(path.join(baseDir,'.git'))?baseDir:workingDir;if(!skipGitPull&&ENABLE_LOADER_GIT_PULL){updateRepo(repoRoot);} const depTask=ENABLE_LOADER_NPM_INSTALL?ensureDependencies(workingDir,false):Promise.resolve();depTask.finally(()=>spawnBotProcess(bot,workingDir,file,resolve));};const delay=bypassDelay?0 : Number(bot.startupDelayMs || 0);
+        const start=()=>{
+            clearStartupTimer(bot.key);
+            if (shuttingDown) {
+                resolve();
+                return;
+            }
+            cleanupStalePid(bot.key);runSyncFromServerIfConfigured();const repoRoot=fs.existsSync(path.join(baseDir,'.git'))?baseDir:workingDir;if(!skipGitPull&&ENABLE_LOADER_GIT_PULL){updateRepo(repoRoot);} const depTask=ENABLE_LOADER_NPM_INSTALL?ensureDependencies(workingDir,false):Promise.resolve();depTask.finally(()=>spawnBotProcess(bot,workingDir,file,resolve));
+        };const delay=bypassDelay?0 : Number(bot.startupDelayMs || 0);
         if (delay > 0) {
             console.log(`[Loader] Ritardo avvio ${bot.label}: ${delay}ms`);
-            setTimeout(start, delay);
+            startupTimers[bot.key] = setTimeout(start, delay);
             return;
         }
 
         start();
     });
 }
+
+["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"].forEach((signalName) => {
+    process.on(signalName, () => requestShutdown(0, `segnale ${signalName} ricevuto`));
+});
+
+process.on("exit", () => {
+    clearAllStartupTimers();
+    for (const proc of Object.values(processRefs)) {
+        if (proc?.pid) killPidTree(proc.pid);
+    }
+});
 
 BOTS.forEach((bot) =>
   runfile(bot, { skipGitPull: !ENABLE_LOADER_GIT_PULL }),

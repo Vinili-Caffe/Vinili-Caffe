@@ -1,5 +1,5 @@
 const http = require("http");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const path = require("path");
 
 const raw = (process.env.LAVALINK_HOST || "127.0.0.1:2333").trim().replace(/^https?:\/\//i, "");
@@ -11,6 +11,33 @@ const intervalMs = 2000;
 const settleMs = 4000;
 const start = Date.now();
 let attempts = 0;
+let loaderChild = null;
+let stopping = false;
+
+function killChildTree(pid) {
+  if (!pid || Number.isNaN(pid)) return;
+  try {
+    if (process.platform === "win32") {
+      spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
+      return;
+    }
+    process.kill(pid, "SIGTERM");
+  } catch (_) {}
+}
+
+function requestStop(exitCode = 0, reason = "") {
+  if (stopping) return;
+  stopping = true;
+  if (reason) {
+    console.log("[wait-for-lavalink] Arresto: " + reason);
+  }
+  if (loaderChild?.pid) {
+    killChildTree(loaderChild.pid);
+    setTimeout(() => process.exit(exitCode), 1500);
+    return;
+  }
+  process.exit(exitCode);
+}
 
 function check() {
   return new Promise((resolve) => {
@@ -33,14 +60,17 @@ function runLoader() {
   const node = process.execPath || "node";
   const loader = path.join(__dirname, "loader.js");
   console.log("[wait-for-lavalink] Esecuzione: " + node + " loader.js");
-  const child = spawn(node, ["--disable-warning=ExperimentalWarning", loader], {
+  loaderChild = spawn(node, ["--disable-warning=ExperimentalWarning", loader], {
     cwd: __dirname,
     stdio: ["inherit", "pipe", "pipe"],
     env: process.env,
   });
-  child.stdout.pipe(process.stdout);
-  child.stderr.pipe(process.stderr);
-  child.on("exit", (code) => process.exit(code != null ? code : 0));
+  loaderChild.stdout.pipe(process.stdout);
+  loaderChild.stderr.pipe(process.stderr);
+  loaderChild.on("exit", (code) => {
+    loaderChild = null;
+    process.exit(code != null ? code : 0);
+  });
 }
 
 function wait() {
@@ -75,4 +105,12 @@ function wait() {
 }
 
 console.log("[wait-for-lavalink] Attendo Lavalink su " + host + ":" + port + " ...");
+["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"].forEach((signalName) => {
+  process.on(signalName, () => requestStop(0, "segnale " + signalName + " ricevuto"));
+});
+
+process.on("exit", () => {
+  if (loaderChild?.pid) killChildTree(loaderChild.pid);
+});
+
 wait();
