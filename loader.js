@@ -9,7 +9,7 @@ const ENABLE_LOADER_GIT_PULL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_GIT_PULL || "").trim().toLowerCase());
 const ENABLE_LOADER_NPM_INSTALL =
   ["1", "true", "yes", "on"].includes(String(process.env.ENABLE_LOADER_NPM_INSTALL || "").trim().toLowerCase());
-const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:7000}];
+const BOTS=[{key:'vinyls',label:'Vinyls',folderSuffix:'Vinyls',startupDelayMs:0},{key:'Coffee',label:'Coffee',folderSuffix:'Coffee',startupDelayMs:1000}];
 const NPM_CACHE_DIR = path.join(os.tmpdir(), '.npm-global');
 const processRefs = {};
 const npmInstallInProgressByDir = {};
@@ -367,6 +367,7 @@ function runfile(bot, options = {}) {
                 resolve();
                 return;
             }
+            console.log(`[Loader] Trigger avvio ${bot.label}`);
             cleanupStalePid(bot.key);runSyncFromServerIfConfigured();const repoRoot=fs.existsSync(path.join(baseDir,'.git'))?baseDir:workingDir;if(!skipGitPull&&ENABLE_LOADER_GIT_PULL){updateRepo(repoRoot);} const depTask=ENABLE_LOADER_NPM_INSTALL?ensureDependencies(workingDir,false):Promise.resolve();depTask.finally(()=>spawnBotProcess(bot,workingDir,file,resolve));
         };const delay=bypassDelay?0 : Number(bot.startupDelayMs || 0);
         if (delay > 0) {
