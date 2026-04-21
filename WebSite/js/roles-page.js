@@ -72,28 +72,43 @@
     }
   }
 
+  function fallbackAvatarById(id) {
+    var raw = String(id || "").trim();
+    var index = 0;
+    if (/^\d+$/.test(raw)) {
+      try {
+        index = Number(BigInt(raw) % 6n);
+      } catch (e) {
+        index = 0;
+      }
+    }
+    return "https://cdn.discordapp.com/embed/avatars/" + index + ".png";
+  }
+
   function avatarUrl(row) {
     var fromApi = String(row.ownerAvatarUrl || "").trim();
     if (/^https?:\/\//i.test(fromApi)) return fromApi;
+
     var id = String(row.ownerId || "").trim();
     var av = String(row.ownerAvatar || "").trim();
     if (id && av) {
       var ext = av.indexOf("a_") === 0 ? "gif" : "png";
       return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
     }
-    return "https://cdn.discordapp.com/embed/avatars/0.png";
+    return fallbackAvatarById(id);
   }
 
   function memberAvatarUrl(row) {
     var fromApi = String(row.avatarUrl || "").trim();
     if (/^https?:\/\//i.test(fromApi)) return fromApi;
+
     var id = String(row.userId || "").trim();
     var av = String(row.avatar || "").trim();
     if (id && av) {
       var ext = av.indexOf("a_") === 0 ? "gif" : "png";
       return "https://cdn.discordapp.com/avatars/" + id + "/" + av + "." + ext + "?size=128";
     }
-    return "https://cdn.discordapp.com/embed/avatars/0.png";
+    return fallbackAvatarById(id);
   }
 
   function formatDateIt(value) {
@@ -214,7 +229,7 @@
       "</div>" +
       "</div>" +
       '<div class="vc-role-card-owner">' +
-      '<img class="vc-role-card-owneravatar" src="' + esc(avatarUrl(row)) + '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" />' +
+      '<img class="vc-role-card-owneravatar" src="' + esc(avatarUrl(row)) + '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(row.ownerId)) + '\'" />' +
       '<span class="vc-role-card-ownername">' + esc(ownerName) + "</span>" +
       "</div>" +
       '<div class="vc-role-card-meta">' +
@@ -255,7 +270,7 @@
     var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
     return (
       '<article class="vc-role-member" role="listitem">' +
-      '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" />' +
+      '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(member.userId)) + '\'" />' +
       '<div class="vc-role-member-copy">' +
       '<div class="vc-role-member-topline">' +
       '<span class="vc-role-member-name">' + esc(name) + "</span>" +

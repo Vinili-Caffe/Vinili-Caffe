@@ -137,17 +137,17 @@ async function handleSiteRolesGet(client, req, res) {
       const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
       const members = role.members
         ? Array.from(role.members.values())
-            .filter((m) => !m.user?.bot)
-            .map((m) => memberIdentityFromGuildMember(m, doc.userId))
-            .sort((a, b) => {
-              if (a.isOwner && !b.isOwner) return -1;
-              if (!a.isOwner && b.isOwner) return 1;
-              return String(a.displayName || a.username || "").localeCompare(
-                String(b.displayName || b.username || ""),
-                "it",
-                { sensitivity: "base" },
-              );
-            })
+          .filter((m) => !m.user?.bot)
+          .map((m) => memberIdentityFromGuildMember(m, doc.userId))
+          .sort((a, b) => {
+            if (a.isOwner && !b.isOwner) return -1;
+            if (!a.isOwner && b.isOwner) return 1;
+            return String(a.displayName || a.username || "").localeCompare(
+              String(b.displayName || b.username || ""),
+              "it",
+              { sensitivity: "base" },
+            );
+          })
         : [];
 
       rows.push({
@@ -169,7 +169,7 @@ async function handleSiteRolesGet(client, req, res) {
     rows.sort((a, b) => {
       const ta = new Date(a.createdAt || 0).getTime() || 0;
       const tb = new Date(b.createdAt || 0).getTime() || 0;
-      if (tb !== ta) return tb - ta;
+      if (ta !== tb) return ta - tb;
       return String(a.roleName || "").localeCompare(String(b.roleName || ""), "it", { sensitivity: "base" });
     });
 
