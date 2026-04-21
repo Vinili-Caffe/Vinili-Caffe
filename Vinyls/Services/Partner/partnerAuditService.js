@@ -73,10 +73,7 @@ async function fetchPartnerActionText(guild, action) {
 
   const channel = await getGuildChannelCached(guild, channelId);
   if (!channel?.isTextBased?.()) {
-    global.logger?.warn?.(
-      "[PARTNER AUDIT] Channel not found or not text-based:",
-      channelId,
-    );
+    global.logger?.warn?.(`[PARTNER AUDIT] Channel not found or not text-based: ${channelId}`);
     return "";
   }
 
@@ -87,9 +84,16 @@ async function fetchPartnerActionText(guild, action) {
     const msg = await channel.messages.fetch(messageId).catch((err) => {
       const code = String(err?.code || "").trim();
       const msgText = String(err?.message || "").trim();
+      const httpStatus = String(err?.status || err?.httpStatus || "").trim();
+      const detail = `${code} ${httpStatus} ${msgText}`.trim();
       // Messaggio già cancellato/non più accessibile: caso normale durante l'audit, evita spam nei log.
-      if (code === "10008" || /unknown message/i.test(msgText)) return null;
-      global.logger?.warn?.(`[PARTNER AUDIT] Failed to fetch message ${messageId}:`, msgText || err);
+      if (
+        code === "10008" ||
+        httpStatus === "404" ||
+        /unknown message/i.test(detail) ||
+        /discordapierror\s*\[\s*10008\s*\]/i.test(detail)
+      ) return null;
+      global.logger?.warn?.(`[PARTNER AUDIT] Failed to fetch message ${messageId}: ${msgText || err}`);
       return null;
     });
     if (!msg) continue;
@@ -275,10 +279,7 @@ async function runDailyPartnerAudit(client, opts = {}) {
         await doc.save();
         totalRemoved += flagged;
       } catch (saveErr) {
-        global.logger?.error?.(
-          `[PARTNER AUDIT] User ${doc.userId}: failed to persist penalties`,
-          saveErr,
-        );
+        global.logger?.error?.(`[PARTNER AUDIT] User ${doc.userId}: failed to persist penalties ${saveErr?.message || saveErr}`);
       }
     }
   }
@@ -294,14 +295,14 @@ function startDailyPartnerAuditLoop(client) {
       try {
         await runDailyPartnerAudit(client);
       } catch (err) {
-        global.logger?.error?.("[PARTNER AUDIT] Daily audit failed", err);
+        global.logger?.error?.(`[PARTNER AUDIT] Daily audit failed ${err?.message || err}`);
       }
     },
     { timezone: "Europe/Rome" },
   );
 
   setImmediate(() => {
-    runDailyPartnerAudit(client).catch((err) => global.logger?.warn?.("[PARTNER AUDIT] Recovery on start failed:", err?.message || err));
+    runDailyPartnerAudit(client).catch((err) => global.logger?.warn?.(`[PARTNER AUDIT] Recovery on start failed: ${err?.message || err}`));
   });
 
   return dailyPartnerAuditTask;
