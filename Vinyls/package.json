@@ -22,6 +22,7 @@
     "ascii-table": "0.0.9",
     "axios": "^1.12.2",
     "canvas": "^2.11.2",
+    "cloudscraper": "^4.6.0",
     "discord-api-types": "^0.37.120",
     "discord.js": "14.25.1",
     "dotenv": "17.2.3",

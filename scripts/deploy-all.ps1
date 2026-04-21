@@ -57,17 +57,31 @@ try {
   scp $localTgz "${User}@${Server}:${remoteTgz}"
 
   $remoteCmd = @(
-    "set -e"
+    "set -eu"
     "mkdir -p '$BotRemotePath'"
     "tar -xzf '$remoteTgz' -C '$BotRemotePath'"
     "rm -f '$remoteTgz'"
+    ('APP_PID=$(pm2 pid ''{0}'' 2>/dev/null | head -n 1 | tr -d ''[:space:]'')' -f $Pm2AppName)
+    'if [ -n "$APP_PID" ] && [ "$APP_PID" != "0" ] && [ -e "/proc/$APP_PID/exe" ]; then NODE_BIN=$(readlink -f "/proc/$APP_PID/exe"); else NODE_BIN=$(command -v node); fi'
+    'if [ -z "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then echo ''Node non trovato sul server'' >&2; exit 1; fi'
+    'NODE_DIR=$(dirname "$NODE_BIN")'
+    'NPM_CLI=$(dirname "$(dirname "$NODE_BIN")")/lib/node_modules/npm/bin/npm-cli.js'
+    'if [ ! -f "$NPM_CLI" ]; then echo ''npm-cli.js non trovato per il runtime selezionato'' >&2; exit 1; fi'
+    'export PATH="$NODE_DIR:$PATH"'
+    'echo "Using Node: $NODE_BIN"'
+    'echo "Using npm-cli: $NPM_CLI"'
+    '"$NODE_BIN" -v'
+    '"$NODE_BIN" "$NPM_CLI" -v'
     "cd '$BotRemotePath'"
-    "find . -maxdepth 2 -type d -name node_modules -prune -exec rm -rf {} +"
-    "if [ -f package-lock.json ]; then npm ci --omit=dev || npm install --omit=dev; else npm install --omit=dev; fi"
-    "cd '$BotRemotePath/Vinyls' && npm rebuild canvas || npm install canvas"
+    "find . -type d -name node_modules -prune -exec rm -rf {} +"
+    'if [ -f package-lock.json ]; then "$NODE_BIN" "$NPM_CLI" ci --omit=dev || "$NODE_BIN" "$NPM_CLI" install --omit=dev; else "$NODE_BIN" "$NPM_CLI" install --omit=dev; fi'
+    "cd '$BotRemotePath/Vinyls'"
+    "rm -rf node_modules/canvas"
+    '\"$NODE_BIN\" \"$NPM_CLI\" install canvas@2.11.2 --omit=dev --foreground-scripts'
+    '\"$NODE_BIN\" -e ''require(\"canvas\"); console.log(\"canvas-ok\")'''
   )
   if (-not $SkipBackendRestart) {
-    $remoteCmd += "pm2 restart '$Pm2AppName'"
+    $remoteCmd += "pm2 restart '$Pm2AppName' --update-env"
     $remoteCmd += "pm2 logs '$Pm2AppName' --lines 12 --nostream"
   } else {
     $remoteCmd += "echo 'Restart PM2 saltato (-SkipBackendRestart)'"
