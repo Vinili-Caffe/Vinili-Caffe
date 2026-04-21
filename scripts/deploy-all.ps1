@@ -58,9 +58,13 @@ try {
 
   $remoteCmd = @(
     "set -eu"
+    'OLD_LOCK_HASH=""'
+    "if [ -f '$BotRemotePath/package-lock.json' ]; then OLD_LOCK_HASH=$(sha256sum '$BotRemotePath/package-lock.json' | awk '{print `$1}'); fi"
     "mkdir -p '$BotRemotePath'"
     "tar -xzf '$remoteTgz' -C '$BotRemotePath'"
     "rm -f '$remoteTgz'"
+    'NEW_LOCK_HASH=""'
+    "if [ -f '$BotRemotePath/package-lock.json' ]; then NEW_LOCK_HASH=$(sha256sum '$BotRemotePath/package-lock.json' | awk '{print `$1}'); fi"
     ('APP_PID=$(pm2 pid ''{0}'' 2>/dev/null | head -n 1 | tr -d ''[:space:]'')' -f $Pm2AppName)
     'if [ -n "$APP_PID" ] && [ "$APP_PID" != "0" ] && [ -e "/proc/$APP_PID/exe" ]; then NODE_BIN=$(readlink -f "/proc/$APP_PID/exe"); else NODE_BIN=$(command -v node); fi'
     'if [ -z "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then echo ''Node non trovato sul server'' >&2; exit 1; fi'
@@ -73,16 +77,16 @@ try {
     '"$NODE_BIN" -v'
     '"$NODE_BIN" "$NPM_CLI" -v'
     "cd '$BotRemotePath'"
-    "find . -type d -name node_modules -prune -exec rm -rf {} +"
-    'if [ -f package-lock.json ]; then "$NODE_BIN" "$NPM_CLI" ci --omit=dev || "$NODE_BIN" "$NPM_CLI" install --omit=dev; else "$NODE_BIN" "$NPM_CLI" install --omit=dev; fi'
+    'NEED_INSTALL=0'
+    'if [ ! -d node_modules ] || [ "$OLD_LOCK_HASH" != "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1; fi'
+    'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; else echo "Dependencies unchanged, skipping npm install."; fi'
     "cd '$BotRemotePath/Vinyls'"
-    "rm -rf node_modules/canvas"
-    '\"$NODE_BIN\" \"$NPM_CLI\" install canvas@2.11.2 --omit=dev --foreground-scripts'
-    '\"$NODE_BIN\" -e ''require(\"canvas\"); console.log(\"canvas-ok\")'''
+    'if "$NODE_BIN" -e ''require("canvas")'' >/dev/null 2>&1; then echo "Canvas already OK."; else echo "Canvas rebuild required."; rm -rf ../node_modules/canvas node_modules/canvas; "$NODE_BIN" "$NPM_CLI" install canvas@2.11.2 --omit=dev --foreground-scripts --no-audit --no-fund --loglevel=error; fi'
+    '"$NODE_BIN" -e ''require("canvas"); console.log("canvas-ok")'''
   )
   if (-not $SkipBackendRestart) {
     $remoteCmd += "pm2 restart '$Pm2AppName' --update-env"
-    $remoteCmd += "pm2 logs '$Pm2AppName' --lines 12 --nostream"
+    $remoteCmd += "pm2 describe '$Pm2AppName'"
   } else {
     $remoteCmd += "echo 'Restart PM2 saltato (-SkipBackendRestart)'"
   }

@@ -1929,7 +1929,9 @@ async function detectViolations(message, state, profile) {
     state.normHistory.push({ t: at, c: normalized, id: msgId });
     trimNormHistory(state.normHistory, 18_000, at);
     const ratio = TEXT_RULES.similarMessage.ratio;
-    const similarThreshold = legitConversation ? 2 : 1;
+    // Avoid warning on the very first resend of an otherwise normal sentence.
+    // We require at least two prior similar messages, and three for legit-looking chat.
+    const similarThreshold = legitConversation ? 3 : 2;
     let similarCount = 0;
     const similarIds = [];
     for (const x of state.normHistory) {

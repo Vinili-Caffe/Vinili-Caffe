@@ -3,6 +3,12 @@ const fsSync = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 
+function isEnabled(value, defaultValue = false) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return defaultValue;
+  return ["1", "true", "yes", "on"].includes(raw);
+}
+
 async function getFiles(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const files = await Promise.all(entries.map((entry) => { const res = path.resolve(dir, entry.name); if (entry.isDirectory() && entry.name !== "node_modules") { return getFiles(res); } else if (entry.isFile() && res.endsWith(".js")) { return res; } return []; }),);
@@ -63,6 +69,7 @@ async function extractRequiredPackages(file) {
 }
 
 async function checkForOutdatedPackages(client) {
+  if (!isEnabled(process.env.CHECK_OUTDATED_PACKAGES_ON_READY, false)) return;
   try {
     client.logs.debug("Checking for outdated packages...");
     const outdated = execSync("npm outdated --json").toString();
@@ -88,6 +95,7 @@ async function checkForOutdatedPackages(client) {
 }
 
 async function checkNodeVersion(client) {
+  if (!isEnabled(process.env.CHECK_NODE_VERSION_ON_READY, false)) return;
   try {
     const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
     const requiredNodeVersion = String(packageJson.engines?.node || "").trim();
@@ -160,10 +168,10 @@ async function checkAndInstallPackages(
       client.logs.error(
         `Missing packages detected: ${missingPackages.join(", ")}`,
       );
-      const allowAutoInstall =
-        String(process.env.AUTO_INSTALL_MISSING_PACKAGES || "")
-          .trim()
-          .toLowerCase() === "1";
+      const allowAutoInstall = isEnabled(
+        process.env.AUTO_INSTALL_MISSING_PACKAGES,
+        false,
+      );
       if (!allowAutoInstall) {
         client.logs.warn(
           "Auto install disabled (set AUTO_INSTALL_MISSING_PACKAGES=1 to enable).",

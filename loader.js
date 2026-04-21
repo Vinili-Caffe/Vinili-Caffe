@@ -360,7 +360,11 @@ function spawnBotProcess(bot, workingDir, file, resolve) {
           console.warn("[Loader]", e?.message || e);
         }
         processRefs[bot.key] = null;
-        console.log(`[Loader] ${bot.label} fermato (code ${code}${signal ? `, signal ${signal}` : ''})`);
+        if (shuttingDown) {
+            console.log(`[Loader] ${bot.label} chiuso durante arresto coordinato (code ${code}${signal ? `, signal ${signal}` : ''})`);
+        } else {
+            console.log(`[Loader] ${bot.label} fermato (code ${code}${signal ? `, signal ${signal}` : ''})`);
+        }
         if (!shuttingDown) {
             requestShutdown(code == null ? 1 : code || 0, `${bot.label} si e fermato; riavvio coordinato di tutto il gruppo`);
         }
