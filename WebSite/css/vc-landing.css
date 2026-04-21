@@ -4579,3 +4579,227 @@ textarea.vc-candidature-input {
   filter: brightness(1.06);
   transform: translateY(-1px);
 }
+
+.vc-role-request-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.vc-role-request-sheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 42rem);
+  border-radius: 1.8rem;
+  border: 1px solid rgba(196, 181, 253, 0.18);
+  background:
+    linear-gradient(145deg, rgba(24, 30, 63, 0.96), rgba(33, 41, 77, 0.9) 45%, rgba(65, 20, 73, 0.84) 100%);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.vc-role-request-head {
+  padding: 1.5rem 1.8rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vc-role-request-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.vc-role-request-icon {
+  position: relative;
+  display: inline-flex;
+  width: 4rem;
+  height: 4rem;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 1rem;
+  background: #f5ea00;
+  color: #fff;
+  font-size: 1.6rem;
+  overflow: hidden;
+}
+
+.vc-role-request-iconimg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.vc-role-request-iconemoji {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.vc-role-request-swatch {
+  position: absolute;
+  right: -0.15rem;
+  bottom: -0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(24, 30, 63, 0.95);
+}
+
+.vc-role-request-headcopy {
+  min-width: 0;
+}
+
+.vc-role-request-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.vc-role-request-sub {
+  margin: 0.2rem 0 0;
+  font-size: 1.05rem;
+  color: rgba(226, 232, 240, 0.82);
+  text-transform: uppercase;
+}
+
+.vc-role-request-body {
+  padding: 1.25rem 1.8rem 0.75rem;
+}
+
+.vc-role-request-label {
+  display: block;
+  margin-bottom: 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(241, 245, 249, 0.95);
+}
+
+.vc-role-request-textarea {
+  width: 100%;
+  min-height: 10rem;
+  box-sizing: border-box;
+  resize: vertical;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1rem 1.05rem;
+  font: inherit;
+  font-size: 1rem;
+  color: #f8fafc;
+  outline: none;
+}
+
+.vc-role-request-textarea::placeholder {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.vc-role-request-textarea:focus {
+  border-color: rgba(168, 85, 247, 0.55);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+}
+
+.vc-role-request-meta {
+  margin-top: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.vc-role-request-state {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.vc-role-request-state--ok {
+  color: #86efac;
+}
+
+.vc-role-request-state--err {
+  color: #fca5a5;
+}
+
+.vc-role-request-counter {
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: rgba(191, 219, 254, 0.72);
+}
+
+.vc-role-request-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem 1.8rem 1.8rem;
+}
+
+.vc-role-request-cancel,
+.vc-role-request-submit {
+  min-height: 3.5rem;
+  border-radius: 1rem;
+  border: 0;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.vc-role-request-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vc-role-request-cancel:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.vc-role-request-submit {
+  color: #fff;
+  background: linear-gradient(90deg, #a855f7 0%, #ec4899 100%);
+  box-shadow: 0 10px 26px rgba(168, 85, 247, 0.22);
+}
+
+.vc-role-request-submit:hover {
+  filter: brightness(1.04);
+}
+
+.vc-role-request-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+@media (max-width: 640px) {
+  .vc-role-request-modal {
+    padding: 0.8rem;
+  }
+
+  .vc-role-request-head,
+  .vc-role-request-body,
+  .vc-role-request-actions {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .vc-role-request-title {
+    font-size: 1.45rem;
+  }
+
+  .vc-role-request-sub {
+    font-size: 0.92rem;
+  }
+
+  .vc-role-request-actions {
+    grid-template-columns: 1fr;
+  }
+}
