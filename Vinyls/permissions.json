@@ -226,7 +226,19 @@
                 "channels.chat",
                 "channels.media",
                 "channels.commands",
-                "channels.forum"
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3"
             ]
         },
         "rank": {

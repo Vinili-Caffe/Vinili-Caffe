@@ -1,4 +1,14 @@
 (function () {
+  function isBlockingSessionVerifyPage() {
+    try {
+      return Boolean(window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  if (!isBlockingSessionVerifyPage()) return;
+
   try {
     var h = window.location.hash || "";
     if (h.indexOf("access_token=") !== -1) {

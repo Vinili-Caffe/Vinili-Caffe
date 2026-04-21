@@ -76,6 +76,118 @@
     return String(h.toFixed(1)).replace(".", ",") + "h";
   }
 
+  function prefersReducedMotion() {
+    try {
+      return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function easeOutQuart(t) {
+    return 1 - Math.pow(1 - t, 4);
+  }
+
+  function numericFromKind(value, kind) {
+    var n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    if (kind === "hours") return n / 3600;
+    return n;
+  }
+
+  function formatAnimatedValue(value, kind) {
+    var n = Number(value);
+    if (!Number.isFinite(n) || n < 0) n = 0;
+    if (kind === "hours") return String(n.toFixed(1)).replace(".", ",") + "h";
+    if (kind === "percent") return String(Math.round(n)) + "%";
+    if (kind === "plain") return String(Math.round(n));
+    return formatIntIt(n);
+  }
+
+  function animateValueNode(node, rawValue, kind, durationMs) {
+    if (!node) return;
+    var to = numericFromKind(rawValue, kind);
+    if (prefersReducedMotion()) {
+      node.textContent = formatAnimatedValue(to, kind);
+      node.setAttribute("data-anim-current", String(to));
+      return;
+    }
+    var from = Number(node.getAttribute("data-anim-current"));
+    if (!Number.isFinite(from)) from = 0;
+    if (node._vcAnimRaf) {
+      cancelAnimationFrame(node._vcAnimRaf);
+      node._vcAnimRaf = null;
+    }
+    if (Math.abs(from - to) < 0.001) {
+      node.textContent = formatAnimatedValue(to, kind);
+      node.setAttribute("data-anim-current", String(to));
+      return;
+    }
+    var start = performance.now();
+    function frame(now) {
+      var t = Math.min(1, (now - start) / durationMs);
+      var eased = easeOutQuart(t);
+      var current = from + (to - from) * eased;
+      node.textContent = formatAnimatedValue(current, kind);
+      if (t < 1) {
+        node._vcAnimRaf = requestAnimationFrame(frame);
+      } else {
+        node.textContent = formatAnimatedValue(to, kind);
+        node.setAttribute("data-anim-current", String(to));
+        node._vcAnimRaf = null;
+      }
+    }
+    node._vcAnimRaf = requestAnimationFrame(frame);
+  }
+
+  function animateNumberTargets(root) {
+    if (!root || !root.querySelectorAll) return;
+    var nodes = root.querySelectorAll("[data-vc-count-value], [data-anim-value]");
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var valueAttr = node.getAttribute("data-vc-count-value");
+      var kindAttr = node.getAttribute("data-vc-count-kind");
+      animateValueNode(
+        node,
+        Number(valueAttr != null ? valueAttr : node.getAttribute("data-anim-value")),
+        String(kindAttr != null ? kindAttr : node.getAttribute("data-anim-kind") || "int"),
+        900,
+      );
+    }
+  }
+
+  function readDisplayedAnimatedValue(node, kind) {
+    if (!node) return 0;
+    var text = String(node.textContent || "").trim();
+    if (!text || text === "â€”") return 0;
+    if (kind === "hours") {
+      var hours = parseFloat(text.replace(",", ".").replace(/[^\d.,-]/g, ""));
+      return Number.isFinite(hours) ? hours * 3600 : 0;
+    }
+    var n = parseFloat(text.replace(/\./g, "").replace(",", ".").replace(/[^\d.,-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function animateTopStats() {
+    var mem = byId("vc-ul-stat-members");
+    var midVal = byId("vc-ul-stat-mid-value");
+    var countApi = typeof window !== "undefined" ? window.VCCountUp : null;
+    if (countApi && typeof countApi.refresh === "function") {
+      if (mem && mem.parentNode) countApi.refresh(mem.parentNode);
+      if (midVal && midVal.parentNode) countApi.refresh(midVal.parentNode);
+      return;
+    }
+    if (mem) {
+      animateValueNode(mem, readDisplayedAnimatedValue(mem, "int"), "int", 1100);
+    }
+    if (midVal) {
+      var kind = "plain";
+      if (state.board === "weekly" || state.board === "messages") kind = "int";
+      else if (state.board === "voice") kind = "hours";
+      animateValueNode(midVal, readDisplayedAnimatedValue(midVal, kind), kind, 1000);
+    }
+  }
+
   function formatMult(m) {
     var x = Number(m);
     if (!Number.isFinite(x) || x <= 0) return "x1";
@@ -208,13 +320,17 @@
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Livello</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="plain" data-vc-count-value="' +
+      esc(String(Number(row.level) || 0)) +
+      '">' +
       esc(String(row.level != null ? row.level : "0")) +
       "</span>" +
       "</div>" +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">EXP</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.exp) || 0)) +
+      '">' +
       esc(formatIntIt(row.exp)) +
       "</span>" +
       "</div>" +
@@ -225,7 +341,9 @@
       '<div class="vc-ul-card-foot">' +
       '<span class="vc-ul-foot-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>' +
       '<span class="vc-ul-foot-label">Progresso livello</span>' +
-      '<span class="vc-ul-foot-val">' +
+      '<span class="vc-ul-foot-val" data-vc-countup="true" data-vc-count-kind="percent" data-vc-count-value="' +
+      esc(String(pct)) +
+      '">' +
       esc(String(pct)) +
       "%</span>" +
       "</div>" +
@@ -243,13 +361,17 @@
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Livello</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="plain" data-vc-count-value="' +
+      esc(String(Number(row.level) || 0)) +
+      '">' +
       esc(String(row.level != null ? row.level : "0")) +
       "</span>" +
       "</div>" +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">EXP</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.exp) || 0)) +
+      '">' +
       esc(formatIntIt(row.exp)) +
       "</span>" +
       "</div>" +
@@ -257,7 +379,9 @@
       '<div class="vc-ul-stat-wide">' +
       '<div class="vc-ul-stat-wide-row">' +
       '<span class="vc-ul-stat-wide-label">EXP settimanale</span>' +
-      '<span class="vc-ul-stat-wide-val">' +
+      '<span class="vc-ul-stat-wide-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.weeklyExp) || 0)) +
+      '">' +
       esc(formatIntIt(row.weeklyExp)) +
       "</span>" +
       "</div>" +
@@ -271,7 +395,9 @@
       '<div class="vc-ul-card-foot">' +
       '<span class="vc-ul-foot-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>' +
       '<span class="vc-ul-foot-label">Moltiplicatore</span>' +
-      '<span class="vc-ul-foot-val">' +
+      '<span class="vc-ul-foot-val" data-vc-countup="true" data-vc-count-kind="plain" data-vc-count-value="' +
+      esc(String(Number(row.expMultiplier) || 1)) +
+      '">' +
       esc(mult) +
       "</span>" +
       "</div>" +
@@ -287,13 +413,17 @@
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Messaggi</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.messagesTotal) || 0)) +
+      '">' +
       esc(formatIntIt(row.messagesTotal)) +
       "</span>" +
       "</div>" +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Msg settimanali</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.messagesWeekly) || 0)) +
+      '">' +
       esc(formatIntIt(row.messagesWeekly)) +
       "</span>" +
       "</div>" +
@@ -301,7 +431,9 @@
       '<div class="vc-ul-stat-wide">' +
       '<div class="vc-ul-stat-wide-row">' +
       '<span class="vc-ul-stat-wide-label">Messaggi giornalieri</span>' +
-      '<span class="vc-ul-stat-wide-val">' +
+      '<span class="vc-ul-stat-wide-val" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="' +
+      esc(String(Number(row.messagesDaily) || 0)) +
+      '">' +
       esc(formatIntIt(row.messagesDaily)) +
       "</span>" +
       "</div>" +
@@ -321,13 +453,17 @@
       '<div class="vc-ul-card-stats">' +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Ore totali</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="hours" data-vc-count-value="' +
+      esc(String(Number(row.voiceTotalSeconds) || 0)) +
+      '">' +
       esc(formatHoursIt(row.voiceTotalSeconds)) +
       "</span>" +
       "</div>" +
       '<div class="vc-ul-statbox">' +
       '<span class="vc-ul-statbox-label">Ore settimanali</span>' +
-      '<span class="vc-ul-statbox-val">' +
+      '<span class="vc-ul-statbox-val" data-vc-countup="true" data-vc-count-kind="hours" data-vc-count-value="' +
+      esc(String(Number(row.voiceWeeklySeconds) || 0)) +
+      '">' +
       esc(formatHoursIt(row.voiceWeeklySeconds)) +
       "</span>" +
       "</div>" +
@@ -335,7 +471,9 @@
       '<div class="vc-ul-stat-wide">' +
       '<div class="vc-ul-stat-wide-row">' +
       '<span class="vc-ul-stat-wide-label">Ore giornaliere</span>' +
-      '<span class="vc-ul-stat-wide-val">' +
+      '<span class="vc-ul-stat-wide-val" data-vc-countup="true" data-vc-count-kind="hours" data-vc-count-value="' +
+      esc(String(Number(row.voiceDailySeconds) || 0)) +
+      '">' +
       esc(formatHoursIt(row.voiceDailySeconds)) +
       "</span>" +
       "</div>" +
@@ -432,6 +570,69 @@
     }
   }
 
+  function applyAnimatedStats(data) {
+    var st = data && data.stats ? data.stats : {};
+    var board = String((data && data.board) || state.board || "level");
+    var rows = sortRowsForBoard((data && data.rows) || [], board);
+    var topRow = rows.length ? rows[0] : null;
+    var mem = byId("vc-ul-stat-members");
+    var midLabel = byId("vc-ul-stat-mid-label");
+    var midVal = byId("vc-ul-stat-mid-value");
+    var tn = byId("vc-ul-stat-topname");
+    var sub = byId("vc-user-leader-sub");
+    var countApi = typeof window !== "undefined" ? window.VCCountUp : null;
+    var membersValue =
+      st.membersApprox != null && Number.isFinite(Number(st.membersApprox))
+        ? Number(st.membersApprox)
+        : null;
+
+    if (mem) {
+      if (membersValue == null) mem.textContent = "—";
+      else if (countApi && typeof countApi.set === "function") countApi.set(mem, membersValue, "int");
+      else mem.textContent = formatIntIt(membersValue);
+    }
+
+    if (midLabel && midVal) {
+      var topMetricValue = null;
+      var topMetricKind = "int";
+      if (board === "level") {
+        midLabel.textContent = "Livello più alto";
+        topMetricValue = topRow ? Number(topRow.level) || 0 : (st.topLevel != null ? Number(st.topLevel) || 0 : null);
+      } else if (board === "weekly") {
+        midLabel.textContent = "EXP settimanale più alto";
+        topMetricValue = topRow ? Number(topRow.weeklyExp) || 0 : (st.topWeeklyExp != null ? Number(st.topWeeklyExp) || 0 : null);
+      } else if (board === "messages") {
+        midLabel.textContent = "Messaggi più alti";
+        topMetricValue = topRow ? Number(topRow.messagesTotal) || 0 : (st.topMessagesTotal != null ? Number(st.topMessagesTotal) || 0 : null);
+      } else if (board === "voice") {
+        midLabel.textContent = "Ore vocali più alte";
+        topMetricKind = "hours";
+        topMetricValue = topRow ? Number(topRow.voiceTotalSeconds) || 0 : (st.topVoiceSeconds != null ? Number(st.topVoiceSeconds) || 0 : null);
+      } else {
+        midLabel.textContent = "—";
+        midVal.textContent = "—";
+      }
+
+      if (topMetricValue == null) {
+        midVal.textContent = "—";
+      } else if (countApi && typeof countApi.set === "function") {
+        countApi.set(midVal, topMetricValue, topMetricKind);
+      } else if (topMetricKind === "hours") {
+        midVal.textContent = formatHoursIt(topMetricValue);
+      } else {
+        midVal.textContent = formatIntIt(topMetricValue);
+      }
+    }
+
+    if (tn && topRow) {
+      tn.textContent = String(topRow.username || topRow.displayName || "").trim() || "—";
+    } else if (tn) {
+      tn.textContent = String(st.topPlayerUsername || st.topDisplayName || "—").trim() || "—";
+    }
+
+    if (sub) sub.textContent = "";
+  }
+
   function render(data) {
     var grid = byId("vc-ul-grid");
     var empty = byId("vc-ul-empty");
@@ -469,6 +670,11 @@
     grid.innerHTML = rows.map(function (r) {
       return renderCard(r, board);
     }).join("");
+    if (typeof window !== "undefined" && window.VCCountUp && typeof window.VCCountUp.refresh === "function") {
+      window.VCCountUp.refresh(grid);
+    } else {
+      animateNumberTargets(grid);
+    }
     state.totalPages = Math.max(1, Number(data.totalPages) || 1);
     updatePager();
   }
@@ -544,7 +750,8 @@
           state.page = 1;
         }
         if (body.board) state.board = String(body.board);
-        applyStats(body);
+        applyAnimatedStats(body);
+        animateTopStats();
         render(body);
         syncSearchUi();
       })

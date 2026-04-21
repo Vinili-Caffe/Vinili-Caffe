@@ -325,6 +325,23 @@ header .vc-nav-shell.vc-glass {
   background: rgba(8, 6, 5, 0.78);
   backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(170%);
   -webkit-backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(170%);
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    backdrop-filter 220ms ease,
+    -webkit-backdrop-filter 220ms ease,
+    transform 220ms ease;
+}
+
+header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  background: rgba(8, 6, 5, 0.52);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 10px 38px rgba(0, 0, 0, 0.42),
+    0 0 36px rgba(212, 168, 136, 0.06);
+  backdrop-filter: blur(calc(var(--vc-glass-blur-strong) + 4px)) saturate(180%);
+  -webkit-backdrop-filter: blur(calc(var(--vc-glass-blur-strong) + 4px)) saturate(180%);
 }
 
 .vc-header-pill,
@@ -1164,7 +1181,8 @@ ul.vc-footer-social:not(:has(> li)) {
   height: 2.25rem;
   overflow: hidden;
   border-radius: 9999px;
-  background: rgba(10, 9, 8, 0.96);
+  background: rgba(10, 9, 8, 0.4);
+  box-shadow: 0 0 0 1px rgba(212, 168, 136, 0.18);
 }
 
 @media (min-width: 640px) {
@@ -1179,10 +1197,9 @@ ul.vc-footer-social:not(:has(> li)) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: 50% 50%;
   border-radius: 9999px;
   /* Icona guild Discord = cerchio su PNG quadrato: zoom per coprire il clip senza “angoli vuoti” */
-  transform: scale(1.22);
 }
 
 a.vc-header-logo-link+a[href] {
@@ -1200,61 +1217,49 @@ a.vc-header-logo-link+a[href] {
 
 .vc-header-snav {
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(212, 168, 136, 0.12);
-  background: rgba(8, 6, 4, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .vc-header-snav.vc-glass {
-  backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(170%);
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(170%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .vc-header-snav .vc-snav-item,
 .vc-header-snav .vc-snav-summary {
-  border: 1px solid var(--vc-header-ctrl-border);
-  background: var(--vc-header-ctrl-bg);
+  border: 0;
+  background: transparent;
   color: rgba(248, 250, 252, 0.95);
-  backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
   box-shadow: none;
-  transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+  transition: color 0.2s, opacity 0.2s;
 }
 
 .vc-header-snav .vc-snav-item:hover,
 .vc-header-snav .vc-snav-summary:hover {
-  border-color: var(--vc-header-ctrl-border-hover);
-  background: var(--vc-header-ctrl-bg-hover);
   color: #fff;
-  box-shadow: 0 0 16px rgba(212, 168, 136, 0.1);
+  box-shadow: none;
 }
 
 .vc-header-snav .vc-snav-item--active {
-  border-color: var(--vc-header-ctrl-border-hover);
-  background: var(--vc-header-ctrl-bg-hover);
   color: #fff;
 }
 
 .vc-header-snav .vc-snav-item--active:hover {
-  background: var(--vc-header-ctrl-bg-hover);
   color: #fff;
 }
 
 .vc-header-snav .vc-snav-details[open]>.vc-snav-summary {
-  border-color: var(--vc-header-ctrl-border-hover);
-  background: var(--vc-header-ctrl-bg-hover);
   color: #fff;
 }
 
 .vc-header-snav .vc-snav-details.vc-snav-details--current>.vc-snav-summary {
-  border-color: var(--vc-header-ctrl-border-hover);
-  background: var(--vc-header-ctrl-bg-hover);
   color: #fff8f0;
 }
 
 .vc-header-snav .vc-snav-details.vc-snav-details--current>.vc-snav-summary:hover {
-  background: var(--vc-header-ctrl-bg-hover);
   color: #fff;
 }
 
@@ -1281,30 +1286,24 @@ a.vc-header-logo-link+a[href] {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.45rem 0.85rem;
-  border-radius: 9999px;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: rgba(248, 250, 252, 0.95);
   text-decoration: none;
-  transition:
-    background 0.15s,
-    color 0.15s;
+  transition: color 0.15s;
 }
 
 .vc-snav-item:hover {
-  background: rgba(255, 255, 255, 0.06);
   color: #fff;
 }
 
 .vc-snav-item--active {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.05);
   color: #fff;
 }
 
 .vc-snav-item--active:hover {
-  background: rgba(255, 255, 255, 0.07);
   color: #fff;
 }
 
@@ -1322,14 +1321,14 @@ a.vc-header-logo-link+a[href] {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.45rem 0.85rem;
-  border-radius: 9999px;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0;
   font-size: 0.875rem;
   font-weight: 600;
   color: rgba(248, 250, 252, 0.95);
   cursor: pointer;
   user-select: none;
-  transition: background 0.15s;
+  transition: color 0.15s;
 }
 
 .vc-snav-summary::-webkit-details-marker {
@@ -1337,7 +1336,7 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-snav-summary:hover {
-  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
 }
 
 .vc-snav-chev {
@@ -2755,11 +2754,6 @@ textarea.vc-candidature-input {
 }
 
 .vc-notify-stat--c {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
   background: linear-gradient(135deg, rgba(var(--vc-sand-rgb), 0.22), rgba(var(--vc-mocha-rgb), 0.35));
 }
 
@@ -3276,6 +3270,11 @@ textarea.vc-candidature-input {
     linear-gradient(180deg, rgba(6, 9, 18, 0.18) 0%, rgba(7, 16, 39, 0.45) 28%, rgba(7, 16, 39, 0.65) 100%);
   backdrop-filter: blur(10px) saturate(135%);
   -webkit-backdrop-filter: blur(10px) saturate(135%);
+}
+
+.vc-ul-loading[hidden] {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 .vc-ul-loading-card {
@@ -3797,9 +3796,47 @@ textarea.vc-candidature-input {
 
 .vc-roles-info-list {
   margin: 0.85rem 0 0;
-  padding-left: 1.2rem;
+  padding-left: 0;
+  list-style: none;
   color: rgba(237, 233, 254, 0.88);
   line-height: 1.6;
+}
+
+.vc-roles-info-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.vc-roles-info-list li::before {
+  flex: 0 0 auto;
+  width: 1rem;
+  text-align: center;
+  font: normal normal normal 14px/1 FontAwesome;
+  font-size: 1rem;
+  line-height: 1.55rem;
+}
+
+.vc-roles-info-list li i {
+  flex: 0 0 auto;
+  width: 1rem;
+  text-align: center;
+  margin-top: 0.1rem;
+}
+
+.vc-roles-info-head .vc-roles-info-list li:first-child::before {
+  content: "\f521";
+  color: #d8b4fe;
+}
+
+.vc-roles-info-callout .vc-roles-info-list li:first-child::before {
+  content: "\f0e7";
+  color: #22d3ee;
+}
+
+.vc-roles-info-head .vc-roles-info-list li:first-child i,
+.vc-roles-info-callout .vc-roles-info-list li:first-child i {
+  display: none;
 }
 
 .vc-roles-info-list li+li {
@@ -3843,6 +3880,7 @@ textarea.vc-candidature-input {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  height: 100%;
   padding: 1.35rem;
   border-radius: 1.35rem;
   border: 1px solid rgba(196, 181, 253, 0.16);
@@ -3988,6 +4026,7 @@ textarea.vc-candidature-input {
 }
 
 .vc-role-card-sep {
+  margin-top: auto;
   height: 1px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
 }
@@ -4040,6 +4079,12 @@ textarea.vc-candidature-input {
 
 .vc-role-modal-open {
   overflow: hidden;
+}
+
+.vc-role-modal[hidden],
+.vc-role-request-modal[hidden] {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 .vc-role-modal {
@@ -4592,8 +4637,10 @@ textarea.vc-candidature-input {
 
 .vc-role-request-sheet {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: min(100%, 42rem);
+  max-height: min(88vh, 44rem);
+  overflow: auto;
   border-radius: 1.8rem;
   border: 1px solid rgba(196, 181, 253, 0.18);
   background:
@@ -4605,7 +4652,11 @@ textarea.vc-candidature-input {
 }
 
 .vc-role-request-head {
-  padding: 1.5rem 1.8rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 5rem 1rem 1.8rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -4614,6 +4665,33 @@ textarea.vc-candidature-input {
   align-items: center;
   gap: 1rem;
   min-width: 0;
+}
+
+.vc-role-request-close {
+  position: absolute;
+  top: 1.35rem;
+  right: 1.35rem;
+  z-index: 4;
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  line-height: 1;
+}
+
+.vc-role-request-close:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .vc-role-request-icon {
@@ -4674,6 +4752,65 @@ textarea.vc-candidature-input {
 
 .vc-role-request-body {
   padding: 1.25rem 1.8rem 0.75rem;
+}
+
+.vc-role-request-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 1.15rem 1rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  background: linear-gradient(145deg, rgba(76, 29, 149, 0.22), rgba(30, 41, 59, 0.24));
+  text-align: center;
+}
+
+.vc-role-request-auth-icon {
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(168, 85, 247, 0.18);
+  color: #f5d0fe;
+  font-size: 1.15rem;
+}
+
+.vc-role-request-auth-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.vc-role-request-auth-sub {
+  margin: 0;
+  max-width: 26rem;
+  color: rgba(226, 232, 240, 0.9);
+  line-height: 1.55;
+}
+
+.vc-role-request-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 2.85rem;
+  padding: 0.75rem 1.15rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  background: linear-gradient(90deg, #5865f2 0%, #7c3aed 100%);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.vc-role-request-login:hover {
+  filter: brightness(1.05);
 }
 
 .vc-role-request-label {
@@ -4789,6 +4926,10 @@ textarea.vc-candidature-input {
   .vc-role-request-actions {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .vc-role-request-head {
+    padding-right: 4.5rem;
   }
 
   .vc-role-request-title {

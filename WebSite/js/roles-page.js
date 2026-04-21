@@ -12,6 +12,7 @@
     summary: null,
     activeRoleId: "",
     activeRequestRoleId: "",
+    requestAuthRequired: false,
     submittingRequest: false,
     lastFocusEl: null
   };
@@ -61,6 +62,75 @@
     if (direct && !isTemplatePlaceholder(direct)) return direct;
 
     return "/webhooks/site-roles/request";
+  }
+
+  function authCfg() {
+    return (typeof window !== "undefined" && window.__VC_AUTH) || {};
+  }
+
+  function buildDiscordAuthUrl() {
+    var c = authCfg();
+    var clientId = String(c.clientId || "").trim();
+    if (!clientId) return "";
+    var redirect = String(c.redirectUri || "").trim() || (window.location.origin + window.location.pathname);
+    var here = String(window.location.pathname || "/") + String(window.location.search || "");
+    var q = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirect,
+      response_type: "token",
+      scope: "identify",
+    });
+    if (here && here !== "/") q.set("state", here);
+    return "https://discord.com/oauth2/authorize?" + q.toString();
+  }
+
+  function triggerDiscordLogin() {
+    var headerBtn = byId("discord-login-btn");
+    if (headerBtn && !headerBtn.hidden && typeof headerBtn.click === "function") {
+      headerBtn.click();
+      return;
+    }
+    var url = buildDiscordAuthUrl();
+    if (url) window.location.href = url;
+  }
+
+  async function fetchJsonWithTimeout(url, options, timeoutMs) {
+    var ms = Number(timeoutMs);
+    if (!Number.isFinite(ms) || ms <= 0) ms = 12000;
+    if (typeof AbortController === "undefined") {
+      var fallbackRes = await fetch(url, options);
+      var fallbackText = await fallbackRes.text();
+      return {
+        ok: fallbackRes.ok,
+        status: fallbackRes.status,
+        data: fallbackText ? JSON.parse(fallbackText) : null
+      };
+    }
+
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () {
+      ctrl.abort();
+    }, ms);
+
+    try {
+      var merged = Object.assign({}, options || {}, { signal: ctrl.signal });
+      var res = await fetch(url, merged);
+      var text = await res.text();
+      var data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (e) {
+        data = null;
+      }
+      return { ok: res.ok, status: res.status, data: data };
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error("timeout");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function esc(s) {
@@ -182,9 +252,22 @@
     var perm = byId("vc-roles-stat-perm");
     var members = byId("vc-roles-stat-members");
     var sub = byId("vc-roles-sub");
-    if (total) total.textContent = formatIntIt(summary && summary.totalRoles);
-    if (perm) perm.textContent = formatIntIt(summary && summary.permanentRoles);
-    if (members) members.textContent = formatIntIt(summary && summary.totalAssignments);
+    var countApi = typeof window !== "undefined" ? window.VCCountUp : null;
+    var totalValue = Number(summary && summary.totalRoles) || 0;
+    var permValue = Number(summary && summary.permanentRoles) || 0;
+    var memberValue = Number(summary && summary.totalAssignments) || 0;
+    if (total) {
+      if (countApi && typeof countApi.set === "function") countApi.set(total, totalValue, "int");
+      else total.textContent = formatIntIt(totalValue);
+    }
+    if (perm) {
+      if (countApi && typeof countApi.set === "function") countApi.set(perm, permValue, "int");
+      else perm.textContent = formatIntIt(permValue);
+    }
+    if (members) {
+      if (countApi && typeof countApi.set === "function") countApi.set(members, memberValue, "int");
+      else members.textContent = formatIntIt(memberValue);
+    }
     if (sub) {
       sub.textContent = "Esplora i ruoli custom della community · " + formatIntIt(summary && summary.totalRoles) + " ruoli";
     }
@@ -377,7 +460,31 @@
     var counter = byId("vc-role-request-counter");
     var len = textarea ? String(textarea.value || "").trim().length : 0;
     if (counter) counter.textContent = len + "/500";
-    if (submit) submit.disabled = state.submittingRequest || !state.activeRequestRoleId || len < 10 || len > 500;
+    if (submit) submit.disabled = state.requestAuthRequired || state.submittingRequest || !state.activeRequestRoleId || len < 10 || len > 500;
+  }
+
+  function syncRequestAuthUi() {
+    var authBox = byId("vc-role-request-auth");
+    var label = document.querySelector(".vc-role-request-label");
+    var textarea = byId("vc-role-request-reason");
+    var meta = document.querySelector(".vc-role-request-meta");
+    var cancel = byId("vc-role-request-cancel");
+    var submit = byId("vc-role-request-submit");
+    var needsLogin = !getToken();
+
+    state.requestAuthRequired = needsLogin;
+
+    if (authBox) authBox.hidden = !needsLogin;
+    if (label) label.hidden = needsLogin;
+    if (textarea) {
+      textarea.hidden = needsLogin;
+      textarea.disabled = needsLogin;
+    }
+    if (meta) meta.hidden = needsLogin;
+    if (cancel) cancel.textContent = needsLogin ? "Chiudi" : "Annulla";
+    if (submit) submit.hidden = needsLogin;
+
+    syncRequestModalState();
   }
 
   function openRequestModal(roleId) {
@@ -389,12 +496,14 @@
     var textarea = byId("vc-role-request-reason");
     if (!row || !modal || !title || !sub || !textarea) return;
     state.activeRequestRoleId = String(row.roleId || "");
+    state.requestAuthRequired = false;
     state.submittingRequest = false;
     renderRequestRoleIcon(row);
     title.textContent = "Richiedi Ruolo";
     sub.textContent = String(row.roleName || "Ruolo custom");
     textarea.value = "";
     setRequestState("", false);
+    syncRequestAuthUi();
     syncRequestModalState();
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
@@ -415,6 +524,7 @@
     }
 
     state.activeRequestRoleId = "";
+    state.requestAuthRequired = false;
     state.submittingRequest = false;
     modal.setAttribute("inert", "");
     modal.setAttribute("aria-hidden", "true");
@@ -438,7 +548,7 @@
     var api = resolvedRequestApiUrl();
     var reason = textarea ? String(textarea.value || "").trim() : "";
     if (!token) {
-      setRequestState("Effettua il login con Discord prima di inviare una richiesta.", true);
+      syncRequestAuthUi();
       syncRequestModalState();
       return;
     }
@@ -576,7 +686,9 @@
     var modal = byId("vc-role-modal");
     var requestModal = byId("vc-role-request-modal");
     var closeBtn = byId("vc-role-modal-close");
+    var requestClose = byId("vc-role-request-close");
     var requestCancel = byId("vc-role-request-cancel");
+    var requestLogin = byId("vc-role-request-login");
     var requestSubmit = byId("vc-role-request-submit");
     var requestTextarea = byId("vc-role-request-reason");
     var grid = byId("vc-roles-grid");
@@ -644,6 +756,16 @@
         if (!state.submittingRequest) closeRequestModal();
       });
     }
+    if (requestLogin) {
+      requestLogin.addEventListener("click", function () {
+        triggerDiscordLogin();
+      });
+    }
+    if (requestClose) {
+      requestClose.addEventListener("click", function () {
+        if (!state.submittingRequest) closeRequestModal();
+      });
+    }
     if (requestSubmit) requestSubmit.addEventListener("click", submitRoleRequest);
     if (requestTextarea) {
       requestTextarea.addEventListener("input", syncRequestModalState);
@@ -674,15 +796,13 @@
     setState("", false);
 
     try {
-      var res = await fetch(api, { headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit" });
-      var text = await res.text();
-      var data = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch (e) {
-        data = null;
-      }
-      if (!res.ok || !data || data.ok !== true) {
+      var out = await fetchJsonWithTimeout(
+        api,
+        { headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit" },
+        12000,
+      );
+      var data = out && out.data;
+      if (!out || !out.ok || !data || data.ok !== true) {
         throw new Error((data && data.message) || "Risposta non valida");
       }
 
@@ -693,8 +813,19 @@
       setSummary(state.summary);
       renderGrid();
     } catch (err) {
-      setState("Impossibile caricare i ruoli personalizzati in questo momento.", true);
-      emptyState("Errore di caricamento.", "Controlla GET /webhooks/site-roles e che l'HTTP del bot sia attivo.");
+      var timedOut = err && String(err.message || "").toLowerCase() === "timeout";
+      setState(
+        timedOut
+          ? "Il caricamento dei ruoli sta impiegando troppo tempo."
+          : "Impossibile caricare i ruoli personalizzati in questo momento.",
+        true,
+      );
+      emptyState(
+        timedOut ? "Timeout richiesta." : "Errore di caricamento.",
+        timedOut
+          ? "L'endpoint /webhooks/site-roles non ha risposto in tempo. Controlla proxy/nginx o HTTP del bot."
+          : "Controlla GET /webhooks/site-roles e che l'HTTP del bot sia attivo.",
+      );
     } finally {
       setLoading(false);
     }

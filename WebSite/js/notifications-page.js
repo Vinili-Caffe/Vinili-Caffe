@@ -111,11 +111,24 @@
     var unreadEl = byId("vc-stat-unread");
     var readEl = byId("vc-stat-read");
     var filteredEl = byId("vc-stat-filtered");
+    var countApi = typeof window !== "undefined" ? window.VCCountUp : null;
     if (subtitle) subtitle.textContent = (unread === 0 ? "Tutte lette" : unread + " non lette") + " - " + total + " totali";
-    if (totalEl) totalEl.textContent = String(total);
-    if (unreadEl) unreadEl.textContent = String(unread);
-    if (readEl) readEl.textContent = String(read);
-    if (filteredEl) filteredEl.textContent = String(shownRows.length);
+    if (totalEl) {
+      if (countApi && typeof countApi.set === "function") countApi.set(totalEl, total, "int");
+      else totalEl.textContent = String(total);
+    }
+    if (unreadEl) {
+      if (countApi && typeof countApi.set === "function") countApi.set(unreadEl, unread, "int");
+      else unreadEl.textContent = String(unread);
+    }
+    if (readEl) {
+      if (countApi && typeof countApi.set === "function") countApi.set(readEl, read, "int");
+      else readEl.textContent = String(read);
+    }
+    if (filteredEl) {
+      if (countApi && typeof countApi.set === "function") countApi.set(filteredEl, shownRows.length, "int");
+      else filteredEl.textContent = String(shownRows.length);
+    }
   }
 
   function markRead(id) {

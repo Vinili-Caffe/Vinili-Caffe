@@ -1,6 +1,8 @@
 const IDs = require("../Config/ids");
-const { CustomRole } = require("../../Schemas/Community/communitySchemas");
+const { CustomRole, SiteRoleRequestCooldown } = require("../../Schemas/Community/communitySchemas");
 const { createSiteRoleJoinRequest } = require("../../Events/interaction/customRoleHandlers");
+
+const ROLE_REQUEST_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -13,6 +15,23 @@ function isExpired(doc) {
 
 function sanitizeReason(value) {
   return String(value || "").trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").slice(0, 500);
+}
+
+function formatDateTimeIt(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  try {
+    return date.toLocaleString("it-IT", {
+      timeZone: "Europe/Rome",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return date.toISOString();
+  }
 }
 
 async function resolveWebsiteGuildMember(client, accessToken) {
@@ -103,6 +122,22 @@ async function submitSiteRoleRequest(client, payload) {
     return { ok: false, status: 404, error: "owner_not_found", message: "Il proprietario del ruolo non è disponibile nel server." };
   }
 
+  const cooldownDoc = await SiteRoleRequestCooldown.findOne({
+    guildId: resolved.guild.id,
+    requesterId: resolved.userId,
+    roleId: role.id,
+  }).lean().catch(() => null);
+  const cooldownUntil = cooldownDoc?.cooldownUntil ? new Date(cooldownDoc.cooldownUntil) : null;
+  if (cooldownUntil && Number.isFinite(cooldownUntil.getTime()) && cooldownUntil.getTime() > Date.now()) {
+    return {
+      ok: false,
+      status: 429,
+      error: "cooldown_active",
+      message: `Hai giÃ  inviato una richiesta per questo ruolo di recente. Potrai inviarne una nuova dal ${formatDateTimeIt(cooldownUntil)}.`,
+      cooldownUntil: cooldownUntil.toISOString(),
+    };
+  }
+
   await Promise.allSettled([
     resolved.guild.members.fetch(resolved.userId).catch(() => null),
     resolved.guild.members.fetch(ownerId).catch(() => null),
@@ -184,10 +219,34 @@ async function submitSiteRoleRequest(client, payload) {
     };
   }
 
+  const now = new Date();
+  const nextAllowedAt = new Date(now.getTime() + ROLE_REQUEST_COOLDOWN_MS);
+  await SiteRoleRequestCooldown.findOneAndUpdate(
+    {
+      guildId: resolved.guild.id,
+      requesterId: resolved.userId,
+      roleId: role.id,
+    },
+    {
+      $set: {
+        ownerId,
+        lastRequestedAt: now,
+        cooldownUntil: nextAllowedAt,
+      },
+      $setOnInsert: {
+        guildId: resolved.guild.id,
+        requesterId: resolved.userId,
+        roleId: role.id,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+
   return {
     ok: true,
     status: 200,
-    message: "Richiesta inviata in DM al proprietario del ruolo.",
+    message: "Richiesta inviata in DM al proprietario del ruolo. Potrai inviarne una nuova per questo ruolo tra 7 giorni.",
+    cooldownUntil: nextAllowedAt.toISOString(),
   };
 }
 

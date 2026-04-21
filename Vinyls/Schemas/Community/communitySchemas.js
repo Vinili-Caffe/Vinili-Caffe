@@ -479,6 +479,19 @@ const rejoinRoleMemorySchema = new Schema(
 );
 rejoinRoleMemorySchema.index({ guildId: 1, userId: 1 }, { unique: true });
 
+const siteRoleRequestCooldownSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    requesterId: { type: String, required: true, index: true },
+    roleId: { type: String, required: true, index: true },
+    ownerId: { type: String, default: null, index: true },
+    lastRequestedAt: { type: Date, default: Date.now, required: true },
+    cooldownUntil: { type: Date, default: Date.now, required: true, index: true },
+  },
+  { timestamps: true },
+);
+siteRoleRequestCooldownSchema.index({ guildId: 1, requesterId: 1, roleId: 1 }, { unique: true });
+
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
 const USE_LEGACY_MOD_CASE_MODEL = MOD_CASE_STORAGE_MODE === "legacy" || MOD_CASE_STORAGE_MODE === "dual";
@@ -930,6 +943,7 @@ const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserPro
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
 const RejoinRoleMemory = models.RejoinRoleMemory || model("RejoinRoleMemory", rejoinRoleMemorySchema, "rejoinrolememories");
+const SiteRoleRequestCooldown = models.SiteRoleRequestCooldown || model("SiteRoleRequestCooldown", siteRoleRequestCooldownSchema, "siterolerequestcooldowns");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -951,4 +965,5 @@ module.exports = {
   QuotePrivacy,
   UserLeaveBackup,
   RejoinRoleMemory,
+  SiteRoleRequestCooldown,
 };

@@ -704,13 +704,17 @@ async function main() {
   const snap = invitePayload?.snap ?? null;
 
   let heroBannerBlock = "";
+  let guildBannerUrl = "";
   let guildIconUrl = FALLBACK_GUILD_ICON;
   let foundedDisplay = String(cfg.foundedDisplay || "").trim() || "—";
 
   if (snap) {
     if (wantBanner) {
       const bannerUrl = guildBannerCdnUrl(snap.guildId, snap.banner);
-      if (bannerUrl) heroBannerBlock = buildHeroBannerStyleBlock(bannerUrl);
+      if (bannerUrl) {
+        guildBannerUrl = bannerUrl;
+        heroBannerBlock = buildHeroBannerStyleBlock(bannerUrl);
+      }
       else
         console.warn(
           "[build-site] Nessun banner guild (Impostazioni server → Profilo server → Banner).",
@@ -791,7 +795,7 @@ async function main() {
     );
   }
 
-  const ogImageUrl = absUrlForMetadata(siteUrlTrim, guildIconUrl);
+  const ogImageUrl = absUrlForMetadata(siteUrlTrim, guildBannerUrl || guildIconUrl);
   const ogTitle = `${siteName} | Discord`;
   const ogDesc = String(cfg.metaDescription || "").trim();
   const ogUrl = siteUrlTrim;

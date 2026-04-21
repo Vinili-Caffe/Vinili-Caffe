@@ -186,6 +186,218 @@
   }
 })();
 (function () {
+  function initHeaderScrollState() {
+    var navShell = document.querySelector("header .vc-nav-shell.vc-glass");
+    if (!navShell) return;
+    var ticking = false;
+
+    function applyScrollState() {
+      ticking = false;
+      navShell.classList.toggle("vc-nav-shell--scrolled", window.scrollY > 16);
+    }
+
+    applyScrollState();
+    window.addEventListener(
+      "scroll",
+      function () {
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(applyScrollState);
+      },
+      { passive: true },
+    );
+    window.addEventListener("resize", applyScrollState, { passive: true });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initHeaderScrollState);
+  } else {
+    initHeaderScrollState();
+  }
+})();
+(function () {
+  function prefersReducedMotion() {
+    try {
+      return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function easeOutQuart(t) {
+    return 1 - Math.pow(1 - t, 4);
+  }
+
+  function formatIntIt(n) {
+    var x = Number(n);
+    if (!Number.isFinite(x)) return "0";
+    try {
+      return Math.round(x).toLocaleString("it-IT");
+    } catch (e) {
+      return String(Math.round(x));
+    }
+  }
+
+  function normalizeValue(raw, kind) {
+    var n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) n = 0;
+    if (kind === "hours") return n / 3600;
+    return n;
+  }
+
+  function formatValue(raw, kind) {
+    var n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) n = 0;
+    if (kind === "hours") return String(n.toFixed(1)).replace(".", ",") + "h";
+    if (kind === "percent") return String(Math.round(n)) + "%";
+    if (kind === "plain") return String(Math.round(n));
+    return formatIntIt(n);
+  }
+
+  function readKind(node) {
+    return String(node.getAttribute("data-vc-count-kind") || "int");
+  }
+
+  function readTarget(node) {
+    return normalizeValue(node.getAttribute("data-vc-count-value"), readKind(node));
+  }
+
+  function readDuration(node) {
+    var ms = Number(node.getAttribute("data-vc-count-duration"));
+    if (!Number.isFinite(ms) || ms <= 0) return 900;
+    return ms;
+  }
+
+  function canRepeat(node) {
+    return String(node.getAttribute("data-vc-count-repeat") || "true").toLowerCase() !== "false";
+  }
+
+  function stopAnimation(node) {
+    if (node && node._vcCountRaf) {
+      cancelAnimationFrame(node._vcCountRaf);
+      node._vcCountRaf = null;
+    }
+  }
+
+  function animateNode(node, from, to, kind, durationMs) {
+    if (!node) return;
+    stopAnimation(node);
+    if (prefersReducedMotion()) {
+      node.textContent = formatValue(to, kind);
+      node.setAttribute("data-vc-count-current", String(to));
+      return;
+    }
+    if (Math.abs(from - to) < 0.001) {
+      node.textContent = formatValue(to, kind);
+      node.setAttribute("data-vc-count-current", String(to));
+      return;
+    }
+    var start = performance.now();
+    function frame(now) {
+      var t = Math.min(1, (now - start) / durationMs);
+      var eased = easeOutQuart(t);
+      var current = from + (to - from) * eased;
+      node.textContent = formatValue(current, kind);
+      if (t < 1) {
+        node._vcCountRaf = requestAnimationFrame(frame);
+      } else {
+        node.textContent = formatValue(to, kind);
+        node.setAttribute("data-vc-count-current", String(to));
+        node._vcCountRaf = null;
+      }
+    }
+    node._vcCountRaf = requestAnimationFrame(frame);
+  }
+
+  function resetNode(node) {
+    if (!node || !canRepeat(node)) return;
+    stopAnimation(node);
+    var kind = readKind(node);
+    node.textContent = formatValue(0, kind);
+    node.setAttribute("data-vc-count-current", "0");
+    node.setAttribute("data-vc-count-visible", "false");
+  }
+
+  function playNode(node) {
+    if (!node) return;
+    var kind = readKind(node);
+    var to = readTarget(node);
+    node.setAttribute("data-vc-count-visible", "true");
+    animateNode(node, 0, to, kind, readDuration(node));
+  }
+
+  function createObserver() {
+    if (typeof IntersectionObserver === "undefined") return null;
+    return new IntersectionObserver(
+      function (entries) {
+        for (var i = 0; i < entries.length; i += 1) {
+          var entry = entries[i];
+          if (!entry.isIntersecting || entry.intersectionRatio < 0.35) {
+            resetNode(entry.target);
+            continue;
+          }
+          playNode(entry.target);
+        }
+      },
+      {
+        root: null,
+        rootMargin: "0px 0px -8% 0px",
+        threshold: [0, 0.12, 0.2, 0.35, 0.5, 0.75, 1],
+      },
+    );
+  }
+
+  var observer = createObserver();
+
+  function registerNode(node) {
+    if (!node) return;
+    if (!observer) {
+      playNode(node);
+      return;
+    }
+    observer.observe(node);
+  }
+
+  function refresh(root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    var nodes = scope.querySelectorAll("[data-vc-countup]");
+    for (var i = 0; i < nodes.length; i += 1) {
+      registerNode(nodes[i]);
+    }
+  }
+
+  function set(node, rawValue, kind) {
+    if (!node) return;
+    node.setAttribute("data-vc-countup", "true");
+    node.setAttribute("data-vc-count-value", String(Number(rawValue) || 0));
+    if (kind) node.setAttribute("data-vc-count-kind", String(kind));
+    registerNode(node);
+    if (!observer) {
+      playNode(node);
+      return;
+    }
+    var rect = node.getBoundingClientRect();
+    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    var visible = rect.bottom > 0 && rect.top < vh * 0.92;
+    if (visible) playNode(node);
+    else resetNode(node);
+  }
+
+  window.VCCountUp = {
+    refresh: refresh,
+    set: set,
+    reset: resetNode,
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      refresh(document);
+    });
+  } else {
+    refresh(document);
+  }
+})();
+(function () {
   var STORAGE_KEY = "vc_notifications_v1";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var NOTIFICATIONS_PATH = "/notifications/";

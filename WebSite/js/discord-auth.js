@@ -15,6 +15,14 @@
     return document.getElementById(id);
   }
 
+  function isBlockingSessionVerifyPage() {
+    try {
+      return Boolean(window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function ensureSessionVerifyOverlay() {
     var el = byId(SESSION_OVERLAY_ID);
     if (el) return el;
@@ -34,6 +42,12 @@
   }
 
   function showSessionVerifyOverlay() {
+    if (!isBlockingSessionVerifyPage()) {
+      try {
+        document.documentElement.classList.remove("vc-session-verify-pending");
+      } catch (e0) {}
+      return;
+    }
     var el = ensureSessionVerifyOverlay();
     try {
       document.documentElement.classList.remove("vc-session-verify-pending");
@@ -43,6 +57,9 @@
   }
 
   function hideSessionVerifyOverlay() {
+    try {
+      document.documentElement.classList.remove("vc-session-verify-pending");
+    } catch (e0) {}
     var el = byId(SESSION_OVERLAY_ID);
     if (!el) return;
     el.classList.add("vc-session-verify-overlay--hidden");
