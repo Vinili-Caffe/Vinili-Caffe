@@ -1177,12 +1177,99 @@ ul.vc-footer-social:not(:has(> li)) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.7rem;
+  height: 2.7rem;
   overflow: hidden;
-  border-radius: 9999px;
-  background: rgba(10, 9, 8, 0.4);
+  border-radius: 0.9rem;
+  background: rgba(10, 9, 8, 0.55);
   box-shadow: 0 0 0 1px rgba(212, 168, 136, 0.18);
+}
+
+
+@media (min-width: 640px) {
+  .vc-header-logo-link {
+    width: 2.7rem;
+    height: 2.7rem;
+    padding: 0.2rem;
+  }
+}
+
+.vc-header-logo-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  transform: scale(1.28);
+  transform-origin: center;
+}
+
+.vc-snav-sep {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .vc-snav-sep {
+    display: inline-block;
+    align-self: center;
+    flex: 0 0 1px;
+    width: 1px;
+    height: 1.55rem;
+    margin: 0 0.35rem;
+    border-radius: 9999px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.16) 18%,
+      rgba(255, 255, 255, 0.16) 82%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+    opacity: 0.95;
+  }
+}
+
+.vc-header-snav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.vc-header-snav > .vc-snav-item,
+.vc-header-snav > .vc-snav-details {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .vc-header-snav > .vc-snav-item + .vc-snav-details::before,
+  .vc-header-snav > .vc-snav-details + .vc-snav-details::before,
+  .vc-header-snav > .vc-snav-details + .vc-snav-item::before,
+  .vc-header-snav > .vc-snav-item + .vc-snav-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 1px;
+    height: 1.55rem;
+    transform: translate(-0.35rem, -50%);
+    border-radius: 9999px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.03) 0%,
+      rgba(255, 255, 255, 0.16) 20%,
+      rgba(255, 255, 255, 0.16) 80%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+    pointer-events: none;
+  }
+}
+
+.vc-snav-details,
+.vc-snav-item {
+  display: inline-flex;
+  align-items: center;
 }
 
 @media (min-width: 640px) {
@@ -1230,11 +1317,8 @@ a.vc-header-logo-link+a[href] {
 
 .vc-header-snav .vc-snav-item,
 .vc-header-snav .vc-snav-summary {
-  border: 0;
-  background: transparent;
-  color: rgba(248, 250, 252, 0.95);
-  box-shadow: none;
-  transition: color 0.2s, opacity 0.2s;
+  min-height: 2.25rem;
+  padding: 0.45rem 1rem;
 }
 
 .vc-header-snav .vc-snav-item:hover,
