@@ -103,6 +103,12 @@ async function submitSiteRoleRequest(client, payload) {
     return { ok: false, status: 404, error: "owner_not_found", message: "Il proprietario del ruolo non è disponibile nel server." };
   }
 
+  await Promise.allSettled([
+    resolved.guild.members.fetch(resolved.userId).catch(() => null),
+    resolved.guild.members.fetch(ownerId).catch(() => null),
+    resolved.guild.roles.fetch(role.id).catch(() => null),
+  ]);
+
   const out = await createSiteRoleJoinRequest({
     client,
     guildId: resolved.guild.id,
@@ -128,6 +134,46 @@ async function submitSiteRoleRequest(client, payload) {
         status: 409,
         error: "already_pending",
         message: "Hai già una richiesta in attesa per questo ruolo.",
+      };
+    }
+    if (out?.error === "owner_not_found") {
+      return {
+        ok: false,
+        status: 404,
+        error: "owner_not_found",
+        message: "Il proprietario del ruolo non è più disponibile nel server.",
+      };
+    }
+    if (out?.error === "requester_not_found") {
+      return {
+        ok: false,
+        status: 403,
+        error: "requester_not_found",
+        message: "Non riesco a trovarti nel server Discord. Rientra nel server e riprova.",
+      };
+    }
+    if (out?.error === "role_missing") {
+      return {
+        ok: false,
+        status: 404,
+        error: "role_missing",
+        message: "Il ruolo Discord non esiste più.",
+      };
+    }
+    if (out?.error === "guild_unavailable") {
+      return {
+        ok: false,
+        status: 503,
+        error: "guild_unavailable",
+        message: "Server Discord temporaneamente non disponibile. Riprova tra poco.",
+      };
+    }
+    if (out?.error === "invalid_context") {
+      return {
+        ok: false,
+        status: 503,
+        error: "invalid_context",
+        message: "Non riesco a preparare la richiesta in questo momento. Riprova tra qualche secondo.",
       };
     }
     return {

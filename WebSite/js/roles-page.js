@@ -32,26 +32,34 @@
     }
   }
 
+  function inviteUrl() {
+    return String(cfg().inviteUrl || "").trim() || "#";
+  }
+
+  function isTemplatePlaceholder(value) {
+    return /\{\{.*\}\}/.test(String(value || ""));
+  }
+
   function resolvedApiUrl() {
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    return String(c.apiUrl || "").trim();
-  }
+    var direct = String(c.apiUrl || "").trim();
 
-  function inviteUrl() {
-    return String(cfg().inviteUrl || "").trim() || "#";
+    if (isLocalFrontendOrigin() && local && !isTemplatePlaceholder(local)) return local;
+    if (direct && !isTemplatePlaceholder(direct)) return direct;
+
+    return "/webhooks/site-roles";
   }
 
   function resolvedRequestApiUrl() {
     var c = cfg();
     var local = String(c.requestApiUrlLocal || "").trim();
     var direct = String(c.requestApiUrl || "").trim();
-    if (isLocalFrontendOrigin() && local) return local;
-    if (direct) return direct;
-    var base = resolvedApiUrl();
-    if (!base) return "";
-    return base.replace(/\/site-roles(?:\?.*)?$/i, "/site-roles/request");
+
+    if (isLocalFrontendOrigin() && local && !isTemplatePlaceholder(local)) return local;
+    if (direct && !isTemplatePlaceholder(direct)) return direct;
+
+    return "/webhooks/site-roles/request";
   }
 
   function esc(s) {
@@ -434,7 +442,11 @@
         data = null;
       }
       if (!res.ok || !data || data.ok !== true) {
-        throw new Error((data && data.message) || "Invio non riuscito");
+        var fallbackMsg =
+          (data && data.message) ||
+          (text && String(text).trim()) ||
+          ("Invio non riuscito (HTTP " + res.status + ")");
+        throw new Error(fallbackMsg);
       }
       setState("Richiesta inviata all'owner del ruolo tramite DM.", false);
       closeRequestModal();
