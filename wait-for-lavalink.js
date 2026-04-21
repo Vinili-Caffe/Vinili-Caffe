@@ -9,10 +9,11 @@ const port = parseInt(lastColon > 0 ? raw.slice(lastColon + 1) : "2333", 10) || 
 const maxWaitMs = 120000;
 const intervalMs = 2000;
 const settleMs = 4000;
-const start = Date.now();
 let attempts = 0;
 let loaderChild = null;
 let stopping = false;
+let lavalinkReady = false;
+let settleTimer = null;
 
 function killChildTree(pid) {
   if (!pid || Number.isNaN(pid)) return;
@@ -57,6 +58,7 @@ function check() {
 }
 
 function runLoader() {
+  if (loaderChild?.pid) return;
   const node = process.execPath || "node";
   const loader = path.join(__dirname, "loader.js");
   console.log("[wait-for-lavalink] Esecuzione: " + node + " loader.js");
@@ -73,44 +75,59 @@ function runLoader() {
   });
 }
 
-function wait() {
+function scheduleNextCheck(delayMs = intervalMs) {
+  if (stopping) return;
+  setTimeout(checkLavalinkStatus, delayMs);
+}
+
+function checkLavalinkStatus() {
+  if (stopping) return;
   attempts += 1;
-  const elapsed = Date.now() - start;
-  if (elapsed > maxWaitMs) {
-    console.error("[wait-for-lavalink] Timeout dopo " + (maxWaitMs / 1000) + "s. Avvio bot senza Lavalink (musica non funzionera).");
-    runLoader();
-    return;
-  }
   if (attempts % 5 === 1 && attempts > 1) {
     console.log("[wait-for-lavalink] Ancora in attesa su " + host + ":" + port + " (tentativo " + attempts + ")");
   }
   check().then((ok) => {
     if (!ok) {
-      setTimeout(wait, intervalMs);
+      if (settleTimer) {
+        clearTimeout(settleTimer);
+        settleTimer = null;
+      }
+      if (lavalinkReady) {
+        lavalinkReady = false;
+        console.warn("[wait-for-lavalink] Lavalink non raggiungibile al momento. Il backend resta attivo, la musica no.");
+      }
+      scheduleNextCheck(intervalMs);
       return;
     }
-    console.log("[wait-for-lavalink] Lavalink raggiungibile, attendo " + settleMs / 1000 + "s (avvio JVM)...");
-    setTimeout(() => {
+    if (lavalinkReady || settleTimer) {
+      scheduleNextCheck(intervalMs);
+      return;
+    }
+    console.log("[wait-for-lavalink] Lavalink raggiungibile, attendo " + settleMs / 1000 + "s (stabilizzazione JVM)...");
+    settleTimer = setTimeout(() => {
+      settleTimer = null;
       check().then((stillOk) => {
         if (!stillOk) {
-          console.warn("[wait-for-lavalink] Lavalink non piu raggiungibile, continuo ad attendere.");
-          setTimeout(wait, intervalMs);
+          scheduleNextCheck(intervalMs);
           return;
         }
-        console.log("[wait-for-lavalink] Avvio bot.");
-        runLoader();
+        lavalinkReady = true;
+        console.log("[wait-for-lavalink] Lavalink pronto.");
+        scheduleNextCheck(intervalMs);
       });
     }, settleMs);
   });
 }
 
-console.log("[wait-for-lavalink] Attendo Lavalink su " + host + ":" + port + " ...");
+console.log("[wait-for-lavalink] Avvio immediato backend; controllo Lavalink su " + host + ":" + port + " in background...");
 ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"].forEach((signalName) => {
   process.on(signalName, () => requestStop(0, "segnale " + signalName + " ricevuto"));
 });
 
 process.on("exit", () => {
+  if (settleTimer) clearTimeout(settleTimer);
   if (loaderChild?.pid) killChildTree(loaderChild.pid);
 });
 
-wait();
+runLoader();
+checkLavalinkStatus();

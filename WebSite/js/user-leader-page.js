@@ -83,6 +83,29 @@
     return "x" + String(x.toFixed(1)).replace(".", ",");
   }
 
+  function boardMetricValue(row, board) {
+    if (!row || typeof row !== "object") return 0;
+    if (board === "level") return Number(row.exp) || 0;
+    if (board === "weekly") return Number(row.weeklyExp) || 0;
+    if (board === "messages") return Number(row.messagesTotal) || 0;
+    if (board === "voice") return Number(row.voiceTotalSeconds) || 0;
+    return 0;
+  }
+
+  function sortRowsForBoard(rows, board) {
+    var list = Array.isArray(rows) ? rows.slice() : [];
+    list.sort(function (a, b) {
+      var diff = boardMetricValue(b, board) - boardMetricValue(a, board);
+      if (diff !== 0) return diff;
+      return (Number(a && a.rank) || 0) - (Number(b && b.rank) || 0);
+    });
+    return list.map(function (row, idx) {
+      var copy = Object.assign({}, row);
+      copy.rank = idx + 1;
+      return copy;
+    });
+  }
+
   function rankClass(rank) {
     var r = Number(rank) || 0;
     if (r <= 0) return "vc-ul-rank vc-ul-rank--n";
@@ -339,6 +362,8 @@
   function applyStats(data) {
     var st = data && data.stats ? data.stats : {};
     var board = String((data && data.board) || state.board || "level");
+    var rows = sortRowsForBoard((data && data.rows) || [], board);
+    var topRow = rows.length ? rows[0] : null;
     var mem = byId("vc-ul-stat-members");
     var midLabel = byId("vc-ul-stat-mid-label");
     var midVal = byId("vc-ul-stat-mid-value");
@@ -372,6 +397,20 @@
       var topUser = String(st.topPlayerUsername || st.topDisplayName || "—").trim() || "—";
       tn.textContent = topUser;
     }
+    if (midLabel && midVal && topRow) {
+      if (board === "level") {
+        midVal.textContent = formatIntIt(topRow.level);
+      } else if (board === "weekly") {
+        midVal.textContent = formatIntIt(topRow.weeklyExp);
+      } else if (board === "messages") {
+        midVal.textContent = formatIntIt(topRow.messagesTotal);
+      } else if (board === "voice") {
+        midVal.textContent = formatHoursIt(topRow.voiceTotalSeconds);
+      }
+    }
+    if (tn && topRow) {
+      tn.textContent = String(topRow.username || topRow.displayName || "").trim() || "—";
+    }
     if (sub) {
       var blurb = "";
       blurb = "";
@@ -383,7 +422,7 @@
     var grid = byId("vc-ul-grid");
     var empty = byId("vc-ul-empty");
     if (!grid || !empty) return;
-    var rows = (data && data.rows) || [];
+    var rows = sortRowsForBoard((data && data.rows) || [], String((data && data.board) || state.board || "level"));
     var board = String((data && data.board) || state.board || "level");
     if (!rows.length) {
       grid.innerHTML = "";

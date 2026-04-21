@@ -185,11 +185,9 @@ function siteRomeDayOverridesFromDoc(doc, board, romeDateKey) {
   const dayText = nInt(dayRow?.textCount);
   const dayVoice = nInt(dayRow?.voiceSeconds);
   if (board === "messages") {
-    const profileDaily = nInt(doc.profile?.totals?.messagesDaily);
-    return { messagesDaily: Math.max(profileDaily, dayText) };
+    return { messagesDaily: dayText };
   }
-  const profileDailyVoice = nInt(doc.profile?.totals?.voiceDailySeconds);
-  return { voiceDailySeconds: Math.max(profileDailyVoice, dayVoice) };
+  return { voiceDailySeconds: dayVoice };
 }
 
 function sortHourlyBreakdownForBoard(breakdown, board) {
