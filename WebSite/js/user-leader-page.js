@@ -350,10 +350,12 @@
     if (!nav || !prev || !next || !lab) return;
     if (state.searchUserId || state.totalPages <= 1) {
       nav.hidden = true;
+      nav.style.display = "none";
       return;
     }
     var tp = Math.max(1, state.totalPages);
     nav.hidden = false;
+    nav.style.display = "flex";
     prev.disabled = state.page <= 1;
     next.disabled = state.page >= tp;
     lab.textContent = "Pagina " + state.page + " di " + tp;

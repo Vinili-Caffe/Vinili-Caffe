@@ -3052,6 +3052,7 @@ textarea.vc-candidature-input {
 .vc-ul-filters-hint-ol {
   margin: 0;
   padding-left: 1.1rem;
+  list-style: decimal;
   font-size: 0.8rem;
   line-height: 1.5;
   color: rgba(203, 213, 225, 0.9);

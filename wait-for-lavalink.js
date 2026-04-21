@@ -1,4 +1,4 @@
-const http = require("http");
+const net = require("net");
 const { spawn, spawnSync } = require("child_process");
 const path = require("path");
 
@@ -42,18 +42,22 @@ function requestStop(exitCode = 0, reason = "") {
 
 function check() {
   return new Promise((resolve) => {
-    const req = http.get(
-      { host, port, path: "/", timeout: 5000 },
-      (res) => {
-        res.destroy();
-        resolve(true);
-      }
-    );
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(false);
-    });
+    const socket = net.connect({ host, port });
+    let settled = false;
+
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      try {
+        socket.destroy();
+      } catch (_) {}
+      resolve(ok);
+    };
+
+    socket.setTimeout(5000);
+    socket.on("connect", () => finish(true));
+    socket.on("error", () => finish(false));
+    socket.on("timeout", () => finish(false));
   });
 }
 
