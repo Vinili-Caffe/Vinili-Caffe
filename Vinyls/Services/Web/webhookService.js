@@ -352,9 +352,6 @@ async function startWebhookServer(client) {
         return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
       }
     });
-    global.logger?.info?.(
-      "[WEBHOOK] Sito: GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature, GET /webhooks/site-unban/eligibility, POST /webhooks/site-unban (Bearer)",
-    );
   } else {
     const candidatureDisabledBody = {
       ok: false,
@@ -501,24 +498,6 @@ async function startWebhookServer(client) {
   });
 
   app.listen(port, "0.0.0.0", () => {
-    global.logger?.info?.(
-      "[WEBHOOK] HTTP listening on port " +
-        port +
-        (shouldStartDiscadiaVoteHttpWebhook(client) ? " (POST /webhooks/discadia)" : "") +
-        (shouldStartTopggVoteHttpWebhook(client) ? " (POST /webhooks/topgg)" : "") +
-        " (GET /webhooks/site-rules, GET /webhooks/site-users, GET /webhooks/site-live-event)" +
-        (isCandidatureWebsiteApiEnabled()
-          ? " (GET /webhooks/site-candidature/eligibility, POST /webhooks/site-candidature, GET /webhooks/site-unban/eligibility, POST /webhooks/site-unban)"
-          : ""),
-    );
-    if (isCandidatureWebsiteApiEnabled()) {
-      global.logger?.info?.(
-        "[WEBHOOK] CORS candidature (valori letti dal processo):",
-        candidatureCorsAllowlist.length
-          ? candidatureCorsAllowlist.join(" | ")
-          : "(lista vuota: consentiti tutti gli origin loopback)",
-      );
-    }
   });
 }
 
