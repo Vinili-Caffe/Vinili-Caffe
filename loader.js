@@ -18,6 +18,7 @@ const silencedEnv=process.env.SHOW_NODE_WARNINGS==='1'?{...process.env}:{...proc
 const WORKSPACES_ENABLED = hasWorkspacesConfig();
 let shuttingDown = false;
 let requestedExitCode = 0;
+let syncStarted = false;
 
 function normalizeComparableName(value) {
     return String(value || '')
@@ -94,12 +95,26 @@ function resolveNodeExecutable() {
 
 function runSyncFromServerIfConfigured() {
     const syncServer = process.env.SYNC_SERVER || '';
-    if (!syncServer.trim()) return;
+    if (!syncServer.trim() || syncStarted) return;
     const scriptPath = path.join(baseDir, 'scripts', 'sync-from-server.js');
     if (!fs.existsSync(scriptPath)) return;
+    syncStarted = true;
     try {
-        console.log('[Loader] Sync da server...');
-        child_process.spawnSync(process.execPath, [scriptPath], { cwd: baseDir, stdio: 'inherit', env: process.env });
+        console.log('[Loader] Sync da server in background...');
+        const child = child_process.spawn(process.execPath, [scriptPath], {
+            cwd: baseDir,
+            stdio: 'inherit',
+            env: process.env,
+            shell: false,
+        });
+        child.on('error', (err) => {
+            console.warn('[Loader] Sync da server fallito:', err?.message || err);
+        });
+        child.on('exit', (code) => {
+            if (code && code !== 0) {
+                console.warn(`[Loader] Sync da server terminato con code ${code}`);
+            }
+        });
     } catch (err) {
         console.warn('[Loader] Sync da server fallito:', err?.message || err);
     }
