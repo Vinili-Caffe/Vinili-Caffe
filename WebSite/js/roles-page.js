@@ -12,7 +12,8 @@
     summary: null,
     activeRoleId: "",
     activeRequestRoleId: "",
-    submittingRequest: false
+    submittingRequest: false,
+    lastFocusEl: null
   };
 
   function byId(id) {
@@ -291,6 +292,7 @@
   }
 
   function openRoleModal(roleId) {
+    state.lastFocusEl = document.activeElement || null;
     var row = findRow(roleId);
     var modal = byId("vc-role-modal");
     var icon = byId("vc-role-modal-icon");
@@ -305,16 +307,32 @@
     list.innerHTML = (Array.isArray(row.members) ? row.members : []).map(renderMemberRow).join("");
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
+    modal.removeAttribute("inert");
     document.body.classList.add("vc-role-modal-open");
   }
 
   function closeRoleModal() {
     var modal = byId("vc-role-modal");
     if (!modal) return;
+
+    var active = document.activeElement;
+    if (active && modal.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
+
     state.activeRoleId = "";
-    modal.hidden = true;
+    modal.setAttribute("inert", "");
     modal.setAttribute("aria-hidden", "true");
+    modal.hidden = true;
     document.body.classList.remove("vc-role-modal-open");
+
+    if (state.lastFocusEl && typeof state.lastFocusEl.focus === "function") {
+      state.lastFocusEl.focus();
+    } else {
+      document.body.focus();
+    }
+
+    state.lastFocusEl = null;
   }
 
   function getToken() {
@@ -363,6 +381,7 @@
   }
 
   function openRequestModal(roleId) {
+    state.lastFocusEl = document.activeElement || null;
     var row = findRow(roleId);
     var modal = byId("vc-role-request-modal");
     var title = byId("vc-role-request-title");
@@ -379,6 +398,7 @@
     syncRequestModalState();
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
+    modal.removeAttribute("inert");
     document.body.classList.add("vc-role-modal-open");
     setTimeout(function () {
       textarea.focus();
@@ -388,13 +408,28 @@
   function closeRequestModal() {
     var modal = byId("vc-role-request-modal");
     if (!modal) return;
+
+    var active = document.activeElement;
+    if (active && modal.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
+
     state.activeRequestRoleId = "";
     state.submittingRequest = false;
-    modal.hidden = true;
+    modal.setAttribute("inert", "");
     modal.setAttribute("aria-hidden", "true");
+    modal.hidden = true;
     document.body.classList.remove("vc-role-modal-open");
     setRequestState("", false);
     syncRequestModalState();
+
+    if (state.lastFocusEl && typeof state.lastFocusEl.focus === "function") {
+      state.lastFocusEl.focus();
+    } else {
+      document.body.focus();
+    }
+
+    state.lastFocusEl = null;
   }
 
   async function submitRoleRequest() {

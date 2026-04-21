@@ -52,7 +52,7 @@ async function logCommandUsage(client, { channelId, serverName, user, userId, co
   const channel = await getCentralChannel(client, channelId);
   if (!channel) return;
   const embed = new EmbedBuilder().setColor("#6f4e37").setAuthor({
-    name: `<:member_role_icon:1330530086792728618> ${user} ha usato un comando.`,
+    name: `${user} ha usato un comando.`,
     iconURL: client.user.displayAvatarURL({ size: 64 }),
   })
     .setTitle(`${client.user.username} - Log Comandi`)
