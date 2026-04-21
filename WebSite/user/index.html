@@ -87,7 +87,7 @@
               <div class="vc-snav-panel">
                 <a class="vc-snav-row vc-snav-row--active" href="{{USER_PAGE_URL}}" aria-current="page"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
-                <a class="vc-snav-row" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                <a class="vc-snav-row" href="{{RUOLI_PAGE_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
                 <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
@@ -154,6 +154,13 @@
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <p id="vc-user-leader-state" class="vc-user-leader-state" hidden role="status"></p>
+      <div id="vc-ul-loading" class="vc-ul-loading" role="status" aria-live="polite" aria-label="Caricamento classifica">
+        <div class="vc-ul-loading-card">
+          <span class="vc-ul-loading-spinner" aria-hidden="true"></span>
+          <p class="vc-ul-loading-title">Caricamento classifica</p>
+          <p class="vc-ul-loading-sub">Sto aggiornando i dati della community…</p>
+        </div>
+      </div>
       <section class="vc-notify-hero w-full">
         <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div class="min-w-0 flex-1">

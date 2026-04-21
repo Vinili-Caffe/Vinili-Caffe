@@ -245,7 +245,8 @@ async function startWebhookServer(client) {
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
-    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteLiveEvent) return next();
+    const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
+    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteLiveEvent && !isSiteRoles) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -264,7 +265,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isSiteRules || isSiteUsers || isSiteLiveEvent) {
+    } else if (isSiteRules || isSiteUsers || isSiteLiveEvent || isSiteRoles) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -429,6 +430,7 @@ async function startWebhookServer(client) {
   const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
   const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
+  const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -443,6 +445,9 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);
+  });
+  app.get("/webhooks/site-roles", (req, res) => {
+    return handleSiteRolesGet(client, req, res);
   });
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {

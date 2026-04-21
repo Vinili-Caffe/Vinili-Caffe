@@ -22,6 +22,8 @@
   "communityRulesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-rules",
   "usersLeaderboardApiUrl": "https://www.viniliecaffe.it/webhooks/site-users",
   "usersLeaderboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-users",
+  "rolesApiUrl": "https://www.viniliecaffe.it/webhooks/site-roles",
+  "rolesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-roles",
   "liveEventApiUrl": "https://www.viniliecaffe.it/webhooks/site-live-event",
   "liveEventApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-live-event",
   "discordInviteCode": "viniliecaffe",

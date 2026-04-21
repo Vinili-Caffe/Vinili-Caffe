@@ -14,6 +14,9 @@ const VOTE_ROLE_ID = IDs.roles.Voter;
 const VOTE_URL = IDs.links.vote;
 const DEFAULT_THREAD_VOTE_REACTION = "👍";
 const DEFAULT_THREAD_VOTE_LOOKBACK_LIMIT = 100;
+const MOVIE_NIGHT_THREAD_PARENT_ID = "1481660281032675510";
+const MOVIE_NIGHT_THREAD_NAME = "SERATA FILM";
+const MOVIE_NIGHT_THREAD_REACTION = "<a:VC_Vote:1482535223001485473>";
 const MEDIA_BLOCK_ROLE_IDS = [IDs.roles.PicPerms].filter(Boolean);
 const processedBumpMessages = new Map();
 const bumpDetectionLogAtByGuild = new Map();
@@ -102,6 +105,33 @@ function normalizeThreadVoteText(raw) {
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeMovieNightThreadName(raw) {
+  return String(raw || "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function isMovieNightVoteThread(message) {
+  if (!message?.channel?.isThread?.()) return false;
+  const parentId = String(message.channel?.parentId || "");
+  if (parentId !== MOVIE_NIGHT_THREAD_PARENT_ID) return false;
+  const threadName = normalizeMovieNightThreadName(message.channel?.name || "");
+  return threadName === MOVIE_NIGHT_THREAD_NAME;
+}
+
+async function handleMovieNightVoteMessage(message) {
+  if (!message?.guild) return false;
+  if (message.author?.bot || message.webhookId || message.system) return false;
+  if (!isMovieNightVoteThread(message)) return false;
+  const reacted = await message.react(MOVIE_NIGHT_THREAD_REACTION).then(() => true).catch(() => false);
+  if (!reacted && MOVIE_NIGHT_THREAD_REACTION !== DEFAULT_THREAD_VOTE_REACTION) {
+    await message.react(DEFAULT_THREAD_VOTE_REACTION).catch(() => {});
+  }
+  return false;
 }
 
 function getThreadVoteConfig(client) {
@@ -1053,4 +1083,4 @@ async function processAllRecentAutomationMessages(client) {
   await processRecentPauseChannelMessages(client);
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleThreadVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

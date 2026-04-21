@@ -961,7 +961,25 @@ async function main() {
     usersLeaderboardApiLocalRaw && /^https?:\/\//i.test(usersLeaderboardApiLocalRaw)
       ? usersLeaderboardApiLocalRaw
       : "";
+  const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
+  const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
+  const rolesApiResolved =
+    rolesApiRaw && /^https?:\/\//i.test(rolesApiRaw)
+      ? rolesApiRaw
+      : rolesApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${rolesApiRaw.startsWith("/") ? "" : "/"}${rolesApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-roles`
+          : "/webhooks/site-roles";
+  const rolesApiLocalFromEnv = String(process.env.VC_ROLES_API_URL_LOCAL ?? "").trim();
+  const rolesApiLocalRaw =
+    rolesApiLocalFromEnv || String(cfg.rolesApiUrlLocal ?? "").trim();
+  const rolesApiLocalResolved =
+    rolesApiLocalRaw && /^https?:\/\//i.test(rolesApiLocalRaw)
+      ? rolesApiLocalRaw
+      : "";
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
+  const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
     console.log(
       "[build-site] OAuth2 Redirect (Discord Developer Portal): registra solo questa callback (stesso redirect da tutte le pagine; il ritorno alla pagina corretta usa state):",
@@ -1026,14 +1044,23 @@ async function main() {
     COMMUNITY_RULES_API_URL: escAttr(communityRulesApiResolved),
     COMMUNITY_RULES_API_URL_LOCAL: escAttr(communityRulesApiLocalResolved),
     USER_PAGE_URL: escAttr(userPageUrl),
+    RUOLI_PAGE_URL: escAttr(ruoliPageUrl),
     USERS_LEADERBOARD_API_URL: escAttr(usersLeaderboardApiResolved),
     USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
+    ROLES_API_URL: escAttr(rolesApiResolved),
+    ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
     USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
     USER_META_DESCRIPTION: escAttr(
       `Classifica livelli ed EXP del server Discord ${siteName}: utenti ordinati per esperienza totale.`,
     ),
     USER_OG_TITLE: escAttr(`${siteName} | Community`),
     USER_OG_URL: escAttr(userPageUrl),
+    RUOLI_PAGE_TITLE: `${siteName} | Ruoli Personalizzati`,
+    RUOLI_META_DESCRIPTION: escAttr(
+      `Tutti i ruoli personalizzati creati con +profile nella community Discord ${siteName}.`,
+    ),
+    RUOLI_OG_TITLE: escAttr(`${siteName} | Ruoli Personalizzati`),
+    RUOLI_OG_URL: escAttr(ruoliPageUrl),
     REGOLE_PAGE_TITLE: `${siteName} | Regole della community`,
     REGOLE_META_DESCRIPTION: escAttr(`Regole del server Discord ${siteName}: generali, chat testuali e vocali.`),
     REGOLE_OG_TITLE: escAttr(`${siteName} | Regole`),
@@ -1124,6 +1151,15 @@ async function main() {
     fs.writeFileSync(userIndexPath, userHtml, "utf8");
   } else {
     console.warn("[build-site] Manca user/index.html (saltato placeholder).");
+  }
+  const ruoliIndexPath = path.join(DIST, "ruoli", "index.html");
+  if (fs.existsSync(ruoliIndexPath)) {
+    let ruoliHtml = fs.readFileSync(ruoliIndexPath, "utf8");
+    ruoliHtml = applyPlaceholderMap(ruoliHtml, map);
+    warnLeftoverPlaceholders(ruoliHtml, "ruoli/index.html");
+    fs.writeFileSync(ruoliIndexPath, ruoliHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca ruoli/index.html (saltato placeholder).");
   }
 
   const regoleIndexPath = path.join(DIST, "regole", "index.html");

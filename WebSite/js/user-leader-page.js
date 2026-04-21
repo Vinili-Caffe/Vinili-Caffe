@@ -142,6 +142,18 @@
 
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false };
 
+  function setLoading(on, label) {
+    state.loading = Boolean(on);
+    var overlay = byId("vc-ul-loading");
+    var title = overlay ? overlay.querySelector(".vc-ul-loading-title") : null;
+    var sub = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
+    var grid = byId("vc-ul-grid");
+    if (overlay) overlay.hidden = !state.loading;
+    if (title) title.textContent = label || "Caricamento classifica";
+    if (sub) sub.textContent = state.loading ? "Sto aggiornando i dati della community…" : "";
+    if (grid) grid.setAttribute("aria-busy", state.loading ? "true" : "false");
+  }
+
   function setState(msg, isErr) {
     var el = byId("vc-user-leader-state");
     if (!el) return;
@@ -489,7 +501,7 @@
       /* CDN/proxy che ignorano la query o cache GET: varia l’URL e disabilita cache browser */
       url += "&_vcq=" + encodeURIComponent(String(Date.now()));
     }
-    state.loading = true;
+    setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
     setState("Caricamento…", false);
     fetch(url, { credentials: "omit", cache: "no-store" })
       .then(function (r) {
@@ -498,7 +510,7 @@
         });
       })
       .then(function (out) {
-        state.loading = false;
+        setLoading(false);
         if (!out.ok || !out.body || out.body.ok !== true) {
           var msg =
             (out.body && (out.body.message || out.body.error)) ||
@@ -537,7 +549,7 @@
         syncSearchUi();
       })
       .catch(function () {
-        state.loading = false;
+        setLoading(false);
         setState(
           "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
           true,
@@ -657,6 +669,7 @@
     initBoardTabs();
     initFilters();
     setFiltersOpen(false);
+    setLoading(true, "Caricamento classifica");
     load();
   }
 

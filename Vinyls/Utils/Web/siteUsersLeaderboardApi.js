@@ -1,6 +1,6 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { getLevelInfo, getGlobalMultiplier } = require("../../Services/Community/expService");
+const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getRoleMultiplier } = require("../../Services/Community/expService");
 const {
   computeLeaderboardRows,
   getRomeDayKey,
@@ -205,7 +205,27 @@ function sortHourlyBreakdownForBoard(breakdown, board) {
 const SEARCH_SELECT =
   "userId profile.totals.exp profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds";
 
-async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides) {
+function combineWeeklyMultiplier(globalExpMultiplier, roleMultiplier) {
+  const globalMulti = Number(globalExpMultiplier);
+  const roleMulti = Number(roleMultiplier);
+  const safeGlobal = Number.isFinite(globalMulti) && globalMulti > 0 ? globalMulti : 1;
+  const safeRole = Number.isFinite(roleMulti) && roleMulti > 0 ? roleMulti : 1;
+  const roleBonus = Math.max(0, safeRole - 1);
+  return Math.min(8, Math.max(1, safeGlobal + roleBonus));
+}
+
+async function resolveWeeklyMultiplierForUser(guild, userId, settings, fallbackGlobalExpMultiplier) {
+  if (!guild || !userId) return combineWeeklyMultiplier(fallbackGlobalExpMultiplier, 1);
+  let member = guild.members?.cache?.get?.(String(userId)) || null;
+  if (!member && guild.members?.fetch) {
+    member = await guild.members.fetch({ user: String(userId), force: true }).catch(() => null);
+  }
+  if (!member) return combineWeeklyMultiplier(fallbackGlobalExpMultiplier, 1);
+  const roleMultiplier = getRoleMultiplier(member, settings);
+  return combineWeeklyMultiplier(fallbackGlobalExpMultiplier, roleMultiplier);
+}
+
+async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier) {
   const ov = overrides && typeof overrides === "object" ? overrides : null;
   const userId = String(d.userId || "");
   const id = await fetchUserIdentity(client, guild, userId);
@@ -246,7 +266,10 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
       weeklyExp,
       weeklyBarPct: pctBar(weeklyExp, pageMaxSecondary),
       progressPercent: Math.max(0, Math.min(100, Math.round(Number(li.progressPercent || 0)))),
-      expMultiplier: globalExpMultiplier,
+      expMultiplier:
+        weeklyEffectiveMultiplier != null
+          ? Number(weeklyEffectiveMultiplier)
+          : Number(globalExpMultiplier),
     };
   }
   if (board === "messages") {
@@ -433,9 +456,11 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         searchRank = higher + 1;
       }
       let globalExpMultiplier = 1;
+      let guildExpSettings = null;
       if (board === "weekly") {
         globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
         if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
+        guildExpSettings = await getGuildExpSettings(guildId).catch(() => null);
       }
       let overrides =
         useHourlyBoard && hourlySingular && board === "weekly"
@@ -447,7 +472,11 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         dayOvr = siteRomeDayOverridesFromDoc(doc, board, rk);
       }
       overrides = { ...(overrides || {}), ...dayOvr };
-      const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides);
+      const weeklyEffectiveMultiplier =
+        board === "weekly"
+          ? await resolveWeeklyMultiplierForUser(guild, searchId, guildExpSettings, globalExpMultiplier)
+          : null;
+      const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier);
       const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null);
       if (guild && (board === "messages" || board === "voice")) {
         stats.siteRomeCalendarDay = getRomeDayKey(new Date());
@@ -496,8 +525,10 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       }
       if (pageMaxSecondary < 1) pageMaxSecondary = 1;
       let globalExpMultiplier = 1;
+      let guildExpSettings = null;
       globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
       if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
+      guildExpSettings = await getGuildExpSettings(guildId).catch(() => null);
       const userIds = slice.map((r) => String(r.userId || "")).filter(Boolean);
       const profileDocs = userIds.length
         ? await ActivityUserProfile.find({ guildId, userId: { $in: userIds } })
@@ -513,8 +544,14 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         if (!d) continue;
         const rank = skip + i + 1;
         const overrides = { weeklyExp: nInt(agg.exp) };
+        const weeklyEffectiveMultiplier = await resolveWeeklyMultiplierForUser(
+          guild,
+          String(d.userId || ""),
+          guildExpSettings,
+          globalExpMultiplier,
+        );
         rows.push(
-          await buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides),
+          await buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier),
         );
       }
       const first = sorted[0];
@@ -643,12 +680,14 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     }
 
     let globalExpMultiplier = 1;
+    let guildExpSettings = null;
     if (board === "weekly") {
       globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
       if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
+      guildExpSettings = await getGuildExpSettings(guildId).catch(() => null);
     }
     const rows = await Promise.all(
-      docs.map((d, i) => {
+      docs.map(async (d, i) => {
         const dayOvr = siteRomeDayOverridesFromDoc(d, board, romeDayKey);
         const totalOvr =
           board === "messages"
@@ -656,6 +695,15 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
             : board === "voice"
               ? { voiceTotalSeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceTotalSeconds) }
               : {};
+        const weeklyEffectiveMultiplier =
+          board === "weekly"
+            ? await resolveWeeklyMultiplierForUser(
+                guild,
+                String(d.userId || ""),
+                guildExpSettings,
+                globalExpMultiplier,
+              )
+            : null;
         return buildRowFromDoc(
           client,
           guild,
@@ -665,6 +713,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           pageMaxSecondary,
           globalExpMultiplier,
           { ...totalOvr, ...dayOvr },
+          weeklyEffectiveMultiplier,
         );
       }),
     );
