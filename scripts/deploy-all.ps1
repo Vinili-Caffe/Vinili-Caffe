@@ -62,7 +62,9 @@ try {
     "tar -xzf '$remoteTgz' -C '$BotRemotePath'"
     "rm -f '$remoteTgz'"
     "cd '$BotRemotePath'"
+    "find . -maxdepth 2 -type d -name node_modules -prune -exec rm -rf {} +"
     "if [ -f package-lock.json ]; then npm ci --omit=dev || npm install --omit=dev; else npm install --omit=dev; fi"
+    "cd '$BotRemotePath/Vinyls' && npm rebuild canvas || npm install canvas"
   )
   if (-not $SkipBackendRestart) {
     $remoteCmd += "pm2 restart '$Pm2AppName'"
