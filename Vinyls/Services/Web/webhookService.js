@@ -449,7 +449,7 @@ async function startWebhookServer(client) {
   });
 
   if (shouldStartDiscadiaVoteHttpWebhook(client)) {
-    app.post("/webhooks/discadia", async (req, res) => {
+  app.post("/webhooks/discadia", async (req, res) => {
     try {
       if (secret) {
         const receivedSecret = normalizeHeaderSecret(

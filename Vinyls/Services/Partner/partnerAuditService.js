@@ -85,9 +85,11 @@ async function fetchPartnerActionText(guild, action) {
 
   for (const messageId of ids) {
     const msg = await channel.messages.fetch(messageId).catch((err) => {
-      global.logger?.warn?.(`[PARTNER AUDIT] Failed to fetch message ${messageId}:`,
-        err.message,
-      );
+      const code = String(err?.code || "").trim();
+      const msgText = String(err?.message || "").trim();
+      // Messaggio già cancellato/non più accessibile: caso normale durante l'audit, evita spam nei log.
+      if (code === "10008" || /unknown message/i.test(msgText)) return null;
+      global.logger?.warn?.(`[PARTNER AUDIT] Failed to fetch message ${messageId}:`, msgText || err);
       return null;
     });
     if (!msg) continue;

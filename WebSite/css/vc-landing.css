@@ -2859,9 +2859,42 @@ textarea.vc-candidature-input {
 .vc-user-leader-state--err {
   color: #fecaca;
 }
+.vc-ul-empty-state {
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 2rem 1.25rem 2.25rem;
+  text-align: center;
+  min-height: 10rem;
+}
+.vc-ul-empty-ico {
+  font-size: 2.35rem;
+  color: rgba(147, 197, 253, 0.95);
+}
+.vc-ul-empty-ico.fa-users {
+  color: rgba(148, 163, 184, 0.9);
+}
+.vc-ul-empty-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 22rem;
+}
+.vc-ul-empty-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+.vc-ul-empty-sub {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.96);
+}
 .vc-ul-toolbar {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
+  align-self: stretch;
 }
 .vc-ul-board-tabs {
   backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
@@ -2874,29 +2907,42 @@ textarea.vc-candidature-input {
 .vc-ul-filter-tab {
   flex-shrink: 0;
   gap: 0.4rem;
+  outline: none;
+}
+.vc-ul-board-tabs .vc-ul-filter-tab:focus {
+  outline: none;
+}
+.vc-ul-board-tabs .vc-ul-filter-tab:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.55);
+  outline-offset: 2px;
 }
 .vc-ul-filter-chevron {
+  display: inline-block;
   font-size: 0.7rem;
-  opacity: 0.85;
-  transition: transform 0.2s ease;
+  opacity: 0.88;
+  transform: rotate(0deg);
+  transform-origin: 50% 50%;
+  transition: transform 0.22s ease;
 }
+.vc-ul-filter-tab--open .vc-ul-filter-chevron,
 .vc-ul-filter-tab[aria-expanded="true"] .vc-ul-filter-chevron {
   transform: rotate(180deg);
 }
+.vc-ul-filter-tab--open.vc-notify-filter-btn--on,
 .vc-ul-filter-tab[aria-expanded="true"].vc-notify-filter-btn--on {
-  border-color: rgba(234, 88, 12, 0.55);
-  background: linear-gradient(135deg, rgba(120, 45, 15, 0.9), rgba(234, 88, 12, 0.32));
-  color: #fff8f0;
-  box-shadow: 0 0 20px rgba(234, 88, 12, 0.22);
+  border-color: rgba(148, 163, 184, 0.42);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(51, 65, 85, 0.45));
+  color: #f1f5f9;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
 }
-.vc-ul-filter-tab--has-search:not([aria-expanded="true"]) {
-  border-color: rgba(234, 88, 12, 0.4);
-  box-shadow: 0 0 12px rgba(234, 88, 12, 0.12);
+.vc-ul-filter-tab--has-search:not(.vc-ul-filter-tab--open):not([aria-expanded="true"]) {
+  border-color: rgba(96, 165, 250, 0.28);
+  box-shadow: none;
 }
 .vc-ul-filters-wrap {
-  width: auto;
-  align-self: flex-start;
-  max-width: min(28rem, 100%);
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
 }
 .vc-ul-filters-panel {
   border-radius: 1rem;
@@ -3241,38 +3287,25 @@ textarea.vc-candidature-input {
   font-variant-numeric: tabular-nums;
 }
 
-.vc-live-event-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  box-sizing: border-box;
-}
-.vc-live-event-modal[hidden] {
+.vc-live-event-home[hidden] {
   display: none !important;
 }
-.vc-live-event-modal__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(4, 3, 2, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+.vc-live-event-home:not([hidden]) {
+  display: block;
 }
-.vc-live-event-modal__panel {
+.vc-live-event-inline {
   position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 26rem;
+  max-width: 40rem;
+  margin: 0 auto;
   border-radius: 1.15rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(155deg, rgba(28, 22, 18, 0.96), rgba(12, 10, 8, 0.98));
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  padding: 1.35rem 1.35rem 1.15rem;
+  background: linear-gradient(155deg, rgba(28, 22, 18, 0.92), rgba(12, 10, 8, 0.94));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: 1.25rem 1.35rem 1.2rem;
+  backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
+  -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
 }
-.vc-live-event-modal__x {
+.vc-live-event-inline__x {
   position: absolute;
   top: 0.65rem;
   right: 0.65rem;
@@ -3288,11 +3321,11 @@ textarea.vc-candidature-input {
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.vc-live-event-modal__x:hover {
+.vc-live-event-inline__x:hover {
   background: rgba(234, 88, 12, 0.2);
   color: #fff8f0;
 }
-.vc-live-event-modal__badge {
+.vc-live-event-inline__badge {
   margin: 0 0 0.65rem;
   display: inline-flex;
   align-items: center;
@@ -3307,67 +3340,40 @@ textarea.vc-candidature-input {
   text-transform: uppercase;
   color: #fff4e8;
 }
-.vc-live-event-modal__title {
+.vc-live-event-inline__title {
   margin: 0 0 0.6rem;
-  padding-right: 2rem;
+  padding-right: 2.5rem;
   font-size: 1.35rem;
   font-weight: 800;
   line-height: 1.25;
   color: #f8fafc;
 }
-.vc-live-event-modal__desc {
+.vc-live-event-inline__desc {
   margin: 0 0 1.1rem;
   font-size: 0.92rem;
   line-height: 1.55;
   color: rgba(203, 213, 225, 0.95);
 }
-.vc-live-event-modal__actions {
+.vc-live-event-inline__actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.65rem;
-  margin-bottom: 0.85rem;
 }
-.vc-live-event-modal__btn {
+.vc-live-event-inline__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.15rem;
   font-size: 0.95rem;
   font-weight: 700;
   text-decoration: none;
   color: #0f0a08;
   background: linear-gradient(135deg, #fbbf24, #ea580c);
-  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.35);
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.3);
   transition: transform 0.12s ease, filter 0.12s ease;
 }
-.vc-live-event-modal__btn:hover {
+.vc-live-event-inline__btn:hover {
   filter: brightness(1.06);
   transform: translateY(-1px);
-}
-.vc-live-event-modal__link {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #d4a888;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.vc-live-event-modal__link:hover {
-  color: #f1dcc8;
-}
-.vc-live-event-modal__dismiss {
-  width: 100%;
-  margin-top: 0.15rem;
-  border-radius: 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 0.55rem 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: rgba(226, 232, 240, 0.9);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.vc-live-event-modal__dismiss:hover {
-  background: rgba(255, 255, 255, 0.08);
 }

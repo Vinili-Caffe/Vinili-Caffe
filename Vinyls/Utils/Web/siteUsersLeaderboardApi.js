@@ -1,7 +1,10 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier } = require("../../Services/Community/expService");
-const { computeLeaderboardRows } = require("../../Prefix/Level/classifica");
+const {
+  computeLeaderboardRows,
+  getRomeDayKey,
+} = require("../../Prefix/Level/classifica");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -27,10 +30,10 @@ function nInt(v) {
   if (v == null || v === "") return 0;
   if (typeof v === "number" && Number.isFinite(v)) return Math.max(0, Math.floor(v));
   if (typeof v === "object" && v !== null && typeof v.toString === "function") {
-    const x = Number(String(v.toString()).trim().replace(/,/g, ""));
+    const x = Number(String(v.toString()).trim().replace(/[.,\s]/g, ""));
     return Number.isFinite(x) ? Math.max(0, Math.floor(x)) : 0;
   }
-  const x = Number(v);
+  const x = Number(String(v).trim().replace(/[.,\s]/g, ""));
   return Number.isFinite(x) ? Math.max(0, Math.floor(x)) : 0;
 }
 
@@ -80,6 +83,42 @@ function boardSort(board) {
 
 function boardSelect() {
   return "userId profile.totals";
+}
+
+function numericSortExpr(board) {
+  const sanitizeToLong = (fieldPath) => ({
+    $convert: {
+      input: {
+        $replaceAll: {
+          input: {
+            $replaceAll: {
+              input: {
+                $replaceAll: {
+                  input: { $toString: fieldPath },
+                  find: ".",
+                  replacement: "",
+                },
+              },
+              find: ",",
+              replacement: "",
+            },
+          },
+          find: " ",
+          replacement: "",
+        },
+      },
+      to: "long",
+      onError: 0,
+      onNull: 0,
+    },
+  });
+  if (board === "messages") {
+    return sanitizeToLong("$profile.totals.messagesTotal");
+  }
+  if (board === "voice") {
+    return sanitizeToLong("$profile.totals.voiceTotalSeconds");
+  }
+  return null;
 }
 
 async function fetchUserIdentity(client, guild, userId) {
@@ -137,6 +176,20 @@ function parseSearchUserId(raw) {
   const s = firstQueryString(raw).replace(/\D/g, "");
   if (!/^\d{17,20}$/.test(s)) return "";
   return s;
+}
+
+/** Solo sito: messaggi/ore del giorno solare Europa/Roma (00:00–24:00) dai bucket `daily` (lettura), non modifica il bot. */
+function siteRomeDayOverridesFromDoc(doc, board, romeDateKey) {
+  if (!doc || (board !== "messages" && board !== "voice")) return {};
+  const dayRow = doc?.profile?.totals?.daily?.[String(romeDateKey || "")] || {};
+  const dayText = nInt(dayRow?.textCount);
+  const dayVoice = nInt(dayRow?.voiceSeconds);
+  if (board === "messages") {
+    const profileDaily = nInt(doc.profile?.totals?.messagesDaily);
+    return { messagesDaily: Math.max(profileDaily, dayText) };
+  }
+  const profileDailyVoice = nInt(doc.profile?.totals?.voiceDailySeconds);
+  return { voiceDailySeconds: Math.max(profileDailyVoice, dayVoice) };
 }
 
 function sortHourlyBreakdownForBoard(breakdown, board) {
@@ -199,10 +252,12 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
     };
   }
   if (board === "messages") {
-    const messagesTotal = nInt(d.profile?.totals?.messagesTotal);
+    const messagesTotal =
+      ov && ov.messagesTotal != null ? nInt(ov.messagesTotal) : nInt(d.profile?.totals?.messagesTotal);
     const messagesWeekly =
       ov && ov.messagesWeekly != null ? nInt(ov.messagesWeekly) : nInt(d.profile?.totals?.messagesWeekly);
-    const messagesDaily = nInt(d.profile?.totals?.messagesDaily);
+    const messagesDaily =
+      ov && ov.messagesDaily != null ? nInt(ov.messagesDaily) : nInt(d.profile?.totals?.messagesDaily);
     return {
       rank,
       userId,
@@ -214,16 +269,18 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
       messagesTotal,
       messagesWeekly,
       messagesDaily,
-      messagesWeeklyBarPct: pctBar(messagesWeekly, pageMaxSecondary),
+      messagesWeeklyBarPct: pctBar(messagesTotal, pageMaxSecondary),
     };
   }
   if (board === "voice") {
-    const voiceTotalSeconds = nInt(d.profile?.totals?.voiceTotalSeconds);
+    const voiceTotalSeconds =
+      ov && ov.voiceTotalSeconds != null ? nInt(ov.voiceTotalSeconds) : nInt(d.profile?.totals?.voiceTotalSeconds);
     const voiceWeeklySeconds =
       ov && ov.voiceWeeklySeconds != null
         ? nInt(ov.voiceWeeklySeconds)
         : nInt(d.profile?.totals?.voiceWeeklySeconds);
-    const voiceDailySeconds = nInt(d.profile?.totals?.voiceDailySeconds);
+    const voiceDailySeconds =
+      ov && ov.voiceDailySeconds != null ? nInt(ov.voiceDailySeconds) : nInt(d.profile?.totals?.voiceDailySeconds);
     return {
       rank,
       userId,
@@ -235,13 +292,14 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
       voiceTotalSeconds,
       voiceWeeklySeconds,
       voiceDailySeconds,
-      voiceWeeklyBarPct: pctBar(voiceWeeklySeconds, pageMaxSecondary),
+      voiceWeeklyBarPct: pctBar(voiceTotalSeconds, pageMaxSecondary),
     };
   }
   return { rank, userId, username: id.username, displayName: id.displayName };
 }
 
-function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, hourlySingular) {
+function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, hourlySingular, activityOverride) {
+  const ao = activityOverride && typeof activityOverride === "object" ? activityOverride : null;
   let topLevel = 0;
   let topWeeklyExp = 0;
   let topMessagesTotal = 0;
@@ -257,13 +315,13 @@ function buildSearchStats(guild, board, d, topAccountUsername, globalExpMult, ho
         : Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.weeklyExp || 0)));
   } else if (board === "messages") {
     topMessagesTotal =
-      hourlySingular && hourlySingular.messagesWeekly != null
-        ? nInt(hourlySingular.messagesWeekly)
+      ao && ao.messagesTotal != null
+        ? nInt(ao.messagesTotal)
         : Math.max(0, Math.floor(Number(d.profile?.totals?.messagesTotal || 0)));
   } else if (board === "voice") {
     topVoiceSeconds =
-      hourlySingular && hourlySingular.voiceWeeklySeconds != null
-        ? nInt(hourlySingular.voiceWeeklySeconds)
+      ao && ao.voiceSeconds != null
+        ? nInt(ao.voiceSeconds)
         : Math.max(0, Math.floor(Number(d.profile?.totals?.voiceTotalSeconds || 0)));
   }
   const gm =
@@ -328,46 +386,74 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       let pageMaxSecondary = 1;
       let hourlySingular = null;
       let searchRank = 1;
-      const useHourlyBoard = Boolean(guild) && (board === "weekly" || board === "messages" || board === "voice");
+      const useHourlyBoard = Boolean(guild) && board === "weekly";
       if (useHourlyBoard) {
         const cap = 8000;
         const breakdown = await computeLeaderboardRows(guild, "weekly", cap).catch(() => []);
-        const sorted = sortHourlyBreakdownForBoard(breakdown, board);
+        const sorted = sortHourlyBreakdownForBoard(breakdown, "weekly");
         const idx = sorted.findIndex((r) => String(r.userId) === searchId);
         const agg = idx >= 0 ? sorted[idx] : null;
         searchRank = idx >= 0 ? idx + 1 : 0;
-        if (board === "weekly") {
-          pageMaxSecondary = Math.max(1, nInt(agg?.exp ?? 0));
-          hourlySingular = { weeklyExp: nInt(agg?.exp ?? 0) };
-        } else if (board === "messages") {
-          pageMaxSecondary = Math.max(1, nInt(agg?.textCount ?? 0));
-          hourlySingular = { messagesWeekly: nInt(agg?.textCount ?? 0) };
-        } else {
-          pageMaxSecondary = Math.max(1, nInt(agg?.voiceSeconds ?? 0));
-          hourlySingular = { voiceWeeklySeconds: nInt(agg?.voiceSeconds ?? 0) };
-        }
+        pageMaxSecondary = Math.max(1, nInt(agg?.exp ?? 0));
+        hourlySingular = { weeklyExp: nInt(agg?.exp ?? 0) };
       } else if (board === "weekly") {
-        pageMaxSecondary = Math.max(1, Math.floor(Number(doc.profile?.totals?.exp?.weeklyExp || 0)));
+        const we = nInt(doc.profile?.totals?.exp?.weeklyExp);
+        pageMaxSecondary = Math.max(1, we);
+        const higher = await ActivityUserProfile.countDocuments({
+          guildId,
+          "profile.totals.exp.weeklyExp": { $gt: we },
+        }).catch(() => 0);
+        searchRank = higher + 1;
       } else if (board === "messages") {
-        pageMaxSecondary = Math.max(1, Math.floor(Number(doc.profile?.totals?.messagesWeekly || 0)));
+        const mt = nInt(doc.profile?.totals?.messagesTotal);
+        pageMaxSecondary = Math.max(1, mt);
+        const higherAgg = await ActivityUserProfile.aggregate([
+          { $match: { guildId } },
+          { $addFields: { __sortVal: numericSortExpr("messages") } },
+          { $match: { __sortVal: { $gt: mt } } },
+          { $count: "n" },
+        ]).catch(() => []);
+        const higher = nInt(higherAgg?.[0]?.n);
+        searchRank = higher + 1;
       } else if (board === "voice") {
-        pageMaxSecondary = Math.max(1, Math.floor(Number(doc.profile?.totals?.voiceWeeklySeconds || 0)));
+        const vs = nInt(doc.profile?.totals?.voiceTotalSeconds);
+        pageMaxSecondary = Math.max(1, vs);
+        const higherAgg = await ActivityUserProfile.aggregate([
+          { $match: { guildId } },
+          { $addFields: { __sortVal: numericSortExpr("voice") } },
+          { $match: { __sortVal: { $gt: vs } } },
+          { $count: "n" },
+        ]).catch(() => []);
+        const higher = nInt(higherAgg?.[0]?.n);
+        searchRank = higher + 1;
+      } else if (board === "level") {
+        const te = nInt(doc.profile?.totals?.exp?.totalExp);
+        const higher = await ActivityUserProfile.countDocuments({
+          guildId,
+          "profile.totals.exp.totalExp": { $gt: te },
+        }).catch(() => 0);
+        searchRank = higher + 1;
       }
       let globalExpMultiplier = 1;
       if (board === "weekly") {
         globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
         if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
       }
-      const overrides =
-        useHourlyBoard && hourlySingular
-          ? board === "weekly"
-            ? { weeklyExp: hourlySingular.weeklyExp }
-            : board === "messages"
-              ? { messagesWeekly: hourlySingular.messagesWeekly }
-              : { voiceWeeklySeconds: hourlySingular.voiceWeeklySeconds }
+      let overrides =
+        useHourlyBoard && hourlySingular && board === "weekly"
+          ? { weeklyExp: hourlySingular.weeklyExp }
           : null;
+      let dayOvr = {};
+      if (guild && (board === "messages" || board === "voice")) {
+        const rk = getRomeDayKey(new Date());
+        dayOvr = siteRomeDayOverridesFromDoc(doc, board, rk);
+      }
+      overrides = { ...(overrides || {}), ...dayOvr };
       const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides);
-      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular);
+      const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null);
+      if (guild && (board === "messages" || board === "voice")) {
+        stats.siteRomeCalendarDay = getRomeDayKey(new Date());
+      }
       res.setHeader("Cache-Control", "no-store");
       return res.json({
         ok: true,
@@ -387,7 +473,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     const perPage = parseIntSafe(q.perPage, 1, 24, 12);
     const guild =
       client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-    const hourlyBoard = Boolean(guild) && (board === "weekly" || board === "messages" || board === "voice");
+    const hourlyBoard = Boolean(guild) && board === "weekly";
+    const romeDayKey = board === "messages" || board === "voice" ? getRomeDayKey(new Date()) : "";
     const cacheKey = hourlyBoard
       ? `v4:${guildId}:${board}:hourly:p${page}:n${perPage}`
       : `v3:${guildId}:${board}:p${page}:n${perPage}`;
@@ -402,21 +489,17 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     if (hourlyBoard) {
       const cap = Math.min(8000, Math.max(1200, page * perPage + 800));
       const breakdown = await computeLeaderboardRows(guild, "weekly", cap).catch(() => []);
-      const sorted = sortHourlyBreakdownForBoard(breakdown, board);
+      const sorted = sortHourlyBreakdownForBoard(breakdown, "weekly");
       const total = sorted.length;
       const slice = sorted.slice(skip, skip + perPage);
       let pageMaxSecondary = 1;
       for (const agg of slice) {
-        if (board === "weekly") pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.exp));
-        else if (board === "messages") pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.textCount));
-        else pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.voiceSeconds));
+        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(agg.exp));
       }
       if (pageMaxSecondary < 1) pageMaxSecondary = 1;
       let globalExpMultiplier = 1;
-      if (board === "weekly") {
-        globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
-        if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
-      }
+      globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
+      if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
       const userIds = slice.map((r) => String(r.userId || "")).filter(Boolean);
       const profileDocs = userIds.length
         ? await ActivityUserProfile.find({ guildId, userId: { $in: userIds } })
@@ -431,12 +514,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         const d = docMap.get(String(agg.userId));
         if (!d) continue;
         const rank = skip + i + 1;
-        const overrides =
-          board === "weekly"
-            ? { weeklyExp: nInt(agg.exp) }
-            : board === "messages"
-              ? { messagesWeekly: nInt(agg.textCount) }
-              : { voiceWeeklySeconds: nInt(agg.voiceSeconds) };
+        const overrides = { weeklyExp: nInt(agg.exp) };
         rows.push(
           await buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides),
         );
@@ -444,17 +522,13 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const first = sorted[0];
       let topDisplayName = "";
       let topWeeklyExp = 0;
-      let topMessagesTotal = 0;
-      let topVoiceSeconds = 0;
       if (first) {
         const uid = String(first.userId || "");
         if (uid) {
           const u = await fetchDiscordUserForIdentity(client, guild, uid);
           if (u) topDisplayName = accountUsernameFromUser(u);
         }
-        if (board === "weekly") topWeeklyExp = nInt(first.exp);
-        else if (board === "messages") topMessagesTotal = nInt(first.textCount);
-        else topVoiceSeconds = nInt(first.voiceSeconds);
+        topWeeklyExp = nInt(first.exp);
       }
       if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
         const fb = String(rows[0].username || "").trim();
@@ -466,10 +540,10 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         topDisplayName,
         topPlayerUsername: topDisplayName,
         topLevel: null,
-        topWeeklyExp: board === "weekly" ? topWeeklyExp : null,
-        topMessagesTotal: board === "messages" ? topMessagesTotal : null,
-        topVoiceSeconds: board === "voice" ? topVoiceSeconds : null,
-        globalExpMultiplier: board === "weekly" ? globalExpMultiplier : null,
+        topWeeklyExp,
+        topMessagesTotal: null,
+        topVoiceSeconds: null,
+        globalExpMultiplier,
       };
       const payload = {
         ok: true,
@@ -490,17 +564,45 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     const sort = boardSort(board);
     const select = boardSelect();
 
-    const [total, docs, topDoc] = await Promise.all([
-      ActivityUserProfile.countDocuments(filter).catch(() => 0),
-      ActivityUserProfile.find(filter)
-        .select(select)
-        .sort(sort)
-        .skip(skip)
-        .limit(perPage)
-        .lean()
-        .catch(() => []),
-      ActivityUserProfile.findOne(filter).select(select).sort(sort).lean().catch(() => null),
-    ]);
+    let total = 0;
+    let docs = [];
+    let topDoc = null;
+    if (board === "messages" || board === "voice") {
+      const sortExpr = numericSortExpr(board);
+      const agg = await ActivityUserProfile.aggregate([
+        { $match: { guildId } },
+        { $addFields: { __sortVal: sortExpr } },
+        { $match: { __sortVal: { $gt: 0 } } },
+        { $sort: { __sortVal: -1 } },
+        {
+          $facet: {
+            total: [{ $count: "n" }],
+            docs: [
+              { $skip: skip },
+              { $limit: perPage },
+              { $project: { userId: 1, profile: 1, __sortVal: 1 } },
+            ],
+            top: [{ $limit: 1 }, { $project: { userId: 1, profile: 1, __sortVal: 1 } }],
+          },
+        },
+      ]).catch(() => []);
+      const row = Array.isArray(agg) && agg.length ? agg[0] : {};
+      total = nInt(row?.total?.[0]?.n);
+      docs = Array.isArray(row?.docs) ? row.docs : [];
+      topDoc = Array.isArray(row?.top) && row.top.length ? row.top[0] : null;
+    } else {
+      [total, docs, topDoc] = await Promise.all([
+        ActivityUserProfile.countDocuments(filter).catch(() => 0),
+        ActivityUserProfile.find(filter)
+          .select(select)
+          .sort(sort)
+          .skip(skip)
+          .limit(perPage)
+          .lean()
+          .catch(() => []),
+        ActivityUserProfile.findOne(filter).select(select).sort(sort).lean().catch(() => null),
+      ]);
+    }
 
     let topDisplayName = "";
     let topLevel = 0;
@@ -521,9 +623,9 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       } else if (board === "weekly") {
         topWeeklyExp = nInt(topDoc.profile?.totals?.exp?.weeklyExp);
       } else if (board === "messages") {
-        topMessagesTotal = nInt(topDoc.profile?.totals?.messagesTotal);
+        topMessagesTotal = nInt(topDoc.__sortVal ?? topDoc.profile?.totals?.messagesTotal);
       } else if (board === "voice") {
-        topVoiceSeconds = nInt(topDoc.profile?.totals?.voiceTotalSeconds);
+        topVoiceSeconds = nInt(topDoc.__sortVal ?? topDoc.profile?.totals?.voiceTotalSeconds);
       }
     }
 
@@ -534,11 +636,11 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       }
     } else if (board === "messages") {
       for (const d of docs) {
-        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(d.profile?.totals?.messagesWeekly));
+        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(d.profile?.totals?.messagesTotal));
       }
     } else if (board === "voice") {
       for (const d of docs) {
-        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(d.profile?.totals?.voiceWeeklySeconds));
+        pageMaxSecondary = Math.max(pageMaxSecondary, nInt(d.profile?.totals?.voiceTotalSeconds));
       }
     }
 
@@ -547,11 +649,26 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       globalExpMultiplier = Number(await getGlobalMultiplier(guildId).catch(() => 1));
       if (!Number.isFinite(globalExpMultiplier) || globalExpMultiplier <= 0) globalExpMultiplier = 1;
     }
-
     const rows = await Promise.all(
-      docs.map((d, i) =>
-        buildRowFromDoc(client, guild, board, d, skip + i + 1, pageMaxSecondary, globalExpMultiplier, null),
-      ),
+      docs.map((d, i) => {
+        const dayOvr = siteRomeDayOverridesFromDoc(d, board, romeDayKey);
+        const totalOvr =
+          board === "messages"
+            ? { messagesTotal: nInt(d.__sortVal ?? d.profile?.totals?.messagesTotal) }
+            : board === "voice"
+              ? { voiceTotalSeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceTotalSeconds) }
+              : {};
+        return buildRowFromDoc(
+          client,
+          guild,
+          board,
+          d,
+          skip + i + 1,
+          pageMaxSecondary,
+          globalExpMultiplier,
+          { ...totalOvr, ...dayOvr },
+        );
+      }),
     );
 
     if (!String(topDisplayName || "").trim() && rows.length && skip === 0) {
@@ -569,6 +686,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       topMessagesTotal: board === "messages" ? topMessagesTotal : null,
       topVoiceSeconds: board === "voice" ? topVoiceSeconds : null,
       globalExpMultiplier: board === "weekly" ? globalExpMultiplier : null,
+      siteRomeCalendarDay: board === "messages" || board === "voice" ? romeDayKey : null,
     };
 
     const payload = {

@@ -322,6 +322,90 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
   return rows;
 }
 
+/**
+ * Messaggi e secondi vocali totali per utente: somma dei bucket giornalieri sui canali idonei
+ * (stessa logica della classifica all-time in computeLeaderboardRows), con max rispetto ai
+ * totali salvati sul profilo (messagesTotal / voiceTotalSeconds).
+ */
+async function computeDailyBucketTotalsByUser(guild) {
+  if (!guild?.id) return new Map();
+  const eligibleChannels = await getEligibleChannelIdSet(guild);
+  if (!eligibleChannels.size) return new Map();
+  const perUser = new Map();
+  const profileDocs = await ActivityUserProfile.find({ guildId: guild.id })
+    .select("userId profile.totals.daily profile.totals.messagesTotal profile.totals.voiceTotalSeconds")
+    .lean()
+    .catch(() => []);
+  for (const doc of profileDocs) {
+    const userId = String(doc?.userId || "");
+    if (!userId) continue;
+    let textCount = 0;
+    let voiceSeconds = 0;
+    for (const row of extractProfileBucketRows(doc, "profile.totals.daily")) {
+      let t = 0;
+      let v = 0;
+      for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
+        if (!eligibleChannels.has(String(channelId))) continue;
+        t += Math.max(0, Number(value || 0));
+      }
+      for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
+        if (!eligibleChannels.has(String(channelId))) continue;
+        v += Math.max(0, Number(value || 0));
+      }
+      textCount += t;
+      voiceSeconds += v;
+    }
+    const msgProf = Math.max(0, Math.floor(Number(doc.profile?.totals?.messagesTotal || 0)));
+    const vocProf = Math.max(0, Math.floor(Number(doc.profile?.totals?.voiceTotalSeconds || 0)));
+    const mergedText = Math.max(textCount, msgProf);
+    const mergedVoice = Math.max(voiceSeconds, vocProf);
+    if (mergedText <= 0 && mergedVoice <= 0) continue;
+    perUser.set(userId, { userId, textCount: mergedText, voiceSeconds: mergedVoice });
+  }
+  return perUser;
+}
+
+function sortDailyActivityTotals(perUser, board) {
+  const arr = Array.from(perUser.values());
+  if (board === "messages") {
+    return arr.filter((e) => e.textCount > 0).sort((a, b) => b.textCount - a.textCount);
+  }
+  if (board === "voice") {
+    return arr.filter((e) => e.voiceSeconds > 0).sort((a, b) => b.voiceSeconds - a.voiceSeconds);
+  }
+  return [];
+}
+
+/** Somma messaggi / secondi vocali per un solo dateKey (giorno solare) sui canali idonei; se l’insieme è vuoto usa i totali giornalieri sul bucket. */
+function sumRomeDayEligibleActivityFromDailyDoc(doc, dateKey, eligibleChannels) {
+  const dk = String(dateKey || "").trim();
+  if (!dk || !doc?.profile?.totals?.daily || typeof doc.profile.totals.daily !== "object") {
+    return { text: 0, voiceSeconds: 0 };
+  }
+  const dayRow = doc.profile.totals.daily[dk];
+  if (!dayRow || typeof dayRow !== "object") {
+    return { text: 0, voiceSeconds: 0 };
+  }
+  const elig = eligibleChannels instanceof Set && eligibleChannels.size > 0 ? eligibleChannels : null;
+  if (elig) {
+    let text = 0;
+    let voiceSeconds = 0;
+    for (const [channelId, value] of extractChannelEntries(dayRow.textChannels)) {
+      if (!elig.has(String(channelId))) continue;
+      text += Math.max(0, Number(value || 0));
+    }
+    for (const [channelId, value] of extractChannelEntries(dayRow.voiceChannels)) {
+      if (!elig.has(String(channelId))) continue;
+      voiceSeconds += Math.max(0, Number(value || 0));
+    }
+    return { text, voiceSeconds };
+  }
+  return {
+    text: Math.max(0, Math.floor(Number(dayRow.textCount || 0))),
+    voiceSeconds: Math.max(0, Math.floor(Number(dayRow.voiceSeconds || 0))),
+  };
+}
+
 async function computeExpUserLeaderboardRows(guild, mode, maxCandidates) {
   if (!guild?.id) return [];
   const weekKey = getCurrentWeekKey();
@@ -560,4 +644,9 @@ module.exports = {
   buildClassificaPayload,
   /** Stessa finestra domenica 21 → ora di +classifica weekly (hourly), usata anche dal sito /user */
   computeLeaderboardRows,
+  computeDailyBucketTotalsByUser,
+  sortDailyActivityTotals,
+  getRomeDayKey,
+  getEligibleChannelIdSet,
+  sumRomeDayEligibleActivityFromDailyDoc,
 };

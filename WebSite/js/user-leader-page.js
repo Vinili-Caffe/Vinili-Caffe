@@ -270,7 +270,7 @@
       esc(formatIntIt(row.messagesDaily)) +
       "</span>" +
       "</div>" +
-      '<div class="vc-ul-progress vc-ul-progress--inset" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--msg" style="width:' +
+      '<div class="vc-ul-progress vc-ul-progress--inset" title="Messaggi totali rispetto al massimo in questa pagina" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--msg" style="width:' +
       esc(String(wPct)) +
       '%"></span></div>' +
       "</div>" +
@@ -304,7 +304,7 @@
       esc(formatHoursIt(row.voiceDailySeconds)) +
       "</span>" +
       "</div>" +
-      '<div class="vc-ul-progress vc-ul-progress--inset" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--voice" style="width:' +
+      '<div class="vc-ul-progress vc-ul-progress--inset" title="Ore vocali totali rispetto al massimo in questa pagina" aria-hidden="true"><span class="vc-ul-progress-fill vc-ul-progress-fill--voice" style="width:' +
       esc(String(wPct)) +
       '%"></span></div>' +
       "</div>" +
@@ -325,12 +325,12 @@
     var next = byId("vc-ul-next");
     var lab = byId("vc-ul-page-label");
     if (!nav || !prev || !next || !lab) return;
-    if (state.searchUserId) {
+    if (state.searchUserId || state.totalPages <= 1) {
       nav.hidden = true;
       return;
     }
     var tp = Math.max(1, state.totalPages);
-    nav.hidden = tp <= 1;
+    nav.hidden = false;
     prev.disabled = state.page <= 1;
     next.disabled = state.page >= tp;
     lab.textContent = "Pagina " + state.page + " di " + tp;
@@ -361,7 +361,7 @@
         midLabel.textContent = "Messaggi più alti";
         midVal.textContent = st.topMessagesTotal != null ? formatIntIt(st.topMessagesTotal) : "—";
       } else if (board === "voice") {
-        midLabel.textContent = "Ore più alte";
+        midLabel.textContent = "Ore vocali più alte";
         midVal.textContent = st.topVoiceSeconds != null ? formatHoursIt(st.topVoiceSeconds) : "—";
       } else {
         midLabel.textContent = "—";
@@ -374,11 +374,7 @@
     }
     if (sub) {
       var blurb = "";
-      if (board === "level") blurb = "Classifica per EXP totale e livello.";
-      else if (board === "weekly") blurb = "Classifica per EXP guadagnata nella settimana corrente.";
-      else if (board === "messages") blurb = "Classifica per messaggi contati dal bot sul server.";
-      else if (board === "voice") blurb = "Classifica per tempo in canali vocali.";
-      else blurb = "";
+      blurb = "";
       sub.textContent = blurb;
     }
   }
@@ -392,6 +388,28 @@
     if (!rows.length) {
       grid.innerHTML = "";
       empty.hidden = false;
+      var ico = byId("vc-ul-empty-ico");
+      var titleEl = byId("vc-ul-empty-title");
+      var msgEl = byId("vc-ul-empty-msg");
+      var searchMiss = Boolean(state.searchUserId);
+      var loadErr = data && data.loadError === true;
+      if (titleEl && msgEl) {
+        if (searchMiss && !loadErr) {
+          if (ico) {
+            ico.className = "fa fa-search vc-ul-empty-ico";
+          }
+          titleEl.textContent = "Nessun utente trovato";
+          msgEl.textContent = "Prova a modificare i filtri di ricerca";
+        } else {
+          if (ico) {
+            ico.className = "fa fa-users vc-ul-empty-ico";
+          }
+          titleEl.textContent = "Nessun dato classifica disponibile.";
+          msgEl.textContent = "";
+        }
+      }
+      state.totalPages = searchMiss ? 1 : Math.max(1, Number(data && data.totalPages) || 1);
+      updatePager();
       return;
     }
     empty.hidden = true;
@@ -445,8 +463,7 @@
             (out.body && (out.body.message || out.body.error)) ||
             ("HTTP " + String(out.status || "") + " — dati non disponibili.");
           setState(String(msg), true);
-          render({ rows: [], total: 0, totalPages: 1, board: state.board });
-          updatePager();
+          render({ rows: [], total: 0, totalPages: 1, board: state.board, loadError: true });
           syncSearchUi();
           return;
         }
@@ -469,6 +486,10 @@
             });
           }
         }
+        if (state.searchUserId && body) {
+          body = Object.assign({}, body, { totalPages: 1, page: 1 });
+          state.page = 1;
+        }
         if (body.board) state.board = String(body.board);
         applyStats(body);
         render(body);
@@ -480,8 +501,7 @@
           "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
           true,
         );
-        render({ rows: [], total: 0, totalPages: 1, board: state.board });
-        updatePager();
+        render({ rows: [], total: 0, totalPages: 1, board: state.board, loadError: true });
         syncSearchUi();
       });
   }
@@ -538,6 +558,7 @@
     if (btn) {
       btn.setAttribute("aria-expanded", open ? "true" : "false");
       btn.classList.toggle("vc-notify-filter-btn--on", open);
+      btn.classList.toggle("vc-ul-filter-tab--open", open);
     }
   }
 
@@ -573,7 +594,6 @@
       state.searchUserId = digits;
       state.page = 1;
       if (inp) inp.value = digits;
-      setFiltersOpen(false);
       load();
       syncSearchUi();
     }
@@ -595,6 +615,7 @@
     initPager();
     initBoardTabs();
     initFilters();
+    setFiltersOpen(false);
     load();
   }
 

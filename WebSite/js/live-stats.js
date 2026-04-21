@@ -293,7 +293,8 @@
       var raw = String(location.pathname || "/");
       var p = raw.replace(/\/+$/, "") || "/";
       if (p === "/" || p === "") return true;
-      return /^\/index\.html$/i.test(raw);
+      var low = raw.toLowerCase();
+      return /^\/index\.html$/i.test(low) || /^\/index$/i.test(p);
     } catch (e2) {
       return true;
     }
@@ -302,16 +303,14 @@
   if (!isHomePath()) return;
 
   var DISMISS_KEY = "vc_live_event_hide_sess_v1";
-  var root = document.getElementById("vc-live-event-modal");
+  var root = document.getElementById("vc-live-event-home");
   if (!root) return;
   var titleEl = document.getElementById("vc-live-event-title");
   var descEl = document.getElementById("vc-live-event-desc");
   var prim = document.getElementById("vc-live-event-primary");
-  var inv = document.getElementById("vc-live-event-invite");
-  if (!titleEl || !descEl || !prim || !inv) return;
+  if (!titleEl || !descEl || !prim) return;
 
   var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
-  var escBound = false;
   var lastShownId = "";
 
   function isDismissedSession(eid) {
@@ -328,64 +327,49 @@
     } catch (e4) {}
   }
 
-  function hideModal() {
+  function hideStrip() {
     root.hidden = true;
-    root.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
-    if (escBound) {
-      document.removeEventListener("keydown", onKey);
-      escBound = false;
-    }
   }
 
-  function onKey(ev) {
-    if (ev.key === "Escape") hideModal();
-  }
-
-  function showModal(data) {
+  function showStrip(data) {
     var ev = data && data.event ? data.event : null;
-    if (!ev || !ev.id) return;
-    if (isDismissedSession(ev.id)) return;
-    if (lastShownId === ev.id && !root.hidden) return;
+    var eid = ev && ev.id != null ? String(ev.id).trim() : "";
+    if (!ev || !eid) return;
+    if (isDismissedSession(eid)) {
+      hideStrip();
+      return;
+    }
 
-    lastShownId = String(ev.id);
+    lastShownId = eid;
     titleEl.textContent = ev.name || "Evento in corso";
     descEl.textContent =
       "In questo momento sul server Discord c’è un evento attivo. Unisciti dalla app o dal browser.";
     if (ev.description && String(ev.description).trim()) {
       descEl.textContent = String(ev.description).trim();
     }
-    var invite = String(data.inviteUrl || inv.getAttribute("href") || "").trim();
-    if (invite) inv.setAttribute("href", invite);
+    var invite = String(data.inviteUrl || prim.getAttribute("href") || "").trim();
     var url = String(ev.buttonUrl || ev.eventUrl || invite).trim();
     var label = String(ev.buttonLabel || "Partecipa").trim() || "Partecipa";
     prim.setAttribute("href", url || invite);
     prim.textContent = label;
 
     root.hidden = false;
-    root.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
-    if (!escBound) {
-      document.addEventListener("keydown", onKey);
-      escBound = true;
-    }
-    try {
-      prim.focus();
-    } catch (e5) {}
   }
 
   root.addEventListener("click", function (e) {
     var t = e.target;
     if (!t || !t.closest) return;
-    if (t.closest("[data-vc-live-event-close]")) {
+    if (t.closest("[data-vc-live-event-dismiss]")) {
       if (lastShownId) dismissSession(lastShownId);
-      hideModal();
+      hideStrip();
     }
   });
 
   function poll() {
     var u = resolvedLiveEventUrl();
     if (!u) return;
+    var sep = u.indexOf("?") >= 0 ? "&" : "?";
+    u = u + sep + "_vct=" + encodeURIComponent(String(Date.now()));
     fetch(u, { credentials: "omit", cache: "no-store" })
       .then(function (r) {
         return r.json().catch(function () {
@@ -394,10 +378,15 @@
       })
       .then(function (j) {
         if (!j || j.ok !== true) return;
-        if (j.active && j.event && j.event.id) {
-          showModal(j);
+        var jid = j.event && j.event.id != null ? String(j.event.id).trim() : "";
+        if (j.active && j.event && jid) {
+          if (isDismissedSession(jid)) {
+            hideStrip();
+            return;
+          }
+          showStrip(j);
         } else {
-          if (!root.hidden) hideModal();
+          hideStrip();
           lastShownId = "";
         }
       })
@@ -406,10 +395,10 @@
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
-      setTimeout(poll, 1800);
+      setTimeout(poll, 500);
     });
   } else {
-    setTimeout(poll, 1800);
+    setTimeout(poll, 500);
   }
   setInterval(poll, pollMs);
 })();

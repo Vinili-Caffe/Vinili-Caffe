@@ -1,7 +1,7 @@
 const { GuildScheduledEventStatus } = require("discord.js");
 const IDs = require("../Config/ids");
 
-const CACHE_TTL_MS = 12_000;
+const CACHE_TTL_MS = 5000;
 let cache = { at: 0, payload: null };
 
 function resolveGuildId(client) {
@@ -35,6 +35,36 @@ function plainDescription(raw, max) {
     .trim();
   if (s.length > cap) return `${s.slice(0, cap - 1)}…`;
   return s;
+}
+
+function eventStartMs(ev) {
+  if (ev?.scheduledStartAt instanceof Date && !Number.isNaN(ev.scheduledStartAt.getTime())) {
+    return ev.scheduledStartAt.getTime();
+  }
+  const t = Number(ev?.scheduledStartTimestamp);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function eventEndMs(ev) {
+  if (ev?.scheduledEndAt instanceof Date && !Number.isNaN(ev.scheduledEndAt.getTime())) {
+    return ev.scheduledEndAt.getTime();
+  }
+  const t = Number(ev?.scheduledEndTimestamp);
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** Attivo Discord, oppure ancora “programmato” ma con orario di inizio già passato (spesso prima che passi ad Active). */
+function isOngoingForSite(ev, nowMs) {
+  const st = Number(ev?.status);
+  if (st === GuildScheduledEventStatus.Active) return true;
+  if (st === GuildScheduledEventStatus.Scheduled) {
+    const start = eventStartMs(ev);
+    if (!start || start > nowMs + 180_000) return false;
+    const end = eventEndMs(ev);
+    if (end > 0 && end < nowMs - 120_000) return false;
+    return true;
+  }
+  return false;
 }
 
 function resolvePrimaryCta(ev, guildIdStr) {
@@ -79,26 +109,26 @@ async function handleSiteLiveEventGet(client, req, res) {
       return res.json(empty);
     }
 
-    const col = await guild.scheduledEvents.fetch().catch(() => null);
-    const active = col
-      ? [...col.values()].filter((e) => Number(e?.status) === GuildScheduledEventStatus.Active)
-      : [];
+    const col = await guild.scheduledEvents.fetch({ force: true }).catch(() => guild.scheduledEvents.fetch().catch(() => null));
+    const nowMs = Date.now();
+    const ongoing = col ? [...col.values()].filter((e) => isOngoingForSite(e, nowMs)) : [];
 
     const inviteUrl = inviteFallbackUrl();
 
-    if (!active.length) {
+    if (!ongoing.length) {
       const payload = { ok: true, active: false, inviteUrl };
       cache = { at: now, payload };
       res.setHeader("Cache-Control", "public, max-age=8");
       return res.json(payload);
     }
 
-    active.sort((a, b) => {
-      const ta = Number(a.scheduledStartTimestamp || 0);
-      const tb = Number(b.scheduledStartTimestamp || 0);
-      return ta - tb;
+    ongoing.sort((a, b) => {
+      const pa = Number(a.status) === GuildScheduledEventStatus.Active ? 0 : 1;
+      const pb = Number(b.status) === GuildScheduledEventStatus.Active ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return eventStartMs(a) - eventStartMs(b);
     });
-    const ev = active[0];
+    const ev = ongoing[0];
     const gid = String(guild.id);
     const eid = String(ev.id || "");
     const cta = resolvePrimaryCta(ev, gid);

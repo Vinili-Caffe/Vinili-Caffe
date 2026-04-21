@@ -182,7 +182,7 @@
       </section>
 
       <section class="mt-8 flex w-full max-w-5xl flex-col gap-3">
-        <div class="vc-ul-toolbar flex max-w-full flex-col gap-2 self-start">
+        <div class="vc-ul-toolbar flex w-full max-w-full flex-col gap-2">
           <div
             id="vc-ul-board-tabs"
             class="vc-ul-board-tabs flex w-auto min-w-0 max-w-full flex-wrap items-center gap-2 self-start rounded-xl border border-white/10 bg-white/[0.03] p-2"
@@ -249,9 +249,12 @@
       </section>
 
       <section class="mt-8">
-        <div id="vc-ul-empty" class="vc-notify-empty" hidden>
-          <i class="fa fa-users" aria-hidden="true"></i>
-          <p id="vc-ul-empty-msg">Nessun dato classifica disponibile.</p>
+        <div id="vc-ul-empty" class="vc-notify-empty vc-ul-empty-state" hidden>
+          <i id="vc-ul-empty-ico" class="fa fa-users vc-ul-empty-ico" aria-hidden="true"></i>
+          <div class="vc-ul-empty-text">
+            <p id="vc-ul-empty-title" class="vc-ul-empty-title">Nessun dato classifica disponibile.</p>
+            <p id="vc-ul-empty-msg" class="vc-ul-empty-sub"></p>
+          </div>
         </div>
         <div id="vc-ul-grid" class="vc-ul-grid" role="list"></div>
       </section>

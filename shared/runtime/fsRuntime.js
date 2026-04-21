@@ -113,7 +113,15 @@ function acquireSingleInstanceLock(lockName) {
     writeLock();
   }
 
-  const release=()=>{try {const current=Number.parseInt(fs.readFileSync(lockPath,"utf8"),10);if(current===pid)fs.unlinkSync(lockPath);} catch(err){global.logger?.warn?.("[fsRuntime] release:",err?.message||err);}};
+  const release = () => {
+    try {
+      const current = Number.parseInt(fs.readFileSync(lockPath, "utf8"), 10);
+      if (current === pid) fs.unlinkSync(lockPath);
+    } catch (err) {
+      if (err && err.code === "ENOENT") return;
+      global.logger?.warn?.("[fsRuntime] release:", err?.message || err);
+    }
+  };
 
   process.on("exit", release);
   process.on("SIGINT", () => {
