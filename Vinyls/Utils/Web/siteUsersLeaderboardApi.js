@@ -1,10 +1,12 @@
 const IDs = require("../Config/ids");
-const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getRoleMultiplier } = require("../../Services/Community/expService");
 const {
   computeLeaderboardRows,
   getRomeDayKey,
 } = require("../../Prefix/Level/classifica");
+const { findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
+const { getRankCardThemeFromDoc } = require("../Render/rankCardTheme");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -160,6 +162,60 @@ async function fetchUserIdentity(client, guild, userId) {
   return out;
 }
 
+async function buildCustomProfileData(guild, userId) {
+  if (!guild || !userId) return null;
+  const doc = await CustomRole.findOne({ guildId: guild.id, userId: String(userId) }).lean().catch(() => null);
+  if (!doc || (!doc.roleId && !doc.customVocChannelId)) return null;
+
+  const role =
+    doc.roleId
+      ? guild.roles.cache.get(String(doc.roleId)) || (await guild.roles.fetch(String(doc.roleId)).catch(() => null))
+      : null;
+  const channelId = String(doc.customVocChannelId || "").trim();
+  const voice =
+    channelId
+      ? guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null))
+      : role
+        ? findCustomVoiceByRole(guild, role.id)
+        : null;
+
+  const roleMemberCount = role?.members ? role.members.filter((m) => !m.user?.bot).size : 0;
+  let voiceSharedCount = 0;
+  if (voice?.permissionOverwrites?.cache) {
+    voice.permissionOverwrites.cache.forEach((overwrite) => {
+      if (String(overwrite.id || "") === String(guild.id || "")) return;
+      if (overwrite.type !== 1 && overwrite.type !== 0) return;
+      if (!overwrite.allow?.has?.("ViewChannel")) return;
+      voiceSharedCount += 1;
+    });
+  }
+
+  return {
+    expiresAt: doc?.expiresAt ? new Date(doc.expiresAt).toISOString() : "",
+    role: role
+      ? {
+          id: String(role.id),
+          name: String(role.name || "Ruolo personalizzato"),
+          color:
+            String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
+              ? String(role.hexColor || "").trim()
+              : "",
+          createdAt: role.createdAt ? new Date(role.createdAt).toISOString() : "",
+          memberCount: roleMemberCount,
+        }
+      : null,
+    voice: voice
+      ? {
+          id: String(voice.id || ""),
+          name: String(voice.name || "Canale vocale privato"),
+          emoji: String(doc?.customVocEmoji || "").trim(),
+          createdAt: voice.createdAt ? new Date(voice.createdAt).toISOString() : "",
+          memberCount: voiceSharedCount,
+        }
+      : null,
+  };
+}
+
 function pctBar(value, pageMax) {
   const v = Math.max(0, Number(value) || 0);
   const m = Math.max(1, Number(pageMax) || 1);
@@ -181,13 +237,28 @@ function parseSearchUserId(raw) {
 /** Solo sito: messaggi/ore del giorno solare Europa/Roma (00:00–24:00) dai bucket `daily` (lettura), non modifica il bot. */
 function siteRomeDayOverridesFromDoc(doc, board, romeDateKey) {
   if (!doc || (board !== "messages" && board !== "voice")) return {};
-  const dayRow = doc?.profile?.totals?.daily?.[String(romeDateKey || "")] || {};
+  const totals = doc?.profile?.totals || {};
+  const dateKey = String(romeDateKey || "").trim();
+  const dailyMap = totals?.daily && typeof totals.daily === "object" ? totals.daily : {};
+  const hasDayRow = Object.prototype.hasOwnProperty.call(dailyMap, dateKey);
+  const dayRow = hasDayRow ? dailyMap[dateKey] || {} : {};
   const dayText = nInt(dayRow?.textCount);
   const dayVoice = nInt(dayRow?.voiceSeconds);
-  if (board === "messages") {
-    return { messagesDaily: dayText };
+  const fallbackMessagesDaily =
+    String(totals?.messagesDailyKey || "").trim() === dateKey ? nInt(totals?.messagesDaily) : 0;
+  const fallbackVoiceDaily =
+    String(totals?.voiceDailyKey || "").trim() === dateKey ? nInt(totals?.voiceDailySeconds) : 0;
+  let liveVoiceSeconds = 0;
+  const startedAt = totals?.sessionStartedAt ? new Date(totals.sessionStartedAt).getTime() : NaN;
+  if (Number.isFinite(startedAt)) {
+    liveVoiceSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
   }
-  return { voiceDailySeconds: dayVoice };
+  if (board === "messages") {
+    return { messagesDaily: Math.max(hasDayRow ? dayText : 0, fallbackMessagesDaily) };
+  }
+  return {
+    voiceDailySeconds: Math.max(hasDayRow ? dayVoice : 0, fallbackVoiceDaily) + liveVoiceSeconds,
+  };
 }
 
 function sortHourlyBreakdownForBoard(breakdown, board) {
@@ -203,7 +274,7 @@ function sortHourlyBreakdownForBoard(breakdown, board) {
 }
 
 const SEARCH_SELECT =
-  "userId profile.totals.exp profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds";
+  "userId profile.totals.exp profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt";
 
 function combineWeeklyMultiplier(globalExpMultiplier, roleMultiplier) {
   const globalMulti = Number(globalExpMultiplier);
@@ -569,7 +640,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
             }))
         : [];
       const weeklyMultiplierSources =
-        board === "weekly" ? buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier) : [];
+        board === "weekly" ? buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier) : null;
+      const customProfile = await buildCustomProfileData(guild, searchId);
       if (guild && (board === "messages" || board === "voice")) {
         stats.siteRomeCalendarDay = getRomeDayKey(new Date());
       }
@@ -591,8 +663,10 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
             String((member && (member.displayName || member.nickname)) || row.displayName || row.username || "").trim(),
           avatarUrl: String(row.avatarUrl || "").trim(),
           joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
+          rankCard: getRankCardThemeFromDoc(doc),
           roles: profileRoles,
-          weeklyMultiplierSources,
+          ...(customProfile ? { customProfile } : {}),
+          ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
         },
         rows: [row],
       });

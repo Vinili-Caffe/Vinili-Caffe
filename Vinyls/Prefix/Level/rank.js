@@ -1,8 +1,10 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getUserRanks, getGlobalMultiplier, } = require("../../Services/Community/expService");
 const IDs = require("../../Utils/Config/ids");
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
+const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 
 module.exports = {
   name: "rank",
@@ -30,10 +32,13 @@ module.exports = {
 
     const{stats,weeklyRank,allTimeRank}=await getUserRanks(message.guild.id,targetUser.id,);
     const multiplier = await getGlobalMultiplier(message.guild.id);
-    const weeklyText =
-      stats.level === 0 ? "Fuori dalla classifica" : `#${weeklyRank}`;
-    const allTimeText =
-      stats.level === 0 ? "Fuori dalla classifica" : `#${allTimeRank}`;
+    const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
+    const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
+    const rankDoc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
+      .select("profile.rankCard")
+      .lean()
+      .catch(() => null);
+    const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
 
     const avatarUrl =
       targetMember?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
@@ -48,7 +53,10 @@ module.exports = {
       progressPercent: stats.progressPercent,
       weeklyRank,
       allTimeRank,
+      weeklyExp: stats.weeklyExp,
+      multiplier,
       hideLeaderboardRanks,
+      theme: rankCardTheme,
     });
     const file=new AttachmentBuilder(card,{name:`rank-${targetUser.id}.png`});
     const embed = new EmbedBuilder()
@@ -59,24 +67,14 @@ module.exports = {
       [
         `<:VC_EXP:1482534670896730143> Hai accumulato un totale di **${stats.totalExp} EXP**.`,
         `<a:VC_Rocket:1468544312475123753> **Moltiplicatore:** ${multiplier}x`,
+        `<:VC_StarPurple:1330195026688344156> **General Top:** ${allTimeText}`,
+        `<:VC_StarBlue:1330194918043418674> **Weekly Top:** ${weeklyText}`,
       ].join("\n"),
     )
     .addFields(
       { name: "<a:VC_StarPink:1330194976440848500> **Livello:**", value: `**${stats.level}**`, inline: true },
-      ...(hideLeaderboardRanks
-        ? []
-        : [
-            {
-              name: "<a:VC_StarBlue:1330194918043418674> **Weekly Top:**",
-              value: `${weeklyText}`,
-              inline: true,
-            },
-            {
-              name: "<a:VC_StarPurple:1330195026688344156> **General Top:**",
-              value: `${allTimeText}`,
-              inline: true,
-            },
-          ]),
+      { name: "<:VC_EXP:1482534670896730143> **Weekly EXP:**", value: `**${stats.weeklyExp}**`, inline: true },
+      { name: "<a:VC_Rocket:1468544312475123753> **Moltiplicatore:**", value: `**${multiplier}x**`, inline: true },
     )
     .setFooter({ text: `Ti mancano ${stats.remainingToNext} exp per il prossimo livello` });
     const row = new ActionRowBuilder()

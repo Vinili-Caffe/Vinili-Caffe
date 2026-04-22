@@ -251,5 +251,6 @@ async function submitSiteRoleRequest(client, payload) {
 }
 
 module.exports = {
+  resolveWebsiteGuildMember,
   submitSiteRoleRequest,
 };

@@ -246,7 +246,8 @@ async function startWebhookServer(client) {
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
-    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteLiveEvent && !isSiteRoles) return next();
+    const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
+    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -265,7 +266,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isSiteRules || isSiteUsers || isSiteLiveEvent || isSiteRoles) {
+    } else if (isSiteRules || isSiteUsers || isSiteLiveEvent || isSiteRoles || isSiteRankCard) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -433,6 +434,7 @@ async function startWebhookServer(client) {
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
+  const { getRankCardCustomization, updateRankCardCustomization } = require("../../Utils/Web/siteRankCardApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -473,6 +475,45 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-roles request:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-rank-card", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getRankCardCustomization(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-rank-card get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-rank-card", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await updateRankCardCustomization(client, {
+        accessToken,
+        mode: body.mode,
+        theme: body.theme,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-rank-card post:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

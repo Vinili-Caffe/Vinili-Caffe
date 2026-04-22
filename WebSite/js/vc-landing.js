@@ -1,6 +1,17 @@
 (function () {
   function normalizePrettyProfilePath() {
     try {
+      if (window.__VC_DISABLE_PRETTY_PROFILE_REDIRECT === true) return false;
+      var customizeMatch = String(window.location.pathname || "").match(/^\/user\/(\d{17,20})\/personalizza\/?$/);
+      if (customizeMatch) {
+        window.location.replace("/user/personalizza/?id=" + encodeURIComponent(customizeMatch[1]));
+        return true;
+      }
+      var legacyCustomizeMatch = String(window.location.pathname || "").match(/^\/users\/(\d{17,20})\/customize\/?$/);
+      if (legacyCustomizeMatch) {
+        window.location.replace("/user/customize/?id=" + encodeURIComponent(legacyCustomizeMatch[1]));
+        return true;
+      }
       var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
       if (!m) return false;
       var q = new URLSearchParams(window.location.search || "");

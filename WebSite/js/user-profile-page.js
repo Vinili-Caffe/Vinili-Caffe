@@ -1,5 +1,6 @@
 (function () {
   var currentViewer = null;
+  var lastRenderedProfile = null;
 
   function byId(id) {
     return document.getElementById(id);
@@ -59,6 +60,11 @@
     return id ? "/users/" + encodeURIComponent(id) : "/user";
   }
 
+  function profileCustomizeUrl(userId) {
+    var id = String(userId || "").trim();
+    return id ? "/user/" + encodeURIComponent(id) + "/personalizza" : "/user/personalizza";
+  }
+
   function formatIntIt(n) {
     var x = Number(n);
     if (!Number.isFinite(x)) return "0";
@@ -85,6 +91,40 @@
     var x = Number(n);
     if (!Number.isFinite(x) || x <= 0) x = 1;
     return "x" + String(x.toFixed(1));
+  }
+
+  function rankCardStyleVars(theme) {
+    var src = theme && typeof theme === "object" ? theme : {};
+    var out = [];
+    if (src.panelColor) out.push("--vc-rank-panel:" + esc(src.panelColor));
+    if (src.primaryTextColor) out.push("--vc-rank-primary:" + esc(src.primaryTextColor));
+    if (src.secondaryTextColor) out.push("--vc-rank-secondary:" + esc(src.secondaryTextColor));
+    if (src.multiplierColor) out.push("--vc-rank-multiplier:" + esc(src.multiplierColor));
+    if (src.valueColor) out.push("--vc-rank-value:" + esc(src.valueColor));
+    if (src.labelColor) out.push("--vc-rank-label:" + esc(src.labelColor));
+    if (src.progressStartColor) out.push("--vc-rank-progress-start:" + esc(src.progressStartColor));
+    if (src.progressEndColor) out.push("--vc-rank-progress-end:" + esc(src.progressEndColor));
+    if (src.ringColor) out.push("--vc-rank-ring:" + esc(src.ringColor));
+    if (src.rankBoxBorderColor) out.push("--vc-rank-rankbox:" + esc(src.rankBoxBorderColor));
+    if (src.overlayOpacity != null) out.push("--vc-rank-opacity:" + esc(String(src.overlayOpacity)));
+    if (src.wallpaperUrl) out.push("--vc-rank-wallpaper:url(&quot;" + esc(src.wallpaperUrl) + "&quot;)");
+    return out.length ? ' style="' + out.join(";") + '"' : "";
+  }
+
+  function formatDateIt(value) {
+    if (!value) return "-";
+    var d = new Date(value);
+    if (!isFinite(d.getTime())) return "-";
+    try {
+      return new Intl.DateTimeFormat("it-IT", {
+        timeZone: "Europe/Rome",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(d);
+    } catch (e) {
+      return d.toLocaleDateString("it-IT");
+    }
   }
 
   function defaultEmbedAvatarUrl(userId) {
@@ -188,13 +228,20 @@
     var voice = payload.voice || {};
     var profile = payload.profile || {};
     var displayName = String(profile.displayName || level.displayName || level.username || "Utente").trim() || "Utente";
+    var profileUsername = String(profile.username || level.username || displayName || "Utente").trim() || "Utente";
     var avatar = String(profile.avatarUrl || level.avatarUrl || "").trim();
     var progressPct = formatPct(level.progressPercent || 0);
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
+    var weeklyRankText = weekly.rank ? "#" + formatIntIt(weekly.rank) : "-";
     var viewerOwns = Boolean(currentViewer && String(currentViewer.id || "") === String(userId));
     var roles = Array.isArray(profile.roles) ? profile.roles : [];
+    var customProfile = profile.customProfile || null;
+    var customRole = customProfile && customProfile.role ? customProfile.role : null;
+    var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
+    var rankCardTheme = profile.rankCard || {};
     var multiplier = Number(weekly.expMultiplier || 1);
     var multiplierSources = Array.isArray(profile.weeklyMultiplierSources) ? profile.weeklyMultiplierSources : [];
+
     var rolesHtml = roles.length
       ? roles
           .map(function (role) {
@@ -203,6 +250,7 @@
           })
           .join("")
       : '<span class="vc-user-profile-role vc-user-profile-role--muted">Nessun ruolo mostrabile</span>';
+
     var multiplierItemsHtml = multiplierSources.length
       ? multiplierSources
           .map(function (source) {
@@ -223,6 +271,100 @@
           .join("")
       : '<div class="vc-user-profile-multisource"><span class="vc-user-profile-multisource__label">Base</span><span class="vc-user-profile-multisource__value">x1.0</span></div>';
 
+    var customEconomyHtml =
+      customRole || customVoice
+        ? '<section class="vc-user-profile-block vc-user-profile-block--custom">' +
+          '<div class="vc-user-profile-sectioneyebrow"><i class="fa fa-diamond" aria-hidden="true"></i> Ruoli & Economy</div>' +
+          (customRole
+            ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--role"' +
+              (viewerOwns ? " open" : "") +
+              ">" +
+              '<summary class="vc-user-profile-accordion__summary">' +
+              '<span class="vc-user-profile-accordion__icon"><i class="fa fa-crown" aria-hidden="true"></i></span>' +
+              '<span class="vc-user-profile-accordion__copy">' +
+              '<span class="vc-user-profile-accordion__title">Ruolo Personalizzato</span>' +
+              '<span class="vc-user-profile-accordion__sub">' +
+              esc(customRole.name || "Ruolo personalizzato") +
+              "</span>" +
+              "</span>" +
+              '<span class="vc-user-profile-accordion__badge">' +
+              esc(formatIntIt(customRole.memberCount || 0)) +
+              "</span>" +
+              '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
+              "</summary>" +
+              '<div class="vc-user-profile-accordion__body">' +
+              '<article class="vc-user-profile-customcard">' +
+              '<div class="vc-user-profile-customcard__main">' +
+              '<span class="vc-user-profile-customcard__dot"' +
+              (customRole.color ? ' style="--vc-custom-dot:' + esc(customRole.color) + '"' : "") +
+              "></span>" +
+              '<div class="vc-user-profile-customcard__copy">' +
+              '<strong class="vc-user-profile-customcard__title">' +
+              esc(customRole.name || "Ruolo personalizzato") +
+              "</strong>" +
+              '<span class="vc-user-profile-customcard__meta">Creato ' +
+              esc(formatDateIt(customRole.createdAt)) +
+              "</span>" +
+              "</div>" +
+              "</div>" +
+              '<span class="vc-user-profile-customcard__aside">' +
+              esc(formatIntIt(customRole.memberCount || 0)) +
+              " membri</span>" +
+              "</article>" +
+              "</div>" +
+              "</details>"
+            : "") +
+          (customVoice
+            ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--voice"' +
+              (viewerOwns ? " open" : "") +
+              ">" +
+              '<summary class="vc-user-profile-accordion__summary">' +
+              '<span class="vc-user-profile-accordion__icon"><i class="fa fa-microphone" aria-hidden="true"></i></span>' +
+              '<span class="vc-user-profile-accordion__copy">' +
+              '<span class="vc-user-profile-accordion__title">Canale Vocale Privato</span>' +
+              '<span class="vc-user-profile-accordion__sub">' +
+              esc((customVoice.emoji ? customVoice.emoji + " " : "") + (customVoice.name || "Canale vocale privato")) +
+              "</span>" +
+              "</span>" +
+              '<span class="vc-user-profile-accordion__badge">' +
+              esc(formatIntIt(customVoice.memberCount || 0)) +
+              "</span>" +
+              '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
+              "</summary>" +
+              '<div class="vc-user-profile-accordion__body">' +
+              '<article class="vc-user-profile-customcard vc-user-profile-customcard--voice">' +
+              '<div class="vc-user-profile-customcard__main">' +
+              '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice"></span>' +
+              '<div class="vc-user-profile-customcard__copy">' +
+              '<strong class="vc-user-profile-customcard__title">' +
+              esc(customVoice.name || "Canale vocale privato") +
+              "</strong>" +
+              '<span class="vc-user-profile-customcard__meta">Creato ' +
+              esc(formatDateIt(customVoice.createdAt)) +
+              "</span>" +
+              "</div>" +
+              "</div>" +
+              '<span class="vc-user-profile-customcard__aside">' +
+              esc(formatIntIt(customVoice.memberCount || 0)) +
+              " utenti</span>" +
+              "</article>" +
+              '<div class="vc-user-profile-customgrid">' +
+              '<div class="vc-user-profile-customgrid__row"><span class="vc-user-profile-customgrid__label">Channel ID</span><strong class="vc-user-profile-customgrid__value">' +
+              esc(customVoice.id || "-") +
+              "</strong></div>" +
+              '<div class="vc-user-profile-customgrid__row"><span class="vc-user-profile-customgrid__label">Condiviso con</span><strong class="vc-user-profile-customgrid__value">' +
+              esc(formatIntIt(customVoice.memberCount || 0)) +
+              " utenti</strong></div>" +
+              '<div class="vc-user-profile-customgrid__row"><span class="vc-user-profile-customgrid__label">Creato</span><strong class="vc-user-profile-customgrid__value">' +
+              esc(formatDateIt(customVoice.createdAt)) +
+              "</strong></div>" +
+              "</div>" +
+              "</div>" +
+              "</details>"
+            : "") +
+          "</section>"
+        : "";
+
     document.title = "Profilo " + userId + " | " + siteName();
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
@@ -232,73 +374,139 @@
       '<section class="vc-user-profile-hero">' +
       '<div class="vc-user-profile-hero__head">' +
       '<div class="vc-user-profile-avatarwrap">' +
+      '<span class="vc-user-profile-avatarclip">' +
       (avatar
-        ? '<img class="vc-user-profile-avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(defaultEmbedAvatarUrl(userId)) + '\'" />'
+        ? '<img class="vc-user-profile-avatar" src="' +
+          esc(avatar) +
+          '" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+          esc(defaultEmbedAvatarUrl(userId)) +
+          '\'" />'
         : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user"></i></span>') +
+      "</span>" +
       "</div>" +
       '<div class="vc-user-profile-hero__copy">' +
-      '<h1 class="vc-user-profile-name">' + esc(displayName) + "</h1>" +
-      '<p class="vc-user-profile-id">ID: ' + esc(userId) + "</p>" +
+      '<h1 class="vc-user-profile-name">' +
+      esc(profileUsername) +
+      "</h1>" +
+      '<p class="vc-user-profile-id">ID: ' +
+      esc(userId) +
+      "</p>" +
       "</div>" +
       (viewerOwns
-        ? '<a class="vc-user-profile-customize" href="/ruoli"><i class="fa fa-paint-brush" aria-hidden="true"></i> Personalizza</a>'
+        ? '<a class="vc-user-profile-customize" href="' +
+          esc(profileCustomizeUrl(userId)) +
+          '"><i class="fa fa-paint-brush" aria-hidden="true"></i> Personalizza</a>'
         : "") +
       "</div>" +
       '<div class="vc-user-profile-stats">' +
-      '<article class="vc-user-profile-stat vc-user-profile-stat--level"><span class="vc-user-profile-stat__label">Livello</span><span class="vc-user-profile-stat__value">' + esc(String(level.level != null ? level.level : 0)) + "</span></article>" +
-      '<article class="vc-user-profile-stat vc-user-profile-stat--exp"><span class="vc-user-profile-stat__label">EXP totale</span><span class="vc-user-profile-stat__value">' + esc(formatIntIt(level.exp || 0)) + "</span></article>" +
-      '<article class="vc-user-profile-stat vc-user-profile-stat--rank"><span class="vc-user-profile-stat__label">Rank</span><span class="vc-user-profile-stat__value">' + esc(rankText) + "</span></article>" +
-      '<article class="vc-user-profile-stat vc-user-profile-stat--weekly"><span class="vc-user-profile-stat__label">EXP weekly</span><span class="vc-user-profile-stat__value">' + esc(formatIntIt(weekly.weeklyExp || 0)) + "</span></article>" +
+      '<article class="vc-user-profile-stat vc-user-profile-stat--level"><span class="vc-user-profile-stat__label">Livello</span><span class="vc-user-profile-stat__value">' +
+      esc(String(level.level != null ? level.level : 0)) +
+      "</span></article>" +
+      '<article class="vc-user-profile-stat vc-user-profile-stat--exp"><span class="vc-user-profile-stat__label">EXP totale</span><span class="vc-user-profile-stat__value">' +
+      esc(formatIntIt(level.exp || 0)) +
+      "</span></article>" +
+      '<article class="vc-user-profile-stat vc-user-profile-stat--rank"><span class="vc-user-profile-stat__label">Rank</span><span class="vc-user-profile-stat__value">' +
+      esc(rankText) +
+      "</span></article>" +
+      '<article class="vc-user-profile-stat vc-user-profile-stat--weekly"><span class="vc-user-profile-stat__label">EXP weekly</span><span class="vc-user-profile-stat__value">' +
+      esc(formatIntIt(weekly.weeklyExp || 0)) +
+      "</span></article>" +
       "</div>" +
       "</section>" +
-      '<section class="vc-user-profile-block vc-user-profile-block--messages">' +
-      '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Statistiche messaggi</span><span class="vc-user-profile-block__sub">' + esc(formatIntIt(messages.messagesTotal || 0)) + " messaggi totali</span></div>" +
-      '<div class="vc-user-profile-grid3">' +
-      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Totali</span><span class="vc-user-profile-mini__value">' + esc(formatIntIt(messages.messagesTotal || 0)) + "</span></div>" +
-      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Settimanali</span><span class="vc-user-profile-mini__value">' + esc(formatIntIt(messages.messagesWeekly || 0)) + "</span></div>" +
-      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Giornaliere</span><span class="vc-user-profile-mini__value">' + esc(formatIntIt(messages.messagesDaily || 0)) + "</span></div>" +
-      "</div></section>" +
-      '<section class="vc-user-profile-block vc-user-profile-block--voice">' +
-      '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Statistiche voice chat</span><span class="vc-user-profile-block__sub">' + esc(formatHoursIt(voice.voiceTotalSeconds || 0)) + " totali</span></div>" +
-      '<div class="vc-user-profile-grid3">' +
-      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore totali</span><span class="vc-user-profile-mini__value">' + esc(formatHoursIt(voice.voiceTotalSeconds || 0)) + "</span></div>" +
-      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore settimanali</span><span class="vc-user-profile-mini__value">' + esc(formatHoursIt(voice.voiceWeeklySeconds || 0)) + "</span></div>" +
-      '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore giornaliere</span><span class="vc-user-profile-mini__value">' + esc(formatHoursIt(voice.voiceDailySeconds || 0)) + "</span></div>" +
-      "</div></section>" +
+      (viewerOwns
+        ? '<details class="vc-user-profile-block vc-user-profile-block--messages vc-user-profile-disclosure">' +
+          '<summary class="vc-user-profile-disclosure__summary"><span class="vc-user-profile-block__title">Statistiche messaggi</span><span class="vc-user-profile-block__sub">' +
+          esc(formatIntIt(messages.messagesTotal || 0)) +
+          ' messaggi totali</span><i class="fa fa-angle-down vc-user-profile-disclosure__chev" aria-hidden="true"></i></summary>' +
+          '<div class="vc-user-profile-grid3">' +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Totali</span><span class="vc-user-profile-mini__value">' +
+          esc(formatIntIt(messages.messagesTotal || 0)) +
+          "</span></div>" +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Settimanali</span><span class="vc-user-profile-mini__value">' +
+          esc(formatIntIt(messages.messagesWeekly || 0)) +
+          "</span></div>" +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Giornaliere</span><span class="vc-user-profile-mini__value">' +
+          esc(formatIntIt(messages.messagesDaily || 0)) +
+          "</span></div>" +
+          "</div></details>"
+        : "") +
+      (viewerOwns
+        ? '<details class="vc-user-profile-block vc-user-profile-block--voice vc-user-profile-disclosure">' +
+          '<summary class="vc-user-profile-disclosure__summary"><span class="vc-user-profile-block__title">Statistiche voice chat</span><span class="vc-user-profile-block__sub">' +
+          esc(formatHoursIt(voice.voiceTotalSeconds || 0)) +
+          ' totali</span><i class="fa fa-angle-down vc-user-profile-disclosure__chev" aria-hidden="true"></i></summary>' +
+          '<div class="vc-user-profile-grid3">' +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore totali</span><span class="vc-user-profile-mini__value">' +
+          esc(formatHoursIt(voice.voiceTotalSeconds || 0)) +
+          "</span></div>" +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore settimanali</span><span class="vc-user-profile-mini__value">' +
+          esc(formatHoursIt(voice.voiceWeeklySeconds || 0)) +
+          "</span></div>" +
+          '<div class="vc-user-profile-mini"><span class="vc-user-profile-mini__label">Ore giornaliere</span><span class="vc-user-profile-mini__value">' +
+          esc(formatHoursIt(voice.voiceDailySeconds || 0)) +
+          "</span></div>" +
+          "</div></details>"
+        : "") +
       '<section class="vc-user-profile-block vc-user-profile-block--rankcard">' +
-      '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Rank card</span><span class="vc-user-profile-block__sub">Anteprima e moltiplicatore</span></div>' +
-      '<div class="vc-user-rankcard">' +
+      '<div class="vc-user-profile-block__head">' +
+      '<span class="vc-user-profile-block__title">Rank card <code class="vc-user-profile-inlinecmd">+rank</code></span>' +
+      (viewerOwns
+        ? '<a class="vc-user-profile-customize" href="' +
+          esc(profileCustomizeUrl(userId)) +
+          '"><i class="fa fa-sliders" aria-hidden="true"></i> Personalizza</a>'
+        : "") +
+      "</div>" +
+      '<div class="vc-user-rankcard"' + rankCardStyleVars(rankCardTheme) + ">" +
       '<div class="vc-user-rankcard__main">' +
       '<div class="vc-user-rankcard__avatarwrap">' +
+      '<span class="vc-user-rankcard__avatarclip">' +
       (avatar
-        ? '<img class="vc-user-rankcard__avatar" src="' + esc(avatar) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(defaultEmbedAvatarUrl(userId)) + '\'" />'
+        ? '<img class="vc-user-rankcard__avatar" src="' +
+          esc(avatar) +
+          '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
+          esc(defaultEmbedAvatarUrl(userId)) +
+          '\'" />'
         : '<span class="vc-user-rankcard__avatar vc-user-rankcard__avatar--fallback"><i class="fa fa-user"></i></span>') +
+      "</span>" +
       "</div>" +
       '<div class="vc-user-rankcard__copy">' +
-      '<div class="vc-user-rankcard__name">' + esc(displayName) + ' <span class="vc-user-rankcard__level">- Lv. ' + esc(String(level.level != null ? level.level : 0)) + "</span></div>" +
-      '<div class="vc-user-rankcard__progress"><span class="vc-user-rankcard__progressfill" style="width:' + esc(progressPct) + '"></span><span class="vc-user-rankcard__progresstext">' + esc(formatIntIt(level.exp || 0)) + " EXP</span></div>" +
+      '<div class="vc-user-rankcard__name">' +
+      esc(profileUsername) +
+      ' <span class="vc-user-rankcard__level">- Lv. ' +
+      esc(String(level.level != null ? level.level : 0)) +
+      "</span></div>" +
+      '<div class="vc-user-rankcard__progress"><span class="vc-user-rankcard__progressfill" style="width:' +
+      esc(progressPct) +
+      '"></span><span class="vc-user-rankcard__progresstext">' +
+      esc(formatIntIt(level.exp || 0)) +
+      " EXP</span></div>" +
       '<div class="vc-user-rankcard__meta">' +
-      '<span class="vc-user-rankcard__pill">Weekly rank ' + esc(weekly.rank ? "#" + formatIntIt(weekly.rank) : "-") + "</span>" +
-      '<span class="vc-user-rankcard__pill">Weekly XP ' + esc(formatIntIt(weekly.weeklyExp || 0)) + "</span>" +
-      '<span class="vc-user-rankcard__pill">Moltiplicatore ' + esc(formatMult(multiplier)) + "</span>" +
-      "</div></div>" +
-      '<div class="vc-user-rankcard__rankbox">' + esc(rankText) + "<small>RANK</small></div>" +
-      "</div></div></section>" +
-      '<section class="vc-user-profile-block vc-user-profile-block--multiplier">' +
-      '<details class="vc-user-profile-multiplier" open>' +
-      '<summary class="vc-user-profile-multiplier__summary">' +
-      '<span class="vc-user-profile-multiplier__head">' +
-      '<span class="vc-user-profile-multiplier__title">Moltiplicatore EXP</span>' +
-      '<span class="vc-user-profile-multiplier__sub">Da dove viene il bonus attivo</span>' +
+      '<span class="vc-user-rankcard__pill">Weekly rank ' +
+      esc(weeklyRankText) +
       "</span>" +
-      '<span class="vc-user-profile-multiplier__total">' + esc(formatMult(multiplier)) + "</span>" +
-      "</summary>" +
-      '<div class="vc-user-profile-multiplier__body">' + multiplierItemsHtml + "</div>" +
-      "</details>" +
-      "</section>" +
+      '<span class="vc-user-rankcard__pill">Weekly XP ' +
+      esc(formatIntIt(weekly.weeklyExp || 0)) +
+      "</span>" +
+      '<span class="vc-user-rankcard__pill">Moltiplicatore ' +
+      esc(formatMult(multiplier)) +
+      "</span>" +
+      "</div></div>" +
+      '<div class="vc-user-rankcard__rankbox">' +
+      esc(rankText) +
+      "<small>RANK</small></div>" +
+      "</div>" +
+      '<div class="vc-user-profile-multiplier__body vc-user-profile-multiplier__body--inline">' +
+      multiplierItemsHtml +
+      "</div>" +
+      "</div></section>" +
+      customEconomyHtml +
       '<section class="vc-user-profile-block vc-user-profile-block--roles">' +
-      '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Ruoli</span><span class="vc-user-profile-block__sub">' + esc(String(roles.length)) + " presenti</span></div>" +
-      '<div class="vc-user-profile-roles">' + rolesHtml + "</div></section>" +
+      '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Ruoli</span><span class="vc-user-profile-block__sub">' +
+      esc(String(roles.length)) +
+      " presenti</span></div>" +
+      '<div class="vc-user-profile-roles">' +
+      rolesHtml +
+      "</div></section>" +
       "</section>";
   }
 
@@ -307,9 +515,11 @@
     if (!userId) return;
     var root = byId("vc-user-profile-view");
     if (!root) return;
+    currentViewer = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || currentViewer;
     hideLeaderOnlySections();
     root.hidden = false;
     renderLoading(root);
+
     Promise.all([
       fetchBoard("level", userId),
       fetchBoard("weekly", userId),
@@ -327,7 +537,17 @@
 
       for (i = 0; i < results.length; i += 1) {
         if (results[i] && results[i].profile) {
-          profile = Object.assign({}, profile, results[i].profile);
+          var nextProfile = results[i].profile || {};
+          profile = Object.assign({}, profile, nextProfile);
+          if (Array.isArray(nextProfile.roles) && nextProfile.roles.length) {
+            profile.roles = nextProfile.roles.slice();
+          }
+          if (Array.isArray(nextProfile.weeklyMultiplierSources) && nextProfile.weeklyMultiplierSources.length) {
+            profile.weeklyMultiplierSources = nextProfile.weeklyMultiplierSources.slice();
+          }
+          if (nextProfile.customProfile) {
+            profile.customProfile = nextProfile.customProfile;
+          }
         }
         if (results[i] && !results[i].ok && !results[i].notFound) anyFailure = true;
       }
@@ -337,7 +557,8 @@
         ((level && Number(level.exp) > 0) ||
           (weekly && Number(weekly.weeklyExp) > 0) ||
           (messages && Number(messages.messagesTotal) > 0) ||
-          (voice && Number(voice.voiceTotalSeconds) > 0));
+          (voice && Number(voice.voiceTotalSeconds) > 0) ||
+          Boolean(profile.customProfile));
 
       if (!hasAny) {
         if (anyFailure) {
@@ -348,18 +569,27 @@
         return;
       }
 
-      renderProfile(root, userId, {
-        profile: profile || {},
-        level: level || {},
-        weekly: weekly || {},
-        messages: messages || {},
-        voice: voice || {},
-      });
+      lastRenderedProfile = {
+        root: root,
+        userId: userId,
+        payload: {
+          profile: profile || {},
+          level: level || {},
+          weekly: weekly || {},
+          messages: messages || {},
+          voice: voice || {},
+        },
+      };
+
+      renderProfile(root, userId, lastRenderedProfile.payload);
     });
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
     currentViewer = ev && ev.detail ? ev.detail.user || null : null;
+    if (lastRenderedProfile && lastRenderedProfile.root) {
+      renderProfile(lastRenderedProfile.root, lastRenderedProfile.userId, lastRenderedProfile.payload);
+    }
   });
 
   if (document.readyState === "loading") {

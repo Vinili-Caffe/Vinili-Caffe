@@ -980,18 +980,31 @@ async function getUserExpStats(guildId, userId) {
 
 async function getUserRanks(guildId, userId) {
   const stats = await getUserExpStats(guildId, userId);
-  if (stats.level === 0) {
+  const hasAllTimeExp = Number(stats.totalExp || 0) > 0;
+  const hasWeeklyExp = Number(stats.weeklyExp || 0) > 0;
+  if (!hasAllTimeExp && !hasWeeklyExp) {
     return { stats, weeklyRank: null, allTimeRank: null };
   }
   const currentWeekKey = getIsoWeekKey(new Date());
   const [weeklyHigher, totalHigher] = await Promise.all([
-    ActivityUserProfile.countDocuments({ guildId, "profile.totals.exp.weeklyKey": currentWeekKey, "profile.totals.exp.weeklyExp": { $gt: stats.weeklyExp } }),
-    ActivityUserProfile.countDocuments({ guildId, "profile.totals.exp.totalExp": { $gt: stats.totalExp } }),
+    hasWeeklyExp
+      ? ActivityUserProfile.countDocuments({
+          guildId,
+          "profile.totals.exp.weeklyKey": currentWeekKey,
+          "profile.totals.exp.weeklyExp": { $gt: stats.weeklyExp },
+        })
+      : Promise.resolve(0),
+    hasAllTimeExp
+      ? ActivityUserProfile.countDocuments({
+          guildId,
+          "profile.totals.exp.totalExp": { $gt: stats.totalExp },
+        })
+      : Promise.resolve(0),
   ]);
   return {
     stats,
-    weeklyRank: weeklyHigher + 1,
-    allTimeRank: totalHigher + 1,
+    weeklyRank: hasWeeklyExp ? weeklyHigher + 1 : null,
+    allTimeRank: hasAllTimeExp ? totalHigher + 1 : null,
   };
 }
 

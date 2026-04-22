@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{SITE_NAME}} | Personalizza Rank Card</title>
+    <meta name="description" content="Personalizza la tua rank card direttamente dal sito." />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/css/vc-landing.css" />
+    <script src="/js/vc-auth-pending.js"></script>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body class="vc-body vc-users-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+              href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
+                src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt=""
+                loading="eager" decoding="async" /></a>
+            <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+              href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
+          </div>
+          <nav
+            class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+            aria-label="Collegamenti rapidi">
+            <a class="vc-snav-item" href="{{WIKI_URL}}"><i class="fa fa-book" aria-hidden="true"></i><span>Wiki</span></a>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{VOTE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
+                <a class="vc-snav-row" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+                <a class="vc-snav-row" href="{{DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details vc-snav-details--current">
+              <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row vc-snav-row--active" href="{{USER_PAGE_URL}}" aria-current="page"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="{{RUOLI_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+      <section id="vc-rank-customize-page" class="vc-rank-customize-page">
+        <div class="vc-rank-customize-loading" id="vc-rank-customize-loading">
+          <span class="vc-rank-customize-loading__spin" aria-hidden="true"></span>
+          <p class="vc-rank-customize-loading__text">Caricamento personalizzazioni...</p>
+        </div>
+        <div id="vc-rank-customize-app" hidden></div>
+      </section>
+    </main>
+
+    <script>
+      window.__VC_DISABLE_PRETTY_PROFILE_REDIRECT = true;
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+      };
+      window.__VC_RANK_CUSTOMIZE = {
+        userApiUrl: "{{USERS_LEADERBOARD_API_URL}}",
+        userApiUrlLocal: "{{USERS_LEADERBOARD_API_URL_LOCAL}}",
+        rankApiUrl: "{{RANK_CARD_API_URL}}",
+        rankApiUrlLocal: "{{RANK_CARD_API_URL_LOCAL}}"
+      };
+    </script>
+    <script src="/js/discord-auth.js" defer></script>
+    <script src="/js/vc-landing.js" defer></script>
+    <script src="/js/user-rank-customize-page.js" defer></script>
+  </body>
+</html>

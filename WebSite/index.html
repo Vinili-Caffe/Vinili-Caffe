@@ -26,6 +26,16 @@
     <script>
       (function () {
         try {
+          var customizeMatch = String(window.location.pathname || "").match(/^\/user\/(\d{17,20})\/personalizza\/?$/);
+          if (customizeMatch) {
+            window.location.replace("/user/personalizza/?id=" + encodeURIComponent(customizeMatch[1]));
+            return;
+          }
+          var legacyCustomizeMatch = String(window.location.pathname || "").match(/^\/users\/(\d{17,20})\/customize\/?$/);
+          if (legacyCustomizeMatch) {
+            window.location.replace("/user/customize/?id=" + encodeURIComponent(legacyCustomizeMatch[1]));
+            return;
+          }
           var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
           if (!m) return;
           window.location.replace("/user/?id=" + encodeURIComponent(m[1]));
@@ -46,8 +56,8 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="css/vc-landing.css" />
-    <script src="js/vc-auth-pending.js"></script>
+    <link rel="stylesheet" href="/css/vc-landing.css" />
+    <script src="/js/vc-auth-pending.js"></script>
 {{HERO_BANNER_BLOCK}}
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
@@ -69,7 +79,7 @@
               rel="noopener noreferrer"
               aria-label="Entra su Discord"
               ><img
-                src="images/vc-header-logo.png"
+                src="/images/vc-header-logo.png"
                 width="40"
                 height="40"
                 class="vc-header-logo-img"
@@ -352,7 +362,7 @@
         homeUrl: "{{SITE_URL}}",
       };
     </script>
-    <script src="js/discord-auth.js" defer></script>
-    <script src="js/vc-landing.js" defer></script>
+    <script src="/js/discord-auth.js" defer></script>
+    <script src="/js/vc-landing.js" defer></script>
   </body>
 </html>

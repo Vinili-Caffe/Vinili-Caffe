@@ -183,6 +183,7 @@
 
   function emitProfile(user) {
     try {
+      window.__VC_DISCORD_PROFILE = user || null;
       window.dispatchEvent(new CustomEvent("vc-discord-profile", { detail: { user: user || null } }));
     } catch (e) {}
   }
@@ -330,6 +331,7 @@
         '" aria-label="Vai al profilo di ' +
         label +
         '" title="Vai al profilo">' +
+        '<span class="discord-avatar-clip">' +
         '<img class="discord-avatar-img" src="' +
         img +
         '" alt="" width="38" height="38" decoding="async" title="' +
@@ -337,6 +339,7 @@
         '" aria-label="' +
         label +
         '">' +
+        "</span>" +
         '<span class="discord-profile-hover">Vai al profilo</span>' +
         "</a>"
       : '<a class="discord-profile-link" href="' +
@@ -344,11 +347,13 @@
         '" aria-label="Vai al profilo di ' +
         label +
         '" title="Vai al profilo">' +
+        '<span class="discord-avatar-clip">' +
         '<span class="discord-avatar-img discord-avatar-img--fallback" title="' +
         label +
         '" aria-label="' +
         label +
         '"><i class="fa fa-user" aria-hidden="true"></i></span>' +
+        "</span>" +
         '<span class="discord-profile-hover">Vai al profilo</span>' +
         "</a>";
     state.innerHTML =

@@ -1007,6 +1007,23 @@ async function main() {
     rolesApiLocalRaw && /^https?:\/\//i.test(rolesApiLocalRaw)
       ? rolesApiLocalRaw
       : "";
+  const rankCardApiFromEnv = String(process.env.VC_RANK_CARD_API_URL ?? "").trim();
+  const rankCardApiRaw = rankCardApiFromEnv || String(cfg.rankCardApiUrl ?? "").trim();
+  const rankCardApiResolved =
+    rankCardApiRaw && /^https?:\/\//i.test(rankCardApiRaw)
+      ? rankCardApiRaw
+      : rankCardApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${rankCardApiRaw.startsWith("/") ? "" : "/"}${rankCardApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-rank-card`
+          : "/webhooks/site-rank-card";
+  const rankCardApiLocalFromEnv = String(process.env.VC_RANK_CARD_API_URL_LOCAL ?? "").trim();
+  const rankCardApiLocalRaw =
+    rankCardApiLocalFromEnv || String(cfg.rankCardApiUrlLocal ?? "").trim();
+  const rankCardApiLocalResolved =
+    rankCardApiLocalRaw && /^https?:\/\//i.test(rankCardApiLocalRaw)
+      ? rankCardApiLocalRaw
+      : "";
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
@@ -1083,6 +1100,8 @@ async function main() {
     VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
     ROLES_API_URL: escAttr(rolesApiResolved),
     ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
+    RANK_CARD_API_URL: escAttr(rankCardApiResolved),
+    RANK_CARD_API_URL_LOCAL: escAttr(rankCardApiLocalResolved),
     USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
     USER_META_DESCRIPTION: escAttr(
       `Classifica livelli ed EXP del server Discord ${siteName}: utenti ordinati per esperienza totale.`,
@@ -1236,6 +1255,19 @@ async function main() {
     fs.writeFileSync(voteIndexPath, voteHtml, "utf8");
   } else {
     console.warn("[build-site] Manca vote/index.html (saltato placeholder).");
+  }
+
+  const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html"];
+  for (const rel of rankCustomizeRel) {
+    const customizePath = path.join(DIST, rel);
+    if (!fs.existsSync(customizePath)) {
+      console.warn("[build-site] Manca pagina personalizzazione rank:", rel);
+      continue;
+    }
+    let customizeHtml = fs.readFileSync(customizePath, "utf8");
+    customizeHtml = applyPlaceholderMap(customizeHtml, map);
+    warnLeftoverPlaceholders(customizeHtml, rel);
+    fs.writeFileSync(customizePath, customizeHtml, "utf8");
   }
 
   const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];

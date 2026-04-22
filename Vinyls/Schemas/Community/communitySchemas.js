@@ -398,6 +398,10 @@ const activityUserProfileSchema = new Schema(
         customRoleEligibilityLostAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
       },
+      rankCard: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       inviteTrack: {
         inviterId: { type: String, default: null },
         active: { type: Boolean, default: true },

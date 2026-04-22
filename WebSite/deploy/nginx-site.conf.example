@@ -6,6 +6,15 @@ server {
     server_name www.esempio.it esempio.it;
     root /var/www/viniliecaffe;
     index index.html;
+    location ~ ^/user/(\d{17,20})/personalizza/?$ {
+        try_files /user/personalizza/index.html =404;
+    }
+    location ~ ^/users/(\d{17,20})/customize/?$ {
+        try_files /user/customize/index.html =404;
+    }
+    location ~ ^/users?/(\d{17,20})/?$ {
+        try_files /user/index.html =404;
+    }
     location / {
         # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
         try_files $uri $uri/index.html /index.html;
