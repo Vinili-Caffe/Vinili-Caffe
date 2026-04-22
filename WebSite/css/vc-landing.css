@@ -3709,20 +3709,48 @@ textarea.vc-candidature-input {
 
 .vc-user-profile-avatarwrap {
   flex-shrink: 0;
+  position: relative;
+  width: 6rem;
+  height: 6rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.22), transparent 38%),
+    linear-gradient(145deg, rgba(49, 104, 199, 0.95), rgba(73, 197, 255, 0.72));
+  box-shadow:
+    0 0 0 3px rgba(166, 226, 255, 0.42),
+    0 0 0 7px rgba(43, 162, 255, 0.14),
+    0 0 26px rgba(59, 130, 246, 0.42),
+    0 0 48px rgba(56, 189, 248, 0.26);
+}
+
+.vc-user-profile-avatarwrap::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  pointer-events: none;
 }
 
 .vc-user-profile-avatar,
 .vc-user-profile-avatar--fallback {
-  width: 6rem;
-  height: 6rem;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
   border-radius: 9999px;
   object-fit: cover;
+  object-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.28);
+  position: relative;
+  z-index: 1;
+  transform: scale(1.04);
+  transform-origin: center;
 }
 
 .vc-user-profile-hero__copy {
@@ -3828,18 +3856,49 @@ textarea.vc-candidature-input {
   align-items: center;
 }
 
-.vc-user-rankcard__avatar,
-.vc-user-rankcard__avatar--fallback {
+.vc-user-rankcard__avatarwrap {
+  position: relative;
   width: 7rem;
   height: 7rem;
   border-radius: 9999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 248, 196, 0.24), transparent 36%),
+    linear-gradient(145deg, rgba(250, 204, 21, 0.96), rgba(245, 158, 11, 0.82));
+  box-shadow:
+    0 0 0 3px rgba(255, 234, 138, 0.55),
+    0 0 0 7px rgba(250, 204, 21, 0.18),
+    0 0 28px rgba(250, 204, 21, 0.45),
+    0 0 56px rgba(245, 158, 11, 0.24);
+}
+
+.vc-user-rankcard__avatarwrap::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.vc-user-rankcard__avatar,
+.vc-user-rankcard__avatar--fallback {
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  border-radius: 9999px;
   object-fit: cover;
+  object-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
-  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.4), 0 0 24px rgba(250, 204, 21, 0.28);
+  position: relative;
+  z-index: 1;
+  transform: scale(1.08);
+  transform-origin: center;
 }
 
 .vc-user-rankcard__name {
@@ -3973,13 +4032,16 @@ textarea.vc-candidature-input {
 }
 
 .vc-user-profile-multiplier__sub {
-  color: rgba(191, 219, 254, 0.7);
+  color: rgba(219, 234, 254, 0.82);
 }
 
 .vc-user-profile-multiplier__total {
-  color: #a78bfa;
+  color: #bca5ff;
   font-size: 2rem;
   font-weight: 900;
+  text-shadow:
+    0 0 16px rgba(167, 139, 250, 0.24),
+    0 0 28px rgba(96, 165, 250, 0.18);
 }
 
 .vc-user-profile-multiplier__body {
@@ -3996,19 +4058,32 @@ textarea.vc-candidature-input {
   gap: 1rem;
   padding: 0.95rem 1rem;
   border-radius: 1rem;
-  border: 1px solid color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 36%, rgba(255,255,255,0.08));
-  background: color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 12%, rgba(255,255,255,0.04));
+  border: 1px solid color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 52%, rgba(255,255,255,0.12));
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 24%, rgba(255,255,255,0.06)),
+      color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 16%, rgba(15,23,42,0.22))
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 10px 28px rgba(10, 18, 40, 0.18),
+    0 0 24px color-mix(in srgb, var(--vc-multi-accent, #22d3ee) 18%, transparent);
 }
 
 .vc-user-profile-multisource__label {
-  color: rgba(248, 250, 252, 0.92);
+  color: #f8fbff;
   font-weight: 700;
+  text-shadow: 0 1px 0 rgba(7, 12, 24, 0.25);
 }
 
 .vc-user-profile-multisource__value {
-  color: color-mix(in srgb, var(--vc-multi-accent, #67e8f9) 80%, white);
+  color: color-mix(in srgb, var(--vc-multi-accent, #67e8f9) 92%, white);
   font-size: 1.2rem;
   font-weight: 900;
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--vc-multi-accent, #67e8f9) 32%, transparent),
+    0 1px 0 rgba(7, 12, 24, 0.3);
 }
 
 .vc-vote-live-card {
@@ -4191,7 +4266,13 @@ textarea.vc-candidature-input {
   height: 3.6rem;
   border-radius: 9999px;
   object-fit: cover;
+  object-position: center;
+  display: block;
   flex-shrink: 0;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.14),
+    0 0 0 5px rgba(56, 189, 248, 0.1),
+    0 0 16px rgba(56, 189, 248, 0.18);
 }
 
 .vc-vote-list-avatar {
@@ -5096,7 +5177,12 @@ textarea.vc-candidature-input {
   height: 1.9rem;
   border-radius: 9999px;
   object-fit: cover;
+  object-position: center;
+  display: block;
   flex-shrink: 0;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 0 10px rgba(148, 163, 184, 0.12);
 }
 
 .vc-role-card-ownername {
@@ -5351,7 +5437,13 @@ textarea.vc-candidature-input {
   height: 3.2rem;
   border-radius: 9999px;
   object-fit: cover;
+  object-position: center;
+  display: block;
   flex-shrink: 0;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.12),
+    0 0 0 5px rgba(96, 165, 250, 0.08),
+    0 0 14px rgba(59, 130, 246, 0.14);
 }
 
 .vc-role-member-copy {
@@ -5497,8 +5589,13 @@ textarea.vc-candidature-input {
   height: 3rem;
   border-radius: 9999px;
   object-fit: cover;
+  object-position: center;
+  display: block;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.12),
+    0 0 0 5px rgba(96, 165, 250, 0.08),
+    0 0 14px rgba(56, 189, 248, 0.14);
 }
 
 .vc-ul-card-names {

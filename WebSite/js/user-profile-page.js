@@ -320,13 +320,15 @@
       var weekly = results[1] && results[1].rows && results[1].rows[0] ? results[1].rows[0] : null;
       var messages = results[2] && results[2].rows && results[2].rows[0] ? results[2].rows[0] : null;
       var voice = results[3] && results[3].rows && results[3].rows[0] ? results[3].rows[0] : null;
-      var profile = null;
+      var profile = {};
       var anyFailure = false;
       var hasAny = false;
       var i;
 
       for (i = 0; i < results.length; i += 1) {
-        if (results[i] && results[i].profile && !profile) profile = results[i].profile;
+        if (results[i] && results[i].profile) {
+          profile = Object.assign({}, profile, results[i].profile);
+        }
         if (results[i] && !results[i].ok && !results[i].notFound) anyFailure = true;
       }
 

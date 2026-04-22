@@ -74,6 +74,16 @@ async function fetchUserIdentity(client, guild, userId) {
   return out;
 }
 
+async function isCurrentGuildMember(guild, userId) {
+  const id = String(userId || "").trim();
+  if (!id || !guild) return false;
+  const cached = guild.members?.cache?.get?.(id) || null;
+  if (cached) return true;
+  if (!guild.members?.fetch) return false;
+  const member = await guild.members.fetch({ user: id, force: true }).catch(() => null);
+  return Boolean(member);
+}
+
 async function handleSiteVoteGet(client, req, res) {
   try {
     const guildId = resolveGuildId(client);
@@ -92,6 +102,9 @@ async function handleSiteVoteGet(client, req, res) {
 
     const guild =
       client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) {
+      return res.status(503).json({ ok: false, error: "guild_unavailable", message: "Guild non disponibile." });
+    }
 
     const docs = await ActivityUserProfile.find({
       guildId,
@@ -120,8 +133,19 @@ async function handleSiteVoteGet(client, req, res) {
       .filter((row) => row.userId && row.votes > 0)
       .sort((a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId));
 
-    const totalVotes = rowsBase.reduce((sum, row) => sum + row.votes, 0);
-    const topRowsBase = rowsBase.slice(0, 50);
+    const activeMembership = await Promise.all(
+      rowsBase.map(async (row) => ({
+        row,
+        isMember: await isCurrentGuildMember(guild, row.userId),
+      })),
+    );
+    const activeRowsBase = activeMembership
+      .filter((entry) => entry.isMember)
+      .map((entry) => entry.row)
+      .sort((a, b) => b.votes - a.votes || a.userId.localeCompare(b.userId));
+
+    const totalVotes = activeRowsBase.reduce((sum, row) => sum + row.votes, 0);
+    const topRowsBase = activeRowsBase.slice(0, 50);
     const rows = [];
     for (let i = 0; i < topRowsBase.length; i += 1) {
       const base = topRowsBase[i];
@@ -146,13 +170,13 @@ async function handleSiteVoteGet(client, req, res) {
       rank: null,
     };
     if (searchUserId) {
-      const idx = rowsBase.findIndex((row) => row.userId === searchUserId);
+      const idx = activeRowsBase.findIndex((row) => row.userId === searchUserId);
       if (idx >= 0) {
         personal = {
           userId: searchUserId,
-          votes: rowsBase[idx].votes,
-          topggVotes: rowsBase[idx].topggVotes,
-          discadiaVotes: rowsBase[idx].discadiaVotes,
+          votes: activeRowsBase[idx].votes,
+          topggVotes: activeRowsBase[idx].topggVotes,
+          discadiaVotes: activeRowsBase[idx].discadiaVotes,
           rank: idx + 1,
         };
       }
@@ -162,7 +186,7 @@ async function handleSiteVoteGet(client, req, res) {
       ok: true,
       stats: {
         totalVotes,
-        totalVoters: rowsBase.length,
+        totalVoters: activeRowsBase.length,
         goal: 10000,
       },
       personal,
