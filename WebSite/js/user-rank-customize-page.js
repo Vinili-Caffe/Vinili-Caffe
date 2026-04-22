@@ -5,13 +5,14 @@
   var loaded = null;
   var draft = null;
   var activeTab = "colors";
+  var activeAccordion = "opacity";
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
     { key: "primaryTextColor", title: "Testo Principale", subtitle: "Username, stats e progress bar", icon: "fa-text-width" },
     { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Testo moltiplicatore XP", icon: "fa-bolt" },
     { key: "valueColor", title: "Valori", subtitle: "Server rank e weekly rank", icon: "fa-bar-chart" },
-    { key: "labelColor", title: "Etichette", subtitle: "Label come LEVEL, XP, ecc.", icon: "fa-tag" },
+    { key: "labelColor", title: "Etichette", subtitle: 'Label come "LEVEL", "XP", ecc.', icon: "fa-tag" },
     { key: "progressStartColor", title: "Progress Start", subtitle: "Inizio barra XP", icon: "fa-long-arrow-right" },
     { key: "progressEndColor", title: "Progress End", subtitle: "Fine barra XP", icon: "fa-long-arrow-right" },
     { key: "ringColor", title: "Avatar Ring", subtitle: "Glow e bordo avatar", icon: "fa-circle-o" },
@@ -65,20 +66,57 @@
 
   function toPct(value) {
     var n = Number(value);
-    if (!Number.isFinite(n)) n = 0.82;
-    return Math.max(8, Math.min(100, Math.round(n * 100)));
+    if (!Number.isFinite(n)) n = 0.8;
+    return Math.max(0, Math.min(100, Math.round((n * 100) / 5) * 5));
   }
 
   function fromPct(value) {
     var n = Number(value);
-    if (!Number.isFinite(n)) n = 82;
-    return Math.max(0.08, Math.min(1, n / 100));
+    if (!Number.isFinite(n)) n = 80;
+    return Math.max(0, Math.min(1, n / 100));
+  }
+
+  function hexToRgbList(hex) {
+    var raw = String(hex || "").trim();
+    var body = raw.charAt(0) === "#" ? raw.slice(1) : raw;
+    if (!/^[0-9a-fA-F]{6}$/.test(body)) return "32, 34, 37";
+    return (
+      parseInt(body.slice(0, 2), 16) +
+      ", " +
+      parseInt(body.slice(2, 4), 16) +
+      ", " +
+      parseInt(body.slice(4, 6), 16)
+    );
+  }
+
+  function wallpapers() {
+    return Array.isArray(loaded && loaded.wallpapers) ? loaded.wallpapers : [];
+  }
+
+  function wallpaperByKey(key) {
+    var list = wallpapers();
+    for (var i = 0; i < list.length; i += 1) {
+      if (String(list[i].key || "") === String(key || "")) return list[i];
+    }
+    return null;
+  }
+
+  function resolvedWallpaper(theme) {
+    var src = theme && typeof theme === "object" ? theme : {};
+    if (src.wallpaperUrl) return String(src.wallpaperUrl).trim();
+    var preset = wallpaperByKey(src.wallpaperKey || "default");
+    return preset && preset.previewUrl ? String(preset.previewUrl).trim() : "";
+  }
+
+  function wallpaperPermissions() {
+    return (loaded && loaded.permissions) || {};
   }
 
   function rankStyle(theme) {
     var t = theme || {};
     return [
       "--vc-rank-panel:" + esc(t.panelColor),
+      "--vc-rank-panel-rgb:" + esc(hexToRgbList(t.panelColor)),
       "--vc-rank-primary:" + esc(t.primaryTextColor),
       "--vc-rank-secondary:" + esc(t.secondaryTextColor),
       "--vc-rank-multiplier:" + esc(t.multiplierColor),
@@ -89,7 +127,7 @@
       "--vc-rank-ring:" + esc(t.ringColor),
       "--vc-rank-rankbox:" + esc(t.rankBoxBorderColor),
       "--vc-rank-opacity:" + esc(String(t.overlayOpacity)),
-      "--vc-rank-wallpaper:" + (t.wallpaperUrl ? 'url(&quot;' + esc(t.wallpaperUrl) + '&quot;)' : "none"),
+      "--vc-rank-wallpaper:" + (resolvedWallpaper(t) ? 'url(&quot;' + esc(resolvedWallpaper(t)) + '&quot;)' : "none"),
     ].join(";");
   }
 
@@ -110,7 +148,7 @@
       '<div class="vc-rank-editor-preview__main">' +
       '<div class="vc-rank-editor-preview__topline">' +
       '<span class="vc-rank-editor-preview__name">' + esc(username) + "</span>" +
-      '<span class="vc-rank-editor-preview__dot">·</span>' +
+      '<span class="vc-rank-editor-preview__dot">&middot;</span>' +
       '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(stats.level || 0)) + "</span>" +
       '<span class="vc-rank-editor-preview__mult">' + esc("x" + Number(stats.multiplier || 1).toFixed(1)) + "</span>" +
       "</div>" +
@@ -133,15 +171,67 @@
     );
   }
 
+  function wallpaperGalleryMarkup() {
+    return wallpapers()
+      .map(function (item) {
+        var key = String(item && item.key ? item.key : "");
+        var selected = !draft.wallpaperUrl && String(draft.wallpaperKey || "default") === key;
+        return (
+          '<button type="button" class="vc-rank-editor-wallcard' + (selected ? " is-selected" : "") + '" data-rank-wallpaper="' + esc(key) + '">' +
+          '<span class="vc-rank-editor-wallcard__preview"' + (item.previewUrl ? ' style="background-image:url(&quot;' + esc(item.previewUrl) + '&quot;)"' : "") + ">" +
+          (selected ? '<span class="vc-rank-editor-wallcard__check"><i class="fa fa-check" aria-hidden="true"></i></span>' : "") +
+          "</span>" +
+          '<span class="vc-rank-editor-wallcard__label">' + esc(item.label || key) + "</span>" +
+          "</button>"
+        );
+      })
+      .join("");
+  }
+
+  function wallpaperCustomMarkup() {
+    var permissions = wallpaperPermissions();
+    var canUseCustomWallpaper = permissions.canUseCustomWallpaper === true;
+    var activeWallpaperRoles = Array.isArray(permissions.activeWallpaperRoles) ? permissions.activeWallpaperRoles : [];
+    var requiredWallpaperRoles = Array.isArray(permissions.wallpaperCustomRoles) ? permissions.wallpaperCustomRoles : [];
+    if (canUseCustomWallpaper) {
+      return (
+        '<details class="vc-rank-editor-card" data-rank-accordion="custom-wallpaper"' + (activeAccordion === "custom-wallpaper" ? " open" : "") + ">" +
+        '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="custom-wallpaper">' +
+        '<span class="vc-rank-editor-card__icon"><i class="fa fa-picture-o" aria-hidden="true"></i></span>' +
+        '<span class="vc-rank-editor-card__copy"><strong>Wallpaper personalizzato</strong><span>Disponibile per ' + esc(activeWallpaperRoles.join(" • ") || requiredWallpaperRoles.join(" • ")) + "</span></span>" +
+        '<span class="vc-rank-editor-card__swatch vc-rank-editor-card__swatch--wall"></span>' +
+        '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
+        "</summary>" +
+        '<div class="vc-rank-editor-card__body">' +
+        '<div class="vc-rank-editor-uploadrow">' +
+        '<label class="vc-rank-editor-uploadbtn" for="vc-rank-wallpaper-file"><i class="fa fa-upload" aria-hidden="true"></i> Scegli allegato</label>' +
+        '<input type="file" id="vc-rank-wallpaper-file" accept="image/png,image/jpeg,image/webp" hidden />' +
+        '<button type="button" class="vc-rank-editor-reset" id="vc-rank-clear-wallpaper"><i class="fa fa-trash-o" aria-hidden="true"></i> Rimuovi</button>' +
+        "</div>" +
+        '<p class="vc-rank-editor-uploadhint">PNG, JPG o WEBP. L&apos;immagine viene ottimizzata automaticamente.</p>' +
+        '<p class="vc-rank-editor-uploadname" id="vc-rank-wallpaper-name">' + esc(draft.wallpaperUrl ? "Wallpaper caricato" : "Nessun allegato selezionato") + "</p>" +
+        "</div></details>"
+      );
+    }
+    return (
+      '<div class="vc-rank-editor-lockcard">' +
+      '<div class="vc-rank-editor-lockcard__head"><span class="vc-rank-editor-lockcard__icon"><i class="fa fa-lock" aria-hidden="true"></i></span><div><strong>Wallpaper personalizzato</strong><span>Sbloccato solo per Double Booster e VIP+</span></div></div>' +
+      '<div class="vc-rank-editor-lockcard__chips">' +
+      requiredWallpaperRoles.map(function (role) { return '<span class="vc-rank-editor-lockchip">' + esc(role) + "</span>"; }).join("") +
+      "</div></div>"
+    );
+  }
+
   function render() {
     var app = byId("vc-rank-customize-app");
     if (!app || !loaded || !draft) return;
     var backHref = profileUrl(loaded.userId);
-    var colorCards = COLOR_FIELDS.map(function (field, index) {
+    var colorCards = COLOR_FIELDS.map(function (field) {
       var value = draft[field.key];
+      var isOpen = activeAccordion === field.key;
       return (
-        '<details class="vc-rank-editor-card" ' + (index < 2 ? "open" : "") + ">" +
-        '<summary class="vc-rank-editor-card__summary">' +
+        '<details class="vc-rank-editor-card" data-rank-accordion="' + esc(field.key) + '"' + (isOpen ? " open" : "") + ">" +
+        '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="' + esc(field.key) + '">' +
         '<span class="vc-rank-editor-card__icon"><i class="fa ' + esc(field.icon) + '" aria-hidden="true"></i></span>' +
         '<span class="vc-rank-editor-card__copy"><strong>' + esc(field.title) + "</strong><span>" + esc(field.subtitle) + "</span></span>" +
         '<span class="vc-rank-editor-card__swatch" style="background:' + esc(value) + '"></span>' +
@@ -170,39 +260,28 @@
       "</div>" +
       '<div class="vc-rank-editor-layout">' +
       '<div class="vc-rank-editor-panel">' +
-      '<details class="vc-rank-editor-card" open>' +
-      '<summary class="vc-rank-editor-card__summary">' +
+      '<details class="vc-rank-editor-card" data-rank-accordion="opacity"' + (activeAccordion === "opacity" ? " open" : "") + ">" +
+      '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="opacity">' +
       '<span class="vc-rank-editor-card__icon"><i class="fa fa-sliders" aria-hidden="true"></i></span>' +
-      '<span class="vc-rank-editor-card__copy"><strong>Opacità Sfondo</strong><span>Trasparenza dei box contenitori</span></span>' +
+      '<span class="vc-rank-editor-card__copy"><strong>Opacita card</strong><span>Trasparenza dei pannelli della rank card</span></span>' +
       '<span class="vc-rank-editor-card__badge">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
       '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
       "</summary>" +
       '<div class="vc-rank-editor-card__body">' +
       '<div class="vc-rank-editor-sliderrow">' +
-      '<input id="vc-rank-opacity-range" type="range" min="8" max="100" value="' + esc(String(toPct(draft.overlayOpacity))) + '" />' +
+      '<input id="vc-rank-opacity-range" type="range" min="0" max="100" step="5" value="' + esc(String(toPct(draft.overlayOpacity))) + '" />' +
       '<span id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
       "</div></div></details>" +
       (activeTab === "colors"
         ? colorCards
-        : '<details class="vc-rank-editor-card" open>' +
-          '<summary class="vc-rank-editor-card__summary">' +
-          '<span class="vc-rank-editor-card__icon"><i class="fa fa-picture-o" aria-hidden="true"></i></span>' +
-          '<span class="vc-rank-editor-card__copy"><strong>Wallpaper</strong><span>Sfondo immagine della rank card</span></span>' +
-          '<span class="vc-rank-editor-card__swatch vc-rank-editor-card__swatch--wall"></span>' +
-          '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
-          "</summary>" +
-          '<div class="vc-rank-editor-card__body">' +
-          '<div class="vc-rank-editor-colorrow">' +
-          '<input class="vc-rank-editor-colorrow__hex vc-rank-editor-colorrow__hex--wide" type="text" id="vc-rank-wallpaper-url" value="' + esc(draft.wallpaperUrl || "") + '" placeholder="https://..." />' +
-          '<button type="button" class="vc-rank-editor-updatebtn" id="vc-rank-apply-wallpaper"><i class="fa fa-eye" aria-hidden="true"></i> Aggiorna Anteprima</button>' +
-          "</div></div></details>") +
+        : '<section class="vc-rank-editor-wallgrid">' + wallpaperGalleryMarkup() + "</section>" + wallpaperCustomMarkup()) +
       '<div class="vc-rank-editor-actions"><button type="button" class="vc-rank-editor-save" id="vc-rank-save"><i class="fa fa-floppy-o" aria-hidden="true"></i> Salva Modifiche</button><button type="button" class="vc-rank-editor-reset" id="vc-rank-reset"><i class="fa fa-undo" aria-hidden="true"></i> Reset</button></div>' +
       '<p class="vc-rank-editor-status" id="vc-rank-status"></p>' +
       "</div>" +
       '<aside class="vc-rank-editor-side">' +
       '<div class="vc-rank-editor-previewcard"><div class="vc-rank-editor-previewcard__head"><span class="vc-rank-editor-previewcard__icon"><i class="fa fa-eye" aria-hidden="true"></i></span><div><strong>Anteprima Live</strong></div></div>' +
       previewMarkup(loaded, draft) +
-      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacità si aggiorna in tempo reale. Per colori e wallpaper clicca "Aggiorna Anteprima".</span></div>' +
+      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacita si aggiorna in tempo reale. Per colori e wallpaper clicca "Aggiorna Anteprima".</span></div>' +
       '<div class="vc-rank-editor-previewbadge">Preview identica a <code>+rank</code> su Discord</div>' +
       "</div></aside></div>";
 
@@ -230,7 +309,56 @@
     render();
   }
 
+  function readFileAsDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || "")); };
+      reader.onerror = function () { reject(new Error("read_failed")); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function loadImageElement(src) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error("image_load_failed")); };
+      img.src = src;
+    });
+  }
+
+  async function optimizeWallpaperFile(file) {
+    var dataUrl = await readFileAsDataUrl(file);
+    var img = await loadImageElement(dataUrl);
+    var maxWidth = 1600;
+    var scale = img.width > maxWidth ? maxWidth / img.width : 1;
+    var width = Math.max(1, Math.round(img.width * scale));
+    var height = Math.max(1, Math.round(img.height * scale));
+    var canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, width, height);
+    var out = canvas.toDataURL("image/webp", 0.86);
+    if (out.length > 850000) {
+      out = canvas.toDataURL("image/jpeg", 0.82);
+    }
+    if (out.length > 850000) {
+      throw new Error("file_too_large");
+    }
+    return out;
+  }
+
   function bindUi() {
+    Array.prototype.slice.call(document.querySelectorAll("[data-rank-accordion-trigger]")).forEach(function (summary) {
+      summary.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        var key = String(summary.getAttribute("data-rank-accordion-trigger") || "");
+        activeAccordion = activeAccordion === key ? "" : key;
+        render();
+      });
+    });
+
     var range = byId("vc-rank-opacity-range");
     if (range) {
       range.addEventListener("input", function () {
@@ -260,15 +388,47 @@
     Array.prototype.slice.call(document.querySelectorAll("[data-rank-tab]")).forEach(function (button) {
       button.addEventListener("click", function () {
         activeTab = button.getAttribute("data-rank-tab");
+        activeAccordion = activeTab === "wallpaper" ? "custom-wallpaper" : "opacity";
         render();
       });
     });
 
-    var wallpaperBtn = byId("vc-rank-apply-wallpaper");
-    if (wallpaperBtn) {
-      wallpaperBtn.addEventListener("click", function () {
-        var input = byId("vc-rank-wallpaper-url");
-        draft.wallpaperUrl = String(input && input.value ? input.value : "").trim();
+    Array.prototype.slice.call(document.querySelectorAll("[data-rank-wallpaper]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        draft.wallpaperKey = String(button.getAttribute("data-rank-wallpaper") || "default");
+        draft.wallpaperUrl = "";
+        render();
+      });
+    });
+
+    var wallpaperFile = byId("vc-rank-wallpaper-file");
+    if (wallpaperFile) {
+      wallpaperFile.addEventListener("change", async function () {
+        var file = wallpaperFile.files && wallpaperFile.files[0];
+        if (!file) return;
+        setStatus("Ottimizzo il wallpaper...", false);
+        try {
+          draft.wallpaperKey = "default";
+          draft.wallpaperUrl = await optimizeWallpaperFile(file);
+          render();
+          setStatus("Wallpaper pronto. Salva le modifiche per applicarlo.", false);
+        } catch (err) {
+          setStatus(
+            err && err.message === "file_too_large"
+              ? "L'immagine resta troppo pesante anche dopo l'ottimizzazione."
+              : "Non sono riuscito a leggere l'allegato selezionato.",
+            true,
+          );
+        } finally {
+          wallpaperFile.value = "";
+        }
+      });
+    }
+
+    var clearWallpaperBtn = byId("vc-rank-clear-wallpaper");
+    if (clearWallpaperBtn) {
+      clearWallpaperBtn.addEventListener("click", function () {
+        draft.wallpaperUrl = "";
         render();
       });
     }
@@ -373,6 +533,7 @@
       }
       loaded = body;
       draft = Object.assign({}, body.theme || {});
+      if (!draft.wallpaperKey) draft.wallpaperKey = "default";
       render();
     });
   }

@@ -1,7 +1,27 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
-const { mergeRankCardTheme, DEFAULT_RANK_CARD_THEME } = require("../Render/rankCardTheme");
+const IDs = require("../Config/ids");
+const {
+  mergeRankCardTheme,
+  DEFAULT_RANK_CARD_THEME,
+  listRankCardWallpapers,
+} = require("../Render/rankCardTheme");
 const { getUserRanks, getGlobalMultiplier } = require("../../Services/Community/expService");
+
+const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
+const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
+
+function getRankCardPermissions(member) {
+  const hasRole = (roleId) => Boolean(roleId && member?.roles?.cache?.has(roleId));
+  const roleBadges = [];
+  if (hasRole(DOUBLE_BOOSTER_ROLE_ID)) roleBadges.push("Double Booster");
+  if (hasRole(VIP_PLUS_ROLE_ID)) roleBadges.push("VIP+");
+  return {
+    canUseCustomWallpaper: roleBadges.length > 0,
+    wallpaperCustomRoles: ["Double Booster", "VIP+"],
+    activeWallpaperRoles: roleBadges,
+  };
+}
 
 async function getRankCardCustomization(client, payload) {
   const accessToken = String(payload?.accessToken || "").trim();
@@ -19,6 +39,7 @@ async function getRankCardCustomization(client, payload) {
   const theme = mergeRankCardTheme(doc?.profile?.rankCard || {});
   const { stats, weeklyRank, allTimeRank } = await getUserRanks(resolved.guild.id, resolved.userId);
   const multiplier = await getGlobalMultiplier(resolved.guild.id).catch(() => 1);
+  const permissions = getRankCardPermissions(resolved.member);
 
   return {
     ok: true,
@@ -32,6 +53,8 @@ async function getRankCardCustomization(client, payload) {
       "",
     theme,
     defaults: DEFAULT_RANK_CARD_THEME,
+    wallpapers: listRankCardWallpapers(),
+    permissions,
     stats: {
       level: Number(stats?.level || 0),
       totalExp: Number(stats?.totalExp || 0),
@@ -70,6 +93,10 @@ async function updateRankCardCustomization(client, payload) {
   }
 
   const theme = mergeRankCardTheme(payload?.theme || {});
+  const permissions = getRankCardPermissions(resolved.member);
+  if (!permissions.canUseCustomWallpaper) {
+    theme.wallpaperUrl = "";
+  }
   await ActivityUserProfile.findOneAndUpdate(
     { guildId: resolved.guild.id, userId: resolved.userId },
     {

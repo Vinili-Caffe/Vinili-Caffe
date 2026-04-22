@@ -93,7 +93,20 @@
     return "x" + String(x.toFixed(1));
   }
 
-  function rankCardStyleVars(theme) {
+  function hexToRgbList(hex) {
+    var raw = String(hex || "").trim();
+    var body = raw.charAt(0) === "#" ? raw.slice(1) : raw;
+    if (!/^[0-9a-fA-F]{6}$/.test(body)) return "";
+    return (
+      parseInt(body.slice(0, 2), 16) +
+      ", " +
+      parseInt(body.slice(2, 4), 16) +
+      ", " +
+      parseInt(body.slice(4, 6), 16)
+    );
+  }
+
+  function rankCardStyleVars(theme, resolvedWallpaper) {
     var src = theme && typeof theme === "object" ? theme : {};
     var out = [];
     if (src.panelColor) out.push("--vc-rank-panel:" + esc(src.panelColor));
@@ -107,7 +120,11 @@
     if (src.ringColor) out.push("--vc-rank-ring:" + esc(src.ringColor));
     if (src.rankBoxBorderColor) out.push("--vc-rank-rankbox:" + esc(src.rankBoxBorderColor));
     if (src.overlayOpacity != null) out.push("--vc-rank-opacity:" + esc(String(src.overlayOpacity)));
-    if (src.wallpaperUrl) out.push("--vc-rank-wallpaper:url(&quot;" + esc(src.wallpaperUrl) + "&quot;)");
+    if (src.panelColor) {
+      var rgb = hexToRgbList(src.panelColor);
+      if (rgb) out.push("--vc-rank-panel-rgb:" + esc(rgb));
+    }
+    if (resolvedWallpaper) out.push("--vc-rank-wallpaper:url(&quot;" + esc(resolvedWallpaper) + "&quot;)");
     return out.length ? ' style="' + out.join(";") + '"' : "";
   }
 
@@ -456,7 +473,7 @@
           '"><i class="fa fa-sliders" aria-hidden="true"></i> Personalizza</a>'
         : "") +
       "</div>" +
-      '<div class="vc-user-rankcard"' + rankCardStyleVars(rankCardTheme) + ">" +
+      '<div class="vc-user-rankcard"' + rankCardStyleVars(rankCardTheme, profile.rankCardResolvedWallpaper) + ">" +
       '<div class="vc-user-rankcard__main">' +
       '<div class="vc-user-rankcard__avatarwrap">' +
       '<span class="vc-user-rankcard__avatarclip">' +

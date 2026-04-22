@@ -6,7 +6,7 @@ const {
   getRomeDayKey,
 } = require("../../Prefix/Level/classifica");
 const { findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
-const { getRankCardThemeFromDoc } = require("../Render/rankCardTheme");
+const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -664,6 +664,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           avatarUrl: String(row.avatarUrl || "").trim(),
           joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
           rankCard: getRankCardThemeFromDoc(doc),
+          rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),
           roles: profileRoles,
           ...(customProfile ? { customProfile } : {}),
           ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),

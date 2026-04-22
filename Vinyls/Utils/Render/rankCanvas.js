@@ -2,7 +2,7 @@ const canvasModule = require("canvas");
 const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
 const { safeLoadImage } = require("./safeLoadImage");
-const { mergeRankCardTheme } = require("./rankCardTheme");
+const { mergeRankCardTheme, resolveRankCardWallpaper } = require("./rankCardTheme");
 
 function roundedRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
@@ -45,8 +45,9 @@ module.exports = async function renderRankCanvas({
   const height = hideLeaderboardRanks ? 320 : 430;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
+  const panelAlpha = Math.max(0, Math.min(1, Number(palette.overlayOpacity || 0)));
 
-  const wallpaper = await safeLoadImage(palette.wallpaperUrl);
+  const wallpaper = await safeLoadImage(resolveRankCardWallpaper(palette));
   if (wallpaper) {
     ctx.drawImage(wallpaper, 0, 0, width, height);
   } else {
@@ -70,7 +71,7 @@ module.exports = async function renderRankCanvas({
   const cardH = height - 56;
 
   roundedRect(ctx, cardX, cardY, cardW, cardH, 28);
-  ctx.fillStyle = hexToRgba(palette.panelColor, palette.overlayOpacity);
+  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
   ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth = 2;
@@ -82,7 +83,7 @@ module.exports = async function renderRankCanvas({
   const heroH = 162;
 
   roundedRect(ctx, heroX, heroY, heroW, heroH, 26);
-  ctx.fillStyle = hexToRgba(palette.panelColor, Math.min(1, palette.overlayOpacity + 0.08));
+  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
   ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,0.1)";
   ctx.lineWidth = 2;
@@ -208,6 +209,8 @@ module.exports = async function renderRankCanvas({
   const rankBoxX = heroX + heroW - rankBoxW - 24;
   const rankBoxY = heroY + 18;
   roundedRect(ctx, rankBoxX, rankBoxY, rankBoxW, rankBoxH, 20);
+  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
+  ctx.fill();
   ctx.strokeStyle = palette.rankBoxBorderColor;
   ctx.lineWidth = 4;
   ctx.stroke();
@@ -243,7 +246,7 @@ module.exports = async function renderRankCanvas({
     for (let i = 0; i < items.length; i += 1) {
       const x = firstX + i * (statW + gap);
       roundedRect(ctx, x, statY, statW, statH, 18);
-      ctx.fillStyle = hexToRgba(palette.panelColor, Math.min(1, palette.overlayOpacity + 0.06));
+      ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
       ctx.fill();
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 2;
