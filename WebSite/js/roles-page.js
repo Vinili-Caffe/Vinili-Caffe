@@ -164,6 +164,11 @@
     return "https://cdn.discordapp.com/embed/avatars/" + index + ".png";
   }
 
+  function profileHref(userId) {
+    var id = String(userId || "").trim();
+    return id ? "/users/" + encodeURIComponent(id) : "/user";
+  }
+
   function avatarUrl(row) {
     var fromApi = String(row.ownerAvatarUrl || "").trim();
     if (/^https?:\/\//i.test(fromApi)) return fromApi;
@@ -331,10 +336,10 @@
       '<p class="vc-role-card-date"><i class="fa fa-calendar-o" aria-hidden="true"></i> ' + esc(formatDateIt(row.createdAt)) + "</p>" +
       "</div>" +
       "</div>" +
-      '<div class="vc-role-card-owner">' +
+      '<a class="vc-role-card-owner" href="' + esc(profileHref(row.ownerId)) + '">' +
       '<img class="vc-role-card-owneravatar" src="' + esc(avatarUrl(row)) + '" alt="" width="28" height="28" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(row.ownerId)) + '\'" />' +
       '<span class="vc-role-card-ownername">' + esc(ownerName) + "</span>" +
-      "</div>" +
+      "</a>" +
       '<div class="vc-role-card-meta">' +
       '<span class="vc-role-chip vc-role-chip--members"><i class="fa fa-users" aria-hidden="true"></i> ' + esc(formatIntIt(row.memberCount)) + "</span>" +
       expiryChip +
@@ -372,7 +377,7 @@
   function renderMemberRow(member) {
     var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
     return (
-      '<article class="vc-role-member" role="listitem">' +
+      '<a class="vc-role-member" role="listitem" href="' + esc(profileHref(member.userId)) + '">' +
       '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(member.userId)) + '\'" />' +
       '<div class="vc-role-member-copy">' +
       '<div class="vc-role-member-topline">' +
@@ -381,7 +386,7 @@
       "</div>" +
       "</div>" +
       '<span class="vc-role-member-arrow" aria-hidden="true"><i class="fa fa-angle-right"></i></span>' +
-      "</article>"
+      "</a>"
     );
   }
 

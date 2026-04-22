@@ -65,7 +65,7 @@
             <summary class="vc-snav-summary"><span>Supporta</span><i
                 class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
             <div class="vc-snav-panel">
-              <a class="vc-snav-row" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer"><span
+              <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span
                   class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il
                   server</span></a>
               <a class="vc-snav-row" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer"><span
@@ -154,15 +154,16 @@
   </header>
 
   <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
-    <p id="vc-user-leader-state" class="vc-user-leader-state" hidden role="status"></p>
-    <div id="vc-ul-loading" class="vc-ul-loading" role="status" aria-live="polite" aria-label="Caricamento classifica">
+    <p id="vc-user-leader-state" class="vc-user-leader-state" data-vc-leader-only hidden role="status"></p>
+    <div id="vc-ul-loading" class="vc-ul-loading" data-vc-leader-only role="status" aria-live="polite" aria-label="Caricamento classifica">
       <div class="vc-ul-loading-card">
         <span class="vc-ul-loading-spinner" aria-hidden="true"></span>
         <p class="vc-ul-loading-title">Caricamento classifica</p>
         <p class="vc-ul-loading-sub">Sto aggiornando i dati della community…</p>
       </div>
     </div>
-    <section class="vc-notify-hero w-full">
+    <section id="vc-user-profile-view" hidden></section>
+    <section class="vc-notify-hero w-full" data-vc-leader-only>
       <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div class="min-w-0 flex-1">
           <h1 class="text-4xl font-extrabold tracking-tight text-white">Community</h1>
@@ -174,7 +175,7 @@
       </div>
     </section>
 
-    <section class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <section class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3" data-vc-leader-only>
       <article class="vc-notify-stat vc-notify-stat--a">
         <p class="vc-notify-stat-label">Totale membri</p>
         <p class="vc-notify-stat-value" id="vc-ul-stat-members" data-vc-countup="true" data-vc-count-kind="int" data-vc-count-value="0">—</p>
@@ -189,7 +190,7 @@
       </article>
     </section>
 
-    <section class="mt-8 flex w-full max-w-5xl flex-col gap-3">
+    <section class="mt-8 flex w-full max-w-5xl flex-col gap-3" data-vc-leader-only>
       <div class="vc-ul-toolbar flex w-full max-w-full flex-col gap-2">
         <div id="vc-ul-board-tabs"
           class="vc-ul-board-tabs flex w-auto min-w-0 max-w-full flex-wrap items-center gap-2 self-start rounded-xl border border-white/10 bg-white/[0.03] p-2">
@@ -245,7 +246,7 @@
       </div>
     </section>
 
-    <section class="mt-8">
+    <section class="mt-8" data-vc-leader-only>
       <div id="vc-ul-empty" class="vc-notify-empty vc-ul-empty-state" hidden>
         <i id="vc-ul-empty-ico" class="fa fa-users vc-ul-empty-ico" aria-hidden="true"></i>
         <div class="vc-ul-empty-text">
@@ -256,7 +257,7 @@
       <div id="vc-ul-grid" class="vc-ul-grid" role="list"></div>
     </section>
 
-    <nav class="vc-ul-pager mt-10 flex flex-wrap items-center justify-center gap-3" id="vc-ul-pager"
+    <nav class="vc-ul-pager mt-10 flex flex-wrap items-center justify-center gap-3" id="vc-ul-pager" data-vc-leader-only
       aria-label="Paginazione classifica" hidden>
       <button type="button" class="vc-notify-home-btn" id="vc-ul-prev">Precedente</button>
       <span class="vc-notify-filter-btn vc-notify-filter-btn--on cursor-default px-4" id="vc-ul-page-label"
@@ -279,6 +280,7 @@
   </script>
   <script src="../js/discord-auth.js" defer></script>
   <script src="../js/vc-landing.js" defer></script>
+  <script src="../js/user-profile-page.js" defer></script>
   <script src="../js/user-leader-page.js" defer></script>
 </body>
 

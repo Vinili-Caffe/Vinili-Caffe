@@ -1,7 +1,9 @@
 {
   "siteName": "Vinili & Caffè",
   "siteUrl": "https://www.viniliecaffe.it/",
-  "voteUrl": "https://discadia.com/vote/viniliecaffe/",
+  "voteUrl": "/vote",
+  "discadiaVoteUrl": "https://discadia.com/vote/viniliecaffe/",
+  "topggVoteUrl": "https://top.gg/discord/servers/832911595289169920",
   "reviewsUrl": "https://disboard.org/it/server/1329080093599076474",
   "donationsUrl": "https://www.paypal.com/paypalme/viniliecaffe",
   "discordOauth": {

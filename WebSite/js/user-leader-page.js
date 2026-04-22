@@ -1,6 +1,14 @@
 (function () {
   var PER_PAGE = 12;
 
+  function isProfileMode() {
+    try {
+      return Boolean(window.VCUserProfilePage && window.VCUserProfilePage.isProfileMode());
+    } catch (e) {
+      return false;
+    }
+  }
+
   function byId(id) {
     return document.getElementById(id);
   }
@@ -252,6 +260,17 @@
     return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
   }
 
+  function profileHref(userId) {
+    var id = String(userId || "").trim();
+    if (!id) return "/user";
+    try {
+      if (window.VCUserProfilePage && typeof window.VCUserProfilePage.profilePublicUrl === "function") {
+        return window.VCUserProfilePage.profilePublicUrl(id);
+      }
+    } catch (e) {}
+    return "/users/" + encodeURIComponent(id);
+  }
+
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false };
 
   function setLoading(on, label) {
@@ -284,7 +303,7 @@
     var avFb = defaultEmbedAvatarUrl(row);
     return (
       '<div class="vc-ul-card-head">' +
-      '<div class="vc-ul-card-user">' +
+      '<a class="vc-ul-card-user" href="' + esc(profileHref(row.userId)) + '">' +
       '<img class="vc-ul-avatar" src="' +
       avSrc +
       '" alt="" width="48" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
@@ -307,7 +326,7 @@
       esc(idShort) +
       "…</p>" +
       "</div>" +
-      "</div>" +
+      "</a>" +
       "</div>"
     );
   }
@@ -872,6 +891,7 @@
   }
 
   function main() {
+    if (isProfileMode()) return;
     initPager();
     initBoardTabs();
     initFilters();

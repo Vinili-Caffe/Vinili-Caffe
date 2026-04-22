@@ -154,6 +154,33 @@
     return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
   }
 
+  function profileHref(userId) {
+    var id = String(userId || "").trim();
+    return id ? "/users/" + encodeURIComponent(id) : "/user";
+  }
+
+  function startLoginTransition(loginBtn, url) {
+    if (!url) {
+      alert("Configura discordOauth.clientId in site.config.json");
+      return;
+    }
+    if (loginBtn) {
+      loginBtn.classList.add("discord-login-btn--loading");
+      loginBtn.setAttribute("aria-busy", "true");
+      loginBtn.innerHTML =
+        '<span class="discord-login-btn__spin" aria-hidden="true"></span>' +
+        "<span>Accesso in corso...</span>";
+    }
+    try {
+      if (typeof window.vcShowPageTransition === "function") {
+        window.vcShowPageTransition("login");
+      }
+    } catch (e) {}
+    window.setTimeout(function () {
+      window.location.href = url;
+    }, 280);
+  }
+
   function emitProfile(user) {
     try {
       window.dispatchEvent(new CustomEvent("vc-discord-profile", { detail: { user: user || null } }));
@@ -296,19 +323,34 @@
     var name = String(user.username || user.global_name || "Utente").trim() || "Utente";
     var img = avatarUrl(user);
     var label = escAttr(name);
+    var href = escAttr(profileHref(user && user.id));
     var avatarBlock = img
-      ? '<img class="discord-avatar-img" src="' +
+      ? '<a class="discord-profile-link" href="' +
+        href +
+        '" aria-label="Vai al profilo di ' +
+        label +
+        '" title="Vai al profilo">' +
+        '<img class="discord-avatar-img" src="' +
         img +
         '" alt="" width="38" height="38" decoding="async" title="' +
         label +
         '" aria-label="' +
         label +
-        '">'
-      : '<span class="discord-avatar-img discord-avatar-img--fallback" title="' +
+        '">' +
+        '<span class="discord-profile-hover">Vai al profilo</span>' +
+        "</a>"
+      : '<a class="discord-profile-link" href="' +
+        href +
+        '" aria-label="Vai al profilo di ' +
+        label +
+        '" title="Vai al profilo">' +
+        '<span class="discord-avatar-img discord-avatar-img--fallback" title="' +
         label +
         '" aria-label="' +
         label +
-        '"><i class="fa fa-user" aria-hidden="true"></i></span>';
+        '"><i class="fa fa-user" aria-hidden="true"></i></span>' +
+        '<span class="discord-profile-hover">Vai al profilo</span>' +
+        "</a>";
     state.innerHTML =
       '<div class="discord-login-row">' +
       avatarBlock +
@@ -365,11 +407,7 @@
     var url = authUrl();
     if (loginBtn) {
       loginBtn.addEventListener("click", function () {
-        if (!url) {
-          alert("Configura discordOauth.clientId in site.config.json");
-          return;
-        }
-        window.location.href = url;
+        startLoginTransition(loginBtn, url);
       });
     }
     var t = getToken();

@@ -478,6 +478,21 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           : null;
       const row = await buildRowFromDoc(client, guild, board, doc, searchRank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier);
       const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null);
+      const member =
+        guild?.members?.cache?.get?.(searchId) || (guild ? await guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null);
+      const profileRoles = member?.roles?.cache
+        ? [...member.roles.cache.values()]
+            .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))
+            .sort((a, b) => Number(b?.position || 0) - Number(a?.position || 0))
+            .map((role) => ({
+              id: String(role.id),
+              name: String(role.name || "Ruolo"),
+              color:
+                String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
+                  ? String(role.hexColor || "").trim()
+                  : "",
+            }))
+        : [];
       if (guild && (board === "messages" || board === "voice")) {
         stats.siteRomeCalendarDay = getRomeDayKey(new Date());
       }
@@ -492,6 +507,15 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         total: 1,
         totalPages: 1,
         stats,
+        profile: {
+          userId: String(row.userId || searchId),
+          username: String(row.username || "").trim(),
+          displayName:
+            String((member && (member.displayName || member.nickname)) || row.displayName || row.username || "").trim(),
+          avatarUrl: String(row.avatarUrl || "").trim(),
+          joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
+          roles: profileRoles,
+        },
         rows: [row],
       });
     }

@@ -122,8 +122,17 @@ html.vc-session-verify-pending::before {
     #080605;
 }
 
+.vc-page-transition--vote {
+  background:
+    radial-gradient(ellipse 62% 46% at 18% 35%, rgba(42, 89, 220, 0.42), transparent 60%),
+    radial-gradient(ellipse 50% 38% at 82% 72%, rgba(26, 126, 196, 0.24), transparent 60%),
+    radial-gradient(ellipse 82% 70% at 50% 50%, rgba(23, 31, 84, 0.82), transparent 74%),
+    linear-gradient(135deg, #020612 0%, #0a1438 34%, #16245c 62%, #0a1f47 100%);
+}
+
 .vc-page-transition--on {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .vc-page-transition-content {
@@ -131,6 +140,79 @@ html.vc-session-verify-pending::before {
   flex-direction: column;
   align-items: center;
   gap: 0.85rem;
+}
+
+.vc-page-transition-vote-iconwrap {
+  position: relative;
+  display: none;
+  width: 10rem;
+  height: 10rem;
+  margin-bottom: 0.25rem;
+}
+
+.vc-page-transition--vote .vc-page-transition-vote-iconwrap {
+  display: block;
+}
+
+.vc-page-transition-vote-iconring {
+  position: absolute;
+  inset: 1.15rem;
+  border-radius: 9999px;
+  background:
+    linear-gradient(180deg, rgba(80, 128, 239, 0.08), rgba(37, 78, 155, 0.18)),
+    linear-gradient(135deg, rgba(37, 211, 255, 0.44), rgba(60, 104, 255, 0.44));
+  box-shadow:
+    inset 0 0 0 1px rgba(122, 167, 255, 0.14),
+    0 0 48px rgba(34, 112, 255, 0.12);
+}
+
+.vc-page-transition-vote-iconring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 4px;
+  background: linear-gradient(135deg, rgba(17, 211, 255, 0.95), rgba(67, 112, 255, 0.92));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.vc-page-transition-vote-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(114, 155, 255, 0.82);
+  font-size: 3.2rem;
+}
+
+.vc-page-transition-vote-spark {
+  position: absolute;
+  color: #2fd9ff;
+  font-size: 1.15rem;
+  opacity: 0.95;
+  animation: vc-vote-spark 1.7s ease-in-out infinite;
+}
+
+.vc-page-transition-vote-spark--a {
+  top: 1.2rem;
+  right: 1.1rem;
+}
+
+.vc-page-transition-vote-spark--b {
+  left: 0.95rem;
+  top: 4.5rem;
+  animation-delay: 0.2s;
+}
+
+.vc-page-transition-vote-spark--c {
+  left: 1.65rem;
+  bottom: 1.55rem;
+  animation-delay: 0.45s;
 }
 
 .vc-page-transition-spinner {
@@ -143,6 +225,10 @@ html.vc-session-verify-pending::before {
   animation: vc-page-spin 0.9s linear infinite;
 }
 
+.vc-page-transition--vote .vc-page-transition-spinner {
+  display: none;
+}
+
 .vc-page-transition-text {
   margin: 0;
   color: rgba(226, 232, 240, 0.82);
@@ -150,9 +236,111 @@ html.vc-session-verify-pending::before {
   font-weight: 500;
 }
 
+.vc-page-transition--vote .vc-page-transition-text {
+  color: #ffffff;
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.vc-page-transition-sub {
+  display: none;
+  margin: 0;
+  color: rgba(213, 219, 236, 0.74);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.vc-page-transition--vote .vc-page-transition-sub {
+  display: block;
+  font-size: clamp(1rem, 1.5vw, 1.35rem);
+}
+
+.vc-page-transition-bar {
+  display: none;
+  position: relative;
+  width: min(20rem, 72vw);
+  height: 0.6rem;
+  margin-top: 0.6rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(154, 167, 212, 0.18);
+}
+
+.vc-page-transition--vote .vc-page-transition-bar {
+  display: block;
+}
+
+.vc-page-transition--login .vc-page-transition-spinner {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-width: 2px;
+  border-color: rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+}
+
+.vc-page-transition--login .vc-page-transition-content {
+  min-width: min(28rem, calc(100vw - 2rem));
+  gap: 0.6rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 1.4rem;
+  background: rgba(87, 31, 48, 0.36);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+
+.vc-page-transition--login .vc-page-transition-text {
+  display: none;
+}
+
+.vc-page-transition--login .vc-page-transition-sub {
+  display: block;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.vc-page-transition--login .vc-page-transition-vote-iconwrap,
+.vc-page-transition--login .vc-page-transition-bar {
+  display: none;
+}
+
+.vc-page-transition-barfill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(74, 128, 255, 0.18), #2d7dff 34%, #3fc8ff 100%);
+  animation: vc-vote-bar 1.35s ease-in-out infinite;
+}
+
 @keyframes vc-page-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes vc-vote-spark {
+  0%, 100% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.14) rotate(14deg);
+    opacity: 1;
+  }
+}
+
+@keyframes vc-vote-bar {
+  0% {
+    left: -18%;
+  }
+  100% {
+    left: 76%;
   }
 }
 
@@ -1007,6 +1195,71 @@ header .vc-icon-btn:hover {
   gap: 0.45rem;
 }
 
+.discord-profile-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  text-decoration: none;
+  border-radius: 9999px;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.discord-profile-link .discord-avatar-img {
+  transition:
+    transform 0.22s ease,
+    filter 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.discord-profile-hover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  background: radial-gradient(circle at center, rgba(20, 53, 118, 0.16), rgba(5, 10, 26, 0.78));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.discord-profile-link::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(96, 165, 250, 0.65);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.18), 0 0 24px rgba(59, 130, 246, 0.18);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.discord-profile-link:hover .discord-profile-hover,
+.discord-profile-link:focus-visible .discord-profile-hover,
+.discord-profile-link:hover::after,
+.discord-profile-link:focus-visible::after {
+  opacity: 1;
+}
+
+.discord-profile-link:hover .discord-avatar-img,
+.discord-profile-link:focus-visible .discord-avatar-img {
+  transform: scale(1.11);
+  filter: saturate(1.08) brightness(0.84);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 8px 24px rgba(6, 182, 212, 0.22);
+}
+
 .discord-avatar-img {
   width: 2.35rem;
   height: 2.35rem;
@@ -1035,11 +1288,11 @@ header .vc-icon-btn:hover {
   background: rgba(25, 32, 50, 0.82);
   color: #ffffff;
   border-radius: 9999px;
-  min-height: 36px;
-  width: 36px;
-  min-width: 36px;
+  min-height: 40px;
+  width: 40px;
+  min-width: 40px;
   padding: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
@@ -1051,9 +1304,34 @@ header .vc-icon-btn:hover {
 }
 
 .discord-logout-btn i {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
-  font-size: 1.05rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  font-size: 1.18rem;
+  transform: translate(0.5px, 0);
+}
+
+.discord-login-btn--loading,
+.vc-auth-required-login.discord-login-btn--loading {
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.discord-login-btn--loading .fa,
+.discord-login-btn--loading .discord-login-btn__spin {
+  display: inline-flex;
+}
+
+.discord-login-btn__spin {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  animation: vc-page-spin 0.8s linear infinite;
 }
 
 .discord-logout-btn:hover,
@@ -1217,27 +1495,7 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 
 .vc-snav-sep {
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .vc-snav-sep {
-    display: inline-block;
-    align-self: center;
-    flex: 0 0 1px;
-    width: 1px;
-    height: 1.55rem;
-    margin: 0 0.35rem;
-    border-radius: 9999px;
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0.16) 18%,
-      rgba(255, 255, 255, 0.16) 82%,
-      rgba(255, 255, 255, 0.04) 100%
-    );
-    opacity: 0.95;
-  }
+  display: none !important;
 }
 
 .vc-header-snav {
@@ -1255,11 +1513,24 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 
 @media (min-width: 640px) {
-  .vc-header-snav > .vc-snav-item + .vc-snav-details::before,
-  .vc-header-snav > .vc-snav-details + .vc-snav-details::before,
-  .vc-header-snav > .vc-snav-details + .vc-snav-item::before,
-  .vc-header-snav > .vc-snav-item + .vc-snav-item::before {
-    content: none;
+  .vc-header-snav > .vc-snav-details:nth-child(2)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 1px;
+    height: 1.7rem;
+    transform: translate(-0.28rem, -50%);
+    border-radius: 9999px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.18) 18%,
+      rgba(255, 255, 255, 0.18) 82%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+    opacity: 1;
+    pointer-events: none;
   }
 }
 
@@ -1283,6 +1554,8 @@ ul.vc-footer-social:not(:has(> li)) {
   object-fit: cover;
   object-position: 50% 50%;
   border-radius: 9999px;
+  transform: translate(-7%, -4%) scale(1.48);
+  transform-origin: center;
   /* Icona guild Discord = cerchio su PNG quadrato: zoom per coprire il clip senza “angoli vuoti” */
 }
 
@@ -1360,6 +1633,11 @@ a.vc-header-logo-link+a[href] {
   .vc-header-snav .vc-snav-item {
     padding: 0.45rem 0.75rem;
     font-size: 0.875rem;
+  }
+
+  .vc-header-snav > .vc-snav-details > .vc-snav-summary,
+  .vc-header-snav > .vc-snav-item:not(:first-child) {
+    padding-left: 0.52rem;
   }
 }
 
@@ -3323,6 +3601,361 @@ textarea.vc-candidature-input {
     linear-gradient(180deg, #060912 0%, #0b1330 42%, #061027 100%);
 }
 
+.vc-user-profile-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.vc-user-profile-loader,
+.vc-user-profile-empty {
+  margin: 6rem auto 0;
+  width: min(100%, 48rem);
+  padding: 3rem 1.5rem;
+  text-align: center;
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(18, 31, 81, 0.82), rgba(18, 67, 92, 0.48));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.vc-user-profile-loader__spin {
+  display: inline-block;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #60a5fa;
+  animation: vc-page-spin 0.9s linear infinite;
+}
+
+.vc-user-profile-loader__title,
+.vc-user-profile-empty__title {
+  margin: 1rem 0 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  color: #fff;
+}
+
+.vc-user-profile-loader__sub,
+.vc-user-profile-empty__text,
+.vc-user-profile-empty__hint {
+  margin: 1rem auto 0;
+  max-width: 36rem;
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.vc-user-profile-empty__emoji {
+  font-size: 4rem;
+}
+
+.vc-user-profile-empty__cta,
+.vc-user-profile-backbtn,
+.vc-user-profile-customize {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 2.8rem;
+  padding: 0 1.15rem;
+  border-radius: 0.95rem;
+  text-decoration: none;
+  font-weight: 700;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vc-user-profile-empty__cta {
+  margin-top: 1.6rem;
+}
+
+.vc-user-profile-backrow {
+  display: flex;
+}
+
+.vc-user-profile-hero,
+.vc-user-profile-block {
+  border-radius: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(27, 45, 104, 0.72), rgba(20, 68, 92, 0.44));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+  padding: 1.35rem;
+}
+
+.vc-user-profile-hero__head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.vc-user-profile-avatarwrap {
+  flex-shrink: 0;
+}
+
+.vc-user-profile-avatar,
+.vc-user-profile-avatar--fallback {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.28);
+}
+
+.vc-user-profile-hero__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.vc-user-profile-name {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  color: #fff;
+}
+
+.vc-user-profile-id {
+  margin: 0.3rem 0 0;
+  color: rgba(203, 213, 225, 0.72);
+  font-size: 1rem;
+}
+
+.vc-user-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.vc-user-profile-stat {
+  padding: 1.2rem 1.15rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 17, 40, 0.34);
+}
+
+.vc-user-profile-stat__label {
+  display: block;
+  color: rgba(191, 219, 254, 0.74);
+  font-size: 0.9rem;
+}
+
+.vc-user-profile-stat__value {
+  display: block;
+  margin-top: 0.3rem;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.vc-user-profile-grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.vc-user-profile-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.vc-user-profile-block__title {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.vc-user-profile-block__sub {
+  color: rgba(191, 219, 254, 0.7);
+}
+
+.vc-user-profile-mini {
+  padding: 1.2rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(9, 21, 48, 0.4);
+}
+
+.vc-user-profile-mini__label {
+  display: block;
+  color: rgba(191, 219, 254, 0.7);
+}
+
+.vc-user-profile-mini__value {
+  display: block;
+  margin-top: 0.45rem;
+  color: #fff;
+  font-size: 1.9rem;
+  font-weight: 800;
+}
+
+.vc-user-rankcard {
+  border-radius: 1.3rem;
+  background: linear-gradient(135deg, rgba(25, 29, 42, 0.94), rgba(24, 51, 96, 0.74));
+  padding: 1.5rem;
+}
+
+.vc-user-rankcard__main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.vc-user-rankcard__avatar,
+.vc-user-rankcard__avatar--fallback {
+  width: 7rem;
+  height: 7rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.4), 0 0 24px rgba(250, 204, 21, 0.28);
+}
+
+.vc-user-rankcard__name {
+  color: #facc15;
+  font-size: clamp(1.6rem, 3vw, 2.35rem);
+  font-weight: 800;
+}
+
+.vc-user-rankcard__level {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.vc-user-rankcard__progress {
+  position: relative;
+  margin-top: 0.8rem;
+  height: 1.15rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.vc-user-rankcard__progressfill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #facc15, #fde047);
+}
+
+.vc-user-rankcard__progresstext {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.vc-user-rankcard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.vc-user-rankcard__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.95rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 700;
+}
+
+.vc-user-rankcard__rankbox {
+  display: flex;
+  min-width: 7rem;
+  min-height: 5rem;
+  padding: 0.8rem 1rem;
+  border-radius: 1.15rem;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: rgba(19, 28, 54, 0.88);
+  border: 3px solid rgba(250, 204, 21, 0.92);
+  color: #facc15;
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.vc-user-rankcard__rankbox small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+}
+
+.vc-user-profile-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.vc-user-profile-role {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.2rem;
+  padding: 0 0.9rem;
+  border-radius: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--vc-role-chip, #8b5cf6) 38%, rgba(255,255,255,0.12));
+  background: color-mix(in srgb, var(--vc-role-chip, #8b5cf6) 16%, rgba(255,255,255,0.04));
+  color: color-mix(in srgb, var(--vc-role-chip, #c4b5fd) 75%, white);
+  font-weight: 700;
+}
+
+.vc-user-profile-role--muted {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(203, 213, 225, 0.8);
+}
+
+@media (max-width: 960px) {
+  .vc-user-profile-stats,
+  .vc-user-profile-grid3,
+  .vc-user-rankcard__main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .vc-user-rankcard__rankbox {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .vc-user-profile-stats,
+  .vc-user-profile-grid3,
+  .vc-user-rankcard__main {
+    grid-template-columns: 1fr;
+  }
+
+  .vc-user-profile-hero__head {
+    align-items: flex-start;
+  }
+
+  .vc-user-rankcard__rankbox {
+    grid-column: auto;
+  }
+}
+
 .vc-roles-page {
   background-image:
     radial-gradient(ellipse 95% 80% at 10% 12%, rgba(146, 51, 234, 0.22), transparent 48%),
@@ -4069,6 +4702,8 @@ textarea.vc-candidature-input {
   padding: 0.7rem 0.8rem;
   border-radius: 0.85rem;
   background: rgba(15, 23, 42, 0.45);
+  color: inherit;
+  text-decoration: none;
 }
 
 .vc-role-card-owneravatar {
@@ -4322,6 +4957,8 @@ textarea.vc-candidature-input {
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(17, 24, 39, 0.42);
+  color: inherit;
+  text-decoration: none;
 }
 
 .vc-role-member-avatar {
@@ -4466,6 +5103,8 @@ textarea.vc-candidature-input {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
 }
 
 .vc-ul-avatar {

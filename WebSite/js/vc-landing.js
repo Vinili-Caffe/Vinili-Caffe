@@ -1,4 +1,21 @@
 (function () {
+  function normalizePrettyProfilePath() {
+    try {
+      var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
+      if (!m) return false;
+      var q = new URLSearchParams(window.location.search || "");
+      if (String(q.get("id") || "").trim() === m[1] && /^\/user\/?$/.test(String(window.location.pathname || ""))) {
+        return false;
+      }
+      window.location.replace("/user/?id=" + encodeURIComponent(m[1]));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  if (normalizePrettyProfilePath()) return;
+
   function hideTransitionOverlay() {
     var ov = document.getElementById("vc-page-transition");
     if (ov) ov.classList.remove("vc-page-transition--on");
@@ -36,15 +53,54 @@
     wrap.className = "vc-page-transition";
     wrap.setAttribute("aria-hidden", "true");
     wrap.innerHTML =
-      '<div class="vc-page-transition-content"><span class="vc-page-transition-spinner" aria-hidden="true"></span><p class="vc-page-transition-text">Caricamento...</p></div>';
+      '<div class="vc-page-transition-content">' +
+      '<div class="vc-page-transition-vote-iconwrap" aria-hidden="true">' +
+      '<span class="vc-page-transition-vote-spark vc-page-transition-vote-spark--a"><i class="fa fa-star-o"></i></span>' +
+      '<span class="vc-page-transition-vote-spark vc-page-transition-vote-spark--b"><i class="fa fa-star-o"></i></span>' +
+      '<span class="vc-page-transition-vote-spark vc-page-transition-vote-spark--c"><i class="fa fa-star-o"></i></span>' +
+      '<span class="vc-page-transition-vote-iconring"></span>' +
+      '<span class="vc-page-transition-vote-icon"><i class="fa fa-certificate"></i></span>' +
+      "</div>" +
+      '<span class="vc-page-transition-spinner" aria-hidden="true"></span>' +
+      '<p class="vc-page-transition-text">Caricamento...</p>' +
+      '<p class="vc-page-transition-sub">Sto preparando la pagina...</p>' +
+      '<span class="vc-page-transition-bar" aria-hidden="true"><span class="vc-page-transition-barfill"></span></span>' +
+      "</div>";
     document.body.appendChild(wrap);
     return wrap;
   }
 
-  function showTransitionOverlay() {
+  function setTransitionOverlayContent(ov, kind) {
+    if (!ov) return;
+    var text = ov.querySelector(".vc-page-transition-text");
+    var sub = ov.querySelector(".vc-page-transition-sub");
+    ov.classList.toggle("vc-page-transition--vote", kind === "vote");
+    ov.classList.toggle("vc-page-transition--login", kind === "login");
+    if (text) text.textContent = kind === "vote" ? "Caricamento..." : "Caricamento...";
+    if (sub) {
+      sub.textContent =
+        kind === "vote"
+          ? "Preparazione del sistema di voto"
+          : kind === "login"
+            ? "Accesso in corso..."
+            : "Sto preparando la pagina...";
+    }
+  }
+
+  function showTransitionOverlay(kind) {
     var ov = ensureTransitionOverlay();
     if (!ov) return;
+    setTransitionOverlayContent(ov, kind || "page");
     ov.classList.add("vc-page-transition--on");
+  }
+
+  try {
+    window.vcShowPageTransition = showTransitionOverlay;
+  } catch (e) {}
+
+  function isVoteLoadingLink(a) {
+    if (!a || !a.getAttribute) return false;
+    return String(a.getAttribute("data-vc-loading") || "").toLowerCase() === "vote";
   }
 
   function initPageTransition() {
@@ -56,11 +112,19 @@
       if (!t || !t.closest) return;
       var a = t.closest("a[href]");
       if (!a) return;
+      if (isVoteLoadingLink(a)) {
+        ev.preventDefault();
+        showTransitionOverlay("vote");
+        window.setTimeout(function () {
+          window.location.href = a.href;
+        }, 720);
+        return;
+      }
       if (!isInternalNavigableLink(a)) return;
-      showTransitionOverlay();
+      showTransitionOverlay("page");
     });
     window.addEventListener("beforeunload", function () {
-      showTransitionOverlay();
+      showTransitionOverlay("page");
     });
   }
 

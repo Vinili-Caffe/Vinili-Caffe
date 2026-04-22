@@ -826,6 +826,14 @@ async function main() {
   const richiesteUnbanUrl = defaultLegalPath("unban");
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const donationsPageUrl = defaultLegalPath("donazioni");
+  const votePageUrl = defaultLegalPath("vote");
+  const discadiaVoteUrlResolved =
+    String(cfg.discadiaVoteUrl ?? "").trim() ||
+    String(cfg.voteUrl ?? "").trim() ||
+    "https://discadia.com/vote/viniliecaffe/";
+  const topggVoteUrlResolved =
+    String(cfg.topggVoteUrl ?? "").trim() ||
+    "https://top.gg/discord/servers/832911595289169920";
   const paypalDonationsUrlResolved =
     String(cfg.donationsUrl ?? "").trim() || discordInviteResolved || "#";
 
@@ -1025,7 +1033,9 @@ async function main() {
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
     DISCORD_INVITE_DISPLAY: escHtml(discordInviteDisplay),
     SUPPORT_MAILTO: supEmail ? escAttr(`mailto:${supEmail}`) : escAttr("#"),
-    VOTE_URL: cfg.voteUrl || "https://discadia.com/vote/viniliecaffe/",
+    VOTE_URL: escAttr(votePageUrl),
+    DISCADIA_VOTE_URL: escAttr(discadiaVoteUrlResolved),
+    TOPGG_VOTE_URL: escAttr(topggVoteUrlResolved),
     REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
     DONATIONS_URL: escAttr(donationsPageUrl),
     PAYPAL_DONATIONS_URL: escAttr(paypalDonationsUrlResolved),
@@ -1077,6 +1087,12 @@ async function main() {
     ),
     DONAZIONI_OG_TITLE: escAttr(`${siteName} | Donazioni`),
     DONAZIONI_OG_URL: escAttr(donationsPageUrl),
+    VOTE_PAGE_TITLE: `${siteName} | Vota`,
+    VOTE_META_DESCRIPTION: escAttr(
+      `Vota ${siteName} su Discadia e Top.gg, supporta la community e ottieni ricompense.`,
+    ),
+    VOTE_OG_TITLE: escAttr(`${siteName} | Vota`),
+    VOTE_OG_URL: escAttr(votePageUrl),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -1192,6 +1208,16 @@ async function main() {
     fs.writeFileSync(donazioniIndexPath, donazioniHtml, "utf8");
   } else {
     console.warn("[build-site] Manca donazioni/index.html (saltato placeholder).");
+  }
+
+  const voteIndexPath = path.join(DIST, "vote", "index.html");
+  if (fs.existsSync(voteIndexPath)) {
+    let voteHtml = fs.readFileSync(voteIndexPath, "utf8");
+    voteHtml = applyPlaceholderMap(voteHtml, map);
+    warnLeftoverPlaceholders(voteHtml, "vote/index.html");
+    fs.writeFileSync(voteIndexPath, voteHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca vote/index.html (saltato placeholder).");
   }
 
   const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];
