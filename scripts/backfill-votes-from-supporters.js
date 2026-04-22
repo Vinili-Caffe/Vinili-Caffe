@@ -1,8 +1,6 @@
 const path = require("path");
-const fs = require("fs");
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const mongoose = require("mongoose");
-const dotenv = require("dotenv");
 
 const WORKSPACE_ROOT = path.resolve(__dirname, "..");
 const BOT_ROOT = path.join(WORKSPACE_ROOT, "Vinyls");
@@ -18,7 +16,6 @@ const { ActivityUserProfile } = require(path.join(BOT_ROOT, "Schemas", "Communit
 
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const MESSAGE_BATCH_SIZE = 100;
-const ENV_FILE_SNAPSHOT = readEnvCandidates();
 
 function parseArgs(argv) {
   const rawArgs = argv.slice(2);
@@ -30,7 +27,6 @@ function parseArgs(argv) {
   const dryRun = !flags.has("--apply");
   return {
     dryRun,
-    mongoMode: flags.has("--remote-mongo") ? "remote" : "auto",
     mongoUrl: findValue("--mongo-url"),
     verbose: flags.has("--verbose"),
   };
@@ -38,33 +34,7 @@ function parseArgs(argv) {
 
 function resolveMongoUrl(configObj, args) {
   if (args.mongoUrl) return String(args.mongoUrl).trim();
-  if (args.mongoMode === "remote") {
-    return (
-      ENV_FILE_SNAPSHOT.MONGO_URL ||
-      ENV_FILE_SNAPSHOT.MONGODB_URI ||
-      process.env.MONGO_URL ||
-      process.env.MONGODB_URI ||
-      configObj?.mongoURL ||
-      configObj?.mongoUrl ||
-      ""
-    );
-  }
   return getMongoUrl(configObj);
-}
-
-function readEnvCandidates() {
-  const envCandidates = [
-    path.join(WORKSPACE_ROOT, ".env"),
-    path.join(BOT_ROOT, ".env"),
-    path.join(process.cwd(), ".env"),
-  ];
-  const merged = {};
-  for (const envPath of envCandidates) {
-    if (!fs.existsSync(envPath)) continue;
-    const parsed = dotenv.parse(fs.readFileSync(envPath, "utf8"));
-    Object.assign(merged, parsed);
-  }
-  return merged;
 }
 
 function extractUserIdFromText(text) {
@@ -238,7 +208,7 @@ async function main() {
   const channelId = String(IDs.channels?.supporters || "").trim();
 
   if (!token) throw new Error("Token Discord mancante.");
-  if (!mongoUrl) throw new Error("URL Mongo mancante. Usa --remote-mongo oppure --mongo-url=<uri> se necessario.");
+  if (!mongoUrl) throw new Error("URL Mongo locale mancante. Imposta MONGO_URL_LOCAL/MONGODB_URI_LOCAL oppure usa --mongo-url=<uri>.");
   if (!guildId) throw new Error("Guild ID principale mancante.");
   if (!channelId) throw new Error("Channel supporters mancante.");
 
