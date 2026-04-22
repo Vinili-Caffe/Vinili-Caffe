@@ -825,7 +825,8 @@ async function main() {
   const supEmail = String(cfg.supportEmail || "").trim();
   const richiesteUnbanUrl = defaultLegalPath("unban");
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
-  const donationsUrlResolved =
+  const donationsPageUrl = defaultLegalPath("donazioni");
+  const paypalDonationsUrlResolved =
     String(cfg.donationsUrl ?? "").trim() || discordInviteResolved || "#";
 
   const wikiViniliCfgUrl = String(cfg.wikiBotViniliAvatarUrl ?? "").trim();
@@ -1026,7 +1027,8 @@ async function main() {
     SUPPORT_MAILTO: supEmail ? escAttr(`mailto:${supEmail}`) : escAttr("#"),
     VOTE_URL: cfg.voteUrl || "https://discadia.com/vote/viniliecaffe/",
     REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
-    DONATIONS_URL: escAttr(donationsUrlResolved),
+    DONATIONS_URL: escAttr(donationsPageUrl),
+    PAYPAL_DONATIONS_URL: escAttr(paypalDonationsUrlResolved),
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
     DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
     DISCORD_INVITE_URL: discordInviteResolved,
@@ -1069,6 +1071,12 @@ async function main() {
     REGOLE_META_DESCRIPTION: escAttr(`Regole del server Discord ${siteName}: generali, chat testuali e vocali.`),
     REGOLE_OG_TITLE: escAttr(`${siteName} | Regole`),
     REGOLE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/regole` : ""),
+    DONAZIONI_PAGE_TITLE: `${siteName} | Donazioni`,
+    DONAZIONI_META_DESCRIPTION: escAttr(
+      `Supporta ${siteName} con una donazione e aiutaci a mantenere bot, sito e infrastruttura della community.`,
+    ),
+    DONAZIONI_OG_TITLE: escAttr(`${siteName} | Donazioni`),
+    DONAZIONI_OG_URL: escAttr(donationsPageUrl),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",

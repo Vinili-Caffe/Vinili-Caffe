@@ -196,7 +196,66 @@
           </div>
         </div>
       </section>
+
+      <section class="mt-8 grid gap-4 md:grid-cols-3">
+        <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur">
+          <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10 text-xl text-emerald-300">
+            <i class="fa fa-server" aria-hidden="true"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-white">Server VPS</h2>
+          <p class="mt-3 text-base leading-7 text-slate-200/80">
+            Hosting e infrastruttura per mantenere il sito, i webhook e i servizi online 24/7.
+          </p>
+        </article>
+        <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur">
+          <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-xl text-cyan-300">
+            <i class="fa fa-bolt" aria-hidden="true"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-white">Bot & Database</h2>
+          <p class="mt-3 text-base leading-7 text-slate-200/80">
+            Sistema livelli, automazioni, economia e funzionalità custom che tengono viva la community.
+          </p>
+        </article>
+        <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur">
+          <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-fuchsia-400/10 text-xl text-fuchsia-300">
+            <i class="fa fa-gift" aria-hidden="true"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-white">Eventi & Giveaway</h2>
+          <p class="mt-3 text-base leading-7 text-slate-200/80">
+            Premi, iniziative e contenuti speciali per ricambiare il supporto della community.
+          </p>
+        </article>
+      </section>
+
+      <section
+        class="mt-10 overflow-hidden rounded-[2rem] border border-emerald-400/15 bg-[linear-gradient(135deg,rgba(10,78,67,0.46),rgba(22,62,117,0.54))] px-6 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-10 sm:py-14">
+        <div class="mx-auto max-w-3xl text-center">
+          <h2 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">Vuoi dare una mano?</h2>
+          <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-200/82 sm:text-xl">
+            Anche un piccolo contributo fa la differenza. Tutte le donazioni vanno direttamente al mantenimento del server.
+          </p>
+          <div class="mt-8">
+            <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+              class="inline-flex min-h-[4.2rem] items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-8 py-4 text-lg font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105">
+              Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+            </a>
+          </div>
+          <p class="mt-6 text-sm text-slate-300/72">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili & Caffè.</p>
+        </div>
+      </section>
     </main>
+
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
+          <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+        </nav>
+      </div>
+    </footer>
 
     <script>
       window.__VC_AUTH = {

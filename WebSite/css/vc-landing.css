@@ -1200,7 +1200,7 @@ ul.vc-footer-social:not(:has(> li)) {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  transform: scale(1.28);
+  transform: scale(1.35);
   transform-origin: center;
 }
 
@@ -3887,40 +3887,54 @@ textarea.vc-candidature-input {
 }
 
 .vc-roles-info-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
+  position: relative;
+  display: block;
+  padding-left: 1.55rem;
 }
 
 .vc-roles-info-list li::before {
-  flex: 0 0 auto;
-  width: 1rem;
+  position: absolute;
+  top: 0.18rem;
+  left: 0;
+  width: 1.1rem;
   text-align: center;
   font: normal normal normal 14px/1 FontAwesome;
   font-size: 1rem;
-  line-height: 1.55rem;
 }
 
-.vc-roles-info-list li i {
-  flex: 0 0 auto;
-  width: 1rem;
+.vc-roles-info-list li i,
+.vc-roles-info-ico {
+  position: absolute;
+  top: 0.18rem;
+  left: 0;
+  width: 1.1rem;
   text-align: center;
-  margin-top: 0.1rem;
+  color: #d8b4fe;
 }
 
 .vc-roles-info-head .vc-roles-info-list li:first-child::before {
-  content: "\f521";
+  content: "\f2be";
   color: #d8b4fe;
 }
 
 .vc-roles-info-callout .vc-roles-info-list li:first-child::before {
   content: "\f0e7";
-  color: #22d3ee;
+  color: #67e8f9;
 }
 
-.vc-roles-info-head .vc-roles-info-list li:first-child i,
-.vc-roles-info-callout .vc-roles-info-list li:first-child i {
-  display: none;
+.vc-roles-info-callout .vc-roles-info-list li i,
+.vc-roles-info-callout .vc-roles-info-ico {
+  color: #67e8f9;
+}
+
+.vc-roles-info-list li strong,
+.vc-roles-info-copy strong {
+  color: #fff;
+}
+
+.vc-roles-info-list li strong::after,
+.vc-roles-info-copy strong::after {
+  content: " ";
 }
 
 .vc-roles-info-list li+li {

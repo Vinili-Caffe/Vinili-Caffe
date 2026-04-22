@@ -226,6 +226,17 @@
     el.hidden = !msg;
   }
 
+  function syncInitialLoadingOverlay() {
+    var overlay = byId("vc-roles-loading");
+    var title = overlay ? overlay.querySelector(".vc-ul-loading-title") : null;
+    var subtitle = overlay ? overlay.querySelector(".vc-ul-loading-sub") : null;
+    var grid = byId("vc-roles-grid");
+    if (overlay) overlay.hidden = false;
+    if (title) title.textContent = "Caricamento ruoli";
+    if (subtitle) subtitle.textContent = "Sto recuperando tutti i ruoli personalizzati della community...";
+    if (grid) grid.setAttribute("aria-busy", "true");
+  }
+
   function applyFilter() {
     var q = String(state.query || "").trim().toLowerCase();
     if (!q) {
@@ -832,11 +843,18 @@
   }
 
   function main() {
+    syncInitialLoadingOverlay();
     bindPager();
     bindSearch();
     bindModal();
     load();
   }
+
+  window.addEventListener("pageshow", function (ev) {
+    if (!ev || !ev.persisted) return;
+    syncInitialLoadingOverlay();
+    load();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main, { once: true });
