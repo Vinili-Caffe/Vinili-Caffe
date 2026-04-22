@@ -81,6 +81,24 @@
     return String(Math.max(0, Math.min(100, Math.round(x)))) + "%";
   }
 
+  function formatMult(n) {
+    var x = Number(n);
+    if (!Number.isFinite(x) || x <= 0) x = 1;
+    return "x" + String(x.toFixed(1));
+  }
+
+  function defaultEmbedAvatarUrl(userId) {
+    var idx = 0;
+    if (/^\d{17,20}$/.test(String(userId || ""))) {
+      try {
+        idx = Number((BigInt(String(userId)) >> 22n) % 6n);
+      } catch (e) {
+        idx = 0;
+      }
+    }
+    return "https://cdn.discordapp.com/embed/avatars/" + idx + ".png";
+  }
+
   function hideLeaderOnlySections() {
     var nodes = document.querySelectorAll("[data-vc-leader-only]");
     for (var i = 0; i < nodes.length; i += 1) {
@@ -158,7 +176,7 @@
       '<div class="vc-user-profile-empty__emoji" aria-hidden="true">Ciao</div>' +
       '<h1 class="vc-user-profile-empty__title">Il profilo non e ancora disponibile.</h1>' +
       '<p class="vc-user-profile-empty__text">Questo utente non ha ancora statistiche visibili. Basta iniziare a scrivere o passare in vocale nel server per creare il profilo.</p>' +
-      '<p class="vc-user-profile-empty__hint">Appena ci sara almeno una statistica, qui compariranno livello, messaggi, voce e rank card.</p>' +
+      '<p class="vc-user-profile-empty__hint">Appena ci sara almeno una statistica, qui compariranno livello, messaggi, voice e rank card.</p>' +
       '<a class="vc-user-profile-empty__cta" href="/user">Torna alla Community</a>' +
       "</div></section>";
   }
@@ -176,6 +194,7 @@
     var viewerOwns = Boolean(currentViewer && String(currentViewer.id || "") === String(userId));
     var roles = Array.isArray(profile.roles) ? profile.roles : [];
     var multiplier = Number(weekly.expMultiplier || 1);
+    var multiplierSources = Array.isArray(profile.weeklyMultiplierSources) ? profile.weeklyMultiplierSources : [];
     var rolesHtml = roles.length
       ? roles
           .map(function (role) {
@@ -184,6 +203,25 @@
           })
           .join("")
       : '<span class="vc-user-profile-role vc-user-profile-role--muted">Nessun ruolo mostrabile</span>';
+    var multiplierItemsHtml = multiplierSources.length
+      ? multiplierSources
+          .map(function (source) {
+            var style = source.color ? ' style="--vc-multi-accent:' + esc(source.color) + '"' : "";
+            return (
+              '<div class="vc-user-profile-multisource"' +
+              style +
+              ">" +
+              '<span class="vc-user-profile-multisource__label">' +
+              esc(source.label || "Bonus") +
+              "</span>" +
+              '<span class="vc-user-profile-multisource__value">' +
+              esc(formatMult(source.multiplier || 1)) +
+              "</span>" +
+              "</div>"
+            );
+          })
+          .join("")
+      : '<div class="vc-user-profile-multisource"><span class="vc-user-profile-multisource__label">Base</span><span class="vc-user-profile-multisource__value">x1.0</span></div>';
 
     document.title = "Profilo " + userId + " | " + siteName();
     root.innerHTML =
@@ -195,7 +233,7 @@
       '<div class="vc-user-profile-hero__head">' +
       '<div class="vc-user-profile-avatarwrap">' +
       (avatar
-        ? '<img class="vc-user-profile-avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" />'
+        ? '<img class="vc-user-profile-avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(defaultEmbedAvatarUrl(userId)) + '\'" />'
         : '<span class="vc-user-profile-avatar vc-user-profile-avatar--fallback"><i class="fa fa-user"></i></span>') +
       "</div>" +
       '<div class="vc-user-profile-hero__copy">' +
@@ -233,19 +271,31 @@
       '<div class="vc-user-rankcard__main">' +
       '<div class="vc-user-rankcard__avatarwrap">' +
       (avatar
-        ? '<img class="vc-user-rankcard__avatar" src="' + esc(avatar) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+        ? '<img class="vc-user-rankcard__avatar" src="' + esc(avatar) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(defaultEmbedAvatarUrl(userId)) + '\'" />'
         : '<span class="vc-user-rankcard__avatar vc-user-rankcard__avatar--fallback"><i class="fa fa-user"></i></span>') +
       "</div>" +
       '<div class="vc-user-rankcard__copy">' +
-      '<div class="vc-user-rankcard__name">' + esc(displayName) + ' <span class="vc-user-rankcard__level">· Lv. ' + esc(String(level.level != null ? level.level : 0)) + "</span></div>" +
+      '<div class="vc-user-rankcard__name">' + esc(displayName) + ' <span class="vc-user-rankcard__level">- Lv. ' + esc(String(level.level != null ? level.level : 0)) + "</span></div>" +
       '<div class="vc-user-rankcard__progress"><span class="vc-user-rankcard__progressfill" style="width:' + esc(progressPct) + '"></span><span class="vc-user-rankcard__progresstext">' + esc(formatIntIt(level.exp || 0)) + " EXP</span></div>" +
       '<div class="vc-user-rankcard__meta">' +
       '<span class="vc-user-rankcard__pill">Weekly rank ' + esc(weekly.rank ? "#" + formatIntIt(weekly.rank) : "-") + "</span>" +
       '<span class="vc-user-rankcard__pill">Weekly XP ' + esc(formatIntIt(weekly.weeklyExp || 0)) + "</span>" +
-      '<span class="vc-user-rankcard__pill">Moltiplicatore x' + esc(String(multiplier.toFixed(1)).replace(".0", "")) + "</span>" +
+      '<span class="vc-user-rankcard__pill">Moltiplicatore ' + esc(formatMult(multiplier)) + "</span>" +
       "</div></div>" +
       '<div class="vc-user-rankcard__rankbox">' + esc(rankText) + "<small>RANK</small></div>" +
       "</div></div></section>" +
+      '<section class="vc-user-profile-block vc-user-profile-block--multiplier">' +
+      '<details class="vc-user-profile-multiplier" open>' +
+      '<summary class="vc-user-profile-multiplier__summary">' +
+      '<span class="vc-user-profile-multiplier__head">' +
+      '<span class="vc-user-profile-multiplier__title">Moltiplicatore EXP</span>' +
+      '<span class="vc-user-profile-multiplier__sub">Da dove viene il bonus attivo</span>' +
+      "</span>" +
+      '<span class="vc-user-profile-multiplier__total">' + esc(formatMult(multiplier)) + "</span>" +
+      "</summary>" +
+      '<div class="vc-user-profile-multiplier__body">' + multiplierItemsHtml + "</div>" +
+      "</details>" +
+      "</section>" +
       '<section class="vc-user-profile-block vc-user-profile-block--roles">' +
       '<div class="vc-user-profile-block__head"><span class="vc-user-profile-block__title">Ruoli</span><span class="vc-user-profile-block__sub">' + esc(String(roles.length)) + " presenti</span></div>" +
       '<div class="vc-user-profile-roles">' + rolesHtml + "</div></section>" +

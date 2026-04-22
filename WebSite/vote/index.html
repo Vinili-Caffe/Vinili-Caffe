@@ -237,20 +237,67 @@
         </article>
       </section>
 
-      <section
-        class="mt-10 overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(17,24,39,0.68),rgba(10,27,62,0.54))] px-6 py-10 shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:px-10 sm:py-14">
-        <div class="mx-auto max-w-3xl text-center">
-          <h2 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">Vuoi iniziare subito?</h2>
-          <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-200/82 sm:text-xl">
-            Se vuoi andare dritto al punto, usa il pulsante principale per scegliere subito dove votare.
-          </p>
-          <div class="mt-8">
-            <a href="#vote-platforms"
-              class="inline-flex min-h-[4.2rem] items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-blue-600 to-cyan-500 px-8 py-4 text-lg font-extrabold text-white shadow-[0_18px_46px_rgba(37,99,235,0.28)] transition hover:-translate-y-0.5 hover:brightness-105">
-              Scegli dove votare <i class="fa fa-chevron-down" aria-hidden="true"></i>
-            </a>
+      <section id="vc-vote-live-shell" class="mt-10 space-y-8">
+        <section class="vc-vote-live-card">
+          <div class="vc-vote-live-head">
+            <div class="vc-vote-live-titlewrap">
+              <span class="vc-vote-live-ico vc-vote-live-ico--stats" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
+              <div>
+                <h2 class="vc-vote-live-title">Statistiche Globali</h2>
+              </div>
+            </div>
           </div>
-        </div>
+
+          <div class="vc-vote-live-stats">
+            <article class="vc-vote-live-statbox">
+              <span class="vc-vote-live-statlabel">Voti Totali</span>
+              <strong class="vc-vote-live-statvalue" id="vc-vote-total">0</strong>
+            </article>
+            <article class="vc-vote-live-statbox">
+              <span class="vc-vote-live-statlabel">I Tuoi Voti</span>
+              <strong class="vc-vote-live-statvalue vc-vote-live-statvalue--accent" id="vc-vote-personal">0</strong>
+            </article>
+          </div>
+
+          <div class="vc-vote-progress">
+            <div class="vc-vote-progress-head">
+              <span>Progresso Goal 10K</span>
+              <strong id="vc-vote-progress-label">0 / 10.000 (0%)</strong>
+            </div>
+            <div class="vc-vote-progress-bar" aria-hidden="true">
+              <span class="vc-vote-progress-fill" id="vc-vote-progress-fill" style="width:0%"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="vc-vote-live-card">
+          <div class="vc-vote-live-head">
+            <div class="vc-vote-live-titlewrap">
+              <span class="vc-vote-live-ico vc-vote-live-ico--podium" aria-hidden="true"><i class="fa fa-trophy"></i></span>
+              <div>
+                <h2 class="vc-vote-live-title">Top Voters Globali</h2>
+              </div>
+            </div>
+            <div class="vc-vote-live-chip" id="vc-vote-top-chip">Top 50</div>
+          </div>
+
+          <div id="vc-vote-top3" class="vc-vote-top3"></div>
+          <div id="vc-vote-more" class="vc-vote-morelist" hidden></div>
+
+          <div class="vc-vote-more-actions" id="vc-vote-more-actions" hidden>
+            <button type="button" class="vc-vote-more-btn vc-vote-more-btn--primary" id="vc-vote-load-more">
+              <i class="fa fa-angle-down" aria-hidden="true"></i> Carica altri 10 <span class="vc-vote-more-badge" id="vc-vote-more-badge">+10</span>
+            </button>
+            <button type="button" class="vc-vote-more-btn" id="vc-vote-minimize">
+              <i class="fa fa-angle-up" aria-hidden="true"></i> Minimizza
+            </button>
+          </div>
+
+          <div class="vc-vote-pager" id="vc-vote-pager" hidden>
+            <span class="vc-vote-pager-track"><span class="vc-vote-pager-fill" id="vc-vote-pager-fill"></span></span>
+            <span id="vc-vote-pager-label">0 / 0</span>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -272,8 +319,13 @@
         redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
         homeUrl: "{{SITE_URL}}",
       };
+      window.__VC_VOTE = {
+        apiUrl: "{{VOTE_API_URL}}",
+        apiUrlLocal: "{{VOTE_API_URL_LOCAL}}"
+      };
     </script>
     <script src="../js/discord-auth.js" defer></script>
     <script src="../js/vc-landing.js" defer></script>
+    <script src="../js/vote-page.js" defer></script>
   </body>
 </html>

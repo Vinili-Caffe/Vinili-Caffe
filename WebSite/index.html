@@ -23,6 +23,15 @@
     <meta property="og:image" content="{{OG_IMAGE_URL}}" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:image" content="{{OG_IMAGE_URL}}" />
+    <script>
+      (function () {
+        try {
+          var m = String(window.location.pathname || "").match(/^\/users?\/(\d{17,20})\/?$/);
+          if (!m) return;
+          window.location.replace("/user/?id=" + encodeURIComponent(m[1]));
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />

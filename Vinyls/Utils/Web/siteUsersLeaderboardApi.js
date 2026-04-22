@@ -225,6 +225,81 @@ async function resolveWeeklyMultiplierForUser(guild, userId, settings, fallbackG
   return combineWeeklyMultiplier(fallbackGlobalExpMultiplier, roleMultiplier);
 }
 
+function buildWeeklyMultiplierSources(member, settings, fallbackGlobalExpMultiplier) {
+  const sources = [];
+  const baseMultiplier = 1;
+  const globalBase = Number(settings?.baseMultiplier);
+  const globalEvent = Number(settings?.eventMultiplier);
+  const effectiveGlobal =
+    Number.isFinite(globalBase) && globalBase > 0
+      ? globalBase * (Number.isFinite(globalEvent) && globalEvent > 0 ? globalEvent : 1)
+      : Number(fallbackGlobalExpMultiplier) > 0
+        ? Number(fallbackGlobalExpMultiplier)
+        : 1;
+  const map = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : new Map();
+  const veteranoRoleId = String(IDs.roles?.Veterano || "").trim();
+  let chosenRole = null;
+  let chosenRoleMultiplier = 1;
+  let chosenRoleSpecific = false;
+
+  sources.push({
+    key: "base",
+    label: "Base",
+    type: "base",
+    multiplier: 1,
+    contribution: 1,
+  });
+
+  if (effectiveGlobal > 1) {
+    sources.push({
+      key: "server",
+      label:
+        Number.isFinite(globalEvent) && globalEvent > 1
+          ? "Server + evento"
+          : "Server",
+      type: "global",
+      multiplier: Number(effectiveGlobal.toFixed(2)),
+      contribution: Number((effectiveGlobal - 1).toFixed(2)),
+    });
+  }
+
+  if (member?.roles?.cache && map.size) {
+    for (const [roleId, value] of map.entries()) {
+      if (!member.roles.cache.has(roleId)) continue;
+      const parsed = Math.max(1, Number(value) || 1);
+      const roleObj = member.roles.cache.get(roleId);
+      if (veteranoRoleId && String(roleId) === veteranoRoleId) {
+        if (!chosenRoleSpecific && parsed > chosenRoleMultiplier) {
+          chosenRole = roleObj;
+          chosenRoleMultiplier = parsed;
+        }
+        continue;
+      }
+      if (parsed > chosenRoleMultiplier || !chosenRoleSpecific) {
+        chosenRole = roleObj;
+        chosenRoleMultiplier = parsed;
+        chosenRoleSpecific = true;
+      }
+    }
+  }
+
+  if (chosenRole && chosenRoleMultiplier > 1) {
+    sources.push({
+      key: "role:" + String(chosenRole.id || ""),
+      label: String(chosenRole.name || "Ruolo bonus"),
+      type: "role",
+      multiplier: Number(chosenRoleMultiplier.toFixed(2)),
+      contribution: Number((chosenRoleMultiplier - 1).toFixed(2)),
+      color:
+        String(chosenRole.hexColor || "").trim() && String(chosenRole.hexColor || "").trim() !== "#000000"
+          ? String(chosenRole.hexColor || "").trim()
+          : "",
+    });
+  }
+
+  return sources;
+}
+
 async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, globalExpMultiplier, overrides, weeklyEffectiveMultiplier) {
   const ov = overrides && typeof overrides === "object" ? overrides : null;
   const userId = String(d.userId || "");
@@ -493,6 +568,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
                   : "",
             }))
         : [];
+      const weeklyMultiplierSources =
+        board === "weekly" ? buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier) : [];
       if (guild && (board === "messages" || board === "voice")) {
         stats.siteRomeCalendarDay = getRomeDayKey(new Date());
       }
@@ -515,6 +592,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           avatarUrl: String(row.avatarUrl || "").trim(),
           joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
           roles: profileRoles,
+          weeklyMultiplierSources,
         },
         rows: [row],
       });

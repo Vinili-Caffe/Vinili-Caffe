@@ -429,6 +429,7 @@ async function startWebhookServer(client) {
 
   const { buildCommunityRulesSitePayload } = require("../../Utils/Web/communityRulesPayload");
   const { handleSiteUsersLeaderboardGet } = require("../../Utils/Web/siteUsersLeaderboardApi");
+  const { handleSiteVoteGet } = require("../../Utils/Web/siteVoteApi");
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
@@ -443,6 +444,9 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-users", (req, res) => {
     return handleSiteUsersLeaderboardGet(client, req, res);
+  });
+  app.get("/webhooks/site-vote", (req, res) => {
+    return handleSiteVoteGet(client, req, res);
   });
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);

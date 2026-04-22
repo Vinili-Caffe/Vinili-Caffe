@@ -974,6 +974,22 @@ async function main() {
     usersLeaderboardApiLocalRaw && /^https?:\/\//i.test(usersLeaderboardApiLocalRaw)
       ? usersLeaderboardApiLocalRaw
       : "";
+  const voteApiFromEnv = String(process.env.VC_VOTE_API_URL ?? "").trim();
+  const voteApiRaw = voteApiFromEnv || String(cfg.voteApiUrl ?? "").trim();
+  const voteApiResolved =
+    voteApiRaw && /^https?:\/\//i.test(voteApiRaw)
+      ? voteApiRaw
+      : voteApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${voteApiRaw.startsWith("/") ? "" : "/"}${voteApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-vote`
+          : "/webhooks/site-vote";
+  const voteApiLocalFromEnv = String(process.env.VC_VOTE_API_URL_LOCAL ?? "").trim();
+  const voteApiLocalRaw = voteApiLocalFromEnv || String(cfg.voteApiUrlLocal ?? "").trim();
+  const voteApiLocalResolved =
+    voteApiLocalRaw && /^https?:\/\//i.test(voteApiLocalRaw)
+      ? voteApiLocalRaw
+      : "";
   const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
   const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
   const rolesApiResolved =
@@ -1063,6 +1079,8 @@ async function main() {
     RUOLI_PAGE_URL: escAttr(ruoliPageUrl),
     USERS_LEADERBOARD_API_URL: escAttr(usersLeaderboardApiResolved),
     USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
+    VOTE_API_URL: escAttr(voteApiResolved),
+    VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
     ROLES_API_URL: escAttr(rolesApiResolved),
     ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
     USER_PAGE_TITLE: `${siteName} | Community · Classifica`,
