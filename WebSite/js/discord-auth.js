@@ -310,7 +310,11 @@
         label +
         '"><i class="fa fa-user" aria-hidden="true"></i></span>';
     state.innerHTML =
-      '<div class="discord-login-row">' + avatarBlock + '<button type="button" class="discord-logout-btn" id="discord-logout-btn">Logout</button></div>';
+      '<div class="discord-login-row">' +
+      avatarBlock +
+      '<button type="button" class="discord-logout-btn" id="discord-logout-btn" aria-label="Logout" title="Logout">' +
+      '<i class="fa fa-sign-out" aria-hidden="true"></i>' +
+      "</button></div>";
     state.hidden = false;
     var out = byId("discord-logout-btn");
     if (out) {

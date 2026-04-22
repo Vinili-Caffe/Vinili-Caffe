@@ -6,11 +6,40 @@ param(
   [string]$Pm2AppName = "bots",
   [switch]$SkipSiteBuild,
   [switch]$SkipSiteChown,
+  [switch]$SlowSiteScpRecursive,
   [switch]$SkipBackend,
   [switch]$SkipBackendRestart
 )
 
 $ErrorActionPreference = "Stop"
+
+$sshArgs = @(
+  "-o", "BatchMode=yes",
+  "-o", "ConnectTimeout=15",
+  "-o", "ServerAliveInterval=15",
+  "-o", "ServerAliveCountMax=3"
+)
+
+function Invoke-RemoteScp([string[]]$Arguments) {
+  & scp @sshArgs @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "scp terminato con exit code $LASTEXITCODE"
+  }
+}
+
+function Invoke-RemoteSsh([string]$Target, [string]$Command) {
+  & ssh @sshArgs -n $Target $Command
+  if ($LASTEXITCODE -ne 0) {
+    throw "ssh terminato con exit code $LASTEXITCODE"
+  }
+}
+
+function Invoke-RemoteBashScript([string]$Target, [string]$Script) {
+  $Script | & ssh @sshArgs $Target "bash -s"
+  if ($LASTEXITCODE -ne 0) {
+    throw "ssh terminato con exit code $LASTEXITCODE"
+  }
+}
 
 function Require-Command([string]$Name) {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -18,22 +47,93 @@ function Require-Command([string]$Name) {
   }
 }
 
+function Invoke-SiteDeploy {
+  param(
+    [string]$Server,
+    [string]$User,
+    [string]$RemotePath,
+    [switch]$SkipBuild,
+    [switch]$SkipRemoteChown,
+    [switch]$SlowScpRecursive
+  )
+
+  $webRoot = Join-Path $repoRoot "WebSite"
+  Set-Location $webRoot
+
+  $env:VC_SITE_URL = "https://www.viniliecaffe.it/"
+  $env:VC_CANDIDATURE_SUBMIT_API_URL = "https://www.viniliecaffe.it/webhooks/site-candidature"
+  $env:VC_CANDIDATURE_SUBMIT_API_URL_LOCAL = ""
+
+  if (-not $SkipBuild) {
+    if (Test-Path ".\dist") { Remove-Item -Recurse -Force ".\dist" }
+    npm run build
+  } else {
+    if (-not (Test-Path ".\dist\index.html")) {
+      Write-Error "dist/ non pronto (manca index.html). Esegui la build senza -SkipBuild oppure crea dist prima."
+    }
+    Write-Host "Saltata la build (-SkipBuild): uso dist/ esistente."
+  }
+
+  $hits = Get-ChildItem -Recurse -File ".\dist" | Select-String -Pattern "http://localhost:3000"
+  if ($hits) {
+    Write-Error "Build contiene ancora localhost. Deploy annullato."
+  }
+
+  $hasTar = $null -ne (Get-Command tar -ErrorAction SilentlyContinue)
+
+  if ($SlowScpRecursive) {
+    Write-Host "Upload ricorsivo file-per-file (lento)..."
+    Invoke-RemoteScp @("-r", ".\dist\*", "${User}@${Server}:${RemotePath}/")
+  } elseif ($hasTar) {
+    $localTgz = Join-Path ([System.IO.Path]::GetTempPath()) ("vc-site-dist-" + [guid]::NewGuid().ToString("N") + ".tar.gz")
+    $remoteTgz = "/tmp/vc-site-dist-" + [guid]::NewGuid().ToString("N") + ".tar.gz"
+    try {
+      Write-Host "Archivio tar.gz + un solo upload (di solito molto più veloce di centinaia di scp)..."
+      & tar -czf $localTgz -C dist .
+      Write-Host "Upload archivio sito su ${User}@${Server}:${remoteTgz}"
+      Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
+      $extract = "mkdir -p '$RemotePath' && tar -xzf '$remoteTgz' -C '$RemotePath' && rm -f '$remoteTgz'"
+      Write-Host "Estrazione archivio sito in $RemotePath sul server..."
+      Invoke-RemoteSsh "${User}@${Server}" $extract
+      Write-Host "Estrazione sito completata."
+    } finally {
+      if (Test-Path $localTgz) { Remove-Item $localTgz -Force }
+    }
+  } else {
+    Write-Warning "Comando tar non trovato: fallback a scp ricorsivo (lento)."
+    Invoke-RemoteScp @("-r", ".\dist\*", "${User}@${Server}:${RemotePath}/")
+  }
+
+  if (-not $SkipRemoteChown) {
+    $remoteShell = "chown -R www-data:www-data '$RemotePath' && find '$RemotePath' -type d -exec chmod 755 {} + && find '$RemotePath' -type f -exec chmod 644 {} +"
+    Write-Host "Aggiornamento permessi docroot..."
+    Invoke-RemoteSsh "${User}@${Server}" $remoteShell
+    Write-Host "Permessi docroot aggiornati (www-data, 755/644)."
+  } else {
+    Write-Host "Saltato chown/chmod remoto (-SkipRemoteChown)."
+  }
+
+  Write-Host "Deploy completato su ${User}@${Server}:${RemotePath}"
+  Set-Location $repoRoot
+}
+
 Require-Command "ssh"
 Require-Command "scp"
 Require-Command "tar"
+Require-Command "npm"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 Write-Host "==> [1/2] Deploy sito statico"
-$siteDeployScript = Join-Path $PSScriptRoot "deploy-site.ps1"
-$siteParams = @{
+$siteArgs = @{
   Server = $Server
   User = $User
   RemotePath = $SiteRemotePath
+  SkipBuild = $SkipSiteBuild
+  SkipRemoteChown = $SkipSiteChown
+  SlowScpRecursive = $SlowSiteScpRecursive
 }
-if ($SkipSiteBuild) { $siteParams.SkipBuild = $true }
-if ($SkipSiteChown) { $siteParams.SkipRemoteChown = $true }
-& $siteDeployScript @siteParams
+Invoke-SiteDeploy @siteArgs
 
 if ($SkipBackend) {
   Write-Host "==> [2/2] Deploy backend saltato (-SkipBackend)"
@@ -54,7 +154,8 @@ try {
     --exclude "WebSite/dist" `
     "Vinyls" "shared" "Coffee" "scripts" "package.json" "package-lock.json"
 
-  scp $localTgz "${User}@${Server}:${remoteTgz}"
+  Write-Host "Upload archivio backend su ${User}@${Server}:${remoteTgz}"
+  Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
 
   $remoteCmd = @(
     "set -eu"
@@ -81,16 +182,18 @@ try {
     'if [ ! -d node_modules ] || [ "$OLD_LOCK_HASH" != "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1; fi'
     'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; else echo "Dependencies unchanged, skipping npm install."; fi'
     "cd '$BotRemotePath/Vinyls'"
-    "if `"$NODE_BIN`" -e 'require(`"canvas`")' >/dev/null 2>&1; then echo `"Canvas already OK.`"; else echo `"Canvas rebuild required.`"; rm -rf ../node_modules/canvas node_modules/canvas; `"$NODE_BIN`" `"$NPM_CLI`" install canvas@2.11.2 --omit=dev --foreground-scripts --no-audit --no-fund --loglevel=error; fi"
-    "`"$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
+    "if `"`$NODE_BIN`" -e 'require(`"canvas`")' >/dev/null 2>&1; then echo `"Canvas already OK.`"; else echo `"Canvas rebuild required.`"; rm -rf ../node_modules/canvas node_modules/canvas; `"`$NODE_BIN`" `"`$NPM_CLI`" install canvas@2.11.2 --omit=dev --foreground-scripts --no-audit --no-fund --loglevel=error; fi"
+    "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
   )
   if (-not $SkipBackendRestart) {
     $remoteCmd += "pm2 restart '$Pm2AppName' --update-env"
-    $remoteCmd += "pm2 describe '$Pm2AppName'"
+    $remoteCmd += "pm2 list"
+    $remoteCmd += "pm2 pid '$Pm2AppName'"
   } else {
     $remoteCmd += "echo 'Restart PM2 saltato (-SkipBackendRestart)'"
   }
-  ssh "${User}@${Server}" ($remoteCmd -join " && ")
+  Write-Host "Esecuzione deploy backend remoto..."
+  Invoke-RemoteBashScript "${User}@${Server}" ($remoteCmd -join "`n")
 } finally {
   if (Test-Path $localTgz) { Remove-Item $localTgz -Force }
 }

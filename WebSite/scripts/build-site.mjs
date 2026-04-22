@@ -1184,6 +1184,16 @@ async function main() {
     console.warn("[build-site] Manca regole/index.html (saltato placeholder).");
   }
 
+  const donazioniIndexPath = path.join(DIST, "donazioni", "index.html");
+  if (fs.existsSync(donazioniIndexPath)) {
+    let donazioniHtml = fs.readFileSync(donazioniIndexPath, "utf8");
+    donazioniHtml = applyPlaceholderMap(donazioniHtml, map);
+    warnLeftoverPlaceholders(donazioniHtml, "donazioni/index.html");
+    fs.writeFileSync(donazioniIndexPath, donazioniHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca donazioni/index.html (saltato placeholder).");
+  }
+
   const legalRel = ["terms/index.html", "privacy/index.html", "cookie/index.html"];
   for (const rel of legalRel) {
     const legalPath = path.join(DIST, rel);
