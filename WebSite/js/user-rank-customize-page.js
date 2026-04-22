@@ -64,6 +64,22 @@
     return "/user/" + encodeURIComponent(String(userId || "").trim());
   }
 
+  function formatIntIt(n) {
+    var x = Number(n);
+    if (!Number.isFinite(x)) return "0";
+    try {
+      return Math.round(x).toLocaleString("it-IT");
+    } catch (e) {
+      return String(Math.round(x));
+    }
+  }
+
+  function formatMult(n) {
+    var x = Number(n);
+    if (!Number.isFinite(x) || x <= 0) x = 1;
+    return "x" + String(x.toFixed(1));
+  }
+
   function toPct(value) {
     var n = Number(value);
     if (!Number.isFinite(n)) n = 0.8;
@@ -135,38 +151,39 @@
     var stats = data.stats || {};
     var username = String(data.username || "utente").trim() || "utente";
     var avatar = String(data.avatarUrl || "").trim();
+    var progressPct = String(Math.max(0, Math.min(100, Math.round(Number(stats.progressPercent || 0))))) + "%";
+    var weeklyRankText = stats.weeklyRank ? "#" + String(stats.weeklyRank) : "Fuori";
+    var rankText = stats.allTimeRank ? "#" + String(stats.allTimeRank) : "-";
     return (
-      '<div class="vc-rank-editor-preview__card" style="' +
+      '<div class="vc-user-rankcard vc-rank-editor-livecard" style="' +
       rankStyle(theme) +
       '">' +
-      '<div class="vc-rank-editor-preview__hero">' +
-      '<div class="vc-rank-editor-preview__avatarwrap">' +
+      '<div class="vc-user-rankcard__main">' +
+      '<div class="vc-user-rankcard__avatarwrap">' +
+      '<span class="vc-user-rankcard__avatarclip">' +
       (avatar
-        ? '<img class="vc-rank-editor-preview__avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" />'
-        : '<span class="vc-rank-editor-preview__avatar vc-rank-editor-preview__avatar--fallback"><i class="fa fa-user"></i></span>') +
+        ? '<img class="vc-user-rankcard__avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" />'
+        : '<span class="vc-user-rankcard__avatar vc-user-rankcard__avatar--fallback"><i class="fa fa-user"></i></span>') +
+      "</span>" +
       "</div>" +
-      '<div class="vc-rank-editor-preview__main">' +
-      '<div class="vc-rank-editor-preview__topline">' +
-      '<span class="vc-rank-editor-preview__name">' + esc(username) + "</span>" +
-      '<span class="vc-rank-editor-preview__dot">&middot;</span>' +
-      '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(stats.level || 0)) + "</span>" +
-      '<span class="vc-rank-editor-preview__mult">' + esc("x" + Number(stats.multiplier || 1).toFixed(1)) + "</span>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__bar"><span class="vc-rank-editor-preview__fill" style="width:' +
-      esc(String(Math.max(0, Math.min(100, Number(stats.progressPercent || 0)))) + "%") +
-      '"></span><span class="vc-rank-editor-preview__bartext">' +
-      esc(String(Math.max(0, Math.floor(Number(stats.currentLevelExp || 0)))) + " / " + String(Math.max(0, Math.floor(Number(stats.nextLevelExp || 0)))) + " XP") +
+      '<div class="vc-user-rankcard__copy">' +
+      '<div class="vc-user-rankcard__name">' +
+      esc(username) +
+      ' <span class="vc-user-rankcard__level">- Lv. ' +
+      esc(String(stats.level || 0)) +
       "</span></div>" +
+      '<div class="vc-user-rankcard__progress"><span class="vc-user-rankcard__progressfill" style="width:' +
+      esc(progressPct) +
+      '"></span><span class="vc-user-rankcard__progresstext">' +
+      esc(formatIntIt(stats.totalExp || 0)) +
+      " EXP</span></div>" +
+      '<div class="vc-user-rankcard__meta">' +
+      '<span class="vc-user-rankcard__pill">Weekly rank ' + esc(weeklyRankText) + "</span>" +
+      '<span class="vc-user-rankcard__pill">Weekly XP ' + esc(formatIntIt(stats.weeklyExp || 0)) + "</span>" +
+      '<span class="vc-user-rankcard__pill">Moltiplicatore ' + esc(formatMult(stats.multiplier || 1)) + "</span>" +
       "</div>" +
-      '<div class="vc-rank-editor-preview__rankbox"><strong>' +
-      esc(stats.allTimeRank ? "#" + String(stats.allTimeRank) : "-") +
-      "</strong><small>RANK</small></div>" +
       "</div>" +
-      '<div class="vc-rank-editor-preview__stats">' +
-      '<div class="vc-rank-editor-preview__stat"><span>WEEKLY RANK</span><strong>' + esc(stats.weeklyRank ? "#" + String(stats.weeklyRank) : "-") + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat"><span>WEEKLY XP</span><strong>' + esc(String(Math.max(0, Math.floor(Number(stats.weeklyExp || 0))))) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat"><span>MULTIPLIER</span><strong>' + esc("x" + Number(stats.multiplier || 1).toFixed(1)) + "</strong></div>" +
-      "</div>" +
+      '<div class="vc-user-rankcard__rankbox">' + esc(rankText) + "<small>RANK</small></div>" +
       "</div>"
     );
   }

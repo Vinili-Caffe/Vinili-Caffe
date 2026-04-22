@@ -4906,7 +4906,20 @@ textarea.vc-candidature-input {
 }
 
 .vc-rank-editor-previewcard {
-  padding: 1.5rem;
+    padding: 1.5rem;
+  }
+
+.vc-rank-editor-livecard {
+  padding: 1.2rem;
+}
+
+.vc-rank-editor-livecard .vc-user-rankcard__name {
+  font-size: clamp(1.8rem, 2.5vw, 3.3rem);
+}
+
+.vc-rank-editor-livecard .vc-user-rankcard__avatarwrap {
+  width: 6.4rem;
+  height: 6.4rem;
 }
 
 .vc-rank-editor-previewcard__head {
