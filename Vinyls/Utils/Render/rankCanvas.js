@@ -169,20 +169,20 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
 
   ctx.save();
   ctx.fillStyle = palette.primaryTextColor;
-  ctx.font = canvasFont(24, 900);
+  ctx.font = canvasFont(22, 900);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(icon, x + 28, y + height / 2);
   ctx.restore();
 
   drawText(ctx, label.toUpperCase(), x + 56, y + 18, {
-    size: 12,
+    size: 11,
     weight: 800,
     color: palette.labelColor,
     align: "left",
   });
-  drawText(ctx, value, x + 56, y + 37, {
-    size: 19,
+  drawText(ctx, value, x + 56, y + 36, {
+    size: 17,
     weight: 900,
     color: palette.valueColor,
     align: "left",
@@ -215,11 +215,6 @@ async function renderRankCanvas(data) {
   registerCanvasFonts(canvasModule);
 
   const palette = mergeRankCardTheme(data.theme || {});
-  palette.secondaryTextColor = palette.labelColor;
-  palette.progressStartColor = palette.primaryTextColor;
-  palette.progressEndColor = palette.primaryTextColor;
-  palette.ringColor = palette.primaryTextColor;
-  palette.rankBoxBorderColor = palette.valueColor;
   const width = 1000;
   const height = 300;
   const canvas = createCanvas(width, height);
@@ -240,7 +235,7 @@ async function renderRankCanvas(data) {
   roundedRect(ctx, card.x, card.y, card.w, card.h, card.r);
   ctx.clip();
   await drawWallpaper(ctx, card.x, card.y, card.w, card.h, palette);
-  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha * 0.7);
+  ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha * 0.55);
   ctx.fillRect(card.x, card.y, card.w, card.h);
   ctx.restore();
 
@@ -261,7 +256,7 @@ async function renderRankCanvas(data) {
 
   const avatarSize = 112;
   const avatarX = card.x + 48;
-  const avatarY = card.y + 66;
+  const avatarY = card.y + 58;
   await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette);
 
   const copyX = main.x + 24;
@@ -270,7 +265,7 @@ async function renderRankCanvas(data) {
   const rankBoxX = main.x + main.w - rankBoxW - 18;
   const rankBoxY = main.y + 18;
   const copyW = rankBoxX - copyX - 36;
-  const topY = main.y + 45;
+  const topY = main.y + 47;
 
   const levelText = `Lv. ${formatInt(data.level)}`;
   ctx.font = canvasFont(28, 850);
