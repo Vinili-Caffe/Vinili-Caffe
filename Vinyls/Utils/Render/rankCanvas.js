@@ -284,33 +284,38 @@ async function renderRankCanvas(data) {
   ctx.fillRect(card.x, card.y, card.w, card.h);
   ctx.restore();
 
-  const main = {
-    x: 172,
-    y: 48,
-    w: 762,
-    h: 154,
+  const padX = 23;
+  const padTop = 22;
+  const hero = {
+    x: padX,
+    y: padTop,
+    w: width - padX * 2,
+    h: 147,
     r: 18,
   };
 
-  roundedRect(ctx, main.x, main.y, main.w, main.h, main.r);
+  roundedRect(ctx, hero.x, hero.y, hero.w, hero.h, hero.r);
   ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
   ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,0.12)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const avatarSize = 118;
-  const avatarX = 64;
-  const avatarY = 82;
+  const heroPadX = 16;
+  const heroGap = 17;
+  const avatarColW = 138;
+  const rankBoxW = 109;
+  const rankBoxH = 88;
+  const avatarSize = 122;
+  const avatarX = hero.x + heroPadX + (avatarColW - avatarSize) / 2;
+  const avatarY = hero.y + (hero.h - avatarSize) / 2;
   await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette);
 
-  const copyX = main.x + 24;
-  const rankBoxW = 98;
-  const rankBoxH = 82;
-  const rankBoxX = main.x + main.w - rankBoxW - 18;
-  const rankBoxY = main.y + 18;
-  const copyW = rankBoxX - copyX - 36;
-  const topY = main.y + 45;
+  const copyX = hero.x + heroPadX + avatarColW + heroGap;
+  const rankBoxX = hero.x + hero.w - heroPadX - rankBoxW;
+  const rankBoxY = hero.y + Math.round((hero.h - rankBoxH) / 2);
+  const copyW = rankBoxX - copyX - heroGap;
+  const topY = hero.y + 39;
 
   const levelText = `Lv. ${formatInt(data.level)}`;
   ctx.font = canvasFont(28, 850);
@@ -354,7 +359,7 @@ async function renderRankCanvas(data) {
   const nextLevelExp = Math.max(currentLevelExp + 1, Number(data.nextLevelExp || currentLevelExp + 1));
   const currentProgressExp = Math.max(0, Number(data.totalExp || 0) - currentLevelExp);
   const targetProgressExp = Math.max(1, nextLevelExp - currentLevelExp);
-  drawProgressBar(ctx, copyX, main.y + 92, copyW, 18, data.progressPercent, currentProgressExp, targetProgressExp, palette);
+  drawProgressBar(ctx, copyX, hero.y + 92, copyW, 18, data.progressPercent, currentProgressExp, targetProgressExp, palette);
 
   roundedRect(ctx, rankBoxX, rankBoxY, rankBoxW, rankBoxH, 16);
   ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
@@ -377,15 +382,17 @@ async function renderRankCanvas(data) {
     align: "center",
   });
 
-  const statsY = 218;
-  const statH = 46;
-  const gap = 12;
-  const statW = 150;
+  const statsY = hero.y + hero.h + 16;
+  const statH = 60;
+  const gap = 15;
+  const statsTotalW = 660;
+  const statW = Math.floor((statsTotalW - gap * 2) / 3);
+  const statsX = Math.round((width - statsTotalW) / 2);
   const weeklyRankValue = data.hideLeaderboardRanks ? "-" : formatRankValue(data.weeklyRank);
 
-  drawStatPill(ctx, 172, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, panelAlpha);
-  drawStatPill(ctx, 334, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, panelAlpha);
-  drawStatPill(ctx, 496, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, panelAlpha);
+  drawStatPill(ctx, statsX, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, panelAlpha);
+  drawStatPill(ctx, statsX + statW + gap, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, panelAlpha);
+  drawStatPill(ctx, statsX + (statW + gap) * 2, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, panelAlpha);
 
   return canvas.toBuffer("image/png");
 }

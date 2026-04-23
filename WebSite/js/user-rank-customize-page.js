@@ -120,6 +120,28 @@
     );
   }
 
+  function normalizeHexDisplay(value, fallback) {
+    var raw = String(value == null ? "" : value).trim();
+    if (!raw) raw = String(fallback == null ? "" : fallback).trim();
+    if (raw && raw.charAt(0) !== "#") raw = "#" + raw;
+    if (!/^#[0-9a-fA-F]{6}$/.test(raw)) {
+      var alt = String(fallback == null ? "" : fallback).trim();
+      if (alt && alt.charAt(0) !== "#") alt = "#" + alt;
+      raw = /^#[0-9a-fA-F]{6}$/.test(alt) ? alt : "#202225";
+    }
+    return raw.toUpperCase();
+  }
+
+  function normalizeTheme(theme) {
+    var src = theme && typeof theme === "object" ? theme : {};
+    var next = Object.assign({}, src);
+    COLOR_FIELDS.forEach(function (field) {
+      var fallback = field.key === "primaryTextColor" ? "#FFCB05" : "#202225";
+      next[field.key] = normalizeHexDisplay(next[field.key], fallback);
+    });
+    return next;
+  }
+
   function wallpapers() {
     return Array.isArray(loaded && loaded.wallpapers) ? loaded.wallpapers : [];
   }
@@ -267,7 +289,8 @@
     if (!app || !loaded || !draft) return;
     var backHref = profileUrl(loaded.userId);
     var colorCards = COLOR_FIELDS.map(function (field) {
-      var value = draft[field.key];
+      var value = normalizeHexDisplay(draft[field.key], field.key === "primaryTextColor" ? "#FFCB05" : "#202225");
+      var pickerValue = value.toLowerCase();
       var isOpen = activeAccordion === field.key;
       return (
         '<details class="vc-rank-editor-card" data-rank-accordion="' + esc(field.key) + '"' + (isOpen ? " open" : "") + ">" +
@@ -279,7 +302,7 @@
         "</summary>" +
         '<div class="vc-rank-editor-card__body">' +
         '<div class="vc-rank-editor-colorrow">' +
-        '<input class="vc-rank-editor-colorrow__picker" type="color" value="' + esc(value) + '" data-rank-field="' + esc(field.key) + '" />' +
+        '<input class="vc-rank-editor-colorrow__picker" type="color" value="' + esc(pickerValue) + '" data-rank-field="' + esc(field.key) + '" />' +
         '<input class="vc-rank-editor-colorrow__hex" type="text" value="' + esc(value) + '" maxlength="7" data-rank-hex="' + esc(field.key) + '" />' +
         '<button type="button" class="vc-rank-editor-updatebtn" data-rank-apply="' + esc(field.key) + '"><i class="fa fa-eye" aria-hidden="true"></i> Aggiorna Anteprima</button>' +
         "</div>" +
@@ -344,8 +367,7 @@
       setStatus("Inserisci un colore hex valido.", true);
       return;
     }
-    if (value.charAt(0) !== "#") value = "#" + value;
-    draft[field] = value.toUpperCase();
+    draft[field] = normalizeHexDisplay(value, draft[field]);
     render();
   }
 
@@ -415,7 +437,7 @@
     Array.prototype.slice.call(document.querySelectorAll("[data-rank-field]")).forEach(function (input) {
       input.addEventListener("input", function () {
         var target = document.querySelector('[data-rank-hex="' + input.getAttribute("data-rank-field") + '"]');
-        if (target) target.value = input.value.toUpperCase();
+        if (target) target.value = normalizeHexDisplay(input.value, target.value);
       });
     });
 
@@ -518,7 +540,7 @@
           setStatus((body && body.message) || "Non sono riuscito a salvare la rank card.", true);
           return;
         }
-        draft = Object.assign({}, draft, body.theme || {});
+        draft = normalizeTheme(Object.assign({}, draft, body.theme || {}));
         setStatus(body.message || "Rank card salvata.", false);
         render();
       })
@@ -551,7 +573,7 @@
           setStatus((body && body.message) || "Non sono riuscito a resettare la rank card.", true);
           return;
         }
-        draft = Object.assign({}, body.theme || {});
+        draft = normalizeTheme(body.theme || {});
         setStatus(body.message || "Rank card resettata.", false);
         render();
       })
@@ -576,7 +598,7 @@
         return;
       }
       loaded = body;
-      draft = Object.assign({}, body.theme || {});
+      draft = normalizeTheme(body.theme || {});
       if (!draft.wallpaperKey) draft.wallpaperKey = "default";
       render();
     });

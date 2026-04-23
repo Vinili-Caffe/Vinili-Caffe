@@ -5196,6 +5196,12 @@ textarea.vc-candidature-input {
   gap: 1rem;
 }
 
+.vc-rank-editor-colorrow {
+  display: grid;
+  grid-template-columns: 8.2rem minmax(0, 1fr) auto;
+  align-items: center;
+}
+
 .vc-rank-editor-colorrow__picker {
   flex: 0 0 auto;
   width: 8.2rem;
@@ -5226,6 +5232,7 @@ textarea.vc-candidature-input {
 
 .vc-rank-editor-colorrow__hex {
   flex: 1;
+  min-width: 0;
   min-height: 4rem;
   padding: 0 1.1rem;
   border-radius: 1rem;
@@ -6035,10 +6042,19 @@ textarea.vc-candidature-input {
     align-items: flex-start;
   }
 
-  .vc-rank-editor-colorrow,
   .vc-rank-editor-actions,
   .vc-rank-editor-preview__hero {
     flex-direction: column;
+  }
+
+  .vc-rank-editor-colorrow {
+    grid-template-columns: 8.2rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .vc-rank-editor-updatebtn {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .vc-rank-editor-wallgrid {
@@ -6051,6 +6067,16 @@ textarea.vc-candidature-input {
 
   .vc-rank-editor-preview__stats {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 30rem) {
+  .vc-rank-editor-colorrow {
+    grid-template-columns: 1fr;
+  }
+
+  .vc-rank-editor-colorrow__picker {
+    width: min(8.2rem, 100%);
   }
 }
 
