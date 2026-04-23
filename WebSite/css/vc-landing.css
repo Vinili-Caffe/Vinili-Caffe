@@ -1701,9 +1701,9 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 
 .vc-snav-sep {
-  display: inline-block !important;
+  display: none !important;
   width: 1px;
-  height: 1.2rem;
+  height: 1.35rem;
   opacity: 0.9;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.08);
@@ -1724,8 +1724,13 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 
 @media (min-width: 640px) {
-  .vc-header-snav > .vc-snav-item:not(:first-child)::before,
-  .vc-header-snav > .vc-snav-details:not(:first-child)::before {
+  .vc-header-snav > .vc-snav-sep {
+    display: none !important;
+  }
+
+  .vc-header-snav > .vc-snav-sep + .vc-snav-details::before,
+  .vc-header-snav:not(:has(> .vc-snav-sep)) > .vc-snav-item:not(:first-child)::before,
+  .vc-header-snav:not(:has(> .vc-snav-sep)) > .vc-snav-details:not(:first-child)::before {
     content: "";
     position: absolute;
     left: 0;

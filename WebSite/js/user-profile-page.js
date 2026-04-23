@@ -23,7 +23,18 @@
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
     if (isLocalFrontendOrigin() && local) return local;
-    return String(c.apiUrl || "").trim();
+    var api = String(c.apiUrl || "").trim();
+    try {
+      if (api && typeof window !== "undefined") {
+        var u = new URL(api, window.location.origin);
+        var currentHost = String(window.location.hostname || "").replace(/^www\./i, "").toLowerCase();
+        var apiHost = String(u.hostname || "").replace(/^www\./i, "").toLowerCase();
+        if (currentHost && apiHost && currentHost === apiHost) {
+          return window.location.origin + u.pathname + u.search;
+        }
+      }
+    } catch (e) {}
+    return api;
   }
 
   function esc(s) {
@@ -667,7 +678,6 @@
       var messages = results[2] && results[2].rows && results[2].rows[0] ? results[2].rows[0] : null;
       var voice = results[3] && results[3].rows && results[3].rows[0] ? results[3].rows[0] : null;
       var profile = {};
-      var anyFailure = false;
       var hasAny = false;
       var i;
 
@@ -685,7 +695,6 @@
             profile.customProfile = nextProfile.customProfile;
           }
         }
-        if (results[i] && !results[i].ok && !results[i].notFound) anyFailure = true;
       }
 
       hasAny =
@@ -697,10 +706,6 @@
           Boolean(profile.customProfile));
 
       if (!hasAny) {
-        if (anyFailure) {
-          renderError(root);
-          return;
-        }
         renderEmpty(root, userId);
         return;
       }

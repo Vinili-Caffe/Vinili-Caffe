@@ -30,7 +30,18 @@
     var c = cfg();
     var local = String(c.apiUrlLocal || "").trim();
     if (isLocalFrontendOrigin() && local) return local;
-    return String(c.apiUrl || "").trim();
+    var api = String(c.apiUrl || "").trim();
+    try {
+      if (api && typeof window !== "undefined") {
+        var u = new URL(api, window.location.origin);
+        var currentHost = String(window.location.hostname || "").replace(/^www\./i, "").toLowerCase();
+        var apiHost = String(u.hostname || "").replace(/^www\./i, "").toLowerCase();
+        if (currentHost && apiHost && currentHost === apiHost) {
+          return window.location.origin + u.pathname + u.search;
+        }
+      }
+    } catch (e) {}
+    return api;
   }
 
   function esc(s) {
