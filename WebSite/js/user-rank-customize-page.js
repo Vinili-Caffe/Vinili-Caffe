@@ -187,6 +187,30 @@
     ].join(";");
   }
 
+  function previewStatIcon(type) {
+    var svg = "";
+    if (type === "trophy") {
+      svg =
+        '<svg viewBox="0 0 32 32" focusable="false" aria-hidden="true">' +
+        '<path d="M8 6h16l-2 10c-1.2 3-4.1 5-6 5s-4.8-2-6-5L8 6Z" fill="currentColor"></path>' +
+        '<path d="M6 8c-2.9.4-4.8 2-4.8 4.7 0 3.4 2.8 5.8 6.7 5.8M26 8c2.9.4 4.8 2 4.8 4.7 0 3.4-2.8 5.8-6.7 5.8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"></path>' +
+        '<rect x="14" y="20" width="4" height="6" rx="1" fill="currentColor"></rect>' +
+        '<rect x="8" y="26" width="16" height="3.6" rx="1.6" fill="currentColor"></rect>' +
+        "</svg>";
+    } else if (type === "bolt") {
+      svg =
+        '<svg viewBox="0 0 32 32" focusable="false" aria-hidden="true">' +
+        '<path d="M19 1 8 16h7l-3 15 12-17h-7l2-13Z" fill="currentColor"></path>' +
+        "</svg>";
+    } else {
+      svg =
+        '<svg viewBox="0 0 32 32" focusable="false" aria-hidden="true">' +
+        '<path d="m16 2 3.8 8 8.7 1-6.5 5.7 1.8 8.5L16 21l-7.8 5.2 1.8-8.5L3.5 11l8.7-1L16 2Z" fill="currentColor"></path>' +
+        "</svg>";
+    }
+    return '<span class="vc-rank-editor-preview__icon vc-rank-editor-preview__icon--' + esc(type) + '">' + svg + "</span>";
+  }
+
   function previewMarkup(data, theme) {
     var stats = data.stats || {};
     var username = String(data.username || "utente").trim() || "utente";
@@ -226,9 +250,9 @@
       '<div class="vc-rank-editor-preview__rankbox"><strong>' + esc(rankText) + "</strong><small>RANK</small></div>" +
       "</div>" +
       '<div class="vc-rank-editor-preview__stats">' +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--trophy"><i class="fa fa-trophy" aria-hidden="true"></i><span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--bolt"><i class="fa fa-bolt" aria-hidden="true"></i><span>WEEKLY XP</span><strong>' + esc(formatIntIt(stats.weeklyExp || 0)) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--star"><i class="fa fa-star" aria-hidden="true"></i><span>MULTIPLIER</span><strong>' + esc(formatMult(stats.multiplier || 1)) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--trophy">' + previewStatIcon("trophy") + '<span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--bolt">' + previewStatIcon("bolt") + '<span>WEEKLY XP</span><strong>' + esc(formatIntIt(stats.weeklyExp || 0)) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--star">' + previewStatIcon("star") + '<span>MULTIPLIER</span><strong>' + esc(formatMult(stats.multiplier || 1)) + "</strong></div>" +
       "</div></div>"
     );
   }

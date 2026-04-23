@@ -5759,11 +5759,27 @@ textarea.vc-candidature-input {
   background: var(--vc-rank-primary);
 }
 
-.vc-rank-editor-preview__stat i {
+.vc-rank-editor-preview__icon {
   grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--vc-rank-primary);
-  font-size: 1.6rem;
+  width: 1.6rem;
+  height: 1.6rem;
   text-align: center;
+}
+
+.vc-rank-editor-preview__icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.vc-rank-editor-preview__icon--trophy {
+  transform: translateY(-0.14rem);
 }
 
 .vc-rank-editor-preview__stat span {
@@ -5902,8 +5918,9 @@ textarea.vc-candidature-input {
   width: 3px;
 }
 
-.vc-user-rankcard-preview .vc-rank-editor-preview__stat i {
-  font-size: 1.28rem;
+.vc-user-rankcard-preview .vc-rank-editor-preview__icon {
+  width: 1.28rem;
+  height: 1.28rem;
 }
 
 .vc-user-rankcard-preview .vc-rank-editor-preview__stat span {
@@ -5994,8 +6011,9 @@ textarea.vc-candidature-input {
     border-radius: 0.78rem;
   }
 
-  .vc-rank-editor-preview__stat i {
-    font-size: 1.15rem;
+  .vc-rank-editor-preview__icon {
+    width: 1.15rem;
+    height: 1.15rem;
   }
 
   .vc-rank-editor-preview__stat span {
@@ -6200,8 +6218,9 @@ textarea.vc-candidature-input {
   padding: clamp(0.46rem, 1.4cqw, 0.7rem) clamp(0.58rem, 1.8cqw, 0.95rem) !important;
 }
 
-.vc-rank-editor-previewcard .vc-rank-editor-preview__stat i {
-  font-size: clamp(1rem, 3cqw, 1.6rem) !important;
+.vc-rank-editor-previewcard .vc-rank-editor-preview__icon {
+  width: clamp(1rem, 3cqw, 1.6rem) !important;
+  height: clamp(1rem, 3cqw, 1.6rem) !important;
 }
 
 .vc-rank-editor-previewcard .vc-rank-editor-preview__stat span {

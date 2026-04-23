@@ -167,7 +167,7 @@ function drawStatIcon(ctx, icon, x, y, color) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   if (icon === "trophy") {
-    y -= 2;
+    y -= 4;
     ctx.beginPath();
     ctx.moveTo(x - 8, y - 8);
     ctx.lineTo(x + 8, y - 8);
