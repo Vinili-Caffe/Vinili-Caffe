@@ -14,9 +14,15 @@
     return cfg().enabled === true;
   }
 
+  function normalizeLegalPath(pathname) {
+    var path = String(pathname || "/").replace(/\/+$/, "") || "/";
+    path = path.replace(/\/index\.html$/i, "");
+    return path || "/";
+  }
+
   function isPublicLegalPage() {
     try {
-      var path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+      var path = normalizeLegalPath(window.location.pathname);
       return path === "/cookie" || path === "/privacy" || path === "/terms";
     } catch (e) {
       return false;
