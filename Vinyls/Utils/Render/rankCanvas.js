@@ -92,10 +92,10 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette) {
 
   ctx.save();
   ctx.shadowColor = palette.ringColor;
-  ctx.shadowBlur = 30;
+  ctx.shadowBlur = 22;
   ctx.fillStyle = palette.ringColor;
   ctx.beginPath();
-  ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+  ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -117,7 +117,7 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette) {
   ctx.restore();
 
   ctx.save();
-  ctx.lineWidth = 7;
+  ctx.lineWidth = 6;
   ctx.strokeStyle = palette.ringColor;
   ctx.beginPath();
   ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
@@ -163,8 +163,8 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   roundedRect(ctx, x, y, width, height, 10);
   ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.12)";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  ctx.lineWidth = 1;
   ctx.stroke();
 
   ctx.save();
@@ -215,8 +215,10 @@ async function renderRankCanvas(data) {
   registerCanvasFonts(canvasModule);
 
   const palette = mergeRankCardTheme(data.theme || {});
-  const width = 1000;
-  const height = 300;
+  const legacyYellow = String(palette.rankBoxBorderColor || "").toLowerCase() === "#ffcb05";
+  const rankBoxColor = legacyYellow ? palette.valueColor : palette.rankBoxBorderColor;
+  const width = 976;
+  const height = 276;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const panelAlpha = clamp(palette.overlayOpacity, 0, 1);
@@ -254,8 +256,8 @@ async function renderRankCanvas(data) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const avatarSize = 112;
-  const avatarX = card.x + 48;
+  const avatarSize = 118;
+  const avatarX = card.x + 42;
   const avatarY = card.y + 58;
   await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette);
 
@@ -265,7 +267,7 @@ async function renderRankCanvas(data) {
   const rankBoxX = main.x + main.w - rankBoxW - 18;
   const rankBoxY = main.y + 18;
   const copyW = rankBoxX - copyX - 36;
-  const topY = main.y + 47;
+  const topY = main.y + 45;
 
   const levelText = `Lv. ${formatInt(data.level)}`;
   ctx.font = canvasFont(28, 850);
@@ -314,7 +316,7 @@ async function renderRankCanvas(data) {
   roundedRect(ctx, rankBoxX, rankBoxY, rankBoxW, rankBoxH, 16);
   ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
   ctx.fill();
-  ctx.strokeStyle = palette.rankBoxBorderColor;
+  ctx.strokeStyle = rankBoxColor;
   ctx.lineWidth = 4;
   ctx.stroke();
 
@@ -322,7 +324,7 @@ async function renderRankCanvas(data) {
   drawText(ctx, rankText, rankBoxX + rankBoxW / 2, rankBoxY + 33, {
     size: rankText.length > 7 ? 24 : 28,
     weight: 950,
-    color: palette.rankBoxBorderColor,
+    color: rankBoxColor,
     align: "center",
   });
   drawText(ctx, "RANK", rankBoxX + rankBoxW / 2, rankBoxY + 66, {

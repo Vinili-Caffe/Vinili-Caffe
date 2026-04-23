@@ -1,4 +1,98 @@
 (function () {
+  var CONSENT_KEY = "vc_cookie_consent_v1";
+  var CONSENT_COOKIE = "vc_cookie_consent";
+
+  function hasCookieConsent() {
+    try {
+      if (window.localStorage && window.localStorage.getItem(CONSENT_KEY) === "accepted") return true;
+    } catch (e) {}
+    try {
+      return document.cookie.split(";").some(function (part) {
+        return part.trim().indexOf(CONSENT_COOKIE + "=accepted") === 0;
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function rememberCookieConsent() {
+    try {
+      if (window.localStorage) window.localStorage.setItem(CONSENT_KEY, "accepted");
+    } catch (e) {}
+    try {
+      var maxAge = 60 * 60 * 24 * 180;
+      document.cookie = CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax";
+    } catch (e) {}
+  }
+
+  function closeCookieBanner(root) {
+    if (!root) return;
+    root.classList.add("vc-cookie-consent--leaving");
+    window.setTimeout(function () {
+      if (root && root.parentNode) root.parentNode.removeChild(root);
+    }, 220);
+  }
+
+  function initCookieConsent() {
+    if (hasCookieConsent()) return;
+    if (document.getElementById("vc-cookie-consent")) return;
+
+    var root = document.createElement("section");
+    root.id = "vc-cookie-consent";
+    root.className = "vc-cookie-consent";
+    root.setAttribute("aria-label", "Avviso utilizzo cookie");
+    root.innerHTML =
+      '<div class="vc-cookie-consent__card" role="dialog" aria-modal="false" aria-labelledby="vc-cookie-title">' +
+      '<div class="vc-cookie-consent__head">' +
+      '<span class="vc-cookie-consent__icon" aria-hidden="true"><i class="fa fa-info-circle"></i></span>' +
+      '<div class="vc-cookie-consent__titlewrap">' +
+      '<h2 id="vc-cookie-title">Utilizzo dei Cookie</h2>' +
+      '<p>Utilizziamo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
+      "</div>" +
+      '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-accept aria-label="Chiudi avviso cookie"><i class="fa fa-times" aria-hidden="true"></i></button>' +
+      "</div>" +
+      '<div class="vc-cookie-consent__body">' +
+      '<div class="vc-cookie-consent__notice">' +
+      '<i class="fa fa-info-circle" aria-hidden="true"></i>' +
+      '<p><strong>Cookie necessari.</strong> Questi cookie sono indispensabili per login, sicurezza e funzionalita base. Non raccolgono dati personali per marketing.</p>' +
+      "</div>" +
+      '<details class="vc-cookie-consent__details">' +
+      '<summary><span><i class="fa fa-shield" aria-hidden="true"></i> Dettagli tecnici</span><i class="fa fa-angle-down vc-cookie-consent__chev" aria-hidden="true"></i></summary>' +
+      '<div class="vc-cookie-consent__tech">' +
+      '<div><i class="fa fa-lock" aria-hidden="true"></i><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
+      '<div><i class="fa fa-lock" aria-hidden="true"></i><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
+      '<div><i class="fa fa-lock" aria-hidden="true"></i><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
+      '<p>Caratteristiche di sicurezza:</p>' +
+      '<div class="vc-cookie-consent__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
+      '<a href="/cookie/">Leggi la Cookie Policy completa <i class="fa fa-arrow-right" aria-hidden="true"></i></a>' +
+      "</div>" +
+      "</details>" +
+      '<button type="button" class="vc-cookie-consent__accept" data-vc-cookie-accept>Accetta e Continua</button>' +
+      '<p class="vc-cookie-consent__foot">Chiudendo o continuando accetti l&apos;utilizzo dei cookie essenziali per il funzionamento del sito.</p>' +
+      "</div>" +
+      "</div>";
+
+    root.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (!t.closest("[data-vc-cookie-accept]")) return;
+      rememberCookieConsent();
+      closeCookieBanner(root);
+    });
+
+    document.body.appendChild(root);
+    window.requestAnimationFrame(function () {
+      root.classList.add("vc-cookie-consent--visible");
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initCookieConsent);
+  } else {
+    initCookieConsent();
+  }
+})();
+(function () {
   function normalizePrettyProfilePath() {
     try {
       if (window.__VC_DISABLE_PRETTY_PROFILE_REDIRECT === true) return false;

@@ -6107,6 +6107,91 @@ textarea.vc-candidature-input {
   }
 }
 
+.vc-rank-editor-previewcard .vc-rank-editor-preview__card {
+  max-width: 100%;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__hero {
+  grid-template-columns: clamp(5.4rem, 14cqw, 7.6rem) minmax(0, 1fr) clamp(5rem, 13cqw, 6.8rem) !important;
+  min-height: clamp(6.7rem, 20cqw, 9.2rem) !important;
+  gap: clamp(0.55rem, 2cqw, 1.05rem) !important;
+  padding: clamp(0.72rem, 2cqw, 1.05rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__avatarwrap {
+  width: clamp(5rem, 13cqw, 7.6rem) !important;
+  height: clamp(5rem, 13cqw, 7.6rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__topline {
+  gap: clamp(0.35rem, 1.2cqw, 0.75rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__name {
+  font-size: clamp(1.35rem, 4.2cqw, 2.45rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__dot,
+.vc-rank-editor-previewcard .vc-rank-editor-preview__level {
+  font-size: clamp(1rem, 3cqw, 1.75rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__mult {
+  min-width: clamp(3rem, 8cqw, 3.9rem) !important;
+  min-height: clamp(1.25rem, 3.6cqw, 1.8rem) !important;
+  font-size: clamp(0.68rem, 1.8cqw, 0.9rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__bar {
+  height: clamp(0.85rem, 2.6cqw, 1.35rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__bartext {
+  font-size: clamp(0.62rem, 1.7cqw, 0.85rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__rankbox {
+  grid-column: auto !important;
+  justify-self: auto !important;
+  min-width: clamp(4.8rem, 12cqw, 6.8rem) !important;
+  min-height: clamp(3.6rem, 10cqw, 5.5rem) !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__rankbox strong {
+  font-size: clamp(1.15rem, 3.4cqw, 1.8rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__rankbox small {
+  font-size: clamp(0.56rem, 1.5cqw, 0.75rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  width: min(86%, 660px) !important;
+  gap: clamp(0.45rem, 1.6cqw, 0.9rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__stat {
+  grid-template-columns: clamp(1.3rem, 4cqw, 2.1rem) minmax(0, 1fr) !important;
+  min-height: clamp(2.65rem, 8cqw, 3.75rem) !important;
+  padding: clamp(0.46rem, 1.4cqw, 0.7rem) clamp(0.58rem, 1.8cqw, 0.95rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__stat i {
+  font-size: clamp(1rem, 3cqw, 1.6rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__stat span {
+  font-size: clamp(0.48rem, 1.45cqw, 0.72rem) !important;
+}
+
+.vc-rank-editor-previewcard .vc-rank-editor-preview__stat strong {
+  font-size: clamp(0.78rem, 2.4cqw, 1.2rem) !important;
+}
+
 .vc-vote-live-head {
   display: flex;
   align-items: center;
