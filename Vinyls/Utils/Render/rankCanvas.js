@@ -154,7 +154,7 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   drawText(ctx, `${formatInt(currentExp)} / ${formatInt(targetExp)} XP`, x + width / 2, y + height / 2 + 1, {
     size: 16,
     weight: 800,
-    color: "#ffffff",
+    color: palette.valueColor,
     align: "center",
   });
 }
@@ -168,7 +168,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   ctx.stroke();
 
   ctx.save();
-  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.fillStyle = palette.primaryTextColor;
   ctx.font = canvasFont(24, 900);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -215,6 +215,11 @@ async function renderRankCanvas(data) {
   registerCanvasFonts(canvasModule);
 
   const palette = mergeRankCardTheme(data.theme || {});
+  palette.secondaryTextColor = palette.labelColor;
+  palette.progressStartColor = palette.primaryTextColor;
+  palette.progressEndColor = palette.primaryTextColor;
+  palette.ringColor = palette.primaryTextColor;
+  palette.rankBoxBorderColor = palette.valueColor;
   const width = 1000;
   const height = 300;
   const canvas = createCanvas(width, height);

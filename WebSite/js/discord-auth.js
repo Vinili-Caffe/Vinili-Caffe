@@ -327,43 +327,39 @@
     var img = avatarUrl(user);
     var label = escAttr(name);
     var href = escAttr(profileHref(user && user.id));
-    var avatarBlock = img
-      ? '<a class="discord-profile-link" href="' +
-        href +
-        '" aria-label="Vai al profilo di ' +
-        label +
-        '" title="Vai al profilo">' +
-        '<span class="discord-avatar-clip">' +
-        '<img class="discord-avatar-img" src="' +
+    var avatarVisual = img
+      ? '<img class="discord-avatar-img" src="' +
         img +
-        '" alt="" width="38" height="38" decoding="async" title="' +
+        '" alt="" width="38" height="38" decoding="async" aria-label="' +
         label +
-        '" aria-label="' +
+        '">'
+      : '<span class="discord-avatar-img discord-avatar-img--fallback" aria-label="' +
         label +
-        '">' +
-        "</span>" +
-        '<span class="discord-profile-hover">Vai al profilo</span>' +
-        "</a>"
-      : '<a class="discord-profile-link" href="' +
-        href +
-        '" aria-label="Vai al profilo di ' +
-        label +
-        '" title="Vai al profilo">' +
-        '<span class="discord-avatar-clip">' +
-        '<span class="discord-avatar-img discord-avatar-img--fallback" title="' +
-        label +
-        '" aria-label="' +
-        label +
-        '"><i class="fa fa-user" aria-hidden="true"></i></span>' +
-        "</span>" +
-        '<span class="discord-profile-hover">Vai al profilo</span>' +
-        "</a>";
+        '"><i class="fa fa-user" aria-hidden="true"></i></span>';
+    var avatarBlock =
+      '<div class="discord-account-menu">' +
+      '<button type="button" class="discord-profile-link" aria-label="Menu account di ' +
+      label +
+      '" aria-haspopup="true">' +
+      '<span class="discord-avatar-clip">' +
+      avatarVisual +
+      "</span>" +
+      "</button>" +
+      '<div class="discord-account-popover" role="menu">' +
+      '<div class="discord-account-popover__head"><span class="discord-account-popover__avatar">' +
+      avatarVisual +
+      '</span><span class="discord-account-popover__name">' +
+      label +
+      "</span></div>" +
+      '<a class="discord-account-popover__item" role="menuitem" href="' +
+      href +
+      '"><i class="fa fa-user-o" aria-hidden="true"></i><span>Vai al profilo</span></a>' +
+      '<button type="button" class="discord-account-popover__item discord-account-popover__item--danger" role="menuitem" id="discord-logout-btn"><i class="fa fa-sign-out" aria-hidden="true"></i><span>Logout</span></button>' +
+      "</div></div>";
     state.innerHTML =
       '<div class="discord-login-row">' +
       avatarBlock +
-      '<button type="button" class="discord-logout-btn" id="discord-logout-btn" aria-label="Logout" title="Logout">' +
-      '<i class="fa fa-sign-out" aria-hidden="true"></i>' +
-      "</button></div>";
+      "</div>";
     state.hidden = false;
     var out = byId("discord-logout-btn");
     if (out) {

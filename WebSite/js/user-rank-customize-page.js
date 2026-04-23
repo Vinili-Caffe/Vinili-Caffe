@@ -9,14 +9,10 @@
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
-    { key: "primaryTextColor", title: "Testo Principale", subtitle: "Username, stats e progress bar", icon: "fa-text-width" },
-    { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Testo moltiplicatore XP", icon: "fa-bolt" },
-    { key: "valueColor", title: "Valori", subtitle: "Server rank e weekly rank", icon: "fa-bar-chart" },
-    { key: "labelColor", title: "Etichette", subtitle: 'Label come "LEVEL", "XP", ecc.', icon: "fa-tag" },
-    { key: "progressStartColor", title: "Progress Start", subtitle: "Inizio barra XP", icon: "fa-long-arrow-right" },
-    { key: "progressEndColor", title: "Progress End", subtitle: "Fine barra XP", icon: "fa-long-arrow-right" },
-    { key: "ringColor", title: "Avatar Ring", subtitle: "Glow e bordo avatar", icon: "fa-circle-o" },
-    { key: "rankBoxBorderColor", title: "Rank Box", subtitle: "Bordo e valore box rank", icon: "fa-square-o" },
+    { key: "primaryTextColor", title: "Testo Principale", subtitle: "Username, progress bar e accenti stats", icon: "fa-text-width" },
+    { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Solo il piccolo multi accanto allo username", icon: "fa-bolt" },
+    { key: "valueColor", title: "Valori", subtitle: "Server rank, weekly rank, weekly XP e multiplier", icon: "fa-bar-chart" },
+    { key: "labelColor", title: "Etichette", subtitle: 'Scritte tipo "Lv.", "RANK", "WEEKLY XP"', icon: "fa-tag" },
   ];
 
   function byId(id) {
@@ -73,6 +69,14 @@
       window.location.href = profileUrl(id);
     }
     return true;
+  }
+
+  function enforceTargetOwnership(targetUserId, user) {
+    var target = String(targetUserId || "").trim();
+    var viewer = String((user && user.id) || "").trim();
+    if (!/^\d{17,20}$/.test(target) || !/^\d{17,20}$/.test(viewer)) return false;
+    if (target === viewer) return false;
+    return redirectToProfile(target);
   }
 
   function formatIntIt(n) {
@@ -141,18 +145,21 @@
 
   function rankStyle(theme) {
     var t = theme || {};
+    var primary = t.primaryTextColor || "#ffcb05";
+    var value = t.valueColor || "#f2f2f2";
+    var label = t.labelColor || "#a8acb8";
     return [
       "--vc-rank-panel:" + esc(t.panelColor),
       "--vc-rank-panel-rgb:" + esc(hexToRgbList(t.panelColor)),
-      "--vc-rank-primary:" + esc(t.primaryTextColor),
-      "--vc-rank-secondary:" + esc(t.secondaryTextColor),
+      "--vc-rank-primary:" + esc(primary),
+      "--vc-rank-secondary:" + esc(label),
       "--vc-rank-multiplier:" + esc(t.multiplierColor),
-      "--vc-rank-value:" + esc(t.valueColor),
-      "--vc-rank-label:" + esc(t.labelColor),
-      "--vc-rank-progress-start:" + esc(t.progressStartColor),
-      "--vc-rank-progress-end:" + esc(t.progressEndColor),
-      "--vc-rank-ring:" + esc(t.ringColor),
-      "--vc-rank-rankbox:" + esc(t.rankBoxBorderColor),
+      "--vc-rank-value:" + esc(value),
+      "--vc-rank-label:" + esc(label),
+      "--vc-rank-progress-start:" + esc(primary),
+      "--vc-rank-progress-end:" + esc(primary),
+      "--vc-rank-ring:" + esc(primary),
+      "--vc-rank-rankbox:" + esc(value),
       "--vc-rank-opacity:" + esc(String(t.overlayOpacity)),
       "--vc-rank-wallpaper:" + (resolvedWallpaper(t) ? 'url(&quot;' + esc(resolvedWallpaper(t)) + '&quot;)' : "none"),
     ].join(";");
@@ -163,39 +170,44 @@
     var username = String(data.username || "utente").trim() || "utente";
     var avatar = String(data.avatarUrl || "").trim();
     var progressPct = String(Math.max(0, Math.min(100, Math.round(Number(stats.progressPercent || 0))))) + "%";
-    var weeklyRankText = stats.weeklyRank ? "#" + String(stats.weeklyRank) : "Fuori";
-    var rankText = stats.allTimeRank ? "#" + String(stats.allTimeRank) : "-";
+    var weeklyRankText = stats.weeklyRank ? "#" + formatIntIt(stats.weeklyRank) : "#1";
+    var rankText = stats.allTimeRank ? "#" + formatIntIt(stats.allTimeRank) : "#1";
+    var currentLevelExp = Number(stats.currentLevelExp || 0);
+    var nextLevelExp = Number(stats.nextLevelExp || 100);
+    var currentXp = Math.max(0, Number(stats.totalExp || 0) - currentLevelExp);
+    var targetXp = Math.max(1, nextLevelExp - currentLevelExp);
     return (
-      '<div class="vc-user-rankcard vc-rank-editor-livecard" style="' +
+      '<div class="vc-rank-editor-preview__card" style="' +
       rankStyle(theme) +
       '">' +
-      '<div class="vc-user-rankcard__main">' +
-      '<div class="vc-user-rankcard__avatarwrap">' +
-      '<span class="vc-user-rankcard__avatarclip">' +
+      '<div class="vc-rank-editor-preview__hero">' +
+      '<div class="vc-rank-editor-preview__avatarwrap">' +
       (avatar
-        ? '<img class="vc-user-rankcard__avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" />'
-        : '<span class="vc-user-rankcard__avatar vc-user-rankcard__avatar--fallback"><i class="fa fa-user"></i></span>') +
-      "</span>" +
+        ? '<img class="vc-rank-editor-preview__avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" />'
+        : '<span class="vc-rank-editor-preview__avatar vc-rank-editor-preview__avatar--fallback"><i class="fa fa-user"></i></span>') +
       "</div>" +
-      '<div class="vc-user-rankcard__copy">' +
-      '<div class="vc-user-rankcard__name">' +
-      esc(username) +
-      ' <span class="vc-user-rankcard__level">- Lv. ' +
-      esc(String(stats.level || 0)) +
-      "</span></div>" +
-      '<div class="vc-user-rankcard__progress"><span class="vc-user-rankcard__progressfill" style="width:' +
+      '<div class="vc-rank-editor-preview__copy">' +
+      '<div class="vc-rank-editor-preview__topline">' +
+      '<span class="vc-rank-editor-preview__name">' + esc(username) + "</span>" +
+      '<span class="vc-rank-editor-preview__dot">·</span>' +
+      '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(stats.level || 0)) + "</span>" +
+      '<span class="vc-rank-editor-preview__mult">' + esc(formatMult(stats.multiplier || 1)) + "</span>" +
+      "</div>" +
+      '<div class="vc-rank-editor-preview__bar"><span class="vc-rank-editor-preview__fill" style="width:' +
       esc(progressPct) +
-      '"></span><span class="vc-user-rankcard__progresstext">' +
-      esc(formatIntIt(stats.totalExp || 0)) +
-      " EXP</span></div>" +
-      '<div class="vc-user-rankcard__meta">' +
-      '<span class="vc-user-rankcard__pill">Weekly rank ' + esc(weeklyRankText) + "</span>" +
-      '<span class="vc-user-rankcard__pill">Weekly XP ' + esc(formatIntIt(stats.weeklyExp || 0)) + "</span>" +
-      '<span class="vc-user-rankcard__pill">Moltiplicatore ' + esc(formatMult(stats.multiplier || 1)) + "</span>" +
+      '"></span><span class="vc-rank-editor-preview__bartext">' +
+      esc(formatIntIt(currentXp)) +
+      " / " +
+      esc(formatIntIt(targetXp)) +
+      " XP</span></div>" +
       "</div>" +
+      '<div class="vc-rank-editor-preview__rankbox"><strong>' + esc(rankText) + "</strong><small>RANK</small></div>" +
       "</div>" +
-      '<div class="vc-user-rankcard__rankbox">' + esc(rankText) + "<small>RANK</small></div>" +
-      "</div>"
+      '<div class="vc-rank-editor-preview__stats">' +
+      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-trophy" aria-hidden="true"></i><span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-bolt" aria-hidden="true"></i><span>WEEKLY XP</span><strong>' + esc(formatIntIt(stats.weeklyExp || 0)) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-star" aria-hidden="true"></i><span>MULTIPLIER</span><strong>' + esc(formatMult(stats.multiplier || 1)) + "</strong></div>" +
+      "</div></div>"
     );
   }
 
@@ -288,20 +300,20 @@
       "</div>" +
       '<div class="vc-rank-editor-layout">' +
       '<div class="vc-rank-editor-panel">' +
-      '<details class="vc-rank-editor-card" data-rank-accordion="opacity"' + (activeAccordion === "opacity" ? " open" : "") + ">" +
-      '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="opacity">' +
-      '<span class="vc-rank-editor-card__icon"><i class="fa fa-sliders" aria-hidden="true"></i></span>' +
-      '<span class="vc-rank-editor-card__copy"><strong>Opacita card</strong><span>Trasparenza dei pannelli della rank card</span></span>' +
-      '<span class="vc-rank-editor-card__badge">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
-      '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
-      "</summary>" +
-      '<div class="vc-rank-editor-card__body">' +
-      '<div class="vc-rank-editor-sliderrow">' +
-      '<input id="vc-rank-opacity-range" type="range" min="0" max="100" step="5" value="' + esc(String(toPct(draft.overlayOpacity))) + '" />' +
-      '<span id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
-      "</div></div></details>" +
       (activeTab === "colors"
-        ? colorCards
+        ? '<details class="vc-rank-editor-card" data-rank-accordion="opacity"' + (activeAccordion === "opacity" ? " open" : "") + ">" +
+          '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="opacity">' +
+          '<span class="vc-rank-editor-card__icon"><i class="fa fa-sliders" aria-hidden="true"></i></span>' +
+          '<span class="vc-rank-editor-card__copy"><strong>Opacita card</strong><span>Trasparenza di tutta la rank card</span></span>' +
+          '<span class="vc-rank-editor-card__badge">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
+          '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
+          "</summary>" +
+          '<div class="vc-rank-editor-card__body">' +
+          '<div class="vc-rank-editor-sliderrow">' +
+          '<input id="vc-rank-opacity-range" type="range" min="0" max="100" step="5" value="' + esc(String(toPct(draft.overlayOpacity))) + '" />' +
+          '<span id="vc-rank-opacity-label">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
+          "</div></div></details>" +
+          colorCards
         : '<section class="vc-rank-editor-wallgrid">' + wallpaperGalleryMarkup() + "</section>" + wallpaperCustomMarkup()) +
       '<div class="vc-rank-editor-actions"><button type="button" class="vc-rank-editor-save" id="vc-rank-save"><i class="fa fa-floppy-o" aria-hidden="true"></i> Salva Modifiche</button><button type="button" class="vc-rank-editor-reset" id="vc-rank-reset"><i class="fa fa-undo" aria-hidden="true"></i> Reset</button></div>' +
       '<p class="vc-rank-editor-status" id="vc-rank-status"></p>' +
@@ -309,7 +321,7 @@
       '<aside class="vc-rank-editor-side">' +
       '<div class="vc-rank-editor-previewcard"><div class="vc-rank-editor-previewcard__head"><span class="vc-rank-editor-previewcard__icon"><i class="fa fa-eye" aria-hidden="true"></i></span><div><strong>Anteprima Live</strong></div></div>' +
       previewMarkup(loaded, draft) +
-      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacita si aggiorna in tempo reale. Per colori e wallpaper clicca "Aggiorna Anteprima".</span></div>' +
+      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacita si aggiorna in tempo reale. I wallpaper si aggiornano appena li selezioni; per i colori usa "Aggiorna Anteprima".</span></div>' +
       '<div class="vc-rank-editor-previewbadge">Preview identica a <code>+rank</code> su Discord</div>' +
       "</div></aside></div>";
 
@@ -416,7 +428,7 @@
     Array.prototype.slice.call(document.querySelectorAll("[data-rank-tab]")).forEach(function (button) {
       button.addEventListener("click", function () {
         activeTab = button.getAttribute("data-rank-tab");
-        activeAccordion = activeTab === "wallpaper" ? "custom-wallpaper" : "opacity";
+        activeAccordion = activeTab === "wallpaper" ? "" : "opacity";
         render();
       });
     });
@@ -521,6 +533,9 @@
       setStatus("Sessione Discord scaduta. Effettua di nuovo il login.", true);
       return;
     }
+    if (!window.confirm("Vuoi davvero ripristinare i colori predefiniti?")) {
+      return;
+    }
     setStatus("Reset in corso...", false);
     fetch(resolvedRankApiUrl(), {
       method: "POST",
@@ -548,6 +563,7 @@
   function main() {
     var targetUserId = parseTargetUserId();
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
+    if (enforceTargetOwnership(targetUserId, currentUser)) return;
     fetchRankData().then(function (body) {
       var loading = byId("vc-rank-customize-loading");
       if (loading) loading.hidden = true;
@@ -568,6 +584,7 @@
 
   window.addEventListener("vc-discord-profile", function (ev) {
     currentUser = ev && ev.detail ? ev.detail.user || null : null;
+    enforceTargetOwnership(parseTargetUserId(), currentUser);
   });
 
   if (document.readyState === "loading") {

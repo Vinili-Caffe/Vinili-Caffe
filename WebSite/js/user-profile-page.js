@@ -108,17 +108,20 @@
 
   function rankCardStyleVars(theme, resolvedWallpaper) {
     var src = theme && typeof theme === "object" ? theme : {};
+    var primary = src.primaryTextColor || "#ffcb05";
+    var value = src.valueColor || "#f2f2f2";
+    var label = src.labelColor || "#a8acb8";
     var out = [];
     if (src.panelColor) out.push("--vc-rank-panel:" + esc(src.panelColor));
-    if (src.primaryTextColor) out.push("--vc-rank-primary:" + esc(src.primaryTextColor));
-    if (src.secondaryTextColor) out.push("--vc-rank-secondary:" + esc(src.secondaryTextColor));
+    out.push("--vc-rank-primary:" + esc(primary));
+    out.push("--vc-rank-secondary:" + esc(label));
     if (src.multiplierColor) out.push("--vc-rank-multiplier:" + esc(src.multiplierColor));
-    if (src.valueColor) out.push("--vc-rank-value:" + esc(src.valueColor));
-    if (src.labelColor) out.push("--vc-rank-label:" + esc(src.labelColor));
-    if (src.progressStartColor) out.push("--vc-rank-progress-start:" + esc(src.progressStartColor));
-    if (src.progressEndColor) out.push("--vc-rank-progress-end:" + esc(src.progressEndColor));
-    if (src.ringColor) out.push("--vc-rank-ring:" + esc(src.ringColor));
-    if (src.rankBoxBorderColor) out.push("--vc-rank-rankbox:" + esc(src.rankBoxBorderColor));
+    out.push("--vc-rank-value:" + esc(value));
+    out.push("--vc-rank-label:" + esc(label));
+    out.push("--vc-rank-progress-start:" + esc(primary));
+    out.push("--vc-rank-progress-end:" + esc(primary));
+    out.push("--vc-rank-ring:" + esc(primary));
+    out.push("--vc-rank-rankbox:" + esc(value));
     if (src.overlayOpacity != null) out.push("--vc-rank-opacity:" + esc(String(src.overlayOpacity)));
     if (src.panelColor) {
       var rgb = hexToRgbList(src.panelColor);

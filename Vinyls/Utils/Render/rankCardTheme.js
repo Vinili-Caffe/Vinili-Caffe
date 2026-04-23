@@ -147,7 +147,7 @@ function resolveRankCardWallpaper(theme) {
   const custom = sanitizeWallpaperUrl(src.wallpaperUrl);
   if (custom) return custom;
   const key = sanitizeWallpaperKey(src.wallpaperKey);
-  return String(RANK_CARD_WALLPAPERS[key]?.wallpaperUrl || "");
+  return String(RANK_CARD_WALLPAPERS[key]?.wallpaperUrl || RANK_CARD_WALLPAPERS[key]?.previewUrl || "");
 }
 
 function listRankCardWallpapers() {
@@ -161,7 +161,7 @@ function listRankCardWallpapers() {
 function mergeRankCardTheme(input) {
   const src = input && typeof input === "object" ? input : {};
   return {
-    overlayOpacity: clamp(src.overlayOpacity, 0, 1),
+    overlayOpacity: clamp(src.overlayOpacity == null ? DEFAULT_RANK_CARD_THEME.overlayOpacity : src.overlayOpacity, 0, 1),
     wallpaperKey: sanitizeWallpaperKey(src.wallpaperKey),
     wallpaperUrl: sanitizeWallpaperUrl(src.wallpaperUrl),
     panelColor: normalizeHex(src.panelColor, DEFAULT_RANK_CARD_THEME.panelColor),
