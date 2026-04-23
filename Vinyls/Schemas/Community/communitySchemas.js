@@ -334,6 +334,10 @@ const activityUserProfileSchema = new Schema(
               discadia_vote: {
                 lastVoteAt: null,
                 lastRemindedAt: null,
+                lastVoteAtTopgg: null,
+                lastRemindedAtTopgg: null,
+                lastVoteAtDiscadia: null,
+                lastRemindedAtDiscadia: null,
                 voteCountTopgg: 0,
                 voteCountDiscadia: 0,
                 pendingVotes: [],

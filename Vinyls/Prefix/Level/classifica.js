@@ -462,7 +462,9 @@ async function buildWeeklyEmbed(guild, excludeStaffFromShort = false, useExpUser
   const candidateRows = await computeLeaderboardRows(guild, "weekly", maxCand);
   const members = await fetchMembers(guild, candidateRows.map((r) => r.userId),);
   let rows = candidateRows;
-  rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
+  if (excludeStaffFromShort) {
+    rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
+  }
   rows = rows.slice(0, TOP_LIMIT);
   const lines = [];
   rows.forEach((row, index) => {

@@ -61,7 +61,18 @@
   }
 
   function profileUrl(userId) {
-    return "/user/" + encodeURIComponent(String(userId || "").trim());
+    return "/users/" + encodeURIComponent(String(userId || "").trim());
+  }
+
+  function redirectToProfile(userId) {
+    var id = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(id)) return false;
+    try {
+      window.location.replace(profileUrl(id));
+    } catch (e) {
+      window.location.href = profileUrl(id);
+    }
+    return true;
   }
 
   function formatIntIt(n) {
@@ -545,7 +556,7 @@
         return;
       }
       if (targetUserId && String(targetUserId) !== String(body.userId || "")) {
-        setStatus("Puoi personalizzare solo la tua rank card.", true);
+        redirectToProfile(targetUserId);
         return;
       }
       loaded = body;

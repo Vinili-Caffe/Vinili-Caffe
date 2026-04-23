@@ -384,6 +384,70 @@ function buildLiveStatsBootHtml(cfg, inviteCode, opts) {
   );
 }
 
+function boolFromEnv(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  if (["1", "true", "yes", "on"].includes(raw)) return true;
+  if (["0", "false", "no", "off"].includes(raw)) return false;
+  return null;
+}
+
+function listFromCsv(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function buildMaintenanceBootHtml(cfg) {
+  const maintenance = cfg.maintenance && typeof cfg.maintenance === "object" ? cfg.maintenance : {};
+  const envEnabled = boolFromEnv(process.env.VC_SITE_MAINTENANCE);
+  const enabled = envEnabled == null ? maintenance.enabled === true : envEnabled;
+  const envAllowedIds = listFromCsv(process.env.VC_SITE_MAINTENANCE_ALLOWED_IDS);
+  const allowedUserIds = envAllowedIds.length
+    ? envAllowedIds
+    : Array.isArray(maintenance.allowedUserIds)
+      ? maintenance.allowedUserIds.map((id) => String(id || "").trim()).filter(Boolean)
+      : [];
+  const payload = {
+    enabled,
+    allowedUserIds,
+    title: String(maintenance.title || "Sito in manutenzione"),
+    message: String(maintenance.message || "Stiamo sistemando alcune parti del sito. Torna tra poco!"),
+    clientId: String(cfg.discordOauth?.clientId || "").trim(),
+    redirectUri: String(cfg.discordOauth?.redirectUri || cfg.siteUrl || "").trim(),
+  };
+  const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return `    <script>window.__VC_MAINTENANCE=${json};</script>\n    <script src="/js/site-maintenance.js"></script>\n`;
+}
+
+function applyMaintenanceGateToHtml(html, maintenanceBoot) {
+  if (!maintenanceBoot || html.includes("window.__VC_MAINTENANCE")) return html;
+  if (html.includes("</head>")) {
+    return html.replace("</head>", `${maintenanceBoot}  </head>`);
+  }
+  return maintenanceBoot + html;
+}
+
+function applyMaintenanceGateToDist(distDir, maintenanceBoot) {
+  if (!maintenanceBoot) return;
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!name.toLowerCase().endsWith(".html")) continue;
+      const html = fs.readFileSync(p, "utf8");
+      const next = applyMaintenanceGateToHtml(html, maintenanceBoot);
+      if (next !== html) fs.writeFileSync(p, next, "utf8");
+    }
+  };
+  walk(distDir);
+}
+
 async function buildStaffListBlock(cfg, guildId) {
   const b = cfg.discordStaffListBuild;
   if (!b || b.enabled !== true) return staffListFallback();
@@ -768,6 +832,7 @@ async function main() {
   const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode);
   const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
   const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
+  const maintenanceBoot = buildMaintenanceBootHtml(cfg);
 
   if (staffResult.staffCount != null) {
     const extraPath = path.join(DIST, "live-stats-extra.json");
@@ -1282,6 +1347,8 @@ async function main() {
     warnLeftoverPlaceholders(legalHtml, rel);
     fs.writeFileSync(legalPath, legalHtml, "utf8");
   }
+
+  applyMaintenanceGateToDist(DIST, maintenanceBoot);
 
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }

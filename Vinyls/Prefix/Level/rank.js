@@ -2,7 +2,6 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getUserRanks, getGlobalMultiplier, } = require("../../Services/Community/expService");
-const IDs = require("../../Utils/Config/ids");
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 
@@ -27,8 +26,6 @@ module.exports = {
     const targetMember =
       message.guild.members.cache.get(targetUser.id) ||
       (await message.guild.members.fetch(targetUser.id).catch(() => null));
-    const staffRoleId = String(IDs.roles?.Staff || "").trim();
-    const hideLeaderboardRanks = Boolean(staffRoleId && targetMember?.roles?.cache?.has(staffRoleId));
 
     const{stats,weeklyRank,allTimeRank}=await getUserRanks(message.guild.id,targetUser.id,);
     const multiplier = await getGlobalMultiplier(message.guild.id);
@@ -55,7 +52,7 @@ module.exports = {
       allTimeRank,
       weeklyExp: stats.weeklyExp,
       multiplier,
-      hideLeaderboardRanks,
+      hideLeaderboardRanks: false,
       theme: rankCardTheme,
     });
     const file=new AttachmentBuilder(card,{name:`rank-${targetUser.id}.png`});

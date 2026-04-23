@@ -21,7 +21,18 @@ const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:14826944
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
 const VOICE_WINNER_ROLE_ID = IDs.roles.TopWeeklyVoc;
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
-const EXCLUDED_ROLE_IDS = new Set([IDs.roles.Staff, IDs.roles.HighStaff].filter(Boolean).map((id) => String(id)));
+const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
+  [
+    IDs.roles.Staff,
+    IDs.roles.HighStaff,
+    IDs.roles.Helper,
+    IDs.roles.Mod,
+    IDs.roles.Admin,
+    IDs.roles.Founder,
+  ]
+    .filter(Boolean)
+    .map((id) => String(id)),
+);
 
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, timeZoneName: "shortOffset", hour: "2-digit" });
@@ -277,7 +288,7 @@ async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3)
     const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
     if (!member) continue;
     if (REQUIRED_MEMBER_ROLE_ID && !member.roles.cache.has(REQUIRED_MEMBER_ROLE_ID)) continue;
-    const hasExcludedRole = Array.from(EXCLUDED_ROLE_IDS).some((roleId) => member.roles.cache.has(roleId));
+    const hasExcludedRole = Array.from(WEEKLY_WINNERS_EXCLUDED_ROLE_IDS).some((roleId) => member.roles.cache.has(roleId));
     if (hasExcludedRole) continue;
     const value = Math.max(0, Math.floor(Number(valueGetter(doc) || 0)));
     if (value <= 0) continue;

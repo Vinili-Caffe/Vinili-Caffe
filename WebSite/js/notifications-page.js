@@ -1,15 +1,32 @@
 (function () {
-  var STORAGE_KEY = "vc_notifications_v1";
+  var STORAGE_PREFIX = "vc_notifications_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var filterMode = "all";
+  var currentUserId = "";
 
   function byId(id) {
     return document.getElementById(id);
   }
 
+  function normalizeUserId(value) {
+    var id = String(value || "").trim();
+    return /^\d{17,20}$/.test(id) ? id : "";
+  }
+
+  function userStorageKey(userId) {
+    var id = normalizeUserId(userId || currentUserId);
+    return id ? STORAGE_PREFIX + id : "";
+  }
+
+  function setCurrentUser(user) {
+    currentUserId = normalizeUserId(user && user.id);
+  }
+
   function loadStored() {
+    var key = userStorageKey();
+    if (!key) return [];
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var raw = localStorage.getItem(key);
       if (!raw) return [];
       var arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr : [];
@@ -19,12 +36,16 @@
   }
 
   function saveStored(items) {
+    var key = userStorageKey();
+    if (!key) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(key, JSON.stringify(items));
     } catch (e) {}
   }
 
   function addNotif(p) {
+    var ownerId = normalizeUserId((p && p.userId) || currentUserId);
+    if (!ownerId) return [];
     var kindRaw = p && p.kind;
     var kind =
       kindRaw === "vote" ? "vote" : kindRaw === "success" ? "success" : "info";
@@ -39,9 +60,19 @@
       kind: kind,
       openUrl: openUrl,
     };
-    var s = loadStored();
+    var key = userStorageKey(ownerId);
+    var s = [];
+    try {
+      var raw = localStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      s = Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      s = [];
+    }
     s.unshift(item);
-    saveStored(s);
+    try {
+      localStorage.setItem(key, JSON.stringify(s));
+    } catch (e2) {}
     return s;
   }
 
@@ -59,10 +90,18 @@
     } catch (e2) {
       data = null;
     }
+    if (!data || typeof data !== "object") return;
+    var ownerId = normalizeUserId(data.userId);
+    if (!ownerId) {
+      try {
+        localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
+      } catch (e4) {}
+      return;
+    }
+    if (!currentUserId || ownerId !== currentUserId) return;
     try {
       localStorage.removeItem(PENDING_LOGIN_NOTIF_KEY);
     } catch (e3) {}
-    if (!data || typeof data !== "object") return;
     addNotif(data);
   }
 
@@ -248,6 +287,7 @@
   }
 
   function init() {
+    setCurrentUser(window.__VC_DISCORD_PROFILE || null);
     var allBtn = byId("vc-filter-all");
     var unreadBtn = byId("vc-filter-unread");
     var clearBtn = byId("vc-notify-clear-all-page");
@@ -274,6 +314,12 @@
     flushPendingLoginNotification();
     renderList();
   }
+
+  window.addEventListener("vc-discord-profile", function (ev) {
+    setCurrentUser(ev && ev.detail ? ev.detail.user : null);
+    flushPendingLoginNotification();
+    renderList();
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

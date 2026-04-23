@@ -259,6 +259,7 @@
           kind: "success",
           at: Date.now(),
           openUrl: home,
+          userId: String((user && user.id) || ""),
         }
         : {
           title: "Benvenuto",
@@ -271,6 +272,7 @@
           kind: "success",
           at: Date.now(),
           openUrl: home,
+          userId: String((user && user.id) || ""),
         };
     bumpOAuthLoginCount();
     if (window.vcNotify && typeof window.vcNotify.add === "function") {

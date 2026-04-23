@@ -51,6 +51,34 @@ function combinedVotesFromLeaf(leaf) {
   };
 }
 
+function voteCooldownMs(client, platform) {
+  const key = platform === "topgg" ? "topgg" : "discadia";
+  if (key === "topgg") {
+    const hours = Number(client?.config?.topgg?.voteReminderCooldownHours);
+    return (Number.isFinite(hours) && hours > 0 ? hours : 12) * 60 * 60 * 1000;
+  }
+  const hours = Number(client?.config?.discadiaVoteReminder?.cooldownHours);
+  return (Number.isFinite(hours) && hours > 0 ? hours : 24) * 60 * 60 * 1000;
+}
+
+function platformVoteState(client, leaf, platform) {
+  const key = platform === "topgg" ? "topgg" : "discadia";
+  const lastRaw =
+    key === "topgg"
+      ? leaf?.lastVoteAtTopgg || (leaf?.lastVoteListing === "topgg" ? leaf?.lastVoteAt : null)
+      : leaf?.lastVoteAtDiscadia || (leaf?.lastVoteListing === "discadia" ? leaf?.lastVoteAt : null);
+  const lastAt = lastRaw ? new Date(lastRaw) : null;
+  const lastMs = lastAt && Number.isFinite(lastAt.getTime()) ? lastAt.getTime() : 0;
+  const cooldown = voteCooldownMs(client, key);
+  const nextMs = lastMs ? lastMs + cooldown : 0;
+  return {
+    lastVoteAt: lastMs ? lastAt.toISOString() : null,
+    nextVoteAt: nextMs ? new Date(nextMs).toISOString() : null,
+    canVote: !nextMs || Date.now() >= nextMs,
+    cooldownHours: Math.round(cooldown / (60 * 60 * 1000)),
+  };
+}
+
 async function fetchUserIdentity(client, guild, userId) {
   const out = {
     userId: String(userId || ""),
@@ -168,9 +196,16 @@ async function handleSiteVoteGet(client, req, res) {
       topggVotes: 0,
       discadiaVotes: 0,
       rank: null,
+      topgg: platformVoteState(client, {}, "topgg"),
+      discadia: platformVoteState(client, {}, "discadia"),
     };
     if (searchUserId) {
       const idx = activeRowsBase.findIndex((row) => row.userId === searchUserId);
+      const personalDoc = await ActivityUserProfile.findOne({ guildId, userId: searchUserId })
+        .select("profile.totals.exp.bumpVoteRewards.discadia_vote")
+        .lean()
+        .catch(() => null);
+      const personalLeaf = voteLeaf(personalDoc);
       if (idx >= 0) {
         personal = {
           userId: searchUserId,
@@ -178,7 +213,12 @@ async function handleSiteVoteGet(client, req, res) {
           topggVotes: activeRowsBase[idx].topggVotes,
           discadiaVotes: activeRowsBase[idx].discadiaVotes,
           rank: idx + 1,
+          topgg: platformVoteState(client, personalLeaf, "topgg"),
+          discadia: platformVoteState(client, personalLeaf, "discadia"),
         };
+      } else {
+        personal.topgg = platformVoteState(client, personalLeaf, "topgg");
+        personal.discadia = platformVoteState(client, personalLeaf, "discadia");
       }
     }
 

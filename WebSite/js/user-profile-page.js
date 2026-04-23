@@ -228,13 +228,11 @@
   function renderEmpty(root, userId) {
     document.title = "Profilo " + userId + " | " + siteName();
     root.innerHTML =
-      '<section class="vc-user-profile-shell">' +
-      '<div class="vc-user-profile-empty">' +
-      '<div class="vc-user-profile-empty__emoji" aria-hidden="true">Ciao</div>' +
-      '<h1 class="vc-user-profile-empty__title">Il profilo non e ancora disponibile.</h1>' +
-      '<p class="vc-user-profile-empty__text">Questo utente non ha ancora statistiche visibili. Basta iniziare a scrivere o passare in vocale nel server per creare il profilo.</p>' +
-      '<p class="vc-user-profile-empty__hint">Appena ci sara almeno una statistica, qui compariranno livello, messaggi, voice e rank card.</p>' +
-      '<a class="vc-user-profile-empty__cta" href="/user">Torna alla Community</a>' +
+      '<section class="vc-user-profile-shell vc-user-profile-shell--notfound">' +
+      '<div class="vc-user-profile-notfound">' +
+      '<div class="vc-user-profile-notfound__emoji" aria-hidden="true">&#128532;</div>' +
+      '<h1 class="vc-user-profile-notfound__title">Utente non trovato</h1>' +
+      '<a class="vc-user-profile-notfound__cta" href="/user">Torna alla Community</a>' +
       "</div></section>";
   }
 

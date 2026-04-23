@@ -411,6 +411,18 @@ function logEventError(client, label, error) {
   });
 }
 
+async function sendCountingFailureReply(message, embed, client) {
+  try {
+    return await message.reply({
+      embeds: [embed],
+      allowedMentions: { repliedUser: false },
+    });
+  } catch (err) {
+    logEventError(client, "COUNTING REPLY", err);
+    return null;
+  }
+}
+
 async function handleCounting(message, client) {
   const guildId =
     message?.guild?.id || message?.channel?.guild?.id || message?.guildId;
@@ -450,15 +462,15 @@ async function handleCounting(message, client) {
   }
   const reaction = "<:success:1461731530333229226>";
   if (message.author.id === countdata.LastUser) {
-    safeMessageReply(message, {
-      embeds: [
-        new EmbedBuilder()
-          .setDescription(
-            `<:cancel:1461730653677551691> Non puoi contare da solo! Counting perso a: **${countdata.Count}**! Riparti scrivendo **1**.`,
-          )
-          .setColor("#6f4e37"),
-      ],
-    });
+    await sendCountingFailureReply(
+      message,
+      new EmbedBuilder()
+        .setDescription(
+          `<:cancel:1461730653677551691> Non puoi contare da solo! Counting perso a: **${countdata.Count}**! Riparti scrivendo **1**.`,
+        )
+        .setColor("#6f4e37"),
+      client,
+    );
     countdata.Count = 0;
     countdata.LastUser = " ";
     message
@@ -469,15 +481,15 @@ async function handleCounting(message, client) {
     messageValue === countdata.Count ||
     messageValue > countdata.Count + 1
   ) {
-    safeMessageReply(message, {
-      embeds: [
-        new EmbedBuilder()
-          .setDescription(
-            `<:cancel:1461730653677551691> Hai sbagliato numero! Counting perso a: **${countdata.Count}**! Riparti scrivendo **1**.`,
-          )
-          .setColor("#6f4e37"),
-      ],
-    });
+    await sendCountingFailureReply(
+      message,
+      new EmbedBuilder()
+        .setDescription(
+          `<:cancel:1461730653677551691> Hai sbagliato numero! Counting perso a: **${countdata.Count}**! Riparti scrivendo **1**.`,
+        )
+        .setColor("#6f4e37"),
+      client,
+    );
     countdata.Count = 0;
     message
       .react("<:cancel:1461730653677551691>")

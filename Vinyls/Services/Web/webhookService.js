@@ -244,10 +244,11 @@ async function startWebhookServer(client) {
     const isUnban = pathStr.startsWith("/webhooks/site-unban");
     const isSiteRules = pathStr.startsWith("/webhooks/site-rules");
     const isSiteUsers = pathStr.startsWith("/webhooks/site-users");
+    const isSiteVote = pathStr.startsWith("/webhooks/site-vote");
     const isSiteLiveEvent = pathStr.startsWith("/webhooks/site-live-event");
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
-    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard) return next();
+    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard) return next();
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -266,7 +267,7 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isSiteRules || isSiteUsers || isSiteLiveEvent || isSiteRoles || isSiteRankCard) {
+    } else if (isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");

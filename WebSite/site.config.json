@@ -10,6 +10,12 @@
     "clientId": "1329118940110127204",
     "redirectUri": "https://www.viniliecaffe.it/"
   },
+  "maintenance": {
+    "enabled": true,
+    "allowedUserIds": ["1243295906934161519", "295500038401163264"],
+    "title": "Sito in manutenzione",
+    "message": "Stiamo sistemando alcune parti del sito. Torna tra poco!"
+  },
   "candidatureSubmitApiUrl": "https://www.viniliecaffe.it/webhooks/site-candidature",
   "candidatureSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-candidature",
   "unbanSubmitApiUrl": "https://www.viniliecaffe.it/webhooks/site-unban",

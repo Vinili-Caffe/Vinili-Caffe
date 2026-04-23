@@ -26,7 +26,6 @@ function isPmStaffListMessageContent(content) {
 }
 const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-/** Ruoli con sezione dedicata nella STAFF LIST (High Staff è escluso su richiesta). */
 const ROLE_EMOJIS = {
   [IDs.roles.PartnerManager]: { emoji: "<:VC_PartnerManager:1494286911286808576>" },
   [IDs.roles.Helper]: { emoji: "<:VC_Helper:1494287597952958514>" },
@@ -37,7 +36,6 @@ const ROLE_EMOJIS = {
 const ROLE_EXCLUSIONS = { [IDs.roles.PartnerManager]: ["1442568907801100419"], };
 const STAFF_LIST_SECTION_ROLE_IDS = Object.keys(ROLE_EMOJIS);
 const HIGH_STAFF_ROLE_ID = String(IDs.roles.HighStaff || "").trim();
-/** Include High Staff: serve a `memberHasStaffRole` e logica staff, ma non genera riga in lista. */
 const STAFF_ROLE_IDS =
   HIGH_STAFF_ROLE_ID && !STAFF_LIST_SECTION_ROLE_IDS.includes(HIGH_STAFF_ROLE_ID)
     ? [...STAFF_LIST_SECTION_ROLE_IDS, HIGH_STAFF_ROLE_ID]
