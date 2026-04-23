@@ -220,6 +220,8 @@ async function buildCustomProfileData(guild, userId) {
             String(role.hexColor || "").trim() && String(role.hexColor || "").trim() !== "#000000"
               ? String(role.hexColor || "").trim()
               : "",
+          emoji: String(role.unicodeEmoji || "").trim(),
+          iconUrl: typeof role.iconURL === "function" ? String(role.iconURL({ extension: "png", size: 128 }) || "") : "",
           createdAt: role.createdAt ? new Date(role.createdAt).toISOString() : "",
           memberCount: roleMemberCount,
           sharedMembers: roleSharedMembers,

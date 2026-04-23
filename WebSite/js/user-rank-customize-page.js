@@ -289,7 +289,7 @@
     }).join("");
 
     app.innerHTML =
-      '<div class="vc-rank-editor-topbar"><a class="vc-user-profile-backbtn" href="' + esc(backHref) + '"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Torna al Profilo</a></div>' +
+      '<div class="vc-rank-editor-topbar"><a class="vc-user-profile-backbtn" href="' + esc(backHref) + '"><i class="fa fa-chevron-left" aria-hidden="true"></i> Torna al Profilo</a></div>' +
       '<section class="vc-rank-editor-hero">' +
       '<div class="vc-rank-editor-hero__icon"><i class="fa fa-magic" aria-hidden="true"></i></div>' +
       '<div><h1>Personalizza Rank Card</h1><p>Crea la tua scheda livello unica per Discord</p></div>' +
