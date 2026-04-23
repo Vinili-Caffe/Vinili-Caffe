@@ -167,6 +167,7 @@ function drawStatIcon(ctx, icon, x, y, color) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   if (icon === "trophy") {
+    y -= 2;
     ctx.beginPath();
     ctx.moveTo(x - 8, y - 8);
     ctx.lineTo(x + 8, y - 8);
@@ -215,6 +216,13 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   ctx.strokeStyle = "rgba(255,255,255,0.10)";
   ctx.lineWidth = 1;
   ctx.stroke();
+
+  ctx.save();
+  roundedRect(ctx, x, y, width, height, 10);
+  ctx.clip();
+  ctx.fillStyle = palette.primaryTextColor;
+  ctx.fillRect(x, y, 4, height);
+  ctx.restore();
 
   drawStatIcon(ctx, icon, x + 28, y + height / 2, palette.primaryTextColor);
 

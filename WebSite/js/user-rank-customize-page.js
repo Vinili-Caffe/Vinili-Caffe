@@ -226,9 +226,9 @@
       '<div class="vc-rank-editor-preview__rankbox"><strong>' + esc(rankText) + "</strong><small>RANK</small></div>" +
       "</div>" +
       '<div class="vc-rank-editor-preview__stats">' +
-      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-trophy" aria-hidden="true"></i><span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-bolt" aria-hidden="true"></i><span>WEEKLY XP</span><strong>' + esc(formatIntIt(stats.weeklyExp || 0)) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-star" aria-hidden="true"></i><span>MULTIPLIER</span><strong>' + esc(formatMult(stats.multiplier || 1)) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--trophy"><i class="fa fa-trophy" aria-hidden="true"></i><span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--bolt"><i class="fa fa-bolt" aria-hidden="true"></i><span>WEEKLY XP</span><strong>' + esc(formatIntIt(stats.weeklyExp || 0)) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--star"><i class="fa fa-star" aria-hidden="true"></i><span>MULTIPLIER</span><strong>' + esc(formatMult(stats.multiplier || 1)) + "</strong></div>" +
       "</div></div>"
     );
   }
