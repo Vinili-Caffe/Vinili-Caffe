@@ -195,8 +195,8 @@ async function buildCustomProfileData(guild, userId) {
       username: String(member.user?.username || "").trim(),
       displayName: String(member.displayName || member.user?.username || "Utente").trim(),
       avatarUrl:
-        member.displayAvatarURL?.({ extension: "png", size: 96 }) ||
-        member.user?.displayAvatarURL?.({ extension: "png", size: 96 }) ||
+        member.displayAvatarURL?.({ extension: "png", size: 128 }) ||
+        member.user?.displayAvatarURL?.({ extension: "png", size: 128 }) ||
         "",
     }))
     .filter((member) => member.id);

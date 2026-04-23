@@ -1725,10 +1725,11 @@ ul.vc-footer-social:not(:has(> li)) {
 
 @media (min-width: 640px) {
   .vc-header-snav > .vc-snav-sep {
-    display: none !important;
+    display: inline-block !important;
+    flex: 0 0 auto;
+    margin: 0 1.05rem !important;
   }
 
-  .vc-header-snav > .vc-snav-sep + .vc-snav-details::before,
   .vc-header-snav:not(:has(> .vc-snav-sep)) > .vc-snav-item:not(:first-child)::before,
   .vc-header-snav:not(:has(> .vc-snav-sep)) > .vc-snav-details:not(:first-child)::before {
     content: "";
