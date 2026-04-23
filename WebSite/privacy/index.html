@@ -46,80 +46,222 @@
       </div>
     </header>
 
-    <main class="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-28 sm:pt-32">
-      <article class="vc-glass rounded-2xl border border-white/[0.08] bg-[#140f0c]/56 px-5 py-8 sm:px-8 sm:py-10">
-        <h1 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">Privacy Policy</h1>
-        <p class="mt-2 text-sm text-slate-400">Ultimo aggiornamento: {{LEGAL_PRIVACY_UPDATED}}</p>
+    <main class="vc-legal-main relative z-10 mx-auto max-w-5xl px-4 pb-16 pt-28 sm:pt-32">
+      <section class="vc-legal-hero text-center">
+        <h1 class="vc-legal-hero__title">Privacy Policy</h1>
+        <p class="vc-legal-hero__meta">Ultimo aggiornamento: {{LEGAL_PRIVACY_UPDATED}}</p>
+      </section>
 
-        <section class="mt-8 space-y-4 text-[0.95rem] leading-relaxed text-slate-200/95">
-          <h2 class="text-lg font-semibold text-white">Introduzione</h2>
+      <section class="vc-legal-stack" aria-label="Sezioni Privacy Policy">
+        <article class="vc-legal-card vc-legal-card--blue">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-shield"></i></span>
+            <h2 class="vc-legal-card__title">Introduzione</h2>
+          </div>
           <p>
-            La presente informativa descrive come <strong>{{SITE_NAME}}</strong> (&quot;noi&quot;) tratta i dati personali in relazione al sito <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SITE_URL}}">{{SITE_URL}}</a> (&quot;Sito&quot;) e al server Discord della community (&quot;Server&quot;). Il trattamento avviene nel rispetto del Regolamento (UE) 2016/679 (GDPR) e della normativa italiana applicabile in materia di privacy e cookie.
-          </p>
-
-          <h2 class="pt-4 text-lg font-semibold text-white">Titolare del trattamento</h2>
-          <p>
-            Il titolare del trattamento dei dati raccolti tramite il Sito è la comunità/progetto <strong>{{SITE_NAME}}</strong>, contattabile tramite email <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a> e sul Server Discord all&apos;indirizzo <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>. Per segnalazioni di moderazione puoi utilizzare anche <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="mailto:{{SITE_MODERATOR_EMAIL}}">{{SITE_MODERATOR_EMAIL}}</a>.
-          </p>
-
-          <h2 class="pt-4 text-lg font-semibold text-white">Dati trattati tramite Discord</h2>
-          <p>
-            L&apos;attività principale della community avviene su Discord. Discord Inc. tratta autonomamente i dati degli account secondo le proprie informative. Ti invitiamo a consultare la <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy di Discord</a> e i <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">Termini di Servizio di Discord</a>.
+            Questa Privacy Policy descrive come <strong>{{SITE_NAME}}</strong> raccoglie, utilizza e protegge i dati personali relativi al sito web, alle funzionalità collegate al login Discord e ai servizi della community associati al Server.
           </p>
           <p>
-            Se sul Sito è attiva una funzione di accesso tramite Discord OAuth, possiamo ricevere dal tuo account (in base agli ambiti autorizzati) informazioni quali identificativo utente, nome visualizzato, avatar ed eventualmente indirizzo email se lo concedi esplicitamente a Discord per l&apos;applicazione.
+            Il trattamento avviene nel rispetto del GDPR, della normativa italiana applicabile e delle policy dei servizi terzi utilizzati, come Discord.
           </p>
+        </article>
 
-          <h2 class="pt-4 text-lg font-semibold text-white">Dati tecnici e di navigazione</h2>
-          <p>
-            Durante la visita al Sito possono essere trattati dati tecnici quali indirizzo IP, tipo di browser, dispositivo, data e ora della richiesta, pagine visitate e identificativi di sessione, nei limiti necessari a erogare il servizio, sicurezza (es. mitigazione abusi), diagnostica e conformità legale. I log possono essere conservati per periodi limitati e proporzionati.
-          </p>
-
-          <h2 class="pt-4 text-lg font-semibold text-white">Cookie e tecnologie simili</h2>
-          <p>
-            Utilizziamo cookie e strumenti analoghi secondo quanto descritto nella nostra <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>. Ove siano integrati strumenti di consenso o misurazione del traffico (ad esempio banner cookie o analytics), si applicano anche le informative dei rispettivi fornitori terzi.
-          </p>
-
-          <h2 class="pt-4 text-lg font-semibold text-white">Voti, recensioni e terze parti</h2>
-          <p>
-            Se utilizzi servizi esterni collegati al Server (ad esempio <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{VOTE_URL}}" target="_blank" rel="noopener noreferrer">piattaforme di voto</a> o <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">directory di server</a>), il trattamento dei dati su tali siti è regolato dalle informative dei rispettivi titolari.
-          </p>
-
-          <h2 class="pt-4 text-lg font-semibold text-white">Finalità e basi giuridiche (GDPR)</h2>
-          <p>Trattiamo i dati per:</p>
-          <ul class="list-disc space-y-2 pl-5">
-            <li><strong>Erogazione del Sito e autenticazione</strong> (art. 6.1.b GDPR, esecuzione di misure precontrattuali/contrattuali o richiesta dell&apos;interessato);</li>
-            <li><strong>Sicurezza, prevenzione frodi e abusi</strong> (art. 6.1.f GDPR, legittimo interesse, bilanciato con i tuoi diritti);</li>
-            <li><strong>Adempimenti legali</strong> (art. 6.1.c GDPR);</li>
-            <li><strong>Consenso</strong> ove richiesto per specifiche funzionalità non strettamente necessarie (art. 6.1.a GDPR).</li>
+        <article class="vc-legal-card vc-legal-card--purple">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-search"></i></span>
+            <h2 class="vc-legal-card__title">Dati Raccolti</h2>
+          </div>
+          <p class="vc-legal-card__label">Dati forniti tramite Discord OAuth:</p>
+          <ul>
+            <li>ID Discord univoco;</li>
+            <li>username, nome visualizzato e avatar;</li>
+            <li>indirizzo email, solo se autorizzato esplicitamente tramite Discord;</li>
+            <li>informazioni minime necessarie alla sessione autenticata sul sito.</li>
           </ul>
+          <p class="vc-legal-card__label">Dati di utilizzo dei servizi del sito/community:</p>
+          <ul>
+            <li>preferenze profilo e impostazioni della rank card, quando usi le relative pagine;</li>
+            <li>statistiche legate a livelli, esperienza, voto, classifiche e attività mostrate nelle pagine utente;</li>
+            <li>contenuti inviati volontariamente tramite recensioni, candidature, richieste unban, ticket o moduli di contatto;</li>
+            <li>ruoli e dati necessari a mostrare servizi community come ruoli, leaderboard, notifiche o profilo.</li>
+          </ul>
+          <p class="vc-legal-card__label">Dati tecnici automatici:</p>
+          <ul>
+            <li>dati di sessione e autenticazione necessari al funzionamento del login;</li>
+            <li>browser, dispositivo, data/ora di accesso e pagine richieste;</li>
+            <li>cookie tecnici, token di sicurezza e dati minimi per prevenzione abusi e diagnostica.</li>
+          </ul>
+        </article>
 
-          <h2 class="pt-4 text-lg font-semibold text-white">Conservazione</h2>
-          <p>
-            Conserviamo i dati per il tempo necessario alle finalità sopra indicate e comunque nei limiti imposti dalla legge. I criteri includono la durata dell&apos;account o del rapporto con la community, eventuali obblighi di tenuta di prova, e i tempi tecnici di backup e rotazione dei log.
-          </p>
+        <article class="vc-legal-card vc-legal-card--green">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-cogs"></i></span>
+            <h2 class="vc-legal-card__title">Utilizzo dei Dati</h2>
+          </div>
+          <p>Utilizziamo i tuoi dati personali per:</p>
+          <ul>
+            <li>autenticare e gestire il tuo account sul sito;</li>
+            <li>fornire servizi come profilo, leaderboard, voto, ruoli, recensioni, candidature, notifiche e pagine collegate;</li>
+            <li>personalizzare la tua esperienza utente e mostrare dati del tuo account Discord dove necessario;</li>
+            <li>prevenire frodi, abuso di sistemi, automazioni non autorizzate e comportamenti malevoli;</li>
+            <li>proteggere il sito, il bot, il Server e la community;</li>
+            <li>adempiere a obblighi legali e gestire richieste di supporto o moderazione;</li>
+            <li>migliorare stabilità, sicurezza e qualità dei servizi offerti.</li>
+          </ul>
+        </article>
 
-          <h2 class="pt-4 text-lg font-semibold text-white">Destinatari e trasferimenti</h2>
-          <p>
-            I dati possono essere trattati da fornitori di hosting, servizi IT e, ove applicabile, da Discord e altri servizi strumentali, anche al di fuori dello Spazio Economico Europeo. In tal caso adottiamo garanzie adeguate (es. Clausole Contrattuali Standard e misure supplementari) ove richiesto dal GDPR.
-          </p>
+        <article class="vc-legal-card vc-legal-card--gold">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-balance-scale"></i></span>
+            <h2 class="vc-legal-card__title">Base Giuridica (GDPR)</h2>
+          </div>
+          <p>Il trattamento dei dati si basa su:</p>
+          <ul>
+            <li><strong>esecuzione del servizio</strong> per login, gestione account e funzioni richieste dall&apos;utente;</li>
+            <li><strong>legittimo interesse</strong> per protezione della community, prevenzione abusi, sicurezza e moderazione;</li>
+            <li><strong>obbligo legale</strong> quando necessario per adempiere a richieste o obblighi normativi;</li>
+            <li><strong>consenso</strong> dove richiesto, ad esempio per cookie non essenziali o funzionalità opzionali specifiche.</li>
+          </ul>
+        </article>
 
-          <h2 class="pt-4 text-lg font-semibold text-white">Diritti dell&apos;interessato</h2>
+        <article class="vc-legal-card vc-legal-card--indigo">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-share-alt"></i></span>
+            <h2 class="vc-legal-card__title">Condivisione dei Dati</h2>
+          </div>
+          <p>I tuoi dati non vengono venduti. Possono essere condivisi solo con soggetti strettamente necessari al servizio, come:</p>
+          <ul>
+            <li>Discord Inc., per autenticazione OAuth e funzioni collegate alla piattaforma;</li>
+            <li>fornitori di hosting, infrastruttura e servizi tecnici che mantengono online sito, bot o database;</li>
+            <li>servizi esterni collegati, come piattaforme di voto o provider email, quando richiesto da una funzione che usi volontariamente;</li>
+            <li>autorità competenti, se richiesto dalla legge o per tutelare la sicurezza del servizio.</li>
+          </ul>
           <p>
-            Hai diritto di chiedere accesso, rettifica, cancellazione, limitazione, portabilità (ove applicabile) e opposizione nei casi previsti dagli artt. 15–22 GDPR, nonché di revocare il consenso ove prestato. Puoi contattarci a <a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>. Hai inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali (<a class="text-[#d4a888] underline hover:text-[#e8c9a8]" href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">www.garanteprivacy.it</a>).
+            Non condividiamo dati con inserzionisti o società di marketing per finalità commerciali autonome.
           </p>
+        </article>
 
-          <h2 class="pt-4 text-lg font-semibold text-white">Minori</h2>
+        <article class="vc-legal-card vc-legal-card--gold">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-circle-o-notch"></i></span>
+            <h2 class="vc-legal-card__title">Cookie</h2>
+          </div>
+          <p>Usiamo cookie e tecnologie simili principalmente per:</p>
+          <ul>
+            <li>mantenere la sessione di login e l&apos;autenticazione Discord;</li>
+            <li>proteggere il sito tramite token di sicurezza e controlli tecnici;</li>
+            <li>ricordare scelte relative al consenso cookie, dove il banner è attivo;</li>
+            <li>garantire il corretto funzionamento tecnico delle pagine.</li>
+          </ul>
           <p>
-            I servizi sono destinati a utenti di almeno 13 anni, in linea con i requisiti di Discord. Non raccogliamo consapevolmente dati personali di minori di 13 anni. Se veniamo a conoscenza di una raccolta non conforme, provvederemo alla cancellazione nei tempi tecnici ragionevoli.
+            Per maggiori dettagli consulta la nostra <a href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>.
           </p>
+        </article>
 
-          <h2 class="pt-4 text-lg font-semibold text-white">Modifiche</h2>
+        <article class="vc-legal-card vc-legal-card--green">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-lock"></i></span>
+            <h2 class="vc-legal-card__title">Sicurezza dei Dati</h2>
+          </div>
+          <p>Adottiamo misure tecniche e organizzative ragionevoli per proteggere i dati trattati, tra cui:</p>
+          <ul>
+            <li>connessioni HTTPS/TLS e protezione delle sessioni;</li>
+            <li>cookie sicuri e controlli contro accessi non autorizzati;</li>
+            <li>limitazioni di accesso ai dati per il personale autorizzato;</li>
+            <li>strumenti di logging, monitoraggio e mitigazione abusi ove necessari;</li>
+            <li>backup e protezioni infrastrutturali nei limiti dei sistemi utilizzati.</li>
+          </ul>
+        </article>
+
+        <article class="vc-legal-card vc-legal-card--blue">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-hand-paper-o"></i></span>
+            <h2 class="vc-legal-card__title">I Tuoi Diritti (GDPR)</h2>
+          </div>
+          <p>Hai i diritti previsti dal GDPR, nei limiti applicabili al tipo di dato trattato, inclusi:</p>
+          <ul>
+            <li>accesso ai dati personali;</li>
+            <li>rettifica dei dati inesatti o incompleti;</li>
+            <li>cancellazione dei dati, ove possibile;</li>
+            <li>limitazione o opposizione al trattamento nei casi previsti dalla legge;</li>
+            <li>portabilità dei dati, ove tecnicamente e giuridicamente applicabile;</li>
+            <li>revoca del consenso per i trattamenti basati sul consenso.</li>
+          </ul>
           <p>
-            Possiamo aggiornare questa informativa per adeguamenti normativi o organizzativi. La data in cima indica l&apos;ultima revisione sostanziale. Ti invitiamo a consultare periodicamente questa pagina.
+            Per esercitare questi diritti puoi contattarci tramite Discord o email. Hai anche diritto di proporre reclamo al Garante per la Protezione dei Dati Personali.
           </p>
-        </section>
-      </article>
+        </article>
+
+        <article class="vc-legal-card vc-legal-card--purple">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+            <h2 class="vc-legal-card__title">Conservazione dei Dati</h2>
+          </div>
+          <p>Conserviamo i dati per il tempo necessario alle finalità per cui sono trattati, ad esempio:</p>
+          <ul>
+            <li>finché il tuo account o la tua partecipazione ai servizi restano attivi;</li>
+            <li>per il tempo necessario a gestire richieste, recensioni, candidature o verifiche collegate a un modulo inviato;</li>
+            <li>per i tempi tecnici di backup, sicurezza, rotazione log e adempimento legale;</li>
+            <li>fino alla cancellazione o anonimizzazione quando il dato non è più necessario.</li>
+          </ul>
+        </article>
+
+        <article class="vc-legal-card vc-legal-card--red">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-child"></i></span>
+            <h2 class="vc-legal-card__title">Minori</h2>
+          </div>
+          <p>
+            Il servizio è destinato a utenti che rispettano i requisiti minimi previsti da Discord. Non raccogliamo consapevolmente dati personali di minori al di sotto della soglia minima consentita dalla piattaforma.
+          </p>
+          <p>
+            Se veniamo informati di una raccolta non conforme, possiamo procedere alla rimozione dei dati nei limiti tecnici e organizzativi ragionevoli.
+          </p>
+        </article>
+
+        <article class="vc-legal-card vc-legal-card--cyan">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-globe"></i></span>
+            <h2 class="vc-legal-card__title">Trasferimenti Internazionali</h2>
+          </div>
+          <p>
+            Alcuni servizi utilizzati dal progetto, come Discord o altri provider tecnici, possono trattare dati anche fuori dallo Spazio Economico Europeo.
+          </p>
+          <p>
+            Quando ciò avviene, il trattamento avviene secondo le garanzie offerte dai provider e nei limiti previsti dal GDPR, incluse eventuali clausole contrattuali standard o misure tecniche equivalenti.
+          </p>
+        </article>
+
+        <article class="vc-legal-card vc-legal-card--indigo">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
+            <h2 class="vc-legal-card__title">Modifiche alla Policy</h2>
+          </div>
+          <p>
+            Possiamo aggiornare questa Privacy Policy per modifiche normative, tecniche o organizzative. La data di ultimo aggiornamento in alto indica la versione corrente.
+          </p>
+          <p>
+            Continuando a usare il sito o i servizi della community dopo la pubblicazione delle modifiche, dichiari di aver preso visione della versione aggiornata.
+          </p>
+        </article>
+
+        <article class="vc-legal-card vc-legal-card--cyan">
+          <div class="vc-legal-card__head">
+            <span class="vc-legal-card__icon" aria-hidden="true"><i class="fa fa-envelope-o"></i></span>
+            <h2 class="vc-legal-card__title">Contatti e Reclami</h2>
+          </div>
+          <p>Per domande privacy, richieste GDPR o segnalazioni puoi contattarci tramite:</p>
+          <p class="vc-legal-card__contact">
+            <strong>Discord:</strong> <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">{{DISCORD_INVITE_DISPLAY}}</a>
+          </p>
+          <p class="vc-legal-card__contact">
+            <strong>Email:</strong> <a href="{{SUPPORT_MAILTO}}">{{SUPPORT_EMAIL}}</a>
+          </p>
+          <p>
+            Hai inoltre diritto di proporre reclamo al Garante per la Protezione dei Dati Personali tramite <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer">www.garanteprivacy.it</a>.
+          </p>
+        </article>
+      </section>
 
       <footer class="mt-10 text-center text-[0.7rem] text-slate-500">
         <p>

@@ -64,7 +64,7 @@
           <nav
             class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
             aria-label="Collegamenti rapidi">
-            <a class="vc-snav-item" href="{{WIKI_URL}}"><i class="fa fa-book" aria-hidden="true"></i><span>Wiki</span></a>
+            <a class="vc-snav-item" href="{{WIKI_URL}}"><i class="fa fa-files-o" aria-hidden="true"></i><span>Wiki</span></a>
             <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Supporta</span><i
                   class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
@@ -151,44 +151,37 @@
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <section class="vc-reviews-hero">
-        <div class="vc-reviews-hero__copy">
+        <div class="vc-reviews-hero__copy vc-reviews-hero__copy--center">
           <span class="vc-reviews-hero__kicker">Supporta la community</span>
-          <h1 class="vc-reviews-hero__title">Recensioni della Community</h1>
+          <h1 class="vc-reviews-hero__title">Recensioni SERVER e STAFF</h1>
           <p class="vc-reviews-hero__text">
             Leggi prima cosa ne pensa chi vive davvero il server, poi lascia la tua recensione su <strong>{{SITE_NAME}}</strong> o su uno staffer specifico.
           </p>
-          <div class="vc-reviews-hero__actions">
-            <a class="vc-reviews-hero__btn vc-reviews-hero__btn--primary" href="#vc-reviews-write">
-              <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Scrivi la tua recensione
-            </a>
-            <a class="vc-reviews-hero__btn" href="{{REVIEWS_URL}}" target="_blank" rel="noopener noreferrer">
-              <i class="fa fa-external-link" aria-hidden="true"></i> Pagina esterna recensioni
-            </a>
-          </div>
-        </div>
-        <div class="vc-reviews-hero__side">
-          <article class="vc-reviews-highlight">
-            <span class="vc-reviews-highlight__icon"><i class="fa fa-comments-o" aria-hidden="true"></i></span>
-            <strong>Prima i feedback reali</strong>
-            <p>Le recensioni del server compaiono subito, prima del modulo di invio.</p>
-          </article>
-          <article class="vc-reviews-highlight">
-            <span class="vc-reviews-highlight__icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
-            <strong>Staff filtrato live</strong>
-            <p>Gli staffer selezionabili sono solo utenti con ruolo <code>Staff</code> attivo.</p>
-          </article>
         </div>
       </section>
 
-      <section class="vc-reviews-section">
-        <div class="vc-reviews-section__head">
-          <div>
-            <p class="vc-reviews-section__eyebrow">Feedback server</p>
-            <h2 class="vc-reviews-section__title">Recensioni degli utenti</h2>
+      <section class="vc-reviews-sections-row" aria-label="Recensioni pubblicate">
+        <div class="vc-reviews-section vc-reviews-section--split">
+          <div class="vc-reviews-section__head">
+            <div>
+              <p class="vc-reviews-section__eyebrow">Feedback server</p>
+              <h2 class="vc-reviews-section__title">Recensioni degli utenti</h2>
+            </div>
+            <p class="vc-reviews-section__sub">Qui vedi prima le recensioni del server scritte dalla community.</p>
           </div>
-          <p class="vc-reviews-section__sub">Qui vedi prima le recensioni del server scritte dalla community.</p>
+          <div id="vc-reviews-server-list" class="vc-reviews-grid" aria-live="polite"></div>
         </div>
-        <div id="vc-reviews-server-list" class="vc-reviews-grid" aria-live="polite"></div>
+
+        <div class="vc-reviews-section vc-reviews-section--split">
+          <div class="vc-reviews-section__head">
+            <div>
+              <p class="vc-reviews-section__eyebrow">Staff feedback</p>
+              <h2 class="vc-reviews-section__title">Recensioni sugli staffer</h2>
+            </div>
+            <p class="vc-reviews-section__sub">Le recensioni staff spariscono automaticamente quando l&apos;utente non fa piu parte dello staff.</p>
+          </div>
+          <div id="vc-reviews-staff-list" class="vc-reviews-grid" aria-live="polite"></div>
+        </div>
       </section>
 
       <section id="vc-reviews-write" class="vc-reviews-section">
@@ -203,16 +196,6 @@
         <p id="vc-reviews-status" class="vc-reviews-status" hidden></p>
       </section>
 
-      <section class="vc-reviews-section">
-        <div class="vc-reviews-section__head">
-          <div>
-            <p class="vc-reviews-section__eyebrow">Staff feedback</p>
-            <h2 class="vc-reviews-section__title">Recensioni sugli staffer</h2>
-          </div>
-          <p class="vc-reviews-section__sub">Le recensioni staff spariscono automaticamente quando l’utente non fa più parte dello staff.</p>
-        </div>
-        <div id="vc-reviews-staff-list" class="vc-reviews-grid" aria-live="polite"></div>
-      </section>
     </main>
 
     <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
@@ -227,7 +210,16 @@
       </div>
     </footer>
 
-    <script src="../js/vc-landing.js"></script>
-    <script src="../js/reviews-page.js"></script>
+    <script>
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+        siteName: "{{SITE_NAME}}"
+      };
+    </script>
+    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/vc-landing.js" defer></script>
+    <script src="../js/reviews-page.js" defer></script>
   </body>
 </html>

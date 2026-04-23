@@ -1,6 +1,6 @@
 (function () {
-  var CONSENT_KEY = "vc_cookie_banner_ack_v2";
-  var CONSENT_COOKIE = "vc_cookie_banner_ack";
+  var CONSENT_KEY = "vc_cookie_banner_ack_v3";
+  var CONSENT_COOKIE = "vc_cookie_banner_ack_v3";
 
   function isLegalCookiePage() {
     try {
@@ -30,7 +30,8 @@
     } catch (e) {}
     try {
       var maxAge = 60 * 60 * 24 * 180;
-      document.cookie = CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax";
+      var secure = String(window.location.protocol || "").toLowerCase() === "https:" ? "; Secure" : "";
+      document.cookie = CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure;
     } catch (e) {}
   }
 
@@ -46,6 +47,7 @@
     if (isLegalCookiePage()) return;
     if (hasCookieConsent()) return;
     if (document.getElementById("vc-cookie-consent")) return;
+    var cookiePolicyUrl = "/cookie/";
 
     var cookieIcon =
       '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
@@ -89,14 +91,14 @@
       '<span class="vc-cookie-consent__icon" aria-hidden="true">' + cookieIcon + "</span>" +
       '<div class="vc-cookie-consent__titlewrap">' +
       '<h2 id="vc-cookie-title">Utilizzo dei Cookie</h2>' +
-      '<p>Utilizziamo cookie tecnici essenziali per garantire login, sicurezza e corretto funzionamento del sito.</p>' +
+      '<p>Usiamo solo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
       "</div>" +
       '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-close aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
       "</div>" +
       '<div class="vc-cookie-consent__body">' +
       '<div class="vc-cookie-consent__notice">' +
       '<span class="vc-cookie-consent__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
-      '<p><strong>Cookie necessari.</strong> Questi cookie sono indispensabili per login, sicurezza e funzionalita base. Non raccolgono dati personali e non vengono usati per marketing.</p>' +
+      '<p><strong>Cookie necessari.</strong> Servono per login, sicurezza, preferenza banner e funzioni base. Nessun uso marketing.</p>' +
       "</div>" +
       '<details class="vc-cookie-consent__details">' +
       '<summary><span><span class="vc-cookie-consent__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-cookie-consent__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
@@ -104,13 +106,16 @@
       '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
       '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
       '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
-      '<p>Caratteristiche di sicurezza:</p>' +
+      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda la scelta per 180 giorni</small></span></div>' +
       '<div class="vc-cookie-consent__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
-      '<a href="/cookie/">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
+      '<a href="' + cookiePolicyUrl + '">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
       "</div>" +
       "</details>" +
-      '<button type="button" class="vc-cookie-consent__accept" data-vc-cookie-accept>Accetta e Continua</button>' +
-      '<p class="vc-cookie-consent__foot">Chiudendo o continuando accetti l&apos;utilizzo dei cookie essenziali per il funzionamento del sito.</p>' +
+      '<div class="vc-cookie-consent__actions">' +
+      '<button type="button" class="vc-cookie-consent__accept" data-vc-cookie-accept>Accetta</button>' +
+      '<a class="vc-cookie-consent__link" href="' + cookiePolicyUrl + '">Cookie Policy</a>' +
+      "</div>" +
+      '<p class="vc-cookie-consent__foot">Chiudendo o continuando accetti i cookie essenziali del sito.</p>' +
       "</div>" +
       "</div>";
 
@@ -135,6 +140,8 @@
   } else {
     initCookieConsent();
   }
+  window.addEventListener("pageshow", initCookieConsent);
+  window.setTimeout(initCookieConsent, 180);
 })();
 (function () {
   function normalizePrettyProfilePath() {
