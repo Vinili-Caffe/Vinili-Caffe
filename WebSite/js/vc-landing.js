@@ -47,6 +47,38 @@
     if (hasCookieConsent()) return;
     if (document.getElementById("vc-cookie-consent")) return;
 
+    var cookieIcon =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M15.8 2.6a3.1 3.1 0 0 0 4 4A8.8 8.8 0 1 1 11 2.2c.2 1.8 1.7 3.1 3.5 3.1.5 0 1-.1 1.3-.3Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="9.1" cy="9.4" r="1.1" fill="currentColor"/>' +
+      '<circle cx="14.8" cy="10.8" r="1" fill="currentColor"/>' +
+      '<circle cx="8.8" cy="14.6" r="1" fill="currentColor"/>' +
+      '<circle cx="13.1" cy="16.2" r=".9" fill="currentColor"/>' +
+      "</svg>";
+    var infoIcon =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/>' +
+      '<path d="M12 10.4v5.1" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
+      '<circle cx="12" cy="7.4" r="1.1" fill="currentColor"/>' +
+      "</svg>";
+    var shieldIcon =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M12 3.4 19 6v5.4c0 4.3-2.7 7.4-7 9.1-4.3-1.7-7-4.8-7-9.1V6l7-2.6Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>' +
+      "</svg>";
+    var lockIcon =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<rect x="5" y="10.2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.9"/>' +
+      '<path d="M8.5 10.2V7.8a3.5 3.5 0 1 1 7 0v2.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
+      "</svg>";
+    var closeIcon =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>' +
+      "</svg>";
+    var chevIcon =
+      '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' +
+      "</svg>";
+
     var root = document.createElement("section");
     root.id = "vc-cookie-consent";
     root.className = "vc-cookie-consent";
@@ -54,31 +86,31 @@
     root.innerHTML =
       '<div class="vc-cookie-consent__card" role="dialog" aria-modal="false" aria-labelledby="vc-cookie-title">' +
       '<div class="vc-cookie-consent__head">' +
-      '<span class="vc-cookie-consent__icon" aria-hidden="true"><i class="fa fa-info-circle"></i></span>' +
+      '<span class="vc-cookie-consent__icon" aria-hidden="true">' + cookieIcon + "</span>" +
       '<div class="vc-cookie-consent__titlewrap">' +
       '<h2 id="vc-cookie-title">Utilizzo dei Cookie</h2>' +
-      '<p>Utilizziamo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
+      '<p>Utilizziamo cookie tecnici essenziali per garantire login, sicurezza e corretto funzionamento del sito.</p>' +
       "</div>" +
-      '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-close aria-label="Chiudi avviso cookie"><i class="fa fa-times" aria-hidden="true"></i></button>' +
+      '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-close aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
       "</div>" +
       '<div class="vc-cookie-consent__body">' +
       '<div class="vc-cookie-consent__notice">' +
-      '<i class="fa fa-info-circle" aria-hidden="true"></i>' +
-      '<p><strong>Cookie necessari.</strong> Questi cookie sono indispensabili per login, sicurezza e funzionalita base. Non raccolgono dati personali per marketing.</p>' +
+      '<span class="vc-cookie-consent__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
+      '<p><strong>Cookie necessari.</strong> Questi cookie sono indispensabili per login, sicurezza e funzionalita base. Non raccolgono dati personali e non vengono usati per marketing.</p>' +
       "</div>" +
       '<details class="vc-cookie-consent__details">' +
-      '<summary><span><i class="fa fa-shield" aria-hidden="true"></i> Dettagli tecnici</span><i class="fa fa-angle-down vc-cookie-consent__chev" aria-hidden="true"></i></summary>' +
+      '<summary><span><span class="vc-cookie-consent__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-cookie-consent__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
       '<div class="vc-cookie-consent__tech">' +
-      '<div><i class="fa fa-lock" aria-hidden="true"></i><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
-      '<div><i class="fa fa-lock" aria-hidden="true"></i><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
-      '<div><i class="fa fa-lock" aria-hidden="true"></i><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
+      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
+      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
+      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
       '<p>Caratteristiche di sicurezza:</p>' +
       '<div class="vc-cookie-consent__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
-      '<a href="/cookie/">Leggi la Cookie Policy completa <i class="fa fa-arrow-right" aria-hidden="true"></i></a>' +
+      '<a href="/cookie/">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
       "</div>" +
       "</details>" +
       '<button type="button" class="vc-cookie-consent__accept" data-vc-cookie-accept>Accetta e Continua</button>' +
-      '<p class="vc-cookie-consent__foot">Il banner si chiude solo se clicchi su &quot;Accetta e Continua&quot; oppure sulla X.</p>' +
+      '<p class="vc-cookie-consent__foot">Chiudendo o continuando accetti l&apos;utilizzo dei cookie essenziali per il funzionamento del sito.</p>' +
       "</div>" +
       "</div>";
 

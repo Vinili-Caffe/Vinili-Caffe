@@ -500,6 +500,25 @@ const siteRoleRequestCooldownSchema = new Schema(
 );
 siteRoleRequestCooldownSchema.index({ guildId: 1, requesterId: 1, roleId: 1 }, { unique: true });
 
+const siteReviewSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    kind: { type: String, required: true, enum: ["server", "staff"], index: true },
+    userId: { type: String, required: true, index: true },
+    staffUserId: { type: String, default: null, index: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    content: { type: String, required: true, trim: true, maxlength: 1200 },
+    authorName: { type: String, default: "" },
+    authorAvatarUrl: { type: String, default: "" },
+    staffName: { type: String, default: "" },
+    staffAvatarUrl: { type: String, default: "" },
+  },
+  { timestamps: true },
+);
+siteReviewSchema.index({ guildId: 1, kind: 1, userId: 1, staffUserId: 1 }, { unique: true });
+siteReviewSchema.index({ guildId: 1, kind: 1, createdAt: -1 });
+siteReviewSchema.index({ guildId: 1, staffUserId: 1, createdAt: -1 });
+
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
 const USE_LEGACY_MOD_CASE_MODEL = MOD_CASE_STORAGE_MODE === "legacy" || MOD_CASE_STORAGE_MODE === "dual";
@@ -952,6 +971,7 @@ const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHo
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
 const RejoinRoleMemory = models.RejoinRoleMemory || model("RejoinRoleMemory", rejoinRoleMemorySchema, "rejoinrolememories");
 const SiteRoleRequestCooldown = models.SiteRoleRequestCooldown || model("SiteRoleRequestCooldown", siteRoleRequestCooldownSchema, "siterolerequestcooldowns");
+const SiteReview = models.SiteReview || model("SiteReview", siteReviewSchema, "sitereviews");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -974,4 +994,5 @@ module.exports = {
   UserLeaveBackup,
   RejoinRoleMemory,
   SiteRoleRequestCooldown,
+  SiteReview,
 };

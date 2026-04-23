@@ -1055,6 +1055,22 @@ async function main() {
     voteApiLocalRaw && /^https?:\/\//i.test(voteApiLocalRaw)
       ? voteApiLocalRaw
       : "";
+  const reviewsApiFromEnv = String(process.env.VC_REVIEWS_API_URL ?? "").trim();
+  const reviewsApiRaw = reviewsApiFromEnv || String(cfg.reviewsApiUrl ?? "").trim();
+  const reviewsApiResolved =
+    reviewsApiRaw && /^https?:\/\//i.test(reviewsApiRaw)
+      ? reviewsApiRaw
+      : reviewsApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${reviewsApiRaw.startsWith("/") ? "" : "/"}${reviewsApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-reviews`
+          : "/webhooks/site-reviews";
+  const reviewsApiLocalFromEnv = String(process.env.VC_REVIEWS_API_URL_LOCAL ?? "").trim();
+  const reviewsApiLocalRaw = reviewsApiLocalFromEnv || String(cfg.reviewsApiUrlLocal ?? "").trim();
+  const reviewsApiLocalResolved =
+    reviewsApiLocalRaw && /^https?:\/\//i.test(reviewsApiLocalRaw)
+      ? reviewsApiLocalRaw
+      : "";
   const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
   const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
   const rolesApiResolved =
@@ -1089,6 +1105,7 @@ async function main() {
     rankCardApiLocalRaw && /^https?:\/\//i.test(rankCardApiLocalRaw)
       ? rankCardApiLocalRaw
       : "";
+  const reviewsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/recensioni` : "/recensioni";
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
@@ -1163,6 +1180,9 @@ async function main() {
     USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
     VOTE_API_URL: escAttr(voteApiResolved),
     VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
+    REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
+    REVIEWS_API_URL: escAttr(reviewsApiResolved),
+    REVIEWS_API_URL_LOCAL: escAttr(reviewsApiLocalResolved),
     ROLES_API_URL: escAttr(rolesApiResolved),
     ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
     RANK_CARD_API_URL: escAttr(rankCardApiResolved),
@@ -1195,6 +1215,12 @@ async function main() {
     ),
     VOTE_OG_TITLE: escAttr(`${siteName} | Vota`),
     VOTE_OG_URL: escAttr(votePageUrl),
+    REVIEWS_PAGE_TITLE: `${siteName} | Recensioni`,
+    REVIEWS_META_DESCRIPTION: escAttr(
+      `Recensioni della community di ${siteName}: leggi i feedback sul server e lascia la tua opinione anche sugli staffer.`,
+    ),
+    REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
+    REVIEWS_OG_URL: escAttr(reviewsPageUrl),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -1320,6 +1346,16 @@ async function main() {
     fs.writeFileSync(voteIndexPath, voteHtml, "utf8");
   } else {
     console.warn("[build-site] Manca vote/index.html (saltato placeholder).");
+  }
+
+  const reviewsIndexPath = path.join(DIST, "recensioni", "index.html");
+  if (fs.existsSync(reviewsIndexPath)) {
+    let reviewsHtml = fs.readFileSync(reviewsIndexPath, "utf8");
+    reviewsHtml = applyPlaceholderMap(reviewsHtml, map);
+    warnLeftoverPlaceholders(reviewsHtml, "recensioni/index.html");
+    fs.writeFileSync(reviewsIndexPath, reviewsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca recensioni/index.html (saltato placeholder).");
   }
 
   const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html"];
