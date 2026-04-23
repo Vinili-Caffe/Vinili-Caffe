@@ -9,10 +9,10 @@
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
-    { key: "primaryTextColor", title: "Testo Principale", subtitle: "Username, progress bar e accenti stats", icon: "fa-text-width" },
-    { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Solo il piccolo multi accanto allo username", icon: "fa-bolt" },
-    { key: "valueColor", title: "Valori", subtitle: "Server rank, weekly rank, weekly XP e multiplier", icon: "fa-bar-chart" },
-    { key: "labelColor", title: "Etichette", subtitle: 'Scritte tipo "Lv.", "RANK", "WEEKLY XP"', icon: "fa-tag" },
+    { key: "primaryTextColor", title: "Testo Principale", subtitle: "Username, progress bar e stats", icon: "fa-text-width" },
+    { key: "multiplierColor", title: "Moltiplicatore", subtitle: "Testo moltiplicatore XP", icon: "fa-bolt" },
+    { key: "valueColor", title: "Valori", subtitle: "Server rank e weekly rank", icon: "fa-bar-chart" },
+    { key: "labelColor", title: "Etichette", subtitle: 'Label come "LEVEL", "EXP", ecc...', icon: "fa-tag" },
   ];
 
   function byId(id) {
@@ -351,7 +351,7 @@
         ? '<details class="vc-rank-editor-card" data-rank-accordion="opacity"' + (activeAccordion === "opacity" ? " open" : "") + ">" +
           '<summary class="vc-rank-editor-card__summary" data-rank-accordion-trigger="opacity">' +
           '<span class="vc-rank-editor-card__icon"><i class="fa fa-sliders" aria-hidden="true"></i></span>' +
-          '<span class="vc-rank-editor-card__copy"><strong>Opacita card</strong><span>Trasparenza di tutta la rank card</span></span>' +
+          '<span class="vc-rank-editor-card__copy"><strong>Opacità sfondo</strong><span>Trasparenza dei box contenitori</span></span>' +
           '<span class="vc-rank-editor-card__badge">' + esc(String(toPct(draft.overlayOpacity))) + "%</span>" +
           '<i class="fa fa-angle-down vc-rank-editor-card__chev" aria-hidden="true"></i>' +
           "</summary>" +
@@ -368,7 +368,7 @@
       '<aside class="vc-rank-editor-side">' +
       '<div class="vc-rank-editor-previewcard"><div class="vc-rank-editor-previewcard__head"><span class="vc-rank-editor-previewcard__icon"><i class="fa fa-eye" aria-hidden="true"></i></span><div><strong>Anteprima Live</strong></div></div>' +
       previewMarkup(loaded, draft) +
-      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacita si aggiorna in tempo reale. I wallpaper si aggiornano appena li selezioni; per i colori usa "Aggiorna Anteprima".</span></div>' +
+      '<div class="vc-rank-editor-previewnote"><strong>Aggiornamento</strong><span>L\'opacità si aggiorna in tempo reale. Per i colori, usa "Aggiorna Anteprima". Per salvare clicca su "Salva Modifiche".</span></div>' +
       '<div class="vc-rank-editor-previewbadge">Preview identica a <code>+rank</code> su Discord</div>' +
       "</div></aside></div>";
 

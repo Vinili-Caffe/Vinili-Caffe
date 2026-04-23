@@ -160,20 +160,26 @@ function listRankCardWallpapers() {
 
 function mergeRankCardTheme(input) {
   const src = input && typeof input === "object" ? input : {};
+  const panelColor = normalizeHex(src.panelColor, DEFAULT_RANK_CARD_THEME.panelColor);
+  const primaryTextColor = normalizeHex(src.primaryTextColor, DEFAULT_RANK_CARD_THEME.primaryTextColor);
+  const multiplierColor = normalizeHex(src.multiplierColor, DEFAULT_RANK_CARD_THEME.multiplierColor);
+  const valueColor = normalizeHex(src.valueColor, DEFAULT_RANK_CARD_THEME.valueColor);
+  const labelColor = normalizeHex(src.labelColor, DEFAULT_RANK_CARD_THEME.labelColor);
+
   return {
     overlayOpacity: clamp(src.overlayOpacity == null ? DEFAULT_RANK_CARD_THEME.overlayOpacity : src.overlayOpacity, 0, 1),
     wallpaperKey: sanitizeWallpaperKey(src.wallpaperKey),
     wallpaperUrl: sanitizeWallpaperUrl(src.wallpaperUrl),
-    panelColor: normalizeHex(src.panelColor, DEFAULT_RANK_CARD_THEME.panelColor),
-    primaryTextColor: normalizeHex(src.primaryTextColor, DEFAULT_RANK_CARD_THEME.primaryTextColor),
-    secondaryTextColor: normalizeHex(src.secondaryTextColor, DEFAULT_RANK_CARD_THEME.secondaryTextColor),
-    multiplierColor: normalizeHex(src.multiplierColor, DEFAULT_RANK_CARD_THEME.multiplierColor),
-    valueColor: normalizeHex(src.valueColor, DEFAULT_RANK_CARD_THEME.valueColor),
-    labelColor: normalizeHex(src.labelColor, DEFAULT_RANK_CARD_THEME.labelColor),
-    progressStartColor: normalizeHex(src.progressStartColor, DEFAULT_RANK_CARD_THEME.progressStartColor),
-    progressEndColor: normalizeHex(src.progressEndColor, DEFAULT_RANK_CARD_THEME.progressEndColor),
-    ringColor: normalizeHex(src.ringColor, DEFAULT_RANK_CARD_THEME.ringColor),
-    rankBoxBorderColor: normalizeHex(src.rankBoxBorderColor, DEFAULT_RANK_CARD_THEME.rankBoxBorderColor),
+    panelColor,
+    primaryTextColor,
+    secondaryTextColor: normalizeHex(src.secondaryTextColor, labelColor),
+    multiplierColor,
+    valueColor,
+    labelColor,
+    progressStartColor: normalizeHex(src.progressStartColor, primaryTextColor),
+    progressEndColor: normalizeHex(src.progressEndColor, primaryTextColor),
+    ringColor: normalizeHex(src.ringColor, primaryTextColor),
+    rankBoxBorderColor: normalizeHex(src.rankBoxBorderColor, valueColor),
   };
 }
 
