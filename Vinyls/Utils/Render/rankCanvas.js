@@ -159,6 +159,55 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   });
 }
 
+function drawStatIcon(ctx, icon, x, y, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (icon === "trophy") {
+    ctx.beginPath();
+    ctx.moveTo(x - 8, y - 8);
+    ctx.lineTo(x + 8, y - 8);
+    ctx.lineTo(x + 6, y + 2);
+    ctx.quadraticCurveTo(x, y + 7, x - 6, y + 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 11, y - 6);
+    ctx.quadraticCurveTo(x - 18, y - 4, x - 15, y + 4);
+    ctx.moveTo(x + 11, y - 6);
+    ctx.quadraticCurveTo(x + 18, y - 4, x + 15, y + 4);
+    ctx.stroke();
+    ctx.fillRect(x - 2, y + 6, 4, 8);
+    ctx.fillRect(x - 10, y + 15, 20, 4);
+  } else if (icon === "bolt") {
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y - 17);
+    ctx.lineTo(x - 8, y + 1);
+    ctx.lineTo(x + 1, y + 1);
+    ctx.lineTo(x - 4, y + 17);
+    ctx.lineTo(x + 10, y - 3);
+    ctx.lineTo(x + 1, y - 3);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const radius = i % 2 === 0 ? 15 : 6;
+      const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+      const px = x + Math.cos(angle) * radius;
+      const py = y + Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, panelAlpha) {
   roundedRect(ctx, x, y, width, height, 10);
   ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha);
@@ -167,13 +216,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  ctx.save();
-  ctx.fillStyle = palette.primaryTextColor;
-  ctx.font = canvasFont(22, 900);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(icon, x + 28, y + height / 2);
-  ctx.restore();
+  drawStatIcon(ctx, icon, x + 28, y + height / 2, palette.primaryTextColor);
 
   drawText(ctx, label.toUpperCase(), x + 56, y + 18, {
     size: 11,
@@ -226,10 +269,10 @@ async function renderRankCanvas(data) {
   ctx.clearRect(0, 0, width, height);
 
   const card = {
-    x: 24,
-    y: 24,
-    w: width - 48,
-    h: height - 48,
+    x: 0,
+    y: 0,
+    w: width,
+    h: height,
     r: 16,
   };
 
@@ -242,9 +285,9 @@ async function renderRankCanvas(data) {
   ctx.restore();
 
   const main = {
-    x: card.x + 148,
-    y: card.y + 24,
-    w: card.w - 190,
+    x: 172,
+    y: 48,
+    w: 762,
     h: 154,
     r: 18,
   };
@@ -257,8 +300,8 @@ async function renderRankCanvas(data) {
   ctx.stroke();
 
   const avatarSize = 118;
-  const avatarX = card.x + 42;
-  const avatarY = card.y + 58;
+  const avatarX = 64;
+  const avatarY = 82;
   await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette);
 
   const copyX = main.x + 24;
@@ -334,15 +377,15 @@ async function renderRankCanvas(data) {
     align: "center",
   });
 
-  const statsY = main.y + main.h + 16;
+  const statsY = 218;
   const statH = 46;
   const gap = 12;
   const statW = 150;
   const weeklyRankValue = data.hideLeaderboardRanks ? "-" : formatRankValue(data.weeklyRank);
 
-  drawStatPill(ctx, main.x, statsY, statW, statH, "T", "Weekly rank", weeklyRankValue, palette, panelAlpha);
-  drawStatPill(ctx, main.x + statW + gap, statsY, statW, statH, "/", "Weekly XP", formatInt(data.weeklyExp), palette, panelAlpha);
-  drawStatPill(ctx, main.x + (statW + gap) * 2, statsY, statW, statH, "*", "Multiplier", multiplierText, palette, panelAlpha);
+  drawStatPill(ctx, 172, statsY, statW, statH, "trophy", "Weekly rank", weeklyRankValue, palette, panelAlpha);
+  drawStatPill(ctx, 334, statsY, statW, statH, "bolt", "Weekly XP", formatInt(data.weeklyExp), palette, panelAlpha);
+  drawStatPill(ctx, 496, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, panelAlpha);
 
   return canvas.toBuffer("image/png");
 }

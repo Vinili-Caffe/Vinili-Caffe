@@ -14,6 +14,15 @@
     return cfg().enabled === true;
   }
 
+  function isPublicLegalPage() {
+    try {
+      var path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+      return path === "/cookie" || path === "/privacy" || path === "/terms";
+    } catch (e) {
+      return false;
+    }
+  }
+
   function allowedIds() {
     var ids = cfg().allowedUserIds;
     if (!Array.isArray(ids)) return [];
@@ -144,6 +153,7 @@
   }
 
   async function verify() {
+    if (isPublicLegalPage()) return allowSite();
     if (!enabled()) return allowSite();
     installStyle();
     document.documentElement.classList.add(ROOT_CLASS);

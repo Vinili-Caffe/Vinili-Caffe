@@ -1,6 +1,15 @@
 (function () {
-  var CONSENT_KEY = "vc_cookie_consent_v1";
-  var CONSENT_COOKIE = "vc_cookie_consent";
+  var CONSENT_KEY = "vc_cookie_banner_ack_v2";
+  var CONSENT_COOKIE = "vc_cookie_banner_ack";
+
+  function isLegalCookiePage() {
+    try {
+      var path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+      return path === "/cookie" || path === "/privacy" || path === "/terms";
+    } catch (e) {
+      return false;
+    }
+  }
 
   function hasCookieConsent() {
     try {
@@ -34,6 +43,7 @@
   }
 
   function initCookieConsent() {
+    if (isLegalCookiePage()) return;
     if (hasCookieConsent()) return;
     if (document.getElementById("vc-cookie-consent")) return;
 
@@ -49,7 +59,7 @@
       '<h2 id="vc-cookie-title">Utilizzo dei Cookie</h2>' +
       '<p>Utilizziamo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
       "</div>" +
-      '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-accept aria-label="Chiudi avviso cookie"><i class="fa fa-times" aria-hidden="true"></i></button>' +
+      '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-close aria-label="Chiudi avviso cookie"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="vc-cookie-consent__body">' +
       '<div class="vc-cookie-consent__notice">' +
@@ -68,14 +78,16 @@
       "</div>" +
       "</details>" +
       '<button type="button" class="vc-cookie-consent__accept" data-vc-cookie-accept>Accetta e Continua</button>' +
-      '<p class="vc-cookie-consent__foot">Chiudendo o continuando accetti l&apos;utilizzo dei cookie essenziali per il funzionamento del sito.</p>' +
+      '<p class="vc-cookie-consent__foot">Il banner si chiude solo se clicchi su &quot;Accetta e Continua&quot; oppure sulla X.</p>' +
       "</div>" +
       "</div>";
 
     root.addEventListener("click", function (ev) {
       var t = ev.target;
       if (!t || !t.closest) return;
-      if (!t.closest("[data-vc-cookie-accept]")) return;
+      var acceptBtn = t.closest("[data-vc-cookie-accept]");
+      var closeBtn = t.closest("[data-vc-cookie-close]");
+      if (!acceptBtn && !closeBtn) return;
       rememberCookieConsent();
       closeCookieBanner(root);
     });
