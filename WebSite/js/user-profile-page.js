@@ -239,6 +239,97 @@
       "</div></section>";
   }
 
+  function includesAnyRole(roleText, terms) {
+    for (var i = 0; i < terms.length; i += 1) {
+      if (roleText.indexOf(terms[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function leaderboardBadgeLabel(rank) {
+    var n = Number(rank || 0);
+    if (n === 1) return "Primo in classifica";
+    if (n === 2) return "Secondo in classifica";
+    if (n === 3) return "Terzo in classifica";
+    return "#" + formatIntIt(n) + " in classifica";
+  }
+
+  function leaderboardBadgeClass(rank) {
+    var n = Number(rank || 0);
+    if (n === 1) return "rank1";
+    if (n === 2) return "rank2";
+    if (n === 3) return "rank3";
+    return "rank";
+  }
+
+  function profileBadgeMarkup(kind, icon, label) {
+    return (
+      '<span class="vc-user-profile-badge vc-user-profile-badge--' +
+      esc(kind) +
+      '">' +
+      '<span class="vc-user-profile-badge__icon"><i class="fa ' +
+      esc(icon) +
+      '" aria-hidden="true"></i></span>' +
+      '<span class="vc-user-profile-badge__label">' +
+      esc(label) +
+      "</span></span>"
+    );
+  }
+
+  function buildProfileBadges(rank, roles) {
+    var out = [];
+    var seen = {};
+    var names = Array.isArray(roles)
+      ? roles
+          .map(function (role) {
+            return String((role && role.name) || "").toLowerCase();
+          })
+          .join(" | ")
+      : "";
+
+    function add(kind, icon, label) {
+      if (seen[kind]) return;
+      seen[kind] = true;
+      out.push(profileBadgeMarkup(kind, icon, label));
+    }
+
+    if (Number(rank || 0) > 0) {
+      add(leaderboardBadgeClass(rank), "fa-crown", leaderboardBadgeLabel(rank));
+    }
+
+    var hasFounder = includesAnyRole(names, ["founder", "fondatore"]);
+    if (hasFounder) add("founder", "fa-star-o", "Founder");
+
+    if (!hasFounder && includesAnyRole(names, ["high staff", "staff", "admin", "mod", "moderator", "helper", "community manager"])) {
+      add("staff", "fa-shield", "Staff");
+    }
+
+    if (includesAnyRole(names, ["booster", "boost"])) {
+      add("booster", "fa-rocket", "Booster");
+    }
+
+    if (
+      includesAnyRole(names, [
+        "donator",
+        "donatore",
+        "vip",
+        "elite",
+        "immortal",
+        "daemon",
+        "divine",
+        "sponsor",
+        "supporter",
+        "propulsor",
+        "promoter",
+        "gilded",
+      ])
+    ) {
+      add("donator", "fa-heart", "Donator");
+    }
+
+    return out.length ? '<div class="vc-user-profile-badges">' + out.join("") + "</div>" : "";
+  }
+
   function renderProfile(root, userId, payload) {
     var level = payload.level || {};
     var weekly = payload.weekly || {};
@@ -251,6 +342,10 @@
     var progressPct = formatPct(level.progressPercent || 0);
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
     var weeklyRankText = weekly.rank ? "#" + formatIntIt(weekly.rank) : "-";
+    var currentLevelExp = Number(level.currentLevelExp || 0);
+    var nextLevelExp = Number(level.nextLevelExp || 0);
+    var currentXp = Math.max(0, Number(level.exp || 0) - currentLevelExp);
+    var targetXp = Math.max(1, nextLevelExp - currentLevelExp);
     var viewerOwns = Boolean(currentViewer && String(currentViewer.id || "") === String(userId));
     var roles = Array.isArray(profile.roles) ? profile.roles : [];
     var customProfile = profile.customProfile || null;
@@ -258,7 +353,57 @@
     var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
     var rankCardTheme = profile.rankCard || {};
     var multiplier = Number(weekly.expMultiplier || 1);
-    var multiplierSources = Array.isArray(profile.weeklyMultiplierSources) ? profile.weeklyMultiplierSources : [];
+    var badgesHtml = buildProfileBadges(level.rank, roles);
+
+    function sharedMembersMarkup(members, count, label) {
+      var list = Array.isArray(members) ? members : [];
+      var total = Number(count || list.length || 0);
+      if (!list.length) {
+        return (
+          '<details class="vc-user-profile-shared">' +
+          '<summary class="vc-user-profile-shared__summary"><span><i class="fa fa-users" aria-hidden="true"></i> ' +
+          esc(label || "Condiviso con") +
+          '</span><strong>' +
+          esc(formatIntIt(total)) +
+          '</strong><i class="fa fa-angle-down vc-user-profile-shared__chev" aria-hidden="true"></i></summary>' +
+          '<div class="vc-user-profile-shared__empty">Nessun utente mostrabile.</div>' +
+          "</details>"
+        );
+      }
+      return (
+        '<details class="vc-user-profile-shared">' +
+        '<summary class="vc-user-profile-shared__summary"><span><i class="fa fa-users" aria-hidden="true"></i> ' +
+        esc(label || "Condiviso con") +
+        '</span><strong>' +
+        esc(formatIntIt(total)) +
+        '</strong><i class="fa fa-angle-down vc-user-profile-shared__chev" aria-hidden="true"></i></summary>' +
+        '<div class="vc-user-profile-shared__list">' +
+        list
+          .map(function (member) {
+            var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
+            var username = String(member.username || "").trim();
+            var href = profilePublicUrl(member.id);
+            var avatarUrl = String(member.avatarUrl || "").trim();
+            return (
+              '<a class="vc-user-profile-shared__user" href="' +
+              esc(href) +
+              '">' +
+              (avatarUrl
+                ? '<img class="vc-user-profile-shared__avatar" src="' + esc(avatarUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+                : '<span class="vc-user-profile-shared__avatar vc-user-profile-shared__avatar--fallback"><i class="fa fa-user" aria-hidden="true"></i></span>') +
+              '<span class="vc-user-profile-shared__name">' +
+              esc(name) +
+              "</span>" +
+              (username && username !== name ? '<span class="vc-user-profile-shared__tag">@' + esc(username) + "</span>" : "") +
+              "</a>"
+            );
+          })
+          .join("") +
+        "</div>" +
+        (total > list.length ? '<p class="vc-user-profile-shared__more">+' + esc(formatIntIt(total - list.length)) + " altri utenti</p>" : "") +
+        "</details>"
+      );
+    }
 
     var rolesHtml = roles.length
       ? roles
@@ -268,26 +413,6 @@
           })
           .join("")
       : '<span class="vc-user-profile-role vc-user-profile-role--muted">Nessun ruolo mostrabile</span>';
-
-    var multiplierItemsHtml = multiplierSources.length
-      ? multiplierSources
-          .map(function (source) {
-            var style = source.color ? ' style="--vc-multi-accent:' + esc(source.color) + '"' : "";
-            return (
-              '<div class="vc-user-profile-multisource"' +
-              style +
-              ">" +
-              '<span class="vc-user-profile-multisource__label">' +
-              esc(source.label || "Bonus") +
-              "</span>" +
-              '<span class="vc-user-profile-multisource__value">' +
-              esc(formatMult(source.multiplier || 1)) +
-              "</span>" +
-              "</div>"
-            );
-          })
-          .join("")
-      : '<div class="vc-user-profile-multisource"><span class="vc-user-profile-multisource__label">Base</span><span class="vc-user-profile-multisource__value">x1.0</span></div>';
 
     var customEconomyHtml =
       customRole || customVoice
@@ -329,6 +454,7 @@
               esc(formatIntIt(customRole.memberCount || 0)) +
               " membri</span>" +
               "</article>" +
+              sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Condiviso con") +
               "</div>" +
               "</details>"
             : "") +
@@ -416,6 +542,7 @@
           '"><i class="fa fa-paint-brush" aria-hidden="true"></i> Personalizza</a>'
         : "") +
       "</div>" +
+      badgesHtml +
       '<div class="vc-user-profile-stats">' +
       '<article class="vc-user-profile-stat vc-user-profile-stat--level"><span class="vc-user-profile-stat__label">Livello</span><span class="vc-user-profile-stat__value">' +
       esc(String(level.level != null ? level.level : 0)) +
@@ -474,47 +601,38 @@
           '"><i class="fa fa-sliders" aria-hidden="true"></i> Personalizza</a>'
         : "") +
       "</div>" +
-      '<div class="vc-user-rankcard"' + rankCardStyleVars(rankCardTheme, profile.rankCardResolvedWallpaper) + ">" +
-      '<div class="vc-user-rankcard__main">' +
-      '<div class="vc-user-rankcard__avatarwrap">' +
-      '<span class="vc-user-rankcard__avatarclip">' +
+      '<div class="vc-user-rankcard-preview vc-rank-editor-preview__card"' + rankCardStyleVars(rankCardTheme, profile.rankCardResolvedWallpaper) + ">" +
+      '<div class="vc-rank-editor-preview__hero">' +
+      '<div class="vc-rank-editor-preview__avatarwrap">' +
       (avatar
-        ? '<img class="vc-user-rankcard__avatar" src="' +
+        ? '<img class="vc-rank-editor-preview__avatar" src="' +
           esc(avatar) +
           '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
           esc(defaultEmbedAvatarUrl(userId)) +
           '\'" />'
-        : '<span class="vc-user-rankcard__avatar vc-user-rankcard__avatar--fallback"><i class="fa fa-user"></i></span>') +
-      "</span>" +
+        : '<span class="vc-rank-editor-preview__avatar vc-rank-editor-preview__avatar--fallback"><i class="fa fa-user"></i></span>') +
       "</div>" +
-      '<div class="vc-user-rankcard__copy">' +
-      '<div class="vc-user-rankcard__name">' +
-      esc(profileUsername) +
-      ' <span class="vc-user-rankcard__level">- Lv. ' +
-      esc(String(level.level != null ? level.level : 0)) +
-      "</span></div>" +
-      '<div class="vc-user-rankcard__progress"><span class="vc-user-rankcard__progressfill" style="width:' +
+      '<div class="vc-rank-editor-preview__copy">' +
+      '<div class="vc-rank-editor-preview__topline">' +
+      '<span class="vc-rank-editor-preview__name">' + esc(profileUsername) + "</span>" +
+      '<span class="vc-rank-editor-preview__dot">·</span>' +
+      '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(level.level != null ? level.level : 0)) + "</span>" +
+      '<span class="vc-rank-editor-preview__mult">' + esc(formatMult(multiplier)) + "</span>" +
+      "</div>" +
+      '<div class="vc-rank-editor-preview__bar"><span class="vc-rank-editor-preview__fill" style="width:' +
       esc(progressPct) +
-      '"></span><span class="vc-user-rankcard__progresstext">' +
-      esc(formatIntIt(level.exp || 0)) +
-      " EXP</span></div>" +
-      '<div class="vc-user-rankcard__meta">' +
-      '<span class="vc-user-rankcard__pill">Weekly rank ' +
-      esc(weeklyRankText) +
-      "</span>" +
-      '<span class="vc-user-rankcard__pill">Weekly XP ' +
-      esc(formatIntIt(weekly.weeklyExp || 0)) +
-      "</span>" +
-      '<span class="vc-user-rankcard__pill">Moltiplicatore ' +
-      esc(formatMult(multiplier)) +
-      "</span>" +
-      "</div></div>" +
-      '<div class="vc-user-rankcard__rankbox">' +
-      esc(rankText) +
-      "<small>RANK</small></div>" +
+      '"></span><span class="vc-rank-editor-preview__bartext">' +
+      esc(formatIntIt(currentXp)) +
+      " / " +
+      esc(formatIntIt(targetXp)) +
+      " XP</span></div>" +
       "</div>" +
-      '<div class="vc-user-profile-multiplier__body vc-user-profile-multiplier__body--inline">' +
-      multiplierItemsHtml +
+      '<div class="vc-rank-editor-preview__rankbox"><strong>' + esc(rankText) + "</strong><small>RANK</small></div>" +
+      "</div>" +
+      '<div class="vc-rank-editor-preview__stats">' +
+      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-trophy" aria-hidden="true"></i><span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-bolt" aria-hidden="true"></i><span>WEEKLY XP</span><strong>' + esc(formatIntIt(weekly.weeklyExp || 0)) + "</strong></div>" +
+      '<div class="vc-rank-editor-preview__stat"><i class="fa fa-star" aria-hidden="true"></i><span>MULTIPLIER</span><strong>' + esc(formatMult(multiplier)) + "</strong></div>" +
       "</div>" +
       "</div></section>" +
       customEconomyHtml +

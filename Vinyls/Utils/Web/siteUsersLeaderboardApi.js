@@ -179,7 +179,27 @@ async function buildCustomProfileData(guild, userId) {
         ? findCustomVoiceByRole(guild, role.id)
         : null;
 
-  const roleMemberCount = role?.members ? role.members.filter((m) => !m.user?.bot).size : 0;
+  let roleMembers = role?.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
+  if (role && roleMembers.length === 0) {
+    await guild.members.fetch().catch(() => null);
+    roleMembers = role.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
+  }
+  const roleMemberCount = roleMembers.length;
+  const roleSharedMembers = roleMembers
+    .sort((a, b) =>
+      String(a.displayName || a.user?.username || "").localeCompare(String(b.displayName || b.user?.username || ""), "it"),
+    )
+    .slice(0, 60)
+    .map((member) => ({
+      id: String(member.id || member.user?.id || ""),
+      username: String(member.user?.username || "").trim(),
+      displayName: String(member.displayName || member.user?.username || "Utente").trim(),
+      avatarUrl:
+        member.displayAvatarURL?.({ extension: "png", size: 96 }) ||
+        member.user?.displayAvatarURL?.({ extension: "png", size: 96 }) ||
+        "",
+    }))
+    .filter((member) => member.id);
   let voiceSharedCount = 0;
   if (voice?.permissionOverwrites?.cache) {
     voice.permissionOverwrites.cache.forEach((overwrite) => {
@@ -202,6 +222,7 @@ async function buildCustomProfileData(guild, userId) {
               : "",
           createdAt: role.createdAt ? new Date(role.createdAt).toISOString() : "",
           memberCount: roleMemberCount,
+          sharedMembers: roleSharedMembers,
         }
       : null,
     voice: voice
@@ -390,6 +411,9 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
       avatarUrl: id.avatarUrl,
       level,
       exp: totalExp,
+      currentLevelExp: Number(li.currentLevelExp || 0),
+      nextLevelExp: Number(li.nextLevelExp || 0),
+      remainingToNext: Number(li.remainingToNext || 0),
       progressPercent: Math.max(0, Math.min(100, Math.round(Number(li.progressPercent || 0)))),
     };
   }
@@ -411,6 +435,9 @@ async function buildRowFromDoc(client, guild, board, d, rank, pageMaxSecondary, 
       exp: totalExp,
       weeklyExp,
       weeklyBarPct: pctBar(weeklyExp, pageMaxSecondary),
+      currentLevelExp: Number(li.currentLevelExp || 0),
+      nextLevelExp: Number(li.nextLevelExp || 0),
+      remainingToNext: Number(li.remainingToNext || 0),
       progressPercent: Math.max(0, Math.min(100, Math.round(Number(li.progressPercent || 0)))),
       expMultiplier:
         weeklyEffectiveMultiplier != null

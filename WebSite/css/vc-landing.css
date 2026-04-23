@@ -1724,14 +1724,15 @@ ul.vc-footer-social:not(:has(> li)) {
 }
 
 @media (min-width: 640px) {
-  .vc-header-snav > .vc-snav-details:nth-child(2)::before {
+  .vc-header-snav > .vc-snav-item:not(:first-child)::before,
+  .vc-header-snav > .vc-snav-details:not(:first-child)::before {
     content: "";
     position: absolute;
     left: 0;
     top: 50%;
     width: 1px;
     height: 1.7rem;
-    transform: translate(-0.28rem, -50%);
+    transform: translate(-0.3rem, -50%);
     border-radius: 9999px;
     background: linear-gradient(
       180deg,
@@ -1848,7 +1849,7 @@ a.vc-header-logo-link+a[href] {
 
   .vc-header-snav > .vc-snav-details > .vc-snav-summary,
   .vc-header-snav > .vc-snav-item:not(:first-child) {
-    padding-left: 0.52rem;
+    padding-left: 0.75rem;
   }
 }
 
@@ -4040,6 +4041,88 @@ textarea.vc-candidature-input {
   font-size: 1rem;
 }
 
+.vc-user-profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.15rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(96, 165, 250, 0.22), transparent 36%),
+    linear-gradient(135deg, rgba(30, 64, 175, 0.28), rgba(8, 81, 111, 0.22));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 32px rgba(2, 8, 23, 0.16);
+}
+
+.vc-user-profile-badge {
+  --vc-profile-badge: #60a5fa;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.8rem;
+  padding: 0 1rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--vc-profile-badge) 48%, rgba(255, 255, 255, 0.16));
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--vc-profile-badge) 28%, rgba(15, 23, 42, 0.58)),
+      color-mix(in srgb, var(--vc-profile-badge) 13%, rgba(15, 23, 42, 0.4))
+    );
+  color: color-mix(in srgb, var(--vc-profile-badge) 54%, white);
+  font-weight: 850;
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 22px color-mix(in srgb, var(--vc-profile-badge) 18%, transparent);
+}
+
+.vc-user-profile-badge__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: var(--vc-profile-badge);
+  color: #fff;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--vc-profile-badge) 42%, transparent);
+}
+
+.vc-user-profile-badge__label {
+  white-space: nowrap;
+}
+
+.vc-user-profile-badge--rank,
+.vc-user-profile-badge--rank1 {
+  --vc-profile-badge: #38bdf8;
+}
+
+.vc-user-profile-badge--rank2 {
+  --vc-profile-badge: #a855f7;
+}
+
+.vc-user-profile-badge--rank3 {
+  --vc-profile-badge: #22c55e;
+}
+
+.vc-user-profile-badge--founder {
+  --vc-profile-badge: #0ea5e9;
+}
+
+.vc-user-profile-badge--staff {
+  --vc-profile-badge: #f43f5e;
+}
+
+.vc-user-profile-badge--booster {
+  --vc-profile-badge: #c026d3;
+}
+
+.vc-user-profile-badge--donator {
+  --vc-profile-badge: #ec4899;
+}
+
 .vc-user-profile-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4103,6 +4186,10 @@ textarea.vc-candidature-input {
 
 .vc-user-profile-block__sub {
   color: rgba(191, 219, 254, 0.7);
+}
+
+.vc-user-profile-block--rankcard {
+  container-type: inline-size;
 }
 
 .vc-user-profile-mini {
@@ -4469,7 +4556,7 @@ textarea.vc-candidature-input {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  margin-bottom: 0.8rem;
+  margin-bottom: 1rem;
   color: #f8fafc;
   font-size: 0.95rem;
   font-weight: 800;
@@ -4483,21 +4570,28 @@ textarea.vc-candidature-input {
   border-radius: 1.4rem;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 42px rgba(2, 8, 23, 0.16);
 }
 
 .vc-user-profile-accordion--role {
-  background: linear-gradient(135deg, rgba(51, 37, 106, 0.96), rgba(36, 53, 113, 0.72));
+  background:
+    radial-gradient(circle at 4% 0%, rgba(216, 180, 254, 0.15), transparent 38%),
+    linear-gradient(135deg, rgba(55, 42, 129, 0.94), rgba(31, 50, 111, 0.78));
 }
 
 .vc-user-profile-accordion--voice {
-  background: linear-gradient(135deg, rgba(21, 57, 125, 0.96), rgba(8, 82, 112, 0.72));
+  background:
+    radial-gradient(circle at 6% 0%, rgba(103, 232, 249, 0.14), transparent 38%),
+    linear-gradient(135deg, rgba(24, 71, 151, 0.94), rgba(8, 88, 120, 0.78));
 }
 
 .vc-user-profile-accordion__summary {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 1.25rem 1.15rem;
+  padding: 1.35rem 1.35rem;
   cursor: pointer;
   list-style: none;
 }
@@ -4510,12 +4604,13 @@ textarea.vc-candidature-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.08);
+  width: 3.45rem;
+  height: 3.45rem;
+  border-radius: 1.05rem;
+  background: rgba(255, 255, 255, 0.1);
   color: #e879f9;
   font-size: 1.3rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .vc-user-profile-accordion--voice .vc-user-profile-accordion__icon {
@@ -4545,9 +4640,9 @@ textarea.vc-candidature-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.55rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.7rem;
   border-radius: 9999px;
   background: rgba(236, 72, 153, 0.24);
   color: #f5d0fe;
@@ -4565,7 +4660,9 @@ textarea.vc-candidature-input {
 }
 
 .vc-user-profile-accordion__body {
-  padding: 0 1.15rem 1.15rem;
+  display: grid;
+  gap: 0.9rem;
+  padding: 0 1.35rem 1.35rem;
 }
 
 .vc-user-profile-customcard {
@@ -4573,10 +4670,11 @@ textarea.vc-candidature-input {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.05rem;
-  border-radius: 1.05rem;
-  background: rgba(8, 15, 36, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1.15rem 1.2rem;
+  border-radius: 1.2rem;
+  background: rgba(6, 12, 32, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .vc-user-profile-customcard__main {
@@ -4587,12 +4685,14 @@ textarea.vc-candidature-input {
 }
 
 .vc-user-profile-customcard__dot {
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 1.85rem;
+  height: 1.85rem;
   border-radius: 9999px;
   flex-shrink: 0;
   background: var(--vc-custom-dot, #ffffff);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.1),
+    0 0 20px color-mix(in srgb, var(--vc-custom-dot, #ffffff) 30%, transparent);
 }
 
 .vc-user-profile-customcard__dot--voice {
@@ -4624,6 +4724,137 @@ textarea.vc-candidature-input {
   color: #f8fafc;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.vc-user-profile-shared {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: rgba(9, 17, 42, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.vc-user-profile-shared__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.1rem;
+  padding: 0 1rem;
+  cursor: pointer;
+  list-style: none;
+  color: rgba(226, 232, 240, 0.86);
+}
+
+.vc-user-profile-shared__summary::-webkit-details-marker {
+  display: none;
+}
+
+.vc-user-profile-shared__summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.vc-user-profile-shared__summary strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.55rem;
+  border-radius: 9999px;
+  background: rgba(236, 72, 153, 0.22);
+  color: #f9a8d4;
+  font-weight: 900;
+}
+
+.vc-user-profile-shared__chev {
+  color: rgba(226, 232, 240, 0.62);
+  transition: transform 0.2s ease;
+}
+
+.vc-user-profile-shared[open] .vc-user-profile-shared__chev {
+  transform: rotate(180deg);
+}
+
+.vc-user-profile-shared__list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: #8b5cf6 rgba(15, 23, 42, 0.4);
+}
+
+.vc-user-profile-shared__user {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.85rem;
+  color: inherit;
+  text-decoration: none;
+  background: rgba(8, 13, 34, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+.vc-user-profile-shared__user:hover,
+.vc-user-profile-shared__user:focus-visible {
+  transform: translateX(3px);
+  border-color: rgba(196, 181, 253, 0.24);
+  background: rgba(59, 46, 125, 0.32);
+  outline: none;
+}
+
+.vc-user-profile-shared__avatar {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 16px rgba(139, 92, 246, 0.16);
+}
+
+.vc-user-profile-shared__avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vc-user-profile-shared__name {
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vc-user-profile-shared__tag {
+  max-width: 11rem;
+  overflow: hidden;
+  color: rgba(203, 213, 225, 0.62);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vc-user-profile-shared__more,
+.vc-user-profile-shared__empty {
+  margin: 0;
+  padding: 0.8rem 1rem 1rem;
+  color: rgba(226, 232, 240, 0.68);
+  font-weight: 700;
 }
 
 .vc-user-profile-customgrid {
@@ -5206,6 +5437,7 @@ textarea.vc-candidature-input {
 .vc-rank-editor-previewcard {
   padding: 1.5rem;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .vc-rank-editor-previewcard__head {
@@ -5273,6 +5505,10 @@ textarea.vc-candidature-input {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.vc-rank-editor-preview__copy {
+  min-width: 0;
+}
+
 .vc-rank-editor-preview__avatarwrap {
   width: 7.6rem;
   height: 7.6rem;
@@ -5313,7 +5549,9 @@ textarea.vc-candidature-input {
 
 .vc-rank-editor-preview__name {
   color: var(--vc-rank-primary);
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5324,6 +5562,7 @@ textarea.vc-candidature-input {
 .vc-rank-editor-preview__dot,
 .vc-rank-editor-preview__level {
   color: var(--vc-rank-secondary);
+  flex: 0 0 auto;
   font-size: clamp(1.25rem, 3vw, 1.75rem);
   font-weight: 800;
   white-space: nowrap;
@@ -5331,6 +5570,7 @@ textarea.vc-candidature-input {
 
 .vc-rank-editor-preview__mult {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   min-width: 3.9rem;
@@ -5472,6 +5712,127 @@ textarea.vc-candidature-input {
 .vc-rank-editor-previewbadge {
   color: rgba(226, 232, 240, 0.8);
   text-align: center;
+}
+
+.vc-user-rankcard-preview.vc-rank-editor-preview__card {
+  max-width: none;
+}
+
+.vc-user-profile-block--rankcard .vc-rank-editor-preview__card {
+  width: 100%;
+}
+
+@container (max-width: 42rem) {
+  .vc-rank-editor-preview__card {
+    padding: 1rem;
+  }
+
+  .vc-rank-editor-preview__hero {
+    grid-template-columns: 6.25rem minmax(0, 1fr) 5.6rem;
+    gap: 0.75rem;
+    min-height: 7.1rem;
+    padding: 0.75rem;
+  }
+
+  .vc-rank-editor-preview__avatarwrap {
+    width: 5.7rem;
+    height: 5.7rem;
+    padding: 0.26rem;
+  }
+
+  .vc-rank-editor-preview__topline {
+    gap: 0.45rem;
+  }
+
+  .vc-rank-editor-preview__name {
+    font-size: 1.55rem;
+  }
+
+  .vc-rank-editor-preview__dot,
+  .vc-rank-editor-preview__level {
+    font-size: 1.15rem;
+  }
+
+  .vc-rank-editor-preview__mult {
+    min-width: 3.15rem;
+    min-height: 1.35rem;
+    padding: 0 0.45rem;
+    border-width: 1.5px;
+    font-size: 0.72rem;
+  }
+
+  .vc-rank-editor-preview__bar {
+    height: 1rem;
+    margin-top: 0.55rem;
+  }
+
+  .vc-rank-editor-preview__bartext {
+    font-size: 0.68rem;
+  }
+
+  .vc-rank-editor-preview__rankbox {
+    min-width: 5.25rem;
+    min-height: 4.4rem;
+    border-width: 2px;
+    border-radius: 0.85rem;
+  }
+
+  .vc-rank-editor-preview__rankbox strong {
+    font-size: 1.35rem;
+  }
+
+  .vc-rank-editor-preview__rankbox small {
+    font-size: 0.62rem;
+  }
+
+  .vc-rank-editor-preview__stats {
+    width: 100%;
+    gap: 0.65rem;
+  }
+
+  .vc-rank-editor-preview__stat {
+    grid-template-columns: 1.55rem minmax(0, 1fr);
+    column-gap: 0.45rem;
+    min-height: 3rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.78rem;
+  }
+
+  .vc-rank-editor-preview__stat i {
+    font-size: 1.15rem;
+  }
+
+  .vc-rank-editor-preview__stat span {
+    font-size: 0.58rem;
+  }
+
+  .vc-rank-editor-preview__stat strong {
+    font-size: 0.95rem;
+  }
+}
+
+@container (max-width: 32rem) {
+  .vc-rank-editor-preview__hero {
+    grid-template-columns: 5.4rem minmax(0, 1fr);
+  }
+
+  .vc-rank-editor-preview__rankbox {
+    grid-column: 2;
+    justify-self: start;
+    min-width: 4.8rem;
+    min-height: 3.2rem;
+    flex-direction: row;
+    gap: 0.35rem;
+    padding: 0 0.65rem;
+  }
+
+  .vc-rank-editor-preview__rankbox strong {
+    font-size: 1.1rem;
+  }
+
+  .vc-rank-editor-preview__stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 72rem) {

@@ -689,11 +689,7 @@
     grid.innerHTML = rows.map(function (r) {
       return renderCard(r, board);
     }).join("");
-    if (typeof window !== "undefined" && window.VCCountUp && typeof window.VCCountUp.refresh === "function") {
-      window.VCCountUp.refresh(grid);
-    } else {
-      animateNumberTargets(grid);
-    }
+    animateNumberTargets(grid);
     state.totalPages = Math.max(1, Number(data.totalPages) || 1);
     updatePager();
   }
