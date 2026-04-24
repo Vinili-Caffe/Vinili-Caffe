@@ -140,11 +140,30 @@ async function migrateFileToDbOnce() {
   return migrationPromise;
 }
 
-const DM_CATEGORIES = Object.freeze(["weekly", "bump", "broadcast", "invites", "perks"]);
+let voteTopggSplitMigrationPromise = null;
+/** Chi aveva solo `bump` off riceve anche `vote_topgg` (prima i reminder Top.gg seguivano la stessa leva). */
+async function migrateVoteTopggNoDmSplitOnce() {
+  if (!isDbReady()) return;
+  if (voteTopggSplitMigrationPromise) return voteTopggSplitMigrationPromise;
+  voteTopggSplitMigrationPromise = (async () => {
+    try {
+      await ActivityUserProfile.updateMany(
+        {
+          $and: [{ "profile.noDmPreference.categories": "bump" }, { "profile.noDmPreference.categories": { $ne: "vote_topgg" } }],
+        },
+        { $addToSet: { "profile.noDmPreference.categories": "vote_topgg" } },
+      );
+    } catch (_) {}
+  })();
+  return voteTopggSplitMigrationPromise;
+}
+
+const DM_CATEGORIES = Object.freeze(["weekly", "bump", "vote_topgg", "broadcast", "invites", "perks"]);
 const DM_CATEGORY_ALL = "all";
 const DM_CATEGORY_LABELS = Object.freeze({
   weekly: "Promemoria settimanali",
-  bump: "Avvisi Voto Discadia",
+  bump: "Promemoria voto Discadia",
+  vote_topgg: "Promemoria voto Top.gg",
   broadcast: "Avvisi dallo staff",
   invites: "Inviti",
   perks: "Livelli e perk",
@@ -155,6 +174,7 @@ async function getNoDmSet(guildId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
+    await migrateVoteTopggNoDmSplitOnce();
     const rows = await listNoDmPreferences(key);
     return new Set(
       rows
@@ -181,6 +201,7 @@ async function getNoDmPreferences(guildId, userId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
+    await migrateVoteTopggNoDmSplitOnce();
     const doc = await getNoDmPreference(key, uid);
     if (!doc) return { blockAll: false, disabled: new Set() };
     const cat = doc.categories;
@@ -203,6 +224,7 @@ async function setNoDmCategories(guildId, userId, categories) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
+    await migrateVoteTopggNoDmSplitOnce();
     if (list.length === 0) {
       await clearNoDmPreference(key, uid);
       await mirrorRemoveFromFile(key, uid).catch(() => { });
@@ -229,6 +251,7 @@ async function getAllNoDmPreferences(guildId) {
 
   if (isDbReady()) {
     await migrateFileToDbOnce();
+    await migrateVoteTopggNoDmSplitOnce();
     const rows = await listNoDmPreferences(key);
     return rows.map((row) => {
       const uid = String(row.userId);

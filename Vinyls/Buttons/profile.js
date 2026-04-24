@@ -76,6 +76,32 @@ function clearBirthdayDraft(guildId, userId) {
   birthdayDrafts.delete(getDraftKey(guildId, userId));
 }
 
+function isDmCategoryOff(noDm, key) {
+  const disabled =
+    noDm?.disabled instanceof Set
+      ? noDm.disabled
+      : new Set(Array.isArray(noDm?.disabled) ? noDm.disabled : []);
+  const isAll = Boolean(noDm?.blockAll || disabled.has(DM_CATEGORY_ALL));
+  return isAll || disabled.has(key);
+}
+
+async function applyNoDmCategoryToggle(guildId, ownerId, category) {
+  if (!DM_CATEGORIES.includes(category)) return false;
+  const prefs = await getNoDmPreferences(guildId, ownerId).catch(() => ({ blockAll: false, disabled: new Set() }));
+  const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
+  let next;
+  if (isAll) {
+    next = DM_CATEGORIES.filter((k) => k !== category);
+  } else {
+    const disabled = new Set(prefs.disabled);
+    if (disabled.has(category)) disabled.delete(category);
+    else disabled.add(category);
+    next = [...disabled];
+  }
+  await setNoDmCategories(guildId, ownerId, next.length ? next : []).catch(() => { });
+  return true;
+}
+
 function trimRoleName(name) {
   const clean = String(name || "").replace(/\s+/g, " ").trim();
   const base = clean || "Custom Role";
@@ -423,17 +449,21 @@ function buildSectionEmbed(section, state, user, guild = null) {
   }
 
   if (section === SECTION_PRIVACY) {
+    const voteDiscDmOff = isDmCategoryOff(noDm, "bump");
+    const voteTopggDmOff = isDmCategoryOff(noDm, "vote_topgg");
     const privacyLines = [
       `<:VC_Dot:1482532364222595303> **Avatar**: ${privacy.avatar ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
       `<:VC_Dot:1482532364222595303> **Banner**: ${privacy.banner ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
       `<:VC_Dot:1482532364222595303> **Quote**: ${privacy.quotes ? "<:VC_OfflineStatus:1482527117051957380> Nascosto / bloccato" : "<:VC_OnlineStatus:1482527088912240650> Visibile"}`,
+      `<:VC_Dot:1482532364222595303> **DM reminder voto Discadia**: ${voteDiscDmOff ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`,
+      `<:VC_Dot:1482532364222595303> **DM reminder voto Top.gg**: ${voteTopggDmOff ? "<:VC_OfflineStatus:1482527117051957380> Disattivato" : "<:VC_OnlineStatus:1482527088912240650> Attivo"}`,
     ];
     return base.setDescription([
-      "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner e quote in questo server.",
+      "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** (avatar, banner, quote) e i **promemoria DM** per i voti su Discadia e Top.gg (impostazioni separate).",
       "",
       ...privacyLines,
       "",
-      "<a:VC_Alert:1482706673176150077> Clicca una categoria per alternare solo quella. Usa **Disattiva tutto** per bloccare tutti, o **Attiva tutto** per sbloccarli tutti.",
+      "<a:VC_Alert:1482706673176150077> Per tutte le altre categorie DM usa la sezione **Notifiche DM**. Avatar/Banner/Quote: **Blocca tutto** / **Sblocca tutto**.",
     ].join("\n"));
   }
 
@@ -601,19 +631,37 @@ function buildRows(ownerId, section, state = null) {
         .setStyle(off ? ButtonStyle.Secondary : ButtonStyle.Success)
         .setEmoji(off ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>");
     });
-    const row2 = new ActionRowBuilder().addComponents(...dmButtons);
-    const row3 = new ActionRowBuilder().addComponents(
+    const dmRows = [];
+    for (let i = 0; i < dmButtons.length; i += 5) {
+      dmRows.push(new ActionRowBuilder().addComponents(...dmButtons.slice(i, i + 5)));
+    }
+    const rowLast = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_all`).setLabel("Disattiva tutto").setStyle(isAll ? ButtonStyle.Danger : ButtonStyle.Secondary).setEmoji("<:cancel:1461730653677551691>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_none`).setLabel("Attiva tutto").setStyle(!isAll && noDm?.disabled?.size === 0 ? ButtonStyle.Success : ButtonStyle.Secondary).setEmoji("<:success:1461731530333229226>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_done`).setLabel("Fine").setStyle(ButtonStyle.Primary).setEmoji("<:vegacheckmark:1443666279058772028>"),
     );
-    return [row1, row2, row3];
+    return [row1, ...dmRows, rowLast];
   } else if (section === SECTION_PRIVACY) {
     const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
+    const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
+    const voteDiscDmOff = isDmCategoryOff(noDm, "bump");
+    const voteTopggDmOff = isDmCategoryOff(noDm, "vote_topgg");
     const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_avatar`).setLabel("Avatar").setStyle(privacy.avatar ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.avatar ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_banner`).setLabel("Banner").setStyle(privacy.banner ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.banner ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_toggle_quotes`).setLabel("Quote").setStyle(privacy.quotes ? ButtonStyle.Secondary : ButtonStyle.Success).setEmoji(privacy.quotes ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
+    );
+    const rowVoteDm = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_dm_bump`)
+        .setLabel("Voto Discadia (DM)")
+        .setStyle(voteDiscDmOff ? ButtonStyle.Secondary : ButtonStyle.Success)
+        .setEmoji(voteDiscDmOff ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
+      new ButtonBuilder()
+        .setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_dm_vote_topgg`)
+        .setLabel("Voto Top.gg (DM)")
+        .setStyle(voteTopggDmOff ? ButtonStyle.Secondary : ButtonStyle.Success)
+        .setEmoji(voteTopggDmOff ? "<:VC_OfflineStatus:1482527117051957380>" : "<:VC_OnlineStatus:1482527088912240650>"),
     );
     const allBlocked = privacy.avatar && privacy.banner && privacy.quotes;
     const allVisible = !privacy.avatar && !privacy.banner && !privacy.quotes;
@@ -622,7 +670,7 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_none`).setLabel("Sblocca tutto").setStyle(allVisible ? ButtonStyle.Success : ButtonStyle.Secondary).setEmoji("<:success:1461731530333229226>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_done`).setLabel("Fine").setStyle(ButtonStyle.Primary).setEmoji("<:vegacheckmark:1443666279058772028>"),
     );
-    return [row1, row2, row3];
+    return [row1, row2, rowVoteDm, row3];
   } else {
     return [row1];
   }
@@ -1077,19 +1125,17 @@ async function execute(interaction, client) {
     if (action.startsWith("dm_toggle_")) {
       const category = action.slice("dm_toggle_".length);
       if (!DM_CATEGORIES.includes(category)) return true;
-      const prefs = await getNoDmPreferences(interaction.guild.id, ownerId).catch(() => ({ blockAll: false, disabled: new Set() }));
-      const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
-      let next;
-      if (isAll) {
-        next = DM_CATEGORIES.filter((k) => k !== category);
-      } else {
-        const disabled = new Set(prefs.disabled);
-        if (disabled.has(category)) disabled.delete(category);
-        else disabled.add(category);
-        next = [...disabled];
-      }
-      await setNoDmCategories(interaction.guild.id, ownerId, next.length ? next : []).catch(() => { });
+      await applyNoDmCategoryToggle(interaction.guild.id, ownerId, category);
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_DMFILTERS);
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
+
+    if (action.startsWith("privacy_dm_")) {
+      const category = action.slice("privacy_dm_".length);
+      if (!DM_CATEGORIES.includes(category)) return true;
+      await applyNoDmCategoryToggle(interaction.guild.id, ownerId, category);
+      const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_PRIVACY);
       await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }

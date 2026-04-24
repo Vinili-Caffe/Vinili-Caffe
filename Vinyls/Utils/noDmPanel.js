@@ -69,16 +69,17 @@ function buildPanelEmbed(prefs, mode = "disable") {
 
 function buildRows(prefs, uniqueKey) {
   const isAll = prefs.blockAll || prefs.disabled.has(DM_CATEGORY_ALL);
-  const row1 = new ActionRowBuilder();
-  for (const key of DM_CATEGORIES) {
+  const dmButtons = DM_CATEGORIES.map((key) => {
     const off = isAll || prefs.disabled.has(key);
-    row1.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${PREFIX}toggle_${key}_${uniqueKey}`)
-        .setLabel(String(DM_CATEGORY_LABELS[key]).slice(0, 80))
-        .setStyle(off ? ButtonStyle.Secondary : ButtonStyle.Success)
-        .setEmoji(off ? BTN_EMOJI_OFF : BTN_EMOJI_ON),
-    );
+    return new ButtonBuilder()
+      .setCustomId(`${PREFIX}toggle_${key}_${uniqueKey}`)
+      .setLabel(String(DM_CATEGORY_LABELS[key]).slice(0, 80))
+      .setStyle(off ? ButtonStyle.Secondary : ButtonStyle.Success)
+      .setEmoji(off ? BTN_EMOJI_OFF : BTN_EMOJI_ON);
+  });
+  const rows = [];
+  for (let i = 0; i < dmButtons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(...dmButtons.slice(i, i + 5)));
   }
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -97,7 +98,8 @@ function buildRows(prefs, uniqueKey) {
       .setStyle(ButtonStyle.Primary)
       .setEmoji("<:vegacheckmark:1443666279058772028>"),
   );
-  return [row1, row2];
+  rows.push(row2);
+  return rows;
 }
 
 /**

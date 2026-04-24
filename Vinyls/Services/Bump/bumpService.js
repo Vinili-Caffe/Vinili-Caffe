@@ -698,7 +698,7 @@ async function buildVoteReminderEmbed(client, opts = {}) {
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setDescription(description)
     .setFooter({
-      text: "Per gestire o disattivare i DM automatici usa +profile (blocca anche avvisi importanti).",
+      text: "DM voti: +profile → Privacy (Discadia e Top.gg separati) o Notifiche DM.",
     });
 
   const components = [];
@@ -739,8 +739,10 @@ async function isStaffNoDmBypassUser(client, guildId, userId) {
   return false;
 }
 
-async function shouldSkipVoteDmByNoDm(client, guildId, userId) {
-  if (!(await shouldBlockDm(guildId, userId, "bump").catch(() => false))) return false;
+async function shouldSkipVoteDmByNoDm(client, guildId, userId, voteListing = "discadia") {
+  const listing = voteListingKey(voteListing);
+  const category = listing === "topgg" ? "vote_topgg" : "bump";
+  if (!(await shouldBlockDm(guildId, userId, category).catch(() => false))) return false;
   const isStaffBypass = await isStaffNoDmBypassUser(client, guildId, userId);
   return !isStaffBypass;
 }
@@ -1019,7 +1021,7 @@ async function sendDueDiscadiaVoteReminders(client) {
       if (Date.now() - lastVoteAt < cooldownMs) continue;
       const lastRemindedAtRaw = voteStateLastRemindedAt(state, voteListing);
       if (lastRemindedAtRaw && new Date(lastRemindedAtRaw).getTime() >= lastVoteAt) continue;
-      if (await shouldSkipVoteDmByNoDm(client, guildId, userId)) continue;
+      if (await shouldSkipVoteDmByNoDm(client, guildId, userId, voteListing)) continue;
 
       let user = await getUserCached(client, userId);
       if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null);
