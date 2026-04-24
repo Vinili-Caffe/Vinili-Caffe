@@ -19,7 +19,11 @@ const OPENROUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
 const DEFAULT_OPENROUTER_RETRY_UNTIL_HOUR = 22;
 const DEFAULT_DUPLICATE_LOOKBACK_DAYS = 60;
 const DEFAULT_MAX_CANDIDATE_ATTEMPTS = 80;
-const AUTO_POLL_RETRY_MS = 5 * 60 * 1000;
+const AUTO_POLL_RETRY_MS = 2 * 60 * 1000;
+const AUTO_POLL_RETRY_JITTER_MS = 20_000;
+const AUTO_POLL_CRON_HOUR = 20;
+const AUTO_POLL_CRON_MINUTE = 0;
+const AUTO_POLL_RECOVERY_START_DELAY_MS = 12_000;
 const MIN_MAX_CANDIDATE_ATTEMPTS = 5;
 const ABS_MAX_CANDIDATE_ATTEMPTS = 250;
 const GENERIC_OPENROUTER_MODEL_ALIASES = new Set(["openrouter/free", "openrouter/auto"]);
@@ -285,16 +289,52 @@ function getRomeTimeParts(date = new Date()) {
   };
 }
 
-function isWithinAutoPollWindow(now = new Date(), cfg = {}) {
+function getAutoPollWindowBounds(cfg = {}) {
   const startHour = Number.isFinite(Number(cfg?.windowStartHour)) ? Number(cfg.windowStartHour) : DEFAULT_WINDOW_START_HOUR;
   const startMinute = Number.isFinite(Number(cfg?.windowStartMinute)) ? Number(cfg.windowStartMinute) : DEFAULT_WINDOW_START_MINUTE;
   const endHour = Number.isFinite(Number(cfg?.windowEndHour)) ? Number(cfg.windowEndHour) : DEFAULT_WINDOW_END_HOUR;
   const endMinute = Number.isFinite(Number(cfg?.windowEndMinute)) ? Number(cfg.windowEndMinute) : DEFAULT_WINDOW_END_MINUTE;
+  return {
+    startTotal: startHour * 60 + startMinute,
+    endTotal: endHour * 60 + endMinute,
+  };
+}
+
+function isWithinAutoPollWindow(now = new Date(), cfg = {}) {
+  const { startTotal, endTotal } = getAutoPollWindowBounds(cfg);
   const { hour, minute } = getRomeTimeParts(now);
   const nowTotal = hour * 60 + minute;
-  const startTotal = startHour * 60 + startMinute;
-  const endTotal = endHour * 60 + endMinute;
   return nowTotal >= startTotal && nowTotal <= endTotal;
+}
+
+function getAutoPollScheduleParts(cfg = {}) {
+  const hRaw = Number(cfg?.scheduleHour);
+  const mRaw = Number(cfg?.scheduleMinute);
+  const hour = Number.isFinite(hRaw) ? Math.min(23, Math.max(0, Math.floor(hRaw))) : AUTO_POLL_CRON_HOUR;
+  const minute = Number.isFinite(mRaw) ? Math.min(59, Math.max(0, Math.floor(mRaw))) : AUTO_POLL_CRON_MINUTE;
+  return { hour, minute };
+}
+
+function buildAutoPollCronExpression(cfg = {}) {
+  const { hour, minute } = getAutoPollScheduleParts(cfg);
+  return `${minute} ${hour} * * *`;
+}
+
+function isRomeTimeOnOrAfterDailyTrigger(now = new Date(), cfg = {}) {
+  const { hour, minute } = getAutoPollScheduleParts(cfg);
+  const triggerTotal = hour * 60 + minute;
+  const { hour: rh, minute: rm } = getRomeTimeParts(now);
+  return rh * 60 + rm >= triggerTotal;
+}
+
+/** Finestra “stretta” oppure stesso giorno Roma dopo l’inizio finestra (per retry/recovery fino a mezzanotte). */
+function canRunAutoPollNow(now = new Date(), cfg = {}, catchUp = false) {
+  if (isWithinAutoPollWindow(now, cfg)) return true;
+  if (!catchUp) return false;
+  const { startTotal } = getAutoPollWindowBounds(cfg);
+  const { hour, minute } = getRomeTimeParts(now);
+  const nowTotal = hour * 60 + minute;
+  return nowTotal >= startTotal;
 }
 
 function getRomeOffsetMs(utcDate) {
@@ -619,19 +659,21 @@ function clearAutoPollRetryTimer(client) {
 
 function scheduleAutoPollRetry(client) {
   clearAutoPollRetryTimer(client);
+  const jitter = Math.floor(Math.random() * (AUTO_POLL_RETRY_JITTER_MS + 1));
+  const delay = AUTO_POLL_RETRY_MS + jitter;
   client._autoPollRetryTimer = setTimeout(() => {
     client._autoPollRetryTimer = null;
-    runAutoPollAndMaybeScheduleRetry(client).catch((error) => {
+    runAutoPollAndMaybeScheduleRetry(client, { catchUp: true }).catch((error) => {
       global.logger?.error?.("[poll.auto] retry run failed:", error);
     });
-  }, AUTO_POLL_RETRY_MS);
+  }, delay);
   client._autoPollRetryTimer.unref?.();
 }
 
-async function runAutoPollAndMaybeScheduleRetry(client) {
+async function runAutoPollAndMaybeScheduleRetry(client, pollOpts = {}) {
   let outcome;
   try {
-    outcome = await runAutoPoll(client);
+    outcome = await runAutoPoll(client, pollOpts);
   } catch (error) {
     global.logger?.error?.("[poll.auto] run failed:", error);
     outcome = { retry: true, reason: "exception" };
@@ -640,8 +682,27 @@ async function runAutoPollAndMaybeScheduleRetry(client) {
   else clearAutoPollRetryTimer(client);
 }
 
-async function runAutoPoll(client) {
+async function runRecoveryAutoPollIfNeeded(client) {
   const cfg = client?.config?.autoPoll || {};
+  if (cfg.enabled === false) return;
+  const channelId = IDs.channels?.polls;
+  if (!channelId) return;
+  const pollChannel =
+    client.channels.cache.get(channelId) || (await getClientChannelCached(client, String(channelId)));
+  const gid = pollChannel?.guild?.id || pollChannel?.guildId;
+  if (!gid) return;
+  if (await hasManualPollToday(gid)) return;
+  if (await hasAutoPollToday(gid)) return;
+  const now = new Date();
+  if (!isRomeTimeOnOrAfterDailyTrigger(now, cfg)) return;
+  if (!canRunAutoPollNow(now, cfg, true)) return;
+  global.logger?.info?.("[poll.auto] recovery: oggi non risulta un poll automatico dopo l’orario programmato, tento la pubblicazione.");
+  await runAutoPollAndMaybeScheduleRetry(client, { catchUp: true });
+}
+
+async function runAutoPoll(client, pollOpts = {}) {
+  const cfg = client?.config?.autoPoll || {};
+  const catchUp = Boolean(pollOpts.catchUp);
   if (cfg.enabled === false) {
     return { retry: false, reason: "disabled" };
   }
@@ -663,7 +724,7 @@ async function runAutoPoll(client) {
     return { retry: false, reason: "auto_exists" };
   }
 
-  if (!isWithinAutoPollWindow(new Date(), cfg)) {
+  if (!canRunAutoPollNow(new Date(), cfg, catchUp)) {
     return { retry: false, reason: "outside_window" };
   }
 
@@ -688,7 +749,7 @@ async function runAutoPoll(client) {
 
   if (!payload) {
     global.logger?.warn?.(
-      "[poll.auto] no valid candidate: tutti i template locali risultano già usati nel lookback o payload non valido, riprovo tra 5 minuti se resta la finestra.",
+      "[poll.auto] no valid candidate: tutti i template locali risultano già usati nel lookback o payload non valido, riprovo a breve se resta il giorno.",
     );
     return { retry: true, reason: "no_payload" };
   }
@@ -711,16 +772,23 @@ function startAutoPollLoop(client) {
   }
   clearAutoPollRetryTimer(client);
 
+  const scheduleCfg = client?.config?.autoPoll || {};
   client._autoPollTask = cron.schedule(
-    "0 20 * * *",
+    buildAutoPollCronExpression(scheduleCfg),
     () => {
       clearAutoPollRetryTimer(client);
-      runAutoPollAndMaybeScheduleRetry(client).catch((error) => {
+      runAutoPollAndMaybeScheduleRetry(client, { catchUp: false }).catch((error) => {
         global.logger?.error?.("[poll.auto] run failed:", error);
       });
     },
     { timezone: TIMEZONE },
   );
+  const recoveryTimer = setTimeout(() => {
+    runRecoveryAutoPollIfNeeded(client).catch((err) => {
+      global.logger?.error?.("[poll.auto] recovery on start failed:", err);
+    });
+  }, AUTO_POLL_RECOVERY_START_DELAY_MS);
+  recoveryTimer.unref?.();
 }
 
 module.exports = { startAutoPollLoop, runAutoPoll, runAutoPollAndMaybeScheduleRetry };

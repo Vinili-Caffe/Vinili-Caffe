@@ -213,7 +213,9 @@
     "windowStartHour": 19,
     "windowStartMinute": 0,
     "windowEndHour": 21,
-    "windowEndMinute": 59
+    "windowEndMinute": 59,
+    "scheduleHour": 20,
+    "scheduleMinute": 0
   },
   "threadVote": {
     "enabled": true,
