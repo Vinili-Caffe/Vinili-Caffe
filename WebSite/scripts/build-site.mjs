@@ -1,10 +1,12 @@
 import fs from "fs";
 import path from "path";
+import { execFileSync } from "child_process";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 
 const require = createRequire(import.meta.url);
 import { buildWikiCommandPanesInnerHtml } from "./wiki-command-discovery.mjs";
+import { minifyHtmlFilesInDist, obfuscateProjectJsInDist } from "./minify-obfuscate-dist.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
@@ -443,11 +445,18 @@ function buildMaintenanceBootHtml(cfg) {
     redirectUri: String(cfg.discordOauth?.redirectUri || cfg.siteUrl || "").trim(),
   };
   const json = JSON.stringify(payload).replace(/</g, "\\u003c");
-  return `    <script>window.__VC_MAINTENANCE=${json};</script>\n    <script src="/js/site-maintenance.js"></script>\n`;
+  return (
+    `    <script>(function(){var w=window;w.__VC_MAINTENANCE=${json};var m=w.__VC_MAINTENANCE;if(!m||m.enabled!==true)return;var de=w.document.documentElement;de.classList.add("vc-maintenance-pending");try{de.style.overflow="hidden";de.style.height="100%";}catch(e1){}})();</script>\n` +
+    `    <script src="/js/site-maintenance.js"></script>\n`
+  );
 }
 
 function applyMaintenanceGateToHtml(html, maintenanceBoot) {
   if (!maintenanceBoot || html.includes("window.__VC_MAINTENANCE")) return html;
+  const headOpen = html.match(/<head\b[^>]*>/i);
+  if (headOpen) {
+    return html.replace(headOpen[0], `${headOpen[0]}\n${maintenanceBoot}`);
+  }
   if (html.includes("</head>")) {
     return html.replace("</head>", `${maintenanceBoot}  </head>`);
   }
@@ -743,6 +752,28 @@ async function mainLiveStatsExtraOnly() {
   console.log("[live-stats-extra] OK", out, "staffNoPm:", n + memLog);
 }
 
+/** Entry CLI Tailwind (evita `.cmd` in PATH con `&` nel percorso su Windows). */
+function tailwindCliJsPath(webRoot) {
+  const cli = path.join(webRoot, "node_modules", "tailwindcss", "lib", "cli.js");
+  return fs.existsSync(cli) ? cli : null;
+}
+
+/** Genera `css/tw-build.css` (Tailwind v3 CLI). Richiede `npm install` in WebSite/. */
+function runTailwindProductionBuild(webRoot) {
+  const cli = tailwindCliJsPath(webRoot);
+  if (!cli) return false;
+  try {
+    execFileSync(process.execPath, [cli, "-i", "css/tw-input.css", "-o", "css/tw-build.css", "--minify"], {
+      cwd: webRoot,
+      stdio: "inherit",
+    });
+    return true;
+  } catch (e) {
+    console.error("[build-site] Build Tailwind fallita:", e?.message || e);
+    process.exit(1);
+  }
+}
+
 async function main() {
   if (!fs.existsSync(CONFIG_PATH)) {
     console.error("Manca site.config.json in", ROOT);
@@ -750,6 +781,10 @@ async function main() {
   }
   const { loadEnvFiles } = require(path.join(__dirname, "..", "..", "shared", "runtime", "fsRuntime.js"));
   loadEnvFiles(ROOT);
+  if (!runTailwindProductionBuild(ROOT)) {
+    console.error("[build-site] Manca tailwindcss. Esegui: cd WebSite && npm install");
+    process.exit(1);
+  }
   const cfg = readJson(CONFIG_PATH);
   rmrf(DIST);
   copyRecursive(ROOT, DIST);
@@ -1429,6 +1464,15 @@ async function main() {
   }
 
   applyMaintenanceGateToDist(DIST, maintenanceBoot);
+
+  const siteBuild = cfg.siteBuild && typeof cfg.siteBuild === "object" ? cfg.siteBuild : null;
+  const skipClientObfuscation = siteBuild?.obfuscateClientAssets === false;
+  if (!skipClientObfuscation) {
+    obfuscateProjectJsInDist(DIST);
+    await minifyHtmlFilesInDist(DIST);
+  } else {
+    console.log("[build-site] Offuscamento/minify client disattivato (siteBuild.obfuscateClientAssets: false).");
+  }
 
   console.log("Build OK:", path.relative(process.cwd(), DIST));
 }

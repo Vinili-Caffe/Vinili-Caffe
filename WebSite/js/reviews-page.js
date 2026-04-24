@@ -203,7 +203,6 @@
     var payload = state.payload || { reviews: { server: [], staff: [] }, staffers: [], viewer: null };
     var serverWrap = byId("vc-reviews-server-list");
     var formsWrap = byId("vc-reviews-forms");
-    var authHint = byId("vc-reviews-auth-hint");
     if (!serverWrap || !formsWrap) return;
 
     var serverReviews = Array.isArray(payload.reviews && payload.reviews.server) ? payload.reviews.server : [];
@@ -211,9 +210,6 @@
       ? serverReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
       : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
     formsWrap.innerHTML = formsMarkup();
-    authHint.textContent = payload.viewer && payload.viewer.id
-      ? "Puoi modificare la tua recensione quando vuoi."
-      : "Accedi con Discord per inviare o modificare la tua recensione.";
     bind();
   }
 

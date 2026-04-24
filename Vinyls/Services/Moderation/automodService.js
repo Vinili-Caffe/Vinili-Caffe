@@ -1485,11 +1485,18 @@ function detectScam(content) {
   return patterns.some((re) => re.test(text));
 }
 
+/** Esclude host tipo `do...lo` (puntini sospensivi) che `URL` accetta ma non sono domini reali. */
+function hostnameHasNoEmptyDnsLabels(hostname) {
+  const labels = String(hostname || "").split(".");
+  if (labels.length < 2) return false;
+  return !labels.some((label) => !label || label.length > 63);
+}
+
 function extractUrls(content) {
   const text = String(content || "");
-  const matches = text.match(/(?:https?:\/\/)?(?:www\.)?[^\s/$.?#].[^\s]*/gi) || [];
+  const matches =
+    text.match(/(?:https?:\/\/)?(?:www\.)?[^\s/$.?#]+\.[^\s]+/gi) || [];
   return matches
-    .filter((raw) => /\./.test(raw))
     .map((raw) => {
       const value = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
       try {
@@ -1498,7 +1505,8 @@ function extractUrls(content) {
         return null;
       }
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((url) => hostnameHasNoEmptyDnsLabels(url.hostname));
 }
 
 /** Esclusi dal conteggio attachment_link (2.4); invite/scam/NSFW/blacklist usano extractUrls completo. */

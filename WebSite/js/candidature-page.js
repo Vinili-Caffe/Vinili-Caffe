@@ -138,9 +138,9 @@
   var eligibilityState = { loading: false, data: null };
 
   var GATE_GLOBAL =
-    "mt-6 rounded-2xl border border-red-500/40 bg-red-950/40 p-4 text-sm leading-relaxed text-red-100";
+    "mt-6 rounded-[1.6rem] border border-amber-300/25 bg-amber-950/30 p-4 text-sm leading-relaxed text-amber-50/95";
   var GATE_TAB =
-    "mt-6 rounded-2xl border border-amber-500/40 bg-amber-950/35 p-4 text-sm leading-relaxed text-amber-50";
+    "mt-6 rounded-[1.6rem] border border-white/10 bg-slate-950/40 p-4 text-sm leading-relaxed text-slate-200";
 
   function cfgCandidature() {
     return (typeof window !== "undefined" && window.__VC_CANDIDATURE) || {};

@@ -17,16 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-          },
-        },
-      };
-    </script>
+    <link rel="stylesheet" href="../css/tw-build.css" />
     <link rel="stylesheet" href="../css/vc-landing.css" />
     <script src="../js/vc-auth-pending.js"></script>
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
@@ -69,7 +60,7 @@
           >
             <a class="vc-snav-item" href="{{WIKI_URL}}"
               ><i class="fa fa-map-o" aria-hidden="true"></i><span>Wiki</span></a>
-            
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Supporta</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -81,7 +72,7 @@
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
               </div>
             </details>
-            
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
             <details class="vc-snav-details">
               <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
@@ -95,8 +86,8 @@
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-question-circle"></i></span><span>FAQ</span></a>
               </div>
             </details>
-            
-            <details class="vc-snav-details">
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block" aria-hidden="true"></span>
+            <details class="vc-snav-details vc-snav-details--current">
               <summary class="vc-snav-summary"><span>Richieste</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
               <div class="vc-snav-panel">
                 <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"
@@ -140,7 +131,7 @@
                   </div>
                 </div>
                 <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
-                  <a href="#" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
+                  <a href="{{SITE_URL}}notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
                     <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
                 </div>
               </div>
@@ -152,25 +143,58 @@
       </div>
     </header>
 
-    <main id="vc-candidature-root" class="relative z-10 mx-auto max-w-2xl px-4 pb-24 pt-28 sm:pt-32">
-      <a class="vc-wiki-back mb-8 inline-flex self-start" href="{{SITE_URL}}"
-        ><i class="fa fa-chevron-left" aria-hidden="true"></i> Home</a>
-
-      <div class="text-center">
-        <div class="vc-candidature-hero-ico mx-auto mb-4" aria-hidden="true">
-          <i class="fa fa-users"></i>
+    <main id="vc-candidature-root" class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+      <section class="vc-support-page-hero mb-8 sm:mb-10" aria-labelledby="vc-candidature-hero-heading">
+        <div class="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-center">
+          <div class="max-w-3xl">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+              <i class="fa fa-users"></i>
+            </div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Richieste allo staff</p>
+            <h1 id="vc-candidature-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+              Candidatura <span class="text-emerald-300">staff</span>
+            </h1>
+            <p id="candidature-welcome" class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+              Accedi con Discord per compilare il modulo.
+            </p>
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a href="{{COMMUNITY_RULES_URL}}"
+                class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10">
+                <i class="fa fa-file-text-o" aria-hidden="true"></i> Leggi le regole
+              </a>
+              <a href="{{SITE_URL}}"
+                class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-base font-semibold text-white transition hover:bg-white/10">
+                <i class="fa fa-home" aria-hidden="true"></i> Home
+              </a>
+            </div>
+          </div>
+          <div class="grid gap-4">
+            <div class="rounded-[1.6rem] border border-white/10 bg-slate-950/25 p-5 backdrop-blur">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Ruoli disponibili</p>
+              <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
+                <li class="flex gap-3">
+                  <i class="fa fa-life-ring mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                  <span><strong class="text-white">Helper</strong> — supporto alla community.</span>
+                </li>
+                <li class="flex gap-3">
+                  <i class="fa fa-handshake-o mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                  <span><strong class="text-white">Partner Manager</strong> — collaborazioni e partner.</span>
+                </li>
+              </ul>
+            </div>
+            <div class="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70">Esito</p>
+              <p class="mt-3 text-sm leading-6 text-slate-200/85">
+                Valutazione via DM: se non ricevi risposta entro <strong class="text-white">14 giorni</strong>, considera la candidatura non accettata.
+              </p>
+            </div>
+          </div>
         </div>
-        <h1 class="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-          Candidatura <span class="text-red-400">STAFF</span>
-        </h1>
-        <p id="candidature-welcome" class="mt-4 text-sm leading-relaxed text-slate-400 sm:text-base">
-          Accedi con Discord per compilare il modulo.
-        </p>
-      </div>
+      </section>
 
-      <section class="vc-candidature-card vc-glass mt-10 rounded-2xl border border-white/[0.08] p-5 sm:p-6" aria-labelledby="candidature-requisiti-title">
+      <section class="rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-6" aria-labelledby="candidature-requisiti-title">
         <h2 id="candidature-requisiti-title" class="flex items-center gap-2 text-lg font-bold text-white">
-          <i class="fa fa-bookmark text-[#d4a888]/90" aria-hidden="true"></i> Requisiti
+          <i class="fa fa-bookmark text-emerald-300/90" aria-hidden="true"></i> Requisiti
         </h2>
         <p class="mt-3 text-sm leading-relaxed text-slate-300">
           Su <strong class="text-slate-200">{{SITE_NAME}}</strong> puoi candidarti a <strong class="text-slate-200">due</strong> ruoli:
@@ -178,16 +202,16 @@
           soddisfare i seguenti requisiti:
         </p>
         <ul class="mt-4 list-none space-y-2.5 p-0 text-sm text-slate-300">
-          <li class="flex gap-2"><span class="text-[#c9a88c]/90" aria-hidden="true">①</span> Avere almeno <strong class="text-white">14 anni (compiuti)</strong></li>
+          <li class="flex gap-2"><span class="text-emerald-300/90" aria-hidden="true">①</span> Avere almeno <strong class="text-white">14 anni (compiuti)</strong></li>
           <li class="flex gap-2">
-            <span class="text-[#c9a88c]/90" aria-hidden="true">②</span> Rispettare i
-            <a class="text-[#d4a888] underline decoration-[#6f4e37]/45 underline-offset-2 hover:text-[#e8c9a8]" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
+            <span class="text-emerald-300/90" aria-hidden="true">②</span> Rispettare i
+            <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
             e le
-            <a class="text-[#d4a888] underline decoration-[#6f4e37]/45 underline-offset-2 hover:text-[#e8c9a8]" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
+            <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
             di Discord
           </li>
-          <li class="flex gap-2"><span class="text-[#c9a88c]/90" aria-hidden="true">③</span> Essere <strong class="text-white">maturi</strong> e <strong class="text-white">attivi</strong></li>
-          <li class="flex gap-2"><span class="text-[#c9a88c]/90" aria-hidden="true">④</span> Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</li>
+          <li class="flex gap-2"><span class="text-emerald-300/90" aria-hidden="true">③</span> Essere <strong class="text-white">maturi</strong> e <strong class="text-white">attivi</strong></li>
+          <li class="flex gap-2"><span class="text-emerald-300/90" aria-hidden="true">④</span> Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</li>
         </ul>
       </section>
 
@@ -196,14 +220,14 @@
 
         <div
           id="vc-candidature-gate"
-          class="mt-6 rounded-2xl border p-4 text-sm leading-relaxed"
+          class="mt-6 rounded-[1.6rem] border border-white/10 bg-slate-950/30 p-4 text-sm leading-relaxed text-slate-200"
           role="alert"
           aria-live="polite"
           hidden
         ></div>
 
-        <div id="vc-candidature-form-inner">
-        <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Tipo candidatura">
+        <div id="vc-candidature-form-inner" class="mt-6 rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-6">
+        <div class="flex flex-wrap gap-2" role="tablist" aria-label="Tipo candidatura">
           <button type="button" class="vc-candidature-tab vc-candidature-tab--on" id="vc-candidature-tab-helper" role="tab" aria-selected="true">
             Helper
           </button>
@@ -217,7 +241,7 @@
         <button
           type="button"
           id="vc-candidature-submit"
-          class="vc-candidature-submit mt-8 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white shadow-lg transition hover:opacity-95"
+          class="vc-candidature-submit mt-8 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold shadow-lg transition hover:brightness-105"
         >
           <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura
         </button>
@@ -229,11 +253,11 @@
           </div>
         </div>
 
-        <div class="vc-candidature-info mt-6 rounded-xl border border-red-500/25 bg-red-950/35 p-4 text-sm text-red-100/95">
+        <div class="mt-6 rounded-[1.6rem] border border-amber-300/20 bg-amber-950/25 p-4 text-sm text-amber-50/95">
           <p class="m-0 flex gap-2 font-semibold">
             <i class="fa fa-exclamation-circle mt-0.5 shrink-0" aria-hidden="true"></i> Informazioni importanti
           </p>
-          <p class="mb-0 mt-2 leading-relaxed text-red-100/85">
+          <p class="mb-0 mt-2 leading-relaxed text-amber-50/88">
             Non aprire ticket e non pingare lo staff per l’esito. DM su Discord aperti.
           </p>
         </div>
@@ -242,24 +266,26 @@
 
       <div class="mt-10 flex justify-center">
         <a
-          class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition hover:border-[#d4a888]/45 hover:bg-white/[0.1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+          class="inline-flex min-h-[3.4rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-bold text-white shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition hover:border-emerald-400/35 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400/50"
           href="{{SITE_URL}}"
           ><i class="fa fa-home" aria-hidden="true"></i> Torna alla home</a>
       </div>
     </main>
 
-    <footer class="vc-footer vc-footer--wiki relative z-10 py-16">
-      <div class="mx-auto max-w-3xl px-4 text-center">
-        <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <a class="transition hover:text-[#d4a888]" href="{{TERMS_URL}}">Termini di Servizio</a>
-          <a class="transition hover:text-[#d4a888]" href="{{PRIVACY_URL}}">Privacy Policy</a>
-          <a class="transition hover:text-[#d4a888]" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
+          <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
-        <p class="mt-8 text-sm leading-relaxed text-slate-400">
+        <p class="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">
           © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
           <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
         </p>
-        <ul class="vc-footer-social mt-8 flex list-none flex-wrap items-center justify-center gap-3 p-0">
+        <ul class="vc-footer-social flex list-none flex-wrap items-center justify-center gap-3 p-0">
 {{INSTAGRAM_LI_FOOTER}}
         </ul>
       </div>

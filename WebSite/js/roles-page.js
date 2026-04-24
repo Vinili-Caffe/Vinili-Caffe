@@ -80,7 +80,7 @@
       response_type: "token",
       scope: "identify",
     });
-    if (here && here !== "/") q.set("state", here);
+    q.set("state", here || "/");
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
 

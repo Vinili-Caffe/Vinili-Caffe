@@ -20,16 +20,7 @@
       rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-          },
-        },
-      };
-    </script>
+    <link rel="stylesheet" href="../css/tw-build.css" />
     <link rel="stylesheet" href="../css/vc-landing.css" />
     <script>
       window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
@@ -81,10 +72,7 @@
             Accedi per<br />le recensioni
           </h2>
           <p class="mt-3 text-center text-sm text-slate-300">Collega il tuo account Discord per leggere e scrivere le recensioni.</p>
-          <div class="mt-6 rounded-xl border border-amber-300/15 bg-amber-950/35 p-3 text-sm text-amber-50/95">
-            <p class="m-0 flex items-center gap-2"><i class="fa fa-lock" aria-hidden="true"></i> Serve il login con Discord</p>
-          </div>
-          <button type="button" id="vc-reviews-gate-login-cta" class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
+          <button type="button" id="vc-reviews-gate-login-cta" class="vc-auth-required-login mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
             <i class="fa fa-sign-in" aria-hidden="true"></i> Accedi con Discord
           </button>
           <a class="vc-auth-required-secondary mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{SITE_URL}}">
@@ -240,7 +228,6 @@
             <div class="vc-reviews-section__head vc-reviews-section__head--stack">
               <p class="vc-reviews-section__eyebrow">Lascia una recensione</p>
               <h2 class="vc-reviews-section__title">Scrivi una recensione</h2>
-              <p id="vc-reviews-auth-hint" class="vc-reviews-section__sub">Accedi con Discord per inviare o modificare la tua recensione.</p>
             </div>
             <div id="vc-reviews-forms" class="vc-reviews-formgrid"></div>
             <p id="vc-reviews-status" class="vc-reviews-status" hidden></p>
@@ -264,12 +251,6 @@
             <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Dopo l&apos;invio</p>
             <p class="mt-3 text-sm leading-6 text-slate-200/85">
               La tua recensione compare tra quelle pubbliche. Scorri in basso per leggere cosa scrivono gli altri membri di <strong class="text-white">{{SITE_NAME}}</strong>.
-            </p>
-          </div>
-          <div class="rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300/70">Account</p>
-            <p class="mt-3 text-sm leading-6 text-slate-200/85">
-              Per pubblicare serve il login con Discord: così associamo la recensione al tuo profilo in modo sicuro.
             </p>
           </div>
         </aside>

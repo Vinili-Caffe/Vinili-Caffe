@@ -4,6 +4,8 @@
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var OAUTH_LOGIN_COUNT_KEY = "vc_discord_oauth_login_count_v1";
   var OAUTH_FRESH_AFTER_BOUNCE_KEY = "vc_oauth_fresh_after_bounce_v1";
+  /** Backup percorso ritorno se `state` non torna nel fragment OAuth. */
+  var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_AUTH) || {};
@@ -108,7 +110,15 @@
     var t = p.get("access_token");
     var sec = Number(p.get("expires_in") || "0");
     var returnPath = normalizeReturnPath(p.get("state"));
+    if (!returnPath && t) {
+      try {
+        returnPath = normalizeReturnPath(sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY));
+      } catch (eS) {}
+    }
     if (!t) return { token: "", freshLogin: false, returnPath: "" };
+    try {
+      sessionStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
+    } catch (eR) {}
     var exp = Date.now() + Math.max(60, sec) * 1000;
     localStorage.setItem(ACCESS_TOKEN_KEY, t);
     localStorage.setItem(EXPIRES_AT_KEY, String(exp));
@@ -135,16 +145,13 @@
     var clientId = String(c.clientId || "").trim();
     if (!clientId) return "";
     var redirect = String(c.redirectUri || "").trim() || window.location.origin + window.location.pathname;
-    var here = currentPathPlusQuery();
     var q = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirect,
       response_type: "token",
       scope: "identify",
     });
-    if (here && here !== "/") {
-      q.set("state", here);
-    }
+    q.set("state", currentPathPlusQuery() || "/");
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
 
@@ -164,6 +171,9 @@
       alert("Configura discordOauth.clientId in site.config.json");
       return;
     }
+    try {
+      sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, currentPathPlusQuery() || "/");
+    } catch (e0) {}
     if (loginBtn) {
       loginBtn.classList.add("discord-login-btn--loading");
       loginBtn.setAttribute("aria-busy", "true");
@@ -418,10 +428,9 @@
     } catch (e2) {}
     var freshLogin = Boolean(parsed && parsed.freshLogin) || freshFromBounce;
     var loginBtn = byId("discord-login-btn");
-    var url = authUrl();
     if (loginBtn) {
       loginBtn.addEventListener("click", function () {
-        startLoginTransition(loginBtn, url);
+        startLoginTransition(loginBtn, authUrl());
       });
     }
     var t = getToken();

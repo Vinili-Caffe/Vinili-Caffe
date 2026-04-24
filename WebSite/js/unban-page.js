@@ -49,13 +49,24 @@
     return api.replace(/\/+$/, "") + "/eligibility";
   }
 
+  function accessRequiredUrl() {
+    try {
+      var from = window.location.pathname + window.location.search;
+      var u = new URL(ACCESS_REQUIRED_PATH, window.location.origin);
+      if (from) u.searchParams.set("from", from);
+      return u.toString();
+    } catch (e) {
+      return ACCESS_REQUIRED_PATH;
+    }
+  }
+
   function redirectToAccessRequired() {
     var path = "";
     try {
       path = String(window.location.pathname || "");
     } catch (e) {}
-    if (path.indexOf(ACCESS_REQUIRED_PATH) !== -1) return;
-    window.location.href = ACCESS_REQUIRED_PATH;
+    if (path.indexOf("/unban/accesso-richiesto") !== -1) return;
+    window.location.href = accessRequiredUrl();
   }
 
   function setStatus(text, ok) {

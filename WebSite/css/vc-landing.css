@@ -1875,18 +1875,19 @@ header .vc-icon-btn:hover {
     box-shadow 0.2s ease;
 }
 
-/* Homepage #stats: solo toni caldi (evita slate/blu da utility Tailwind). */
+/* Homepage #stats: allineata a .vc-home-linkpanel / .vc-home-storycard (smeraldo + teal). */
 #stats .vc-stat-strip {
-  border-color: rgba(var(--vc-sand-rgb), 0.2);
+  border-color: rgba(110, 231, 183, 0.12);
   background: linear-gradient(
-    145deg,
-    rgba(26, 16, 12, 0.96) 0%,
-    rgba(20, 13, 9, 0.93) 45%,
-    rgba(40, 26, 18, 0.92) 100%
+    135deg,
+    rgba(12, 32, 34, 0.92) 0%,
+    rgba(8, 18, 24, 0.9) 48%,
+    rgba(10, 28, 32, 0.88) 100%
   );
   box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.28),
-    0 0 48px rgba(var(--vc-mocha-rgb), 0.08);
+    0 22px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 42px rgba(16, 185, 129, 0.07);
 }
 
 .vc-stat-label {
@@ -1895,15 +1896,19 @@ header .vc-icon-btn:hover {
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(200, 178, 158, 0.88);
+  color: rgba(167, 243, 208, 0.78);
 }
 
-.vc-stat-strip:hover {
-  border-color: rgba(var(--vc-sand-rgb), 0.28);
+#stats .vc-stat-strip:hover {
+  border-color: rgba(110, 231, 183, 0.2);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-    0 18px 48px rgba(0, 0, 0, 0.4),
-    0 0 36px rgba(var(--vc-mocha-rgb), 0.12);
+    0 18px 48px rgba(0, 0, 0, 0.34),
+    0 0 44px rgba(16, 185, 129, 0.12);
+}
+
+#stats .vc-stat-num {
+  color: #ecfdf5;
 }
 
 .vc-stat-cell {
@@ -1918,19 +1923,19 @@ header .vc-icon-btn:hover {
     background 0.2s ease;
 }
 
-.vc-stat-cell:hover {
-  border-color: rgba(var(--vc-sand-rgb), 0.32);
-  background: rgba(22, 14, 10, 0.48);
+#stats .vc-stat-cell:hover {
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.24);
+  background: rgba(8, 28, 32, 0.72);
   box-shadow:
-    0 0 0 1px rgba(var(--vc-sand-rgb), 0.12) inset,
-    0 14px 40px rgba(0, 0, 0, 0.38),
-    0 0 32px rgba(var(--vc-mocha-rgb), 0.16);
+    0 0 0 1px rgba(var(--vc-reviews-emerald-rgb), 0.12) inset,
+    0 14px 40px rgba(0, 0, 0, 0.32),
+    0 0 28px rgba(16, 185, 129, 0.1);
 }
 
-.vc-stat-cell:hover .vc-stat-num {
+#stats .vc-stat-cell:hover .vc-stat-num {
   text-shadow:
-    0 0 16px rgba(var(--vc-sand-rgb), 0.28),
-    0 0 28px rgba(var(--vc-mocha-rgb), 0.2);
+    0 0 18px rgba(16, 185, 129, 0.35),
+    0 0 32px rgba(45, 212, 191, 0.18);
 }
 
 .vc-stat-num {
@@ -2039,7 +2044,7 @@ header .vc-icon-btn:hover {
     transition: none;
   }
 
-  .vc-stat-cell:hover .vc-stat-num {
+  #stats .vc-stat-cell:hover .vc-stat-num {
     text-shadow: none;
   }
 
@@ -2186,7 +2191,7 @@ header .vc-icon-btn:hover {
   z-index: 0;
   border-radius: inherit;
   background:
-    radial-gradient(circle, rgba(var(--vc-sand-rgb), 0.38) 0%, rgba(var(--vc-mocha-rgb), 0.22) 48%, transparent 72%);
+    radial-gradient(circle, rgba(var(--vc-reviews-emerald-rgb), 0.32) 0%, rgba(var(--vc-reviews-teal-rgb), 0.22) 46%, transparent 72%);
   filter: blur(8px);
   opacity: 0.88;
   pointer-events: none;
@@ -2224,19 +2229,20 @@ header .vc-icon-btn:hover {
   min-height: 2.25rem;
   padding: 0.45rem 0.95rem;
   white-space: nowrap;
-  color: #fff;
+  color: #ecfdf5;
   font-size: 0.78rem;
   font-weight: 850;
   letter-spacing: 0.01em;
   text-align: center;
   border-radius: 0.9rem;
-  border: 1px solid var(--vc-header-ctrl-border-hover);
+  border: 1px solid rgba(110, 231, 183, 0.35);
   background:
-    radial-gradient(circle at 20% 0%, rgba(var(--vc-sand-rgb), 0.2), transparent 48%),
-    linear-gradient(135deg, rgba(26, 18, 13, 0.98), rgba(18, 12, 9, 0.98));
+    radial-gradient(circle at 20% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.18), transparent 48%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(6, 26, 22, 0.98));
   box-shadow:
     0 18px 38px rgba(0, 0, 0, 0.48),
-    0 0 0 1px rgba(212, 168, 136, 0.06) inset;
+    0 0 0 1px rgba(var(--vc-reviews-emerald-rgb), 0.08) inset,
+    0 0 28px rgba(var(--vc-reviews-glow-rgb), 0.12);
   pointer-events: none;
   opacity: 0;
   transition:
@@ -2252,9 +2258,9 @@ header .vc-icon-btn:hover {
   width: 0.72rem;
   height: 0.72rem;
   transform: translateX(-50%) rotate(45deg);
-  border-left: 1px solid rgba(var(--vc-sand-rgb), 0.35);
-  border-top: 1px solid rgba(var(--vc-sand-rgb), 0.35);
-  background: rgba(22, 16, 12, 0.98);
+  border-left: 1px solid rgba(110, 231, 183, 0.32);
+  border-top: 1px solid rgba(110, 231, 183, 0.32);
+  background: rgba(12, 24, 22, 0.98);
 }
 
 .discord-profile-link::after {
@@ -2263,11 +2269,11 @@ header .vc-icon-btn:hover {
   inset: -2px;
   z-index: 2;
   border-radius: inherit;
-  border: 2px solid rgba(var(--vc-sand-rgb), 0.65);
+  border: 2px solid rgba(110, 231, 183, 0.55);
   box-shadow:
-    0 0 0 2px rgba(var(--vc-mocha-rgb), 0.25),
-    0 0 16px rgba(var(--vc-sand-rgb), 0.28),
-    0 0 26px rgba(var(--vc-mocha-rgb), 0.2);
+    0 0 0 2px rgba(var(--vc-reviews-teal-rgb), 0.22),
+    0 0 18px rgba(var(--vc-reviews-emerald-rgb), 0.28),
+    0 0 28px rgba(var(--vc-reviews-glow-rgb), 0.2);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -2280,10 +2286,10 @@ header .vc-icon-btn:hover {
 .discord-profile-link:hover .discord-avatar-img,
 .discord-profile-link:focus-visible .discord-avatar-img {
   transform: scale(1.11);
-  filter: saturate(1.08) brightness(0.84);
+  filter: saturate(1.08) brightness(0.94);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 8px 24px rgba(var(--vc-mocha-rgb), 0.35);
+    0 8px 26px rgba(var(--vc-reviews-glow-rgb), 0.32);
 }
 
 .discord-account-popover {
@@ -2294,14 +2300,15 @@ header .vc-icon-btn:hover {
   width: 15rem;
   padding: 0.65rem;
   border-radius: 1.15rem;
-  border: 1px solid var(--vc-header-ctrl-border-hover);
+  border: 1px solid rgba(110, 231, 183, 0.22);
   background:
-    radial-gradient(circle at 18% 0%, rgba(var(--vc-sand-rgb), 0.16), transparent 44%),
-    radial-gradient(circle at 100% 100%, rgba(var(--vc-mocha-rgb), 0.18), transparent 48%),
-    linear-gradient(145deg, rgba(26, 18, 13, 0.98), rgba(14, 10, 8, 0.98));
+    radial-gradient(circle at 18% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.14), transparent 44%),
+    radial-gradient(circle at 100% 100%, rgba(20, 83, 76, 0.2), transparent 48%),
+    linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(6, 22, 20, 0.98));
   box-shadow:
     0 24px 54px rgba(0, 0, 0, 0.52),
-    0 0 0 1px rgba(212, 168, 136, 0.06) inset;
+    0 0 0 1px rgba(var(--vc-reviews-emerald-rgb), 0.06) inset,
+    0 0 32px rgba(var(--vc-reviews-glow-rgb), 0.1);
   backdrop-filter: blur(22px) saturate(145%);
   -webkit-backdrop-filter: blur(22px) saturate(145%);
   opacity: 0;
@@ -2321,9 +2328,9 @@ header .vc-icon-btn:hover {
   width: 0.8rem;
   height: 0.8rem;
   transform: rotate(45deg);
-  border-left: 1px solid rgba(var(--vc-sand-rgb), 0.28);
-  border-top: 1px solid rgba(var(--vc-sand-rgb), 0.28);
-  background: rgba(22, 16, 12, 0.98);
+  border-left: 1px solid rgba(110, 231, 183, 0.22);
+  border-top: 1px solid rgba(110, 231, 183, 0.22);
+  background: rgba(12, 22, 22, 0.98);
 }
 
 .discord-account-menu:hover .discord-account-popover,
@@ -2348,7 +2355,7 @@ header .vc-icon-btn:hover {
   border-radius: 9999px;
   overflow: hidden;
   flex-shrink: 0;
-  box-shadow: 0 0 14px rgba(var(--vc-sand-rgb), 0.22);
+  box-shadow: 0 0 16px rgba(var(--vc-reviews-glow-rgb), 0.22);
 }
 
 .discord-account-popover__avatar .discord-avatar-img {
@@ -2362,7 +2369,7 @@ header .vc-icon-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #f2dcc8;
+  color: #ccfbf1;
   font-weight: 850;
 }
 
@@ -2376,7 +2383,7 @@ header .vc-icon-btn:hover {
   border: 0;
   border-radius: 0.8rem;
   background: transparent;
-  color: rgba(235, 224, 214, 0.92);
+  color: rgba(226, 232, 240, 0.92);
   text-decoration: none;
   font-weight: 800;
   cursor: pointer;
@@ -2391,13 +2398,13 @@ header .vc-icon-btn:hover {
 .discord-account-popover__item i {
   width: 1rem;
   text-align: center;
-  color: rgba(var(--vc-sand-rgb), 0.88);
+  color: rgba(110, 231, 183, 0.82);
 }
 
 .discord-account-popover__item:hover,
 .discord-account-popover__item:focus-visible {
   color: #fff;
-  background: rgba(var(--vc-sand-rgb), 0.12);
+  background: rgba(var(--vc-reviews-emerald-rgb), 0.12);
   transform: translateX(2px);
   outline: none;
 }
@@ -2428,8 +2435,8 @@ header .vc-icon-btn:hover {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  background: rgba(var(--vc-mocha-rgb), 0.35);
-  color: rgba(235, 224, 214, 0.78);
+  background: rgba(6, 78, 59, 0.45);
+  color: rgba(204, 251, 241, 0.85);
   font-size: 1rem;
 }
 
@@ -3345,14 +3352,32 @@ a.vc-header-logo-link+a[href] {
   color: #737373;
 }
 
+/* Wiki: stessa atmosfera “recensioni” (fondo smeraldo / teal su blu notte) */
 .vc-body.vc-wiki-page {
-  color: rgba(255, 248, 240, 0.92);
-  background-color: #080605;
+  color: rgba(226, 232, 240, 0.95);
+  background-color: #040807;
   background-image:
-    radial-gradient(ellipse 90% 55% at 50% -18%, rgba(var(--vc-mocha-rgb), 0.22), transparent 52%),
-    radial-gradient(ellipse 55% 42% at 92% 42%, rgba(var(--vc-sand-rgb), 0.1), transparent),
-    radial-gradient(ellipse 50% 38% at 6% 58%, rgba(60, 38, 26, 0.2), transparent),
-    linear-gradient(180deg, #0e0a07 0%, #100b08 38%, #0a0806 100%);
+    radial-gradient(ellipse 90% 70% at 88% 6%, rgba(var(--vc-reviews-emerald-rgb), 0.11), transparent 52%),
+    radial-gradient(ellipse 100% 82% at 8% 92%, rgba(6, 95, 70, 0.18), transparent 55%),
+    radial-gradient(ellipse 100% 75% at 50% -6%, rgba(5, 80, 72, 0.16), transparent 62%),
+    linear-gradient(180deg, #050a0d 0%, #0a1210 24%, #0c1412 48%, #080c0e 78%, #040807 100%);
+}
+
+.vc-body.vc-wiki-page::before {
+  background:
+    radial-gradient(ellipse 85% 70% at 50% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(20, 83, 76, 0.1), transparent 45%);
+}
+
+.vc-body.vc-wiki-page header .vc-nav-shell.vc-glass {
+  background: rgba(6, 18, 16, 0.82);
+  border-color: rgba(110, 231, 183, 0.1);
+}
+
+.vc-body.vc-wiki-page header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  box-shadow:
+    0 10px 38px rgba(0, 0, 0, 0.42),
+    0 0 36px rgba(16, 185, 129, 0.08);
 }
 
 .vc-wiki-main {
@@ -3360,16 +3385,16 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-wiki-title {
-  color: #fff8f0;
-  text-shadow: 0 1px 28px rgba(212, 168, 136, 0.14);
+  color: #f8fafc;
+  text-shadow: 0 1px 28px rgba(var(--vc-reviews-glow-rgb), 0.18);
 }
 
 .vc-wiki-lead {
-  color: rgba(232, 201, 168, 0.88);
+  color: rgba(203, 213, 225, 0.9);
 }
 
 .vc-wiki-lead strong {
-  color: #f0dcc8;
+  color: #e2e8f0;
   font-weight: 600;
 }
 
@@ -3380,13 +3405,13 @@ a.vc-header-logo-link+a[href] {
   margin-bottom: 1.75rem;
   font-size: 0.8rem;
   font-weight: 500;
-  color: rgba(200, 176, 154, 0.82);
+  color: rgba(148, 163, 184, 0.9);
   text-decoration: none;
   transition: color 0.15s;
 }
 
 .vc-wiki-back:hover {
-  color: #f5e6d6;
+  color: rgba(167, 243, 208, 0.95);
 }
 
 .vc-wiki-badge {
@@ -3395,13 +3420,13 @@ a.vc-header-logo-link+a[href] {
   gap: 0.45rem;
   padding: 0.35rem 0.85rem;
   border-radius: 9999px;
-  border: 1px solid rgba(212, 168, 136, 0.22);
-  background: rgba(42, 28, 20, 0.72);
+  border: 1px solid rgba(110, 231, 183, 0.22);
+  background: rgba(6, 78, 59, 0.35);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(232, 205, 184, 0.92);
+  color: rgba(167, 243, 208, 0.92);
 }
 
 .vc-wiki-badge .fa {
@@ -3416,22 +3441,24 @@ a.vc-header-logo-link+a[href] {
   margin-top: 1.75rem;
   padding: 0.65rem 1.35rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(212, 168, 136, 0.28);
-  background: rgba(36, 24, 18, 0.82);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  background: rgba(6, 78, 59, 0.42);
   font-size: 0.875rem;
   font-weight: 600;
-  color: #f5ebe3;
+  color: #ccfbf1;
   text-decoration: none;
   transition:
     border-color 0.15s,
     background 0.15s,
-    color 0.15s;
+    color 0.15s,
+    box-shadow 0.15s;
 }
 
 .vc-wiki-cta:hover {
-  border-color: rgba(232, 196, 168, 0.45);
-  background: rgba(58, 38, 26, 0.88);
-  color: #fff;
+  border-color: rgba(52, 211, 153, 0.48);
+  background: rgba(8, 95, 72, 0.52);
+  color: #ecfdf5;
+  box-shadow: 0 0 28px rgba(var(--vc-reviews-glow-rgb), 0.15);
 }
 
 .vc-wiki-cta-chev {
@@ -3450,20 +3477,23 @@ a.vc-header-logo-link+a[href] {
   align-items: flex-start;
   padding: 1.25rem 1.2rem;
   border-radius: 1rem;
-  border: 1px solid rgba(212, 168, 136, 0.12);
-  background: rgba(32, 22, 16, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.35);
   text-decoration: none;
   color: inherit;
   transition:
     border-color 0.18s,
     background 0.18s,
-    transform 0.18s;
+    transform 0.18s,
+    box-shadow 0.18s;
 }
 
 .vc-wiki-card:hover {
-  border-color: rgba(var(--vc-sand-rgb), 0.35);
-  background: rgba(30, 22, 16, 0.62);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), 0 0 24px rgba(var(--vc-sand-rgb), 0.08);
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(15, 23, 42, 0.48);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.35),
+    0 0 28px rgba(var(--vc-reviews-glow-rgb), 0.12);
   transform: translateY(-2px);
 }
 
@@ -3491,26 +3521,26 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-wiki-card-ico--cyan {
-  background: linear-gradient(145deg, #5c3d28, #b88968);
+  background: linear-gradient(145deg, #0f766e, #2dd4bf);
 }
 
 .vc-wiki-card-ico--rose {
-  background: linear-gradient(145deg, #5a3824, #9a6b4a);
+  background: linear-gradient(145deg, #9d174d, #fb7185);
 }
 
 .vc-wiki-card-ico--violet {
-  background: linear-gradient(145deg, #4a3020, #80604a);
+  background: linear-gradient(145deg, #5b21b6, #a78bfa);
 }
 
 .vc-wiki-card-ico--emerald {
-  background: linear-gradient(145deg, #6f4e37, #d4a888);
+  background: linear-gradient(145deg, #047857, #34d399);
 }
 
 .vc-wiki-card-title {
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #fff8f0;
+  color: #f8fafc;
 }
 
 .vc-wiki-card-desc {
@@ -3518,17 +3548,17 @@ a.vc-header-logo-link+a[href] {
   flex: 1;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: rgba(200, 180, 162, 0.88);
+  color: rgba(148, 163, 184, 0.92);
 }
 
 .vc-wiki-card-link {
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgba(200, 176, 154, 0.88);
+  color: rgba(153, 246, 228, 0.88);
 }
 
 .vc-wiki-card:hover .vc-wiki-card-link {
-  color: #e8c9a8;
+  color: rgba(204, 251, 241, 0.98);
 }
 
 .vc-wiki-sections {
@@ -3539,7 +3569,7 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-wiki-section+.vc-wiki-section {
-  border-top: 1px solid rgba(255, 255, 255, 0.035);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 2.5rem;
 }
 
@@ -3558,6 +3588,31 @@ a.vc-header-logo-link+a[href] {
   color: rgba(168, 148, 130, 0.85);
 }
 
+.vc-body.vc-wiki-page footer.vc-footer.vc-footer--wiki {
+  background: rgba(2, 6, 23, 0.22);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vc-body.vc-wiki-page .vc-footer--wiki nav {
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.vc-body.vc-wiki-page .vc-footer--wiki p {
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.vc-body.vc-wiki-page .vc-snav-row.vc-snav-row--active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #ecfdf5;
+}
+
+.vc-body.vc-regole-page .vc-snav-row.vc-snav-row--active,
+.vc-body.vc-unban-page .vc-snav-row.vc-snav-row--active,
+.vc-body.vc-candidature-page .vc-snav-row.vc-snav-row--active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #ecfdf5;
+}
+
 .vc-cmd-panel {
   margin-left: auto;
   margin-right: auto;
@@ -3570,18 +3625,18 @@ a.vc-header-logo-link+a[href] {
   gap: 0.4rem;
   padding: 0.3rem 0.8rem;
   border-radius: 9999px;
-  border: 1px solid rgba(212, 168, 136, 0.22);
-  background: rgba(38, 26, 18, 0.78);
+  border: 1px solid rgba(110, 231, 183, 0.22);
+  background: rgba(6, 78, 59, 0.38);
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(216, 188, 168, 0.9);
+  color: rgba(167, 243, 208, 0.92);
 }
 
 .vc-cmd-heading {
   letter-spacing: -0.02em;
-  color: #fff8f0;
+  color: #f8fafc;
 }
 
 .vc-cmd-tab-avatar {
@@ -3604,11 +3659,11 @@ a.vc-header-logo-link+a[href] {
   gap: 0.45rem;
   padding: 0.55rem 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(212, 168, 136, 0.2);
-  background: rgba(34, 24, 18, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(245, 235, 227, 0.92);
+  color: rgba(226, 232, 240, 0.92);
   cursor: pointer;
   transition:
     border-color 0.15s,
@@ -3618,17 +3673,17 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-cmd-tab:hover {
-  border-color: rgba(212, 168, 136, 0.38);
-  background: rgba(48, 32, 22, 0.75);
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(15, 23, 42, 0.58);
 }
 
 .vc-cmd-tab--on {
   border-color: transparent;
-  background: linear-gradient(180deg, #5c3d28, #9a6b4a);
-  color: #fff8f0;
+  background: linear-gradient(180deg, rgb(5, 122, 85), rgb(20, 184, 166));
+  color: #f0fdfa;
   box-shadow:
-    0 4px 22px rgba(111, 78, 55, 0.45),
-    0 0 18px rgba(212, 168, 136, 0.2);
+    0 4px 22px rgba(var(--vc-reviews-glow-rgb), 0.28),
+    0 0 22px rgba(var(--vc-reviews-emerald-rgb), 0.18);
 }
 
 .vc-cmd-tab[data-bot="test"].vc-cmd-tab--on {
@@ -3642,14 +3697,14 @@ a.vc-header-logo-link+a[href] {
   gap: 0.65rem;
   padding: 0.55rem 0.9rem;
   border-radius: 0.85rem;
-  border: 1px solid rgba(212, 168, 136, 0.16);
-  background: rgba(22, 16, 12, 0.78);
-  color: rgba(180, 158, 140, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.5);
+  color: rgba(148, 163, 184, 0.92);
 }
 
 .vc-cmd-search:focus-within {
-  border-color: rgba(212, 168, 136, 0.32);
-  color: rgba(200, 180, 162, 0.95);
+  border-color: rgba(52, 211, 153, 0.32);
+  color: rgba(203, 213, 225, 0.95);
 }
 
 .vc-cmd-search input {
@@ -3659,12 +3714,12 @@ a.vc-header-logo-link+a[href] {
   background: transparent;
   font: inherit;
   font-size: 0.875rem;
-  color: #f5ebe3;
+  color: #f1f5f9;
   outline: none;
 }
 
 .vc-cmd-search input::placeholder {
-  color: rgba(160, 140, 124, 0.75);
+  color: rgba(100, 116, 139, 0.85);
 }
 
 .vc-cmd-search-results {
@@ -3680,8 +3735,8 @@ a.vc-header-logo-link+a[href] {
   gap: 1rem;
   padding: 2.5rem 1.5rem;
   border-radius: 1rem;
-  border: 1px solid rgba(212, 168, 136, 0.12);
-  background: rgba(32, 22, 16, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.35);
   text-align: center;
 }
 
@@ -3696,9 +3751,9 @@ a.vc-header-logo-link+a[href] {
   align-items: center;
   justify-content: center;
   border-radius: 0.65rem;
-  border: 1px solid rgba(212, 168, 136, 0.15);
-  background: rgba(42, 30, 22, 0.65);
-  color: rgba(200, 176, 154, 0.55);
+  border: 1px solid rgba(110, 231, 183, 0.2);
+  background: rgba(52, 211, 153, 0.08);
+  color: rgba(110, 231, 183, 0.55);
   font-size: 1.1rem;
 }
 
@@ -3706,7 +3761,7 @@ a.vc-header-logo-link+a[href] {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 500;
-  color: rgba(200, 180, 162, 0.9);
+  color: rgba(203, 213, 225, 0.9);
 }
 
 .vc-cmd-panes--search-miss {
@@ -3725,8 +3780,8 @@ a.vc-header-logo-link+a[href] {
 
 .vc-cmd-acc {
   border-radius: 0.85rem;
-  border: 1px solid rgba(212, 168, 136, 0.12);
-  background: rgba(30, 22, 16, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.38);
   overflow: hidden;
   transition: opacity 0.15s;
 }
@@ -3762,7 +3817,7 @@ a.vc-header-logo-link+a[href] {
 .vc-cmd-invoke-kind {
   font-size: 0.72rem;
   font-weight: 600;
-  color: rgba(168, 148, 130, 0.88);
+  color: rgba(148, 163, 184, 0.88);
 }
 
 .vc-cmd-acc-ico {
@@ -3773,7 +3828,7 @@ a.vc-header-logo-link+a[href] {
   align-items: center;
   justify-content: center;
   border-radius: 0.45rem;
-  background: linear-gradient(145deg, #6f4e37, #d4a888);
+  background: linear-gradient(145deg, #047857, #34d399);
   font-size: 0.85rem;
   color: #fff;
 }
@@ -3794,18 +3849,18 @@ a.vc-header-logo-link+a[href] {
 .vc-cmd-acc-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #fff8f0;
+  color: #f8fafc;
 }
 
 .vc-cmd-acc-meta {
   font-size: 0.72rem;
-  color: rgba(168, 148, 130, 0.88);
+  color: rgba(148, 163, 184, 0.88);
 }
 
 .vc-cmd-acc-chev {
   flex-shrink: 0;
   font-size: 0.65rem;
-  color: rgba(160, 140, 124, 0.75);
+  color: rgba(100, 116, 139, 0.8);
   transition: transform 0.2s ease;
 }
 
@@ -3840,13 +3895,13 @@ a.vc-header-logo-link+a[href] {
 
 .vc-cmd-name {
   font-weight: 600;
-  color: rgba(245, 235, 227, 0.95);
+  color: rgba(241, 245, 249, 0.96);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8rem;
 }
 
 .vc-cmd-hint {
-  color: rgba(168, 148, 130, 0.9);
+  color: rgba(148, 163, 184, 0.92);
   font-size: 0.78rem;
 }
 
@@ -3862,10 +3917,10 @@ a.vc-header-logo-link+a[href] {
   align-items: center;
   justify-content: center;
   border-radius: 1rem;
-  background: linear-gradient(145deg, #b91c1c, #ef4444);
+  background: linear-gradient(145deg, #047857, #34d399);
   font-size: 1.35rem;
   color: #fff;
-  box-shadow: 0 8px 28px rgba(239, 68, 68, 0.28);
+  box-shadow: 0 8px 28px rgba(var(--vc-reviews-glow-rgb), 0.22);
 }
 
 .vc-candidature-card {
@@ -3886,14 +3941,15 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-candidature-tab:hover {
-  border-color: rgba(212, 168, 136, 0.25);
+  border-color: rgba(52, 211, 153, 0.28);
   color: #e2e8f0;
 }
 
 .vc-candidature-tab--on {
   border-color: transparent;
-  background: linear-gradient(180deg, #5c3d28, #d4a888);
-  color: #0f172a;
+  background: linear-gradient(180deg, rgb(5, 122, 85), rgb(20, 184, 166));
+  color: #f0fdfa;
+  box-shadow: 0 6px 22px rgba(var(--vc-reviews-glow-rgb), 0.2);
 }
 
 .vc-candidature-field {
@@ -3994,7 +4050,7 @@ a.vc-header-logo-link+a[href] {
 
 .vc-candidature-input:focus,
 .vc-candidature-copy-fallback:focus {
-  border-color: rgba(212, 168, 136, 0.35);
+  border-color: rgba(52, 211, 153, 0.35);
 }
 
 .vc-candidature-input--readonly {
@@ -4011,8 +4067,10 @@ textarea.vc-candidature-input {
 .vc-candidature-submit {
   border: none;
   cursor: pointer;
-  background: linear-gradient(180deg, #b91c1c, #dc2626);
-  box-shadow: 0 6px 24px rgba(220, 38, 38, 0.35);
+  border-radius: 1rem;
+  background: linear-gradient(to right, #34d399, #22d3ee);
+  color: rgb(15 23 42 / 0.94);
+  box-shadow: 0 14px 36px rgba(16, 185, 129, 0.22);
 }
 
 .vc-candidature-submit--loading {
@@ -4048,12 +4106,12 @@ textarea.vc-candidature-input {
   grid-template-columns: auto 1fr;
   gap: 0.75rem;
   align-items: start;
-  border: 1px solid rgba(34, 197, 94, 0.35);
+  border: 1px solid rgba(52, 211, 153, 0.32);
   border-radius: 1rem;
   background:
-    radial-gradient(120% 160% at 0% 0%, rgba(153, 27, 27, 0.25), transparent 42%),
+    radial-gradient(120% 160% at 0% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.12), transparent 42%),
     radial-gradient(140% 160% at 100% 100%, rgba(15, 23, 42, 0.55), transparent 58%),
-    rgba(12, 18, 30, 0.78);
+    rgba(6, 24, 22, 0.55);
   padding: 0.9rem 1rem;
 }
 
@@ -4090,8 +4148,8 @@ textarea.vc-candidature-input {
 
 .vc-unban-status {
   border-radius: 0.95rem;
-  border: 1px solid rgba(111, 78, 55, 0.28);
-  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.4);
   color: rgba(148, 163, 184, 0.98);
   font-size: 1.2rem;
   font-weight: 700;
@@ -4100,8 +4158,8 @@ textarea.vc-candidature-input {
 }
 
 .vc-unban-status--ok {
-  border-color: rgba(var(--vc-sand-rgb), 0.45);
-  color: rgba(242, 220, 200, 0.98);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: rgba(204, 251, 241, 0.98);
 }
 
 .vc-unban-rules {
@@ -4110,10 +4168,10 @@ textarea.vc-candidature-input {
   gap: 0.8rem;
   align-items: start;
   border-radius: 1rem;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(110, 231, 183, 0.22);
   background:
-    radial-gradient(120% 160% at 0% 0%, rgba(153, 27, 27, 0.26), transparent 42%),
-    rgba(30, 41, 59, 0.44);
+    radial-gradient(120% 160% at 0% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.1), transparent 42%),
+    rgba(15, 23, 42, 0.5);
   padding: 1rem;
 }
 
@@ -4141,9 +4199,9 @@ textarea.vc-candidature-input {
   width: 100%;
   min-height: 3.55rem;
   border: none;
-  border-radius: 0.95rem;
-  background: linear-gradient(90deg, #ef4444, #f97316);
-  color: #fff;
+  border-radius: 1rem;
+  background: linear-gradient(to right, #34d399, #22d3ee);
+  color: rgb(15 23 42 / 0.94);
   font-size: 1.95rem;
   line-height: 1;
   font-weight: 800;
@@ -4152,7 +4210,7 @@ textarea.vc-candidature-input {
   justify-content: center;
   gap: 0.75rem;
   cursor: pointer;
-  box-shadow: 0 10px 28px rgba(239, 68, 68, 0.35);
+  box-shadow: 0 14px 36px rgba(16, 185, 129, 0.22);
 }
 
 .vc-unban-submit:hover {
@@ -4562,53 +4620,12 @@ textarea.vc-candidature-input {
   }
 }
 
-.vc-regole-page .vc-regole-hero-ico {
-  display: flex;
-  width: 4.25rem;
-  height: 4.25rem;
-  margin: 0 auto 1rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(212, 168, 136, 0.22);
-  font-size: 1.85rem;
-  color: #e2e8f0;
-}
-
-.vc-regole-hero-title {
-  margin: 0;
-  text-align: center;
-  font-size: clamp(1.65rem, 4vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #fff;
-}
-
-.vc-regole-hero-sub {
-  margin: 0.65rem auto 0;
-  max-width: 36rem;
-  text-align: center;
-  font-size: 0.9rem;
-  line-height: 1.55;
-  color: rgba(148, 163, 184, 0.95);
-}
-
 .vc-regole-disclaimer {
-  margin: 1.75rem auto 0;
-  max-width: 42rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.85rem;
-  border: 1px solid rgba(239, 68, 68, 0.28);
-  background: rgba(69, 10, 10, 0.35);
-  font-size: 0.82rem;
-  line-height: 1.45;
-  color: rgba(254, 202, 202, 0.92);
-  text-align: center;
+  margin: 0;
 }
 
 .vc-regole-tabs {
-  margin-top: 1.75rem;
+  margin-top: 2.5rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
@@ -4635,15 +4652,15 @@ textarea.vc-candidature-input {
 }
 
 .vc-regole-tab:hover {
-  border-color: rgba(248, 113, 113, 0.35);
+  border-color: rgba(52, 211, 153, 0.3);
   color: #fff;
 }
 
 .vc-regole-tab--on {
-  border-color: rgba(248, 113, 113, 0.55);
-  background: linear-gradient(180deg, #dc2626, #b91c1c);
-  color: #fff;
-  box-shadow: 0 8px 28px rgba(220, 38, 38, 0.38);
+  border-color: transparent;
+  background: linear-gradient(180deg, rgb(5, 122, 85), rgb(20, 184, 166));
+  color: #f0fdfa;
+  box-shadow: 0 8px 28px rgba(var(--vc-reviews-glow-rgb), 0.22);
 }
 
 .vc-regole-tab .fa {
@@ -4659,16 +4676,17 @@ textarea.vc-candidature-input {
 }
 
 .vc-regole-card {
-  border-radius: 1rem;
-  border: 1px solid rgba(212, 168, 136, 0.2);
-  background: linear-gradient(125deg, rgba(15, 23, 42, 0.62), rgba(8, 20, 40, 0.48));
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   overflow: clip;
   backdrop-filter: blur(var(--vc-glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(150%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
 }
 
 .vc-regole-card[open] {
-  border-color: rgba(212, 168, 136, 0.38);
+  border-color: rgba(52, 211, 153, 0.22);
 }
 
 .vc-regole-card>summary {
@@ -4693,8 +4711,8 @@ textarea.vc-candidature-input {
   align-items: center;
   justify-content: center;
   border-radius: 0.65rem;
-  background: linear-gradient(145deg, rgba(185, 28, 28, 0.95), rgba(127, 29, 29, 0.88));
-  color: #fecaca;
+  background: linear-gradient(145deg, #047857, #34d399);
+  color: #ecfdf5;
   font-size: 1.05rem;
   flex-shrink: 0;
 }
@@ -4801,10 +4819,10 @@ textarea.vc-candidature-input {
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
-  color: #f8fafc;
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 52%, #1e40af 100%);
-  border: 1px solid rgba(147, 197, 253, 0.35);
-  box-shadow: 0 6px 18px rgba(111, 78, 55, 0.35);
+  color: rgb(15 23 42 / 0.92);
+  background: linear-gradient(to right, #34d399, #22d3ee);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 8px 22px rgba(var(--vc-reviews-glow-rgb), 0.18);
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 

@@ -46,16 +46,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-          },
-        },
-      };
-    </script>
+    <link rel="stylesheet" href="/css/tw-build.css" />
     <link rel="stylesheet" href="/css/vc-landing.css" />
     <script src="/js/vc-auth-pending.js"></script>
 {{HERO_BANNER_BLOCK}}
@@ -349,7 +340,7 @@
           <div class="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-4">
             <div class="vc-stat-cell text-center">
               <p
-                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-[#f2dcc8] sm:text-4xl"
+                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight sm:text-4xl"
                 data-live-stat="members"
                 data-stat-target="{{STAT_MEMBERS}}"
               >
@@ -359,7 +350,7 @@
             </div>
             <div class="vc-stat-cell text-center">
               <p
-                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-[#f2dcc8] sm:text-4xl"
+                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight sm:text-4xl"
                 data-live-stat="boosts"
                 data-stat-target="{{STAT_BOOSTS}}"
               >
@@ -369,7 +360,7 @@
             </div>
             <div class="vc-stat-cell text-center">
               <p
-                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-[#f2dcc8] sm:text-4xl"
+                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight sm:text-4xl"
                 data-live-stat="staff"
                 data-stat-target="{{STAT_STAFF}}"
               >
@@ -378,7 +369,7 @@
               <p class="vc-stat-label">Staff</p>
             </div>
             <div class="vc-stat-cell text-center">
-              <p class="vc-stat-num vc-stat-247 text-3xl font-bold tabular-nums tracking-tight text-[#f2dcc8] sm:text-4xl">24/7</p>
+              <p class="vc-stat-num vc-stat-247 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl">24/7</p>
               <p class="vc-stat-label">Community</p>
             </div>
           </div>
