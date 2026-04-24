@@ -31,6 +31,9 @@
       };
     </script>
     <link rel="stylesheet" href="../css/vc-landing.css" />
+    <script>
+      window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY = true;
+    </script>
     <script src="../js/vc-auth-pending.js"></script>
     <script>
       window.__VC_SITE_REVIEWS = {
@@ -47,6 +50,49 @@
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <div id="vc-reviews-gate" class="vc-reviews-gate" role="dialog" aria-modal="true" aria-labelledby="vc-reviews-gate-title">
+      <script>
+        (function () {
+          var g = document.getElementById("vc-reviews-gate");
+          if (!g) return;
+          var session = false;
+          try {
+            var h = window.location.hash || "";
+            if (h.indexOf("access_token=") !== -1) session = true;
+            else {
+              var t = localStorage.getItem("vc_discord_access_token");
+              var e = Number(localStorage.getItem("vc_discord_expires_at") || 0);
+              session = Boolean(t && e && Date.now() < e);
+            }
+          } catch (x) {}
+          if (session) {
+            g.setAttribute("hidden", "");
+            g.classList.add("vc-reviews-gate--dismissed");
+          }
+        })();
+      </script>
+      <div class="vc-reviews-gate__main">
+        <section class="vc-auth-required-card vc-reviews-gate__card w-full max-w-md rounded-3xl border border-white/10 p-6 sm:p-7" aria-labelledby="vc-reviews-gate-title">
+          <div class="vc-auth-required-icon mb-6" aria-hidden="true">
+            <i class="fa fa-star-o"></i>
+          </div>
+          <h2 id="vc-reviews-gate-title" class="text-center text-4xl font-extrabold leading-[1.05] tracking-tight text-white">
+            Accedi per<br />le recensioni
+          </h2>
+          <p class="mt-3 text-center text-sm text-slate-300">Collega il tuo account Discord per leggere e scrivere le recensioni.</p>
+          <div class="mt-6 rounded-xl border border-amber-300/15 bg-amber-950/35 p-3 text-sm text-amber-50/95">
+            <p class="m-0 flex items-center gap-2"><i class="fa fa-lock" aria-hidden="true"></i> Serve il login con Discord</p>
+          </div>
+          <button type="button" id="vc-reviews-gate-login-cta" class="vc-auth-required-login mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-bold text-white">
+            <i class="fa fa-sign-in" aria-hidden="true"></i> Accedi con Discord
+          </button>
+          <a class="vc-auth-required-secondary mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-100" href="{{SITE_URL}}">
+            <i class="fa fa-chevron-left" aria-hidden="true"></i> Torna alla Home
+          </a>
+        </section>
+      </div>
+    </div>
 
     <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
       <div

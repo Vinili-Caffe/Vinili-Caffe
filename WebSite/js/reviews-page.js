@@ -12,6 +12,51 @@
     return document.getElementById(id);
   }
 
+  function getDiscordUserSync() {
+    var u = typeof window !== "undefined" ? window.__VC_DISCORD_PROFILE : null;
+    if (!u || typeof u !== "object") return null;
+    if (u.id || u.username) return u;
+    return null;
+  }
+
+  function hideReviewsGate() {
+    var g = byId("vc-reviews-gate");
+    if (!g) return;
+    g.setAttribute("hidden", "");
+    g.classList.add("vc-reviews-gate--dismissed");
+    g.setAttribute("aria-hidden", "true");
+  }
+
+  function showReviewsLoginGate() {
+    var g = byId("vc-reviews-gate");
+    if (!g) return;
+    g.removeAttribute("hidden");
+    g.classList.remove("vc-reviews-gate--dismissed");
+    g.setAttribute("aria-hidden", "false");
+  }
+
+  function wireGateLoginCta() {
+    var gateBtn = byId("vc-reviews-gate-login-cta");
+    var headerBtn = byId("discord-login-btn");
+    if (gateBtn && headerBtn) {
+      gateBtn.addEventListener("click", function () {
+        headerBtn.click();
+      });
+    }
+  }
+
+  function clearReviewsContent() {
+    state.payload = null;
+    var serverWrap = byId("vc-reviews-server-list");
+    var formsWrap = byId("vc-reviews-forms");
+    if (serverWrap) serverWrap.innerHTML = "";
+    if (formsWrap) formsWrap.innerHTML = "";
+  }
+
+  function shouldUnlockReviewsPage() {
+    return Boolean(getDiscordUserSync());
+  }
+
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_SITE_REVIEWS) || {};
   }
@@ -254,11 +299,28 @@
   }
 
   function main() {
-    fetchPayload();
+    wireGateLoginCta();
+    if (shouldUnlockReviewsPage()) {
+      hideReviewsGate();
+      fetchPayload();
+      return;
+    }
+    if (!getToken()) {
+      showReviewsLoginGate();
+      return;
+    }
+    hideReviewsGate();
   }
 
-  window.addEventListener("vc-discord-profile", function () {
-    fetchPayload();
+  window.addEventListener("vc-discord-profile", function (ev) {
+    var u = ev && ev.detail ? ev.detail.user : null;
+    if (u) {
+      hideReviewsGate();
+      fetchPayload();
+      return;
+    }
+    clearReviewsContent();
+    showReviewsLoginGate();
   });
 
   if (document.readyState === "loading") {

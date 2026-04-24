@@ -940,6 +940,12 @@
     main();
   }
 
+  window.addEventListener("pageshow", function (ev) {
+    if (ev && ev.persisted && parseProfileId()) {
+      main();
+    }
+  });
+
   window.VCUserProfilePage = {
     isProfileMode: function () {
       return Boolean(parseProfileId());

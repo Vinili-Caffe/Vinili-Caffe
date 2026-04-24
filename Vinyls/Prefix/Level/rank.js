@@ -32,11 +32,19 @@ module.exports = {
     const multiplier = await getResolvedWeeklyExpMultiplier(message.guild, targetUser.id, null).catch(() => 1);
     const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
     const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
-    const themeGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || message.guild.id).trim();
-    const rankDoc = await ActivityUserProfile.findOne({ guildId: themeGuildId, userId: targetUser.id })
+    const messageGuildId = String(message.guild.id).trim();
+    const mainGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+    let rankDoc = await ActivityUserProfile.findOne({ guildId: messageGuildId, userId: targetUser.id })
       .select("profile.rankCard")
       .lean()
       .catch(() => null);
+    const hasRankCard = Boolean(rankDoc?.profile?.rankCard && Object.keys(rankDoc.profile.rankCard).length);
+    if (!hasRankCard && mainGuildId && mainGuildId !== messageGuildId) {
+      rankDoc = await ActivityUserProfile.findOne({ guildId: mainGuildId, userId: targetUser.id })
+        .select("profile.rankCard")
+        .lean()
+        .catch(() => null);
+    }
     const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
 
     const avatarUrl =

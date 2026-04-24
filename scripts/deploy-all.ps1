@@ -159,8 +159,6 @@ try {
 
   $remoteCmd = @(
     "set -eu"
-    'OLD_LOCK_HASH=""'
-    "if [ -f '$BotRemotePath/package-lock.json' ]; then OLD_LOCK_HASH=`$(sha256sum '$BotRemotePath/package-lock.json' | awk '{print `$1}'); fi"
     "mkdir -p '$BotRemotePath'"
     "tar -xzf '$remoteTgz' -C '$BotRemotePath'"
     "rm -f '$remoteTgz'"
@@ -179,8 +177,12 @@ try {
     '"$NODE_BIN" "$NPM_CLI" -v'
     "cd '$BotRemotePath'"
     'NEED_INSTALL=0'
-    'if [ ! -d node_modules ] || [ "$OLD_LOCK_HASH" != "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1; fi'
-    'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; else echo "Dependencies unchanged, skipping npm install."; fi'
+    'if [ ! -d node_modules ]; then NEED_INSTALL=1'
+    'elif [ -z "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1'
+    'elif [ ! -f node_modules/.vc-installed-lock.sha256 ]; then NEED_INSTALL=1'
+    'elif [ "$(cat node_modules/.vc-installed-lock.sha256)" != "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1'
+    'fi'
+    'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; printf %s "$NEW_LOCK_HASH" > node_modules/.vc-installed-lock.sha256; else echo "Dependencies unchanged, skipping npm install."; fi'
     "cd '$BotRemotePath/Vinyls'"
     "if `"`$NODE_BIN`" -e 'require(`"canvas`")' >/dev/null 2>&1; then echo `"Canvas already OK.`"; else echo `"Canvas rebuild required.`"; rm -rf ../node_modules/canvas node_modules/canvas; `"`$NODE_BIN`" `"`$NPM_CLI`" install canvas@2.11.2 --omit=dev --foreground-scripts --no-audit --no-fund --loglevel=error; fi"
     "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
