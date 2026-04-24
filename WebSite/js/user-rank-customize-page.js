@@ -488,9 +488,13 @@
     canvas.height = height;
     var ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, width, height);
-    var out = canvas.toDataURL("image/webp", 0.86);
+    /* JPEG: node-canvas lato bot decodifica in modo affidabile; WebP in data URL spesso falliva → +rank senza sfondo. */
+    var out = canvas.toDataURL("image/jpeg", 0.86);
     if (out.length > 850000) {
-      out = canvas.toDataURL("image/jpeg", 0.82);
+      out = canvas.toDataURL("image/jpeg", 0.78);
+    }
+    if (out.length > 850000) {
+      out = canvas.toDataURL("image/jpeg", 0.7);
     }
     if (out.length > 850000) {
       throw new Error("file_too_large");

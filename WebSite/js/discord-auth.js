@@ -176,9 +176,20 @@
         window.vcShowPageTransition("login");
       }
     } catch (e) {}
-    window.setTimeout(function () {
-      window.location.href = url;
-    }, 280);
+    function go() {
+      try {
+        window.location.href = url;
+      } catch (e2) {
+        try {
+          window.location.assign(url);
+        } catch (e3) {}
+      }
+    }
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        window.setTimeout(go, 140);
+      });
+    });
   }
 
   function emitProfile(user) {

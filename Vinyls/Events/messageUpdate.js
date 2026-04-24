@@ -3,7 +3,11 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
-const { handleMentionAutoReactions, handleWordReactions } = require("../Utils/Message/officialMessageCommunityHandlers");
+const {
+  handleMentionAutoReactions,
+  handleWordReactions,
+  maybePunishCountingOnEdit,
+} = require("../Utils/Message/officialMessageCommunityHandlers");
 
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe].filter(Boolean).map(String),);
@@ -208,6 +212,10 @@ module.exports = {
         updated = await updated.fetch().catch(() => updated);
       }
       if (!updated?.guild || !updated?.author) return;
+
+      if (!updated.author.bot && !updated.system && !updated.webhookId) {
+        await maybePunishCountingOnEdit(previous, updated, resolvedClient);
+      }
 
       const before = String(previous?.content || "");
       const after = String(updated?.content || "");

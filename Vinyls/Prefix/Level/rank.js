@@ -24,27 +24,41 @@ module.exports = {
     const targetFromId=/^\d{16,20}$/.test(id)?await message.client.users.fetch(id).catch(() => null):null;
     const targetUser = targetFromMention || targetFromId || message.author;
 
+    const messageGuildId = String(message.guild.id).trim();
+    const mainGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+    /** Stesso contesto del sito (siteRankCardApi): exp, classifiche, rankCard e moltiplicatore sulla guild principale se il membro c'e'. */
+    let statsGuild = message.guild;
+    let statsGuildId = messageGuildId;
+    if (mainGuildId && mainGuildId !== messageGuildId) {
+      const mainG =
+        message.client.guilds.cache.get(mainGuildId) ||
+        (await message.client.guilds.fetch(mainGuildId).catch(() => null));
+      if (mainG) {
+        const mainMember =
+          mainG.members.cache.get(targetUser.id) ||
+          (await mainG.members.fetch(targetUser.id).catch(() => null));
+        if (mainMember) {
+          statsGuild = mainG;
+          statsGuildId = mainGuildId;
+        }
+      }
+    }
+
     const targetMember =
+      statsGuild.members.cache.get(targetUser.id) ||
+      (await statsGuild.members.fetch(targetUser.id).catch(() => null)) ||
       message.guild.members.cache.get(targetUser.id) ||
       (await message.guild.members.fetch(targetUser.id).catch(() => null));
 
-    const{stats,weeklyRank,allTimeRank}=await getUserRanks(message.guild.id,targetUser.id,);
-    const multiplier = await getResolvedWeeklyExpMultiplier(message.guild, targetUser.id, null).catch(() => 1);
+    const { stats, weeklyRank, allTimeRank } = await getUserRanks(statsGuildId, targetUser.id);
+    const multiplier = await getResolvedWeeklyExpMultiplier(statsGuild, targetUser.id, null).catch(() => 1);
     const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
     const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
-    const messageGuildId = String(message.guild.id).trim();
-    const mainGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
-    let rankDoc = await ActivityUserProfile.findOne({ guildId: messageGuildId, userId: targetUser.id })
+
+    const rankDoc = await ActivityUserProfile.findOne({ guildId: statsGuildId, userId: targetUser.id })
       .select("profile.rankCard")
       .lean()
       .catch(() => null);
-    const hasRankCard = Boolean(rankDoc?.profile?.rankCard && Object.keys(rankDoc.profile.rankCard).length);
-    if (!hasRankCard && mainGuildId && mainGuildId !== messageGuildId) {
-      rankDoc = await ActivityUserProfile.findOne({ guildId: mainGuildId, userId: targetUser.id })
-        .select("profile.rankCard")
-        .lean()
-        .catch(() => null);
-    }
     const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
 
     const avatarUrl =

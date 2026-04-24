@@ -199,7 +199,29 @@
     if (ov) ov.classList.remove("vc-page-transition--on");
   }
 
+  function afterOverlayPaint(fn) {
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(fn);
+    });
+  }
+
+  function navigateToHref(href) {
+    var u = String(href || "").trim();
+    if (!u) return;
+    try {
+      window.location.href = u;
+    } catch (e) {
+      try {
+        window.location.assign(u);
+      } catch (e2) {}
+    }
+  }
+
   window.addEventListener("pageshow", function () {
+    hideTransitionOverlay();
+  });
+
+  window.addEventListener("load", function () {
     hideTransitionOverlay();
   });
 
@@ -269,6 +291,8 @@
     var ov = ensureTransitionOverlay();
     if (!ov) return;
     setTransitionOverlayContent(ov, kind || "page");
+    ov.classList.remove("vc-page-transition--on");
+    void ov.offsetHeight;
     ov.classList.add("vc-page-transition--on");
   }
 
@@ -292,17 +316,22 @@
       if (!a) return;
       if (isVoteLoadingLink(a)) {
         ev.preventDefault();
+        var voteHref = a.href;
         showTransitionOverlay("vote");
-        window.setTimeout(function () {
-          window.location.href = a.href;
-        }, 720);
+        afterOverlayPaint(function () {
+          window.setTimeout(function () {
+            navigateToHref(voteHref);
+          }, 180);
+        });
         return;
       }
       if (!isInternalNavigableLink(a)) return;
+      ev.preventDefault();
+      var nextHref = a.href;
       showTransitionOverlay("page");
-    });
-    window.addEventListener("beforeunload", function () {
-      showTransitionOverlay("page");
+      afterOverlayPaint(function () {
+        navigateToHref(nextHref);
+      });
     });
   }
 

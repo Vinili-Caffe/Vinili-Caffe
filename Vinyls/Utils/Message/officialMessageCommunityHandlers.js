@@ -1,6 +1,12 @@
 const path = require("path");
 const mongoose = require("mongoose");
-const { EmbedBuilder, escapeMarkdown } = require("discord.js");
+const {
+  EmbedBuilder,
+  escapeMarkdown,
+  AuditLogEvent,
+  OverwriteType,
+  PermissionFlagsBits,
+} = require("discord.js");
 const { inspect } = require("node:util");
 const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket");
 const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
@@ -423,6 +429,224 @@ async function sendCountingFailureReply(message, embed, client) {
   }
 }
 
+const MESSAGE_DELETE_AUDIT = AuditLogEvent?.MessageDelete ?? 72;
+const MESSAGE_BULK_DELETE_AUDIT = AuditLogEvent?.MessageBulkDelete ?? 73;
+const COUNTING_AUDIT_LOOKBACK_MS = 9000;
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    t.unref?.();
+  });
+}
+
+function isCountingNumericContent(raw) {
+  const content = String(raw || "").trim();
+  if (!content || !COUNTING_ALLOWED_REGEX.test(content)) return false;
+  try {
+    const math = require("mathjs");
+    const expression = content.replace(/\s+/g, "").replace(/x/g, "*").replace(/:/g, "/");
+    const value = math.evaluate(expression);
+    return Number.isFinite(Number(value));
+  } catch {
+    return false;
+  }
+}
+
+async function resolveCountingTextChannel(guild) {
+  if (!guild?.id) return null;
+  const countdata = await getCountingConfig(guild.id);
+  if (!countdata) return null;
+  const mainGuildId = IDs.guilds?.main || null;
+  const countingChannelId =
+    countdata.Channel ||
+    (String(guild.id) === String(mainGuildId) ? COUNTING_CHANNEL_ID : null);
+  if (!countingChannelId) return null;
+  const cached = guild.channels.cache.get(countingChannelId);
+  if (cached?.isTextBased?.()) return cached;
+  const fetched = await guild.channels.fetch(countingChannelId).catch(() => null);
+  return fetched?.isTextBased?.() ? fetched : null;
+}
+
+async function resolveSingleMessageDeleteExecutor(guild, channelId, messageAuthorId) {
+  const me = guild.members?.me;
+  if (!me?.permissions?.has?.(PermissionFlagsBits.ViewAuditLog)) return null;
+  const now = Date.now();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const logs = await guild
+      .fetchAuditLogs({ type: MESSAGE_DELETE_AUDIT, limit: 18 })
+      .catch(() => null);
+    for (const entry of logs?.entries?.values?.() || []) {
+      if (entry.action !== MESSAGE_DELETE_AUDIT) continue;
+      const created = Number(entry.createdTimestamp || 0);
+      if (!created || now - created > COUNTING_AUDIT_LOOKBACK_MS) continue;
+      const chId = String(entry.extra?.channel?.id || "");
+      if (chId !== String(channelId)) continue;
+      if (String(entry.targetId || "") !== String(messageAuthorId)) continue;
+      const ex = entry.executor;
+      if (!ex || ex.bot) return null;
+      return ex.id;
+    }
+    if (attempt < 2) await sleep(450);
+  }
+  return null;
+}
+
+async function resolveBulkMessageDeleteExecutor(guild, channelId, deletedCount) {
+  const me = guild.members?.me;
+  if (!me?.permissions?.has?.(PermissionFlagsBits.ViewAuditLog)) return null;
+  const now = Date.now();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const logs = await guild
+      .fetchAuditLogs({ type: MESSAGE_BULK_DELETE_AUDIT, limit: 12 })
+      .catch(() => null);
+    const candidates = [];
+    for (const entry of logs?.entries?.values?.() || []) {
+      if (entry.action !== MESSAGE_BULK_DELETE_AUDIT) continue;
+      const created = Number(entry.createdTimestamp || 0);
+      if (!created || now - created > COUNTING_AUDIT_LOOKBACK_MS) continue;
+      const sameChannel =
+        String(entry.extra?.channel?.id || "") === String(channelId) ||
+        String(entry.target?.id || "") === String(channelId);
+      if (!sameChannel) continue;
+      const count = Number(entry.extra?.count || 0);
+      const wanted = Number(deletedCount || 0);
+      let score = 0;
+      if (sameChannel) score += 4;
+      if (count > 0 && count === wanted) score += 4;
+      else if (count > 0 && wanted > 0 && Math.abs(count - wanted) <= 2) score += 2;
+      candidates.push({ entry, score, created });
+    }
+    if (candidates.length) {
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.created - a.created;
+      });
+      const best = candidates[0];
+      if (best?.score >= 4) {
+        const ex = best.entry?.executor;
+        if (!ex || ex.bot) return null;
+        return ex.id;
+      }
+    }
+    if (attempt < 2) await sleep(650);
+  }
+  return null;
+}
+
+async function revokeCountingChannelSend(guild, channel, userId, client, reason) {
+  if (!guild || !channel?.permissionOverwrites?.edit || !userId) return false;
+  if (String(userId) === String(guild.ownerId || "")) return false;
+  const me = guild.members?.me;
+  if (!me?.permissions?.has?.(PermissionFlagsBits.ManageChannels)) {
+    logEventError(
+      client,
+      "COUNTING WRITE-BAN",
+      new Error("Bot needs ManageChannels to deny SendMessages in counting"),
+    );
+    return false;
+  }
+  try {
+    await channel.permissionOverwrites.edit(userId, {
+      SendMessages: false,
+      SendMessagesInThreads: false,
+      CreatePublicThreads: false,
+      CreatePrivateThreads: false,
+    }, { type: OverwriteType.Member, reason: String(reason || "Counting").slice(0, 450) });
+    return true;
+  } catch (err) {
+    logEventError(client, "COUNTING WRITE-BAN", err);
+    return false;
+  }
+}
+
+async function maybePunishCountingOnDelete(message, client) {
+  try {
+    const guild = message?.guild;
+    if (!guild || message.author?.bot) return;
+    const channelId = String(message.channelId || message.channel?.id || "");
+    if (!channelId) return;
+    const countChannel = await resolveCountingTextChannel(guild);
+    if (!countChannel || countChannel.id !== channelId) return;
+    const content = String(message.content || "");
+    if (!isCountingNumericContent(content)) return;
+    const authorId = message.author?.id;
+    if (!authorId) return;
+    const executorId = await resolveSingleMessageDeleteExecutor(
+      guild,
+      channelId,
+      authorId,
+    );
+    const targetUserId = executorId || authorId;
+    await revokeCountingChannelSend(
+      guild,
+      countChannel,
+      targetUserId,
+      client,
+      "Counting: eliminazione messaggio numerico",
+    );
+  } catch (err) {
+    logEventError(client, "COUNTING DELETE SANCTION", err);
+  }
+}
+
+async function maybePunishCountingOnEdit(previous, updated, client) {
+  try {
+    if (!updated?.guild || updated.author?.bot) return;
+    const countChannel = await resolveCountingTextChannel(updated.guild);
+    if (!countChannel || countChannel.id !== updated.channelId) return;
+    const before = String(previous?.content || "");
+    const after = String(updated?.content || "");
+    if (before === after) return;
+    if (!isCountingNumericContent(before)) return;
+    await revokeCountingChannelSend(
+      updated.guild,
+      countChannel,
+      updated.author.id,
+      client,
+      "Counting: modifica messaggio numerico",
+    );
+  } catch (err) {
+    logEventError(client, "COUNTING EDIT SANCTION", err);
+  }
+}
+
+async function maybePunishCountingOnBulkDelete(messages, client) {
+  try {
+    if (!messages?.size) return;
+    const sample = messages.first();
+    const guild = sample?.guild;
+    if (!guild) return;
+    const channelId = String(sample.channelId || sample.channel?.id || "");
+    const countChannel = await resolveCountingTextChannel(guild);
+    if (!countChannel || countChannel.id !== channelId) return;
+    let anyCounting = false;
+    for (const m of messages.values()) {
+      if (m?.author?.bot) continue;
+      if (isCountingNumericContent(m?.content)) {
+        anyCounting = true;
+        break;
+      }
+    }
+    if (!anyCounting) return;
+    const executorId = await resolveBulkMessageDeleteExecutor(
+      guild,
+      channelId,
+      messages.size,
+    );
+    if (!executorId) return;
+    await revokeCountingChannelSend(
+      guild,
+      countChannel,
+      executorId,
+      client,
+      "Counting: eliminazione massiva messaggi nel canale",
+    );
+  } catch (err) {
+    logEventError(client, "COUNTING BULK SANCTION", err);
+  }
+}
+
 async function handleCounting(message, client) {
   const guildId =
     message?.guild?.id || message?.channel?.guild?.id || message?.guildId;
@@ -449,6 +673,12 @@ async function handleCounting(message, client) {
   const messageChannelId = message?.channel?.id;
   if (!messageChannelId) return;
   if (messageChannelId !== countchannel.id) return;
+  try {
+    const sendPerms = countchannel.permissionsFor?.(member);
+    if (sendPerms && !sendPerms.has(PermissionFlagsBits.SendMessages)) return;
+  } catch {
+    /* ignore */
+  }
   if (!COUNTING_ALLOWED_REGEX.test(message.content)) {
     return message.delete().catch(() => { });
   }
@@ -547,4 +777,15 @@ async function processPendingCountingMessages(client) {
   }
 }
 
-module.exports = { handleAfk, handleCounting, handleMentionAutoReactions, handleWordReactions, logEventError, processPendingCountingMessages, setWelcomeContextActive };
+module.exports = {
+  handleAfk,
+  handleCounting,
+  handleMentionAutoReactions,
+  handleWordReactions,
+  logEventError,
+  processPendingCountingMessages,
+  setWelcomeContextActive,
+  maybePunishCountingOnDelete,
+  maybePunishCountingOnEdit,
+  maybePunishCountingOnBulkDelete,
+};

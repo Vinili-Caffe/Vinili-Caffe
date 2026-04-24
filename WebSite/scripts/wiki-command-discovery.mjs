@@ -3,11 +3,20 @@
  * Slash / menu contestuale: stessa categoria della cartella Commands (Admin, Staff, Dev…), insieme ai prefix.
  * Prefix: cartella Prefix, esclusi skipLoad / skipPrefix. Slash senza skipDeploy.
  * Categorie admin e dev: omesse dalla wiki pubblica.
+ * Visibilità comandi (prefix/slash/context): come +help per un utente con solo ruolo Member
+ * (permissions.json + canMemberSeeEntry). Cartella Prefix "misc" esclusa come in help.
  */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { createRequire } from "module";
+import {
+  loadWikiHelpContext,
+  getCommandPermissionNode,
+  getPrefixPermissionConfig,
+  isPrefixCommandVisibleOnWiki,
+  isSlashOrContextVisibleOnWiki,
+} from "./wiki-help-visibility.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -102,6 +111,39 @@ function extractModuleExportsBlock(src) {
   return extractBracedBlock(src, brace);
 }
 
+function extractArrayOfStringsFromExportBlock(block, propName) {
+  const re = new RegExp(`\\b${propName}\\s*:`);
+  const match = block.match(re);
+  if (!match || match.index == null) return [];
+  let i = match.index + match[0].length;
+  while (i < block.length && /\s/.test(block[i])) i++;
+  if (block[i] !== "[") return [];
+  let depth = 0;
+  const startBracket = i;
+  for (; i < block.length; i++) {
+    const c = block[i];
+    if (c === "[") depth++;
+    else if (c === "]") {
+      depth--;
+      if (depth === 0) {
+        const inner = block.slice(startBracket + 1, i);
+        const out = [];
+        for (const mm of inner.matchAll(/['"]([a-zA-Z0-9._-]+)['"]/g)) {
+          out.push(mm[1].toLowerCase());
+        }
+        return out;
+      }
+    }
+  }
+  return [];
+}
+
+function extractCanonicalSubcommandsFromBlock(block) {
+  const a = extractArrayOfStringsFromExportBlock(block, "canonicalSubcommands");
+  const b = extractArrayOfStringsFromExportBlock(block, "subcommands");
+  return [...new Set([...a, ...b])];
+}
+
 function resolvePrefixNameFromBinding(filePath, src, varName) {
   const re = new RegExp(
     `const\\s+${varName.replace(/[^$\w]/g, "")}\\s*=\\s*require\\(\\s*["']([^"']+)["']\\s*\\)(?:\\.(\\w+))?`,
@@ -146,10 +188,12 @@ function parsePrefixCommandFile(filePath, src) {
     const sm = [...inner.matchAll(/\b([a-zA-Z0-9_-]+)\s*:\s*"((?:[^"\\]|\\.)*)"/g)];
     if (sm.length) subHints = Object.fromEntries(sm.map((x) => [x[1], x[2].replace(/\\"/g, '"')]));
   }
+  const canonicalSubs = extractCanonicalSubcommandsFromBlock(block);
   return {
     name,
     fileDescription: descM ? descM[1] : null,
     subHints,
+    canonicalSubs,
   };
 }
 
@@ -244,6 +288,20 @@ function collectVinili() {
   const subDesc = parseConstStringMap(helpSrc, "PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS");
   const ctxDesc = parseConstStringMap(helpSrc, "CONTEXT_HELP_DESCRIPTIONS");
 
+  let wikiCtx = null;
+  try {
+    wikiCtx = loadWikiHelpContext(vinylsRoot);
+  } catch (err) {
+    console.warn("[build-site] wiki help context (Vinyls):", err?.message || err);
+  }
+  const permFilter =
+    wikiCtx &&
+    wikiCtx.memberRoleSet &&
+    wikiCtx.memberRoleSet.size &&
+    wikiCtx.ids
+      ? wikiCtx
+      : null;
+
   const cfg = JSON.parse(read(path.join(vinylsRoot, "config.json")));
   const prefix = String(cfg.prefix ?? "+");
 
@@ -260,6 +318,12 @@ function collectVinili() {
     const src = read(file);
     const parsed = parseSlashFromSrc(src, folder);
     if (!parsed) continue;
+    if (permFilter) {
+      const node = getCommandPermissionNode(permFilter.permissions.slash, parsed.name);
+      if (!isSlashOrContextVisibleOnWiki(node, permFilter.memberRoleSet, permFilter.ids)) {
+        continue;
+      }
+    }
     const folderKey = String(parsed.folder || folder).toLowerCase();
     if (!wikiPublicCategory(folderKey)) continue;
     const cat = ensureCat(folderKey);
@@ -289,7 +353,22 @@ function collectVinili() {
     const meta = parsePrefixCommandFile(file, src);
     if (!meta) continue;
     const folderKey = String(folder).toLowerCase();
+    if (folderKey === "misc") continue;
     if (!wikiPublicCategory(folderKey)) continue;
+    if (permFilter) {
+      const nameKey = String(meta.name || "").trim().toLowerCase();
+      const permCfg = getPrefixPermissionConfig(permFilter.permissions, nameKey);
+      if (
+        !isPrefixCommandVisibleOnWiki(
+          permCfg,
+          meta.canonicalSubs,
+          permFilter.memberRoleSet,
+          permFilter.ids,
+        )
+      ) {
+        continue;
+      }
+    }
     const cat = ensureCat(folderKey);
     if (!cat.title || cat.title === folderKey) {
       cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
@@ -324,6 +403,20 @@ function collectCaffe() {
   const helpSrc = read(helpPath);
   const prefixDesc = parseConstStringMap(helpSrc, "PREFIX_HELP_DESCRIPTIONS");
   const subDesc = parseConstStringMap(helpSrc, "PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS");
+  let wikiCtx = null;
+  try {
+    wikiCtx = loadWikiHelpContext(coffeeRoot);
+  } catch (err) {
+    console.warn("[build-site] wiki help context (Coffee):", err?.message || err);
+  }
+  const permFilter =
+    wikiCtx &&
+    wikiCtx.memberRoleSet &&
+    wikiCtx.memberRoleSet.size &&
+    wikiCtx.ids
+      ? wikiCtx
+      : null;
+
   const cfg = JSON.parse(read(path.join(coffeeRoot, "config.json")));
   const prefix = String(cfg.prefix ?? "-");
 
@@ -340,7 +433,22 @@ function collectCaffe() {
     const meta = parsePrefixCommandFile(file, src);
     if (!meta) continue;
     const folderKey = String(folder).toLowerCase();
+    if (folderKey === "misc") continue;
     if (!wikiPublicCategory(folderKey)) continue;
+    if (permFilter) {
+      const nameKey = String(meta.name || "").trim().toLowerCase();
+      const permCfg = getPrefixPermissionConfig(permFilter.permissions, nameKey);
+      if (
+        !isPrefixCommandVisibleOnWiki(
+          permCfg,
+          meta.canonicalSubs,
+          permFilter.memberRoleSet,
+          permFilter.ids,
+        )
+      ) {
+        continue;
+      }
+    }
     const cat = ensureCat(folderKey);
     cat.title = PREFIX_FOLDER_LABELS[folderKey] || folder;
     const hint = hintForPrefixCommand(meta.name, meta, prefixDesc, subDesc);
