@@ -9416,3 +9416,20 @@ textarea.vc-candidature-input {
     align-items: start;
   }
 }
+
+.vc-reviews-select--static {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: none !important;
+  padding-right: 0.75rem !important;
+}
+
+.vc-reviews-select--staff {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath fill='%23e8c9a8' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 0.65rem 0.65rem;
+  background-position: calc(100% - 1.25rem) center; /* 👈 QUI la sposti */
+  padding-right: 2.5rem;
+}
