@@ -7,13 +7,7 @@ const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
-const {
-  MAX_REACTIONS,
-  memberHasCustomReactionRoleAccess,
-  parseReactionTokens,
-  toDisplay,
-  buildCustomReactionPanelRows,
-} = require("../Utils/Community/mentionReactionPanelUtils");
+const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
 const PANEL_PREFIX = "profile_panel";
@@ -30,15 +24,12 @@ const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078379118755";
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
-const CUSTOM_ROLE_VOC_ROLE_IDS = [
-  IDs?.roles?.VIP,
-  IDs?.roles?.DoubleBooster,
-  IDs?.roles?.Level50,
-].filter(Boolean);
+const CUSTOM_ROLE_VOC_ROLE_IDS = [ IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.Level50, IDs?.roles?.VIPplus ].filter(Boolean);
 const CONTEST_CHANNEL_MOBILE_ID = IS_DISEGNI_CONTEST
   ? String(IDs.channels?.contestDisegni || "").trim()
   : String(IDs.channels?.contestSfondiMobile || "").trim();
 const CONTEST_CHANNEL_PC_ID = IS_DISEGNI_CONTEST ? "" : String(IDs.channels?.contestSfondiPc || "").trim();
+
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
   const match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);

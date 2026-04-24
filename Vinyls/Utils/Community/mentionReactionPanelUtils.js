@@ -8,6 +8,7 @@ const CUSTOM_REACTION_ROLE_IDS = [
   IDs?.roles?.DoubleBooster,
   IDs?.roles?.ServerBooster,
   IDs?.roles?.Level70,
+  IDs?.roles?.VIPplus,
 ].filter(Boolean);
 
 function memberHasCustomReactionRoleAccess(member) {
