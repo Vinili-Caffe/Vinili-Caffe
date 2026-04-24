@@ -1672,9 +1672,9 @@ header .vc-icon-btn:hover {
   box-shadow: 0 0 18px rgba(212, 168, 136, 0.18);
 }
 
-/* Homepage: riquadri centrati, larghezza contenuta (≈3 colonne compatte, non full 88rem) */
+/* Homepage: stessa larghezza massima della barra stats (#stats, max-w-6xl / 72rem) */
 .vc-home-panels-shell {
-  max-width: min(56rem, calc(100% - 2rem));
+  max-width: min(72rem, calc(100% - 2rem));
   margin-left: auto;
   margin-right: auto;
 }
@@ -5921,12 +5921,21 @@ textarea.vc-candidature-input {
 
 .vc-rank-save-toast-host {
   position: fixed;
-  top: calc(4.75rem + env(safe-area-inset-top, 0px));
-  left: 50%;
-  z-index: 10050;
+  /* Sotto header fisso (pt-4 + shell ~5.5–7rem); main usa pt-28 / sm:pt-32 */
+  top: calc(6.85rem + env(safe-area-inset-top, 0px));
+  right: 0;
+  left: 0;
+  z-index: 10060;
   width: min(92vw, 28rem);
-  transform: translateX(-50%);
+  margin-inline: auto;
+  padding-inline: max(0.75rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .vc-rank-save-toast-host {
+    top: calc(8rem + env(safe-area-inset-top, 0px));
+  }
 }
 
 .vc-rank-save-toast {
@@ -5934,18 +5943,18 @@ textarea.vc-candidature-input {
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
-  padding: 1rem 1.15rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(45, 212, 191, 0.55);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 118, 110, 0.28));
+  padding: 1rem 1.2rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(45, 212, 191, 0.62);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.97), rgba(17, 94, 89, 0.22));
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.38),
-    0 0 0 1px rgba(45, 212, 191, 0.1);
+    0 14px 44px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(45, 212, 191, 0.12);
   opacity: 0;
-  transform: translateY(-0.45rem);
+  transform: translateY(-10px);
   transition:
-    opacity 0.28s ease,
-    transform 0.28s ease;
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .vc-rank-save-toast.is-visible {
@@ -5955,22 +5964,28 @@ textarea.vc-candidature-input {
 
 .vc-rank-save-toast.is-leaving {
   opacity: 0;
-  transform: translateY(-0.55rem);
+  transform: translateY(-10px);
   transition:
-    opacity 0.26s ease,
-    transform 0.26s ease;
+    opacity 0.28s ease,
+    transform 0.28s ease;
 }
 
 .vc-rank-save-toast__icon {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 0.5rem;
-  background: rgba(6, 78, 59, 0.88);
-  color: #4ade80;
-  font-size: 1.1rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.55rem;
+  background: linear-gradient(180deg, #22c55e, #15803d);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.vc-rank-save-toast__icon .fa {
+  text-shadow: none;
 }
 
 .vc-rank-save-toast__body {
@@ -9583,6 +9598,50 @@ textarea.vc-candidature-input {
   align-items: start;
 }
 
+/* Recensioni: palette e card allineate alla pagina Donazioni */
+.vc-reviews-page .vc-reviews-section--lead {
+  margin-top: 0;
+}
+
+.vc-reviews-page .vc-reviews-section__eyebrow {
+  color: rgba(167, 243, 208, 0.9);
+  letter-spacing: 0.22em;
+}
+
+.vc-reviews-page .vc-reviews-section__head--stack .vc-reviews-section__sub {
+  color: rgba(203, 213, 225, 0.88);
+}
+
+.vc-reviews-page .vc-reviews-highlight__icon,
+.vc-reviews-page .vc-reviews-formcard__icon,
+.vc-reviews-page .vc-reviews-empty__icon {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(110, 231, 183, 0.26);
+  color: #6ee7b7;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.12);
+}
+
+.vc-reviews-page .vc-reviews-card__target {
+  color: rgba(153, 246, 228, 0.95);
+}
+
+.vc-reviews-page .vc-reviews-submit {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: linear-gradient(to right, #34d399, #22d3ee);
+  color: rgb(15 23 42 / 0.94);
+  box-shadow: 0 14px 36px rgba(16, 185, 129, 0.22);
+}
+
+.vc-reviews-page .vc-reviews-submit:hover:not([disabled]) {
+  filter: brightness(1.06);
+}
+
+.vc-reviews-page .vc-reviews-status {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(6, 78, 59, 0.35);
+  color: #ccfbf1;
+}
+
 .vc-reviews-page-main {
   min-width: 0;
 }
@@ -9591,47 +9650,10 @@ textarea.vc-candidature-input {
   min-width: 0;
 }
 
-.vc-reviews-intro-card {
-  border-radius: 1.75rem;
-  border: 1px solid rgba(var(--vc-sand-rgb), 0.3);
-  background:
-    radial-gradient(circle at 18% 0%, rgba(var(--vc-sand-rgb), 0.14), transparent 46%),
-    linear-gradient(165deg, rgba(26, 18, 13, 0.94), rgba(12, 9, 7, 0.96));
-  box-shadow:
-    0 22px 56px rgba(0, 0, 0, 0.42),
-    inset 0 0 0 1px rgba(212, 168, 136, 0.06);
-  padding: 1.35rem 1.2rem 1.55rem;
-  backdrop-filter: blur(var(--vc-glass-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(150%);
-}
-
-.vc-reviews-intro-card__icon {
-  display: inline-flex;
-  width: 3.2rem;
-  height: 3.2rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 1rem;
-  margin-bottom: 0.85rem;
-  background: rgba(var(--vc-sand-rgb), 0.1);
-  border: 1px solid rgba(var(--vc-sand-rgb), 0.32);
-  color: var(--vc-sand-light);
-  font-size: 1.22rem;
-}
-
-.vc-reviews-intro-card .vc-reviews-hero__title {
-  font-size: clamp(1.45rem, 2.5vw, 2.05rem);
-  margin-top: 0.5rem;
-}
-
-.vc-reviews-intro-card .vc-reviews-hero__text {
-  margin-top: 0.85rem;
-}
-
 @media (min-width: 64rem) {
   .vc-reviews-page-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(14.5rem, 18rem);
-    gap: 1.75rem;
+    grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 20rem);
+    gap: 2rem 2.25rem;
   }
 
   .vc-reviews-intro-panel {
@@ -9752,6 +9774,31 @@ textarea.vc-candidature-input {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.vc-reviews-section__head--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  margin-bottom: 1.15rem;
+}
+
+.vc-reviews-section__head--stack .vc-reviews-section__eyebrow {
+  margin: 0;
+}
+
+.vc-reviews-section__head--stack .vc-reviews-section__title {
+  margin: 0.35rem 0 0;
+}
+
+.vc-reviews-section__head--stack .vc-reviews-section__sub {
+  margin: 0.5rem 0 0;
+  max-width: 38rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  font-weight: 500;
+  color: rgba(186, 198, 216, 0.9);
 }
 
 .vc-reviews-section__title {

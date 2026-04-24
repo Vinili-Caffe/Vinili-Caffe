@@ -138,32 +138,53 @@
       });
     }
 
-    return tryOne(0).then(function (data) {
-      setText("members", data.approximate_member_count);
-      var boosts = data.guild && data.guild.premium_subscription_count;
-      setText("boosts", boosts);
-    });
+    return tryOne(0);
   }
 
-  function refreshExtraStaff() {
+  function fetchExtraStatsJson() {
     var p = cfg.extraStatsPath;
-    if (p == null || String(p).trim() === "") return Promise.resolve();
+    if (p == null || String(p).trim() === "") return Promise.resolve(null);
     var url;
     try {
       url = new URL(String(p).trim(), location.origin).toString();
     } catch (e) {
-      return Promise.resolve();
+      return Promise.resolve(null);
     }
-    return fetchNoStore(url).then(function (j) {
-      setText("staff", j.staffNoPm);
-    }).catch(function () {
-      /* file opzionale */
+    return fetchNoStore(url).catch(function () {
+      return null;
     });
   }
 
+  /**
+   * Membri/boost: stessi valori della classifica (guild dal bot). Priorità a live-stats-extra.json
+   * (guildMemberCount / guildBoostCount); fallback invite Discord se mancano nel JSON.
+   */
   function tick() {
-    refreshInvite().catch(function () {});
-    refreshExtraStaff().catch(function () {});
+    Promise.all([fetchExtraStatsJson(), refreshInvite().catch(function () {
+      return null;
+    })]).then(function (pair) {
+      var extra = pair[0];
+      var inv = pair[1];
+      if (extra && extra.staffNoPm != null) setText("staff", extra.staffNoPm);
+      var guildMem =
+        extra && extra.guildMemberCount != null && Number.isFinite(Number(extra.guildMemberCount))
+          ? Number(extra.guildMemberCount)
+          : null;
+      if (guildMem != null) {
+        setText("members", guildMem);
+      } else if (inv && inv.approximate_member_count != null) {
+        setText("members", inv.approximate_member_count);
+      }
+      var guildBoost =
+        extra && extra.guildBoostCount != null && Number.isFinite(Number(extra.guildBoostCount))
+          ? Number(extra.guildBoostCount)
+          : null;
+      if (guildBoost != null) {
+        setText("boosts", guildBoost);
+      } else if (inv && inv.guild && inv.guild.premium_subscription_count != null) {
+        setText("boosts", inv.guild.premium_subscription_count);
+      }
+    });
   }
 
   function reveal247() {

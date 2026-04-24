@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { getUserRanks, getGlobalMultiplier, } = require("../../Services/Community/expService");
+const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 const IDs = require("../../Utils/Config/ids");
@@ -29,7 +29,7 @@ module.exports = {
       (await message.guild.members.fetch(targetUser.id).catch(() => null));
 
     const{stats,weeklyRank,allTimeRank}=await getUserRanks(message.guild.id,targetUser.id,);
-    const multiplier = await getGlobalMultiplier(message.guild.id);
+    const multiplier = await getResolvedWeeklyExpMultiplier(message.guild, targetUser.id, null).catch(() => 1);
     const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
     const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
     const themeGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || message.guild.id).trim();
@@ -73,7 +73,7 @@ module.exports = {
     .addFields(
       { name: "<a:VC_StarPink:1330194976440848500> **Livello:**", value: `**${stats.level}**`, inline: true },
       { name: "<:VC_EXP:1482534670896730143> **Weekly EXP:**", value: `**${stats.weeklyExp}**`, inline: true },
-      { name: "<a:VC_Rocket:1468544312475123753> **Moltiplicatore:**", value: `**${multiplier}x**`, inline: true },
+      { name: "<a:VC_Rocket:1468544312475123753> **Moltiplicatore:**", value: `**${Number(multiplier || 1).toFixed(1)}x**`, inline: true },
     )
     .setFooter({ text: `Ti mancano ${stats.remainingToNext} exp per il prossimo livello` });
     const row = new ActionRowBuilder()

@@ -146,54 +146,58 @@
       <section class="vc-support-page-hero vc-vote-page-hero">
         <div class="mx-auto max-w-[40rem] text-center">
           <div class="vc-support-page-hero__icon" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></div>
-          <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-[2.15rem]">
+          <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-[2.05rem]">
             Vota <span class="text-[#e8c9a8]">{{SITE_NAME}}</span>
           </h1>
-          <p class="mx-auto mt-3 max-w-[34rem] text-sm leading-relaxed text-slate-200/86 sm:text-base">
+        </div>
+        <div
+          class="vc-vote-hero-split mx-auto mt-4 flex w-full max-w-5xl flex-col gap-4 sm:mt-5 sm:gap-5 lg:mt-5 lg:flex-row lg:items-start lg:justify-between lg:gap-6 xl:max-w-[58rem]">
+          <p
+            class="vc-vote-hero-lead mx-auto max-w-[34rem] text-center text-[0.8125rem] leading-relaxed text-slate-200/86 sm:text-sm lg:mx-0 lg:max-w-[22rem] lg:flex-1 lg:self-center lg:text-left xl:max-w-[26rem] xl:text-[0.9375rem]">
             Supporta il server votando su Discadia ogni 24 ore e su Top.gg ogni 12 ore. Ti basta scegliere la piattaforma che preferisci e completare il voto sulla pagina ufficiale.
           </p>
-
-          <div id="vote-platforms" class="mt-6 grid gap-3 sm:grid-cols-2">
+          <div
+            id="vote-platforms"
+            class="grid w-full shrink-0 grid-cols-2 gap-2 sm:mx-auto sm:max-w-md sm:gap-2.5 lg:mx-0 lg:max-w-[min(100%,22.5rem)] xl:max-w-[24.5rem]">
             <a href="{{DISCADIA_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-left shadow-[0_12px_36px_rgba(0,0,0,0.16)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#d4a888]/35 hover:bg-white/[0.07] sm:p-3.5">
-              <div class="flex items-center justify-between gap-2 sm:gap-3">
-                <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                  <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#d4a888]/14 text-base text-[#e8c9a8] ring-1 ring-[#d4a888]/25 sm:h-10 sm:w-10 sm:rounded-xl sm:text-lg">
+              class="group rounded-xl border border-white/10 bg-white/[0.05] p-2 text-left shadow-[0_8px_28px_rgba(0,0,0,0.14)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#d4a888]/35 hover:bg-white/[0.07] sm:rounded-2xl sm:p-2.5">
+              <div class="flex items-start gap-2 sm:gap-2.5">
+                <div class="flex w-[4.5rem] shrink-0 flex-col items-center gap-1.5 sm:w-[4.85rem] sm:gap-2">
+                  <span class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#d4a888]/14 text-sm text-[#e8c9a8] ring-1 ring-[#d4a888]/25 sm:h-8 sm:w-8 sm:rounded-lg sm:text-base">
                     <i class="fa fa-thumbs-o-up" aria-hidden="true"></i>
                   </span>
-                  <div class="min-w-0 text-left">
-                    <p class="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-[#d4a888]/85 sm:text-[0.65rem] sm:tracking-[0.18em]">Piattaforma 1</p>
-                    <h2 class="mt-0.5 text-lg font-extrabold text-white sm:text-xl">Discadia</h2>
-                  </div>
+                  <span
+                    class="inline-flex w-full items-center justify-center gap-0.5 rounded-md bg-gradient-to-r from-[#6f4e37] to-[#8b5e42] px-1 py-1 text-center text-[0.55rem] font-extrabold leading-tight text-[#f8ede4] shadow-[0_4px_14px_rgba(60,40,28,0.22)] ring-1 ring-[#d4a888]/28 transition group-hover:brightness-105 sm:gap-1 sm:rounded-lg sm:px-1.5 sm:py-1.5 sm:text-[0.6rem]">
+                    Vota su Discadia <i class="fa fa-external-link shrink-0 text-[0.8em] opacity-90" aria-hidden="true"></i>
+                  </span>
                 </div>
-                <span
-                  class="inline-flex max-w-[min(11rem,46%)] shrink-0 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-[#6f4e37] to-[#8b5e42] px-2 py-1.5 text-center text-[0.62rem] font-extrabold leading-tight text-[#f8ede4] shadow-[0_8px_20px_rgba(60,40,28,0.28)] ring-1 ring-[#d4a888]/28 transition group-hover:brightness-105 min-[400px]:max-w-none min-[400px]:px-2.5 min-[400px]:text-[0.7rem] sm:gap-1.5 sm:rounded-xl sm:px-3 sm:py-2 sm:text-sm">
-                  Vota su Discadia <i class="fa fa-external-link shrink-0 text-[0.85em] opacity-90" aria-hidden="true"></i>
-                </span>
+                <div class="min-w-0 flex-1 pt-0.5 text-left">
+                  <p class="text-[0.5rem] font-semibold uppercase tracking-[0.14em] text-[#d4a888]/85 sm:text-[0.55rem] sm:tracking-[0.16em]">Piattaforma 1</p>
+                  <h2 class="mt-0.5 text-sm font-extrabold text-white sm:text-base">Discadia</h2>
+                </div>
               </div>
-              <p class="mt-2 text-xs leading-relaxed text-slate-200/82 sm:mt-2.5 sm:text-sm sm:leading-6">
+              <p class="mt-1.5 text-[0.65rem] leading-snug text-slate-200/82 sm:mt-2 sm:text-xs sm:leading-relaxed">
                 Vota il server direttamente su Discadia e aiuta la pagina a crescere nella classifica.
               </p>
             </a>
-
             <a href="{{TOPGG_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-left shadow-[0_12px_36px_rgba(0,0,0,0.16)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#d4a888]/35 hover:bg-white/[0.07] sm:p-3.5">
-              <div class="flex items-center justify-between gap-2 sm:gap-3">
-                <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                  <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#6f4e37]/35 text-base text-[#e8c9a8] ring-1 ring-[#d4a888]/22 sm:h-10 sm:w-10 sm:rounded-xl sm:text-lg">
+              class="group rounded-xl border border-white/10 bg-white/[0.05] p-2 text-left shadow-[0_8px_28px_rgba(0,0,0,0.14)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#d4a888]/35 hover:bg-white/[0.07] sm:rounded-2xl sm:p-2.5">
+              <div class="flex items-start gap-2 sm:gap-2.5">
+                <div class="flex w-[4.5rem] shrink-0 flex-col items-center gap-1.5 sm:w-[4.85rem] sm:gap-2">
+                  <span class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#6f4e37]/35 text-sm text-[#e8c9a8] ring-1 ring-[#d4a888]/22 sm:h-8 sm:w-8 sm:rounded-lg sm:text-base">
                     <i class="fa fa-star-o" aria-hidden="true"></i>
                   </span>
-                  <div class="min-w-0 text-left">
-                    <p class="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-[#c9a88a]/90 sm:text-[0.65rem] sm:tracking-[0.18em]">Piattaforma 2</p>
-                    <h2 class="mt-0.5 text-lg font-extrabold text-white sm:text-xl">Top.gg</h2>
-                  </div>
+                  <span
+                    class="inline-flex w-full items-center justify-center gap-0.5 rounded-md border border-[#d4a888]/28 bg-[#1a120e]/75 px-1 py-1 text-center text-[0.55rem] font-semibold leading-tight text-[#f2dcc8] transition group-hover:border-[#d4a888]/45 group-hover:bg-[#241a14]/85 sm:gap-1 sm:rounded-lg sm:px-1.5 sm:py-1.5 sm:text-[0.6rem]">
+                    Vota su Top.gg <i class="fa fa-external-link shrink-0 text-[0.8em] opacity-90" aria-hidden="true"></i>
+                  </span>
                 </div>
-                <span
-                  class="inline-flex max-w-[min(10rem,46%)] shrink-0 items-center justify-center gap-1 rounded-lg border border-[#d4a888]/28 bg-[#1a120e]/75 px-2 py-1.5 text-center text-[0.62rem] font-semibold leading-tight text-[#f2dcc8] transition group-hover:border-[#d4a888]/45 group-hover:bg-[#241a14]/85 min-[400px]:max-w-none min-[400px]:px-2.5 min-[400px]:text-[0.7rem] sm:gap-1.5 sm:rounded-xl sm:px-3 sm:py-2 sm:text-sm">
-                  Vota su Top.gg <i class="fa fa-external-link shrink-0 text-[0.85em] opacity-90" aria-hidden="true"></i>
-                </span>
+                <div class="min-w-0 flex-1 pt-0.5 text-left">
+                  <p class="text-[0.5rem] font-semibold uppercase tracking-[0.14em] text-[#c9a88a]/90 sm:text-[0.55rem] sm:tracking-[0.16em]">Piattaforma 2</p>
+                  <h2 class="mt-0.5 text-sm font-extrabold text-white sm:text-base">Top.gg</h2>
+                </div>
               </div>
-              <p class="mt-2 text-xs leading-relaxed text-slate-200/82 sm:mt-2.5 sm:text-sm sm:leading-6">
+              <p class="mt-1.5 text-[0.65rem] leading-snug text-slate-200/82 sm:mt-2 sm:text-xs sm:leading-relaxed">
                 Lascia il tuo voto anche su Top.gg per dare ancora più visibilità al progetto.
               </p>
             </a>

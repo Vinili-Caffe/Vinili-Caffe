@@ -327,9 +327,30 @@ function formatRankValue(value) {
   return `#${formatInt(n)}`;
 }
 
-/** Preset wallpapers on the site use SVG data URLs; node-canvas loadImage does not support them. */
+/** Preset wallpapers on the site use SVG data URLs. */
 function isSvgDataUrlWallpaper(url) {
   return /^data:image\/svg\+xml/i.test(String(url || ""));
+}
+
+function decodeSvgDataUrlToBuffer(dataUrl) {
+  const raw = String(dataUrl || "");
+  const comma = raw.indexOf(",");
+  if (comma < 0) return null;
+  const header = raw.slice(0, comma).toLowerCase();
+  if (!header.includes("svg")) return null;
+  const payload = raw.slice(comma + 1);
+  try {
+    if (header.includes("base64")) {
+      return Buffer.from(payload.replace(/\s/g, ""), "base64");
+    }
+    return Buffer.from(decodeURIComponent(payload), "utf8");
+  } catch {
+    try {
+      return Buffer.from(payload, "utf8");
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
@@ -365,6 +386,14 @@ function drawPresetWallpaperFromKey(ctx, x, y, width, height, key) {
 async function drawWallpaper(ctx, x, y, width, height, palette) {
   const wallpaper = resolveRankCardWallpaper(palette);
   if (wallpaper && isSvgDataUrlWallpaper(wallpaper)) {
+    const svgBuf = decodeSvgDataUrlToBuffer(wallpaper);
+    if (svgBuf) {
+      const raster = await safeLoadImage(svgBuf, { suppressWarning: true });
+      if (raster) {
+        drawCoverImage(ctx, raster, x, y, width, height);
+        return;
+      }
+    }
     drawPresetWallpaperFromKey(ctx, x, y, width, height, palette.wallpaperKey);
     return;
   }

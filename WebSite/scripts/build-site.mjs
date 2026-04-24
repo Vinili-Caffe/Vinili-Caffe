@@ -265,6 +265,31 @@ async function discordBotGet(path, botToken, attempt = 0) {
   return res;
 }
 
+/** Conteggi guild dal bot (allineati a Discord.js `guild.memberCount` in classifica). REST può esporre `member_count` o solo `approximate_member_count`. */
+async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
+  const gid = String(guildId || "").trim();
+  const t = String(botToken || "").trim();
+  if (!gid || !t) return null;
+  const res = await discordBotGet(`/guilds/${encodeURIComponent(gid)}?with_counts=true`, t);
+  if (!res.ok) {
+    console.warn("[build-site] Guild live counts HTTP", res.status, gid);
+    return null;
+  }
+  const g = await res.json().catch(() => null);
+  if (!g || typeof g !== "object") return null;
+  const memberCount =
+    g.member_count != null && Number.isFinite(Number(g.member_count))
+      ? Math.floor(Number(g.member_count))
+      : g.approximate_member_count != null && Number.isFinite(Number(g.approximate_member_count))
+        ? Math.floor(Number(g.approximate_member_count))
+        : null;
+  const boostCount =
+    g.premium_subscription_count != null && Number.isFinite(Number(g.premium_subscription_count))
+      ? Math.floor(Number(g.premium_subscription_count))
+      : null;
+  return { memberCount, boostCount };
+}
+
 async function fetchGuildRoleMetas(guildId, botToken) {
   const res = await discordBotGet(`/guilds/${guildId}/roles`, botToken);
   if (!res.ok) {
@@ -704,11 +729,18 @@ async function mainLiveStatsExtraOnly() {
       "[live-stats-extra] Conteggio staff non disponibile (token, intent o config). Scrivo staffNoPm: 0.",
     );
   }
+  const botTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
+  const guildLiveCounts =
+    guildIdResolved && botTok ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok) : null;
+  const payload = { staffNoPm: n };
+  if (guildLiveCounts?.memberCount != null) payload.guildMemberCount = guildLiveCounts.memberCount;
+  if (guildLiveCounts?.boostCount != null) payload.guildBoostCount = guildLiveCounts.boostCount;
   const outRaw = process.env.VC_LIVE_STATS_JSON_OUT?.trim();
   const out = outRaw || path.join(DIST, "live-stats-extra.json");
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, JSON.stringify({ staffNoPm: n }), "utf8");
-  console.log("[live-stats-extra] OK", out, "staffNoPm:", n);
+  fs.writeFileSync(out, JSON.stringify(payload), "utf8");
+  const memLog = guildLiveCounts?.memberCount != null ? ` guildMemberCount=${guildLiveCounts.memberCount}` : "";
+  console.log("[live-stats-extra] OK", out, "staffNoPm:", n + memLog);
 }
 
 async function main() {
@@ -816,14 +848,26 @@ async function main() {
   }
 
   const guildIdResolved = guildIdConfigured || snap?.guildId || "";
+  const lsForProxy = cfg.liveStats || {};
   const staffResult = await buildStaffListBlock(cfg, guildIdResolved);
+  const buildBotTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
+  const guildLiveCounts =
+    guildIdResolved && buildBotTok
+      ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, buildBotTok)
+      : null;
 
   const statMembers =
-    snap?.approximateMemberCount != null
-      ? String(snap.approximateMemberCount)
-      : String(cfg.statMembers ?? "0");
+    guildLiveCounts?.memberCount != null
+      ? String(guildLiveCounts.memberCount)
+      : snap?.approximateMemberCount != null
+        ? String(snap.approximateMemberCount)
+        : String(cfg.statMembers ?? "0");
   const statBoosts =
-    snap?.boostCount != null ? String(snap.boostCount) : String(cfg.statBoosts ?? "0");
+    guildLiveCounts?.boostCount != null
+      ? String(guildLiveCounts.boostCount)
+      : snap?.boostCount != null
+        ? String(snap.boostCount)
+        : String(cfg.statBoosts ?? "0");
   const statStaff =
     staffResult.staffCount != null
       ? String(staffResult.staffCount)
@@ -834,16 +878,16 @@ async function main() {
   const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
   const maintenanceBoot = buildMaintenanceBootHtml(cfg);
 
-  if (staffResult.staffCount != null) {
+  if (lsForProxy.enabled !== false) {
     const extraPath = path.join(DIST, "live-stats-extra.json");
-    fs.writeFileSync(
-      extraPath,
-      JSON.stringify({ staffNoPm: staffResult.staffCount }),
-      "utf8",
-    );
+    const extraObj = {
+      staffNoPm: staffResult.staffCount != null ? staffResult.staffCount : 0,
+    };
+    if (guildLiveCounts?.memberCount != null) extraObj.guildMemberCount = guildLiveCounts.memberCount;
+    if (guildLiveCounts?.boostCount != null) extraObj.guildBoostCount = guildLiveCounts.boostCount;
+    fs.writeFileSync(extraPath, JSON.stringify(extraObj), "utf8");
   }
 
-  const lsForProxy = cfg.liveStats || {};
   const inviteProxyForSnapshot =
     lsForProxy.inviteProxyPath === ""
       ? ""
