@@ -22,7 +22,7 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/\"/g, "&quot;");
   }
 
   function getToken() {
@@ -168,7 +168,7 @@
       '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon"><i class="fa fa-globe" aria-hidden="true"></i></span><div><strong>' +
       esc(serverExisting ? "Modifica la tua recensione server" : "Recensisci il server") +
       '</strong></div></div>' +
-      '<div class="vc-reviews-field"><label for="vc-review-server-target">Oggetto</label><select id="vc-review-server-target" class="vc-reviews-select" disabled><option>Server</option></select></div>' +
+      '<div class="vc-reviews-field"><label for="vc-review-server-target">Oggetto</label><select id="vc-review-server-target" class="vc-reviews-select vc-reviews-select--static" disabled><option>Server</option></select></div>' +
       '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("server", state.draft.server.rating) + "</div>" +
       '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
       esc(state.draft.server.content) +
@@ -179,7 +179,7 @@
       "</button></article>" +
       '<article class="vc-reviews-formcard">' +
       '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon vc-reviews-formcard__icon--staff"><i class="fa fa-shield" aria-hidden="true"></i></span><div><strong>Recensisci uno staffer</strong></div></div>' +
-      '<div class="vc-reviews-field"><label for="vc-review-staff-target">Staffer</label><select id="vc-review-staff-target" class="vc-reviews-select"' +
+      '<div class="vc-reviews-field"><label for="vc-review-staff-target">Staffer</label><select id="vc-review-staff-target" class="vc-reviews-select vc-reviews-select--staff"' +
       (staffers.length ? "" : " disabled") +
       ">" +
       (staffers.length
