@@ -69,12 +69,13 @@ const PREFIX_HELP_DESCRIPTIONS = {
   security: "Pannello sicurezza con menu: stato, statistiche, panic, abilita/disabilita moduli.",
   level: "Configura il sistema livelli: imposta o modifica livelli, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
-  staff: "Pannello profilo staff/Partner Manager; **High Staff:** `+staff` senza argomenti apre un menu con Staff/PM; riscatto premi PM (50/75/150 pt): pulsanti visibili a HS/Founder con +staff @PartnerManager.",
+  staff: "Pannello staff e Partner Manager: menu e azioni visibili in base al ruolo.",
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
+  "evento.classifica": "Classifica del weekly contest.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = {};
 const CONTEXT_CATEGORY_OVERRIDES = {};

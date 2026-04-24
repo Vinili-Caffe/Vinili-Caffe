@@ -2333,6 +2333,28 @@ function truncateText(input, max = 700) {
   return text.length > max ? `${text.slice(0, max - 1)}...` : text;
 }
 
+/** Evita che il contenuto utente rompa ``` nel corpo dell'embed. */
+function escapeDiscordTripleBackticks(text) {
+  return String(text || "").replace(/```/g, "`\u200b``");
+}
+
+/**
+ * Elenco URL contati per la regola attachment_link (stesso pipeline di detectViolations:
+ * testo dopo strip di citazioni `>` e blocchi codice).
+ */
+function buildAutomodAttachmentLinkEvidenceLine(message, violations = []) {
+  if (!violations.some((v) => String(v?.key || "") === "attachment_link")) return null;
+  const mod = stripQuotedAndCodeText(String(message?.content || ""));
+  const urls = filterUrlsForAttachmentLinkRule(extractUrls(mod));
+  if (!urls.length) {
+    return "🔗 **Link conteggiati (2.4):** nessun URL estraibile dopo i filtri AutoMod (citazioni `>` o testo in code block esclusi dal conteggio). Se il messaggio era lungo, controlla anche oltre l’anteprima qui sotto.";
+  }
+  const joined = urls
+    .map((u) => truncateText(String(u), 96))
+    .join("\n");
+  return `🔗 **Link conteggiati (2.4):**\n${truncateText(joined, 900)}`;
+}
+
 function firstViolationLabel(violations = []) {
   const v0 = violations?.[0];
   const key = String(v0?.key || "unknown");
@@ -2355,14 +2377,14 @@ function buildAutoModDecisionExplain(action, heatValue, violations = [], context
   );
   const topRulesText = topRules.length ? topRules.join(" | ") : "n/d";
   const thresholds = getThresholdsForProfile(context?.profile || null);
-  const reason = normalizedAction === "timeout" ? `calore ≥ soglia timeout (${heat.toFixed(1)} ≥ ${Number(thresholds.timeout || 0).toFixed(1)})`
+  const reason = normalizedAction === "timeout" ? `heat ≥ soglia timeout (${heat.toFixed(1)} ≥ ${Number(thresholds.timeout || 0).toFixed(1)})`
     : normalizedAction === "ban"
-      ? `ban (regolamento / severità; calore ${heat.toFixed(1)})`
+      ? `ban (regolamento / severità; heat ${heat.toFixed(1)})`
     : normalizedAction === "delete" || normalizedAction === "delete_webhook"
-      ? `calore ≥ rimozione (${heat.toFixed(1)} ≥ ${Number(thresholds.delete || 0).toFixed(1)})`
+      ? `heat ≥ soglia rimozione (${heat.toFixed(1)} ≥ ${Number(thresholds.delete || 0).toFixed(1)})`
       : normalizedAction === "warn"
-        ? `calore ≥ avviso (${heat.toFixed(1)} ≥ ${Number(thresholds.warn || 0).toFixed(1)})`
-        : `azione=${normalizedAction || "sconosciuta"} calore=${heat.toFixed(1)}`;
+        ? `heat ≥ soglia avviso (${heat.toFixed(1)} ≥ ${Number(thresholds.warn || 0).toFixed(1)})`
+        : `azione=${normalizedAction || "sconosciuta"} heat=${heat.toFixed(1)}`;
   const regolaLine = truncateText(buildAutomodRegolaSummaryLine(violations), 240);
   const regolaBit = regolaLine ? ` | regolamento: ${regolaLine}` : "";
   return `${reason}; pesi violazioni: ${topRulesText}${regolaBit}`;
@@ -2440,9 +2462,6 @@ async function sendAutomodLog(message, action, violations, heatValue, context = 
   const channel = await resolveLogChannel(message.guild);
   if (!channel?.isTextBased?.()) return;
   const primaryFilter = firstViolationLabel(violations);
-  const preview = truncateText(message.content, 160);
-  const fullMessage = truncateText(message.content, 800);
-  const shouldShowFullMessage = Boolean(fullMessage) && String(fullMessage) !== String(preview) && String(message.content || "").trim().length > 160;
   const timeoutLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
     : "";
   const actionHeadline = action === "timeout" ? `${message.author.username}: timeout AutoMod${timeoutLabel}`
@@ -2451,30 +2470,40 @@ async function sendAutomodLog(message, action, violations, heatValue, context = 
       ? `${message.author.username}: messaggio rimosso (AutoMod)` : `${message.author.username}: avviso AutoMod`;
 
   const regolaSummary = truncateText(buildAutomodRegolaSummaryLine(violations), 400);
+  const linkEvidenceLine = buildAutomodAttachmentLinkEvidenceLine(message, violations);
+  const descBody = [
+    `<a:VC_Alert:1482706673176150077> **Filtro:** ${primaryFilter}`,
+    regolaSummary ? `<:VC_reason:1478517122929004544> **Regolamento (riferimento):** ${regolaSummary}` : null,
+    `<:channeltext:1443247596922470551> **Canale:** ${message.channel} [\`${message.channelId}\`]`,
+    linkEvidenceLine,
+    "",
+    `<:member_role_icon:1330530086792728618> **Utente:** ${message.author} [\`${message.author.id}\`]`,
+    `<a:VC_Alarm:1482706641618079816> **Heat:** ${Number(heatValue || 0).toFixed(1)}`,
+    context.timeoutMs
+      ? `<:VC_Clock:1473359204189474886> **Timeout:** ${formatDurationShort(context.timeoutMs,)}`
+      : null,
+    `<:VC_BanHammer:1482534474502897795> **Decisione:** ${buildAutoModDecisionExplain(action, heatValue, violations, context,)}`,
+    violations?.length
+      ? `<:VC_reason:1478517122929004544> **Violazioni tecniche:** ${violations.map((v) => `\`${v.key}\`${v.info ? ` (${v.info})` : ""}`).join(", ")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const embed = new EmbedBuilder()
     .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#ED4245" : action === "delete" || action === "delete_webhook" ? "#F59E0B" : "#5865F2",)
     .setTitle(actionHeadline)
-    .setDescription([
-      `<a:VC_Alert:1482706673176150077> **Filtro:** ${primaryFilter}`,
-      regolaSummary ? `<:VC_reason:1478517122929004544> **Regolamento (riferimento):** ${regolaSummary}` : null,
-      `<:channeltext:1443247596922470551> **Canale:** ${message.channel} [\`${message.channelId}\`]`, preview ? `<:VC_Chat:1482532573002465413> **Messaggio:** ${preview}`
-        : null,
-      "",
-      shouldShowFullMessage ? `*${fullMessage}*` : null,
-      "",
-      `<:member_role_icon:1330530086792728618> **Utente:** ${message.author} [\`${message.author.id}\`]`, `<a:VC_Alarm:1482706641618079816> **Calore (heat):** ${Number(heatValue || 0).toFixed(1)}`,
-      context.timeoutMs
-        ? `<:VC_Clock:1473359204189474886> **Timeout:** ${formatDurationShort(context.timeoutMs,)}`
-        : null,
-      `<:VC_BanHammer:1482534474502897795> **Decisione:** ${buildAutoModDecisionExplain(action, heatValue, violations, context,)}`,
-      violations?.length
-        ? `<:VC_reason:1478517122929004544> **Violazioni tecniche:** ${violations.map((v) => `\`${v.key}\`${v.info ? ` (${v.info})` : ""}`).join(", ")}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    )
+    .setDescription(descBody)
     .setTimestamp();
+
+  const rawMsg = String(message?.content || "").trim();
+  if (rawMsg) {
+    embed.addFields({
+      name: "Messaggio (testo inviato)",
+      value: escapeDiscordTripleBackticks(truncateText(rawMsg, 1020)),
+    });
+  }
+
   await channel.send({ embeds: [embed] }).catch(() => { });
 }
 

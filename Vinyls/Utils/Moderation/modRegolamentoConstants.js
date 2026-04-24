@@ -88,7 +88,7 @@ const VIOLATION_KEY_LABEL_IT = {
   attachment_embed: "Troppi embed allegati (reg. 2.4)",
   attachment_image: "Troppe immagini (reg. 2.4)",
   attachment_file: "Troppi file (reg. 2.4)",
-  attachment_link: "Troppi link in allegato (reg. 2.4)",
+  attachment_link: "Troppi link nel testo (reg. 2.4)",
   attachment_sticker: "Troppi sticker (reg. 2.4)",
   unwhitelisted_webhook: "Webhook non autorizzato (reg. 2.4)",
   panic_mode: "Panic mode / raid (severità elevata)",

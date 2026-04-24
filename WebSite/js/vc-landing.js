@@ -43,18 +43,19 @@
 
   function closeCookieBanner(root) {
     if (!root) return;
-    root.classList.add("vc-cookie-consent--leaving");
+    root.classList.add("vc-necessity-banner--leaving");
     window.setTimeout(function () {
       if (root && root.parentNode) root.parentNode.removeChild(root);
     }, 220);
   }
 
+  /** Banner preferenze: id/class senza "cookie-consent" per evitare filtri cosmetic (uBlock/ecc.) che nascondono il nodo. */
   function initCookieConsent() {
     if (isLegalCookiePage()) return;
     if (hasCookieConsent()) return;
-    if (document.getElementById("vc-cookie-consent")) return;
+    if (document.getElementById("vc-necessity-banner")) return;
     if (document.getElementById("cookieyes")) return;
-    if (!document.body) return;
+    if (!document.documentElement) return;
     var cookiePolicyUrl = "/cookie/";
 
     var cookieIcon =
@@ -90,40 +91,44 @@
       "</svg>";
 
     var root = document.createElement("section");
-    root.id = "vc-cookie-consent";
-    root.className = "vc-cookie-consent";
+    root.id = "vc-necessity-banner";
+    root.className = "vc-necessity-banner";
     root.setAttribute("aria-label", "Avviso utilizzo cookie");
     root.innerHTML =
-      '<div class="vc-cookie-consent__card" role="dialog" aria-modal="false" aria-labelledby="vc-cookie-title">' +
-      '<div class="vc-cookie-consent__head">' +
-      '<span class="vc-cookie-consent__icon" aria-hidden="true">' + cookieIcon + "</span>" +
-      '<div class="vc-cookie-consent__titlewrap">' +
-      '<h2 id="vc-cookie-title">Utilizzo dei Cookie</h2>' +
+      '<div class="vc-necessity-banner__card" role="dialog" aria-modal="false" aria-labelledby="vc-necessity-title">' +
+      '<div class="vc-necessity-banner__head">' +
+      '<span class="vc-necessity-banner__icon" aria-hidden="true">' + cookieIcon + "</span>" +
+      '<div class="vc-necessity-banner__titlewrap">' +
+      '<h2 id="vc-necessity-title">Utilizzo dei Cookie</h2>' +
       '<p>Usiamo solo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
       "</div>" +
-      '<button type="button" class="vc-cookie-consent__close" data-vc-cookie-close aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
+      '<button type="button" class="vc-necessity-banner__close" data-vc-necessity-dismiss aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
       "</div>" +
-      '<div class="vc-cookie-consent__body">' +
-      '<div class="vc-cookie-consent__notice">' +
-      '<span class="vc-cookie-consent__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
+      '<div class="vc-necessity-banner__body">' +
+      '<div class="vc-necessity-banner__scroll">' +
+      '<div class="vc-necessity-banner__notice">' +
+      '<span class="vc-necessity-banner__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
       '<p><strong>Cookie necessari.</strong> Servono per login, sicurezza, preferenza banner e funzioni base. Nessun uso marketing.</p>' +
       "</div>" +
-      '<details class="vc-cookie-consent__details">' +
-      '<summary><span><span class="vc-cookie-consent__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-cookie-consent__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
-      '<div class="vc-cookie-consent__tech">' +
-      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
-      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
-      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
-      '<div><span class="vc-cookie-consent__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda la scelta per 180 giorni</small></span></div>' +
-      '<div class="vc-cookie-consent__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
+      '<details class="vc-necessity-banner__details">' +
+      '<summary><span><span class="vc-necessity-banner__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-necessity-banner__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
+      '<div class="vc-necessity-banner__tech">' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda la scelta per 180 giorni</small></span></div>' +
+      '<div class="vc-necessity-banner__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
       '<a href="' + cookiePolicyUrl + '">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
       "</div>" +
       "</details>" +
-      '<div class="vc-cookie-consent__actions">' +
-      '<button type="button" class="vc-cookie-consent__accept" data-vc-cookie-accept>Accetta</button>' +
-      '<a class="vc-cookie-consent__link" href="' + cookiePolicyUrl + '">Cookie Policy</a>' +
       "</div>" +
-      '<p class="vc-cookie-consent__foot">Chiudendo o continuando accetti i cookie essenziali del sito.</p>' +
+      '<div class="vc-necessity-banner__dock">' +
+      '<div class="vc-necessity-banner__actions">' +
+      '<button type="button" class="vc-necessity-banner__accept" data-vc-necessity-confirm>Accetta</button>' +
+      '<a class="vc-necessity-banner__link" href="' + cookiePolicyUrl + '">Cookie Policy</a>' +
+      "</div>" +
+      '<p class="vc-necessity-banner__foot"><strong>Accetta</strong> o la <strong>X</strong> in alto: salvano la stessa preferenza (180 giorni) e nascondono l’avviso. Se chiudi il sito senza fare nulla, alla prossima visita l’avviso compare di nuovo.</p>' +
+      "</div>" +
       "</div>" +
       "</div>";
 
@@ -135,16 +140,16 @@
       rememberCookieConsent();
       closeCookieBanner(root);
     }
-    var acceptEl = root.querySelector(".vc-cookie-consent__accept");
-    var closeEl = root.querySelector(".vc-cookie-consent__close");
+    var acceptEl = root.querySelector(".vc-necessity-banner__accept");
+    var closeEl = root.querySelector(".vc-necessity-banner__close");
     if (acceptEl) acceptEl.addEventListener("click", dismissFromUserAction);
     if (closeEl) closeEl.addEventListener("click", dismissFromUserAction);
 
-    document.body.appendChild(root);
+    (document.documentElement || document.body).appendChild(root);
     window.requestAnimationFrame(function () {
       window.requestAnimationFrame(function () {
         if (!root.parentNode) return;
-        root.classList.add("vc-cookie-consent--visible");
+        root.classList.add("vc-necessity-banner--visible");
       });
     });
   }
@@ -156,7 +161,7 @@
   }
   window.addEventListener("pageshow", function () {
     if (hasCookieConsent()) return;
-    if (document.getElementById("vc-cookie-consent")) return;
+    if (document.getElementById("vc-necessity-banner")) return;
     initCookieConsent();
   });
 })();

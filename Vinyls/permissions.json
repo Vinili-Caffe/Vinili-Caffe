@@ -106,11 +106,15 @@
         },
         "evento": {
             "roles": [
-                "roles.Member"
+                "roles.Staff",
+                "roles.HighStaff",
+                "roles.Founder"
             ],
             "subcommands": {
                 "classifica": [
-                    "roles.Member"
+                    "roles.Staff",
+                    "roles.HighStaff",
+                    "roles.Founder"
                 ]
             }
         },

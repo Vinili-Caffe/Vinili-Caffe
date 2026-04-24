@@ -1,5 +1,107 @@
 const canvasModule = require("canvas");
-const { createCanvas, Path2D } = canvasModule;
+const { createCanvas } = canvasModule;
+
+/** `canvas.Path2D` manca o non è costruibile in alcuni ambienti (mock, runtime non standard, build nativa vecchia). */
+let path2dCtorMemo;
+function getPath2DConstructor() {
+  if (path2dCtorMemo !== undefined) return path2dCtorMemo;
+  const candidates = [
+    canvasModule.Path2D,
+    typeof globalThis !== "undefined" ? globalThis.Path2D : null,
+  ];
+  for (const Ctor of candidates) {
+    if (typeof Ctor !== "function") continue;
+    try {
+      const probe = new Ctor("M0 0 L1 0 L1 1 Z");
+      if (probe) {
+        path2dCtorMemo = Ctor;
+        return Ctor;
+      }
+    } catch {
+      /* prova il prossimo candidato */
+    }
+  }
+  path2dCtorMemo = null;
+  return null;
+}
+
+function fillPath2D(ctx, d) {
+  const Ctor = getPath2DConstructor();
+  if (!Ctor) return false;
+  try {
+    ctx.fill(new Ctor(d));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function strokePath2D(ctx, d, lineWidth) {
+  const Ctor = getPath2DConstructor();
+  if (!Ctor) return false;
+  try {
+    ctx.lineWidth = lineWidth;
+    ctx.stroke(new Ctor(d));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Icone stat in spazio 32×32 (stesso sistema di drawStatIcon dopo translate/scale). */
+function drawStatIconGeometric(ctx, icon) {
+  if (icon === "bolt") {
+    ctx.beginPath();
+    ctx.moveTo(19, 1);
+    ctx.lineTo(8, 16);
+    ctx.lineTo(15, 16);
+    ctx.lineTo(12, 31);
+    ctx.lineTo(24, 14);
+    ctx.lineTo(17, 14);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+  if (icon === "star") {
+    const cx = 16;
+    const cy = 16;
+    const spikes = 5;
+    const outer = 9;
+    const inner = 4;
+    const step = Math.PI / spikes;
+    let rot = -Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(rot) * outer, cy + Math.sin(rot) * outer);
+    for (let i = 0; i < spikes; i++) {
+      rot += step;
+      ctx.lineTo(cx + Math.cos(rot) * inner, cy + Math.sin(rot) * inner);
+      rot += step;
+      ctx.lineTo(cx + Math.cos(rot) * outer, cy + Math.sin(rot) * outer);
+    }
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+  /* trophy */
+  ctx.beginPath();
+  ctx.moveTo(8, 10);
+  ctx.quadraticCurveTo(16, 5, 24, 10);
+  ctx.lineTo(22, 19);
+  ctx.quadraticCurveTo(16, 26, 10, 19);
+  ctx.closePath();
+  ctx.fill();
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(6, 8);
+  ctx.quadraticCurveTo(6, 6, 9, 7);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(26, 8);
+  ctx.quadraticCurveTo(26, 6, 23, 7);
+  ctx.stroke();
+  ctx.fillRect(14, 20, 4, 6);
+  ctx.fillRect(8, 26, 16, 3.6);
+}
 const { registerCanvasFonts } = require("./canvasFonts");
 const { safeLoadImage } = require("./safeLoadImage");
 const { mergeRankCardTheme, resolveRankCardWallpaper } = require("./rankCardTheme");
@@ -172,19 +274,20 @@ function drawStatIcon(ctx, icon, x, y, color) {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
+  let useVectors = false;
   if (icon === "trophy") {
-    ctx.fill(new Path2D("M8 6h16l-2 10c-1.2 3-4.1 5-6 5s-4.8-2-6-5L8 6Z"));
-    ctx.lineWidth = 2.8;
-    ctx.stroke(
-      new Path2D("M6 8c-2.9.4-4.8 2-4.8 4.7 0 3.4 2.8 5.8 6.7 5.8M26 8c2.9.4 4.8 2 4.8 4.7 0 3.4-2.8 5.8-6.7 5.8"),
-    );
-    ctx.fill(new Path2D("M14 20h4v6h-4z"));
-    ctx.fill(new Path2D("M8 26h16v3.6H8z"));
+    useVectors =
+      fillPath2D(ctx, "M8 6h16l-2 10c-1.2 3-4.1 5-6 5s-4.8-2-6-5L8 6Z") &&
+      strokePath2D(ctx, "M6 8c-2.9.4-4.8 2-4.8 4.7 0 3.4 2.8 5.8 6.7 5.8M26 8c2.9.4 4.8 2 4.8 4.7 0 3.4-2.8 5.8-6.7 5.8", 2.8) &&
+      fillPath2D(ctx, "M14 20h4v6h-4z") &&
+      fillPath2D(ctx, "M8 26h16v3.6H8z");
   } else if (icon === "bolt") {
-    ctx.fill(new Path2D("M19 1 8 16h7l-3 15 12-17h-7l2-13Z"));
+    useVectors = fillPath2D(ctx, "M19 1 8 16h7l-3 15 12-17h-7l2-13Z");
   } else {
-    ctx.fill(new Path2D("m16 2 3.8 8 8.7 1-6.5 5.7 1.8 8.5L16 21l-7.8 5.2 1.8-8.5L3.5 11l8.7-1L16 2Z"));
+    useVectors = fillPath2D(ctx, "m16 2 3.8 8 8.7 1-6.5 5.7 1.8 8.5L16 21l-7.8 5.2 1.8-8.5L3.5 11l8.7-1L16 2Z");
   }
+
+  if (!useVectors) drawStatIconGeometric(ctx, icon);
   ctx.restore();
 }
 

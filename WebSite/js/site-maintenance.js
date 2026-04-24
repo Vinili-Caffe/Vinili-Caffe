@@ -93,7 +93,7 @@
     style.textContent = [
       "html." +
         ROOT_CLASS +
-        " body > :not(#vc-maintenance-root):not(#vc-cookie-consent){visibility:hidden!important;}",
+        " body > :not(#vc-maintenance-root):not(#vc-necessity-banner){visibility:hidden!important;}",
       "html." + PAGE_CLASS + ",html." + PAGE_CLASS + " body{min-height:100%;background:#050914!important;color:#f8fafc!important;}",
       "#vc-maintenance-root{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 18%,rgba(245,158,11,.18),transparent 34%),radial-gradient(circle at 80% 22%,rgba(14,165,233,.16),transparent 34%),linear-gradient(135deg,#050914,#111827 54%,#082f49);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}",
       ".vc-maintenance-card{width:min(620px,100%);border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(15,23,42,.78);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08);padding:34px;text-align:left;backdrop-filter:blur(18px);}",
