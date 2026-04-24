@@ -1254,7 +1254,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.DoubleBooster",
-                "roles.Level50"
+                "roles.Level50",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
@@ -1262,7 +1263,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.DoubleBooster",
-                "roles.Level50"
+                "roles.Level50",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
@@ -1270,7 +1272,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.DoubleBooster",
-                "roles.Level50"
+                "roles.Level50",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
@@ -1278,7 +1281,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.ServerBooster",
-                "roles.Level70"
+                "roles.Level70",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
@@ -1363,7 +1367,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.DoubleBooster",
-                "roles.Level50"
+                "roles.Level50",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
@@ -1371,7 +1376,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.DoubleBooster",
-                "roles.Level50"
+                "roles.Level50",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
@@ -1379,7 +1385,8 @@
             "roles": [
                 "roles.VIP",
                 "roles.ServerBooster",
-                "roles.Level70"
+                "roles.Level70",
+                "roles.VIPplus"
             ],
             "ownerSegment": 1
         },
