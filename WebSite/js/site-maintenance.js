@@ -124,7 +124,7 @@
     var login = authUrl();
     root.innerHTML =
       '<section class="vc-maintenance-card">' +
-      '<span class="vc-maintenance-kicker">Vinili & Caffe</span>' +
+      '<span class="vc-maintenance-kicker">Vinili & Caffè</span>' +
       '<h1 class="vc-maintenance-title">' + esc(c.title || "Sito in manutenzione") + "</h1>" +
       '<p class="vc-maintenance-text">' + esc(c.message || "Stiamo sistemando alcune parti del sito. Torna tra poco!") + "</p>" +
       '<div class="vc-maintenance-actions">' +

@@ -97,7 +97,7 @@ Copia **tutta** `dump-atlas` sulla VPS (scp/rsync), poi:
 (Se `mongodump` non c’è: pacchetto **mongodb-database-tools**, oppure  
 `docker run --rm -v "$PWD:/out" mongo:7 mongodump --uri="mongodb+srv://..." -o /out/dump-atlas`)
 
-### Perche prima vedevi "0 documenti"
+### Perchè prima vedevi "0 documenti"
 
 - Argomento sbagliato (cartella senza `.bson`).
 - Oppure dump fatto su DB vuoto / URI senza auth.

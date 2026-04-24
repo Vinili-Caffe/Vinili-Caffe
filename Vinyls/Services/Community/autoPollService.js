@@ -489,7 +489,7 @@ async function fetchPollFromOpenRouter(cfg = {}, forcedTargetOptions = null) {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://viniliecaffe.local",
-          "X-Title": "Vinili e Caffe Bot",
+          "X-Title": "Vinili e Caffè Bot",
         },
       });
 

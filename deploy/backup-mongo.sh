@@ -33,4 +33,4 @@ docker cp "vc-mongodb:$TMP" "$OUT"
 docker exec vc-mongodb rm -rf "$TMP"
 echo "[$(date '+%Y-%m-%dT%H:%M:%S')] Backup completato: $OUT"
 find "$DIR/backups" -maxdepth 1 -type d -name 'mongo-*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true
-echo "[$(date '+%Y-%m-%dT%H:%M:%S')] Eliminati backup locali piu vecchi di 14 giorni (se presenti)."
+echo "[$(date '+%Y-%m-%dT%H:%M:%S')] Eliminati backup locali più vecchi di 14 giorni (se presenti)."

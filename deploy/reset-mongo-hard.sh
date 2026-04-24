@@ -30,6 +30,6 @@ printf 'MONGO_INITDB_ROOT_USERNAME=%s\nMONGO_INITDB_ROOT_PASSWORD=%s\n' "$U" "$P
 chmod 600 "$DIR/.env.mongo"
 echo ""
 echo "NON lanciare start-mongo.sh dopo questo (compose creerebbe altro stack)."
-echo "Avvio dopo reboot: gia con --restart unless-stopped. Oppure: docker start vc-mongodb"
+echo "Avvio dopo reboot: già con --restart unless-stopped. Oppure: docker start vc-mongodb"
 echo ""
 echo "MONGO_URL: mongodb://$U:$P@127.0.0.1:27017/test?authSource=admin"
