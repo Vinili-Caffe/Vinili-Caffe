@@ -3,15 +3,11 @@ const { DIVIDER_URL } = require("../../shared/discord/constants");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
-const {
-  memberHasPartnerManagerRole,
-  memberHasAnyStaffPresenceForDepexSync,
-  buildStaffPartnerManagerIdUnsetUpdate,
-} = require("../Utils/Staff/staffPmUtils");
+const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
-const{getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
+const { getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
@@ -20,16 +16,8 @@ const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGra
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
-const {
-  getAnnouncedBoostSlots,
-  setAnnouncedBoostSlots,
-  addAnnouncedBoostSlots,
-  deleteAnnouncedBoostSlots,
-} = require("../Utils/Community/boostSlotAnnounceTracker");
-const {
-  shouldSendPublicMemberAnnouncement,
-  normalVerificationCompletedBetween,
-} = require("../Utils/Community/memberPublicAnnouncementGate");
+const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, addAnnouncedBoostSlots, deleteAnnouncedBoostSlots } = require("../Utils/Community/boostSlotAnnounceTracker");
+const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
@@ -38,26 +26,15 @@ const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
 const ROLE_UPDATE_LOG_DEDUPE = new Map();
 const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
-
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
-
-const PLUS_COLOR_REQUIRED_ROLE_IDS=[IDs.roles.ServerBooster,IDs.roles.Level50,IDs.roles.Level70,IDs.roles.Donator,IDs.roles.vip,].filter(Boolean);
-/** Ruoli che mantengono custom role / vocale privata (senza Server Booster: serve Double Booster). */
-const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [
-  IDs.roles.VIP,
-  IDs.roles.DoubleBooster,
-  IDs.roles.Level50,
-  IDs.roles.Level70,
-  IDs.roles.Donator,
-  IDs.roles.vip,
-].filter(Boolean);
+const PLUS_COLOR_REQUIRED_ROLE_IDS=[IDs.roles.ServerBooster,IDs.roles.Level50,IDs.roles.Level70,IDs.roles.Donator,IDs.roles.vip,IDS.roles.VIPplus].filter(Boolean);
+const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [ IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDS.roles.VIPplus ].filter(Boolean);
 const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,].filter(Boolean);
-
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
-/** Slot boost per cui abbiamo già inviato l'embed (main); al ≥2 si assegna Double Booster. Vedi `boostSlotAnnounceTracker`. */
+
 function isPrimaryShard(client) {
   return !client?.shard || client.shard.ids?.[0] === 0;
 }
