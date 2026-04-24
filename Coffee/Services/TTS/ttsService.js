@@ -125,7 +125,7 @@ const TTS_ABBREVIATIONS_IT = {
   tfw: "quella sensazione quando", mfw: "la mia faccia quando", mrw: "la mia reazione quando",
   oc: "contenuto originale", obv: "ovviamente", prob: "probabilmente",
   def: "decisamente", totes: "totalmente", srsly: "seriamente", rly: "davvero",
-  probs: "probabilmente", kinda: "un po", sorta: "un po", gotta: "devo", wanna: "voglio",
+  probs: "probabilmente", kinda: "un po'", sorta: "un po'", gotta: "devo", wanna: "voglio",
   gonna: "sto per", dunno: "non so", lemme: "lasciami", gimme: "dammi", outta: "fuori da",
   lotta: "un sacco di", whatcha: "cosa stai", gotcha: "capito", wyd: "cosa fai", wbu: "e tu",
   hbu: "e tu", nbd: "niente di grave", tgif: "grazie a dio è venerdì", diy: "fai da te",

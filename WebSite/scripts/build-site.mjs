@@ -1217,7 +1217,7 @@ async function main() {
     VOTE_OG_URL: escAttr(votePageUrl),
     REVIEWS_PAGE_TITLE: `${siteName} | Recensioni`,
     REVIEWS_META_DESCRIPTION: escAttr(
-      `Recensioni della community di ${siteName}: leggi i feedback sul server e lascia la tua opinione anche sugli staffer.`,
+      `Recensioni della community di ${siteName}: leggi i feedback sul server e lascia la tua opinione.`,
     ),
     REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
     REVIEWS_OG_URL: escAttr(reviewsPageUrl),

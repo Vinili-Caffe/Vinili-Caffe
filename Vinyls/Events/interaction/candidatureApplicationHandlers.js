@@ -358,7 +358,7 @@ function buildIntroEmbed(type) {
     .setTitle("<:VC_Helper:1494287597952958514> Candidatura Helper")
     .setDescription(
       "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
-      "<a:VC_Timer:1482527426557775954> È assolutamente vietato il **double staff** su altri server, se lo staffer dopo essere stato accettato viene trovato staffer su altri server verrà immadiatamente depexato.",
+      "<a:VC_Timer:1482527426557775954> Il **double staff** su altri server è assolutamente vietato: se, dopo essere stato accettato, un membro dello staff risulta ancora staff su altri server, verrà immediatamente depexato.",
       "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
       "",
       "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",

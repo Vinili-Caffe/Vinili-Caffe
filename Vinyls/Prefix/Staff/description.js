@@ -42,7 +42,7 @@ module.exports = {
       "_ _      𓎢   **italia**   ⊹   **chill** · **social** · **gaming**    ୧",
       "_ _",
       "_ _ Un posto dove ritrovarsi tra musica, una tazza di caffè e chiacchiere.",
-      "_ _ Giri di voce, eventi, minigiochi e un po’ di chaos in buona compagnia.",
+      "_ _ Giri di voce, eventi, minigiochi e un po' di caos in buona compagnia.",
       "_ _",
       "_ _   ⊹  **crescita**  ·  **rispetto**  ·  **zero tossicità**  ⊹",
       "_ _",

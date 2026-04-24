@@ -257,7 +257,7 @@ async function rerollGiveaway(interaction, client) {
 
   if (newWinnerId) {
     await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Re - roll effettuato! Il messaggio con il nuovo vincitore è stato inviato nel canale.",
+      content: "<a:VC_Alert:1482706673176150077> Reroll effettuato! Il messaggio con il nuovo vincitore è stato inviato nel canale.",
       flags: 1 << 6,
     }).catch(() => { });
   } else {

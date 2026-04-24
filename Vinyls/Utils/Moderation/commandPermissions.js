@@ -1450,4 +1450,17 @@ function buildGlobalNotYourControlEmbed() {
     .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
 }
 
-module.exports = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole };
+module.exports = {
+  checkSlashPermission,
+  checkPrefixPermission,
+  checkButtonPermission,
+  checkStringSelectPermission,
+  checkModalPermission,
+  getSlashRequiredRoles,
+  getPrefixRequiredRoles,
+  buildGlobalPermissionDeniedEmbed,
+  buildGlobalChannelDeniedEmbed,
+  buildGlobalNotYourControlEmbed,
+  hasAnyRole,
+  getDevIds,
+};

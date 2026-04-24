@@ -42,7 +42,7 @@ const defaultPool = [
   {
     title: "Livelli e progressione",
     description:
-      "Un po' di chat e vocale ogni settimana ti aiuta a salire di livello e sbloccare perks progressivi. Controlla +rank e +classifica.",
+      "Un po' di chat e vocale ogni settimana ti aiuta a salire di livello e sbloccare vantaggi progressivi. Controlla +rank e +classifica.",
   },
   {
     title: "Ticket e supporto",

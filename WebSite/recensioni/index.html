@@ -150,51 +150,44 @@
     </header>
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
-      <section class="vc-support-page-hero vc-reviews-hero">
-        <div class="vc-support-page-hero__icon" aria-hidden="true"><i class="fa fa-star-o"></i></div>
-        <div class="vc-reviews-hero__copy vc-reviews-hero__copy--center">
-          <span class="vc-reviews-hero__kicker">Recensioni &amp; community</span>
-          <h1 class="vc-reviews-hero__title">Recensioni</h1>
-          <p class="vc-reviews-hero__text">
-            Leggi prima cosa ne pensa chi vive davvero il server, poi lascia la tua recensione su <strong>{{SITE_NAME}}</strong> o su uno staffer specifico.
-          </p>
-        </div>
-      </section>
-
-      <section class="vc-reviews-sections-row" aria-label="Recensioni pubblicate">
-        <div class="vc-reviews-section vc-reviews-section--split">
-          <div class="vc-reviews-section__head">
-            <div>
-              <p class="vc-reviews-section__eyebrow">Feedback server</p>
-              <h2 class="vc-reviews-section__title">Recensioni degli utenti</h2>
+      <div class="vc-reviews-page-layout">
+        <div class="vc-reviews-page-main">
+          <section class="vc-reviews-sections-row" aria-label="Recensioni pubblicate">
+            <div class="vc-reviews-section vc-reviews-section--split">
+              <div class="vc-reviews-section__head">
+                <div>
+                  <p class="vc-reviews-section__eyebrow">Feedback community</p>
+                  <h2 class="vc-reviews-section__title">Recensioni sul server</h2>
+                </div>
+              </div>
+              <div id="vc-reviews-server-list" class="vc-reviews-grid" aria-live="polite"></div>
             </div>
-          </div>
-          <div id="vc-reviews-server-list" class="vc-reviews-grid" aria-live="polite"></div>
-        </div>
+          </section>
 
-        <div class="vc-reviews-section vc-reviews-section--split">
-          <div class="vc-reviews-section__head">
-            <div>
-              <p class="vc-reviews-section__eyebrow">Feedback staff</p>
-              <h2 class="vc-reviews-section__title">Recensioni sullo staff</h2>
+          <section id="vc-reviews-write" class="vc-reviews-section">
+            <div class="vc-reviews-section__head">
+              <div>
+                <p class="vc-reviews-section__eyebrow">Lascia la tua</p>
+                <h2 class="vc-reviews-section__title">Scrivi una recensione</h2>
+              </div>
+              <p id="vc-reviews-auth-hint" class="vc-reviews-section__sub">Accedi con Discord per inviare o modificare la tua recensione.</p>
             </div>
-          </div>
-          <div id="vc-reviews-staff-list" class="vc-reviews-grid" aria-live="polite"></div>
+            <div id="vc-reviews-forms" class="vc-reviews-formgrid"></div>
+            <p id="vc-reviews-status" class="vc-reviews-status" hidden></p>
+          </section>
         </div>
-      </section>
 
-      <section id="vc-reviews-write" class="vc-reviews-section">
-        <div class="vc-reviews-section__head">
-          <div>
-            <p class="vc-reviews-section__eyebrow">Lascia la tua</p>
-            <h2 class="vc-reviews-section__title">Scrivi una recensione</h2>
+        <aside class="vc-reviews-intro-panel" aria-label="Informazioni sulla pagina Recensioni">
+          <div class="vc-reviews-intro-card">
+            <div class="vc-reviews-intro-card__icon" aria-hidden="true"><i class="fa fa-star-o"></i></div>
+            <span class="vc-reviews-hero__kicker">Recensioni &amp; community</span>
+            <h1 class="vc-reviews-hero__title">Recensioni</h1>
+            <p class="vc-reviews-hero__text">
+              Leggi cosa ne pensa chi vive il server, poi lascia la tua recensione su <strong>{{SITE_NAME}}</strong>.
+            </p>
           </div>
-          <p id="vc-reviews-auth-hint" class="vc-reviews-section__sub">Accedi con Discord per inviare o modificare la tua recensione.</p>
-        </div>
-        <div id="vc-reviews-forms" class="vc-reviews-formgrid"></div>
-        <p id="vc-reviews-status" class="vc-reviews-status" hidden></p>
-      </section>
-
+        </aside>
+      </div>
     </main>
 
     <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">

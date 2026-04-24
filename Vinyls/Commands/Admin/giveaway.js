@@ -80,7 +80,7 @@ module.exports = {
       const result = await rerollGiveawayByMessageId(messageId, interaction.client);
       if (result.ok) {
         return safeEditReply(interaction, {
-          content: `<a:VC_Events:1482706144953897223> Re - roll effettuato! Nuovo vincitore: <@${result.newWinnerId}>. Il messaggio è stato aggiornato nel canale.`,
+          content: `<a:VC_Events:1482706144953897223> Reroll effettuato! Nuovo vincitore: <@${result.newWinnerId}>. Il messaggio è stato aggiornato nel canale.`,
           flags: EPHEMERAL_FLAG,
         });
       }

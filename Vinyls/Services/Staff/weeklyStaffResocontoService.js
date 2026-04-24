@@ -7,6 +7,7 @@ const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCas
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const TIME_ZONE = "Europe/Rome";
@@ -1011,14 +1012,16 @@ async function runPreResocontoReminders(client) {
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
   const resocontoTime = "**domenica alle 20:00**";
   const reminderWindow = getPmResocontoWindow(new Date());
+  const skipDmUserIds = new Set(getDevIds(client).map((id) => String(id)).filter((id) => /^\d{16,20}$/.test(id)));
 
   for (const member of reminderMembers) {
     const userId = String(member.id);
+    if (skipDmUserIds.has(userId)) continue;
     const staffDoc = staffMap.get(userId);
     if (wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd, "Staff") || wasInPauseDuringWeek(staffDoc, reminderWindow.weekStart, reminderWindow.weekEnd, "PartnerManager")) continue;
 
     const staffRoleId = resolveStaffRole(member);
-    if (staffRoleId) {
+    if (staffRoleId && !wasPexedInWeek(staffDoc, reminderWindow.weekStart)) {
       const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
       if (limits) {
         const overview = overviewByUserId.get(userId);
@@ -1039,7 +1042,8 @@ async function runPreResocontoReminders(client) {
     }
 
     if (hasPmRole(member)) {
-      const pmWindow = getPmResocontoWindow(new Date());
+      const pmWindow = reminderWindow;
+      if (wasPmPexedInWeek(staffDoc, pmWindow.weekStart)) continue;
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd);
       const minPartners = PM_WEEKLY_PARTNER_MIN_FOR_OK;
       if (weeklyPartners >= minPartners) continue;

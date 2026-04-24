@@ -35,7 +35,7 @@ async function run(client) {
       iconURL: channel.guild?.iconURL() || undefined,
     })
     .setDescription(
-      `I ticket equivalgono a un sistema di supporto che permette di parlare direttamente con lo staff con il fine di chiedere chiarimenti, fare domande agli staffers riguardo al server, segnalare un accaduto all'interno di quest'ultimo o per altre richieste.
+      `I ticket equivalgono a un sistema di supporto che permette di parlare direttamente con lo staff, al fine di chiedere chiarimenti, rivolgere domande sul server, segnalare un accaduto all'interno di quest'ultimo o per altre richieste.
 
 <:VC_1:1482706338021642333> **SUPPORTO**
 <a:VC_Arrow:1482706699365257397> Usalo per fare segnalazioni, riportare dei problemi o bug, per avere delle informazioni o per qualunque altra cosa che non rientra nelle categorie sottostanti.
@@ -46,7 +46,7 @@ async function run(client) {
 
 <:VC_Attention:1482534443632558151> Aprire un ticket **__inutile__** oppure **__non rispondere__** nell'arco di **\`24\` ore** comporterà un **warn**.`,
     )
-    .setFooter({ text: `Non garantiamo risposta negli orari notturni, dalle 00:00 alle 10:00` })
+    .setFooter({ text: `Non garantiamo di rispondere negli orari notturni, dalle 00:00 alle 10:00` })
     .setImage(DIVIDER_URL);
 
   const ticketMenu = new StringSelectMenuBuilder()
