@@ -133,7 +133,7 @@ async function submitSiteRoleRequest(client, payload) {
       ok: false,
       status: 429,
       error: "cooldown_active",
-      message: `Hai giÃ  inviato una richiesta per questo ruolo di recente. Potrai inviarne una nuova dal ${formatDateTimeIt(cooldownUntil)}.`,
+      message: `Hai già inviato una richiesta per questo ruolo di recente. Potrai inviarne una nuova dal ${formatDateTimeIt(cooldownUntil)}.`,
       cooldownUntil: cooldownUntil.toISOString(),
     };
   }

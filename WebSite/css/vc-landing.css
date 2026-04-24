@@ -9213,6 +9213,11 @@ textarea.vc-candidature-input {
   padding: 1.2rem;
 }
 
+.vc-reviews-formcard {
+  display: flex;
+  flex-direction: column;
+}
+
 .vc-reviews-card__head,
 .vc-reviews-card__author,
 .vc-reviews-formcard__head {
@@ -9308,6 +9313,11 @@ textarea.vc-candidature-input {
   box-sizing: border-box;
 }
 
+.vc-reviews-select:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .vc-reviews-textarea {
   resize: vertical;
   min-height: 9rem;
@@ -9349,6 +9359,7 @@ textarea.vc-candidature-input {
   align-items: center;
   justify-content: center;
   min-height: 3.4rem;
+  align-self: flex-start;
   margin-top: 1rem;
   padding: 0 1.2rem;
   background: linear-gradient(135deg, #8b5cf6, #06b6d4);

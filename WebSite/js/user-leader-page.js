@@ -178,7 +178,7 @@
   function readDisplayedAnimatedValue(node, kind) {
     if (!node) return 0;
     var text = String(node.textContent || "").trim();
-    if (!text || text === "â€”") return 0;
+    if (!text || text === "—") return 0;
     if (kind === "hours") {
       var hours = parseFloat(text.replace(",", ".").replace(/[^\d.,-]/g, ""));
       return Number.isFinite(hours) ? hours * 3600 : 0;

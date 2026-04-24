@@ -167,9 +167,10 @@
       '<article class="vc-reviews-formcard">' +
       '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon"><i class="fa fa-globe" aria-hidden="true"></i></span><div><strong>' +
       esc(serverExisting ? "Modifica la tua recensione server" : "Recensisci il server") +
-      '</strong><span>La recensione viene pubblicata anche sul canale Discord dedicato.</span></div></div>' +
+      '</strong></div></div>' +
+      '<div class="vc-reviews-field"><label for="vc-review-server-target">Oggetto</label><select id="vc-review-server-target" class="vc-reviews-select" disabled><option>Server</option></select></div>' +
       '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("server", state.draft.server.rating) + "</div>" +
-      '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attivita...">' +
+      '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
       esc(state.draft.server.content) +
       '</textarea></div><button type="button" class="vc-reviews-submit" data-review-submit="server"' +
       (isLogged ? "" : " disabled") +
@@ -177,7 +178,7 @@
       (serverExisting ? "Aggiorna recensione server" : "Invia recensione server") +
       "</button></article>" +
       '<article class="vc-reviews-formcard">' +
-      '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon vc-reviews-formcard__icon--staff"><i class="fa fa-shield" aria-hidden="true"></i></span><div><strong>Recensisci uno staffer</strong><span>Puoi scegliere solo utenti che hanno attualmente il ruolo Staff.</span></div></div>' +
+      '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon vc-reviews-formcard__icon--staff"><i class="fa fa-shield" aria-hidden="true"></i></span><div><strong>Recensisci uno staffer</strong></div></div>' +
       '<div class="vc-reviews-field"><label for="vc-review-staff-target">Staffer</label><select id="vc-review-staff-target" class="vc-reviews-select"' +
       (staffers.length ? "" : " disabled") +
       ">" +
@@ -193,7 +194,7 @@
         ? '<p class="vc-reviews-helper">Stai modificando la tua recensione per <strong>' + esc(existingStaff.staffName || "") + "</strong>.</p>"
         : "") +
       '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("staff", state.draft.staff.rating) + "</div>" +
-      '<div class="vc-reviews-field"><label for="vc-review-staff-content">Recensione</label><textarea id="vc-review-staff-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi un feedback sul supporto, sulla disponibilita o sulla qualita dello staffer...">' +
+      '<div class="vc-reviews-field"><label for="vc-review-staff-content">Recensione</label><textarea id="vc-review-staff-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi un feedback sul supporto, sulla disponibilità o sulla qualità dello staffer...">' +
       esc(state.draft.staff.content) +
       '</textarea></div><button type="button" class="vc-reviews-submit vc-reviews-submit--staff" data-review-submit="staff"' +
       (isLogged && staffers.length ? "" : " disabled") +
@@ -221,7 +222,7 @@
       : emptyMarkup("fa-shield", "Nessuna recensione staff", "Quando arriveranno feedback sugli staffer compariranno qui.");
     formsWrap.innerHTML = formsMarkup();
     authHint.textContent = payload.viewer && payload.viewer.id
-      ? "Puoi modificare le tue recensioni gia salvate e inviarne di nuove."
+      ? "Puoi modificare le tue recensioni quando vuoi."
       : "Accedi con Discord per inviare o modificare la tua recensione.";
     bind();
   }
