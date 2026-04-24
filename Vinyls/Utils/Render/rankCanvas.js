@@ -1,5 +1,5 @@
 const canvasModule = require("canvas");
-const { createCanvas } = canvasModule;
+const { createCanvas, Path2D } = canvasModule;
 const { registerCanvasFonts } = require("./canvasFonts");
 const { safeLoadImage } = require("./safeLoadImage");
 const { mergeRankCardTheme, resolveRankCardWallpaper } = require("./rankCardTheme");
@@ -159,52 +159,31 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   });
 }
 
+/** Same SVG paths as WebSite/js/user-rank-customize-page.js (previewStatIcon), scaled to canvas. */
 function drawStatIcon(ctx, icon, x, y, color) {
+  const scale = 0.8;
   ctx.save();
+  ctx.translate(x, y);
+  if (icon === "trophy") ctx.translate(0, -2);
+  ctx.scale(scale, scale);
+  ctx.translate(-16, -16);
   ctx.fillStyle = color;
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
+
   if (icon === "trophy") {
-    y -= 4;
-    ctx.beginPath();
-    ctx.moveTo(x - 8, y - 8);
-    ctx.lineTo(x + 8, y - 8);
-    ctx.lineTo(x + 6, y + 2);
-    ctx.quadraticCurveTo(x, y + 7, x - 6, y + 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(x - 11, y - 6);
-    ctx.quadraticCurveTo(x - 18, y - 4, x - 15, y + 4);
-    ctx.moveTo(x + 11, y - 6);
-    ctx.quadraticCurveTo(x + 18, y - 4, x + 15, y + 4);
-    ctx.stroke();
-    ctx.fillRect(x - 2, y + 6, 4, 8);
-    ctx.fillRect(x - 10, y + 15, 20, 4);
+    ctx.fill(new Path2D("M8 6h16l-2 10c-1.2 3-4.1 5-6 5s-4.8-2-6-5L8 6Z"));
+    ctx.lineWidth = 2.8;
+    ctx.stroke(
+      new Path2D("M6 8c-2.9.4-4.8 2-4.8 4.7 0 3.4 2.8 5.8 6.7 5.8M26 8c2.9.4 4.8 2 4.8 4.7 0 3.4-2.8 5.8-6.7 5.8"),
+    );
+    ctx.fill(new Path2D("M14 20h4v6h-4z"));
+    ctx.fill(new Path2D("M8 26h16v3.6H8z"));
   } else if (icon === "bolt") {
-    ctx.beginPath();
-    ctx.moveTo(x + 4, y - 17);
-    ctx.lineTo(x - 8, y + 1);
-    ctx.lineTo(x + 1, y + 1);
-    ctx.lineTo(x - 4, y + 17);
-    ctx.lineTo(x + 10, y - 3);
-    ctx.lineTo(x + 1, y - 3);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fill(new Path2D("M19 1 8 16h7l-3 15 12-17h-7l2-13Z"));
   } else {
-    ctx.beginPath();
-    for (let i = 0; i < 10; i += 1) {
-      const radius = i % 2 === 0 ? 15 : 6;
-      const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-      const px = x + Math.cos(angle) * radius;
-      const py = y + Math.sin(angle) * radius;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
+    ctx.fill(new Path2D("m16 2 3.8 8 8.7 1-6.5 5.7 1.8 8.5L16 21l-7.8 5.2 1.8-8.5L3.5 11l8.7-1L16 2Z"));
   }
   ctx.restore();
 }
@@ -245,8 +224,48 @@ function formatRankValue(value) {
   return `#${formatInt(n)}`;
 }
 
+/** Preset wallpapers on the site use SVG data URLs; node-canvas loadImage does not support them. */
+function isSvgDataUrlWallpaper(url) {
+  return /^data:image\/svg\+xml/i.test(String(url || ""));
+}
+
+/**
+ * Canvas gradients aligned with rankCardTheme.js svgWallpaper presets (aurora / neon / meadow).
+ */
+function drawPresetWallpaperFromKey(ctx, x, y, width, height, key) {
+  const k = String(key || "").toLowerCase();
+  let gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+  if (k === "aurora") {
+    gradient.addColorStop(0, "#140f2e");
+    gradient.addColorStop(0.38, "#543ba8");
+    gradient.addColorStop(0.68, "#a75ce7");
+    gradient.addColorStop(1, "#6ed3ff");
+  } else if (k === "neon") {
+    gradient.addColorStop(0, "#0a1326");
+    gradient.addColorStop(0.52, "#142f58");
+    gradient.addColorStop(1, "#090d19");
+  } else if (k === "meadow") {
+    gradient = ctx.createLinearGradient(x, y, x, y + height);
+    gradient.addColorStop(0, "#69b9ff");
+    gradient.addColorStop(0.44, "#b6ecff");
+    gradient.addColorStop(0.45, "#f5ebad");
+    gradient.addColorStop(1, "#57a546");
+  } else {
+    gradient.addColorStop(0, "#1a1f36");
+    gradient.addColorStop(0.55, "#123f78");
+    gradient.addColorStop(1, "#006777");
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x, y, width, height);
+}
+
 async function drawWallpaper(ctx, x, y, width, height, palette) {
   const wallpaper = resolveRankCardWallpaper(palette);
+  if (wallpaper && isSvgDataUrlWallpaper(wallpaper)) {
+    drawPresetWallpaperFromKey(ctx, x, y, width, height, palette.wallpaperKey);
+    return;
+  }
+
   const image = wallpaper ? await safeLoadImage(wallpaper) : null;
 
   if (image) {

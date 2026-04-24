@@ -184,10 +184,12 @@
 
     <section id="intro" class="relative z-10 flex flex-col justify-start pb-6 pt-20 sm:pb-8 sm:pt-24">
       <div class="relative z-10 mx-auto max-w-4xl px-4 pb-0 pt-1 text-center">
+        <div class="vc-support-intro-shell mx-auto max-w-full text-center">
         <div class="vc-hero-head mx-auto max-w-full px-4 py-3 text-center sm:px-6 sm:py-4">
           <p class="vc-hero-kicker">Benvenuto su</p>
           <h1 class="vc-brand-glow mt-1 text-balance text-5xl font-extrabold tracking-tight text-white md:text-7xl lg:text-8xl">{{SITE_NAME}}</h1>
           <p class="vc-hero-about">{{ABOUT_DESCRIPTION}}</p>
+        </div>
         </div>
       </div>
     </section>
@@ -329,7 +331,7 @@
             <div class="vc-home-linkpanel__list">
               <a class="vc-home-linkitem" href="{{RICHIESTE_UNBAN_URL}}">
                 <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-unlock-alt"></i></span>
-                <span class="vc-home-linkitem__copy"><strong>Unban</strong><small>Richiedi un'appello</small></span>
+                <span class="vc-home-linkitem__copy"><strong>Unban</strong><small>Richiedi un appello</small></span>
                 <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
               </a>
               <a class="vc-home-linkitem" href="{{RICHIESTE_CANDIDATURE_URL}}">
@@ -343,11 +345,11 @@
       </section>
 
       <section id="stats" class="mx-auto max-w-6xl scroll-mt-28 px-4 pb-20 pt-2">
-        <div class="vc-glass vc-stat-strip rounded-2xl border border-[#d4a888]/18 bg-gradient-to-br from-[#1f1610]/95 to-[#0c0806]/92 px-4 py-10 sm:px-8">
+        <div class="vc-glass vc-stat-strip rounded-[2rem] border border-emerald-300/15 bg-gradient-to-br from-[rgba(8,30,42,0.95)] via-[rgba(6,40,36,0.55)] to-[rgba(12,24,52,0.92)] px-4 py-10 sm:px-8 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
           <div class="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-4">
             <div class="vc-stat-cell text-center">
               <p
-                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-[#f2dcc8] sm:text-4xl"
+                class="vc-stat-num text-3xl font-bold tabular-nums tracking-tight text-emerald-100/95 sm:text-4xl"
                 data-live-stat="members"
                 data-stat-target="{{STAT_MEMBERS}}"
               >
@@ -376,7 +378,7 @@
               <p class="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Staff</p>
             </div>
             <div class="vc-stat-cell text-center">
-              <p class="vc-stat-num vc-stat-247 text-3xl font-bold tabular-nums tracking-tight text-[#f2dcc8] sm:text-4xl">24/7</p>
+              <p class="vc-stat-num vc-stat-247 text-3xl font-bold tabular-nums tracking-tight text-emerald-100/95 sm:text-4xl">24/7</p>
               <p class="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Community</p>
             </div>
           </div>
@@ -403,12 +405,12 @@
       </section>
     </main>
 
-    <footer class="vc-footer relative z-10 py-16">
+    <footer class="vc-footer relative z-10 border-t border-white/8 bg-slate-950/20 py-16">
       <div class="mx-auto max-w-3xl px-4 text-center">
         <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <a class="transition hover:text-[#d4a888]" href="{{TERMS_URL}}">Termini di Servizio</a>
-          <a class="transition hover:text-[#d4a888]" href="{{PRIVACY_URL}}">Privacy Policy</a>
-          <a class="transition hover:text-[#d4a888]" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+          <a class="transition hover:text-emerald-200/90" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-emerald-200/90" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-emerald-200/90" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
         <p class="mt-8 text-sm leading-relaxed text-slate-400">
           © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con

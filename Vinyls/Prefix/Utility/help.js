@@ -66,7 +66,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   recensione: "Premia una recensione assegnando livelli.",
   ticket: "Gestisce i ticket: partecipanti, claim, trasferimento, pannello, rinomina, chiusura e riapertura.",
   verify: "Verifica manualmente un utente.",
-  security: "Pannello sicurezza con menu: stato, statics, panic, abilita/disabilita moduli.",
+  security: "Pannello sicurezza con menu: stato, statistiche, panic, abilita/disabilita moduli.",
   level: "Configura il sistema livelli: imposta o modifica livelli, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
   staff: "Pannello profilo staff/Partner Manager; **High Staff:** `+staff` senza argomenti apre un menu con Staff/PM; riscatto premi PM (50/75/150 pt): pulsanti visibili a HS/Founder con +staff @PartnerManager.",

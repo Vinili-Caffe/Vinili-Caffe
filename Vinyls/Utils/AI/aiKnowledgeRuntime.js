@@ -23,7 +23,7 @@ function tokenize(value) {
 }
 
 const KNOWLEDGE_QUERY_STOPWORDS = new Set(
-  `anche alle all alla ancora appena are and bene che chi come cosa cosi cose dei degli delle della detto dire ecco fai fatti fare for from gli gia hai ho loro male molto mia non per perche poi proprio piu qualche qualcosa qua qui quella quello solo sono sempre sua the this that tutti tutte tutto una uno vita was when where while with you`.split(
+  `anche alle all alla ancora appena are and bene che chi come cosa così cose dei degli delle della detto dire ecco fai fatti fare for from gli già hai ho loro male molto mia non per perché poi proprio più qualche qualcosa qua qui quella quello solo sono sempre sua the this that tutti tutte tutto una uno vita was when where while with you`.split(
     /\s+/,
   ),
 );

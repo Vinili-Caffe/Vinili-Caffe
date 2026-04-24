@@ -120,8 +120,11 @@ function normalizeHex(value, fallback) {
 }
 
 function sanitizeWallpaperUrl(value) {
-  const raw = String(value || "").trim();
+  let raw = String(value || "").trim();
   if (!raw) return "";
+  if (raw.startsWith("data:")) {
+    raw = raw.replace(/\s+/g, "");
+  }
   if (/^data:image\/(?:png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(raw)) {
     if (raw.length > 900_000) return "";
     return raw;

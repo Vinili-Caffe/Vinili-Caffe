@@ -6,11 +6,11 @@
 - Verificare detection messaggi Disboard/Discadia.
 - Verificare che il salvataggio stato bump/vote avvenga senza errori.
 
-## Ticket claim dice gia claimato
+## Ticket claim dice già claimato
 
 - Controllare valore `claimedBy` nel ticket.
 - Se ticket non claimato ma errore persiste, rifare fetch ticket e riprovare.
-- High Staff puo forzare override claim.
+- High Staff può forzare l'override sul claim.
 
 ## TTS warning connection destroyed
 

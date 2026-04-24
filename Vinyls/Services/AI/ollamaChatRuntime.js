@@ -321,7 +321,7 @@ async function handleAmbientOllamaMessage(message, client) {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Timeout AI locale. Riprova con una richiesta piu corta.",
+              "<:vegax:1443934876440068179> Timeout AI locale. Riprova con una richiesta più corta.",
             ),
         ],
         allowedMentions: { repliedUser: false, parse: [] },

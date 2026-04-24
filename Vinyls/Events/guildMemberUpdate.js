@@ -20,6 +20,7 @@ const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, addAnnouncedBoostSlots, 
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
+const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -1235,6 +1236,9 @@ module.exports = {
               { guildId: newMember.guild.id, userId: newMember.id, staff: { $exists: true } },
               { $unset: { staff: "" } },
             ).catch(() => {});
+            await autoUnclaimOpenTicketsClaimedByUser(newMember.guild, newMember.id).catch((err) => {
+              global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
+            });
           }
           if (memberHasStaffRole(newMember) && !memberHasPartnerManagerRole(newMember)) {
             await ActivityUserProfile.updateOne(

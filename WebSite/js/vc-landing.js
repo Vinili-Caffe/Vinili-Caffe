@@ -53,6 +53,7 @@
     if (isLegalCookiePage()) return;
     if (hasCookieConsent()) return;
     if (document.getElementById("vc-cookie-consent")) return;
+    if (!document.body) return;
     var cookiePolicyUrl = "/cookie/";
 
     var cookieIcon =
@@ -137,7 +138,10 @@
 
     document.body.appendChild(root);
     window.requestAnimationFrame(function () {
-      root.classList.add("vc-cookie-consent--visible");
+      window.requestAnimationFrame(function () {
+        if (!root.parentNode) return;
+        root.classList.add("vc-cookie-consent--visible");
+      });
     });
   }
 
@@ -146,8 +150,12 @@
   } else {
     initCookieConsent();
   }
-  window.addEventListener("pageshow", initCookieConsent);
-  window.setTimeout(initCookieConsent, 180);
+  window.addEventListener("pageshow", function (ev) {
+    if (ev && ev.persisted) {
+      if (hasCookieConsent()) return;
+    }
+    initCookieConsent();
+  });
 })();
 (function () {
   function normalizePrettyProfilePath() {

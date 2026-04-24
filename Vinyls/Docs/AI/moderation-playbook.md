@@ -4,7 +4,7 @@
 
 - `+purge 50` elimina fino a 50 messaggi.
 - `+purge @utente 50` filtra per utente.
-- Per messaggi vecchi, il bot puo cancellare in singolo (piu lento).
+- Per messaggi vecchi, il bot può cancellare in singolo (più lento).
 
 ## Warn e sanzioni
 

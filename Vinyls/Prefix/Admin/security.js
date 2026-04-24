@@ -604,7 +604,7 @@ function buildSecurityHubPayload(guild, ownerId, openerUser = null, member = nul
     : "Staff";
   const canPanic = member && hasPanicControlAccess(member, guild);
   const lines = [
-    "<:VC_Info:1482526956703580372> **Pannello sicurezza** — stato globale, statics e panic.",
+    "<:VC_Info:1482526956703580372> **Pannello sicurezza** — stato globale, statistiche e panic.",
     "",
     "- **Stato sistemi**: AntiNuke, JoinRaid, AutoMod (heat), JoinGate",
     "- **Statics**: ruoli, canali e utenti di configurazione",
@@ -702,7 +702,7 @@ module.exports = {
             .setColor("#6f4e37")
             .setTitle("Security")
             .setDescription(
-              "<:vegax:1443934876440068179> Usa solo **`+security`** senza argomenti. Si apre il **pannello** (menu: stato, statics, panic; Founder puo anche abilitare/disabilitare moduli).",
+              "<:vegax:1443934876440068179> Usa solo **`+security`** senza argomenti. Si apre il **pannello** (menu: stato, statistiche, panic; Founder può anche abilitare/disabilitare moduli).",
             ),
         ],
         allowedMentions: { repliedUser: false },

@@ -8,8 +8,8 @@
 
 ## Claim
 
-- Staff idoneo puo claimare.
-- Se gia claimato, solo High Staff puo forzare override.
+- Staff idoneo può claimare.
+- Se già claimato, solo High Staff può forzare override.
 - Transfer claim disponibile a claimer o High Staff.
 
 ## Azioni pannello staff

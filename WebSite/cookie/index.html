@@ -56,7 +56,7 @@
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-circle-o-notch" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Cosa sono i Cookie?</h2>
+            <h2 class="vc-legal-card__title">Cosa sono i cookie?</h2>
           </div>
           <p>I cookie sono piccoli file di testo memorizzati sul tuo dispositivo quando visiti un sito web. Vengono utilizzati per far funzionare il sito correttamente, mantenere l'accesso e proteggere la navigazione.</p>
         </article>
@@ -64,90 +64,96 @@
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-file-text-o" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Cookie che Utilizziamo</h2>
+            <h2 class="vc-legal-card__title">Cookie che utilizziamo</h2>
           </div>
 
-          <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie Essenziali</h3>
+          <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie essenziali</h3>
           <p>Utilizziamo solo cookie strettamente necessari per il funzionamento del sito. Questi cookie non possono essere disabilitati senza compromettere l'accesso al sito.</p>
 
           <div class="vc-cookie-mini-stack">
             <div class="vc-cookie-mini-card">
               <div class="vc-cookie-mini-card__head">
-                <h4 class="vc-cookie-mini-card__title">Cookie di Sessione</h4>
+                <h4 class="vc-cookie-mini-card__title">Cookie di sessione</h4>
                 <span class="vc-cookie-mini-card__badge">Essenziale</span>
               </div>
-              <p><strong>Scopo:</strong> mantiene il login attivo e gestisce l'autenticazione.</p>
-              <p><strong>Durata:</strong> 90 giorni o fino al logout.</p>
-              <p><strong>Tipo:</strong> HttpOnly, Secure, SameSite.</p>
-            </div>
-
-            <div class="vc-cookie-mini-card">
-              <div class="vc-cookie-mini-card__head">
-                <h4 class="vc-cookie-mini-card__title">Cookie di Sicurezza</h4>
-                <span class="vc-cookie-mini-card__badge">Essenziale</span>
-              </div>
-              <p><strong>Scopo:</strong> proteggono da attacchi informatici come CSRF, XSS e accessi automatizzati.</p>
-              <p><strong>Durata:</strong> sessione o temporanea.</p>
-              <p><strong>Tipo:</strong> HttpOnly, Secure.</p>
-            </div>
-
-            <div class="vc-cookie-mini-card">
-              <div class="vc-cookie-mini-card__head">
-                <h4 class="vc-cookie-mini-card__title">Preferenza Banner Cookie</h4>
-                <span class="vc-cookie-mini-card__badge">Tecnico</span>
-              </div>
-              <p><strong>Scopo:</strong> ricorda che hai chiuso o accettato l'avviso sui cookie essenziali.</p>
-              <p><strong>Durata:</strong> fino a 180 giorni.</p>
-              <p><strong>Tipo:</strong> SameSite=Lax, Secure quando disponibile.</p>
-            </div>
-
-            <div class="vc-cookie-mini-card vc-cookie-mini-card--green">
-              <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie NON Utilizzati</h3>
-              <p>{{SITE_NAME}} <strong>NON utilizza</strong>:</p>
-              <ul>
-                <li>Cookie di profilazione pubblicitaria</li>
-                <li>Cookie di tracciamento di terze parti</li>
-                <li>Cookie analitici per marketing o profilazione</li>
-                <li>Cookie di social media, tranne quelli gestiti da Discord durante OAuth</li>
-                <li>Cookie di remarketing</li>
+              <ul class="vc-legal-kvlist">
+                <li><span class="vc-legal-kvlist__k">Scopo</span> — mantiene il login attivo e gestisce l'autenticazione.</li>
+                <li><span class="vc-legal-kvlist__k">Durata</span> — 90 giorni o fino al logout.</li>
+                <li><span class="vc-legal-kvlist__k">Tipo</span> — HttpOnly, Secure, SameSite.</li>
               </ul>
             </div>
+
+            <div class="vc-cookie-mini-card">
+              <div class="vc-cookie-mini-card__head">
+                <h4 class="vc-cookie-mini-card__title">Cookie di sicurezza</h4>
+                <span class="vc-cookie-mini-card__badge">Essenziale</span>
+              </div>
+              <ul class="vc-legal-kvlist">
+                <li><span class="vc-legal-kvlist__k">Scopo</span> — proteggono da attacchi informatici come CSRF, XSS e accessi automatizzati.</li>
+                <li><span class="vc-legal-kvlist__k">Durata</span> — sessione o temporanea.</li>
+                <li><span class="vc-legal-kvlist__k">Tipo</span> — HttpOnly, Secure.</li>
+              </ul>
+            </div>
+
+            <div class="vc-cookie-mini-card">
+              <div class="vc-cookie-mini-card__head">
+                <h4 class="vc-cookie-mini-card__title">Preferenza banner cookie</h4>
+                <span class="vc-cookie-mini-card__badge">Tecnico</span>
+              </div>
+              <ul class="vc-legal-kvlist">
+                <li><span class="vc-legal-kvlist__k">Scopo</span> — ricorda che hai chiuso o accettato l'avviso sui cookie essenziali.</li>
+                <li><span class="vc-legal-kvlist__k">Durata</span> — fino a 180 giorni.</li>
+                <li><span class="vc-legal-kvlist__k">Tipo</span> — SameSite=Lax, Secure quando disponibile.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="vc-cookie-negative-block">
+            <h3 class="vc-cookie-section-title"><i class="fa fa-check-circle-o" aria-hidden="true"></i> Cookie non utilizzati</h3>
+            <p>{{SITE_NAME}} <strong>non utilizza</strong>:</p>
+            <ul class="vc-legal-list">
+              <li>Cookie di profilazione pubblicitaria.</li>
+              <li>Cookie di tracciamento di terze parti.</li>
+              <li>Cookie analitici per marketing o profilazione.</li>
+              <li>Cookie di social media, tranne quelli gestiti da Discord durante OAuth.</li>
+              <li>Cookie di remarketing.</li>
+            </ul>
           </div>
         </article>
 
         <article class="vc-legal-card vc-legal-card--cyan">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-shield" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Sicurezza dei Cookie</h2>
+            <h2 class="vc-legal-card__title">Sicurezza dei cookie</h2>
           </div>
           <p>I nostri cookie utilizzano protezioni avanzate:</p>
-          <ul>
-            <li><span class="vc-legal-card__label">HttpOnly:</span> non accessibili da JavaScript.</li>
-            <li><span class="vc-legal-card__label">Secure:</span> trasmessi solo via HTTPS.</li>
-            <li><span class="vc-legal-card__label">SameSite:</span> protezione contro attacchi cross-site.</li>
-            <li><span class="vc-legal-card__label">Crittografati:</span> i dati sensibili sono protetti lato server.</li>
+          <ul class="vc-legal-list">
+            <li><span class="vc-legal-card__label">HttpOnly</span> — non accessibili da JavaScript.</li>
+            <li><span class="vc-legal-card__label">Secure</span> — trasmessi solo via HTTPS.</li>
+            <li><span class="vc-legal-card__label">SameSite</span> — protezione contro attacchi cross-site.</li>
+            <li><span class="vc-legal-card__label">Crittografati</span> — i dati sensibili sono protetti lato server.</li>
           </ul>
         </article>
 
         <article class="vc-legal-card vc-legal-card--purple">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-bullseye" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Finalit&agrave; dei Cookie</h2>
+            <h2 class="vc-legal-card__title">Finalità dei cookie</h2>
           </div>
           <p>Utilizziamo i cookie per:</p>
-          <ul>
-            <li>Mantenerti autenticato durante la navigazione</li>
-            <li>Proteggere il tuo account da accessi non autorizzati</li>
-            <li>Prevenire attacchi informatici e abusi automatizzati</li>
-            <li>Garantire il funzionamento delle votazioni e delle aree riservate</li>
-            <li>Fornire un'esperienza sicura e fluida</li>
+          <ul class="vc-legal-list">
+            <li>Mantenerti autenticato durante la navigazione.</li>
+            <li>Proteggere il tuo account da accessi non autorizzati.</li>
+            <li>Prevenire attacchi informatici e abusi automatizzati.</li>
+            <li>Garantire il funzionamento delle votazioni e delle aree riservate.</li>
+            <li>Fornire un'esperienza sicura e fluida.</li>
           </ul>
         </article>
 
         <article class="vc-legal-card vc-legal-card--gold">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-balance-scale" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Base Giuridica</h2>
+            <h2 class="vc-legal-card__title">Base giuridica</h2>
           </div>
           <p>I cookie che utilizziamo sono <span class="vc-legal-card__label">strettamente necessari</span> per fornire i servizi richiesti, come login, navigazione sicura, votazioni e gestione dell'account.</p>
           <p>Secondo il GDPR e la Direttiva ePrivacy, non &egrave; richiesto il consenso esplicito per cookie tecnici essenziali.</p>
@@ -157,15 +163,15 @@
         <article class="vc-legal-card vc-legal-card--indigo">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-cog" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Come Gestire i Cookie</h2>
+            <h2 class="vc-legal-card__title">Come gestire i cookie</h2>
           </div>
-          <p class="vc-legal-card__strong">Tramite il Browser</p>
+          <p class="vc-legal-card__strong">Tramite il browser</p>
           <p>Puoi gestire i cookie nelle impostazioni del browser:</p>
-          <ul>
-            <li><span class="vc-legal-card__label">Chrome:</span> Impostazioni &rarr; Privacy e sicurezza &rarr; Cookie.</li>
-            <li><span class="vc-legal-card__label">Firefox:</span> Opzioni &rarr; Privacy e sicurezza &rarr; Cookie.</li>
-            <li><span class="vc-legal-card__label">Safari:</span> Preferenze &rarr; Privacy &rarr; Gestisci dati siti.</li>
-            <li><span class="vc-legal-card__label">Edge:</span> Impostazioni &rarr; Cookie e autorizzazioni.</li>
+          <ul class="vc-legal-list">
+            <li><span class="vc-legal-card__label">Chrome</span> — Impostazioni &rarr; Privacy e sicurezza &rarr; Cookie.</li>
+            <li><span class="vc-legal-card__label">Firefox</span> — Opzioni &rarr; Privacy e sicurezza &rarr; Cookie.</li>
+            <li><span class="vc-legal-card__label">Safari</span> — Preferenze &rarr; Privacy &rarr; Gestisci dati siti.</li>
+            <li><span class="vc-legal-card__label">Edge</span> — Impostazioni &rarr; Cookie e autorizzazioni.</li>
           </ul>
           <div class="vc-cookie-mini-card vc-cookie-mini-card--warning">
             <h4 class="vc-cookie-mini-card__title"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Attenzione</h4>
@@ -178,7 +184,7 @@
         <article class="vc-legal-card vc-legal-card--blue">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-globe" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Cookie di Terze Parti</h2>
+            <h2 class="vc-legal-card__title">Cookie di terze parti</h2>
           </div>
           <p>Durante l'autenticazione OAuth con Discord, potresti ricevere cookie da <strong>discord.com</strong>. Questi cookie sono gestiti direttamente da Discord Inc. e sono soggetti alla loro <a href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
           <p>{{SITE_NAME}} non ha controllo sui cookie impostati da Discord durante la fase di autenticazione esterna.</p>
@@ -187,7 +193,7 @@
         <article class="vc-legal-card vc-legal-card--teal">
           <div class="vc-legal-card__head">
             <span class="vc-legal-card__icon"><i class="fa fa-clock-o" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Durata dei Cookie</h2>
+            <h2 class="vc-legal-card__title">Durata dei cookie</h2>
           </div>
           <table class="vc-cookie-policy-table">
             <thead>

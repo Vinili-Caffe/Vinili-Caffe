@@ -4,6 +4,7 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const { getUserRanks, getGlobalMultiplier, } = require("../../Services/Community/expService");
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
+const IDs = require("../../Utils/Config/ids");
 
 module.exports = {
   name: "rank",
@@ -31,7 +32,8 @@ module.exports = {
     const multiplier = await getGlobalMultiplier(message.guild.id);
     const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
     const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
-    const rankDoc = await ActivityUserProfile.findOne({ guildId: message.guild.id, userId: targetUser.id })
+    const themeGuildId = String(message.client?.config?.mainGuildId || IDs.guilds?.main || message.guild.id).trim();
+    const rankDoc = await ActivityUserProfile.findOne({ guildId: themeGuildId, userId: targetUser.id })
       .select("profile.rankCard")
       .lean()
       .catch(() => null);
