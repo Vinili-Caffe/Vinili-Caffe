@@ -1326,7 +1326,8 @@
             "roles.Donator",
             "roles.VIP",
             "roles.Level50",
-            "roles.ServerBooster"
+            "roles.ServerBooster",
+            "roles.VIPplus"
         ],
         "personality_dm": [
             "roles.Member"
