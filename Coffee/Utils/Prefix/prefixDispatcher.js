@@ -3,7 +3,6 @@ const IDs = require("../Config/ids");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed");
 const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, } = require("../Moderation/commandPermissions");
 const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide");
-
 const BOT_MENTION_REGEX = /<@!?\d+>/;
 const OFFICIAL_MAIN_GUILD_ID = IDs.guilds?.main || null;
 const TEST_GUILD_ID = IDs.guilds?.test || null;

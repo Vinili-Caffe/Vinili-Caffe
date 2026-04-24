@@ -519,7 +519,6 @@ function logTtsPlayFailure(err) {
   global.logger?.error?.("[TTS PLAY ERROR]", msg);
 }
 
-/** Spezza solo per lunghezza URL (GET); il messaggio completo viene letto in sequenza. */
 const TTS_HTTP_SEGMENT_MAX = 380;
 
 function splitTextForTtsSegments(text, maxLen = TTS_HTTP_SEGMENT_MAX) {

@@ -6,6 +6,7 @@ const ROLE_DOUBLE_BOOSTER = IDs.roles.DoubleBooster;
 const ROLE_LEVEL_30 = IDs.roles.Level30;
 const ROLE_LEVEL_50 = IDs.roles.Level50;
 const ROLE_LEVEL_100 = IDs.roles.Level100;
+const ROLE_VIP_PLUS = IDs.roles.VIPplus;
 
 function isDbReady() {
   return mongoose.connection?.readyState === 1;
@@ -39,7 +40,7 @@ function computeCooldownSeconds(member, level) {
   const hasRole100 = hasRole(member, ROLE_LEVEL_100);
   const hasRole50 = hasRole(member, ROLE_LEVEL_50);
   const hasRole30 = hasRole(member, ROLE_LEVEL_30);
-
+  const hasVipPlus = hasRole(member, ROLE_VIP_PLUS);
   if (hasBypassRole) return 0;
   if (hasRole100 || level >= 100) return 0;
   if (hasRole(member, ROLE_DOUBLE_BOOSTER)) return 5;

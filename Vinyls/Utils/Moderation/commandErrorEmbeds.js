@@ -17,7 +17,7 @@ function buildCooldownErrorEmbed(remainingSeconds) {
       "",
       "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
       `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}> <a:VC_Arrow:1482706699365257397> **15s**`,
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}> / <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
+      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
     ].join("\n"),
   );
 }
