@@ -397,6 +397,45 @@ function getRoleMultiplier(member, settings = null) {
   return multi;
 }
 
+/** Stessa formula della classifica web / riga weekly (server + bonus ruolo oltre 1, cap 8). */
+function combineWeeklyExpMultiplier(globalExpMultiplier, roleMultiplier) {
+  const globalMulti = Number(globalExpMultiplier);
+  const roleMulti = Number(roleMultiplier);
+  const safeGlobal = Number.isFinite(globalMulti) && globalMulti > 0 ? globalMulti : 1;
+  const safeRole = Number.isFinite(roleMulti) && roleMulti > 0 ? roleMulti : 1;
+  const roleBonus = Math.max(0, safeRole - 1);
+  return Math.min(MAX_COMBINED_MULTIPLIER, Math.max(1, safeGlobal + roleBonus));
+}
+
+/**
+ * Moltiplicatore XP effettivo (weekly) per l’utente: allinea rank card web, +rank e leaderboard.
+ * @param {import("discord.js").Guild|null} guild
+ * @param {string} userId
+ * @param {Awaited<ReturnType<typeof getGuildExpSettings>>|null} [guildSettings] cache opzionale
+ */
+async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = null) {
+  if (!userId) return 1;
+  const settings =
+    guildSettings && typeof guildSettings === "object"
+      ? guildSettings
+      : guild
+        ? await getGuildExpSettings(guild.id).catch(() => null)
+        : null;
+  const globalMulti =
+    settings && Number(settings.effectiveMultiplier) > 0
+      ? Number(settings.effectiveMultiplier)
+      : guild
+        ? Number(await getGlobalMultiplier(guild.id).catch(() => 1)) || 1
+        : 1;
+  if (!guild) return combineWeeklyExpMultiplier(globalMulti, 1);
+  let member = guild.members?.cache?.get?.(String(userId)) || null;
+  if (!member && guild.members?.fetch) {
+    member = await guild.members.fetch({ user: String(userId), force: true }).catch(() => null);
+  }
+  if (!member) return combineWeeklyExpMultiplier(globalMulti, 1);
+  return combineWeeklyExpMultiplier(globalMulti, getRoleMultiplier(member, settings));
+}
+
 function buildLevelUpEmbed(member, level) {
   const avatarUrl =
     member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
@@ -685,8 +724,7 @@ async function addExpWithLevel(guild, userId, amount, applyMultiplier = false, i
     const settings = await getGuildExpSettings(guild.id);
     const globalMulti = settings.effectiveMultiplier;
     const roleMulti = getRoleMultiplier(member || null, settings);
-    const roleBonus = Math.max(0, Number(roleMulti || 1) - 1);
-    const combined = Math.min(MAX_COMBINED_MULTIPLIER, Math.max(1, Number(globalMulti || 1) + roleBonus));
+    const combined = combineWeeklyExpMultiplier(globalMulti, roleMulti);
     effectiveAmount = Number(amount || 0) * combined;
   }
   let weeklyAmount = null;
@@ -1191,4 +1229,40 @@ async function sumExpDeltaFromLevelHistoryForRomeDay(guildId, dayKey, userIds, o
   return out;
 }
 
-module.exports = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, addExp, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, invalidateSettingsCache, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, getRecentLevelHistory, getLevelHistoryPage, syncLevelRolesForMember, retroSyncGuildLevels, getRoleMultiplier, getCurrentWeekKey, getIsoWeekKey, ROLE_MULTIPLIERS, scheduleEventLevelUpMessage, sendLevelUpMessage, sendLevelUpAnnouncement, getTopExpGainsInPeriod, getTopLevelGainsInPeriod, PERIOD_LOOKBACK_DAYS, sumExpDeltaFromLevelHistoryForRomeDay };
+module.exports = {
+  MESSAGE_EXP,
+  VOICE_EXP_PER_MINUTE,
+  addExp,
+  addExpWithLevel,
+  getUserExpStats,
+  getUserRanks,
+  getLevelInfo,
+  getTotalExpForLevel,
+  getGlobalMultiplier,
+  setGlobalMultiplier,
+  setTemporaryEventMultiplier,
+  getGuildExpSettings,
+  invalidateSettingsCache,
+  setLevelChannelLocked,
+  setRoleIgnored,
+  setRoleExpMultiplier,
+  shouldIgnoreExpForMember,
+  recordLevelHistory,
+  getRecentLevelHistory,
+  getLevelHistoryPage,
+  syncLevelRolesForMember,
+  retroSyncGuildLevels,
+  getRoleMultiplier,
+  combineWeeklyExpMultiplier,
+  getResolvedWeeklyExpMultiplier,
+  getCurrentWeekKey,
+  getIsoWeekKey,
+  ROLE_MULTIPLIERS,
+  scheduleEventLevelUpMessage,
+  sendLevelUpMessage,
+  sendLevelUpAnnouncement,
+  getTopExpGainsInPeriod,
+  getTopLevelGainsInPeriod,
+  PERIOD_LOOKBACK_DAYS,
+  sumExpDeltaFromLevelHistoryForRomeDay,
+};

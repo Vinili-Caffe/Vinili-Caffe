@@ -29,14 +29,16 @@
     <style>
       .vc-rank-editor-colorrow {
         display: grid !important;
-        grid-template-columns: minmax(8.5rem, 10rem) minmax(7.4rem, 8rem) minmax(11rem, 1fr) !important;
+        grid-template-columns: minmax(5.5rem, 6.2rem) minmax(6.75rem, 8rem) auto !important;
         align-items: center !important;
-        gap: 1rem !important;
+        justify-content: start !important;
+        gap: 0.45rem !important;
       }
 
       .vc-rank-editor-colorrow__hex {
         width: 100% !important;
-        min-width: 7.4rem !important;
+        min-width: 6.75rem !important;
+        max-width: 8rem !important;
         height: 3rem !important;
         box-sizing: border-box !important;
         text-align: center !important;
@@ -47,9 +49,10 @@
       }
 
       .vc-rank-editor-updatebtn {
-        width: 100% !important;
+        width: auto !important;
         min-width: 0 !important;
         white-space: nowrap !important;
+        justify-self: start !important;
       }
 
       .vc-rank-editor-previewcard {
@@ -98,11 +101,14 @@
 
       @media (max-width: 860px) {
         .vc-rank-editor-colorrow {
-          grid-template-columns: minmax(8rem, 1fr) minmax(7.4rem, 1fr) !important;
+          grid-template-columns: minmax(5.5rem, 6.2rem) minmax(6.75rem, 8rem) !important;
+          justify-content: start !important;
+          gap: 0.45rem !important;
         }
 
         .vc-rank-editor-updatebtn {
           grid-column: 1 / -1 !important;
+          justify-self: stretch !important;
         }
 
         .vc-rank-editor-preview__hero {
@@ -220,6 +226,7 @@
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <section id="vc-rank-customize-page" class="vc-rank-customize-page">
+        <div id="vc-rank-save-toast-host" class="vc-rank-save-toast-host" aria-live="polite"></div>
         <div class="vc-rank-customize-loading" id="vc-rank-customize-loading">
           <span class="vc-rank-customize-loading__spin" aria-hidden="true"></span>
           <p class="vc-rank-customize-loading__text">Caricamento personalizzazioni...</p>

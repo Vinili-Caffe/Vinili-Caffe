@@ -45,6 +45,13 @@
       .replace(/"/g, "&quot;");
   }
 
+  /** Per url('…') in CSS custom property: non usare esc() HTML (rompe data:/SVG con &). */
+  function escForSingleQuotedCssUrl(s) {
+    return String(s == null ? "" : s)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'");
+  }
+
   function siteName() {
     try {
       var t = String(document.title || "").trim();
@@ -169,7 +176,7 @@
       var rgb = hexToRgbList(src.panelColor);
       if (rgb) out.push("--vc-rank-panel-rgb:" + esc(rgb));
     }
-    if (resolvedWallpaper) out.push("--vc-rank-wallpaper:url(&quot;" + esc(resolvedWallpaper) + "&quot;)");
+    if (resolvedWallpaper) out.push("--vc-rank-wallpaper:url('" + escForSingleQuotedCssUrl(resolvedWallpaper) + "')");
     return out.length ? ' style="' + out.join(";") + '"' : "";
   }
 
@@ -385,7 +392,11 @@
     var customRole = customProfile && customProfile.role ? customProfile.role : null;
     var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
     var rankCardTheme = profile.rankCard || {};
-    var multiplier = Number(weekly.expMultiplier || 1);
+    var multiplier = Number(
+      (weekly && weekly.expMultiplier != null && weekly.expMultiplier !== "" ? weekly.expMultiplier : null) ||
+        profile.expMultiplierResolved ||
+        1,
+    );
     var badgesHtml = buildProfileBadges(level.rank, roles);
     var customRoleCount = (customRole ? 1 : 0) + (customVoice ? 1 : 0);
     var customRoleIconHtml = customRole

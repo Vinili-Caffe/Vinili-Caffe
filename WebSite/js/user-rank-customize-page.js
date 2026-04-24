@@ -6,6 +6,8 @@
   var draft = null;
   var activeTab = "colors";
   var activeAccordion = "opacity";
+  var saveToastTimer = null;
+  var saveInFlight = false;
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
@@ -29,6 +31,12 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function escForSingleQuotedCssUrl(s) {
+    return String(s == null ? "" : s)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'");
   }
 
   function getToken() {
@@ -170,6 +178,7 @@
     var primary = t.primaryTextColor || "#ffcb05";
     var value = t.valueColor || "#f2f2f2";
     var label = t.labelColor || "#a8acb8";
+    var wp = resolvedWallpaper(t);
     return [
       "--vc-rank-panel:" + esc(t.panelColor),
       "--vc-rank-panel-rgb:" + esc(hexToRgbList(t.panelColor)),
@@ -183,7 +192,7 @@
       "--vc-rank-ring:" + esc(primary),
       "--vc-rank-rankbox:" + esc(value),
       "--vc-rank-opacity:" + esc(String(t.overlayOpacity)),
-      "--vc-rank-wallpaper:" + (resolvedWallpaper(t) ? 'url(&quot;' + esc(resolvedWallpaper(t)) + '&quot;)' : "none"),
+      "--vc-rank-wallpaper:" + (wp ? "url('" + escForSingleQuotedCssUrl(wp) + "')" : "none"),
     ].join(";");
   }
 
@@ -264,7 +273,9 @@
         var selected = !draft.wallpaperUrl && String(draft.wallpaperKey || "default") === key;
         return (
           '<button type="button" class="vc-rank-editor-wallcard' + (selected ? " is-selected" : "") + '" data-rank-wallpaper="' + esc(key) + '">' +
-          '<span class="vc-rank-editor-wallcard__preview"' + (item.previewUrl ? ' style="background-image:url(&quot;' + esc(item.previewUrl) + '&quot;)"' : "") + ">" +
+          '<span class="vc-rank-editor-wallcard__preview"' +
+          (item.previewUrl ? ' style="background-image:url(\'' + escForSingleQuotedCssUrl(item.previewUrl) + '\')"' : "") +
+          ">" +
           (selected ? '<span class="vc-rank-editor-wallcard__check"><i class="fa fa-check" aria-hidden="true"></i></span>' : "") +
           "</span>" +
           '<span class="vc-rank-editor-wallcard__label">' + esc(item.label || key) + "</span>" +
@@ -381,6 +392,58 @@
     if (!el) return;
     el.textContent = text || "";
     el.className = "vc-rank-editor-status" + (isError ? " is-error" : "") + (text ? " is-visible" : "");
+  }
+
+  function toastHostEl() {
+    var host = byId("vc-rank-save-toast-host");
+    if (host) return host;
+    var page = document.getElementById("vc-rank-customize-page");
+    if (!page) return null;
+    host = document.createElement("div");
+    host.id = "vc-rank-save-toast-host";
+    host.className = "vc-rank-save-toast-host";
+    host.setAttribute("aria-live", "polite");
+    page.insertBefore(host, page.firstChild);
+    return host;
+  }
+
+  function hideSaveToast() {
+    var host = byId("vc-rank-save-toast-host");
+    if (!host) return;
+    var toast = host.querySelector(".vc-rank-save-toast");
+    if (!toast) {
+      host.innerHTML = "";
+      return;
+    }
+    toast.classList.remove("is-visible");
+    toast.classList.add("is-leaving");
+    window.setTimeout(function () {
+      host.innerHTML = "";
+    }, 300);
+  }
+
+  function showSaveSuccessToast() {
+    var host = toastHostEl();
+    if (!host) return;
+    if (saveToastTimer) {
+      window.clearTimeout(saveToastTimer);
+      saveToastTimer = null;
+    }
+    host.innerHTML =
+      '<div class="vc-rank-save-toast" role="status">' +
+      '<span class="vc-rank-save-toast__icon" aria-hidden="true"><i class="fa fa-check"></i></span>' +
+      '<div class="vc-rank-save-toast__body">' +
+      '<strong class="vc-rank-save-toast__title">Salvato con successo!</strong>' +
+      '<p class="vc-rank-save-toast__text">Le tue impostazioni sono state salvate. Usa <kbd class="vc-rank-save-toast__kbd">+rank</kbd> su Discord per vederle in azione.</p>' +
+      "</div></div>";
+    window.requestAnimationFrame(function () {
+      var t = host.querySelector(".vc-rank-save-toast");
+      if (t) t.classList.add("is-visible");
+    });
+    saveToastTimer = window.setTimeout(function () {
+      saveToastTimer = null;
+      hideSaveToast();
+    }, 4200);
   }
 
   function applyField(field) {
@@ -549,6 +612,14 @@
       setStatus("Sessione Discord scaduta. Effettua di nuovo il login.", true);
       return;
     }
+    if (saveInFlight) return;
+    saveInFlight = true;
+    var saveBtn = byId("vc-rank-save");
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.setAttribute("aria-busy", "true");
+      saveBtn.classList.add("is-saving");
+    }
     setStatus("Salvataggio in corso...", false);
     fetch(resolvedRankApiUrl(), {
       method: "POST",
@@ -565,11 +636,21 @@
           return;
         }
         draft = normalizeTheme(Object.assign({}, draft, body.theme || {}));
-        setStatus(body.message || "Rank card salvata.", false);
+        setStatus("", false);
+        showSaveSuccessToast();
         render();
       })
       .catch(function () {
         setStatus("Errore di rete durante il salvataggio.", true);
+      })
+      .finally(function () {
+        saveInFlight = false;
+        var btn = byId("vc-rank-save");
+        if (btn) {
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          btn.classList.remove("is-saving");
+        }
       });
   }
 

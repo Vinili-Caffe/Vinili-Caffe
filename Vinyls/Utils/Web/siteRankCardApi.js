@@ -6,7 +6,7 @@ const {
   DEFAULT_RANK_CARD_THEME,
   listRankCardWallpapers,
 } = require("../Render/rankCardTheme");
-const { getUserRanks, getGlobalMultiplier } = require("../../Services/Community/expService");
+const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
@@ -38,7 +38,7 @@ async function getRankCardCustomization(client, payload) {
 
   const theme = mergeRankCardTheme(doc?.profile?.rankCard || {});
   const { stats, weeklyRank, allTimeRank } = await getUserRanks(resolved.guild.id, resolved.userId);
-  const multiplier = await getGlobalMultiplier(resolved.guild.id).catch(() => 1);
+  const multiplier = await getResolvedWeeklyExpMultiplier(resolved.guild, resolved.userId, null).catch(() => 1);
   const permissions = getRankCardPermissions(resolved.member);
 
   return {
