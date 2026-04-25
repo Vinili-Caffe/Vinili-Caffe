@@ -62,20 +62,16 @@ module.exports = {
     if (messageGuildId && !themeGuildCandidates.includes(messageGuildId)) themeGuildCandidates.push(messageGuildId);
 
     let rankDoc = null;
-    let rankDocWithWallpaper = null;
     for (const gid of themeGuildCandidates) {
       const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: targetUser.id })
         .select("profile.rankCard")
         .lean()
         .catch(() => null);
       if (!doc?.profile?.rankCard) continue;
-      if (!rankDoc) rankDoc = doc;
-      if (String(doc.profile.rankCard.wallpaperUrl || "").trim()) {
-        rankDocWithWallpaper = doc;
-        break;
-      }
+      rankDoc = doc;
+      break;
     }
-    const rankCardTheme = getRankCardThemeFromDoc(rankDocWithWallpaper || rankDoc);
+    const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
 
     const avatarUrl =
       targetMember?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||

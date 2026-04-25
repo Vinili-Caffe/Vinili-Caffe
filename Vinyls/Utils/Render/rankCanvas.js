@@ -256,7 +256,7 @@ function drawProgressBar(ctx, x, y, width, height, progressPercent, currentExp, 
   drawText(ctx, `${formatInt(currentExp)} / ${formatInt(targetExp)} XP`, x + width / 2, y + height / 2 + 1, {
     size: 16,
     weight: 800,
-    color: palette.valueColor,
+    color: "#FFFFFF",
     align: "center",
   });
 }
@@ -302,7 +302,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   ctx.save();
   roundedRect(ctx, x, y, width, height, 10);
   ctx.clip();
-  ctx.fillStyle = palette.primaryTextColor;
+  ctx.fillStyle = palette.labelColor;
   ctx.fillRect(x, y, 4, height);
   ctx.restore();
 
