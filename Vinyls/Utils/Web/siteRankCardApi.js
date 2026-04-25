@@ -5,12 +5,17 @@ const {
   mergeRankCardTheme,
   DEFAULT_RANK_CARD_THEME,
   listRankCardWallpapers,
+  getRankCardThemeFromDoc,
 } = require("../Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
 const renderRankCanvas = require("../Render/rankCanvas");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
+
+function resolveGuildId(client) {
+  return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+}
 
 function getRankCardPermissions(member) {
   const hasRole = (roleId) => Boolean(roleId && member?.roles?.cache?.has(roleId));
@@ -22,6 +27,22 @@ function getRankCardPermissions(member) {
     wallpaperCustomRoles: ["Double Booster", "VIP+"],
     activeWallpaperRoles: roleBadges,
   };
+}
+
+function resolvePreferredAvatarUrl(member) {
+  const user = member?.user || null;
+  const hash = String((member && member.avatar) || (user && user.avatar) || "");
+  const prefersGif = /^a_/i.test(hash);
+  const opts = prefersGif
+    ? { extension: "gif", size: 256, forceStatic: false }
+    : { extension: "png", size: 256, forceStatic: false };
+  return (
+    member?.displayAvatarURL?.(opts) ||
+    user?.displayAvatarURL?.(opts) ||
+    member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+    user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+    ""
+  );
 }
 
 async function getRankCardCustomization(client, payload) {
@@ -48,10 +69,7 @@ async function getRankCardCustomization(client, payload) {
     userId: resolved.userId,
     username: String(resolved.member?.user?.username || "").trim(),
     displayName: String(resolved.member?.user?.username || "Utente").trim() || "Utente",
-    avatarUrl:
-      resolved.member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-      resolved.member?.user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-      "",
+    avatarUrl: resolvePreferredAvatarUrl(resolved.member),
     theme,
     defaults: DEFAULT_RANK_CARD_THEME,
     wallpapers: listRankCardWallpapers(),
@@ -128,12 +146,9 @@ async function getRankCardPreview(client, payload) {
     theme.wallpaperUrl = "";
   }
 
-  const avatarUrl =
-    resolved.member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-    resolved.member?.user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-    "";
+  const avatarUrl = resolvePreferredAvatarUrl(resolved.member);
 
-  const image = await renderRankCanvas({
+  const rendered = await renderRankCanvas({
     username: String(resolved.member?.user?.username || "utente").trim() || "utente",
     avatarUrl,
     level: Number(stats?.level || 0),
@@ -149,14 +164,67 @@ async function getRankCardPreview(client, payload) {
     theme,
   }).catch(() => null);
 
-  if (!image) {
+  if (!rendered?.buffer) {
     return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare anteprima rank card." };
   }
 
   return {
     ok: true,
     status: 200,
-    image,
+    image: rendered.buffer,
+    mimeType: String(rendered.mimeType || "image/png"),
+  };
+}
+
+async function getPublicRankCardPreview(client, payload) {
+  const userId = String(payload?.userId || "").trim();
+  if (!/^\d{17,20}$/.test(userId)) {
+    return { ok: false, status: 400, error: "invalid_user_id", message: "Parametro userId non valido." };
+  }
+  const guildId = resolveGuildId(client);
+  if (!guildId) {
+    return { ok: false, status: 503, error: "guild_missing", message: "Guild principale non configurata." };
+  }
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) {
+    return { ok: false, status: 503, error: "guild_unavailable", message: "Server Discord non disponibile." };
+  }
+  const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+  if (!member) {
+    return { ok: false, status: 404, error: "member_not_found", message: "Utente non trovato nel server." };
+  }
+
+  const { stats, weeklyRank, allTimeRank } = await getUserRanks(guildId, userId);
+  const multiplier = await getResolvedWeeklyExpMultiplier(guild, userId, null).catch(() => 1);
+  const doc = await ActivityUserProfile.findOne({ guildId, userId })
+    .select("profile.rankCard")
+    .lean()
+    .catch(() => null);
+  const theme = getRankCardThemeFromDoc(doc);
+  const avatarUrl = resolvePreferredAvatarUrl(member);
+  const rendered = await renderRankCanvas({
+    username: String(member?.user?.username || "utente").trim() || "utente",
+    avatarUrl,
+    level: Number(stats?.level || 0),
+    totalExp: Number(stats?.totalExp || 0),
+    currentLevelExp: Number(stats?.currentLevelExp || 0),
+    nextLevelExp: Number(stats?.nextLevelExp || 0),
+    progressPercent: Number(stats?.progressPercent || 0),
+    weeklyRank: weeklyRank || null,
+    allTimeRank: allTimeRank || null,
+    weeklyExp: Number(stats?.weeklyExp || 0),
+    multiplier: Number(multiplier || 1),
+    hideLeaderboardRanks: false,
+    theme,
+  }).catch(() => null);
+  if (!rendered?.buffer) {
+    return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare rank card." };
+  }
+  return {
+    ok: true,
+    status: 200,
+    image: rendered.buffer,
+    mimeType: String(rendered.mimeType || "image/png"),
   };
 }
 
@@ -164,4 +232,5 @@ module.exports = {
   getRankCardCustomization,
   updateRankCardCustomization,
   getRankCardPreview,
+  getPublicRankCardPreview,
 };

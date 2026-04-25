@@ -436,7 +436,7 @@ async function startWebhookServer(client) {
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
-  const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
+  const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview } = require("../../Utils/Web/siteReviewsApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
@@ -538,11 +538,26 @@ async function startWebhookServer(client) {
       if (!out || out.ok !== true || !out.image) {
         return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
       }
-      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Content-Type", String(out.mimeType || "image/png"));
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       return res.status(200).send(out.image);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rank-card-preview post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-rank-card-public", async (req, res) => {
+    try {
+      const userId = String((req.query && req.query.userId) || "").trim();
+      const out = await getPublicRankCardPreview(client, { userId });
+      if (!out || out.ok !== true || !out.image) {
+        return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
+      }
+      res.setHeader("Content-Type", String(out.mimeType || "image/png"));
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return res.status(200).send(out.image);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-rank-card-public get:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

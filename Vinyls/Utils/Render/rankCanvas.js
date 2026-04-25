@@ -1,5 +1,11 @@
 const canvasModule = require("canvas");
 const { createCanvas } = canvasModule;
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const { spawnSync } = require("child_process");
+const axios = require("axios");
+const ffmpegPath = require("ffmpeg-static");
 
 /** `canvas.Path2D` manca o non è costruibile in alcuni ambienti (mock, runtime non standard, build nativa vecchia). */
 let path2dCtorMemo;
@@ -187,7 +193,7 @@ function drawCoverImage(ctx, image, x, y, width, height) {
   ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 }
 
-async function drawAvatar(ctx, avatarUrl, x, y, size, palette) {
+async function drawAvatar(ctx, avatarUrl, x, y, size, palette, avatarImageOverride = null) {
   const cx = x + size / 2;
   const cy = y + size / 2;
   const radius = size / 2;
@@ -206,7 +212,7 @@ async function drawAvatar(ctx, avatarUrl, x, y, size, palette) {
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.clip();
 
-  const avatar = avatarUrl ? await safeLoadImage(avatarUrl) : null;
+  const avatar = avatarImageOverride || (avatarUrl ? await safeLoadImage(avatarUrl) : null);
   if (avatar) {
     drawCoverImage(ctx, avatar, x, y, size, size);
   } else {
@@ -387,7 +393,11 @@ function drawPresetWallpaperFromKey(ctx, x, y, width, height, key) {
   ctx.fillRect(x, y, width, height);
 }
 
-async function drawWallpaper(ctx, x, y, width, height, palette) {
+async function drawWallpaper(ctx, x, y, width, height, palette, wallpaperImageOverride = null) {
+  if (wallpaperImageOverride) {
+    drawCoverImage(ctx, wallpaperImageOverride, x, y, width, height);
+    return;
+  }
   const wallpaper = resolveRankCardWallpaper(palette);
   if (wallpaper && isGifDataUrlWallpaper(wallpaper)) {
     /* node-canvas non gestisce in modo affidabile GIF data URL: evitiamo warning rumorosi. */
@@ -422,7 +432,67 @@ async function drawWallpaper(ctx, x, y, width, height, palette) {
   ctx.fillRect(x, y, width, height);
 }
 
-async function renderRankCanvas(data) {
+function isAnimatedAvatarUrl(url) {
+  const raw = String(url || "").trim().toLowerCase();
+  if (!raw) return false;
+  if (raw.includes(".gif")) return true;
+  return /[?&]format=gif(?:[&#]|$)/i.test(raw);
+}
+
+function isGifDataUrl(url) {
+  return /^data:image\/gif;base64,/i.test(String(url || "").trim());
+}
+
+function decodeGifDataUrlToBuffer(url) {
+  const raw = String(url || "").trim();
+  if (!isGifDataUrl(raw)) return null;
+  const comma = raw.indexOf(",");
+  if (comma < 0) return null;
+  try {
+    const buf = Buffer.from(raw.slice(comma + 1).replace(/\s/g, ""), "base64");
+    if (!buf.length) return null;
+    return String(buf.slice(0, 6)).startsWith("GIF") ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
+function runFfmpeg(args) {
+  if (!ffmpegPath) return false;
+  const out = spawnSync(ffmpegPath, args, {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  return Number(out?.status) === 0;
+}
+
+async function fetchGifBufferFromSource(source) {
+  const raw = String(source || "").trim();
+  if (!raw) return null;
+  if (isGifDataUrl(raw)) return decodeGifDataUrlToBuffer(raw);
+  if (!isAnimatedAvatarUrl(raw)) return null;
+  try {
+    const res = await axios.get(raw, {
+      responseType: "arraybuffer",
+      timeout: 8000,
+      validateStatus: (s) => s >= 200 && s < 300,
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "image/gif,image/*;q=0.9,*/*;q=0.8",
+      },
+      maxRedirects: 3,
+    });
+    const buf = Buffer.from(res.data || []);
+    if (!buf.length) return null;
+    const header = String(buf.slice(0, 6));
+    if (!header.startsWith("GIF")) return null;
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
+async function renderRankPngBuffer(data, avatarImageOverride = null, wallpaperImageOverride = null) {
   registerCanvasFonts(canvasModule);
 
   const palette = mergeRankCardTheme(data.theme || {});
@@ -447,7 +517,7 @@ async function renderRankCanvas(data) {
   ctx.save();
   roundedRect(ctx, card.x, card.y, card.w, card.h, card.r);
   ctx.clip();
-  await drawWallpaper(ctx, card.x, card.y, card.w, card.h, palette);
+  await drawWallpaper(ctx, card.x, card.y, card.w, card.h, palette, wallpaperImageOverride);
   ctx.fillStyle = hexToRgba(palette.panelColor, panelAlpha * 0.55);
   ctx.fillRect(card.x, card.y, card.w, card.h);
   ctx.restore();
@@ -477,7 +547,7 @@ async function renderRankCanvas(data) {
   const avatarSize = 122;
   const avatarX = hero.x + heroPadX + (avatarColW - avatarSize) / 2;
   const avatarY = hero.y + (hero.h - avatarSize) / 2;
-  await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette);
+  await drawAvatar(ctx, data.avatarUrl, avatarX, avatarY, avatarSize, palette, avatarImageOverride);
 
   const copyX = hero.x + heroPadX + avatarColW + heroGap;
   const rankBoxX = hero.x + hero.w - heroPadX - rankBoxW;
@@ -563,6 +633,130 @@ async function renderRankCanvas(data) {
   drawStatPill(ctx, statsX + (statW + gap) * 2, statsY, statW, statH, "star", "Multiplier", multiplierText, palette, panelAlpha);
 
   return canvas.toBuffer("image/png");
+}
+
+async function renderRankAnimatedGifBuffer(data) {
+  if (!ffmpegPath) return null;
+  const avatarGif = await fetchGifBufferFromSource(data?.avatarUrl);
+  const palette = mergeRankCardTheme(data?.theme || {});
+  const wallpaperSource = resolveRankCardWallpaper(palette);
+  const wallpaperGif = await fetchGifBufferFromSource(wallpaperSource);
+  if (!avatarGif && !wallpaperGif) return null;
+
+  let tmpDir = "";
+  try {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-rank-gif-"));
+    const avatarPath = path.join(tmpDir, "avatar.gif");
+    const wallpaperPath = path.join(tmpDir, "wallpaper.gif");
+    const avatarFramesPattern = path.join(tmpDir, "avatar_%03d.png");
+    const wallpaperFramesPattern = path.join(tmpDir, "wallpaper_%03d.png");
+    const cardFramesPattern = path.join(tmpDir, "card_%03d.png");
+    const palettePath = path.join(tmpDir, "palette.png");
+    const outGifPath = path.join(tmpDir, "rank.gif");
+    if (avatarGif) {
+      fs.writeFileSync(avatarPath, avatarGif);
+      runFfmpeg([
+        "-y",
+        "-i", avatarPath,
+        "-vf", "fps=10,scale=122:122:flags=lanczos",
+        "-frames:v", "12",
+        avatarFramesPattern,
+      ]);
+    }
+    if (wallpaperGif) {
+      fs.writeFileSync(wallpaperPath, wallpaperGif);
+      runFfmpeg([
+        "-y",
+        "-i", wallpaperPath,
+        "-vf", "fps=10,scale=976:276:flags=lanczos",
+        "-frames:v", "12",
+        wallpaperFramesPattern,
+      ]);
+    }
+
+    const avatarFrames = fs
+      .readdirSync(tmpDir)
+      .filter((name) => /^avatar_\d+\.png$/i.test(name))
+      .sort((a, b) => a.localeCompare(b, "en"));
+    const wallpaperFrames = fs
+      .readdirSync(tmpDir)
+      .filter((name) => /^wallpaper_\d+\.png$/i.test(name))
+      .sort((a, b) => a.localeCompare(b, "en"));
+    const frameCount = Math.max(avatarFrames.length, wallpaperFrames.length);
+    if (frameCount <= 1) return null;
+
+    for (let i = 0; i < frameCount; i += 1) {
+      const avatarFramePath = avatarFrames.length
+        ? path.join(tmpDir, avatarFrames[i % avatarFrames.length])
+        : "";
+      const wallpaperFramePath = wallpaperFrames.length
+        ? path.join(tmpDir, wallpaperFrames[i % wallpaperFrames.length])
+        : "";
+      const avatarFrame = avatarFramePath
+        ? await safeLoadImage(avatarFramePath, { suppressWarning: true })
+        : null;
+      const wallpaperFrame = wallpaperFramePath
+        ? await safeLoadImage(wallpaperFramePath, { suppressWarning: true })
+        : null;
+      const frameBuffer = await renderRankPngBuffer(data, avatarFrame, wallpaperFrame);
+      const outFrameName = `card_${String(i + 1).padStart(3, "0")}.png`;
+      fs.writeFileSync(path.join(tmpDir, outFrameName), frameBuffer);
+    }
+
+    const cardFrames = fs
+      .readdirSync(tmpDir)
+      .filter((name) => /^card_\d+\.png$/i.test(name))
+      .sort((a, b) => a.localeCompare(b, "en"));
+    if (!cardFrames.length) return null;
+
+    const paletteOk = runFfmpeg([
+      "-y",
+      "-i", cardFramesPattern,
+      "-vf", "palettegen=stats_mode=diff",
+      palettePath,
+    ]);
+    if (!paletteOk) return null;
+
+    const gifOk = runFfmpeg([
+      "-y",
+      "-framerate", "10",
+      "-i", cardFramesPattern,
+      "-i", palettePath,
+      "-lavfi", "paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
+      "-loop", "0",
+      outGifPath,
+    ]);
+    if (!gifOk || !fs.existsSync(outGifPath)) return null;
+    const outGif = fs.readFileSync(outGifPath);
+    return outGif && outGif.length ? outGif : null;
+  } catch {
+    return null;
+  } finally {
+    if (tmpDir) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {}
+    }
+  }
+}
+
+async function renderRankCanvas(data) {
+  const gifBuffer = await renderRankAnimatedGifBuffer(data);
+  if (gifBuffer) {
+    return {
+      buffer: gifBuffer,
+      mimeType: "image/gif",
+      extension: "gif",
+      animated: true,
+    };
+  }
+  const pngBuffer = await renderRankPngBuffer(data);
+  return {
+    buffer: pngBuffer,
+    mimeType: "image/png",
+    extension: "png",
+    animated: false,
+  };
 }
 
 module.exports = renderRankCanvas;

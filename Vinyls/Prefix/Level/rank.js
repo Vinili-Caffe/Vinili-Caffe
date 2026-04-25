@@ -6,6 +6,21 @@ const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 const IDs = require("../../Utils/Config/ids");
 
+function resolvePreferredAvatarUrl(member, user) {
+  const hash = String((member && member.avatar) || (user && user.avatar) || "");
+  const prefersGif = /^a_/i.test(hash);
+  const opts = prefersGif
+    ? { extension: "gif", size: 256, forceStatic: false }
+    : { extension: "png", size: 256, forceStatic: false };
+  return (
+    member?.displayAvatarURL?.(opts) ||
+    user?.displayAvatarURL?.(opts) ||
+    member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+    user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+    ""
+  );
+}
+
 module.exports = {
   name: "rank",
   aliases: ["r"],
@@ -73,9 +88,7 @@ module.exports = {
     }
     const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
 
-    const avatarUrl =
-      targetMember?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-      targetUser.displayAvatarURL({ size: 256, forceStatic: false });
+    const avatarUrl = resolvePreferredAvatarUrl(targetMember, targetUser);
     const card = await renderRankCanvas({
       username: targetUser.username,
       avatarUrl,
@@ -91,11 +104,20 @@ module.exports = {
       hideLeaderboardRanks: false,
       theme: rankCardTheme,
     });
-    const file=new AttachmentBuilder(card,{name:`rank-${targetUser.id}.png`});
+    const cardBuffer = card?.buffer || null;
+    const cardExt = String(card?.extension || "png").toLowerCase() === "gif" ? "gif" : "png";
+    if (!cardBuffer) {
+      await safeMessageReply(message, {
+        content: "Non sono riuscito a generare la rank card in questo momento.",
+        allowedMentions: { repliedUser: false },
+      });
+      return;
+    }
+    const file = new AttachmentBuilder(cardBuffer, { name: `rank-${targetUser.id}.${cardExt}` });
     const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(`Le statistiche di ${targetUser.tag} .ᐟ ✧`)
-    .setImage(`attachment://rank-${targetUser.id}.png`)
+    .setImage(`attachment://rank-${targetUser.id}.${cardExt}`)
     .setDescription(
       [
         `<:VC_EXP:1482534670896730143> Hai accumulato un totale di **${stats.totalExp} EXP**.`,

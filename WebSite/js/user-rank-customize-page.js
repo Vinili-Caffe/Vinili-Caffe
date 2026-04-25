@@ -325,8 +325,9 @@
       return;
     }
     var myToken = ++previewRenderToken;
-    status.textContent = "Render anteprima in corso...";
+    if (!img.getAttribute("src")) status.textContent = "Render anteprima in corso...";
     status.className = "vc-rank-editor-preview__imagestatus";
+    img.classList.add("is-rendering");
     fetchWithTimeout(url, {
       method: "POST",
       headers: {
@@ -342,13 +343,36 @@
       .then(function (blob) {
         if (myToken !== previewRenderToken) return;
         if (!blob || !blob.size) throw new Error("preview_empty");
-        revokePreviewObjectUrl();
-        previewObjectUrl = window.URL.createObjectURL(blob);
+        var nextObjectUrl = window.URL.createObjectURL(blob);
+        return new Promise(function (resolve, reject) {
+          var probe = new Image();
+          probe.onload = function () { resolve(nextObjectUrl); };
+          probe.onerror = function () { reject(new Error("preview_decode_failed")); };
+          probe.src = nextObjectUrl;
+        });
+      })
+      .then(function (nextObjectUrl) {
+        if (!nextObjectUrl) return;
+        if (myToken !== previewRenderToken) {
+          try {
+            window.URL.revokeObjectURL(nextObjectUrl);
+          } catch (eRevoke) {}
+          return;
+        }
+        var prevObjectUrl = previewObjectUrl;
+        previewObjectUrl = nextObjectUrl;
         img.src = previewObjectUrl;
+        img.classList.remove("is-rendering");
         status.textContent = "";
+        if (prevObjectUrl) {
+          try {
+            window.URL.revokeObjectURL(prevObjectUrl);
+          } catch (ePrev) {}
+        }
       })
       .catch(function () {
         if (myToken !== previewRenderToken) return;
+        img.classList.remove("is-rendering");
         status.textContent = "Anteprima non disponibile al momento.";
         status.className = "vc-rank-editor-preview__imagestatus is-error";
       });

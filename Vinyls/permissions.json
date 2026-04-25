@@ -252,7 +252,7 @@
         },
         "rank": {
             "roles": [
-                "roles.Founder"
+                "roles.Member"
             ],
             "channels": [
                 "channels.commands",

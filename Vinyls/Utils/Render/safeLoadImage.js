@@ -45,16 +45,18 @@ function rewriteDiscordCdnUrl(url) {
     const u = new URL(raw);
     if (!/cdn\.discordapp\.com$/i.test(u.host)) return raw;
     const path = String(u.pathname || "");
+    const isGifPath = /\.gif$/i.test(path);
     if (path.endsWith(".webp")) u.pathname = path.replace(/\.webp$/i, ".png");
-    else if (path.endsWith(".gif")) u.pathname = path.replace(/\.gif$/i, ".png");
     else {
       const last = path.split("/").pop() || "";
       if (last && !last.includes(".")) {
-        u.pathname = `${path}.png`;
+        u.pathname = isGifPath ? path : `${path}.png`;
       }
     }
-    if (u.searchParams.get("format")) u.searchParams.set("format", "png");
-    else u.searchParams.append("format", "png");
+    if (!isGifPath) {
+      if (u.searchParams.get("format")) u.searchParams.set("format", "png");
+      else u.searchParams.append("format", "png");
+    }
     if (!u.searchParams.get("size")) u.searchParams.append("size", "256");
     next = u.toString();
   } catch {

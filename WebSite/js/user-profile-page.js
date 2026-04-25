@@ -1,6 +1,8 @@
 (function () {
   var currentViewer = null;
   var lastRenderedProfile = null;
+  var profileRankObjectUrl = "";
+  var profileRankRenderToken = 0;
 
   function byId(id) {
     return document.getElementById(id);
@@ -35,6 +37,15 @@
       }
     } catch (e) {}
     return api;
+  }
+
+  function resolvedPublicRankPreviewUrl(userId) {
+    var base = resolvedApiUrl();
+    var id = String(userId || "").trim();
+    if (!base || !/^\d{17,20}$/.test(id)) return "";
+    var root = base.split("?")[0];
+    var endpoint = root.replace(/\/site-users\/?$/i, "/site-rank-card-public");
+    return endpoint + "?userId=" + encodeURIComponent(id) + "&_v=" + encodeURIComponent(String(Date.now()));
   }
 
   function esc(s) {
@@ -821,51 +832,9 @@
           '"><i class="fa fa-sliders" aria-hidden="true"></i> Personalizza</a>'
         : "") +
       "</div>" +
-      '<div class="vc-user-rankcard-preview vc-rank-editor-preview__card"' + rankCardStyleVars(rankCardTheme, profile.rankCardResolvedWallpaper) + ">" +
-      '<div class="vc-rank-editor-preview__hero">' +
-      '<div class="vc-rank-editor-preview__avatarwrap">' +
-      (avatar
-        ? '<img class="vc-rank-editor-preview__avatar" src="' +
-          esc(avatar) +
-          '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' +
-          esc(defaultEmbedAvatarUrl(userId)) +
-          '\'" />'
-        : '<span class="vc-rank-editor-preview__avatar vc-rank-editor-preview__avatar--fallback"><i class="fa fa-user"></i></span>') +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__copy">' +
-      '<div class="vc-rank-editor-preview__topline">' +
-      '<span class="vc-rank-editor-preview__name">' + esc(profileUsername) + "</span>" +
-      '<span class="vc-rank-editor-preview__dot">-</span>' +
-      '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(level.level != null ? level.level : 0)) + "</span>" +
-      '<span class="vc-rank-editor-preview__mult">' + esc(formatMult(multiplier)) + "</span>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__bar"><span class="vc-rank-editor-preview__fill" style="width:' +
-      esc(progressPct) +
-      '"></span><span class="vc-rank-editor-preview__bartext">' +
-      esc(formatIntIt(currentXp)) +
-      " / " +
-      esc(formatIntIt(targetXp)) +
-      " XP</span></div>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__rankbox"><strong>' + esc(rankText) + "</strong><small>RANK</small></div>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__stats">' +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--trophy">' +
-      rankCardStatIcon("trophy") +
-      "<span>WEEKLY RANK</span><strong>" +
-      esc(weeklyRankText) +
-      "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--bolt">' +
-      rankCardStatIcon("bolt") +
-      "<span>WEEKLY XP</span><strong>" +
-      esc(formatIntIt(weekly.weeklyExp || 0)) +
-      "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--star">' +
-      rankCardStatIcon("star") +
-      "<span>MULTIPLIER</span><strong>" +
-      esc(formatMult(multiplier)) +
-      "</strong></div>" +
-      "</div>" +
+      '<div class="vc-user-rankcard-preview vc-rank-editor-preview__imagewrap">' +
+      '<img id="vc-user-rankcard-image" class="vc-rank-editor-preview__image" alt="Rank card profilo" loading="lazy" decoding="async" />' +
+      '<p id="vc-user-rankcard-image-status" class="vc-rank-editor-preview__imagestatus">Render rank card in corso...</p>' +
       "</div></section>" +
       customEconomyHtml +
       '<section class="vc-user-profile-block vc-user-profile-block--roles">' +
@@ -876,6 +845,56 @@
       rolesHtml +
       "</div></section>" +
       "</section>";
+  }
+
+  function releaseProfileRankObjectUrl() {
+    if (!profileRankObjectUrl) return;
+    try {
+      window.URL.revokeObjectURL(profileRankObjectUrl);
+    } catch (e) {}
+    profileRankObjectUrl = "";
+  }
+
+  function loadProfileRankCardPreview(userId) {
+    var img = byId("vc-user-rankcard-image");
+    var status = byId("vc-user-rankcard-image-status");
+    if (!img || !status) return;
+    var url = resolvedPublicRankPreviewUrl(userId);
+    if (!url) {
+      status.textContent = "Anteprima non disponibile.";
+      status.className = "vc-rank-editor-preview__imagestatus is-error";
+      return;
+    }
+    var myToken = ++profileRankRenderToken;
+    status.textContent = "Render rank card in corso...";
+    status.className = "vc-rank-editor-preview__imagestatus";
+    img.classList.add("is-rendering");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("http_" + r.status);
+        return r.blob();
+      })
+      .then(function (blob) {
+        if (myToken !== profileRankRenderToken) return;
+        if (!blob || !blob.size) throw new Error("empty");
+        var nextObjectUrl = window.URL.createObjectURL(blob);
+        var prevObjectUrl = profileRankObjectUrl;
+        profileRankObjectUrl = nextObjectUrl;
+        img.src = nextObjectUrl;
+        img.classList.remove("is-rendering");
+        status.textContent = "";
+        if (prevObjectUrl) {
+          try {
+            window.URL.revokeObjectURL(prevObjectUrl);
+          } catch (eRevoke) {}
+        }
+      })
+      .catch(function () {
+        if (myToken !== profileRankRenderToken) return;
+        img.classList.remove("is-rendering");
+        status.textContent = "Anteprima non disponibile al momento.";
+        status.className = "vc-rank-editor-preview__imagestatus is-error";
+      });
   }
 
   function main() {
@@ -944,6 +963,7 @@
       };
 
       renderProfile(root, userId, lastRenderedProfile.payload);
+      loadProfileRankCardPreview(userId);
     });
   }
 
@@ -951,6 +971,7 @@
     currentViewer = ev && ev.detail ? ev.detail.user || null : null;
     if (lastRenderedProfile && lastRenderedProfile.root) {
       renderProfile(lastRenderedProfile.root, lastRenderedProfile.userId, lastRenderedProfile.payload);
+      loadProfileRankCardPreview(lastRenderedProfile.userId);
     }
   });
 
