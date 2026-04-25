@@ -223,6 +223,27 @@
           <p class="vc-rank-customize-loading__text">Caricamento personalizzazioni...</p>
         </div>
         <div id="vc-rank-customize-app" hidden></div>
+        <script>
+          (function () {
+            var fired = false;
+            window.setTimeout(function () {
+              if (fired) return;
+              var loading = document.getElementById("vc-rank-customize-loading");
+              var app = document.getElementById("vc-rank-customize-app");
+              if (!loading || !app) return;
+              if (loading.hidden) return;
+              fired = true;
+              loading.hidden = true;
+              app.hidden = false;
+              app.innerHTML =
+                '<div class="vc-rank-customize-fatal">' +
+                '<section class="vc-rank-editor-hero">' +
+                '<div class="vc-rank-editor-hero__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>' +
+                "<div><h1>Caricamento non riuscito</h1><p>Ricarica la pagina. Se il problema continua, esegui logout/login Discord e riprova.</p></div>" +
+                "</section></div>";
+            }, 12000);
+          })();
+        </script>
       </section>
     </main>
 

@@ -306,7 +306,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   ctx.fillRect(x, y, 4, height);
   ctx.restore();
 
-  drawStatIcon(ctx, icon, x + 28, y + height / 2, palette.primaryTextColor);
+  drawStatIcon(ctx, icon, x + 28, y + height / 2, palette.labelColor);
 
   drawText(ctx, label.toUpperCase(), x + 56, y + 18, {
     size: 11,
@@ -317,7 +317,7 @@ function drawStatPill(ctx, x, y, width, height, icon, label, value, palette, pan
   drawText(ctx, value, x + 56, y + 36, {
     size: 17,
     weight: 900,
-    color: palette.valueColor,
+    color: palette.primaryTextColor,
     align: "left",
   });
 }

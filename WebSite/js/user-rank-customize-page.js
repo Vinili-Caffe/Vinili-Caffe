@@ -10,6 +10,7 @@
   var saveInFlight = false;
   var previewRenderToken = 0;
   var previewObjectUrl = "";
+  var previewRefreshTimer = null;
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
@@ -297,7 +298,9 @@
   function previewMarkup(data, theme) {
     return (
       '<div class="vc-rank-editor-preview__imagewrap">' +
-      '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="Anteprima rank card" loading="eager" decoding="async" />' +
+      '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="Anteprima rank card" loading="eager" decoding="async"' +
+      (previewObjectUrl ? ' src="' + esc(previewObjectUrl) + '"' : "") +
+      " />" +
       '<p id="vc-rank-editor-preview-image-status" class="vc-rank-editor-preview__imagestatus">Render anteprima in corso...</p>' +
       "</div>"
     );
@@ -349,6 +352,19 @@
         status.textContent = "Anteprima non disponibile al momento.";
         status.className = "vc-rank-editor-preview__imagestatus is-error";
       });
+  }
+
+  function schedulePreviewRefresh(delayMs) {
+    var ms = Number(delayMs);
+    if (!Number.isFinite(ms) || ms < 0) ms = 200;
+    if (previewRefreshTimer) {
+      window.clearTimeout(previewRefreshTimer);
+      previewRefreshTimer = null;
+    }
+    previewRefreshTimer = window.setTimeout(function () {
+      previewRefreshTimer = null;
+      refreshServerPreview();
+    }, ms);
   }
 
   function wallpaperGalleryMarkup() {
@@ -541,6 +557,14 @@
       return;
     }
     draft[field] = normalizeHexDisplay(value, draft[field]);
+    if (field === "primaryTextColor") {
+      draft.progressStartColor = draft[field];
+      draft.progressEndColor = draft[field];
+      draft.ringColor = draft[field];
+    }
+    if (field === "labelColor") {
+      draft.secondaryTextColor = draft[field];
+    }
     render();
   }
 
@@ -614,8 +638,7 @@
         if (label) label.textContent = String(range.value) + "%";
         var badge = document.querySelector(".vc-rank-editor-card__badge");
         if (badge) badge.textContent = String(range.value) + "%";
-        var preview = document.querySelector(".vc-rank-editor-preview__card");
-        if (preview) preview.style.setProperty("--vc-rank-opacity", String(draft.overlayOpacity));
+        schedulePreviewRefresh(120);
       });
     }
 
