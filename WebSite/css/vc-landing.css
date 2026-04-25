@@ -5471,7 +5471,9 @@ body.vc-body--home .vc-support-intro-shell .vc-hero-kicker {
 
 body.vc-body--home .vc-home-highlight-card,
 body.vc-body--home .vc-home-linkpanel,
-body.vc-body--home #stats .vc-stat-strip {
+body.vc-body--home #stats .vc-stat-strip,
+body.vc-body--home .vc-home-storycard,
+body.vc-body--home .vc-home-storycard--accent {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2);
   background: linear-gradient(135deg, rgba(18, 34, 48, 0.55), rgba(20, 62, 54, 0.2));
   box-shadow:
@@ -5484,15 +5486,41 @@ body.vc-body--home .vc-home-linkitem {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.16);
 }
 
+body.vc-body--home .vc-home-highlight-ico,
+body.vc-body--home .vc-home-linkpanel__badge,
+body.vc-body--home .vc-home-linkitem__icon,
+body.vc-body--home .vc-home-storycard__icon {
+  color: rgba(232, 201, 168, 0.95);
+  border-color: rgba(var(--vc-sand-rgb), 0.28);
+  background: rgba(var(--vc-mocha-rgb), 0.36);
+  box-shadow: 0 0 20px rgba(var(--vc-reviews-glow-rgb), 0.12);
+}
+
 body.vc-body--home .vc-home-linkitem:hover,
 body.vc-body--home #stats .vc-stat-cell:hover,
-body.vc-body--home .vc-home-highlight-card:hover {
+body.vc-body--home .vc-home-highlight-card:hover,
+body.vc-body--home .vc-home-storycard:hover {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.34);
   background: rgba(14, 42, 44, 0.58);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 18px 44px rgba(0, 0, 0, 0.38),
     0 0 28px rgba(var(--vc-reviews-glow-rgb), 0.14);
+}
+
+body.vc-body--home .vc-home-highlight-title,
+body.vc-body--home .vc-home-linkpanel__title,
+body.vc-body--home .vc-home-linkitem__copy strong,
+body.vc-body--home .vc-home-storycard__title,
+body.vc-body--home #stats .vc-stat-num {
+  color: #f8fafc;
+}
+
+body.vc-body--home .vc-home-highlight-desc,
+body.vc-body--home .vc-home-linkitem__copy small,
+body.vc-body--home .vc-home-storycard__desc,
+body.vc-body--home .vc-stat-label {
+  color: rgba(232, 201, 168, 0.78);
 }
 
 body.vc-body--home .vc-hero-primary-cta,
@@ -6323,24 +6351,25 @@ body.vc-body--home .vc-snav-row:hover {
 
 .vc-rank-customize-loading {
   display: flex;
-  width: min(100%, 36rem);
-  min-height: 52vh;
+  width: min(100%, 64rem);
+  min-height: 18rem;
   margin: 0 auto;
-  padding: 1.15rem 1.25rem;
+  padding: 2.2rem 2.1rem;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 0.75rem;
-  border-radius: 1.1rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  gap: 0.95rem;
+  border-radius: 1.55rem;
+  border: 1px solid rgba(88, 148, 178, 0.25);
   background:
-    radial-gradient(circle at 14% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.12), transparent 46%),
-    linear-gradient(145deg, rgba(14, 24, 38, 0.9), rgba(10, 18, 30, 0.86));
+    radial-gradient(circle at 16% 0%, rgba(16, 185, 129, 0.08), transparent 48%),
+    radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.08), transparent 54%),
+    linear-gradient(145deg, rgba(7, 21, 40, 0.93), rgba(6, 17, 33, 0.9));
   box-shadow:
-    0 16px 46px rgba(0, 0, 0, 0.34),
+    0 14px 36px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .vc-rank-customize-loading[hidden] {
@@ -6348,21 +6377,31 @@ body.vc-body--home .vc-snav-row:hover {
 }
 
 .vc-rank-customize-loading__spin {
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 3.1rem;
+  height: 3.1rem;
   border-radius: 9999px;
-  border: 4px solid rgba(var(--vc-reviews-teal-rgb), 0.38);
-  border-top-color: rgba(var(--vc-reviews-emerald-rgb), 0.95);
-  box-shadow: 0 0 20px rgba(var(--vc-reviews-glow-rgb), 0.2);
-  animation: vc-page-spin 0.9s linear infinite;
+  border: 3px solid rgba(52, 211, 153, 0.2);
+  border-top-color: rgba(52, 211, 153, 0.92);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.16);
+  animation: vc-page-spin 0.95s linear infinite;
 }
 
 .vc-rank-customize-loading__text {
   margin: 0;
-  color: rgba(226, 232, 240, 0.92);
-  font-size: 1.02rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  color: rgba(167, 243, 208, 0.96);
+  font-size: clamp(2.1rem, 4.2vw, 3rem);
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
+.vc-rank-customize-loading__sub {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.76);
+  font-size: clamp(1rem, 1.55vw, 1.65rem);
+  font-weight: 600;
+  text-align: center;
 }
 
 .vc-rank-save-toast-host {
@@ -7013,17 +7052,16 @@ body.vc-body--home .vc-snav-row:hover {
   border-radius: 999px;
   min-height: 2.55rem;
   padding: 0 1rem;
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.24);
-  background: linear-gradient(135deg, rgba(16, 31, 42, 0.86), rgba(14, 40, 52, 0.58));
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition: transform 0.14s ease, border-color 0.14s ease, filter 0.14s ease;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
 }
 .vc-rank-customize-page .vc-user-profile-backbtn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.42);
-  filter: brightness(1.05);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(15, 23, 42, 0.88);
 }
 .vc-rank-customize-page .vc-rank-editor-hero { gap: 0.9rem; margin-bottom: 1.2rem; }
 .vc-rank-customize-page .vc-rank-editor-hero__icon { width: 3.7rem; height: 3.7rem; border-radius: 1rem; font-size: 1.65rem; }
@@ -10901,12 +10939,19 @@ body.vc-body--home .vc-snav-row:hover {
 }
 
 .vc-rank-customize-loading {
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2);
-  background: linear-gradient(145deg, rgba(10, 28, 32, 0.92), rgba(12, 22, 38, 0.72));
+  border-color: rgba(88, 148, 178, 0.25);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(16, 185, 129, 0.08), transparent 48%),
+    radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.08), transparent 54%),
+    linear-gradient(145deg, rgba(7, 21, 40, 0.93), rgba(6, 17, 33, 0.9));
 }
 
 .vc-rank-customize-loading__text {
-  color: rgba(226, 232, 240, 0.9);
+  color: rgba(167, 243, 208, 0.96);
+}
+
+.vc-rank-customize-loading__sub {
+  color: rgba(226, 232, 240, 0.76);
 }
 
 .vc-rank-save-toast {

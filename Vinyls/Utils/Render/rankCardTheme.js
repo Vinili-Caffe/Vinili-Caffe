@@ -105,6 +105,8 @@ const DEFAULT_RANK_CARD_THEME = Object.freeze({
   rankBoxBorderColor: "#ffcb05",
 });
 
+const MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH = 3_000_000;
+
 function clamp(value, min, max) {
   const n = Number(value);
   if (!Number.isFinite(n)) return min;
@@ -126,7 +128,7 @@ function sanitizeWallpaperUrl(value) {
     raw = raw.replace(/\s+/g, "");
   }
   if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw)) {
-    if (raw.length > 900_000) return "";
+    if (raw.length > MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH) return "";
     return raw;
   }
   if (raw.length > 1000) return "";

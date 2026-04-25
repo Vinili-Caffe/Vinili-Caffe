@@ -1,4 +1,5 @@
 (function () {
+  var MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH = 3000000;
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var currentUser = null;
@@ -614,7 +615,7 @@
     var mime = String((file && file.type) || "").toLowerCase();
     if (mime === "image/gif") {
       var gifUrl = await readFileAsDataUrl(file);
-      if (gifUrl.length > 900000) {
+      if (gifUrl.length > MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH) {
         throw new Error("file_too_large");
       }
       return gifUrl;
@@ -632,13 +633,13 @@
     ctx.drawImage(img, 0, 0, width, height);
     /* JPEG: node-canvas lato bot decodifica in modo affidabile; WebP in data URL spesso falliva → +rank senza sfondo. */
     var out = canvas.toDataURL("image/jpeg", 0.86);
-    if (out.length > 850000) {
+    if (out.length > MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH) {
       out = canvas.toDataURL("image/jpeg", 0.78);
     }
-    if (out.length > 850000) {
+    if (out.length > MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH) {
       out = canvas.toDataURL("image/jpeg", 0.7);
     }
-    if (out.length > 850000) {
+    if (out.length > MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH) {
       throw new Error("file_too_large");
     }
     return out;
