@@ -153,13 +153,21 @@
 
     <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
       <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
-        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+{{FOOTER_SOCIAL_LEFT}}
+          <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            href="{{SITE_URL}}">{{SITE_NAME}}</a>
+{{FOOTER_SOCIAL_RIGHT}}
+        </div>
         <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
           <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
           <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
           <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
+        <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+          <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+        </p>
       </div>
     </footer>
 

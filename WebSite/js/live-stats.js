@@ -309,81 +309,114 @@
     return apiProd;
   }
 
-  function isHomePath() {
-    try {
-      var raw = String(location.pathname || "/");
-      var p = raw.replace(/\/+$/, "") || "/";
-      if (p === "/" || p === "") return true;
-      var low = raw.toLowerCase();
-      return /^\/index\.html$/i.test(low) || /^\/index$/i.test(p);
-    } catch (e2) {
-      return true;
+  function ensureLiveEventRoot() {
+    var n = document.getElementById("vc-live-event-home");
+    if (!n) {
+      n = document.createElement("section");
+      n.id = "vc-live-event-home";
+      n.className = "vc-live-event-home";
+      n.hidden = true;
+      n.setAttribute("aria-live", "polite");
+      n.setAttribute("role", "region");
+      n.setAttribute("aria-label", "Evento Discord in corso");
     }
+
+    if (n.parentNode !== document.body) {
+      document.body.appendChild(n);
+    }
+
+    n.innerHTML =
+      '<div class="vc-live-event-inline">' +
+      '<button type="button" class="vc-live-event-inline__x" data-vc-live-event-dismiss aria-label="Nascondi evento live">' +
+      '<i class="fa fa-times" aria-hidden="true"></i>' +
+      "</button>" +
+      '<p class="vc-live-event-inline__badge"><i class="fa fa-bolt" aria-hidden="true"></i> Evento live su Discord</p>' +
+      '<h2 id="vc-live-event-title" class="vc-live-event-inline__title">Evento in corso</h2>' +
+      '<p id="vc-live-event-desc" class="vc-live-event-inline__desc"></p>' +
+      '<div class="vc-live-event-inline__actions">' +
+      '<a id="vc-live-event-primary" class="vc-live-event-inline__btn" href="#" target="_blank" rel="noopener noreferrer">Partecipa</a>' +
+      "</div>" +
+      "</div>";
+    return n;
   }
 
-  if (!isHomePath()) return;
+  function ensureReopenButton() {
+    var btn = document.getElementById("vc-live-event-reopen");
+    if (btn) return btn;
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "vc-live-event-reopen";
+    btn.className = "vc-live-event-reopen";
+    btn.hidden = true;
+    btn.setAttribute("aria-controls", "vc-live-event-home");
+    btn.setAttribute("aria-label", "Riapri evento live");
+    btn.innerHTML = '<i class="fa fa-bolt" aria-hidden="true"></i><span>Evento live</span>';
+    document.body.appendChild(btn);
+    return btn;
+  }
 
-  var DISMISS_KEY = "vc_live_event_hide_sess_v1";
-  var root = document.getElementById("vc-live-event-home");
-  if (!root) return;
+  var root = ensureLiveEventRoot();
+  var reopenBtn = ensureReopenButton();
   var titleEl = document.getElementById("vc-live-event-title");
   var descEl = document.getElementById("vc-live-event-desc");
   var prim = document.getElementById("vc-live-event-primary");
-  if (!titleEl || !descEl || !prim) return;
+  if (!root || !reopenBtn || !titleEl || !descEl || !prim) return;
 
   var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
-  var lastShownId = "";
+  var isManuallyHidden = false;
+  var lastEventPayload = null;
 
-  function isDismissedSession(eid) {
-    try {
-      return sessionStorage.getItem(DISMISS_KEY) === String(eid);
-    } catch (e3) {
-      return false;
-    }
-  }
-
-  function dismissSession(eid) {
-    try {
-      sessionStorage.setItem(DISMISS_KEY, String(eid));
-    } catch (e4) {}
-  }
-
-  function hideStrip() {
+  function hideStrip(manual) {
+    if (manual === true) isManuallyHidden = true;
+    if (manual === false) isManuallyHidden = false;
     root.hidden = true;
+    reopenBtn.hidden = !isManuallyHidden;
   }
 
   function showStrip(data) {
     var ev = data && data.event ? data.event : null;
     var eid = ev && ev.id != null ? String(ev.id).trim() : "";
     if (!ev || !eid) return;
-    if (isDismissedSession(eid)) {
-      hideStrip();
-      return;
-    }
 
-    lastShownId = eid;
     titleEl.textContent = ev.name || "Evento in corso";
     descEl.textContent =
       "In questo momento sul server Discord c’è un evento attivo. Unisciti dalla app o dal browser.";
     if (ev.description && String(ev.description).trim()) {
       descEl.textContent = String(ev.description).trim();
     }
-    var invite = String(data.inviteUrl || prim.getAttribute("href") || "").trim();
+    var invite = String(data.inviteUrl || prim.getAttribute("href") || cfg.inviteUrl || "").trim();
     var url = String(ev.buttonUrl || ev.eventUrl || invite).trim();
     var label = String(ev.buttonLabel || "Partecipa").trim() || "Partecipa";
     prim.setAttribute("href", url || invite);
     prim.textContent = label;
 
+    lastEventPayload = data;
+    if (isManuallyHidden) {
+      root.hidden = true;
+      reopenBtn.hidden = false;
+      return;
+    }
+
     root.hidden = false;
+    reopenBtn.hidden = true;
   }
 
   root.addEventListener("click", function (e) {
-    var t = e.target;
+    var t = e && e.target;
     if (!t || !t.closest) return;
     if (t.closest("[data-vc-live-event-dismiss]")) {
-      if (lastShownId) dismissSession(lastShownId);
-      hideStrip();
+      hideStrip(true);
     }
+  });
+
+  reopenBtn.addEventListener("click", function () {
+    isManuallyHidden = false;
+    reopenBtn.hidden = true;
+    if (lastEventPayload) {
+      showStrip(lastEventPayload);
+      return;
+    }
+    poll();
   });
 
   function poll() {
@@ -401,14 +434,10 @@
         if (!j || j.ok !== true) return;
         var jid = j.event && j.event.id != null ? String(j.event.id).trim() : "";
         if (j.active && j.event && jid) {
-          if (isDismissedSession(jid)) {
-            hideStrip();
-            return;
-          }
           showStrip(j);
         } else {
-          hideStrip();
-          lastShownId = "";
+          lastEventPayload = null;
+          hideStrip(false);
         }
       })
       .catch(function () {});

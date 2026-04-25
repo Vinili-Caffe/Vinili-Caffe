@@ -512,6 +512,10 @@ const siteReviewSchema = new Schema(
     authorAvatarUrl: { type: String, default: "" },
     staffName: { type: String, default: "" },
     staffAvatarUrl: { type: String, default: "" },
+    likedUserIds: { type: [String], default: [] },
+    serverReplyContent: { type: String, default: "" },
+    serverReplyAt: { type: Date, default: null },
+    serverReplyAuthorId: { type: String, default: "" },
   },
   { timestamps: true },
 );

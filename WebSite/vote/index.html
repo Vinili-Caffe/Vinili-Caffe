@@ -172,21 +172,21 @@
               </span>
             </a>
             <a href="{{TOPGG_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-[rgba(212,168,136,0.22)] bg-[rgba(42,30,22,0.42)] p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[rgba(232,201,168,0.32)] hover:bg-[rgba(52,38,28,0.48)]">
+              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-cyan-400/20 bg-slate-950/30 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-cyan-400/32 hover:bg-slate-950/45">
               <div class="flex items-start gap-3">
-                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(212,168,136,0.12)] text-lg text-[#e8c9a8] ring-1 ring-[rgba(212,168,136,0.22)]">
+                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10 text-lg text-cyan-300 ring-1 ring-cyan-400/22">
                   <i class="fa fa-star-o" aria-hidden="true"></i>
                 </span>
                 <div class="min-w-0 flex-1">
-                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#c9a88c]/90">Piattaforma 2</p>
+                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/75">Piattaforma 2</p>
                   <h2 class="mt-1 text-xl font-extrabold text-white sm:text-2xl">Top.gg</h2>
                 </div>
               </div>
-              <p class="mt-4 flex-1 text-sm leading-6 text-slate-200/85">
+              <p class="mt-4 flex-1 text-sm leading-6 text-slate-100/90">
                 Lascia il tuo voto anche su Top.gg per dare ancora più visibilità al progetto.
               </p>
               <span
-                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl border border-[rgba(212,168,136,0.35)] bg-[rgba(111,78,55,0.35)] px-4 py-2.5 text-sm font-semibold text-[#f5ebe3] shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition group-hover:border-[rgba(232,201,168,0.45)] group-hover:bg-[rgba(111,78,55,0.48)]">
+                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-600 px-4 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_12px_28px_rgba(34,211,238,0.2)] transition group-hover:brightness-105">
                 Vota su Top.gg <i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
               </span>
             </a>
@@ -219,8 +219,8 @@
           </div>
         </article>
 
-        <article class="rounded-[1.7rem] border border-[rgba(212,168,136,0.2)] bg-[rgba(36,26,18,0.4)] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.2)] backdrop-blur sm:p-7">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#c9a88c]/90">Come funziona</p>
+        <article class="rounded-[1.7rem] border border-emerald-400/18 bg-slate-950/25 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-7">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Come funziona</p>
           <ol class="mt-5 space-y-4 text-sm leading-6 text-slate-100/86">
             <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-bold text-emerald-200 ring-1 ring-emerald-400/25">1</span><span>Apri una delle due piattaforme ufficiali.</span></li>
             <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-bold text-emerald-200 ring-1 ring-emerald-400/25">2</span><span>Completa il voto dalla loro pagina dedicata.</span></li>
@@ -298,13 +298,21 @@
 
     <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
       <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
-        <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+        <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+{{FOOTER_SOCIAL_LEFT}}
+          <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            href="{{SITE_URL}}">{{SITE_NAME}}</a>
+{{FOOTER_SOCIAL_RIGHT}}
+        </div>
         <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
           <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
           <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
           <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
+        <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+          <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+        </p>
       </div>
     </footer>
 

@@ -3,6 +3,7 @@
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var state = {
     payload: null,
+    replyOpenId: null,
     draft: {
       server: { rating: 5, content: "" },
     },
@@ -47,6 +48,7 @@
 
   function clearReviewsContent() {
     state.payload = null;
+    state.replyOpenId = null;
     var serverWrap = byId("vc-reviews-server-list");
     var formsWrap = byId("vc-reviews-forms");
     if (serverWrap) serverWrap.innerHTML = "";
@@ -123,19 +125,83 @@
   }
 
   function reviewCardMarkup(review) {
-    return (
-      '<article class="vc-reviews-card">' +
+    var viewer = state.payload && state.payload.viewer;
+    var tokenOk = Boolean(getToken());
+    var canReply = Boolean(viewer && viewer.canReplyAsServer);
+    var likeCount = Math.max(0, Math.round(Number(review.likeCount || 0)));
+    var liked = Boolean(review.likedByViewer);
+    var sr = review.serverReply && review.serverReply.content ? review.serverReply : null;
+    var rid = esc(review.id);
+    var out =
+      '<article class="vc-reviews-card" data-review-id="' +
+      rid +
+      '">' +
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
       (review.authorAvatarUrl
         ? '<img class="vc-reviews-card__avatar" src="' + esc(review.authorAvatarUrl) + '" alt="" loading="lazy" decoding="async" />'
         : '<span class="vc-reviews-card__avatar vc-reviews-card__avatar--fallback"><i class="fa fa-user"></i></span>') +
-      '<div><strong>' + esc(review.authorName || "Utente") + "</strong>" +
-      '<span>' + esc(formatDateIt(review.updatedAt || review.createdAt)) + "</span></div></div>" +
-      '<span class="vc-reviews-card__stars">' + starsMarkup(review.rating) + "</span></div>" +
-      '<p class="vc-reviews-card__text">' + esc(review.content) + "</p>" +
-      "</article>"
-    );
+      '<div><strong>' +
+      esc(review.authorName || "Utente") +
+      "</strong>" +
+      '<span>' +
+      esc(formatDateIt(review.updatedAt || review.createdAt)) +
+      "</span></div></div>" +
+      '<span class="vc-reviews-card__stars">' +
+      starsMarkup(review.rating) +
+      "</span></div>" +
+      '<p class="vc-reviews-card__text">' +
+      esc(review.content) +
+      "</p>";
+    if (sr) {
+      out +=
+        '<div class="vc-reviews-card__reply">' +
+        '<span class="vc-reviews-card__reply-label">Risposta del server</span>' +
+        '<p class="vc-reviews-card__reply-text">' +
+        esc(sr.content) +
+        "</p>" +
+        (sr.updatedAt
+          ? '<span class="vc-reviews-card__reply-meta">' + esc(formatDateIt(sr.updatedAt)) + "</span>"
+          : "") +
+        "</div>";
+    }
+    out +=
+      '<div class="vc-reviews-card__foot">' +
+      '<button type="button" class="vc-reviews-like' +
+      (liked ? " is-liked" : "") +
+      '" data-review-like="' +
+      rid +
+      '"' +
+      (tokenOk ? "" : ' disabled title="Accedi con Discord per mettere like"') +
+      '><i class="fa ' +
+      (liked ? "fa-heart" : "fa-heart-o") +
+      '" aria-hidden="true"></i><span class="vc-reviews-like__n">' +
+      esc(String(likeCount)) +
+      "</span></button>";
+    if (canReply) {
+      out +=
+        '<button type="button" class="vc-reviews-reply-toggle" data-review-reply-toggle="' +
+        rid +
+        '"><i class="fa fa-reply" aria-hidden="true"></i> Rispondi</button>';
+    }
+    out += "</div>";
+    if (state.replyOpenId === review.id && canReply) {
+      out +=
+        '<div class="vc-reviews-reply-form">' +
+        '<label class="vc-reviews-reply-form__label" for="vc-reviews-reply-' +
+        rid +
+        '">Messaggio ufficiale (visibile a tutti)</label>' +
+        '<textarea id="vc-reviews-reply-' +
+        rid +
+        '" class="vc-reviews-textarea vc-reviews-reply-form__ta" rows="3" placeholder="Rispondi a nome del server...">' +
+        esc(sr ? sr.content : "") +
+        "</textarea>" +
+        '<div class="vc-reviews-reply-form__actions"><button type="button" class="vc-reviews-submit" data-review-reply-submit="' +
+        rid +
+        '">Pubblica risposta</button></div></div>';
+    }
+    out += "</article>";
+    return out;
   }
 
   function emptyMarkup(icon, title, text) {
@@ -246,6 +312,32 @@
         deleteReview(reviewId);
       });
     });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-review-like]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (button.disabled) return;
+        var reviewId = String(button.getAttribute("data-review-like") || "").trim();
+        if (!reviewId) return;
+        toggleReviewLike(reviewId, button);
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-review-reply-toggle]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        var reviewId = String(button.getAttribute("data-review-reply-toggle") || "").trim();
+        if (!reviewId) return;
+        state.replyOpenId = state.replyOpenId === reviewId ? null : reviewId;
+        render();
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-review-reply-submit]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        var reviewId = String(button.getAttribute("data-review-reply-submit") || "").trim();
+        if (!reviewId) return;
+        submitServerReply(reviewId, button);
+      });
+    });
   }
 
   function authHeaders() {
@@ -302,6 +394,79 @@
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : "Errore durante il salvataggio.", true);
+      });
+  }
+
+  function toggleReviewLike(reviewId, buttonEl) {
+    var token = getToken();
+    if (!token) {
+      setStatus("Accedi con Discord per mettere like.", true);
+      return;
+    }
+    if (buttonEl) buttonEl.disabled = true;
+    setStatus("", false);
+    fetch(apiUrl() + "/" + encodeURIComponent(reviewId) + "/like", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    })
+      .then(function (response) {
+        return response.json();
+      })
+      .then(function (body) {
+        if (!body || body.ok !== true) {
+          throw new Error((body && body.message) || "Operazione like non riuscita.");
+        }
+        setStatus(body.message || "Ok.", false);
+        return fetchPayload();
+      })
+      .catch(function (err) {
+        setStatus(err && err.message ? err.message : "Errore like.", true);
+      })
+      .then(function () {
+        if (buttonEl) buttonEl.disabled = false;
+      });
+  }
+
+  function submitServerReply(reviewId, buttonEl) {
+    var token = getToken();
+    if (!token) {
+      setStatus("Sessione Discord richiesta.", true);
+      return;
+    }
+    var ta = byId("vc-reviews-reply-" + reviewId);
+    var content = ta ? String(ta.value || "").trim() : "";
+    if (content.length < 8) {
+      setStatus("La risposta deve avere almeno 8 caratteri.", true);
+      return;
+    }
+    if (buttonEl) buttonEl.disabled = true;
+    setStatus("Pubblicazione risposta...", false);
+    fetch(apiUrl() + "/" + encodeURIComponent(reviewId) + "/server-reply", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify({ content: content }),
+    })
+      .then(function (response) {
+        return response.json();
+      })
+      .then(function (body) {
+        if (!body || body.ok !== true) {
+          throw new Error((body && body.message) || "Impossibile pubblicare la risposta.");
+        }
+        state.replyOpenId = null;
+        setStatus(body.message || "Risposta pubblicata.", false);
+        return fetchPayload();
+      })
+      .catch(function (err) {
+        setStatus(err && err.message ? err.message : "Errore risposta.", true);
+      })
+      .then(function () {
+        if (buttonEl) buttonEl.disabled = false;
       });
   }
 

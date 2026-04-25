@@ -28,7 +28,7 @@
 </head>
 
 <body id="top"
-  class="vc-body vc-users-page vc-notifications-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+  class="vc-body vc-users-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
   <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
   <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
   <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -144,15 +144,16 @@
     </div>
   </header>
 
+  <div id="vc-ul-loading" class="vc-ul-loading" data-vc-leader-only role="status" aria-live="polite" aria-label="Caricamento classifica">
+    <div class="vc-ul-loading-card">
+      <span class="vc-ul-loading-spinner" aria-hidden="true"></span>
+      <p class="vc-ul-loading-title">Caricamento classifica</p>
+      <p class="vc-ul-loading-sub">Sto aggiornando i dati della community…</p>
+    </div>
+  </div>
+
   <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
     <p id="vc-user-leader-state" class="vc-user-leader-state" data-vc-leader-only hidden role="status"></p>
-    <div id="vc-ul-loading" class="vc-ul-loading" data-vc-leader-only role="status" aria-live="polite" aria-label="Caricamento classifica">
-      <div class="vc-ul-loading-card">
-        <span class="vc-ul-loading-spinner" aria-hidden="true"></span>
-        <p class="vc-ul-loading-title">Caricamento classifica</p>
-        <p class="vc-ul-loading-sub">Sto aggiornando i dati della community…</p>
-      </div>
-    </div>
     <section id="vc-user-profile-view" hidden></section>
     <section class="vc-notify-hero w-full" data-vc-leader-only>
       <div class="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -256,6 +257,27 @@
       <button type="button" class="vc-notify-home-btn" id="vc-ul-next">Successiva</button>
     </nav>
   </main>
+
+  <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+      <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+{{FOOTER_SOCIAL_LEFT}}
+        <a
+          class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+          href="{{SITE_URL}}">{{SITE_NAME}}</a>
+{{FOOTER_SOCIAL_RIGHT}}
+      </div>
+      <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
+        <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+        <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+        <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+      </nav>
+      <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+        © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+        <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+      </p>
+    </div>
+  </footer>
 
   {{LIVE_STATS_BOOT_USER}}
   <script>

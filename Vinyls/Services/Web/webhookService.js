@@ -437,7 +437,13 @@ async function startWebhookServer(client) {
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
-  const { getSiteReviews, submitSiteReview, deleteSiteReview } = require("../../Utils/Web/siteReviewsApi");
+  const {
+    getSiteReviews,
+    submitSiteReview,
+    deleteSiteReview,
+    toggleSiteReviewLike,
+    upsertServerReviewReply,
+  } = require("../../Utils/Web/siteReviewsApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -612,6 +618,48 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-reviews delete:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-reviews/:reviewId/like", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await toggleSiteReviewLike(client, {
+        accessToken,
+        reviewId: req.params?.reviewId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-reviews like:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-reviews/:reviewId/server-reply", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await upsertServerReviewReply(client, {
+        accessToken,
+        reviewId: req.params?.reviewId,
+        content: body.content,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-reviews server-reply:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

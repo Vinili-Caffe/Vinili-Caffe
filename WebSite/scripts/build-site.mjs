@@ -802,11 +802,6 @@ async function main() {
     ? `    <script async src="https://www.googletagmanager.com/gtag/js?id=${escAttr(gaId)}"></script>\n    <script>\n      window.dataLayer = window.dataLayer || [];\n      function gtag(){dataLayer.push(arguments);}\n      gtag("js", new Date());\n      gtag("config", "${escAttr(gaId)}");\n    </script>\n`
     : "";
 
-  const instagramUrl = String(cfg.instagramUrl || "").trim();
-  const instagramLi = instagramUrl
-    ? `        <li>\n          <a href="${escAttr(instagramUrl)}" target="_blank" rel="noopener noreferrer"\n            ><i class="fa fa-instagram"></i\n          ></a>\n        </li>\n`
-    : "";
-
   const year = String(new Date().getFullYear());
 
   const wantBanner = cfg.useDiscordGuildBanner !== false;
@@ -868,6 +863,16 @@ async function main() {
   if (String(process.env.VC_SITE_URL ?? "").trim()) {
     console.log("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
   }
+
+  const defaultInstagramUrl = "https://www.instagram.com/viniliecaffe/";
+  const defaultTiktokUrl = "https://www.tiktok.com/@viniliecaffe";
+  const instagramUrlResolved = String(cfg.instagramUrl ?? "").trim() || defaultInstagramUrl;
+  const tiktokUrlResolved = String(cfg.tiktokUrl ?? "").trim() || defaultTiktokUrl;
+  const tiktokGlyphSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43V7.36a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.21z"/></svg>';
+  const footerSocialLeft = `          <a class="vc-footer-social-ico" href="${escAttr(instagramUrlResolved)}" target="_blank" rel="noopener noreferrer" aria-label="Instagram - ${escAttr(siteName)}"><i class="fa fa-instagram" aria-hidden="true"></i></a>\n`;
+  const footerSocialRight = `          <a class="vc-footer-social-ico vc-footer-social-ico--tiktok" href="${escAttr(tiktokUrlResolved)}" target="_blank" rel="noopener noreferrer" aria-label="TikTok - ${escAttr(siteName)}">${tiktokGlyphSvg}</a>\n`;
+
   const configuredAbout = String(cfg.aboutDescription ?? "").trim();
   let aboutPlain = "";
   if (wantGuildDescription && snap?.guildDescription) {
@@ -1309,8 +1314,10 @@ async function main() {
     STAT_BOOSTS: statBoosts,
     STAT_STAFF: statStaff,
     YEAR: year,
-    INSTAGRAM_LI_INTRO: instagramLi,
-    INSTAGRAM_LI_FOOTER: instagramLi,
+    INSTAGRAM_LI_INTRO: "",
+    INSTAGRAM_LI_FOOTER: "",
+    FOOTER_SOCIAL_LEFT: footerSocialLeft,
+    FOOTER_SOCIAL_RIGHT: footerSocialRight,
     WIKI_PAGE_TITLE: `${siteName} Wiki`,
     WIKI_META_DESCRIPTION: escAttr(
       `Documentazione, comandi e guide del server ${siteName} su Discord.`,

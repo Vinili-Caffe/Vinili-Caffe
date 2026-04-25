@@ -1,10 +1,13 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteReview, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
 
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
+const ADMIN_ROLE_ID = String(IDs?.roles?.Admin || "").trim();
+const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
 const FALLBACK_REVIEW_CHANNEL_ID = String(IDs?.channels?.supporters || "").trim();
 const STAFF_CACHE_TTL_MS = 2 * 60 * 1000;
 const REVIEW_REWARD_LEVELS = 5;
@@ -31,6 +34,32 @@ function sanitizeContent(value) {
     .replace(/\r/g, "\n")
     .trim()
     .slice(0, 1200);
+}
+
+function sanitizeReplyContent(value) {
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim()
+    .slice(0, 800);
+}
+
+function memberCanReplyAsServer(member) {
+  if (!member || member.user?.bot) return false;
+  const hasRole = (id) => {
+    const v = String(id || "").trim();
+    return Boolean(v && member.roles?.cache?.has?.(v));
+  };
+  if (hasRole(ADMIN_ROLE_ID)) return true;
+  if (hasRole(HIGH_STAFF_ROLE_ID)) return true;
+  if (hasRole(STAFF_ROLE_ID)) return true;
+  try {
+    if (member.permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
+    if (member.permissions?.has?.(PermissionFlagsBits.ManageGuild)) return true;
+  } catch (_) {
+    /* ignore */
+  }
+  return false;
 }
 
 function displayNameForMember(member) {
@@ -110,6 +139,22 @@ function serializeReview(doc, staffMap) {
     createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null,
     updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : null,
   };
+}
+
+function enrichServerReviewDoc(doc, staffMap, viewerUserId) {
+  const base = serializeReview(doc, staffMap);
+  const likes = Array.isArray(doc.likedUserIds) ? doc.likedUserIds.map((x) => String(x)) : [];
+  base.likeCount = likes.length;
+  base.likedByViewer = Boolean(viewerUserId && likes.includes(String(viewerUserId)));
+  const replyText = String(doc.serverReplyContent || "").trim();
+  base.serverReply =
+    replyText.length > 0
+      ? {
+          content: replyText,
+          updatedAt: doc.serverReplyAt ? new Date(doc.serverReplyAt).toISOString() : null,
+        }
+      : null;
+  return base;
 }
 
 function computeExpForLevelReward(currentExp, levelsToAdd) {
@@ -243,10 +288,12 @@ async function getSiteReviews(client, payload = {}) {
   ]);
 
   let viewer = null;
+  let viewerUserId = "";
   const accessToken = String(payload.accessToken || "").trim();
   if (accessToken) {
     const resolved = await resolveWebsiteGuildMember(client, accessToken);
     if (resolved.ok) {
+      viewerUserId = String(resolved.userId || "");
       const viewerDocs = await SiteReview.find({
         guildId: guild.id,
         userId: resolved.userId,
@@ -254,15 +301,35 @@ async function getSiteReviews(client, payload = {}) {
       viewer = {
         id: resolved.userId,
         name: displayNameForMember(resolved.member),
+        canReplyAsServer: memberCanReplyAsServer(resolved.member),
         serverReview: null,
         staffReviews: [],
       };
       viewerDocs.forEach((doc) => {
-        const entry = serializeReview(doc, staffMap);
+        const entry =
+          doc.kind === "server"
+            ? enrichServerReviewDoc(doc, staffMap, viewerUserId)
+            : serializeReview(doc, staffMap);
         if (entry.kind === "server") viewer.serverReview = entry;
         else viewer.staffReviews.push(entry);
       });
     }
+  }
+
+  function enrichServerReview(doc) {
+    const base = serializeReview(doc, staffMap);
+    const likes = Array.isArray(doc.likedUserIds) ? doc.likedUserIds.map((x) => String(x)) : [];
+    base.likeCount = likes.length;
+    base.likedByViewer = Boolean(viewerUserId && likes.includes(viewerUserId));
+    const replyText = String(doc.serverReplyContent || "").trim();
+    base.serverReply =
+      replyText.length > 0
+        ? {
+            content: replyText,
+            updatedAt: doc.serverReplyAt ? new Date(doc.serverReplyAt).toISOString() : null,
+          }
+        : null;
+    return base;
   }
 
   return {
@@ -271,7 +338,7 @@ async function getSiteReviews(client, payload = {}) {
     externalReviewsUrl: String(client?.config?.disboardReviews?.reviewUrl || client?.config?.reviewsUrl || "").trim(),
     staffers: staff.list,
     reviews: {
-      server: serverDocs.map((doc) => serializeReview(doc, staffMap)),
+      server: serverDocs.map((doc) => enrichServerReview(doc)),
       staff: staffDocs.map((doc) => serializeReview(doc, staffMap)),
     },
     viewer,
@@ -388,8 +455,114 @@ async function deleteSiteReview(client, payload = {}) {
   };
 }
 
+async function toggleSiteReviewLike(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const reviewId = String(payload.reviewId || "").trim();
+  if (!reviewId || !mongoose.isValidObjectId(reviewId)) {
+    return { ok: false, status: 400, error: "invalid_review_id", message: "ID recensione non valido." };
+  }
+
+  const review = await SiteReview.findOne({
+    _id: reviewId,
+    guildId: resolved.guild.id,
+    kind: "server",
+  })
+    .select("likedUserIds userId")
+    .lean()
+    .catch(() => null);
+  if (!review) {
+    return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata." };
+  }
+  if (String(review.userId || "") === String(resolved.userId)) {
+    return { ok: false, status: 400, error: "self_like", message: "Non puoi mettere like alla tua stessa recensione." };
+  }
+
+  const uid = String(resolved.userId);
+  const likes = Array.isArray(review.likedUserIds) ? review.likedUserIds.map((x) => String(x)) : [];
+  const has = likes.includes(uid);
+  const updated = await SiteReview.findOneAndUpdate(
+    { _id: reviewId, guildId: resolved.guild.id, kind: "server" },
+    has ? { $pull: { likedUserIds: uid } } : { $addToSet: { likedUserIds: uid } },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+  if (!updated) {
+    return { ok: false, status: 500, error: "like_failed", message: "Impossibile aggiornare il like." };
+  }
+
+  const nextLikes = Array.isArray(updated.likedUserIds) ? updated.likedUserIds.map((x) => String(x)) : [];
+  return {
+    ok: true,
+    status: 200,
+    liked: !has,
+    likeCount: nextLikes.length,
+    message: has ? "Like rimosso." : "Like aggiunto.",
+  };
+}
+
+async function upsertServerReviewReply(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+  if (!memberCanReplyAsServer(resolved.member)) {
+    return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per rispondere a nome del server." };
+  }
+
+  const reviewId = String(payload.reviewId || "").trim();
+  if (!reviewId || !mongoose.isValidObjectId(reviewId)) {
+    return { ok: false, status: 400, error: "invalid_review_id", message: "ID recensione non valido." };
+  }
+
+  const content = sanitizeReplyContent(payload.content);
+  if (content.length < 8) {
+    return { ok: false, status: 400, error: "reply_too_short", message: "La risposta deve avere almeno 8 caratteri." };
+  }
+
+  const existing = await SiteReview.findOne({
+    _id: reviewId,
+    guildId: resolved.guild.id,
+    kind: "server",
+  })
+    .select("_id")
+    .lean()
+    .catch(() => null);
+  if (!existing) {
+    return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata." };
+  }
+
+  const nextDoc = await SiteReview.findOneAndUpdate(
+    { _id: reviewId, guildId: resolved.guild.id, kind: "server" },
+    {
+      $set: {
+        serverReplyContent: content,
+        serverReplyAt: new Date(),
+        serverReplyAuthorId: String(resolved.userId),
+      },
+    },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+  if (!nextDoc) {
+    return { ok: false, status: 500, error: "save_failed", message: "Impossibile salvare la risposta." };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    review: enrichServerReviewDoc(nextDoc, new Map(), resolved.userId),
+    message: "Risposta del server pubblicata.",
+  };
+}
+
 module.exports = {
   getSiteReviews,
   submitSiteReview,
   deleteSiteReview,
+  toggleSiteReviewLike,
+  upsertServerReviewReply,
 };

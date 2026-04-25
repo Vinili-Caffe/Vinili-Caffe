@@ -173,6 +173,32 @@
       </div>
     </header>
 
+    <section
+      id="vc-live-event-home"
+      class="vc-live-event-home"
+      hidden
+      aria-live="polite"
+      role="region"
+      aria-label="Evento Discord in corso"
+    >
+      <div class="vc-live-event-inline">
+        <p class="vc-live-event-inline__badge">
+          <i class="fa fa-bolt" aria-hidden="true"></i> Evento live su Discord
+        </p>
+        <h2 id="vc-live-event-title" class="vc-live-event-inline__title">Evento in corso</h2>
+        <p id="vc-live-event-desc" class="vc-live-event-inline__desc"></p>
+        <div class="vc-live-event-inline__actions">
+          <a
+            id="vc-live-event-primary"
+            class="vc-live-event-inline__btn"
+            href="{{DISCORD_INVITE_URL}}"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Partecipa</a>
+        </div>
+      </div>
+    </section>
+
     <section id="intro" class="relative z-10 flex flex-col justify-start pb-6 pt-20 sm:pb-8 sm:pt-24">
       <div class="relative z-10 mx-auto max-w-5xl px-4 pb-0 pt-1 text-center">
         <div class="vc-support-intro-shell mx-auto max-w-full text-center">
@@ -186,35 +212,6 @@
     </section>
 
     <main class="relative z-10">
-      <section
-        id="vc-live-event-home"
-        class="vc-live-event-home"
-        hidden
-        aria-live="polite"
-        role="region"
-        aria-label="Evento Discord in corso"
-      >
-        <div class="vc-live-event-inline">
-          <button type="button" class="vc-live-event-inline__x" data-vc-live-event-dismiss aria-label="Nascondi fino al prossimo evento">
-            <i class="fa fa-times" aria-hidden="true"></i>
-          </button>
-          <p class="vc-live-event-inline__badge">
-            <i class="fa fa-bolt" aria-hidden="true"></i> Evento live su Discord
-          </p>
-          <h2 id="vc-live-event-title" class="vc-live-event-inline__title">Evento in corso</h2>
-          <p id="vc-live-event-desc" class="vc-live-event-inline__desc"></p>
-          <div class="vc-live-event-inline__actions">
-            <a
-              id="vc-live-event-primary"
-              class="vc-live-event-inline__btn"
-              href="{{DISCORD_INVITE_URL}}"
-              target="_blank"
-              rel="noopener noreferrer"
-              >Partecipa</a>
-          </div>
-        </div>
-      </section>
-
       <section id="pillars" class="vc-home-panels-shell w-full scroll-mt-28 px-4 pb-6 pt-8">
         <div class="vc-home-linkgrid vc-home-linkgrid--three">
           <div class="vc-home-linkpanel">
@@ -396,20 +393,24 @@
       </section>
     </main>
 
-    <footer class="vc-footer relative z-10 border-t border-white/8 bg-slate-950/20 py-16">
-      <div class="mx-auto max-w-3xl px-4 text-center">
-        <nav class="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <a class="transition hover:text-[#e8c9a8]" href="{{TERMS_URL}}">Termini di Servizio</a>
-          <a class="transition hover:text-[#e8c9a8]" href="{{PRIVACY_URL}}">Privacy Policy</a>
-          <a class="transition hover:text-[#e8c9a8]" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+        <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+{{FOOTER_SOCIAL_LEFT}}
+          <a
+            class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            href="{{SITE_URL}}">{{SITE_NAME}}</a>
+{{FOOTER_SOCIAL_RIGHT}}
+        </div>
+        <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
+          <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
         </nav>
-        <p class="mt-8 text-sm leading-relaxed text-slate-400">
-          © {{YEAR}} <span class="text-emerald-300">{{SITE_NAME}}</span>. Sito realizzato da <span class="text-emerald-300">{{SITE_NAME}}</span> con
+        <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
           <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
         </p>
-        <ul class="vc-footer-social mt-8 flex list-none flex-wrap items-center justify-center gap-3 p-0">
-{{INSTAGRAM_LI_FOOTER}}
-        </ul>
       </div>
     </footer>
 {{LIVE_STATS_BOOT}}
