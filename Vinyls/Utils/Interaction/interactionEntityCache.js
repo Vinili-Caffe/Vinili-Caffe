@@ -64,6 +64,9 @@ async function getGuildChannelCached(guild, channelId, options = {}) {
 async function getGuildMemberCached(guild, userId, options = {}) {
   if (!guild || !userId) return null;
   const preferFresh = Boolean(options.preferFresh);
+  if (preferFresh) {
+    entityCache.delete(buildCacheKey("member", guild.id, userId));
+  }
   return getOrFetchEntity({
     kind: "member",
     parentId: guild.id,

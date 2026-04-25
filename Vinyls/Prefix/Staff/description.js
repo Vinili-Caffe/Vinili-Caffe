@@ -35,26 +35,18 @@ module.exports = {
 
   async execute(message, args = []) {
     await message.channel.sendTyping();
-    const descriptionText=[
-      "_ _",
-      "_ _\`\` ☕ \`\`        𓂃        **[Vinili & Caffè](<https://discord.gg/viniliecaffe>)**      ⟢          \`\` 📀 \`\`",
-      "_ _",
-      "_ _      𓎢   **italia**   ⊹   **chill** · **social** · **gaming**    ୧",
-      "_ _",
-      "_ _ Un posto dove ritrovarsi tra musica, una tazza di caffè e chiacchiere.",
-      "_ _ Giri di voce, eventi, minigiochi e un po' di caos in buona compagnia.",
-      "_ _",
-      "_ _   ⊹  **crescita**  ·  **rispetto**  ·  **zero tossicità**  ⊹",
-      "_ _",
-      "_ _ Il primo server in Italia con pochissimi bots e gestito quasi completamente dai suoi bots.",
-      "_ _ Se cerchi un server attivo, curato e con un’anima, passa a trovarci.",
-      "_ _",
-      "_ _          **Cerchiamo staff e partner manager ୧**",
-      "_ _          **Paghiamo i partner manager e lo staff con NITRO BOOST ! ! **",
-      "_ _          **Eventi ogni settimana con NITRO BOOST o DECO in palio**",
-      "_ _",
-      "_ _`` ☕ ``        𓂃        **[Entra nel server](<https://discord.gg/viniliecaffe>)**      ⟢          `` 📀 ``",
-      "_ _",
+    const descriptionText = [
+      "## 𓂃 [Benvenuti su ⟢ ``📀`` Vinili  & Caffè! ``☕``](<https://discord.gg/viniliecaffe>)",
+      "**⊹  | ** `🫂` **__Community attiva e accogliente__** ୧",
+      "　✨ Una community, **chill** e **non toxic**, per __divertirsi__ e __conoscere__ nuove persone!",
+      "**⊹  | ** `🔈` **__Chat vocali & testuali attive!__** ୧",
+      "　💬 Chat **attive** per parlare di __ciò che preferisci__, **minigames** e tante **funzionalità** grazie ai __nostri bot__!",
+      "**⊹  | ** `🎉` **__Eventi settimanali__** ୧",
+      "    🎁 __Ogni settimana__ un **Nitro Boost** e **decorazioni a scelta** in palio. Ogni **sabato sera** un film da guardare __tutti insieme__!",
+      "**⊹  | ** `🛠️` **__Candidature STAFF aperte!__** ୧",
+      "　💼 Ogni mese il __miglior__ staffer viene **ricompensato** con un **Nitro Boost**!",
+      "**⊹  | ** `🤝` **__Candidature PARTNER MANAGER aperte!__** ୧",
+      "　💎 Ricompensiamo i nostri **Partner Manager** con **Nitro Boost** e **soldi**!",
     ].join("\n");
     if (!message.inGuild?.() || !message.guild || !message.member) return;
 
