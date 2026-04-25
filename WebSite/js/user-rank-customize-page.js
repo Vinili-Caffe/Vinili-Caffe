@@ -8,6 +8,8 @@
   var activeAccordion = "opacity";
   var saveToastTimer = null;
   var saveInFlight = false;
+  var previewRenderToken = 0;
+  var previewObjectUrl = "";
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
@@ -74,6 +76,12 @@
     var local = String(c.rankApiUrlLocal || "").trim();
     if (isLocalFrontendOrigin() && local) return local;
     return String(c.rankApiUrl || "").trim();
+  }
+
+  function resolvedRankPreviewApiUrl() {
+    var base = resolvedRankApiUrl();
+    if (!base) return "";
+    return base.replace(/\/site-rank-card\/?$/i, "/site-rank-card-preview");
   }
 
   function hideRankCustomizeLoading() {
@@ -287,49 +295,60 @@
   }
 
   function previewMarkup(data, theme) {
-    var stats = data.stats || {};
-    var username = String(data.username || "utente").trim() || "utente";
-    var avatar = String(data.avatarUrl || "").trim();
-    var progressPct = String(Math.max(0, Math.min(100, Math.round(Number(stats.progressPercent || 0))))) + "%";
-    var weeklyRankText = stats.weeklyRank ? "#" + formatIntIt(stats.weeklyRank) : "#1";
-    var rankText = stats.allTimeRank ? "#" + formatIntIt(stats.allTimeRank) : "#1";
-    var currentLevelExp = Number(stats.currentLevelExp || 0);
-    var nextLevelExp = Number(stats.nextLevelExp || 100);
-    var currentXp = Math.max(0, Number(stats.totalExp || 0) - currentLevelExp);
-    var targetXp = Math.max(1, nextLevelExp - currentLevelExp);
     return (
-      '<div class="vc-rank-editor-preview__card" style="' +
-      rankStyle(theme) +
-      '">' +
-      '<div class="vc-rank-editor-preview__hero">' +
-      '<div class="vc-rank-editor-preview__avatarwrap">' +
-      (avatar
-        ? '<img class="vc-rank-editor-preview__avatar" src="' + esc(avatar) + '" alt="" loading="eager" decoding="async" />'
-        : '<span class="vc-rank-editor-preview__avatar vc-rank-editor-preview__avatar--fallback"><i class="fa fa-user"></i></span>') +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__copy">' +
-      '<div class="vc-rank-editor-preview__topline">' +
-      '<span class="vc-rank-editor-preview__name">' + esc(username) + "</span>" +
-      '<span class="vc-rank-editor-preview__dot">-</span>' +
-      '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(stats.level || 0)) + "</span>" +
-      '<span class="vc-rank-editor-preview__mult">' + esc(formatMult(stats.multiplier || 1)) + "</span>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__bar"><span class="vc-rank-editor-preview__fill" style="width:' +
-      esc(progressPct) +
-      '"></span><span class="vc-rank-editor-preview__bartext">' +
-      esc(formatIntIt(currentXp)) +
-      " / " +
-      esc(formatIntIt(targetXp)) +
-      " XP</span></div>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__rankbox"><strong>' + esc(rankText) + "</strong><small>RANK</small></div>" +
-      "</div>" +
-      '<div class="vc-rank-editor-preview__stats">' +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--trophy">' + previewStatIcon("trophy") + '<span>WEEKLY RANK</span><strong>' + esc(weeklyRankText) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--bolt">' + previewStatIcon("bolt") + '<span>WEEKLY XP</span><strong>' + esc(formatIntIt(stats.weeklyExp || 0)) + "</strong></div>" +
-      '<div class="vc-rank-editor-preview__stat vc-rank-editor-preview__stat--star">' + previewStatIcon("star") + '<span>MULTIPLIER</span><strong>' + esc(formatMult(stats.multiplier || 1)) + "</strong></div>" +
-      "</div></div>"
+      '<div class="vc-rank-editor-preview__imagewrap">' +
+      '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="Anteprima rank card" loading="eager" decoding="async" />' +
+      '<p id="vc-rank-editor-preview-image-status" class="vc-rank-editor-preview__imagestatus">Render anteprima in corso...</p>' +
+      "</div>"
     );
+  }
+
+  function revokePreviewObjectUrl() {
+    if (!previewObjectUrl) return;
+    try {
+      window.URL.revokeObjectURL(previewObjectUrl);
+    } catch (e) {}
+    previewObjectUrl = "";
+  }
+
+  function refreshServerPreview() {
+    var token = getToken();
+    var url = resolvedRankPreviewApiUrl();
+    var img = byId("vc-rank-editor-preview-image");
+    var status = byId("vc-rank-editor-preview-image-status");
+    if (!img || !status) return;
+    if (!token || !url || !draft) {
+      status.textContent = "Anteprima non disponibile.";
+      return;
+    }
+    var myToken = ++previewRenderToken;
+    status.textContent = "Render anteprima in corso...";
+    status.className = "vc-rank-editor-preview__imagestatus";
+    fetchWithTimeout(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify({ theme: draft }),
+    }, 18000)
+      .then(function (r) {
+        if (!r.ok) throw new Error("preview_http_" + r.status);
+        return r.blob();
+      })
+      .then(function (blob) {
+        if (myToken !== previewRenderToken) return;
+        if (!blob || !blob.size) throw new Error("preview_empty");
+        revokePreviewObjectUrl();
+        previewObjectUrl = window.URL.createObjectURL(blob);
+        img.src = previewObjectUrl;
+        status.textContent = "";
+      })
+      .catch(function () {
+        if (myToken !== previewRenderToken) return;
+        status.textContent = "Anteprima non disponibile al momento.";
+        status.className = "vc-rank-editor-preview__imagestatus is-error";
+      });
   }
 
   function wallpaperGalleryMarkup() {
@@ -451,6 +470,7 @@
 
     app.hidden = false;
     bindUi();
+    refreshServerPreview();
   }
 
   function setStatus(text, isError) {
@@ -686,11 +706,11 @@
         message: "Devi effettuare il login con Discord per personalizzare la rank card.",
       });
     }
-    return fetch(url, {
+    return fetchWithTimeout(url, {
       method: "GET",
       headers: { Authorization: "Bearer " + token },
       cache: "no-store",
-    })
+    }, 15000)
       .then(function (r) {
         return r.text().then(function (text) {
           var parsed = null;
@@ -713,9 +733,38 @@
           return parsed || { ok: false, message: "Risposta vuota dall'API." };
         });
       })
-      .catch(function () {
+      .catch(function (err) {
+        if (err && err.message === "timeout") {
+          return { ok: false, message: "Timeout API rank card: il server sta impiegando troppo tempo a rispondere." };
+        }
         return { ok: false, message: "Errore di rete o connessione rifiutata durante il caricamento." };
       });
+  }
+
+  function fetchWithTimeout(url, options, timeoutMs) {
+    var ms = Number(timeoutMs);
+    if (!Number.isFinite(ms) || ms <= 0) ms = 15000;
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = window.setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error("timeout"));
+      }, ms);
+      fetch(url, options)
+        .then(function (res) {
+          if (done) return;
+          done = true;
+          window.clearTimeout(timer);
+          resolve(res);
+        })
+        .catch(function (err) {
+          if (done) return;
+          done = true;
+          window.clearTimeout(timer);
+          reject(err);
+        });
+    });
   }
 
   function saveTheme() {

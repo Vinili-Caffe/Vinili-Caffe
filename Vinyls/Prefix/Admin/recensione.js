@@ -131,27 +131,30 @@ module.exports = {
       const member =
         message.guild.members.cache.get(target.id) ||
         (await message.guild.members.fetch(target.id).catch(() => null));
-      const authorName = member?.displayName || target.globalName || target.username;
+      const authorName = member?.user?.username || target.username;
       const avatarUrl =
         target.displayAvatarURL({ size: 256 }) || "https://disboard.org/images/no-icon.png";
       const ts = Math.floor(Date.now() / 1000);
       const reviewEmbed = new EmbedBuilder()
         .setColor("#6f4e37")
-        .setAuthor({
-          name: `Nuova recensione da ${authorName}`,
-          iconURL: avatarUrl,
-          url: reviewPageUrl,
-        })
-        .setTitle("Valutazione DISBOARD")
+        .setTitle("Nuova recensione rilevata!")
         .setURL(reviewPageUrl)
-        .setThumbnail(avatarUrl)
+        .setThumbnail("https://disboard.org/images/no-icon.png")
         .setDescription(
-          `**Valutazione:** ${"⭐".repeat(5)}\n\n> Recensione registrata dallo staff dopo verifica su DISBOARD.`,
+          [
+            `**Nuova recensione da ${authorName}**`,
+            "",
+            `"${authorName}"`,
+            "",
+            `**Valutazione:** ${"⭐".repeat(5)}`,
+            "",
+            "> Recensione registrata dallo staff dopo verifica su DISBOARD.",
+          ].join("\n"),
         )
         .addFields(
           {
             name: "<:VC_Dot:1482532364222595303> Info",
-            value: `<:VC_bump:1482531857521311885> Registrata: **<t:${ts}:F>**`,
+            value: `<:VC_bump:1482531857521311885> Inviata: **<t:${ts}:R>**`,
             inline: true,
           },
           {
@@ -161,12 +164,12 @@ module.exports = {
           },
           {
             name: "<:VC_LevelUp2:1482527047871107143> Ricompensa Automatica",
-            value: `<a:VC_StarPink:1330194976440848500> Grazie **<@${target.id}>**, ti sono stati assegnati **+5 livelli** per il tuo supporto!`,
+            value: `<a:VC_StarPink:1330194976440848500> Grazie <@${target.id}>, ti sono stati assegnati **+5 livelli** per il tuo supporto!`,
             inline: false,
           },
         )
         .setFooter({
-          text: ".gg/viniliecaffe ⭑.ᐟ 💞 Grazie mille!",
+          text: ".gg/viniliecaffe · Feedback community",
           iconURL: message.client.user.displayAvatarURL(),
         })
         .setTimestamp();

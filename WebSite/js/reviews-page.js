@@ -187,9 +187,8 @@
       '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon"><i class="fa fa-globe" aria-hidden="true"></i></span><div><strong>' +
       esc(serverExisting ? "Modifica la tua recensione" : "Recensisci il server") +
       '</strong></div></div>' +
-      '<div class="vc-reviews-field"><label for="vc-review-server-target">Oggetto</label><select id="vc-review-server-target" class="vc-reviews-select vc-reviews-select--static" disabled><option>Server</option></select></div>' +
       '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("server", state.draft.server.rating) + "</div>" +
-      '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
+      '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="4" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
       esc(state.draft.server.content) +
       '</textarea></div><div class="vc-reviews-formcard__actions"><button type="button" class="vc-reviews-submit" data-review-submit="server"' +
       (isLogged ? "" : " disabled") +

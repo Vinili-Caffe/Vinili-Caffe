@@ -436,7 +436,7 @@ async function startWebhookServer(client) {
   const { handleSiteLiveEventGet } = require("../../Utils/Web/siteLiveEventApi");
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
-  const { getRankCardCustomization, updateRankCardCustomization } = require("../../Utils/Web/siteRankCardApi");
+  const { getRankCardCustomization, updateRankCardCustomization, getRankCardPreview } = require("../../Utils/Web/siteRankCardApi");
   const { getSiteReviews, submitSiteReview, deleteSiteReview } = require("../../Utils/Web/siteReviewsApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
@@ -517,6 +517,32 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-rank-card post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-rank-card-preview", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await getRankCardPreview(client, {
+        accessToken,
+        theme: body.theme,
+      });
+      if (!out || out.ok !== true || !out.image) {
+        return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
+      }
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return res.status(200).send(out.image);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-rank-card-preview post:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

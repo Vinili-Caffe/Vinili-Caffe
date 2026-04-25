@@ -6934,6 +6934,30 @@ textarea.vc-candidature-input {
   font-weight: 900;
 }
 
+.vc-rank-editor-preview__imagewrap {
+  width: 100%;
+}
+
+.vc-rank-editor-preview__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.vc-rank-editor-preview__imagestatus {
+  margin: 0.65rem 0 0;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.vc-rank-editor-preview__imagestatus.is-error {
+  color: #fecaca;
+}
+
 .vc-rank-editor-preview__card {
   --vc-rank-panel: #202225;
   --vc-rank-panel-rgb: 32, 34, 37;
@@ -9955,29 +9979,16 @@ textarea.vc-candidature-input {
   min-width: 0;
 }
 
-.vc-reviews-intro-panel {
-  min-width: 0;
-}
-
 @media (min-width: 64rem) {
   .vc-reviews-page-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 20rem);
-    gap: 2rem 2.25rem;
-  }
-
-  .vc-reviews-intro-panel {
-    position: sticky;
-    top: 6.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
   }
 }
 
 @media (max-width: 63.99rem) {
   .vc-reviews-page-layout {
     grid-template-columns: 1fr;
-  }
-
-  .vc-reviews-intro-panel {
-    order: -1;
   }
 }
 
@@ -10069,6 +10080,14 @@ textarea.vc-candidature-input {
   gap: 1rem;
 }
 
+@media (min-width: 64rem) {
+  .vc-reviews-sections-row {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: start;
+    gap: 1.2rem;
+  }
+}
+
 .vc-reviews-section--split {
   margin-top: 2rem;
 }
@@ -10125,7 +10144,7 @@ textarea.vc-candidature-input {
 }
 
 .vc-reviews-formgrid {
-  grid-template-columns: minmax(0, 40rem);
+  grid-template-columns: minmax(0, 31rem);
 }
 
 .vc-reviews-card,
@@ -10137,6 +10156,7 @@ textarea.vc-candidature-input {
 .vc-reviews-formcard {
   display: flex;
   flex-direction: column;
+  padding: 1rem;
 }
 
 .vc-reviews-card__head,
@@ -10236,7 +10256,7 @@ textarea.vc-candidature-input {
 
 .vc-reviews-textarea {
   resize: vertical;
-  min-height: 9rem;
+  min-height: 6.75rem;
 }
 
 .vc-reviews-rating {

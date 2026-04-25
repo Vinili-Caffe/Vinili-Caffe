@@ -7,6 +7,7 @@ const {
   listRankCardWallpapers,
 } = require("../Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
+const renderRankCanvas = require("../Render/rankCanvas");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
@@ -114,7 +115,53 @@ async function updateRankCardCustomization(client, payload) {
   };
 }
 
+async function getRankCardPreview(client, payload) {
+  const accessToken = String(payload?.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const { stats, weeklyRank, allTimeRank } = await getUserRanks(resolved.guild.id, resolved.userId);
+  const multiplier = await getResolvedWeeklyExpMultiplier(resolved.guild, resolved.userId, null).catch(() => 1);
+  const permissions = getRankCardPermissions(resolved.member);
+  const theme = mergeRankCardTheme(payload?.theme || {});
+  if (!permissions.canUseCustomWallpaper) {
+    theme.wallpaperUrl = "";
+  }
+
+  const avatarUrl =
+    resolved.member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+    resolved.member?.user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+    "";
+
+  const image = await renderRankCanvas({
+    username: String(resolved.member?.user?.username || "utente").trim() || "utente",
+    avatarUrl,
+    level: Number(stats?.level || 0),
+    totalExp: Number(stats?.totalExp || 0),
+    currentLevelExp: Number(stats?.currentLevelExp || 0),
+    nextLevelExp: Number(stats?.nextLevelExp || 0),
+    progressPercent: Number(stats?.progressPercent || 0),
+    weeklyRank: weeklyRank || null,
+    allTimeRank: allTimeRank || null,
+    weeklyExp: Number(stats?.weeklyExp || 0),
+    multiplier: Number(multiplier || 1),
+    hideLeaderboardRanks: false,
+    theme,
+  }).catch(() => null);
+
+  if (!image) {
+    return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare anteprima rank card." };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    image,
+  };
+}
+
 module.exports = {
   getRankCardCustomization,
   updateRankCardCustomization,
+  getRankCardPreview,
 };
