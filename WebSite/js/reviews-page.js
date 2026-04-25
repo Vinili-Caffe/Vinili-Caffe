@@ -4,6 +4,7 @@
   var state = {
     payload: null,
     replyOpenId: null,
+    editModalOpen: false,
     draft: {
       server: { rating: 5, content: "" },
     },
@@ -46,13 +47,28 @@
     }
   }
 
+  function closeEditModalDom() {
+    state.editModalOpen = false;
+    var root = byId("vc-reviews-edit-modal");
+    if (root) {
+      root.innerHTML = "";
+      root.className = "vc-reviews-modal";
+      root.hidden = true;
+    }
+    try {
+      document.documentElement.classList.remove("vc-reviews-modal-open");
+    } catch (e) {}
+  }
+
   function clearReviewsContent() {
     state.payload = null;
     state.replyOpenId = null;
+    state.editModalOpen = false;
     var serverWrap = byId("vc-reviews-server-list");
     var formsWrap = byId("vc-reviews-forms");
     if (serverWrap) serverWrap.innerHTML = "";
     if (formsWrap) formsWrap.innerHTML = "";
+    closeEditModalDom();
   }
 
   function shouldUnlockReviewsPage() {
@@ -132,6 +148,9 @@
     var liked = Boolean(review.likedByViewer);
     var sr = review.serverReply && review.serverReply.content ? review.serverReply : null;
     var rid = esc(review.id);
+    var viewerId = viewer && viewer.id ? String(viewer.id) : "";
+    var reviewUserId = String(review.userId || "");
+    var isOwn = Boolean(tokenOk && viewerId && reviewUserId && reviewUserId === viewerId);
     var out =
       '<article class="vc-reviews-card" data-review-id="' +
       rid +
@@ -147,9 +166,19 @@
       '<span>' +
       esc(formatDateIt(review.updatedAt || review.createdAt)) +
       "</span></div></div>" +
+      '<div class="vc-reviews-card__head-meta">' +
       '<span class="vc-reviews-card__stars">' +
       starsMarkup(review.rating) +
-      "</span></div>" +
+      "</span>" +
+      (isOwn
+        ? '<div class="vc-reviews-card__own-actions">' +
+          '<button type="button" class="vc-reviews-card__icon-btn" data-review-edit-open aria-label="Modifica la tua recensione"><i class="fa fa-pencil" aria-hidden="true"></i></button>' +
+          '<button type="button" class="vc-reviews-card__icon-btn vc-reviews-card__icon-btn--danger" data-review-delete="' +
+          rid +
+          '" aria-label="Elimina la tua recensione"><i class="fa fa-trash-o" aria-hidden="true"></i></button>' +
+          "</div>"
+        : "") +
+      "</div></div>" +
       '<p class="vc-reviews-card__text">' +
       esc(review.content) +
       "</p>";
@@ -243,27 +272,64 @@
     }
   }
 
+  function editModalInnerMarkup() {
+    return (
+      '<div class="vc-reviews-modal__backdrop" data-review-modal-dismiss tabindex="-1"></div>' +
+      '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-reviews-modal-title">' +
+      '<div class="vc-reviews-modal__toolbar">' +
+      '<h2 id="vc-reviews-modal-title" class="vc-reviews-modal__title">Modifica la tua recensione</h2>' +
+      '<button type="button" class="vc-reviews-modal__close" data-review-modal-dismiss aria-label="Chiudi"><i class="fa fa-times" aria-hidden="true"></i></button>' +
+      "</div>" +
+      '<div class="vc-reviews-modal__body">' +
+      '<div class="vc-reviews-field"><label>Valutazione</label>' +
+      ratingInputMarkup("server", state.draft.server.rating) +
+      "</div>" +
+      '<div class="vc-reviews-field"><label for="vc-review-modal-content">Recensione</label><textarea id="vc-review-modal-content" class="vc-reviews-textarea" rows="5" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
+      esc(state.draft.server.content) +
+      "</textarea></div>" +
+      '<div class="vc-reviews-formcard__actions">' +
+      '<button type="button" class="vc-reviews-submit" data-review-submit="server">Aggiorna recensione</button>' +
+      "</div></div></div>"
+    );
+  }
+
+  function syncEditModal(serverExisting) {
+    var root = byId("vc-reviews-edit-modal");
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "vc-reviews-edit-modal";
+      document.body.appendChild(root);
+    }
+    if (!serverExisting) {
+      closeEditModalDom();
+      return;
+    }
+    root.hidden = false;
+    root.innerHTML = editModalInnerMarkup();
+    root.className = "vc-reviews-modal" + (state.editModalOpen ? " vc-reviews-modal--open" : "");
+    try {
+      if (state.editModalOpen) document.documentElement.classList.add("vc-reviews-modal-open");
+      else document.documentElement.classList.remove("vc-reviews-modal-open");
+    } catch (e2) {}
+  }
+
   function formsMarkup() {
     var viewer = state.payload && state.payload.viewer;
     var isLogged = Boolean(viewer && viewer.id);
     var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
+    if (serverExisting) return "";
 
     return (
       '<article class="vc-reviews-formcard">' +
       '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon"><i class="fa fa-globe" aria-hidden="true"></i></span><div><strong>' +
-      esc(serverExisting ? "Modifica la tua recensione" : "Recensisci il server") +
+      esc("Recensisci il server") +
       '</strong></div></div>' +
       '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("server", state.draft.server.rating) + "</div>" +
       '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="4" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
       esc(state.draft.server.content) +
       '</textarea></div><div class="vc-reviews-formcard__actions"><button type="button" class="vc-reviews-submit" data-review-submit="server"' +
       (isLogged ? "" : " disabled") +
-      ">" +
-      (serverExisting ? "Aggiorna recensione" : "Invia recensione") +
-      "</button>" +
-      (isLogged && serverExisting && serverExisting.id
-        ? '<button type="button" class="vc-reviews-submit vc-reviews-delete" data-review-delete="' + esc(serverExisting.id) + '">Elimina recensione</button>'
-        : "") +
+      ">Invia recensione</button>" +
       "</div></article>"
     );
   }
@@ -274,11 +340,19 @@
     var formsWrap = byId("vc-reviews-forms");
     if (!serverWrap || !formsWrap) return;
 
+    var viewer = payload.viewer;
+    var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
+    var row = byId("vc-reviews-sections-row");
+    if (row) row.classList.toggle("vc-reviews-sections-row--no-lead", Boolean(serverExisting));
+    var writeSec = byId("vc-reviews-write");
+    if (writeSec) writeSec.hidden = Boolean(serverExisting);
+
     var serverReviews = Array.isArray(payload.reviews && payload.reviews.server) ? payload.reviews.server : [];
     serverWrap.innerHTML = serverReviews.length
       ? serverReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
       : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
     formsWrap.innerHTML = formsMarkup();
+    syncEditModal(Boolean(serverExisting));
     bind();
   }
 
@@ -290,6 +364,38 @@
         state.draft.server.content = serverTextarea.value;
       });
     }
+
+    var taModal = byId("vc-review-modal-content");
+    if (taModal) {
+      taModal.addEventListener("input", function () {
+        state.draft.server.content = taModal.value;
+      });
+    }
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-review-modal-dismiss]")).forEach(function (el) {
+      el.addEventListener("click", function () {
+        state.editModalOpen = false;
+        render();
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-review-edit-open]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        syncDraftFromPayload();
+        state.editModalOpen = true;
+        render();
+        var ta = byId("vc-review-modal-content");
+        if (ta) {
+          window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+              try {
+                ta.focus();
+              } catch (e) {}
+            });
+          });
+        }
+      });
+    });
 
     Array.prototype.slice.call(document.querySelectorAll("[data-review-set-rating]")).forEach(function (button) {
       button.addEventListener("click", function () {
@@ -389,6 +495,7 @@
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || "Non sono riuscito a salvare la recensione.");
         }
+        state.editModalOpen = false;
         setStatus(body.message || "Recensione salvata.", false);
         return fetchPayload();
       })
@@ -477,6 +584,7 @@
       return;
     }
     if (!window.confirm("Vuoi davvero eliminare la tua recensione?")) return;
+    state.editModalOpen = false;
     setStatus("Eliminazione recensione in corso...", false);
     fetch(apiUrl() + "/" + encodeURIComponent(reviewId), {
       method: "DELETE",
@@ -520,6 +628,13 @@
     }
     clearReviewsContent();
     showReviewsLoginGate();
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    if (!state.editModalOpen) return;
+    if (ev.key !== "Escape") return;
+    state.editModalOpen = false;
+    render();
   });
 
   if (document.readyState === "loading") {
