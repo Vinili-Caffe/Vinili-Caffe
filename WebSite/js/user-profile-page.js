@@ -155,29 +155,50 @@
     );
   }
 
+  function resolvedRankBoxDisplayColor(src) {
+    var rb = String(src.rankBoxBorderColor || "").trim();
+    if (rb && rb.charAt(0) !== "#") rb = "#" + rb;
+    var value = String(src.valueColor || "#f2f2f2").trim();
+    if (value && value.charAt(0) !== "#") value = "#" + value;
+    if (rb.toLowerCase() === "#ffcb05") return value;
+    if (/^#[0-9a-fA-F]{6}$/.test(rb)) return rb;
+    return value;
+  }
+
   function rankCardStyleVars(theme, resolvedWallpaper) {
     var src = theme && typeof theme === "object" ? theme : {};
-    var primary = src.primaryTextColor || "#ffcb05";
-    var value = src.valueColor || "#f2f2f2";
-    var label = src.labelColor || "#a8acb8";
-    var out = [];
-    if (src.panelColor) out.push("--vc-rank-panel:" + esc(src.panelColor));
-    out.push("--vc-rank-primary:" + esc(primary));
-    out.push("--vc-rank-secondary:" + esc(label));
-    if (src.multiplierColor) out.push("--vc-rank-multiplier:" + esc(src.multiplierColor));
-    out.push("--vc-rank-value:" + esc(value));
-    out.push("--vc-rank-label:" + esc(label));
-    out.push("--vc-rank-progress-start:" + esc(primary));
-    out.push("--vc-rank-progress-end:" + esc(primary));
-    out.push("--vc-rank-ring:" + esc(primary));
-    out.push("--vc-rank-rankbox:" + esc(value));
-    if (src.overlayOpacity != null) out.push("--vc-rank-opacity:" + esc(String(src.overlayOpacity)));
-    if (src.panelColor) {
-      var rgb = hexToRgbList(src.panelColor);
-      if (rgb) out.push("--vc-rank-panel-rgb:" + esc(rgb));
+    var panel = String(src.panelColor || "#202225").trim();
+    var primary = String(src.primaryTextColor || "#ffcb05").trim();
+    var label = String(src.labelColor || "#a8acb8").trim();
+    var secondary = String(src.secondaryTextColor || label || "#a8acb8").trim();
+    var value = String(src.valueColor || "#f2f2f2").trim();
+    var mult = String(src.multiplierColor || "#ffb400").trim();
+    var pStart = String(src.progressStartColor || primary || "#ffcb05").trim();
+    var pEnd = String(src.progressEndColor || primary || "#ffcb05").trim();
+    var ring = String(src.ringColor || primary || "#ffcb05").trim();
+    var rankBox = resolvedRankBoxDisplayColor(src);
+    var opacity = src.overlayOpacity != null && src.overlayOpacity !== "" ? Number(src.overlayOpacity) : 0.8;
+    if (!isFinite(opacity)) opacity = 0.8;
+    opacity = Math.max(0, Math.min(1, opacity));
+    var rgb = hexToRgbList(panel);
+    var out = [
+      "--vc-rank-panel:" + esc(panel),
+      "--vc-rank-panel-rgb:" + esc(rgb || "32, 34, 37"),
+      "--vc-rank-primary:" + esc(primary),
+      "--vc-rank-secondary:" + esc(secondary),
+      "--vc-rank-multiplier:" + esc(mult),
+      "--vc-rank-value:" + esc(value),
+      "--vc-rank-label:" + esc(label),
+      "--vc-rank-progress-start:" + esc(pStart),
+      "--vc-rank-progress-end:" + esc(pEnd),
+      "--vc-rank-ring:" + esc(ring),
+      "--vc-rank-rankbox:" + esc(rankBox),
+      "--vc-rank-opacity:" + esc(String(opacity)),
+    ];
+    if (resolvedWallpaper) {
+      out.push("--vc-rank-wallpaper:url('" + escForSingleQuotedCssUrl(resolvedWallpaper) + "')");
     }
-    if (resolvedWallpaper) out.push("--vc-rank-wallpaper:url('" + escForSingleQuotedCssUrl(resolvedWallpaper) + "')");
-    return out.length ? ' style="' + out.join(";") + '"' : "";
+    return ' style="' + out.join(";") + '"';
   }
 
   function formatDateIt(value) {
@@ -815,7 +836,7 @@
       '<div class="vc-rank-editor-preview__copy">' +
       '<div class="vc-rank-editor-preview__topline">' +
       '<span class="vc-rank-editor-preview__name">' + esc(profileUsername) + "</span>" +
-      '<span class="vc-rank-editor-preview__dot">·</span>' +
+      '<span class="vc-rank-editor-preview__dot">-</span>' +
       '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(level.level != null ? level.level : 0)) + "</span>" +
       '<span class="vc-rank-editor-preview__mult">' + esc(formatMult(multiplier)) + "</span>" +
       "</div>" +

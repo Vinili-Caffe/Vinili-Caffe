@@ -125,7 +125,7 @@ function sanitizeWallpaperUrl(value) {
   if (raw.startsWith("data:")) {
     raw = raw.replace(/\s+/g, "");
   }
-  if (/^data:image\/(?:png|jpeg|jpg|webp);base64,[a-z0-9+/=]+$/i.test(raw)) {
+  if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw)) {
     if (raw.length > 900_000) return "";
     return raw;
   }

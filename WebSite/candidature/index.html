@@ -201,30 +201,41 @@
           <strong class="text-slate-200">Helper</strong> e <strong class="text-slate-200">Partner Manager</strong>. Per candidarti, è necessario
           soddisfare i seguenti requisiti:
         </p>
-        <ul class="mt-4 list-none space-y-2.5 p-0 text-sm text-slate-300">
-          <li class="flex gap-2"><span class="text-emerald-300/90" aria-hidden="true">①</span> Avere almeno <strong class="text-white">14 anni (compiuti)</strong></li>
-          <li class="flex gap-2">
-            <span class="text-emerald-300/90" aria-hidden="true">②</span> Rispettare i
-            <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
-            e le
-            <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
-            di Discord
+        <ol class="vc-candidature-req-list">
+          <li>
+            <span class="vc-candidature-req-body">Avere almeno <strong class="text-white">14 anni (compiuti)</strong></span>
           </li>
-          <li class="flex gap-2"><span class="text-emerald-300/90" aria-hidden="true">③</span> Essere <strong class="text-white">maturi</strong> e <strong class="text-white">attivi</strong></li>
-          <li class="flex gap-2"><span class="text-emerald-300/90" aria-hidden="true">④</span> Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</li>
-        </ul>
+          <li>
+            <span class="vc-candidature-req-body">Rispettare i
+              <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a>
+              e le
+              <a class="font-semibold text-emerald-300/95 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-200" href="https://discord.com/guidelines" target="_blank" rel="noopener noreferrer">Linee Guida</a>
+              di Discord</span>
+          </li>
+          <li>
+            <span class="vc-candidature-req-body">Essere <strong class="text-white">maturi</strong> e <strong class="text-white">attivi</strong></span>
+          </li>
+          <li>
+            <span class="vc-candidature-req-body">Non essere mai stato <strong class="text-white">sanzionato</strong> nel server</span>
+          </li>
+        </ol>
       </section>
 
       <section id="vc-candidature-form-wrap" class="mt-10" hidden aria-labelledby="candidature-modulo-title">
         <h2 id="candidature-modulo-title" class="text-lg font-bold text-white">Modulo di candidatura</h2>
 
-        <div
-          id="vc-candidature-gate"
-          class="mt-6 rounded-[1.6rem] border border-white/10 bg-slate-950/30 p-4 text-sm leading-relaxed text-slate-200"
-          role="alert"
-          aria-live="polite"
-          hidden
-        ></div>
+        <div id="vc-candidature-submit-success" class="vc-candidature-success mt-6" hidden role="status" aria-live="polite">
+          <i class="fa fa-check-circle-o vc-candidature-success-ico" aria-hidden="true"></i>
+          <div>
+            <p class="vc-candidature-success-title">Candidatura inviata con successo!</p>
+            <p class="vc-candidature-success-text">Il nostro staff esaminerà attentamente la tua candidatura e ti contatterà tramite messaggio diretto (DM) su Discord. Se non ricevi risposta entro 14 giorni, considera la candidatura rifiutata.</p>
+          </div>
+        </div>
+
+        <div id="vc-candidature-gate" class="vc-candidature-notice mt-6" role="alert" aria-live="polite" hidden>
+          <span class="vc-candidature-notice-ico" aria-hidden="true"><i class="fa fa-info-circle"></i></span>
+          <p id="vc-candidature-gate-body" class="vc-candidature-notice-msg"></p>
+        </div>
 
         <div id="vc-candidature-form-inner" class="mt-6 rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-6">
         <div class="flex flex-wrap gap-2" role="tablist" aria-label="Tipo candidatura">
@@ -245,13 +256,6 @@
         >
           <i class="fa fa-paper-plane-o" aria-hidden="true"></i> Invia candidatura
         </button>
-        <div id="vc-candidature-submit-success" class="vc-candidature-success mt-4" hidden role="status" aria-live="polite">
-          <i class="fa fa-check-circle-o vc-candidature-success-ico" aria-hidden="true"></i>
-          <div>
-            <p class="vc-candidature-success-title">Candidatura inviata con successo!</p>
-            <p class="vc-candidature-success-text">Il nostro staff esaminerà attentamente la tua candidatura e ti contatterà tramite messaggio diretto (DM) su Discord. Se non ricevi risposta entro 14 giorni, considera la candidatura rifiutata.</p>
-          </div>
-        </div>
 
         <div class="mt-6 rounded-[1.6rem] border border-amber-300/20 bg-amber-950/25 p-4 text-sm text-amber-50/95">
           <p class="m-0 flex gap-2 font-semibold">

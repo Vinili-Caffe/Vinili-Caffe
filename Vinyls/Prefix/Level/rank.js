@@ -62,8 +62,8 @@ module.exports = {
     const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
 
     const avatarUrl =
-      targetMember?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
-      targetUser.displayAvatarURL({ extension: "png", size: 256 });
+      targetMember?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+      targetUser.displayAvatarURL({ size: 256, forceStatic: false });
     const card = await renderRankCanvas({
       username: targetUser.username,
       avatarUrl,

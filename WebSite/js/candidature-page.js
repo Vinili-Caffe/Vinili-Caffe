@@ -137,11 +137,6 @@
   var activeKind = "helper";
   var eligibilityState = { loading: false, data: null };
 
-  var GATE_GLOBAL =
-    "mt-6 rounded-[1.6rem] border border-amber-300/25 bg-amber-950/30 p-4 text-sm leading-relaxed text-amber-50/95";
-  var GATE_TAB =
-    "mt-6 rounded-[1.6rem] border border-white/10 bg-slate-950/40 p-4 text-sm leading-relaxed text-slate-200";
-
   function cfgCandidature() {
     return (typeof window !== "undefined" && window.__VC_CANDIDATURE) || {};
   }
@@ -274,6 +269,35 @@
     }
   }
 
+  function clearGate() {
+    var gate = byId("vc-candidature-gate");
+    var body = byId("vc-candidature-gate-body");
+    if (gate) {
+      gate.hidden = true;
+      gate.className = "vc-candidature-notice mt-6";
+    }
+    if (body) body.textContent = "";
+  }
+
+  function showGateMessage(variant, message) {
+    var gate = byId("vc-candidature-gate");
+    var body = byId("vc-candidature-gate-body");
+    var icoWrap = gate ? gate.querySelector(".vc-candidature-notice-ico i") : null;
+    if (!gate || !body) return;
+    gate.hidden = false;
+    gate.className =
+      "vc-candidature-notice mt-6 vc-candidature-notice--" + (variant === "amber" ? "amber" : "slate");
+    body.textContent = message || "";
+    if (icoWrap) {
+      icoWrap.className = variant === "amber" ? "fa fa-exclamation-triangle" : "fa fa-info-circle";
+    }
+  }
+
+  function isSuccessBannerVisible() {
+    var s = byId("vc-candidature-submit-success");
+    return Boolean(s && !s.hidden);
+  }
+
   function syncEligibilityToDom() {
     var gate = byId("vc-candidature-gate");
     var inner = byId("vc-candidature-form-inner");
@@ -281,7 +305,7 @@
     if (!gate || !inner) return;
 
     if (!currentUser) {
-      gate.hidden = true;
+      clearGate();
       inner.hidden = false;
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
@@ -289,7 +313,7 @@
     }
 
     if (!eligibilityApiUrl()) {
-      gate.hidden = true;
+      clearGate();
       inner.hidden = false;
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
@@ -297,7 +321,7 @@
     }
 
     if (eligibilityState.loading) {
-      gate.hidden = true;
+      clearGate();
       inner.hidden = false;
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
@@ -306,7 +330,7 @@
 
     var d = eligibilityState.data;
     if (!d || d.ok !== true) {
-      gate.hidden = true;
+      clearGate();
       inner.hidden = false;
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
@@ -314,11 +338,10 @@
     }
 
     if (hasGlobalBlock(d)) {
-      gate.hidden = false;
-      gate.className = GATE_GLOBAL;
-      gate.textContent =
-        globalBlockMessage(d) ||
-        "Non puoi usare il modulo candidature con questo account.";
+      showGateMessage(
+        "amber",
+        globalBlockMessage(d) || "Non puoi usare il modulo candidature con questo account.",
+      );
       inner.hidden = true;
       if (sub) sub.disabled = true;
       return;
@@ -328,17 +351,21 @@
 
     if (!currentTypeEligible(d)) {
       var row = rowForActiveKind(d);
-      gate.hidden = false;
-      gate.className = GATE_TAB;
-      gate.textContent =
-        (row && row.message) ||
-        "Per il ruolo selezionato non puoi inviare una candidatura con questo account.";
+      if (isSuccessBannerVisible()) {
+        clearGate();
+      } else {
+        showGateMessage(
+          "slate",
+          (row && row.message) ||
+            "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
+        );
+      }
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
     }
 
-    gate.hidden = true;
+    clearGate();
     setFieldsDisabled(false);
     if (sub) sub.disabled = false;
   }
@@ -606,6 +633,12 @@
         return;
       }
       setSubmitSuccessVisible(true);
+      var okBox = byId("vc-candidature-submit-success");
+      if (okBox && typeof okBox.scrollIntoView === "function") {
+        try {
+          okBox.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (eScroll) {}
+      }
       applyLocalCooldown(activeKind, data.cooldown_until_ms);
       await refreshEligibility();
     } catch (e) {
@@ -640,6 +673,7 @@
     setWelcome(user);
     showFormWrap(Boolean(user));
     if (!user) {
+      setSubmitSuccessVisible(false);
       eligibilityState = { loading: false, data: null };
       syncEligibilityToDom();
       return;

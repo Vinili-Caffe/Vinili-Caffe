@@ -48,8 +48,8 @@ async function getRankCardCustomization(client, payload) {
     username: String(resolved.member?.user?.username || "").trim(),
     displayName: String(resolved.member?.user?.username || resolved.member?.displayName || "Utente").trim() || "Utente",
     avatarUrl:
-      resolved.member?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
-      resolved.member?.user?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
+      resolved.member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
+      resolved.member?.user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
       "",
     theme,
     defaults: DEFAULT_RANK_CARD_THEME,

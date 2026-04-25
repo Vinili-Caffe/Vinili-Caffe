@@ -51,17 +51,55 @@
       var q = new URLSearchParams(window.location.search || "");
       var fromQuery = String(q.get("id") || q.get("userId") || "").trim();
       if (/^\d{17,20}$/.test(fromQuery)) return fromQuery;
-      var match = String(window.location.pathname || "").match(/^\/user\/(\d{17,20})\/personalizza\/?$/);
+      var rawPath = String(window.location.pathname || "").replace(/\/index\.html?$/i, "");
+      var match = rawPath.match(/^\/user\/(\d{17,20})\/personalizza\/?$/);
       if (match) return match[1];
-      match = String(window.location.pathname || "").match(/^\/users\/(\d{17,20})\/customize\/?$/);
+      match = rawPath.match(/^\/users\/(\d{17,20})\/customize\/?$/);
       if (match) return match[1];
     } catch (e) {}
     return "";
   }
 
+  function isLocalFrontendOrigin() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+    } catch (e) {
+      return false;
+    }
+  }
+
   function resolvedRankApiUrl() {
     var c = cfg();
+    var local = String(c.rankApiUrlLocal || "").trim();
+    if (isLocalFrontendOrigin() && local) return local;
     return String(c.rankApiUrl || "").trim();
+  }
+
+  function hideRankCustomizeLoading() {
+    var loading = byId("vc-rank-customize-loading");
+    if (loading) loading.hidden = true;
+  }
+
+  function showRankFatalError(message) {
+    hideRankCustomizeLoading();
+    var app = byId("vc-rank-customize-app");
+    if (!app) return;
+    var home = "/";
+    try {
+      if (window.__VC_AUTH && window.__VC_AUTH.homeUrl) home = String(window.__VC_AUTH.homeUrl).replace(/\/+$/, "") || "/";
+    } catch (eHome) {}
+    app.hidden = false;
+    app.innerHTML =
+      '<div class="vc-rank-customize-fatal">' +
+      '<div class="vc-rank-editor-topbar"><a class="vc-user-profile-backbtn" href="' +
+      esc(home) +
+      '"><i class="fa fa-chevron-left" aria-hidden="true"></i> Home</a></div>' +
+      '<section class="vc-rank-editor-hero">' +
+      '<div class="vc-rank-editor-hero__icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></div>' +
+      "<div><h1>Impossibile caricare</h1><p>" +
+      esc(String(message || "Errore sconosciuto.")) +
+      "</p></div></section></div>";
   }
 
   function profileUrl(userId) {
@@ -71,6 +109,7 @@
   function redirectToProfile(userId) {
     var id = String(userId || "").trim();
     if (!/^\d{17,20}$/.test(id)) return false;
+    hideRankCustomizeLoading();
     try {
       window.location.replace(profileUrl(id));
     } catch (e) {
@@ -173,25 +212,52 @@
     return (loaded && loaded.permissions) || {};
   }
 
+  function effectiveRankTheme(theme) {
+    var defaults = (loaded && loaded.defaults) || {};
+    var t = theme && typeof theme === "object" ? theme : {};
+    return Object.assign({}, defaults, t);
+  }
+
+  /** Stessa logica colore rank box di `rankCanvas.js` (legacy #FFCB05 → value). */
+  function resolvedRankBoxDisplayColor(t) {
+    var rb = String(t.rankBoxBorderColor || "").trim();
+    if (rb && rb.charAt(0) !== "#") rb = "#" + rb;
+    var value = String(t.valueColor || "#f2f2f2").trim();
+    if (value && value.charAt(0) !== "#") value = "#" + value;
+    if (rb.toLowerCase() === "#ffcb05") return value;
+    if (/^#[0-9a-fA-F]{6}$/.test(rb)) return rb;
+    return value;
+  }
+
   function rankStyle(theme) {
-    var t = theme || {};
-    var primary = t.primaryTextColor || "#ffcb05";
-    var value = t.valueColor || "#f2f2f2";
-    var label = t.labelColor || "#a8acb8";
+    var t = effectiveRankTheme(theme);
+    var panel = String(t.panelColor || "#202225").trim();
+    var primary = String(t.primaryTextColor || "#ffcb05").trim();
+    var label = String(t.labelColor || "#a8acb8").trim();
+    var secondary = String(t.secondaryTextColor || label || "#a8acb8").trim();
+    var value = String(t.valueColor || "#f2f2f2").trim();
+    var mult = String(t.multiplierColor || "#ffb400").trim();
+    var pStart = String(t.progressStartColor || primary || "#ffcb05").trim();
+    var pEnd = String(t.progressEndColor || primary || "#ffcb05").trim();
+    var ring = String(t.ringColor || primary || "#ffcb05").trim();
+    var rankBox = resolvedRankBoxDisplayColor(t);
+    var opacity = t.overlayOpacity != null && t.overlayOpacity !== "" ? Number(t.overlayOpacity) : 0.8;
+    if (!isFinite(opacity)) opacity = 0.8;
+    opacity = Math.max(0, Math.min(1, opacity));
     var wp = resolvedWallpaper(t);
     return [
-      "--vc-rank-panel:" + esc(t.panelColor),
-      "--vc-rank-panel-rgb:" + esc(hexToRgbList(t.panelColor)),
+      "--vc-rank-panel:" + esc(panel),
+      "--vc-rank-panel-rgb:" + esc(hexToRgbList(panel)),
       "--vc-rank-primary:" + esc(primary),
-      "--vc-rank-secondary:" + esc(label),
-      "--vc-rank-multiplier:" + esc(t.multiplierColor),
+      "--vc-rank-secondary:" + esc(secondary),
+      "--vc-rank-multiplier:" + esc(mult),
       "--vc-rank-value:" + esc(value),
       "--vc-rank-label:" + esc(label),
-      "--vc-rank-progress-start:" + esc(primary),
-      "--vc-rank-progress-end:" + esc(primary),
-      "--vc-rank-ring:" + esc(primary),
-      "--vc-rank-rankbox:" + esc(value),
-      "--vc-rank-opacity:" + esc(String(t.overlayOpacity)),
+      "--vc-rank-progress-start:" + esc(pStart),
+      "--vc-rank-progress-end:" + esc(pEnd),
+      "--vc-rank-ring:" + esc(ring),
+      "--vc-rank-rankbox:" + esc(rankBox),
+      "--vc-rank-opacity:" + esc(String(opacity)),
       "--vc-rank-wallpaper:" + (wp ? "url('" + escForSingleQuotedCssUrl(wp) + "')" : "none"),
     ].join(";");
   }
@@ -244,7 +310,7 @@
       '<div class="vc-rank-editor-preview__copy">' +
       '<div class="vc-rank-editor-preview__topline">' +
       '<span class="vc-rank-editor-preview__name">' + esc(username) + "</span>" +
-      '<span class="vc-rank-editor-preview__dot">·</span>' +
+      '<span class="vc-rank-editor-preview__dot">-</span>' +
       '<span class="vc-rank-editor-preview__level">Lv. ' + esc(String(stats.level || 0)) + "</span>" +
       '<span class="vc-rank-editor-preview__mult">' + esc(formatMult(stats.multiplier || 1)) + "</span>" +
       "</div>" +
@@ -302,10 +368,10 @@
         '<div class="vc-rank-editor-card__body">' +
         '<div class="vc-rank-editor-uploadrow">' +
         '<label class="vc-rank-editor-uploadbtn" for="vc-rank-wallpaper-file"><i class="fa fa-upload" aria-hidden="true"></i> Scegli allegato</label>' +
-        '<input type="file" id="vc-rank-wallpaper-file" accept="image/png,image/jpeg,image/webp" hidden />' +
+        '<input type="file" id="vc-rank-wallpaper-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />' +
         '<button type="button" class="vc-rank-editor-reset" id="vc-rank-clear-wallpaper"><i class="fa fa-trash-o" aria-hidden="true"></i> Rimuovi</button>' +
         "</div>" +
-        '<p class="vc-rank-editor-uploadhint">PNG, JPG o WEBP. L&apos;immagine viene ottimizzata automaticamente.</p>' +
+        '<p class="vc-rank-editor-uploadhint">PNG, JPG, WEBP o GIF (GIF senza ricompressione). L&apos;immagine viene ottimizzata quando possibile.</p>' +
         '<p class="vc-rank-editor-uploadname" id="vc-rank-wallpaper-name">' + esc(draft.wallpaperUrl ? "Wallpaper caricato" : "Nessun allegato selezionato") + "</p>" +
         "</div></details>"
       );
@@ -477,6 +543,14 @@
   }
 
   async function optimizeWallpaperFile(file) {
+    var mime = String((file && file.type) || "").toLowerCase();
+    if (mime === "image/gif") {
+      var gifUrl = await readFileAsDataUrl(file);
+      if (gifUrl.length > 900000) {
+        throw new Error("file_too_large");
+      }
+      return gifUrl;
+    }
     var dataUrl = await readFileAsDataUrl(file);
     var img = await loadImageElement(dataUrl);
     var maxWidth = 1600;
@@ -598,16 +672,50 @@
   }
 
   function fetchRankData() {
+    var url = resolvedRankApiUrl();
+    if (!url) {
+      return Promise.resolve({
+        ok: false,
+        message: "Configurazione API rank card mancante. Contatta gli amministratori.",
+      });
+    }
     var token = getToken();
     if (!token) {
-      setStatus("Devi effettuare il login con Discord per personalizzare la rank card.", true);
-      return Promise.resolve(null);
+      return Promise.resolve({
+        ok: false,
+        message: "Devi effettuare il login con Discord per personalizzare la rank card.",
+      });
     }
-    return fetch(resolvedRankApiUrl(), {
+    return fetch(url, {
       method: "GET",
       headers: { Authorization: "Bearer " + token },
       cache: "no-store",
-    }).then(function (r) { return r.json(); });
+    })
+      .then(function (r) {
+        return r.text().then(function (text) {
+          var parsed = null;
+          if (text) {
+            try {
+              parsed = JSON.parse(text);
+            } catch (eParse) {
+              return {
+                ok: false,
+                message: "Risposta API non valida (HTTP " + r.status + ").",
+              };
+            }
+          }
+          if (!r.ok) {
+            var msg =
+              (parsed && (parsed.message || parsed.error)) ||
+              "Errore HTTP " + r.status + " durante il caricamento.";
+            return { ok: false, message: String(msg) };
+          }
+          return parsed || { ok: false, message: "Risposta vuota dall'API." };
+        });
+      })
+      .catch(function () {
+        return { ok: false, message: "Errore di rete o connessione rifiutata durante il caricamento." };
+      });
   }
 
   function saveTheme() {
@@ -695,22 +803,32 @@
     var targetUserId = parseTargetUserId();
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
     if (enforceTargetOwnership(targetUserId, currentUser)) return;
-    fetchRankData().then(function (body) {
-      var loading = byId("vc-rank-customize-loading");
-      if (loading) loading.hidden = true;
-      if (!body || body.ok !== true) {
-        setStatus((body && body.message) || "Impossibile caricare la personalizzazione rank card.", true);
-        return;
-      }
-      if (targetUserId && String(targetUserId) !== String(body.userId || "")) {
-        redirectToProfile(targetUserId);
-        return;
-      }
-      loaded = body;
-      draft = normalizeTheme(body.theme || {});
-      if (!draft.wallpaperKey) draft.wallpaperKey = "default";
-      render();
-    });
+    fetchRankData()
+      .then(function (body) {
+        hideRankCustomizeLoading();
+        if (!body || body.ok !== true) {
+          showRankFatalError(
+            (body && body.message) || "Impossibile caricare la personalizzazione rank card."
+          );
+          return;
+        }
+        if (targetUserId && String(targetUserId) !== String(body.userId || "")) {
+          redirectToProfile(targetUserId);
+          return;
+        }
+        try {
+          loaded = body;
+          draft = normalizeTheme(body.theme || {});
+          if (!draft.wallpaperKey) draft.wallpaperKey = "default";
+          render();
+        } catch (eRender) {
+          showRankFatalError("Errore durante il rendering dell'editor.");
+        }
+      })
+      .catch(function () {
+        hideRankCustomizeLoading();
+        showRankFatalError("Errore imprevisto durante il caricamento.");
+      });
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
