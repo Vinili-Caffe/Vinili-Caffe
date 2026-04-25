@@ -7200,6 +7200,7 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 
 .vc-rank-editor-preview__imagewrap {
   width: 100%;
+  position: relative;
 }
 
 .vc-rank-editor-preview__image {
@@ -7210,6 +7211,15 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(15, 23, 42, 0.45);
   transition: opacity 0.2s ease;
+}
+
+.vc-rank-editor-preview__liveoverlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.15rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s linear;
 }
 
 .vc-rank-editor-preview__image.is-rendering {
@@ -11097,4 +11107,90 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   .vc-candidature-headline
 ) {
   color: var(--vc-unified-emerald) !important;
+}
+
+/* Global alignment: all non-home pages use home palette */
+body.vc-body:not(.vc-body--home) header .vc-nav-shell.vc-glass,
+body.vc-body:not(.vc-body--home) header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
+  background: rgba(10, 8, 7, 0.78);
+  border-color: rgba(var(--vc-sand-rgb), 0.22);
+  box-shadow:
+    0 10px 38px rgba(0, 0, 0, 0.42),
+    0 0 36px rgba(var(--vc-sand-rgb), 0.08);
+}
+
+body.vc-body:not(.vc-body--home) .vc-snav-panel,
+body.vc-body:not(.vc-body--home) .discord-account-popover,
+body.vc-body:not(.vc-body--home) .vc-notif-panel {
+  border-color: rgba(var(--vc-sand-rgb), 0.24);
+  background:
+    radial-gradient(ellipse 95% 70% at 18% 0%, rgba(var(--vc-reviews-emerald-rgb), 0.1), transparent 48%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(var(--vc-mocha-rgb), 0.28), transparent 50%),
+    linear-gradient(180deg, rgba(22, 16, 12, 0.96), rgba(10, 22, 18, 0.94));
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 36px rgba(var(--vc-reviews-glow-rgb), 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body.vc-body:not(.vc-body--home) .vc-snav-row:hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.3);
+  background: rgba(36, 26, 20, 0.4);
+}
+
+body.vc-body:not(.vc-body--home) :where(
+  .vc-support-page-hero,
+  .vc-support-intro-shell .vc-hero-head,
+  .vc-reviews-formcard,
+  .vc-reviews-list,
+  .vc-user-profile-hero,
+  .vc-user-profile-block,
+  .vc-rank-editor-panel,
+  .vc-rank-editor-previewcard,
+  .vc-rank-editor-tabs
+) {
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.2);
+  background: linear-gradient(135deg, rgba(18, 34, 48, 0.55), rgba(20, 62, 54, 0.2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+body.vc-body:not(.vc-body--home) :where(
+  .vc-support-page-hero,
+  .vc-support-intro-shell .vc-hero-head,
+  .vc-reviews-formcard,
+  .vc-reviews-list,
+  .vc-user-profile-hero,
+  .vc-user-profile-block,
+  .vc-rank-editor-panel,
+  .vc-rank-editor-previewcard,
+  .vc-rank-editor-tabs
+):hover {
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.28);
+}
+
+body.vc-body:not(.vc-body--home) :where(
+  .vc-support-page-hero__cta,
+  .vc-rank-editor-save,
+  .vc-rank-editor-reset,
+  .vc-rank-editor-updatebtn,
+  .vc-reviews-submit,
+  .vc-reviews-delete
+) {
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.3);
+  background: rgba(16, 34, 46, 0.42);
+  color: rgba(220, 252, 242, 0.94);
+}
+
+body.vc-body:not(.vc-body--home) :where(
+  .vc-support-page-hero__cta,
+  .vc-rank-editor-save,
+  .vc-rank-editor-reset,
+  .vc-rank-editor-updatebtn,
+  .vc-reviews-submit,
+  .vc-reviews-delete
+):hover {
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.42);
+  background: rgba(14, 42, 44, 0.58);
+  color: #ecfdf5;
 }

@@ -136,40 +136,33 @@ module.exports = {
         target.displayAvatarURL({ size: 256 }) || "https://disboard.org/images/no-icon.png";
       const ts = Math.floor(Date.now() / 1000);
       const reviewEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setTitle("Nuova recensione rilevata!")
+        .setColor(0x0d9488)
+        .setTitle("Recensione registrata (staff)")
         .setURL(reviewPageUrl)
-        .setThumbnail("https://disboard.org/images/no-icon.png")
-        .setDescription(
-          [
-            `**Nuova recensione da ${authorName}**`,
-            "",
-            `"${authorName}"`,
-            "",
-            `**Valutazione:** ${"⭐".repeat(5)}`,
-            "",
-            "> Recensione registrata dallo staff dopo verifica su DISBOARD.",
-          ].join("\n"),
-        )
+        .setAuthor({ name: authorName, iconURL: avatarUrl || undefined })
+        .setThumbnail(avatarUrl)
+        .setDescription("Ricompensa assegnata dopo verifica su Disboard.")
         .addFields(
+          { name: "Valutazione", value: "⭐".repeat(5), inline: true },
+          { name: "Inviata", value: `<t:${ts}:R>`, inline: true },
           {
-            name: "<:VC_Dot:1482532364222595303> Info",
-            value: `<:VC_bump:1482531857521311885> Inviata: **<t:${ts}:R>**`,
-            inline: true,
+            name: "Dettaglio",
+            value: "Recensione registrata dallo staff dopo verifica su DISBOARD.",
+            inline: false,
           },
           {
-            name: "<:VC_Dot:1482532364222595303> Link",
-            value: `[Vai alla recensione](<${reviewPageUrl}>)`,
-            inline: true,
+            name: "Link",
+            value: `[Apri le recensioni](<${reviewPageUrl}>)`,
+            inline: false,
           },
           {
-            name: "<:VC_LevelUp2:1482527047871107143> Ricompensa Automatica",
-            value: `<a:VC_StarPink:1330194976440848500> Grazie <@${target.id}>, ti sono stati assegnati **+5 livelli** per il tuo supporto!`,
+            name: "Ricompensa",
+            value: `<a:VC_StarPink:1330194976440848500> <@${target.id}>, **+5 livelli** per il supporto.`,
             inline: false,
           },
         )
         .setFooter({
-          text: ".gg/viniliecaffe · Feedback community",
+          text: "viniliecaffe.it · Feedback community",
           iconURL: message.client.user.displayAvatarURL(),
         })
         .setTimestamp();
@@ -180,7 +173,7 @@ module.exports = {
     }
 
     const done = new EmbedBuilder()
-      .setColor("#6f4e37")
+      .setColor(0x0d9488)
       .setTitle("<:vegacheckmark:1443666279058772028> Recensione Registrata")
       .setDescription(`Ho assegnato la ricompensa recensione a ${target}.`)
       .addFields(

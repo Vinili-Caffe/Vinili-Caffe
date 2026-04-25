@@ -38,21 +38,17 @@ module.exports = {
       const responsible = formatAuditActor(audit.executor);
 
       if (thread.parent?.type === ChannelType.GuildForum && IDs.roles.Forum) {
-        const forumRole = await thread.guild.roles.fetch(IDs.roles.Forum).catch(() => null);
-        if (forumRole) {
-          if (!forumRole.members?.size) {
-            await thread.guild.members.fetch().catch(() => null);
-          }
-          const forumMembers = Array.from(forumRole.members?.values?.() || []).filter((member) => !member.user?.bot);
-          for (const member of forumMembers) {
-            await thread.members.add(member.id).catch((error) => {
-              global.logger?.error?.("[threadCreate] forum thread member add failed:", error);
+        const forumRoleId = String(IDs.roles.Forum || "").trim();
+        if (forumRoleId) {
+          await thread
+            .send({
+              content: `<@&${forumRoleId}>`,
+              allowedMentions: { roles: [forumRoleId] },
+            })
+            .catch((error) => {
+              global.logger?.error?.("[threadCreate] forum role mention failed:", error);
             });
-          }
         }
-        await thread.send({ content: `<@&${IDs.roles.Forum}>` }).catch((error) => {
-          global.logger?.error?.("[threadCreate] forum mention failed:", error);
-        });
       }
 
       const logChannel = await resolveChannelRolesLogChannel(thread.guild);

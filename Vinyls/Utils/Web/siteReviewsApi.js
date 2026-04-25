@@ -185,43 +185,39 @@ async function announceServerReview(client, guild, authorMember, review, rewardI
     "";
   const stars = "⭐".repeat(normalizeRating(review.rating));
   const reviewsPageUrl = String(client?.config?.siteReviews?.pageUrl || "").trim();
+  const reviewLink = reviewsPageUrl || "https://www.viniliecaffe.it/recensioni/";
+  const bodyText = String(review.content || "").trim().slice(0, 900) || "—";
 
   const relativeTs = Math.floor(Date.now() / 1000);
-  const absoluteTs = new Date();
   const rewardLine =
     rewardInfo && Number(rewardInfo.addedLevels || 0) > 0
-      ? `<a:VC_StarPink:1330194976440848500> Grazie <@${authorMember.id}>, ti sono stati assegnati **+${rewardInfo.addedLevels} livelli** per il tuo supporto!`
-      : `<a:VC_StarPink:1330194976440848500> Grazie <@${authorMember.id}> per il tuo supporto!`;
+      ? `<a:VC_StarPink:1330194976440848500> <@${authorMember.id}>, **+${rewardInfo.addedLevels} livelli** per aver lasciato una recensione sul sito.`
+      : `<a:VC_StarPink:1330194976440848500> Grazie <@${authorMember.id}> per il supporto!`;
 
   const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("Nuova recensione rilevata!")
-    .setURL(reviewsPageUrl || null)
-    .setThumbnail("https://disboard.org/images/no-icon.png")
-    .setDescription(
-      [
-        `**Nuova recensione da ${authorName}**`,
-        "",
-        `"${authorName}"`,
-        "",
-        `**Valutazione:** ${stars}`,
-        "",
-        `> ${String(review.content || "").slice(0, 900)}`,
-        "",
-        "<:VC_Dot:1482532364222595303> **Info**",
-        `<:VC_bump:1482531857521311885> Inviata: **<t:${relativeTs}:R>**`,
-        "<:VC_Dot:1482532364222595303> **Link**",
-        `[Vai alla recensione](<${reviewsPageUrl || "https://viniliecaffe.it/recensioni/"}>)`,
-        "",
-        "<:VC_LevelUp2:1482527047871107143> **Ricompensa Automatica**",
-        rewardLine,
-      ].join("\n"),
-    )
+    .setColor(0x0d9488)
+    .setTitle("Nuova recensione sul sito")
+    .setURL(reviewLink)
+    .setAuthor({ name: authorName, iconURL: avatarUrl || undefined })
+    .setThumbnail(avatarUrl || "https://disboard.org/images/no-icon.png")
+    .setDescription("Un membro ha pubblicato una recensione della community.")
     .addFields(
-      { name: "\u200B", value: `<t:${Math.floor(absoluteTs.getTime() / 1000)}:f>`, inline: false },
+      { name: "Valutazione", value: stars, inline: true },
+      { name: "Inviata", value: `<t:${relativeTs}:R>`, inline: true },
+      { name: "Testo", value: bodyText.length > 1020 ? `${bodyText.slice(0, 1017)}…` : bodyText, inline: false },
+      {
+        name: "Link",
+        value: `[Apri la pagina recensioni](<${reviewLink}>)`,
+        inline: false,
+      },
+      {
+        name: "Ricompensa",
+        value: rewardLine,
+        inline: false,
+      },
     )
     .setFooter({
-      text: ".gg/viniliecaffe · Feedback community",
+      text: "viniliecaffe.it · Feedback community",
       iconURL: client.user?.displayAvatarURL?.() || undefined,
     })
     .setTimestamp();

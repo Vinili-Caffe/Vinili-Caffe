@@ -12,7 +12,24 @@
   var previewRenderToken = 0;
   var previewObjectUrl = "";
   var previewRefreshTimer = null;
-  var previewAbortController = null;
+  var previewRenderInFlight = false;
+  var previewRefreshQueued = false;
+
+  function setLocalOpacityDragPreview(enabled) {
+    var overlay = byId("vc-rank-editor-preview-live-overlay");
+    if (!overlay || !draft) return;
+    if (!enabled) {
+      overlay.style.opacity = "0";
+      return;
+    }
+    var t = effectiveRankTheme(draft || {});
+    var panel = String(t.panelColor || "#202225").trim();
+    var alpha = Number(t.overlayOpacity);
+    if (!Number.isFinite(alpha)) alpha = 0.8;
+    alpha = Math.max(0, Math.min(1, alpha));
+    overlay.style.background = panel;
+    overlay.style.opacity = String(alpha * 0.24);
+  }
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
@@ -300,6 +317,7 @@
   function previewMarkup(data, theme) {
     return (
       '<div class="vc-rank-editor-preview__imagewrap">' +
+      '<span id="vc-rank-editor-preview-live-overlay" class="vc-rank-editor-preview__liveoverlay" aria-hidden="true"></span>' +
       '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="Anteprima rank card" loading="eager" decoding="async"' +
       (previewObjectUrl ? ' src="' + esc(previewObjectUrl) + '"' : "") +
       " />" +
@@ -317,25 +335,26 @@
   }
 
   function refreshServerPreview() {
+    if (previewRenderInFlight) {
+      previewRefreshQueued = true;
+      return;
+    }
+    previewRenderInFlight = true;
+    previewRefreshQueued = false;
     var token = getToken();
     var url = resolvedRankPreviewApiUrl();
     var img = byId("vc-rank-editor-preview-image");
     var status = byId("vc-rank-editor-preview-image-status");
-    if (!img || !status) return;
+    if (!img || !status) {
+      previewRenderInFlight = false;
+      return;
+    }
     if (!token || !url || !draft) {
       status.textContent = "Anteprima non disponibile.";
+      previewRenderInFlight = false;
       return;
     }
     var myToken = ++previewRenderToken;
-    if (previewAbortController) {
-      try {
-        previewAbortController.abort();
-      } catch (eAbort) {}
-      previewAbortController = null;
-    }
-    if (typeof AbortController !== "undefined") {
-      previewAbortController = new AbortController();
-    }
     if (!img.getAttribute("src")) status.textContent = "Render anteprima in corso...";
     status.className = "vc-rank-editor-preview__imagestatus";
     img.classList.add("is-rendering");
@@ -346,7 +365,6 @@
         Authorization: "Bearer " + token,
       },
       body: JSON.stringify({ theme: draft }),
-      signal: previewAbortController ? previewAbortController.signal : undefined,
     }, 35000)
       .then(function (r) {
         if (!r.ok) throw new Error("preview_http_" + r.status);
@@ -381,15 +399,21 @@
             window.URL.revokeObjectURL(prevObjectUrl);
           } catch (ePrev) {}
         }
-        if (previewAbortController) previewAbortController = null;
+        setLocalOpacityDragPreview(false);
       })
       .catch(function (err) {
-        if (err && err.name === "AbortError") return;
         if (myToken !== previewRenderToken) return;
         img.classList.remove("is-rendering");
         status.textContent = "Anteprima non disponibile al momento.";
         status.className = "vc-rank-editor-preview__imagestatus is-error";
-        if (previewAbortController) previewAbortController = null;
+        setLocalOpacityDragPreview(false);
+      })
+      .finally(function () {
+        previewRenderInFlight = false;
+        if (previewRefreshQueued) {
+          previewRefreshQueued = false;
+          refreshServerPreview();
+        }
       });
   }
 
@@ -677,10 +701,12 @@
         if (label) label.textContent = String(range.value) + "%";
         var badge = document.querySelector(".vc-rank-editor-card__badge");
         if (badge) badge.textContent = String(range.value) + "%";
-        schedulePreviewRefresh(40);
+        setLocalOpacityDragPreview(true);
+        schedulePreviewRefresh(80);
       });
       range.addEventListener("change", function () {
         draft.overlayOpacity = fromPct(range.value);
+        setLocalOpacityDragPreview(false);
         schedulePreviewRefresh(0);
       });
     }
