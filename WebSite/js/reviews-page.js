@@ -40,11 +40,14 @@
   function wireGateLoginCta() {
     var gateBtn = byId("vc-reviews-gate-login-cta");
     var headerBtn = byId("discord-login-btn");
-    if (gateBtn && headerBtn) {
-      gateBtn.addEventListener("click", function () {
-        headerBtn.click();
-      });
-    }
+    if (!gateBtn) return;
+    gateBtn.addEventListener("click", function () {
+      if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+        window.__vcDiscordStartOAuthRedirect(gateBtn);
+        return;
+      }
+      if (headerBtn) headerBtn.click();
+    });
   }
 
   function closeEditModalDom() {
@@ -65,9 +68,7 @@
     state.replyOpenId = null;
     state.editModalOpen = false;
     var serverWrap = byId("vc-reviews-server-list");
-    var formsWrap = byId("vc-reviews-forms");
     if (serverWrap) serverWrap.innerHTML = "";
-    if (formsWrap) formsWrap.innerHTML = "";
     closeEditModalDom();
   }
 
@@ -272,12 +273,26 @@
     }
   }
 
-  function editModalInnerMarkup() {
+  function ensureReviewModalRoot() {
+    var root = byId("vc-reviews-edit-modal");
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "vc-reviews-edit-modal";
+      document.body.appendChild(root);
+    }
+    return root;
+  }
+
+  function reviewFormModalInnerMarkup(isUpdate) {
+    var title = isUpdate ? "Modifica la tua recensione" : "Scrivi una recensione";
+    var submitLabel = isUpdate ? "Aggiorna recensione" : "Invia recensione";
     return (
       '<div class="vc-reviews-modal__backdrop" data-review-modal-dismiss tabindex="-1"></div>' +
       '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-reviews-modal-title">' +
       '<div class="vc-reviews-modal__toolbar">' +
-      '<h2 id="vc-reviews-modal-title" class="vc-reviews-modal__title">Modifica la tua recensione</h2>' +
+      '<h2 id="vc-reviews-modal-title" class="vc-reviews-modal__title">' +
+      esc(title) +
+      "</h2>" +
       '<button type="button" class="vc-reviews-modal__close" data-review-modal-dismiss aria-label="Chiudi"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="vc-reviews-modal__body">' +
@@ -288,83 +303,106 @@
       esc(state.draft.server.content) +
       "</textarea></div>" +
       '<div class="vc-reviews-formcard__actions">' +
-      '<button type="button" class="vc-reviews-submit" data-review-submit="server">Aggiorna recensione</button>' +
+      '<button type="button" class="vc-reviews-submit" data-review-submit="server">' +
+      esc(submitLabel) +
+      "</button>" +
       "</div></div></div>"
     );
   }
 
-  function syncEditModal(serverExisting) {
-    var root = byId("vc-reviews-edit-modal");
-    if (!root) {
-      root = document.createElement("div");
-      root.id = "vc-reviews-edit-modal";
-      document.body.appendChild(root);
-    }
-    if (!serverExisting) {
-      closeEditModalDom();
+  function syncReviewFormModal() {
+    var root = ensureReviewModalRoot();
+    if (!state.editModalOpen) {
+      root.innerHTML = "";
+      root.className = "vc-reviews-modal";
+      root.hidden = true;
+      try {
+        document.documentElement.classList.remove("vc-reviews-modal-open");
+      } catch (e0) {}
       return;
     }
+    var viewer = state.payload && state.payload.viewer;
+    var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
     root.hidden = false;
-    root.innerHTML = editModalInnerMarkup();
-    root.className = "vc-reviews-modal" + (state.editModalOpen ? " vc-reviews-modal--open" : "");
+    root.innerHTML = reviewFormModalInnerMarkup(Boolean(serverExisting));
+    root.className = "vc-reviews-modal vc-reviews-modal--open";
     try {
-      if (state.editModalOpen) document.documentElement.classList.add("vc-reviews-modal-open");
-      else document.documentElement.classList.remove("vc-reviews-modal-open");
-    } catch (e2) {}
+      document.documentElement.classList.add("vc-reviews-modal-open");
+    } catch (e1) {}
   }
 
-  function formsMarkup() {
+  function openReviewFormModal() {
+    var token = getToken();
     var viewer = state.payload && state.payload.viewer;
+    if (!token || !viewer || !viewer.id) {
+      setStatus("Devi effettuare il login con Discord per scrivere una recensione.", true);
+      var lb = byId("discord-login-btn");
+      if (lb) {
+        try {
+          lb.focus();
+        } catch (e2) {}
+      }
+      return;
+    }
+    var serverExisting = viewer.serverReview ? viewer.serverReview : null;
+    if (serverExisting) {
+      syncDraftFromPayload();
+    } else {
+      state.draft.server.rating = 5;
+      state.draft.server.content = "";
+    }
+    state.editModalOpen = true;
+    render();
+    var ta = byId("vc-review-modal-content");
+    if (ta) {
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
+          try {
+            ta.focus();
+          } catch (e3) {}
+        });
+      });
+    }
+  }
+
+  function syncReviewHeadButton() {
+    var btn = byId("vc-reviews-open-form-btn");
+    if (!btn) return;
+    var viewer = state.payload && state.payload.viewer;
+    var tokenOk = Boolean(getToken());
     var isLogged = Boolean(viewer && viewer.id);
     var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
-    if (serverExisting) return "";
-
-    return (
-      '<article class="vc-reviews-formcard">' +
-      '<div class="vc-reviews-formcard__head"><span class="vc-reviews-formcard__icon"><i class="fa fa-globe" aria-hidden="true"></i></span><div><strong>' +
-      esc("Recensisci il server") +
-      '</strong></div></div>' +
-      '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("server", state.draft.server.rating) + "</div>" +
-      '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="4" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
-      esc(state.draft.server.content) +
-      '</textarea></div><div class="vc-reviews-formcard__actions"><button type="button" class="vc-reviews-submit" data-review-submit="server"' +
-      (isLogged ? "" : " disabled") +
-      ">Invia recensione</button>" +
-      "</div></article>"
-    );
+    btn.hidden = false;
+    if (!isLogged || !tokenOk) {
+      btn.textContent = "Scrivi recensione";
+      btn.setAttribute("aria-label", "Accedi con Discord per scrivere una recensione");
+    } else if (serverExisting) {
+      btn.textContent = "Modifica recensione";
+      btn.setAttribute("aria-label", "Modifica la tua recensione");
+    } else {
+      btn.textContent = "Scrivi recensione";
+      btn.setAttribute("aria-label", "Scrivi una nuova recensione");
+    }
+    btn.onclick = function () {
+      openReviewFormModal();
+    };
   }
 
   function render() {
     var payload = state.payload || { reviews: { server: [], staff: [] }, staffers: [], viewer: null };
     var serverWrap = byId("vc-reviews-server-list");
-    var formsWrap = byId("vc-reviews-forms");
-    if (!serverWrap || !formsWrap) return;
-
-    var viewer = payload.viewer;
-    var serverExisting = viewer && viewer.serverReview ? viewer.serverReview : null;
-    var row = byId("vc-reviews-sections-row");
-    if (row) row.classList.toggle("vc-reviews-sections-row--no-lead", Boolean(serverExisting));
-    var writeSec = byId("vc-reviews-write");
-    if (writeSec) writeSec.hidden = Boolean(serverExisting);
+    if (!serverWrap) return;
 
     var serverReviews = Array.isArray(payload.reviews && payload.reviews.server) ? payload.reviews.server : [];
     serverWrap.innerHTML = serverReviews.length
       ? serverReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
       : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
-    formsWrap.innerHTML = formsMarkup();
-    syncEditModal(Boolean(serverExisting));
+    syncReviewFormModal();
+    syncReviewHeadButton();
     bind();
   }
 
   function bind() {
-    var serverTextarea = byId("vc-review-server-content");
-
-    if (serverTextarea) {
-      serverTextarea.addEventListener("input", function () {
-        state.draft.server.content = serverTextarea.value;
-      });
-    }
-
     var taModal = byId("vc-review-modal-content");
     if (taModal) {
       taModal.addEventListener("input", function () {

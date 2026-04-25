@@ -85,6 +85,10 @@
   }
 
   function triggerDiscordLogin() {
+    if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+      window.__vcDiscordStartOAuthRedirect(null);
+      return;
+    }
     var headerBtn = byId("discord-login-btn");
     if (headerBtn && !headerBtn.hidden && typeof headerBtn.click === "function") {
       headerBtn.click();

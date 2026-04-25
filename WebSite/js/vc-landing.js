@@ -893,9 +893,72 @@
     } catch (e3) {}
     addNotif(data);
   }
+  function isMobileNotifViewport() {
+    try {
+      return window.matchMedia("(max-width: 639.98px)").matches;
+    } catch (e) {
+      return (window.innerWidth || 999) <= 640;
+    }
+  }
+
+  function syncNotifMobileSheetChrome() {
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (!dd) return;
+    var root = document.documentElement;
+    if (dd.open && isMobileNotifViewport()) {
+      try {
+        root.classList.add("vc-notif-sheet-open");
+      } catch (e0) {}
+      if (!dd.querySelector(".vc-notif-mobile-backdrop")) {
+        var bd = document.createElement("div");
+        bd.className = "vc-notif-mobile-backdrop";
+        bd.setAttribute("aria-hidden", "true");
+        bd.addEventListener("click", function () {
+          dd.removeAttribute("open");
+        });
+        dd.insertBefore(bd, dd.firstChild);
+      }
+    } else {
+      try {
+        root.classList.remove("vc-notif-sheet-open");
+      } catch (e1) {}
+      var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
+      if (oldBd) oldBd.remove();
+    }
+  }
+
+  function wireNotifMobileSheet() {
+    var dd = document.getElementById("vc-notif-dropdown");
+    if (!dd) return;
+    dd.addEventListener("toggle", syncNotifMobileSheetChrome);
+    window.addEventListener("resize", function () {
+      if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key !== "Escape") return;
+      if (!isMobileNotifViewport() || !dd.open) return;
+      dd.removeAttribute("open");
+    });
+    var head = dd.querySelector(".vc-notif-panel-head");
+    if (head && !head.querySelector(".vc-notif-close-mobile")) {
+      var closeM = document.createElement("button");
+      closeM.type = "button";
+      closeM.className = "vc-notif-action vc-notif-close-mobile";
+      closeM.setAttribute("aria-label", "Chiudi");
+      closeM.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+      closeM.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        dd.removeAttribute("open");
+      });
+      head.appendChild(closeM);
+    }
+  }
+
   function init() {
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
     render();
+    wireNotifMobileSheet();
     var markBtn = document.getElementById("vc-notif-mark-all");
     var clearBtn = document.getElementById("vc-notif-clear-all");
     var seeAll = document.getElementById("vc-notif-see-all");
@@ -1094,6 +1157,11 @@
       b.className = "vc-mobile-nav-footer__login";
       b.textContent = "LOGIN";
       b.addEventListener("click", function () {
+        if (typeof window.__vcDiscordStartOAuthRedirect === "function") {
+          window.__vcDiscordStartOAuthRedirect(b);
+          closeDrawer();
+          return;
+        }
         loginBtn.click();
       });
       foot.appendChild(b);

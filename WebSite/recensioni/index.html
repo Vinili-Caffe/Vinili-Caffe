@@ -224,20 +224,14 @@
 
       <div class="vc-reviews-page-layout">
         <div class="vc-reviews-page-main">
-          <section id="vc-reviews-sections-row" class="vc-reviews-sections-row" aria-label="Recensioni pubblicate">
-            <div id="vc-reviews-write" class="vc-reviews-section vc-reviews-section--lead">
-              <div class="vc-reviews-section__head vc-reviews-section__head--stack">
-                <p class="vc-reviews-section__eyebrow">Lascia una recensione</p>
-                <h2 class="vc-reviews-section__title">Scrivi una recensione</h2>
-              </div>
-              <div id="vc-reviews-forms" class="vc-reviews-formgrid"></div>
-            </div>
+          <section id="vc-reviews-sections-row" class="vc-reviews-sections-row vc-reviews-sections-row--no-lead" aria-label="Recensioni pubblicate">
             <div class="vc-reviews-section vc-reviews-section--split">
-              <div class="vc-reviews-section__head">
+              <div class="vc-reviews-section__head vc-reviews-section__head--with-cta">
                 <div>
                   <p class="vc-reviews-section__eyebrow">Feedback community</p>
                   <h2 class="vc-reviews-section__title">Recensioni sul server</h2>
                 </div>
+                <button type="button" id="vc-reviews-open-form-btn" class="vc-reviews-head-cta" hidden>Scrivi recensione</button>
               </div>
               <div id="vc-reviews-server-list" class="vc-reviews-grid" aria-live="polite"></div>
             </div>

@@ -166,18 +166,24 @@
     return id ? "/users/" + encodeURIComponent(id) : "/user";
   }
 
-  function startLoginTransition(loginBtn, url) {
-    if (!url) {
+  /**
+   * Navigazione OAuth nello stesso "tick" del gesto utente (tap).
+   * Ritardi o click sintetici su elementi display:none (es. drawer mobile → header nascosto)
+   * spezzano la user activation su Safari/iOS e il redirect a Discord non parte.
+   */
+  function startDiscordOAuthFromUserGesture(visualBtn, url) {
+    var u = url || authUrl();
+    if (!u) {
       alert("Configura discordOauth.clientId in site.config.json");
       return;
     }
     try {
       sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, currentPathPlusQuery() || "/");
     } catch (e0) {}
-    if (loginBtn) {
-      loginBtn.classList.add("discord-login-btn--loading");
-      loginBtn.setAttribute("aria-busy", "true");
-      loginBtn.innerHTML =
+    if (visualBtn) {
+      visualBtn.classList.add("discord-login-btn--loading");
+      visualBtn.setAttribute("aria-busy", "true");
+      visualBtn.innerHTML =
         '<span class="discord-login-btn__spin" aria-hidden="true"></span>' +
         "<span>Accesso in corso...</span>";
     }
@@ -186,20 +192,17 @@
         window.vcShowPageTransition("login");
       }
     } catch (e) {}
-    function go() {
+    try {
+      window.location.assign(u);
+    } catch (e2) {
       try {
-        window.location.href = url;
-      } catch (e2) {
-        try {
-          window.location.assign(url);
-        } catch (e3) {}
-      }
+        window.location.href = u;
+      } catch (e3) {}
     }
-    window.requestAnimationFrame(function () {
-      window.requestAnimationFrame(function () {
-        window.setTimeout(go, 140);
-      });
-    });
+  }
+
+  function startLoginTransition(loginBtn, url) {
+    startDiscordOAuthFromUserGesture(loginBtn, url);
   }
 
   function emitProfile(user) {
@@ -430,9 +433,14 @@
     var loginBtn = byId("discord-login-btn");
     if (loginBtn) {
       loginBtn.addEventListener("click", function () {
-        startLoginTransition(loginBtn, authUrl());
+        startDiscordOAuthFromUserGesture(loginBtn, authUrl());
       });
     }
+    try {
+      window.__vcDiscordStartOAuthRedirect = function (visualBtn) {
+        startDiscordOAuthFromUserGesture(visualBtn || null, "");
+      };
+    } catch (eExp) {}
     var t = getToken();
     if (!t) {
       try {
