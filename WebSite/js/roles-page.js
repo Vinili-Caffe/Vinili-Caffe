@@ -375,7 +375,7 @@
   }
 
   function renderMemberRow(member) {
-    var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
+    var name = String(member.username || "Utente").trim() || "Utente";
     return (
       '<a class="vc-role-member" role="listitem" href="' + esc(profileHref(member.userId)) + '">' +
       '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(member.userId)) + '\'" />' +

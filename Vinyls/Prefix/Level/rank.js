@@ -55,11 +55,27 @@ module.exports = {
     const weeklyText = weeklyRank ? `#${weeklyRank}` : "Fuori dalla classifica";
     const allTimeText = allTimeRank ? `#${allTimeRank}` : "Fuori dalla classifica";
 
-    const rankDoc = await ActivityUserProfile.findOne({ guildId: statsGuildId, userId: targetUser.id })
-      .select("profile.rankCard")
-      .lean()
-      .catch(() => null);
-    const rankCardTheme = getRankCardThemeFromDoc(rankDoc);
+    /** Sito e comando devono leggere la stessa personalizzazione: preferisci sempre la guild principale. */
+    const themeGuildCandidates = [];
+    if (mainGuildId) themeGuildCandidates.push(mainGuildId);
+    if (statsGuildId && !themeGuildCandidates.includes(statsGuildId)) themeGuildCandidates.push(statsGuildId);
+    if (messageGuildId && !themeGuildCandidates.includes(messageGuildId)) themeGuildCandidates.push(messageGuildId);
+
+    let rankDoc = null;
+    let rankDocWithWallpaper = null;
+    for (const gid of themeGuildCandidates) {
+      const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: targetUser.id })
+        .select("profile.rankCard")
+        .lean()
+        .catch(() => null);
+      if (!doc?.profile?.rankCard) continue;
+      if (!rankDoc) rankDoc = doc;
+      if (String(doc.profile.rankCard.wallpaperUrl || "").trim()) {
+        rankDocWithWallpaper = doc;
+        break;
+      }
+    }
+    const rankCardTheme = getRankCardThemeFromDoc(rankDocWithWallpaper || rankDoc);
 
     const avatarUrl =
       targetMember?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||

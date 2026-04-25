@@ -102,7 +102,7 @@
       esc(defaultEmbedAvatarUrl(row.userId)) +
       '\'" />' +
       '<span class="vc-vote-list-name">' +
-      esc(row.displayName || row.username || "Utente") +
+      esc(row.username || "Utente") +
       "</span>" +
       '<span class="vc-vote-list-score">' +
       esc(formatIntIt(row.votes || 0)) +
@@ -128,7 +128,7 @@
       esc(defaultEmbedAvatarUrl(row.userId)) +
       '\'" />' +
       '<span class="vc-vote-podium-name">' +
-      esc(row.displayName || row.username || "Utente") +
+      esc(row.username || "Utente") +
       "</span>" +
       '<span class="vc-vote-podium-score">' +
       esc(formatIntIt(row.votes || 0)) +

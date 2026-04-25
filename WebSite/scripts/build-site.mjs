@@ -362,10 +362,8 @@ function memberStaffLineName(m) {
   };
   const un = meaningful(u.username);
   const disc = String(u.discriminator ?? "0");
-  const nick = m?.nick != null ? meaningful(m.nick) : "";
-  const gn = u.global_name != null ? meaningful(u.global_name) : "";
   if (disc && disc !== "0") return `${un}#${disc}`;
-  return nick || gn || un || "Utente";
+  return un || "Utente";
 }
 
 function staffListFallback() {
@@ -765,6 +763,7 @@ function runTailwindProductionBuild(webRoot) {
   try {
     execFileSync(process.execPath, [cli, "-i", "css/tw-input.css", "-o", "css/tw-build.css", "--minify"], {
       cwd: webRoot,
+      env: { ...process.env, BROWSERSLIST_IGNORE_OLD_DATA: "1" },
       stdio: "inherit",
     });
     return true;

@@ -397,8 +397,7 @@
     var messages = payload.messages || {};
     var voice = payload.voice || {};
     var profile = payload.profile || {};
-    var displayName = String(profile.displayName || level.displayName || level.username || "Utente").trim() || "Utente";
-    var profileUsername = String(profile.username || level.username || displayName || "Utente").trim() || "Utente";
+    var profileUsername = String(profile.username || level.username || "Utente").trim() || "Utente";
     var avatar = String(profile.avatarUrl || level.avatarUrl || "").trim();
     var progressPct = formatPct(level.progressPercent || 0);
     var rankText = level.rank ? "#" + formatIntIt(level.rank) : "-";
@@ -458,7 +457,7 @@
         '<div class="vc-user-profile-shared__list">' +
         list
           .map(function (member) {
-            var name = String(member.displayName || member.username || "Utente").trim() || "Utente";
+            var name = String(member.username || "Utente").trim() || "Utente";
             var username = String(member.username || "").trim();
             var href = profilePublicUrl(member.id);
             var avatarUrl = String(member.avatarUrl || "").trim();

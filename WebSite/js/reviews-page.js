@@ -191,11 +191,15 @@
       '<div class="vc-reviews-field"><label>Valutazione</label>' + ratingInputMarkup("server", state.draft.server.rating) + "</div>" +
       '<div class="vc-reviews-field"><label for="vc-review-server-content">Recensione</label><textarea id="vc-review-server-content" class="vc-reviews-textarea" rows="6" placeholder="Scrivi cosa ti piace del server, dell&apos;ambiente o delle attività...">' +
       esc(state.draft.server.content) +
-      '</textarea></div><button type="button" class="vc-reviews-submit" data-review-submit="server"' +
+      '</textarea></div><div class="vc-reviews-formcard__actions"><button type="button" class="vc-reviews-submit" data-review-submit="server"' +
       (isLogged ? "" : " disabled") +
       ">" +
       (serverExisting ? "Aggiorna recensione" : "Invia recensione") +
-      "</button></article>"
+      "</button>" +
+      (isLogged && serverExisting && serverExisting.id
+        ? '<button type="button" class="vc-reviews-submit vc-reviews-delete" data-review-delete="' + esc(serverExisting.id) + '">Elimina recensione</button>'
+        : "") +
+      "</div></article>"
     );
   }
 
@@ -233,6 +237,14 @@
     Array.prototype.slice.call(document.querySelectorAll("[data-review-submit]")).forEach(function (button) {
       button.addEventListener("click", function () {
         submitReview();
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-review-delete]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        var reviewId = String(button.getAttribute("data-review-delete") || "").trim();
+        if (!reviewId) return;
+        deleteReview(reviewId);
       });
     });
   }
@@ -291,6 +303,33 @@
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : "Errore durante il salvataggio.", true);
+      });
+  }
+
+  function deleteReview(reviewId) {
+    var token = getToken();
+    if (!token) {
+      setStatus("Devi effettuare il login con Discord per eliminare una recensione.", true);
+      return;
+    }
+    if (!window.confirm("Vuoi davvero eliminare la tua recensione?")) return;
+    setStatus("Eliminazione recensione in corso...", false);
+    fetch(apiUrl() + "/" + encodeURIComponent(reviewId), {
+      method: "DELETE",
+      headers: {
+        Authorization: "Bearer " + token,
+      },
+    })
+      .then(function (response) { return response.json(); })
+      .then(function (body) {
+        if (!body || body.ok !== true) {
+          throw new Error((body && body.message) || "Non sono riuscito a eliminare la recensione.");
+        }
+        setStatus(body.message || "Recensione eliminata.", false);
+        return fetchPayload();
+      })
+      .catch(function (err) {
+        setStatus(err && err.message ? err.message : "Errore durante l'eliminazione.", true);
       });
   }
 

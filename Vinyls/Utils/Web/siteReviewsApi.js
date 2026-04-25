@@ -1,11 +1,13 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
-const { SiteReview } = require("../../Schemas/Community/communitySchemas");
+const { SiteReview, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
+const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
 
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
 const FALLBACK_REVIEW_CHANNEL_ID = String(IDs?.channels?.supporters || "").trim();
 const STAFF_CACHE_TTL_MS = 2 * 60 * 1000;
+const REVIEW_REWARD_LEVELS = 5;
 
 let staffCache = {
   guildId: "",
@@ -32,12 +34,7 @@ function sanitizeContent(value) {
 }
 
 function displayNameForMember(member) {
-  return (
-    String(member?.displayName || "").trim() ||
-    String(member?.user?.globalName || "").trim() ||
-    String(member?.user?.username || "").trim() ||
-    "Utente"
-  );
+  return String(member?.user?.username || "").trim() || "Utente";
 }
 
 async function resolveGuild(client) {
@@ -115,7 +112,64 @@ function serializeReview(doc, staffMap) {
   };
 }
 
-async function announceServerReview(client, guild, authorMember, review, isUpdate) {
+function computeExpForLevelReward(currentExp, levelsToAdd) {
+  const current = Math.max(0, Number(currentExp || 0));
+  const currentLevel = getLevelInfo(current).level;
+  const targetLevel = currentLevel + Math.max(0, Number(levelsToAdd || 0));
+  const targetExp = getTotalExpForLevel(targetLevel);
+  const finalExp = Math.max(current, targetExp);
+  return {
+    currentLevel,
+    targetLevel,
+    addedExp: Math.max(0, finalExp - current),
+  };
+}
+
+async function awardServerReviewLevels(client, guild, member) {
+  const guildId = String(guild?.id || "").trim();
+  const userId = String(member?.id || member?.user?.id || "").trim();
+  if (!guildId || !userId) return null;
+
+  const alreadyRewarded = await ActivityUserProfile.findOne({
+    guildId,
+    userId,
+    "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": { $ne: null },
+  })
+    .select("_id")
+    .lean()
+    .catch(() => null);
+  if (alreadyRewarded) return null;
+
+  const profile = await ActivityUserProfile.findOne({ guildId, userId })
+    .select("profile.totals.exp.totalExp")
+    .lean()
+    .catch(() => null);
+  const currentExp = Number(profile?.profile?.totals?.exp?.totalExp || 0);
+  const reward = computeExpForLevelReward(currentExp, REVIEW_REWARD_LEVELS);
+  if (!reward.addedExp) return null;
+
+  const expResult = await addExpWithLevel(guild, userId, reward.addedExp, false, false).catch(() => null);
+  const finalLevel = Number(expResult?.levelInfo?.level || getLevelInfo(currentExp + reward.addedExp).level || reward.targetLevel);
+
+  await ActivityUserProfile.updateOne(
+    { guildId, userId },
+    {
+      $setOnInsert: { guildId, userId },
+      $set: {
+        "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy": String(client?.user?.id || ""),
+        "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": new Date(),
+      },
+    },
+    { upsert: true },
+  ).catch(() => null);
+
+  return {
+    addedLevels: Math.max(0, finalLevel - reward.currentLevel),
+    finalLevel,
+  };
+}
+
+async function announceServerReview(client, guild, authorMember, review, rewardInfo) {
   const announceId =
     String(client?.config?.siteReviews?.channelId || "").trim() ||
     String(client?.config?.disboardReviews?.channelId || "").trim() ||
@@ -132,28 +186,39 @@ async function announceServerReview(client, guild, authorMember, review, isUpdat
   const stars = "⭐".repeat(normalizeRating(review.rating));
   const reviewsPageUrl = String(client?.config?.siteReviews?.pageUrl || "").trim();
 
+  const relativeTs = Math.floor(Date.now() / 1000);
+  const absoluteTs = new Date();
+  const rewardLine =
+    rewardInfo && Number(rewardInfo.addedLevels || 0) > 0
+      ? `<a:VC_StarPink:1330194976440848500> Grazie <@${authorMember.id}>, ti sono stati assegnati **+${rewardInfo.addedLevels} livelli** per il tuo supporto!`
+      : `<a:VC_StarPink:1330194976440848500> Grazie <@${authorMember.id}> per il tuo supporto!`;
+
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setAuthor({
-      name: `${isUpdate ? "Recensione aggiornata da" : "Nuova recensione da"} ${authorName}`,
-      iconURL: avatarUrl || undefined,
-      url: reviewsPageUrl || undefined,
-    })
-    .setTitle("Recensione del server")
+    .setTitle("Nuova recensione rilevata!")
     .setURL(reviewsPageUrl || null)
-    .setThumbnail(avatarUrl || null)
-    .setDescription(`**Valutazione:** ${stars}\n\n> ${String(review.content || "").slice(0, 1024)}`)
+    .setThumbnail("https://disboard.org/images/no-icon.png")
+    .setDescription(
+      [
+        `**Nuova recensione da ${authorName}**`,
+        "",
+        `"${authorName}"`,
+        "",
+        `**Valutazione:** ${stars}`,
+        "",
+        `> ${String(review.content || "").slice(0, 900)}`,
+        "",
+        "<:VC_Dot:1482532364222595303> **Info**",
+        `<:VC_bump:1482531857521311885> Inviata: **<t:${relativeTs}:R>**`,
+        "<:VC_Dot:1482532364222595303> **Link**",
+        `[Vai alla recensione](<${reviewsPageUrl || "https://viniliecaffe.it/recensioni/"}>)`,
+        "",
+        "<:VC_LevelUp2:1482527047871107143> **Ricompensa Automatica**",
+        rewardLine,
+      ].join("\n"),
+    )
     .addFields(
-      {
-        name: "<:VC_Dot:1482532364222595303> Origine",
-        value: "Invio dal sito web `/recensioni`",
-        inline: true,
-      },
-      {
-        name: "<:VC_Dot:1482532364222595303> Stato",
-        value: isUpdate ? "Recensione aggiornata" : "Nuova recensione",
-        inline: true,
-      },
+      { name: "\u200B", value: `<t:${Math.floor(absoluteTs.getTime() / 1000)}:f>`, inline: false },
     )
     .setFooter({
       text: ".gg/viniliecaffe · Feedback community",
@@ -286,8 +351,9 @@ async function submitSiteReview(client, payload = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare la recensione." };
   }
 
-  if (kind === "server") {
-    await announceServerReview(client, resolved.guild, resolved.member, nextDoc, Boolean(existing));
+  if (kind === "server" && !existing) {
+    const rewardInfo = await awardServerReviewLevels(client, resolved.guild, resolved.member);
+    await announceServerReview(client, resolved.guild, resolved.member, nextDoc, rewardInfo);
   }
 
   return {
@@ -298,7 +364,36 @@ async function submitSiteReview(client, payload = {}) {
   };
 }
 
+async function deleteSiteReview(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const reviewId = String(payload.reviewId || "").trim();
+  if (!reviewId) {
+    return { ok: false, status: 400, error: "missing_review_id", message: "ID recensione mancante." };
+  }
+
+  const query = {
+    _id: reviewId,
+    guildId: resolved.guild.id,
+    userId: resolved.userId,
+    kind: "server",
+  };
+  const deleted = await SiteReview.findOneAndDelete(query).lean().catch(() => null);
+  if (!deleted) {
+    return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata o non eliminabile." };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    message: "Recensione eliminata con successo.",
+  };
+}
+
 module.exports = {
   getSiteReviews,
   submitSiteReview,
+  deleteSiteReview,
 };

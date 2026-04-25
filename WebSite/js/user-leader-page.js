@@ -591,7 +591,7 @@
       }
     }
     if (tn && topRow) {
-      tn.textContent = String(topRow.username || topRow.displayName || "").trim() || "—";
+      tn.textContent = String(topRow.username || "").trim() || "—";
     }
     if (sub) {
       var blurb = "";
@@ -655,9 +655,9 @@
     }
 
     if (tn && topRow) {
-      tn.textContent = String(topRow.username || topRow.displayName || "").trim() || "—";
+      tn.textContent = String(topRow.username || "").trim() || "—";
     } else if (tn) {
-      tn.textContent = String(st.topPlayerUsername || st.topDisplayName || "—").trim() || "—";
+      tn.textContent = String(st.topPlayerUsername || "—").trim() || "—";
     }
 
     if (sub) sub.textContent = "";

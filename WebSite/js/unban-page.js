@@ -7,6 +7,43 @@
     return document.getElementById(id);
   }
 
+  function setShuffleText(el, finalText) {
+    if (!el) return;
+    var target = String(finalText || "");
+    if (!target) {
+      el.textContent = "";
+      return;
+    }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.textContent = target;
+      return;
+    }
+    if (el.__vcShuffleTimer) {
+      clearInterval(el.__vcShuffleTimer);
+      el.__vcShuffleTimer = null;
+    }
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    var frame = 0;
+    var totalFrames = Math.max(8, Math.min(26, target.length + 8));
+    el.__vcShuffleTimer = setInterval(function () {
+      frame += 1;
+      var fixed = Math.floor((frame / totalFrames) * target.length);
+      var out = "";
+      for (var i = 0; i < target.length; i++) {
+        var ch = target.charAt(i);
+        if (ch === " ") out += " ";
+        else if (i < fixed) out += ch;
+        else out += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      el.textContent = out;
+      if (frame >= totalFrames) {
+        clearInterval(el.__vcShuffleTimer);
+        el.__vcShuffleTimer = null;
+        el.textContent = target;
+      }
+    }, 22);
+  }
+
   function getToken() {
     var t = localStorage.getItem(ACCESS_TOKEN_KEY);
     var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
@@ -73,7 +110,7 @@
     var box = byId("unban-status-box");
     if (!box) return;
     box.className = ok ? "vc-unban-status vc-unban-status--ok" : "vc-unban-status";
-    box.textContent = text;
+    setShuffleText(box, text);
   }
 
   function setSubmitLoading(loading) {
@@ -254,9 +291,9 @@
       var welcome = byId("unban-welcome");
       if (welcome) {
         if (!currentUser) {
-          welcome.textContent = "Accedi con Discord per inviare la richiesta.";
+          setShuffleText(welcome, "Accedi con Discord per inviare la richiesta.");
         } else {
-          welcome.textContent = "Benvenuto " + String(currentUser.username || currentUser.global_name || "utente") + ".";
+          setShuffleText(welcome, "Benvenuto " + String(currentUser.username || "utente") + ".");
         }
       }
       if (!currentUser) {

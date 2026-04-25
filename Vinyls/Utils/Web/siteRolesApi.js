@@ -56,7 +56,7 @@ async function fetchUserIdentity(client, guild, userId) {
   };
   if (!user) return out;
   out.ownerUsername = String(user.username || "").trim();
-  out.ownerDisplayName = String(user.globalName || user.username || "").trim();
+  out.ownerDisplayName = String(user.username || "").trim();
   out.ownerAvatar = user.avatar ? String(user.avatar) : "";
   if (typeof user.displayAvatarURL === "function") {
     out.ownerAvatarUrl = user.displayAvatarURL({ size: 256, dynamic: true });
@@ -68,7 +68,7 @@ function memberIdentityFromGuildMember(member, ownerId) {
   const user = member?.user || null;
   const userId = String(user?.id || member?.id || "").trim();
   const username = String(user?.username || "").trim();
-  const displayName = String(member?.displayName || user?.globalName || username).trim();
+  const displayName = String(username || "Utente").trim();
   const avatar = user?.avatar ? String(user.avatar) : "";
   const avatarUrl =
     user && typeof user.displayAvatarURL === "function"
@@ -142,8 +142,8 @@ async function handleSiteRolesGet(client, req, res) {
           .sort((a, b) => {
             if (a.isOwner && !b.isOwner) return -1;
             if (!a.isOwner && b.isOwner) return 1;
-            return String(a.displayName || a.username || "").localeCompare(
-              String(b.displayName || b.username || ""),
+            return String(a.username || "").localeCompare(
+              String(b.username || ""),
               "it",
               { sensitivity: "base" },
             );

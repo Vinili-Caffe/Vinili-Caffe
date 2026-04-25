@@ -12,6 +12,23 @@ function isHttpUrl(value) {
   return /^https?:\/\//i.test(String(value || ""));
 }
 
+function decodeDataUrlToBuffer(value) {
+  const raw = String(value || "");
+  if (!/^data:/i.test(raw)) return null;
+  const comma = raw.indexOf(",");
+  if (comma < 0) return null;
+  const header = raw.slice(0, comma).toLowerCase();
+  const payload = raw.slice(comma + 1);
+  try {
+    if (header.includes(";base64")) {
+      return Buffer.from(payload.replace(/\s/g, ""), "base64");
+    }
+    return Buffer.from(decodeURIComponent(payload), "utf8");
+  } catch {
+    return null;
+  }
+}
+
 function safeHost(url) {
   try {
     return new URL(String(url)).host || "unknown";
@@ -67,6 +84,11 @@ async function safeLoadImage(source, opts = {}) {
     }
 
     const src = String(source);
+    if (/^data:/i.test(src)) {
+      const dataBuf = decodeDataUrlToBuffer(src);
+      if (!dataBuf || !dataBuf.length) return null;
+      return await loadImage(dataBuf);
+    }
     if (!isHttpUrl(src)) {
       return await loadImage(src);
     }

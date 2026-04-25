@@ -46,7 +46,7 @@ async function getRankCardCustomization(client, payload) {
     status: 200,
     userId: resolved.userId,
     username: String(resolved.member?.user?.username || "").trim(),
-    displayName: String(resolved.member?.user?.username || resolved.member?.displayName || "Utente").trim() || "Utente",
+    displayName: String(resolved.member?.user?.username || "Utente").trim() || "Utente",
     avatarUrl:
       resolved.member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
       resolved.member?.user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||

@@ -187,13 +187,13 @@ async function buildCustomProfileData(guild, userId) {
   const roleMemberCount = roleMembers.length;
   const roleSharedMembers = roleMembers
     .sort((a, b) =>
-      String(a.displayName || a.user?.username || "").localeCompare(String(b.displayName || b.user?.username || ""), "it"),
+      String(a.user?.username || "").localeCompare(String(b.user?.username || ""), "it"),
     )
     .slice(0, 60)
     .map((member) => ({
       id: String(member.id || member.user?.id || ""),
       username: String(member.user?.username || "").trim(),
-      displayName: String(member.displayName || member.user?.username || "Utente").trim(),
+      displayName: String(member.user?.username || "Utente").trim(),
       avatarUrl:
         member.displayAvatarURL?.({ extension: "png", size: 128 }) ||
         member.user?.displayAvatarURL?.({ extension: "png", size: 128 }) ||
@@ -667,8 +667,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         profile: {
           userId: String(row.userId || searchId),
           username: String(row.username || "").trim(),
-          displayName:
-            String((member && (member.displayName || member.nickname)) || row.displayName || row.username || "").trim(),
+          displayName: String((member && member.user?.username) || row.username || "").trim(),
           avatarUrl: String(row.avatarUrl || "").trim(),
           joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
           rankCard: getRankCardThemeFromDoc(doc),

@@ -116,26 +116,60 @@ async function fetchPartnerActionText(guild, action) {
   return chunks.join("\n");
 }
 
-async function logPointRemoval(guild, staffUserId, reason, action) {
-  const puntiToltiId = IDs.channels.puntiTolti;
-  if (!puntiToltiId) return;
+async function resolveTextLogChannel(guild, channelId) {
+  if (!channelId) return null;
+  const ch = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+  return ch?.isTextBased?.() ? ch : null;
+}
 
-  const channel = guild.channels.cache.get(puntiToltiId) || (await getGuildChannelCached(guild, puntiToltiId));
-  if (!channel?.isTextBased?.()) return;
+async function logPointRemoval(guild, staffUserId, reason, action) {
+  const primaryId = IDs.channels.puntiTolti;
+  const fallbackId = IDs.channels.partnerLogs;
+  if (!primaryId && !fallbackId) return false;
+
+  let channel = await resolveTextLogChannel(guild, primaryId);
+  if (!channel && fallbackId && String(fallbackId) !== String(primaryId)) {
+    channel = await resolveTextLogChannel(guild, fallbackId);
+  }
+  if (!channel) {
+    global.logger?.warn?.("[PARTNER AUDIT] log channel non disponibile (puntiTolti/partnerLogs)");
+    return false;
+  }
 
   const msgRef = Array.isArray(action?.partnerMessageIds) && action.partnerMessageIds.length ? `https://discord.com/channels/${guild.id}/${action.partnershipChannelId || IDs.channels.partnerships}/${action.partnerMessageIds[0]}`
     : "N/D";
 
   const inviteDb = action?.invite ? String(action.invite).slice(0, 300) : "N/D";
 
-  await channel
-    .send({
+  try {
+    await channel.send({
       content: `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
 <:VC_reason:1478517122929004544> ${reason}
 <:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
 <:link:1470064815899803668> Invite: ${inviteDb}`,
-    })
-    .catch(() => { });
+    });
+    return true;
+  } catch (err) {
+    const isPrimary = String(channel.id || "") === String(primaryId || "");
+    if (isPrimary && fallbackId && String(fallbackId) !== String(primaryId)) {
+      const fallback = await resolveTextLogChannel(guild, fallbackId);
+      if (fallback) {
+        try {
+          await fallback.send({
+            content: `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
+<:VC_reason:1478517122929004544> ${reason}
+<:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
+<:link:1470064815899803668> Invite: ${inviteDb}`,
+          });
+          return true;
+        } catch (fallbackErr) {
+          global.logger?.warn?.(`[PARTNER AUDIT] fallback log send failed: ${fallbackErr?.message || fallbackErr}`);
+        }
+      }
+    }
+    global.logger?.warn?.(`[PARTNER AUDIT] log send failed: ${err?.message || err}`);
+    return false;
+  }
 }
 
 async function runDailyPartnerAudit(client, opts = {}) {
@@ -152,6 +186,7 @@ async function runDailyPartnerAudit(client, opts = {}) {
 
   let totalChecked = 0;
   let totalRemoved = 0;
+  let totalRemovalLogsSent = 0;
 
   for (const doc of docs) {
     if (!doc.staff) doc.staff = {};
@@ -258,12 +293,13 @@ async function runDailyPartnerAudit(client, opts = {}) {
       const alreadyPenalized = Array.isArray(action.auditPenaltyDates) && action.auditPenaltyDates.includes(targetDateKey);
       if (alreadyPenalized) continue;
 
-      await logPointRemoval(
+      const sent = await logPointRemoval(
         guild,
         doc.userId,
         invalidReasonsByIndex.get(index).join(" | "),
         action,
       );
+      if (sent) totalRemovalLogsSent += 1;
       action.auditPenaltyDates = Array.isArray(action.auditPenaltyDates)
         ? action.auditPenaltyDates
         : [];
@@ -284,6 +320,9 @@ async function runDailyPartnerAudit(client, opts = {}) {
     }
   }
 
+  global.logger?.info?.(
+    `[PARTNER AUDIT] date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}`,
+  );
 }
 
 function startDailyPartnerAuditLoop(client) {

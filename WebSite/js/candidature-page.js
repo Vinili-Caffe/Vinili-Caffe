@@ -95,6 +95,43 @@
     return document.getElementById(id);
   }
 
+  function setShuffleText(el, finalText) {
+    if (!el) return;
+    var target = String(finalText || "");
+    if (!target) {
+      el.textContent = "";
+      return;
+    }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.textContent = target;
+      return;
+    }
+    if (el.__vcShuffleTimer) {
+      clearInterval(el.__vcShuffleTimer);
+      el.__vcShuffleTimer = null;
+    }
+    var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    var frame = 0;
+    var totalFrames = Math.max(8, Math.min(26, target.length + 8));
+    el.__vcShuffleTimer = setInterval(function () {
+      frame += 1;
+      var fixed = Math.floor((frame / totalFrames) * target.length);
+      var out = "";
+      for (var i = 0; i < target.length; i++) {
+        var ch = target.charAt(i);
+        if (ch === " ") out += " ";
+        else if (i < fixed) out += ch;
+        else out += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      el.textContent = out;
+      if (frame >= totalFrames) {
+        clearInterval(el.__vcShuffleTimer);
+        el.__vcShuffleTimer = null;
+        el.textContent = target;
+      }
+    }, 22);
+  }
+
   function getToken() {
     var t = localStorage.getItem(ACCESS_TOKEN_KEY);
     var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
@@ -260,6 +297,24 @@
     return Boolean(row && row.eligible === true);
   }
 
+  function ownedRoleLabelsFromEligibility(d) {
+    if (!d || d.ok !== true) return [];
+    var out = [];
+    var helperCode = String((d.helper && d.helper.code) || "").trim().toLowerCase();
+    var pmCode = String((d.partnermanager && d.partnermanager.code) || "").trim().toLowerCase();
+    if (helperCode === "already_role") out.push("Helper");
+    else if (helperCode === "helper_blocked") out.push("Staff");
+    if (pmCode === "already_role") out.push("Partner Manager");
+    return out;
+  }
+
+  function alreadyRoleGateMessage(labels) {
+    var list = Array.isArray(labels) ? labels.filter(Boolean) : [];
+    if (!list.length) return "";
+    if (list.length === 1) return "Sei già " + list[0] + ": non puoi inviare nuove candidature.";
+    return "Sei già " + list.join(" e ") + ": non puoi inviare nuove candidature.";
+  }
+
   function setFieldsDisabled(disabled) {
     var root = byId("vc-candidature-fields");
     if (!root) return;
@@ -287,7 +342,7 @@
     gate.hidden = false;
     gate.className =
       "vc-candidature-notice mt-6 vc-candidature-notice--" + (variant === "amber" ? "amber" : "slate");
-    body.textContent = message || "";
+    setShuffleText(body, message || "");
     if (icoWrap) {
       icoWrap.className = variant === "amber" ? "fa fa-exclamation-triangle" : "fa fa-info-circle";
     }
@@ -334,6 +389,15 @@
       inner.hidden = false;
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
+      return;
+    }
+
+    var alreadyRoles = ownedRoleLabelsFromEligibility(d);
+    if (alreadyRoles.length) {
+      showGateMessage("amber", alreadyRoleGateMessage(alreadyRoles));
+      inner.hidden = true;
+      setFieldsDisabled(true);
+      if (sub) sub.disabled = true;
       return;
     }
 
@@ -415,11 +479,14 @@
     var el = byId("candidature-welcome");
     if (!el) return;
     if (!user) {
-      el.textContent = "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.";
+      setShuffleText(
+        el,
+        "Accedi con Discord (in alto a destra) per compilare il modulo: l’ID viene preso dal tuo profilo e non è modificabile.",
+      );
       return;
     }
-    var name = String(user.username || user.global_name || "utente").trim() || "utente";
-    el.textContent = "Benvenuto " + name + "! Scegli il ruolo e compila tutti i campi.";
+    var name = String(user.username || "utente").trim() || "utente";
+    setShuffleText(el, "Benvenuto " + name + "! Scegli il ruolo e compila tutti i campi.");
   }
 
   function showFormWrap(show) {

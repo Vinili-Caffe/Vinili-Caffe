@@ -332,6 +332,10 @@ function isSvgDataUrlWallpaper(url) {
   return /^data:image\/svg\+xml/i.test(String(url || ""));
 }
 
+function isGifDataUrlWallpaper(url) {
+  return /^data:image\/gif;base64,/i.test(String(url || ""));
+}
+
 function decodeSvgDataUrlToBuffer(dataUrl) {
   const raw = String(dataUrl || "");
   const comma = raw.indexOf(",");
@@ -385,6 +389,11 @@ function drawPresetWallpaperFromKey(ctx, x, y, width, height, key) {
 
 async function drawWallpaper(ctx, x, y, width, height, palette) {
   const wallpaper = resolveRankCardWallpaper(palette);
+  if (wallpaper && isGifDataUrlWallpaper(wallpaper)) {
+    /* node-canvas non gestisce in modo affidabile GIF data URL: evitiamo warning rumorosi. */
+    drawPresetWallpaperFromKey(ctx, x, y, width, height, palette.wallpaperKey);
+    return;
+  }
   if (wallpaper && isSvgDataUrlWallpaper(wallpaper)) {
     const svgBuf = decodeSvgDataUrlToBuffer(wallpaper);
     if (svgBuf) {

@@ -96,7 +96,7 @@ async function fetchUserIdentity(client, guild, userId) {
     user = await client.users.fetch(out.userId, { force: true }).catch(() => null);
   }
   out.username = String(user?.username || "").trim();
-  out.displayName = String(member?.displayName || user?.globalName || user?.username || "Utente").trim() || "Utente";
+  out.displayName = String(user?.username || "Utente").trim() || "Utente";
   out.avatarUrl =
     (typeof user?.displayAvatarURL === "function" ? user.displayAvatarURL({ size: 256, dynamic: true }) : "") || "";
   return out;

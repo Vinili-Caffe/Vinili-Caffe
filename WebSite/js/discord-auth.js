@@ -269,7 +269,7 @@
 
   function queueLoginWelcomeNotification(user) {
     var countBefore = readOAuthLoginCount();
-    var displayName = String((user && (user.global_name || user.username)) || "utente").trim() || "utente";
+    var displayName = String((user && user.username) || "utente").trim() || "utente";
     var site = siteDisplayName();
     var home = resolveHomeUrl();
     var payload =
@@ -344,7 +344,7 @@
     var state = byId("discord-login-state");
     if (!state) return;
     if (loginBtn) loginBtn.hidden = true;
-    var name = String(user.username || user.global_name || "Utente").trim() || "Utente";
+    var name = String(user.username || "Utente").trim() || "Utente";
     var img = avatarUrl(user);
     var label = escAttr(name);
     var href = escAttr(profileHref(user && user.id));

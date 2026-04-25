@@ -437,7 +437,7 @@ async function startWebhookServer(client) {
   const { handleSiteRolesGet } = require("../../Utils/Web/siteRolesApi");
   const { submitSiteRoleRequest } = require("../../Utils/Web/siteRoleRequestApi");
   const { getRankCardCustomization, updateRankCardCustomization } = require("../../Utils/Web/siteRankCardApi");
-  const { getSiteReviews, submitSiteReview } = require("../../Utils/Web/siteReviewsApi");
+  const { getSiteReviews, submitSiteReview, deleteSiteReview } = require("../../Utils/Web/siteReviewsApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -551,6 +551,26 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-reviews post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.delete("/webhooks/site-reviews/:reviewId", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await deleteSiteReview(client, {
+        accessToken,
+        reviewId: req.params?.reviewId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-reviews delete:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
