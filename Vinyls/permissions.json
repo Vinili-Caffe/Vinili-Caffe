@@ -177,6 +177,11 @@
         "membercount": {
             "roles": [
                 "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds",
+                "channels.news"
             ]
         },
         "mstats": {
