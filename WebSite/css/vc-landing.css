@@ -5546,24 +5546,31 @@ body.vc-body--home .vc-hero-secondary-link {
 
 body.vc-body--home header .vc-nav-shell.vc-glass,
 body.vc-body--home header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(8, 18, 34, 0.78);
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.22);
+  background: rgba(10, 8, 7, 0.78);
+  border-color: rgba(var(--vc-sand-rgb), 0.22);
   box-shadow:
     0 10px 38px rgba(0, 0, 0, 0.42),
-    0 0 36px rgba(var(--vc-reviews-glow-rgb), 0.12);
+    0 0 36px rgba(var(--vc-sand-rgb), 0.08);
 }
 
 body.vc-body--home .vc-snav-panel {
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.28);
-  background: linear-gradient(145deg, rgba(10, 26, 30, 0.94), rgba(12, 24, 40, 0.9));
+  border-color: rgba(var(--vc-sand-rgb), 0.28);
+  background: linear-gradient(145deg, rgba(18, 13, 10, 0.94), rgba(14, 10, 8, 0.9));
   box-shadow:
     0 18px 44px rgba(0, 0, 0, 0.42),
-    0 0 28px rgba(var(--vc-reviews-glow-rgb), 0.14);
+    0 0 28px rgba(var(--vc-sand-rgb), 0.1);
 }
 
 body.vc-body--home .vc-snav-row:hover {
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.3);
-  background: rgba(14, 40, 52, 0.4);
+  border-color: rgba(var(--vc-sand-rgb), 0.3);
+  background: rgba(36, 26, 20, 0.4);
+}
+
+body.vc-body--home a.vc-header-logo-link + a[href],
+body.vc-body--home a.vc-header-logo-link + a[href] span,
+body.vc-body--home a.vc-header-logo-link + a[href]:hover,
+body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
+  color: #e8c9a8 !important;
 }
 
 .vc-user-profile-block--rankcard .vc-rank-editor-preview__stats {

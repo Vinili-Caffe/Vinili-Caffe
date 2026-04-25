@@ -1,5 +1,5 @@
 (function () {
-  var MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH = 3000000;
+  var MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH = 8000000;
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var currentUser = null;
@@ -830,15 +830,37 @@
       saveBtn.classList.add("is-saving");
     }
     setStatus("Salvataggio in corso...", false);
-    fetch(resolvedRankApiUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + token,
+    fetchWithTimeout(
+      resolvedRankApiUrl(),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({ mode: "save", theme: draft }),
       },
-      body: JSON.stringify({ mode: "save", theme: draft }),
-    })
-      .then(function (r) { return r.json(); })
+      30000
+    )
+      .then(function (r) {
+        return r
+          .text()
+          .then(function (txt) {
+            var body = null;
+            try {
+              body = txt ? JSON.parse(txt) : null;
+            } catch (eJson) {
+              body = null;
+            }
+            if (!r.ok) {
+              var err = new Error("http_error");
+              err.status = Number(r.status || 0);
+              err.body = body;
+              throw err;
+            }
+            return body;
+          });
+      })
       .then(function (body) {
         if (!body || body.ok !== true) {
           setStatus((body && body.message) || "Non sono riuscito a salvare la rank card.", true);
@@ -849,7 +871,23 @@
         showSaveSuccessToast();
         render();
       })
-      .catch(function () {
+      .catch(function (err) {
+        var status = Number(err && err.status);
+        if (status === 413) {
+          setStatus("File troppo grande per il salvataggio. Usa una GIF piu leggera.", true);
+          return;
+        }
+        if (status > 0) {
+          setStatus(
+            (err && err.body && err.body.message) || ("Errore server durante il salvataggio (HTTP " + status + ")."),
+            true
+          );
+          return;
+        }
+        if (err && err.message === "timeout") {
+          setStatus("Salvataggio scaduto: server troppo lento. Riprova tra poco.", true);
+          return;
+        }
         setStatus("Errore di rete durante il salvataggio.", true);
       })
       .finally(function () {

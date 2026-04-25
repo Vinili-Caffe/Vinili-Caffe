@@ -221,7 +221,7 @@ async function startWebhookServer(client) {
   const app = express();
   app.use(
     express.json({
-      limit: "4mb",
+      limit: "12mb",
       verify: (req, res, buf) => {
         const pathOnly = String(req.originalUrl || req.url || "").split("?")[0];
         if (pathOnly === "/webhooks/topgg") {

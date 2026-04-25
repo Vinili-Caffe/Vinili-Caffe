@@ -105,7 +105,7 @@ const DEFAULT_RANK_CARD_THEME = Object.freeze({
   rankBoxBorderColor: "#ffcb05",
 });
 
-const MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH = 3_000_000;
+const MAX_CUSTOM_WALLPAPER_DATAURL_LENGTH = 8_000_000;
 
 function clamp(value, min, max) {
   const n = Number(value);
