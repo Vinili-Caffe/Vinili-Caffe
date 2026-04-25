@@ -12,6 +12,7 @@
   var previewRenderToken = 0;
   var previewObjectUrl = "";
   var previewRefreshTimer = null;
+  var previewAbortController = null;
 
   var COLOR_FIELDS = [
     { key: "panelColor", title: "Sfondo", subtitle: "Colore dei box semi-trasparenti", icon: "fa-tint" },
@@ -326,6 +327,15 @@
       return;
     }
     var myToken = ++previewRenderToken;
+    if (previewAbortController) {
+      try {
+        previewAbortController.abort();
+      } catch (eAbort) {}
+      previewAbortController = null;
+    }
+    if (typeof AbortController !== "undefined") {
+      previewAbortController = new AbortController();
+    }
     if (!img.getAttribute("src")) status.textContent = "Render anteprima in corso...";
     status.className = "vc-rank-editor-preview__imagestatus";
     img.classList.add("is-rendering");
@@ -336,7 +346,8 @@
         Authorization: "Bearer " + token,
       },
       body: JSON.stringify({ theme: draft }),
-    }, 18000)
+      signal: previewAbortController ? previewAbortController.signal : undefined,
+    }, 35000)
       .then(function (r) {
         if (!r.ok) throw new Error("preview_http_" + r.status);
         return r.blob();
@@ -370,12 +381,15 @@
             window.URL.revokeObjectURL(prevObjectUrl);
           } catch (ePrev) {}
         }
+        if (previewAbortController) previewAbortController = null;
       })
-      .catch(function () {
+      .catch(function (err) {
+        if (err && err.name === "AbortError") return;
         if (myToken !== previewRenderToken) return;
         img.classList.remove("is-rendering");
         status.textContent = "Anteprima non disponibile al momento.";
         status.className = "vc-rank-editor-preview__imagestatus is-error";
+        if (previewAbortController) previewAbortController = null;
       });
   }
 
@@ -663,7 +677,11 @@
         if (label) label.textContent = String(range.value) + "%";
         var badge = document.querySelector(".vc-rank-editor-card__badge");
         if (badge) badge.textContent = String(range.value) + "%";
-        schedulePreviewRefresh(120);
+        schedulePreviewRefresh(40);
+      });
+      range.addEventListener("change", function () {
+        draft.overlayOpacity = fromPct(range.value);
+        schedulePreviewRefresh(0);
       });
     }
 
