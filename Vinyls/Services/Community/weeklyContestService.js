@@ -1473,19 +1473,34 @@ async function grantDisegniSecondPlaceProfileUnlock(guildId, userId, eventKey) {
   const uid = String(userId || "").trim();
   const ek = String(eventKey || "").trim();
   if (!gid || !uid || !ek || !isValidGuildUserId(gid, uid)) return false;
+  const now = new Date();
   const res = await ActivityUserProfile.updateOne(
     { guildId: gid, userId: uid },
     {
       $set: {
         "profile.contestPrizes.disegniSecondPlaceUnlock": true,
         "profile.contestPrizes.disegniSecondPlaceEventKey": ek,
-        "profile.contestPrizes.disegniSecondPlaceAt": new Date(),
+        "profile.contestPrizes.disegniSecondPlaceAt": now,
+        "profile.totals.exp.event.contestDisegniSecondPlaceUnlock": true,
+        "profile.totals.exp.event.contestDisegniSecondPlaceEventKey": ek,
+        "profile.totals.exp.event.contestDisegniSecondPlaceAt": now,
       },
       $setOnInsert: { guildId: gid, userId: uid },
     },
     { upsert: true },
   ).catch(() => null);
-  return Boolean(res && res.acknowledged);
+  if (!res || !res.acknowledged) return false;
+  const verify = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select("profile.contestPrizes.disegniSecondPlaceUnlock profile.totals.exp.event.contestDisegniSecondPlaceUnlock")
+    .lean()
+    .catch(() => null);
+  const ok =
+    Boolean(verify?.profile?.contestPrizes?.disegniSecondPlaceUnlock) ||
+    Boolean(verify?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock);
+  if (!ok) {
+    global.logger?.warn?.(`[WEEKLY_CONTEST] Premio 2° disegni: unlock profilo non persistito (schema bot non allineato?). userId=${uid}`);
+  }
+  return ok;
 }
 
 async function tryGrantContestFinaleBonusLevels(guild, userId, bonusLevels, eventKey, category) {
@@ -1556,6 +1571,34 @@ async function processContestFinalePrizeRoleRemovals(client) {
   }
 }
 
+async function backfillDisegniFinaleSecondPlaceUnlock(client) {
+  if (!IS_DISEGNI_CONTEST || CONTEST_TEST_MODE) return;
+  const gid = contestGuildId();
+  if (!gid || !client) return;
+  if (Date.now() <= getContestWindowMs().end) return;
+  const meta = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION }).lean().catch(() => null);
+  if (!meta || String(meta?.finaleDisegniSecondPlaceUserId || "").trim()) return;
+  if (!isFinaleCategoryResolved(meta, "mobile")) return;
+  const guild = await client.guilds.fetch(gid).catch(() => null);
+  if (!guild) return;
+  const totals = await aggregateFinaleCategoryVoteTotalsValid(guild, gid);
+  const rankingMobile = await computeContestFinaleRankingForCategory(gid, "mobile", totals.mobile);
+  const rankingPc = await computeContestFinaleRankingForCategory(gid, "pc", totals.pc);
+  const primaryMap = buildFinalePrimaryCategoryMap(rankingMobile, rankingPc);
+  const effectiveMobile = filterFinaleRankingForCategory(rankingMobile, "mobile", primaryMap);
+  const second = effectiveMobile[1];
+  if (!second?.userId || !isValidGuildUserId(gid, second.userId)) return;
+  const uid = String(second.userId);
+  const unlocked = await grantDisegniSecondPlaceProfileUnlock(gid, uid, EVENT_KEY_PRODUCTION);
+  await WeeklyContestMeta.updateOne(
+    { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+    { $set: { finaleDisegniSecondPlaceUserId: uid } },
+  ).catch(() => null);
+  global.logger?.info?.(
+    `[WEEKLY_CONTEST] Backfill 2° disegni: userId=${uid} unlock=${unlocked ? "ok" : "fallito"} meta=ok`,
+  );
+}
+
 async function runContestFinalePrizeGrantJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
@@ -1606,7 +1649,14 @@ async function runContestFinalePrizeGrantJob(client) {
       }
       await WeeklyContestMeta.findOneAndUpdate(
         { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
-        { $set: { [`finalePrizesResolvedCategories.${category}`]: true } },
+        {
+          $set: {
+            [`finalePrizesResolvedCategories.${category}`]: true,
+            ...(second?.userId && isValidGuildUserId(gid, second.userId)
+              ? { finaleDisegniSecondPlaceUserId: String(second.userId) }
+              : {}),
+          },
+        },
         { upsert: true, setDefaultsOnInsert: true },
       ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta disegni:", err));
       global.logger?.info?.(
@@ -1670,6 +1720,9 @@ function startWeeklyContestCron(client) {
       runDailyTopThreeBonusJob(client).catch((err) =>
         global.logger?.error?.("[WEEKLY_CONTEST] cron bonus:", err),
       );
+      backfillDisegniFinaleSecondPlaceUnlock(client).catch((err) =>
+        global.logger?.error?.("[WEEKLY_CONTEST] cron backfill 2° disegni:", err),
+      );
       runContestFinalePrizeGrantJob(client).catch((err) =>
         global.logger?.error?.("[WEEKLY_CONTEST] cron finale premi:", err),
       );
@@ -1689,6 +1742,9 @@ function startWeeklyContestCron(client) {
   contestCronNoonTask.unref?.();
   void runContestMemberSendChannelsOpenJob(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] apertura Member contest (catch-up avvio):", err?.message || err),
+  );
+  void backfillDisegniFinaleSecondPlaceUnlock(client).catch((err) =>
+    global.logger?.warn?.("[WEEKLY_CONTEST] backfill 2° disegni (catch-up avvio):", err?.message || err),
   );
   void runContestFinalePrizeGrantJob(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] finale premi (catch-up avvio):", err?.message || err),

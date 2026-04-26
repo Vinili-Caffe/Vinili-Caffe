@@ -1,8 +1,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
-const { WeeklyContestBundle } = require("../Schemas/Community/weeklyContestSchemas");
-const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST } = require("../Services/Community/weeklyContestService");
+const { WeeklyContestBundle, WeeklyContestMeta } = require("../Schemas/Community/weeklyContestSchemas");
+const { EVENT_KEY, EVENT_KEY_PRODUCTION, contestVoteRemainingSlots, IS_DISEGNI_CONTEST } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
@@ -298,7 +298,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestVotes, contestPrizeLean] = await Promise.all([
+  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestVotes, contestPrizeLean, finaleMetaLean] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
@@ -308,9 +308,24 @@ async function fetchProfilePanelState(guild, userId, client) {
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
     fetchContestVotesState(guildId, userId),
-    ActivityUserProfile.findOne({ guildId, userId }).select("profile.contestPrizes").lean().catch(() => null),
+    ActivityUserProfile.findOne({ guildId, userId })
+      .select("profile.contestPrizes profile.totals.exp.event")
+      .lean()
+      .catch(() => null),
+    IS_DISEGNI_CONTEST && guildId
+      ? WeeklyContestMeta.findOne({ guildId: String(guildId), eventKey: String(EVENT_KEY_PRODUCTION) })
+          .select("finaleDisegniSecondPlaceUserId")
+          .lean()
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
-  const contestSecondUnlock = Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock);
+  const contestSecondUnlock =
+    Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock) ||
+    Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock) ||
+    Boolean(
+      IS_DISEGNI_CONTEST &&
+        String(finaleMetaLean?.finaleDisegniSecondPlaceUserId || "").trim() === String(userId || "").trim(),
+    );
   const hasCustomRoleVocAccess = Boolean(
     contestSecondUnlock ||
       (member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId))),

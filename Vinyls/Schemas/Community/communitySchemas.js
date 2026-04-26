@@ -327,6 +327,9 @@ const activityUserProfileSchema = new Schema(
           levelHistory: { type: [activityUserProfileLevelHistoryEntrySchema], default: [] },
           event: {
             weekWinners: { type: [Number], default: [] },
+            contestDisegniSecondPlaceUnlock: { type: Boolean, default: false },
+            contestDisegniSecondPlaceEventKey: { type: String, default: "" },
+            contestDisegniSecondPlaceAt: { type: Date, default: null },
           },
           bumpVoteRewards: {
             type: Schema.Types.Mixed,

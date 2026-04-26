@@ -38,6 +38,8 @@ const weeklyContestMetaSchema = new Schema(
     finalePrizesResolvedCategories: { type: Schema.Types.Mixed, default: {} },
     finalePrizeRoleRemovals: { type: [finalePrizeRemovalEntrySchema], default: [] },
     contestMemberSendOpenedDayKey: { type: String, default: null },
+    /** Contest disegni: 2° classificato — sblocco Custom Role/Voc in +profile (senza ruolo Discord). */
+    finaleDisegniSecondPlaceUserId: { type: String, default: null },
   },
   { timestamps: true },
 );
