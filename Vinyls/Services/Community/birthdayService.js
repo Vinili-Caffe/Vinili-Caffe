@@ -6,7 +6,8 @@ const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Int
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = "1474729085719548048";
 const BIRTHDAY_REACTIONS = ["<a:VC_Events:1482706144953897223>", "<a:VC_HelloKittyGift:1329447876857958471>",];
-let birthdayLoopHandle = null;
+let birthdayCronMain = null;
+let birthdayCronBackup = null;
 let birthdayTickRunning = false;
 
 function getRomeDateParts(date = new Date()) {
@@ -123,7 +124,16 @@ async function runBirthdayTick(client, opts = {}) {
 
     for (const [guildId, guildDocs] of byGuild.entries()) {
       const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-      if (!guild) continue;
+      if (!guild) {
+        global.logger?.warn?.(
+          "[BIRTHDAY] Guild non in cache:",
+          guildId,
+          "— salto",
+          guildDocs.length,
+          "compleanni.",
+        );
+        continue;
+      }
 
       let channel =
         (channelId ? (guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId))) : null) || null;
@@ -133,19 +143,43 @@ async function runBirthdayTick(client, opts = {}) {
             (c) => c?.isTextBased?.() && /chat|chatting/i.test(c.name),
           ) || null;
       }
-      if (!channel?.isTextBased?.()) continue;
+      if (!channel?.isTextBased?.()) {
+        global.logger?.warn?.(
+          "[BIRTHDAY] Nessun canale testuale per annuncio (config chat=",
+          channelId || "—",
+          ", fallback nome chat/chatting). Guild:",
+          guild.id,
+          "Utenti:",
+          guildDocs.map((d) => d.userId).join(","),
+        );
+        continue;
+      }
 
       const content = buildBirthdayAnnouncement(guildDocs, today.year);
-      const sent = await channel.send({ content }).catch(() => null);
-      if (sent) {
-        for (const reaction of BIRTHDAY_REACTIONS) {
-          await sent.react(reaction).catch(() => { });
-        }
+      let sendErr = null;
+      const sent = await channel.send({ content }).catch((e) => {
+        sendErr = e;
+        return null;
+      });
+      if (!sent) {
+        global.logger?.error?.(
+          "[BIRTHDAY] Invio messaggio fallito:",
+          guild.id,
+          "canale",
+          channel.id,
+          sendErr?.message || sendErr || "(sconosciuto)",
+          "— non marco lastCelebratedYear (retry al prossimo tick).",
+        );
+        continue;
+      }
+
+      for (const reaction of BIRTHDAY_REACTIONS) {
+        await sent.react(reaction).catch(() => {});
       }
 
       for (const doc of guildDocs) {
         const uid = String(doc.userId || "");
-        const b = doc?.profile?.birthday || {};
+        const b = doc?.profile?.birthday || doc;
         await assignBirthdayRole(guild, uid);
         await applyAgeBracketRoleFromBirthday(
           guild,
@@ -169,12 +203,22 @@ async function runBirthdayTick(client, opts = {}) {
 }
 
 function startBirthdayLoop(client) {
-  if (!client || birthdayLoopHandle) return birthdayLoopHandle;
-  birthdayLoopHandle = cron.schedule(
+  if (!client || birthdayCronMain) return birthdayCronMain;
+  birthdayCronMain = cron.schedule(
     "0 0 * * *",
     () => {
       runBirthdayTick(client, { stripFlairFirst: true }).catch((error) =>
         global.logger?.error?.("[BIRTHDAY] Scheduled tick failed:", error),
+      );
+    },
+    { timezone: DEFAULT_TIME_ZONE },
+  );
+
+  birthdayCronBackup = cron.schedule(
+    "15 0 * * *",
+    () => {
+      runBirthdayTick(client, { stripFlairFirst: false }).catch((error) =>
+        global.logger?.error?.("[BIRTHDAY] Backup tick (00:15) failed:", error),
       );
     },
     { timezone: DEFAULT_TIME_ZONE },
@@ -186,12 +230,13 @@ function startBirthdayLoop(client) {
     );
   });
 
-  return birthdayLoopHandle;
+  return birthdayCronMain;
 }
 
 function getBirthdayLoopStatus() {
   return {
-    active: Boolean(birthdayLoopHandle),
+    active: Boolean(birthdayCronMain),
+    backupActive: Boolean(birthdayCronBackup),
     tickRunning: Boolean(birthdayTickRunning),
     timezone: DEFAULT_TIME_ZONE,
   };

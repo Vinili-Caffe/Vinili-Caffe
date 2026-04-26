@@ -894,8 +894,16 @@ async function startWebhookServer(client) {
     res.status(200).json({ status: "online", bot: client.user?.tag || "Offline" });
   });
 
-  app.listen(port, "0.0.0.0", () => {
-  });
+  const http = require("node:http");
+  const server = http.createServer(app);
+  try {
+    const { attachSiteSuggestionsWsServer } = require("../../Utils/Web/siteSuggestionsBroadcast");
+    attachSiteSuggestionsWsServer(server);
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] WebSocket suggerimenti (init):", err?.message || err);
+  }
+
+  server.listen(port, "0.0.0.0", () => {});
 }
 
 module.exports = {

@@ -5,6 +5,8 @@
     payload: null,
     replyOpenId: null,
     editModalOpen: false,
+    reviewsWs: null,
+    reviewsWsReconnectTimer: null,
     draft: {
       server: { rating: 5, content: "" },
     },
@@ -64,6 +66,7 @@
   }
 
   function clearReviewsContent() {
+    disconnectReviewsWebSocket();
     state.payload = null;
     state.replyOpenId = null;
     state.editModalOpen = false;
@@ -102,6 +105,113 @@
     var remote = String(conf.apiUrl || "").trim();
     if ((host === "localhost" || host === "127.0.0.1") && local) return local;
     return remote || local;
+  }
+
+  function reviewsRealtimeWsUrl() {
+    var explicit = String(cfg().wsUrl || "").trim();
+    if (explicit) return explicit;
+    var api = apiUrl();
+    if (!api || typeof URL === "undefined") return "";
+    try {
+      var u = new URL(api);
+      u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+      var path = String(u.pathname || "").replace(/\/$/, "");
+      var dir = path.replace(/\/[^/]+$/, "");
+      u.pathname = (dir || "") + "/site-realtime-ws";
+      u.search = "";
+      u.hash = "";
+      return u.href;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function disconnectReviewsWebSocket() {
+    if (state.reviewsWsReconnectTimer) {
+      clearTimeout(state.reviewsWsReconnectTimer);
+      state.reviewsWsReconnectTimer = null;
+    }
+    try {
+      if (state.reviewsWs) {
+        state.reviewsWs.onclose = null;
+        state.reviewsWs.close();
+      }
+    } catch (e2) {}
+    state.reviewsWs = null;
+  }
+
+  function scheduleReviewsWsReconnect() {
+    if (state.reviewsWsReconnectTimer) return;
+    state.reviewsWsReconnectTimer = setTimeout(function () {
+      state.reviewsWsReconnectTimer = null;
+      connectReviewsWebSocket();
+    }, 8000);
+  }
+
+  function isTypingInReviewField() {
+    var a = document.activeElement;
+    if (!a || !a.id) return false;
+    return String(a.id).indexOf("vc-reviews-reply-") === 0;
+  }
+
+  function refreshReviewsPayloadQuiet() {
+    if (state.editModalOpen || isTypingInReviewField()) return Promise.resolve();
+    if (!byId("vc-reviews-server-list")) return Promise.resolve();
+    return fetch(apiUrl(), {
+      method: "GET",
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+      .then(function (response) {
+        return response.json();
+      })
+      .then(function (body) {
+        if (!body || body.ok !== true) return;
+        state.payload = body;
+        syncDraftFromPayload();
+        render();
+      })
+      .catch(function () {});
+  }
+
+  function connectReviewsWebSocket() {
+    if (typeof WebSocket === "undefined") return;
+    var url = reviewsRealtimeWsUrl();
+    if (!url) return;
+    if (state.reviewsWsReconnectTimer) {
+      clearTimeout(state.reviewsWsReconnectTimer);
+      state.reviewsWsReconnectTimer = null;
+    }
+    try {
+      if (state.reviewsWs) {
+        state.reviewsWs.onclose = null;
+        state.reviewsWs.close();
+      }
+    } catch (e3) {}
+    state.reviewsWs = null;
+    try {
+      var ws = new WebSocket(url);
+      state.reviewsWs = ws;
+      ws.onmessage = function (ev) {
+        try {
+          var data = JSON.parse(String(ev.data || "{}"));
+          if (data.type === "reviews_changed" || data.type === "realtime_hello") {
+            void refreshReviewsPayloadQuiet();
+          }
+        } catch (e4) {}
+      };
+      ws.onclose = function () {
+        state.reviewsWs = null;
+        scheduleReviewsWsReconnect();
+      };
+      ws.onerror = function () {
+        try {
+          ws.close();
+        } catch (e5) {}
+      };
+    } catch (e6) {
+      state.reviewsWs = null;
+    }
   }
 
   function starsMarkup(value) {
@@ -502,6 +612,10 @@
         state.payload = body;
         syncDraftFromPayload();
         render();
+        var wsr = state.reviewsWs ? state.reviewsWs.readyState : 3;
+        if (wsr !== 0 && wsr !== 1) {
+          connectReviewsWebSocket();
+        }
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : "Impossibile caricare le recensioni.", true);
@@ -673,6 +787,13 @@
     if (ev.key !== "Escape") return;
     state.editModalOpen = false;
     render();
+  });
+
+  window.addEventListener("beforeunload", disconnectReviewsWebSocket);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && state.payload) {
+      void refreshReviewsPayloadQuiet();
+    }
   });
 
   if (document.readyState === "loading") {

@@ -77,7 +77,7 @@ module.exports = {
       if (action === "info") {
         let desc = unlocks.buildColorsHowToUnlockEmbedDescription();
         if (desc.length > 4090) desc = `${desc.slice(0, 4087)}…`;
-        const embed = new EmbedBuilder().setColor("#6f4e37").setTitle("📋 Come ottenere i colori").setDescription(desc);
+        const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(desc);
         await interaction.reply({
           embeds: [embed],
           flags: PRIVATE_FLAG,

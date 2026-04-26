@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteReview, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
+const { broadcastSiteReviewsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
@@ -412,6 +413,10 @@ async function submitSiteReview(client, payload = {}) {
     await announceServerReview(client, resolved.guild, resolved.member, nextDoc, rewardInfo);
   }
 
+  try {
+    broadcastSiteReviewsChanged();
+  } catch (_) {}
+
   return {
     ok: true,
     status: 200,
@@ -440,6 +445,10 @@ async function deleteSiteReview(client, payload = {}) {
   if (!deleted) {
     return { ok: false, status: 404, error: "review_not_found", message: "Recensione non trovata o non eliminabile." };
   }
+
+  try {
+    broadcastSiteReviewsChanged();
+  } catch (_) {}
 
   return {
     ok: true,
@@ -506,6 +515,9 @@ async function toggleSiteReviewLike(client, payload = {}) {
       } catch (_) {}
     }
   }
+  try {
+    broadcastSiteReviewsChanged();
+  } catch (_) {}
   return {
     ok: true,
     status: 200,
@@ -577,6 +589,10 @@ async function upsertServerReviewReply(client, payload = {}) {
       });
     } catch (_) {}
   }
+
+  try {
+    broadcastSiteReviewsChanged();
+  } catch (_) {}
 
   return {
     ok: true,

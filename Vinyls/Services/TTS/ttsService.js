@@ -221,7 +221,7 @@ const TTS_ABBREVIATIONS_EN = {
   ggez: "good game easy", nt: "nice try", ns: "nice shot", glhf: "good luck have fun",
   oof: "oof", yolo: "you only live once", fomo: "fear of missing out",
   bae: "babe", bestie: "bestie", poggers: "poggers", kek: "kek",
-  rekt: "wrecked", pwnd: "owned", noob: "newbie", newb: "newbie", pro: "professional",
+  rekt: "wrecked", pwnd: "owned", noob: "newbie", newb: "newbie",
   op: "overpowered", nerf: "nerf", buff: "buff", f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random",
   dps: "damage per second", main: "main", alt: "alt", smurf: "smurf", carry: "carry",
   tilt: "tilt", tilted: "tilted", toxic: "toxic", ff: "forfeit", inv: "invite",

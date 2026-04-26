@@ -676,6 +676,8 @@
   var ephemeralDemo = null;
   var currentUserId = "";
   var siteNotifsTimer = null;
+  var siteRealtimeWs = null;
+  var siteRealtimeWsReconnectTimer = null;
   var SITE_NOTIFS_POLL_MS = 300000;
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   try {
@@ -1061,6 +1063,99 @@
     if (u) return u;
     return "/webhooks/site-notifications";
   }
+  function siteRealtimeWsUrl() {
+    var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
+    var explicit = String(c.wsUrl || "").trim();
+    if (explicit) return explicit;
+    var http = resolvedSiteNotificationsUrl();
+    if (!http || typeof URL === "undefined") return "";
+    try {
+      var u = new URL(http);
+      u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+      var path = String(u.pathname || "").replace(/\/$/, "");
+      var dir = path.replace(/\/[^/]+$/, "");
+      u.pathname = (dir || "") + "/site-realtime-ws";
+      u.search = "";
+      u.hash = "";
+      return u.href;
+    } catch (e) {
+      return "";
+    }
+  }
+  function disconnectSiteRealtimeWs() {
+    if (siteRealtimeWsReconnectTimer) {
+      clearTimeout(siteRealtimeWsReconnectTimer);
+      siteRealtimeWsReconnectTimer = null;
+    }
+    try {
+      if (siteRealtimeWs) {
+        siteRealtimeWs.onclose = null;
+        siteRealtimeWs.close();
+      }
+    } catch (e2) {}
+    siteRealtimeWs = null;
+  }
+  function scheduleSiteRealtimeWsReconnect() {
+    if (siteRealtimeWsReconnectTimer) return;
+    siteRealtimeWsReconnectTimer = setTimeout(function () {
+      siteRealtimeWsReconnectTimer = null;
+      connectSiteRealtimeWebSocket();
+    }, 8000);
+  }
+  function stopSiteNotifsPoll() {
+    if (siteNotifsTimer) {
+      clearInterval(siteNotifsTimer);
+      siteNotifsTimer = null;
+    }
+  }
+  function connectSiteRealtimeWebSocket() {
+    if (typeof WebSocket === "undefined") return;
+    var url = siteRealtimeWsUrl();
+    if (!url) return;
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    if (siteRealtimeWsReconnectTimer) {
+      clearTimeout(siteRealtimeWsReconnectTimer);
+      siteRealtimeWsReconnectTimer = null;
+    }
+    try {
+      if (siteRealtimeWs) {
+        siteRealtimeWs.onclose = null;
+        siteRealtimeWs.close();
+      }
+    } catch (e0) {}
+    siteRealtimeWs = null;
+    try {
+      var ws = new WebSocket(url);
+      siteRealtimeWs = ws;
+      ws.onopen = function () {
+        stopSiteNotifsPoll();
+        syncSiteNotificationsFromServer();
+      };
+      ws.onmessage = function (ev) {
+        try {
+          var data = JSON.parse(String(ev.data || "{}"));
+          if (data.type === "notifications_changed" || data.type === "realtime_hello") {
+            syncSiteNotificationsFromServer();
+          }
+        } catch (e3) {}
+      };
+      ws.onclose = function () {
+        siteRealtimeWs = null;
+        if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+          stopSiteNotifsPoll();
+          siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
+          scheduleSiteRealtimeWsReconnect();
+        }
+      };
+      ws.onerror = function () {
+        try {
+          ws.close();
+        } catch (e4) {}
+      };
+    } catch (e5) {
+      siteRealtimeWs = null;
+    }
+  }
   function getDiscordAccessToken() {
     try {
       return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
@@ -1099,13 +1194,15 @@
       .catch(function () {});
   }
   function scheduleSiteNotificationsPolling() {
-    if (siteNotifsTimer) {
-      clearInterval(siteNotifsTimer);
-      siteNotifsTimer = null;
-    }
+    stopSiteNotifsPoll();
+    disconnectSiteRealtimeWs();
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
     syncSiteNotificationsFromServer();
-    siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
+    var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;
+    if (rs !== 0 && rs !== 1) connectSiteRealtimeWebSocket();
+    if (!siteRealtimeWs || siteRealtimeWs.readyState !== 1) {
+      siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
+    }
   }
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
@@ -1173,10 +1270,17 @@
     if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
       scheduleSiteNotificationsPolling();
     } else {
-      if (siteNotifsTimer) {
-        clearInterval(siteNotifsTimer);
-        siteNotifsTimer = null;
-      }
+      stopSiteNotifsPoll();
+      disconnectSiteRealtimeWs();
+    }
+  });
+  window.addEventListener("beforeunload", function () {
+    stopSiteNotifsPoll();
+    disconnectSiteRealtimeWs();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+      syncSiteNotificationsFromServer();
     }
   });
   if (document.readyState === "loading") {

@@ -34,7 +34,8 @@
     "node-cron": "4.2.1",
     "node-emoji": "^2.2.0",
     "prism-media": "^1.3.5",
-    "pureimage": "0.4.18"
+    "pureimage": "0.4.18",
+    "ws": "^8.18.0"
   },
   "overrides": {
     "axios": "^1.12.2",

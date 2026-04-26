@@ -32,12 +32,12 @@ async function run(client) {
       {
         name: "<:VC_Dot:1482532364222595303> Links",
         value: [
+          "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](<https://www.instagram.com/viniliecaffe/>)",
+          "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](<https://www.tiktok.com/@viniliecaffe/>)",
+          "<:VC_Logo:1498073401317916803> [Sito Ufficiale](<https://www.viniliecaffe.it>)",
           "<:VC_bump:1482531857521311885> [Lascia una recensione su DISBOARD](<https://disboard.org/it/server/1329080093599076474>)",
           "<:discadia:1498023529055260682> [Votaci su Discadia](<https://discadia.com/vote/viniliecaffe/>)",
           "<:VC_topgg:1495124467553275934> [Votaci e lascia una recensione su Top.gg](<https://top.gg/discord/servers/832911595289169920>)",
-          "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](<https://www.instagram.com/viniliecaffe/>)",
-          "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](<https://www.tiktok.com/@viniliecaffe/>)",
-          "<:link:1470064815899803668> [Sito Ufficiale](<https://www.viniliecaffe.it>)"
         ].join("\n"),
         inline: true,
       },

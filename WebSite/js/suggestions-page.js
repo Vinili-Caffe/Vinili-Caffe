@@ -5,6 +5,9 @@
     payload: null,
     editModalOpen: false,
     draftContent: "",
+    livePollTimer: null,
+    suggestionsWs: null,
+    wsReconnectTimer: null,
   };
 
   function byId(id) {
@@ -47,7 +50,16 @@
     });
   }
 
+  function stopLiveSuggestionsPoll() {
+    if (state.livePollTimer) {
+      clearInterval(state.livePollTimer);
+      state.livePollTimer = null;
+    }
+  }
+
   function clearContent() {
+    disconnectSuggestionsWebSocket();
+    stopLiveSuggestionsPoll();
     state.payload = null;
     state.editModalOpen = false;
     var wrap = byId("vc-suggestions-list");
@@ -76,6 +88,122 @@
     return (typeof window !== "undefined" && window.__VC_SITE_SUGGESTIONS) || {};
   }
 
+  function livePollIntervalMs() {
+    var n = Number(cfg().livePollMs);
+    if (Number.isFinite(n) && n >= 3000 && n <= 120000) return Math.floor(n);
+    return 6000;
+  }
+
+  function isTypingInSuggestionField() {
+    var a = document.activeElement;
+    if (!a || !a.id) return false;
+    var id = String(a.id);
+    if (id.indexOf("vc-sug-comment-") === 0) return true;
+    if (id.indexOf("vc-sug-staff-reason-") === 0) return true;
+    return false;
+  }
+
+  function refreshPayloadQuiet() {
+    if (state.editModalOpen || isTypingInSuggestionField()) return Promise.resolve();
+    if (!byId("vc-suggestions-list")) return Promise.resolve();
+    return fetch(apiUrl(), {
+      method: "GET",
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+      .then(parseSuggestionsApiJson)
+      .then(function (body) {
+        if (!body || body.ok !== true) return;
+        state.payload = body;
+        render();
+      })
+      .catch(function () {});
+  }
+
+  function startLiveSuggestionsPoll() {
+    stopLiveSuggestionsPoll();
+    if (state.suggestionsWs && state.suggestionsWs.readyState === 1) return;
+    state.livePollTimer = setInterval(function () {
+      if (document.visibilityState === "hidden") return;
+      void refreshPayloadQuiet();
+    }, livePollIntervalMs());
+  }
+
+  function suggestionsWsUrl() {
+    var explicit = String(cfg().wsUrl || "").trim();
+    if (explicit) return explicit;
+    var api = apiUrl();
+    if (!api || typeof URL === "undefined") return "";
+    try {
+      var u = new URL(api);
+      u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+      var path = String(u.pathname || "").replace(/\/$/, "");
+      var dir = path.replace(/\/[^/]+$/, "");
+      u.pathname = (dir || "") + "/site-realtime-ws";
+      u.search = "";
+      u.hash = "";
+      return u.href;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function disconnectSuggestionsWebSocket() {
+    if (state.wsReconnectTimer) {
+      clearTimeout(state.wsReconnectTimer);
+      state.wsReconnectTimer = null;
+    }
+    try {
+      if (state.suggestionsWs) {
+        state.suggestionsWs.onclose = null;
+        state.suggestionsWs.close();
+      }
+    } catch (e2) {}
+    state.suggestionsWs = null;
+  }
+
+  function scheduleSuggestionsWsReconnect() {
+    if (state.wsReconnectTimer) return;
+    state.wsReconnectTimer = setTimeout(function () {
+      state.wsReconnectTimer = null;
+      connectSuggestionsWebSocket();
+    }, 8000);
+  }
+
+  function connectSuggestionsWebSocket() {
+    if (typeof WebSocket === "undefined") return;
+    var url = suggestionsWsUrl();
+    if (!url) return;
+    disconnectSuggestionsWebSocket();
+    try {
+      var ws = new WebSocket(url);
+      state.suggestionsWs = ws;
+      ws.onopen = function () {
+        stopLiveSuggestionsPoll();
+      };
+      ws.onmessage = function (ev) {
+        try {
+          var data = JSON.parse(String(ev.data || "{}"));
+          if (data.type === "suggestions_changed" || data.type === "suggestions_hello") {
+            void refreshPayloadQuiet();
+          }
+        } catch (e3) {}
+      };
+      ws.onclose = function () {
+        state.suggestionsWs = null;
+        startLiveSuggestionsPoll();
+        scheduleSuggestionsWsReconnect();
+      };
+      ws.onerror = function () {
+        try {
+          ws.close();
+        } catch (e4) {}
+      };
+    } catch (e5) {
+      state.suggestionsWs = null;
+    }
+  }
+
   function esc(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -98,6 +226,29 @@
     var remote = String(conf.apiUrl || "").trim();
     if ((host === "localhost" || host === "127.0.0.1") && local) return local;
     return remote || local;
+  }
+
+  /** Evita `response.json()` su pagine HTML (manutenzione, 502, path sbagliato): messaggio leggibile. */
+  function parseSuggestionsApiJson(response) {
+    return response.text().then(function (text) {
+      var s = String(text || "").trim();
+      if (!s) {
+        throw new Error("Risposta vuota dall'API suggerimenti.");
+      }
+      if (s.charCodeAt(0) === 65279) {
+        s = s.slice(1).trim();
+      }
+      if (s.charAt(0) === "<") {
+        throw new Error(
+          "Il server ha risposto con una pagina HTML invece che con JSON: spesso sito in manutenzione, bot offline o URL `suggestionsApiUrl` che non punta a `/webhooks/site-suggestions`. Controlla `site.config.json` e che il bot sia avviato con gli HTTP webhook attivi.",
+        );
+      }
+      try {
+        return JSON.parse(s);
+      } catch (e) {
+        throw new Error("Risposta non JSON dall'API suggerimenti.");
+      }
+    });
   }
 
   function formatDateIt(value) {
@@ -468,7 +619,7 @@
           },
           body: JSON.stringify({ content: text }),
         })
-          .then(function (r) { return r.json(); })
+          .then(parseSuggestionsApiJson)
           .then(function (body) {
             if (!body || body.ok !== true) {
               throw new Error((body && body.message) || "Errore commento.");
@@ -519,9 +670,7 @@
       method: "POST",
       headers: { Authorization: "Bearer " + getToken() },
     })
-      .then(function (r) {
-        return r.json();
-      })
+      .then(parseSuggestionsApiJson)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || "Eliminazione non riuscita.");
@@ -553,9 +702,7 @@
       },
       body: JSON.stringify({ direction: direction }),
     })
-      .then(function (r) {
-        return r.json();
-      })
+      .then(parseSuggestionsApiJson)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || "Voto non registrato.");
@@ -589,7 +736,7 @@
       },
       body: JSON.stringify({ reason: reason }),
     })
-      .then(function (r) { return r.json(); })
+      .then(parseSuggestionsApiJson)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || "Operazione non riuscita.");
@@ -617,11 +764,16 @@
       headers: authHeaders(),
       cache: "no-store",
     })
-      .then(function (response) { return response.json(); })
+      .then(parseSuggestionsApiJson)
       .then(function (body) {
         if (!body || body.ok !== true) throw new Error((body && body.message) || "Impossibile caricare i suggerimenti.");
         state.payload = body;
         render();
+        startLiveSuggestionsPoll();
+        var wsRs = state.suggestionsWs ? state.suggestionsWs.readyState : 3;
+        if (wsRs !== 0 && wsRs !== 1) {
+          connectSuggestionsWebSocket();
+        }
       })
       .catch(function (err) {
         setStatus(err && err.message ? err.message : "Impossibile caricare i suggerimenti.", true);
@@ -649,7 +801,7 @@
       },
       body: JSON.stringify({ content: content }),
     })
-      .then(function (response) { return response.json(); })
+      .then(parseSuggestionsApiJson)
       .then(function (body) {
         if (!body || body.ok !== true) {
           throw new Error((body && body.message) || "Salvataggio non riuscito.");
@@ -688,6 +840,17 @@
     }
     clearContent();
     showGate();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && state.payload) {
+      void refreshPayloadQuiet();
+    }
+  });
+
+  window.addEventListener("beforeunload", function () {
+    stopLiveSuggestionsPoll();
+    disconnectSuggestionsWebSocket();
   });
 
   document.addEventListener("keydown", function (ev) {

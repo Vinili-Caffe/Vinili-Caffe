@@ -1,7 +1,5 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-
-/** Colori “classici” del pannello ruoli (stesso ordine di `personality_colors_1`). */
 const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
   "1442568956832645212",
   "1442568967045648412",
@@ -15,11 +13,8 @@ const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
   "1442568989866725468",
   "1442568991150309578",
 ];
-
 const EMOJI_COLOR_PLUS = "<:VC_Vip:1482534921472835895>";
 const EMOJI_COLOR_TIER = "<:VC_EXP:1482534670896730143>";
-
-/** Stesse emoji del menu `personality_colors_1` in `Embeds/ruoli.js`. */
 const NATURAL_PERSONALITY_COLOR_EMOJI_BY_ROLE_ID = {
   "1442568956832645212": "<:67241redmidnightheart:1470543833325633638>",
   "1442568967045648412": "<:76708orangemidnightheart:1470543838392352940>",
@@ -123,7 +118,6 @@ function listUnlockedTierRoleIds(numericLevel) {
   return getTierExclusiveColorDefs().filter((row) => lv >= row.minLevel).map((row) => row.roleId);
 }
 
-/** Colori classici: stesso criterio del pannello #ruoli (nessun vincolo di livello exp). */
 function listUnlockedNaturalRoleIds() {
   return [...PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL];
 }
@@ -166,7 +160,7 @@ function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canP
       const row = {
         label: roleLabel(guild, rid).slice(0, 100),
         value: rid,
-        description: "Colore classico (pannello ruoli)",
+        description: "Colore classico",
       };
       const em = naturalPersonalityColorEmoji(rid);
       if (em) row.emoji = em;
@@ -202,7 +196,6 @@ function isValueAllowedForCmdColors(segment, value, member, numericLevel, canPic
 
 const MERGED_SELECT_MAX = 25;
 
-/** Menu unico colori (senza voce «rimuovi»: usa il pulsante). Max 25 voci: Plus, tier, poi classici. */
 function buildMergedColorSelectOptions(guild, member, numericLevel, canPickPlus) {
   const opts = [];
   const pushOpt = (rid, prefix, kind) => {
@@ -237,7 +230,6 @@ function mentionRoles(ids) {
     .join(" · ");
 }
 
-/** ID ruoli citati negli embed / testi +colori (allowedMentions.roles). */
 function listRoleIdsForColorsEmbedMentions(guild) {
   const raw = [
     ...getAllPersonalityChatColorRoleIds(),
@@ -273,30 +265,26 @@ function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
     ? plusUnlocked.length
       ? `**Sbloccati per te** · scegli dal menu sotto.\n${plusUnlocked.map((id) => `· <@&${id}>`).join("\n")}`
       : "**Sbloccati**, ma i ruoli Plus non risultano sul server."
-    : `**Non sbloccati.** Serve **livello exp 50+** oppure uno tra: ${plusReq || "VIP / Booster / Donator"}\n_(anche grant event week 2/3)_`;
+    : `**Non sbloccati.** Serve **livello 50+** oppure uno tra: ${plusReq || "VIP / Booster / Donator"}\n`;
   const tierDefs = getTierExclusiveColorDefs().filter((d) => guild?.roles?.cache?.has?.(d.roleId));
   const tierBlock =
     tierDefs.length === 0
       ? "_Nessun ruolo esclusivo livello configurato._"
-      : `Il tuo livello exp: **${numericLevel || 0}**\n` +
+      : `Il tuo livello: **${numericLevel || 0}**\n` +
         tierDefs
           .map((d) => {
             const ok = Number(numericLevel) >= d.minLevel;
-            return `· <@&${d.roleId}> — da livello **${d.minLevel}**${ok ? " ✓" : ""}`;
+            return `· <@&${d.roleId}> — da livello **${d.minLevel}**${ok ? " <a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`;
           })
           .join("\n");
   const lines = [
-    "## 🎨 Colori disponibili",
-    "Tutti i colori che puoi applicare **in chat** (come il pannello ruoli).",
-    "",
-    "### 💠 Classici",
-    "**Sblocco:** nessun livello o ruolo richiesto.",
+    "### <:VC_Color:1482532543273238569> Classici",
     natLine,
     "",
-    "### ✨ Plus (gradienti)",
+    "### <:VC_Vip:1482534921472835895> Plus",
     plusBlock,
     "",
-    "### 🏅 Esclusivi di livello",
+    "### <:VC_EXP:1482534670896730143> Esclusivi di livello",
     tierBlock,
     "",
     sep,
@@ -305,36 +293,32 @@ function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
   ];
   let body = lines.join("\n");
   if (body.length > 4000) {
-    body = `${lines.slice(0, 8).join("\n")}\n\n… *lista abbreviata — usa il menu per i classici.*\n\n${sep}`;
+    body = `${lines.slice(0, 8).join("\n")}\n\n… *Usa il menu per i classici.*\n\n${sep}`;
   }
   return body;
 }
 
 function buildColorsHowToUnlockEmbedDescription() {
   const plusReq = mentionRoles([
+    IDs.roles.Level50,
     IDs.roles.VIP,
-    IDs.roles.VIPplus,
     IDs.roles.ServerBooster,
-    IDs.roles.DoubleBooster,
     IDs.roles.Donator,
   ]);
-  const legacy = mentionRoles([IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Level100]);
   const tiers = getTierExclusiveColorDefs();
   return [
-    "## 📋 Come ottenere i colori",
+    "## <:VC_PinkQuestionMark:1471892611026391306> Come ottenere i colori",
     "",
-    "### 💠 Classici",
-    "Disponibili per tutti i membri: nessun requisito. Puoi applicarli da **questo menu** o dal canale **#ruoli** sul server.",
+    "### <:VC_Color:1482532543273238569> Classici",
+    "Disponibili per tutti i membri: nessun requisito. ",
     "",
-    "### ✨ Plus (gradienti)",
+    "### <:VC_Vip:1482534921472835895> Plus",
     "Serve almeno una di queste condizioni:",
-    `· **Livello exp 50+** sul server`,
-    `· Ruoli: ${plusReq || "VIP, Booster, Donator"}`,
-    legacy ? `· Oppure ruoli livello Discord: ${legacy}` : "",
-    "· Oppure **grant** vincitore event week (come da regolamento eventi).",
+    `· **Livello 50+** sul server`,
+    `· Ruoli: ${plusReq || "VIP, Booster, Donator, Level50"}`,
     "",
-    "### 🏅 Esclusivi",
-    "Solo in base al **livello exp** salvato sul profilo:",
+    "### <:VC_EXP:1482534670896730143> Esclusivi",
+    "Solo in base al **livello** salvato sul profilo:",
     ...tiers.map((t) => `· <@&${t.roleId}> — da livello **${t.minLevel}**`),
     "",
     "୨୧ — · · · — ୨୧",

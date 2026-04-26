@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteSuggestion } = require("../../Schemas/Community/communitySchemas");
+const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
@@ -182,6 +183,7 @@ async function createSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare il suggerimento." };
   }
 
+  broadcastSiteSuggestionsChanged();
   return {
     ok: true,
     status: 200,
@@ -259,6 +261,7 @@ async function addSiteSuggestionComment(client, payload = {}) {
     });
   }
 
+  broadcastSiteSuggestionsChanged();
   return {
     ok: true,
     status: 200,
@@ -348,6 +351,7 @@ async function setSiteSuggestionVote(client, payload = {}) {
     });
   }
 
+  broadcastSiteSuggestionsChanged();
   return {
     ok: true,
     status: 200,
@@ -417,6 +421,7 @@ async function staffAcceptSiteSuggestion(client, payload = {}) {
     });
   }
 
+  broadcastSiteSuggestionsChanged();
   return {
     ok: true,
     status: 200,
@@ -486,6 +491,7 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
     });
   }
 
+  broadcastSiteSuggestionsChanged();
   return {
     ok: true,
     status: 200,
@@ -522,6 +528,7 @@ async function staffDeleteSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato." };
   }
 
+  broadcastSiteSuggestionsChanged();
   return { ok: true, status: 200, message: "Suggerimento eliminato definitivamente." };
 }
 

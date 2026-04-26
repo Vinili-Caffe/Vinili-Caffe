@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { shouldBlockDm } = require("../../Utils/noDmList");
+const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
 const discadiaVoteTimers = new Map();
@@ -863,26 +864,33 @@ function scheduleDiscadiaVoteReminder(client, guildId, userId, lastVoteAt, voteL
       if (Date.now() - lastVoteAtMs < cooldownMsRun) return;
       const lastRemindedAtForListing = voteStateLastRemindedAt(state, listingForDelay);
       if (lastRemindedAtForListing && new Date(lastRemindedAtForListing).getTime() >= lastVoteAtMs) return;
-      if (await shouldSkipVoteDmByNoDm(client, gid, uid)) return;
+      const siteOpts = buildVoteSiteInAppNotificationOpts(
+        client,
+        gid,
+        uid,
+        listingForDelay,
+        lastVoteAtMs,
+        cooldownMsRun,
+      );
+      await enqueueSiteInAppNotification(siteOpts).catch(() => {});
+      const skipDm = await shouldSkipVoteDmByNoDm(client, gid, uid, listingForDelay);
+      if (skipDm) {
+        await markVoteReminderDispatched(gid, uid, listingForDelay);
+        return;
+      }
       let user = await getUserCached(client, uid);
       if (!user && client?.users?.fetch) user = await client.users.fetch(uid).catch(() => null);
-      if (!user) return;
+      if (!user) {
+        await markVoteReminderDispatched(gid, uid, listingForDelay);
+        return;
+      }
       const { embed, components } = await buildVoteReminderEmbed(client, { voteListing: listingForDelay });
       try {
         await user.send({ embeds: [embed], ...(components.length ? { components } : {}) });
       } catch {
         await sendVoteFallbackChannelReminder(client, gid, uid, listingForDelay);
       }
-      const remindedAt = new Date();
-      await ActivityUserProfile.updateOne(
-        { guildId: gid, userId: uid },
-        {
-          $set: {
-            [DISCADIA_LAST_REMINDED_AT_PATH]: remindedAt,
-            [voteLastRemindedAtPath(listingForDelay)]: remindedAt,
-          },
-        },
-      ).catch(() => {});
+      await markVoteReminderDispatched(gid, uid, listingForDelay);
     } finally {
       discadiaVoteTimers.delete(key);
     }
@@ -1021,11 +1029,31 @@ async function sendDueDiscadiaVoteReminders(client) {
       if (Date.now() - lastVoteAt < cooldownMs) continue;
       const lastRemindedAtRaw = voteStateLastRemindedAt(state, voteListing);
       if (lastRemindedAtRaw && new Date(lastRemindedAtRaw).getTime() >= lastVoteAt) continue;
-      if (await shouldSkipVoteDmByNoDm(client, guildId, userId, voteListing)) continue;
+
+      const siteOpts = buildVoteSiteInAppNotificationOpts(
+        client,
+        guildId,
+        userId,
+        voteListing,
+        lastVoteAt,
+        cooldownMs,
+      );
+      await enqueueSiteInAppNotification(siteOpts).catch(() => {});
+
+      const skipDm = await shouldSkipVoteDmByNoDm(client, guildId, userId, voteListing);
+      if (skipDm) {
+        const remindedAt = await markVoteReminderDispatched(guildId, userId, voteListing);
+        state[voteListing === "topgg" ? "lastRemindedAtTopgg" : "lastRemindedAtDiscadia"] = remindedAt;
+        continue;
+      }
 
       let user = await getUserCached(client, userId);
       if (!user && client?.users?.fetch) user = await client.users.fetch(userId).catch(() => null);
-      if (!user) continue;
+      if (!user) {
+        const remindedAt = await markVoteReminderDispatched(guildId, userId, voteListing);
+        state[voteListing === "topgg" ? "lastRemindedAtTopgg" : "lastRemindedAtDiscadia"] = remindedAt;
+        continue;
+      }
       const { embed, components } = await buildVoteReminderEmbed(client, { voteListing });
       try {
         await user.send({
@@ -1035,16 +1063,7 @@ async function sendDueDiscadiaVoteReminders(client) {
       } catch {
         await sendVoteFallbackChannelReminder(client, guildId, userId, voteListing);
       }
-      const remindedAt = new Date();
-      await ActivityUserProfile.updateOne(
-        { guildId, userId },
-        {
-          $set: {
-            [DISCADIA_LAST_REMINDED_AT_PATH]: remindedAt,
-            [voteLastRemindedAtPath(voteListing)]: remindedAt,
-          },
-        },
-      ).catch(() => {});
+      const remindedAt = await markVoteReminderDispatched(guildId, userId, voteListing);
       state[voteListing === "topgg" ? "lastRemindedAtTopgg" : "lastRemindedAtDiscadia"] = remindedAt;
     }
   }

@@ -48,7 +48,7 @@ async function enqueueSiteInAppNotification(opts = {}) {
       .catch(() => null);
     if (dup) return;
   }
-  await SiteInAppNotification.create({
+  const created = await SiteInAppNotification.create({
     guildId,
     userId,
     title,
@@ -58,6 +58,12 @@ async function enqueueSiteInAppNotification(opts = {}) {
     dedupeKey: dedupeKeyRaw || undefined,
   }).catch(() => null);
   await pruneSiteInAppNotificationsForUser(userId).catch(() => null);
+  if (created) {
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
 }
 
 async function pruneSiteInAppNotificationsForUser(userId) {
