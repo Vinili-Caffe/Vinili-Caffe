@@ -4,6 +4,11 @@ const renderQuoteCanvas = require("../../Utils/Render/quoteCanvas");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
+const {
+  guildFirstThumbnailUrl,
+  accountUsername,
+  userAvatarUrlDynamic,
+} = require("../../Utils/Discord/guildDiscordIdentity");
 
 const QUOTE_CHANNEL_ID = IDs.channels.quotes;
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
@@ -90,7 +95,7 @@ module.exports = {
               .setTitle("<a:VC_Unlock:1482532082466029608> Quote bloccate")
               .setDescription(
                 [
-                  `**${displayName || author.username}** ha bloccato le quote dei propri messaggi.`,
+                  `**${quoteUserLabel}** ha bloccato le quote dei propri messaggi.`,
                   "",
                   "**Rispetta la privacy**",
                   "L'utente ha scelto di non essere quotato. Rispetta questa decisione!",
@@ -108,14 +113,22 @@ module.exports = {
     }
 
     let buffer;
+    let quoteFormat = "png";
     try {
       const footerText = String(message.client?.config?.botServerInvite || "").replace(/^https?:\/\//i, "").trim();
-      buffer = await renderQuoteCanvas({
-        avatarUrl: author.displayAvatarURL({ extension: "png", size: 512 }),
+      const guild = message.guild;
+      const coverImageUrl =
+        guildFirstThumbnailUrl(guild, author, { size: 512 }) ||
+        userAvatarUrlDynamic(author, { size: 512 }) ||
+        "";
+      const out = await renderQuoteCanvas({
+        coverImageUrl,
         message: text,
-        username: displayName || author.username,
+        username: quoteUserLabel,
         footerText,
       });
+      buffer = out.buffer;
+      quoteFormat = out.format === "gif" ? "gif" : "png";
     } catch {
       return safeMessageReply(message, {
         embeds: [
@@ -136,7 +149,7 @@ module.exports = {
       totalPosts = 1;
     }
 
-    const attachment = new AttachmentBuilder(buffer, { name: "quote.png" });
+    const attachment = new AttachmentBuilder(buffer, { name: quoteFormat === "gif" ? "quote.gif" : "quote.png" });
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setDescription(
@@ -151,7 +164,9 @@ module.exports = {
 
     const quoteChannel = message.guild.channels.cache.get(QUOTE_CHANNEL_ID);
     if (quoteChannel) {
-      const postAttachment=new AttachmentBuilder(buffer,{name:"quote.png",});
+      const postAttachment = new AttachmentBuilder(buffer, {
+        name: quoteFormat === "gif" ? "quote.gif" : "quote.png",
+      });
       const postEmbed=buildQuotePostEmbed({messageAuthorId:author.id,creatorId:message.author.id,totalPosts,});
       const originChannelId = message.channel.id;
       const originMessageId = replyMsg?.id || "0";

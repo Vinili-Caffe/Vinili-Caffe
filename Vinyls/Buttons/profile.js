@@ -11,6 +11,7 @@ const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/
 const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
+const { userAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
 const SECTION_BIRTHDAY = "birthday";
@@ -338,8 +339,9 @@ async function fetchProfilePanelState(guild, userId, client) {
 
 function buildSectionEmbed(section, state, user, guild = null) {
   const base = new EmbedBuilder().setColor("#6f4e37");
-  if (user && typeof user === "object" && typeof user.displayAvatarURL === "function") {
-    base.setThumbnail(user.displayAvatarURL({ size: 256 }));
+  if (user && typeof user === "object") {
+    const thumb = userAvatarUrlDynamic(user, { size: 256 });
+    if (thumb) base.setThumbnail(thumb);
   }
   const birthday = state?.birthday || {};
   const hasBirthday = Boolean(Number(birthday?.day) && Number(birthday?.month));
@@ -766,7 +768,7 @@ async function ensureCustomRoleExists(interaction, ownerId, client) {
     return { ok: false, reason: "no_manage_roles" };
   }
 
-  const roleName = trimRoleName(member?.displayName || interaction.user?.username || "Custom Role");
+  const roleName = trimRoleName(accountUsername(member || interaction.user) || "Custom Role");
   const createdRole = await guild.roles.create({
     name: roleName,
     colors: { primaryColor: "#f4b6d7" },
@@ -828,7 +830,7 @@ async function ensureCustomVocExists(interaction, ownerId, client) {
 
   const channelName = buildCustomVocName(
     latestDoc?.customVocEmoji || role?.unicodeEmoji || "🎧",
-    interaction.member?.displayName || interaction.user?.username || "privata",
+    accountUsername(interaction.member || interaction.user) || "privata",
   );
 
   const channel = await guild.channels.create({

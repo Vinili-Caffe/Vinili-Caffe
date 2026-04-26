@@ -1,6 +1,10 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const {
+  guildFirstThumbnailUrl,
+  userAvatarUrlDynamic,
+} = require("../../Utils/Discord/guildDiscordIdentity");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
@@ -311,7 +315,9 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
     if (!channel?.isTextBased?.()) return;
 
     const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
-    const avatarUrl = member.displayAvatarURL({ extension: "png", size: 256, forceStatic: false });
+    const avatarUrl =
+      guildFirstThumbnailUrl(member.guild, member, { size: 256 }) ||
+      userAvatarUrlDynamic(member, { size: 256 });
     const roleLine = mentionRoleId
       ? `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`
       : `<:VC_Reply:1482532158080942191> Ti è stato assegnato un ruolo Guilded!`;

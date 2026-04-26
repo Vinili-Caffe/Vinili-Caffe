@@ -10,6 +10,7 @@ const {
   getJoinGateNameCandidate,
 } = require("./guildMemberAdd");
 const { syncClanTagRolesForUserEverywhere } = require("../Services/Community/clanTagRoleService");
+const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const USER_UPDATE_DEDUPE_MS = 15_000;
@@ -38,7 +39,7 @@ function buildJoinGateTriggeredEmbed(member, reason) {
         `${ARROW} **Reason:** ${reason}`,
       ].join("\n"),
     )
-    .setThumbnail(member.displayAvatarURL({ size: 256 }));
+    .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || null);
 }
 
 function makeUserUpdateDedupeKey(guildId, userId, match) {

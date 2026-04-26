@@ -1146,6 +1146,23 @@ async function main() {
     voteApiLocalRaw && /^https?:\/\//i.test(voteApiLocalRaw)
       ? voteApiLocalRaw
       : "";
+  const siteNotifsApiFromEnv = String(process.env.VC_SITE_NOTIFICATIONS_API_URL ?? "").trim();
+  const siteNotifsApiRaw = siteNotifsApiFromEnv || String(cfg.siteNotificationsApiUrl ?? "").trim();
+  const siteNotifsApiResolved =
+    siteNotifsApiRaw && /^https?:\/\//i.test(siteNotifsApiRaw)
+      ? siteNotifsApiRaw
+      : siteNotifsApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${siteNotifsApiRaw.startsWith("/") ? "" : "/"}${siteNotifsApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-notifications`
+          : "/webhooks/site-notifications";
+  const siteNotifsApiLocalFromEnv = String(process.env.VC_SITE_NOTIFICATIONS_API_URL_LOCAL ?? "").trim();
+  const siteNotifsApiLocalRaw =
+    siteNotifsApiLocalFromEnv || String(cfg.siteNotificationsApiUrlLocal ?? "").trim();
+  const siteNotifsApiLocalResolved =
+    siteNotifsApiLocalRaw && /^https?:\/\//i.test(siteNotifsApiLocalRaw)
+      ? siteNotifsApiLocalRaw
+      : "";
   const reviewsApiFromEnv = String(process.env.VC_REVIEWS_API_URL ?? "").trim();
   const reviewsApiRaw = reviewsApiFromEnv || String(cfg.reviewsApiUrl ?? "").trim();
   const reviewsApiResolved =
@@ -1276,6 +1293,8 @@ async function main() {
     USERS_LEADERBOARD_API_URL_LOCAL: escAttr(usersLeaderboardApiLocalResolved),
     VOTE_API_URL: escAttr(voteApiResolved),
     VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
+    SITE_NOTIFICATIONS_API_URL: escAttr(siteNotifsApiResolved),
+    SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(siteNotifsApiLocalResolved),
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
     REVIEWS_API_URL: escAttr(reviewsApiResolved),
     REVIEWS_API_URL_LOCAL: escAttr(reviewsApiLocalResolved),

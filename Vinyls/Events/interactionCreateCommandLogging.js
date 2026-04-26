@@ -1,6 +1,7 @@
 const { Events } = require("discord.js");
 const { logCommandUsage } = require("../Utils/Logging/commandUsageLogger");
 const IDs = require("../Utils/Config/ids");
+const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 const COMMAND_LOG_CHANNEL_ID = IDs.channels.commandLogChannel;
 
@@ -40,7 +41,7 @@ module.exports = {
         user: user.tag || user.username || "unknown",
         userId: user.id || "unknown",
         content: getCommandContent(interaction),
-        userAvatarUrl: (interaction.member || interaction.user).displayAvatarURL?.({ size: 128 }),
+        userAvatarUrl: userAvatarUrlDynamic(interaction.member || interaction.user, { size: 128 }),
       });
     } catch (error) {
       global.logger?.error?.(

@@ -5,6 +5,7 @@ const { initPartnerManagerFieldsIfMissing } = require("../../Utils/Staff/staffPm
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
@@ -224,13 +225,16 @@ async function handlePartnerModal(interaction) {
     !resolvedInviteGuildId && inviteCode.toLowerCase().includes("viniliecaffe");
   if (inviteTargetsOurGuild || vanitySlugLooksLikeOurs) {
     const embed = new EmbedBuilder()
-      .setAuthor({ name: interaction.user.username, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
+      .setAuthor({
+        name: interaction.user.username,
+        iconURL: userAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
+      })
       .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${interaction.user.username}**`)
       .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("Red")
       .setTimestamp()
-      .setThumbnail(interaction.guild.iconURL());
+      .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
     await interaction.editReply({ embeds: [embed] });
     return true;
   }
@@ -288,7 +292,10 @@ async function handlePartnerModal(interaction) {
     const shownPartnerPoints = resolvePartnerPointsShown(s);
 
     const embed = new EmbedBuilder()
-      .setAuthor({ name: interaction.user.username, iconURL: (interaction.member || interaction.user).displayAvatarURL() })
+      .setAuthor({
+        name: interaction.user.username,
+        iconURL: userAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
+      })
       .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
       .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
     <:mariolevelup:1443679595084910634> Ora sei a **\`${shownPartnerPoints}\`** partner!
@@ -296,7 +303,7 @@ async function handlePartnerModal(interaction) {
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("#6f4e37")
       .setTimestamp()
-      .setThumbnail(interaction.guild.iconURL());
+      .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
 
     const sentMessageIds = [];
     const contentWithManager = normalizeManagerLine(sanitizedDescription, managerId,);

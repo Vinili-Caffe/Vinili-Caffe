@@ -2,8 +2,10 @@ const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteReview, ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
 const ADMIN_ROLE_ID = String(IDs?.roles?.Admin || "").trim();
@@ -96,10 +98,7 @@ async function getStaffTargets(client, guild) {
     .map((member) => ({
       id: String(member.id),
       name: displayNameForMember(member),
-      avatarUrl:
-        member.displayAvatarURL?.({ extension: "png", size: 128 }) ||
-        member.user?.displayAvatarURL?.({ extension: "png", size: 128 }) ||
-        "",
+      avatarUrl: userAvatarUrlDynamic(member, { size: 128 }) || "",
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "it", { sensitivity: "base" }));
   const ids = new Set(list.map((entry) => entry.id));
@@ -224,10 +223,7 @@ async function announceServerReview(client, guild, authorMember, review, rewardI
   if (!channel || !channel.isTextBased?.()) return;
 
   const authorName = displayNameForMember(authorMember);
-  const avatarUrl =
-    authorMember?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
-    authorMember?.user?.displayAvatarURL?.({ extension: "png", size: 256 }) ||
-    "";
+  const avatarUrl = userAvatarUrlDynamic(authorMember, { size: 256 }) || "";
   const stars = "⭐".repeat(normalizeRating(review.rating));
   const reviewsPageUrl = String(client?.config?.siteReviews?.pageUrl || "").trim();
   const reviewLink = reviewsPageUrl || "https://www.viniliecaffe.it/recensioni/";
@@ -263,7 +259,7 @@ async function announceServerReview(client, guild, authorMember, review, rewardI
     )
     .setFooter({
       text: "viniliecaffe.it · Feedback community",
-      iconURL: client.user?.displayAvatarURL?.() || undefined,
+      iconURL: userAvatarUrlDynamic(client.user, { size: 64 }) || undefined,
     })
     .setTimestamp();
 
@@ -399,10 +395,7 @@ async function submitSiteReview(client, payload = {}) {
         rating,
         content,
         authorName: displayNameForMember(resolved.member),
-        authorAvatarUrl:
-          resolved.member?.displayAvatarURL?.({ extension: "png", size: 128 }) ||
-          resolved.member?.user?.displayAvatarURL?.({ extension: "png", size: 128 }) ||
-          "",
+        authorAvatarUrl: userAvatarUrlDynamic(resolved.member, { size: 128 }) || "",
         staffName,
         staffAvatarUrl,
       },
@@ -495,6 +488,24 @@ async function toggleSiteReviewLike(client, payload = {}) {
   }
 
   const nextLikes = Array.isArray(updated.likedUserIds) ? updated.likedUserIds.map((x) => String(x)) : [];
+  if (!has) {
+    const authorId = String(review.userId || "").trim();
+    const likerName = displayNameForMember(resolved.member);
+    if (authorId && authorId !== uid) {
+      try {
+        await enqueueSiteInAppNotification({
+          guildId: resolved.guild.id,
+          userId: authorId,
+          title: "Nuovo like alla tua recensione",
+          body: `${likerName} ha messo mi piace alla tua recensione della community.`,
+          kind: "review",
+          openUrl: "/recensioni",
+          dedupeKey: `rev-like:${reviewId}:${uid}`,
+          dedupeWindowMs: 300_000,
+        });
+      } catch (_) {}
+    }
+  }
   return {
     ok: true,
     status: 200,
@@ -549,6 +560,22 @@ async function upsertServerReviewReply(client, payload = {}) {
     .catch(() => null);
   if (!nextDoc) {
     return { ok: false, status: 500, error: "save_failed", message: "Impossibile salvare la risposta." };
+  }
+
+  const reviewAuthorId = String(nextDoc.userId || "").trim();
+  if (reviewAuthorId && reviewAuthorId !== String(resolved.userId)) {
+    try {
+      await enqueueSiteInAppNotification({
+        guildId: resolved.guild.id,
+        userId: reviewAuthorId,
+        title: "Risposta alla tua recensione",
+        body: "Lo staff ha pubblicato una risposta ufficiale alla tua recensione della community.",
+        kind: "review",
+        openUrl: "/recensioni",
+        dedupeKey: `rev-reply:${reviewId}:${String(nextDoc.serverReplyAt || "")}`,
+        dedupeWindowMs: 86_400_000,
+      });
+    } catch (_) {}
   }
 
   return {

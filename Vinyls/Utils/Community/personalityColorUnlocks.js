@@ -181,7 +181,10 @@ function buildMergedColorSelectOptions(guild, member, numericLevel, canPickPlus)
     if (opts.length >= MERGED_SELECT_MAX) return;
     if (!guild?.roles?.cache?.has?.(rid)) return;
     const label = `${prefix}${roleLabel(guild, rid)}`.slice(0, 100);
-    opts.push({ label, value: rid, description: prefix.trim().slice(0, 100) });
+    const desc = String(prefix || "").trim().slice(0, 100);
+    const row = { label, value: rid };
+    if (desc) row.description = desc;
+    opts.push(row);
   };
   for (const rid of listUnlockedPlusRoleIds(guild, canPickPlus)) pushOpt(rid, "Plus · ");
   for (const rid of listUnlockedTierRoleIds(numericLevel).filter((id) => guild?.roles?.cache?.has?.(id))) {

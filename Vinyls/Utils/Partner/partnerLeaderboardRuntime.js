@@ -5,6 +5,7 @@ const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../P
 const PLB_MODE_PREFIX = "plb_mode:";
 const PLB_NAV_PREFIX = "plb_nav:";
 const { resolvePartnerPointsShown } = require("../Staff/partnerPointsDisplayUtils");
+const { guildIconUrl } = require("../Discord/guildDiscordIdentity");
 
 function countValidAllTimePartners(actions) {
   if (!Array.isArray(actions)) return 0;
@@ -29,7 +30,7 @@ function isPartnerCreateInResocontoWeek(action, weekStart, weekEndExclusive) {
 
 function buildPartnerLbShellEmbed(guild, isWeekly, bodyLines) {
   const title = isWeekly ? "Classifica partnership [Weekly]" : "Classifica partnership [All Time]";
-  const icon = guild.iconURL({ size: 128 });
+  const icon = guildIconUrl(guild, { size: 128 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: guild.name, iconURL: icon })

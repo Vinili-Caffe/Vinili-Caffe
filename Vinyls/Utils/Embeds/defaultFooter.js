@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { guildIconUrl, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const DEFAULT_FOOTER_TEXT = "© 2026 Vinili & Caffè. Tutti i diritti riservati.";
 const DEFAULT_COLOR = "#6f4e37";
 const ERROR_EMBED_COLORS = new Set([0xed4245, 0xe74c3c, 0xbe3851, 0xff0000,]);
@@ -15,32 +16,26 @@ function hasFooter(embed) {
 }
 function getBotIconUrl(guild) {
   const botUser = guild?.client?.user;
-  if (botUser && typeof botUser.displayAvatarURL === "function") {
-    try {
-      return botUser.displayAvatarURL({ size: 64 });
-    } catch (err) {
-      global.logger?.warn?.("[defaultFooter] ", err?.message || err);
-    }
+  try {
+    return userAvatarUrlDynamic(botUser, { size: 64 });
+  } catch (err) {
+    global.logger?.warn?.("[defaultFooter] ", err?.message || err);
   }
   return null;
 }
 function getGlobalBotIconUrl() {
   const botUser = global?.botClient?.user;
-  if (botUser && typeof botUser.displayAvatarURL === "function") {
-    try {
-      return botUser.displayAvatarURL({ size: 64 });
-    } catch (err) {
-      global.logger?.warn?.("[defaultFooter] ", err?.message || err);
-    }
+  try {
+    return userAvatarUrlDynamic(botUser, { size: 64 });
+  } catch (err) {
+    global.logger?.warn?.("[defaultFooter] ", err?.message || err);
   }
   return null;
 }
 function getGuildIconUrl(guild) {
   if (!guild) return null;
   try {
-    if (typeof guild.iconURL === "function") {
-      return guild.iconURL({ size: 64 });
-    }
+    return guildIconUrl(guild, { size: 64 });
   } catch (err) {
     global.logger?.warn?.("[defaultFooter] ", err?.message || err);
   }

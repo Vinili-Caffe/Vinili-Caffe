@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, OverwriteType } = require("discord.js");
 const IDs = require("../Config/ids");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const STAFF_ROLE_ID = IDs.roles.Staff;
 const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
@@ -27,7 +28,7 @@ function canSeeCloseRequestPanel(member, ticketDoc) {
 
 function getBotAvatarUrl(channelOrGuild) {
   const client = channelOrGuild?.client || channelOrGuild?.guild?.client;
-  return client?.user?.displayAvatarURL?.() || null;
+  return userAvatarUrlDynamic(client?.user) || null;
 }
 
 function buildRemoveMemberOptions(channel) {

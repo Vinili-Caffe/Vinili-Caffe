@@ -16,6 +16,7 @@ const {
 } = require("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
@@ -928,7 +929,7 @@ async function handleTtsMessage(message, client, prefix) {
   let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText),);
   if (!baseText || !baseText.trim()) return;
   baseText = expandAbbreviationsForTts(baseText, lang);
-  const name = message.member?.displayName || message.member?.user?.username || message.author?.username || "Utente";
+  const name = accountUsername(message.member || message.author);
   let text = includeUsername ? `${name}: ${baseText}` : baseText;
   text = normalizeCaseForTts(text);
   text = normalizePausesForTts(text);

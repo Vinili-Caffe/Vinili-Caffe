@@ -1,5 +1,11 @@
 const canvasModule = require("canvas");
-const { createCanvas, loadImage } = canvasModule; const { registerCanvasFonts, drawTextWithSpecialFallback, } = require("./canvasFonts");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const { spawnSync } = require("child_process");
+const ffmpegPath = require("ffmpeg-static");
+const { createCanvas } = canvasModule;
+const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
 const { safeLoadImage } = require("./safeLoadImage");
 
 function hashSeed(source) {
@@ -12,13 +18,159 @@ function hashSeed(source) {
   return Math.abs(h >>> 0);
 }
 
-function pickMessage(percent) {
-  if (percent >= 90) return "sono perfetti insieme!";
-  if (percent >= 70)
-    return "sono sulla strada giusta per qualcosa di speciale!";
-  if (percent >= 50) return "hanno una buona connessione!";
-  if (percent >= 30) return "potrebbero sorprendere!";
-  return "forse meglio come amici... per ora!";
+function pickFrom(arr, seed) {
+  const a = Array.isArray(arr) ? arr : [];
+  if (!a.length) return "";
+  return a[seed % a.length];
+}
+
+/** Frasi per fascia percentuale (0 e 100 dedicate; seed = varietà stabile per coppia+msg). */
+function pickMessage(percent, seed) {
+  const h = hashSeed(String(seed ?? ""));
+  const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+
+  if (p === 0) {
+    return pickFrom(
+      [
+        "Zero assoluto: oggi il destino ride…",
+        "Compatibilità inesistente: amicizia > ship!",
+        "Il cosmo dice «meglio da soli su Discord».",
+        "L'amore non è nell'aria: provate un caffè insieme.",
+        "Match da leggenda… invertita: 0%!",
+      ],
+      h,
+    );
+  }
+  if (p === 100) {
+    return pickFrom(
+      [
+        "100% — leggenda vivente sul server!",
+        "Match cosmico: fate spazio agli altri!",
+        "Anime da favola, livello massimo!",
+        "Il cuore del server esplode di shipped!",
+        "Perfetti come vinile + caffè!",
+      ],
+      h,
+    );
+  }
+  if (p >= 95) {
+    return pickFrom(
+      [
+        "Quasi perfetti: il server li shipa!",
+        "Da copertina: tenetevi forte!",
+        "Chemistry da capogiro!",
+        "Il destino ha firmato in grande!",
+      ],
+      h,
+    );
+  }
+  if (p >= 90) {
+    return pickFrom(
+      [
+        "Sono perfetti insieme!",
+        "Un duo che fa invidia al feed!",
+        "Connessione da dieci e lode!",
+      ],
+      h,
+    );
+  }
+  if (p >= 80) {
+    return pickFrom(
+      [
+        "Scintilla forte: non mollate!",
+        "Si vedono le stelle… in positivo!",
+        "C'è chimica seria qui!",
+      ],
+      h,
+    );
+  }
+  if (p >= 70) {
+    return pickFrom(
+      [
+        "Sulla strada giusta per qualcosa di speciale!",
+        "Ottimo feeling: continuate così!",
+        "Il vibe c'è tutto!",
+      ],
+      h,
+    );
+  }
+  if (p >= 60) {
+    return pickFrom(
+      [
+        "Buona sintonia: fate crescere il legame!",
+        "Più che promettente!",
+        "Base solida per ship vere!",
+      ],
+      h,
+    );
+  }
+  if (p >= 50) {
+    return pickFrom(
+      [
+        "Hanno una buona connessione!",
+        "Metà tabella superata: bravi!",
+        "Ci sta: da qui in su è tutto bonus!",
+      ],
+      h,
+    );
+  }
+  if (p >= 40) {
+    return pickFrom(
+      [
+        "Ci sono margini… e curiosità!",
+        "Mica male: un po' di mistero non guasta!",
+        "Potenziale nascosto: tiratelo fuori!",
+      ],
+      h,
+    );
+  }
+  if (p >= 30) {
+    return pickFrom(
+      [
+        "Potrebbero sorprendere tutti!",
+        "Non sottovalutate questo duo!",
+        "La curva può salire ancora!",
+      ],
+      h,
+    );
+  }
+  if (p >= 20) {
+    return pickFrom(
+      [
+        "Ancora in fase scouting…",
+        "Meglio come amici… per ora!",
+        "Serve più tempo (e meme) insieme!",
+      ],
+      h,
+    );
+  }
+  if (p >= 10) {
+    return pickFrom(
+      [
+        "Ouch: il RNG non è dalla vostra parte!",
+        "Amicizia salva sempre la giornata!",
+        "Il server tifa comunque per voi!",
+      ],
+      h,
+    );
+  }
+  return pickFrom(
+    [
+      "Piccolo passo… da qualche parte!",
+      "Numeri bassi, cuore grande?",
+      "La ship naviga con vento contrario oggi!",
+    ],
+    h,
+  );
+}
+
+function runFfmpeg(args) {
+  if (!ffmpegPath) return false;
+  const out = spawnSync(ffmpegPath, args, {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  return Number(out?.status) === 0;
 }
 
 function drawRoundedRect(ctx, x, y, w, h, r) {
@@ -34,7 +186,10 @@ function drawRoundedRect(ctx, x, y, w, h, r) {
 
 function drawStars(ctx, width, height, seed) {
   let state = seed || 12345;
-  const next = () => { state = (state * 1664525 + 1013904223) % 4294967296; return state / 4294967296; };
+  const next = () => {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
   const count = 70;
   for (let i = 0; i < count; i += 1) {
     const x = Math.floor(next() * width);
@@ -97,7 +252,7 @@ function drawHeartShape(ctx, cx, cy, size) {
 function drawHeart(ctx, cx, cy, size) {
   ctx.save();
 
-  const glow = ctx.createRadialGradient(cx, cy + size * 0.35, size * 0.2, cx, cy + size * 0.35, size * 1.25,);
+  const glow = ctx.createRadialGradient(cx, cy + size * 0.35, size * 0.2, cx, cy + size * 0.35, size * 1.25);
   glow.addColorStop(0, "rgba(255,120,190,0.55)");
   glow.addColorStop(1, "rgba(255,120,190,0)");
   ctx.fillStyle = glow;
@@ -106,7 +261,7 @@ function drawHeart(ctx, cx, cy, size) {
   ctx.fill();
 
   drawHeartShape(ctx, cx, cy, size);
-  const fill = ctx.createLinearGradient(cx - size, cy - size * 0.3, cx + size, cy + size,);
+  const fill = ctx.createLinearGradient(cx - size, cy - size * 0.3, cx + size, cy + size);
   fill.addColorStop(0, "#ff93d1");
   fill.addColorStop(0.5, "#ff4fa7");
   fill.addColorStop(1, "#db2a85");
@@ -121,6 +276,17 @@ function drawHeart(ctx, cx, cy, size) {
   ctx.restore();
 }
 
+function drawGuildBackdrop(ctx, guildIcon, cx, cy, radius) {
+  if (!guildIcon) return;
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(guildIcon, cx - radius, cy - radius, radius * 2, radius * 2);
+  ctx.restore();
+}
+
 function getFittedTitleSize(ctx, text, maxWidth, startSize = 42, minSize = 24) {
   let size = startSize;
   while (size > minSize) {
@@ -131,17 +297,32 @@ function getFittedTitleSize(ctx, text, maxWidth, startSize = 42, minSize = 24) {
   return Math.max(minSize, size);
 }
 
-module.exports = async function renderShipCanvas({ leftAvatarUrl, rightAvatarUrl, leftName, rightName, leftId, rightId, percent }) {
-  if (!canvasModule) throw new Error("Canvas module not available");
-  registerCanvasFonts(canvasModule);
+/** t in [0,1]: crescita + leggero respiro finale */
+function heartAnimationFactor(t, frameIndex, totalFrames) {
+  const tt = Math.max(0, Math.min(1, t));
+  const grow = 1 - (1 - tt) * (1 - tt);
+  const holdPhase = frameIndex >= totalFrames - 4;
+  if (!holdPhase) return grow;
+  const pulse = 1 + 0.045 * Math.sin((frameIndex - (totalFrames - 4)) * 0.9);
+  return Math.min(1.08, grow * pulse);
+}
 
-  const width = 1000;
-  const height = 540;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
-
-  const finalPercent = Math.max(1, Math.min(100, Number(percent || 1)));
-  const topText = pickMessage(finalPercent);
+function drawShipFrame(ctx, {
+  width,
+  height,
+  leftAvatar,
+  rightAvatar,
+  guildIcon,
+  leftName,
+  rightName,
+  leftId,
+  rightId,
+  percent,
+  topText,
+  frameIndex,
+  totalFrames,
+}) {
+  const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
 
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, "#5d008f");
@@ -153,11 +334,12 @@ module.exports = async function renderShipCanvas({ leftAvatarUrl, rightAvatarUrl
     ctx,
     width,
     height,
-    hashSeed(`${leftId}:${rightId}:${finalPercent}:${Date.now()}`),
+    hashSeed(`${leftId}:${rightId}:${finalPercent}:${frameIndex}`),
   );
 
-  const leftAvatar = await safeLoadImage(leftAvatarUrl);
-  const rightAvatar = await safeLoadImage(rightAvatarUrl);
+  const cx = width / 2;
+  const cy = 228;
+  drawGuildBackdrop(ctx, guildIcon, cx, cy, 150);
 
   if (leftAvatar) {
     drawFramedImage(ctx, leftAvatar, 110, 145, 220, -2.8);
@@ -208,7 +390,14 @@ module.exports = async function renderShipCanvas({ leftAvatarUrl, rightAvatarUrl
     forcePrimaryFont: true,
   });
 
-  drawHeart(ctx, width / 2, 228, 54);
+  const t = totalFrames <= 1 ? 1 : frameIndex / (totalFrames - 1);
+  const anim = heartAnimationFactor(t, frameIndex, totalFrames);
+  const percentNorm = finalPercent / 100;
+  const heartBaseMin = 26;
+  const heartBaseMax = 56 + percentNorm * 38;
+  const heartSize = heartBaseMin + (heartBaseMax - heartBaseMin) * anim;
+
+  drawHeart(ctx, cx, cy, heartSize);
 
   const percentText = `${finalPercent}%`;
   const percentX = width / 2;
@@ -223,6 +412,212 @@ module.exports = async function renderShipCanvas({ leftAvatarUrl, rightAvatarUrl
   ctx.fillStyle = "#5b0d3f";
   ctx.fillText(percentText, percentX, percentY);
   ctx.restore();
+}
 
+async function renderSinglePngBuffer(params) {
+  const {
+    leftAvatarUrl,
+    rightAvatarUrl,
+    guildIconUrl,
+    leftName,
+    rightName,
+    leftId,
+    rightId,
+    percent,
+    messageSeed,
+  } = params;
+  const width = 1000;
+  const height = 540;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
+  const [leftAvatar, rightAvatar, guildIcon] = await Promise.all([
+    safeLoadImage(leftAvatarUrl),
+    safeLoadImage(rightAvatarUrl),
+    guildIconUrl ? safeLoadImage(guildIconUrl) : Promise.resolve(null),
+  ]);
+  drawShipFrame(ctx, {
+    width,
+    height,
+    leftAvatar,
+    rightAvatar,
+    guildIcon,
+    leftName,
+    rightName,
+    leftId,
+    rightId,
+    percent: finalPercent,
+    topText,
+    frameIndex: 17,
+    totalFrames: 18,
+  });
   return canvas.toBuffer("image/png");
+}
+
+/**
+ * @returns {Promise<{ buffer: Buffer, format: 'gif'|'png' }>}
+ */
+module.exports = async function renderShipCanvas(params) {
+  if (!canvasModule) throw new Error("Canvas module not available");
+  registerCanvasFonts(canvasModule);
+
+  const {
+    leftAvatarUrl,
+    rightAvatarUrl,
+    guildIconUrl,
+    leftName,
+    rightName,
+    leftId,
+    rightId,
+    percent,
+    messageSeed,
+  } = params;
+
+  const width = 1000;
+  const height = 540;
+  const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
+
+  const [leftAvatar, rightAvatar, guildIcon] = await Promise.all([
+    safeLoadImage(leftAvatarUrl),
+    safeLoadImage(rightAvatarUrl),
+    guildIconUrl ? safeLoadImage(guildIconUrl) : Promise.resolve(null),
+  ]);
+
+  if (!ffmpegPath) {
+    const buf = await renderSinglePngBuffer({
+      leftAvatarUrl,
+      rightAvatarUrl,
+      guildIconUrl,
+      leftName,
+      rightName,
+      leftId,
+      rightId,
+      percent: finalPercent,
+      messageSeed,
+    });
+    return { buffer: buf, format: "png" };
+  }
+
+  const FRAME_COUNT = 18;
+  const FRAMERATE = 12;
+  let tmpDir = "";
+  try {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-ship-gif-"));
+    const framePattern = path.join(tmpDir, "ship_%03d.png");
+    const palettePath = path.join(tmpDir, "palette.png");
+    const outGifPath = path.join(tmpDir, "ship.gif");
+
+    for (let i = 0; i < FRAME_COUNT; i += 1) {
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      drawShipFrame(ctx, {
+        width,
+        height,
+        leftAvatar,
+        rightAvatar,
+        guildIcon,
+        leftName,
+        rightName,
+        leftId,
+        rightId,
+        percent: finalPercent,
+        topText,
+        frameIndex: i,
+        totalFrames: FRAME_COUNT,
+      });
+      const name = `ship_${String(i + 1).padStart(3, "0")}.png`;
+      fs.writeFileSync(path.join(tmpDir, name), canvas.toBuffer("image/png"));
+    }
+
+    const paletteOk = runFfmpeg([
+      "-y",
+      "-i",
+      framePattern,
+      "-vf",
+      "palettegen=stats_mode=diff",
+      palettePath,
+    ]);
+    if (!paletteOk) {
+      const buf = await renderSinglePngBuffer({
+        leftAvatarUrl,
+        rightAvatarUrl,
+        guildIconUrl,
+        leftName,
+        rightName,
+        leftId,
+        rightId,
+        percent: finalPercent,
+        messageSeed,
+      });
+      return { buffer: buf, format: "png" };
+    }
+
+    const gifOk = runFfmpeg([
+      "-y",
+      "-framerate",
+      String(FRAMERATE),
+      "-i",
+      framePattern,
+      "-i",
+      palettePath,
+      "-lavfi",
+      "paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
+      "-loop",
+      "0",
+      outGifPath,
+    ]);
+    if (!gifOk || !fs.existsSync(outGifPath)) {
+      const buf = await renderSinglePngBuffer({
+        leftAvatarUrl,
+        rightAvatarUrl,
+        guildIconUrl,
+        leftName,
+        rightName,
+        leftId,
+        rightId,
+        percent: finalPercent,
+        messageSeed,
+      });
+      return { buffer: buf, format: "png" };
+    }
+    const outGif = fs.readFileSync(outGifPath);
+    if (!outGif || !outGif.length) {
+      const buf = await renderSinglePngBuffer({
+        leftAvatarUrl,
+        rightAvatarUrl,
+        guildIconUrl,
+        leftName,
+        rightName,
+        leftId,
+        rightId,
+        percent: finalPercent,
+        messageSeed,
+      });
+      return { buffer: buf, format: "png" };
+    }
+    return { buffer: outGif, format: "gif" };
+  } catch {
+    const buf = await renderSinglePngBuffer({
+      leftAvatarUrl,
+      rightAvatarUrl,
+      guildIconUrl,
+      leftName,
+      rightName,
+      leftId,
+      rightId,
+      percent: finalPercent,
+      messageSeed,
+    });
+    return { buffer: buf, format: "png" };
+  } finally {
+    if (tmpDir) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 };

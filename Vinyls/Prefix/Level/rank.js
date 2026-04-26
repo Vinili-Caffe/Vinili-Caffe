@@ -5,20 +5,10 @@ const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 const IDs = require("../../Utils/Config/ids");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 function resolvePreferredAvatarUrl(member, user) {
-  const hash = String((member && member.avatar) || (user && user.avatar) || "");
-  const prefersGif = /^a_/i.test(hash);
-  const opts = prefersGif
-    ? { extension: "gif", size: 256, forceStatic: false }
-    : { extension: "png", size: 256, forceStatic: false };
-  return (
-    member?.displayAvatarURL?.(opts) ||
-    user?.displayAvatarURL?.(opts) ||
-    member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-    user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-    ""
-  );
+  return userAvatarUrlDynamic(member || user, { size: 256 }) || "";
 }
 
 module.exports = {

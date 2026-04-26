@@ -1,5 +1,6 @@
 const IDs = require("../Config/ids");
 const { CustomRole } = require("../../Schemas/Community/communitySchemas");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const CACHE_TTL_MS = 30_000;
 let cache = { at: 0, payload: null };
@@ -58,9 +59,7 @@ async function fetchUserIdentity(client, guild, userId) {
   out.ownerUsername = String(user.username || "").trim();
   out.ownerDisplayName = String(user.username || "").trim();
   out.ownerAvatar = user.avatar ? String(user.avatar) : "";
-  if (typeof user.displayAvatarURL === "function") {
-    out.ownerAvatarUrl = user.displayAvatarURL({ size: 256, dynamic: true });
-  }
+  out.ownerAvatarUrl = userAvatarUrlDynamic(user, { size: 256 }) || "";
   return out;
 }
 
@@ -70,10 +69,7 @@ function memberIdentityFromGuildMember(member, ownerId) {
   const username = String(user?.username || "").trim();
   const displayName = String(username || "Utente").trim();
   const avatar = user?.avatar ? String(user.avatar) : "";
-  const avatarUrl =
-    user && typeof user.displayAvatarURL === "function"
-      ? user.displayAvatarURL({ size: 128, dynamic: true })
-      : "";
+  const avatarUrl = userAvatarUrlDynamic(user, { size: 128 }) || "";
   return {
     userId,
     username,

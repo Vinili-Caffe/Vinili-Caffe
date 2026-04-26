@@ -1162,6 +1162,12 @@
         "apply_reject:*": [
             "roles.HighStaff"
         ],
+        "website_unban_acc:*": [
+            "roles.HighStaff"
+        ],
+        "website_unban_rej:*": [
+            "roles.HighStaff"
+        ],
         "candidature_premi_partner": [
             "roles.Member"
         ],

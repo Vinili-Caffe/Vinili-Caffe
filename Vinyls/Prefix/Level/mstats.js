@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const MSTATS_CACHE_TTL_MS = 45 * 1000;
 const mstatsCache = new Map();
@@ -69,9 +70,14 @@ module.exports = {
       descLines.push("", "<a:VC_Flame:1482725674711126140> **Serie vittorie:** " + (currentStreak > 0 ? `attuale **${currentStreak}**` : "—") + (bestStreak > 0 ? ` • record **${bestStreak}**` : ""));
     }
 
+    const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setAuthor({ name: targetUser.username, iconURL: (typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL() })
+      .setAuthor({
+        name: targetUser.username,
+        iconURL:
+          userAvatarUrlDynamic(targetMember || targetUser) || undefined,
+      })
       .setTitle(`Le statistiche nei Minigames di ${targetUser.username} <a:VC_Flowers:1468687836055212174>`)
       .setDescription(descLines.join("\n"));
 

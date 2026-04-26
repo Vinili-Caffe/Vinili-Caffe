@@ -13,6 +13,7 @@ const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissio
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
+const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
@@ -447,7 +448,15 @@ async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", });
   const footerText = `Classifica richiesta da ${interaction.user.username} \u2022 Oggi alle ${time}`;
 
-  const embed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle(title).setDescription(description).setFooter({ text: footerText, iconURL: (interaction.member || interaction.user).displayAvatarURL(), });
+  const embed = new EmbedBuilder()
+    .setImage(DIVIDER_URL)
+    .setColor("#6f4e37")
+    .setTitle(title)
+    .setDescription(description)
+    .setFooter({
+      text: footerText,
+      iconURL: userAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
+    });
 
   if (interaction.deferred) return interaction.editReply({ embeds: [embed] }).catch((err) => { logButtonErr(err); return null; });
   return interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });

@@ -3,6 +3,11 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
+const {
+  guildFirstThumbnailUrl,
+  userAvatarUrlDynamic,
+  accountUsername,
+} = require("../../Utils/Discord/guildDiscordIdentity");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryGames].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
@@ -438,14 +443,14 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
 
 function buildLevelUpEmbed(member, level) {
   const avatarUrl =
-    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
-    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
-    null;
+    guildFirstThumbnailUrl(member?.guild, member, { size: 256 }) ||
+    userAvatarUrlDynamic(member, { size: 256 });
+  const name = accountUsername(member);
   return {
     embeds: [
       {
         color: 0x6f4e37,
-        title: `${member?.displayName || member?.user?.username} leveled up!`,
+        title: `${name} leveled up!`,
         ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
@@ -476,14 +481,13 @@ async function sendLevelUpAnnouncement(guild, member, level) {
 
 function buildPerksLevelEmbed(member, level, roleId) {
   const avatarUrl =
-    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
-    member?.displayAvatarURL?.({ size: 256, extension: "png" }) ||
-    null;
+    guildFirstThumbnailUrl(member?.guild, member, { size: 256 }) ||
+    userAvatarUrlDynamic(member, { size: 256 });
   return {
     embeds: [
       {
         color: 0x6f4e37,
-        title: `${member.user.username} leveled up!`,
+        title: `${accountUsername(member)} leveled up!`,
         ...(avatarUrl ? { thumbnail: { url: avatarUrl } } : {}),
         description: [
           `<a:VC_PandaClap:1331620157398712330> **Complimenti ${member}!**`,
@@ -506,14 +510,15 @@ async function sendPerksLevelMessage(guild, member, level) {
 
 function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
   const safeRoleLabel = String(roleLabel || "<:VC_Mention:1482526855289634997> Ruolo sconosciuto").trim();
+  const perkThumb =
+    guildFirstThumbnailUrl(member?.guild, member, { size: 256 }) ||
+    userAvatarUrlDynamic(member, { size: 256 });
   return {
     embeds: [
       {
         color: 0x6f4e37,
         title: "<:VC_InactiveStatus:1482526984234860574> Sei vicino a un nuovo perk!",
-        thumbnail: {
-          url: member?.displayAvatarURL({ size: 256 }),
-        },
+        ...(perkThumb ? { thumbnail: { url: perkThumb } } : {}),
         description: [
           `<a:VC_PandaClap:1331620157398712330> ${member}, ci sei quasi!`,
           `<:VC_Mention:1482526855289634997> Sei vicino al ruolo **${safeRoleLabel}** (livello \`${targetLevel}\`).`,

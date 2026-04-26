@@ -15,6 +15,7 @@ const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, logModCas
 const { resolveTarget } = require("./prefixModeration");
 const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../Logging/modAuditLogUtils");
 const { sendDm } = require("../noDmList");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 function embed(client, title, description, color = null) {
   return new EmbedBuilder()
@@ -535,7 +536,7 @@ async function runNamed(name, message, args, client) {
     }
     const warningEmbed = new EmbedBuilder().setColor("#ED4245").setTitle(String(`${titleCount}per ${targetUser?.username || userId}(${userId})`).slice(0, 256))
       .setDescription(String(lines.join("\n\n")).slice(0, 4096))
-      .setThumbnail((typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser).displayAvatarURL?.({ size: 128 }) || null);
+      .setThumbnail(userAvatarUrlDynamic(typeof targetMember !== "undefined" && targetMember ? targetMember : targetUser, { size: 128 }) || null);
     return message.channel.send({ embeds: [warningEmbed] }).catch(() => null);
   }
 

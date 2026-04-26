@@ -19,6 +19,12 @@ const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
+const {
+  guildIconUrl,
+  userAvatarUrlDynamic,
+  accountUsername,
+  guildFirstThumbnailUrl,
+} = require("../Utils/Discord/guildDiscordIdentity");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -103,7 +109,7 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
     return new EmbedBuilder()
       .setColor(INVITE_MILESTONE_EMBED_COLOR)
       .setTitle(getInviteMilestoneTitle(target))
-      .setThumbnail(inviterMember.displayAvatarURL({ size: 256 }))
+      .setThumbnail(userAvatarUrlDynamic(inviterMember, { size: 256 }) || undefined)
       .setDescription(body)
       .setFooter({ text: `${shortInviteLinkForFooter()} • Grazie! 💞` })
       .setTimestamp();
@@ -340,19 +346,20 @@ async function addBotRoles(member) {
 
 function buildWelcomeEmbed(member) {
   const visibleCount = getVerifiedPlusBotsCount(member.guild);
+  const uname = accountUsername(member);
   return new EmbedBuilder()
     .setAuthor({
-      name: member.user.username,
-      iconURL: member.displayAvatarURL({ size: 128 }),
+      name: uname,
+      iconURL: userAvatarUrlDynamic(member, { size: 128 }) || undefined,
     })
     .setTitle(
       "<a:VC_HeartsPink:1468685897389052008> Benvenuto/a su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>",
     )
     .setDescription(
-      `__${member.displayName}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
+      `__${uname}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
       "Passa su <#1469429150669602961> per **abbellire il tuo profilo** con i ruoli & colori.",
     )
-    .setThumbnail(member.displayAvatarURL({ size: 256 }))
+    .setThumbnail(guildFirstThumbnailUrl(member.guild, member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)
     .setColor("#6f4e37")
     .setFooter({ text: `Ora siamo in ${visibleCount} membri` });
@@ -360,12 +367,14 @@ function buildWelcomeEmbed(member) {
 
 function buildDmWelcomeEmbed(member) {
   const visibleCount = getVerifiedPlusBotsCount(member.guild);
+  const dmGuildIcon = guildIconUrl(member.guild, { size: 256 });
+  const dmFooterIcon = guildIconUrl(member.guild, { size: 64 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<a:VC_RightWing:1448672889845973214> Welcome to Vinili & Caffè!")
     .setDescription(
       [
-        `Ei **${member.displayName}** welcome, glad to have you here!`,
+        `Ei **${accountUsername(member)}** welcome, glad to have you here!`,
         "",
         "Joining the server you automatically accept the rules.",
         "Entrando nel server accetti automaticamente le nostre regole.",
@@ -380,10 +389,10 @@ function buildDmWelcomeEmbed(member) {
         "<a:VC_Exclamation:1482534702077444217> Verify Yourself: <https://discord.com/channels/1329080093599076474/1442569059983163403>",
       ].join("\n"),
     )
-    .setThumbnail(member.guild.iconURL({ size: 256 }))
+    .setThumbnail(dmGuildIcon || undefined)
     .setFooter({
       text: `${member.guild.name} • Ora siamo in ${visibleCount} membri`,
-      iconURL: member.guild.iconURL(),
+      iconURL: dmFooterIcon || undefined,
     })
     .setTimestamp();
 }
@@ -906,7 +915,7 @@ function buildJoinGateTriggeredEmbed(member, reason) {
         `${ARROW} **Reason:** ${reason}`,
       ].join("\n"),
     )
-    .setThumbnail(member.displayAvatarURL({ size: 256 }));
+    .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || undefined);
 }
 
 async function kickForJoinGate(member, reason, extraLines = [], action = "kick") {
@@ -1028,7 +1037,7 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
           ].join("\n"),
         )
         .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
-        .setThumbnail(member.displayAvatarURL({ size: 256 }))
+        .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || undefined)
       : buildJoinGateTriggeredEmbed(member, reason);
     await logChannel.send({ embeds: [embed] }).catch(() => { });
   }
@@ -1104,7 +1113,7 @@ async function sendJoinLog(member) {
     )
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
-    .setThumbnail(member.displayAvatarURL({ extension: "png", size: 256 }));
+    .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || undefined);
 
   await joinLeaveLogChannel.send({ embeds: [joinLogEmbed] }).catch((err) => {
     global.logger.error("[guildMemberAdd] Failed to send join log:", err);

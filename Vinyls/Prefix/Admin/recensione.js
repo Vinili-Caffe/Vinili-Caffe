@@ -4,6 +4,7 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, addExpWithLevel, } = require("../../Services/Community/expService");
 const{getGuildChannelCached,getUserCached,}=require("../../Utils/Interaction/interactionEntityCache");
+const { userAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const FALLBACK_REVIEW_CHANNEL_ID = IDs.channels.supporters;
 const LEVELS_TO_ADD = 5;
@@ -131,9 +132,9 @@ module.exports = {
       const member =
         message.guild.members.cache.get(target.id) ||
         (await message.guild.members.fetch(target.id).catch(() => null));
-      const authorName = member?.user?.username || target.username;
+      const authorName = accountUsername(member || target);
       const avatarUrl =
-        target.displayAvatarURL({ size: 256 }) || "https://disboard.org/images/no-icon.png";
+        userAvatarUrlDynamic(target, { size: 256 }) || "https://disboard.org/images/no-icon.png";
       const ts = Math.floor(Date.now() / 1000);
       const reviewEmbed = new EmbedBuilder()
         .setColor(0x0d9488)
@@ -163,7 +164,7 @@ module.exports = {
         )
         .setFooter({
           text: "viniliecaffe.it · Feedback community",
-          iconURL: message.client.user.displayAvatarURL(),
+          iconURL: userAvatarUrlDynamic(message.client.user, { size: 64 }) || undefined,
         })
         .setTimestamp();
 
@@ -181,7 +182,7 @@ module.exports = {
         { name: "EXP Aggiunta", value: `\`+${addedExp}\``, inline: true },
         { name: "Ricompensa", value: `\`+${LEVELS_TO_ADD} livelli\``, inline: true },
       )
-      .setThumbnail(target.displayAvatarURL({ size: 256 }));
+      .setThumbnail(userAvatarUrlDynamic(target, { size: 256 }) || undefined);
 
     await safeMessageReply(message, {
       embeds: [done],

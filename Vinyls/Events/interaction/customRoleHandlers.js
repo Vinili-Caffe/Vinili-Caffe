@@ -13,6 +13,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName } = require("../../Utils/Interaction/customRoleUtils");
 const pendingRoleGrants = new Map();
 const pendingSiteRoleRequests = new Map();
@@ -317,9 +318,8 @@ async function createSiteRoleJoinRequest({
     )
     .setFooter({ text: "Puoi approvare o rifiutare direttamente da qui." })
     .setTimestamp(new Date());
-  if (requesterUser?.displayAvatarURL) {
-    dmEmbed.setThumbnail(requesterUser.displayAvatarURL({ size: 256, dynamic: true }));
-  }
+  const reqThumb = userAvatarUrlDynamic(requesterUser, { size: 256 });
+  if (reqThumb) dmEmbed.setThumbnail(reqThumb);
 
   const dmSent = await ownerMember
     .send({

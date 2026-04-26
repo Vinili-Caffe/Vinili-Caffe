@@ -7,6 +7,7 @@ const {
 } = require("../../Prefix/Level/classifica");
 const { findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -138,11 +139,7 @@ async function fetchUserIdentity(client, guild, userId) {
   out.displayName = out.username;
   out.avatar = u.avatar ? String(u.avatar) : "";
   out.discriminator = String(u.discriminator || "0");
-  if (typeof u.displayAvatarURL === "function") {
-    out.avatarUrl = u.displayAvatarURL({ size: 256, dynamic: true });
-  } else {
-    out.avatarUrl = "";
-  }
+  out.avatarUrl = userAvatarUrlDynamic(u, { size: 256 }) || "";
   if (!out.avatarUrl && u.id) {
     const h = u.avatar;
     if (h) {
@@ -194,10 +191,7 @@ async function buildCustomProfileData(guild, userId) {
       id: String(member.id || member.user?.id || ""),
       username: String(member.user?.username || "").trim(),
       displayName: String(member.user?.username || "Utente").trim(),
-      avatarUrl:
-        member.displayAvatarURL?.({ extension: "png", size: 128 }) ||
-        member.user?.displayAvatarURL?.({ extension: "png", size: 128 }) ||
-        "",
+      avatarUrl: userAvatarUrlDynamic(member, { size: 128 }) || "",
     }))
     .filter((member) => member.id);
   let voiceSharedCount = 0;

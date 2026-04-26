@@ -249,7 +249,21 @@ async function startWebhookServer(client) {
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
-    if (!isCandidature && !isUnban && !isSiteRules && !isSiteUsers && !isSiteVote && !isSiteLiveEvent && !isSiteRoles && !isSiteRankCard && !isSiteReviews) return next();
+    const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
+    if (
+      !isCandidature &&
+      !isUnban &&
+      !isSiteRules &&
+      !isSiteUsers &&
+      !isSiteVote &&
+      !isSiteLiveEvent &&
+      !isSiteRoles &&
+      !isSiteRankCard &&
+      !isSiteReviews &&
+      !isSiteNotifications
+    ) {
+      return next();
+    }
     const originRaw = String(req.headers.origin || "").trim();
     const originNorm = originRaw ? normalizeCorsOriginEntry(originRaw) || originRaw : "";
     let allowOrigin = "";
@@ -268,7 +282,16 @@ async function startWebhookServer(client) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isSiteRules || isSiteUsers || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteReviews) {
+    } else if (
+      isSiteRules ||
+      isSiteUsers ||
+      isSiteVote ||
+      isSiteLiveEvent ||
+      isSiteRoles ||
+      isSiteRankCard ||
+      isSiteReviews ||
+      isSiteNotifications
+    ) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -444,6 +467,7 @@ async function startWebhookServer(client) {
     toggleSiteReviewLike,
     upsertServerReviewReply,
   } = require("../../Utils/Web/siteReviewsApi");
+  const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -458,6 +482,9 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-vote", (req, res) => {
     return handleSiteVoteGet(client, req, res);
+  });
+  app.get("/webhooks/site-notifications", (req, res) => {
+    return handleSiteNotificationsGet(client, req, res);
   });
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);

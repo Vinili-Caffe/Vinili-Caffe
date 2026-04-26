@@ -11,6 +11,7 @@ const {
   partnersChatPartnerCommandDeniedReplyContent,
   sendPartnersChatDeniedPrefixCleanup,
 } = require("../../Utils/Partner/partnersChatChannelUtils");
+const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const TOP_LIMIT = 10;
 const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const CLASSIFICA_TOGGLE_PREFIX = "classifica_toggle:";
@@ -481,14 +482,15 @@ async function buildWeeklyEmbed(guild, excludeStaffFromShort = false, useExpUser
     lines.push("Nessun dato disponibile per questa settimana.");
   }
 
+  const gIcon = guildIconUrl(guild, { size: 128 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
       name: guild.name,
-      iconURL: guild.iconURL({ size: 128 }),
+      iconURL: gIcon || undefined,
     })
     .setTitle("Classifica settimanale [Weekly]")
-    .setThumbnail(guild.iconURL({ size: 128 }))
+    .setThumbnail(gIcon || null)
     .setDescription(
       [
         useExpUserBoard
@@ -525,14 +527,15 @@ async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUse
     lines.push("Nessun dato disponibile.");
   }
 
+  const gIconAll = guildIconUrl(guild, { size: 128 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
       name: guild.name,
-      iconURL: guild.iconURL({ size: 128 }),
+      iconURL: gIconAll || undefined,
     })
     .setTitle("Classifica generale [AllTime]")
-    .setThumbnail(guild.iconURL({ size: 128 }))
+    .setThumbnail(gIconAll || null)
     .setDescription(
       [
         useExpUserBoard

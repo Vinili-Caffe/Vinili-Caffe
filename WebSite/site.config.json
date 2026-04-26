@@ -32,6 +32,8 @@
   "usersLeaderboardApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-users",
   "voteApiUrl": "https://www.viniliecaffe.it/webhooks/site-vote",
   "voteApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-vote",
+  "siteNotificationsApiUrl": "https://www.viniliecaffe.it/webhooks/site-notifications",
+  "siteNotificationsApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-notifications",
   "rolesApiUrl": "https://www.viniliecaffe.it/webhooks/site-roles",
   "rolesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-roles",
   "liveEventApiUrl": "https://www.viniliecaffe.it/webhooks/site-live-event",

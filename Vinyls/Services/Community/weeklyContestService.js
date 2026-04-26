@@ -6,6 +6,11 @@ const { loadHourlyRows } = require("./activityService");
 const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
 const { getClientChannelCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const {
+  guildIconUrl,
+  accountUsername,
+  userAvatarUrlDynamic,
+} = require("../../Utils/Discord/guildDiscordIdentity");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
@@ -286,8 +291,8 @@ async function fetchDiscordAttachmentBuffer(attachment, maxBytes) {
 
 async function buildWeeklyContestSubmissionPayload(message, client) {
   const att = firstContestImageAttachment(message);
-  const display = String(message.author?.globalName || message.author?.username || "utente").trim() || "utente";
-  const avatarUrl = message.author?.displayAvatarURL?.({ extension: "png", size: 256 });
+  const display = accountUsername(message.author);
+  const avatarUrl = userAvatarUrlDynamic(message.author, { size: 256 });
   const embed = new EmbedBuilder()
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setAuthor({
@@ -985,7 +990,7 @@ async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, to
         `<a:VC_Winner:1482535294757507255> Avete **+1 voto** extra potete spenderlo **in qualsiasi giorno** del contest fino alla fine.`,
       ].join("\n"),
     )
-    .setThumbnail(guild.iconURL({ size: 256 }) || null);
+    .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
   const buttons = CHANNEL_PC_ID
     ? new ActionRowBuilder().addComponents(
         new ButtonBuilder()

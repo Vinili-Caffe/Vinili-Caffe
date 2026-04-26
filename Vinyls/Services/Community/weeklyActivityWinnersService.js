@@ -5,6 +5,7 @@ const { VOICE_EXP_PER_MINUTE } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const BACKFILL_HOUR_SUFFIX = "T12";
 function shouldSkipBackfillRow(hourKey, hourSet) {
@@ -492,7 +493,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
         ...voiceRows,
       ].join("\n"),
     )
-    .setThumbnail(guild.iconURL({ size: 256 }) || null);
+    .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
   const messageWinnerTotal = Number(awarded?.messageWinner?.value || 0);
   const voiceWinnerTotal = Number(awarded?.voiceWinner?.value || 0);
   const messageWinnerMention = awarded?.messageWinner?.userId ? `<@${awarded.messageWinner.userId}>` : "Nessun vincitore";

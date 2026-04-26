@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require("discord.js");
 const { getChannelOverviewStats } = require("../Services/Community/activityService");
 const { renderChannelActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveTopUserEntries } = require("../Prefix/Stats/top");
 
 const CHANNEL_REFRESH_CUSTOM_ID_PREFIX = "channel_refresh";
@@ -87,7 +88,7 @@ async function buildChannelOverviewPayload(guild, channel, lookbackDays, view, o
   ]);
 
   const channelName = channel?.name ? `# ${channel.name}` : "# channel";
-  const channelIconUrl = channel?.isVoiceBased?.() ? guild.iconURL({ size: 256, extension: "png" }) : null;
+  const channelIconUrl = channel?.isVoiceBased?.() ? guildIconUrl(guild, { size: 256 }) : null;
   const createdOn = channel?.createdAt ?? new Date(0);
   const guildName = guild?.name || "Server";
 

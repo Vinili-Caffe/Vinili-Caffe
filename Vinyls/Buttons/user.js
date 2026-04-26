@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, Message
 const { getUserOverviewStats } = require("../Services/Community/activityService");
 const { resolveTopChannelEntries } = require("../Prefix/Stats/top");
 const { renderUserActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { accountUsername, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const USER_REFRESH_CUSTOM_ID_PREFIX = "user_refresh";
 const USER_PERIOD_OPEN_CUSTOM_ID_PREFIX = "user_period_open";
 const USER_PERIOD_SET_CUSTOM_ID_PREFIX = "user_period_set";
@@ -78,9 +79,9 @@ async function buildUserOverviewPayload(guild, targetId, lookbackDays, view, cli
     const c = client || guild.client;
     user = await c.users.fetch(targetId).catch(() => null);
   }
-  const displayName = member?.displayName ?? user?.username ?? "User";
+  const displayName = accountUsername(member || user);
   const userTag = user?.tag ?? user?.username ?? "User";
-  const avatarUrl = user?.displayAvatarURL?.({ size: 256, extension: "png" }) || null;
+  const avatarUrl = userAvatarUrlDynamic(user, { size: 256 });
   const createdOn = user?.createdAt ?? new Date(0);
   const joinedOn = (member?.joinedAt && member.joinedAt instanceof Date) ? member.joinedAt : (member?.joinedTimestamp ? new Date(member.joinedTimestamp) : createdOn);
   const emptySnapshot = new Map();

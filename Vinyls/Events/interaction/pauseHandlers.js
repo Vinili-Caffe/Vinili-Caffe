@@ -1,6 +1,14 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
+
+function pauseListMemberLabel(guild, client, userId) {
+  const mem = guild?.members?.cache?.get(userId);
+  const usr = mem?.user || client?.users?.cache?.get(userId);
+  if (mem || usr) return accountUsername(mem || usr);
+  return `User ID: ${userId}`;
+}
 
 async function deletePauseThreadIfAny(guild, requestThreadId) {
   if (!guild || !requestThreadId) return;
@@ -162,7 +170,7 @@ async function handlePauseButton(interaction) {
       return `- \`${pause.dataRichiesta}\` -> \`${pause.dataRitorno}\` | **${statusLabel}** · Giorni scalati: \`${scaledDays}\` · Ruolo pausa: \`${pauseRole}\`\n\n<:VC_reason:1478517122929004544> ${reason}`;
     });
     const rows = (await Promise.all(rowPromises)).filter(Boolean);
-    const memberLabel = interaction.guild?.members?.cache?.get(effectiveUserId)?.displayName || interaction.client?.users?.cache?.get(effectiveUserId)?.username || ` User ID: ${effectiveUserId}`;
+    const memberLabel = pauseListMemberLabel(interaction.guild, interaction.client, effectiveUserId);
 
     const monthRows = buildPauseListMonthRows(effectiveUserId, year, {
       ...(pauseListRoleFilter ? { pauseRoleFilter: pauseListRoleFilter } : {}),
@@ -197,7 +205,7 @@ async function handlePauseButton(interaction) {
     const prfMonth = String(parts[4] || "").toLowerCase();
     const pauseRoleFilterForList =
       prfMonth === "pm" || prfMonth === "staff" ? prfMonth : undefined;
-    const memberLabel = interaction.guild?.members?.cache?.get(effectiveUserId)?.displayName || interaction.client?.users?.cache?.get(effectiveUserId)?.username || ` User ID: ${effectiveUserId}`;
+    const memberLabel = pauseListMemberLabel(interaction.guild, interaction.client, effectiveUserId);
     const targetUser = { id: effectiveUserId, username: memberLabel };
     const listPayload = await buildPauseListPayload({
       guildId: interaction.guildId,

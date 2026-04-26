@@ -10,6 +10,7 @@ const TICKET_CHANNEL_ID = IDs.channels.ticket;
 const TICKET_MEDIA_NAME = "ticket.gif";
 const TICKET_MEDIA_PATH = path.join(__dirname, "..", "Photos", TICKET_MEDIA_NAME);
 const { DIVIDER_URL } = require("../../shared/discord/constants");
+const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 
 async function run(client) {
   const channel = client.channels.cache.get(TICKET_CHANNEL_ID) || (await getClientChannelCached(client, TICKET_CHANNEL_ID));
@@ -33,7 +34,7 @@ async function run(client) {
     .setColor("#6f4e37")
     .setAuthor({
       name: "Contatta lo Staff & chiedi supporto:",
-      iconURL: channel.guild?.iconURL() || undefined,
+      iconURL: guildIconUrl(channel.guild, { size: 128 }) || undefined,
     })
     .setDescription(
       `I ticket equivalgono a un sistema di supporto che permette di parlare direttamente con lo staff, al fine di chiedere chiarimenti, rivolgere domande sul server, segnalare un accaduto all'interno di quest'ultimo o per altre richieste.

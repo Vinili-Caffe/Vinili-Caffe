@@ -8,6 +8,7 @@ const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUti
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
@@ -653,7 +654,7 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
   const embeds = descChunks.map((chunk, idx) => {
     const e = new EmbedBuilder().setColor("#3498DB");
     if (idx === 0) {
-      e.setAuthor({ name: user.username, iconURL: user.displayAvatarURL({ size: 128 }) })
+      e.setAuthor({ name: user.username, iconURL: userAvatarUrlDynamic(user, { size: 128 }) || undefined })
         .setTitle(`<:VC_Poll:1482535102436216832> CANDIDATURA ${cfg.label.toUpperCase()} (#${applicationNumber})`)
         .setDescription(chunk)
         .setFooter({
@@ -1030,6 +1031,21 @@ ${actionEmoji} \`${oldRole?.name || roleBeforeId || "N/A"}\` <a:VC_Arrow:1482706
     await deleteThreadForMessage(guild, sourceMessage);
   }
 
+  try {
+    const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
+    const label = type === "partnermanager" ? "Partner Manager" : "Helper";
+    await enqueueSiteInAppNotification({
+      guildId: guild.id,
+      userId: member.id,
+      title: "Candidatura accettata",
+      body: `La tua candidatura è stata accettata: ora hai accesso come ${label}. Controlla i messaggi di benvenuto inviati nello staff.`,
+      kind: "mod",
+      openUrl: "/candidature",
+      dedupeKey: `cand-pex-${type}-${member.id}-${String(sourceMessage?.id || "")}`,
+      dedupeWindowMs: 86_400_000,
+    });
+  } catch (_) {}
+
   return `Pex completato per <@${member.id}>.`;
 }
 
@@ -1267,9 +1283,29 @@ async function handleCandidatureApplicationInteraction(interaction) {
         }).catch(() => null);
         return true;
       }
+      const rejParts = String(interaction.customId || "").split(":");
+      const rejType = String(rejParts[1] || "");
+      const rejUid = String(rejParts[2] || "").trim();
+      const rejMessageId = String(interaction.message?.id || "").trim();
       if (interaction.message) {
         await interaction.message.edit({ components: [] }).catch(() => null);
         await deleteThreadForMessage(interaction.guild, interaction.message);
+      }
+      if (rejUid && ["helper", "partnermanager"].includes(rejType)) {
+        try {
+          const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
+          const label = rejType === "partnermanager" ? "Partner Manager" : "Helper";
+          await enqueueSiteInAppNotification({
+            guildId: interaction.guild.id,
+            userId: rejUid,
+            title: "Candidatura rifiutata",
+            body: `La tua candidatura per ${label} non è stata accettata. Puoi inviare una nuova richiesta dopo il cooldown indicato sul sito.`,
+            kind: "mod",
+            openUrl: "/candidature",
+            dedupeKey: `cand-rej-${rejType}-${rejUid}-${rejMessageId}`,
+            dedupeWindowMs: 86_400_000,
+          });
+        } catch (_) {}
       }
       await interaction.reply({ content: "<:cancel:1461730653677551691> Candidatura rifiutata.", flags: 1 << 6 }).catch(() => null);
       return true;

@@ -10,6 +10,7 @@ const {
   STAFF_WARN_THREE_NEGATIVES_REASON,
 } = require("../../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
   if (profileDoc) {
@@ -38,10 +39,10 @@ function makeLogEmbed(
   return new EmbedBuilder()
     .setAuthor({
       name: `Valutazione eseguita da ${actor.user.username}`,
-      iconURL: iconSource.displayAvatarURL?.() || actor.user.displayAvatarURL?.(),
+      iconURL: userAvatarUrlDynamic(iconSource || actor.user) || undefined,
     })
     .setTitle(title)
-    .setThumbnail(user.displayAvatarURL())
+    .setThumbnail(userAvatarUrlDynamic(user) || undefined)
     .setDescription(
       [
         `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${user}`,
@@ -59,11 +60,11 @@ function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount) 
   const iconSource = memberObj || userObj;
   const username = userObj?.username || "Staff";
   const targetMention = targetUser?.id ? `<@${targetUser.id}>` : String(targetUser || "");
-  const thumb = typeof targetUser?.displayAvatarURL === "function" ? targetUser.displayAvatarURL() : null;
+  const thumb = userAvatarUrlDynamic(targetUser);
   return new EmbedBuilder()
     .setAuthor({
       name: `Valutazione eseguita da ${username}`,
-      iconURL: iconSource?.displayAvatarURL?.() || userObj?.displayAvatarURL?.() || undefined,
+      iconURL: userAvatarUrlDynamic(iconSource || userObj) || undefined,
     })
     .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnCount}\``)
     .setThumbnail(thumb)
@@ -89,7 +90,7 @@ function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel,
   return new EmbedBuilder()
     .setAuthor({
       name: `Valutazione rimossa da ${actor.user.username}`,
-      iconURL: iconSource.displayAvatarURL?.() || actor.user.displayAvatarURL?.(),
+      iconURL: userAvatarUrlDynamic(iconSource || actor.user) || undefined,
     })
     .setTitle(title)
     .setDescription(safeDescription)
@@ -168,7 +169,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
           "**Depex ora** = un livello in basso.\n" +
           "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
         )
-        .setThumbnail(staffUser.displayAvatarURL());
+        .setThumbnail(userAvatarUrlDynamic(staffUser) || undefined);
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`staff_warn_depex:${staffUser.id}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId(`staff_warn_depex:${staffUser.id}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),

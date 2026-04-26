@@ -545,6 +545,23 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     await channel.send({ content: `${user}`, embeds: [embed], components, }).catch(() => { });
   }
 
+  try {
+    const { enqueueSiteInAppNotification } = require("../Web/siteInAppNotificationsService");
+    const platformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
+    await enqueueSiteInAppNotification({
+      guildId: guild.id,
+      userId: user.id,
+      title: voteListing === "topgg" ? "Voto su Top.gg registrato" : "Voto su Discadia registrato",
+      body: `Il voto su ${platformLabel} è stato registrato: hai ricevuto EXP e ricompense sul server. Grazie per il supporto!`,
+      kind: "vote",
+      openUrl: "/vote",
+      dedupeKey: `vote:${voteListing}:${user.id}`,
+      dedupeWindowMs: 120_000,
+    });
+  } catch (eN) {
+    global.logger?.warn?.("[officialMessageAutomation] site notification vote:", eN?.message || eN);
+  }
+
   return true;
 }
 

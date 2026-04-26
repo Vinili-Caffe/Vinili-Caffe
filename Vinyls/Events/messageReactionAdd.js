@@ -5,6 +5,7 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Intera
 const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
 const { tryStripContestSubmissionReaction } = require("../Services/Community/weeklyContestService");
+const { userAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const SKULL_EMOJI = "\u{1F480}";
 const SKULLBOARD_CHANNEL_ID = IDs.channels.quotes;
 const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set(["1442569130573303898","1442569136067575809","1442569138114662490","1442569141717438495",]);
@@ -56,8 +57,8 @@ function clamp(value, max) {
 }
 
 function sanitizeUsername(member, author) {
-  const fallback = author?.username || "Sconosciuto";
-  const raw = (member?.displayName || fallback).replace(/\n/g, " ").trim();
+  const fallback = accountUsername(author);
+  const raw = (member ? accountUsername(member) : fallback).replace(/\n/g, " ").trim();
   return clamp(raw || fallback, MAX_DISPLAY_NAME_LENGTH);
 }
 
@@ -141,7 +142,7 @@ async function prepareReplyData(message) {
     content: String(replied.content || "").slice(0, MAX_REPLY_CONTENT_LENGTH),
     author: sanitizeUsername(repliedMember, replied.author),
     nameColor: getNameColor(repliedMember),
-    avatarUrl: (repliedMember || replied.author).displayAvatarURL({ extension: "png", size: 64 }),
+    avatarUrl: userAvatarUrlDynamic(repliedMember || replied.author, { size: 64 }) || "",
     roleIconUrl: await getRoleIcon(repliedMember),
   };
 }
@@ -173,7 +174,7 @@ async function renderSkullCanvas(
   hasEmbedOnly,
 ) {
   return renderSkullboardCanvas({
-    avatarUrl: (member || message.author).displayAvatarURL({ extension: "png", size: 256 }),
+    avatarUrl: userAvatarUrlDynamic(member || message.author, { size: 256 }) || "",
     username: sanitizeUsername(member, message.author),
     message: content || "[Messaggio vuoto]",
     nameColor: getNameColor(member),
@@ -194,7 +195,7 @@ function buildSkullEmbed(user, message, postImageName) {
     .setColor("#6f4e37")
     .setAuthor({
       name: user.username,
-      iconURL: user.displayAvatarURL({ extension: "png", size: 64 }),
+      iconURL: userAvatarUrlDynamic(user, { size: 64 }) || undefined,
     })
     .setDescription(
       `Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard`,

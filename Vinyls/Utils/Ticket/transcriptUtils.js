@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 function escapeHtml(value) {
   return String(value || "")
@@ -186,7 +187,7 @@ async function createTranscriptHtml(channel) {
   const channelName = escapeHtml(channel.name || "ticket");
 
   const rows = messages.map((message) => {
-    const avatar = message.author?.displayAvatarURL?.({ extension: "png", size: 64 }) || ""; const author = escapeHtml(message.author?.tag || "Utente sconosciuto"); const time = escapeHtml(formatDate(message.createdTimestamp)); const messageBody = messageContentToHtml(message); return `
+    const avatar = userAvatarUrlDynamic(message.author, { size: 64 }) || ""; const author = escapeHtml(message.author?.tag || "Utente sconosciuto"); const time = escapeHtml(formatDate(message.createdTimestamp)); const messageBody = messageContentToHtml(message); return `
       <article class="msg">
         <img class="avatar" src="${escapeHtml(avatar)}" alt=" avatar "><div class="right"><div class="meta"><span class="author">${author}</span><span class="time">${time}</span></div>${messageBody}</div></article>`;
   })

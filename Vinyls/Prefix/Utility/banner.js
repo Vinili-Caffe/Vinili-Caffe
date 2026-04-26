@@ -2,6 +2,7 @@ const { safeChannelSend } = require("../../../shared/discord/replyRuntime");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const { BannerPrivacy } = require("../../Schemas/Community/communitySchemas");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { accountUsername, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const BANNER_MODE_PREFIX = "banner_mode:";
 
 function normalize(text) {
@@ -188,10 +189,10 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   }
 
   const totalViews = Number(privacyCount?.views || 0);
-  const authorLabel = member?.displayName || member?.user?.username || user.tag;
+  const authorLabel = accountUsername(member || user);
   const embed = new EmbedBuilder()
     .setTitle(activeMode === "user" ? "User Banner" : "Server Banner")
-    .setAuthor({ name: authorLabel, iconURL: user.displayAvatarURL() })
+    .setAuthor({ name: authorLabel, iconURL: userAvatarUrlDynamic(user) || undefined })
     .setColor("#6f4e37")
     .setFooter({
       text: `Puoi disabilitare la visualizzazione del tuo banner tramite il comando +profile.\n${totalViews} Views 👁️`,

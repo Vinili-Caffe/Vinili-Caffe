@@ -8,6 +8,7 @@ const { buildAutoStaffWarnFromNegativesEmbed } = require("../../Utils/Staff/valu
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const RESOCONTO_APPLY_PREFIX = "resoconto_apply";
 const RESOCONTO_REJECT_PREFIX = "resoconto_reject";
 const RESOCONTO_OVERRIDE_PREFIX = "resoconto_override";
@@ -187,10 +188,10 @@ async function sendValutazioneLogEmbed(guild, actor, targetUser, reason, positiv
   const embed = new EmbedBuilder()
     .setAuthor({
       name: `Valutazione eseguita da ${actorName}`,
-      iconURL: typeof iconSource?.displayAvatarURL === "function" ? iconSource.displayAvatarURL() : undefined,
+      iconURL: userAvatarUrlDynamic(iconSource) || undefined,
     })
     .setTitle(title)
-    .setThumbnail(targetUser.displayAvatarURL())
+    .setThumbnail(userAvatarUrlDynamic(targetUser) || undefined)
     .setDescription(
       [
         `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> <@${targetUser.id}>`,
@@ -348,7 +349,7 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
               "**Depex ora** = un livello in basso .\n" +
               "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
             )
-            .setThumbnail(targetUser.displayAvatarURL());
+            .setThumbnail(userAvatarUrlDynamic(targetUser) || undefined);
           const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId(`staff_warn_depex:${payload.userId}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),

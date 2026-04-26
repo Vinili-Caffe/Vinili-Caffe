@@ -500,6 +500,21 @@ const siteRoleRequestCooldownSchema = new Schema(
 );
 siteRoleRequestCooldownSchema.index({ guildId: 1, requesterId: 1, roleId: 1 }, { unique: true });
 
+const siteInAppNotificationSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    body: { type: String, required: true, trim: true, maxlength: 500 },
+    kind: { type: String, default: "info", trim: true, maxlength: 24 },
+    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
+    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
+  },
+  { timestamps: true },
+);
+siteInAppNotificationSchema.index({ userId: 1, createdAt: -1 });
+siteInAppNotificationSchema.index({ userId: 1, dedupeKey: 1, createdAt: -1 });
+
 const siteReviewSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
@@ -975,6 +990,8 @@ const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHo
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
 const RejoinRoleMemory = models.RejoinRoleMemory || model("RejoinRoleMemory", rejoinRoleMemorySchema, "rejoinrolememories");
 const SiteRoleRequestCooldown = models.SiteRoleRequestCooldown || model("SiteRoleRequestCooldown", siteRoleRequestCooldownSchema, "siterolerequestcooldowns");
+const SiteInAppNotification =
+  models.SiteInAppNotification || model("SiteInAppNotification", siteInAppNotificationSchema, "siteinappnotifications");
 const SiteReview = models.SiteReview || model("SiteReview", siteReviewSchema, "sitereviews");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
@@ -998,5 +1015,6 @@ module.exports = {
   UserLeaveBackup,
   RejoinRoleMemory,
   SiteRoleRequestCooldown,
+  SiteInAppNotification,
   SiteReview,
 };

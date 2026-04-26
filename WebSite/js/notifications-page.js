@@ -48,11 +48,20 @@
     if (!ownerId) return [];
     var kindRaw = p && p.kind;
     var kind =
-      kindRaw === "vote" ? "vote" : kindRaw === "success" ? "success" : "info";
+      kindRaw === "vote"
+        ? "vote"
+        : kindRaw === "success"
+          ? "success"
+          : kindRaw === "review"
+            ? "review"
+            : kindRaw === "mod"
+              ? "mod"
+              : "info";
     var openUrl = "";
     if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
+    var stableId = p && p.id != null ? String(p.id).trim() : "";
     var item = {
-      id: String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
+      id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
       body: String((p && p.body) || ""),
       at: typeof (p && p.at) === "number" ? p.at : Date.now(),
@@ -68,6 +77,11 @@
       s = Array.isArray(arr) ? arr : [];
     } catch (e) {
       s = [];
+    }
+    if (stableId) {
+      for (var dup = 0; dup < s.length; dup += 1) {
+        if (String(s[dup].id) === stableId) return s;
+      }
     }
     s.unshift(item);
     try {
@@ -108,6 +122,8 @@
   function iconClass(kind) {
     if (kind === "vote") return "fa-check-square-o";
     if (kind === "success") return "fa-check-circle-o";
+    if (kind === "review") return "fa-star-o";
+    if (kind === "mod") return "fa-shield";
     return "fa-user-plus";
   }
 

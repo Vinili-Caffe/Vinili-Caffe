@@ -5,6 +5,10 @@ const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas")
 const IDs = require("../Utils/Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
+const {
+  guildFirstThumbnailUrl,
+  userAvatarUrlDynamic,
+} = require("../Utils/Discord/guildDiscordIdentity");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Supporter;
@@ -466,14 +470,17 @@ async function getPersistedStatus(guildId, userId) {
 }
 
 function buildPendingEmbed(member) {
+  const thumb =
+    guildFirstThumbnailUrl(member.guild, member, { size: 256 }) ||
+    userAvatarUrlDynamic(member, { size: 256 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
       name: member.user.username,
-      iconURL: member.displayAvatarURL({ size: 256 }),
+      iconURL: thumb || undefined,
     })
     .setTitle("Nuovx sostenitore <a:VC_StarPink:1330194976440848500>")
-    .setThumbnail(member.displayAvatarURL({ size: 256 }))
+    .setThumbnail(thumb || null)
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,

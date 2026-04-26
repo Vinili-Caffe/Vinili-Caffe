@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require("discord.js");
 const { getServerOverviewStats } = require("../Services/Community/activityService");
 const { renderServerActivityCanvas } = require("../Utils/Render/activityCanvas");
+const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveTopChannelEntries, resolveTopUserEntriesForCanvas } = require("../Prefix/Stats/top");
 const SERVER_REFRESH_CUSTOM_ID_PREFIX = "server_refresh";
 const ALLOWED_LOOKBACK = [7, 14, 21, 30];
@@ -55,7 +56,7 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
   const safeLookback = normalizeLookback(lookbackDays);
   const stats = await getServerOverviewStats(guild.id, safeLookback, 3);
   const guildName = guild.name || "Server";
-  const guildIconUrl = guild.iconURL({ size: 256, extension: "png" }) || null;
+  const guildIconUrlResolved = guildIconUrl(guild, { size: 256 });
   const createdOn = guild.createdAt ?? new Date(0);
   const me = guild.members?.me;
   const invitedBotOn = (me?.joinedAt && me.joinedAt instanceof Date) ? me.joinedAt : (me?.joinedTimestamp ? new Date(me.joinedTimestamp) : createdOn);
@@ -66,7 +67,7 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
     resolveTopChannelEntries(guild, stats.topChannelsText || [], emptySnapshot),
     resolveTopChannelEntries(guild, stats.topChannelsVoice || [], emptySnapshot),
   ]);
-  const buffer = await renderServerActivityCanvas({ guildName, guildIconUrl, createdOn, invitedBotOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText, topUsersVoice, topChannelsText, topChannelsVoice, chart: stats.chart });
+  const buffer = await renderServerActivityCanvas({ guildName, guildIconUrl: guildIconUrlResolved, createdOn, invitedBotOn, lookbackDays: safeLookback, windows: stats.windows, topUsersText, topUsersVoice, topChannelsText, topChannelsVoice, chart: stats.chart });
   const customId = authorId ? `${SERVER_REFRESH_CUSTOM_ID_PREFIX}:${authorId}:${safeLookback}:embed` : `${SERVER_REFRESH_CUSTOM_ID_PREFIX}:${safeLookback}:embed`;
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

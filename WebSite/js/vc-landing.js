@@ -675,6 +675,9 @@
   var DEMO_ID = "__vc_ephemeral_demo__";
   var ephemeralDemo = null;
   var currentUserId = "";
+  var siteNotifsTimer = null;
+  var SITE_NOTIFS_POLL_MS = 300000;
+  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   try {
     if (new URLSearchParams(window.location.search).get("notif") === "demo") {
       ephemeralDemo = {
@@ -724,6 +727,8 @@
   function iconClass(kind) {
     if (kind === "vote") return "fa-check-square-o";
     if (kind === "success") return "fa-check-circle-o";
+    if (kind === "review") return "fa-star-o";
+    if (kind === "mod") return "fa-shield";
     return "fa-info-circle";
   }
   function notificationsPageUrl() {
@@ -933,11 +938,20 @@
     if (!ownerId) return;
     var kindRaw = p && p.kind;
     var kind =
-      kindRaw === "vote" ? "vote" : kindRaw === "success" ? "success" : "info";
+      kindRaw === "vote"
+        ? "vote"
+        : kindRaw === "success"
+          ? "success"
+          : kindRaw === "review"
+            ? "review"
+            : kindRaw === "mod"
+              ? "mod"
+              : "info";
     var openUrl = "";
     if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
+    var stableId = p && p.id != null ? String(p.id).trim() : "";
     var item = {
-      id: String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
+      id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
       body: String((p && p.body) || ""),
       at: typeof (p && p.at) === "number" ? p.at : Date.now(),
@@ -954,11 +968,16 @@
     } catch (e) {
       s = [];
     }
+    if (stableId) {
+      for (var dup = 0; dup < s.length; dup += 1) {
+        if (String(s[dup].id) === stableId) return;
+      }
+    }
     s.unshift(item);
     try {
       localStorage.setItem(key, JSON.stringify(s));
     } catch (e2) {}
-    render();
+    if (!p || !p.__noRender) render();
   }
   function flushPendingLoginNotification() {
     var raw = "";
@@ -1023,6 +1042,68 @@
     }
   }
 
+  function isLocalFrontendOrigin() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+    } catch (e) {
+      return false;
+    }
+  }
+  function resolvedSiteNotificationsUrl() {
+    var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
+    var local = String(c.apiUrlLocal || "").trim();
+    if (isLocalFrontendOrigin() && local) return local;
+    var u = String(c.apiUrl || "").trim();
+    if (u) return u;
+    return "/webhooks/site-notifications";
+  }
+  function getDiscordAccessToken() {
+    try {
+      return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+  function syncSiteNotificationsFromServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return;
+    var url = resolvedSiteNotificationsUrl();
+    fetch(url, { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j || j.ok !== true || !Array.isArray(j.items)) return;
+        var list = j.items.slice().reverse();
+        for (var i = 0; i < list.length; i += 1) {
+          var row = list[i];
+          if (!row || !row.title) continue;
+          addNotif({
+            id: row.id,
+            userId: uid,
+            title: row.title,
+            body: row.body || "",
+            kind: row.kind || "info",
+            at: typeof row.at === "number" ? row.at : Date.now(),
+            openUrl: row.openUrl || "",
+            __noRender: true,
+          });
+        }
+        render();
+      })
+      .catch(function () {});
+  }
+  function scheduleSiteNotificationsPolling() {
+    if (siteNotifsTimer) {
+      clearInterval(siteNotifsTimer);
+      siteNotifsTimer = null;
+    }
+    if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
+    syncSiteNotificationsFromServer();
+    siteNotifsTimer = setInterval(syncSiteNotificationsFromServer, SITE_NOTIFS_POLL_MS);
+  }
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
@@ -1080,11 +1161,20 @@
     }
     window.vcNotify = { add: addNotif, refresh: render };
     flushPendingLoginNotification();
+    scheduleSiteNotificationsPolling();
   }
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
     render();
     flushPendingLoginNotification();
+    if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
+      scheduleSiteNotificationsPolling();
+    } else {
+      if (siteNotifsTimer) {
+        clearInterval(siteNotifsTimer);
+        siteNotifsTimer = null;
+      }
+    }
   });
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

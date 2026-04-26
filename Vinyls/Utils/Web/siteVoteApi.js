@@ -1,5 +1,6 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const CACHE_TTL_MS = 30_000;
 const cache = new Map();
@@ -97,8 +98,7 @@ async function fetchUserIdentity(client, guild, userId) {
   }
   out.username = String(user?.username || "").trim();
   out.displayName = String(user?.username || "Utente").trim() || "Utente";
-  out.avatarUrl =
-    (typeof user?.displayAvatarURL === "function" ? user.displayAvatarURL({ size: 256, dynamic: true }) : "") || "";
+  out.avatarUrl = userAvatarUrlDynamic(user, { size: 256 }) || "";
   return out;
 }
 

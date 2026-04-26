@@ -1,6 +1,7 @@
 const { randomInt } = require("crypto");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderShipCanvas = require("../../Utils/Render/shipCanvas");
 
@@ -39,7 +40,7 @@ function trimName(name) {
   return v.length > 16 ? `${v.slice(0, 16)}...` : v;
 }
 
-/** Percentuale 1–100: RNG forte + mix di distribuzioni + rumore per invocazione (meno “sempre uguali / sempre basse”). */
+/** Percentuale 0–100: RNG forte + mix di distribuzioni + rumore per invocazione (meno “sempre uguali / sempre basse”). */
 function randomShipPercent(messageId) {
   const roll = () => randomInt(1, 101);
   const d = [roll(), roll(), roll(), roll()];
@@ -58,7 +59,7 @@ function randomShipPercent(messageId) {
       ? Number(BigInt(messageId) % 31n) - 15
       : randomInt(-15, 16);
   const tweak = randomInt(-24, 25) + (hr % 35) - 17 + idJitter;
-  return Math.max(1, Math.min(100, v + tweak));
+  return Math.max(0, Math.min(100, v + tweak));
 }
 
 module.exports = {
@@ -125,9 +126,20 @@ module.exports = {
 
     try {
       const percent = randomShipPercent(message.id);
-      const image=await renderShipCanvas({leftAvatarUrl:left.displayAvatarURL({extension:"png",size:512}),rightAvatarUrl:right.displayAvatarURL({extension:"png",size:512}),leftName:trimName(left.username),rightName:trimName(right.username),leftId:left.id,rightId:right.id,percent,});
+      const shipGuildIcon = guildIconUrl(message.guild, { size: 512 });
+      const { buffer, format } = await renderShipCanvas({
+        leftAvatarUrl: userAvatarUrlDynamic(left, { size: 512 }) || "",
+        rightAvatarUrl: userAvatarUrlDynamic(right, { size: 512 }) || "",
+        guildIconUrl: shipGuildIcon,
+        leftName: trimName(left.username),
+        rightName: trimName(right.username),
+        leftId: left.id,
+        rightId: right.id,
+        percent,
+        messageSeed: message.id,
+      });
 
-      const file = new AttachmentBuilder(image, { name: "ship.png" });
+      const file = new AttachmentBuilder(buffer, { name: format === "gif" ? "ship.gif" : "ship.png" });
       await safeMessageReply(message, {
         content: `${left} e ${right}`,
         files: [file],

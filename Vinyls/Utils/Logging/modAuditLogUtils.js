@@ -1,6 +1,7 @@
 const { PermissionsBitField, EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 async function resolveModLogChannel(guild) {
   const channelId = IDs.channels?.modLogs;
@@ -151,7 +152,7 @@ async function sendModCommandUsageToModLogs(guild, message, commandName) {
     .setColor(0x3498db)
     .setAuthor({
       name: message.author.username,
-      iconURL: (message.member || message.author).displayAvatarURL({ size: 32 }),
+      iconURL: userAvatarUrlDynamic(message.member || message.author, { size: 32 }) || undefined,
     })
     .setDescription(`Used \`${commandName}\` command in ${channelLabel}\n\n\`${fullCommand}\``)
     .setFooter({ text: timestamp });

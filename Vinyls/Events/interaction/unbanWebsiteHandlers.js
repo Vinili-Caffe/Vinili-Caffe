@@ -1,7 +1,11 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+const { EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const { resolveSubmissionChannel } = require("./candidatureApplicationHandlers");
+
+/** Stesse reazioni del post candidature in #visioneModuli (voto rapido staff). */
+const UNBAN_VISIONE_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
 
 const UNBAN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const cooldownByUser = new Map();
@@ -196,7 +200,63 @@ async function submitWebsiteUnban(client, payload) {
     )
     .setTimestamp(new Date());
 
-  await target.send({ embeds: [embed] }).catch(() => null);
+  const uidBtn = String(resolved.userId || "").trim();
+  const decisionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`website_unban_acc:${uidBtn}`)
+      .setLabel("Accetta unban")
+      .setStyle(ButtonStyle.Success)
+      .setEmoji("<:success:1461731530333229226>"),
+    new ButtonBuilder()
+      .setCustomId(`website_unban_rej:${uidBtn}`)
+      .setLabel("Rifiuta")
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("<:cancel:1461730653677551691>"),
+  );
+
+  const highStaffRoleId = IDs.roles.HighStaff;
+  const mention = highStaffRoleId ? `<@&${highStaffRoleId}>` : null;
+  const sent = await target
+    .send({
+      content: mention || undefined,
+      embeds: [embed],
+      components: [decisionRow],
+    })
+    .catch(() => null);
+  if (!sent) {
+    return {
+      ok: false,
+      status: 500,
+      error: "send_failed",
+      message: "Impossibile pubblicare la richiesta nel canale staff. Riprova più tardi.",
+    };
+  }
+
+  if (typeof sent.startThread === "function") {
+    const userDisc = await client.users.fetch(resolved.userId).catch(() => null);
+    const threadUserLabel =
+      String(userDisc?.globalName || userDisc?.username || resolved.userId)
+        .replace(/[\r\n#:@<>`]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 70) || resolved.userId;
+    const thread = await sent
+      .startThread({
+        name: `Unban ${threadUserLabel}`,
+        autoArchiveDuration: 1440,
+        reason: `Richiesta unban dal sito (${resolved.userId})`,
+      })
+      .catch(() => null);
+    if (thread?.isTextBased?.() && highStaffRoleId) {
+      const pingMsg = await thread.send({ content: `<@&${highStaffRoleId}>` }).catch(() => null);
+      if (pingMsg) scheduleMessageDeletion(pingMsg, EPHEMERAL_TTL_PING_ONLY_MS);
+    }
+  }
+
+  for (const emoji of UNBAN_VISIONE_REACTIONS) {
+    await sent.react(emoji).catch(() => {});
+  }
+
   const nextAt = Date.now() + UNBAN_COOLDOWN_MS;
   await setCooldownUntil(resolved.userId, nextAt);
   return {

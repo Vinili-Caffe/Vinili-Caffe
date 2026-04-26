@@ -9,6 +9,7 @@ const {
 } = require("../Render/rankCardTheme");
 const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
 const renderRankCanvas = require("../Render/rankCanvas");
+const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const VIP_PLUS_ROLE_ID = String(IDs?.roles?.["VIP+"] || "1495472189347074119").trim();
 const DOUBLE_BOOSTER_ROLE_ID = String(IDs?.roles?.DoubleBooster || "1494996567214788818").trim();
@@ -30,19 +31,7 @@ function getRankCardPermissions(member) {
 }
 
 function resolvePreferredAvatarUrl(member) {
-  const user = member?.user || null;
-  const hash = String((member && member.avatar) || (user && user.avatar) || "");
-  const prefersGif = /^a_/i.test(hash);
-  const opts = prefersGif
-    ? { extension: "gif", size: 256, forceStatic: false }
-    : { extension: "png", size: 256, forceStatic: false };
-  return (
-    member?.displayAvatarURL?.(opts) ||
-    user?.displayAvatarURL?.(opts) ||
-    member?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-    user?.displayAvatarURL?.({ size: 256, forceStatic: false }) ||
-    ""
-  );
+  return userAvatarUrlDynamic(member, { size: 256 }) || "";
 }
 
 async function getRankCardCustomization(client, payload) {

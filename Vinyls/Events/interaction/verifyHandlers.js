@@ -6,6 +6,7 @@ const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, add
 const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
 const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID = String(IDs.channels?.contestDisegniEventVerifyPing || "").trim();
 const VERIFY_GHOST_PING_DELETE_MS = 2500;
@@ -111,7 +112,7 @@ async function finalizeVerification(interaction, member) {
       `<:info:1466070288554004604> **Server**: ${sanitizeEmbedText(serverName)}\n\n` +
       `<:info:1466070288554004604> Status:\n` +
       `<:VC_Space:1482459974667075685><:success:1461731530333229226>\`${safeUsername}\` has passed verification successfully.\n` + "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",)
-      .setThumbnail((interaction.member || interaction.user).displayAvatarURL({ dynamic: true }));
+      .setThumbnail(userAvatarUrlDynamic(interaction.member || interaction.user, { size: 256 }) || null);
 
     await logChannel.send({ embeds: [logEmbed] }).catch((err) => {
       global.logger?.warn?.("[VERIFY] Failed to send verification log:", err);

@@ -6,6 +6,7 @@ const {
   isResolvedMainGuildId,
 } = require("../../Utils/Interaction/verifyUtils");
 const { addRolesAndGetMember, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 function isSponsorGuild(guildId) {
   const gid = String(guildId || "");
@@ -261,7 +262,7 @@ module.exports = {
                     `<:VC_Space:1482459974667075685><:success:1461731530333229226> \`${safeUsername}\` has passed verification successfully.\n` +
                     "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685><:rightSort:1461726104422453298> Auto roles have been assigned as well.",
                 )
-                .setThumbnail(user.displayAvatarURL());
+                .setThumbnail(userAvatarUrlDynamic(user, { size: 256 }) || undefined);
               await logChannel.send({ embeds: [resultEmbed] }).catch(() => {});
             }
           } else if (validVerifyRoleIds.every((id) => cache.has(id))) {
