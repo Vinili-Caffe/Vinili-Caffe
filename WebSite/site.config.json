@@ -12,7 +12,7 @@
   },
   "maintenance": {
     "enabled": true,
-    "allowedUserIds": ["1243295906934161519", "295500038401163264", "700814270069342339"],
+    "allowedUserIds": ["1243295906934161519", "295500038401163264", "700814270069342339", "799084082855411722", "470373387609571339"],
     "title": "Sito in manutenzione",
     "message": "Stiamo sistemando alcune parti del sito. Torna tra poco!"
   },
@@ -24,7 +24,7 @@
   "wikiUrl": "/wiki",
   "wikiBotViniliAvatarUrl": "",
   "wikiBotCaffeAvatarUrl": "",
-  "faqUrl": "",
+  "faqUrl": "/faq",
   "communityRulesUrl": "",
   "communityRulesApiUrl": "https://www.viniliecaffe.it/webhooks/site-rules",
   "communityRulesApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-rules",
@@ -74,6 +74,11 @@
     "staffListShowEachRole": true,
     "showEmptyStaffRoles": true
   },
+  "openGraphImageUrl": "",
+  "openGraphImageWidth": 1200,
+  "openGraphImageHeight": 630,
+  "openGraphSiteName": "Vinili & Caffè",
+  "themeColor": "#6f4e37",
   "metaDescription": "Community Discord italiana: vinili, caffè, musica e chiacchiere. Entra nel server ufficiale Vinili & Caffè.",
   "metaKeywords": "vinili, caffè, discord, community, musica, vinyl, italia",
   "supportEmail": "supporto@viniliecaffe.it",

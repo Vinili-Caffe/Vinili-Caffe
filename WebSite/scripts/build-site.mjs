@@ -106,12 +106,13 @@ function guildBannerCdnUrl(guildId, bannerHash) {
   return `https://cdn.discordapp.com/banners/${gid}/${h}.${ext}?size=2048`;
 }
 
-function guildIconCdnUrl(guildId, iconHash) {
+function guildIconCdnUrl(guildId, iconHash, size = 256) {
   const gid = String(guildId || "").trim();
   const h = String(iconHash || "").trim();
   if (!gid || !h) return "";
   const ext = h.startsWith("a_") ? "gif" : "png";
-  return `https://cdn.discordapp.com/icons/${gid}/${h}.${ext}?size=256`;
+  const s = Math.max(16, Math.min(4096, Number(size) || 256));
+  return `https://cdn.discordapp.com/icons/${gid}/${h}.${ext}?size=${s}`;
 }
 
 /** URL assoluto per og:image (Discord anteprima link) se path è relativo. */
@@ -830,7 +831,7 @@ async function main() {
       }
     }
     if (wantIcon) {
-      const iconUrl = guildIconCdnUrl(snap.guildId, snap.icon);
+      const iconUrl = guildIconCdnUrl(snap.guildId, snap.icon, 256);
       if (iconUrl) guildIconUrl = iconUrl;
       else console.warn("[build-site] Nessuna icon guild nell’invite; uso fallback locale.");
     }
@@ -927,10 +928,33 @@ async function main() {
     );
   }
 
-  const ogImageUrl = absUrlForMetadata(siteUrlTrim, guildBannerUrl || guildIconUrl);
-  const ogTitle = `${siteName} | Discord`;
+  const ogImageOverride = String(cfg.openGraphImageUrl ?? "").trim();
+  const ogIconLarge =
+    snap?.guildId && snap?.icon && wantIcon ? guildIconCdnUrl(snap.guildId, snap.icon, 1024) : guildIconUrl;
+  const ogImagePathOrUrl = ogImageOverride || guildBannerUrl || ogIconLarge || guildIconUrl;
+  const ogImageUrl = absUrlForMetadata(siteUrlTrim, ogImagePathOrUrl);
+  let ogImageWidth = "960";
+  let ogImageHeight = "540";
+  if (ogImageOverride) {
+    const w = Number(cfg.openGraphImageWidth);
+    const h = Number(cfg.openGraphImageHeight);
+    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+      ogImageWidth = String(Math.floor(w));
+      ogImageHeight = String(Math.floor(h));
+    } else {
+      ogImageWidth = "1200";
+      ogImageHeight = "630";
+    }
+  } else if (!guildBannerUrl) {
+    ogImageWidth = "1024";
+    ogImageHeight = "1024";
+  }
+  const ogTitle = `${siteName} | Community Discord italiana · ${statMembers}+ membri`;
   const ogDesc = String(cfg.metaDescription || "").trim();
   const ogUrl = siteUrlTrim;
+  const ogSiteName = String(cfg.openGraphSiteName || cfg.siteName || siteName).trim() || siteName;
+  const ogImageAlt = `${siteName} — community Discord`;
+  const themeColorHex = String(cfg.themeColor || "#6f4e37").trim();
 
   const discordInviteResolved = cfg.discordInviteUrl || "https://discord.gg/viniliecaffe";
   const siteBaseNoSlash = siteUrlTrim.replace(/\/+$/, "");
@@ -950,7 +974,7 @@ async function main() {
   const wikiUrlResolved =
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
   // Non usare siteUrlTrim come fallback: href alla home fa scattare vc-landing.js e segna tutto il menu "corrente".
-  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || "#";
+  const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || defaultLegalPath("faq");
   const communityRulesUrlResolved =
     String(cfg.communityRulesUrl ?? "").trim() || defaultLegalPath("regole");
   const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
@@ -1197,6 +1221,11 @@ async function main() {
     HERO_BANNER_BLOCK: "",
     GUILD_ICON_URL: escAttr(guildIconUrl),
     OG_IMAGE_URL: escAttr(ogImageUrl),
+    OG_IMAGE_WIDTH: escAttr(ogImageWidth),
+    OG_IMAGE_HEIGHT: escAttr(ogImageHeight),
+    OG_IMAGE_ALT: escAttr(ogImageAlt),
+    OG_SITE_NAME: escAttr(ogSiteName),
+    THEME_COLOR_HEX: escAttr(themeColorHex),
     OG_TITLE: escAttr(ogTitle),
     OG_DESCRIPTION: escAttr(ogDesc),
     OG_URL: escAttr(ogUrl),
@@ -1288,6 +1317,12 @@ async function main() {
     ),
     REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
     REVIEWS_OG_URL: escAttr(reviewsPageUrl),
+    FAQ_PAGE_TITLE: `${siteName} | FAQ`,
+    FAQ_META_DESCRIPTION: escAttr(
+      `Domande frequenti su ${siteName}: la pagina è in costruzione; torna presto per le risposte.`,
+    ),
+    FAQ_OG_TITLE: escAttr(`${siteName} | FAQ`),
+    FAQ_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/faq` : ""),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -1425,6 +1460,16 @@ async function main() {
     fs.writeFileSync(reviewsIndexPath, reviewsHtml, "utf8");
   } else {
     console.warn("[build-site] Manca recensioni/index.html (saltato placeholder).");
+  }
+
+  const faqIndexPath = path.join(DIST, "faq", "index.html");
+  if (fs.existsSync(faqIndexPath)) {
+    let faqHtml = fs.readFileSync(faqIndexPath, "utf8");
+    faqHtml = applyPlaceholderMap(faqHtml, map);
+    warnLeftoverPlaceholders(faqHtml, "faq/index.html");
+    fs.writeFileSync(faqIndexPath, faqHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca faq/index.html (saltato placeholder).");
   }
 
   const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html"];

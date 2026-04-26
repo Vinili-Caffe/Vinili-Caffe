@@ -16,9 +16,6 @@ const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
   "1442568991150309578",
 ];
 
-/** Soglia livello (profilo exp) per ogni colore classico, in ordine con `PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL`. */
-const NATURAL_COLOR_MIN_LEVELS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
-
 function getPlusColorRoleIds() {
   return [
     IDs.roles.redPlus,
@@ -103,14 +100,9 @@ function listUnlockedTierRoleIds(numericLevel) {
   return getTierExclusiveColorDefs().filter((row) => lv >= row.minLevel).map((row) => row.roleId);
 }
 
-function listUnlockedNaturalRoleIds(numericLevel) {
-  const lv = Number(numericLevel) || 0;
-  const out = [];
-  for (let i = 0; i < PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL.length; i += 1) {
-    const minLv = NATURAL_COLOR_MIN_LEVELS[i] ?? 1;
-    if (lv >= minLv) out.push(PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL[i]);
-  }
-  return out;
+/** Colori classici: stesso criterio del pannello #ruoli (nessun vincolo di livello exp). */
+function listUnlockedNaturalRoleIds() {
+  return [...PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL];
 }
 
 function roleLabel(guild, roleId) {
@@ -143,15 +135,13 @@ function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canP
     return opts.slice(0, 25);
   }
   if (segment === "nat") {
-    const nat = listUnlockedNaturalRoleIds(numericLevel).filter((rid) => guild?.roles?.cache?.has?.(rid));
+    const nat = listUnlockedNaturalRoleIds().filter((rid) => guild?.roles?.cache?.has?.(rid));
     const opts = [removeOpt];
     for (const rid of nat) {
-      const idx = PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL.indexOf(rid);
-      const minLv = NATURAL_COLOR_MIN_LEVELS[idx] ?? 1;
       opts.push({
         label: roleLabel(guild, rid).slice(0, 100),
         value: rid,
-        description: `Da livello ${minLv}`,
+        description: "Colore classico (pannello ruoli)",
       });
     }
     return opts.slice(0, 25);
@@ -159,22 +149,165 @@ function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canP
   return [removeOpt];
 }
 
+function isAllowedColorValue(value, member, numericLevel, canPickPlus) {
+  const v = String(value || "").trim();
+  if (!v || v === "remove") return false;
+  if (listUnlockedNaturalRoleIds().includes(v)) return true;
+  if (listUnlockedPlusRoleIds(member.guild, canPickPlus).includes(v)) return true;
+  if (listUnlockedTierRoleIds(numericLevel).includes(v)) return true;
+  return false;
+}
+
 function isValueAllowedForCmdColors(segment, value, member, numericLevel, canPickPlus) {
   if (value === "remove") return true;
+  if (segment === "all") return isAllowedColorValue(value, member, numericLevel, canPickPlus);
   if (segment === "pt") {
     const okPlus = listUnlockedPlusRoleIds(member.guild, canPickPlus).includes(value);
     const okTier = listUnlockedTierRoleIds(numericLevel).includes(value);
     return okPlus || okTier;
   }
   if (segment === "nat") {
-    return listUnlockedNaturalRoleIds(numericLevel).includes(value);
+    return listUnlockedNaturalRoleIds().includes(value);
   }
   return false;
 }
 
+const MERGED_SELECT_MAX = 25;
+
+/** Menu unico colori (senza voce «rimuovi»: usa il pulsante). Max 25 voci: Plus, tier, poi classici. */
+function buildMergedColorSelectOptions(guild, member, numericLevel, canPickPlus) {
+  const opts = [];
+  const pushOpt = (rid, prefix) => {
+    if (opts.length >= MERGED_SELECT_MAX) return;
+    if (!guild?.roles?.cache?.has?.(rid)) return;
+    const label = `${prefix}${roleLabel(guild, rid)}`.slice(0, 100);
+    opts.push({ label, value: rid, description: prefix.trim().slice(0, 100) });
+  };
+  for (const rid of listUnlockedPlusRoleIds(guild, canPickPlus)) pushOpt(rid, "Plus · ");
+  for (const rid of listUnlockedTierRoleIds(numericLevel).filter((id) => guild?.roles?.cache?.has?.(id))) {
+    const def = getTierExclusiveColorDefs().find((d) => d.roleId === rid);
+    pushOpt(rid, def ? `Lv${def.minLevel} · ` : " · ");
+  }
+  for (const rid of listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id))) pushOpt(rid, "");
+  return opts;
+}
+
+function mentionRoles(ids) {
+  return (Array.isArray(ids) ? ids : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean)
+    .map((id) => `<@&${id}>`)
+    .join(" · ");
+}
+
+/** ID ruoli citati negli embed / testi +colori (allowedMentions.roles). */
+function listRoleIdsForColorsEmbedMentions(guild) {
+  const raw = [
+    ...getAllPersonalityChatColorRoleIds(),
+    IDs.roles.VIP,
+    IDs.roles.VIPplus,
+    IDs.roles.ServerBooster,
+    IDs.roles.DoubleBooster,
+    IDs.roles.Donator,
+    IDs.roles.Level50,
+    IDs.roles.Level70,
+    IDs.roles.Level100,
+  ];
+  const uniq = [...new Set(raw.map((id) => String(id || "").trim()).filter(Boolean))];
+  return uniq.filter((id) => guild?.roles?.cache?.has?.(id));
+}
+
+function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
+  const sep = "୨୧ — · · · — ୨୧";
+  const nat = listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id));
+  const natLine = nat.length ? nat.map((id) => `· <@&${id}>`).join("\n") : "_Nessun ruolo colore classico sul server._";
+  const plusReq = mentionRoles([
+    IDs.roles.VIP,
+    IDs.roles.VIPplus,
+    IDs.roles.ServerBooster,
+    IDs.roles.DoubleBooster,
+    IDs.roles.Donator,
+    IDs.roles.Level50,
+    IDs.roles.Level70,
+    IDs.roles.Level100,
+  ]);
+  const plusUnlocked = listUnlockedPlusRoleIds(guild, canPickPlus);
+  const plusBlock = canPickPlus
+    ? plusUnlocked.length
+      ? `**Sbloccati per te** · scegli dal menu sotto.\n${plusUnlocked.map((id) => `· <@&${id}>`).join("\n")}`
+      : "**Sbloccati**, ma i ruoli Plus non risultano sul server."
+    : `**Non sbloccati.** Serve **livello exp 50+** oppure uno tra: ${plusReq || "VIP / Booster / Donator"}\n_(anche grant event week 2/3)_`;
+  const tierDefs = getTierExclusiveColorDefs().filter((d) => guild?.roles?.cache?.has?.(d.roleId));
+  const tierBlock =
+    tierDefs.length === 0
+      ? "_Nessun ruolo esclusivo livello configurato._"
+      : `Il tuo livello exp: **${numericLevel || 0}**\n` +
+        tierDefs
+          .map((d) => {
+            const ok = Number(numericLevel) >= d.minLevel;
+            return `· <@&${d.roleId}> — da livello **${d.minLevel}**${ok ? " ✓" : ""}`;
+          })
+          .join("\n");
+  const lines = [
+    "## 🎨 Colori disponibili",
+    "Tutti i colori che puoi applicare **in chat** (come il pannello ruoli).",
+    "",
+    "### 💠 Classici",
+    "**Sblocco:** nessun livello o ruolo richiesto.",
+    natLine,
+    "",
+    "### ✨ Plus (gradienti)",
+    plusBlock,
+    "",
+    "### 🏅 Esclusivi di livello",
+    tierBlock,
+    "",
+    sep,
+    "",
+    "**Menu** · scegli un colore qui sotto. **Rimuovi** con il pulsante rosso.",
+  ];
+  let body = lines.join("\n");
+  if (body.length > 4000) {
+    body = `${lines.slice(0, 8).join("\n")}\n\n… *lista abbreviata — usa il menu per i classici.*\n\n${sep}`;
+  }
+  return body;
+}
+
+function buildColorsHowToUnlockEmbedDescription() {
+  const plusReq = mentionRoles([
+    IDs.roles.VIP,
+    IDs.roles.VIPplus,
+    IDs.roles.ServerBooster,
+    IDs.roles.DoubleBooster,
+    IDs.roles.Donator,
+  ]);
+  const legacy = mentionRoles([IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Level100]);
+  const tiers = getTierExclusiveColorDefs();
+  return [
+    "## 📋 Come ottenere i colori",
+    "",
+    "### 💠 Classici",
+    "Disponibili per tutti i membri: nessun requisito. Puoi applicarli da **questo menu** o dal canale **#ruoli** sul server.",
+    "",
+    "### ✨ Plus (gradienti)",
+    "Serve almeno una di queste condizioni:",
+    `· **Livello exp 50+** sul server`,
+    `· Ruoli: ${plusReq || "VIP, Booster, Donator"}`,
+    legacy ? `· Oppure ruoli livello Discord: ${legacy}` : "",
+    "· Oppure **grant** vincitore event week (come da regolamento eventi).",
+    "",
+    "### 🏅 Esclusivi",
+    "Solo in base al **livello exp** salvato sul profilo:",
+    ...tiers.map((t) => `· <@&${t.roleId}> — da livello **${t.minLevel}**`),
+    "",
+    "୨୧ — · · · — ୨୧",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 module.exports = {
   PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL,
-  NATURAL_COLOR_MIN_LEVELS,
   getPlusColorRoleIds,
   getTierExclusiveColorDefs,
   getAllPersonalityChatColorRoleIds,
@@ -185,6 +318,11 @@ module.exports = {
   listUnlockedTierRoleIds,
   listUnlockedNaturalRoleIds,
   buildSelectOptionsForSegment,
+  buildMergedColorSelectOptions,
+  buildColorsMainEmbedDescription,
+  buildColorsHowToUnlockEmbedDescription,
+  listRoleIdsForColorsEmbedMentions,
   isValueAllowedForCmdColors,
+  isAllowedColorValue,
   roleLabel,
 };

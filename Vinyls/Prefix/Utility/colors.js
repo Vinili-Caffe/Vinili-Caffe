@@ -1,9 +1,10 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const unlocks = require("../../Utils/Community/personalityColorUnlocks");
 
-const CMD_COLORS_PREFIX = "cmd_colors_seg:";
+const CMD_COLORS_SEG = "cmd_colors_seg:";
+const CMD_COLORS_BTN = "cmd_colors_btn:";
 
 module.exports = {
   name: "colors",
@@ -16,52 +17,42 @@ module.exports = {
     if (!member) return;
     const level = await unlocks.fetchNumericProfileLevel(message.guild.id, message.author.id);
     const canPickPlus = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
-    const ptOpts = unlocks.buildSelectOptionsForSegment(message.guild, "pt", member, level, canPickPlus);
-    const natOpts = unlocks.buildSelectOptionsForSegment(message.guild, "nat", member, level, canPickPlus);
-    const rows = [];
-    if (ptOpts.length > 1) {
-      rows.push(
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId(`${CMD_COLORS_PREFIX}${message.author.id}:pt`)
-            .setPlaceholder("Plus / colori esclusivi di livello")
-            .setMinValues(1)
-            .setMaxValues(1)
-            .addOptions(ptOpts),
-        ),
-      );
-    }
-    if (natOpts.length > 1) {
-      rows.push(
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId(`${CMD_COLORS_PREFIX}${message.author.id}:nat`)
-            .setPlaceholder("Colori classici")
-            .setMinValues(1)
-            .setMaxValues(1)
-            .addOptions(natOpts),
-        ),
-      );
-    }
-    if (!rows.length) {
+    const mergedOpts = unlocks.buildMergedColorSelectOptions(message.guild, member, level, canPickPlus);
+    if (!mergedOpts.length) {
       await safeMessageReply(message, {
         content:
-          "<:vegax:1443934876440068179> Non hai ancora nessun colore sbloccato. I Plus servono **livello 50** (exp) oppure **VIP**, **Booster** o **Donator**; i classici salgono con il livello; gli esclusivi da **10 / 20 / 30 / 50 / 70 / 100**.",
+          "<:vegax:1443934876440068179> Al momento non ci sono colori applicabili dal menu (ruoli non trovati sul server). Controlla **#ruoli** o chiedi allo staff.",
         allowedMentions: { repliedUser: false },
       });
       return;
     }
-    const lines = [
-      "**Livello exp:** " + (level || "0"),
-      "**Plus:** " + (canPickPlus ? "sbloccati" : "non sbloccati (liv. 50+ o VIP / Booster / Donator)"),
-      "",
-      "Scegli un colore dal menu; **Rimuovi colore** toglie tutti i colori chat (Plus, classici ed esclusivi).",
-    ];
-    const embed = new EmbedBuilder().setColor("#6f4e37").setTitle("Colori profilo chat").setDescription(lines.join("\n"));
+    const uid = message.author.id;
+    const desc = unlocks.buildColorsMainEmbedDescription(message.guild, level, canPickPlus);
+    const embed = new EmbedBuilder().setColor("#6f4e37").setTitle("🎨 Colori chat").setDescription(desc);
+    const btnRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CMD_COLORS_BTN}${uid}:info`)
+        .setLabel("Come ottenere i colori")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("📋"),
+      new ButtonBuilder()
+        .setCustomId(`${CMD_COLORS_BTN}${uid}:remove`)
+        .setLabel("Rimuovi colore")
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("🧹"),
+    );
+    const selectRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`${CMD_COLORS_SEG}${uid}:all`)
+        .setPlaceholder("Scegli un nuovo colore…")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(mergedOpts),
+    );
     await safeMessageReply(message, {
       embeds: [embed],
-      components: rows,
-      allowedMentions: { repliedUser: false },
+      components: [btnRow, selectRow],
+      allowedMentions: { repliedUser: false, roles: unlocks.listRoleIdsForColorsEmbedMentions(message.guild) },
     });
   },
 };

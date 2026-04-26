@@ -106,7 +106,7 @@
         },
         "colors": {
             "roles": [
-                "roles.Member"
+                "roles.Founder"
             ],
             "channels": [
                 "channels.commands",
@@ -683,6 +683,12 @@
                 "roles.Founder"
             ],
             "ownerSegment": 2
+        },
+        "cmd_colors_btn:*": {
+            "ownerSegment": 1,
+            "roles": [
+                "roles.Member"
+            ]
         },
         "claim_ticket": [
             "roles.Staff",
