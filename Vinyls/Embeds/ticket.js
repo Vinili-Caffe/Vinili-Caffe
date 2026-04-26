@@ -1,7 +1,8 @@
 const path = require("path");
 const IDs = require("../Utils/Config/ids");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, AttachmentBuilder } = require("discord.js");
+const { EmbedBuilder, AttachmentBuilder } = require("discord.js");
+const { buildTicketOpenSelectRows } = require("../Utils/Ticket/ticketOpenMenuComponents");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 
@@ -49,15 +50,7 @@ async function run(client) {
     .setFooter({ text: `Non garantiamo di rispondere negli orari notturni, dalle 00:00 alle 10:00` })
     .setImage(DIVIDER_URL);
 
-  const ticketMenu = new StringSelectMenuBuilder()
-    .setCustomId("ticket_open_menu")
-    .setPlaceholder("🎫 Seleziona una categoria...")
-    .addOptions(
-      { label: "SUPPORTO", description: "Supporto generale • Segnalazioni • Problemi", value: "ticket_supporto", emoji: { id: "1443651872258003005", name: "discordstaff" } },
-      { label: "PARTNERSHIP", description: "Partnership", value: "ticket_partnership", emoji: { id: "1443651871125409812", name: "partneredserverowner" } },
-      { label: "HIGH STAFF", description: "Verifica Selfie • Donazioni • Sponsor • High Staff", value: "ticket_highstaff", emoji: { id: "1443670575376765130", name: "reportmessage" } },
-    );
-  const ticketSelectRow = new ActionRowBuilder().addComponents(ticketMenu);
+  const ticketSelectRows = buildTicketOpenSelectRows();
 
   let panelDoc = null;
   try {
@@ -71,7 +64,7 @@ async function run(client) {
   }
 
   const infoMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketInfoMessageId || null, files: [attachment], embeds: [ticketInfoEmbed], components: [], attachmentName: TICKET_MEDIA_NAME });
-  const panelMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketPanelMessageId || null, embeds: [ticketPanelEmbed], components: [ticketSelectRow] });
+  const panelMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketPanelMessageId || null, embeds: [ticketPanelEmbed], components: ticketSelectRows });
 
   if (infoMessage?.id || panelMessage?.id) {
     await personalityPanelUpdateOne(

@@ -9,7 +9,7 @@ const {
 } = require("../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
-const { getGuildChannelCached, getGuildMemberCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { getGuildChannelCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, memberHasStaffRole, } = require("../Utils/Community/staffListUtils");
 const { memberHasAnyStaffPresenceForDepexSync } = require("../Utils/Staff/staffPmUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
@@ -291,7 +291,7 @@ async function sendRejoinDm(member) {
   await dmChannel
     .send({
       content:
-        "<:vegax:1443934876440068179> Sei uscito dal server! Rientra entro 5 minuti per non perdere la tua partnership.",
+        "<:vegax:1443934876440068179> Sei uscito dal server! Puoi rientrare quando vuoi con il pulsante qui sotto.",
       components: [row],
     })
     .catch((error) => {
@@ -299,46 +299,6 @@ async function sendRejoinDm(member) {
         global.logger.error(error);
       }
     });
-}
-
-function schedulePartnershipRollback(member, partnerships) {
-  const guild = member.guild;
-  const rollbackTimer = setTimeout(
-    async () => {
-      const stillInGuild = await getGuildMemberCached(guild, member.id);
-      if (stillInGuild) return;
-
-      for (const doc of partnerships) {
-        if (!doc.staff) doc.staff = {};
-        const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
-        const toRollback = actions.filter((action) => action?.managerId === member.id,);
-
-        for (const action of toRollback) {
-          const channelId = action?.partnershipChannelId || IDs.channels.partnerships;
-          const channel = await getGuildChannelCached(guild, channelId);
-          if (!channel?.isTextBased?.()) continue;
-
-          const messageIds = Array.isArray(action?.partnerMessageIds) ? action.partnerMessageIds : [];
-          for (const messageId of messageIds) {
-            if (!messageId) continue;
-            const msg = await channel.messages.fetch(messageId).catch(() => null);
-            if (msg) await msg.delete().catch(() => { });
-          }
-        }
-
-        if (toRollback.length > 0) {
-          doc.staff.partnerActions = actions.filter(
-            (action) => action?.managerId !== member.id,
-          );
-        }
-        doc.staff.managerId = null;
-        doc.markModified("staff");
-        await doc.save().catch(() => { });
-      }
-    },
-    5 * 60 * 1000,
-  );
-  rollbackTimer.unref?.();
 }
 
 async function handlePartnershipOnLeave(member, client) {
@@ -359,7 +319,6 @@ async function handlePartnershipOnLeave(member, client) {
     if (!mainGuild) return;
 
     await sendRejoinDm(member);
-    schedulePartnershipRollback(member, partnerships);
   } catch (err) {
     global.logger.error(err);
   }

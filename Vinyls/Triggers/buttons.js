@@ -4,21 +4,7 @@ const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
 const { ZODIAC_ROLE_IDS } = require("../Utils/Community/zodiacRoles");
-
-/** Unione dei ruoli colore “normali” (ex menu 1+2): serve a toglierli tutti quando si cambia colore o si usa Plus. */
-const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
-  "1442568956832645212",
-  "1442568967045648412",
-  "1442568969528541225",
-  "1442568976944201828",
-  "1442568977896439960",
-  "1442568980626673685",
-  "1442568983898357954",
-  "1442568985278156971",
-  "1442568987887276133",
-  "1442568989866725468",
-  "1442568991150309578",
-];
+const { PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL } = require("../Utils/Community/personalityColorUnlocks");
 const { getGuildMemberCached, getUserCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDepexOneLevel } = require("../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../Utils/Staff/staffPmUtils");
@@ -508,27 +494,8 @@ module.exports = {
       const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, rolesToRemove || [], `menu=${menuId} (config)`);
 
       if (menuId === "personality_colors_plus" && values.length && !values.includes("remove")) {
-        const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
-        const hasEventWeek2 =
-          interaction.guildId &&
-          interaction.user?.id &&
-          (await hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 2).catch((err) => {
-            logButtonErr(err, { warn: true });
-            return false;
-          }));
-        const hasEventWeek3 =
-          interaction.guildId &&
-          interaction.user?.id &&
-          (await hasEventWeekWinnerGrant(interaction.guildId, interaction.user.id, 3).catch((err) => {
-            logButtonErr(err, { warn: true });
-            return false;
-          }));
-        const allowed =
-          member.roles.cache.has(IDs.roles.ServerBooster) ||
-          member.roles.cache.has(IDs.roles.Level50) ||
-          member.roles.cache.has(IDs.roles.Level70) ||
-          hasEventWeek2 ||
-          hasEventWeek3;
+        const { memberHasPlusColorFullEligibilityAsync } = require("../Utils/Community/personalityColorUnlocks");
+        const allowed = await memberHasPlusColorFullEligibilityAsync(member);
         if (!allowed) {
           return interaction.reply({ content: ROLE_PLUS_FORBIDDEN, flags: PRIVATE_FLAG }).catch((err) => {
             logButtonErr(err);

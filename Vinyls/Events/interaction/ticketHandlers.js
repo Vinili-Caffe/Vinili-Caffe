@@ -11,6 +11,7 @@ const { buildTicketClosedEmbed: runtimeBuildTicketClosedEmbed, buildTicketRating
 const { createTicketsCategory: runtimeCreateTicketsCategory } = require("../../Utils/Ticket/ticketOpenRuntime");
 const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtils");
 const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
+const { resetTicketOpenPanelAfterInteraction } = require("../../Utils/Ticket/ticketOpenMenuComponents");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -41,6 +42,10 @@ async function handleTicketInteraction(interaction) {
 
   function safeEditReply(target, payload) {
     return safeEditReplyHelper(target, payload);
+  }
+
+  async function refreshTicketOpenPanelSelect() {
+    await resetTicketOpenPanelAfterInteraction(interaction);
   }
 
   function makeErrorEmbed(title, description) {
@@ -175,6 +180,7 @@ async function handleTicketInteraction(interaction) {
           ],
           flags: 1 << 6,
         });
+        await refreshTicketOpenPanelSelect();
         return true;
       }
       const ticketOpenButtons = ["ticket_partnership", "ticket_supporto", "ticket_highstaff",];
@@ -192,6 +198,7 @@ async function handleTicketInteraction(interaction) {
           ],
           flags: 1 << 6,
         });
+        await refreshTicketOpenPanelSelect();
         return true;
       }
       const userOnlyTickets = ["ticket_partnership", "ticket_highstaff", "ticket_supporto",];
@@ -206,6 +213,7 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
+          await refreshTicketOpenPanelSelect();
           return true;
         }
         let memTicket = interaction.member;
@@ -229,6 +237,7 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
+          await refreshTicketOpenPanelSelect();
           return true;
         }
       }
@@ -265,11 +274,12 @@ async function handleTicketInteraction(interaction) {
           embeds: [
             makeErrorEmbed(
               "<a:VC_Alert:1482706673176150077> Errore",
-              "<:vegax:1443934876440068179> Categoria ticket non valida. Riprova dal pannello.",
+                "<:vegax:1443934876440068179> Categoria ticket non valida. Riprova dal pannello.",
             ),
           ],
           flags: 1 << 6,
         });
+        await refreshTicketOpenPanelSelect();
         return true;
       }
       if (config) {
@@ -287,6 +297,7 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
+          await refreshTicketOpenPanelSelect();
           return true;
         }
         interaction.client.ticketOpenLocks.add(ticketLockKey);
@@ -326,6 +337,7 @@ async function handleTicketInteraction(interaction) {
                 ],
                 flags: 1 << 6,
               });
+              await refreshTicketOpenPanelSelect();
               return true;
             }
           }
@@ -343,6 +355,7 @@ async function handleTicketInteraction(interaction) {
                 ],
                 flags: 1 << 6,
               });
+              await refreshTicketOpenPanelSelect();
               return true;
             }
           }
@@ -363,6 +376,7 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
+            await refreshTicketOpenPanelSelect();
             return true;
           }
           const ticketsCategory = await runtimeCreateTicketsCategory(interaction, interaction.guild,);
@@ -376,6 +390,7 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
+            await refreshTicketOpenPanelSelect();
             return true;
           }
           const existingAgain = await runtimeFindOpenTicketByUser(
@@ -395,6 +410,7 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
+            await refreshTicketOpenPanelSelect();
             return true;
           }
           const channel = await interaction.guild.channels.create({ name: buildTicketChannelName(config, interaction.user?.username, interaction.user?.id || "utente"), type: 0, parent: ticketsCategory.id, permissionOverwrites: [{ id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel], }, { id: interaction.user.id, allow: TICKET_PERMISSIONS, }, ...(config.type === "supporto" ? [{ id: ROLE_STAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_HIGHSTAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel], },] : []), ...(config.type === "partnership" ? [{ id: ROLE_PARTNERMANAGER, allow: TICKET_PERMISSIONS, }, { id: ROLE_HIGHSTAFF, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory,], deny: [], }, { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel], },] : []), ...(config.type === "high" ? [{ id: ROLE_HIGHSTAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel], }, { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel], },] : []),], }).catch((err) => { global.logger.error(err); return null; });
@@ -408,6 +424,7 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
+            await refreshTicketOpenPanelSelect();
             return true;
           }
           const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("close_ticket").setEmoji(`<:VC_Lock:1482526739044368476>`).setLabel("Chiudi").setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji(`<:VC_reason:1478517122929004544>`).setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger), new ButtonBuilder().setCustomId("claim_ticket").setEmoji(`<:VC_claim:1478517202016669887>`).setLabel("Claim").setStyle(ButtonStyle.Success),);
@@ -448,6 +465,7 @@ async function handleTicketInteraction(interaction) {
                 ],
                 flags: 1 << 6,
               });
+              await refreshTicketOpenPanelSelect();
               return true;
             }
             global.logger.error(err);
@@ -463,6 +481,7 @@ async function handleTicketInteraction(interaction) {
               ],
               flags: 1 << 6,
             });
+            await refreshTicketOpenPanelSelect();
             return true;
           }
           let tagRole =
@@ -483,6 +502,7 @@ async function handleTicketInteraction(interaction) {
             ],
             flags: 1 << 6,
           });
+          await refreshTicketOpenPanelSelect();
           return true;
         } finally {
           interaction.client.ticketOpenLocks.delete(ticketLockKey);

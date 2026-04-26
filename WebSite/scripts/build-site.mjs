@@ -147,20 +147,6 @@ function formatItalianDateRome(d) {
   }).format(d);
 }
 
-function buildHeroBannerStyleBlock(bannerUrl) {
-  return (
-    `    <style id="hero-discord-banner">\n` +
-    `#intro {\n` +
-    `  background: #151515 url("${bannerUrl}") no-repeat center center;\n` +
-    `  -webkit-background-size: cover;\n` +
-    `  -moz-background-size: cover;\n` +
-    `  background-size: cover;\n` +
-    `  background-attachment: fixed;\n` +
-    `}\n` +
-    `</style>\n`
-  );
-}
-
 /** Stesso query string usato da `js/live-stats.js` sul fallback Discord. */
 async function fetchInviteInvitePayload(inviteCode) {
   const code = String(inviteCode || "").trim();
@@ -828,7 +814,6 @@ async function main() {
   }
   const snap = invitePayload?.snap ?? null;
 
-  let heroBannerBlock = "";
   let guildBannerUrl = "";
   let guildIconUrl = FALLBACK_GUILD_ICON;
   let foundedDisplay = String(cfg.foundedDisplay || "").trim() || "—";
@@ -838,12 +823,11 @@ async function main() {
       const bannerUrl = guildBannerCdnUrl(snap.guildId, snap.banner);
       if (bannerUrl) {
         guildBannerUrl = bannerUrl;
-        heroBannerBlock = buildHeroBannerStyleBlock(bannerUrl);
-      }
-      else
+      } else {
         console.warn(
           "[build-site] Nessun banner guild (Impostazioni server → Profilo server → Banner).",
         );
+      }
     }
     if (wantIcon) {
       const iconUrl = guildIconCdnUrl(snap.guildId, snap.icon);
@@ -1210,7 +1194,7 @@ async function main() {
   const map = {
     COOKIEYES_BLOCK: cookieYesBlock,
     GA_BLOCK: gaBlock,
-    HERO_BANNER_BLOCK: heroBannerBlock,
+    HERO_BANNER_BLOCK: "",
     GUILD_ICON_URL: escAttr(guildIconUrl),
     OG_IMAGE_URL: escAttr(ogImageUrl),
     OG_TITLE: escAttr(ogTitle),

@@ -4,6 +4,9 @@ const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines
 const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Services/Moderation/antiNukeService");
 
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
+const FORUM_ROLE_INVITE_DISABLED = ["0", "false", "off", "no"].includes(String(process.env.FORUM_THREAD_ROLE_INVITES || "").trim().toLowerCase());
+const FORUM_ROLE_INVITE_MAX = Math.min(2000, Math.max(0, Number(process.env.FORUM_THREAD_ROLE_INVITES_MAX || 500) || 500));
+const FORUM_ROLE_INVITE_DELAY_MS = Math.max(40, Number(process.env.FORUM_THREAD_ROLE_INVITES_DELAY_MS || 110) || 110);
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -28,6 +31,58 @@ function threadTypeLabel(threadType) {
   return `Sconosciuto (${Number(threadType || 0)})`;
 }
 
+async function resolveForumParent(thread) {
+  let t = thread;
+  if (t.partial) {
+    t = await t.fetch().catch(() => thread);
+  }
+  let parent = t.parent;
+  if (!parent && t.parentId) {
+    parent = await t.guild.channels.fetch(t.parentId).catch(() => null);
+  }
+  return { thread: t, parent };
+}
+
+/**
+ * Nei forum Discord spesso il solo @ruolo non notifica né “iscrive” al post: invitiamo esplicitamente i membri
+ * con quel ruolo (solo chi è in cache membri; limite e delay configurabili con env).
+ */
+async function inviteForumRoleHoldersToThread(thread, forumRoleId) {
+  if (FORUM_ROLE_INVITE_DISABLED || !FORUM_ROLE_INVITE_MAX) return;
+  const rid = String(forumRoleId || "").trim();
+  if (!rid || !thread?.guild || !thread?.members?.add) return;
+  let added = 0;
+  for (const m of thread.guild.members.cache.values()) {
+    if (added >= FORUM_ROLE_INVITE_MAX) break;
+    if (!m?.roles?.cache?.has(rid)) continue;
+    if (m.user?.bot) continue;
+    if (thread.members.cache.has(m.id)) continue;
+    await thread.members.add(m.id).catch(() => {});
+    added += 1;
+    if (FORUM_ROLE_INVITE_DELAY_MS) await sleep(FORUM_ROLE_INVITE_DELAY_MS);
+  }
+}
+
+async function pingForumRoleInNewThread(thread, forumRoleId) {
+  await thread.join().catch(() => {});
+  await thread
+    .send({
+      content: `<@&${forumRoleId}>`,
+      allowedMentions: { roles: [forumRoleId] },
+    })
+    .catch((error) => {
+      global.logger?.error?.("[threadCreate] forum role mention failed:", error);
+    });
+  setImmediate(() => {
+    (async () => {
+      const fresh = await thread.guild.channels.fetch(thread.id).catch(() => thread);
+      await inviteForumRoleHoldersToThread(fresh, forumRoleId);
+    })().catch((err) => {
+      global.logger?.warn?.("[threadCreate] forum role invites:", thread?.id, err?.message || err);
+    });
+  });
+}
+
 module.exports = {
   name: "threadCreate",
   async execute(thread) {
@@ -37,17 +92,11 @@ module.exports = {
       const executorId = String(audit?.executor?.id || "");
       const responsible = formatAuditActor(audit.executor);
 
-      if (thread.parent?.type === ChannelType.GuildForum && IDs.roles.Forum) {
-        const forumRoleId = String(IDs.roles.Forum || "").trim();
-        if (forumRoleId) {
-          await thread
-            .send({
-              content: `<@&${forumRoleId}>`,
-              allowedMentions: { roles: [forumRoleId] },
-            })
-            .catch((error) => {
-              global.logger?.error?.("[threadCreate] forum role mention failed:", error);
-            });
+      const forumRoleId = String(IDs.roles.Forum || "").trim();
+      if (forumRoleId) {
+        const { thread: resolvedThread, parent } = await resolveForumParent(thread);
+        if (parent?.type === ChannelType.GuildForum) {
+          await pingForumRoleInNewThread(resolvedThread, forumRoleId);
         }
       }
 

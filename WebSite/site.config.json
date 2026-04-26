@@ -37,7 +37,7 @@
   "liveEventApiUrl": "https://www.viniliecaffe.it/webhooks/site-live-event",
   "liveEventApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-live-event",
   "discordInviteCode": "viniliecaffe",
-  "useDiscordGuildBanner": false,
+  "useDiscordGuildBanner": true,
   "useDiscordGuildIcon": true,
   "useDiscordGuildFoundedDate": false,
   "useDiscordGuildDescription": true,

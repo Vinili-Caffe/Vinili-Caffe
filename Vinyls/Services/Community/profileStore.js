@@ -166,6 +166,38 @@ async function listBirthdayProfilesForZodiacSync() {
     );
 }
 
+/** Profili con compleanno + anno per sync ruoli fascia d'età (13-14, 15-16, 17-18, 19+). */
+async function listBirthdayProfilesForAgeBracketSync() {
+  const docs = await ActivityUserProfile.find({
+    "profile.birthday.month": { $gte: 1, $lte: 12 },
+    "profile.birthday.day": { $gte: 1, $lte: 31 },
+    "profile.birthday.birthYear": { $gte: 1900, $lte: 2100 },
+  })
+    .select("guildId userId profile.birthday.month profile.birthday.day profile.birthday.birthYear")
+    .lean()
+    .catch(() => []);
+  return docs
+    .map((doc) => ({
+      guildId: String(doc?.guildId || ""),
+      userId: String(doc?.userId || ""),
+      month: Number(doc?.profile?.birthday?.month),
+      day: Number(doc?.profile?.birthday?.day),
+      birthYear: Number(doc?.profile?.birthday?.birthYear),
+    }))
+    .filter(
+      (row) =>
+        row.guildId &&
+        row.userId &&
+        Number.isFinite(row.month) &&
+        Number.isFinite(row.day) &&
+        Number.isFinite(row.birthYear) &&
+        row.month >= 1 &&
+        row.month <= 12 &&
+        row.day >= 1 &&
+        row.day <= 31,
+    );
+}
+
 async function getNoDmPreference(guildId, userId) {
   const doc = await getProfile(guildId, userId, "profile.noDmPreference");
   return doc?.profile?.noDmPreference || null;
@@ -209,6 +241,7 @@ module.exports = {
   clearBirthdayProfile,
   listBirthdayDue,
   listBirthdayProfilesForZodiacSync,
+  listBirthdayProfilesForAgeBracketSync,
   markBirthdayCelebratedByIds,
   getNoDmPreference,
   setNoDmPreference,

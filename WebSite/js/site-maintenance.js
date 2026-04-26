@@ -5,6 +5,8 @@
   var BYPASS_CLASS = "vc-maintenance-bypass";
   var PAGE_CLASS = "vc-maintenance-page";
   var STYLE_ID = "vc-maintenance-style";
+  /** Stesso nome di `discord-auth.js` per il ritorno OAuth se il fragment perde lo `state`. */
+  var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_MAINTENANCE) || {};
@@ -90,19 +92,32 @@
     if (document.getElementById(STYLE_ID)) return;
     var style = document.createElement("style");
     style.id = STYLE_ID;
+    var hidePage =
+      "body > :not(#vc-maintenance-root):not(#vc-necessity-banner){visibility:hidden!important;pointer-events:none!important;user-select:none!important;}";
     style.textContent = [
       "html." + ROOT_CLASS + "{overflow:hidden!important;}",
+      "html." + ROOT_CLASS + " " + hidePage,
+      "html." + PAGE_CLASS + ":not(." + BYPASS_CLASS + ") " + hidePage,
       "html." +
         ROOT_CLASS +
-        " body > :not(#vc-maintenance-root):not(#vc-necessity-banner){visibility:hidden!important;pointer-events:none!important;user-select:none!important;}",
-      "html." + PAGE_CLASS + ",html." + PAGE_CLASS + " body{min-height:100%;background:#050914!important;color:#f8fafc!important;}",
+        ",html." +
+        ROOT_CLASS +
+        " body,html." +
+        PAGE_CLASS +
+        ":not(." +
+        BYPASS_CLASS +
+        "),html." +
+        PAGE_CLASS +
+        ":not(." +
+        BYPASS_CLASS +
+        ") body{min-height:100%;background:#050914!important;color:#f8fafc!important;}",
       "#vc-maintenance-root{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 18%,rgba(245,158,11,.18),transparent 34%),radial-gradient(circle at 80% 22%,rgba(14,165,233,.16),transparent 34%),linear-gradient(135deg,#050914,#111827 54%,#082f49);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}",
       ".vc-maintenance-card{width:min(620px,100%);border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(15,23,42,.78);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08);padding:34px;text-align:left;backdrop-filter:blur(18px);}",
       ".vc-maintenance-kicker{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px;padding:8px 12px;border-radius:999px;background:rgba(250,204,21,.12);color:#fde68a;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}",
       ".vc-maintenance-title{margin:0;color:#fff;font-size:clamp(34px,6vw,58px);line-height:.98;font-weight:900;letter-spacing:-.04em;}",
       ".vc-maintenance-text{margin:18px 0 0;color:rgba(226,232,240,.78);font-size:18px;line-height:1.7;}",
       ".vc-maintenance-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px;}",
-      ".vc-maintenance-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-weight:800;}",
+      ".vc-maintenance-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-weight:800;font:inherit;cursor:pointer;}",
       ".vc-maintenance-btn--primary{background:linear-gradient(135deg,#f59e0b,#facc15);color:#1f1300;border-color:rgba(250,204,21,.72);box-shadow:0 16px 36px rgba(245,158,11,.22);}",
       ".vc-maintenance-foot{margin-top:18px;color:rgba(148,163,184,.88);font-size:13px;}",
     ].join("\n");
@@ -129,13 +144,32 @@
       '<h1 class="vc-maintenance-title">' + esc(c.title || "Sito in manutenzione") + "</h1>" +
       '<p class="vc-maintenance-text">' + esc(c.message || "Stiamo sistemando alcune parti del sito. Torna tra poco!") + "</p>" +
       '<div class="vc-maintenance-actions">' +
-      (login ? '<a class="vc-maintenance-btn vc-maintenance-btn--primary" href="' + esc(login) + '">Accedi con Discord</a>' : "") +
+      (login
+        ? '<button type="button" class="vc-maintenance-btn vc-maintenance-btn--primary" id="vc-maintenance-discord-btn">Accedi con Discord</button>'
+        : "") +
       '<a class="vc-maintenance-btn" href="https://discord.gg/viniliecaffe" target="_blank" rel="noopener noreferrer">Entra su Discord</a>' +
       "</div>" +
       '<p class="vc-maintenance-foot">Accesso consentito solo agli account autorizzati durante i lavori.' +
       (reason ? " Stato: " + esc(reason) + "." : "") +
       "</p>" +
       "</section>";
+    if (login) {
+      var oBtn = root.querySelector("#vc-maintenance-discord-btn");
+      if (oBtn) {
+        oBtn.addEventListener("click", function () {
+          try {
+            sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, normalizeReturnPath());
+          } catch (e1) {}
+          try {
+            window.location.assign(login);
+          } catch (e2) {
+            try {
+              window.location.href = login;
+            } catch (e3) {}
+          }
+        });
+      }
+    }
   }
 
   function allowSite() {
@@ -174,11 +208,7 @@
 
     var token = getToken();
     if (!token) {
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { renderMaintenance("login richiesto"); }, { once: true });
-      } else {
-        renderMaintenance("login richiesto");
-      }
+      renderMaintenance("login richiesto");
       return;
     }
 

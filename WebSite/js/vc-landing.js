@@ -733,6 +733,101 @@
       return NOTIFICATIONS_PATH;
     }
   }
+
+  /** Swipe verticale sul foglio mobile: giù chiude, su apre /notifications/. */
+  function applyNotifSheetSwipeDelta(dy, dd) {
+    if (!dd || !dd.open) return false;
+    if (Math.abs(dy) < 52) return false;
+    if (dy > 0) {
+      dd.removeAttribute("open");
+      return true;
+    }
+    try {
+      dd.removeAttribute("open");
+    } catch (e) {}
+    window.location.href = notificationsPageUrl();
+    return true;
+  }
+
+  function bindNotifBackdropSwipe(bd, dd) {
+    var y0 = 0;
+    var track = false;
+    bd.addEventListener(
+      "touchstart",
+      function (ev) {
+        if (!isMobileNotifViewport() || !dd.open) return;
+        if (ev.touches.length !== 1) return;
+        y0 = ev.touches[0].clientY;
+        track = true;
+      },
+      { passive: true },
+    );
+    bd.addEventListener(
+      "touchend",
+      function (ev) {
+        if (!track) return;
+        track = false;
+        if (!isMobileNotifViewport() || !dd.open) return;
+        var t = ev.changedTouches && ev.changedTouches[0];
+        if (!t) return;
+        applyNotifSheetSwipeDelta(t.clientY - y0, dd);
+      },
+      { passive: true },
+    );
+    bd.addEventListener(
+      "touchcancel",
+      function () {
+        track = false;
+      },
+      { passive: true },
+    );
+  }
+
+  function wireNotifSheetSwipeGestures(dd) {
+    if (!dd || dd.dataset.vcNotifSwipe === "1") return;
+    var panel = dd.querySelector(".vc-notif-panel");
+    if (!panel) return;
+    if (panel.querySelector(".vc-notif-sheet-handle")) {
+      dd.dataset.vcNotifSwipe = "1";
+      return;
+    }
+    dd.dataset.vcNotifSwipe = "1";
+    var handle = document.createElement("div");
+    handle.className = "vc-notif-sheet-handle";
+    handle.setAttribute("aria-hidden", "true");
+    panel.insertBefore(handle, panel.firstChild);
+    var hy0 = 0;
+    var hTrack = false;
+    handle.addEventListener(
+      "touchstart",
+      function (ev) {
+        if (!isMobileNotifViewport() || !dd.open) return;
+        if (ev.touches.length !== 1) return;
+        hy0 = ev.touches[0].clientY;
+        hTrack = true;
+      },
+      { passive: true },
+    );
+    handle.addEventListener(
+      "touchend",
+      function (ev) {
+        if (!hTrack) return;
+        hTrack = false;
+        if (!isMobileNotifViewport() || !dd.open) return;
+        var t = ev.changedTouches && ev.changedTouches[0];
+        if (!t) return;
+        applyNotifSheetSwipeDelta(t.clientY - hy0, dd);
+      },
+      { passive: true },
+    );
+    handle.addEventListener(
+      "touchcancel",
+      function () {
+        hTrack = false;
+      },
+      { passive: true },
+    );
+  }
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);
     if (s < 45) return "Ora";
@@ -916,6 +1011,7 @@
         bd.addEventListener("click", function () {
           dd.removeAttribute("open");
         });
+        bindNotifBackdropSwipe(bd, dd);
         dd.insertBefore(bd, dd.firstChild);
       }
     } else {
@@ -930,6 +1026,7 @@
   function wireNotifMobileSheet() {
     var dd = document.getElementById("vc-notif-dropdown");
     if (!dd) return;
+    wireNotifSheetSwipeGestures(dd);
     dd.addEventListener("toggle", syncNotifMobileSheetChrome);
     window.addEventListener("resize", function () {
       if (!isMobileNotifViewport()) syncNotifMobileSheetChrome();
@@ -1352,7 +1449,6 @@
       '<div class="vc-mobile-nav-drawer__top">' +
       '<div class="vc-mobile-nav-drawer__brand" id="vc-mobile-nav-drawer-brand"></div>' +
       '<div class="vc-mobile-nav-drawer__top-actions">' +
-      '<button type="button" class="vc-mobile-nav-drawer__bell vc-icon-btn" id="vc-mobile-nav-open-notif" aria-label="Notifiche"><i class="fa fa-bell-o" aria-hidden="true"></i></button>' +
       '<button type="button" class="vc-mobile-nav-drawer__close vc-icon-btn" id="vc-mobile-nav-close" aria-label="Chiudi menu"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div></div>" +
       '<div class="vc-mobile-nav-drawer__scroll" id="vc-mobile-nav-drawer-grid"></div>' +
@@ -1369,22 +1465,6 @@
     var closeBtn = document.getElementById("vc-mobile-nav-close");
     if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
     if (backdrop) backdrop.addEventListener("click", closeDrawer);
-    var bellInDrawer = document.getElementById("vc-mobile-nav-open-notif");
-    if (bellInDrawer) {
-      bellInDrawer.addEventListener("click", function () {
-        var nd = document.getElementById("vc-notif-dropdown");
-        var sm = nd && nd.querySelector("summary");
-        closeDrawer();
-        if (nd && sm) {
-          window.requestAnimationFrame(function () {
-            nd.setAttribute("open", "");
-            try {
-              sm.focus();
-            } catch (e5) {}
-          });
-        }
-      });
-    }
     window.addEventListener("vc-discord-profile", function () {
       syncDrawerFooter();
     });

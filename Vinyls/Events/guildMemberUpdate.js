@@ -29,7 +29,6 @@ const ROLE_UPDATE_LOG_DEDUPE = new Map();
 const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
-const PLUS_COLOR_REQUIRED_ROLE_IDS=[IDs.roles.ServerBooster,IDs.roles.Level50,IDs.roles.Level70,IDs.roles.Donator,IDs.roles.vip,IDs.roles.VIPplus].filter(Boolean);
 const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [ IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus ].filter(Boolean);
 const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,].filter(Boolean);
 const boostCountCache = new Map();
@@ -387,13 +386,8 @@ async function removePlusColorsIfNotEligible(member) {
   if (!me) return;
   if (!hasManageRolesPermission(member)) return;
 
-  const hasRequiredRole=PLUS_COLOR_REQUIRED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId),);
-  if (hasRequiredRole) return;
-
-  const hasEventWeek2Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 2).catch(() => true)) : false;
-  if (hasEventWeek2Grant) return;
-  const hasEventWeek3Grant = member.guild?.id && member.id ? (await hasEventWeekWinnerGrant(member.guild.id, member.id, 3).catch(() => true)) : false;
-  if (hasEventWeek3Grant) return;
+  const { memberHasPlusColorFullEligibilityAsync } = require("../Utils/Community/personalityColorUnlocks");
+  if (await memberHasPlusColorFullEligibilityAsync(member)) return;
 
   const heldPlusRoles=PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
   if (!heldPlusRoles.length) return;

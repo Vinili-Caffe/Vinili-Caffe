@@ -770,7 +770,7 @@
       (viewerOwns
         ? '<a class="vc-user-profile-customize" href="' +
           esc(profileCustomizeUrl(userId)) +
-          '"><i class="fa fa-paint-brush" aria-hidden="true"></i> Personalizza</a>'
+          '" aria-label="Personalizza profilo e rank card" title="Personalizza"><i class="fa fa-paint-brush" aria-hidden="true"></i></a>'
         : "") +
       "</div>" +
       badgesHtml +
@@ -829,7 +829,7 @@
       (viewerOwns
         ? '<a class="vc-user-profile-customize" href="' +
           esc(profileCustomizeUrl(userId)) +
-          '"><i class="fa fa-sliders" aria-hidden="true"></i> Personalizza</a>'
+          '" aria-label="Personalizza rank card" title="Personalizza rank card"><i class="fa fa-sliders" aria-hidden="true"></i></a>'
         : "") +
       "</div>" +
       '<div class="vc-user-rankcard-preview vc-rank-editor-preview__imagewrap">' +

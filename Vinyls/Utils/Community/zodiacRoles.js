@@ -52,14 +52,15 @@ function getZodiacRoleIdForBirthday(month, day) {
 
 async function applyZodiacRoleFromBirthday(guild, userId, month, day) {
   const uid = String(userId || "").trim();
+  if (!uid || !guild) return { ok: false, reason: "bad_args" };
   const targetId = getZodiacRoleIdForBirthday(month, day);
-  if (!uid || !guild || !targetId) return { ok: false, reason: "bad_args" };
-  const member = await guild.members.fetch(uid).catch(() => null);
+  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
   if (!member) return { ok: false, reason: "member" };
   const reason = "Compleanno: segno zodiacale";
   const had = ZODIAC_ROLE_IDS.filter((rid) => member.roles.cache.has(rid));
   if (had.length) await member.roles.remove(had, reason).catch(() => {});
-  const fresh = await guild.members.fetch(uid).catch(() => member);
+  if (!targetId) return { ok: true, stripped: true };
+  const fresh = await guild.members.fetch({ user: uid, force: true }).catch(() => member);
   if (!fresh.roles.cache.has(targetId)) {
     await fresh.roles.add(targetId, reason).catch(() => {});
   }
@@ -69,7 +70,7 @@ async function applyZodiacRoleFromBirthday(guild, userId, month, day) {
 async function stripAllZodiacRoles(guild, userId) {
   const uid = String(userId || "").trim();
   if (!uid || !guild) return;
-  const member = await guild.members.fetch(uid).catch(() => null);
+  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
   if (!member) return;
   const had = ZODIAC_ROLE_IDS.filter((rid) => member.roles.cache.has(rid));
   if (!had.length) return;

@@ -1,0 +1,148 @@
+const IDs = require("../Config/ids");
+const { listBirthdayProfilesForAgeBracketSync } = require("../../Services/Community/profileStore");
+
+const ROME_TZ = "Europe/Rome";
+
+function getRomeDateParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ROME_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const map = {};
+  for (const part of parts) {
+    if (part.type !== "literal") map[part.type] = part.value;
+  }
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+  };
+}
+
+const AGE_BRACKET_ORDER_KEYS = ["1314", "1516", "1718", "19"];
+
+const AGE_BRACKET_ROLE_IDS = AGE_BRACKET_ORDER_KEYS.map((k) => String(IDs.roles?.[k] || "").trim()).filter(Boolean);
+
+function computeAgeFromBirthParts(day, month, birthYear, now = new Date()) {
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(birthYear)) return null;
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  if (birthYear < 1900 || birthYear > 2100) return null;
+  const today = getRomeDateParts(now);
+  if (birthYear > today.year) return null;
+  const hasBirthdayPassed = today.month > month || (today.month === month && today.day >= day);
+  return Math.max(0, today.year - Number(birthYear) - (hasBirthdayPassed ? 0 : 1));
+}
+
+/** @returns {{ targetId: string | null, stripOnly: boolean }} */
+function getAgeBracketRoleIdForAge(age) {
+  if (!Number.isFinite(age)) return { targetId: null, stripOnly: false };
+  if (age < 13) return { targetId: null, stripOnly: true };
+  if (age <= 14) return { targetId: String(IDs.roles?.["1314"] || "").trim() || null, stripOnly: false };
+  if (age <= 16) return { targetId: String(IDs.roles?.["1516"] || "").trim() || null, stripOnly: false };
+  if (age <= 18) return { targetId: String(IDs.roles?.["1718"] || "").trim() || null, stripOnly: false };
+  return { targetId: String(IDs.roles?.["19"] || "").trim() || null, stripOnly: false };
+}
+
+async function applyAgeBracketRoleFromBirthday(guild, userId, day, month, birthYear, now = new Date()) {
+  const uid = String(userId || "").trim();
+  if (!uid || !guild) return { ok: false, reason: "bad_args" };
+  const age = computeAgeFromBirthParts(day, month, birthYear, now);
+  if (age == null) return { ok: false, reason: "bad_age_inputs" };
+  const { targetId, stripOnly } = getAgeBracketRoleIdForAge(age);
+  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
+  if (!member) return { ok: false, reason: "member" };
+  const reason = "Profilo: fascia d'età (compleanno)";
+  const had = AGE_BRACKET_ROLE_IDS.filter((rid) => member.roles.cache.has(rid));
+  if (had.length) await member.roles.remove(had, reason).catch(() => {});
+  if (stripOnly || !targetId) return { ok: true, stripped: true };
+  const fresh = await guild.members.fetch({ user: uid, force: true }).catch(() => member);
+  if (!fresh.roles.cache.has(targetId)) {
+    await fresh.roles.add(targetId, reason).catch(() => {});
+  }
+  return { ok: true };
+}
+
+async function stripAllAgeBracketRoles(guild, userId) {
+  const uid = String(userId || "").trim();
+  if (!uid || !guild) return;
+  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
+  if (!member) return;
+  const had = AGE_BRACKET_ROLE_IDS.filter((rid) => member.roles.cache.has(rid));
+  if (!had.length) return;
+  await member.roles.remove(had, "Compleanno: profilo rimosso").catch(() => {});
+}
+
+const AGE_BRACKET_STARTUP_SYNC_BATCH = 5;
+const AGE_BRACKET_STARTUP_SYNC_BATCH_DELAY_MS = 1200;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * All'avvio: riallinea i ruoli 13-14 / 15-16 / 17-18 / 19+ in base a data + anno di nascita salvati.
+ * Disabilitabile con AGE_BRACKET_BIRTHDAY_ROLE_SYNC_ON_STARTUP=0|false|off|no
+ */
+async function syncAgeBracketRolesFromStoredBirthdays(client) {
+  const envRaw = String(process.env.AGE_BRACKET_BIRTHDAY_ROLE_SYNC_ON_STARTUP || "").trim().toLowerCase();
+  if (["0", "false", "off", "no"].includes(envRaw)) {
+    return { skipped: true, reason: "env_disabled", processed: 0, applied: 0, guildMissing: 0, errors: 0 };
+  }
+  if (!client) {
+    return { ok: false, processed: 0, applied: 0, guildMissing: 0, errors: 0 };
+  }
+  const rows = await listBirthdayProfilesForAgeBracketSync();
+  let applied = 0;
+  let guildMissing = 0;
+  let errors = 0;
+  for (let offset = 0; offset < rows.length; offset += AGE_BRACKET_STARTUP_SYNC_BATCH) {
+    const slice = rows.slice(offset, offset + AGE_BRACKET_STARTUP_SYNC_BATCH);
+    const batchStats = await Promise.all(
+      slice.map(async (row) => {
+        try {
+          const guild =
+            client.guilds.cache.get(row.guildId) || (await client.guilds.fetch(row.guildId).catch(() => null));
+          if (!guild) return { kind: "guildMissing" };
+          const result = await applyAgeBracketRoleFromBirthday(
+            guild,
+            row.userId,
+            row.day,
+            row.month,
+            row.birthYear,
+          );
+          if (result?.ok) return { kind: "applied" };
+          return { kind: "noop" };
+        } catch {
+          return { kind: "error" };
+        }
+      }),
+    );
+    for (const s of batchStats) {
+      if (s.kind === "guildMissing") guildMissing += 1;
+      else if (s.kind === "applied") applied += 1;
+      else if (s.kind === "error") errors += 1;
+    }
+    if (offset + AGE_BRACKET_STARTUP_SYNC_BATCH < rows.length) {
+      await sleep(AGE_BRACKET_STARTUP_SYNC_BATCH_DELAY_MS);
+    }
+  }
+  return {
+    ok: true,
+    processed: rows.length,
+    applied,
+    guildMissing,
+    errors,
+  };
+}
+
+module.exports = {
+  AGE_BRACKET_ROLE_IDS,
+  computeAgeFromBirthParts,
+  getAgeBracketRoleIdForAge,
+  applyAgeBracketRoleFromBirthday,
+  stripAllAgeBracketRoles,
+  syncAgeBracketRolesFromStoredBirthdays,
+};

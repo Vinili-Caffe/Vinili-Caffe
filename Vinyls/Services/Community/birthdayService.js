@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const IDs = require("../../Utils/Config/ids");
 const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore");
+const { applyAgeBracketRoleFromBirthday } = require("../../Utils/Community/ageBracketRoles");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = "1474729085719548048";
@@ -75,11 +76,36 @@ async function assignBirthdayRole(guild, userId) {
   }
 }
 
-async function runBirthdayTick(client) {
+/** Toglie il ruolo “compleanno oggi” a chi ce l’ha (reset a mezzanotte Roma). */
+async function stripBirthdayFlairRoleFromGuild(guild) {
+  if (!guild || !BIRTHDAY_ROLE_ID) return;
+  let role = guild.roles.cache.get(BIRTHDAY_ROLE_ID);
+  if (!role) role = await guild.roles.fetch(BIRTHDAY_ROLE_ID).catch(() => null);
+  if (!role) return;
+  const reason = "Compleanno: fine giornata";
+  for (const member of role.members.values()) {
+    await member.roles.remove(BIRTHDAY_ROLE_ID, reason).catch(() => {});
+  }
+}
+
+async function stripBirthdayFlairRoleFromAllGuilds(client) {
+  if (!client?.guilds?.cache?.size) return;
+  for (const guild of client.guilds.cache.values()) {
+    await stripBirthdayFlairRoleFromGuild(guild).catch(() => {});
+  }
+}
+
+async function runBirthdayTick(client, opts = {}) {
   if (!client || birthdayTickRunning) return;
   birthdayTickRunning = true;
   try {
     const channelId = IDs.channels.chat || null;
+
+    if (opts.stripFlairFirst) {
+      await stripBirthdayFlairRoleFromAllGuilds(client).catch((e) =>
+        global.logger?.warn?.("[BIRTHDAY] strip flair failed:", e?.message || e),
+      );
+    }
 
     const today = getRomeDateParts(new Date());
     const docs = await listBirthdayDue(today.day, today.month, today.year);
@@ -118,7 +144,16 @@ async function runBirthdayTick(client) {
       }
 
       for (const doc of guildDocs) {
-        await assignBirthdayRole(guild, String(doc.userId || ""));
+        const uid = String(doc.userId || "");
+        const b = doc?.profile?.birthday || {};
+        await assignBirthdayRole(guild, uid);
+        await applyAgeBracketRoleFromBirthday(
+          guild,
+          uid,
+          Number(b.day),
+          Number(b.month),
+          Number(b.birthYear),
+        ).catch(() => {});
       }
 
       const ids = guildDocs.map((doc) => String(doc._id)).filter(Boolean);
@@ -138,7 +173,7 @@ function startBirthdayLoop(client) {
   birthdayLoopHandle = cron.schedule(
     "0 0 * * *",
     () => {
-      runBirthdayTick(client).catch((error) =>
+      runBirthdayTick(client, { stripFlairFirst: true }).catch((error) =>
         global.logger?.error?.("[BIRTHDAY] Scheduled tick failed:", error),
       );
     },
@@ -146,7 +181,9 @@ function startBirthdayLoop(client) {
   );
 
   setImmediate(() => {
-    runBirthdayTick(client).catch((err) => global.logger?.warn?.("[BIRTHDAY] Recovery tick on start failed:", err?.message || err));
+    runBirthdayTick(client, { stripFlairFirst: false }).catch((err) =>
+      global.logger?.warn?.("[BIRTHDAY] Recovery tick on start failed:", err?.message || err),
+    );
   });
 
   return birthdayLoopHandle;

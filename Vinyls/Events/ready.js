@@ -39,6 +39,7 @@ const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
 const { syncZodiacRolesFromStoredBirthdays } = require("../Utils/Community/zodiacRoles");
+const { syncAgeBracketRolesFromStoredBirthdays } = require("../Utils/Community/ageBracketRoles");
 const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDigestService");
 const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
@@ -210,6 +211,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "startup sync zodiac roles from birthday profiles",
       enabled: primaryScheduler,
       run: () => syncZodiacRolesFromStoredBirthdays(client),
+    },
+    {
+      label: "startup sync age bracket roles from birthday profiles",
+      enabled: primaryScheduler,
+      run: () => syncAgeBracketRolesFromStoredBirthdays(client),
     },
     {
       label: "optional Top.gg stats digest",

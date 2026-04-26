@@ -104,6 +104,15 @@
                 "channels.staffCmds"
             ]
         },
+        "colors": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.staffCmds"
+            ]
+        },
         "evento": {
             "roles": [
                 "roles.Staff",
@@ -1371,6 +1380,12 @@
         "personality_zodiac": [
             "roles.Member"
         ],
+        "cmd_colors_seg:*": {
+            "ownerSegment": 1,
+            "roles": [
+                "roles.Member"
+            ]
+        },
         "stats_top_channel_view_select*": {
             "ownerSegment": 1
         },
