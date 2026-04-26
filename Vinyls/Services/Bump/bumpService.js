@@ -675,6 +675,51 @@ function getTopggVoteReminderText(client) {
   ];
 }
 
+function resolveVoteReminderOpenUrl(client, voteListing) {
+  const listing = voteListingKey(voteListing);
+  if (listing === "topgg") {
+    const u = resolveTopggReminderVoteUrl(client);
+    if (u) return u;
+  }
+  return String(client?.config?.discadiaVoteReminder?.voteUrl || IDs.links?.vote || "").trim();
+}
+
+function buildVoteSiteInAppNotificationOpts(client, guildId, userId, voteListing, lastVoteAtMs, cooldownMs) {
+  const listing = voteListingKey(voteListing);
+  const gid = String(guildId || IDs.guilds.main).trim() || String(IDs.guilds.main);
+  const uid = String(userId || "").trim();
+  const openUrl = resolveVoteReminderOpenUrl(client, listing);
+  const isTop = listing === "topgg";
+  const safeCooldown = Math.max(60_000, Math.floor(Number(cooldownMs) || 60_000));
+  return {
+    guildId: gid,
+    userId: uid,
+    title: isTop ? "Promemoria voto su Top.gg" : "Promemoria voto su Discadia",
+    body: isTop
+      ? "Puoi votare di nuovo su Top.gg: un voto aiuta il server a farsi conoscere. Grazie!"
+      : "Puoi votare di nuovo su Discadia: un voto aiuta il server a farsi conoscere. Grazie!",
+    kind: "vote",
+    openUrl: openUrl || undefined,
+    dedupeKey: `vote_reminder_${listing}_${lastVoteAtMs}`,
+    dedupeWindowMs: safeCooldown,
+  };
+}
+
+async function markVoteReminderDispatched(guildId, userId, voteListing) {
+  const remindedAt = new Date();
+  const listing = voteListingKey(voteListing);
+  await ActivityUserProfile.updateOne(
+    { guildId, userId },
+    {
+      $set: {
+        [DISCADIA_LAST_REMINDED_AT_PATH]: remindedAt,
+        [voteLastRemindedAtPath(listing)]: remindedAt,
+      },
+    },
+  ).catch(() => {});
+  return remindedAt;
+}
+
 async function buildVoteReminderEmbed(client, opts = {}) {
   let voteListing = opts.voteListing;
   if (voteListing !== "topgg" && voteListing !== "discadia") {
