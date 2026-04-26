@@ -53,9 +53,12 @@ function serializeComment(c) {
   };
 }
 
-function serializeSuggestion(doc) {
+function serializeSuggestion(doc, viewerUserId) {
   if (!doc) return null;
   const comments = Array.isArray(doc.comments) ? doc.comments.map(serializeComment).filter(Boolean) : [];
+  const upList = Array.isArray(doc.upvoterUserIds) ? doc.upvoterUserIds.map((x) => String(x)) : [];
+  const downList = Array.isArray(doc.downvoterUserIds) ? doc.downvoterUserIds.map((x) => String(x)) : [];
+  const vid = String(viewerUserId || "").trim();
   return {
     id: String(doc._id),
     userId: String(doc.userId || ""),
@@ -70,6 +73,10 @@ function serializeSuggestion(doc) {
     updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
     comments,
     commentCount: comments.length,
+    upvoteCount: upList.length,
+    downvoteCount: downList.length,
+    upvotedByViewer: Boolean(vid && upList.includes(vid)),
+    downvotedByViewer: Boolean(vid && downList.includes(vid)),
   };
 }
 
@@ -98,10 +105,11 @@ async function getSiteSuggestions(client, payload = {}) {
     .lean()
     .catch(() => []);
 
+  const viewerId = viewer && viewer.id ? String(viewer.id) : "";
   return {
     ok: true,
     status: 200,
-    suggestions: docs.map((d) => serializeSuggestion(d)),
+    suggestions: docs.map((d) => serializeSuggestion(d, viewerId)),
     viewer,
   };
 }
@@ -133,7 +141,7 @@ async function createSiteSuggestion(client, payload = {}) {
   return {
     ok: true,
     status: 200,
-    suggestion: serializeSuggestion(doc.toObject ? doc.toObject() : doc),
+    suggestion: serializeSuggestion(doc.toObject ? doc.toObject() : doc, resolved.userId),
     message: "Suggerimento pubblicato.",
   };
 }
@@ -199,8 +207,84 @@ async function addSiteSuggestionComment(client, payload = {}) {
   return {
     ok: true,
     status: 200,
-    suggestion: serializeSuggestion(updated),
+    suggestion: serializeSuggestion(updated, resolved.userId),
     message: "Commento pubblicato.",
+  };
+}
+
+async function setSiteSuggestionVote(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
+  }
+
+  const direction = String(payload.direction || "").trim().toLowerCase();
+  if (direction !== "up" && direction !== "down") {
+    return { ok: false, status: 400, error: "invalid_direction", message: 'Indica "up" o "down".' };
+  }
+
+  const fresh = await SiteSuggestion.findOne({
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+    status: "pending",
+  })
+    .select("upvoterUserIds downvoterUserIds")
+    .lean()
+    .catch(() => null);
+
+  if (!fresh) {
+    return {
+      ok: false,
+      status: 400,
+      error: "vote_not_allowed",
+      message: "Puoi votare solo su suggerimenti ancora in valutazione.",
+    };
+  }
+
+  const uid = String(resolved.userId);
+  const up = new Set((Array.isArray(fresh.upvoterUserIds) ? fresh.upvoterUserIds : []).map((x) => String(x)));
+  const down = new Set((Array.isArray(fresh.downvoterUserIds) ? fresh.downvoterUserIds : []).map((x) => String(x)));
+
+  if (direction === "up") {
+    if (up.has(uid)) up.delete(uid);
+    else {
+      down.delete(uid);
+      up.add(uid);
+    }
+  } else if (down.has(uid)) {
+    down.delete(uid);
+  } else {
+    up.delete(uid);
+    down.add(uid);
+  }
+
+  const updated = await SiteSuggestion.findOneAndUpdate(
+    { _id: suggestionId, guildId: resolved.guild.id, status: "pending" },
+    {
+      $set: {
+        upvoterUserIds: Array.from(up),
+        downvoterUserIds: Array.from(down),
+        updatedAt: new Date(),
+      },
+    },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+
+  if (!updated) {
+    return { ok: false, status: 500, error: "vote_failed", message: "Impossibile salvare il voto." };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    suggestion: serializeSuggestion(updated, uid),
+    message: "Voto aggiornato.",
   };
 }
 
@@ -258,7 +342,7 @@ async function staffAcceptSiteSuggestion(client, payload = {}) {
   return {
     ok: true,
     status: 200,
-    suggestion: serializeSuggestion(updated),
+    suggestion: serializeSuggestion(updated, resolved.userId),
     message: "Suggerimento accettato.",
   };
 }
@@ -317,7 +401,7 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
   return {
     ok: true,
     status: 200,
-    suggestion: serializeSuggestion(updated),
+    suggestion: serializeSuggestion(updated, resolved.userId),
     message: "Suggerimento rifiutato.",
   };
 }
@@ -326,6 +410,7 @@ module.exports = {
   getSiteSuggestions,
   createSiteSuggestion,
   addSiteSuggestionComment,
+  setSiteSuggestionVote,
   staffAcceptSiteSuggestion,
   staffRejectSiteSuggestion,
 };

@@ -11341,7 +11341,7 @@ html.vc-reviews-modal-open body {
   cursor: not-allowed;
 }
 
-.vc-reviews-like:not(:disabled):hover {
+.vc-reviews-like:not(.vc-suggestions-vote--down):not(:disabled):hover {
   border-color: rgba(251, 113, 133, 0.45);
   background: rgba(244, 63, 94, 0.12);
   color: #fff;
@@ -11351,6 +11351,18 @@ html.vc-reviews-modal-open body {
   border-color: rgba(251, 113, 133, 0.55);
   background: rgba(244, 63, 94, 0.18);
   color: #fecdd3;
+}
+
+.vc-reviews-like.vc-suggestions-vote--down:not(:disabled):hover {
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(51, 65, 85, 0.45);
+  color: #f8fafc;
+}
+
+.vc-reviews-like.vc-suggestions-vote--down.is-down {
+  border-color: rgba(100, 116, 139, 0.65);
+  background: rgba(71, 85, 105, 0.35);
+  color: #e2e8f0;
 }
 
 .vc-reviews-like__n {

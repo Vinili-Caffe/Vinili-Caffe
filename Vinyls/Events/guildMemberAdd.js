@@ -356,7 +356,7 @@ function buildWelcomeEmbed(member) {
     )
     .setDescription(
       `__${uname}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "Passa su <#1469429150669602961> per **abbellire il tuo profilo** con i ruoli & colori.",
+      "Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli & colori.",
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)

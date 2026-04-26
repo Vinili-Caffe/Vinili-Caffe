@@ -565,6 +565,8 @@ const siteSuggestionSchema = new Schema(
     staffUserId: { type: String, default: null, index: true },
     decidedAt: { type: Date, default: null },
     comments: { type: [siteSuggestionCommentSchema], default: [] },
+    upvoterUserIds: { type: [String], default: [] },
+    downvoterUserIds: { type: [String], default: [] },
   },
   { timestamps: true },
 );

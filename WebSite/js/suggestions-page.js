@@ -230,6 +230,38 @@
       statusWrap += "border-amber-400/35 bg-amber-500/10 text-amber-100";
     }
 
+    var upc = Math.max(0, Math.round(Number(s.upvoteCount || 0)));
+    var dwc = Math.max(0, Math.round(Number(s.downvoteCount || 0)));
+    var upOn = Boolean(s.upvotedByViewer);
+    var downOn = Boolean(s.downvotedByViewer);
+    var voteLocked = !pending || !tokenOk;
+    var voteTitle = !pending ? "Votazione chiusa" : !tokenOk ? "Accedi con Discord per votare" : "";
+    var voteExtras = voteLocked ? ' disabled title="' + esc(voteTitle) + '"' : "";
+    var voteHtml =
+      '<div class="vc-reviews-card__foot">' +
+      '<button type="button" class="vc-reviews-like' +
+      (upOn ? " is-liked" : "") +
+      '" data-suggestion-vote="' +
+      sid +
+      '" data-vote-dir="up"' +
+      voteExtras +
+      '><i class="fa ' +
+      (upOn ? "fa-thumbs-up" : "fa-thumbs-o-up") +
+      '" aria-hidden="true"></i><span class="vc-reviews-like__n">' +
+      esc(String(upc)) +
+      '</span></button>' +
+      '<button type="button" class="vc-reviews-like vc-suggestions-vote--down' +
+      (downOn ? " is-down" : "") +
+      '" data-suggestion-vote="' +
+      sid +
+      '" data-vote-dir="down"' +
+      voteExtras +
+      '><i class="fa ' +
+      (downOn ? "fa-thumbs-down" : "fa-thumbs-o-down") +
+      '" aria-hidden="true"></i><span class="vc-reviews-like__n">' +
+      esc(String(dwc)) +
+      "</span></button></div>";
+
     return (
       '<article class="vc-reviews-card" data-suggestion-id="' +
       sid +
@@ -254,6 +286,7 @@
       '<p class="vc-reviews-card__text">' +
       esc(s.content) +
       "</p>" +
+      voteHtml +
       staffBox +
       threadHtml +
       staffActions +
@@ -329,7 +362,6 @@
     state.draftContent = "";
     state.editModalOpen = true;
     render();
-    syncModal();
     var ta = byId("vc-suggestion-modal-content");
     if (ta) {
       window.requestAnimationFrame(function () {
@@ -393,6 +425,16 @@
       });
     }
 
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-vote]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.disabled) return;
+        var id = String(btn.getAttribute("data-suggestion-vote") || "").trim();
+        var dir = String(btn.getAttribute("data-vote-dir") || "").trim();
+        if (!id || (dir !== "up" && dir !== "down")) return;
+        submitSuggestionVote(id, dir, btn);
+      });
+    });
+
     Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-submit]")).forEach(function (btn) {
       btn.addEventListener("click", function () {
         var id = String(btn.getAttribute("data-suggestion-comment-submit") || "").trim();
@@ -441,6 +483,39 @@
         staffDecision(String(btn.getAttribute("data-suggestion-reject") || ""), "reject", btn);
       });
     });
+  }
+
+  function submitSuggestionVote(suggestionId, direction, buttonEl) {
+    var token = getToken();
+    if (!token) {
+      setStatus("Accedi con Discord per votare.", true);
+      return;
+    }
+    if (buttonEl) buttonEl.disabled = true;
+    setStatus("", false);
+    fetch(apiUrl() + "/" + encodeURIComponent(suggestionId) + "/vote", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify({ direction: direction }),
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (body) {
+        if (!body || body.ok !== true) {
+          throw new Error((body && body.message) || "Voto non registrato.");
+        }
+        return fetchPayload();
+      })
+      .catch(function (err) {
+        setStatus(err && err.message ? err.message : "Errore voto.", true);
+      })
+      .then(function () {
+        if (buttonEl) buttonEl.disabled = false;
+      });
   }
 
   function staffDecision(id, kind, btn) {
