@@ -220,6 +220,18 @@
         "</div></div>";
     }
 
+    var staffDelete = "";
+    if (canMod) {
+      staffDelete =
+        '<div class="mt-4 rounded-xl border border-slate-500/30 bg-slate-900/40 p-3">' +
+        '<p class="text-xs font-semibold uppercase tracking-wider text-slate-300/90">High Staff</p>' +
+        '<button type="button" class="vc-reviews-submit mt-2" style="background-color:#0f172a;border-color:rgba(255,255,255,0.12)" data-suggestion-delete="' +
+        sid +
+        '">Elimina definitivamente</button>' +
+        '<p class="mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database (irreversibile).</p>' +
+        "</div>";
+    }
+
     var statusWrap =
       "inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ";
     if (String(s.status) === "accepted") {
@@ -290,6 +302,7 @@
       staffBox +
       threadHtml +
       staffActions +
+      staffDelete +
       "</article>"
     );
   }
@@ -483,6 +496,45 @@
         staffDecision(String(btn.getAttribute("data-suggestion-reject") || ""), "reject", btn);
       });
     });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-delete]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        staffDeleteSuggestion(String(btn.getAttribute("data-suggestion-delete") || "").trim(), btn);
+      });
+    });
+  }
+
+  function staffDeleteSuggestion(id, btn) {
+    if (!id || !getToken()) return;
+    if (
+      !window.confirm(
+        "Eliminare permanentemente questo suggerimento dal sito? L'operazione non è annullabile.",
+      )
+    ) {
+      return;
+    }
+    if (btn) btn.disabled = true;
+    setStatus("Eliminazione in corso...", false);
+    fetch(apiUrl() + "/" + encodeURIComponent(id) + "/delete", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + getToken() },
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (body) {
+        if (!body || body.ok !== true) {
+          throw new Error((body && body.message) || "Eliminazione non riuscita.");
+        }
+        setStatus(body.message || "Eliminato.", false);
+        return fetchPayload();
+      })
+      .catch(function (err) {
+        setStatus(err && err.message ? err.message : "Errore.", true);
+      })
+      .then(function () {
+        if (btn) btn.disabled = false;
+      });
   }
 
   function submitSuggestionVote(suggestionId, direction, buttonEl) {

@@ -42,6 +42,7 @@ async function run(client) {
         "> **Il nostro consiglio è di invitare i vostri amici e farvi votare <a:VC_HeartsBlue:1468686100045369404> **",
         "",
         "<a:VC_Rule:1482706839928967280> **REGOLAMENTO**",
+        "<:VC_Dot:1482532364222595303> **Staff:** possono mandare una foto **Helper** e **Mod**; **Admin** e **Founder** no (con **Staff** serve anche **Helper** o **Mod**).",
         "<:VC_Dot:1482532364222595303> Lo <@&1442568910070349985> non può partecipare, tuttavia potrà ugualmente esprimere preferenze;",
         "<:VC_Dot:1482532364222595303> Vietato rubare outfit online da altre persone poichè essi saranno controllati ogni giorno;",
         "<:VC_Dot:1482532364222595303> Non è possibile votare per se stessi;",

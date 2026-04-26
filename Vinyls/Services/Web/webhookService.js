@@ -477,6 +477,7 @@ async function startWebhookServer(client) {
     setSiteSuggestionVote,
     staffAcceptSiteSuggestion,
     staffRejectSiteSuggestion,
+    staffDeleteSiteSuggestion,
   } = require("../../Utils/Web/siteSuggestionsApi");
   const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
   app.get("/webhooks/site-rules", (req, res) => {
@@ -817,6 +818,26 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-suggestions reject:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-suggestions/:suggestionId/delete", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await staffDeleteSiteSuggestion(client, {
+        accessToken,
+        suggestionId: req.params?.suggestionId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions delete:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

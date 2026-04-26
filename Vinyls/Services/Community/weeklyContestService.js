@@ -36,10 +36,18 @@ const IS_DISEGNI_CONTEST = ACTIVE_CONTEST_PROFILE === "disegni";
 /** `disegni` = 2° unlock profilo + 3° +10 livelli. `outfit` = solo 3° ruolo VIP 30 giorni (nessun unlock / livelli automatici). */
 const DISEGNI_FINALE_PRIZE_MODE = String(process.env.WEEKLY_CONTEST_DISEGNI_FINALE_PRIZE_MODE || "disegni").trim().toLowerCase();
 const IS_OUTFIT_FINALE_PRIZES = IS_DISEGNI_CONTEST && DISEGNI_FINALE_PRIZE_MODE === "outfit";
+/** Titoli "Contest outfit" (+evento classifica, classifica finale): `outfit` oppure chiave evento che contiene "outfit". Non usare solo FINALE_PRIZE_MODE per evitare label errate su eventi disegni-… passati. */
+const DISEGNI_UI_BRAND = String(process.env.WEEKLY_CONTEST_DISEGNI_UI_BRAND || "").trim().toLowerCase();
 
 const SFONDI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_SFONDI_EVENT_KEY || "sfondi-2026-04-13").trim();
 const DISEGNI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_DISEGNI_EVENT_KEY || "disegni-2026-04-20").trim();
 const EVENT_KEY_PRODUCTION = IS_DISEGNI_CONTEST ? DISEGNI_EVENT_KEY_PRODUCTION : SFONDI_EVENT_KEY_PRODUCTION;
+
+function disegniContestUiOutfit() {
+  if (!IS_DISEGNI_CONTEST) return false;
+  if (DISEGNI_UI_BRAND === "outfit") return true;
+  return String(EVENT_KEY_PRODUCTION || "").toLowerCase().includes("outfit");
+}
 const CONTEST_TEST_MODE = parseEnvFlag(process.env.WEEKLY_CONTEST_SFONDI_TEST_MODE, false);
 const EVENT_KEY_TEST = String(process.env.WEEKLY_CONTEST_SFONDI_TEST_EVENT_KEY || "sfondi-sandbox").trim();
 const EVENT_KEY = CONTEST_TEST_MODE ? EVENT_KEY_TEST : EVENT_KEY_PRODUCTION;
@@ -156,6 +164,10 @@ const STAFF_ROLE_IDS = new Set(
 /** Contest sfondi (submission): vietati Admin / HighStaff / Founder; con ruolo Staff serve Helper o Mod. */
 const SFONDI_SUBMIT_BLOCK_ALWAYS = new Set(
   [IDs.roles?.Admin, IDs.roles?.HighStaff, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
+);
+/** Contest outfit (submission): vietati Admin e Founder; Helper e Mod sì; con ruolo Staff serve Helper o Mod. */
+const OUTFIT_SUBMIT_BLOCK_ALWAYS = new Set(
+  [IDs.roles?.Admin, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
 );
 const SFONDI_SUBMIT_HELPER_OR_MOD = new Set(
   [IDs.roles?.Helper, IDs.roles?.Mod].filter(Boolean).map((id) => String(id)),
@@ -363,6 +375,15 @@ function hasAnyRole(member, idSet) {
 function isMemberEligibleSfondiContestSubmission(member) {
   if (!member?.roles?.cache) return true;
   if (hasAnyRole(member, SFONDI_SUBMIT_BLOCK_ALWAYS)) return false;
+  if (SFONDI_SUBMIT_STAFF_WRAPPER_ID && member.roles.cache.has(SFONDI_SUBMIT_STAFF_WRAPPER_ID)) {
+    if (!hasAnyRole(member, SFONDI_SUBMIT_HELPER_OR_MOD)) return false;
+  }
+  return true;
+}
+
+function isMemberEligibleOutfitContestSubmission(member) {
+  if (!member?.roles?.cache) return true;
+  if (hasAnyRole(member, OUTFIT_SUBMIT_BLOCK_ALWAYS)) return false;
   if (SFONDI_SUBMIT_STAFF_WRAPPER_ID && member.roles.cache.has(SFONDI_SUBMIT_STAFF_WRAPPER_ID)) {
     if (!hasAnyRole(member, SFONDI_SUBMIT_HELPER_OR_MOD)) return false;
   }
@@ -816,6 +837,19 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
         .send({
           content:
             `${message.author} <:VC_Attention:1482534443632558151> **Contest sfondi:** possono inviare uno sfondo i membri e, tra lo staff, solo chi ha **Helper** o **Mod**. Non possono partecipare **Admin**, **High Staff** e **Founder**; chi ha solo il ruolo **Staff** senza Helper/Mod non può inviare.`,
+          allowedMentions: { users: [message.author.id] },
+        })
+        .catch(() => null);
+      await message.delete().catch(() => {});
+      if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
+      return true;
+    }
+
+    if (IS_DISEGNI_CONTEST && memberForRules && disegniContestUiOutfit() && !isMemberEligibleOutfitContestSubmission(memberForRules)) {
+      const warn = await message.channel
+        .send({
+          content:
+            `${message.author} <:VC_Attention:1482534443632558151> **Contest outfit:** possono inviare una foto i membri; tra lo staff possono partecipare **Helper** e **Mod**. Non possono partecipare **Admin** e **Founder**; chi ha solo il ruolo **Staff** senza Helper o Mod non può inviare.`,
           allowedMentions: { users: [message.author.id] },
         })
         .catch(() => null);
@@ -1742,9 +1776,7 @@ async function runContestFinaleClassificaAnnounceJob(client) {
   const payload = await buildSfondiClassificaPayload(guild, "mobile", EVENT_KEY_PRODUCTION);
   const firstEmb = payload.embeds?.[0];
   if (firstEmb && typeof firstEmb.setTitle === "function") {
-    firstEmb.setTitle(
-      IS_OUTFIT_FINALE_PRIZES ? "Classifica finale · Contest outfit" : "Classifica finale · Contest disegni",
-    );
+    firstEmb.setTitle(disegniContestUiOutfit() ? "Classifica finale · Contest outfit" : "Classifica finale · Contest disegni");
   }
 
   try {
@@ -1764,7 +1796,7 @@ async function runContestFinaleClassificaAnnounceJob(client) {
   ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] classifica finale meta:", err));
 
   global.logger?.info?.(
-    `[WEEKLY_CONTEST] Classifica finale pubblicata in ${channelId} (${IS_OUTFIT_FINALE_PRIZES ? "outfit" : "disegni"}) event=${EVENT_KEY_PRODUCTION}.`,
+    `[WEEKLY_CONTEST] Classifica finale pubblicata in ${channelId} (${disegniContestUiOutfit() ? "outfit" : "disegni"}) event=${EVENT_KEY_PRODUCTION}.`,
   );
 }
 
@@ -1969,7 +2001,7 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
   }
 
   const titleSuffix = !CHANNEL_PC_ID
-    ? IS_OUTFIT_FINALE_PRIZES
+    ? disegniContestUiOutfit()
       ? "Contest outfit"
       : "Contest disegni"
     : cat === "mobile"
@@ -2289,6 +2321,7 @@ module.exports = {
   ACTIVE_CONTEST_PROFILE,
   IS_DISEGNI_CONTEST,
   IS_OUTFIT_FINALE_PRIZES,
+  disegniContestUiOutfit,
   SFONDI_EVENT_KEY_PRODUCTION,
   DISEGNI_EVENT_KEY_PRODUCTION,
   CONTEST_TEST_MODE,

@@ -494,6 +494,37 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
   };
 }
 
+async function staffDeleteSiteSuggestion(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+  if (!memberCanModerateSuggestions(resolved.member)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "forbidden",
+      message: "Solo l'High Staff può eliminare definitivamente i suggerimenti.",
+    };
+  }
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
+  }
+
+  const del = await SiteSuggestion.deleteOne({
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+  }).catch(() => null);
+
+  const n = Number(del?.deletedCount ?? del?.n ?? 0);
+  if (!del || n < 1) {
+    return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato." };
+  }
+
+  return { ok: true, status: 200, message: "Suggerimento eliminato definitivamente." };
+}
+
 module.exports = {
   getSiteSuggestions,
   createSiteSuggestion,
@@ -501,4 +532,5 @@ module.exports = {
   setSiteSuggestionVote,
   staffAcceptSiteSuggestion,
   staffRejectSiteSuggestion,
+  staffDeleteSiteSuggestion,
 };
