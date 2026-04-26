@@ -96,13 +96,13 @@ const reminderPool = [
         '<:VC_Link:1482460590894088222> Basta mettere ".gg/viniliecaffe" nello stato, boostare il server o arrivare al Livello 10 per sbloccarli velocemente.',
         `> <a:VC_Arrow:1482706699365257397> Scopri tutte le ricompense di boost & livelli su: <#1442569111119990887>`,
       ].join("\n")),
-  /*() =>
+  () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<:VC_Pokeball:1479444536227926107> Pokémon: ce la farai a prenderli tutti?")
       .setDescription([
         "<a:VC_PikaWave:1331622011004260354> Se ami i Pokémon, vieni nel canale <#1442569184281362552> e cattura i tuoi preferiti insieme agli altri membri!",
-      ].join("\n")),*/
+      ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
@@ -158,33 +158,6 @@ const reminderPool = [
         "<:VC_Vip:1482534921472835895> Su <#1469429150669602961> scegli ruoli e colori per rendere unico il tuo nome nel server.",
         "",
         `<a:VC_Boost:1482706171386269830> Alcuni colori/ruoli si sbloccano con livelli o boost: rendi il tuo profilo davvero personale!`,
-      ].join("\n")),
-  () =>
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("<a:VC_Coffe:1448695567244066827> Entra nella community più sociale!")
-      .setDescription([
-        "<:VC_Chat:1482532573002465413> **Zero tossicità, solo chiacchiere, musica, passioni e nuove amicizie!**",
-        "",
-        "<a:VC_PepeKeyboard:1448688327782826024> Partecipa in chat, gioca e scopri le attività: più sei attivo, più livelli e premi ottieni.",
-      ].join("\n")),
-  () =>
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("<:VC_Link:1482460590894088222> BUMPA e fai crescere il server!")
-      .setDescription([
-        "<:VC_FrogCute:1331620415185096746> Usa `/bump` con Disboard: ogni bump fa salire Vinili & Caffè in classifica e ci porta nuovi amici!",
-        "",
-        "<:VC_bump:1482531857521311885> Ricorda di controllare il cooldown e di bumpare appena puoi.",
-      ].join("\n")),
-  () =>
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setTitle("<:VC_Eye:1331619214410383381> Non sai da dove partire?")
-      .setDescription([
-        "<a:VC_NewsExclamation:1471891662786527253> Scrivi **`+help`** per vedere tutti i comandi bot, giochi e funzioni!",
-        "",
-        `<:VC_InactiveStatus:1482526984234860574> Per info su livelli, ruoli, minigiochi e regole: <#1442569111119990887>. Trovi davvero tutto lì!`,
       ].join("\n")),
   () =>
     new EmbedBuilder()
@@ -267,13 +240,13 @@ const reminderPool = [
       .setDescription([
         "<a:VC_Rocket:1468544312475123753> Hai un'idea o vuoi proporre qualcosa di nuovo? Scrivilo subito in <#1442569147559973094> e aiutaci a rendere Vinili & Caffè sempre migliore!",
       ].join("\n")),
-  /*() =>
+  () =>
     new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle("<a:VC_PandaWeee:1331604262152835115> Mudae: colleziona anime e divertiti!")
       .setDescription([
         "<a:VC_Please:1448671483575533620> Se ami gli anime, prova <#1442569182825681077>: colleziona i tuoi personaggi preferiti e sfida gli altri appassionati!",
-      ].join("\n")),*/
+      ].join("\n")),
   () =>
     new EmbedBuilder()
       .setColor("#6f4e37")

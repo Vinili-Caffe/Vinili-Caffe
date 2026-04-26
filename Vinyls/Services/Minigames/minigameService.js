@@ -107,11 +107,7 @@ const {
   FAMOUS_CAPITAL_COUNTRIES,
   FLAG_WELL_KNOWN_COUNTRIES,
 } = require("../../Data/Minigames/minigameBanks");
-const {
-  accountUsername,
-  userAvatarUrlDynamic,
-  guildFirstThumbnailUrl,
-} = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const activeGames = new Map();
 const pendingGames = new Map();
 const loopState = new WeakSet();
@@ -3704,10 +3700,7 @@ function buildRewardEmbed(member, reward, totalExp) {
     .setColor("#6f4e37")
     .setAuthor({
       name: accountUsername(member),
-      iconURL:
-        guildFirstThumbnailUrl(member.guild, member) ||
-        userAvatarUrlDynamic(member) ||
-        undefined,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(member) || undefined,
     })
     .setDescription(description)
     .setFooter({

@@ -7,7 +7,7 @@ const {
 } = require("../../Prefix/Level/classifica");
 const { findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const LIST_CACHE_TTL_MS = 30_000;
 const listCache = new Map();
@@ -191,7 +191,7 @@ async function buildCustomProfileData(guild, userId) {
       id: String(member.id || member.user?.id || ""),
       username: String(member.user?.username || "").trim(),
       displayName: String(member.user?.username || "Utente").trim(),
-      avatarUrl: userAvatarUrlDynamic(member, { size: 128 }) || "",
+      avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
     }))
     .filter((member) => member.id);
   let voiceSharedCount = 0;

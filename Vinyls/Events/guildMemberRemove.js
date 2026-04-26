@@ -22,7 +22,7 @@ const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifi
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
-const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const STAFF_TRACKED_ROLE_IDS = new Set([
@@ -125,7 +125,7 @@ async function sendLeaveLog(member) {
     .setDescription([`${member.user} ${member.user.tag}.`, ""].join("\n"))
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
-    .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || null);
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
 
   await channel.send({ embeds: [embed] }).catch((err) => {
     global.logger.error("[guildMemberRemove] Failed to send leave log:", err);

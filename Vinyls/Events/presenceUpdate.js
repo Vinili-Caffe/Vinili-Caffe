@@ -5,10 +5,7 @@ const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas")
 const IDs = require("../Utils/Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
-const {
-  guildFirstThumbnailUrl,
-  userAvatarUrlDynamic,
-} = require("../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Supporter;
@@ -470,9 +467,7 @@ async function getPersistedStatus(guildId, userId) {
 }
 
 function buildPendingEmbed(member) {
-  const thumb =
-    guildFirstThumbnailUrl(member.guild, member, { size: 256 }) ||
-    userAvatarUrlDynamic(member, { size: 256 });
+  const thumb = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({

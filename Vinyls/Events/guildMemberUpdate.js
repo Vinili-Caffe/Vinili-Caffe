@@ -22,7 +22,7 @@ const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
-const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -50,7 +50,7 @@ function buildJoinGateTriggeredEmbed(member, reason) {
         `${ARROW} **Reason:** ${reason}`,
       ].join("\n"),
     )
-    .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || null);
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
 }
 
 function toDiscordTimestamp(value = new Date(), style = "F") {
@@ -361,7 +361,7 @@ async function addPerkRoleIfPossible(member) {
 }
 
 function buildGuildedEmbed(member) {
-  const avatarUrl = userAvatarUrlDynamic(member, { size: 256 });
+  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
@@ -404,7 +404,7 @@ async function removePlusColorsIfNotEligible(member) {
 }
 
 function buildBoostEmbed(member, boostCount) {
-  const avatarUrl = userAvatarUrlDynamic(member, { size: 256 });
+  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   return new EmbedBuilder()
     .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
     .setTitle(
@@ -626,7 +626,7 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
             `${ARROW} **Member Punished?** ${punished?"Yes":"No"}`,
           ].join("\n"),
         )
-        .setThumbnail(userAvatarUrlDynamic(newMember, { size: 256 }) || null)
+        .setThumbnail(guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || null)
         .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
     : buildJoinGateTriggeredEmbed(
         newMember,

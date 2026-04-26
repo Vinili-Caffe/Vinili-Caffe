@@ -1,7 +1,7 @@
 const { randomInt } = require("crypto");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderShipCanvas = require("../../Utils/Render/shipCanvas");
 
@@ -125,10 +125,17 @@ module.exports = {
     }
 
     try {
+      const guild = message.guild;
+      const leftMem =
+        guild?.members.cache.get(left.id) ||
+        (await getGuildMemberCached(guild, left.id).catch(() => null));
+      const rightMem =
+        guild?.members.cache.get(right.id) ||
+        (await getGuildMemberCached(guild, right.id).catch(() => null));
       const percent = randomShipPercent(message.id);
       const { buffer, format } = await renderShipCanvas({
-        leftAvatarUrl: userAvatarUrlDynamic(left, { size: 512 }) || "",
-        rightAvatarUrl: userAvatarUrlDynamic(right, { size: 512 }) || "",
+        leftAvatarUrl: guildMemberDisplayAvatarUrlDynamic(leftMem || left, { size: 512 }) || "",
+        rightAvatarUrl: guildMemberDisplayAvatarUrlDynamic(rightMem || right, { size: 512 }) || "",
         leftName: trimName(left.username),
         rightName: trimName(right.username),
         leftId: left.id,

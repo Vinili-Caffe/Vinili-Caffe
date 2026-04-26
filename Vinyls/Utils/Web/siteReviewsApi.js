@@ -5,7 +5,7 @@ const { SiteReview, ActivityUserProfile } = require("../../Schemas/Community/com
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
 const ADMIN_ROLE_ID = String(IDs?.roles?.Admin || "").trim();
@@ -98,7 +98,7 @@ async function getStaffTargets(client, guild) {
     .map((member) => ({
       id: String(member.id),
       name: displayNameForMember(member),
-      avatarUrl: userAvatarUrlDynamic(member, { size: 128 }) || "",
+      avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "it", { sensitivity: "base" }));
   const ids = new Set(list.map((entry) => entry.id));
@@ -395,7 +395,7 @@ async function submitSiteReview(client, payload = {}) {
         rating,
         content,
         authorName: displayNameForMember(resolved.member),
-        authorAvatarUrl: userAvatarUrlDynamic(resolved.member, { size: 128 }) || "",
+        authorAvatarUrl: guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) || "",
         staffName,
         staffAvatarUrl,
       },

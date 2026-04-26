@@ -3,10 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getAutoModMemberSnapshot, isAutoModRoleExemptMember, } = require("../../Services/Moderation/automodService");
 const{isWhitelistedExecutor,}=require("../../Services/Moderation/antiNukeService");
-const {
-  accountUsername,
-  userAvatarUrlDynamic,
-} = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 function boolIcon(value) {
   return value ? "<:success:1461731530333229226>" : "<:cancel:1461730653677551691>";
@@ -161,7 +158,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(member.displayHexColor && member.displayHexColor !== "#000000" ? member.displayHexColor : "#6f4e37")
       .setTitle(`Who is ${accountUsername(member)}?`)
-      .setThumbnail(userAvatarUrlDynamic(member, { size: 256 }) || null)
+      .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null)
       .setDescription(
         [
           "**General Informations:**",

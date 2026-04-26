@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const MSTATS_CACHE_TTL_MS = 45 * 1000;
 const mstatsCache = new Map();
@@ -76,7 +76,7 @@ module.exports = {
       .setAuthor({
         name: targetUser.username,
         iconURL:
-          userAvatarUrlDynamic(targetMember || targetUser) || undefined,
+          guildMemberDisplayAvatarUrlDynamic(targetMember || targetUser) || undefined,
       })
       .setTitle(`Le statistiche nei Minigames di ${targetUser.username} <a:VC_Flowers:1468687836055212174>`)
       .setDescription(descLines.join("\n"));

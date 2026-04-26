@@ -3,11 +3,7 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
-const {
-  guildFirstThumbnailUrl,
-  userAvatarUrlDynamic,
-  accountUsername,
-} = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryGames].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
@@ -442,9 +438,7 @@ async function getResolvedWeeklyExpMultiplier(guild, userId, guildSettings = nul
 }
 
 function buildLevelUpEmbed(member, level) {
-  const avatarUrl =
-    guildFirstThumbnailUrl(member?.guild, member, { size: 256 }) ||
-    userAvatarUrlDynamic(member, { size: 256 });
+  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   const name = accountUsername(member);
   return {
     embeds: [
@@ -480,9 +474,7 @@ async function sendLevelUpAnnouncement(guild, member, level) {
 }
 
 function buildPerksLevelEmbed(member, level, roleId) {
-  const avatarUrl =
-    guildFirstThumbnailUrl(member?.guild, member, { size: 256 }) ||
-    userAvatarUrlDynamic(member, { size: 256 });
+  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   return {
     embeds: [
       {
@@ -510,9 +502,7 @@ async function sendPerksLevelMessage(guild, member, level) {
 
 function buildPerkNearDmEmbed(member, targetLevel, roleLabel, missingExp) {
   const safeRoleLabel = String(roleLabel || "<:VC_Mention:1482526855289634997> Ruolo sconosciuto").trim();
-  const perkThumb =
-    guildFirstThumbnailUrl(member?.guild, member, { size: 256 }) ||
-    userAvatarUrlDynamic(member, { size: 256 });
+  const perkThumb = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   return {
     embeds: [
       {

@@ -5,7 +5,7 @@ const { initPartnerManagerFieldsIfMissing } = require("../../Utils/Staff/staffPm
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
@@ -227,7 +227,7 @@ async function handlePartnerModal(interaction) {
     const embed = new EmbedBuilder()
       .setAuthor({
         name: interaction.user.username,
-        iconURL: userAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
+        iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
       })
       .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${interaction.user.username}**`)
       .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
@@ -294,7 +294,7 @@ async function handlePartnerModal(interaction) {
     const embed = new EmbedBuilder()
       .setAuthor({
         name: interaction.user.username,
-        iconURL: userAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
+        iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
       })
       .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
       .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`

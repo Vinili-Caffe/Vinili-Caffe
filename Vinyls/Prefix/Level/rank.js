@@ -5,10 +5,10 @@ const { getUserRanks, getResolvedWeeklyExpMultiplier } = require("../../Services
 const renderRankCanvas = require("../../Utils/Render/rankCanvas");
 const { getRankCardThemeFromDoc } = require("../../Utils/Render/rankCardTheme");
 const IDs = require("../../Utils/Config/ids");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 function resolvePreferredAvatarUrl(member, user) {
-  return userAvatarUrlDynamic(member || user, { size: 256 }) || "";
+  return guildMemberDisplayAvatarUrlDynamic(member || user, { size: 256 }) || "";
 }
 
 module.exports = {

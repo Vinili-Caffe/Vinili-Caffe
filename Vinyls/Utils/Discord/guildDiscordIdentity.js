@@ -37,6 +37,30 @@ function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
 }
 
 /**
+ * Avatar del membro **nel server**: avatar di guild se impostato, altrimenti globale (GIF se animato).
+ * Con solo `User` (senza `guild` su `GuildMember`) equivale a {@link userAvatarUrlDynamic}.
+ * @param {import("discord.js").GuildMember|import("discord.js").User|null|undefined} memberLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string|null}
+ */
+function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
+  if (memberLike?.guild && typeof memberLike.displayAvatarURL === "function") {
+    const guildHash = memberLike.avatar;
+    const userHash = memberLike.user?.avatar ?? null;
+    const hash = guildHash != null ? guildHash : userHash;
+    const animated = Boolean(hash && String(hash).startsWith("a_"));
+    return (
+      memberLike.displayAvatarURL({
+        size,
+        extension: animated ? "gif" : "png",
+        forceStatic: false,
+      }) || null
+    );
+  }
+  return userAvatarUrlDynamic(memberLike, { size });
+}
+
+/**
  * Username Discord (handle), non `displayName` / nickname.
  * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
  * @returns {string}
@@ -60,6 +84,7 @@ function guildFirstThumbnailUrl(guild, userLike, { size = 256 } = {}) {
 module.exports = {
   guildIconUrl,
   userAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlDynamic,
   accountUsername,
   guildFirstThumbnailUrl,
 };

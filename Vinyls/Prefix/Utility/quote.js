@@ -4,11 +4,7 @@ const renderQuoteCanvas = require("../../Utils/Render/quoteCanvas");
 const { nextQuoteCount } = require("../../Utils/Quote/quoteCounter");
 const { QuotePrivacy } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
-const {
-  guildFirstThumbnailUrl,
-  accountUsername,
-  userAvatarUrlDynamic,
-} = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const QUOTE_CHANNEL_ID = IDs.channels.quotes;
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
@@ -84,6 +80,8 @@ module.exports = {
       });
     }
 
+    const quoteUserLabel = accountUsername(author) || displayName;
+
     try {
       const privacy=await QuotePrivacy.findOne({guildId:message.guild.id,userId:author.id,});
       if (privacy?.blocked) {
@@ -118,9 +116,7 @@ module.exports = {
       const footerText = String(message.client?.config?.botServerInvite || "").replace(/^https?:\/\//i, "").trim();
       const guild = message.guild;
       const coverImageUrl =
-        guildFirstThumbnailUrl(guild, author, { size: 512 }) ||
-        userAvatarUrlDynamic(author, { size: 512 }) ||
-        "";
+        guildMemberDisplayAvatarUrlDynamic(targetMessage.member || author, { size: 512 }) || "";
       const out = await renderQuoteCanvas({
         coverImageUrl,
         message: text,

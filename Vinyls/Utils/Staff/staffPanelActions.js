@@ -5,7 +5,7 @@ const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex 
 const IDs = require("../../Utils/Config/ids");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers");
@@ -611,10 +611,10 @@ async function runProfileStaffWarnAdd(guild, client, targetUser, actorUser, reas
   const warnEmbed = new EmbedBuilder()
     .setAuthor({
       name: `Warn eseguito da ${actorUser.username}`,
-      iconURL: userAvatarUrlDynamic(actorUser) || undefined,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(actorUser) || undefined,
     })
     .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``)
-    .setThumbnail(userAvatarUrlDynamic(targetMember || targetUser) || undefined)
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetMember || targetUser) || undefined)
     .setDescription(
       `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetUser}
             <:VC_reason:1478517122929004544> __${reason}__ 
@@ -646,10 +646,10 @@ async function runProfileStaffWarnRemove(guild, client, targetUser, actorUser, r
     const embed = new EmbedBuilder()
       .setAuthor({
         name: `<:cancel:1461730653677551691> Warn staff rimosso da ${actorUser.username}`,
-        iconURL: userAvatarUrlDynamic(actorUser) || undefined,
+        iconURL: guildMemberDisplayAvatarUrlDynamic(actorUser) || undefined,
       })
       .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF RIMOSSO__**`)
-      .setThumbnail(userAvatarUrlDynamic(targetUser) || undefined)
+      .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetUser) || undefined)
       .setDescription(
         `<:VC_Staff:1494286904089247754> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**`,
       )
