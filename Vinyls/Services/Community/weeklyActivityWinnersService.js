@@ -298,6 +298,21 @@ async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3)
   return out;
 }
 
+function uniqueRankingByUserId(rows, limit = 3) {
+  const cap = Math.max(1, Math.min(25, Number(limit) || 3));
+  const out = [];
+  const seen = new Set();
+  const list = Array.isArray(rows) ? rows : [];
+  for (const row of list) {
+    const userId = String(row?.userId || "").trim();
+    if (!userId || seen.has(userId)) continue;
+    out.push(row);
+    seen.add(userId);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
 async function removeRoleFromAllMembers(guild, roleId, keepUserId = "") {
   if (!roleId) return;
   await guild.members.fetch().catch(() => null);
@@ -461,8 +476,8 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     const topMessages = await resolveTopThreeUsers(client, guild, messageDocs, (doc) => Number(doc?.messageCount || 0), 10);
     const topVoice = await resolveTopThreeUsers(client, guild, voiceDocs, (doc) => Number(doc?.voiceExp || 0), 10);
     const dedupe = deduplicateTopTwoLists(topMessages.slice(0, 3), topVoice.slice(0, 3), topMessages, topVoice, 3);
-    displayTopMessages = dedupe.listA;
-    displayTopVoice = dedupe.listB;
+    displayTopMessages = uniqueRankingByUserId(dedupe.listA, 3);
+    displayTopVoice = uniqueRankingByUserId(dedupe.listB, 3);
     messageRows = displayTopMessages.length
       ? displayTopMessages.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "messaggi"))
       : [buildEmptyLine("messaggi")];

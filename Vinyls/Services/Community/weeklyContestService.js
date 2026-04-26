@@ -3,7 +3,14 @@ const { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBu
 const IDs = require("../../Utils/Config/ids");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const { loadHourlyRows } = require("./activityService");
-const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, sumExpDeltaFromLevelHistoryForRomeDay } = require("./expService");
+const {
+  MESSAGE_EXP,
+  VOICE_EXP_PER_MINUTE,
+  sumExpDeltaFromLevelHistoryForRomeDay,
+  addExpWithLevel,
+  getUserExpStats,
+  getTotalExpForLevel,
+} = require("./expService");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
 const { getClientChannelCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const {
@@ -121,6 +128,10 @@ const TROPHY_LABELS_BONUS = [
 const PRIZE_ROLE_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const CONTEST_PRIZE_VIP_ROLE_ID = String(IDs.roles?.VIP || "").trim();
 const CONTEST_PRIZE_DONATOR_ROLE_ID = String(IDs.roles?.Donator || "").trim();
+const CONTEST_PRIZE_DISEGNI_ACCESS_ROLE_ID = String(
+  process.env.WEEKLY_CONTEST_DISEGNI_ACCESS_ROLE_ID || IDs.roles?.VIPplus || "",
+).trim();
+const CONTEST_PRIZE_DISEGNI_LEVEL_BONUS = 10;
 
 const STAFF_ROLE_IDS = new Set(
   [
@@ -1456,6 +1467,48 @@ async function tryGrantContestFinaleTempRole(guild, userId, roleId, durationMs) 
   };
 }
 
+async function tryGrantContestFinalePermanentRole(guild, userId, roleId) {
+  const uid = String(userId || "").trim();
+  const rid = String(roleId || "").trim();
+  if (!uid || !rid || !guild) return false;
+  const member =
+    (await getGuildMemberCached(guild, uid, { preferFresh: true })) || (await guild.members.fetch(uid).catch(() => null));
+  if (!member) return false;
+  if (member.roles.cache.has(rid)) return true;
+  await member.roles.add(rid, "Contest disegni: premio secondo posto").catch((err) => {
+    global.logger?.warn?.("[WEEKLY_CONTEST] finale premio add ruolo permanente:", uid, rid, err?.message || err);
+  });
+  const after =
+    (await getGuildMemberCached(guild, uid, { preferFresh: true })) || (await guild.members.fetch(uid).catch(() => null));
+  return Boolean(after?.roles?.cache?.has?.(rid));
+}
+
+async function tryGrantContestFinaleBonusLevels(guild, userId, bonusLevels, eventKey, category) {
+  const uid = String(userId || "").trim();
+  const lvBonus = Math.max(0, Math.floor(Number(bonusLevels || 0)));
+  if (!guild || !uid || !lvBonus) return { ok: false, reason: "invalid_input", awardedLevels: 0, deltaExp: 0 };
+  const stats = await getUserExpStats(guild.id, uid).catch(() => null);
+  if (!stats) return { ok: false, reason: "stats_unavailable", awardedLevels: 0, deltaExp: 0 };
+  const currentLevel = Math.max(0, Math.floor(Number(stats.level || 0)));
+  const currentTotalExp = Math.max(0, Math.floor(Number(stats.totalExp || 0)));
+  const targetLevel = currentLevel + lvBonus;
+  const targetExp = Math.max(currentTotalExp, Math.floor(Number(getTotalExpForLevel(targetLevel) || 0)));
+  const deltaExp = Math.max(0, targetExp - currentTotalExp);
+  if (!deltaExp) return { ok: true, awardedLevels: 0, deltaExp: 0 };
+  const note = `Contest ${String(eventKey || EVENT_KEY_PRODUCTION)} [${String(category || "mobile")}] premio 3°: +${lvBonus} livelli`;
+  const result = await addExpWithLevel(guild, uid, deltaExp, false, false, {
+    source: "contest_finale",
+    note,
+  }).catch(() => null);
+  if (!result) return { ok: false, reason: "exp_grant_failed", awardedLevels: 0, deltaExp: 0 };
+  const afterLevel = Math.max(0, Math.floor(Number(result?.levelInfo?.level || currentLevel)));
+  return {
+    ok: true,
+    awardedLevels: Math.max(0, afterLevel - currentLevel),
+    deltaExp,
+  };
+}
+
 async function processContestFinalePrizeRoleRemovals(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
@@ -1520,7 +1573,8 @@ async function runContestFinalePrizeGrantJob(client) {
     pc: filterFinaleRankingForCategory(rankingPc, "pc", primaryMap),
   };
 
-  for (const category of ["mobile", "pc"]) {
+  const finaleCategories = IS_DISEGNI_CONTEST ? ["mobile"] : ["mobile", "pc"];
+  for (const category of finaleCategories) {
     const metaFresh = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION }).lean().catch(() => null);
     if (isFinaleCategoryResolved(metaFresh, category)) continue;
 
@@ -1528,6 +1582,33 @@ async function runContestFinalePrizeGrantJob(client) {
     const catRemovals = [];
     const second = ranking[1];
     const third = ranking[2];
+    const first = ranking[0];
+
+    if (IS_DISEGNI_CONTEST) {
+      let secondGranted = false;
+      let thirdAward = { ok: false, awardedLevels: 0, deltaExp: 0 };
+      if (second?.userId && isValidGuildUserId(gid, second.userId) && CONTEST_PRIZE_DISEGNI_ACCESS_ROLE_ID) {
+        secondGranted = await tryGrantContestFinalePermanentRole(guild, second.userId, CONTEST_PRIZE_DISEGNI_ACCESS_ROLE_ID);
+      }
+      if (third?.userId && isValidGuildUserId(gid, third.userId)) {
+        thirdAward = await tryGrantContestFinaleBonusLevels(
+          guild,
+          third.userId,
+          CONTEST_PRIZE_DISEGNI_LEVEL_BONUS,
+          EVENT_KEY_PRODUCTION,
+          category,
+        );
+      }
+      await WeeklyContestMeta.findOneAndUpdate(
+        { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+        { $set: { [`finalePrizesResolvedCategories.${category}`]: true } },
+        { upsert: true, setDefaultsOnInsert: true },
+      ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta disegni:", err));
+      global.logger?.info?.(
+        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc privata, ruolo ${secondGranted ? "assegnato" : "non assegnato"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
+      );
+      continue;
+    }
 
     if (second?.userId && isValidGuildUserId(gid, second.userId) && CONTEST_PRIZE_VIP_ROLE_ID) {
       const entry = await tryGrantContestFinaleTempRole(guild, second.userId, CONTEST_PRIZE_VIP_ROLE_ID, PRIZE_ROLE_DURATION_MS);
@@ -1603,6 +1684,9 @@ function startWeeklyContestCron(client) {
   contestCronNoonTask.unref?.();
   void runContestMemberSendChannelsOpenJob(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] apertura Member contest (catch-up avvio):", err?.message || err),
+  );
+  void runContestFinalePrizeGrantJob(client).catch((err) =>
+    global.logger?.warn?.("[WEEKLY_CONTEST] finale premi (catch-up avvio):", err?.message || err),
   );
   return { evening: contestCronEveningTask, noon: contestCronNoonTask };
 }

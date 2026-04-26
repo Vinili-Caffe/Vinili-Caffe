@@ -729,6 +729,7 @@
     if (kind === "success") return "fa-check-circle-o";
     if (kind === "review") return "fa-star-o";
     if (kind === "mod") return "fa-shield";
+    if (kind === "suggestion") return "fa-lightbulb-o";
     return "fa-info-circle";
   }
   function notificationsPageUrl() {
@@ -946,7 +947,9 @@
             ? "review"
             : kindRaw === "mod"
               ? "mod"
-              : "info";
+              : kindRaw === "suggestion"
+                ? "suggestion"
+                : "info";
     var openUrl = "";
     if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
     var stableId = p && p.id != null ? String(p.id).trim() : "";

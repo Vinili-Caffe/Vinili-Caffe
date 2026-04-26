@@ -10,7 +10,7 @@ function normalizeUserId(userId) {
 
 function normalizeKind(kind) {
   const k = String(kind || "info").trim().toLowerCase();
-  if (["vote", "success", "info", "review", "mod"].includes(k)) return k;
+  if (["vote", "success", "info", "review", "mod", "suggestion"].includes(k)) return k;
   return "info";
 }
 

@@ -1,5 +1,7 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { buildSfondiClassificaPayload } = require("../../Services/Community/weeklyContestService");
+const IDs = require("../../Utils/Config/ids");
+const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 
 module.exports = {
   name: "evento",
@@ -23,6 +25,18 @@ module.exports = {
     if (!message.guild) return;
     await message.channel.sendTyping?.().catch(() => {});
     const payload = await buildSfondiClassificaPayload(message.guild, "mobile");
+    const contestDisegniChannelId = String(IDs.channels?.contestDisegni || "").trim();
+    if (contestDisegniChannelId) {
+      const contestChannel =
+        message.guild.channels.cache.get(contestDisegniChannelId) ||
+        (await getGuildChannelCached(message.guild, contestDisegniChannelId));
+      if (contestChannel?.isTextBased?.()) {
+        await contestChannel.send({
+          ...payload,
+          allowedMentions: { parse: [] },
+        }).catch(() => {});
+      }
+    }
     await safeMessageReply(message, {
       ...payload,
       allowedMentions: { repliedUser: false },

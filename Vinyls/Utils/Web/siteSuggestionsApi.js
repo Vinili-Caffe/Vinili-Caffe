@@ -3,6 +3,7 @@ const IDs = require("../Config/ids");
 const { SiteSuggestion } = require("../../Schemas/Community/communitySchemas");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 
 const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
 const MAX_SUGGESTION_LEN = 2000;
@@ -33,6 +34,39 @@ function sanitizeStaffReason(value) {
     .replace(/\r/g, "\n")
     .trim()
     .slice(0, 1000);
+}
+
+function clipNotifBody(text, maxLen) {
+  const s = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
+}
+
+async function notifySuggestionAuthor(guildId, authorUserId, payload) {
+  const gid = String(guildId || "").trim();
+  const aid = String(authorUserId || "").trim();
+  if (!gid || !aid) return;
+  const opts = {
+    guildId: gid,
+    userId: aid,
+    title: String(payload.title || "").trim().slice(0, 120),
+    body: String(payload.body || "").trim().slice(0, 500),
+    kind: payload.kind || "suggestion",
+    openUrl: String(payload.openUrl || "/suggerimenti").trim().slice(0, 400),
+  };
+  if (payload.dedupeKey != null && String(payload.dedupeKey).trim()) {
+    opts.dedupeKey = String(payload.dedupeKey).trim().slice(0, 120);
+    opts.dedupeWindowMs = Number(payload.dedupeWindowMs) || 60_000;
+  }
+  try {
+    await enqueueSiteInAppNotification(opts);
+  } catch (e) {
+    global.logger?.warn?.("[siteSuggestions] in-app notification:", e?.message || e);
+  }
 }
 
 async function resolveGuild(client) {
@@ -99,13 +133,23 @@ async function getSiteSuggestions(client, payload = {}) {
     }
   }
 
-  const docs = await SiteSuggestion.find({ guildId: guild.id })
+  const viewerId = viewer && viewer.id ? String(viewer.id) : "";
+  const canModerate = Boolean(viewer && viewer.canModerateSuggestions);
+  const query = { guildId: guild.id };
+  if (!canModerate) {
+    if (viewerId) {
+      query.$or = [{ status: { $ne: "rejected" } }, { userId: viewerId }];
+    } else {
+      query.status = { $ne: "rejected" };
+    }
+  }
+
+  const docs = await SiteSuggestion.find(query)
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(LIST_LIMIT)
     .lean()
     .catch(() => []);
 
-  const viewerId = viewer && viewer.id ? String(viewer.id) : "";
   return {
     ok: true,
     status: 200,
@@ -165,7 +209,7 @@ async function addSiteSuggestionComment(client, payload = {}) {
     _id: suggestionId,
     guildId: resolved.guild.id,
   })
-    .select("status comments")
+    .select("status comments userId")
     .lean()
     .catch(() => null);
 
@@ -204,6 +248,17 @@ async function addSiteSuggestionComment(client, payload = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Impossibile salvare il commento." };
   }
 
+  const ownerId = String(existing.userId || "").trim();
+  if (ownerId && ownerId !== String(resolved.userId)) {
+    const who = displayNameForMember(resolved.member);
+    await notifySuggestionAuthor(resolved.guild.id, ownerId, {
+      title: "Nuovo commento al suggerimento",
+      body: `${who} ha commentato: ${clipNotifBody(content, 360)}`,
+      kind: "suggestion",
+      openUrl: "/suggerimenti",
+    });
+  }
+
   return {
     ok: true,
     status: 200,
@@ -232,7 +287,7 @@ async function setSiteSuggestionVote(client, payload = {}) {
     guildId: resolved.guild.id,
     status: "pending",
   })
-    .select("upvoterUserIds downvoterUserIds")
+    .select("upvoterUserIds downvoterUserIds userId")
     .lean()
     .catch(() => null);
 
@@ -248,9 +303,10 @@ async function setSiteSuggestionVote(client, payload = {}) {
   const uid = String(resolved.userId);
   const up = new Set((Array.isArray(fresh.upvoterUserIds) ? fresh.upvoterUserIds : []).map((x) => String(x)));
   const down = new Set((Array.isArray(fresh.downvoterUserIds) ? fresh.downvoterUserIds : []).map((x) => String(x)));
+  const hadUpvote = up.has(uid);
 
   if (direction === "up") {
-    if (up.has(uid)) up.delete(uid);
+    if (hadUpvote) up.delete(uid);
     else {
       down.delete(uid);
       up.add(uid);
@@ -278,6 +334,18 @@ async function setSiteSuggestionVote(client, payload = {}) {
 
   if (!updated) {
     return { ok: false, status: 500, error: "vote_failed", message: "Impossibile salvare il voto." };
+  }
+
+  const authorId = String(fresh.userId || "").trim();
+  const addedUpvote = direction === "up" && !hadUpvote && up.has(uid);
+  if (addedUpvote && authorId && authorId !== uid) {
+    const voterName = displayNameForMember(resolved.member);
+    await notifySuggestionAuthor(resolved.guild.id, authorId, {
+      title: "Mi piace al tuo suggerimento",
+      body: `${voterName} ha messo mi piace al tuo suggerimento sul sito.`,
+      kind: "suggestion",
+      openUrl: "/suggerimenti",
+    });
   }
 
   return {
@@ -339,6 +407,16 @@ async function staffAcceptSiteSuggestion(client, payload = {}) {
     };
   }
 
+  const authorAccept = String(updated.userId || "").trim();
+  if (authorAccept) {
+    await notifySuggestionAuthor(resolved.guild.id, authorAccept, {
+      title: "Suggerimento accettato",
+      body: `Lo staff ha accettato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
+      kind: "success",
+      openUrl: "/suggerimenti",
+    });
+  }
+
   return {
     ok: true,
     status: 200,
@@ -396,6 +474,16 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
       error: "not_found_or_closed",
       message: "Suggerimento non trovato o già gestito.",
     };
+  }
+
+  const authorReject = String(updated.userId || "").trim();
+  if (authorReject) {
+    await notifySuggestionAuthor(resolved.guild.id, authorReject, {
+      title: "Suggerimento rifiutato",
+      body: `Lo staff ha rifiutato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
+      kind: "suggestion",
+      openUrl: "/suggerimenti",
+    });
   }
 
   return {
