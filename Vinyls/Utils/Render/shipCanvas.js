@@ -6,7 +6,7 @@ const { spawnSync } = require("child_process");
 const ffmpegPath = require("ffmpeg-static");
 const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
-const { safeLoadImage } = require("./safeLoadImage");
+const { safeLoadImage, fetchHttpImageBuffer } = require("./safeLoadImage");
 
 function hashSeed(source) {
   let h = 2166136261;
@@ -171,6 +171,80 @@ function runFfmpeg(args) {
     windowsHide: true,
   });
   return Number(out?.status) === 0;
+}
+
+const SHIP_AVATAR_GIF_DECODE_FPS = 12;
+const SHIP_AVATAR_GIF_MAX_FRAMES = 36;
+
+function isGifImageBuffer(buf) {
+  if (!buf || buf.length < 6) return false;
+  const sig = buf.subarray(0, 6).toString("ascii");
+  return sig === "GIF87a" || sig === "GIF89a";
+}
+
+function pickShipAvatarFrame(frames, frameIndex) {
+  if (!Array.isArray(frames) || !frames.length) return null;
+  const i = Math.max(0, Math.floor(Number(frameIndex) || 0));
+  return frames[i % frames.length];
+}
+
+/**
+ * Carica frame avatar per la ship: GIF → più `Image` (ffmpeg), altrimenti un solo frame.
+ * @param {string} tmpDir
+ * @param {string} url
+ * @param {string} prefix
+ * @param {string|null} ffmpegBin
+ * @returns {Promise<any[]>}
+ */
+async function loadShipSideAvatarFrames(tmpDir, url, prefix, ffmpegBin) {
+  const loadImage = canvasModule.loadImage;
+  const u = String(url || "").trim();
+  if (!u) return [];
+  try {
+    const buf = await fetchHttpImageBuffer(u, { timeoutMs: 12_000 });
+    if (!buf?.length) {
+      const img = await safeLoadImage(u, { suppressWarning: true });
+      return img ? [img] : [];
+    }
+    if (!isGifImageBuffer(buf) || !ffmpegBin) {
+      const img = await loadImage(buf).catch(() => null);
+      return img ? [img] : [];
+    }
+    const inPath = path.join(tmpDir, `${prefix}_src.gif`);
+    fs.writeFileSync(inPath, buf);
+    const outPattern = path.join(tmpDir, `${prefix}_%03d.png`);
+    const vf = `fps=${SHIP_AVATAR_GIF_DECODE_FPS}`;
+    const out = spawnSync(
+      ffmpegBin,
+      ["-y", "-i", inPath, "-vf", vf, "-frames:v", String(SHIP_AVATAR_GIF_MAX_FRAMES), outPattern],
+      { stdio: "ignore", windowsHide: true },
+    );
+    if (Number(out?.status) !== 0) {
+      const img = await safeLoadImage(u, { suppressWarning: true });
+      return img ? [img] : [];
+    }
+    const frameRe = new RegExp(`^${prefix}_\\d+\\.png$`, "i");
+    const names = fs
+      .readdirSync(tmpDir)
+      .filter((f) => frameRe.test(f))
+      .sort((a, b) => {
+        const ma = a.match(/_(\d+)\.png$/i);
+        const mb = b.match(/_(\d+)\.png$/i);
+        return (Number(ma?.[1]) || 0) - (Number(mb?.[1]) || 0);
+      });
+    const frames = [];
+    for (const name of names) {
+      const p = path.join(tmpDir, name);
+      const img = await loadImage(fs.readFileSync(p)).catch(() => null);
+      if (img) frames.push(img);
+    }
+    if (frames.length) return frames;
+    const img = await safeLoadImage(u, { suppressWarning: true });
+    return img ? [img] : [];
+  } catch {
+    const img = await safeLoadImage(u, { suppressWarning: true }).catch(() => null);
+    return img ? [img] : [];
+  }
 }
 
 function drawRoundedRect(ctx, x, y, w, h, r) {
@@ -349,8 +423,8 @@ function drawVerticalMeter(ctx, cx, topY, bottomY, width, percentNorm, fillAnim0
 function drawShipFrame(ctx, {
   width,
   height,
-  leftAvatar,
-  rightAvatar,
+  leftAvatarFrames,
+  rightAvatarFrames,
   leftName,
   rightName,
   leftId,
@@ -376,6 +450,8 @@ function drawShipFrame(ctx, {
   );
 
   const cx = width / 2;
+  const leftAvatar = pickShipAvatarFrame(leftAvatarFrames, frameIndex);
+  const rightAvatar = pickShipAvatarFrame(rightAvatarFrames, frameIndex);
 
   if (leftAvatar) {
     drawFramedImage(ctx, leftAvatar, 110, 145, 220, -2.8);
@@ -481,15 +557,36 @@ async function renderSinglePngBuffer(params) {
   const ctx = canvas.getContext("2d");
   const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
-  const [leftAvatar, rightAvatar] = await Promise.all([
-    safeLoadImage(leftAvatarUrl),
-    safeLoadImage(rightAvatarUrl),
-  ]);
+  let tmpDir = "";
+  let leftAvatarFrames = [];
+  let rightAvatarFrames = [];
+  try {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-ship-png-"));
+    [leftAvatarFrames, rightAvatarFrames] = await Promise.all([
+      loadShipSideAvatarFrames(tmpDir, leftAvatarUrl, "L", ffmpegPath),
+      loadShipSideAvatarFrames(tmpDir, rightAvatarUrl, "R", ffmpegPath),
+    ]);
+  } catch {
+    const [a, b] = await Promise.all([
+      safeLoadImage(leftAvatarUrl, { suppressWarning: true }),
+      safeLoadImage(rightAvatarUrl, { suppressWarning: true }),
+    ]);
+    leftAvatarFrames = a ? [a] : [];
+    rightAvatarFrames = b ? [b] : [];
+  } finally {
+    if (tmpDir) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
   drawShipFrame(ctx, {
     width,
     height,
-    leftAvatar,
-    rightAvatar,
+    leftAvatarFrames,
+    rightAvatarFrames,
     leftName,
     rightName,
     leftId,
@@ -525,11 +622,6 @@ module.exports = async function renderShipCanvas(params) {
   const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
 
-  const [leftAvatar, rightAvatar] = await Promise.all([
-    safeLoadImage(leftAvatarUrl),
-    safeLoadImage(rightAvatarUrl),
-  ]);
-
   if (!ffmpegPath) {
     const buf = await renderSinglePngBuffer({
       leftAvatarUrl,
@@ -549,6 +641,10 @@ module.exports = async function renderShipCanvas(params) {
   let tmpDir = "";
   try {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-ship-gif-"));
+    const [leftAvatarFrames, rightAvatarFrames] = await Promise.all([
+      loadShipSideAvatarFrames(tmpDir, leftAvatarUrl, "L", ffmpegPath),
+      loadShipSideAvatarFrames(tmpDir, rightAvatarUrl, "R", ffmpegPath),
+    ]);
     const framePattern = path.join(tmpDir, "ship_%03d.png");
     const palettePath = path.join(tmpDir, "palette.png");
     const outGifPath = path.join(tmpDir, "ship.gif");
@@ -559,8 +655,8 @@ module.exports = async function renderShipCanvas(params) {
       drawShipFrame(ctx, {
         width,
         height,
-        leftAvatar,
-        rightAvatar,
+        leftAvatarFrames,
+        rightAvatarFrames,
         leftName,
         rightName,
         leftId,

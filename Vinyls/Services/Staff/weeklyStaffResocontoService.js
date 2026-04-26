@@ -14,28 +14,26 @@ const TIME_ZONE = "Europe/Rome";
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
   [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
-  [String(IDs.roles.HighStaff)]: { messages: 350, hours: 2.5 },
   /** Admin in resoconto: soglie allineate al ruolo (≥ Mod). */
   [String(IDs.roles.Admin)]: { messages: 500, hours: 5 },
 };
 const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Mod)]: 1,
-  [String(IDs.roles.HighStaff)]: 2,
   [String(IDs.roles.Admin)]: 4,
 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
-const STAFF_ROLE_PRIORITY = [
-  String(IDs.roles.Admin),
-  String(IDs.roles.HighStaff),
-  String(IDs.roles.Mod),
-  String(IDs.roles.Helper),
-];
+/** Ruoli con resoconto attività/sanzioni: Admin, Mod, Helper (High Staff è escluso). */
+const STAFF_ROLE_PRIORITY = [String(IDs.roles.Admin), String(IDs.roles.Mod), String(IDs.roles.Helper)];
+const RESOCONTO_PM_EXCLUDED_USER_IDS = new Set(
+  (Array.isArray(IDs.resocontoExcludePmUserIds) ? IDs.resocontoExcludePmUserIds : [])
+    .map((id) => String(id || "").trim())
+    .filter((id) => /^\d{17,20}$/.test(id)),
+);
 const RESOCONTO_ROLE_RANK = new Map(
   [
     IDs.roles.Member,
     IDs.roles.Helper,
     IDs.roles.Mod,
-    IDs.roles.HighStaff,
     IDs.roles.Admin,
     IDs.roles.Founder,
     IDs.roles.PartnerManager,
@@ -413,29 +411,16 @@ function getPmResocontoPauseDisplayLine(staffDoc, member) {
   return null;
 }
 
+function isPmResocontoExcludedUserId(userId) {
+  return RESOCONTO_PM_EXCLUDED_USER_IDS.has(String(userId || "").trim());
+}
+
 function resolveStaffRole(member) {
   if (!member?.roles?.cache) return null;
   for (const roleId of STAFF_ROLE_PRIORITY) {
     if (member.roles.cache.has(roleId)) return roleId;
   }
   return null;
-}
-
-/**
- * Esclude dal flusso resoconto chi ha solo High Staff (permessi) senza Helper/Mod/Admin.
- * Admin/Mod/Helper con anche High Staff restano inclusi (`resolveStaffRole` dà la scala operativa).
- */
-function shouldSkipResocontoForHighStaffPermissionsOnly(member) {
-  if (!member?.roles?.cache) return false;
-  const pm = String(IDs.roles.PartnerManager || "");
-  if (pm && member.roles.cache.has(pm)) return false;
-  const hs = String(IDs.roles.HighStaff || "");
-  if (!hs || !member.roles.cache.has(hs)) return false;
-  for (const id of [IDs.roles.Admin, IDs.roles.Mod, IDs.roles.Helper]) {
-    const rid = String(id || "");
-    if (rid && member.roles.cache.has(rid)) return false;
-  }
-  return true;
 }
 
 function getResocontoMemberRank(member) {
@@ -831,7 +816,6 @@ async function runWeeklyStaffResoconti(client) {
   for (const member of fetchedMembers) {
     if (!member) continue;
     if (member.user?.bot) continue;
-    if (shouldSkipResocontoForHighStaffPermissionsOnly(member)) continue;
 
     const hasStaffRole = Boolean(resolveStaffRole(member));
     const hasPmRole = member.roles.cache.has(String(IDs.roles.PartnerManager));
@@ -936,7 +920,11 @@ async function runWeeklyStaffResoconti(client) {
         .catch(() => null);
     }
 
-    if (member.roles.cache.has(String(IDs.roles.PartnerManager)) && !shouldSkipPmResoconto) {
+    if (
+      member.roles.cache.has(String(IDs.roles.PartnerManager)) &&
+      !shouldSkipPmResoconto &&
+      !isPmResocontoExcludedUserId(userId)
+    ) {
       const pmWindow = getPmResocontoWindow(new Date());
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd,);
       const pmPexedInWeek = wasPmPexedInWeek(staffDoc, pmWindow.weekStart);
@@ -987,11 +975,7 @@ async function runPreResocontoReminders(client) {
   const hasStaffRole = (m) => Boolean(resolveStaffRole(m));
   const hasPmRole = (m) => m.roles.cache.has(String(IDs.roles.PartnerManager));
   const reminderMembers = fetchedMembers.filter(
-    (m) =>
-      m &&
-      !m.user?.bot &&
-      !shouldSkipResocontoForHighStaffPermissionsOnly(m) &&
-      (hasStaffRole(m) || hasPmRole(m)),
+    (m) => m && !m.user?.bot && (hasStaffRole(m) || hasPmRole(m)),
   );
   if (!reminderMembers.length) return;
 
@@ -1042,6 +1026,7 @@ async function runPreResocontoReminders(client) {
     }
 
     if (hasPmRole(member)) {
+      if (isPmResocontoExcludedUserId(userId)) continue;
       const pmWindow = reminderWindow;
       if (wasPmPexedInWeek(staffDoc, pmWindow.weekStart)) continue;
       const weeklyPartners = countPmWeeklyPartners(staffDoc, pmWindow.weekStart, pmWindow.weekEnd);

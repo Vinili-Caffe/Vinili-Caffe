@@ -375,6 +375,8 @@ const ids = {
     links: { ...(meta?.links || {}) },
   },
   allowedPrefixCommandsChannelId: "1442569138114662490",
+  /** User Discord esclusi dal resoconto **solo** Partner Manager (canale + promemoria DM). */
+  resocontoExcludePmUserIds: ["295500038401163264"],
 };
 
 let sponsorConfig = {};

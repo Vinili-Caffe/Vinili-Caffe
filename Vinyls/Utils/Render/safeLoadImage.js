@@ -189,4 +189,61 @@ async function safeLoadImage(source, opts = {}) {
   }
 }
 
-module.exports = { safeLoadImage };
+/**
+ * Scarica un’immagine HTTP(S) come buffer (stessi URL candidati di `safeLoadImage` per CDN Discord).
+ * @param {string} url
+ * @param {{ timeoutMs?: number }} [opts]
+ * @returns {Promise<Buffer|null>}
+ */
+async function fetchHttpImageBuffer(url, opts = {}) {
+  const src = String(url || "").trim();
+  if (!isHttpUrl(src)) return null;
+  const timeoutMs = Math.max(1000, Math.min(15_000, Number(opts.timeoutMs || 8000)));
+  const fetchImage = async (u) =>
+    axios.get(u, {
+      responseType: "arraybuffer",
+      timeout: timeoutMs,
+      validateStatus: (s) => s >= 200 && s < 300,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        Accept: "image/*,*/*;q=0.8",
+      },
+      maxRedirects: 3,
+    });
+  const host = safeHost(src);
+  const candidates = [src];
+  if (isDiscordCdnRewritableHost(host)) {
+    const rewritten = rewriteDiscordCdnUrl(src);
+    if (rewritten && rewritten !== src) candidates.push(rewritten);
+  }
+  let res = null;
+  let lastErr = null;
+  for (const u of candidates) {
+    try {
+      res = await fetchImage(u);
+      const ct = String(res?.headers?.["content-type"] || "").toLowerCase();
+      if (ct && !ct.startsWith("image/")) {
+        res = null;
+        continue;
+      }
+      break;
+    } catch (e) {
+      const status = e?.response?.status || null;
+      const ct = String(e?.response?.headers?.["content-type"] || "").toLowerCase();
+      lastErr = e;
+      if (isDiscordCdnRewritableHost(host) && (Number(status) === 415 || (ct && !ct.startsWith("image/")))) {
+        continue;
+      }
+      throw e;
+    }
+  }
+  if (!res) {
+    if (lastErr) throw lastErr;
+    return null;
+  }
+  const buf = Buffer.from(res.data);
+  return buf?.length ? buf : null;
+}
+
+module.exports = { safeLoadImage, fetchHttpImageBuffer };

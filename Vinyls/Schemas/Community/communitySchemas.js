@@ -538,6 +538,39 @@ siteReviewSchema.index({ guildId: 1, kind: 1, userId: 1, staffUserId: 1 }, { uni
 siteReviewSchema.index({ guildId: 1, kind: 1, createdAt: -1 });
 siteReviewSchema.index({ guildId: 1, staffUserId: 1, createdAt: -1 });
 
+const siteSuggestionCommentSchema = new Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    authorName: { type: String, default: "" },
+    authorAvatarUrl: { type: String, default: "" },
+    content: { type: String, required: true, trim: true, maxlength: 1200 },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } },
+);
+
+const siteSuggestionSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    authorName: { type: String, default: "" },
+    authorAvatarUrl: { type: String, default: "" },
+    content: { type: String, required: true, trim: true, maxlength: 2000 },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
+    staffUserId: { type: String, default: null, index: true },
+    decidedAt: { type: Date, default: null },
+    comments: { type: [siteSuggestionCommentSchema], default: [] },
+  },
+  { timestamps: true },
+);
+siteSuggestionSchema.index({ guildId: 1, createdAt: -1 });
+siteSuggestionSchema.index({ guildId: 1, status: 1, updatedAt: -1 });
+
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
 const USE_LEGACY_MOD_CASE_MODEL = MOD_CASE_STORAGE_MODE === "legacy" || MOD_CASE_STORAGE_MODE === "dual";
@@ -993,6 +1026,7 @@ const SiteRoleRequestCooldown = models.SiteRoleRequestCooldown || model("SiteRol
 const SiteInAppNotification =
   models.SiteInAppNotification || model("SiteInAppNotification", siteInAppNotificationSchema, "siteinappnotifications");
 const SiteReview = models.SiteReview || model("SiteReview", siteReviewSchema, "sitereviews");
+const SiteSuggestion = models.SiteSuggestion || model("SiteSuggestion", siteSuggestionSchema, "sitesuggestions");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -1017,4 +1051,5 @@ module.exports = {
   SiteRoleRequestCooldown,
   SiteInAppNotification,
   SiteReview,
+  SiteSuggestion,
 };

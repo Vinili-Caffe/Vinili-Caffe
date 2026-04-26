@@ -788,7 +788,10 @@ async function ensureCustomRoleExists(interaction, ownerId, client) {
       .filter((role) => role && Number(role.position) > 0 && Number(role.position) < Number(anchor.position))
       .map((role) => Number(role.position));
     const targetPosition = existingCustomPositions.length
-      ? Math.max(1, Math.min(...existingCustomPositions) - 1)
+      ? Math.min(
+          Math.max(1, Number(anchor.position) - 1),
+          Math.max(...existingCustomPositions) + 1,
+        )
       : Math.max(1, Number(anchor.position) - 1);
     if (createdRole.position !== targetPosition) {
       await createdRole.setPosition(targetPosition).catch(() => { });

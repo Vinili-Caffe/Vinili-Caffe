@@ -249,6 +249,7 @@ async function startWebhookServer(client) {
     const isSiteRoles = pathStr.startsWith("/webhooks/site-roles");
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
+    const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
     if (
       !isCandidature &&
@@ -260,6 +261,7 @@ async function startWebhookServer(client) {
       !isSiteRoles &&
       !isSiteRankCard &&
       !isSiteReviews &&
+      !isSiteSuggestions &&
       !isSiteNotifications
     ) {
       return next();
@@ -290,6 +292,7 @@ async function startWebhookServer(client) {
       isSiteRoles ||
       isSiteRankCard ||
       isSiteReviews ||
+      isSiteSuggestions ||
       isSiteNotifications
     ) {
       res.setHeader("Access-Control-Allow-Origin", "*");
@@ -467,6 +470,13 @@ async function startWebhookServer(client) {
     toggleSiteReviewLike,
     upsertServerReviewReply,
   } = require("../../Utils/Web/siteReviewsApi");
+  const {
+    getSiteSuggestions,
+    createSiteSuggestion,
+    addSiteSuggestionComment,
+    staffAcceptSiteSuggestion,
+    staffRejectSiteSuggestion,
+  } = require("../../Utils/Web/siteSuggestionsApi");
   const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
@@ -687,6 +697,103 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-reviews server-reply:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-suggestions", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await getSiteSuggestions(client, { accessToken });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-suggestions", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await createSiteSuggestion(client, {
+        accessToken,
+        content: body.content,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-suggestions/:suggestionId/comments", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await addSiteSuggestionComment(client, {
+        accessToken,
+        suggestionId: req.params?.suggestionId,
+        content: body.content,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions comment:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-suggestions/:suggestionId/accept", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await staffAcceptSiteSuggestion(client, {
+        accessToken,
+        suggestionId: req.params?.suggestionId,
+        reason: body.reason,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions accept:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-suggestions/:suggestionId/reject", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await staffRejectSiteSuggestion(client, {
+        accessToken,
+        suggestionId: req.params?.suggestionId,
+        reason: body.reason,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-suggestions reject:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

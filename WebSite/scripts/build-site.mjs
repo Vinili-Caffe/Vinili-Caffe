@@ -981,6 +981,7 @@ async function main() {
   const supEmail = String(cfg.supportEmail || "").trim();
   const richiesteUnbanUrl = defaultLegalPath("unban");
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
+  const richiesteSuggerimentiUrl = defaultLegalPath("suggerimenti");
   const donationsPageUrl = defaultLegalPath("donazioni");
   const votePageUrl = defaultLegalPath("vote");
   const discadiaVoteUrlResolved =
@@ -1179,6 +1180,23 @@ async function main() {
     reviewsApiLocalRaw && /^https?:\/\//i.test(reviewsApiLocalRaw)
       ? reviewsApiLocalRaw
       : "";
+  const suggestionsApiFromEnv = String(process.env.VC_SUGGESTIONS_API_URL ?? "").trim();
+  const suggestionsApiRaw = suggestionsApiFromEnv || String(cfg.suggestionsApiUrl ?? "").trim();
+  const suggestionsApiResolved =
+    suggestionsApiRaw && /^https?:\/\//i.test(suggestionsApiRaw)
+      ? suggestionsApiRaw
+      : suggestionsApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${suggestionsApiRaw.startsWith("/") ? "" : "/"}${suggestionsApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-suggestions`
+          : "/webhooks/site-suggestions";
+  const suggestionsApiLocalFromEnv = String(process.env.VC_SUGGESTIONS_API_URL_LOCAL ?? "").trim();
+  const suggestionsApiLocalRaw =
+    suggestionsApiLocalFromEnv || String(cfg.suggestionsApiUrlLocal ?? "").trim();
+  const suggestionsApiLocalResolved =
+    suggestionsApiLocalRaw && /^https?:\/\//i.test(suggestionsApiLocalRaw)
+      ? suggestionsApiLocalRaw
+      : "";
   const rolesApiFromEnv = String(process.env.VC_ROLES_API_URL ?? "").trim();
   const rolesApiRaw = rolesApiFromEnv || String(cfg.rolesApiUrl ?? "").trim();
   const rolesApiResolved =
@@ -1214,6 +1232,7 @@ async function main() {
       ? rankCardApiLocalRaw
       : "";
   const reviewsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/recensioni` : "/recensioni";
+  const suggestionsPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/suggerimenti` : "/suggerimenti";
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
@@ -1275,6 +1294,7 @@ async function main() {
     COMMUNITY_RULES_URL: escAttr(communityRulesUrlResolved),
     RICHIESTE_UNBAN_URL: escAttr(richiesteUnbanUrl),
     RICHIESTE_CANDIDATURE_URL: escAttr(richiesteCandidatureUrl),
+    RICHIESTE_SUGGERIMENTI_URL: escAttr(richiesteSuggerimentiUrl),
     CANDIDATURE_PAGE_TITLE: `${siteName} | Candidature staff`,
     CANDIDATURE_META_DESCRIPTION: escAttr(
       `Candidature Helper e Partner Manager: requisiti e modulo per ${siteName} su Discord.`,
@@ -1298,6 +1318,9 @@ async function main() {
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
     REVIEWS_API_URL: escAttr(reviewsApiResolved),
     REVIEWS_API_URL_LOCAL: escAttr(reviewsApiLocalResolved),
+    SUGGESTIONS_PAGE_URL: escAttr(suggestionsPageUrl),
+    SUGGESTIONS_API_URL: escAttr(suggestionsApiResolved),
+    SUGGESTIONS_API_URL_LOCAL: escAttr(suggestionsApiLocalResolved),
     ROLES_API_URL: escAttr(rolesApiResolved),
     ROLES_API_URL_LOCAL: escAttr(rolesApiLocalResolved),
     RANK_CARD_API_URL: escAttr(rankCardApiResolved),
@@ -1336,6 +1359,12 @@ async function main() {
     ),
     REVIEWS_OG_TITLE: escAttr(`${siteName} | Recensioni`),
     REVIEWS_OG_URL: escAttr(reviewsPageUrl),
+    SUGGESTIONS_PAGE_TITLE: `${siteName} | Suggerimenti`,
+    SUGGESTIONS_META_DESCRIPTION: escAttr(
+      `Suggerimenti per ${siteName}: proponi idee, commenta le proposte e segui le decisioni dell'High Staff.`,
+    ),
+    SUGGESTIONS_OG_TITLE: escAttr(`${siteName} | Suggerimenti`),
+    SUGGESTIONS_OG_URL: escAttr(suggestionsPageUrl),
     FAQ_PAGE_TITLE: `${siteName} | FAQ`,
     FAQ_META_DESCRIPTION: escAttr(
       `Domande frequenti su ${siteName}: la pagina è in costruzione; torna presto per le risposte.`,
@@ -1479,6 +1508,16 @@ async function main() {
     fs.writeFileSync(reviewsIndexPath, reviewsHtml, "utf8");
   } else {
     console.warn("[build-site] Manca recensioni/index.html (saltato placeholder).");
+  }
+
+  const suggestionsIndexPath = path.join(DIST, "suggerimenti", "index.html");
+  if (fs.existsSync(suggestionsIndexPath)) {
+    let suggestionsHtml = fs.readFileSync(suggestionsIndexPath, "utf8");
+    suggestionsHtml = applyPlaceholderMap(suggestionsHtml, map);
+    warnLeftoverPlaceholders(suggestionsHtml, "suggerimenti/index.html");
+    fs.writeFileSync(suggestionsIndexPath, suggestionsHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
   }
 
   const faqIndexPath = path.join(DIST, "faq", "index.html");
