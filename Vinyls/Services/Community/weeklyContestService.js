@@ -1759,6 +1759,10 @@ async function runContestFinaleClassificaAnnounceJob(client) {
   const channelId = CHANNEL_FINALE_CLASSIFICA_ID.trim();
   if (!channelId) return;
   if (Date.now() <= getContestWindowMs().end) return;
+  if (IS_OUTFIT_FINALE_PRIZES && !disegniContestUiOutfit()) return;
+  const romeDay = getContestDayKey(new Date());
+  const lastDay = String(CONTEST_LAST_DAY || "").trim();
+  if (!lastDay || String(romeDay) < String(lastDay)) return;
 
   const metaLean = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION }).lean().catch(() => null);
   if (metaLean?.finaleClassificaPostedAt) return;
