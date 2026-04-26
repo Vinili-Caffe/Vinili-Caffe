@@ -135,6 +135,15 @@ const STAFF_ROLE_IDS = new Set(
     .map((id) => String(id)),
 );
 
+/** Contest sfondi (submission): vietati Admin / HighStaff / Founder; con ruolo Staff serve Helper o Mod. */
+const SFONDI_SUBMIT_BLOCK_ALWAYS = new Set(
+  [IDs.roles?.Admin, IDs.roles?.HighStaff, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
+);
+const SFONDI_SUBMIT_HELPER_OR_MOD = new Set(
+  [IDs.roles?.Helper, IDs.roles?.Mod].filter(Boolean).map((id) => String(id)),
+);
+const SFONDI_SUBMIT_STAFF_WRAPPER_ID = String(IDs.roles?.Staff || "").trim();
+
 const PREMIUM_ROLE_IDS = new Set(
   [IDs.roles?.VIP, IDs.roles?.Donator, IDs.roles?.ServerBooster, IDs.roles?.DoubleBooster].filter(Boolean).map((id) => String(id)),
 );
@@ -331,6 +340,15 @@ function hasAnyRole(member, idSet) {
     if (member.roles.cache.has(id)) return true;
   }
   return false;
+}
+
+function isMemberEligibleSfondiContestSubmission(member) {
+  if (!member?.roles?.cache) return true;
+  if (hasAnyRole(member, SFONDI_SUBMIT_BLOCK_ALWAYS)) return false;
+  if (SFONDI_SUBMIT_STAFF_WRAPPER_ID && member.roles.cache.has(SFONDI_SUBMIT_STAFF_WRAPPER_ID)) {
+    if (!hasAnyRole(member, SFONDI_SUBMIT_HELPER_OR_MOD)) return false;
+  }
+  return true;
 }
 
 function resolveBaseVoteCap(member) {
@@ -773,6 +791,20 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
     const guildId = String(message.guild.id);
     const userId = String(message.author.id);
     if (!isValidGuildUserId(guildId, userId)) return false;
+
+    const memberForRules = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
+    if (!IS_DISEGNI_CONTEST && memberForRules && !isMemberEligibleSfondiContestSubmission(memberForRules)) {
+      const warn = await message.channel
+        .send({
+          content:
+            `${message.author} <:VC_Attention:1482534443632558151> **Contest sfondi:** possono inviare uno sfondo i membri e, tra lo staff, solo chi ha **Helper** o **Mod**. Non possono partecipare **Admin**, **High Staff** e **Founder**; chi ha solo il ruolo **Staff** senza Helper/Mod non può inviare.`,
+          allowedMentions: { users: [message.author.id] },
+        })
+        .catch(() => null);
+      await message.delete().catch(() => {});
+      if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
+      return true;
+    }
 
     if (!messageHasContestMediaAttachment(message)) {
       await message.delete().catch(() => {});

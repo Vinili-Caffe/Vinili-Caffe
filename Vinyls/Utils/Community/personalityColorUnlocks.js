@@ -16,6 +16,29 @@ const PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL = [
   "1442568991150309578",
 ];
 
+const EMOJI_COLOR_PLUS = "<:VC_Vip:1482534921472835895>";
+const EMOJI_COLOR_TIER = "<:VC_EXP:1482534670896730143>";
+
+/** Stesse emoji del menu `personality_colors_1` in `Embeds/ruoli.js`. */
+const NATURAL_PERSONALITY_COLOR_EMOJI_BY_ROLE_ID = {
+  "1442568956832645212": "<:67241redmidnightheart:1470543833325633638>",
+  "1442568967045648412": "<:76708orangemidnightheart:1470543838392352940>",
+  "1442568969528541225": "<:59095yellowmidnightheart:1470543825704321107>",
+  "1442568976944201828": "<:56389greenmidnightheart:1470543822491619562>",
+  "1442568977896439960": "<:16576lightbluemidnightheart:1470543819958386862>",
+  "1442568980626673685": "<:69616midnightheart:1470543834856554722>",
+  "1442568983898357954": "<:79202purplemidnightheart:1470543839973605397>",
+  "1442568985278156971": "<:66893pinkmidnightheart:1495723265467875388>",
+  "1442568987887276133": "<:63324blackmidnightheart:1470543828569034757>",
+  "1442568989866725468": "<:63324blackmidnightheart:1470543828569034757>",
+  "1442568991150309578": "<:70505whitemidnightheart:1470543836836135067>",
+};
+
+function naturalPersonalityColorEmoji(roleId) {
+  const id = String(roleId || "").trim();
+  return NATURAL_PERSONALITY_COLOR_EMOJI_BY_ROLE_ID[id] || null;
+}
+
 function getPlusColorRoleIds() {
   return [
     IDs.roles.redPlus,
@@ -122,6 +145,7 @@ function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canP
         label: `Plus · ${roleLabel(guild, rid)}`.slice(0, 100),
         value: rid,
         description: "Gradiente Plus",
+        emoji: EMOJI_COLOR_PLUS,
       });
     }
     for (const rid of tierIds) {
@@ -130,6 +154,7 @@ function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canP
         label: `Esclusivo · ${roleLabel(guild, rid)}`.slice(0, 100),
         value: rid,
         description: def ? `Da livello ${def.minLevel}` : "Livello",
+        emoji: EMOJI_COLOR_TIER,
       });
     }
     return opts.slice(0, 25);
@@ -138,11 +163,14 @@ function buildSelectOptionsForSegment(guild, segment, member, numericLevel, canP
     const nat = listUnlockedNaturalRoleIds().filter((rid) => guild?.roles?.cache?.has?.(rid));
     const opts = [removeOpt];
     for (const rid of nat) {
-      opts.push({
+      const row = {
         label: roleLabel(guild, rid).slice(0, 100),
         value: rid,
         description: "Colore classico (pannello ruoli)",
-      });
+      };
+      const em = naturalPersonalityColorEmoji(rid);
+      if (em) row.emoji = em;
+      opts.push(row);
     }
     return opts.slice(0, 25);
   }
@@ -177,21 +205,27 @@ const MERGED_SELECT_MAX = 25;
 /** Menu unico colori (senza voce «rimuovi»: usa il pulsante). Max 25 voci: Plus, tier, poi classici. */
 function buildMergedColorSelectOptions(guild, member, numericLevel, canPickPlus) {
   const opts = [];
-  const pushOpt = (rid, prefix) => {
+  const pushOpt = (rid, prefix, kind) => {
     if (opts.length >= MERGED_SELECT_MAX) return;
     if (!guild?.roles?.cache?.has?.(rid)) return;
     const label = `${prefix}${roleLabel(guild, rid)}`.slice(0, 100);
     const desc = String(prefix || "").trim().slice(0, 100);
     const row = { label, value: rid };
     if (desc) row.description = desc;
+    if (kind === "plus") row.emoji = EMOJI_COLOR_PLUS;
+    else if (kind === "tier") row.emoji = EMOJI_COLOR_TIER;
+    else if (kind === "natural") {
+      const em = naturalPersonalityColorEmoji(rid);
+      if (em) row.emoji = em;
+    }
     opts.push(row);
   };
-  for (const rid of listUnlockedPlusRoleIds(guild, canPickPlus)) pushOpt(rid, "Plus · ");
+  for (const rid of listUnlockedPlusRoleIds(guild, canPickPlus)) pushOpt(rid, "Plus · ", "plus");
   for (const rid of listUnlockedTierRoleIds(numericLevel).filter((id) => guild?.roles?.cache?.has?.(id))) {
     const def = getTierExclusiveColorDefs().find((d) => d.roleId === rid);
-    pushOpt(rid, def ? `Lv${def.minLevel} · ` : " · ");
+    pushOpt(rid, def ? `Lv${def.minLevel} · ` : " · ", "tier");
   }
-  for (const rid of listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id))) pushOpt(rid, "");
+  for (const rid of listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id))) pushOpt(rid, "", "natural");
   return opts;
 }
 
@@ -311,6 +345,8 @@ function buildColorsHowToUnlockEmbedDescription() {
 
 module.exports = {
   PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL,
+  NATURAL_PERSONALITY_COLOR_EMOJI_BY_ROLE_ID,
+  naturalPersonalityColorEmoji,
   getPlusColorRoleIds,
   getTierExclusiveColorDefs,
   getAllPersonalityChatColorRoleIds,

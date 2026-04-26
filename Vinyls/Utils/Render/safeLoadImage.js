@@ -37,25 +37,47 @@ function safeHost(url) {
   }
 }
 
+function isDiscordCdnRewritableHost(host) {
+  const h = String(host || "").toLowerCase();
+  return h === "cdn.discordapp.com" || h === "media.discordapp.net";
+}
+
+/** Hash animato Discord (`a_…`) in path avatar/guild/emoji. */
+function discordCdnPathLooksAnimatedAsset(pathname) {
+  return /\/a_[a-f0-9]+/i.test(String(pathname || ""));
+}
+
 function rewriteDiscordCdnUrl(url) {
   const raw = String(url || "");
   if (!/^https?:\/\//i.test(raw)) return raw;
   let next = raw;
   try {
     const u = new URL(raw);
-    if (!/cdn\.discordapp\.com$/i.test(u.host)) return raw;
-    const path = String(u.pathname || "");
+    if (!isDiscordCdnRewritableHost(u.host)) return raw;
+    let path = String(u.pathname || "");
+    const animated = discordCdnPathLooksAnimatedAsset(path);
     const isGifPath = /\.gif$/i.test(path);
-    if (path.endsWith(".webp")) u.pathname = path.replace(/\.webp$/i, ".png");
-    else {
+
+    if (path.endsWith(".webp")) {
+      u.pathname = animated ? path.replace(/\.webp$/i, ".gif") : path.replace(/\.webp$/i, ".png");
+      path = u.pathname;
+    } else if (animated && /\.png$/i.test(path)) {
+      u.pathname = path.replace(/\.png$/i, ".gif");
+      path = u.pathname;
+    } else {
       const last = path.split("/").pop() || "";
       if (last && !last.includes(".")) {
-        u.pathname = isGifPath ? path : `${path}.png`;
+        u.pathname = animated ? `${path}.gif` : isGifPath ? path : `${path}.png`;
+        path = u.pathname;
       }
     }
-    if (!isGifPath) {
+
+    const gifFinal = /\.gif$/i.test(String(u.pathname || ""));
+    if (!gifFinal && !animated) {
       if (u.searchParams.get("format")) u.searchParams.set("format", "png");
       else u.searchParams.append("format", "png");
+    } else {
+      u.searchParams.delete("format");
     }
     if (!u.searchParams.get("size")) u.searchParams.append("size", "256");
     next = u.toString();
@@ -110,7 +132,7 @@ async function safeLoadImage(source, opts = {}) {
 
     const host = safeHost(src);
     const candidates = [src];
-    if (/cdn\.discordapp\.com$/i.test(host)) {
+    if (isDiscordCdnRewritableHost(host)) {
       const rewritten = rewriteDiscordCdnUrl(src);
       if (rewritten && rewritten !== src) candidates.push(rewritten);
     }
@@ -130,7 +152,7 @@ async function safeLoadImage(source, opts = {}) {
         const status = e?.response?.status || null;
         const ct = String(e?.response?.headers?.["content-type"] || "").toLowerCase();
         lastErr = e;
-        if (/cdn\.discordapp\.com$/i.test(host) && (Number(status) === 415 || (ct && !ct.startsWith("image/")))) {
+        if (isDiscordCdnRewritableHost(host) && (Number(status) === 415 || (ct && !ct.startsWith("image/")))) {
           continue;
         }
         throw e;
@@ -153,7 +175,7 @@ async function safeLoadImage(source, opts = {}) {
     const host = isHttpUrl(src) ? safeHost(src) : "non-http";
     const warnKey = `${host}:${String(status || msg)}`;
     if (!suppressWarning && global.logger?.warn && shouldWarnOnce(warnKey)) {
-      const rewritten = isHttpUrl(src) && /cdn\.discordapp\.com$/i.test(host) ? rewriteDiscordCdnUrl(src) : null;
+      const rewritten = isHttpUrl(src) && isDiscordCdnRewritableHost(host) ? rewriteDiscordCdnUrl(src) : null;
       global.logger.warn("[canvas] safeLoadImage failed:", {
         host,
         status,
