@@ -402,6 +402,12 @@ const activityUserProfileSchema = new Schema(
         customRoleEligibilityLostAt: { type: Date, default: null },
         expiresAt: { type: Date, default: null },
       },
+      /** Premi contest (es. 2° posto disegni: sblocco sezioni Custom Role/Voc in +profile senza ruolo Discord). */
+      contestPrizes: {
+        disegniSecondPlaceUnlock: { type: Boolean, default: false },
+        disegniSecondPlaceEventKey: { type: String, default: null },
+        disegniSecondPlaceAt: { type: Date, default: null },
+      },
       rankCard: {
         type: Schema.Types.Mixed,
         default: () => ({}),

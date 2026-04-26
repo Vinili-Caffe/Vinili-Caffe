@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
-const { CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
 const { WeeklyContestBundle } = require("../Schemas/Community/weeklyContestSchemas");
 const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
@@ -298,7 +298,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestVotes] = await Promise.all([
+  const [birthday, reactionDoc, customState, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestVotes, contestPrizeLean] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
@@ -308,9 +308,12 @@ async function fetchProfilePanelState(guild, userId, client) {
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
     fetchContestVotesState(guildId, userId),
+    ActivityUserProfile.findOne({ guildId, userId }).select("profile.contestPrizes").lean().catch(() => null),
   ]);
+  const contestSecondUnlock = Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock);
   const hasCustomRoleVocAccess = Boolean(
-    member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
+    contestSecondUnlock ||
+      (member?.roles?.cache && CUSTOM_ROLE_VOC_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId))),
   );
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
   const { voterLeaf, ...contestVotesRest } = contestVotes && typeof contestVotes === "object" ? contestVotes : {};

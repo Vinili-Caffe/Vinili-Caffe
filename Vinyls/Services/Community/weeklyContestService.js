@@ -11,6 +11,7 @@ const {
   getUserExpStats,
   getTotalExpForLevel,
 } = require("./expService");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../../Schemas/Community/weeklyContestSchemas");
 const { getClientChannelCached, getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const {
@@ -1467,20 +1468,24 @@ async function tryGrantContestFinaleTempRole(guild, userId, roleId, durationMs) 
   };
 }
 
-async function tryGrantContestFinalePermanentRole(guild, userId, roleId) {
+async function grantDisegniSecondPlaceProfileUnlock(guildId, userId, eventKey) {
+  const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
-  const rid = String(roleId || "").trim();
-  if (!uid || !rid || !guild) return false;
-  const member =
-    (await getGuildMemberCached(guild, uid, { preferFresh: true })) || (await guild.members.fetch(uid).catch(() => null));
-  if (!member) return false;
-  if (member.roles.cache.has(rid)) return true;
-  await member.roles.add(rid, "Contest disegni: premio secondo posto").catch((err) => {
-    global.logger?.warn?.("[WEEKLY_CONTEST] finale premio add ruolo permanente:", uid, rid, err?.message || err);
-  });
-  const after =
-    (await getGuildMemberCached(guild, uid, { preferFresh: true })) || (await guild.members.fetch(uid).catch(() => null));
-  return Boolean(after?.roles?.cache?.has?.(rid));
+  const ek = String(eventKey || "").trim();
+  if (!gid || !uid || !ek || !isValidGuildUserId(gid, uid)) return false;
+  const res = await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid },
+    {
+      $set: {
+        "profile.contestPrizes.disegniSecondPlaceUnlock": true,
+        "profile.contestPrizes.disegniSecondPlaceEventKey": ek,
+        "profile.contestPrizes.disegniSecondPlaceAt": new Date(),
+      },
+      $setOnInsert: { guildId: gid, userId: uid },
+    },
+    { upsert: true },
+  ).catch(() => null);
+  return Boolean(res && res.acknowledged);
 }
 
 async function tryGrantContestFinaleBonusLevels(guild, userId, bonusLevels, eventKey, category) {
@@ -1585,10 +1590,10 @@ async function runContestFinalePrizeGrantJob(client) {
     const first = ranking[0];
 
     if (IS_DISEGNI_CONTEST) {
-      let secondGranted = false;
+      let secondUnlock = false;
       let thirdAward = { ok: false, awardedLevels: 0, deltaExp: 0 };
-      if (second?.userId && isValidGuildUserId(gid, second.userId) && CONTEST_PRIZE_DISEGNI_ACCESS_ROLE_ID) {
-        secondGranted = await tryGrantContestFinalePermanentRole(guild, second.userId, CONTEST_PRIZE_DISEGNI_ACCESS_ROLE_ID);
+      if (second?.userId && isValidGuildUserId(gid, second.userId)) {
+        secondUnlock = await grantDisegniSecondPlaceProfileUnlock(gid, second.userId, EVENT_KEY_PRODUCTION);
       }
       if (third?.userId && isValidGuildUserId(gid, third.userId)) {
         thirdAward = await tryGrantContestFinaleBonusLevels(
@@ -1605,7 +1610,7 @@ async function runContestFinalePrizeGrantJob(client) {
         { upsert: true, setDefaultsOnInsert: true },
       ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta disegni:", err));
       global.logger?.info?.(
-        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc privata, ruolo ${secondGranted ? "assegnato" : "non assegnato"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
+        `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (disegni): 1°=${first?.userId || "-"} (Decorazione NO BUNDLE), 2°=${second?.userId || "-"} (Custom role + voc da +profile, unlock DB ${secondUnlock ? "ok" : "fallito"}), 3°=${third?.userId || "-"} (+10 livelli, assegnati ${Number(thirdAward?.awardedLevels || 0)} livelli / ${Number(thirdAward?.deltaExp || 0)} exp).`,
       );
       continue;
     }
