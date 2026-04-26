@@ -1,7 +1,7 @@
 const { randomInt } = require("crypto");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { guildIconUrl, userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const renderShipCanvas = require("../../Utils/Render/shipCanvas");
 
@@ -126,11 +126,9 @@ module.exports = {
 
     try {
       const percent = randomShipPercent(message.id);
-      const shipGuildIcon = guildIconUrl(message.guild, { size: 512 });
       const { buffer, format } = await renderShipCanvas({
         leftAvatarUrl: userAvatarUrlDynamic(left, { size: 512 }) || "",
         rightAvatarUrl: userAvatarUrlDynamic(right, { size: 512 }) || "",
-        guildIconUrl: shipGuildIcon,
         leftName: trimName(left.username),
         rightName: trimName(right.username),
         leftId: left.id,

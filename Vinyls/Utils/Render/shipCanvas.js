@@ -32,11 +32,11 @@ function pickMessage(percent, seed) {
   if (p === 0) {
     return pickFrom(
       [
-        "Zero assoluto: oggi il destino ride…",
-        "Compatibilità inesistente: amicizia > ship!",
-        "Il cosmo dice «meglio da soli su Discord».",
-        "L'amore non è nell'aria: provate un caffè insieme.",
-        "Match da leggenda… invertita: 0%!",
+        "Oggi i numeri sono severi: resta l'amicizia in sala.",
+        "Zero per cento, zero drammi: siete comunque in community.",
+        "Compatibilità bassa: meglio una chiacchierata che forzare.",
+        "Il contatore dice no, il server vi saluta lo stesso.",
+        "Meglio due caffè separati che una ship forzata.",
       ],
       h,
     );
@@ -44,11 +44,11 @@ function pickMessage(percent, seed) {
   if (p === 100) {
     return pickFrom(
       [
-        "100% — leggenda vivente sul server!",
-        "Match cosmico: fate spazio agli altri!",
-        "Anime da favola, livello massimo!",
-        "Il cuore del server esplode di shipped!",
-        "Perfetti come vinile + caffè!",
+        "Cento su cento: da tenere d'occhio.",
+        "Allineamento perfetto, complimenti.",
+        "Come un disco che entra al primo tentativo.",
+        "Il server non ha dubbi su questo abbinamento.",
+        "Sintonia massima: continuate così.",
       ],
       h,
     );
@@ -56,10 +56,10 @@ function pickMessage(percent, seed) {
   if (p >= 95) {
     return pickFrom(
       [
-        "Quasi perfetti: il server li shipa!",
-        "Da copertina: tenetevi forte!",
-        "Chemistry da capogiro!",
-        "Il destino ha firmato in grande!",
+        "Quasi al massimo: complicità evidente.",
+        "Numeri altissimi, tono sobrio: bravi.",
+        "C'è molta sintonia tra di voi.",
+        "Un abbinamento che convince al primo sguardo.",
       ],
       h,
     );
@@ -67,9 +67,9 @@ function pickMessage(percent, seed) {
   if (p >= 90) {
     return pickFrom(
       [
-        "Sono perfetti insieme!",
-        "Un duo che fa invidia al feed!",
-        "Connessione da dieci e lode!",
+        "Ottima affinità, senza esagerare.",
+        "Un duo che sta bene insieme.",
+        "Complicità chiara e misurata.",
       ],
       h,
     );
@@ -77,9 +77,9 @@ function pickMessage(percent, seed) {
   if (p >= 80) {
     return pickFrom(
       [
-        "Scintilla forte: non mollate!",
-        "Si vedono le stelle… in positivo!",
-        "C'è chimica seria qui!",
+        "Buona intesa: si nota.",
+        "C'è spazio per far crescere il rapporto.",
+        "Sintonia solida, con i piedi per terra.",
       ],
       h,
     );
@@ -87,9 +87,9 @@ function pickMessage(percent, seed) {
   if (p >= 70) {
     return pickFrom(
       [
-        "Sulla strada giusta per qualcosa di speciale!",
-        "Ottimo feeling: continuate così!",
-        "Il vibe c'è tutto!",
+        "Direzione giusta, passo dopo passo.",
+        "Si vede che vi trovate bene.",
+        "Feeling positivo, niente fretta.",
       ],
       h,
     );
@@ -97,9 +97,9 @@ function pickMessage(percent, seed) {
   if (p >= 60) {
     return pickFrom(
       [
-        "Buona sintonia: fate crescere il legame!",
-        "Più che promettente!",
-        "Base solida per ship vere!",
+        "Base buona: fatevi conoscere meglio.",
+        "Più che dignitoso come inizio.",
+        "C'è materiale per una bella amicizia.",
       ],
       h,
     );
@@ -107,9 +107,9 @@ function pickMessage(percent, seed) {
   if (p >= 50) {
     return pickFrom(
       [
-        "Hanno una buona connessione!",
-        "Metà tabella superata: bravi!",
-        "Ci sta: da qui in su è tutto bonus!",
+        "Metà strada: equilibrato e onesto.",
+        "Una connessione discreta ma reale.",
+        "Da qui in su è solo un bonus.",
       ],
       h,
     );
@@ -117,9 +117,9 @@ function pickMessage(percent, seed) {
   if (p >= 40) {
     return pickFrom(
       [
-        "Ci sono margini… e curiosità!",
-        "Mica male: un po' di mistero non guasta!",
-        "Potenziale nascosto: tiratelo fuori!",
+        "Margini da esplorare, senza pressioni.",
+        "Non male: serve solo più tempo insieme.",
+        "Curiosità sì, certezze ancora no.",
       ],
       h,
     );
@@ -127,9 +127,9 @@ function pickMessage(percent, seed) {
   if (p >= 30) {
     return pickFrom(
       [
-        "Potrebbero sorprendere tutti!",
-        "Non sottovalutate questo duo!",
-        "La curva può salire ancora!",
+        "Potenziale da costruire giorno per giorno.",
+        "Non sottovalutatevi: i rapporti crescono.",
+        "C'è ancora strada da fare, con calma.",
       ],
       h,
     );
@@ -137,9 +137,9 @@ function pickMessage(percent, seed) {
   if (p >= 20) {
     return pickFrom(
       [
-        "Ancora in fase scouting…",
-        "Meglio come amici… per ora!",
-        "Serve più tempo (e meme) insieme!",
+        "Numeri bassi: priorità all'amicizia.",
+        "Meglio conoscersi meglio in chat.",
+        "Serve più tempo insieme, senza fretta.",
       ],
       h,
     );
@@ -147,18 +147,18 @@ function pickMessage(percent, seed) {
   if (p >= 10) {
     return pickFrom(
       [
-        "Ouch: il RNG non è dalla vostra parte!",
-        "Amicizia salva sempre la giornata!",
-        "Il server tifa comunque per voi!",
+        "Sorte severa oggi: niente di personale.",
+        "L'amicizia resta la scelta più sensata.",
+        "Il server vi augura comunque una buona giornata.",
       ],
       h,
     );
   }
   return pickFrom(
     [
-      "Piccolo passo… da qualche parte!",
-      "Numeri bassi, cuore grande?",
-      "La ship naviga con vento contrario oggi!",
+      "Percentuale modesta: restate leggeri.",
+      "Oggi non è il vostro giorno sul contatore.",
+      "Meglio sorridere e passare oltre.",
     ],
     h,
   );
@@ -276,17 +276,6 @@ function drawHeart(ctx, cx, cy, size) {
   ctx.restore();
 }
 
-function drawGuildBackdrop(ctx, guildIcon, cx, cy, radius) {
-  if (!guildIcon) return;
-  ctx.save();
-  ctx.globalAlpha = 0.2;
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.drawImage(guildIcon, cx - radius, cy - radius, radius * 2, radius * 2);
-  ctx.restore();
-}
-
 function getFittedTitleSize(ctx, text, maxWidth, startSize = 42, minSize = 24) {
   let size = startSize;
   while (size > minSize) {
@@ -297,14 +286,64 @@ function getFittedTitleSize(ctx, text, maxWidth, startSize = 42, minSize = 24) {
   return Math.max(minSize, size);
 }
 
-/** t in [0,1]: crescita + leggero respiro finale */
-function heartAnimationFactor(t, frameIndex, totalFrames) {
-  const tt = Math.max(0, Math.min(1, t));
-  const grow = 1 - (1 - tt) * (1 - tt);
-  const holdPhase = frameIndex >= totalFrames - 4;
-  if (!holdPhase) return grow;
-  const pulse = 1 + 0.045 * Math.sin((frameIndex - (totalFrames - 4)) * 0.9);
-  return Math.min(1.08, grow * pulse);
+function easeOutCubic(t) {
+  const x = Math.max(0, Math.min(1, Number(t) || 0));
+  return 1 - (1 - x) ** 3;
+}
+
+/** Indice ultimo frame in cui la barra ragunge il 100% del riempimento (prima del testo). */
+function shipMeterFillEndFrame(totalFrames) {
+  if (totalFrames <= 1) return 0;
+  const last = totalFrames - 1;
+  return Math.max(1, Math.floor(last * 0.56));
+}
+
+/** Progresso riempimento barra (0→1), completo entro `shipMeterFillEndFrame`. */
+function shipMeterFillProgress(frameIndex, totalFrames) {
+  if (totalFrames <= 1) return 1;
+  const end = shipMeterFillEndFrame(totalFrames);
+  return easeOutCubic(Math.min(1, frameIndex / end));
+}
+
+/** Testo percentuale: emerge dal basso solo dopo che la barra è piena. */
+function shipPercentTextReveal(frameIndex, totalFrames) {
+  if (totalFrames <= 1) return 1;
+  const last = totalFrames - 1;
+  const textStart = shipMeterFillEndFrame(totalFrames) + 1;
+  if (frameIndex < textStart) return 0;
+  const span = Math.max(1, last - textStart);
+  return easeOutCubic(Math.min(1, (frameIndex - textStart + 1) / span));
+}
+
+/** Barra verticale: riempimento dal basso verso l'alto fino a (percent/100) dell'altezza traccia. */
+function drawVerticalMeter(ctx, cx, topY, bottomY, width, percentNorm, fillAnim01) {
+  const w = Math.max(24, width);
+  const x = cx - w / 2;
+  const h = Math.max(40, bottomY - topY);
+  const r = Math.min(18, w / 2 - 2, h / 2 - 2);
+  const targetFillH = h * Math.max(0, Math.min(1, percentNorm));
+  const currentFillH = targetFillH * Math.max(0, Math.min(1, fillAnim01));
+
+  ctx.save();
+  ctx.beginPath();
+  drawRoundedRect(ctx, x, topY, w, h, r);
+  ctx.clip();
+  const g = ctx.createLinearGradient(x, bottomY, x, topY);
+  g.addColorStop(0, "#ff4fa7");
+  g.addColorStop(0.55, "#ff7eb8");
+  g.addColorStop(1, "#ffb3d9");
+  ctx.fillStyle = g;
+  const fillTop = bottomY - currentFillH;
+  ctx.fillRect(x, fillTop, w, currentFillH + 2);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.82)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  drawRoundedRect(ctx, x, topY, w, h, r);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawShipFrame(ctx, {
@@ -312,7 +351,6 @@ function drawShipFrame(ctx, {
   height,
   leftAvatar,
   rightAvatar,
-  guildIcon,
   leftName,
   rightName,
   leftId,
@@ -338,8 +376,6 @@ function drawShipFrame(ctx, {
   );
 
   const cx = width / 2;
-  const cy = 228;
-  drawGuildBackdrop(ctx, guildIcon, cx, cy, 150);
 
   if (leftAvatar) {
     drawFramedImage(ctx, leftAvatar, 110, 145, 220, -2.8);
@@ -390,27 +426,41 @@ function drawShipFrame(ctx, {
     forcePrimaryFont: true,
   });
 
-  const t = totalFrames <= 1 ? 1 : frameIndex / (totalFrames - 1);
-  const anim = heartAnimationFactor(t, frameIndex, totalFrames);
   const percentNorm = finalPercent / 100;
-  const heartBaseMin = 26;
-  const heartBaseMax = 56 + percentNorm * 38;
-  const heartSize = heartBaseMin + (heartBaseMax - heartBaseMin) * anim;
+  const fillAnim = shipMeterFillProgress(frameIndex, totalFrames);
+  const textReveal = shipPercentTextReveal(frameIndex, totalFrames);
 
-  drawHeart(ctx, cx, cy, heartSize);
+  const meterTop = 232;
+  const meterBottom = 348;
+  const meterW = 46;
+  const heartCy = 188;
+  const heartSize = 34;
+
+  drawVerticalMeter(ctx, cx, meterTop, meterBottom, meterW, percentNorm, fillAnim);
+  drawHeart(ctx, cx, heartCy, heartSize);
 
   const percentText = `${finalPercent}%`;
   const percentX = width / 2;
-  const percentY = 300;
+  const percentY = 382;
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = '700 44px "Noto Sans", Arial, sans-serif';
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = "rgba(255,255,255,0.95)";
-  ctx.strokeText(percentText, percentX, percentY);
-  ctx.fillStyle = "#5b0d3f";
-  ctx.fillText(percentText, percentX, percentY);
+  ctx.font = '700 48px "Noto Sans", Arial, sans-serif';
+  const tw = ctx.measureText(percentText).width;
+  const th = 56;
+  const reveal = textReveal;
+  if (reveal > 0) {
+    ctx.beginPath();
+    const clipTop = percentY + th / 2 - th * reveal;
+    ctx.rect(percentX - tw / 2 - 12, clipTop, tw + 24, th * reveal + 2);
+    ctx.clip();
+    ctx.globalAlpha = Math.min(1, reveal * 1.15);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.strokeText(percentText, percentX, percentY);
+    ctx.fillStyle = "#5b0d3f";
+    ctx.fillText(percentText, percentX, percentY);
+  }
   ctx.restore();
 }
 
@@ -418,7 +468,6 @@ async function renderSinglePngBuffer(params) {
   const {
     leftAvatarUrl,
     rightAvatarUrl,
-    guildIconUrl,
     leftName,
     rightName,
     leftId,
@@ -432,17 +481,15 @@ async function renderSinglePngBuffer(params) {
   const ctx = canvas.getContext("2d");
   const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
-  const [leftAvatar, rightAvatar, guildIcon] = await Promise.all([
+  const [leftAvatar, rightAvatar] = await Promise.all([
     safeLoadImage(leftAvatarUrl),
     safeLoadImage(rightAvatarUrl),
-    guildIconUrl ? safeLoadImage(guildIconUrl) : Promise.resolve(null),
   ]);
   drawShipFrame(ctx, {
     width,
     height,
     leftAvatar,
     rightAvatar,
-    guildIcon,
     leftName,
     rightName,
     leftId,
@@ -465,7 +512,6 @@ module.exports = async function renderShipCanvas(params) {
   const {
     leftAvatarUrl,
     rightAvatarUrl,
-    guildIconUrl,
     leftName,
     rightName,
     leftId,
@@ -479,17 +525,15 @@ module.exports = async function renderShipCanvas(params) {
   const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
 
-  const [leftAvatar, rightAvatar, guildIcon] = await Promise.all([
+  const [leftAvatar, rightAvatar] = await Promise.all([
     safeLoadImage(leftAvatarUrl),
     safeLoadImage(rightAvatarUrl),
-    guildIconUrl ? safeLoadImage(guildIconUrl) : Promise.resolve(null),
   ]);
 
   if (!ffmpegPath) {
     const buf = await renderSinglePngBuffer({
       leftAvatarUrl,
       rightAvatarUrl,
-      guildIconUrl,
       leftName,
       rightName,
       leftId,
@@ -517,7 +561,6 @@ module.exports = async function renderShipCanvas(params) {
         height,
         leftAvatar,
         rightAvatar,
-        guildIcon,
         leftName,
         rightName,
         leftId,
@@ -543,7 +586,6 @@ module.exports = async function renderShipCanvas(params) {
       const buf = await renderSinglePngBuffer({
         leftAvatarUrl,
         rightAvatarUrl,
-        guildIconUrl,
         leftName,
         rightName,
         leftId,
@@ -572,7 +614,6 @@ module.exports = async function renderShipCanvas(params) {
       const buf = await renderSinglePngBuffer({
         leftAvatarUrl,
         rightAvatarUrl,
-        guildIconUrl,
         leftName,
         rightName,
         leftId,
@@ -587,7 +628,6 @@ module.exports = async function renderShipCanvas(params) {
       const buf = await renderSinglePngBuffer({
         leftAvatarUrl,
         rightAvatarUrl,
-        guildIconUrl,
         leftName,
         rightName,
         leftId,
@@ -602,7 +642,6 @@ module.exports = async function renderShipCanvas(params) {
     const buf = await renderSinglePngBuffer({
       leftAvatarUrl,
       rightAvatarUrl,
-      guildIconUrl,
       leftName,
       rightName,
       leftId,
