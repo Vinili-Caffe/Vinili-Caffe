@@ -4,7 +4,10 @@
   var state = {
     payload: null,
     editModalOpen: false,
+    editSuggestionId: null,
     draftContent: "",
+    pendingReply: null,
+    editingComment: null,
     livePollTimer: null,
     suggestionsWs: null,
     wsReconnectTimer: null,
@@ -62,6 +65,9 @@
     stopLiveSuggestionsPoll();
     state.payload = null;
     state.editModalOpen = false;
+    state.editSuggestionId = null;
+    state.pendingReply = null;
+    state.editingComment = null;
     var wrap = byId("vc-suggestions-list");
     if (wrap) wrap.innerHTML = "";
     closeModalDom();
@@ -69,6 +75,7 @@
 
   function closeModalDom() {
     state.editModalOpen = false;
+    state.editSuggestionId = null;
     var root = byId("vc-suggestions-edit-modal");
     if (root) {
       root.innerHTML = "";
@@ -99,12 +106,13 @@
     if (!a || !a.id) return false;
     var id = String(a.id);
     if (id.indexOf("vc-sug-comment-") === 0) return true;
+    if (id.indexOf("vc-sug-comment-edit-") === 0) return true;
     if (id.indexOf("vc-sug-staff-reason-") === 0) return true;
     return false;
   }
 
   function refreshPayloadQuiet() {
-    if (state.editModalOpen || isTypingInSuggestionField()) return Promise.resolve();
+    if (state.editModalOpen || state.editingComment || isTypingInSuggestionField()) return Promise.resolve();
     if (!byId("vc-suggestions-list")) return Promise.resolve();
     return fetch(apiUrl(), {
       method: "GET",
@@ -272,6 +280,35 @@
     return "In valutazione";
   }
 
+  function orderedSuggestionComments(s) {
+    var flat = Array.isArray(s.comments) ? s.comments : [];
+    function ts(x) {
+      return new Date(x.createdAt || 0).getTime();
+    }
+    function sortArr(arr) {
+      return arr.slice().sort(function (a, b) {
+        return ts(a) - ts(b);
+      });
+    }
+    var roots = sortArr(
+      flat.filter(function (c) {
+        return !c.parentCommentId;
+      }),
+    );
+    var out = [];
+    roots.forEach(function (r) {
+      out.push(r);
+      sortArr(
+        flat.filter(function (c) {
+          return String(c.parentCommentId || "") === String(r.id);
+        }),
+      ).forEach(function (ch) {
+        out.push(ch);
+      });
+    });
+    return out;
+  }
+
   function setStatus(text, isError) {
     var node = byId("vc-suggestions-status");
     if (!node) return;
@@ -291,7 +328,10 @@
     var tokenOk = Boolean(getToken());
     var canMod = Boolean(viewer && viewer.canModerateSuggestions);
     var pending = String(s.status || "") === "pending";
-    var sid = esc(s.id);
+    var rawSid = String(s.id || "").trim();
+    var viewerId = viewer && viewer.id ? String(viewer.id) : "";
+    var isOwnSuggestion = Boolean(viewerId && String(s.userId || "") === viewerId);
+
     var staffBox = "";
     if (!pending && String(s.staffReason || "").trim()) {
       staffBox =
@@ -303,47 +343,163 @@
         (s.decidedAt ? '<span class="vc-reviews-card__reply-meta">' + esc(formatDateIt(s.decidedAt)) + "</span>" : "") +
         "</div>";
     }
-    var comments = Array.isArray(s.comments) ? s.comments : [];
+
+    var pr = state.pendingReply;
+    var prLine = "";
+    if (pending && tokenOk && pr && pr.suggestionId === rawSid) {
+      prLine =
+        '<p class="mt-2 text-xs text-teal-200/90">Risposta a <strong>' +
+        esc(pr.parentName || "commento") +
+        '</strong> · <button type="button" class="text-teal-100 underline" data-suggestion-reply-cancel="' +
+        esc(rawSid) +
+        '">Annulla</button></p>';
+    }
+
+    var ordered = orderedSuggestionComments(s);
     var threadHtml =
       '<div class="mt-4 space-y-3 border-t border-white/10 pt-4">' +
       '<p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Discussione</p>';
-    if (!comments.length) {
+    if (!ordered.length) {
       threadHtml += '<p class="text-sm text-slate-400">Nessun commento ancora.</p>';
     } else {
-      threadHtml += comments
+      threadHtml += ordered
         .map(function (c) {
+          var cid = String(c.id || "").trim();
+          var isOwnComment = Boolean(viewerId && String(c.userId || "") === viewerId);
+          var isEditing =
+            state.editingComment &&
+            state.editingComment.suggestionId === rawSid &&
+            state.editingComment.commentId === cid;
+          var cup = Math.max(0, Math.round(Number(c.upvoteCount || 0)));
+          var cdn = Math.max(0, Math.round(Number(c.downvoteCount || 0)));
+          var cupOn = Boolean(c.upvotedByViewer);
+          var cdnOn = Boolean(c.downvotedByViewer);
+          var cvoteLock = !pending || !tokenOk || isOwnComment;
+          var cvTitle = !pending ? "Discussione chiusa" : !tokenOk ? "Accedi per votare" : isOwnComment ? "Non sul tuo commento" : "";
+          var cvEx = cvoteLock ? ' disabled title="' + esc(cvTitle) + '"' : "";
+
+          var actions = "";
+          if (pending && tokenOk && !c.parentCommentId) {
+            actions +=
+              '<button type="button" class="mt-2 text-xs text-teal-200 underline" data-suggestion-reply-start="' +
+              esc(rawSid) +
+              '" data-suggestion-reply-parent="' +
+              esc(cid) +
+              '" data-suggestion-reply-name="' +
+              esc(c.authorName || "Utente") +
+              '">Rispondi</button>';
+          }
+          if (pending && tokenOk && isOwnComment) {
+            actions +=
+              (actions ? " " : "") +
+              '<button type="button" class="mt-2 text-xs text-slate-300 underline" data-suggestion-comment-edit-start="' +
+              esc(rawSid) +
+              '" data-suggestion-comment-edit-id="' +
+              esc(cid) +
+              '">Modifica</button>' +
+              ' <button type="button" class="mt-2 text-xs text-red-300 underline" data-suggestion-comment-delete="' +
+              esc(rawSid) +
+              '" data-suggestion-comment-delete-id="' +
+              esc(cid) +
+              '">Elimina</button>';
+          } else if (pending && canMod && !isOwnComment) {
+            actions +=
+              (actions ? " " : "") +
+              '<button type="button" class="mt-2 text-xs text-amber-200 underline" data-suggestion-comment-delete="' +
+              esc(rawSid) +
+              '" data-suggestion-comment-delete-id="' +
+              esc(cid) +
+              '">Elimina (staff)</button>';
+          }
+
+          var innerBody = "";
+          if (isEditing) {
+            innerBody =
+              '<textarea id="vc-sug-comment-edit-' +
+              esc(cid) +
+              '" class="vc-reviews-textarea mt-2" rows="2">' +
+              esc(c.content) +
+              "</textarea>" +
+              '<div class="mt-2 flex flex-wrap gap-2">' +
+              '<button type="button" class="vc-reviews-submit" data-suggestion-comment-edit-save="' +
+              esc(rawSid) +
+              '" data-suggestion-comment-edit-save-id="' +
+              esc(cid) +
+              '">Salva</button>' +
+              '<button type="button" class="vc-reviews-submit" style="background-color:#334155;border-color:rgba(255,255,255,0.12)" data-suggestion-comment-edit-cancel="' +
+              esc(rawSid) +
+              '">Annulla</button>' +
+              "</div>";
+          } else {
+            innerBody = '<p class="mt-2 text-sm leading-relaxed text-slate-200/90">' + esc(c.content) + "</p>";
+          }
+
+          var replyCls = c.parentCommentId ? " vc-sug-comment--reply ml-5 border-l border-white/15 pl-4" : "";
+
           return (
-            '<div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">' +
-            '<div class="flex items-center gap-2 text-sm">' +
+            '<div class="rounded-xl border border-white/8 bg-white/[0.03] p-3' +
+            replyCls +
+            '">' +
+            '<div class="flex flex-wrap items-center gap-2 text-sm">' +
             (c.authorAvatarUrl
-              ? '<img class="h-7 w-7 rounded-full object-cover" src="' + esc(c.authorAvatarUrl) + '" alt="" loading="lazy" />'
+              ? '<img class="h-7 w-7 rounded-full object-cover" src="' +
+                esc(c.authorAvatarUrl) +
+                '" alt="" loading="lazy" />'
               : '<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10"><i class="fa fa-user text-slate-300"></i></span>') +
             "<strong>" +
             esc(c.authorName || "Utente") +
             "</strong>" +
             '<span class="text-xs text-slate-500">' +
-            esc(formatDateIt(c.createdAt)) +
-            "</span></div>" +
-            '<p class="mt-2 text-sm leading-relaxed text-slate-200/90">' +
-            esc(c.content) +
-            "</p></div>"
+            esc(formatDateIt(c.updatedAt || c.createdAt)) +
+            "</span>" +
+            '<span class="flex flex-1 flex-wrap items-center justify-end gap-2">' +
+            '<button type="button" class="vc-reviews-like text-xs' +
+            (cupOn ? " is-liked" : "") +
+            '" data-suggestion-comment-vote-up="' +
+            esc(rawSid) +
+            '" data-suggestion-comment-vote-id="' +
+            esc(cid) +
+            '"' +
+            cvEx +
+            '><i class="fa ' +
+            (cupOn ? "fa-thumbs-up" : "fa-thumbs-o-up") +
+            '" aria-hidden="true"></i><span class="vc-reviews-like__n">' +
+            esc(String(cup)) +
+            '</span></button>' +
+            '<button type="button" class="vc-reviews-like vc-suggestions-vote--down text-xs' +
+            (cdnOn ? " is-down" : "") +
+            '" data-suggestion-comment-vote-down="' +
+            esc(rawSid) +
+            '" data-suggestion-comment-vote-id="' +
+            esc(cid) +
+            '"' +
+            cvEx +
+            '><i class="fa ' +
+            (cdnOn ? "fa-thumbs-down" : "fa-thumbs-o-down") +
+            '" aria-hidden="true"></i><span class="vc-reviews-like__n">' +
+            esc(String(cdn)) +
+            "</span></button></span></div>" +
+            innerBody +
+            actions +
+            "</div>"
           );
         })
         .join("");
     }
     if (pending && tokenOk) {
       threadHtml +=
+        prLine +
         '<div class="mt-3">' +
         '<label class="mb-1 block text-xs font-medium text-slate-400" for="vc-sug-comment-' +
-        sid +
+        esc(rawSid) +
         '">Il tuo commento</label>' +
         '<textarea id="vc-sug-comment-' +
-        sid +
-        '" class="vc-reviews-textarea" rows="2" placeholder="Scrivi un commento..."></textarea>' +
+        esc(rawSid) +
+        '" class="vc-reviews-textarea" rows="2" placeholder="Scrivi un commento o una risposta..."></textarea>' +
         '<div class="mt-2">' +
         '<button type="button" class="vc-reviews-submit" data-suggestion-comment-submit="' +
-        sid +
-        '">Pubblica commento</button>' +
+        esc(rawSid) +
+        '">Pubblica</button>' +
         "</div></div>";
     } else if (pending && !tokenOk) {
       threadHtml += '<p class="text-sm text-slate-500">Accedi con Discord per commentare.</p>';
@@ -356,17 +512,17 @@
         '<div class="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">' +
         '<p class="text-xs font-semibold uppercase tracking-wider text-amber-200/80">High Staff</p>' +
         '<label class="mt-2 mb-1 block text-xs text-slate-400" for="vc-sug-staff-reason-' +
-        sid +
+        esc(rawSid) +
         '">Motivo (obbligatorio, min. 3 caratteri)</label>' +
         '<textarea id="vc-sug-staff-reason-' +
-        sid +
+        esc(rawSid) +
         '" class="vc-reviews-textarea" rows="2" placeholder="Motivazione visibile nella scheda..."></textarea>' +
         '<div class="mt-3 flex flex-wrap gap-2">' +
         '<button type="button" class="vc-reviews-submit" data-suggestion-accept="' +
-        sid +
+        esc(rawSid) +
         '">Accetta</button>' +
         '<button type="button" class="vc-reviews-submit" style="background-color:#b91c1c;border-color:rgba(255,255,255,0.12)" data-suggestion-reject="' +
-        sid +
+        esc(rawSid) +
         '">Rifiuta</button>' +
         "</div></div>";
     }
@@ -376,11 +532,23 @@
       staffDelete =
         '<div class="mt-4 rounded-xl border border-slate-500/30 bg-slate-900/40 p-3">' +
         '<p class="text-xs font-semibold uppercase tracking-wider text-slate-300/90">High Staff</p>' +
-        '<button type="button" class="vc-reviews-submit mt-2" style="background-color:#0f172a;border-color:rgba(255,255,255,0.12)" data-suggestion-delete="' +
-        sid +
+        '<button type="button" class="vc-reviews-submit mt-2" style="background-color:#0f172a;border-color:rgba(255,255,255,0.12)" data-suggestion-staff-delete="' +
+        esc(rawSid) +
         '">Elimina definitivamente</button>' +
         '<p class="mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database (irreversibile).</p>' +
         "</div>";
+    }
+
+    var authorTools = "";
+    if (pending && tokenOk && isOwnSuggestion) {
+      authorTools =
+        '<div class="mt-2 flex flex-wrap gap-2">' +
+        '<button type="button" class="vc-reviews-submit" style="background-color:#0f172a;border-color:rgba(255,255,255,0.12)" data-suggestion-author-edit="' +
+        esc(rawSid) +
+        '">Modifica suggerimento</button>' +
+        '<button type="button" class="vc-reviews-submit" style="background-color:#7f1d1d;border-color:rgba(255,255,255,0.12)" data-suggestion-author-delete="' +
+        esc(rawSid) +
+        '">Elimina il mio suggerimento</button></div>';
     }
 
     var statusWrap =
@@ -405,7 +573,7 @@
       '<button type="button" class="vc-reviews-like' +
       (upOn ? " is-liked" : "") +
       '" data-suggestion-vote="' +
-      sid +
+      esc(rawSid) +
       '" data-vote-dir="up"' +
       voteExtras +
       '><i class="fa ' +
@@ -416,7 +584,7 @@
       '<button type="button" class="vc-reviews-like vc-suggestions-vote--down' +
       (downOn ? " is-down" : "") +
       '" data-suggestion-vote="' +
-      sid +
+      esc(rawSid) +
       '" data-vote-dir="down"' +
       voteExtras +
       '><i class="fa ' +
@@ -426,8 +594,10 @@
       "</span></button></div>";
 
     return (
-      '<article class="vc-reviews-card" data-suggestion-id="' +
-      sid +
+      '<article class="vc-reviews-card" id="vc-suggestion-' +
+      esc(rawSid) +
+      '" data-suggestion-id="' +
+      esc(rawSid) +
       '">' +
       '<div class="vc-reviews-card__head">' +
       '<div class="vc-reviews-card__author">' +
@@ -446,6 +616,7 @@
       '">' +
       esc(statusLabel(s.status)) +
       "</span></div></div>" +
+      authorTools +
       '<p class="vc-reviews-card__text">' +
       esc(s.content) +
       "</p>" +
@@ -479,11 +650,16 @@
   }
 
   function modalInnerMarkup() {
+    var isEdit = Boolean(state.editSuggestionId);
+    var title = isEdit ? "Modifica suggerimento" : "Nuovo suggerimento";
+    var btnLabel = isEdit ? "Salva modifiche" : "Invia suggerimento";
     return (
       '<div class="vc-reviews-modal__backdrop" data-suggestion-modal-dismiss tabindex="-1"></div>' +
       '<div class="vc-reviews-modal__panel" role="dialog" aria-modal="true" aria-labelledby="vc-suggestions-modal-title">' +
       '<div class="vc-reviews-modal__toolbar">' +
-      '<h2 id="vc-suggestions-modal-title" class="vc-reviews-modal__title">Nuovo suggerimento</h2>' +
+      '<h2 id="vc-suggestions-modal-title" class="vc-reviews-modal__title">' +
+      esc(title) +
+      "</h2>" +
       '<button type="button" class="vc-reviews-modal__close" data-suggestion-modal-dismiss aria-label="Chiudi"><i class="fa fa-times" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="vc-reviews-modal__body">' +
@@ -492,7 +668,9 @@
       esc(state.draftContent) +
       "</textarea></div>" +
       '<div class="vc-reviews-formcard__actions">' +
-      '<button type="button" class="vc-reviews-submit" data-suggestion-submit>Invia suggerimento</button>' +
+      '<button type="button" class="vc-reviews-submit" data-suggestion-submit>' +
+      esc(btnLabel) +
+      "</button>" +
       "</div></div></div>"
     );
   }
@@ -523,6 +701,7 @@
       setStatus("Devi effettuare il login con Discord per pubblicare un suggerimento.", true);
       return;
     }
+    state.editSuggestionId = null;
     state.draftContent = "";
     state.editModalOpen = true;
     render();
@@ -557,6 +736,24 @@
     };
   }
 
+  function applySuggestionDeepLink() {
+    try {
+      var h = String(window.location.hash || "").trim();
+      if (!h || h.indexOf("#vc-suggestion-") !== 0) return;
+      var raw = h.slice("#vc-suggestion-".length).trim();
+      if (!raw || !/^[a-f0-9]{24}$/i.test(raw)) return;
+      var el = document.getElementById("vc-suggestion-" + raw);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("vc-deep-link-flash");
+      window.setTimeout(function () {
+        try {
+          el.classList.remove("vc-deep-link-flash");
+        } catch (e0) {}
+      }, 2200);
+    } catch (e1) {}
+  }
+
   function render() {
     var wrap = byId("vc-suggestions-list");
     if (!wrap) return;
@@ -565,12 +762,16 @@
     syncModal();
     syncHeadButton();
     bind();
+    window.requestAnimationFrame(function () {
+      applySuggestionDeepLink();
+    });
   }
 
   function bind() {
     Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-modal-dismiss]")).forEach(function (el) {
       el.addEventListener("click", function () {
         state.editModalOpen = false;
+        state.editSuggestionId = null;
         render();
       });
     });
@@ -609,10 +810,209 @@
           setStatus("Il commento è troppo breve.", true);
           return;
         }
+        var pr = state.pendingReply;
+        var body = { content: text };
+        if (pr && pr.suggestionId === id && pr.parentCommentId) {
+          body.parentCommentId = pr.parentCommentId;
+        }
         btn.disabled = true;
         setStatus("Pubblicazione commento...", false);
         fetch(apiUrl() + "/" + encodeURIComponent(id) + "/comments", {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + getToken(),
+          },
+          body: JSON.stringify(body),
+        })
+          .then(parseSuggestionsApiJson)
+          .then(function (body) {
+            if (!body || body.ok !== true) {
+              throw new Error((body && body.message) || "Errore commento.");
+            }
+            if (ta) ta.value = "";
+            state.pendingReply = null;
+            setStatus(body.message || "Commento pubblicato.", false);
+            return fetchPayload();
+          })
+          .catch(function (err) {
+            setStatus(err && err.message ? err.message : "Errore.", true);
+          })
+          .then(function () {
+            btn.disabled = false;
+          });
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-reply-start]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sid = String(btn.getAttribute("data-suggestion-reply-start") || "").trim();
+        var pid = String(btn.getAttribute("data-suggestion-reply-parent") || "").trim();
+        var nm = String(btn.getAttribute("data-suggestion-reply-name") || "").trim() || "Utente";
+        if (!sid || !pid) return;
+        state.pendingReply = { suggestionId: sid, parentCommentId: pid, parentName: nm };
+        render();
+        var ta = byId("vc-sug-comment-" + sid);
+        if (ta) {
+          try {
+            ta.focus();
+          } catch (e0) {}
+        }
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-reply-cancel]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.pendingReply = null;
+        render();
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-author-edit]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sid = String(btn.getAttribute("data-suggestion-author-edit") || "").trim();
+        if (!sid) return;
+        var list = (state.payload && state.payload.suggestions) || [];
+        var row = list.find(function (x) {
+          return String(x.id) === sid;
+        });
+        if (!row) return;
+        state.editModalOpen = true;
+        state.editSuggestionId = sid;
+        state.draftContent = String(row.content || "");
+        render();
+        var ta = byId("vc-suggestion-modal-content");
+        if (ta) {
+          window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+              try {
+                ta.focus();
+              } catch (e1) {}
+            });
+          });
+        }
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-author-delete]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = String(btn.getAttribute("data-suggestion-author-delete") || "").trim();
+        if (!id || !getToken()) return;
+        if (!window.confirm("Eliminare il tuo suggerimento? Non potrai ripristinarlo.")) return;
+        btn.disabled = true;
+        setStatus("Eliminazione in corso...", false);
+        fetch(apiUrl() + "/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: { Authorization: "Bearer " + getToken() },
+        })
+          .then(parseSuggestionsApiJson)
+          .then(function (body) {
+            if (!body || body.ok !== true) {
+              throw new Error((body && body.message) || "Eliminazione non riuscita.");
+            }
+            setStatus(body.message || "Eliminato.", false);
+            return fetchPayload();
+          })
+          .catch(function (err) {
+            setStatus(err && err.message ? err.message : "Errore.", true);
+          })
+          .then(function () {
+            btn.disabled = false;
+          });
+      });
+    });
+
+    function submitCommentVote(suggestionId, commentId, direction, buttonEl) {
+      var token = getToken();
+      if (!token) {
+        setStatus("Accedi con Discord per votare.", true);
+        return;
+      }
+      if (buttonEl) buttonEl.disabled = true;
+      setStatus("", false);
+      fetch(
+        apiUrl() + "/" + encodeURIComponent(suggestionId) + "/comments/" + encodeURIComponent(commentId) + "/vote",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+          },
+          body: JSON.stringify({ direction: direction }),
+        },
+      )
+        .then(parseSuggestionsApiJson)
+        .then(function (body) {
+          if (!body || body.ok !== true) {
+            throw new Error((body && body.message) || "Voto non registrato.");
+          }
+          return fetchPayload();
+        })
+        .catch(function (err) {
+          setStatus(err && err.message ? err.message : "Errore voto.", true);
+        })
+        .then(function () {
+          if (buttonEl) buttonEl.disabled = false;
+        });
+    }
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-vote-up]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.disabled) return;
+        var sid = String(btn.getAttribute("data-suggestion-comment-vote-up") || "").trim();
+        var cid = String(btn.getAttribute("data-suggestion-comment-vote-id") || "").trim();
+        if (!sid || !cid) return;
+        submitCommentVote(sid, cid, "up", btn);
+      });
+    });
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-vote-down]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.disabled) return;
+        var sid = String(btn.getAttribute("data-suggestion-comment-vote-down") || "").trim();
+        var cid = String(btn.getAttribute("data-suggestion-comment-vote-id") || "").trim();
+        if (!sid || !cid) return;
+        submitCommentVote(sid, cid, "down", btn);
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-edit-start]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sid = String(btn.getAttribute("data-suggestion-comment-edit-start") || "").trim();
+        var cid = String(btn.getAttribute("data-suggestion-comment-edit-id") || "").trim();
+        if (!sid || !cid) return;
+        state.editingComment = { suggestionId: sid, commentId: cid };
+        render();
+        var ta = byId("vc-sug-comment-edit-" + cid);
+        if (ta) {
+          try {
+            ta.focus();
+          } catch (e2) {}
+        }
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-edit-cancel]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.editingComment = null;
+        render();
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-edit-save]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sid = String(btn.getAttribute("data-suggestion-comment-edit-save") || "").trim();
+        var cid = String(btn.getAttribute("data-suggestion-comment-edit-save-id") || "").trim();
+        if (!sid || !cid || !getToken()) return;
+        var ta = byId("vc-sug-comment-edit-" + cid);
+        var text = ta ? String(ta.value || "").trim() : "";
+        if (text.length < 2) {
+          setStatus("Il commento è troppo breve.", true);
+          return;
+        }
+        btn.disabled = true;
+        setStatus("Salvataggio commento...", false);
+        fetch(apiUrl() + "/" + encodeURIComponent(sid) + "/comments/" + encodeURIComponent(cid), {
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: "Bearer " + getToken(),
@@ -622,10 +1022,40 @@
           .then(parseSuggestionsApiJson)
           .then(function (body) {
             if (!body || body.ok !== true) {
-              throw new Error((body && body.message) || "Errore commento.");
+              throw new Error((body && body.message) || "Salvataggio non riuscito.");
             }
-            if (ta) ta.value = "";
-            setStatus(body.message || "Commento pubblicato.", false);
+            state.editingComment = null;
+            setStatus(body.message || "Commento aggiornato.", false);
+            return fetchPayload();
+          })
+          .catch(function (err) {
+            setStatus(err && err.message ? err.message : "Errore.", true);
+          })
+          .then(function () {
+            btn.disabled = false;
+          });
+      });
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-comment-delete]")).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var sid = String(btn.getAttribute("data-suggestion-comment-delete") || "").trim();
+        var cid = String(btn.getAttribute("data-suggestion-comment-delete-id") || "").trim();
+        if (!sid || !cid || !getToken()) return;
+        if (!window.confirm("Eliminare questo commento?")) return;
+        btn.disabled = true;
+        setStatus("Eliminazione commento...", false);
+        fetch(apiUrl() + "/" + encodeURIComponent(sid) + "/comments/" + encodeURIComponent(cid), {
+          method: "DELETE",
+          headers: { Authorization: "Bearer " + getToken() },
+        })
+          .then(parseSuggestionsApiJson)
+          .then(function (body) {
+            if (!body || body.ok !== true) {
+              throw new Error((body && body.message) || "Eliminazione non riuscita.");
+            }
+            state.editingComment = null;
+            setStatus(body.message || "Commento eliminato.", false);
             return fetchPayload();
           })
           .catch(function (err) {
@@ -648,9 +1078,9 @@
       });
     });
 
-    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-delete]")).forEach(function (btn) {
+    Array.prototype.slice.call(document.querySelectorAll("[data-suggestion-staff-delete]")).forEach(function (btn) {
       btn.addEventListener("click", function () {
-        staffDeleteSuggestion(String(btn.getAttribute("data-suggestion-delete") || "").trim(), btn);
+        staffDeleteSuggestion(String(btn.getAttribute("data-suggestion-staff-delete") || "").trim(), btn);
       });
     });
   }
@@ -792,9 +1222,12 @@
       setStatus("Scrivi almeno 12 caratteri.", true);
       return;
     }
-    setStatus("Invio in corso...", false);
-    fetch(apiUrl(), {
-      method: "POST",
+    var editId = state.editSuggestionId ? String(state.editSuggestionId).trim() : "";
+    setStatus(editId ? "Salvataggio in corso..." : "Invio in corso...", false);
+    var url = editId ? apiUrl() + "/" + encodeURIComponent(editId) : apiUrl();
+    var method = editId ? "PATCH" : "POST";
+    fetch(url, {
+      method: method,
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + token,
@@ -807,8 +1240,9 @@
           throw new Error((body && body.message) || "Salvataggio non riuscito.");
         }
         state.editModalOpen = false;
+        state.editSuggestionId = null;
         state.draftContent = "";
-        setStatus(body.message || "Suggerimento pubblicato.", false);
+        setStatus(body.message || (editId ? "Suggerimento aggiornato." : "Suggerimento pubblicato."), false);
         return fetchPayload();
       })
       .catch(function (err) {
@@ -857,7 +1291,16 @@
     if (!state.editModalOpen) return;
     if (ev.key !== "Escape") return;
     state.editModalOpen = false;
+    state.editSuggestionId = null;
     render();
+  });
+
+  window.addEventListener("hashchange", function () {
+    if (byId("vc-suggestions-list")) {
+      window.requestAnimationFrame(function () {
+        applySuggestionDeepLink();
+      });
+    }
   });
 
   if (document.readyState === "loading") {

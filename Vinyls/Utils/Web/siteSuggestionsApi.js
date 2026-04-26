@@ -47,6 +47,12 @@ function clipNotifBody(text, maxLen) {
   return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
 }
 
+function suggestionNotifOpenUrl(suggestionId) {
+  const id = String(suggestionId || "").trim();
+  if (!id || !mongoose.isValidObjectId(id)) return "/suggerimenti";
+  return `/suggerimenti#vc-suggestion-${id}`;
+}
+
 async function notifySuggestionAuthor(guildId, authorUserId, payload) {
   const gid = String(guildId || "").trim();
   const aid = String(authorUserId || "").trim();
@@ -76,21 +82,33 @@ async function resolveGuild(client) {
   return client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
 }
 
-function serializeComment(c) {
+function serializeComment(c, viewerUserId) {
   if (!c) return null;
+  const upList = Array.isArray(c.upvoterUserIds) ? c.upvoterUserIds.map((x) => String(x)) : [];
+  const downList = Array.isArray(c.downvoterUserIds) ? c.downvoterUserIds.map((x) => String(x)) : [];
+  const vid = String(viewerUserId || "").trim();
+  const pid = c.parentCommentId ? String(c.parentCommentId) : "";
   return {
     id: String(c._id),
     userId: String(c.userId || ""),
     authorName: String(c.authorName || ""),
     authorAvatarUrl: String(c.authorAvatarUrl || ""),
     content: String(c.content || ""),
+    parentCommentId: pid && mongoose.isValidObjectId(pid) ? pid : null,
     createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : null,
+    updatedAt: c.updatedAt ? new Date(c.updatedAt).toISOString() : null,
+    upvoteCount: upList.length,
+    downvoteCount: downList.length,
+    upvotedByViewer: Boolean(vid && upList.includes(vid)),
+    downvotedByViewer: Boolean(vid && downList.includes(vid)),
   };
 }
 
 function serializeSuggestion(doc, viewerUserId) {
   if (!doc) return null;
-  const comments = Array.isArray(doc.comments) ? doc.comments.map(serializeComment).filter(Boolean) : [];
+  const comments = Array.isArray(doc.comments)
+    ? doc.comments.map((c) => serializeComment(c, viewerUserId)).filter(Boolean)
+    : [];
   const upList = Array.isArray(doc.upvoterUserIds) ? doc.upvoterUserIds.map((x) => String(x)) : [];
   const downList = Array.isArray(doc.downvoterUserIds) ? doc.downvoterUserIds.map((x) => String(x)) : [];
   const vid = String(viewerUserId || "").trim();
@@ -231,11 +249,33 @@ async function addSiteSuggestionComment(client, payload = {}) {
     return { ok: false, status: 400, error: "thread_full", message: "Limite commenti raggiunto per questo suggerimento." };
   }
 
+  const rawParent = String(payload.parentCommentId || "").trim();
+  let parentOid = null;
+  if (rawParent) {
+    if (!mongoose.isValidObjectId(rawParent)) {
+      return { ok: false, status: 400, error: "invalid_parent", message: "ID commento padre non valido." };
+    }
+    const parent = (Array.isArray(existing.comments) ? existing.comments : []).find((x) => String(x._id) === rawParent);
+    if (!parent) {
+      return { ok: false, status: 404, error: "parent_not_found", message: "Il commento a cui rispondi non esiste." };
+    }
+    if (parent.parentCommentId) {
+      return {
+        ok: false,
+        status: 400,
+        error: "reply_depth",
+        message: "Puoi rispondere solo ai commenti principali, non alle risposte.",
+      };
+    }
+    parentOid = new mongoose.Types.ObjectId(rawParent);
+  }
+
   const comment = {
     userId: resolved.userId,
     authorName: displayNameForMember(resolved.member),
     authorAvatarUrl: guildMemberDisplayAvatarUrlDynamic(resolved.member, { size: 128 }) || "",
     content,
+    ...(parentOid ? { parentCommentId: parentOid } : {}),
   };
 
   const updated = await SiteSuggestion.findOneAndUpdate(
@@ -251,13 +291,32 @@ async function addSiteSuggestionComment(client, payload = {}) {
   }
 
   const ownerId = String(existing.userId || "").trim();
-  if (ownerId && ownerId !== String(resolved.userId)) {
-    const who = displayNameForMember(resolved.member);
+  const who = displayNameForMember(resolved.member);
+  if (parentOid) {
+    const parent = (Array.isArray(existing.comments) ? existing.comments : []).find((x) => String(x._id) === rawParent);
+    const parentAuthor = parent ? String(parent.userId || "").trim() : "";
+    if (parentAuthor && parentAuthor !== String(resolved.userId)) {
+      await notifySuggestionAuthor(resolved.guild.id, parentAuthor, {
+        title: "Risposta al tuo commento",
+        body: `${who} ha risposto al tuo commento: ${clipNotifBody(content, 320)}`,
+        kind: "suggestion",
+        openUrl: suggestionNotifOpenUrl(suggestionId),
+      });
+    }
+    if (ownerId && ownerId !== String(resolved.userId) && ownerId !== parentAuthor) {
+      await notifySuggestionAuthor(resolved.guild.id, ownerId, {
+        title: "Nuova risposta in discussione",
+        body: `${who} ha risposto a un commento sul tuo suggerimento.`,
+        kind: "suggestion",
+        openUrl: suggestionNotifOpenUrl(suggestionId),
+      });
+    }
+  } else if (ownerId && ownerId !== String(resolved.userId)) {
     await notifySuggestionAuthor(resolved.guild.id, ownerId, {
       title: "Nuovo commento al suggerimento",
       body: `${who} ha commentato: ${clipNotifBody(content, 360)}`,
       kind: "suggestion",
-      openUrl: "/suggerimenti",
+      openUrl: suggestionNotifOpenUrl(suggestionId),
     });
   }
 
@@ -347,7 +406,7 @@ async function setSiteSuggestionVote(client, payload = {}) {
       title: "Mi piace al tuo suggerimento",
       body: `${voterName} ha messo mi piace al tuo suggerimento sul sito.`,
       kind: "suggestion",
-      openUrl: "/suggerimenti",
+      openUrl: suggestionNotifOpenUrl(suggestionId),
     });
   }
 
@@ -417,7 +476,7 @@ async function staffAcceptSiteSuggestion(client, payload = {}) {
       title: "Suggerimento accettato",
       body: `Lo staff ha accettato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
       kind: "success",
-      openUrl: "/suggerimenti",
+      openUrl: suggestionNotifOpenUrl(suggestionId),
     });
   }
 
@@ -487,7 +546,7 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
       title: "Suggerimento rifiutato",
       body: `Lo staff ha rifiutato il tuo suggerimento sul sito. Motivo: ${clipNotifBody(reason, 380)}`,
       kind: "suggestion",
-      openUrl: "/suggerimenti",
+      openUrl: suggestionNotifOpenUrl(suggestionId),
     });
   }
 
@@ -532,10 +591,275 @@ async function staffDeleteSiteSuggestion(client, payload = {}) {
   return { ok: true, status: 200, message: "Suggerimento eliminato definitivamente." };
 }
 
+async function updateOwnSiteSuggestion(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
+  }
+
+  const content = sanitizeBody(payload.content, MAX_SUGGESTION_LEN);
+  if (content.length < 12) {
+    return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
+  }
+
+  const updated = await SiteSuggestion.findOneAndUpdate(
+    {
+      _id: suggestionId,
+      guildId: resolved.guild.id,
+      userId: resolved.userId,
+      status: "pending",
+    },
+    { $set: { content, updatedAt: new Date() } },
+    { new: true },
+  )
+    .lean()
+    .catch(() => null);
+
+  if (!updated) {
+    return {
+      ok: false,
+      status: 404,
+      error: "not_found_or_locked",
+      message: "Suggerimento non trovato, non tuo o già gestito dallo staff.",
+    };
+  }
+
+  broadcastSiteSuggestionsChanged();
+  return {
+    ok: true,
+    status: 200,
+    suggestion: serializeSuggestion(updated, resolved.userId),
+    message: "Suggerimento aggiornato.",
+  };
+}
+
+async function deleteOwnSiteSuggestion(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
+  }
+
+  const del = await SiteSuggestion.deleteOne({
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+    userId: resolved.userId,
+    status: "pending",
+  }).catch(() => null);
+
+  const n = Number(del?.deletedCount ?? del?.n ?? 0);
+  if (!del || n < 1) {
+    return {
+      ok: false,
+      status: 404,
+      error: "not_found_or_locked",
+      message: "Suggerimento non trovato, non tuo o già gestito dallo staff.",
+    };
+  }
+
+  broadcastSiteSuggestionsChanged();
+  return { ok: true, status: 200, message: "Suggerimento eliminato." };
+}
+
+async function updateSiteSuggestionComment(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  const commentId = String(payload.commentId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId) || !commentId || !mongoose.isValidObjectId(commentId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID non valido." };
+  }
+
+  const content = sanitizeBody(payload.content, MAX_COMMENT_LEN);
+  if (content.length < 2) {
+    return { ok: false, status: 400, error: "content_too_short", message: "Il commento è troppo breve." };
+  }
+
+  const doc = await SiteSuggestion.findOne({
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+    status: "pending",
+  }).catch(() => null);
+  if (!doc) {
+    return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato o discussione chiusa." };
+  }
+
+  const arr = Array.isArray(doc.comments) ? doc.comments : [];
+  const idx = arr.findIndex((c) => String(c._id) === commentId);
+  if (idx < 0) {
+    return { ok: false, status: 404, error: "comment_not_found", message: "Commento non trovato." };
+  }
+  if (String(arr[idx].userId || "") !== String(resolved.userId)) {
+    return { ok: false, status: 403, error: "forbidden", message: "Puoi modificare solo i tuoi commenti." };
+  }
+
+  arr[idx].content = content;
+  doc.comments = arr;
+  doc.updatedAt = new Date();
+  doc.markModified("comments");
+  const saved = await doc.save().catch(() => null);
+  if (!saved) {
+    return { ok: false, status: 500, error: "save_failed", message: "Impossibile salvare le modifiche." };
+  }
+
+  broadcastSiteSuggestionsChanged();
+  return {
+    ok: true,
+    status: 200,
+    suggestion: serializeSuggestion(saved.toObject ? saved.toObject() : saved, resolved.userId),
+    message: "Commento aggiornato.",
+  };
+}
+
+async function deleteSiteSuggestionComment(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  const commentId = String(payload.commentId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId) || !commentId || !mongoose.isValidObjectId(commentId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID non valido." };
+  }
+
+  const canMod = memberCanModerateSuggestions(resolved.member);
+  const doc = await SiteSuggestion.findOne({
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+    status: "pending",
+  }).catch(() => null);
+  if (!doc) {
+    return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato o discussione chiusa." };
+  }
+
+  const arr = Array.isArray(doc.comments) ? doc.comments : [];
+  const idx = arr.findIndex((c) => String(c._id) === commentId);
+  if (idx < 0) {
+    return { ok: false, status: 404, error: "comment_not_found", message: "Commento non trovato." };
+  }
+  const authorId = String(arr[idx].userId || "").trim();
+  const isOwn = authorId === String(resolved.userId);
+  if (!isOwn && !canMod) {
+    return { ok: false, status: 403, error: "forbidden", message: "Non puoi eliminare questo commento." };
+  }
+
+  const removeIds = new Set([commentId]);
+  arr.forEach((c) => {
+    if (String(c.parentCommentId || "") === commentId) removeIds.add(String(c._id));
+  });
+  doc.comments = arr.filter((c) => !removeIds.has(String(c._id)));
+  doc.updatedAt = new Date();
+  doc.markModified("comments");
+  const saved = await doc.save().catch(() => null);
+  if (!saved) {
+    return { ok: false, status: 500, error: "save_failed", message: "Impossibile eliminare il commento." };
+  }
+
+  broadcastSiteSuggestionsChanged();
+  return {
+    ok: true,
+    status: 200,
+    suggestion: serializeSuggestion(saved.toObject ? saved.toObject() : saved, resolved.userId),
+    message: "Commento eliminato.",
+  };
+}
+
+async function setSiteSuggestionCommentVote(client, payload = {}) {
+  const accessToken = String(payload.accessToken || "").trim();
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const suggestionId = String(payload.suggestionId || "").trim();
+  const commentId = String(payload.commentId || "").trim();
+  if (!suggestionId || !mongoose.isValidObjectId(suggestionId) || !commentId || !mongoose.isValidObjectId(commentId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID non valido." };
+  }
+
+  const direction = String(payload.direction || "").trim().toLowerCase();
+  if (direction !== "up" && direction !== "down") {
+    return { ok: false, status: 400, error: "invalid_direction", message: 'Indica "up" o "down".' };
+  }
+
+  const doc = await SiteSuggestion.findOne({
+    _id: suggestionId,
+    guildId: resolved.guild.id,
+    status: "pending",
+  }).catch(() => null);
+  if (!doc) {
+    return {
+      ok: false,
+      status: 400,
+      error: "vote_not_allowed",
+      message: "Puoi votare solo su suggerimenti ancora in valutazione.",
+    };
+  }
+
+  const arr = Array.isArray(doc.comments) ? doc.comments : [];
+  const idx = arr.findIndex((c) => String(c._id) === commentId);
+  if (idx < 0) {
+    return { ok: false, status: 404, error: "comment_not_found", message: "Commento non trovato." };
+  }
+
+  const c = arr[idx];
+  if (String(c.userId || "") === String(resolved.userId)) {
+    return { ok: false, status: 400, error: "self_vote", message: "Non puoi votare il tuo stesso commento." };
+  }
+
+  const uid = String(resolved.userId);
+  const up = new Set((Array.isArray(c.upvoterUserIds) ? c.upvoterUserIds : []).map((x) => String(x)));
+  const down = new Set((Array.isArray(c.downvoterUserIds) ? c.downvoterUserIds : []).map((x) => String(x)));
+  const hadUpvote = up.has(uid);
+
+  if (direction === "up") {
+    if (hadUpvote) up.delete(uid);
+    else {
+      down.delete(uid);
+      up.add(uid);
+    }
+  } else if (down.has(uid)) {
+    down.delete(uid);
+  } else {
+    up.delete(uid);
+    down.add(uid);
+  }
+
+  c.upvoterUserIds = Array.from(up);
+  c.downvoterUserIds = Array.from(down);
+  doc.comments = arr;
+  doc.updatedAt = new Date();
+  doc.markModified("comments");
+  const saved = await doc.save().catch(() => null);
+  if (!saved) {
+    return { ok: false, status: 500, error: "vote_failed", message: "Impossibile salvare il voto." };
+  }
+
+  broadcastSiteSuggestionsChanged();
+  return {
+    ok: true,
+    status: 200,
+    suggestion: serializeSuggestion(saved.toObject ? saved.toObject() : saved, uid),
+    message: "Voto aggiornato.",
+  };
+}
+
 module.exports = {
   getSiteSuggestions,
   createSiteSuggestion,
+  updateOwnSiteSuggestion,
+  deleteOwnSiteSuggestion,
   addSiteSuggestionComment,
+  updateSiteSuggestionComment,
+  deleteSiteSuggestionComment,
+  setSiteSuggestionCommentVote,
   setSiteSuggestionVote,
   staffAcceptSiteSuggestion,
   staffRejectSiteSuggestion,

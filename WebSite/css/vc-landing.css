@@ -42,11 +42,55 @@ html {
   scrollbar-width: thin;
   scrollbar-color: #6b4e3d #140f0c;
   min-height: 100%;
+  cursor: url("../images/cursors/vc-cursor-vinyl.svg") 16 16, auto;
 }
 
 body {
   margin: 0;
   min-height: 100%;
+  cursor: inherit;
+}
+
+@media (pointer: coarse) {
+  html,
+  body {
+    cursor: auto;
+  }
+}
+
+/* Caffè su link / controlli; campi testo sotto con I-beam */
+a:any-link,
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+input:not([type="hidden"]):not(:disabled),
+select:not(:disabled),
+summary,
+label[for],
+.vc-icon-btn,
+.vc-notif-summary,
+.vc-mobile-nav-toggle,
+.cursor-pointer,
+[onclick] {
+  cursor: url("../images/cursors/vc-cursor-coffee.svg") 14 18, pointer;
+}
+
+input[type="text"]:not(:disabled),
+input[type="search"]:not(:disabled),
+input[type="email"]:not(:disabled),
+input[type="password"]:not(:disabled),
+input[type="url"]:not(:disabled),
+input[type="tel"]:not(:disabled),
+input[type="number"]:not(:disabled),
+input:not([type]):not(:disabled),
+textarea:not(:disabled),
+[contenteditable="true"] {
+  cursor: text;
+}
+
+button:disabled,
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 html::-webkit-scrollbar {
@@ -5098,6 +5142,10 @@ textarea.vc-candidature-input {
 .vc-notify-row--read {
   border-color: rgba(var(--vc-reviews-emerald-rgb), 0.12);
   background: rgba(10, 18, 24, 0.6);
+}
+
+.vc-notify-row--link {
+  cursor: pointer;
 }
 
 .vc-notify-row--success {
@@ -12475,5 +12523,90 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
     max-width: 100%;
     text-align: center;
     justify-content: center;
+  }
+}
+
+.vc-deep-link-flash {
+  outline: 2px solid rgba(45, 212, 191, 0.8);
+  outline-offset: 6px;
+  border-radius: 1rem;
+  animation: vc-deep-link-pulse 2.15s ease-out 1;
+}
+
+@keyframes vc-deep-link-pulse {
+  0% {
+    outline-color: rgba(251, 191, 36, 0.95);
+    outline-width: 3px;
+    outline-offset: 4px;
+  }
+  45% {
+    outline-color: rgba(45, 212, 191, 0.65);
+    outline-width: 2px;
+    outline-offset: 10px;
+  }
+  100% {
+    outline-color: rgba(45, 212, 191, 0);
+    outline-offset: 14px;
+  }
+}
+
+.vc-notif-fly-card {
+  position: fixed;
+  z-index: 100001;
+  right: 1rem;
+  bottom: 1rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  padding: 0.75rem 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(94, 234, 212, 0.35);
+  background: linear-gradient(145deg, rgba(15, 40, 36, 0.96), rgba(8, 20, 24, 0.98));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+.vc-notif-fly-card__t {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #ecfdf5;
+  margin-bottom: 0.25rem;
+}
+
+.vc-notif-fly-card__b {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.vc-notif-fly-card--run {
+  animation: vc-notif-fly-to-bell 0.88s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes vc-notif-fly-to-bell {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--vc-fly-tx, 0), var(--vc-fly-ty, 0)) scale(0.18);
+    opacity: 0.08;
+  }
+}
+
+.vc-notif-summary--pulse {
+  animation: vc-notif-bell-pulse 0.52s ease-out 2;
+}
+
+@keyframes vc-notif-bell-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.14);
+    filter: brightness(1.25);
   }
 }

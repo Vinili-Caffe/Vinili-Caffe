@@ -553,8 +553,11 @@ const siteSuggestionCommentSchema = new Schema(
     authorName: { type: String, default: "" },
     authorAvatarUrl: { type: String, default: "" },
     content: { type: String, required: true, trim: true, maxlength: 1200 },
+    parentCommentId: { type: Schema.Types.ObjectId, default: null },
+    upvoterUserIds: { type: [String], default: [] },
+    downvoterUserIds: { type: [String], default: [] },
   },
-  { timestamps: { createdAt: true, updatedAt: false } },
+  { timestamps: true },
 );
 
 const siteSuggestionSchema = new Schema(

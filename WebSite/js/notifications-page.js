@@ -8,6 +8,17 @@
     return document.getElementById(id);
   }
 
+  function resolveNotifDestUrl(dest) {
+    var u = String(dest || "").trim();
+    if (!u) return "";
+    if (/^https?:\/\//i.test(u)) return u;
+    try {
+      return new URL(u, window.location.origin).href;
+    } catch (e) {
+      return u;
+    }
+  }
+
   function normalizeUserId(value) {
     var id = String(value || "").trim();
     return /^\d{17,20}$/.test(id) ? id : "";
@@ -230,6 +241,17 @@
       if (n.kind === "success") li.classList.add("vc-notify-row--success");
       if (n.read) li.classList.add("vc-notify-row--read");
       li.setAttribute("data-id", n.id);
+      var destRaw = String((n && n.openUrl) || "").trim();
+      if (destRaw) li.classList.add("vc-notify-row--link");
+      li.addEventListener("click", function (ev) {
+        if (ev.target.closest(".vc-notify-close-btn") || ev.target.closest(".vc-notify-open-btn")) return;
+        markRead(n.id);
+        if (destRaw) {
+          window.location.href = resolveNotifDestUrl(destRaw);
+          return;
+        }
+        renderList();
+      });
 
       var iconWrap = document.createElement("span");
       iconWrap.className = "vc-notify-row-icon";
@@ -277,9 +299,8 @@
       openBtn.setAttribute("aria-label", "Vai alla schermata principale");
       openBtn.addEventListener("click", function () {
         markRead(n.id);
-        var dest = String((n && n.openUrl) || "").trim();
-        if (dest) {
-          window.location.href = dest;
+        if (destRaw) {
+          window.location.href = resolveNotifDestUrl(destRaw);
           return;
         }
         renderList();

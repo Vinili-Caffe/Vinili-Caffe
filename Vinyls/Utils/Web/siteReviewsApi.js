@@ -508,7 +508,7 @@ async function toggleSiteReviewLike(client, payload = {}) {
           title: "Nuovo like alla tua recensione",
           body: `${likerName} ha messo mi piace alla tua recensione della community.`,
           kind: "review",
-          openUrl: "/recensioni",
+          openUrl: `/recensioni#vc-review-${reviewId}`,
           dedupeKey: `rev-like:${reviewId}:${uid}`,
           dedupeWindowMs: 300_000,
         });
@@ -583,7 +583,7 @@ async function upsertServerReviewReply(client, payload = {}) {
         title: "Risposta alla tua recensione",
         body: "Lo staff ha pubblicato una risposta ufficiale alla tua recensione della community.",
         kind: "review",
-        openUrl: "/recensioni",
+        openUrl: `/recensioni#vc-review-${reviewId}`,
         dedupeKey: `rev-reply:${reviewId}:${String(nextDoc.serverReplyAt || "")}`,
         dedupeWindowMs: 86_400_000,
       });

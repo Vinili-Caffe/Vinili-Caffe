@@ -263,7 +263,9 @@
     var reviewUserId = String(review.userId || "");
     var isOwn = Boolean(tokenOk && viewerId && reviewUserId && reviewUserId === viewerId);
     var out =
-      '<article class="vc-reviews-card" data-review-id="' +
+      '<article class="vc-reviews-card" id="vc-review-' +
+      rid +
+      '" data-review-id="' +
       rid +
       '">' +
       '<div class="vc-reviews-card__head">' +
@@ -498,6 +500,24 @@
     };
   }
 
+  function applyReviewDeepLink() {
+    try {
+      var h = String(window.location.hash || "").trim();
+      if (!h || h.indexOf("#vc-review-") !== 0) return;
+      var raw = h.slice("#vc-review-".length).trim();
+      if (!raw || !/^[a-f0-9]{24}$/i.test(raw)) return;
+      var el = document.getElementById("vc-review-" + raw);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("vc-deep-link-flash");
+      window.setTimeout(function () {
+        try {
+          el.classList.remove("vc-deep-link-flash");
+        } catch (e0) {}
+      }, 2200);
+    } catch (e1) {}
+  }
+
   function render() {
     var payload = state.payload || { reviews: { server: [], staff: [] }, staffers: [], viewer: null };
     var serverWrap = byId("vc-reviews-server-list");
@@ -510,6 +530,9 @@
     syncReviewFormModal();
     syncReviewHeadButton();
     bind();
+    window.requestAnimationFrame(function () {
+      applyReviewDeepLink();
+    });
   }
 
   function bind() {
@@ -793,6 +816,14 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible" && state.payload) {
       void refreshReviewsPayloadQuiet();
+    }
+  });
+
+  window.addEventListener("hashchange", function () {
+    if (byId("vc-reviews-server-list")) {
+      window.requestAnimationFrame(function () {
+        applyReviewDeepLink();
+      });
     }
   });
 

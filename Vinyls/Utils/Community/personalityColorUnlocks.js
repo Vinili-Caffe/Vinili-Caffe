@@ -202,9 +202,7 @@ function buildMergedColorSelectOptions(guild, member, numericLevel, canPickPlus)
     if (opts.length >= MERGED_SELECT_MAX) return;
     if (!guild?.roles?.cache?.has?.(rid)) return;
     const label = `${prefix}${roleLabel(guild, rid)}`.slice(0, 100);
-    const desc = String(prefix || "").trim().slice(0, 100);
     const row = { label, value: rid };
-    if (desc) row.description = desc;
     if (kind === "plus") row.emoji = EMOJI_COLOR_PLUS;
     else if (kind === "tier") row.emoji = EMOJI_COLOR_TIER;
     else if (kind === "natural") {

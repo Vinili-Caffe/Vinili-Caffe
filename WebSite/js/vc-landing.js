@@ -875,6 +875,7 @@
       if (n.kind === "success") btn.classList.add("vc-notif-item--success");
       if (n.read) btn.classList.add("vc-notif-item--read");
       btn.setAttribute("data-id", n.id);
+      btn.setAttribute("data-open-url", String(n.openUrl || "").trim());
       var ico = document.createElement("span");
       ico.className = "vc-notif-item-ico";
       ico.setAttribute("aria-hidden", "true");
@@ -936,9 +937,72 @@
     );
     render();
   }
+  function resolveNotifDestUrl(dest) {
+    var u = String(dest || "").trim();
+    if (!u) return "";
+    if (/^https?:\/\//i.test(u)) return u;
+    try {
+      return new URL(u, window.location.origin).href;
+    } catch (e) {
+      return u;
+    }
+  }
+
+  function pulseNotifSummary() {
+    var sm = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
+    if (!sm) return;
+    try {
+      sm.classList.remove("vc-notif-summary--pulse");
+      void sm.offsetWidth;
+      sm.classList.add("vc-notif-summary--pulse");
+    } catch (e) {}
+  }
+
+  function showNotifFlyToast(row) {
+    var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
+    if (!bell) return;
+    var title = row && row.title ? String(row.title) : "Nuova notifica";
+    var body = row && row.body ? String(row.body) : "";
+    if (body.length > 80) body = body.slice(0, 79) + "…";
+    var root = document.createElement("div");
+    root.className = "vc-notif-fly-card";
+    root.setAttribute("role", "status");
+    var t = document.createElement("strong");
+    t.className = "vc-notif-fly-card__t";
+    t.textContent = title;
+    var b = document.createElement("span");
+    b.className = "vc-notif-fly-card__b";
+    b.textContent = body;
+    root.appendChild(t);
+    root.appendChild(b);
+    document.body.appendChild(root);
+    var br = bell.getBoundingClientRect();
+    var cr = root.getBoundingClientRect();
+    var sx = br.left + br.width / 2;
+    var sy = br.top + br.height / 2;
+    var cx = cr.left + cr.width / 2;
+    var cy = cr.top + cr.height / 2;
+    root.style.setProperty("--vc-fly-tx", String(sx - cx) + "px");
+    root.style.setProperty("--vc-fly-ty", String(sy - cy) + "px");
+    window.requestAnimationFrame(function () {
+      root.classList.add("vc-notif-fly-card--run");
+    });
+    var finished = false;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      try {
+        root.remove();
+      } catch (e2) {}
+      pulseNotifSummary();
+    }
+    root.addEventListener("animationend", finish);
+    window.setTimeout(finish, 1100);
+  }
+
   function addNotif(p) {
     var ownerId = normalizeUserId((p && p.userId) || currentUserId);
-    if (!ownerId) return;
+    if (!ownerId) return { added: false };
     var kindRaw = p && p.kind;
     var kind =
       kindRaw === "vote"
@@ -975,7 +1039,7 @@
     }
     if (stableId) {
       for (var dup = 0; dup < s.length; dup += 1) {
-        if (String(s[dup].id) === stableId) return;
+        if (String(s[dup].id) === stableId) return { added: false };
       }
     }
     s.unshift(item);
@@ -983,6 +1047,7 @@
       localStorage.setItem(key, JSON.stringify(s));
     } catch (e2) {}
     if (!p || !p.__noRender) render();
+    return { added: true };
   }
   function flushPendingLoginNotification() {
     var raw = "";
@@ -1175,21 +1240,32 @@
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
         var list = j.items.slice().reverse();
+        var freshMs = 600000;
+        var toastRow = null;
         for (var i = 0; i < list.length; i += 1) {
           var row = list[i];
           if (!row || !row.title) continue;
-          addNotif({
+          var atMs = typeof row.at === "number" ? row.at : Date.now();
+          var ins = addNotif({
             id: row.id,
             userId: uid,
             title: row.title,
             body: row.body || "",
             kind: row.kind || "info",
-            at: typeof row.at === "number" ? row.at : Date.now(),
+            at: atMs,
             openUrl: row.openUrl || "",
             __noRender: true,
           });
+          if (ins && ins.added && Date.now() - atMs < freshMs) {
+            toastRow = row;
+          }
         }
         render();
+        if (toastRow) {
+          window.requestAnimationFrame(function () {
+            showNotifFlyToast(toastRow);
+          });
+        }
       })
       .catch(function () {});
   }
@@ -1256,7 +1332,15 @@
         var btn = t.closest("button.vc-notif-item");
         if (!btn || !listEl.contains(btn)) return;
         var id = btn.getAttribute("data-id");
+        var dest = String(btn.getAttribute("data-open-url") || "").trim();
         if (id) markOneRead(id);
+        var href = resolveNotifDestUrl(dest);
+        if (href) {
+          ev.preventDefault();
+          var ddNav = document.getElementById("vc-notif-dropdown");
+          if (ddNav) ddNav.removeAttribute("open");
+          window.location.href = href;
+        }
       });
     }
     window.vcNotify = { add: addNotif, refresh: render };
