@@ -33,6 +33,9 @@ function parseEnvFlag(raw, defaultWhenEmpty = false) {
 /** `sfondi` (default) = due canali mobile/pc. `disegni` = un solo canale submission (categoria `mobile` in DB). */
 const ACTIVE_CONTEST_PROFILE = String(process.env.WEEKLY_CONTEST_ACTIVE_PROFILE || "sfondi").trim().toLowerCase();
 const IS_DISEGNI_CONTEST = ACTIVE_CONTEST_PROFILE === "disegni";
+/** `disegni` = 2° unlock profilo + 3° +10 livelli. `outfit` = solo 3° ruolo VIP 30 giorni (nessun unlock / livelli automatici). */
+const DISEGNI_FINALE_PRIZE_MODE = String(process.env.WEEKLY_CONTEST_DISEGNI_FINALE_PRIZE_MODE || "disegni").trim().toLowerCase();
+const IS_OUTFIT_FINALE_PRIZES = IS_DISEGNI_CONTEST && DISEGNI_FINALE_PRIZE_MODE === "outfit";
 
 const SFONDI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_SFONDI_EVENT_KEY || "sfondi-2026-04-13").trim();
 const DISEGNI_EVENT_KEY_PRODUCTION = String(process.env.WEEKLY_CONTEST_DISEGNI_EVENT_KEY || "disegni-2026-04-20").trim();
@@ -116,6 +119,9 @@ const CHANNEL_PC_ID = String(
 ).trim();
 const CHANNEL_BONUS_ANNOUNCE_ID = String(
   process.env.WEEKLY_CONTEST_BONUS_ANNOUNCE_CHANNEL_ID || IDs.channels?.contestBonusVotesAnnounce || "",
+).trim();
+const CHANNEL_FINALE_CLASSIFICA_ID = String(
+  process.env.WEEKLY_CONTEST_FINALE_CLASSIFICA_CHANNEL_ID || IDs.channels?.contestFinaleClassifica || "",
 ).trim();
 const INFO_CHANNEL_ID = String(IDs.channels?.info || "").trim();
 
@@ -1572,7 +1578,7 @@ async function processContestFinalePrizeRoleRemovals(client) {
 }
 
 async function backfillDisegniFinaleSecondPlaceUnlock(client) {
-  if (!IS_DISEGNI_CONTEST || CONTEST_TEST_MODE) return;
+  if (!IS_DISEGNI_CONTEST || CONTEST_TEST_MODE || IS_OUTFIT_FINALE_PRIZES) return;
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (Date.now() <= getContestWindowMs().end) return;
@@ -1633,6 +1639,25 @@ async function runContestFinalePrizeGrantJob(client) {
     const first = ranking[0];
 
     if (IS_DISEGNI_CONTEST) {
+      if (IS_OUTFIT_FINALE_PRIZES) {
+        const catRemovalsOutfit = [];
+        if (third?.userId && isValidGuildUserId(gid, third.userId) && CONTEST_PRIZE_VIP_ROLE_ID) {
+          const entry = await tryGrantContestFinaleTempRole(guild, third.userId, CONTEST_PRIZE_VIP_ROLE_ID, PRIZE_ROLE_DURATION_MS);
+          if (entry) catRemovalsOutfit.push(entry);
+        }
+        const metaOutfit = { $set: { [`finalePrizesResolvedCategories.${category}`]: true } };
+        if (catRemovalsOutfit.length) metaOutfit.$push = { finalePrizeRoleRemovals: { $each: catRemovalsOutfit } };
+        await WeeklyContestMeta.findOneAndUpdate(
+          { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+          metaOutfit,
+          { upsert: true, setDefaultsOnInsert: true },
+        ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta outfit:", err));
+        global.logger?.info?.(
+          `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (outfit): 1°=${first?.userId || "-"} (manuale), 2°=${second?.userId || "-"} (manuale), 3°=${third?.userId || "-"} (VIP 30g auto, rollback ${catRemovalsOutfit.length}).`,
+        );
+        continue;
+      }
+
       let secondUnlock = false;
       let thirdAward = { ok: false, awardedLevels: 0, deltaExp: 0 };
       if (second?.userId && isValidGuildUserId(gid, second.userId)) {
@@ -1693,6 +1718,56 @@ async function runContestFinalePrizeGrantJob(client) {
   }
 }
 
+async function runContestFinaleClassificaAnnounceJob(client) {
+  const gid = contestGuildId();
+  if (!gid || !client) return;
+  if (!IS_DISEGNI_CONTEST || CONTEST_TEST_MODE) return;
+  const channelId = CHANNEL_FINALE_CLASSIFICA_ID.trim();
+  if (!channelId) return;
+  if (Date.now() <= getContestWindowMs().end) return;
+
+  const metaLean = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION }).lean().catch(() => null);
+  if (metaLean?.finaleClassificaPostedAt) return;
+
+  const guild = await client.guilds.fetch(gid).catch(() => null);
+  if (!guild) return;
+
+  const ch =
+    (await getClientChannelCached(client, channelId)) || (await guild.channels.fetch(channelId).catch(() => null));
+  if (!ch?.send) {
+    global.logger?.warn?.("[WEEKLY_CONTEST] classifica finale: canale assente o non testuale:", channelId);
+    return;
+  }
+
+  const payload = await buildSfondiClassificaPayload(guild, "mobile", EVENT_KEY_PRODUCTION);
+  const firstEmb = payload.embeds?.[0];
+  if (firstEmb && typeof firstEmb.setTitle === "function") {
+    firstEmb.setTitle(
+      IS_OUTFIT_FINALE_PRIZES ? "Classifica finale · Contest outfit" : "Classifica finale · Contest disegni",
+    );
+  }
+
+  try {
+    await ch.send({
+      embeds: payload.embeds || [],
+      components: payload.components || [],
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEEKLY_CONTEST] classifica finale send:", err?.message || err);
+    return;
+  }
+
+  await WeeklyContestMeta.findOneAndUpdate(
+    { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+    { $set: { finaleClassificaPostedAt: new Date() } },
+    { upsert: true, setDefaultsOnInsert: true },
+  ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] classifica finale meta:", err));
+
+  global.logger?.info?.(
+    `[WEEKLY_CONTEST] Classifica finale pubblicata in ${channelId} (${IS_OUTFIT_FINALE_PRIZES ? "outfit" : "disegni"}) event=${EVENT_KEY_PRODUCTION}.`,
+  );
+}
+
 let contestCronEveningTask = null;
 let contestCronNoonTask = null;
 
@@ -1723,6 +1798,9 @@ function startWeeklyContestCron(client) {
       backfillDisegniFinaleSecondPlaceUnlock(client).catch((err) =>
         global.logger?.error?.("[WEEKLY_CONTEST] cron backfill 2° disegni:", err),
       );
+      runContestFinaleClassificaAnnounceJob(client).catch((err) =>
+        global.logger?.error?.("[WEEKLY_CONTEST] cron classifica finale:", err),
+      );
       runContestFinalePrizeGrantJob(client).catch((err) =>
         global.logger?.error?.("[WEEKLY_CONTEST] cron finale premi:", err),
       );
@@ -1745,6 +1823,9 @@ function startWeeklyContestCron(client) {
   );
   void backfillDisegniFinaleSecondPlaceUnlock(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] backfill 2° disegni (catch-up avvio):", err?.message || err),
+  );
+  void runContestFinaleClassificaAnnounceJob(client).catch((err) =>
+    global.logger?.warn?.("[WEEKLY_CONTEST] classifica finale (catch-up avvio):", err?.message || err),
   );
   void runContestFinalePrizeGrantJob(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] finale premi (catch-up avvio):", err?.message || err),
@@ -1887,7 +1968,13 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
     lines.push("Nessun voto in questa categoria (o submission ancora assenti).");
   }
 
-  const titleSuffix = !CHANNEL_PC_ID ? "Contest disegni" : cat === "mobile" ? "Sfondi mobile" : "Sfondi PC";
+  const titleSuffix = !CHANNEL_PC_ID
+    ? IS_OUTFIT_FINALE_PRIZES
+      ? "Contest outfit"
+      : "Contest disegni"
+    : cat === "mobile"
+      ? "Sfondi mobile"
+      : "Sfondi PC";
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
@@ -2201,6 +2288,7 @@ module.exports = {
   EVENT_KEY_PRODUCTION,
   ACTIVE_CONTEST_PROFILE,
   IS_DISEGNI_CONTEST,
+  IS_OUTFIT_FINALE_PRIZES,
   SFONDI_EVENT_KEY_PRODUCTION,
   DISEGNI_EVENT_KEY_PRODUCTION,
   CONTEST_TEST_MODE,

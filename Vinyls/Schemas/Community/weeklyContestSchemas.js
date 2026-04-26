@@ -40,6 +40,8 @@ const weeklyContestMetaSchema = new Schema(
     contestMemberSendOpenedDayKey: { type: String, default: null },
     /** Contest disegni: 2° classificato — sblocco Custom Role/Voc in +profile (senza ruolo Discord). */
     finaleDisegniSecondPlaceUserId: { type: String, default: null },
+    /** Contest disegni/outfit: classifica finale pubblicata su Discord (un invio per eventKey). */
+    finaleClassificaPostedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
