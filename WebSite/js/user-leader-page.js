@@ -283,6 +283,8 @@
   }
 
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false };
+  var liveUsersPollTimer = null;
+  var LIVE_USERS_POLL_MS = 45000;
 
   function setLoading(on, label) {
     state.loading = Boolean(on);
@@ -792,6 +794,22 @@
       });
   }
 
+  function stopLiveUsersPolling() {
+    if (liveUsersPollTimer) {
+      clearInterval(liveUsersPollTimer);
+      liveUsersPollTimer = null;
+    }
+  }
+
+  function startLiveUsersPolling() {
+    stopLiveUsersPolling();
+    liveUsersPollTimer = setInterval(function () {
+      if (document.visibilityState !== "visible") return;
+      if (state.loading || state.filtersOpen) return;
+      load();
+    }, LIVE_USERS_POLL_MS);
+  }
+
   function initPager() {
     var prev = byId("vc-ul-prev");
     var next = byId("vc-ul-next");
@@ -905,7 +923,16 @@
     setFiltersOpen(false);
     setLoading(true, "Caricamento classifica");
     load();
+    startLiveUsersPolling();
   }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (state.loading || state.filtersOpen) return;
+    load();
+  });
+
+  window.addEventListener("beforeunload", stopLiveUsersPolling);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main);

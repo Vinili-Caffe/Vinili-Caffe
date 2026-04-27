@@ -14,6 +14,8 @@
   var previewRefreshTimer = null;
   var previewRenderInFlight = false;
   var previewRefreshQueued = false;
+  var liveCustomizePollTimer = null;
+  var LIVE_CUSTOMIZE_POLL_MS = 90000;
 
   function setLocalOpacityDragPreview(enabled) {
     var overlay = byId("vc-rank-editor-preview-live-overlay");
@@ -945,6 +947,42 @@
       });
   }
 
+  function isDraftDirtyAgainstLoadedTheme() {
+    if (!loaded || !draft) return false;
+    try {
+      var left = JSON.stringify(normalizeTheme(loaded.theme || {}));
+      var right = JSON.stringify(normalizeTheme(draft || {}));
+      return left !== right;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function stopLiveCustomizePolling() {
+    if (liveCustomizePollTimer) {
+      clearInterval(liveCustomizePollTimer);
+      liveCustomizePollTimer = null;
+    }
+  }
+
+  function startLiveCustomizePolling() {
+    stopLiveCustomizePolling();
+    liveCustomizePollTimer = setInterval(function () {
+      if (document.visibilityState !== "visible") return;
+      if (saveInFlight || previewRenderInFlight || isDraftDirtyAgainstLoadedTheme()) return;
+      fetchRankData()
+        .then(function (body) {
+          if (!body || body.ok !== true) return;
+          if (!loaded) return;
+          loaded = body;
+          draft = normalizeTheme(body.theme || {});
+          if (!draft.wallpaperKey) draft.wallpaperKey = "default";
+          render();
+        })
+        .catch(function () {});
+    }, LIVE_CUSTOMIZE_POLL_MS);
+  }
+
   function resetTheme() {
     var token = getToken();
     if (!token) {
@@ -1020,4 +1058,8 @@
   } else {
     main();
   }
+
+  startLiveCustomizePolling();
+
+  window.addEventListener("beforeunload", stopLiveCustomizePolling);
 })();

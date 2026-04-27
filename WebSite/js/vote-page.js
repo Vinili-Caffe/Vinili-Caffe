@@ -3,6 +3,8 @@
   var allRows = [];
   var loadedExtra = 0;
   var EXTRA_STEP = 10;
+  var livePollTimer = null;
+  var LIVE_POLL_MS = 45000;
 
   function byId(id) {
     return document.getElementById(id);
@@ -212,17 +214,39 @@
       .catch(function () {});
   }
 
+  function stopLiveVotesPolling() {
+    if (livePollTimer) {
+      clearInterval(livePollTimer);
+      livePollTimer = null;
+    }
+  }
+
+  function startLiveVotesPolling() {
+    stopLiveVotesPolling();
+    livePollTimer = setInterval(function () {
+      if (document.visibilityState !== "visible") return;
+      fetchVotes();
+    }, LIVE_POLL_MS);
+  }
+
   function main() {
     if (!byId("vc-vote-live-shell")) return;
     currentUser = (typeof window !== "undefined" && window.__VC_DISCORD_PROFILE) || null;
     initButtons();
     fetchVotes();
+    startLiveVotesPolling();
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
     currentUser = ev && ev.detail ? ev.detail.user || null : null;
     fetchVotes();
   });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") fetchVotes();
+  });
+
+  window.addEventListener("beforeunload", stopLiveVotesPolling);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main);

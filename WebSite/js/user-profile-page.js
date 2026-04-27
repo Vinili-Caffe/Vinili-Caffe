@@ -3,6 +3,8 @@
   var lastRenderedProfile = null;
   var profileRankObjectUrl = "";
   var profileRankRenderToken = 0;
+  var liveProfilePollTimer = null;
+  var LIVE_PROFILE_POLL_MS = 60000;
 
   function byId(id) {
     return document.getElementById(id);
@@ -967,6 +969,22 @@
     });
   }
 
+  function stopLiveProfilePolling() {
+    if (liveProfilePollTimer) {
+      clearInterval(liveProfilePollTimer);
+      liveProfilePollTimer = null;
+    }
+  }
+
+  function startLiveProfilePolling() {
+    stopLiveProfilePolling();
+    liveProfilePollTimer = setInterval(function () {
+      if (document.visibilityState !== "visible") return;
+      if (!parseProfileId()) return;
+      main();
+    }, LIVE_PROFILE_POLL_MS);
+  }
+
   window.addEventListener("vc-discord-profile", function (ev) {
     currentViewer = ev && ev.detail ? ev.detail.user || null : null;
     if (lastRenderedProfile && lastRenderedProfile.root) {
@@ -981,11 +999,15 @@
     main();
   }
 
+  startLiveProfilePolling();
+
   window.addEventListener("pageshow", function (ev) {
     if (ev && ev.persisted && parseProfileId()) {
       main();
     }
   });
+
+  window.addEventListener("beforeunload", stopLiveProfilePolling);
 
   window.VCUserProfilePage = {
     isProfileMode: function () {

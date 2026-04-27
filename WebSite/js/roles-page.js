@@ -16,6 +16,8 @@
     submittingRequest: false,
     lastFocusEl: null
   };
+  var liveRolesPollTimer = null;
+  var LIVE_ROLES_POLL_MS = 60000;
 
   function byId(id) {
     return document.getElementById(id);
@@ -803,7 +805,9 @@
     });
   }
 
-  async function load() {
+  async function load(options) {
+    var opts = options && typeof options === "object" ? options : {};
+    var silent = Boolean(opts.silent);
     var api = resolvedApiUrl();
     if (!api) {
       setLoading(false);
@@ -812,8 +816,10 @@
       return;
     }
 
-    setLoading(true, "Caricamento ruoli", "Sto recuperando tutti i ruoli personalizzati della community…");
-    setState("", false);
+    if (!silent) {
+      setLoading(true, "Caricamento ruoli", "Sto recuperando tutti i ruoli personalizzati della community…");
+      setState("", false);
+    }
 
     try {
       var out = await fetchJsonWithTimeout(
@@ -847,8 +853,24 @@
           : "Controlla GET /webhooks/site-roles e che l'HTTP del bot sia attivo.",
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
+  }
+
+  function stopLiveRolesPolling() {
+    if (liveRolesPollTimer) {
+      clearInterval(liveRolesPollTimer);
+      liveRolesPollTimer = null;
+    }
+  }
+
+  function startLiveRolesPolling() {
+    stopLiveRolesPolling();
+    liveRolesPollTimer = setInterval(function () {
+      if (document.visibilityState !== "visible") return;
+      if (state.loading || state.submittingRequest || state.activeRoleId || state.activeRequestRoleId) return;
+      load({ silent: true });
+    }, LIVE_ROLES_POLL_MS);
   }
 
   function main() {
@@ -857,6 +879,7 @@
     bindSearch();
     bindModal();
     load();
+    startLiveRolesPolling();
   }
 
   window.addEventListener("pageshow", function (ev) {
@@ -864,6 +887,14 @@
     syncInitialLoadingOverlay();
     load();
   });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (state.loading || state.submittingRequest || state.activeRoleId || state.activeRequestRoleId) return;
+    load({ silent: true });
+  });
+
+  window.addEventListener("beforeunload", stopLiveRolesPolling);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main, { once: true });

@@ -104,6 +104,18 @@ function isProfilePanelInteraction(customId) {
   return String(customId).trim().startsWith("profile_panel:");
 }
 
+function isCustomRoleSystemInteraction(customId) {
+  if (!customId || typeof customId !== "string") return false;
+  const id = String(customId).trim();
+  if (!id) return false;
+  return (
+    id.startsWith("customrole_") ||
+    id.startsWith("customvoc_") ||
+    id.startsWith("customreaction_") ||
+    id.startsWith("siterolerequest:")
+  );
+}
+
 function isApplyOrCandidatureInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
@@ -841,6 +853,9 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
 async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
+  if (isCustomRoleSystemInteraction(customId)) {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
   if (await isBlockedFromCandidaturesByRole(interaction, customId)) {
     return {
       allowed: false,
@@ -1052,6 +1067,9 @@ async function checkButtonPermission(interaction) {
 async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
+  if (isCustomRoleSystemInteraction(customId)) {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
   if (await isBlockedFromCandidaturesByRole(interaction, customId)) {
     return {
       allowed: false,
@@ -1216,6 +1234,9 @@ async function checkStringSelectPermission(interaction) {
 async function checkModalPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id;
+  if (isCustomRoleSystemInteraction(customId)) {
+    return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
+  }
   if (await isBlockedFromCandidaturesByRole(interaction, customId)) {
     return {
       allowed: false,
