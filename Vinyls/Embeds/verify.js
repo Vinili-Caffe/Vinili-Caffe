@@ -10,6 +10,16 @@ const VERIFY_MEDIA_NAME = "verifica.gif";
 const VERIFY_MEDIA_PATH = path.join(__dirname, "..", "Photos", VERIFY_MEDIA_NAME);
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 
+function buildWebsiteVerifyUrl(guildId) {
+  const baseRaw = String(process.env.WEBSITE_PUBLIC_URL || "https://www.viniliecaffe.it").trim();
+  const base = baseRaw.replace(/\/+$/, "");
+  const gid = String(guildId || "").trim();
+  const params = new URLSearchParams();
+  if (/^\d{17,22}$/.test(gid)) params.set("guildId", gid);
+  const query = params.toString();
+  return `${base}/verify/${query ? `?${query}` : ""}`;
+}
+
 async function run(client) {
   const channel = client.channels.cache.get(VERIFY_CHANNEL_ID) || (await getClientChannelCached(client, VERIFY_CHANNEL_ID));
   if (!channel?.isTextBased?.()) return;
@@ -23,7 +33,7 @@ async function run(client) {
     .setColor("#6f4e37")
     .setTitle("<a:VC_HeartsPink:1468685897389052008> **__Benvenutx su Vinili & Caffè__**")
     .setDescription(
-      "<:vegacheckmark:1443666279058772028> Per **verificarti** premi il pulsante **__`Verify`__**: si aprirà il flusso sul sito (login + verifica server in uno).\n" +
+      "<:vegacheckmark:1443666279058772028> Per **verificarti** premi il pulsante **__`Verify`__**: si aprirà il flusso sul sito.\n" +
         "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__<#1442569095068254219> `SUPPORTO`__**",
     )
     .setImage(DIVIDER_URL);
@@ -36,12 +46,16 @@ async function run(client) {
       "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
         serverName +
         "` devi prima verificarti.**\n" +
-        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify Sito** qui sotto per iniziare.",
+        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
     )
     .setImage(DIVIDER_URL);
 
   const verifyRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("verify_start").setEmoji(`<a:VC_Verified:1482532479637127188>`).setLabel("︲VERIFY SITO").setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setURL(buildWebsiteVerifyUrl(guildId))
+      .setEmoji(`<a:VC_Verified:1482532479637127188>`)
+      .setLabel("︲VERIFY SITO"),
   );
 
   let panelDoc = null;

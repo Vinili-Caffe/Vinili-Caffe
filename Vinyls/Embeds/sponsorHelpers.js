@@ -166,8 +166,15 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
         "` devi prima verificarti.**\n" +
         "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
     );
+  const baseRaw = String(process.env.WEBSITE_PUBLIC_URL || "https://www.viniliecaffe.it").trim();
+  const base = baseRaw.replace(/\/+$/, "");
+  const verifyUrl = `${base}/verify/?guildId=${encodeURIComponent(String(guildId || ""))}`;
   const verifyRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("verify_start").setEmoji(`<a:VC_Verified:1482532479637127188>`).setLabel("︲VERIFY").setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setURL(verifyUrl)
+      .setEmoji(`<a:VC_Verified:1482532479637127188>`)
+      .setLabel("︲VERIFY SITO"),
   );
 
   const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);
