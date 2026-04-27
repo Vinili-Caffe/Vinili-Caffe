@@ -174,7 +174,7 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
       .setStyle(ButtonStyle.Link)
       .setURL(verifyUrl)
       .setEmoji(`<a:VC_Verified:1482532479637127188>`)
-      .setLabel("︲VERIFY SITO"),
+      .setLabel("︲VERIFY"),
   );
 
   const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);

@@ -55,7 +55,7 @@ async function run(client) {
       .setStyle(ButtonStyle.Link)
       .setURL(buildWebsiteVerifyUrl(guildId))
       .setEmoji(`<a:VC_Verified:1482532479637127188>`)
-      .setLabel("︲VERIFY SITO"),
+      .setLabel("︲VERIFY"),
   );
 
   let panelDoc = null;
