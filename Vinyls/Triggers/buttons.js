@@ -1036,7 +1036,8 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
-              "<:VC_Reply:1482532158080942191> Sblocchi il comando \`+quote\`",
+              "<:VC_DoubleReply:1482532332509466797> Sblocchi il comando \`+quote\`",
+              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv10}> <:VC_New:1471891729471770819>`
             ].join("\n"),
             inline: true,
           },
@@ -1046,6 +1047,7 @@ module.exports = {
               `<@&${IDs.roles.Level20}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
+              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv20}> <:VC_New:1471891729471770819>`
             ].join("\n"),
             inline: true,
           },
@@ -1055,7 +1057,8 @@ module.exports = {
               `<@&${IDs.roles.Level30}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
-              "<:VC_Reply:1482532158080942191> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
+              "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
+              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv30}> <:VC_New:1471891729471770819>`
             ].join("\n"),
             inline: true,
           },
@@ -1064,9 +1067,9 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level50}>`,
               "Tutte le ricompense precedenti",
-              `<:VC_DoubleReply:1482532332509466797> Possibilità di usare i **colori PLUS** su <#${IDs.channels.ruoliColori}>`,
               "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
-              "<:VC_Reply:1482532158080942191> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+              "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv50}> <:VC_New:1471891729471770819>`
             ].join("\n"),
             inline: true,
           },
@@ -1076,7 +1079,8 @@ module.exports = {
               `<@&${IDs.roles.Level70}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
-              "<:VC_Reply:1482532158080942191> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
+              "<:VC_DoubleReply:1482532332509466797> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
+              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv70}> <:VC_New:1471891729471770819>`
             ].join("\n"),
             inline: true,
           },
@@ -1088,7 +1092,8 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 5 secondi a 1 secondo).",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
-              "<:VC_Reply:1482532158080942191> Bonus EXP permanente +25%",
+              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
+              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv100}> <:VC_New:1471891729471770819>`
             ].join("\n"),
             inline: true,
           },

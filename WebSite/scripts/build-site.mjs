@@ -313,6 +313,20 @@ async function fetchGuildRoleMetas(guildId, botToken) {
   return map;
 }
 
+async function fetchGuildOwnerId(guildId, botToken) {
+  const gid = String(guildId || "").trim();
+  const tok = String(botToken || "").trim();
+  if (!gid || !tok) return "";
+  const res = await discordBotGet(`/guilds/${encodeURIComponent(gid)}`, tok);
+  if (!res.ok) {
+    console.warn("[build-site] Guild owner fetch HTTP", res.status);
+    return "";
+  }
+  const data = await res.json().catch(() => null);
+  const ownerId = String(data?.owner_id || "").trim();
+  return /^\d{16,22}$/.test(ownerId) ? ownerId : "";
+}
+
 async function fetchGuildMembersUpTo(guildId, botToken, maxTotal) {
   const cap = Math.min(Math.max(1, Number(maxTotal) || 4000), 50000);
   const all = [];
@@ -365,6 +379,19 @@ function memberStaffLineName(m) {
   const disc = String(u.discriminator ?? "0");
   if (disc && disc !== "0") return `${un}#${disc}`;
   return un || "Utente";
+}
+
+function memberStaffDisplayName(m, ownerUserId = "") {
+  const base = memberStaffLineName(m);
+  const uid = String(m?.user?.id || "").trim();
+  if (uid && ownerUserId && uid === ownerUserId) return `${base} 👑`;
+  return base;
+}
+
+function memberStaffProfileHref(m) {
+  const uid = String(m?.user?.id || "").trim();
+  if (!/^\d{16,22}$/.test(uid)) return "#";
+  return `/user/?id=${encodeURIComponent(uid)}`;
 }
 
 function isGenericStaffRoleLabel(label) {
@@ -520,6 +547,7 @@ async function buildStaffListBlock(cfg, guildId) {
   }
 
   const roleMetas = await fetchGuildRoleMetas(gid, botToken);
+  const ownerUserId = await fetchGuildOwnerId(gid, botToken);
   for (const rid of staffRoleIds) {
     if (!roleMetas.has(rid)) {
       console.warn("[build-site] staffRoleIds: ruolo non trovato in guild (ID errato o ruolo rimosso):", rid);
@@ -561,6 +589,15 @@ async function buildStaffListBlock(cfg, guildId) {
     : [];
   const showEachRole = b.staffListShowEachRole === true;
   const showEmptyRoles = b.showEmptyStaffRoles !== false;
+  const pmRoleId = String(b.partnerManagerRoleId || "1442568905582317740").trim();
+  const communityManagerRoleId = String(b.communityManagerRoleId || "1494089487863644330").trim();
+
+  function resolveRoleLabel(roleId, fallbackLabel) {
+    const rid = String(roleId || "").trim();
+    const fallback = String(fallbackLabel || "").trim() || rid || "Staff";
+    const rawLabel = roleMetas.get(rid)?.name || fallback;
+    return String(labelOverrides[rid] ?? labelOverrides[String(rid)] ?? rawLabel).trim() || rawLabel;
+  }
 
   for (const id of staffRoleIds) {
     if (excludeRoleIds.has(id)) {
@@ -615,9 +652,7 @@ async function buildStaffListBlock(cfg, guildId) {
         if (seenRid.has(rid)) continue;
         seenRid.add(rid);
         const bestPos = roleMetas.get(rid)?.position ?? 0;
-        const rawLabel = roleMetas.get(rid)?.name || rid;
-        const roleLabel =
-          String(labelOverrides[rid] ?? labelOverrides[String(rid)] ?? rawLabel).trim() || rawLabel;
+        const roleLabel = resolveRoleLabel(rid, rid);
         rows.push({ bestId: rid, bestPos, roleLabel, m });
       }
       continue;
@@ -625,8 +660,7 @@ async function buildStaffListBlock(cfg, guildId) {
     const bestId = pickStaffBucketRoleId(rids);
     if (!bestId) continue;
     const bestPos = roleMetas.get(bestId)?.position ?? 0;
-    const rawLabel = roleMetas.get(bestId)?.name || bestId;
-    const roleLabel = String(labelOverrides[bestId] ?? labelOverrides[String(bestId)] ?? rawLabel).trim() || rawLabel;
+    const roleLabel = resolveRoleLabel(bestId, bestId);
     rows.push({ bestId, bestPos, roleLabel, m });
   }
 
@@ -672,9 +706,7 @@ async function buildStaffListBlock(cfg, guildId) {
       if (!staffRoleIds.has(roleId)) continue;
       if (excludeRoleIds.has(roleId)) continue;
       if (byRole.has(roleId)) continue;
-      const rawLabel = roleMetas.get(roleId)?.name || roleId;
-      const roleLabel =
-        String(labelOverrides[roleId] ?? labelOverrides[String(roleId)] ?? rawLabel).trim() || rawLabel;
+      const roleLabel = resolveRoleLabel(roleId, roleId);
       byRole.set(roleId, {
         roleId,
         roleLabel,
@@ -697,14 +729,22 @@ async function buildStaffListBlock(cfg, guildId) {
   });
   for (const g of groups) {
     g.members.sort((ma, mb) =>
-      memberStaffLineName(ma).localeCompare(memberStaffLineName(mb), "it", { sensitivity: "base" }),
+      memberStaffDisplayName(ma, ownerUserId).localeCompare(memberStaffDisplayName(mb, ownerUserId), "it", {
+        sensitivity: "base",
+      }),
     );
   }
 
   const roleLines = groups
     .map((g) => {
       const parts = g.members.length
-        ? g.members.map((mem) => escHtml(memberStaffLineName(mem))).join(" | ")
+        ? g.members
+            .map((mem) => {
+              const name = escHtml(memberStaffDisplayName(mem, ownerUserId));
+              const href = escAttr(memberStaffProfileHref(mem));
+              return `<a href="${href}">${name}</a>`;
+            })
+            .join(" | ")
         : "—";
       const icon = staffRoleIconHtml(g.roleId);
       return `            <p class="vc-staff-block__line">${icon}<strong>${escHtml(g.roleLabel)}:</strong> ${parts}</p>`;
@@ -713,34 +753,54 @@ async function buildStaffListBlock(cfg, guildId) {
 
   const html = `          <div class="vc-staff-block">\n${roleLines}\n          </div>`;
   const countedStaffUserIds = new Set(rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean));
-  const pmRoleId = String(b.partnerManagerRoleId || "1442568905582317740").trim();
-  const pmRoleLabel = String(b.partnerManagerRoleLabel || "PM").trim() || "PM";
-  const communityManagerRoleId = String(b.communityManagerRoleId || "1494089487863644330").trim();
+  const pmRoleLabel = resolveRoleLabel(pmRoleId, String(b.partnerManagerRoleLabel || "Partner Manager").trim());
+  const communityManagerRoleLabel = resolveRoleLabel(
+    communityManagerRoleId,
+    String(b.communityManagerRoleLabel || "Community Manager").trim(),
+  );
   const staffHoverGroups = groups
     .map((g) => ({
+      roleId: String(g.roleId || "").trim(),
       role: String(g.roleLabel || "").trim(),
-      members: g.members.map((mem) => memberStaffLineName(mem)).filter(Boolean),
+      members: g.members
+        .map((mem) => ({
+          name: memberStaffDisplayName(mem, ownerUserId),
+          profileUrl: memberStaffProfileHref(mem),
+        }))
+        .filter((mem) => mem.name),
     }))
     .filter((g) => g.role && Array.isArray(g.members) && g.members.length > 0);
-  if (pmRoleId) {
-    const pmMembers = members
+  const existingHoverRoleIds = new Set(staffHoverGroups.map((g) => String(g.roleId || "").trim()).filter(Boolean));
+
+  function appendRoleGroupIfMissing(targetRoleId, targetRoleLabel) {
+    const rid = String(targetRoleId || "").trim();
+    if (!rid || existingHoverRoleIds.has(rid)) return;
+    const roleMembers = members
       .filter((m) => !m?.user?.bot)
-      .filter((m) => memberRoleIds(m).includes(pmRoleId))
-      .map((m) => memberStaffLineName(m))
-      .filter(Boolean)
-      .sort((a, b) => String(a).localeCompare(String(b), "it", { sensitivity: "base" }));
+      .filter((m) => memberRoleIds(m).includes(rid))
+      .map((m) => ({
+        name: memberStaffDisplayName(m, ownerUserId),
+        profileUrl: memberStaffProfileHref(m),
+      }))
+      .filter((m) => m.name)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" }));
+    if (!roleMembers.length) return;
+    staffHoverGroups.push({
+      roleId: rid,
+      role: String(targetRoleLabel || "").trim() || "Staff",
+      members: roleMembers,
+    });
+    existingHoverRoleIds.add(rid);
+  }
+
+  if (pmRoleId) {
     for (const m of members) {
       if (!m?.user?.bot && memberRoleIds(m).includes(pmRoleId)) {
         const uid = String(m?.user?.id || "").trim();
         if (uid) countedStaffUserIds.add(uid);
       }
     }
-    if (pmMembers.length) {
-      staffHoverGroups.push({
-        role: pmRoleLabel,
-        members: pmMembers,
-      });
-    }
+    appendRoleGroupIfMissing(pmRoleId, pmRoleLabel);
   }
   if (communityManagerRoleId) {
     for (const m of members) {
@@ -749,6 +809,7 @@ async function buildStaffListBlock(cfg, guildId) {
         if (uid) countedStaffUserIds.add(uid);
       }
     }
+    appendRoleGroupIfMissing(communityManagerRoleId, communityManagerRoleLabel);
   }
   const staffCount = countedStaffUserIds.size;
   return { html, staffCount, staffHoverGroups };

@@ -201,7 +201,13 @@
           '<section class="vc-stat-staff-popover__group">' +
           '<p class="vc-stat-staff-popover__group-title">' + escText(group.role || "Staff") + "</p>" +
           '<ul class="vc-stat-staff-popover__list">' +
-          members.map(function (name) {
+          members.map(function (member) {
+            var name = String(member && member.name || member || "").trim();
+            var href = String(member && member.profileUrl || "").trim();
+            if (!name) return "";
+            if (/^\/user\/\?id=\d{16,22}$/i.test(href)) {
+              return '<li><a href="' + escText(href) + '">' + escText(name) + "</a></li>";
+            }
             return "<li>" + escText(name) + "</li>";
           }).join("") +
           "</ul>" +
@@ -279,9 +285,25 @@
       if (extra && Array.isArray(extra.staffHoverGroups)) {
         staffHoverGroups = extra.staffHoverGroups
           .map(function (g) {
+            var rawMembers = Array.isArray(g && g.members) ? g.members.slice(0, 200) : [];
             return {
               role: String((g && g.role) || "Staff"),
-              members: Array.isArray(g && g.members) ? g.members.slice(0, 200) : [],
+              members: rawMembers
+                .map(function (entry) {
+                  if (entry && typeof entry === "object") {
+                    return {
+                      name: String(entry.name || "").trim(),
+                      profileUrl: String(entry.profileUrl || "").trim(),
+                    };
+                  }
+                  return {
+                    name: String(entry || "").trim(),
+                    profileUrl: "",
+                  };
+                })
+                .filter(function (entry) {
+                  return entry.name;
+                }),
             };
           })
           .filter(function (g) {
