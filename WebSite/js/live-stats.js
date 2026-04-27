@@ -207,10 +207,11 @@
             var isOwner = Boolean(member && member.isOwner === true);
             if (!name) return "";
             var badge = isOwner ? '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>' : "";
+            var suffix = badge ? " " + badge : "";
             if (/^\/user\/\?id=\d{16,22}$/i.test(href)) {
-              return '<li><span class="vc-staff-member-chip"><a href="' + escText(href) + '">' + escText(name) + "</a>" + badge + "</span></li>";
+              return '<li><span class="vc-staff-member-chip"><a href="' + escText(href) + '">' + escText(name) + "</a>" + suffix + "</span></li>";
             }
-            return '<li><span class="vc-staff-member-chip">' + escText(name) + badge + "</span></li>";
+            return '<li><span class="vc-staff-member-chip">' + escText(name) + suffix + "</span></li>";
           }).join("") +
           "</ul>" +
           "</section>"

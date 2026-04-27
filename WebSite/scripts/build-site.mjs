@@ -752,7 +752,8 @@ async function buildStaffListBlock(cfg, guildId) {
               const name = escHtml(memberStaffDisplayName(mem, ownerUserId));
               const href = escAttr(memberStaffProfileHref(mem));
               const badge = isServerOwnerMember(mem, ownerUserId) ? ownerBadgeHtml() : "";
-              return `<span class="vc-staff-member-chip"><a href="${href}">${name}</a>${badge}</span>`;
+              const suffix = badge ? ` ${badge}` : "";
+              return `<span class="vc-staff-member-chip"><a href="${href}">${name}</a>${suffix}</span>`;
             })
             .join(" | ")
         : "—";
