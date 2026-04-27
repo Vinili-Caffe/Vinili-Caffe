@@ -36,12 +36,12 @@ async function run(client) {
       "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
         serverName +
         "` devi prima verificarti.**\n" +
-        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
+        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify Sito** qui sotto per iniziare.",
     )
     .setImage(DIVIDER_URL);
 
   const verifyRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("verify_start").setEmoji(`<a:VC_Verified:1482532479637127188>`).setLabel("︲VERIFY").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("verify_start").setEmoji(`<a:VC_Verified:1482532479637127188>`).setLabel("︲VERIFY SITO").setStyle(ButtonStyle.Success),
   );
 
   let panelDoc = null;
