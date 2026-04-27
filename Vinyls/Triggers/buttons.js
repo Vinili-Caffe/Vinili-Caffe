@@ -844,7 +844,7 @@ module.exports = {
           "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
           "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
           "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
-          "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
+          "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
           "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
           "<:VC_Dot:1482532364222595303> X4 EXP boost",
         ].join("\n"))
@@ -983,7 +983,7 @@ module.exports = {
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
-          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS (gradienti) su <#1469429150669602961>",
+          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
           "<:exp:1470067108543987846> X2 EXP Boost",
@@ -1037,7 +1037,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
               "<:VC_DoubleReply:1482532332509466797> Sblocchi il comando \`+quote\`",
-              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv10}> <:VC_New:1471891729471770819>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv10}>`
             ].join("\n"),
             inline: true,
           },
@@ -1047,7 +1047,7 @@ module.exports = {
               `<@&${IDs.roles.Level20}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
-              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv20}> <:VC_New:1471891729471770819>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv20}>`
             ].join("\n"),
             inline: true,
           },
@@ -1058,7 +1058,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
-              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv30}> <:VC_New:1471891729471770819>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv30}>`
             ].join("\n"),
             inline: true,
           },
@@ -1069,7 +1069,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
-              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv50}> <:VC_New:1471891729471770819>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv50}>`
             ].join("\n"),
             inline: true,
           },
@@ -1080,7 +1080,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
               "<:VC_DoubleReply:1482532332509466797> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv70}> <:VC_New:1471891729471770819>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv70}>`
             ].join("\n"),
             inline: true,
           },
@@ -1093,7 +1093,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
-              `<:VC_Reply:1482532158080942191> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv100}> <:VC_New:1471891729471770819>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv100}>`
             ].join("\n"),
             inline: true,
           },
