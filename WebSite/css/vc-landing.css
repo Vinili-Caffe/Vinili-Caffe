@@ -3107,7 +3107,7 @@ ul.vc-hero-social:not(:has(> li)) {
 .vc-sponsor-line {
   display: flex;
   flex-wrap: nowrap;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.45rem 0.55rem;
   margin: 0 0 0.55rem;
 }
@@ -3130,7 +3130,7 @@ ul.vc-hero-social:not(:has(> li)) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.08rem;
+  margin-top: 0;
   border-radius: 0.5rem;
   font-size: 0.95rem;
   line-height: 1;
@@ -3144,8 +3144,8 @@ ul.vc-hero-social:not(:has(> li)) {
   color: rgba(212, 168, 136, 0.38);
   font-weight: 500;
   user-select: none;
-  align-self: flex-start;
-  margin-top: 0.32rem;
+  align-self: center;
+  margin-top: 0;
   line-height: 1;
 }
 
@@ -3161,6 +3161,7 @@ ul.vc-hero-social:not(:has(> li)) {
 
 .vc-sponsor-list li {
   margin-top: 0.28rem;
+  line-height: 1.55;
 }
 
 .vc-sponsor-list li:first-child {
@@ -3287,7 +3288,12 @@ ul.vc-hero-social:not(:has(> li)) {
 
 .vc-sponsor-bullet {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1.15rem;
+  min-height: 1.35em;
+  line-height: 1;
   text-align: center;
   opacity: 0.92;
   color: rgba(167, 243, 208, 0.85);
@@ -3347,12 +3353,65 @@ ul.vc-hero-social:not(:has(> li)) {
 .vc-sponsor-foot .vc-sponsor-line__ico {
   width: 1.65rem;
   height: 1.65rem;
-  margin-top: 0.12rem;
+  margin-top: 0.14rem;
+  flex-shrink: 0;
   border-radius: 999px;
   background: rgba(251, 191, 36, 0.12);
   border-color: rgba(251, 191, 36, 0.28);
   color: #fde68a;
   font-weight: 800;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-embed {
+  text-align: left;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-embed__kicker {
+  justify-content: flex-start;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-embed__kicker .vc-sponsor-embed__underline {
+  flex: 0 1 auto;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-line {
+  justify-content: flex-start;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-line > span:last-child {
+  flex: 1 1 0;
+  text-align: left;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-prices__mid {
+  text-align: left;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-tier__head {
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-tier__head > .vc-sponsor-embed__underline {
+  flex: 0 1 auto;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-tier {
+  text-align: left;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-prices li {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-price {
+  margin-left: auto;
+}
+
+.vc-sponsor-pricing-grid .vc-sponsor-foot {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .vc-social-preview__copy {
