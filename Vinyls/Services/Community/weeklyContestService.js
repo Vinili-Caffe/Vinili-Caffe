@@ -174,9 +174,9 @@ const STAFF_ROLE_IDS = new Set(
 const SFONDI_SUBMIT_BLOCK_ALWAYS = new Set(
   [IDs.roles?.Admin, IDs.roles?.HighStaff, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
 );
-/** Contest outfit (submission): vietati Admin e Founder; Helper e Mod sì; con ruolo Staff serve Helper o Mod. */
+/** Contest outfit (submission): vietato Founder; Admin/Helper/Mod sì; con ruolo Staff serve Helper o Mod. */
 const OUTFIT_SUBMIT_BLOCK_ALWAYS = new Set(
-  [IDs.roles?.Admin, IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
+  [IDs.roles?.Founder].filter(Boolean).map((id) => String(id)),
 );
 const SFONDI_SUBMIT_HELPER_OR_MOD = new Set(
   [IDs.roles?.Helper, IDs.roles?.Mod].filter(Boolean).map((id) => String(id)),
@@ -873,7 +873,7 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       const warn = await message.channel
         .send({
           content:
-            `${message.author} <:VC_Attention:1482534443632558151> **Contest outfit:** possono inviare una foto i membri; tra lo staff possono partecipare **Helper** e **Mod**. Non possono partecipare **Admin** e **Founder**; chi ha solo il ruolo **Staff** senza Helper o Mod non può inviare.`,
+            `${message.author} <:VC_Attention:1482534443632558151> **Contest outfit:** possono inviare una foto i membri; tra lo staff possono partecipare **Admin**, **Helper** e **Mod**. Non può partecipare **Founder**; chi ha solo il ruolo **Staff** senza Admin/Helper/Mod non può inviare.`,
           allowedMentions: { users: [message.author.id] },
         })
         .catch(() => null);

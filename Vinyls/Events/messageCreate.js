@@ -11,6 +11,7 @@ const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
+const { broadcastSiteRealtime } = require("../Utils/Web/siteSuggestionsBroadcast");
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set(
   [IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)),
@@ -25,6 +26,19 @@ const MEDIA_BLOCK_EXEMPT_CHANNEL_IDS=new Set(
 const WRONG_PREFIX_HINT_CHANNEL_IDS=new Set([IDs.channels.commands,IDs.channels.staffCmds].filter(Boolean).map((id) => String(id)),);
 const AUTOMATION_RECHECK_DELAY_MS = 8000;
 const automationRecheckJobs = new Map();
+
+function resolveWebsiteForumChannelId(client) {
+  return String(client?.config?.websiteForum?.channelId || IDs.channels?.forum || "").trim();
+}
+
+function isForumThreadMessageForRealtime(message, client) {
+  if (!message?.guild || !message?.channel) return false;
+  if (message?.system || message?.author?.bot || message?.webhookId) return false;
+  const forumId = resolveWebsiteForumChannelId(client);
+  if (!forumId) return false;
+  const parentId = String(message.channel?.parentId || "");
+  return parentId === forumId;
+}
 
 function hasAnyStaffBypassPermission(permissions) {
   if (!permissions || typeof permissions.has !== "function") return false;
@@ -258,6 +272,19 @@ module.exports = {
       }
     } catch (error) {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);
+    }
+
+    try {
+      if (!isEditedPrefixExecution && isForumThreadMessageForRealtime(message, resolvedClient)) {
+        broadcastSiteRealtime({
+          type: "forum_changed",
+          at: new Date().toISOString(),
+          threadId: String(message.channelId || ""),
+          messageId: String(message.id || ""),
+        });
+      }
+    } catch (error) {
+      logEventError(resolvedClient, "FORUM REALTIME BRIDGE ERROR", error);
     }
 
     if (message.author.bot || message.system || message.webhookId) {

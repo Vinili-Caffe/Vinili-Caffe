@@ -123,7 +123,7 @@ async function waitForWebhookAuditEntry(guild, channelId) {
 }
 
 module.exports = {
-  name: "webhookUpdate",
+  name: "webhooksUpdate",
   async execute(channel) {
     try {
       const guild = channel?.guild;
