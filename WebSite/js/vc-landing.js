@@ -374,6 +374,26 @@
   );
 })();
 (function () {
+  function injectForumLinkInCommunityMenus() {
+    var allDetails = document.querySelectorAll("details.vc-snav-details");
+    if (!allDetails || !allDetails.length) return;
+    for (var i = 0; i < allDetails.length; i += 1) {
+      var det = allDetails[i];
+      var summary = det.querySelector(".vc-snav-summary span");
+      var txt = String((summary && summary.textContent) || "").trim().toLowerCase();
+      if (txt !== "community") continue;
+      var panel = det.querySelector(".vc-snav-panel");
+      if (!panel) continue;
+      if (panel.querySelector('a.vc-snav-row[href="/forum"]')) continue;
+      var row = document.createElement("a");
+      row.className = "vc-snav-row";
+      row.href = "/forum";
+      row.innerHTML =
+        '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-comments-o"></i></span><span>Forum</span>';
+      panel.appendChild(row);
+    }
+  }
+
   function normalizePathname(path) {
     var p = String(path || "");
     if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
@@ -404,6 +424,7 @@
   }
 
   function initHeaderNavAccordion() {
+    injectForumLinkInCommunityMenus();
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
     var detailsList = bar.querySelectorAll("details.vc-snav-details");
@@ -454,6 +475,119 @@
     document.addEventListener("DOMContentLoaded", initHeaderNavAccordion);
   } else {
     initHeaderNavAccordion();
+  }
+})();
+(function () {
+  function buildSocialPreviewMeta(anchor) {
+    var href = String((anchor && anchor.getAttribute("href")) || "").trim();
+    if (!href) return null;
+    var u;
+    try {
+      u = new URL(href, window.location.href);
+    } catch (e) {
+      return null;
+    }
+    var host = String(u.hostname || "").toLowerCase();
+    var path = String(u.pathname || "/");
+    var cleanPath = path.replace(/^\/+/, "").replace(/\/+$/, "");
+    var handle = cleanPath ? "@" + cleanPath.split("/")[0] : "";
+    if (host.indexOf("instagram.com") !== -1) {
+      return {
+        iconClass: "fa fa-instagram",
+        title: "Instagram",
+        subtitle: handle || "Profilo social",
+        urlText: "instagram.com/" + (cleanPath || ""),
+      };
+    }
+    if (host.indexOf("tiktok.com") !== -1) {
+      return {
+        iconClass: "fa fa-music",
+        title: "TikTok",
+        subtitle: handle || "Profilo social",
+        urlText: "tiktok.com/" + (cleanPath || ""),
+      };
+    }
+    return null;
+  }
+
+  function ensurePreviewNode() {
+    var n = document.getElementById("vc-social-preview");
+    if (n) return n;
+    n = document.createElement("div");
+    n.id = "vc-social-preview";
+    n.className = "vc-social-preview";
+    n.setAttribute("aria-hidden", "true");
+    document.body.appendChild(n);
+    return n;
+  }
+
+  function placePreview(preview, anchor) {
+    if (!preview || !anchor || !anchor.getBoundingClientRect) return;
+    var rect = anchor.getBoundingClientRect();
+    var pw = preview.offsetWidth || 220;
+    var ph = preview.offsetHeight || 96;
+    var left = rect.left + rect.width / 2 - pw / 2;
+    var top = rect.top - ph - 12;
+    var maxLeft = window.innerWidth - pw - 10;
+    if (left < 10) left = 10;
+    if (left > maxLeft) left = maxLeft;
+    if (top < 10) top = rect.bottom + 12;
+    preview.style.left = Math.round(left) + "px";
+    preview.style.top = Math.round(top) + "px";
+  }
+
+  function showPreview(anchor) {
+    var meta = buildSocialPreviewMeta(anchor);
+    if (!meta) return;
+    var preview = ensurePreviewNode();
+    preview.innerHTML =
+      '<div class="vc-social-preview__head">' +
+      '<span class="vc-social-preview__ico"><i class="' + meta.iconClass + '" aria-hidden="true"></i></span>' +
+      '<div class="vc-social-preview__copy">' +
+      '<strong class="vc-social-preview__title">' + meta.title + "</strong>" +
+      '<span class="vc-social-preview__sub">' + meta.subtitle + "</span>" +
+      "</div>" +
+      "</div>" +
+      '<p class="vc-social-preview__url">' + meta.urlText + "</p>";
+    preview.classList.add("is-visible");
+    preview.setAttribute("aria-hidden", "false");
+    placePreview(preview, anchor);
+  }
+
+  function hidePreview() {
+    var preview = document.getElementById("vc-social-preview");
+    if (!preview) return;
+    preview.classList.remove("is-visible");
+    preview.setAttribute("aria-hidden", "true");
+  }
+
+  function bindSocialPreview(anchor) {
+    if (!anchor || anchor.__vcSocialPreviewBound) return;
+    anchor.__vcSocialPreviewBound = true;
+    anchor.addEventListener("mouseenter", function () {
+      if (window.matchMedia && window.matchMedia("(hover: none)").matches) return;
+      showPreview(anchor);
+    });
+    anchor.addEventListener("mouseleave", hidePreview);
+    anchor.addEventListener("focus", function () {
+      showPreview(anchor);
+    });
+    anchor.addEventListener("blur", hidePreview);
+  }
+
+  function initSocialPreviews() {
+    var links = document.querySelectorAll('a[href*="instagram.com"], a[href*="tiktok.com"]');
+    for (var i = 0; i < links.length; i += 1) {
+      bindSocialPreview(links[i]);
+    }
+    window.addEventListener("scroll", hidePreview, { passive: true });
+    window.addEventListener("resize", hidePreview, { passive: true });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initSocialPreviews);
+  } else {
+    initSocialPreviews();
   }
 })();
 (function () {

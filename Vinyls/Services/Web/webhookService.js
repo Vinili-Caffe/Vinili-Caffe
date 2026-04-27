@@ -485,6 +485,12 @@ async function startWebhookServer(client) {
     staffDeleteSiteSuggestion,
   } = require("../../Utils/Web/siteSuggestionsApi");
   const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
+  const {
+    getSiteForumThreads,
+    getSiteForumThreadMessages,
+    createSiteForumThread,
+    createSiteForumMessage,
+  } = require("../../Utils/Web/siteForumApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -502,6 +508,72 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
+  });
+  app.get("/webhooks/site-forum", async (req, res) => {
+    try {
+      const out = await getSiteForumThreads(client, { limit: req.query?.limit });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-forum get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-forum/:threadId/messages", async (req, res) => {
+    try {
+      const out = await getSiteForumThreadMessages(client, {
+        threadId: req.params?.threadId,
+        limit: req.query?.limit,
+        before: req.query?.before,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-forum messages get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-forum", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await createSiteForumThread(client, {
+        accessToken,
+        title: body.title,
+        content: body.content,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-forum post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-forum/:threadId/messages", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await createSiteForumMessage(client, {
+        accessToken,
+        threadId: req.params?.threadId,
+        content: body.content,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-forum message post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
   });
   app.get("/webhooks/site-live-event", (req, res) => {
     return handleSiteLiveEventGet(client, req, res);

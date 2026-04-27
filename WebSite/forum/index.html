@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>Forum | {{SITE_NAME}}</title>
+    <meta name="description" content="Forum della community: discussioni sincronizzate con Discord." />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../css/tw-build.css" />
+    <link rel="stylesheet" href="../css/vc-landing.css" />
+    <script>
+      window.__VC_SITE_FORUM = {
+        apiUrl: "{{SITE_URL}}/webhooks/site-forum",
+        apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-forum",
+        livePollMs: 9000
+      };
+    </script>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top" class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+        <div class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+              href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
+                src="../images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt=""
+                loading="eager" decoding="async" /></a>
+            <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+              href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
+          </div>
+          <nav class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2" aria-label="Collegamenti rapidi">
+            <a class="vc-snav-item" href="{{SITE_URL}}"><i class="fa fa-home" aria-hidden="true"></i><span>Home</span></a>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Community</span><i class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{USER_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="{{RUOLI_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row vc-snav-row--active" href="/forum" aria-current="page"><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-comments-o"></i></span><span>Forum</span></a>
+              </div>
+            </details>
+          </nav>
+          <div id="header-quick-actions" class="flex items-center gap-2 justify-self-end"></div>
+        </div>
+      </div>
+    </header>
+    <main class="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-12 pt-32">
+      <section class="vc-glass rounded-3xl border border-white/10 p-5 sm:p-6">
+        <h1 class="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Forum Community</h1>
+        <p class="mt-2 text-sm text-slate-300">Discussioni sincronizzate con Discord: puoi leggere tutto senza login, ma per scrivere devi essere loggato.</p>
+      </section>
+      <section class="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <aside class="vc-glass rounded-3xl border border-white/10 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-200">Discussioni</h2>
+            <button id="vc-forum-refresh" type="button" class="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white hover:border-[#d4a888]/70">Aggiorna</button>
+          </div>
+          <div class="mb-3 space-y-2">
+            <input id="vc-forum-search" class="w-full rounded-xl border border-white/15 bg-black/25 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-[#d4a888]/60 focus:outline-none" placeholder="Cerca discussione..." maxlength="80" />
+            <div class="flex gap-2">
+              <button id="vc-forum-filter-all" data-forum-filter="all" type="button" class="rounded-lg border border-[#d4a888]/70 bg-[#d4a888]/20 px-2.5 py-1 text-xs font-semibold text-white">Tutte</button>
+              <button id="vc-forum-filter-active" data-forum-filter="active" type="button" class="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-white">Attive</button>
+              <button id="vc-forum-filter-archived" data-forum-filter="archived" type="button" class="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-white">Archiviate</button>
+            </div>
+          </div>
+          <div id="vc-forum-threads" class="space-y-2"></div>
+        </aside>
+        <section class="vc-glass rounded-3xl border border-white/10 p-4 sm:p-5">
+          <div id="vc-forum-thread-head" class="mb-3 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">Seleziona una discussione dal menu a sinistra.</div>
+          <div class="mb-2 flex justify-end">
+            <button id="vc-forum-load-older" type="button" class="hidden rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white hover:border-[#d4a888]/70">Carica messaggi precedenti</button>
+          </div>
+          <div id="vc-forum-messages" class="max-h-[440px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/20 p-3"></div>
+          <form id="vc-forum-message-form" class="mt-3 flex gap-2">
+            <input id="vc-forum-message-input" class="min-w-0 flex-1 rounded-xl border border-white/15 bg-black/25 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-[#d4a888]/60 focus:outline-none" placeholder="Scrivi un messaggio..." maxlength="2000" />
+            <button type="submit" id="vc-forum-message-send" class="rounded-xl bg-[#d4a888] px-4 py-2 text-sm font-bold text-[#2b1f19] hover:bg-[#e8c9a8]">Invia</button>
+          </form>
+          <hr class="my-4 border-white/10" />
+          <form id="vc-forum-create-form" class="space-y-2">
+            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-slate-200">Nuova discussione</h3>
+            <input id="vc-forum-create-title" class="w-full rounded-xl border border-white/15 bg-black/25 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-[#d4a888]/60 focus:outline-none" placeholder="Titolo discussione" maxlength="100" />
+            <textarea id="vc-forum-create-content" class="min-h-[90px] w-full rounded-xl border border-white/15 bg-black/25 px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:border-[#d4a888]/60 focus:outline-none" placeholder="Testo iniziale..." maxlength="2000"></textarea>
+            <button type="submit" id="vc-forum-create-send" class="rounded-xl bg-[#d4a888] px-4 py-2 text-sm font-bold text-[#2b1f19] hover:bg-[#e8c9a8]">Crea thread</button>
+          </form>
+          <p id="vc-forum-state" class="mt-3 text-sm text-slate-300"></p>
+        </section>
+      </section>
+    </main>
+    <script src="../js/vc-landing.js" defer></script>
+    <script src="../js/forum-page.js" defer></script>
+  </body>
+</html>
