@@ -142,39 +142,44 @@
       </div>
     </header>
 
-    <main id="vc-sponsor-root" class="relative z-10 mx-auto max-w-3xl px-4 pb-24 pt-28 sm:pt-32">
-      <section class="vc-support-page-hero mb-8 sm:mb-10" aria-labelledby="vc-sponsor-hero-heading">
-        <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
-          <i class="fa fa-handshake-o"></i>
+    <main id="vc-sponsor-root" class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+      <section class="vc-support-page-hero mb-8 min-w-0 sm:mb-10" aria-labelledby="vc-sponsor-hero-heading">
+        <div class="vc-sponsor-hero-layout">
+          <div class="vc-sponsor-hero-copy min-w-0">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+              <i class="fa fa-handshake-o"></i>
+            </div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Collaborazioni</p>
+            <h1 id="vc-sponsor-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+              <span class="text-emerald-300">Sponsor</span> sul server
+            </h1>
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+              Informazioni su tipologie, durate e prezzi delle sponsor in stile Discord: apri un ticket <strong class="text-white">High Staff</strong> sul server per prenotare o chiedere dettagli.
+            </p>
+          </div>
+          <div class="vc-sponsor-hero-aside min-w-0">
+            <article class="vc-sponsor-embed vc-sponsor-embed--in-hero" aria-labelledby="sponsor-intro-title">
+              <h2 id="sponsor-intro-title" class="sr-only">Introduzione e requisiti</h2>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Le <strong>Sponsor</strong> sono delle collaborazioni a pagamento dove puoi mettere in mostra il tuo server <code class="vc-sponsor-code">discord</code>.</span></p>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">📜</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span><strong>Requisiti</strong></span></p>
+              <ul class="vc-sponsor-list">
+                <li><strong>Rispettare i</strong> <a class="vc-sponsor-link" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a></li>
+                <li><strong>Rispettare le</strong> <a class="vc-sponsor-link" href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
+                <li><strong>Non avere il server in Blacklist</strong></li>
+              </ul>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">✨</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Le <strong>sponsor</strong> si dividono in:</span></p>
+              <ul class="vc-sponsor-list">
+                <li><strong>Canale Privato</strong></li>
+                <li><strong>Canale</strong> <span class="vc-sponsor-pill"># 🎈 news</span></li>
+                <li><strong>Canale</strong> <span class="vc-sponsor-pill"># 🏮 sponsor . generali</span></li>
+              </ul>
+              <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">💿</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Per effettuare una <strong>sponsor</strong> con noi apri un ticket <a class="vc-sponsor-link" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">High Staff</a> sul server Discord.</span></p>
+            </article>
+          </div>
         </div>
-        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Collaborazioni</p>
-        <h1 id="vc-sponsor-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-          <span class="text-emerald-300">Sponsor</span> sul server
-        </h1>
-        <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
-          Informazioni su tipologie, durate e prezzi delle sponsor in stile Discord: apri un ticket <strong class="text-white">High Staff</strong> sul server per prenotare o chiedere dettagli.
-        </p>
       </section>
 
-      <div class="vc-sponsor-stack" aria-label="Dettagli sponsor">
-        <article class="vc-sponsor-embed" aria-labelledby="sponsor-intro-title">
-          <h2 id="sponsor-intro-title" class="sr-only">Introduzione e requisiti</h2>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Le <strong>Sponsor</strong> sono delle collaborazioni a pagamento dove puoi mettere in mostra il tuo server <code class="vc-sponsor-code">discord</code>.</span></p>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">📜</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span><strong>Requisiti</strong></span></p>
-          <ul class="vc-sponsor-list">
-            <li><strong>Rispettare i</strong> <a class="vc-sponsor-link" href="https://discord.com/terms" target="_blank" rel="noopener noreferrer">ToS</a></li>
-            <li><strong>Rispettare le</strong> <a class="vc-sponsor-link" href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
-            <li><strong>Non avere il server in Blacklist</strong></li>
-          </ul>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">✨</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Le <strong>sponsor</strong> si dividono in:</span></p>
-          <ul class="vc-sponsor-list">
-            <li><strong>Canale Privato</strong></li>
-            <li><strong>Canale</strong> <span class="vc-sponsor-pill"># 🎈 news</span></li>
-            <li><strong>Canale</strong> <span class="vc-sponsor-pill"># 🏮 sponsor . generali</span></li>
-          </ul>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">💿</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Per effettuare una <strong>sponsor</strong> con noi apri un ticket <a class="vc-sponsor-link" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">High Staff</a> sul server Discord.</span></p>
-        </article>
-
+      <div class="vc-sponsor-pricing-grid min-w-0" aria-label="Tariffe sponsor per tipologia di canale">
         <article class="vc-sponsor-embed" aria-labelledby="sponsor-priv-title">
           <h2 id="sponsor-priv-title" class="vc-sponsor-embed__kicker">💖 <span class="vc-sponsor-embed__underline">Canale privato</span></h2>
           <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Verrà creato un canale nella sezione sponsor dove verrà messo il tuo server.</span></p>

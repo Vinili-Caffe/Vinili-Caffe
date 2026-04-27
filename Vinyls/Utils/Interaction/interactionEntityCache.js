@@ -131,8 +131,19 @@ async function addRolesAndGetMember(guild, userId, roleIds) {
   if (!guild || !userId) return null;
   const member = await getGuildMemberCached(guild, userId).catch(() => null);
   if (!member) return null;
-  const ids = Array.isArray(roleIds) ? roleIds.filter(Boolean) : [];
-  if (ids.length) await member.roles.add(ids).catch(() => {});
+  const ids = Array.isArray(roleIds)
+    ? [...new Set(roleIds.map((id) => String(id || "")).filter(Boolean))]
+    : [];
+  for (const rid of ids) {
+    if (member.roles.cache.has(rid)) continue;
+    let role = guild.roles?.cache?.get(rid);
+    if (!role) {
+      role = await getGuildRoleCached(guild, rid).catch(() => null);
+    }
+    if (!role || role.managed) continue;
+    if (role.editable === false) continue;
+    await member.roles.add(rid).catch(() => {});
+  }
   return getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => member);
 }
 

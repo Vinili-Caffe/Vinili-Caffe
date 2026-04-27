@@ -63,7 +63,53 @@ async function fetchUserIdentity(client, guild, userId) {
   return out;
 }
 
-function memberIdentityFromGuildMember(member, ownerId) {
+/** Ordine badge (dall'alto della scaletta). Allineato a discordStaffListBuild.staffRoleIds principale. */
+const COMMUNITY_MANAGER_ROLE_ID = "1494089487863644330";
+
+function staffBadgeRoleOrder(ids) {
+  const R = ids.roles;
+  return [
+    R.Founder,
+    R.Admin,
+    R.HighStaff,
+    R.Mod,
+    R.Helper,
+    R.PartnerManager,
+    R.Staff,
+    R.StafferDelMese,
+    COMMUNITY_MANAGER_ROLE_ID,
+  ]
+    .map((x) => String(x || "").trim())
+    .filter(Boolean);
+}
+
+function staffBadgeLabelForRole(guild, roleId) {
+  const r = guild?.roles?.cache?.get(roleId);
+  const raw = String(r?.name || "").trim();
+  if (raw.length > 0 && raw.length <= 16) return raw;
+  if (raw.length > 16) return `${raw.slice(0, 14)}…`;
+  return "Staff";
+}
+
+function collectMemberStaffBadges(member, guild) {
+  if (!member?.roles?.cache || !guild?.roles?.cache) return [];
+  const order = staffBadgeRoleOrder(IDs);
+  const index = new Map(order.map((id, i) => [id, i]));
+  const out = [];
+  for (const roleId of member.roles.cache.keys()) {
+    const rid = String(roleId);
+    if (!index.has(rid)) continue;
+    out.push({
+      roleId: rid,
+      label: staffBadgeLabelForRole(guild, rid),
+      _i: index.get(rid),
+    });
+  }
+  out.sort((a, b) => a._i - b._i);
+  return out.map(({ roleId: id, label }) => ({ roleId: id, label }));
+}
+
+function memberIdentityFromGuildMember(member, ownerId, guild) {
   const user = member?.user || null;
   const userId = String(user?.id || member?.id || "").trim();
   const username = String(user?.username || "").trim();
@@ -77,6 +123,7 @@ function memberIdentityFromGuildMember(member, ownerId) {
     avatar,
     avatarUrl: String(avatarUrl || "").trim(),
     isOwner: String(ownerId || "") === userId,
+    staffBadges: guild ? collectMemberStaffBadges(member, guild) : [],
   };
 }
 
@@ -134,7 +181,7 @@ async function handleSiteRolesGet(client, req, res) {
       const members = role.members
         ? Array.from(role.members.values())
           .filter((m) => !m.user?.bot)
-          .map((m) => memberIdentityFromGuildMember(m, doc.userId))
+          .map((m) => memberIdentityFromGuildMember(m, doc.userId, guild))
           .sort((a, b) => {
             if (a.isOwner && !b.isOwner) return -1;
             if (!a.isOwner && b.isOwner) return 1;

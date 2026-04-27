@@ -380,15 +380,54 @@
     return '<i class="fa fa-shield" aria-hidden="true"></i>';
   }
 
+  function hueFromRoleId(roleId) {
+    var s = String(roleId || "");
+    var h = 0;
+    for (var i = 0; i < s.length; i += 1) {
+      h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    }
+    return h % 360;
+  }
+
+  function renderMemberBadges(member) {
+    var parts = [];
+    if (member && member.isOwner) {
+      parts.push(
+        '<span class="vc-role-member-badge vc-role-member-badge--owner" title="Creatore del ruolo custom" aria-label="Creatore del ruolo custom">Owner</span>',
+      );
+    }
+    var sb = Array.isArray(member && member.staffBadges) ? member.staffBadges : [];
+    for (var i = 0; i < sb.length; i += 1) {
+      var b = sb[i];
+      var rid = String((b && b.roleId) || "").trim();
+      var label = String((b && b.label) || "").trim();
+      if (!rid || !label) continue;
+      var hue = hueFromRoleId(rid);
+      parts.push(
+        '<span class="vc-role-member-badge vc-role-member-badge--staff" style="--vc-role-badge-h:' +
+          hue +
+          '" title="' +
+          esc(label) +
+          '">' +
+          esc(label) +
+          "</span>",
+      );
+    }
+    if (!parts.length) return "";
+    return '<div class="vc-role-member-badges" aria-label="Ruoli staff e creatore">' + parts.join("") + "</div>";
+  }
+
   function renderMemberRow(member) {
     var name = String(member.username || "Utente").trim() || "Utente";
     return (
       '<a class="vc-role-member" role="listitem" href="' + esc(profileHref(member.userId)) + '">' +
       '<img class="vc-role-member-avatar" src="' + esc(memberAvatarUrl(member)) + '" alt="" width="56" height="56" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'' + esc(fallbackAvatarById(member.userId)) + '\'" />' +
       '<div class="vc-role-member-copy">' +
-      '<div class="vc-role-member-topline">' +
-      '<span class="vc-role-member-name">' + esc(name) + "</span>" +
-      (member.isOwner ? '<span class="vc-role-member-badge">Owner</span>' : "") +
+      '<div class="vc-role-member-stack">' +
+      '<span class="vc-role-member-name">' +
+      esc(name) +
+      "</span>" +
+      renderMemberBadges(member) +
       "</div>" +
       "</div>" +
       '<span class="vc-role-member-arrow" aria-hidden="true"><i class="fa fa-angle-right"></i></span>' +
