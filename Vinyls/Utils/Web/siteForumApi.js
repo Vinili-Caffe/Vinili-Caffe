@@ -5,6 +5,8 @@ const { broadcastSiteRealtime } = require("./siteSuggestionsBroadcast");
 
 const FORUM_FETCH_LIMIT = 50;
 const THREAD_MESSAGE_LIMIT = 50;
+const WEBSITE_FORUM_WEBHOOK_NAME = "VC Website Forum Bridge";
+let cachedForumWebhookByChannel = new Map();
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -31,6 +33,43 @@ function buildAuthorPayload(user) {
       ? `https://cdn.discordapp.com/avatars/${uid}/${user.avatar}.${String(user.avatar).startsWith("a_") ? "gif" : "png"}?size=128`
       : "",
   };
+}
+
+async function getOrCreateForumWebhook(forumChannel) {
+  const cid = String(forumChannel?.id || "").trim();
+  if (!cid) return null;
+  if (cachedForumWebhookByChannel.has(cid)) {
+    return cachedForumWebhookByChannel.get(cid) || null;
+  }
+  const me = forumChannel.guild?.members?.me || null;
+  const canManageWebhooks = Boolean(
+    me &&
+      forumChannel
+        .permissionsFor(me)
+        ?.has(PermissionFlagsBits.ManageWebhooks),
+  );
+  if (!canManageWebhooks) return null;
+  const existing = await forumChannel.fetchWebhooks().catch(() => null);
+  let hook = null;
+  if (existing) {
+    hook =
+      existing.find((w) => String(w.name || "") === WEBSITE_FORUM_WEBHOOK_NAME) ||
+      existing.find((w) => Boolean(w && w.token)) ||
+      null;
+  }
+  if (!hook) {
+    hook = await forumChannel
+      .createWebhook({
+        name: WEBSITE_FORUM_WEBHOOK_NAME,
+        reason: "Website forum bridge webhook",
+      })
+      .catch(() => null);
+  }
+  if (hook && hook.token) {
+    cachedForumWebhookByChannel.set(cid, hook);
+    return hook;
+  }
+  return null;
 }
 
 async function resolveForumChannel(client) {
@@ -182,11 +221,36 @@ async function createSiteForumThread(client, { accessToken, title, content }) {
   if (!perms || !perms.has(PermissionFlagsBits.SendMessages)) {
     return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per scrivere nel forum." };
   }
-  const created = await forum.threads.create({
-    name: cleanTitle,
-    message: { content: cleanContent },
-    reason: `Website forum thread by ${member.user?.tag || member.id}`,
-  }).catch(() => null);
+  const authorName =
+    String(member.user?.globalName || member.user?.username || "Utente").slice(0, 80) ||
+    "Utente";
+  const avatarUrl = buildAuthorPayload(member.user).avatarUrl || null;
+  let created = null;
+  const hook = await getOrCreateForumWebhook(forum);
+  if (hook && hook.token) {
+    const sent = await hook
+      .send({
+        content: cleanContent,
+        threadName: cleanTitle,
+        username: authorName,
+        avatarURL: avatarUrl,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => null);
+    const tid = String(sent?.channelId || "").trim();
+    if (tid) {
+      created = forum.threads.cache.get(tid) || (await forum.threads.fetch(tid).catch(() => null));
+    }
+  }
+  if (!created) {
+    created = await forum.threads
+      .create({
+        name: cleanTitle,
+        message: { content: cleanContent },
+        reason: `Website forum thread by ${member.user?.tag || member.id}`,
+      })
+      .catch(() => null);
+  }
   if (!created) {
     return { ok: false, status: 500, error: "create_failed", message: "Non sono riuscito a creare la discussione." };
   }
@@ -217,7 +281,26 @@ async function createSiteForumMessage(client, { accessToken, threadId, content }
   if (!perms || !perms.has(PermissionFlagsBits.SendMessagesInThreads)) {
     return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per scrivere in questa discussione." };
   }
-  const msg = await thread.send({ content: cleanContent }).catch(() => null);
+  const authorName =
+    String(member.user?.globalName || member.user?.username || "Utente").slice(0, 80) ||
+    "Utente";
+  const avatarUrl = buildAuthorPayload(member.user).avatarUrl || null;
+  let msg = null;
+  const hook = await getOrCreateForumWebhook(forum);
+  if (hook && hook.token) {
+    msg = await hook
+      .send({
+        content: cleanContent,
+        threadId: thread.id,
+        username: authorName,
+        avatarURL: avatarUrl,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => null);
+  }
+  if (!msg) {
+    msg = await thread.send({ content: cleanContent }).catch(() => null);
+  }
   if (!msg) {
     return { ok: false, status: 500, error: "send_failed", message: "Non sono riuscito a inviare il messaggio." };
   }

@@ -125,6 +125,15 @@ const CHANNEL_MOBILE_ID = String(
 const CHANNEL_PC_ID = String(
   IS_DISEGNI_CONTEST ? "" : process.env.WEEKLY_CONTEST_SFONDI_PC_CHANNEL_ID || IDs.channels?.contestSfondiPc || "",
 ).trim();
+/**
+ * Contest outfit (profilo disegni con branding outfit) può usare un canale submission dedicato
+ * diverso da `contestDisegni`. Se configurato, viene trattato come categoria `mobile`.
+ */
+const CHANNEL_OUTFIT_ID = String(
+  process.env.WEEKLY_CONTEST_OUTFIT_CHANNEL_ID ||
+    IDs.channels?.contestOutfitSubmission ||
+    (IS_DISEGNI_CONTEST && disegniContestUiOutfit() ? "1497360902213861487" : ""),
+).trim();
 const CHANNEL_BONUS_ANNOUNCE_ID = String(
   process.env.WEEKLY_CONTEST_BONUS_ANNOUNCE_CHANNEL_ID || IDs.channels?.contestBonusVotesAnnounce || "",
 ).trim();
@@ -181,15 +190,30 @@ const PREMIUM_ROLE_IDS = new Set(
 const CHANNEL_TO_CATEGORY = new Map(
   [
     [CHANNEL_MOBILE_ID, "mobile"],
+    [CHANNEL_OUTFIT_ID, "mobile"],
     ...(CHANNEL_PC_ID ? [[CHANNEL_PC_ID, "pc"]] : []),
   ].filter(([id]) => id),
 );
 
 const CONTEST_SUBMISSION_KIND_LABEL = IS_DISEGNI_CONTEST ? "disegno" : "sfondo";
+const IS_SINGLE_OUTFIT_FLOW = IS_DISEGNI_CONTEST && disegniContestUiOutfit();
 
 function normalizeSubmissionsCategoryMap(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   return raw;
+}
+
+function findExistingSubmissionMessageId(bundleLean, category, userId) {
+  const uid = String(userId || "").trim();
+  if (!uid || !bundleLean) return null;
+  if (IS_SINGLE_OUTFIT_FLOW) {
+    const mob = normalizeSubmissionsCategoryMap(bundleLean.submissions?.mobile);
+    const pc = normalizeSubmissionsCategoryMap(bundleLean.submissions?.pc);
+    const found = mob[uid] || pc[uid] || null;
+    return found ? String(found) : null;
+  }
+  const catMap = normalizeSubmissionsCategoryMap(bundleLean.submissions?.[category]);
+  return catMap[uid] ? String(catMap[uid]) : null;
 }
 
 async function getContestBundleLean(guildId, eventKey) {
@@ -711,7 +735,7 @@ async function handleWeeklyContestVoteButton(interaction) {
 
   const bundlePre = await getContestBundleLean(guildId, EVENT_KEY);
   const submission = findSubmissionByMessageId(bundlePre, hostMessageId);
-  if (!submission || String(submission.category) !== category) {
+  if (!submission || (!IS_SINGLE_OUTFIT_FLOW && String(submission.category) !== category)) {
     await safeEditReply(interaction, {
       content: "Questo messaggio non è una submission del contest.",
       flags: MessageFlags.Ephemeral,
@@ -772,7 +796,7 @@ async function handleWeeklyContestVoteButton(interaction) {
   };
   if (!canAddVoteToCategory(leanForCheck, category, baseMax)) {
     await safeEditReply(interaction, {
-      content: "Hai esaurito i voti disponibili in questa categoria.",
+      content: IS_SINGLE_OUTFIT_FLOW ? "Hai esaurito i voti disponibili." : "Hai esaurito i voti disponibili in questa categoria.",
       flags: MessageFlags.Ephemeral,
     }).catch(() => {});
     return true;
@@ -797,7 +821,7 @@ async function handleWeeklyContestVoteButton(interaction) {
       { $inc: { [incPath]: -1 } },
     ).catch(() => null);
     await safeEditReply(interaction, {
-      content: "Hai esaurito i voti disponibili in questa categoria.",
+      content: IS_SINGLE_OUTFIT_FLOW ? "Hai esaurito i voti disponibili." : "Hai esaurito i voti disponibili in questa categoria.",
       flags: MessageFlags.Ephemeral,
     }).catch(() => {});
     return true;
@@ -864,15 +888,16 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
     }
 
     const bundleExisting = await getContestBundleLean(guildId, EVENT_KEY);
-    const catMap = normalizeSubmissionsCategoryMap(bundleExisting?.submissions?.[category]);
-    const existingMid = catMap[userId] ? String(catMap[userId]) : null;
+    const existingMid = findExistingSubmissionMessageId(bundleExisting, category, userId);
 
     if (existingMid && existingMid !== String(message.id)) {
       const oldAlive = await message.channel.messages.fetch(existingMid).catch(() => null);
       if (oldAlive) {
         const warn = await message.channel
           .send({
-            content: `${message.author} Hai già inviato **un ${CONTEST_SUBMISSION_KIND_LABEL}** in questa categoria.`,
+            content: IS_SINGLE_OUTFIT_FLOW
+              ? `${message.author} Hai già inviato **una foto outfit** per questo evento.`
+              : `${message.author} Hai già inviato **un ${CONTEST_SUBMISSION_KIND_LABEL}** in questa categoria.`,
             allowedMentions: { users: [message.author.id] },
           })
           .catch(() => null);
@@ -937,7 +962,7 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
       await posted.startThread({
         name,
         autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-        reason: "Contest sfondi: commenti allo sfondo",
+        reason: IS_SINGLE_OUTFIT_FLOW ? "Contest outfit: commenti alla submission" : "Contest sfondi: commenti allo sfondo",
       }).catch((err) => global.logger?.warn?.("[WEEKLY_CONTEST] thread commenti:", err?.message || err));
     }
 
@@ -2001,7 +2026,11 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
     lines.push(`${sfondiRankLabel(index)} ${author} — **${row.votes}** · ${jump}`);
   });
   if (!lines.length) {
-    lines.push("Nessun voto in questa categoria (o submission ancora assenti).");
+    lines.push(
+      IS_SINGLE_OUTFIT_FLOW
+        ? "Nessun voto registrato (o submission ancora assenti)."
+        : "Nessun voto in questa categoria (o submission ancora assenti).",
+    );
   }
 
   const titleSuffix = !CHANNEL_PC_ID
@@ -2031,7 +2060,9 @@ function legacyVoteArrayContainsMid(arr, mid) {
 }
 
 const THREAD_DELETE_REASON = "Contest sfondi: autore uscito dal server";
-const THREAD_DELETE_DISQUALIFY_REASON = "Contest disegni: submission squalificata";
+const THREAD_DELETE_DISQUALIFY_REASON = IS_SINGLE_OUTFIT_FLOW
+  ? "Contest outfit: submission squalificata"
+  : "Contest disegni: submission squalificata";
 
 async function deleteContestThreadForMessageOnly(guild, channel, msgId) {
   const mid = String(msgId || "");
@@ -2107,7 +2138,7 @@ async function handleContestDisegniSqualifica(interaction, client) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> **Squalifica** è disponibile solo con il profilo contest **disegni** attivo sul bot.",
+        "<:VC_Attention:1482534443632558151> **Squalifica** è disponibile solo con il profilo contest **disegni/outfit** attivo sul bot.",
     };
   }
   if (!interaction.guild || String(interaction.guild.id) !== contestGuildId()) {
@@ -2128,10 +2159,18 @@ async function handleContestDisegniSqualifica(interaction, client) {
         "<:VC_Attention:1482534443632558151> Puoi squalificare solo i messaggi **bot** del contest (post con i pulsanti di voto).",
     };
   }
-  if (String(target.channelId) !== String(CHANNEL_MOBILE_ID)) {
+  const allowedDisqualifyChannelIds = new Set(
+    [
+      String(CHANNEL_MOBILE_ID || "").trim(),
+      String(CHANNEL_OUTFIT_ID || "").trim(),
+    ].filter(Boolean),
+  );
+  if (!allowedDisqualifyChannelIds.has(String(target.channelId))) {
     return {
       ok: false,
-      message: "<:VC_Attention:1482534443632558151> Il messaggio deve essere nel canale **contest disegni**.",
+      message: IS_SINGLE_OUTFIT_FLOW
+        ? "<:VC_Attention:1482534443632558151> Il messaggio deve essere nel canale **contest outfit**."
+        : "<:VC_Attention:1482534443632558151> Il messaggio deve essere nel canale **contest disegni**.",
     };
   }
 
@@ -2167,7 +2206,11 @@ async function handleContestDisegniSqualifica(interaction, client) {
     guild.channels.cache.get(target.channelId) || (await getGuildChannelCached(guild, target.channelId).catch(() => null));
   if (channel) await deleteContestThreadForMessageOnly(guild, channel, mid);
 
-  const disqualifyEmbed = new EmbedBuilder().setColor("#ed4245").setDescription("Questo disegno è stato squalificato.");
+  const disqualifyEmbed = new EmbedBuilder().setColor("#ed4245").setDescription(
+    IS_SINGLE_OUTFIT_FLOW
+      ? "Questa foto outfit è stata squalificata."
+      : "Questo disegno è stato squalificato.",
+  );
   const msgToEdit =
     channel && channel.messages?.fetch
       ? await channel.messages.fetch(mid).catch(() => null) || target

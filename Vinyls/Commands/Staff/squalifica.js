@@ -3,9 +3,9 @@ const { safeReply } = require("../../../shared/discord/replyRuntime");
 const { handleContestDisegniSqualifica } = require("../../Services/Community/weeklyContestService");
 
 module.exports = {
-  category: "staff",
-  data: new ContextMenuCommandBuilder().setName("squalifica").setType(ApplicationCommandType.Message),
-  description: "Squalifica una submission del contest disegni (rimuove voti, thread e pulsanti).",
+  category: "founder",
+  data: new ContextMenuCommandBuilder().setName("Squalifica").setType(ApplicationCommandType.Message),
+  description: "Squalifica una submission del contest outfit.",
 
   async execute(interaction, client) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});

@@ -109,7 +109,7 @@
         var unread = Number(state.unreadByThread[String(t.id)] || 0);
         return (
           '<button type="button" class="vc-forum-thread-item w-full rounded-xl border p-3 text-left ' +
-          (active ? 'border-[#d4a888]/80 bg-[#d4a888]/20' : "border-white/10 bg-black/20 hover:border-white/30") +
+          (active ? 'border-emerald-400/70 bg-emerald-400/12' : "border-white/10 bg-black/20 hover:border-emerald-400/35") +
           '" data-thread-id="' +
           esc(t.id) +
           '">' +
@@ -117,7 +117,7 @@
           '<span class="min-w-0 truncate">' +
           esc(t.title || "Discussione") +
           "</span>" +
-          (unread > 0 ? '<span class="shrink-0 rounded-full bg-[#d4a888] px-2 py-0.5 text-[10px] font-bold text-[#2b1f19]">+' + esc(String(unread)) + "</span>" : "") +
+          (unread > 0 ? '<span class="shrink-0 rounded-full bg-emerald-400 px-2 py-0.5 text-[10px] font-bold text-slate-950">+' + esc(String(unread)) + "</span>" : "") +
           "</p>" +
           '<p class="mt-1 text-xs text-slate-300">' +
           (t.archived ? "Archiviato" : "Attivo") +
@@ -144,7 +144,7 @@
       .map(function (m) {
         return (
           '<article class="rounded-xl border border-white/10 bg-black/30 p-3">' +
-          '<p class="text-xs font-semibold text-[#e8c9a8]">' +
+          '<p class="text-xs font-semibold text-emerald-200">' +
           esc((m.author && m.author.username) || "Utente") +
           "</p>" +
           '<p class="mt-1 whitespace-pre-wrap text-sm text-slate-100">' +
