@@ -1010,6 +1010,7 @@
       if (n.read) btn.classList.add("vc-notif-item--read");
       btn.setAttribute("data-id", n.id);
       btn.setAttribute("data-open-url", String(n.openUrl || "").trim());
+      btn.setAttribute("data-kind", String(n.kind || "info"));
       var ico = document.createElement("span");
       ico.className = "vc-notif-item-ico";
       ico.setAttribute("aria-hidden", "true");
@@ -1080,6 +1081,28 @@
     } catch (e) {
       return u;
     }
+  }
+
+  function shouldOpenNotifInNewTab(href, kind) {
+    if (String(kind || "").toLowerCase() !== "vote") return false;
+    try {
+      var u = new URL(String(href || ""), window.location.origin);
+      var host = String(u.hostname || "").toLowerCase();
+      return host.indexOf("top.gg") !== -1 || host.indexOf("discadia.com") !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function openNotifDestination(href, kind) {
+    if (!href) return;
+    if (shouldOpenNotifInNewTab(href, kind)) {
+      try {
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      } catch (e) {}
+    }
+    window.location.href = href;
   }
 
   function pulseNotifSummary() {
@@ -1467,13 +1490,14 @@
         if (!btn || !listEl.contains(btn)) return;
         var id = btn.getAttribute("data-id");
         var dest = String(btn.getAttribute("data-open-url") || "").trim();
+        var kind = String(btn.getAttribute("data-kind") || "info").toLowerCase();
         if (id) markOneRead(id);
         var href = resolveNotifDestUrl(dest);
         if (href) {
           ev.preventDefault();
           var ddNav = document.getElementById("vc-notif-dropdown");
           if (ddNav) ddNav.removeAttribute("open");
-          window.location.href = href;
+          openNotifDestination(href, kind);
         }
       });
     }

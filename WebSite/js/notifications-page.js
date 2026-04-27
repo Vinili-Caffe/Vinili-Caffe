@@ -19,6 +19,28 @@
     }
   }
 
+  function shouldOpenNotifInNewTab(href, kind) {
+    if (String(kind || "").toLowerCase() !== "vote") return false;
+    try {
+      var u = new URL(String(href || ""), window.location.origin);
+      var host = String(u.hostname || "").toLowerCase();
+      return host.indexOf("top.gg") !== -1 || host.indexOf("discadia.com") !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function openNotifDestination(href, kind) {
+    if (!href) return;
+    if (shouldOpenNotifInNewTab(href, kind)) {
+      try {
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      } catch (e) {}
+    }
+    window.location.href = href;
+  }
+
   function normalizeUserId(value) {
     var id = String(value || "").trim();
     return /^\d{17,20}$/.test(id) ? id : "";
@@ -247,7 +269,7 @@
         if (ev.target.closest(".vc-notify-close-btn") || ev.target.closest(".vc-notify-open-btn")) return;
         markRead(n.id);
         if (destRaw) {
-          window.location.href = resolveNotifDestUrl(destRaw);
+          openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
           return;
         }
         renderList();
@@ -300,7 +322,7 @@
       openBtn.addEventListener("click", function () {
         markRead(n.id);
         if (destRaw) {
-          window.location.href = resolveNotifDestUrl(destRaw);
+          openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
           return;
         }
         renderList();

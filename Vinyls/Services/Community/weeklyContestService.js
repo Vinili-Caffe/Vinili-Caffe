@@ -292,6 +292,11 @@ function isOutfitSubmissionBypassChannel(channelId) {
   return Boolean(cid && outfitId && cid === outfitId);
 }
 
+function contestSubmissionAuthorLabel() {
+  if (IS_SINGLE_OUTFIT_FLOW) return "Outfit";
+  return CONTEST_SUBMISSION_KIND_LABEL === "disegno" ? "Disegno" : "Sfondo";
+}
+
 function contestGuildId() {
   return MAIN_GUILD_ID;
 }
@@ -366,7 +371,7 @@ async function buildWeeklyContestSubmissionPayload(message, client) {
   const embed = new EmbedBuilder()
     .setColor(client?.config?.embedInfo || "#6f4e37")
     .setAuthor({
-      name: `${CONTEST_SUBMISSION_KIND_LABEL === "disegno" ? "Disegno" : "Sfondo"} di ${display}`,
+      name: `${contestSubmissionAuthorLabel()} di ${display}`,
       ...(avatarUrl ? { iconURL: avatarUrl } : {}),
     });
   const files = [];
@@ -2151,12 +2156,12 @@ async function handleContestDisegniSqualifica(interaction, client) {
   if (!interaction.guild || String(interaction.guild.id) !== contestGuildId()) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Usa questo comando nel server principale." };
   }
-  if (!isContestActiveNow()) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Il contest non è attivo in questo momento." };
-  }
   const target = interaction.targetMessage;
   if (!target?.id || !target.channelId) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Messaggio non valido." };
+  }
+  if (!isContestActiveNow() && !isOutfitSubmissionBypassChannel(target.channelId)) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Il contest non è attivo in questo momento." };
   }
   const botId = String(client?.user?.id || "");
   if (!botId || String(target.author?.id || "") !== botId) {
