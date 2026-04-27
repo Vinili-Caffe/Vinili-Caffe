@@ -1505,6 +1505,15 @@ async function main() {
     warnLeftoverPlaceholders(nHtml, "notifications/index.html");
     fs.writeFileSync(notificationsIndexPath, nHtml, "utf8");
   }
+  const verifyIndexPath = path.join(DIST, "verify", "index.html");
+  if (fs.existsSync(verifyIndexPath)) {
+    let verifyHtml = fs.readFileSync(verifyIndexPath, "utf8");
+    verifyHtml = applyPlaceholderMap(verifyHtml, map);
+    warnLeftoverPlaceholders(verifyHtml, "verify/index.html");
+    fs.writeFileSync(verifyIndexPath, verifyHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca verify/index.html (saltato placeholder).");
+  }
 
   const userIndexPath = path.join(DIST, "user", "index.html");
   if (fs.existsSync(userIndexPath)) {
