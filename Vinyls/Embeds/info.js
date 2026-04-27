@@ -3,7 +3,6 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-
 const INFO_CHANNEL_ID = IDs.channels.info;
 const INFO_MEDIA_NAME = "info.gif";
 const INFO_MEDIA_PATH = path.join(__dirname, "..", "Photos", INFO_MEDIA_NAME);
@@ -23,7 +22,8 @@ async function run(client) {
         "<a:VC_HeartsBlue:1468686100045369404> Benvenuto/a su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
         "",
         "<a:VC_HeartBlue:1448673354751021190> **Personalizza il tuo profilo:**",
-        "<:VC_Reply:1482532158080942191> Nel canale <id:customize> potrai selezionare i colori e i ruoli da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!",
+        "<:VC_DoubleReply:1482532332509466797> Nel canale <id:customize> potrai selezionare i ruoli da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!",
+        "<:VC_Reply:1482532158080942191> Puoi cambiare il tuo colore con il comando \`+colors\`",
         "",
         `Dubbi o problemi? <#${IDs.channels.ticket}> sarà la vostra bussola, lo staff vi risponderà il prima possibile!`,
       ].join("\n"),
@@ -63,11 +63,13 @@ async function run(client) {
       .setLabel("︲DONAZIONI")
       .setEmoji("<a:VC_Sparkles:1468546911936974889>")
       .setStyle(ButtonStyle.Primary),
+    /*
     new ButtonBuilder()
       .setCustomId("info_sponsor")
       .setLabel("︲SPONSOR")
       .setEmoji("<:pinnednew:1443670849990430750>")
       .setStyle(ButtonStyle.Secondary),
+      */
     new ButtonBuilder()
       .setCustomId("info_tags")
       .setLabel("︲TAGS")
@@ -97,7 +99,7 @@ async function run(client) {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   } catch (err) {
-    global.logger?.warn?.("[embeds] ", err?.message || err);
+    global.logger?.warn?.("[embeds] info panel findOneAndUpdate error:", err?.message || err);
   }
 
   const id1 = panel?.infoMessageId1 || null;

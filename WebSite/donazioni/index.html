@@ -219,19 +219,69 @@
         </article>
       </section>
 
-      <section class="vc-support-cta-band mt-10">
-        <div class="mx-auto max-w-3xl text-center">
-          <h2 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">Vuoi dare una mano?</h2>
-          <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-200/82 sm:text-xl">
+      <section class="vc-support-donate-roles mt-10" aria-labelledby="vc-donate-roles-heading">
+        <div class="mx-auto mb-8 max-w-3xl text-center">
+          <h2 id="vc-donate-roles-heading" class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            Vuoi dare una mano?
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-200/82 sm:text-lg">
             Anche un piccolo contributo fa la differenza. Tutte le donazioni vanno direttamente al mantenimento del server.
           </p>
-          <div class="mt-8">
-            <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
-              class="inline-flex min-h-[4.2rem] items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-8 py-4 text-lg font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105">
-              Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
-            </a>
-          </div>
-          <p class="mt-6 text-sm text-slate-300/72">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili & Caffè.</p>
+        </div>
+        <div class="vc-support-donate-roles__grid">
+          <article class="vc-support-donate-role" aria-labelledby="vc-donate-role-supporter">
+            <h3 id="vc-donate-role-supporter" class="vc-support-donate-role__title">Supporter</h3>
+            <p class="vc-support-donate-role__lede">
+              Donazione libera per sostenere il server: hosting, bot e strumenti della community.
+            </p>
+            <ul class="vc-support-donate-role__list">
+              <li>Ruolo donatore sul Discord (dopo verifica staff).</li>
+              <li>Il tuo nick compare tra i supporter del progetto.</li>
+            </ul>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-4 text-base font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
+                <i class="fa fa-paypal" aria-hidden="true"></i> Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+              </a>
+              <p class="vc-support-donate-role__paypal-hint">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili &amp; Caffè.</p>
+            </div>
+          </article>
+          <article class="vc-support-donate-role" aria-labelledby="vc-donate-role-vip">
+            <h3 id="vc-donate-role-vip" class="vc-support-donate-role__title">VIP</h3>
+            <p class="vc-support-donate-role__lede">
+              Livello VIP: contributo dedicato con vantaggi extra sul server (testo di esempio, personalizzalo).
+            </p>
+            <ul class="vc-support-donate-role__list">
+              <li>Ruolo <strong class="text-white">VIP</strong> e permessi collegati.</li>
+              <li>Canali o cosmetic riservati (da definire con lo staff).</li>
+              <li>Apri un ticket <strong class="text-white">High Staff</strong> dopo la donazione per attivazione.</li>
+            </ul>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-4 text-base font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
+                <i class="fa fa-paypal" aria-hidden="true"></i> Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+              </a>
+              <p class="vc-support-donate-role__paypal-hint">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili &amp; Caffè.</p>
+            </div>
+          </article>
+          <article class="vc-support-donate-role" aria-labelledby="vc-donate-role-vip-plus">
+            <h3 id="vc-donate-role-vip-plus" class="vc-support-donate-role__title">VIP+</h3>
+            <p class="vc-support-donate-role__lede">
+              Livello VIP: contributo dedicato con vantaggi extra sul server (testo di esempio, personalizzalo).
+            </p>
+            <ul class="vc-support-donate-role__list">
+              <li>Ruolo <strong class="text-white">VIP+</strong> e permessi collegati.</li>
+              <li>Canali o cosmetic riservati (da definire con lo staff).</li>
+              <li>Apri un ticket <strong class="text-white">High Staff</strong> dopo la donazione per attivazione.</li>
+            </ul>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-4 text-base font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
+                <i class="fa fa-paypal" aria-hidden="true"></i> Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+              </a>
+              <p class="vc-support-donate-role__paypal-hint">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili &amp; Caffè.</p>
+            </div>
+          </article>
         </div>
       </section>
     </main>

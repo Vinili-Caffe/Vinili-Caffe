@@ -119,6 +119,15 @@
     return norm === "staff" || norm === "high staff" || norm === "highstaff";
   }
 
+  function hueFromRoleId(roleId) {
+    var s = String(roleId || "");
+    var h = 0;
+    for (var i = 0; i < s.length; i += 1) {
+      h = ((h * 31 + s.charCodeAt(i)) >>> 0);
+    }
+    return h % 360;
+  }
+
   function ensureStaffHoverUi() {
     var staffNode = el("staff");
     if (!staffNode) return;
@@ -205,13 +214,35 @@
             var name = String(member && member.name || member || "").trim();
             var href = String(member && member.profileUrl || "").trim();
             var isOwner = Boolean(member && member.isOwner === true);
+            var rlab =
+              String(member && member.roleLabel || "").trim() || String(group && group.role || "").trim();
+            var rid =
+              String(member && member.roleId || "").trim() || String(group && group.roleId || "").trim();
             if (!name) return "";
-            var badge = isOwner ? '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>' : "";
-            var suffix = badge ? " " + badge : "";
-            if (/^\/user\/\?id=\d{16,22}$/i.test(href)) {
-              return '<li><span class="vc-staff-member-chip"><a href="' + escText(href) + '">' + escText(name) + "</a>" + suffix + "</span></li>";
+            var ownerB = isOwner
+              ? '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>'
+              : "";
+            var roleB = "";
+            if (rlab) {
+              var hue = hueFromRoleId(rid || rlab);
+              var rUpper = rlab.toUpperCase();
+              roleB =
+                '<span class="vc-staff-role-badge" style="--vc-staff-badge-h:' +
+                hue +
+                '" title="' +
+                escText(rlab) +
+                '" aria-label="' +
+                escText(rlab) +
+                '">' +
+                escText(rUpper) +
+                "</span>";
             }
-            return '<li><span class="vc-staff-member-chip">' + escText(name) + suffix + "</span></li>";
+            var badgesInner = (ownerB ? ownerB + (roleB ? " " : "") : "") + roleB;
+            var badges = badgesInner ? '<span class="vc-staff-member-chip__badges">' + badgesInner + "</span>" : "";
+            if (/^\/user\/\?id=\d{16,22}$/i.test(href)) {
+              return '<li><span class="vc-staff-member-chip vc-staff-member-chip--popover"><a href="' + escText(href) + '">' + escText(name) + "</a>" + badges + "</span></li>";
+            }
+            return '<li><span class="vc-staff-member-chip vc-staff-member-chip--popover">' + escText(name) + badges + "</span></li>";
           }).join("") +
           "</ul>" +
           "</section>"

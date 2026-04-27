@@ -52,15 +52,26 @@ async function applyAgeBracketRoleFromBirthday(guild, userId, day, month, birthY
   const age = computeAgeFromBirthParts(day, month, birthYear, now);
   if (age == null) return { ok: false, reason: "bad_age_inputs" };
   const { targetId, stripOnly } = getAgeBracketRoleIdForAge(age);
-  const member = await guild.members.fetch({ user: uid, force: true }).catch(() => null);
+  const member = await guild.members.fetch({ user: uid, force: false }).catch(() => null);
   if (!member) return { ok: false, reason: "member" };
   const reason = "Profilo: fascia d'età (compleanno)";
   const had = AGE_BRACKET_ROLE_IDS.filter((rid) => member.roles.cache.has(rid));
-  if (had.length) await member.roles.remove(had, reason).catch(() => {});
-  if (stripOnly || !targetId) return { ok: true, stripped: true };
-  const fresh = await guild.members.fetch({ user: uid, force: true }).catch(() => member);
-  if (!fresh.roles.cache.has(targetId)) {
-    await fresh.roles.add(targetId, reason).catch(() => {});
+
+  if (stripOnly || !targetId) {
+    if (!had.length) return { ok: true, unchanged: true };
+    await member.roles.remove(had, reason).catch(() => {});
+    return { ok: true, stripped: true };
+  }
+
+  if (had.length === 1 && had[0] === targetId) {
+    return { ok: true, unchanged: true };
+  }
+
+  const toRemove = had.filter((rid) => rid !== targetId);
+  if (toRemove.length) await member.roles.remove(toRemove, reason).catch(() => {});
+  const m2 = toRemove.length ? await guild.members.fetch({ user: uid, force: true }).catch(() => member) : member;
+  if (!m2.roles.cache.has(targetId)) {
+    await m2.roles.add(targetId, reason).catch(() => {});
   }
   return { ok: true };
 }

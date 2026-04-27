@@ -403,6 +403,22 @@ function ownerBadgeHtml() {
   return '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>';
 }
 
+function hueFromDiscordRoleId(roleId) {
+  const s = String(roleId || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function staffRoleBadgeHtml(roleLabel, roleId = "") {
+  const raw = String(roleLabel || "").trim();
+  if (!raw) return "";
+  const hue = hueFromDiscordRoleId(String(roleId || "").trim() || raw);
+  const title = escAttr(raw);
+  const upper = escHtml(raw.toUpperCase());
+  return `<span class="vc-staff-role-badge" style="--vc-staff-badge-h:${hue}" title="${title}" aria-label="${title}">${upper}</span>`;
+}
+
 function isGenericStaffRoleLabel(label) {
   const norm = String(label || "")
     .trim()
@@ -751,9 +767,13 @@ async function buildStaffListBlock(cfg, guildId) {
             .map((mem) => {
               const name = escHtml(memberStaffDisplayName(mem, ownerUserId));
               const href = escAttr(memberStaffProfileHref(mem));
-              const badge = isServerOwnerMember(mem, ownerUserId) ? ownerBadgeHtml() : "";
-              const suffix = badge ? ` ${badge}` : "";
-              return `<span class="vc-staff-member-chip"><a href="${href}">${name}</a>${suffix}</span>`;
+              const ownerB = isServerOwnerMember(mem, ownerUserId) ? ownerBadgeHtml() : "";
+              const roleB = staffRoleBadgeHtml(g.roleLabel, g.roleId);
+              const badges =
+                ownerB || roleB
+                  ? `<span class="vc-staff-member-chip__badges">${ownerB}${ownerB && roleB ? " " : ""}${roleB}</span>`
+                  : "";
+              return `<span class="vc-staff-member-chip"><a href="${href}">${name}</a>${badges}</span>`;
             })
             .join(" | ")
         : "—";
@@ -778,6 +798,8 @@ async function buildStaffListBlock(cfg, guildId) {
           name: memberStaffDisplayName(mem, ownerUserId),
           profileUrl: memberStaffProfileHref(mem),
           isOwner: isServerOwnerMember(mem, ownerUserId),
+          roleId: String(g.roleId || "").trim(),
+          roleLabel: String(g.roleLabel || "").trim(),
         }))
         .filter((mem) => mem.name),
     }))
@@ -794,6 +816,8 @@ async function buildStaffListBlock(cfg, guildId) {
         name: memberStaffDisplayName(m, ownerUserId),
         profileUrl: memberStaffProfileHref(m),
         isOwner: isServerOwnerMember(m, ownerUserId),
+        roleId: rid,
+        roleLabel: String(targetRoleLabel || "").trim() || "Staff",
       }))
       .filter((m) => m.name)
       .sort((a, b) => String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" }));
