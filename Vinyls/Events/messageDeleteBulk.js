@@ -1,6 +1,7 @@
 const { EmbedBuilder, AttachmentBuilder, AuditLogEvent, PermissionsBitField, MessageFlagsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { maybePunishCountingOnBulkDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { clearForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map(String),);
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -205,6 +206,9 @@ module.exports = {
       if (!messages?.size) return;
       const meaningful = messages.filter((msg) => isMeaningfulDeletedMessage(msg));
       if (!meaningful.size) return;
+      for (const msg of meaningful.values()) {
+        await clearForumMentionNotificationsForMessage(msg, client);
+      }
 
       await maybePunishCountingOnBulkDelete(meaningful, client);
 

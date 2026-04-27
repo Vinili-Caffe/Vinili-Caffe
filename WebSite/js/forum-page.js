@@ -19,6 +19,8 @@
     createTagsTouched: false,
     selectedThread: null,
     selectedThreadPermissions: null,
+    selectedThreadSyncKey: "",
+    pendingMessageFocusId: "",
   };
   var THREADS_PAGE_SIZE = 8;
   var MAX_MEDIA_FILES = 6;
@@ -253,7 +255,22 @@
     state.messageHasMore = false;
     state.selectedThread = null;
     state.selectedThreadPermissions = null;
+    state.selectedThreadSyncKey = "";
     syncLoadOlderButton();
+  }
+
+  function buildThreadSyncKey(thread) {
+    if (!thread || !thread.id) return "";
+    return [
+      String(thread.id || ""),
+      String(thread.lastMessageId || ""),
+      String(thread.lastMessageAt || ""),
+      String(thread.lastActivityAt || ""),
+      String(thread.messageCount || 0),
+      thread.archived ? "1" : "0",
+      thread.locked ? "1" : "0",
+      String(thread.title || ""),
+    ].join("|");
   }
 
   function renderThreadHead(thread, permissions) {
@@ -406,7 +423,7 @@
         var username = esc(String(author.username || "Utente"));
         var msgTime = formatDateTime(m && m.createdAt);
         return (
-          '<article class="rounded-xl border border-white/10 bg-black/30 p-3">' +
+          '<article class="rounded-xl border border-white/10 bg-black/30 p-3" data-message-id="' + esc(String((m && m.id) || "")) + '">' +
           '<div class="flex items-center gap-2">' +
           (avatar
             ? '<img src="' + avatar + '" alt="" class="h-7 w-7 rounded-full border border-white/15 object-cover" loading="lazy" decoding="async" />'
@@ -434,6 +451,23 @@
         );
       })
       .join("");
+  }
+
+  function focusMessageInView(messageId) {
+    var mid = String(messageId || "").trim();
+    if (!mid) return;
+    var sel = '[data-message-id="' + mid.replace(/"/g, '\\"') + '"]';
+    var node = document.querySelector(sel);
+    if (!node) return;
+    try {
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) {
+      try { node.scrollIntoView(); } catch (e2) {}
+    }
+    node.classList.add("ring-1", "ring-cyan-300/60");
+    setTimeout(function () {
+      node.classList.remove("ring-1", "ring-cyan-300/60");
+    }, 1800);
   }
 
   function syncLoadOlderButton() {
@@ -523,7 +557,14 @@
       renderCreateTags();
       renderTagFilterSelect();
       if (state.selectedThreadId) {
-        await loadMessages(state.selectedThreadId, true);
+        var selectedThread = state.threads.find(function (t) {
+          return String((t && t.id) || "") === String(state.selectedThreadId);
+        }) || null;
+        var nextSyncKey = buildThreadSyncKey(selectedThread);
+        if (!state.selectedThreadSyncKey || (nextSyncKey && nextSyncKey !== state.selectedThreadSyncKey)) {
+          await loadMessages(state.selectedThreadId, true);
+          state.selectedThreadSyncKey = nextSyncKey;
+        }
       } else {
         resetChatPanel();
       }
@@ -571,6 +612,17 @@
       state.messageHasMore = Boolean(body.paging && body.paging.hasMore);
       renderMessages(finalRows);
       syncLoadOlderButton();
+      if (state.pendingMessageFocusId) {
+        var targetId = String(state.pendingMessageFocusId || "");
+        state.pendingMessageFocusId = "";
+        setTimeout(function () {
+          focusMessageInView(targetId);
+        }, 60);
+      }
+      var selectedThread = state.threads.find(function (t) {
+        return String((t && t.id) || "") === String(threadId || "");
+      }) || null;
+      state.selectedThreadSyncKey = buildThreadSyncKey(selectedThread);
       if (!quiet) setState("", false);
     } catch (err) {
       if (requestId !== state.lastMessagesRequestId) return;
@@ -782,6 +834,7 @@
           return;
         }
         state.selectedThreadId = tid;
+        state.selectedThreadSyncKey = "";
         state.unreadByThread[tid] = 0;
         state.messageCursorBefore = "";
         state.messageHasMore = false;
@@ -903,6 +956,13 @@
 
   function main() {
     if (!byId("vc-forum-threads")) return;
+    try {
+      var qp = new URLSearchParams(window.location.search || "");
+      var qThread = String(qp.get("thread") || "").trim();
+      var qMessage = String(qp.get("message") || "").trim();
+      if (/^\d{17,22}$/.test(qThread)) state.selectedThreadId = qThread;
+      if (/^\d{17,22}$/.test(qMessage)) state.pendingMessageFocusId = qMessage;
+    } catch (e) {}
     bind();
     syncWriteUi();
     loadThreads();

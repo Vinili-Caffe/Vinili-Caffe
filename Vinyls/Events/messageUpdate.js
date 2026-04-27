@@ -8,6 +8,7 @@ const {
   handleWordReactions,
   maybePunishCountingOnEdit,
 } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { syncForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
 
 const MAX_EMBED_DIFF_LENGTH = 900;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe].filter(Boolean).map(String),);
@@ -243,6 +244,7 @@ module.exports = {
       }
 
       await sendMessageEditLog(previous, updated);
+      await syncForumMentionNotificationsForMessage(updated, resolvedClient);
 
       if (updated.author.bot || updated.system || updated.webhookId || updated.applicationId) {
         try {

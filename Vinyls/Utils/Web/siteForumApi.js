@@ -174,6 +174,21 @@ function serializeThread(thread) {
   };
 }
 
+function renderMentionsForPreview(text, mentionUsers) {
+  const raw = String(text || "");
+  if (!raw) return "";
+  const byId = {};
+  if (mentionUsers && typeof mentionUsers.values === "function") {
+    for (const u of mentionUsers.values()) {
+      const id = String(u?.id || "").trim();
+      const username = String(u?.username || "").trim();
+      if (!id || !username) continue;
+      byId[id] = username;
+    }
+  }
+  return raw.replace(/<@!?(\d{17,22})>/g, (_, uid) => `@${byId[String(uid)] || "utente"}`);
+}
+
 async function resolveThreadLastMeta(thread) {
   if (!thread || !thread.messages || typeof thread.messages.fetch !== "function") {
     return { preview: "", createdAt: null };
@@ -181,7 +196,7 @@ async function resolveThreadLastMeta(thread) {
   const fetched = await thread.messages.fetch({ limit: 1 }).catch(() => null);
   if (!fetched || fetched.size === 0) return { preview: "", createdAt: null };
   const msg = fetched.first();
-  const text = String(msg?.content || "").trim();
+  const text = renderMentionsForPreview(String(msg?.content || "").trim(), msg?.mentions?.users).trim();
   const createdAt = msg?.createdAt ? new Date(msg.createdAt).toISOString() : null;
   if (!text) return { preview: "", createdAt };
   return { preview: text.slice(0, 160), createdAt };

@@ -2,6 +2,7 @@ const { EmbedBuilder, MessageFlagsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { maybePunishCountingOnDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
+const { clearForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
 
 const MAX_CONTENT_LOG_LENGTH = 1800;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map(String),);
@@ -201,6 +202,7 @@ module.exports = {
 
       const resolved = await resolveMessage(message);
       if (!resolved?.guild) return;
+      await clearForumMentionNotificationsForMessage(resolved, resolvedClient);
       await maybePunishCountingOnDelete(resolved, resolvedClient);
       if (!hasMeaningfulDeleteData(resolved)) return;
 

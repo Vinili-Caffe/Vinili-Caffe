@@ -12,6 +12,7 @@ const IDs = require("../Utils/Config/ids");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Config/ephemeralMessageTtl");
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
 const { broadcastSiteRealtime } = require("../Utils/Web/siteSuggestionsBroadcast");
+const { syncForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set(
   [IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)),
@@ -290,6 +291,7 @@ module.exports = {
           threadId: String(message.channelId || ""),
           messageId: String(message.id || ""),
         });
+        await syncForumMentionNotificationsForMessage(message, resolvedClient);
       }
     } catch (error) {
       logEventError(resolvedClient, "FORUM REALTIME BRIDGE ERROR", error);
