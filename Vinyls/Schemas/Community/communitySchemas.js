@@ -421,7 +421,7 @@ const activityUserProfileSchema = new Schema(
         joinedAt: { type: Date, default: null },
         leftAt: { type: Date, default: null },
       },
-      /** true: welcome in chat / join log / DM inviti differiti finché non Member+separatore; consumato da runDeferredJoinAnnouncements */
+      /** true: welcome in chat / join log / inviti differiti finché non Member+separatore; DM join inviato subito all'ingresso; consumato da runDeferredJoinAnnouncements */
       joinAnnouncePending: { type: Boolean, default: null },
       inviteReminderState: {
         inviteNearTargets: { type: [Number], default: [] },

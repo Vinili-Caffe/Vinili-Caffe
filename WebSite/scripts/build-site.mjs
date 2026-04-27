@@ -758,7 +758,7 @@ async function buildStaffListBlock(cfg, guildId) {
             .join(" | ")
         : "—";
       const icon = staffRoleIconHtml(g.roleId);
-      return `            <p class="vc-staff-block__line">${icon}<strong>${escHtml(g.roleLabel)}:</strong> ${parts}</p>`;
+      return `            <p class="vc-staff-block__line">${icon}<span class="vc-staff-block__line-rest"><strong>${escHtml(g.roleLabel)}:</strong> ${parts}</span></p>`;
     })
     .join("\n");
 

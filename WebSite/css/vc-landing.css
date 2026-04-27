@@ -1010,6 +1010,7 @@ a.vc-header-legal-pill[aria-current="page"] {
   align-items: center;
   gap: 1.1rem;
   margin-bottom: 1.5rem;
+  min-width: 0;
 }
 
 .vc-legal-card__icon {
@@ -1054,6 +1055,9 @@ a.vc-header-legal-pill[aria-current="page"] {
 
 .vc-legal-card__title {
   margin: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: #fff;
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 900;
@@ -1420,13 +1424,19 @@ a.vc-header-legal-pill[aria-current="page"] {
 
 .vc-staff-block .vc-staff-block__line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 0.35rem 0.5rem;
   margin: 0 0 0.75rem 0;
   font-size: 0.95rem;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.vc-staff-block__line-rest {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .vc-staff-role-ico {
@@ -2961,6 +2971,7 @@ ul.vc-hero-social:not(:has(> li)) {
   display: flex;
   align-items: center;
   gap: 0.62rem;
+  min-width: 0;
 }
 
 .vc-social-preview__ico {
@@ -3070,9 +3081,16 @@ ul.vc-hero-social:not(:has(> li)) {
   text-transform: uppercase;
   color: rgba(167, 243, 208, 0.95);
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.4rem 0.55rem;
+  min-width: 0;
+}
+
+.vc-sponsor-embed__kicker .vc-sponsor-embed__underline {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .vc-sponsor-embed__underline {
@@ -3088,10 +3106,17 @@ ul.vc-hero-social:not(:has(> li)) {
 
 .vc-sponsor-line {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-start;
   gap: 0.45rem 0.55rem;
   margin: 0 0 0.55rem;
+}
+
+.vc-sponsor-line > span:last-child {
+  flex: 1 1 0;
+  min-width: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .vc-sponsor-line:last-child {
@@ -3119,7 +3144,9 @@ ul.vc-hero-social:not(:has(> li)) {
   color: rgba(212, 168, 136, 0.38);
   font-weight: 500;
   user-select: none;
-  margin-top: 0.35rem;
+  align-self: flex-start;
+  margin-top: 0.32rem;
+  line-height: 1;
 }
 
 .vc-sponsor-list {
@@ -3197,12 +3224,27 @@ ul.vc-hero-social:not(:has(> li)) {
 }
 
 .vc-sponsor-tier__head {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.35rem;
   margin: 0 0 0.45rem;
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(248, 250, 252, 0.94);
+  min-width: 0;
+}
+
+.vc-sponsor-tier__head > span:first-child {
+  flex-shrink: 0;
+}
+
+.vc-sponsor-tier__head > .vc-sponsor-embed__underline {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .vc-sponsor-prices {
@@ -3213,7 +3255,7 @@ ul.vc-hero-social:not(:has(> li)) {
 
 .vc-sponsor-prices li {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.32rem;
@@ -3224,6 +3266,12 @@ ul.vc-hero-social:not(:has(> li)) {
   transition:
     background 0.15s ease,
     border-color 0.15s ease;
+}
+
+.vc-sponsor-prices__mid {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .vc-sponsor-prices li:first-child {
@@ -3264,6 +3312,7 @@ ul.vc-hero-social:not(:has(> li)) {
 
 .vc-sponsor-price {
   display: inline-block;
+  flex-shrink: 0;
   margin-left: auto;
   padding: 0.1rem 0.48rem;
   border-radius: 0.35rem;
@@ -3277,7 +3326,7 @@ ul.vc-hero-social:not(:has(> li)) {
 
 .vc-sponsor-foot {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   align-items: flex-start;
   margin: 0.85rem 0 0;
@@ -3287,6 +3336,12 @@ ul.vc-hero-social:not(:has(> li)) {
   color: rgba(226, 232, 240, 0.88);
   background: linear-gradient(90deg, rgba(251, 191, 36, 0.06), transparent 62%);
   border-radius: 0 0 0.55rem 0.55rem;
+}
+
+.vc-sponsor-foot > span:last-child {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .vc-sponsor-foot .vc-sponsor-line__ico {
@@ -3301,6 +3356,7 @@ ul.vc-hero-social:not(:has(> li)) {
 }
 
 .vc-social-preview__copy {
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -4973,7 +5029,7 @@ a.vc-header-logo-link+a[href] {
 
 .vc-cmd-list li {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 0.5rem 0.75rem;
   padding: 0.4rem 0;
@@ -4986,6 +5042,7 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-cmd-name {
+  flex-shrink: 0;
   font-weight: 600;
   color: rgba(241, 245, 249, 0.96);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -4993,6 +5050,9 @@ a.vc-header-logo-link+a[href] {
 }
 
 .vc-cmd-hint {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: rgba(148, 163, 184, 0.92);
   font-size: 0.78rem;
 }
@@ -6293,7 +6353,8 @@ textarea.vc-candidature-input {
   display: flex;
   align-items: center;
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .vc-user-profile-avatarwrap {
@@ -9843,8 +9904,10 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 
 .vc-role-card-top {
   display: flex;
+  flex-wrap: nowrap;
   align-items: flex-start;
   gap: 0.95rem;
+  min-width: 0;
 }
 
 .vc-role-card-iconwrap {
@@ -11826,10 +11889,12 @@ html.vc-reviews-modal-open body {
 
 .vc-reviews-page .vc-reviews-section__head--with-cta {
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .vc-reviews-page .vc-reviews-section__head--with-cta > div:first-child {
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -11930,6 +11995,18 @@ html.vc-reviews-modal-open body {
 .vc-reviews-card__head {
   justify-content: space-between;
   align-items: start;
+  min-width: 0;
+}
+
+.vc-reviews-card__author {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.vc-reviews-card__author > div {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
 }
 
 .vc-reviews-card__avatar {
@@ -13082,6 +13159,16 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
   .vc-cmd-acc-sum {
     flex-wrap: wrap;
     gap: 0.5rem 0.75rem;
+  }
+
+  .vc-reviews-page .vc-reviews-section__head--with-cta {
+    flex-wrap: wrap;
+  }
+
+  .vc-reviews-page .vc-reviews-section__head--with-cta .vc-reviews-head-cta {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
   }
 
   .vc-cmd-search {

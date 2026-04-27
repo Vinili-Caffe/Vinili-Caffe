@@ -25,8 +25,8 @@
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
 
-    <main class="relative z-10 mx-auto flex min-h-screen max-w-2xl items-center justify-center px-4 py-10">
-      <section class="w-full rounded-3xl border border-white/10 bg-black/30 p-6 sm:p-7">
+    <main class="relative z-10 mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center px-4 py-10">
+      <section id="vc-verify-phase-pre" class="w-full rounded-3xl border border-white/10 bg-black/30 p-6 sm:p-7">
         <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-emerald-200">
           <i class="fa fa-shield" aria-hidden="true"></i>
         </div>
@@ -44,6 +44,16 @@
           </a>
         </div>
       </section>
+      <section id="vc-verify-phase-done" class="hidden w-full flex-col items-center justify-center rounded-3xl border border-emerald-400/25 bg-gradient-to-b from-emerald-950/40 to-black/40 px-6 py-12 text-center sm:px-10 sm:py-14" aria-live="polite">
+        <p class="text-6xl leading-none sm:text-7xl" aria-hidden="true">🎉</p>
+        <h1 class="mt-6 text-3xl font-extrabold tracking-tight text-white sm:text-5xl">Ti sei verificato!</h1>
+        <p id="vc-verify-done-sub" class="mt-4 max-w-md text-base text-slate-200/95"></p>
+        <p id="vc-verify-countdown" class="mt-3 text-sm text-slate-400"></p>
+        <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <a id="vc-verify-discord-btn" class="inline-flex min-h-[3rem] items-center justify-center gap-2 rounded-2xl border border-[#5865F2]/50 bg-[#5865F2]/20 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:border-[#5865F2]/80 hover:bg-[#5865F2]/35" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">Vai su Discord ora</a>
+          <a href="{{SITE_URL}}" class="inline-flex min-h-[3rem] items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-100 hover:border-white/35">Home</a>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -55,6 +65,10 @@
       window.__VC_SITE_VERIFY = {
         apiUrl: "{{SITE_URL}}webhooks/site-verify/complete",
         apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-verify/complete",
+      };
+      window.__VC_VERIFY = {
+        inviteUrl: "{{DISCORD_INVITE_URL}}",
+        redirectDelayMs: 3400,
       };
     </script>
     <script src="../js/discord-auth.js" defer></script>

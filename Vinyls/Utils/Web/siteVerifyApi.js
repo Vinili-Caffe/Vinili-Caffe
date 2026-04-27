@@ -9,6 +9,20 @@ const {
 const { addRolesAndGetMember } = require("../Interaction/interactionEntityCache");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
 
+function discordInviteUrlForSite() {
+  const raw = String(IDs?.links?.invite || "").trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    if (t?.unref) t.unref();
+  });
+}
+
 function resolveMainGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
 }
@@ -66,6 +80,7 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
       alreadyVerified: true,
       message: "Sei già verificato in questo server.",
       guildId: String(guild.id),
+      discordInviteUrl: discordInviteUrlForSite(),
     };
   }
 
@@ -80,14 +95,24 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
   }
 
   const rolesToAdd = validVerifyRoleIds.filter((roleId) => !member.roles.cache.has(roleId));
-  const memberAfterAdd = await addRolesAndGetMember(guild, member.id, rolesToAdd);
+  let memberAfterAdd = await addRolesAndGetMember(guild, member.id, rolesToAdd);
   if (!memberAfterAdd) {
     return { ok: false, status: 500, error: "verify_failed", message: "Impossibile completare la verifica." };
   }
 
   if (rolesToAdd.length) {
-    const missing = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    let missing = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    for (let retry = 0; retry < 3 && missing.length; retry += 1) {
+      await sleep(400 + retry * 140);
+      global.logger?.warn?.("[siteVerifyApi] retry verify roles", guild.id, userId, "missing:", missing.join(","));
+      memberAfterAdd = await addRolesAndGetMember(guild, member.id, missing);
+      if (!memberAfterAdd) break;
+      missing = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+      if (!missing.length) break;
+    }
+    missing = rolesToAdd.filter((roleId) => !memberAfterAdd?.roles?.cache?.has?.(roleId));
     if (missing.length) {
+      global.logger?.warn?.("[siteVerifyApi] verify_roles_failed final", guild.id, userId, missing.join(","));
       return { ok: false, status: 500, error: "verify_roles_failed", message: "Non sono riuscito ad assegnare i ruoli verifica." };
     }
   }
@@ -105,6 +130,7 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
     message: "Verifica completata con successo.",
     guildId: String(guild.id),
     alreadyVerified: false,
+    discordInviteUrl: discordInviteUrlForSite(),
   };
 }
 

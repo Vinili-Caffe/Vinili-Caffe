@@ -1374,7 +1374,6 @@ async function runDeferredJoinAnnouncements(member) {
   await maybeSendInviteReward(fresh, info);
 
   await sendJoinLog(fresh).catch(() => { });
-  await sendDmWelcome(fresh).catch(() => { });
 
   if (fresh.guild?.id === IDs.guilds.main && fresh.client && memberHasStaffRole(fresh)) {
     scheduleStaffListRefresh(fresh.client, fresh.guild.id);
@@ -1584,11 +1583,13 @@ module.exports = {
       setImmediate(() => {
         (async () => {
           try {
+            if (!member.user?.bot) {
+              await sendDmWelcome(member).catch(() => {});
+            }
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
             if (canAnnounce) {
               await sendJoinLog(member);
-              await sendDmWelcome(member);
 
               if (info && !info.isVanity && info.inviterId) {
                 await trackInviteJoin(member, info.inviterId).catch(() => { });

@@ -50,6 +50,69 @@
     return String(cfg.apiUrl || "/webhooks/site-verify/complete");
   }
 
+  function resolveInviteUrl(data) {
+    var fromApi = data && data.discordInviteUrl ? String(data.discordInviteUrl).trim() : "";
+    if (fromApi) return fromApi;
+    var fromCfg = window.__VC_VERIFY && window.__VC_VERIFY.inviteUrl ? String(window.__VC_VERIFY.inviteUrl).trim() : "";
+    return fromCfg || "";
+  }
+
+  function showVerifiedSuccessView(data) {
+    var pre = byId("vc-verify-phase-pre");
+    var done = byId("vc-verify-phase-done");
+    var sub = byId("vc-verify-done-sub");
+    var cd = byId("vc-verify-countdown");
+    var discordBtn = byId("vc-verify-discord-btn");
+    if (!pre || !done) return;
+
+    var invite = resolveInviteUrl(data);
+    if (discordBtn) {
+      if (invite) {
+        discordBtn.href = invite;
+        discordBtn.hidden = false;
+      } else {
+        discordBtn.hidden = true;
+      }
+    }
+
+    if (sub) {
+      sub.textContent = String((data && data.message) || "Ora hai accesso ai canali del server.");
+    }
+
+    pre.classList.add("hidden");
+    done.classList.remove("hidden");
+    done.classList.add("flex");
+
+    var delayMs = Number((window.__VC_VERIFY && window.__VC_VERIFY.redirectDelayMs) || 3400);
+    var endAt = Date.now() + Math.max(1200, delayMs);
+
+    if (!invite) {
+      if (cd) {
+        cd.textContent = "Apri Discord dal browser o dall'app per tornare sul server.";
+      }
+      return;
+    }
+
+    var iv = null;
+    function tick() {
+      if (!cd) return;
+      var left = Math.max(0, endAt - Date.now());
+      var sec = Math.max(1, Math.ceil(left / 1000));
+      cd.textContent = "Ti riportiamo su Discord tra " + sec + "…";
+      if (left <= 0) {
+        if (iv) clearInterval(iv);
+        try {
+          window.location.assign(invite);
+        } catch (e1) {
+          window.location.href = invite;
+        }
+      }
+    }
+
+    iv = setInterval(tick, 250);
+    tick();
+  }
+
   function buildOAuthUrl() {
     var c = window.__VC_AUTH || {};
     var clientId = String(c.clientId || "").trim();
@@ -86,7 +149,9 @@
         },
         body: JSON.stringify({ guildId: guildId || null }),
       });
-      var data = await res.json().catch(function () { return {}; });
+      var data = await res.json().catch(function () {
+        return {};
+      });
       if (!res.ok || !data || data.ok !== true) {
         var msg = String((data && data.message) || "Verifica non riuscita.");
         if (res.status === 401) {
@@ -97,7 +162,7 @@
         return;
       }
       if (loginBtn) loginBtn.hidden = true;
-      setStatus('<i class="fa fa-check-circle"></i> ' + String(data.message || "Verifica completata con successo."), "ok");
+      showVerifiedSuccessView(data);
     } catch (e) {
       setStatus('<i class="fa fa-exclamation-triangle"></i> Errore di rete durante la verifica.', "err");
     }
