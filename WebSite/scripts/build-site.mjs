@@ -384,7 +384,7 @@ function memberStaffLineName(m) {
 function memberStaffDisplayName(m, ownerUserId = "") {
   const base = memberStaffLineName(m);
   const uid = String(m?.user?.id || "").trim();
-  if (uid && ownerUserId && uid === ownerUserId) return `${base} 👑`;
+  if (uid && ownerUserId && uid === ownerUserId) return base;
   return base;
 }
 
@@ -392,6 +392,15 @@ function memberStaffProfileHref(m) {
   const uid = String(m?.user?.id || "").trim();
   if (!/^\d{16,22}$/.test(uid)) return "#";
   return `/user/?id=${encodeURIComponent(uid)}`;
+}
+
+function isServerOwnerMember(m, ownerUserId = "") {
+  const uid = String(m?.user?.id || "").trim();
+  return Boolean(uid && ownerUserId && uid === ownerUserId);
+}
+
+function ownerBadgeHtml() {
+  return '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>';
 }
 
 function isGenericStaffRoleLabel(label) {
@@ -742,7 +751,8 @@ async function buildStaffListBlock(cfg, guildId) {
             .map((mem) => {
               const name = escHtml(memberStaffDisplayName(mem, ownerUserId));
               const href = escAttr(memberStaffProfileHref(mem));
-              return `<a href="${href}">${name}</a>`;
+              const badge = isServerOwnerMember(mem, ownerUserId) ? ownerBadgeHtml() : "";
+              return `<span class="vc-staff-member-chip"><a href="${href}">${name}</a>${badge}</span>`;
             })
             .join(" | ")
         : "—";
@@ -766,6 +776,7 @@ async function buildStaffListBlock(cfg, guildId) {
         .map((mem) => ({
           name: memberStaffDisplayName(mem, ownerUserId),
           profileUrl: memberStaffProfileHref(mem),
+          isOwner: isServerOwnerMember(mem, ownerUserId),
         }))
         .filter((mem) => mem.name),
     }))
@@ -781,6 +792,7 @@ async function buildStaffListBlock(cfg, guildId) {
       .map((m) => ({
         name: memberStaffDisplayName(m, ownerUserId),
         profileUrl: memberStaffProfileHref(m),
+        isOwner: isServerOwnerMember(m, ownerUserId),
       }))
       .filter((m) => m.name)
       .sort((a, b) => String(a.name).localeCompare(String(b.name), "it", { sensitivity: "base" }));

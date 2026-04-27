@@ -204,11 +204,13 @@
           members.map(function (member) {
             var name = String(member && member.name || member || "").trim();
             var href = String(member && member.profileUrl || "").trim();
+            var isOwner = Boolean(member && member.isOwner === true);
             if (!name) return "";
+            var badge = isOwner ? '<span class="vc-owner-badge" title="Server Owner" aria-label="Server Owner">Owner</span>' : "";
             if (/^\/user\/\?id=\d{16,22}$/i.test(href)) {
-              return '<li><a href="' + escText(href) + '">' + escText(name) + "</a></li>";
+              return '<li><span class="vc-staff-member-chip"><a href="' + escText(href) + '">' + escText(name) + "</a>" + badge + "</span></li>";
             }
-            return "<li>" + escText(name) + "</li>";
+            return '<li><span class="vc-staff-member-chip">' + escText(name) + badge + "</span></li>";
           }).join("") +
           "</ul>" +
           "</section>"
@@ -294,11 +296,13 @@
                     return {
                       name: String(entry.name || "").trim(),
                       profileUrl: String(entry.profileUrl || "").trim(),
+                      isOwner: entry.isOwner === true,
                     };
                   }
                   return {
                     name: String(entry || "").trim(),
                     profileUrl: "",
+                    isOwner: false,
                   };
                 })
                 .filter(function (entry) {

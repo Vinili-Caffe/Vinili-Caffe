@@ -1449,6 +1449,41 @@ a.vc-header-legal-pill[aria-current="page"] {
   margin-right: 0.15rem;
 }
 
+.vc-staff-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.vc-staff-member-chip a {
+  color: rgba(238, 242, 247, 0.96);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.vc-staff-member-chip a:hover {
+  color: #e8c9a8;
+  border-bottom-color: rgba(232, 201, 168, 0.65);
+}
+
+.vc-owner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.15rem;
+  padding: 0.06rem 0.44rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fef3c7;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.34), rgba(217, 119, 6, 0.2));
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
 .vc-about-meta dt {
   font-size: 0.7rem;
   font-weight: 700;
@@ -2218,6 +2253,18 @@ header .vc-notif-summary.vc-icon-btn:hover {
   padding: 0.26rem 0.42rem;
   background: rgba(255, 255, 255, 0.025);
   text-align: left;
+}
+
+.vc-stat-staff-popover__list li a {
+  color: rgba(238, 242, 247, 0.98);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.vc-stat-staff-popover__list li a:hover {
+  color: #e8c9a8;
+  border-bottom-color: rgba(232, 201, 168, 0.65);
 }
 
 .vc-stat-num {

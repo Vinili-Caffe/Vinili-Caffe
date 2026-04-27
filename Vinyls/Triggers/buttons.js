@@ -979,6 +979,7 @@ module.exports = {
           "Un modo per sostenere il server è potenziarlo: se hai un Nitro Boost (quello da 9,99€) hai a disposizione 2 potenziamenti che puoi utilizzare in qualunque server tu voglia. Se deciderai di potenziare noi, __Vinili & Caffè__, sbloccherai un sacco di vantaggi.",
           "**Non sai cos'è Discord Nitro?** <:link:1470064815899803668> [Scoprilo qui](<https://discord.com/nitro>).",
           "",
+          "<a:VC_Boost:1482706171386269830> **Boostando il server una volta sbloccherai questi vantaggi:**",
           `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.ServerBooster}> con badge speciale`,
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
@@ -1005,6 +1006,7 @@ module.exports = {
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
           `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
+          `Usa \`+colors\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
 
