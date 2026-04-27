@@ -251,6 +251,7 @@ async function startWebhookServer(client) {
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
+    const isSiteForum = pathStr.startsWith("/webhooks/site-forum");
     if (
       !isCandidature &&
       !isUnban &&
@@ -262,7 +263,8 @@ async function startWebhookServer(client) {
       !isSiteRankCard &&
       !isSiteReviews &&
       !isSiteSuggestions &&
-      !isSiteNotifications
+      !isSiteNotifications &&
+      !isSiteForum
     ) {
       return next();
     }
@@ -542,10 +544,17 @@ async function startWebhookServer(client) {
         });
       }
       const body = req.body && typeof req.body === "object" ? req.body : {};
+      const tagIds = Array.isArray(body.tagIds)
+        ? body.tagIds
+        : typeof body.tagIds === "string"
+          ? body.tagIds.split(",")
+          : [];
       const out = await createSiteForumThread(client, {
         accessToken,
         title: body.title,
         content: body.content,
+        media: body.media,
+        tagIds,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
@@ -568,6 +577,7 @@ async function startWebhookServer(client) {
         accessToken,
         threadId: req.params?.threadId,
         content: body.content,
+        media: body.media,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {

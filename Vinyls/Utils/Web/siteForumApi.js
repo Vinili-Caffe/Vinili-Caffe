@@ -1,4 +1,4 @@
-const { ChannelType, PermissionFlagsBits } = require("discord.js");
+const { ChannelType, PermissionFlagsBits, ChannelFlagsBitField } = require("discord.js");
 const IDs = require("../Config/ids");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { broadcastSiteRealtime } = require("./siteSuggestionsBroadcast");
@@ -6,6 +6,7 @@ const { broadcastSiteRealtime } = require("./siteSuggestionsBroadcast");
 const FORUM_FETCH_LIMIT = 50;
 const THREAD_MESSAGE_LIMIT = 50;
 const WEBSITE_FORUM_WEBHOOK_NAME = "VC Website Forum Bridge";
+const FORUM_MAX_MEDIA_FILES = 6;
 let cachedForumWebhookByChannel = new Map();
 
 function resolveGuildId(client) {
@@ -22,6 +23,59 @@ function sanitizeText(value, maxLen) {
     .replace(/\r/g, "\n")
     .trim()
     .slice(0, Math.max(1, Number(maxLen) || 1));
+}
+
+function sanitizeFileName(name, fallback = "media.bin") {
+  const safe = String(name || "")
+    .replace(/[\r\n\0]/g, "")
+    .trim()
+    .replace(/[^\w.\- ]+/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 80);
+  return safe || fallback;
+}
+
+function normalizeIncomingMedia(files) {
+  if (!Array.isArray(files) || !files.length) return [];
+  return files
+    .slice(0, FORUM_MAX_MEDIA_FILES)
+    .map((f, idx) => {
+      if (!f || typeof f !== "object") return null;
+      const rawData = String(f.data || "");
+      if (!rawData) return null;
+      let payload = rawData;
+      const commaIdx = rawData.indexOf(",");
+      if (rawData.startsWith("data:") && commaIdx >= 0) payload = rawData.slice(commaIdx + 1);
+      let buffer = null;
+      try {
+        buffer = Buffer.from(payload, "base64");
+      } catch {
+        buffer = null;
+      }
+      if (!Buffer.isBuffer(buffer) || !buffer.length) return null;
+      const name = sanitizeFileName(f.name, `media_${idx + 1}.bin`);
+      return {
+        attachment: buffer,
+        name,
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeTagIds(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? String(raw).split(",")
+      : [];
+  return Array.from(
+    new Set(
+      arr
+        .map((x) => String(x || "").trim())
+        .filter((x) => /^\d{17,22}$/.test(x)),
+    ),
+  );
 }
 
 function buildAuthorPayload(user) {
@@ -93,27 +147,34 @@ function serializeThread(thread) {
   const t = thread && typeof thread === "object" ? thread : {};
   const createdAt = t.createdAt ? new Date(t.createdAt).toISOString() : null;
   const archivedAt = t.archiveTimestamp ? new Date(t.archiveTimestamp).toISOString() : null;
+  const pinnedFlag = ChannelFlagsBitField?.Flags?.Pinned;
+  const pinned = pinnedFlag != null && t?.flags?.has ? Boolean(t.flags.has(pinnedFlag)) : false;
   return {
     id: String(t.id || ""),
     title: String(t.name || "Discussione"),
     archived: Boolean(t.archived),
+    pinned,
     locked: Boolean(t.locked),
     messageCount: Number(t.messageCount || 0),
     memberCount: Number(t.memberCount || 0),
     createdAt,
     lastActivityAt: archivedAt || createdAt,
     ownerId: String(t.ownerId || ""),
+    appliedTagIds: Array.isArray(t.appliedTags) ? t.appliedTags.map((id) => String(id)) : [],
   };
 }
 
-async function resolveThreadLastPreview(thread) {
-  if (!thread || !thread.messages || typeof thread.messages.fetch !== "function") return "";
+async function resolveThreadLastMeta(thread) {
+  if (!thread || !thread.messages || typeof thread.messages.fetch !== "function") {
+    return { preview: "", createdAt: null };
+  }
   const fetched = await thread.messages.fetch({ limit: 1 }).catch(() => null);
-  if (!fetched || fetched.size === 0) return "";
+  if (!fetched || fetched.size === 0) return { preview: "", createdAt: null };
   const msg = fetched.first();
   const text = String(msg?.content || "").trim();
-  if (!text) return "";
-  return text.slice(0, 160);
+  const createdAt = msg?.createdAt ? new Date(msg.createdAt).toISOString() : null;
+  if (!text) return { preview: "", createdAt };
+  return { preview: text.slice(0, 160), createdAt };
 }
 
 function serializeForumMessage(msg) {
@@ -125,6 +186,14 @@ function serializeForumMessage(msg) {
     createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : null,
     editedAt: m.editedAt ? new Date(m.editedAt).toISOString() : null,
     author: buildAuthorPayload(m.author),
+    attachments: Array.isArray(m.attachments)
+      ? m.attachments.map((a) => ({
+        id: String(a?.id || ""),
+        name: String(a?.name || ""),
+        url: String(a?.url || ""),
+        contentType: String(a?.contentType || ""),
+      }))
+      : [],
   };
 }
 
@@ -158,12 +227,28 @@ async function getSiteForumThreads(client, { limit = FORUM_FETCH_LIMIT } = {}) {
   const items = await Promise.all(
     source.map(async (thread) => {
       const row = serializeThread(thread);
-      row.lastMessagePreview = await resolveThreadLastPreview(thread);
+      const last = await resolveThreadLastMeta(thread);
+      row.lastMessagePreview = last.preview;
+      row.lastMessageAt = last.createdAt;
       return row;
     }),
   );
 
-  return { ok: true, status: 200, forumId: String(forum.id), threads: items };
+  const availableTags = Array.isArray(forum.availableTags)
+    ? forum.availableTags.map((tag) => ({
+      id: String(tag?.id || ""),
+      name: String(tag?.name || "Tag"),
+      moderated: Boolean(tag?.moderated),
+      emoji:
+        tag?.emoji?.name || tag?.emoji?.id
+          ? {
+            name: String(tag?.emoji?.name || ""),
+            id: String(tag?.emoji?.id || ""),
+          }
+          : null,
+    }))
+    : [];
+  return { ok: true, status: 200, forumId: String(forum.id), threads: items, availableTags };
 }
 
 async function getSiteForumThreadMessages(client, { threadId, limit = THREAD_MESSAGE_LIMIT, before = "" } = {}) {
@@ -202,7 +287,7 @@ async function getSiteForumThreadMessages(client, { threadId, limit = THREAD_MES
   };
 }
 
-async function createSiteForumThread(client, { accessToken, title, content }) {
+async function createSiteForumThread(client, { accessToken, title, content, media = [], tagIds = [] }) {
   const resolvedForum = await resolveForumChannel(client);
   if (!resolvedForum.ok) return resolvedForum;
   const auth = await resolveWebsiteGuildMember(client, accessToken);
@@ -211,11 +296,13 @@ async function createSiteForumThread(client, { accessToken, title, content }) {
   const member = auth.member;
   const cleanTitle = sanitizeText(title, 100);
   const cleanContent = sanitizeText(content, 2000);
+  const mediaFiles = normalizeIncomingMedia(media);
+  const selectedTagIds = normalizeTagIds(tagIds);
   if (cleanTitle.length < 3) {
     return { ok: false, status: 400, error: "title_too_short", message: "Titolo troppo corto (min 3 caratteri)." };
   }
-  if (cleanContent.length < 2) {
-    return { ok: false, status: 400, error: "content_too_short", message: "Messaggio troppo corto." };
+  if (cleanContent.length < 2 && !mediaFiles.length) {
+    return { ok: false, status: 400, error: "content_too_short", message: "Scrivi un messaggio o allega almeno un media." };
   }
   const perms = forum.permissionsFor(member);
   if (!perms || !perms.has(PermissionFlagsBits.SendMessages)) {
@@ -227,13 +314,14 @@ async function createSiteForumThread(client, { accessToken, title, content }) {
   const avatarUrl = buildAuthorPayload(member.user).avatarUrl || null;
   let created = null;
   const hook = await getOrCreateForumWebhook(forum);
-  if (hook && hook.token) {
+  if (hook && hook.token && selectedTagIds.length === 0) {
     const sent = await hook
       .send({
-        content: cleanContent,
+        content: cleanContent || null,
         threadName: cleanTitle,
         username: authorName,
         avatarURL: avatarUrl,
+        ...(mediaFiles.length ? { files: mediaFiles } : {}),
         allowedMentions: { parse: [] },
       })
       .catch(() => null);
@@ -246,7 +334,8 @@ async function createSiteForumThread(client, { accessToken, title, content }) {
     created = await forum.threads
       .create({
         name: cleanTitle,
-        message: { content: cleanContent },
+        message: { content: cleanContent || null, ...(mediaFiles.length ? { files: mediaFiles } : {}) },
+        ...(selectedTagIds.length ? { appliedTags: selectedTagIds } : {}),
         reason: `Website forum thread by ${member.user?.tag || member.id}`,
       })
       .catch(() => null);
@@ -254,11 +343,14 @@ async function createSiteForumThread(client, { accessToken, title, content }) {
   if (!created) {
     return { ok: false, status: 500, error: "create_failed", message: "Non sono riuscito a creare la discussione." };
   }
+  if (created && selectedTagIds.length && typeof created.setAppliedTags === "function") {
+    await created.setAppliedTags(selectedTagIds, "Website forum tags").catch(() => null);
+  }
   broadcastSiteRealtime({ type: "forum_changed", at: new Date().toISOString(), threadId: String(created.id) });
   return { ok: true, status: 200, thread: serializeThread(created) };
 }
 
-async function createSiteForumMessage(client, { accessToken, threadId, content }) {
+async function createSiteForumMessage(client, { accessToken, threadId, content, media = [] }) {
   const resolvedForum = await resolveForumChannel(client);
   if (!resolvedForum.ok) return resolvedForum;
   const auth = await resolveWebsiteGuildMember(client, accessToken);
@@ -274,7 +366,8 @@ async function createSiteForumMessage(client, { accessToken, threadId, content }
     return { ok: false, status: 404, error: "thread_not_found", message: "Discussione non trovata." };
   }
   const cleanContent = sanitizeText(content, 2000);
-  if (cleanContent.length < 1) {
+  const mediaFiles = normalizeIncomingMedia(media);
+  if (cleanContent.length < 1 && !mediaFiles.length) {
     return { ok: false, status: 400, error: "content_too_short", message: "Messaggio vuoto." };
   }
   const perms = thread.permissionsFor(member);
@@ -290,16 +383,17 @@ async function createSiteForumMessage(client, { accessToken, threadId, content }
   if (hook && hook.token) {
     msg = await hook
       .send({
-        content: cleanContent,
+        content: cleanContent || null,
         threadId: thread.id,
         username: authorName,
         avatarURL: avatarUrl,
+        ...(mediaFiles.length ? { files: mediaFiles } : {}),
         allowedMentions: { parse: [] },
       })
       .catch(() => null);
   }
   if (!msg) {
-    msg = await thread.send({ content: cleanContent }).catch(() => null);
+    msg = await thread.send({ content: cleanContent || null, ...(mediaFiles.length ? { files: mediaFiles } : {}) }).catch(() => null);
   }
   if (!msg) {
     return { ok: false, status: 500, error: "send_failed", message: "Non sono riuscito a inviare il messaggio." };
