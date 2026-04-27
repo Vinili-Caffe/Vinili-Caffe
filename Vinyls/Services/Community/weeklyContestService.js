@@ -285,6 +285,13 @@ function isContestActiveNow(date = new Date()) {
   return t >= start && t < end;
 }
 
+function isOutfitSubmissionBypassChannel(channelId) {
+  if (!IS_SINGLE_OUTFIT_FLOW) return false;
+  const cid = String(channelId || "").trim();
+  const outfitId = String(CHANNEL_OUTFIT_ID || "").trim();
+  return Boolean(cid && outfitId && cid === outfitId);
+}
+
 function contestGuildId() {
   return MAIN_GUILD_ID;
 }
@@ -715,7 +722,7 @@ async function handleWeeklyContestVoteButton(interaction) {
     return true;
   }
 
-  if (!isContestActiveNow()) {
+  if (!isContestActiveNow() && !isOutfitSubmissionBypassChannel(interaction.channelId)) {
     await safeEditReply(interaction, {
       content: "Il contest non è attivo.",
       flags: MessageFlags.Ephemeral,
@@ -849,7 +856,7 @@ async function handleWeeklyContestSubmissionMessage(message, client) {
     if (String(message.guild.id) !== contestGuildId()) return false;
     const category = categoryForChannelId(message.channelId);
     if (!category) return false;
-    if (!isContestActiveNow(message.createdAt || new Date())) return false;
+    if (!isContestActiveNow(message.createdAt || new Date()) && !isOutfitSubmissionBypassChannel(message.channelId)) return false;
 
     const guildId = String(message.guild.id);
     const userId = String(message.author.id);
