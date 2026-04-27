@@ -688,7 +688,29 @@ async function buildStaffListBlock(cfg, guildId) {
 
   const html = `          <div class="vc-staff-block">\n${roleLines}\n          </div>`;
   const staffCount = new Set(rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean)).size;
-  return { html, staffCount };
+  const pmRoleId = String(b.partnerManagerRoleId || "1442568905582317740").trim();
+  const pmRoleLabel = String(b.partnerManagerRoleLabel || "PM").trim() || "PM";
+  const staffHoverGroups = groups
+    .map((g) => ({
+      role: String(g.roleLabel || "").trim(),
+      members: g.members.map((mem) => memberStaffLineName(mem)).filter(Boolean),
+    }))
+    .filter((g) => g.role && Array.isArray(g.members) && g.members.length > 0);
+  if (pmRoleId) {
+    const pmMembers = members
+      .filter((m) => !m?.user?.bot)
+      .filter((m) => memberRoleIds(m).includes(pmRoleId))
+      .map((m) => memberStaffLineName(m))
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), "it", { sensitivity: "base" }));
+    if (pmMembers.length) {
+      staffHoverGroups.push({
+        role: pmRoleLabel,
+        members: pmMembers,
+      });
+    }
+  }
+  return { html, staffCount, staffHoverGroups };
 }
 
 /** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
@@ -727,6 +749,9 @@ async function mainLiveStatsExtraOnly() {
   const guildLiveCounts =
     guildIdResolved && botTok ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok) : null;
   const payload = { staffNoPm: n };
+  if (Array.isArray(staffResult.staffHoverGroups) && staffResult.staffHoverGroups.length) {
+    payload.staffHoverGroups = staffResult.staffHoverGroups;
+  }
   if (guildLiveCounts?.memberCount != null) payload.guildMemberCount = guildLiveCounts.memberCount;
   if (guildLiveCounts?.boostCount != null) payload.guildBoostCount = guildLiveCounts.boostCount;
   const outRaw = process.env.VC_LIVE_STATS_JSON_OUT?.trim();
@@ -907,6 +932,9 @@ async function main() {
     const extraObj = {
       staffNoPm: staffResult.staffCount != null ? staffResult.staffCount : 0,
     };
+    if (Array.isArray(staffResult.staffHoverGroups) && staffResult.staffHoverGroups.length) {
+      extraObj.staffHoverGroups = staffResult.staffHoverGroups;
+    }
     if (guildLiveCounts?.memberCount != null) extraObj.guildMemberCount = guildLiveCounts.memberCount;
     if (guildLiveCounts?.boostCount != null) extraObj.guildBoostCount = guildLiveCounts.boostCount;
     fs.writeFileSync(extraPath, JSON.stringify(extraObj), "utf8");

@@ -110,16 +110,17 @@
         PAGE_CLASS +
         ":not(." +
         BYPASS_CLASS +
-        ") body{min-height:100%;background:#050914!important;color:#f8fafc!important;}",
-      "#vc-maintenance-root{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 18%,rgba(245,158,11,.18),transparent 34%),radial-gradient(circle at 80% 22%,rgba(14,165,233,.16),transparent 34%),linear-gradient(135deg,#050914,#111827 54%,#082f49);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}",
-      ".vc-maintenance-card{width:min(620px,100%);border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(15,23,42,.78);box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08);padding:34px;text-align:left;backdrop-filter:blur(18px);}",
-      ".vc-maintenance-kicker{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px;padding:8px 12px;border-radius:999px;background:rgba(250,204,21,.12);color:#fde68a;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}",
-      ".vc-maintenance-title{margin:0;color:#fff;font-size:clamp(34px,6vw,58px);line-height:.98;font-weight:900;letter-spacing:-.04em;}",
-      ".vc-maintenance-text{margin:18px 0 0;color:rgba(226,232,240,.78);font-size:18px;line-height:1.7;}",
+        ") body{min-height:100%;background:#070403!important;color:#f8fafc!important;}",
+      "#vc-maintenance-root{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 18% 16%,rgba(212,168,136,.18),transparent 36%),radial-gradient(circle at 84% 24%,rgba(52,211,153,.12),transparent 34%),radial-gradient(circle at 72% 78%,rgba(125,211,252,.1),transparent 40%),linear-gradient(135deg,#070403,#140f0c 48%,#0f172a);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}",
+      ".vc-maintenance-card{width:min(620px,100%);border:1px solid rgba(212,168,136,.24);border-radius:28px;background:linear-gradient(160deg,rgba(20,15,12,.88),rgba(15,23,42,.74));box-shadow:0 28px 90px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.08);padding:34px;text-align:left;backdrop-filter:blur(18px);}",
+      ".vc-maintenance-kicker{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px;padding:8px 12px;border-radius:999px;background:rgba(212,168,136,.14);color:#f0d4bb;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}",
+      ".vc-maintenance-title{margin:0;color:#fff7ed;font-size:clamp(34px,6vw,58px);line-height:.98;font-weight:900;letter-spacing:-.04em;}",
+      ".vc-maintenance-text{margin:18px 0 0;color:rgba(226,232,240,.82);font-size:18px;line-height:1.7;}",
       ".vc-maintenance-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px;}",
-      ".vc-maintenance-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-weight:800;font:inherit;cursor:pointer;}",
-      ".vc-maintenance-btn--primary{background:linear-gradient(135deg,#f59e0b,#facc15);color:#1f1300;border-color:rgba(250,204,21,.72);box-shadow:0 16px 36px rgba(245,158,11,.22);}",
-      ".vc-maintenance-foot{margin-top:18px;color:rgba(148,163,184,.88);font-size:13px;}",
+      ".vc-maintenance-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:14px;border:1px solid rgba(212,168,136,.26);background:rgba(255,255,255,.06);color:#f8fafc;text-decoration:none;font-weight:800;font:inherit;cursor:pointer;transition:filter .18s ease,border-color .18s ease;}",
+      ".vc-maintenance-btn:hover{filter:brightness(1.06);border-color:rgba(167,243,208,.46);}",
+      ".vc-maintenance-btn--primary{background:linear-gradient(135deg,#34d399,#10b981);color:#052e24;border-color:rgba(52,211,153,.72);box-shadow:0 16px 36px rgba(16,185,129,.24);}",
+      ".vc-maintenance-foot{margin-top:18px;color:rgba(203,213,225,.84);font-size:13px;}",
     ].join("\n");
     (document.head || document.documentElement).appendChild(style);
   }

@@ -78,14 +78,24 @@ function normalizeTagIds(raw) {
   );
 }
 
-function buildAuthorPayload(user) {
-  const uid = String(user?.id || "").trim();
+function isHighStaffMember(member) {
+  const roleId = String(IDs.roles?.HighStaff || "").trim();
+  return Boolean(roleId && member?.roles?.cache?.has(roleId));
+}
+
+function buildAuthorPayload(user, member = null) {
+  const uid = String(user?.id || member?.id || "").trim();
+  let avatarUrl = "";
+  if (member?.displayAvatarURL && typeof member.displayAvatarURL === "function") {
+    avatarUrl = String(member.displayAvatarURL({ size: 128 }) || "");
+  }
+  if (!avatarUrl && uid && user?.avatar) {
+    avatarUrl = `https://cdn.discordapp.com/avatars/${uid}/${user.avatar}.${String(user.avatar).startsWith("a_") ? "gif" : "png"}?size=128`;
+  }
   return {
     id: uid,
-    username: String(user?.globalName || user?.username || "Utente"),
-    avatarUrl: uid && user?.avatar
-      ? `https://cdn.discordapp.com/avatars/${uid}/${user.avatar}.${String(user.avatar).startsWith("a_") ? "gif" : "png"}?size=128`
-      : "",
+    username: String(user?.username || member?.user?.username || "Utente"),
+    avatarUrl,
   };
 }
 
@@ -180,12 +190,20 @@ async function resolveThreadLastMeta(thread) {
 function serializeForumMessage(msg) {
   const m = msg && typeof msg === "object" ? msg : {};
   const content = String(m.content || "").trim();
+  const member = m.member && typeof m.member === "object" ? m.member : null;
+  const mentionUsers = m?.mentions?.users;
+  const mentions = mentionUsers && typeof mentionUsers.values === "function"
+    ? Array.from(mentionUsers.values()).map((u) => ({
+      id: String(u?.id || ""),
+      username: String(u?.username || ""),
+    })).filter((u) => u.id && u.username)
+    : [];
   return {
     id: String(m.id || ""),
     content,
     createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : null,
     editedAt: m.editedAt ? new Date(m.editedAt).toISOString() : null,
-    author: buildAuthorPayload(m.author),
+    author: buildAuthorPayload(m.author, member),
     attachments: Array.isArray(m.attachments)
       ? m.attachments.map((a) => ({
         id: String(a?.id || ""),
@@ -194,6 +212,7 @@ function serializeForumMessage(msg) {
         contentType: String(a?.contentType || ""),
       }))
       : [],
+    mentions,
   };
 }
 
@@ -230,6 +249,19 @@ async function getSiteForumThreads(client, { limit = FORUM_FETCH_LIMIT } = {}) {
       const last = await resolveThreadLastMeta(thread);
       row.lastMessagePreview = last.preview;
       row.lastMessageAt = last.createdAt;
+      const ownerId = String(row.ownerId || "").trim();
+      if (ownerId && /^\d{17,22}$/.test(ownerId)) {
+        const ownerMember =
+          resolved.guild.members.cache.get(ownerId) ||
+          (await resolved.guild.members.fetch(ownerId).catch(() => null));
+        if (ownerMember?.user) {
+          row.owner = buildAuthorPayload(ownerMember.user, ownerMember);
+        } else {
+          row.owner = { id: ownerId, username: "Utente", avatarUrl: "" };
+        }
+      } else {
+        row.owner = { id: "", username: "Utente", avatarUrl: "" };
+      }
       return row;
     }),
   );
@@ -287,6 +319,36 @@ async function getSiteForumThreadMessages(client, { threadId, limit = THREAD_MES
   };
 }
 
+async function getSiteForumThreadMessagesAuthed(client, { accessToken, threadId, limit = THREAD_MESSAGE_LIMIT, before = "" } = {}) {
+  const base = await getSiteForumThreadMessages(client, { threadId, limit, before });
+  if (!base?.ok) return base;
+  const auth = await resolveWebsiteGuildMember(client, accessToken);
+  if (!auth?.ok || !auth.member) {
+    return {
+      ...base,
+      permissions: {
+        canEditTitle: false,
+        canEditContent: false,
+        canArchive: false,
+        canLock: false,
+      },
+    };
+  }
+  const threadOwnerId = String(base.thread?.ownerId || "").trim();
+  const memberId = String(auth.member.id || "").trim();
+  const isOwner = Boolean(threadOwnerId && memberId && threadOwnerId === memberId);
+  const isHighStaff = isHighStaffMember(auth.member);
+  return {
+    ...base,
+    permissions: {
+      canEditTitle: Boolean(isHighStaff || isOwner),
+      canEditContent: Boolean(isHighStaff),
+      canArchive: Boolean(isHighStaff),
+      canLock: Boolean(isHighStaff),
+    },
+  };
+}
+
 async function createSiteForumThread(client, { accessToken, title, content, media = [], tagIds = [] }) {
   const resolvedForum = await resolveForumChannel(client);
   if (!resolvedForum.ok) return resolvedForum;
@@ -301,17 +363,20 @@ async function createSiteForumThread(client, { accessToken, title, content, medi
   if (cleanTitle.length < 3) {
     return { ok: false, status: 400, error: "title_too_short", message: "Titolo troppo corto (min 3 caratteri)." };
   }
-  if (cleanContent.length < 2 && !mediaFiles.length) {
-    return { ok: false, status: 400, error: "content_too_short", message: "Scrivi un messaggio o allega almeno un media." };
+  if (cleanContent.length < 2) {
+    return { ok: false, status: 400, error: "content_too_short", message: "Descrizione troppo corta (min 2 caratteri)." };
+  }
+  if (!selectedTagIds.length) {
+    return { ok: false, status: 400, error: "tag_required", message: "Seleziona almeno un tag." };
   }
   const perms = forum.permissionsFor(member);
   if (!perms || !perms.has(PermissionFlagsBits.SendMessages)) {
     return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per scrivere nel forum." };
   }
   const authorName =
-    String(member.user?.globalName || member.user?.username || "Utente").slice(0, 80) ||
+    String(member.user?.username || "Utente").slice(0, 80) ||
     "Utente";
-  const avatarUrl = buildAuthorPayload(member.user).avatarUrl || null;
+  const avatarUrl = String(member.displayAvatarURL?.({ size: 128 }) || buildAuthorPayload(member.user).avatarUrl || "") || null;
   let created = null;
   const hook = await getOrCreateForumWebhook(forum);
   if (hook && hook.token && selectedTagIds.length === 0) {
@@ -375,9 +440,9 @@ async function createSiteForumMessage(client, { accessToken, threadId, content, 
     return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per scrivere in questa discussione." };
   }
   const authorName =
-    String(member.user?.globalName || member.user?.username || "Utente").slice(0, 80) ||
+    String(member.user?.username || "Utente").slice(0, 80) ||
     "Utente";
-  const avatarUrl = buildAuthorPayload(member.user).avatarUrl || null;
+  const avatarUrl = String(member.displayAvatarURL?.({ size: 128 }) || buildAuthorPayload(member.user).avatarUrl || "") || null;
   let msg = null;
   const hook = await getOrCreateForumWebhook(forum);
   if (hook && hook.token) {
@@ -402,9 +467,81 @@ async function createSiteForumMessage(client, { accessToken, threadId, content, 
   return { ok: true, status: 200, message: serializeForumMessage(msg) };
 }
 
+async function resolveThreadStarterMessage(thread) {
+  if (!thread) return null;
+  if (typeof thread.fetchStarterMessage === "function") {
+    const starter = await thread.fetchStarterMessage().catch(() => null);
+    if (starter) return starter;
+  }
+  const fetched = await thread.messages.fetch({ limit: 1, after: "0" }).catch(() => null);
+  if (!fetched || fetched.size === 0) return null;
+  return fetched.first() || null;
+}
+
+async function updateSiteForumThread(client, { accessToken, threadId, title, content, archived, locked }) {
+  const resolvedForum = await resolveForumChannel(client);
+  if (!resolvedForum.ok) return resolvedForum;
+  const auth = await resolveWebsiteGuildMember(client, accessToken);
+  if (!auth.ok) return auth;
+  const forum = resolvedForum.channel;
+  const member = auth.member;
+  const tid = String(threadId || "").trim();
+  if (!/^\d{17,22}$/.test(tid)) {
+    return { ok: false, status: 400, error: "invalid_thread", message: "Thread non valido." };
+  }
+  const thread = forum.threads.cache.get(tid) || (await forum.threads.fetch(tid).catch(() => null));
+  if (!thread || thread.parentId !== forum.id) {
+    return { ok: false, status: 404, error: "thread_not_found", message: "Discussione non trovata." };
+  }
+
+  const isOwner = String(thread.ownerId || "") === String(member.id || "");
+  const isHighStaff = isHighStaffMember(member);
+  if (!isOwner && !isHighStaff) {
+    return { ok: false, status: 403, error: "forbidden", message: "Non puoi modificare questa discussione." };
+  }
+
+  const nextTitleRaw = title == null ? null : sanitizeText(title, 100);
+  const nextContentRaw = content == null ? null : sanitizeText(content, 2000);
+  const nextArchived = archived == null ? null : Boolean(archived);
+  const nextLocked = locked == null ? null : Boolean(locked);
+
+  if (nextTitleRaw != null && nextTitleRaw.length < 3) {
+    return { ok: false, status: 400, error: "title_too_short", message: "Titolo troppo corto (min 3 caratteri)." };
+  }
+  if (nextContentRaw != null && nextContentRaw.length < 2) {
+    return { ok: false, status: 400, error: "content_too_short", message: "Testo troppo corto (min 2 caratteri)." };
+  }
+
+  if (!isHighStaff && (nextContentRaw != null || nextArchived != null || nextLocked != null)) {
+    return { ok: false, status: 403, error: "forbidden_owner_scope", message: "Sul tuo thread puoi modificare solo il titolo." };
+  }
+
+  if (nextTitleRaw != null) {
+    await thread.setName(nextTitleRaw, `Website forum update by ${member.user?.tag || member.id}`).catch(() => null);
+  }
+  if (isHighStaff && nextArchived != null) {
+    await thread.setArchived(nextArchived, `Website forum update by ${member.user?.tag || member.id}`).catch(() => null);
+  }
+  if (isHighStaff && nextLocked != null) {
+    await thread.setLocked(nextLocked, `Website forum update by ${member.user?.tag || member.id}`).catch(() => null);
+  }
+  if (isHighStaff && nextContentRaw != null) {
+    const starter = await resolveThreadStarterMessage(thread);
+    if (starter && typeof starter.edit === "function") {
+      await starter.edit({ content: nextContentRaw }).catch(() => null);
+    }
+  }
+
+  const refetch = forum.threads.cache.get(tid) || (await forum.threads.fetch(tid).catch(() => thread));
+  broadcastSiteRealtime({ type: "forum_changed", at: new Date().toISOString(), threadId: tid });
+  return { ok: true, status: 200, thread: serializeThread(refetch || thread) };
+}
+
 module.exports = {
   getSiteForumThreads,
   getSiteForumThreadMessages,
+  getSiteForumThreadMessagesAuthed,
   createSiteForumThread,
   createSiteForumMessage,
+  updateSiteForumThread,
 };

@@ -7,12 +7,20 @@
     loadingMessages: false,
     search: "",
     filter: "all",
+    tagFilterId: "",
     unreadByThread: {},
     messageCursorBefore: "",
     messageHasMore: false,
     messagesByThread: {},
     availableTags: [],
+    lastMessagesRequestId: 0,
+    threadsPage: 1,
+    createSelectedTagIds: [],
+    createTagsTouched: false,
+    selectedThread: null,
+    selectedThreadPermissions: null,
   };
+  var THREADS_PAGE_SIZE = 8;
   var MAX_MEDIA_FILES = 6;
 
   function byId(id) {
@@ -68,6 +76,41 @@
   function toggle(el, onClass, isOn) {
     if (!el || !el.classList) return;
     el.classList.toggle(onClass, Boolean(isOn));
+  }
+
+  function formatDateTime(value) {
+    var d = value ? new Date(value) : null;
+    if (!d || Number.isNaN(d.getTime())) return "";
+    try {
+      return d.toLocaleString("it-IT", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (e) {
+      return d.toISOString();
+    }
+  }
+
+  function renderMessageContentWithMentions(msg) {
+    var content = String((msg && msg.content) || "");
+    var mentions = Array.isArray(msg && msg.mentions) ? msg.mentions : [];
+    if (!content) return "";
+    var byId = {};
+    for (var i = 0; i < mentions.length; i += 1) {
+      var m = mentions[i] || {};
+      var id = String(m.id || "").trim();
+      var username = String(m.username || "").trim();
+      if (!id || !username) continue;
+      byId[id] = username;
+    }
+    var out = esc(content);
+    out = out.replace(/&lt;@!?(\d{17,22})&gt;/g, function (_, uid) {
+      var uname = byId[String(uid)] || ("utente-" + String(uid).slice(-4));
+      return '<span class="rounded-md border border-cyan-300/35 bg-cyan-300/15 px-1 py-0.5 text-cyan-100">@' + esc(uname) + "</span>";
+    });
+    return out;
   }
 
   function fileToDataUrl(file) {
@@ -129,6 +172,31 @@
         return '<option value="' + esc(String(t.id || "")) + '">' + esc(emoji + String(t.name || "Tag")) + "</option>";
       })
       .join("");
+    var selected = Array.isArray(state.createSelectedTagIds) ? state.createSelectedTagIds : [];
+    if (selected.length) {
+      for (var i = 0; i < sel.options.length; i += 1) {
+        var op = sel.options[i];
+        op.selected = selected.indexOf(String(op.value || "")) !== -1;
+      }
+    } else {
+      for (var j = 0; j < sel.options.length; j += 1) {
+        sel.options[j].selected = false;
+      }
+    }
+  }
+
+  function renderTagFilterSelect() {
+    var sel = byId("vc-forum-filter-tag");
+    if (!sel) return;
+    var prev = String(state.tagFilterId || "");
+    var tags = Array.isArray(state.availableTags) ? state.availableTags : [];
+    sel.innerHTML =
+      '<option value="">Tutti i tag</option>' +
+      tags.map(function (t) {
+        var emoji = (t && t.emoji && t.emoji.name) ? (t.emoji.name + " ") : "";
+        return '<option value="' + esc(String((t && t.id) || "")) + '">' + esc(emoji + String((t && t.name) || "Tag")) + "</option>";
+      }).join("");
+    sel.value = prev;
   }
 
   function buildWsUrl() {
@@ -153,6 +221,10 @@
     var rows = state.threads.filter(function (t) {
       if (state.filter === "active" && t.archived) return false;
       if (state.filter === "archived" && !t.archived) return false;
+      if (state.tagFilterId) {
+        var ids = Array.isArray(t && t.appliedTagIds) ? t.appliedTagIds.map(function (x) { return String(x || ""); }) : [];
+        if (ids.indexOf(String(state.tagFilterId)) === -1) return false;
+      }
       if (!q) return true;
       return String(t.title || "").toLowerCase().indexOf(q) !== -1 || String(t.lastMessagePreview || "").toLowerCase().indexOf(q) !== -1;
     });
@@ -172,14 +244,53 @@
 
   function resetChatPanel() {
     var head = byId("vc-forum-thread-head");
-    if (head) head.textContent = "Seleziona una discussione per aprire la chat.";
+    if (head) head.innerHTML = "Seleziona una discussione per aprire la chat.";
     var wrap = byId("vc-forum-messages");
     if (wrap) {
       wrap.innerHTML = '<p class="text-sm text-slate-300">Apri una discussione dalla lista a sinistra per leggere o scrivere messaggi.</p>';
     }
     state.messageCursorBefore = "";
     state.messageHasMore = false;
+    state.selectedThread = null;
+    state.selectedThreadPermissions = null;
     syncLoadOlderButton();
+  }
+
+  function renderThreadHead(thread, permissions) {
+    var head = byId("vc-forum-thread-head");
+    if (!head) return;
+    if (!thread) {
+      head.innerHTML = "Seleziona una discussione per aprire la chat.";
+      return;
+    }
+    var perms = permissions || {};
+    var actions = [];
+    if (perms.canEditTitle) {
+      actions.push(
+        '<button type="button" data-thread-action="rename" class="rounded-lg border border-white/20 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200">Titolo</button>'
+      );
+    }
+    if (perms.canEditContent) {
+      actions.push(
+        '<button type="button" data-thread-action="edit-content" class="rounded-lg border border-white/20 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-cyan-400/60 hover:text-cyan-200">Testo post</button>'
+      );
+    }
+    if (perms.canArchive) {
+      actions.push(
+        '<button type="button" data-thread-action="' + (thread.archived ? "unarchive" : "archive") + '" class="rounded-lg border border-white/20 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-amber-400/60 hover:text-amber-200">' + (thread.archived ? "Riapri" : "Chiudi") + "</button>"
+      );
+    }
+    if (perms.canLock) {
+      actions.push(
+        '<button type="button" data-thread-action="' + (thread.locked ? "unlock" : "lock") + '" class="rounded-lg border border-white/20 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-rose-400/60 hover:text-rose-200">' + (thread.locked ? "Sblocca" : "Blocca") + "</button>"
+      );
+    }
+    var title = esc(String(thread.title || "Discussione")) + (thread.archived ? " (archiviata)" : "");
+    head.innerHTML =
+      '<div class="flex flex-wrap items-center justify-between gap-2">' +
+      '<span class="text-sm font-semibold text-white">' + title + "</span>" +
+      (actions.length ? '<div class="flex flex-wrap items-center gap-1.5">' + actions.join("") + "</div>" : "") +
+      "</div>";
   }
 
   function renderThreads() {
@@ -193,6 +304,23 @@
     var renderThreadButton = function (t) {
         var active = String(t.id) === String(state.selectedThreadId);
         var unread = Number(state.unreadByThread[String(t.id)] || 0);
+        var ownerName = String((t.owner && t.owner.username) || "Utente");
+        var createdAtText = formatDateTime(t.createdAt);
+        var lastAtText = formatDateTime(t.lastMessageAt || t.lastActivityAt || t.createdAt);
+        var appliedTagIds = Array.isArray(t && t.appliedTagIds) ? t.appliedTagIds : [];
+        var tagRows = appliedTagIds
+          .map(function (tagId) {
+            var id = String(tagId || "");
+            if (!id) return null;
+            for (var i = 0; i < state.availableTags.length; i += 1) {
+              var tag = state.availableTags[i] || {};
+              if (String(tag.id || "") !== id) continue;
+              var emoji = tag.emoji && tag.emoji.name ? String(tag.emoji.name) + " " : "";
+              return emoji + String(tag.name || "Tag");
+            }
+            return null;
+          })
+          .filter(Boolean);
         return (
           '<button type="button" class="vc-forum-thread-item w-full rounded-2xl border p-4 text-left transition ' +
           (active ? 'border-emerald-400/70 bg-emerald-400/12 shadow-[0_0_0_1px_rgba(52,211,153,0.22)]' : "border-white/10 bg-black/20 hover:border-emerald-400/35") +
@@ -212,16 +340,32 @@
           " · " +
           esc(String(t.messageCount || 0)) +
           " msg</span></p>" +
+          '<p class="mt-1 text-[11px] text-slate-400">Creato da <span class="font-semibold text-slate-300">' + esc(ownerName) + "</span>" +
+          (createdAtText ? " · " + esc(createdAtText) : "") +
+          "</p>" +
+          (tagRows.length
+            ? '<div class="mt-2 flex flex-wrap gap-1.5">' + tagRows.map(function (tagLabel) {
+              return '<span class="rounded-full border border-cyan-300/35 bg-cyan-300/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">' + esc(tagLabel) + "</span>";
+            }).join("") + "</div>"
+            : "") +
           '<p class="mt-2 line-clamp-2 text-sm text-slate-300/90">' +
           esc(String(t.lastMessagePreview || "Nessuna anteprima disponibile.")) +
           "</p>" +
+          (lastAtText ? '<p class="mt-1 text-[11px] text-slate-400">Ultimo messaggio: ' + esc(lastAtText) + "</p>" : "") +
           "</button>"
         );
       };
 
-    var pinnedRows = rows.filter(function (t) { return Boolean(t && t.pinned); });
-    var activeRows = rows.filter(function (t) { return !t.pinned && !t.archived; });
-    var archivedRows = rows.filter(function (t) { return !t.pinned && t.archived; });
+    var total = rows.length;
+    var totalPages = Math.max(1, Math.ceil(total / THREADS_PAGE_SIZE));
+    if (state.threadsPage > totalPages) state.threadsPage = totalPages;
+    if (state.threadsPage < 1) state.threadsPage = 1;
+    var startIdx = (state.threadsPage - 1) * THREADS_PAGE_SIZE;
+    var endIdx = startIdx + THREADS_PAGE_SIZE;
+    var pageRows = rows.slice(startIdx, endIdx);
+    var pinnedRows = pageRows.filter(function (t) { return Boolean(t && t.pinned); });
+    var activeRows = pageRows.filter(function (t) { return !t.pinned && !t.archived; });
+    var archivedRows = pageRows.filter(function (t) { return !t.pinned && t.archived; });
     var chunks = [];
     var pushSection = function (title, list) {
       if (!Array.isArray(list) || !list.length) return;
@@ -236,6 +380,15 @@
     pushSection("Pinnati", pinnedRows);
     pushSection("Attive", activeRows);
     pushSection("Archiviate", archivedRows);
+    if (total > THREADS_PAGE_SIZE) {
+      chunks.push(
+        '<div class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-2.5 py-2">' +
+          '<button type="button" id="vc-forum-page-prev" class="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200 ' + (state.threadsPage <= 1 ? "cursor-not-allowed opacity-40" : "") + '"' + (state.threadsPage <= 1 ? " disabled" : "") + '>Prec</button>' +
+          '<span class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">Pagina ' + esc(String(state.threadsPage)) + " / " + esc(String(totalPages)) + "</span>" +
+          '<button type="button" id="vc-forum-page-next" class="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200 ' + (state.threadsPage >= totalPages ? "cursor-not-allowed opacity-40" : "") + '"' + (state.threadsPage >= totalPages ? " disabled" : "") + '>Succ</button>' +
+        "</div>"
+      );
+    }
     wrap.innerHTML = chunks.join("");
   }
 
@@ -248,13 +401,20 @@
     }
     wrap.innerHTML = messages
       .map(function (m) {
+        var author = (m && m.author) || {};
+        var avatar = esc(String(author.avatarUrl || ""));
+        var username = esc(String(author.username || "Utente"));
+        var msgTime = formatDateTime(m && m.createdAt);
         return (
           '<article class="rounded-xl border border-white/10 bg-black/30 p-3">' +
-          '<p class="text-xs font-semibold text-emerald-200">' +
-          esc((m.author && m.author.username) || "Utente") +
-          "</p>" +
+          '<div class="flex items-center gap-2">' +
+          (avatar
+            ? '<img src="' + avatar + '" alt="" class="h-7 w-7 rounded-full border border-white/15 object-cover" loading="lazy" decoding="async" />'
+            : '<span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/30 text-[10px] font-bold text-emerald-200">U</span>') +
+          '<p class="text-xs font-semibold text-emerald-200">' + username + (msgTime ? '<span class="ml-2 font-normal text-slate-400">' + esc(msgTime) + "</span>" : "") + "</p>" +
+          "</div>" +
           (m.content
-            ? '<p class="mt-1 whitespace-pre-wrap text-sm text-slate-100">' + esc(m.content || "") + "</p>"
+            ? '<p class="mt-1 whitespace-pre-wrap text-sm text-slate-100">' + renderMessageContentWithMentions(m) + "</p>"
             : "") +
           (Array.isArray(m.attachments) && m.attachments.length
             ? '<div class="mt-2 space-y-2">' + m.attachments.map(function (a) {
@@ -290,8 +450,10 @@
     var opened = Boolean(state.selectedThreadId);
     layout.classList.toggle("lg:grid-cols-[320px_minmax(0,1fr)]", opened);
     layout.classList.toggle("lg:grid-cols-1", !opened);
-    sidebar.classList.toggle("lg:max-w-[400px]", !opened);
     chat.classList.toggle("hidden", !opened);
+    chat.classList.toggle("lg:hidden", !opened);
+    chat.classList.toggle("lg:flex", opened);
+    chat.classList.toggle("lg:flex-col", opened);
   }
 
   function syncWriteUi() {
@@ -326,6 +488,16 @@
     modal.classList.toggle("hidden", !open);
     modal.classList.toggle("flex", open);
     if (open) {
+      state.createSelectedTagIds = [];
+      state.createTagsTouched = false;
+      var tagsEl = byId("vc-forum-create-tags");
+      if (tagsEl) {
+        for (var i = 0; i < tagsEl.options.length; i += 1) {
+          tagsEl.options[i].selected = false;
+        }
+      }
+    }
+    if (open) {
       var titleEl = byId("vc-forum-create-title");
       if (titleEl && !titleEl.disabled) {
         setTimeout(function () {
@@ -349,6 +521,7 @@
       }
       renderThreads();
       renderCreateTags();
+      renderTagFilterSelect();
       if (state.selectedThreadId) {
         await loadMessages(state.selectedThreadId, true);
       } else {
@@ -361,21 +534,26 @@
   }
 
   async function loadMessages(threadId, quiet, beforeId, appendOlder) {
-    if (!threadId || state.loadingMessages) return;
+    if (!threadId) return;
+    var requestId = Number(state.lastMessagesRequestId || 0) + 1;
+    state.lastMessagesRequestId = requestId;
     state.loadingMessages = true;
     try {
       var url = resolvedApiUrl() + "/" + encodeURIComponent(String(threadId)) + "/messages";
       if (beforeId) {
         url += "?before=" + encodeURIComponent(String(beforeId));
       }
-      var r = await fetch(url, { cache: "no-store", credentials: "omit" });
+      var headers = {};
+      var tk = token();
+      if (tk) headers.Authorization = "Bearer " + tk;
+      var r = await fetch(url, { cache: "no-store", credentials: "omit", headers: headers });
       var body = await r.json().catch(function () { return null; });
       if (!r.ok || !body || body.ok !== true) throw new Error((body && body.message) || "Errore caricamento messaggi");
+      if (requestId !== state.lastMessagesRequestId) return;
       var th = body.thread || null;
-      var head = byId("vc-forum-thread-head");
-      if (head && th) {
-        head.textContent = (th.title || "Discussione") + (th.archived ? " (archiviata)" : "");
-      }
+      state.selectedThread = th || null;
+      state.selectedThreadPermissions = (body && body.permissions) || null;
+      renderThreadHead(state.selectedThread, state.selectedThreadPermissions);
       var incoming = Array.isArray(body.messages) ? body.messages : [];
       var existing = Array.isArray(state.messagesByThread[threadId]) ? state.messagesByThread[threadId] : [];
       var merged = appendOlder ? incoming.concat(existing) : incoming;
@@ -395,9 +573,10 @@
       syncLoadOlderButton();
       if (!quiet) setState("", false);
     } catch (err) {
+      if (requestId !== state.lastMessagesRequestId) return;
       if (!quiet) setState(err && err.message ? err.message : "Errore caricamento messaggi.", true);
     } finally {
-      state.loadingMessages = false;
+      if (requestId === state.lastMessagesRequestId) state.loadingMessages = false;
     }
   }
 
@@ -441,12 +620,12 @@
     var title = String((titleEl && titleEl.value) || "").trim();
     var content = String((bodyEl && bodyEl.value) || "").trim();
     var tagsEl = byId("vc-forum-create-tags");
-    var selectedTagIds = tagsEl && tagsEl.selectedOptions
-      ? Array.prototype.slice.call(tagsEl.selectedOptions).map(function (o) { return String(o.value || ""); }).filter(Boolean)
+    var selectedTagIds = state.createTagsTouched
+      ? (Array.isArray(state.createSelectedTagIds) ? state.createSelectedTagIds.slice(0, 20) : [])
       : [];
     var mediaPayload = await buildMediaPayloadFromInput("vc-forum-create-media");
-    if (title.length < 3 || (content.length < 2 && mediaPayload.length < 1)) {
-      setState("Inserisci titolo (min 3) e testo (min 2) oppure allega un media.", true);
+    if (title.length < 3 || content.length < 2 || selectedTagIds.length < 1) {
+      setState("Titolo, descrizione e almeno 1 tag sono obbligatori.", true);
       return;
     }
     try {
@@ -466,6 +645,8 @@
       if (cMediaInput) cMediaInput.value = "";
       syncFileState("vc-forum-create-media", "vc-forum-create-media-state", "Nessun media selezionato");
       if (tagsEl) tagsEl.selectedIndex = -1;
+      state.createSelectedTagIds = [];
+      state.createTagsTouched = false;
       setCreateModalOpen(false);
       state.selectedThreadId = String((body.thread && body.thread.id) || "");
       state.unreadByThread[state.selectedThreadId] = 0;
@@ -473,6 +654,63 @@
     } catch (err) {
       setState(err && err.message ? err.message : "Creazione discussione fallita.", true);
     }
+  }
+
+  async function patchThread(payload) {
+    var tk = token();
+    if (!tk || !state.selectedThreadId) return { ok: false, message: "Login richiesto." };
+    var url = resolvedApiUrl() + "/" + encodeURIComponent(String(state.selectedThreadId));
+    var r = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + tk,
+      },
+      body: JSON.stringify(payload || {}),
+    });
+    var body = await r.json().catch(function () { return null; });
+    if (!r.ok || !body || body.ok !== true) {
+      throw new Error((body && body.message) || "Modifica post fallita");
+    }
+    return body;
+  }
+
+  async function handleThreadAction(action) {
+    if (!state.selectedThreadId || !state.selectedThread) return;
+    var th = state.selectedThread;
+    if (action === "rename") {
+      var nextTitle = window.prompt("Nuovo titolo del post:", String(th.title || ""));
+      if (nextTitle == null) return;
+      nextTitle = String(nextTitle).trim();
+      if (nextTitle.length < 3) {
+        setState("Titolo troppo corto (min 3 caratteri).", true);
+        return;
+      }
+      await patchThread({ title: nextTitle });
+    } else if (action === "edit-content") {
+      var current = "";
+      var rows = Array.isArray(state.messagesByThread[state.selectedThreadId]) ? state.messagesByThread[state.selectedThreadId] : [];
+      if (rows.length) current = String((rows[0] && rows[0].content) || "");
+      var nextContent = window.prompt("Nuovo testo del post iniziale:", current);
+      if (nextContent == null) return;
+      nextContent = String(nextContent).trim();
+      if (nextContent.length < 2) {
+        setState("Testo troppo corto (min 2 caratteri).", true);
+        return;
+      }
+      await patchThread({ content: nextContent });
+    } else if (action === "archive") {
+      await patchThread({ archived: true });
+    } else if (action === "unarchive") {
+      await patchThread({ archived: false });
+    } else if (action === "lock") {
+      await patchThread({ locked: true });
+    } else if (action === "unlock") {
+      await patchThread({ locked: false });
+    }
+    await loadMessages(state.selectedThreadId, true, "", false);
+    await loadThreads();
+    setState("Post aggiornato.", false);
   }
 
   function connectWs() {
@@ -520,6 +758,18 @@
     var list = byId("vc-forum-threads");
     if (list) {
       list.addEventListener("click", function (ev) {
+        var prevBtn = ev.target && ev.target.closest ? ev.target.closest("#vc-forum-page-prev") : null;
+        if (prevBtn && !prevBtn.disabled) {
+          state.threadsPage = Math.max(1, Number(state.threadsPage || 1) - 1);
+          renderThreads();
+          return;
+        }
+        var nextBtn = ev.target && ev.target.closest ? ev.target.closest("#vc-forum-page-next") : null;
+        if (nextBtn && !nextBtn.disabled) {
+          state.threadsPage = Number(state.threadsPage || 1) + 1;
+          renderThreads();
+          return;
+        }
         var btn = ev.target && ev.target.closest ? ev.target.closest("[data-thread-id]") : null;
         if (!btn) return;
         var tid = String(btn.getAttribute("data-thread-id") || "");
@@ -540,10 +790,23 @@
         syncForumLayout();
       });
     }
+    var threadHead = byId("vc-forum-thread-head");
+    if (threadHead) {
+      threadHead.addEventListener("click", function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest("[data-thread-action]") : null;
+        if (!btn) return;
+        var action = String(btn.getAttribute("data-thread-action") || "");
+        if (!action) return;
+        handleThreadAction(action).catch(function (err) {
+          setState(err && err.message ? err.message : "Azione sul post fallita.", true);
+        });
+      });
+    }
     var search = byId("vc-forum-search");
     if (search) {
       search.addEventListener("input", function () {
         state.search = String(search.value || "");
+        state.threadsPage = 1;
         renderThreads();
       });
     }
@@ -555,6 +818,7 @@
         var b = ev.currentTarget;
         var next = String((b && b.getAttribute("data-forum-filter")) || "all");
         state.filter = next;
+        state.threadsPage = 1;
         for (var j = 0; j < filterIds.length; j += 1) {
           var other = byId(filterIds[j]);
           if (!other) continue;
@@ -569,8 +833,14 @@
         renderThreads();
       });
     }
-    var rf = byId("vc-forum-refresh");
-    if (rf) rf.addEventListener("click", function () { loadThreads(); });
+    var tagFilter = byId("vc-forum-filter-tag");
+    if (tagFilter) {
+      tagFilter.addEventListener("change", function () {
+        state.tagFilterId = String(tagFilter.value || "");
+        state.threadsPage = 1;
+        renderThreads();
+      });
+    }
     var older = byId("vc-forum-load-older");
     if (older) {
       older.addEventListener("click", function () {
@@ -617,6 +887,16 @@
     if (createMedia) {
       createMedia.addEventListener("change", function () {
         syncFileState("vc-forum-create-media", "vc-forum-create-media-state", "Nessun media selezionato");
+      });
+    }
+    var createTags = byId("vc-forum-create-tags");
+    if (createTags) {
+      createTags.addEventListener("change", function () {
+        var ids = createTags.selectedOptions
+          ? Array.prototype.slice.call(createTags.selectedOptions).map(function (o) { return String(o.value || ""); }).filter(Boolean)
+          : [];
+        state.createSelectedTagIds = ids;
+        state.createTagsTouched = true;
       });
     }
   }

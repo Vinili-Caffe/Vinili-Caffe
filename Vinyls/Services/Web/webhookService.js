@@ -490,8 +490,10 @@ async function startWebhookServer(client) {
   const {
     getSiteForumThreads,
     getSiteForumThreadMessages,
+    getSiteForumThreadMessagesAuthed,
     createSiteForumThread,
     createSiteForumMessage,
+    updateSiteForumThread,
   } = require("../../Utils/Web/siteForumApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
@@ -522,7 +524,10 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-forum/:threadId/messages", async (req, res) => {
     try {
-      const out = await getSiteForumThreadMessages(client, {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const load = accessToken ? getSiteForumThreadMessagesAuthed : getSiteForumThreadMessages;
+      const out = await load(client, {
+        accessToken,
         threadId: req.params?.threadId,
         limit: req.query?.limit,
         before: req.query?.before,
@@ -582,6 +587,31 @@ async function startWebhookServer(client) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-forum message post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.patch("/webhooks/site-forum/:threadId", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await updateSiteForumThread(client, {
+        accessToken,
+        threadId: req.params?.threadId,
+        title: body.title,
+        content: body.content,
+        archived: body.archived,
+        locked: body.locked,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-forum thread patch:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

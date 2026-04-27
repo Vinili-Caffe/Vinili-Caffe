@@ -5,6 +5,7 @@
   var introHasStarted = false;
   var pollStarted = false;
   var ioFallbackTimer = null;
+  var staffHoverGroups = [];
 
   function el(key) {
     return document.querySelector('[data-live-stat="' + key + '"]');
@@ -100,6 +101,104 @@
     animateNumber(inner, cur, n, durationUpdate(cur, n), null);
   }
 
+  function escText(v) {
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function ensureStaffHoverUi() {
+    var staffNode = el("staff");
+    if (!staffNode) return;
+    var cell = staffNode.closest(".vc-stat-cell");
+    if (!cell) return;
+    cell.classList.add("vc-stat-cell--staff");
+    if (cell.querySelector(".vc-stat-staff-popover")) return;
+    var pop = document.createElement("div");
+    pop.className = "vc-stat-staff-popover";
+    pop.setAttribute("role", "tooltip");
+    pop.innerHTML =
+      '<p class="vc-stat-staff-popover__title">Staff List</p>' +
+      '<div class="vc-stat-staff-popover__body">Caricamento...</div>';
+    cell.appendChild(pop);
+    cell.setAttribute("tabindex", "0");
+    var closeTimer = null;
+    function clearCloseTimer() {
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+        closeTimer = null;
+      }
+    }
+    function open() {
+      clearCloseTimer();
+      if (!staffHoverGroups.length) return;
+      cell.classList.add("vc-stat-cell--staff-open");
+    }
+    function closeWithDelay() {
+      clearCloseTimer();
+      closeTimer = setTimeout(function () {
+        cell.classList.remove("vc-stat-cell--staff-open");
+      }, 180);
+    }
+    cell.addEventListener("mouseenter", open);
+    cell.addEventListener("mouseleave", closeWithDelay);
+    pop.addEventListener("mouseenter", open);
+    pop.addEventListener("mouseleave", closeWithDelay);
+    cell.addEventListener("focus", open);
+    cell.addEventListener("blur", closeWithDelay);
+    cell.addEventListener("click", function () {
+      if (!staffHoverGroups.length) return;
+      cell.classList.toggle("vc-stat-cell--staff-open");
+    });
+    document.addEventListener("click", function (ev) {
+      var t = ev && ev.target;
+      if (!t || !t.closest) return;
+      if (t.closest(".vc-stat-cell--staff")) return;
+      cell.classList.remove("vc-stat-cell--staff-open");
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (String(ev && ev.key || "") === "Escape") {
+        cell.classList.remove("vc-stat-cell--staff-open");
+      }
+    });
+  }
+
+  function updateStaffHoverUi() {
+    ensureStaffHoverUi();
+    var staffNode = el("staff");
+    if (!staffNode) return;
+    var cell = staffNode.closest(".vc-stat-cell");
+    if (!cell) return;
+    var body = cell.querySelector(".vc-stat-staff-popover__body");
+    if (!body) return;
+    if (!staffHoverGroups.length) {
+      body.textContent = "Nessun membro staff disponibile.";
+      cell.classList.remove("vc-stat-cell--staff");
+      cell.classList.remove("vc-stat-cell--staff-open");
+      cell.removeAttribute("tabindex");
+      return;
+    }
+    cell.classList.add("vc-stat-cell--staff");
+    cell.setAttribute("tabindex", "0");
+    body.innerHTML =
+      staffHoverGroups.map(function (group) {
+        var members = Array.isArray(group && group.members) ? group.members : [];
+        if (!members.length) return "";
+        return (
+          '<section class="vc-stat-staff-popover__group">' +
+          '<p class="vc-stat-staff-popover__group-title">' + escText(group.role || "Staff") + "</p>" +
+          '<ul class="vc-stat-staff-popover__list">' +
+          members.map(function (name) {
+            return "<li>" + escText(name) + "</li>";
+          }).join("") +
+          "</ul>" +
+          "</section>"
+        );
+      }).join("");
+  }
+
   function fetchNoStore(url) {
     return fetch(url, { cache: "no-store", credentials: "omit" }).then(function (r) {
       if (!r.ok) throw new Error(String(r.status));
@@ -166,6 +265,19 @@
       var extra = pair[0];
       var inv = pair[1];
       if (extra && extra.staffNoPm != null) setText("staff", extra.staffNoPm);
+      if (extra && Array.isArray(extra.staffHoverGroups)) {
+        staffHoverGroups = extra.staffHoverGroups
+          .map(function (g) {
+            return {
+              role: String((g && g.role) || "Staff"),
+              members: Array.isArray(g && g.members) ? g.members.slice(0, 200) : [],
+            };
+          })
+          .filter(function (g) {
+            return g.members.length > 0;
+          });
+        updateStaffHoverUi();
+      }
       var guildMem =
         extra && extra.guildMemberCount != null && Number.isFinite(Number(extra.guildMemberCount))
           ? Number(extra.guildMemberCount)
@@ -287,6 +399,7 @@
   }
 
   wireIntroObserver();
+  updateStaffHoverUi();
 })();
 (function () {
   var cfg = typeof window !== "undefined" ? window.__VC_LIVE : null;
