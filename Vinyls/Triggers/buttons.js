@@ -1026,7 +1026,7 @@ module.exports = {
           "",
           `<:VC_Dot:1482532364222595303> Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
           "",
-          "<:VC_Dot:1482532364222595303> ──────── <:exp:1470067108543987846> ──────── <:VC_Dot:1482532364222595303>",
+          "<:VC_Dot:1482532364222595303> ──────────────── <:exp:1470067108543987846> ──────────────── <:VC_Dot:1482532364222595303>",
           "",
           "<a:VC_Arrow:1482706699365257397> **LISTA DEI LIVELLI:**",
         ].join("\n"))
@@ -1135,7 +1135,7 @@ module.exports = {
         .setDescription([
           "I badge sono dei ruoli __aggiuntivi__ che ti permettono di sbloccare vantaggi e permessi all'interno del server. Possono essere ottenuti in diversi modi e tutti danno vantaggi diversi.",
           "",
-          "<:VC_Dot:1482532364222595303> ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── <:VC_Dot:1482532364222595303>",
+          "<:VC_Dot:1482532364222595303> ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆────⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── <:VC_Dot:1482532364222595303>",
           "",
           "<a:VC_Arrow:1482706699365257397> **LISTA DEI BADGES:**",
         ].join("\n"))
@@ -1166,9 +1166,9 @@ module.exports = {
             name: "`VOTER`",
             value: [
               "<@&1468266342682722679>",
-              "Ottenibile votando il server su [Discadia](<https://discadia.com/vote/viniliecaffe/>)",
+              "Ottenibile votando il server su [Discadia](<https://discadia.com/vote/viniliecaffe/>) o [Top.gg](<https://top.gg/discord/servers/832911595289169920>)",
               "<:VC_DoubleReply:1482532332509466797> EXP casuale da 100 a 250.",
-              "<:VC_Reply:1482532158080942191> Ruolo esclusivo per 24 ore.",
+              "<:VC_Reply:1482532158080942191> Ruolo esclusivo per 12 o 24 ore.",
             ].join("\n"),
             inline: true,
           },

@@ -478,6 +478,16 @@
   }
 })();
 (function () {
+  /** Stesso path del glyph footer (build-site.mjs `tiktokGlyphSvg`), fill via currentColor. */
+  var TIKTOK_PREVIEW_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43V7.36a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.21z"/></svg>';
+
+  function socialPreviewHandleFromCleanPath(cleanPath) {
+    var seg = String(cleanPath || "").split("/")[0] || "";
+    if (!seg) return "";
+    return seg.charAt(0) === "@" ? seg : "@" + seg;
+  }
+
   function buildSocialPreviewMeta(anchor) {
     var href = String((anchor && anchor.getAttribute("href")) || "").trim();
     if (!href) return null;
@@ -490,7 +500,7 @@
     var host = String(u.hostname || "").toLowerCase();
     var path = String(u.pathname || "/");
     var cleanPath = path.replace(/^\/+/, "").replace(/\/+$/, "");
-    var handle = cleanPath ? "@" + cleanPath.split("/")[0] : "";
+    var handle = socialPreviewHandleFromCleanPath(cleanPath);
     if (host.indexOf("instagram.com") !== -1) {
       return {
         iconClass: "fa fa-instagram",
@@ -501,7 +511,8 @@
     }
     if (host.indexOf("tiktok.com") !== -1) {
       return {
-        iconClass: "fa fa-music",
+        iconHtml: TIKTOK_PREVIEW_SVG,
+        icoExtraClass: "vc-social-preview__ico--tiktok",
         title: "TikTok",
         subtitle: handle || "Profilo social",
         urlText: "tiktok.com/" + (cleanPath || ""),
@@ -540,9 +551,15 @@
     var meta = buildSocialPreviewMeta(anchor);
     if (!meta) return;
     var preview = ensurePreviewNode();
+    var icoClass = "vc-social-preview__ico";
+    if (meta.icoExtraClass) icoClass += " " + meta.icoExtraClass;
+    var icoInner =
+      meta.iconHtml && String(meta.iconHtml).trim()
+        ? String(meta.iconHtml)
+        : '<i class="' + String(meta.iconClass || "") + '" aria-hidden="true"></i>';
     preview.innerHTML =
       '<div class="vc-social-preview__head">' +
-      '<span class="vc-social-preview__ico"><i class="' + meta.iconClass + '" aria-hidden="true"></i></span>' +
+      '<span class="' + icoClass + '">' + icoInner + "</span>" +
       '<div class="vc-social-preview__copy">' +
       '<strong class="vc-social-preview__title">' + meta.title + "</strong>" +
       '<span class="vc-social-preview__sub">' + meta.subtitle + "</span>" +

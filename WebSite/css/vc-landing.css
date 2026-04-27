@@ -2976,6 +2976,177 @@ ul.vc-hero-social:not(:has(> li)) {
   font-size: 1.05rem;
 }
 
+.vc-social-preview__ico--tiktok svg {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.vc-sponsor-page .vc-sponsor-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.vc-sponsor-embed {
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 4px solid rgba(88, 101, 242, 0.85);
+  background: linear-gradient(180deg, rgba(30, 31, 34, 0.96) 0%, rgba(24, 25, 28, 0.98) 100%);
+  padding: 1rem 1.1rem 1.05rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #f2f3f5;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.vc-sponsor-embed__kicker {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.vc-sponsor-embed__underline {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.vc-sponsor-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.vc-sponsor-line:last-child {
+  margin-bottom: 0;
+}
+
+.vc-sponsor-line__ico {
+  flex-shrink: 0;
+  width: 1.35rem;
+  text-align: center;
+}
+
+.vc-sponsor-line__sep {
+  color: rgba(185, 187, 190, 0.75);
+  font-weight: 600;
+  user-select: none;
+}
+
+.vc-sponsor-list {
+  margin: 0.25rem 0 0.65rem 1.35rem;
+  padding: 0;
+  list-style: disc;
+  color: #dbdee1;
+}
+
+.vc-sponsor-list li {
+  margin-top: 0.25rem;
+}
+
+.vc-sponsor-code {
+  display: inline-block;
+  padding: 0.08rem 0.35rem;
+  border-radius: 0.25rem;
+  background: #2b2d31;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.82em;
+  color: #dbdee1;
+}
+
+.vc-sponsor-pill {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  background: rgba(88, 101, 242, 0.22);
+  color: #dee0fc;
+  font-weight: 600;
+  font-size: 0.88em;
+}
+
+.vc-sponsor-link {
+  color: #6eb5ff;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.vc-sponsor-link:hover {
+  color: #9dccff;
+}
+
+.vc-sponsor-tier {
+  margin-top: 0.65rem;
+}
+
+.vc-sponsor-tier__head {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  color: #f2f3f5;
+}
+
+.vc-sponsor-prices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vc-sponsor-prices li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.vc-sponsor-bullet {
+  flex-shrink: 0;
+  width: 1.1rem;
+  text-align: center;
+  opacity: 0.95;
+}
+
+.vc-sponsor-bullet--spark {
+  font-size: 0.95em;
+}
+
+.vc-sponsor-mention {
+  display: inline-block;
+  padding: 0.06rem 0.38rem;
+  border-radius: 0.2rem;
+  background: rgba(88, 101, 242, 0.55);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.88em;
+}
+
+.vc-sponsor-price {
+  display: inline-block;
+  padding: 0.06rem 0.38rem;
+  border-radius: 0.2rem;
+  background: #2b2d31;
+  color: #f2f3f5;
+  font-weight: 700;
+  font-size: 0.82em;
+}
+
+.vc-sponsor-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: flex-start;
+  margin: 0.75rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.86rem;
+  color: #dbdee1;
+}
+
 .vc-social-preview__copy {
   min-width: 0;
   display: flex;
@@ -4668,6 +4839,17 @@ a.vc-header-logo-link+a[href] {
   -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
 }
 
+.vc-candidature-available-roles li {
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.vc-candidature-available-roles li:hover {
+  border-color: rgba(52, 211, 153, 0.14);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
 .vc-candidature-req-list {
   margin: 1rem 0 0;
   padding: 0;
@@ -4788,6 +4970,11 @@ a.vc-header-logo-link+a[href] {
   box-shadow: 0 6px 22px rgba(var(--vc-reviews-glow-rgb), 0.2);
 }
 
+.vc-candidature-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .vc-candidature-field {
   position: relative;
   display: flex;
@@ -4869,6 +5056,44 @@ a.vc-header-logo-link+a[href] {
   font-size: 0.8rem;
   font-weight: 600;
   color: #cbd5e1;
+}
+
+.vc-candidature-choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 12, 22, 0.55);
+}
+
+.vc-candidature-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.35rem 0.4rem;
+  border-radius: 0.55rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #e2e8f0;
+}
+
+.vc-candidature-choice:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.vc-candidature-choice-input {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  accent-color: #34d399;
+}
+
+.vc-candidature-choice-label {
+  line-height: 1.35;
 }
 
 .vc-candidature-input,

@@ -1118,6 +1118,7 @@ async function main() {
     String(cfg.wikiUrl ?? "").trim() || (siteBaseNoSlash ? `${siteBaseNoSlash}/wiki` : "/wiki");
   // Non usare siteUrlTrim come fallback: href alla home fa scattare vc-landing.js e segna tutto il menu "corrente".
   const faqUrlResolved = String(cfg.faqUrl ?? "").trim() || defaultLegalPath("faq");
+  const sponsorUrlResolved = String(cfg.sponsorUrl ?? "").trim() || defaultLegalPath("sponsor");
   const communityRulesUrlResolved =
     String(cfg.communityRulesUrl ?? "").trim() || defaultLegalPath("regole");
   const modEmail = String(cfg.siteModeratorEmail || cfg.supportEmail || "").trim();
@@ -1433,6 +1434,7 @@ async function main() {
     DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
     DISCORD_INVITE_URL: discordInviteResolved,
     WIKI_URL: escAttr(wikiUrlResolved),
+    SPONSOR_URL: escAttr(sponsorUrlResolved),
     FAQ_URL: escAttr(faqUrlResolved),
     COMMUNITY_RULES_URL: escAttr(communityRulesUrlResolved),
     RICHIESTE_UNBAN_URL: escAttr(richiesteUnbanUrl),
@@ -1514,6 +1516,12 @@ async function main() {
     ),
     FAQ_OG_TITLE: escAttr(`${siteName} | FAQ`),
     FAQ_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/faq` : ""),
+    SPONSOR_PAGE_TITLE: `${siteName} | Sponsor`,
+    SPONSOR_META_DESCRIPTION: escAttr(
+      `Sponsor e collaborazioni a pagamento su ${siteName}: canale privato, news e sponsor generali, prezzi e durate.`,
+    ),
+    SPONSOR_OG_TITLE: escAttr(`${siteName} | Sponsor`),
+    SPONSOR_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/sponsor` : ""),
     META_DESCRIPTION: cfg.metaDescription || "",
     META_KEYWORDS: cfg.metaKeywords || "",
     SUPPORT_EMAIL: cfg.supportEmail || "",
@@ -1680,6 +1688,16 @@ async function main() {
     fs.writeFileSync(faqIndexPath, faqHtml, "utf8");
   } else {
     console.warn("[build-site] Manca faq/index.html (saltato placeholder).");
+  }
+
+  const sponsorIndexPath = path.join(DIST, "sponsor", "index.html");
+  if (fs.existsSync(sponsorIndexPath)) {
+    let sponsorHtml = fs.readFileSync(sponsorIndexPath, "utf8");
+    sponsorHtml = applyPlaceholderMap(sponsorHtml, map);
+    warnLeftoverPlaceholders(sponsorHtml, "sponsor/index.html");
+    fs.writeFileSync(sponsorIndexPath, sponsorHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca sponsor/index.html (saltato placeholder).");
   }
 
   const rankCustomizeRel = ["user/personalizza/index.html", "user/customize/index.html"];

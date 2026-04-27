@@ -24,8 +24,11 @@
           id: "aiuto_economico",
           text: "5. Saresti disposto ad aiutare il server economicamente?",
           modalLabel: "5. Aiuto economico",
-          placeholder: "Si / No",
-          kind: "paragraph",
+          kind: "choice",
+          options: [
+            { value: "Sì", label: "Sì" },
+            { value: "No", label: "No" },
+          ],
         },
         {
           id: "flame_testuale",
@@ -51,9 +54,12 @@
         {
           id: "vocale",
           text: "9. Potrai stare in vocale? In caso di risposta positiva, potrai parlare?",
-          modalLabel: "9. Disponibilità vocale",
-          placeholder: "",
-          kind: "paragraph",
+          modalLabel: "9. Disponibilità in vocale",
+          kind: "choice",
+          options: [
+            { value: "Sì", label: "Sì" },
+            { value: "No", label: "No" },
+          ],
         },
         { id: "definizione_flame", text: "10. Definizione di flame", modalLabel: "10. Definizione flame", placeholder: "", kind: "paragraph" },
         {
@@ -73,15 +79,21 @@
           id: "luminous_nova",
           text: "2. Conosci il bot Luminous Nova/SkyForce?",
           modalLabel: "2. Luminous Nova/SkyForce",
-          placeholder: "Si / No",
-          kind: "short",
+          kind: "choice",
+          options: [
+            { value: "Sì", label: "Sì" },
+            { value: "No", label: "No" },
+          ],
         },
         {
           id: "partner_giorno",
           text: "3. Quante partner fai al giorno?",
           modalLabel: "3. Partner al giorno",
-          placeholder: "<15 / 15+",
-          kind: "short",
+          kind: "choice",
+          options: [
+            { value: "-15", label: "15-" },
+            { value: "15+", label: "15+" },
+          ],
         },
       ],
     },
@@ -90,6 +102,20 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var ACCESS_REQUIRED_PATH = "/candidature/accesso-richiesto/";
+  var ROLE_INTRO = {
+    helper:
+      '<div class="rounded-[1.2rem] border border-emerald-300/20 bg-emerald-950/20 p-4 text-sm leading-relaxed text-emerald-50/90">' +
+      '<p class="mt-0 mb-0">È vietato essere staffer in altri server.</p>' +
+      '<p class="mt-2 mb-0 font-semibold text-emerald-100">Ogni mese viene premiato uno staffer con un Nitro Boost.</p>' +
+      "</div>",
+    partnermanager:
+      '<div class="rounded-[1.2rem] border border-amber-300/20 bg-amber-950/20 p-4 text-sm leading-relaxed text-amber-50/95">' +
+      '<p class="m-0 font-semibold"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
+      '<p class="mt-2 mb-0">50 partner -> 2.50€ </p>' +
+      '<p class="mt-1 mb-0">75 partner -> 5€ o <strong>Nitro Basic</strong></p>' +
+      '<p class="mt-1 mb-0">150 partner -> <strong>Nitro Boost</strong></p>' +
+      "</div>",
+  };
 
   function byId(id) {
     return document.getElementById(id);
@@ -202,11 +228,11 @@
         if (p && u.port && String(u.port) === p) {
           console.warn(
             "[candidature] submitApiUrlLocal usa la stessa porta del sito (" +
-              p +
-              "). Deve essere la porta HTTP del bot (Vinyls config discadia.webhookPort, di solito 3000), non quella di npx serve. Correggi candidatureSubmitApiUrlLocal in site.config.json e rifai il build.",
+            p +
+            "). Deve essere la porta HTTP del bot (Vinyls config discadia.webhookPort, di solito 3000), non quella di npx serve. Correggi candidatureSubmitApiUrlLocal in site.config.json e rifai il build.",
           );
         }
-      } catch (e) {}
+      } catch (e) { }
       return local;
     }
     return String(c.submitApiUrl || "").trim();
@@ -240,8 +266,8 @@
       " (come nella barra degli indirizzi, porta inclusa), poi riavvia il bot. In DevTools — Rete, la risposta OPTIONS/POST deve avere Access-Control-Allow-Origin uguale a quella stringa." +
       (apiOrigin
         ? " Oppure sul PC: in un terminale lascia aperto: node WebSite/scripts/dev-candidature-proxy.mjs --target " +
-          apiOrigin +
-          " (se lo chiudi -> connessione rifiutata su 3042). Poi candidatureSubmitApiUrlLocal http://127.0.0.1:3042/webhooks/site-candidature e rebuild. Prova http://127.0.0.1:3042/webhooks/status nel browser."
+        apiOrigin +
+        " (se lo chiudi -> connessione rifiutata su 3042). Poi candidatureSubmitApiUrlLocal http://127.0.0.1:3042/webhooks/site-candidature e rebuild. Prova http://127.0.0.1:3042/webhooks/status nel browser."
         : "")
     );
   }
@@ -262,7 +288,7 @@
       if (host === "localhost" || host === "127.0.0.1") {
         return " Nota: localhost/127.0.0.1 si riferisce al PC dove apri il browser. Se il bot gira su un VPS (PM2) o su un altro computer, imposta candidatureSubmitApiUrlLocal (o la variabile VC_CANDIDATURE_SUBMIT_API_URL_LOCAL in build) con un URL raggiungibile da qui (es. http://IP:3000/... o HTTPS dietro proxy), apri la porta sul server e WEBSITE_CANDIDATURE_CORS_ORIGIN con l'origine del sito (es. http://localhost:5173).";
       }
-    } catch (e) {}
+    } catch (e) { }
     return "";
   }
 
@@ -297,22 +323,65 @@
     return Boolean(row && row.eligible === true);
   }
 
-  function ownedRoleLabelsFromEligibility(d) {
-    if (!d || d.ok !== true) return [];
-    var out = [];
-    var helperCode = String((d.helper && d.helper.code) || "").trim().toLowerCase();
-    var pmCode = String((d.partnermanager && d.partnermanager.code) || "").trim().toLowerCase();
-    if (helperCode === "already_role") out.push("Helper");
-    else if (helperCode === "helper_blocked") out.push("Staff");
-    if (pmCode === "already_role") out.push("Partner Manager");
-    return out;
+  /** Tab ancora utilizzabile: candidatura possibile oppure messaggio cooldown su quel tipo. */
+  function isKindInteractive(d, kind) {
+    if (!d || d.ok !== true) return false;
+    var row = kind === "partnermanager" ? d.partnermanager : d.helper;
+    if (!row) return false;
+    if (row.eligible === true) return true;
+    var c = String(row.code || "").trim().toLowerCase();
+    return c === "cooldown";
   }
 
-  function alreadyRoleGateMessage(labels) {
-    var list = Array.isArray(labels) ? labels.filter(Boolean) : [];
-    if (!list.length) return "";
-    if (list.length === 1) return "Sei già " + list[0] + ": non puoi inviare nuove candidature.";
-    return "Sei già " + list.join(" e ") + ": non puoi inviare nuove candidature.";
+  function candidatureRowCode(row) {
+    return String((row && row.code) || "").trim().toLowerCase();
+  }
+
+  function buildNoApplicableMessage(d) {
+    var h = d.helper;
+    var p = d.partnermanager;
+    var hc = candidatureRowCode(h);
+    var pc = candidatureRowCode(p);
+    var hm = String((h && h.message) || "").trim();
+    var pm = String((p && p.message) || "").trim();
+    if (hc === "already_role" && pc === "already_role") {
+      return "Sei già Helper e Partner Manager: non puoi inviare nuove candidature da questo modulo.";
+    }
+    if (hc === "helper_blocked" && pc === "already_role") {
+      return "Sei già Partner Manager e, con i ruoli che hai sul server, non puoi inviare una candidatura Helper: da qui non risultano candidature possibili.";
+    }
+    if (hm && pm && hm === pm) return hm;
+    if (hm && pm) {
+      return "Non puoi inviare candidature Helper né candidarti come Partner Manager con questo account.";
+    }
+    if (hm) return hm;
+    if (pm) return pm;
+    return "Non puoi inviare candidature con questo account.";
+  }
+
+  function syncTabDisabledState(d) {
+    var b1 = byId("vc-candidature-tab-helper");
+    var b2 = byId("vc-candidature-tab-pm");
+    if (!b1 || !b2) return;
+    if (!d || d.ok !== true) {
+      b1.disabled = false;
+      b2.disabled = false;
+      b1.removeAttribute("aria-disabled");
+      b2.removeAttribute("aria-disabled");
+      return;
+    }
+    var hOn = isKindInteractive(d, "helper");
+    var pOn = isKindInteractive(d, "partnermanager");
+    b1.disabled = !hOn;
+    b2.disabled = !pOn;
+    b1.setAttribute("aria-disabled", hOn ? "false" : "true");
+    b2.setAttribute("aria-disabled", pOn ? "false" : "true");
+  }
+
+  function setFormInnerAndModuloTitleHidden(innerEl, hidden) {
+    if (innerEl) innerEl.hidden = Boolean(hidden);
+    var t = byId("candidature-modulo-title");
+    if (t) t.hidden = Boolean(hidden);
   }
 
   function setFieldsDisabled(disabled) {
@@ -361,7 +430,8 @@
 
     if (!currentUser) {
       clearGate();
-      inner.hidden = false;
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState(null);
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -369,7 +439,8 @@
 
     if (!eligibilityApiUrl()) {
       clearGate();
-      inner.hidden = false;
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState(null);
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -377,7 +448,8 @@
 
     if (eligibilityState.loading) {
       clearGate();
-      inner.hidden = false;
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState(null);
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -386,18 +458,10 @@
     var d = eligibilityState.data;
     if (!d || d.ok !== true) {
       clearGate();
-      inner.hidden = false;
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState(null);
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
-      return;
-    }
-
-    var alreadyRoles = ownedRoleLabelsFromEligibility(d);
-    if (alreadyRoles.length) {
-      showGateMessage("amber", alreadyRoleGateMessage(alreadyRoles));
-      inner.hidden = true;
-      setFieldsDisabled(true);
-      if (sub) sub.disabled = true;
       return;
     }
 
@@ -406,12 +470,35 @@
         "amber",
         globalBlockMessage(d) || "Non puoi usare il modulo candidature con questo account.",
       );
-      inner.hidden = true;
+      setFormInnerAndModuloTitleHidden(inner, true);
+      syncTabDisabledState(d);
+      setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
     }
 
-    inner.hidden = false;
+    var hInteractive = isKindInteractive(d, "helper");
+    var pInteractive = isKindInteractive(d, "partnermanager");
+    if (!hInteractive && !pInteractive) {
+      showGateMessage("amber", buildNoApplicableMessage(d));
+      setFormInnerAndModuloTitleHidden(inner, true);
+      syncTabDisabledState(d);
+      setFieldsDisabled(true);
+      if (sub) sub.disabled = true;
+      return;
+    }
+
+    setFormInnerAndModuloTitleHidden(inner, false);
+    syncTabDisabledState(d);
+    if (!isKindInteractive(d, activeKind)) {
+      if (pInteractive) activeKind = "partnermanager";
+      else if (hInteractive) activeKind = "helper";
+      var b1 = byId("vc-candidature-tab-helper");
+      var b2 = byId("vc-candidature-tab-pm");
+      if (b1) b1.classList.toggle("vc-candidature-tab--on", activeKind === "helper");
+      if (b2) b2.classList.toggle("vc-candidature-tab--on", activeKind === "partnermanager");
+      renderFields();
+    }
 
     if (!currentTypeEligible(d)) {
       var row = rowForActiveKind(d);
@@ -421,7 +508,7 @@
         showGateMessage(
           "slate",
           (row && row.message) ||
-            "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
+          "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
         );
       }
       setFieldsDisabled(true);
@@ -498,38 +585,73 @@
     var root = byId("vc-candidature-fields");
     if (!root) return;
     root.innerHTML = "";
+    var intro = byId("vc-candidature-role-intro");
+    if (intro) intro.innerHTML = "";
     var cfg = APPLICATIONS[activeKind];
     if (!cfg || !currentUser) return;
+    if (intro && ROLE_INTRO[activeKind]) intro.innerHTML = ROLE_INTRO[activeKind];
     var uid = String(currentUser.id || "");
     cfg.questions.forEach(function (q) {
       var wrap = document.createElement("div");
       wrap.className = "vc-candidature-field";
-      var lab = document.createElement("label");
-      lab.className = "vc-candidature-label";
-      lab.setAttribute("for", "vc-cf-" + q.id);
-      lab.textContent = q.text;
-      var input;
-      if (q.kind === "paragraph") {
-        input = document.createElement("textarea");
-        input.rows = 4;
+      if (q.kind === "choice" && q.options && q.options.length) {
+        var title = document.createElement("div");
+        title.className = "vc-candidature-label";
+        title.textContent = q.text;
+        var group = document.createElement("div");
+        group.className = "vc-candidature-choice-group";
+        group.setAttribute("role", "radiogroup");
+        group.setAttribute("aria-label", q.text);
+        var name = "vc-cf-" + q.id;
+        for (var oi = 0; oi < q.options.length; oi++) {
+          var opt = q.options[oi];
+          var row = document.createElement("label");
+          row.className = "vc-candidature-choice";
+          var rad = document.createElement("input");
+          rad.type = "radio";
+          rad.name = name;
+          rad.value = String(opt.value != null ? opt.value : "");
+          rad.id = "vc-cf-" + q.id + "-" + oi;
+          rad.className = "vc-candidature-choice-input";
+          rad.setAttribute("data-qid", q.id);
+          var cap = document.createElement("span");
+          cap.className = "vc-candidature-choice-label";
+          cap.textContent = String(opt.label != null ? opt.label : opt.value || "");
+          row.appendChild(rad);
+          row.appendChild(cap);
+          group.appendChild(row);
+        }
+        wrap.appendChild(title);
+        wrap.appendChild(group);
+        root.appendChild(wrap);
       } else {
-        input = document.createElement("input");
-        input.type = "text";
+        var lab = document.createElement("label");
+        lab.className = "vc-candidature-label";
+        lab.setAttribute("for", "vc-cf-" + q.id);
+        lab.textContent = q.text;
+        var input;
+        if (q.kind === "paragraph") {
+          input = document.createElement("textarea");
+          input.rows = 4;
+        } else {
+          input = document.createElement("input");
+          input.type = "text";
+        }
+        input.id = "vc-cf-" + q.id;
+        input.className = "vc-candidature-input";
+        input.setAttribute("data-qid", q.id);
+        if (q.placeholder) input.placeholder = q.placeholder;
+        if (q.id === "id_discord") {
+          input.value = uid;
+          input.readOnly = true;
+          input.setAttribute("readonly", "readonly");
+          input.setAttribute("aria-readonly", "true");
+          input.classList.add("vc-candidature-input--readonly");
+        }
+        wrap.appendChild(lab);
+        wrap.appendChild(input);
+        root.appendChild(wrap);
       }
-      input.id = "vc-cf-" + q.id;
-      input.className = "vc-candidature-input";
-      input.setAttribute("data-qid", q.id);
-      if (q.placeholder) input.placeholder = q.placeholder;
-      if (q.id === "id_discord") {
-        input.value = uid;
-        input.readOnly = true;
-        input.setAttribute("readonly", "readonly");
-        input.setAttribute("aria-readonly", "true");
-        input.classList.add("vc-candidature-input--readonly");
-      }
-      wrap.appendChild(lab);
-      wrap.appendChild(input);
-      root.appendChild(wrap);
     });
   }
 
@@ -545,13 +667,36 @@
 
   function collectAnswers() {
     var cfg = APPLICATIONS[activeKind];
+    var fieldsRoot = byId("vc-candidature-fields");
     var out = {};
     cfg.questions.forEach(function (q) {
+      if (q.kind === "choice" && q.options && q.options.length) {
+        var picked = fieldsRoot
+          ? fieldsRoot.querySelector('input[type="radio"][name="vc-cf-' + q.id + '"]:checked')
+          : null;
+        out[q.id] = picked ? String(picked.value || "").trim() : "";
+        return;
+      }
       var el = byId("vc-cf-" + q.id);
       if (!el) return;
       out[q.id] = String(el.value || "").trim();
     });
     return out;
+  }
+
+  function validationFocusControlForQuestion(qid) {
+    var cfg = APPLICATIONS[activeKind];
+    if (!cfg) return null;
+    var q = null;
+    for (var i = 0; i < cfg.questions.length; i++) {
+      if (cfg.questions[i].id === qid) {
+        q = cfg.questions[i];
+        break;
+      }
+    }
+    if (!q) return byId("vc-cf-" + qid);
+    if (q.kind === "choice" && q.options && q.options.length) return byId("vc-cf-" + qid + "-0");
+    return byId("vc-cf-" + qid);
   }
 
   function firstMissingQuestionId(ans) {
@@ -655,7 +800,7 @@
     var ans = collectAnswers();
     var missingId = firstMissingQuestionId(ans);
     if (missingId) {
-      var fieldEl = byId("vc-cf-" + missingId);
+      var fieldEl = validationFocusControlForQuestion(missingId);
       if (window.vcFieldValidationTip) window.vcFieldValidationTip.show(fieldEl);
       else alert("Compila tutti i campi obbligatori.");
       return;
@@ -688,7 +833,7 @@
           var origin = "";
           try {
             origin = window.location.origin;
-          } catch (e3) {}
+          } catch (e3) { }
           hint404 =
             " Di solito: 404 su POST significa che la richiesta non arriva al bot Express (route assente). Controlla: 1) non servire il sito sulla stessa porta del bot (es. `npx serve` su 3000 mentre il bot è sulla 3000 — usa 5173 per il sito); 2) sul bot WEBSITE_CANDIDATURE_HTTP=1; 3) prova GET " +
             String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "") +
@@ -704,7 +849,7 @@
       if (okBox && typeof okBox.scrollIntoView === "function") {
         try {
           okBox.scrollIntoView({ behavior: "smooth", block: "center" });
-        } catch (eScroll) {}
+        } catch (eScroll) { }
       }
       applyLocalCooldown(activeKind, data.cooldown_until_ms);
       await refreshEligibility();
@@ -712,19 +857,19 @@
       var pageOrigin = "";
       try {
         pageOrigin = window.location.origin;
-      } catch (e2) {}
+      } catch (e2) { }
       var statusBase = String(api || "").replace(/\/webhooks\/site-candidature\/?$/i, "");
       alert(
         "Impossibile contattare l’API (" +
-          String(api || "") +
-          "). Origine: " +
-          (pageOrigin || "?") +
-          "." +
-          hintCorsOriginForRemoteApi(api) +
-          " Altre verifiche: WEBSITE_CANDIDATURE_HTTP=1; candidatureSubmitApiUrlLocal punta al bot (stessa porta di discadia.webhookPort); in browser apri " +
-          statusBase +
-          "/webhooks/status (deve dare JSON). Ricarica con Ctrl+F5 dopo ogni build." +
-          hintLocalApiHostnameMismatch(api),
+        String(api || "") +
+        "). Origine: " +
+        (pageOrigin || "?") +
+        "." +
+        hintCorsOriginForRemoteApi(api) +
+        " Altre verifiche: WEBSITE_CANDIDATURE_HTTP=1; candidatureSubmitApiUrlLocal punta al bot (stessa porta di discadia.webhookPort); in browser apri " +
+        statusBase +
+        "/webhooks/status (deve dare JSON). Ricarica con Ctrl+F5 dopo ogni build." +
+        hintLocalApiHostnameMismatch(api),
       );
       if (typeof console !== "undefined" && console.warn) {
         console.warn("[candidatura] POST fallita", api, e && e.message);
@@ -753,8 +898,18 @@
     var tabH = byId("vc-candidature-tab-helper");
     var tabPm = byId("vc-candidature-tab-pm");
     var sub = byId("vc-candidature-submit");
-    if (tabH) tabH.addEventListener("click", function () { setKind("helper"); });
-    if (tabPm) tabPm.addEventListener("click", function () { setKind("partnermanager"); });
+    if (tabH) {
+      tabH.addEventListener("click", function () {
+        if (tabH.disabled) return;
+        setKind("helper");
+      });
+    }
+    if (tabPm) {
+      tabPm.addEventListener("click", function () {
+        if (tabPm.disabled) return;
+        setKind("partnermanager");
+      });
+    }
     if (sub) sub.addEventListener("click", submitCandidature);
 
     window.addEventListener("vc-discord-profile", function (ev) {
