@@ -24,6 +24,16 @@ function withFooter(interaction, payload) {
   return payload?.embeds?.length ? applyDefaultFooterToEmbeds(payload, interaction?.guild) : payload;
 }
 
+function buildWebsiteVerifyUrl(guildId) {
+  const baseRaw = String(process.env.WEBSITE_PUBLIC_URL || "https://www.viniliecaffe.it").trim();
+  const base = baseRaw.replace(/\/+$/, "");
+  const gid = String(guildId || "").trim();
+  const params = new URLSearchParams();
+  if (/^\d{17,22}$/.test(gid)) params.set("guildId", gid);
+  const query = params.toString();
+  return `${base}/verify/${query ? `?${query}` : ""}`;
+}
+
 async function finalizeVerification(interaction, member) {
   const guild = interaction.guild;
   const guildId = guild?.id;
@@ -165,7 +175,6 @@ async function handleVerifyInteraction(interaction) {
   if (interaction.isButton()) {
     if (interaction.customId === "verify_start") {
       const guildId = interaction.guild?.id;
-      const stateKey = getVerifyStateKey(interaction.user?.id, guildId);
 
       if (interaction.guild?.ownerId === interaction.user.id) {
         await safeReply(interaction, withFooter(interaction, {
@@ -216,74 +225,27 @@ async function handleVerifyInteraction(interaction) {
         }
       }
 
-      clearVerifyState(stateKey);
-
-      const deferred = await safeDeferReply(interaction, { flags: 1 << 6 });
-      if (!deferred) return true;
-      try {
-        const code = makeCode(VERIFY_CAPTCHA.codeLength);
-        const captchaPng = await makeCaptchaPng(code);
-        const captchaFile = new AttachmentBuilder(captchaPng, { name: "captcha.png", });
-
-        const timeoutId = setTimeout(() => {
-          clearVerifyState(stateKey);
-        }, VERIFY_CODE_TTL_MS);
-        if (typeof timeoutId?.unref === "function") timeoutId.unref();
-        verifyState.set(stateKey, {
-          code,
-          expiresAt: Date.now() + VERIFY_CODE_TTL_MS,
-          attemptsLeft: VERIFY_MAX_ATTEMPTS,
-          timeoutId,
-        });
-
-        const embed = new EmbedBuilder()
-          .setColor("#6f4e37")
-          .setDescription(
-            `<:verification:1461725843125571758> Hello! Are you human? Let's find out!\n` +
-            "`Please type the captcha below to be able to access this server!`\n\n" +
-            "**Additional Notes:**\n" +
-            "<:tracedColored:1461728858955976805> Type out the traced colored characters from left to right.\n" +
-            "<:decoy:1461728857114546421> Ignore the decoy characters spread-around.\n" +
-            "<:nocases:1461728855642341509> You do not have to respect characters cases (upper/lower case)!\n\n",
-          )
-          .setFooter({ text: "Verification Period: 5 minutes" })
-          .setImage("attachment://captcha.png");
-
-        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("verify_enter").setLabel("Answer").setStyle(ButtonStyle.Primary),);
-
-        await safeEditReply(interaction, withFooter(interaction, {
-          embeds: [embed],
-          components: [row],
-          files: [captchaFile],
-        }));
-
-        try {
-          const replyMsg = await interaction.fetchReply();
-          if (replyMsg) {
-            const state = verifyState.get(stateKey);
-            if (state) {
-              state.promptMessage = replyMsg;
-              verifyState.set(stateKey, state);
-            }
-          }
-        } catch (err) {
-          global.logger?.warn?.("[verifyHandlers] ", err?.message || err);
-        }
-      } catch (err) {
-        clearVerifyState(stateKey);
-        global.logger?.warn?.("[verifyHandlers] verify_start failed:", err?.message || err);
-        await safeEditReply(interaction, withFooter(interaction, {
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setTitle("<:vegax:1443934876440068179> Errore verifica")
-              .setDescription(
-                "Impossibile preparare il captcha in questo momento. Riprova tra poco.",
-              ),
-          ],
-          components: [makeVerifyStartRow()],
-        }));
-      }
+      const verifyUrl = buildWebsiteVerifyUrl(guildId);
+      const embed = new EmbedBuilder()
+        .setColor("#6f4e37")
+        .setTitle("<:verification:1461725843125571758> Verifica via sito")
+        .setDescription(
+          "La verifica ora si completa dal sito con login Discord integrato.\n\n" +
+          "<:rightSort:1461726104422453298> Apri il link qui sotto\n" +
+          "<:rightSort:1461726104422453298> Se serve, effettua il primo login\n" +
+          "<:rightSort:1461726104422453298> Il sito completa la verifica automaticamente",
+        );
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel("Apri verifica sito")
+          .setURL(verifyUrl),
+      );
+      await safeReply(interaction, withFooter(interaction, {
+        embeds: [embed],
+        components: [row],
+        flags: 1 << 6,
+      })).catch(() => {});
       return true;
     }
 

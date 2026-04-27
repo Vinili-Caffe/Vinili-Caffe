@@ -83,18 +83,33 @@ function isHighStaffMember(member) {
   return Boolean(roleId && member?.roles?.cache?.has(roleId));
 }
 
+function defaultDiscordAvatarUrl(user, uid) {
+  const rawDiscriminator = String(user?.discriminator || "").trim();
+  const uidNum = Number(uid);
+  let index = 0;
+  if (/^\d+$/.test(rawDiscriminator) && rawDiscriminator !== "0") {
+    index = Number(rawDiscriminator) % 5;
+  } else if (Number.isFinite(uidNum) && uidNum > 0) {
+    index = uidNum % 6;
+  }
+  return `https://cdn.discordapp.com/embed/avatars/${Math.max(0, index)}.png`;
+}
+
 function buildAuthorPayload(user, member = null) {
   const uid = String(user?.id || member?.id || "").trim();
   let avatarUrl = "";
   if (member?.displayAvatarURL && typeof member.displayAvatarURL === "function") {
-    avatarUrl = String(member.displayAvatarURL({ size: 128 }) || "");
+    avatarUrl = String(member.displayAvatarURL({ size: 128, extension: "png", forceStatic: false }) || "");
   }
   if (!avatarUrl && uid && user?.avatar) {
     avatarUrl = `https://cdn.discordapp.com/avatars/${uid}/${user.avatar}.${String(user.avatar).startsWith("a_") ? "gif" : "png"}?size=128`;
   }
+  if (!/^https?:\/\//i.test(avatarUrl)) {
+    avatarUrl = defaultDiscordAvatarUrl(user, uid);
+  }
   return {
     id: uid,
-    username: String(user?.username || member?.user?.username || "Utente"),
+    username: String(member?.displayName || member?.nickname || user?.globalName || user?.username || member?.user?.username || "Utente"),
     avatarUrl,
   };
 }
@@ -186,7 +201,10 @@ function renderMentionsForPreview(text, mentionUsers) {
       byId[id] = username;
     }
   }
-  return raw.replace(/<@!?(\d{17,22})>/g, (_, uid) => `@${byId[String(uid)] || "utente"}`);
+  let out = raw.replace(/<@!?(\d{17,22})>/g, (_, uid) => `@${byId[String(uid)] || "utente"}`);
+  out = out.replace(/<@&(\d{17,22})>/g, () => "@ruolo");
+  out = out.replace(/<a?:([a-zA-Z0-9_]{2,32}):\d{17,22}>/g, (_, emojiName) => `:${emojiName}:`);
+  return out;
 }
 
 async function resolveThreadLastMeta(thread) {
@@ -213,6 +231,14 @@ function serializeForumMessage(msg) {
       username: String(u?.username || ""),
     })).filter((u) => u.id && u.username)
     : [];
+  const mentionRoles = m?.mentions?.roles && typeof m.mentions.roles.values === "function"
+    ? Array.from(m.mentions.roles.values())
+      .map((r) => ({
+        id: String(r?.id || ""),
+        name: String(r?.name || ""),
+      }))
+      .filter((r) => r.id && r.name)
+    : [];
   return {
     id: String(m.id || ""),
     content,
@@ -228,6 +254,7 @@ function serializeForumMessage(msg) {
       }))
       : [],
     mentions,
+    mentionRoles,
   };
 }
 
@@ -389,9 +416,11 @@ async function createSiteForumThread(client, { accessToken, title, content, medi
     return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per scrivere nel forum." };
   }
   const authorName =
-    String(member.user?.username || "Utente").slice(0, 80) ||
+    String(member.displayName || member.nickname || member.user?.globalName || member.user?.username || "Utente").slice(0, 80) ||
     "Utente";
-  const avatarUrl = String(member.displayAvatarURL?.({ size: 128 }) || buildAuthorPayload(member.user).avatarUrl || "") || null;
+  const avatarUrl =
+    String(member.displayAvatarURL?.({ size: 128, extension: "png", forceStatic: false }) || buildAuthorPayload(member.user, member).avatarUrl || "") ||
+    defaultDiscordAvatarUrl(member.user, member.id);
   let created = null;
   const hook = await getOrCreateForumWebhook(forum);
   if (hook && hook.token && selectedTagIds.length === 0) {
@@ -400,7 +429,7 @@ async function createSiteForumThread(client, { accessToken, title, content, medi
         content: cleanContent || null,
         threadName: cleanTitle,
         username: authorName,
-        avatarURL: avatarUrl,
+        avatarURL: avatarUrl || null,
         ...(mediaFiles.length ? { files: mediaFiles } : {}),
         allowedMentions: { parse: [] },
       })
@@ -455,9 +484,11 @@ async function createSiteForumMessage(client, { accessToken, threadId, content, 
     return { ok: false, status: 403, error: "forbidden", message: "Non hai i permessi per scrivere in questa discussione." };
   }
   const authorName =
-    String(member.user?.username || "Utente").slice(0, 80) ||
+    String(member.displayName || member.nickname || member.user?.globalName || member.user?.username || "Utente").slice(0, 80) ||
     "Utente";
-  const avatarUrl = String(member.displayAvatarURL?.({ size: 128 }) || buildAuthorPayload(member.user).avatarUrl || "") || null;
+  const avatarUrl =
+    String(member.displayAvatarURL?.({ size: 128, extension: "png", forceStatic: false }) || buildAuthorPayload(member.user, member).avatarUrl || "") ||
+    defaultDiscordAvatarUrl(member.user, member.id);
   let msg = null;
   const hook = await getOrCreateForumWebhook(forum);
   if (hook && hook.token) {
@@ -466,7 +497,7 @@ async function createSiteForumMessage(client, { accessToken, threadId, content, 
         content: cleanContent || null,
         threadId: thread.id,
         username: authorName,
-        avatarURL: avatarUrl,
+        avatarURL: avatarUrl || null,
         ...(mediaFiles.length ? { files: mediaFiles } : {}),
         allowedMentions: { parse: [] },
       })

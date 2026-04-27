@@ -1,0 +1,113 @@
+const IDs = require("../Config/ids");
+const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
+const {
+  resolveValidVerifyRoleIds,
+  isSponsorGuildVerify,
+  isUserVerifiedInMainGuild,
+  isAlreadyVerifiedInThisGuild,
+} = require("../Interaction/verifyUtils");
+const { addRolesAndGetMember } = require("../Interaction/interactionEntityCache");
+const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
+
+function resolveMainGuildId(client) {
+  return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+}
+
+async function resolveGuildForSiteVerify(client, guildIdRaw) {
+  const fallback = resolveMainGuildId(client);
+  const guildId = String(guildIdRaw || fallback || "").trim();
+  if (!/^\d{17,22}$/.test(guildId)) {
+    return { ok: false, status: 400, error: "invalid_guild", message: "Server non valido." };
+  }
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) {
+    return { ok: false, status: 404, error: "guild_not_found", message: "Server non trovato o non disponibile." };
+  }
+  return { ok: true, guild };
+}
+
+async function completeSiteVerify(client, { accessToken, guildId }) {
+  const auth = await resolveWebsiteGuildMember(client, accessToken);
+  if (!auth?.ok) return auth;
+
+  const guildResolved = await resolveGuildForSiteVerify(client, guildId);
+  if (!guildResolved.ok) return guildResolved;
+  const guild = guildResolved.guild;
+
+  const userId = String(auth?.userId || auth?.member?.id || "").trim();
+  if (!/^\d{17,22}$/.test(userId)) {
+    return { ok: false, status: 401, error: "invalid_user", message: "Utente non valido." };
+  }
+  if (String(guild.ownerId || "") === userId) {
+    return { ok: false, status: 400, error: "owner_forbidden", message: "Il proprietario del server non deve verificarsi." };
+  }
+
+  const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
+  if (!member) {
+    return { ok: false, status: 403, error: "not_in_guild", message: "Non sei presente in questo server Discord." };
+  }
+
+  if (isSponsorGuildVerify(guild.id)) {
+    const verifiedInMain = await isUserVerifiedInMainGuild(client, userId);
+    if (!verifiedInMain) {
+      return {
+        ok: false,
+        status: 403,
+        error: "main_verify_required",
+        message: "Per verificarti qui devi prima verificarti nel server principale.",
+      };
+    }
+  }
+
+  if (isAlreadyVerifiedInThisGuild(member, guild.id)) {
+    return {
+      ok: true,
+      status: 200,
+      alreadyVerified: true,
+      message: "Sei già verificato in questo server.",
+      guildId: String(guild.id),
+    };
+  }
+
+  const validVerifyRoleIds = await resolveValidVerifyRoleIds(guild);
+  if (!validVerifyRoleIds.length) {
+    return {
+      ok: false,
+      status: 503,
+      error: "verify_roles_missing",
+      message: "Ruoli verifica non configurati su questo server.",
+    };
+  }
+
+  const rolesToAdd = validVerifyRoleIds.filter((roleId) => !member.roles.cache.has(roleId));
+  const memberAfterAdd = await addRolesAndGetMember(guild, member.id, rolesToAdd);
+  if (!memberAfterAdd) {
+    return { ok: false, status: 500, error: "verify_failed", message: "Impossibile completare la verifica." };
+  }
+
+  if (rolesToAdd.length) {
+    const missing = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    if (missing.length) {
+      return { ok: false, status: 500, error: "verify_roles_failed", message: "Non sono riuscito ad assegnare i ruoli verifica." };
+    }
+  }
+
+  try {
+    const record = await upsertVerifiedMember(guild.id, memberAfterAdd.id, new Date());
+    await applyTenureForMember(memberAfterAdd, record);
+  } catch (err) {
+    global.logger?.warn?.("[siteVerifyApi] upsert/applyTenure:", err?.message || err);
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    message: "Verifica completata con successo.",
+    guildId: String(guild.id),
+    alreadyVerified: false,
+  };
+}
+
+module.exports = {
+  completeSiteVerify,
+};

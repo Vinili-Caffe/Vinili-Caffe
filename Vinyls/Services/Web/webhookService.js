@@ -252,6 +252,7 @@ async function startWebhookServer(client) {
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
     const isSiteForum = pathStr.startsWith("/webhooks/site-forum");
+    const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     if (
       !isCandidature &&
       !isUnban &&
@@ -264,7 +265,8 @@ async function startWebhookServer(client) {
       !isSiteReviews &&
       !isSiteSuggestions &&
       !isSiteNotifications &&
-      !isSiteForum
+      !isSiteForum &&
+      !isSiteVerify
     ) {
       return next();
     }
@@ -495,6 +497,7 @@ async function startWebhookServer(client) {
     createSiteForumMessage,
     updateSiteForumThread,
   } = require("../../Utils/Web/siteForumApi");
+  const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -512,6 +515,27 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
+  });
+  app.post("/webhooks/site-verify/complete", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await completeSiteVerify(client, {
+        accessToken,
+        guildId: body.guildId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-verify complete:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
   });
   app.get("/webhooks/site-forum", async (req, res) => {
     try {

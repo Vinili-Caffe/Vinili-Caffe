@@ -2149,10 +2149,11 @@ header .vc-notif-summary.vc-icon-btn:hover {
 .vc-stat-staff-popover {
   position: absolute;
   left: 50%;
-  top: calc(100% + 0.15rem);
+  top: auto;
+  bottom: calc(100% + 0.35rem);
   transform: translateX(-50%) translateY(-4px);
   width: min(92vw, 46rem);
-  max-height: min(62vh, 28rem);
+  max-height: min(56vh, 24rem);
   overflow: hidden;
   z-index: 20;
   border-radius: 1rem;
@@ -2186,7 +2187,7 @@ header .vc-notif-summary.vc-icon-btn:hover {
   color: rgba(241, 245, 249, 0.92);
   font-size: 0.84rem;
   line-height: 1.45;
-  max-height: min(52vh, 23rem);
+  max-height: min(46vh, 19rem);
   overflow: auto;
   padding-right: 0.25rem;
 }
@@ -12770,5 +12771,24 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
   50% {
     transform: scale(1.14);
     filter: brightness(1.25);
+  }
+}
+
+@media (min-width: 1024px) {
+  #vc-forum-layout {
+    align-items: stretch;
+  }
+
+  #vc-forum-chat-panel {
+    align-self: stretch;
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  #vc-forum-messages {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 }

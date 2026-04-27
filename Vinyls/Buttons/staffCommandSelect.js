@@ -13,6 +13,18 @@ const { buildStaffProfilePayload, SECTION_HOME } = require("../Utils/Staff/staff
 const SELECT_PREFIX = "staff_hs_target:";
 const MAX_OPTIONS = 25;
 const PRIVATE_FLAG = 1 << 6;
+const NO_SOURCE_TOKEN = "0";
+
+function normalizeSourceMessageId(raw) {
+  const id = String(raw || "").trim();
+  return /^\d{16,20}$/.test(id) ? id : null;
+}
+
+function buildStaffHsSelectCustomId(viewerUserId, sourceMessageId = null) {
+  const vid = String(viewerUserId || "");
+  const sid = normalizeSourceMessageId(sourceMessageId);
+  return `${SELECT_PREFIX}${vid}:${sid || NO_SOURCE_TOKEN}`;
+}
 
 function collectStaffOrPartnerManagerMembers(guild) {
   const staffRoleId = String(IDs.roles?.Staff || "");
@@ -34,7 +46,7 @@ function collectStaffOrPartnerManagerMembers(guild) {
 }
 
 /** Messaggio con menu per `+staff` (solo High Staff, senza argomenti). */
-function buildStaffHsPickerMessage(guild, viewerUserId) {
+function buildStaffHsPickerMessage(guild, viewerUserId, sourceMessageId = null) {
   const vid = String(viewerUserId || "");
   if (!guild || !/^\d{16,20}$/.test(vid)) return { error: "<:vegax:1443934876440068179> Richiesta non valida." };
   const members = collectStaffOrPartnerManagerMembers(guild);
@@ -63,7 +75,7 @@ function buildStaffHsPickerMessage(guild, viewerUserId) {
   const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(descLines.join("\n"));
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`${SELECT_PREFIX}${vid}`)
+      .setCustomId(buildStaffHsSelectCustomId(vid, sourceMessageId))
       .setPlaceholder("Scegli un membro Staff o Partner Manager…")
       .setMinValues(1)
       .setMaxValues(1)
@@ -77,16 +89,22 @@ function match(interaction) {
   return String(interaction.customId || "").startsWith(SELECT_PREFIX);
 }
 
-function parseViewerIdFromSelectCustomId(customId) {
+function parseSelectCustomId(customId) {
   const rest = String(customId || "").slice(SELECT_PREFIX.length);
-  return /^\d{16,20}$/.test(rest) ? rest : null;
+  const parts = rest.split(":");
+  const viewerId = String(parts[0] || "");
+  if (!/^\d{16,20}$/.test(viewerId)) return null;
+  const sourceToken = String(parts[1] || NO_SOURCE_TOKEN).trim();
+  const sourceMessageId = sourceToken === NO_SOURCE_TOKEN ? null : normalizeSourceMessageId(sourceToken);
+  return { viewerId, sourceMessageId };
 }
 
 async function execute(interaction, client) {
   const guild = interaction.guild;
   if (!guild) return false;
-  const viewerId = parseViewerIdFromSelectCustomId(interaction.customId);
-  if (!viewerId) return false;
+  const parsedSelect = parseSelectCustomId(interaction.customId);
+  if (!parsedSelect) return false;
+  const viewerId = parsedSelect.viewerId;
   if (String(interaction.user.id) !== viewerId) {
     await interaction
       .reply({
@@ -137,7 +155,7 @@ async function execute(interaction, client) {
   }
   const resolvedClient = client || interaction.client;
   const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
-  const sourceMessageId = interaction.message?.id || null;
+  const sourceMessageId = parsedSelect.sourceMessageId || interaction.message?.id || null;
   let payload;
   try {
     payload = await buildStaffProfilePayload(guild, targetId, viewerId, resolvedClient, SECTION_HOME, {

@@ -109,6 +109,16 @@
       .replace(/"/g, "&quot;");
   }
 
+  function isGenericStaffGroupRole(roleLabel) {
+    var norm = String(roleLabel || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+      .replace(/[-_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return norm === "staff" || norm === "high staff" || norm === "highstaff";
+  }
+
   function ensureStaffHoverUi() {
     var staffNode = el("staff");
     if (!staffNode) return;
@@ -184,6 +194,7 @@
     cell.setAttribute("tabindex", "0");
     body.innerHTML =
       staffHoverGroups.map(function (group) {
+        if (isGenericStaffGroupRole(group && group.role)) return "";
         var members = Array.isArray(group && group.members) ? group.members : [];
         if (!members.length) return "";
         return (
@@ -274,7 +285,7 @@
             };
           })
           .filter(function (g) {
-            return g.members.length > 0;
+            return g.members.length > 0 && !isGenericStaffGroupRole(g.role);
           });
         updateStaffHoverUi();
       }

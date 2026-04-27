@@ -21,6 +21,7 @@
     selectedThreadPermissions: null,
     selectedThreadSyncKey: "",
     pendingMessageFocusId: "",
+    forceScrollBottomOnce: false,
   };
   var THREADS_PAGE_SIZE = 8;
   var MAX_MEDIA_FILES = 6;
@@ -98,8 +99,10 @@
   function renderMessageContentWithMentions(msg) {
     var content = String((msg && msg.content) || "");
     var mentions = Array.isArray(msg && msg.mentions) ? msg.mentions : [];
+    var mentionRoles = Array.isArray(msg && msg.mentionRoles) ? msg.mentionRoles : [];
     if (!content) return "";
     var byId = {};
+    var roleById = {};
     for (var i = 0; i < mentions.length; i += 1) {
       var m = mentions[i] || {};
       var id = String(m.id || "").trim();
@@ -107,10 +110,26 @@
       if (!id || !username) continue;
       byId[id] = username;
     }
+    for (var r = 0; r < mentionRoles.length; r += 1) {
+      var mr = mentionRoles[r] || {};
+      var rid = String(mr.id || "").trim();
+      var rname = String(mr.name || "").trim();
+      if (!rid || !rname) continue;
+      roleById[rid] = rname;
+    }
     var out = esc(content);
     out = out.replace(/&lt;@!?(\d{17,22})&gt;/g, function (_, uid) {
       var uname = byId[String(uid)] || ("utente-" + String(uid).slice(-4));
       return '<span class="rounded-md border border-cyan-300/35 bg-cyan-300/15 px-1 py-0.5 text-cyan-100">@' + esc(uname) + "</span>";
+    });
+    out = out.replace(/&lt;@&(\d{17,22})&gt;/g, function (_, rid) {
+      var rname = roleById[String(rid)] || ("ruolo-" + String(rid).slice(-4));
+      return '<span class="rounded-md border border-fuchsia-300/35 bg-fuchsia-300/15 px-1 py-0.5 text-fuchsia-100">@' + esc(rname) + "</span>";
+    });
+    out = out.replace(/&lt;(a?):([a-zA-Z0-9_]{2,32}):(\d{17,22})&gt;/g, function (_, animated, emojiName, emojiId) {
+      var ext = String(animated || "") === "a" ? "gif" : "png";
+      var url = "https://cdn.discordapp.com/emojis/" + String(emojiId) + "." + ext + "?size=64&quality=lossless";
+      return '<img src="' + esc(url) + '" alt=":' + esc(String(emojiName)) + ':" class="mx-0.5 inline-block h-5 w-5 align-[-0.2em]" loading="lazy" decoding="async" />';
     });
     return out;
   }
@@ -470,6 +489,20 @@
     }, 1800);
   }
 
+  function scrollMessagesToBottom() {
+    var wrap = byId("vc-forum-messages");
+    if (!wrap) return;
+    try {
+      wrap.scrollTop = wrap.scrollHeight;
+    } catch (e) {}
+  }
+
+  function scrollMessagesToBottomStrong() {
+    scrollMessagesToBottom();
+    setTimeout(scrollMessagesToBottom, 40);
+    setTimeout(scrollMessagesToBottom, 140);
+  }
+
   function syncLoadOlderButton() {
     var btn = byId("vc-forum-load-older");
     if (!btn) return;
@@ -488,6 +521,34 @@
     chat.classList.toggle("lg:hidden", !opened);
     chat.classList.toggle("lg:flex", opened);
     chat.classList.toggle("lg:flex-col", opened);
+    syncChatPanelHeight();
+  }
+
+  function isDesktopForumLayout() {
+    try {
+      return Boolean(window.matchMedia && window.matchMedia("(min-width: 1024px)").matches);
+    } catch (e) {
+      return (window.innerWidth || 0) >= 1024;
+    }
+  }
+
+  function syncChatPanelHeight() {
+    var sidebar = byId("vc-forum-sidebar");
+    var chat = byId("vc-forum-chat-panel");
+    if (!sidebar || !chat) return;
+    if (!state.selectedThreadId || !isDesktopForumLayout()) {
+      chat.style.height = "";
+      chat.style.maxHeight = "";
+      return;
+    }
+    var h = Math.max(320, Math.floor(Number(sidebar.offsetHeight) || 0));
+    if (!Number.isFinite(h) || h <= 0) {
+      chat.style.height = "";
+      chat.style.maxHeight = "";
+      return;
+    }
+    chat.style.height = String(h) + "px";
+    chat.style.maxHeight = String(h) + "px";
   }
 
   function syncWriteUi() {
@@ -569,6 +630,7 @@
         resetChatPanel();
       }
       syncForumLayout();
+      setTimeout(syncChatPanelHeight, 30);
     } catch (err) {
       setState(err && err.message ? err.message : "Errore caricamento discussioni.", true);
     }
@@ -618,12 +680,16 @@
         setTimeout(function () {
           focusMessageInView(targetId);
         }, 60);
+      } else if (!appendOlder && state.forceScrollBottomOnce) {
+        state.forceScrollBottomOnce = false;
+        setTimeout(scrollMessagesToBottomStrong, 20);
       }
       var selectedThread = state.threads.find(function (t) {
         return String((t && t.id) || "") === String(threadId || "");
       }) || null;
       state.selectedThreadSyncKey = buildThreadSyncKey(selectedThread);
       if (!quiet) setState("", false);
+      setTimeout(syncChatPanelHeight, 20);
     } catch (err) {
       if (requestId !== state.lastMessagesRequestId) return;
       if (!quiet) setState(err && err.message ? err.message : "Errore caricamento messaggi.", true);
@@ -835,6 +901,7 @@
         }
         state.selectedThreadId = tid;
         state.selectedThreadSyncKey = "";
+        state.forceScrollBottomOnce = true;
         state.unreadByThread[tid] = 0;
         state.messageCursorBefore = "";
         state.messageHasMore = false;
@@ -929,6 +996,9 @@
     });
     window.addEventListener("vc-discord-profile", function () {
       syncWriteUi();
+    });
+    window.addEventListener("resize", function () {
+      syncChatPanelHeight();
     });
     var msgMedia = byId("vc-forum-message-media");
     if (msgMedia) {

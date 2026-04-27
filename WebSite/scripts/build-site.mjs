@@ -353,6 +353,17 @@ function memberStaffLineName(m) {
   return un || "Utente";
 }
 
+function isGenericStaffRoleLabel(label) {
+  const norm = String(label || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ");
+  if (!norm) return false;
+  return norm === "staff" || norm === "high staff" || norm === "highstaff";
+}
+
 function staffListFallback() {
   return { html: STAFF_LIST_FALLBACK_HTML, staffCount: null };
 }
@@ -659,7 +670,7 @@ async function buildStaffListBlock(cfg, guildId) {
     }
   }
 
-  const groups = [...byRole.values()];
+  const groups = [...byRole.values()].filter((g) => !isGenericStaffRoleLabel(g?.roleLabel));
   groups.sort((a, b) => {
     const ia = ladderIds.indexOf(a.roleId);
     const ib = ladderIds.indexOf(b.roleId);
@@ -687,9 +698,10 @@ async function buildStaffListBlock(cfg, guildId) {
     .join("\n");
 
   const html = `          <div class="vc-staff-block">\n${roleLines}\n          </div>`;
-  const staffCount = new Set(rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean)).size;
+  const countedStaffUserIds = new Set(rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean));
   const pmRoleId = String(b.partnerManagerRoleId || "1442568905582317740").trim();
   const pmRoleLabel = String(b.partnerManagerRoleLabel || "PM").trim() || "PM";
+  const communityManagerRoleId = String(b.communityManagerRoleId || "1494089487863644330").trim();
   const staffHoverGroups = groups
     .map((g) => ({
       role: String(g.roleLabel || "").trim(),
@@ -703,6 +715,12 @@ async function buildStaffListBlock(cfg, guildId) {
       .map((m) => memberStaffLineName(m))
       .filter(Boolean)
       .sort((a, b) => String(a).localeCompare(String(b), "it", { sensitivity: "base" }));
+    for (const m of members) {
+      if (!m?.user?.bot && memberRoleIds(m).includes(pmRoleId)) {
+        const uid = String(m?.user?.id || "").trim();
+        if (uid) countedStaffUserIds.add(uid);
+      }
+    }
     if (pmMembers.length) {
       staffHoverGroups.push({
         role: pmRoleLabel,
@@ -710,6 +728,15 @@ async function buildStaffListBlock(cfg, guildId) {
       });
     }
   }
+  if (communityManagerRoleId) {
+    for (const m of members) {
+      if (!m?.user?.bot && memberRoleIds(m).includes(communityManagerRoleId)) {
+        const uid = String(m?.user?.id || "").trim();
+        if (uid) countedStaffUserIds.add(uid);
+      }
+    }
+  }
+  const staffCount = countedStaffUserIds.size;
   return { html, staffCount, staffHoverGroups };
 }
 

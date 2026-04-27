@@ -47,7 +47,7 @@ module.exports = {
     const rawArg = String(args.join(" ") || "").trim();
     const isHighStaff = Boolean(IDs.roles?.HighStaff && message.member.roles?.cache?.has(IDs.roles.HighStaff));
     if (!rawArg && isHighStaff) {
-      const picker = buildStaffHsPickerMessage(message.guild, message.author.id);
+      const picker = buildStaffHsPickerMessage(message.guild, message.author.id, message.id);
       if (picker.error) {
         await safeMessageReply(message, { content: picker.error, allowedMentions: { repliedUser: false } });
         return;
