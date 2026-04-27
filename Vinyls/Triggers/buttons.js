@@ -1103,10 +1103,11 @@ module.exports = {
 
       const howtoEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
         `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
+        `Usa \`+colors\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 
-      const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("︲COLORI VIP SBLOCCATI").setEmoji(`<:VC_Color:1482532543273238569>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1469429150669602961/1469803395937472647",), new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
+      const row = new ActionRowBuilder().addComponents( new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
 
       return { embeds: [levelEmbed, howtoEmbed], components: [row] };
     };
@@ -1235,6 +1236,7 @@ module.exports = {
       await interaction.reply({ embeds: [badgesEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
+    /*
     if (interaction.customId == "r_multiplier_info") {
       const entries = ROLE_MULTIPLIERS instanceof Map ? Array.from(ROLE_MULTIPLIERS.entries()) : Array.isArray(ROLE_MULTIPLIERS) ? ROLE_MULTIPLIERS : Object.entries(ROLE_MULTIPLIERS || {});
 
@@ -1256,6 +1258,7 @@ module.exports = {
 
       await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
+    */
 
     if (interaction.customId == "avatar_views") {
       return sendPrivacyViewsLeaderboard(
