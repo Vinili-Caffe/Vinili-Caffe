@@ -166,16 +166,34 @@
     var hasToken = Boolean(token());
     var msgInput = byId("vc-forum-message-input");
     var msgBtn = byId("vc-forum-message-send");
+    var openCreateBtn = byId("vc-forum-open-create");
     var cTitle = byId("vc-forum-create-title");
     var cBody = byId("vc-forum-create-content");
     var cBtn = byId("vc-forum-create-send");
     if (msgInput) msgInput.disabled = !hasToken;
     if (msgBtn) msgBtn.disabled = !hasToken;
+    if (openCreateBtn) openCreateBtn.disabled = !hasToken;
     if (cTitle) cTitle.disabled = !hasToken;
     if (cBody) cBody.disabled = !hasToken;
     if (cBtn) cBtn.disabled = !hasToken;
     if (!hasToken) {
       setState("Per scrivere nel forum devi prima fare login Discord.", false);
+    }
+  }
+
+  function setCreateModalOpen(isOpen) {
+    var modal = byId("vc-forum-create-modal");
+    if (!modal) return;
+    var open = Boolean(isOpen);
+    modal.classList.toggle("hidden", !open);
+    modal.classList.toggle("flex", open);
+    if (open) {
+      var titleEl = byId("vc-forum-create-title");
+      if (titleEl && !titleEl.disabled) {
+        setTimeout(function () {
+          try { titleEl.focus(); } catch (e) {}
+        }, 30);
+      }
     }
   }
 
@@ -291,6 +309,7 @@
       if (!r.ok || !body || body.ok !== true) throw new Error((body && body.message) || "Creazione thread fallita");
       if (titleEl) titleEl.value = "";
       if (bodyEl) bodyEl.value = "";
+      setCreateModalOpen(false);
       state.selectedThreadId = String((body.thread && body.thread.id) || "");
       state.unreadByThread[state.selectedThreadId] = 0;
       await loadThreads();
@@ -375,11 +394,11 @@
           var other = byId(filterIds[j]);
           if (!other) continue;
           var on = String(other.getAttribute("data-forum-filter") || "") === state.filter;
-          toggle(other, "border-[#d4a888]/70", on);
-          toggle(other, "bg-[#d4a888]/20", on);
+          toggle(other, "border-emerald-400/70", on);
+          toggle(other, "bg-emerald-400/20", on);
           if (!on) {
-            other.classList.remove("border-[#d4a888]/70");
-            other.classList.remove("bg-[#d4a888]/20");
+            other.classList.remove("border-emerald-400/70");
+            other.classList.remove("bg-emerald-400/20");
           }
         }
         renderThreads();
@@ -398,6 +417,28 @@
     if (mf) mf.addEventListener("submit", postMessage);
     var cf = byId("vc-forum-create-form");
     if (cf) cf.addEventListener("submit", createThread);
+    var openCreate = byId("vc-forum-open-create");
+    if (openCreate) {
+      openCreate.addEventListener("click", function () {
+        if (openCreate.disabled) return;
+        setCreateModalOpen(true);
+      });
+    }
+    var closeCreate = byId("vc-forum-create-close");
+    if (closeCreate) {
+      closeCreate.addEventListener("click", function () {
+        setCreateModalOpen(false);
+      });
+    }
+    var modal = byId("vc-forum-create-modal");
+    if (modal) {
+      modal.addEventListener("click", function (ev) {
+        if (ev.target === modal) setCreateModalOpen(false);
+      });
+    }
+    window.addEventListener("keydown", function (ev) {
+      if (String(ev && ev.key || "") === "Escape") setCreateModalOpen(false);
+    });
     window.addEventListener("vc-discord-profile", function () {
       syncWriteUi();
     });

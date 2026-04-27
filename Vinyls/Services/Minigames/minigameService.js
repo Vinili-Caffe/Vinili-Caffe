@@ -7881,7 +7881,10 @@ async function restoreActiveGames(client) {
   }
   if (state.type === "completeVerse") {
     const parsed = parseStateTarget(state.target);
-    const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
+    const answerNorm = normalizeCountryName(parsed?.answer || "");
+    const answers = Array.isArray(parsed?.answers) && parsed.answers.length
+      ? parsed.answers
+      : [answerNorm, parsed?.answer, compactNoSpaces(answerNorm)].filter(Boolean);
     const verse = parsed?.verse || "";
     const answer = parsed?.answer || "";
     const song = parsed?.song || "";
@@ -7937,7 +7940,11 @@ async function restoreActiveGames(client) {
   }
   if (state.type === "quoteFilm") {
     const parsed = parseStateTarget(state.target);
-    const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
+    const primaryAnswer = String(parsed?.answer || parsed?.displayAnswer || "").trim();
+    const answerNorm = normalizeCountryName(primaryAnswer);
+    const answers = Array.isArray(parsed?.answers) && parsed.answers.length
+      ? parsed.answers
+      : [answerNorm, primaryAnswer, compactNoSpaces(answerNorm)].filter(Boolean);
     const quote = parsed?.quote || "";
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); if (game.hintTimeout) clearTimeout(game.hintTimeout); await channel.send({ embeds: [buildTimeoutQuoteFilmEmbed(game.quote, game.answers?.[0] || "")] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
     const hintText = `Film/Serie: ${buildRevealHint(answers[0] || "")}`;
@@ -7957,7 +7964,10 @@ async function restoreActiveGames(client) {
   }
   if (state.type === "completeProverb") {
     const parsed = parseStateTarget(state.target);
-    const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
+    const endNorm = normalizeCountryName(parsed?.end || "");
+    const answers = Array.isArray(parsed?.answers) && parsed.answers.length
+      ? parsed.answers
+      : [endNorm, parsed?.end, compactNoSpaces(endNorm)].filter(Boolean);
     const start = parsed?.start || "";
     const end = parsed?.end || "";
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); if (game.hintTimeout) clearTimeout(game.hintTimeout); await channel.send({ embeds: [buildTimeoutCompleteProverbEmbed(game.start, game.end)] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
@@ -7980,7 +7990,10 @@ async function restoreActiveGames(client) {
   if (state.type === "synonymAntonym") {
     const parsed = parseStateTarget(state.target);
     const answerRaw = parsed?.answer;
-    const answers = Array.isArray(parsed?.answers) ? parsed.answers : (answerRaw != null ? [answerRaw] : []);
+    const answerNorm = normalizeCountryName(answerRaw || "");
+    const answers = Array.isArray(parsed?.answers) && parsed.answers.length
+      ? parsed.answers
+      : [answerNorm, answerRaw, compactNoSpaces(answerNorm)].filter(Boolean);
     const word = parsed?.word || "";
     const kind = parsed?.kind || "synonym";
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); if (game.hintTimeout) clearTimeout(game.hintTimeout); const solution = game.answers?.[0] ?? game.answer ?? ""; await channel.send({ embeds: [buildTimeoutSynonymAntonymEmbed(game.word, solution, game.kind)] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
@@ -8003,7 +8016,10 @@ async function restoreActiveGames(client) {
   }
   if (state.type === "guessCity") {
     const parsed = parseStateTarget(state.target);
-    const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
+    const cityNorm = normalizeCountryName(parsed?.city || "");
+    const answers = Array.isArray(parsed?.answers) && parsed.answers.length
+      ? parsed.answers
+      : [cityNorm, parsed?.city, compactNoSpaces(cityNorm)].filter(Boolean);
     const landmark = parsed?.landmark || "";
     const city = parsed?.city || "";
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); if (game.hintTimeout) clearTimeout(game.hintTimeout); await channel.send({ embeds: [buildTimeoutGuessCityEmbed(game.landmark, game.city || game.answers?.[0] || "")] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
