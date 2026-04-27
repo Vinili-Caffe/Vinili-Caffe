@@ -2028,8 +2028,8 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
   if (!lines.length) {
     lines.push(
       IS_SINGLE_OUTFIT_FLOW
-        ? "Nessun voto registrato (o submission ancora assenti)."
-        : "Nessun voto in questa categoria (o submission ancora assenti).",
+        ? "Nessun voto registrato."
+        : "Nessun voto in questa categoria.",
     );
   }
 
