@@ -11331,6 +11331,11 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   filter: brightness(1.06);
 }
 
+html.vc-notif-overlay-active .vc-live-event-home:not([hidden]),
+html.vc-notif-overlay-active .vc-live-event-reopen:not([hidden]) {
+  display: none !important;
+}
+
 @keyframes vc-live-event-pop-in {
   from {
     opacity: 0;

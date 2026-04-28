@@ -815,6 +815,9 @@
   var NOTIF_FLY_READ_MS = 4000;
   /** Fly animation duration (ms); match .vc-notif-fly-card--run in vc-landing.css. */
   var NOTIF_FLY_ANIM_MS = 1100;
+  var notifFlyActiveCount = 0;
+  var notifAudioCtx = null;
+  var notifAudioUnlocked = false;
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   try {
     if (new URLSearchParams(window.location.search).get("notif") === "demo") {
@@ -1117,6 +1120,50 @@
     } catch (e) {}
   }
 
+  function syncGlobalNotifOverlayClass() {
+    var dd = document.getElementById("vc-notif-dropdown");
+    var root = document.documentElement;
+    if (!root) return;
+    var isDropdownOpen = Boolean(dd && dd.open);
+    var hasFlyToast = notifFlyActiveCount > 0;
+    root.classList.toggle("vc-notif-overlay-active", isDropdownOpen || hasFlyToast);
+  }
+
+  function unlockNotifAudio() {
+    if (notifAudioUnlocked) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      if (!notifAudioCtx) notifAudioCtx = new AC();
+      if (notifAudioCtx.state === "suspended" && typeof notifAudioCtx.resume === "function") {
+        notifAudioCtx.resume();
+      }
+      notifAudioUnlocked = true;
+    } catch (e) {}
+  }
+
+  function playNotifSound() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      if (!notifAudioCtx) notifAudioCtx = new AC();
+      if (notifAudioCtx.state === "suspended") return;
+      var now = notifAudioCtx.currentTime;
+      var osc = notifAudioCtx.createOscillator();
+      var gain = notifAudioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(1244, now + 0.12);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.05, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(notifAudioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (e) {}
+  }
+
   function showNotifFlyToast(row) {
     var bell = document.querySelector("#vc-notif-dropdown summary.vc-notif-summary");
     if (!bell) return;
@@ -1135,6 +1182,8 @@
     root.appendChild(t);
     root.appendChild(b);
     document.body.appendChild(root);
+    notifFlyActiveCount += 1;
+    syncGlobalNotifOverlayClass();
     function applyFlyVars() {
       var br = bell.getBoundingClientRect();
       var cr = root.getBoundingClientRect();
@@ -1153,6 +1202,8 @@
       try {
         root.remove();
       } catch (e2) {}
+      notifFlyActiveCount = Math.max(0, notifFlyActiveCount - 1);
+      syncGlobalNotifOverlayClass();
       pulseNotifSummary();
     }
     window.setTimeout(function () {
@@ -1277,6 +1328,7 @@
       var oldBd = dd.querySelector(".vc-notif-mobile-backdrop");
       if (oldBd) oldBd.remove();
     }
+    syncGlobalNotifOverlayClass();
   }
 
   function isLocalFrontendOrigin() {
@@ -1429,6 +1481,7 @@
         }
         render();
         if (toastRow) {
+          playNotifSound();
           window.requestAnimationFrame(function () {
             showNotifFlyToast(toastRow);
           });
@@ -1479,6 +1532,9 @@
   function init() {
     setCurrentUser(window.__VC_DISCORD_PROFILE || null);
     render();
+    syncGlobalNotifOverlayClass();
+    document.addEventListener("pointerdown", unlockNotifAudio, true);
+    document.addEventListener("keydown", unlockNotifAudio, true);
     wireNotifMobileSheet();
     var markBtn = document.getElementById("vc-notif-mark-all");
     var clearBtn = document.getElementById("vc-notif-clear-all");
@@ -1518,6 +1574,7 @@
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
     render();
+    syncGlobalNotifOverlayClass();
     flushPendingLoginNotification();
     if (normalizeUserId(currentUserId) && getDiscordAccessToken()) {
       scheduleSiteNotificationsPolling();

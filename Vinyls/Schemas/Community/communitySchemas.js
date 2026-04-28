@@ -341,6 +341,7 @@ const activityUserProfileSchema = new Schema(
                 lastRemindedAtTopgg: null,
                 lastVoteAtDiscadia: null,
                 lastRemindedAtDiscadia: null,
+                voteCountMonthKey: "",
                 voteCountTopgg: 0,
                 voteCountDiscadia: 0,
                 pendingVotes: [],
@@ -584,6 +585,32 @@ const siteSuggestionSchema = new Schema(
 );
 siteSuggestionSchema.index({ guildId: 1, createdAt: -1 });
 siteSuggestionSchema.index({ guildId: 1, status: 1, updatedAt: -1 });
+
+const sitePaymentSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, default: "", index: true },
+    provider: { type: String, required: true, default: "paypal", index: true },
+    createdBy: { type: String, default: "site", trim: true, maxlength: 32 },
+    planKey: { type: String, default: "", trim: true, maxlength: 80 },
+    description: { type: String, default: "", trim: true, maxlength: 180 },
+    amount: { type: String, default: "0.00", trim: true, maxlength: 24 },
+    currency: { type: String, default: "EUR", trim: true, maxlength: 12 },
+    status: { type: String, default: "CREATED", trim: true, maxlength: 48, index: true },
+    orderId: { type: String, default: "", trim: true, maxlength: 128, index: true },
+    captureId: { type: String, default: "", trim: true, maxlength: 128, index: true },
+    approveUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    webhookEventType: { type: String, default: "", trim: true, maxlength: 96 },
+    webhookEventId: { type: String, default: "", trim: true, maxlength: 128 },
+    rawOrder: { type: Schema.Types.Mixed, default: null },
+    rawCapture: { type: Schema.Types.Mixed, default: null },
+    rawWebhook: { type: Schema.Types.Mixed, default: null },
+  },
+  { timestamps: true },
+);
+sitePaymentSchema.index({ provider: 1, orderId: 1 }, { unique: true, sparse: true });
+sitePaymentSchema.index({ provider: 1, captureId: 1 }, { unique: true, sparse: true });
+sitePaymentSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
@@ -1041,6 +1068,7 @@ const SiteInAppNotification =
   models.SiteInAppNotification || model("SiteInAppNotification", siteInAppNotificationSchema, "siteinappnotifications");
 const SiteReview = models.SiteReview || model("SiteReview", siteReviewSchema, "sitereviews");
 const SiteSuggestion = models.SiteSuggestion || model("SiteSuggestion", siteSuggestionSchema, "sitesuggestions");
+const SitePayment = models.SitePayment || model("SitePayment", sitePaymentSchema, "sitepayments");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -1066,4 +1094,5 @@ module.exports = {
   SiteInAppNotification,
   SiteReview,
   SiteSuggestion,
+  SitePayment,
 };

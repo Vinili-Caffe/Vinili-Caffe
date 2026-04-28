@@ -34,7 +34,20 @@ function voteLeaf(doc) {
   return doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || {};
 }
 
-function combinedVotesFromLeaf(leaf) {
+function voteCountMonthKey(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const y = Number.isFinite(d.getTime()) ? d.getUTCFullYear() : new Date().getUTCFullYear();
+  const m = Number.isFinite(d.getTime()) ? d.getUTCMonth() + 1 : new Date().getUTCMonth() + 1;
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
+}
+
+function combinedVotesFromLeaf(leaf, now = new Date()) {
+  const currentMonthKey = voteCountMonthKey(now);
+  const storedMonthKey = String(leaf?.voteCountMonthKey || "").trim();
+  const monthChanged = Boolean(storedMonthKey) && storedMonthKey !== currentMonthKey;
+  if (monthChanged) {
+    return { total: 0, topgg: 0, discadia: 0 };
+  }
   const legacy = nInt(leaf?.voteCount);
   const topgg = nInt(leaf?.voteCountTopgg);
   const discadia = nInt(leaf?.voteCountDiscadia);
@@ -148,9 +161,10 @@ async function handleSiteVoteGet(client, req, res) {
       .lean()
       .catch(() => []);
 
+    const now = new Date();
     const rowsBase = docs
       .map((doc) => {
-        const counts = combinedVotesFromLeaf(voteLeaf(doc));
+        const counts = combinedVotesFromLeaf(voteLeaf(doc), now);
         return {
           userId: String(doc?.userId || ""),
           votes: counts.total,

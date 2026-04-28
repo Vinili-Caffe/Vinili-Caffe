@@ -1091,7 +1091,7 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level100}>`,
               "Tutte le ricompense precedenti",
-              "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 5 secondi a 1 secondo).",
+              "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",

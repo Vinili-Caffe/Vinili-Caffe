@@ -253,6 +253,7 @@ async function startWebhookServer(client) {
     const isSiteNotifications = pathStr.startsWith("/webhooks/site-notifications");
     const isSiteForum = pathStr.startsWith("/webhooks/site-forum");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
+    const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     if (
       !isCandidature &&
       !isUnban &&
@@ -266,7 +267,8 @@ async function startWebhookServer(client) {
       !isSiteSuggestions &&
       !isSiteNotifications &&
       !isSiteForum &&
-      !isSiteVerify
+      !isSiteVerify &&
+      !isSitePayments
     ) {
       return next();
     }
@@ -297,7 +299,8 @@ async function startWebhookServer(client) {
       isSiteRankCard ||
       isSiteReviews ||
       isSiteSuggestions ||
-      isSiteNotifications
+      isSiteNotifications ||
+      isSitePayments
     ) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
@@ -490,6 +493,12 @@ async function startWebhookServer(client) {
   } = require("../../Utils/Web/siteSuggestionsApi");
   const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
   const {
+    listSitePaymentPlans,
+    createSitePaymentOrder,
+    captureSitePaymentOrder,
+    handleSitePayPalWebhook,
+  } = require("../../Utils/Web/sitePaymentsApi");
+  const {
     getSiteForumThreads,
     getSiteForumThreadMessages,
     getSiteForumThreadMessagesAuthed,
@@ -515,6 +524,59 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
+  });
+  app.get("/webhooks/site-payments/plans", (req, res) => {
+    try {
+      return res.status(200).json({ ok: true, items: listSitePaymentPlans() });
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-payments plans:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-payments/create-order", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await createSitePaymentOrder(client, {
+        accessToken,
+        planKey: body.planKey,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-payments create-order:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-payments/capture-order", async (req, res) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await captureSitePaymentOrder(client, {
+        accessToken,
+        orderId: body.orderId,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-payments capture-order:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-payments/paypal-webhook", async (req, res) => {
+    return handleSitePayPalWebhook(client, req, res);
   });
   app.post("/webhooks/site-verify/complete", async (req, res) => {
     try {
