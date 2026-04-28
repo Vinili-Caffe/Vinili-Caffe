@@ -225,26 +225,6 @@
     hideTransitionOverlay();
   });
 
-  function isInternalNavigableLink(a) {
-    if (!a || !a.getAttribute) return false;
-    var hrefAttr = String(a.getAttribute("href") || "").trim();
-    if (!hrefAttr || hrefAttr.charAt(0) === "#") return false;
-    if (/^(mailto|tel|javascript):/i.test(hrefAttr)) return false;
-    var target = String(a.getAttribute("target") || "").toLowerCase();
-    if (target && target !== "_self") return false;
-    if (a.hasAttribute("download")) return false;
-    try {
-      var url = new URL(hrefAttr, window.location.href);
-      if (url.origin !== window.location.origin) return false;
-      var current = window.location.pathname + window.location.search;
-      var next = url.pathname + url.search;
-      if (current === next && (url.hash || "").length > 0) return false;
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
   function ensureTransitionOverlay() {
     var existing = document.getElementById("vc-page-transition");
     if (existing) return existing;
@@ -325,13 +305,6 @@
         });
         return;
       }
-      if (!isInternalNavigableLink(a)) return;
-      ev.preventDefault();
-      var nextHref = a.href;
-      showTransitionOverlay("page");
-      afterOverlayPaint(function () {
-        navigateToHref(nextHref);
-      });
     });
   }
 
@@ -667,12 +640,20 @@
     return n;
   }
 
+  function formatMult(m) {
+    var x = Number(m);
+    if (!Number.isFinite(x) || x <= 0) return "x1";
+    if (Math.abs(x - Math.round(x)) < 0.02) return "x" + String(Math.round(x));
+    return "x" + String(x.toFixed(1)).replace(".", ",");
+  }
+
   function formatValue(raw, kind) {
     var n = Number(raw);
     if (!Number.isFinite(n) || n < 0) n = 0;
     if (kind === "hours") return String(n.toFixed(1)).replace(".", ",") + "h";
     if (kind === "percent") return String(Math.round(n)) + "%";
     if (kind === "plain") return String(Math.round(n));
+    if (kind === "mult") return formatMult(n);
     return formatIntIt(n);
   }
 
@@ -830,6 +811,10 @@
   var siteRealtimeWs = null;
   var siteRealtimeWsReconnectTimer = null;
   var SITE_NOTIFS_POLL_MS = 300000;
+  /** Milliseconds the toast stays visible before flying to the bell. */
+  var NOTIF_FLY_READ_MS = 4000;
+  /** Fly animation duration (ms); match .vc-notif-fly-card--run in vc-landing.css. */
+  var NOTIF_FLY_ANIM_MS = 1100;
   var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   try {
     if (new URLSearchParams(window.location.search).get("notif") === "demo") {
@@ -1150,17 +1135,17 @@
     root.appendChild(t);
     root.appendChild(b);
     document.body.appendChild(root);
-    var br = bell.getBoundingClientRect();
-    var cr = root.getBoundingClientRect();
-    var sx = br.left + br.width / 2;
-    var sy = br.top + br.height / 2;
-    var cx = cr.left + cr.width / 2;
-    var cy = cr.top + cr.height / 2;
-    root.style.setProperty("--vc-fly-tx", String(sx - cx) + "px");
-    root.style.setProperty("--vc-fly-ty", String(sy - cy) + "px");
-    window.requestAnimationFrame(function () {
-      root.classList.add("vc-notif-fly-card--run");
-    });
+    function applyFlyVars() {
+      var br = bell.getBoundingClientRect();
+      var cr = root.getBoundingClientRect();
+      var sx = br.left + br.width / 2;
+      var sy = br.top + br.height / 2;
+      var cx = cr.left + cr.width / 2;
+      var cy = cr.top + cr.height / 2;
+      root.style.setProperty("--vc-fly-tx", String(sx - cx) + "px");
+      root.style.setProperty("--vc-fly-ty", String(sy - cy) + "px");
+    }
+    applyFlyVars();
     var finished = false;
     function finish() {
       if (finished) return;
@@ -1170,8 +1155,16 @@
       } catch (e2) {}
       pulseNotifSummary();
     }
-    root.addEventListener("animationend", finish);
-    window.setTimeout(finish, 1100);
+    window.setTimeout(function () {
+      if (finished) return;
+      applyFlyVars();
+      window.requestAnimationFrame(function () {
+        if (finished) return;
+        root.classList.add("vc-notif-fly-card--run");
+        root.addEventListener("animationend", finish, { once: true });
+      });
+    }, NOTIF_FLY_READ_MS);
+    window.setTimeout(finish, NOTIF_FLY_READ_MS + NOTIF_FLY_ANIM_MS + 600);
   }
 
   function addNotif(p) {

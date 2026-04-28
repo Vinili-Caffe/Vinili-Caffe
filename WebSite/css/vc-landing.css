@@ -258,6 +258,113 @@ body.vc-body--home.vc-body::before {
   margin-right: auto;
 }
 
+/* Donazioni hero: pannello unico a destra (lista compatta, stesso linguaggio dell’hero) */
+.vc-support-hero-pillars {
+  display: block;
+}
+
+.vc-support-hero-pillars__panel {
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid var(--vc-support-hero-border);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(52, 211, 153, 0.08), transparent 55%),
+    rgba(4, 12, 22, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 48px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.vc-support-hero-pillar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.45rem 0 0.5rem;
+}
+
+.vc-support-hero-pillar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0.55rem;
+  padding: 0.78rem 0.6rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.vc-support-hero-pillar-row + .vc-support-hero-pillar-row {
+  margin-top: 0.1rem;
+}
+
+.vc-support-hero-pillar-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.vc-support-hero-pillar-row__ico {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: rgba(226, 232, 240, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.vc-support-hero-pillar-row--vps .vc-support-hero-pillar-row__ico {
+  color: rgba(167, 243, 208, 0.95);
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.vc-support-hero-pillar-row--bot .vc-support-hero-pillar-row__ico {
+  color: rgba(165, 243, 252, 0.95);
+  border-color: rgba(34, 211, 238, 0.22);
+  background: rgba(34, 211, 238, 0.09);
+}
+
+.vc-support-hero-pillar-row--events .vc-support-hero-pillar-row__ico {
+  color: rgba(233, 213, 255, 0.95);
+  border-color: rgba(167, 139, 250, 0.24);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.vc-support-hero-pillar-row__label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  color: rgba(248, 250, 252, 0.94);
+}
+
+@media (min-width: 640px) {
+  .vc-support-hero-pillar-list {
+    padding: 0.55rem 0 0.55rem;
+  }
+
+  .vc-support-hero-pillar-row {
+    gap: 0.85rem;
+    margin: 0 0.65rem;
+    padding: 0.88rem 0.65rem;
+  }
+
+  .vc-support-hero-pillar-row__ico {
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1rem;
+  }
+
+  .vc-support-hero-pillar-row__label {
+    font-size: 0.92rem;
+  }
+}
+
 .vc-support-intro-shell {
   border-radius: 2rem;
   border: 1px solid rgba(var(--vc-sand-rgb), 0.22);
@@ -322,6 +429,34 @@ body.vc-body--home.vc-body::before {
   }
 }
 
+.vc-support-donate-role__head {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 0.85rem;
+  margin: 0 0 0.65rem;
+  min-width: 0;
+}
+
+@media (max-width: 380px) {
+  .vc-support-donate-role__head {
+    flex-wrap: wrap;
+  }
+}
+
+.vc-support-donate-role__head .vc-support-donate-role__title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vc-support-donate-role__head .vc-support-donate-role__price {
+  margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .vc-support-donate-role__title {
   display: flex;
   align-items: center;
@@ -368,29 +503,72 @@ body.vc-body--home.vc-body::before {
 }
 
 .vc-support-donate-role__lede {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.85rem;
   font-size: 0.92rem;
   line-height: 1.55;
   color: rgba(226, 232, 240, 0.82);
 }
 
 .vc-support-donate-role__price {
-  margin: 0 0 0.85rem;
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: rgba(226, 232, 240, 0.88);
+  margin: 0;
+  line-height: 1;
 }
 
 .vc-support-donate-role__price-inner {
-  display: inline-block;
-  padding: 0.2rem 0.55rem;
-  border-radius: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.28);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 0.84em;
-  color: rgba(248, 250, 252, 0.95);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.06em;
+  padding: 0.36rem 0.88rem 0.42rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(168deg, rgba(255, 255, 255, 0.11), rgba(0, 0, 0, 0.38));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 22px rgba(0, 0, 0, 0.32);
+  font-variant-numeric: tabular-nums;
+}
+
+.vc-support-donate-role__price-amount {
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+}
+
+.vc-support-donate-role__price-curr {
+  font-size: 0.7em;
+  font-weight: 700;
+  opacity: 0.8;
+  transform: translateY(-0.06em);
+}
+
+.vc-support-donate-role--donatore .vc-support-donate-role__price-inner {
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 22px rgba(0, 0, 0, 0.32),
+    0 0 32px rgba(139, 92, 246, 0.14);
+}
+
+.vc-support-donate-role--vip .vc-support-donate-role__price-inner {
+  border-color: rgba(251, 191, 36, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 22px rgba(0, 0, 0, 0.32),
+    0 0 32px rgba(251, 191, 36, 0.12);
+}
+
+.vc-support-donate-role--vip-plus .vc-support-donate-role__price-inner {
+  border-color: rgba(34, 211, 238, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 22px rgba(0, 0, 0, 0.32),
+    0 0 32px rgba(34, 211, 238, 0.12);
+}
+
+.vc-support-donate-discord-cta:focus-visible {
+  outline: 2px solid rgba(129, 140, 248, 0.9);
+  outline-offset: 3px;
 }
 
 .vc-support-donate-new {
@@ -426,24 +604,27 @@ body.vc-body--home.vc-body::before {
 
 .vc-support-donate-perk {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 0.62rem;
-  padding: 0.58rem 0.68rem;
+  padding: 0.42rem 0.58rem;
   border-radius: 0.78rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(0, 0, 0, 0.2);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  min-width: 0;
 }
 
 .vc-support-donate-perk__ico {
   flex-shrink: 0;
-  width: 2.1rem;
-  height: 2.1rem;
+  align-self: center;
+  width: 2.05rem;
+  height: 2.05rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 0.55rem;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   line-height: 1;
   color: rgba(167, 243, 208, 0.95);
   border: 1px solid rgba(52, 211, 153, 0.3);
@@ -465,10 +646,16 @@ body.vc-body--home.vc-body::before {
 
 .vc-support-donate-perk__text {
   flex: 1 1 0;
+  align-self: center;
   min-width: 0;
   font-size: 0.86rem;
-  line-height: 1.48;
+  line-height: 1.38;
   color: rgba(241, 245, 249, 0.9);
+}
+
+.vc-support-donate-perk__text .vc-sponsor-code,
+.vc-support-donate-perk__text .vc-support-donate-new {
+  vertical-align: 0.08em;
 }
 
 .vc-support-donate-role__foot {
@@ -491,6 +678,75 @@ body.vc-body--home.vc-body::before {
 .vc-support-donate-role__cta:focus-visible {
   outline: 2px solid rgba(52, 211, 153, 0.65);
   outline-offset: 3px;
+}
+
+/* Tre tier: stesse altezze di riga (perk allineati) + CTA in basso allineate (subgrid + 8 righe perk) */
+@supports (grid-template-rows: subgrid) {
+  @media (min-width: 768px) {
+    .vc-support-donate-roles__grid {
+      gap: 0;
+      column-gap: 1.25rem;
+      row-gap: 0.5rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: auto auto repeat(8, minmax(0, auto)) auto;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role:nth-child(1) {
+      grid-column: 1;
+      grid-row: 1 / -1;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role:nth-child(2) {
+      grid-column: 2;
+      grid-row: 1 / -1;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role:nth-child(3) {
+      grid-column: 3;
+      grid-row: 1 / -1;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: subgrid;
+      height: auto;
+      min-height: 0;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role .vc-support-donate-role__head {
+      margin-bottom: 0;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role .vc-support-donate-role__lede {
+      margin-bottom: 0;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role .vc-support-donate-role__perks {
+      display: contents;
+      flex: unset;
+      gap: 0;
+    }
+
+    .vc-support-donate-roles__grid > .vc-support-donate-role .vc-support-donate-role__foot {
+      margin-top: 0;
+      padding-top: 0.85rem;
+    }
+
+    .vc-support-donate-roles__grid .vc-support-donate-perk {
+      align-items: flex-start;
+      min-height: 0;
+    }
+
+    .vc-support-donate-roles__grid .vc-support-donate-perk__ico {
+      align-self: flex-start;
+      margin-top: 0.12rem;
+    }
+
+    .vc-support-donate-roles__grid .vc-support-donate-perk__text {
+      align-self: flex-start;
+    }
+  }
 }
 
 html.vc-session-verify-pending::before {
@@ -13658,7 +13914,7 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
 }
 
 .vc-notif-fly-card--run {
-  animation: vc-notif-fly-to-bell 0.88s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: vc-notif-fly-to-bell 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes vc-notif-fly-to-bell {

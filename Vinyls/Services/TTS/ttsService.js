@@ -22,7 +22,9 @@ const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
 const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000; // Ridotto a 30 secondi per evitare di leggere messaggi vecchi al riavvio
 const TTS_RESTORE_CONCURRENCY = 3;
+const TTS_POST_JOIN_EMPTY_LEAVE_GRACE_MS = 6000;
 const ttsStates = new Map();
+const ttsLastJoinAtByGuild = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
 const ttsJoinWarnCache = new Map();
@@ -689,6 +691,20 @@ function clearLockedChannel(guildId, channelId) {
     guildLocks.delete(String(guildId));
   }
 }
+function markTtsVoiceJoinGrace(guildId) {
+  if (guildId == null) return;
+  ttsLastJoinAtByGuild.set(String(guildId), Date.now());
+}
+function isTtsPostJoinVoiceGraceActive(guildId, graceMs = TTS_POST_JOIN_EMPTY_LEAVE_GRACE_MS) {
+  if (guildId == null) return false;
+  const at = Number(ttsLastJoinAtByGuild.get(String(guildId)));
+  if (!Number.isFinite(at)) return false;
+  return Date.now() - at < graceMs;
+}
+function clearTtsPostJoinVoiceGrace(guildId) {
+  if (guildId == null) return;
+  ttsLastJoinAtByGuild.delete(String(guildId));
+}
 
 async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
   if (!voiceChannel?.guild?.id || !voiceChannel?.id || !oldChannelId) return { ok: false, reason: "invalid" };
@@ -801,6 +817,7 @@ async function ensureConnection(state, voiceChannel) {
       await entersState(connection, VoiceConnectionStatus.Ready, 25_000);
       setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
       await saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
+      markTtsVoiceJoinGrace(voiceChannel.guild.id);
       return connection;
     } catch (err) {
       if (connection) {
@@ -987,9 +1004,11 @@ function cleanupAllTtsStateForGuild(guildId) {
     ttsStates.delete(channelId);
   }
   guildLocks.delete(gid);
+  clearTtsPostJoinVoiceGrace(gid);
 }
 
 async function leaveTtsGuild(guildId, client) {
+  clearTtsPostJoinVoiceGrace(guildId);
   let lockedChannelId = getLockedChannelId(guildId);
   if (!lockedChannelId) {
     lockedChannelId = findLockedChannelIdByGuild(guildId);
@@ -1197,4 +1216,5 @@ module.exports = {
   hydrateUserTtsLangForUser,
   restoreTtsConnections,
   handleTtsBotVoiceMove,
+  isTtsPostJoinVoiceGraceActive,
 };

@@ -120,6 +120,7 @@
     if (kind === "hours") return String(n.toFixed(1)).replace(".", ",") + "h";
     if (kind === "percent") return String(Math.round(n)) + "%";
     if (kind === "plain") return String(Math.round(n));
+    if (kind === "mult") return formatMult(n);
     return formatIntIt(n);
   }
 
@@ -182,6 +183,11 @@
     if (kind === "hours") {
       var hours = parseFloat(text.replace(",", ".").replace(/[^\d.,-]/g, ""));
       return Number.isFinite(hours) ? hours * 3600 : 0;
+    }
+    if (kind === "mult") {
+      var mt = text.replace(/^x/i, "").replace(",", ".").trim();
+      var mx = parseFloat(mt.replace(/[^\d.-]/g, ""));
+      return Number.isFinite(mx) ? mx : 0;
     }
     var n = parseFloat(text.replace(/\./g, "").replace(",", ".").replace(/[^\d.,-]/g, ""));
     return Number.isFinite(n) ? n : 0;
@@ -427,7 +433,7 @@
       '<div class="vc-ul-card-foot">' +
       '<span class="vc-ul-foot-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>' +
       '<span class="vc-ul-foot-label">Moltiplicatore</span>' +
-      '<span class="vc-ul-foot-val" data-vc-countup="true" data-vc-count-kind="plain" data-vc-count-value="' +
+      '<span class="vc-ul-foot-val" data-vc-countup="true" data-vc-count-kind="mult" data-vc-count-value="' +
       esc(String(Number(row.expMultiplier) || 1)) +
       '">' +
       esc(mult) +

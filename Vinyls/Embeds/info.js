@@ -30,7 +30,7 @@ async function run(client) {
     )
     .addFields(
       {
-        name: "<:VC_Dot:1482532364222595303> Links",
+        name: "<:VC_Link:1482460590894088222> Links",
         value: [
           "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](<https://www.instagram.com/viniliecaffe/>)",
           "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](<https://www.tiktok.com/@viniliecaffe/>)",
@@ -42,7 +42,7 @@ async function run(client) {
         inline: true,
       },
       {
-        name: "<:VC_Dot:1482532364222595303> Informazioni",
+        name: "<:VC_Info:1482526956703580372> Informazioni",
         value: [
           "<:exp:1470067108543987846> Owner: <@295500038401163264>",
           "<:moon:1470064812615667827> Fondazione: ||<t:1765382400:F>||",

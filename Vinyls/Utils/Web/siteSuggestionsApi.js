@@ -11,6 +11,13 @@ const MAX_SUGGESTION_LEN = 2000;
 const MAX_COMMENT_LEN = 1200;
 const MAX_COMMENTS = 150;
 const LIST_LIMIT = 60;
+const HIGH_STAFF_CACHE_TTL_MS = 2 * 60 * 1000;
+
+let highStaffCache = {
+  guildId: "",
+  expiresAt: 0,
+  userIds: [],
+};
 
 function displayNameForMember(member) {
   return String(member?.user?.username || "").trim() || "Utente";
@@ -51,6 +58,53 @@ function suggestionNotifOpenUrl(suggestionId) {
   const id = String(suggestionId || "").trim();
   if (!id || !mongoose.isValidObjectId(id)) return "/suggerimenti";
   return `/suggerimenti#vc-suggestion-${id}`;
+}
+
+async function getHighStaffUserIds(guild) {
+  const guildId = String(guild?.id || "").trim();
+  if (guildId && highStaffCache.guildId === guildId && highStaffCache.expiresAt > Date.now()) {
+    return Array.isArray(highStaffCache.userIds) ? highStaffCache.userIds : [];
+  }
+  if (!guild || !HIGH_STAFF_ROLE_ID) {
+    highStaffCache = { guildId, expiresAt: Date.now() + HIGH_STAFF_CACHE_TTL_MS, userIds: [] };
+    return [];
+  }
+  await guild.members.fetch().catch(() => null);
+  const role = guild.roles.cache.get(HIGH_STAFF_ROLE_ID) || (await guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));
+  const userIds = role
+    ? Array.from(role.members.values())
+        .filter((member) => member && !member.user?.bot)
+        .map((member) => String(member.id))
+    : [];
+  highStaffCache = { guildId, expiresAt: Date.now() + HIGH_STAFF_CACHE_TTL_MS, userIds };
+  return userIds;
+}
+
+async function notifyHighStaffNewSuggestion(guild, suggestion, authorName) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId) return;
+  const highStaffIds = await getHighStaffUserIds(guild);
+  if (!highStaffIds.length) return;
+  const sid = String(suggestion?._id || suggestion?.id || "").trim();
+  const content = String(suggestion?.content || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const bodyPreview = content.length > 220 ? `${content.slice(0, 219)}…` : content || "Nuovo suggerimento pubblicato.";
+  const safeAuthor = String(authorName || "Un utente").trim() || "Un utente";
+  await Promise.all(
+    highStaffIds.map((userId) =>
+      enqueueSiteInAppNotification({
+        guildId,
+        userId,
+        title: "Nuovo suggerimento sul sito",
+        body: `${safeAuthor} ha inviato un suggerimento: ${bodyPreview}`,
+        kind: "suggestion",
+        openUrl: suggestionNotifOpenUrl(sid),
+        dedupeKey: `suggestion:new:${sid}`,
+        dedupeWindowMs: 86_400_000,
+      }),
+    ),
+  ).catch(() => null);
 }
 
 async function notifySuggestionAuthor(guildId, authorUserId, payload) {
@@ -201,6 +255,7 @@ async function createSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare il suggerimento." };
   }
 
+  await notifyHighStaffNewSuggestion(resolved.guild, doc, displayNameForMember(resolved.member));
   broadcastSiteSuggestionsChanged();
   return {
     ok: true,

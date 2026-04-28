@@ -21,6 +21,11 @@ let staffCache = {
   list: [],
   ids: new Set(),
 };
+let highStaffCache = {
+  guildId: "",
+  expiresAt: 0,
+  userIds: [],
+};
 
 function resolveGuildId(client) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
@@ -105,6 +110,59 @@ async function getStaffTargets(client, guild) {
   const ids = new Set(list.map((entry) => entry.id));
   staffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, list, ids };
   return staffCache;
+}
+
+async function getHighStaffUserIds(guild) {
+  const guildId = String(guild?.id || "").trim();
+  if (guildId && highStaffCache.guildId === guildId && highStaffCache.expiresAt > Date.now()) {
+    return Array.isArray(highStaffCache.userIds) ? highStaffCache.userIds : [];
+  }
+  if (!guild || !HIGH_STAFF_ROLE_ID) {
+    highStaffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, userIds: [] };
+    return [];
+  }
+  await guild.members.fetch().catch(() => null);
+  const role = guild.roles.cache.get(HIGH_STAFF_ROLE_ID) || (await guild.roles.fetch(HIGH_STAFF_ROLE_ID).catch(() => null));
+  const userIds = role
+    ? Array.from(role.members.values())
+        .filter((member) => member && !member.user?.bot)
+        .map((member) => String(member.id))
+    : [];
+  highStaffCache = { guildId, expiresAt: Date.now() + STAFF_CACHE_TTL_MS, userIds };
+  return userIds;
+}
+
+function reviewNotifOpenUrl(reviewId) {
+  const id = String(reviewId || "").trim();
+  return id ? `/recensioni#vc-review-${id}` : "/recensioni";
+}
+
+async function notifyHighStaffNewReview(guild, review, authorName) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId) return;
+  const highStaffIds = await getHighStaffUserIds(guild);
+  if (!highStaffIds.length) return;
+  const rid = String(review?._id || review?.id || "").trim();
+  const rating = normalizeRating(review?.rating);
+  const content = String(review?.content || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const bodyPreview = content.length > 220 ? `${content.slice(0, 219)}…` : content || "Nuova recensione pubblicata.";
+  const safeAuthor = String(authorName || "Un utente").trim() || "Un utente";
+  await Promise.all(
+    highStaffIds.map((userId) =>
+      enqueueSiteInAppNotification({
+        guildId,
+        userId,
+        title: "Nuova recensione sul sito",
+        body: `${safeAuthor} ha pubblicato una recensione (${rating}/5): ${bodyPreview}`,
+        kind: "review",
+        openUrl: reviewNotifOpenUrl(rid),
+        dedupeKey: `review:new:${rid}`,
+        dedupeWindowMs: 86_400_000,
+      }),
+    ),
+  ).catch(() => null);
 }
 
 async function cleanupOrphanStaffReviews(client, guild) {
@@ -411,6 +469,9 @@ async function submitSiteReview(client, payload = {}) {
   if (kind === "server" && !existing) {
     const rewardInfo = await awardServerReviewLevels(client, resolved.guild, resolved.member);
     await announceServerReview(client, resolved.guild, resolved.member, nextDoc, rewardInfo);
+  }
+  if (!existing) {
+    await notifyHighStaffNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
   }
 
   try {

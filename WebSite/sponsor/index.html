@@ -151,11 +151,23 @@
             </div>
             <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Collaborazioni</p>
             <h1 id="vc-sponsor-hero-heading" class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-              <span class="text-emerald-300">Sponsor</span> sul server
+              Sponsor su<br /><span class="text-emerald-300">Vinili &amp; Caffè</span>
             </h1>
             <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
-              Informazioni su tipologie, durate e prezzi delle sponsor in stile Discord: apri un ticket <strong class="text-white">High Staff</strong> sul server per prenotare o chiedere dettagli.
+              Informazioni su tipologie, durate e prezzi delle sponsor: apri un ticket <strong class="text-white">High Staff</strong> sul server per prenotare o chiedere dettagli.
             </p>
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+              <a
+                class="inline-flex min-h-[3.3rem] items-center justify-center gap-2.5 rounded-2xl border border-emerald-300/40 bg-emerald-300/12 px-6 py-3 text-sm font-bold text-emerald-100 shadow-[0_12px_30px_rgba(16,185,129,0.18)] transition hover:-translate-y-0.5 hover:border-emerald-300/60 hover:bg-emerald-300/20 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300/60"
+                href="{{DISCORD_INVITE_URL}}"
+                target="_blank"
+                rel="noopener noreferrer"><i class="fa fa-ticket" aria-hidden="true"></i> Entra nel server Discord</a>
+              <a
+                class="inline-flex min-h-[3.3rem] items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-3 text-sm font-extrabold text-slate-950 shadow-[0_14px_34px_rgba(16,185,129,0.24)] transition hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300/60"
+                href="{{PAYPAL_DONATIONS_URL}}"
+                target="_blank"
+                rel="noopener noreferrer"><i class="fa fa-paypal" aria-hidden="true"></i> Paga con PayPal</a>
+            </div>
           </div>
           <div class="vc-sponsor-hero-aside min-w-0">
             <article class="vc-sponsor-embed vc-sponsor-embed--in-hero" aria-labelledby="sponsor-intro-title">
@@ -169,8 +181,8 @@
               </ul>
               <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">✨</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Le <strong>sponsor</strong> si dividono in:</span></p>
               <ul class="vc-sponsor-list">
+                <li><strong>Sito o durante la serata film</strong></li>
                 <li><strong>Canale Privato</strong></li>
-                <li><strong>Canale</strong> <span class="vc-sponsor-pill">༄📰︲news</span></li>
                 <li><strong>Canale</strong> <span class="vc-sponsor-pill">༄📢︲sponsor generali</span></li>
               </ul>
               <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">💿</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Per effettuare una <strong>sponsor</strong> con noi apri un ticket <a class="vc-sponsor-link" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">High Staff</a> sul server Discord.</span></p>
@@ -208,12 +220,30 @@
         </article>
 
         <article class="vc-sponsor-embed" aria-labelledby="sponsor-news-title">
-          <h2 id="sponsor-news-title" class="vc-sponsor-embed__kicker">💗 <span class="vc-sponsor-embed__underline">Canale news</span></h2>
-          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">⚡</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Semplicemente la sponsor del tuo server verrà inviata su <span class="vc-sponsor-pill">༄📰︲news</span>.</span></p>
-          <section class="vc-sponsor-tier" aria-label="Prezzi canale news">
-            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: per sempre ma rinnovabile</span></p>
+          <h2 id="sponsor-news-title" class="vc-sponsor-embed__kicker">💗 <span class="vc-sponsor-embed__underline">Sponsor sul sito o serata film</span></h2>
+          <p class="vc-sponsor-line"><span class="vc-sponsor-line__ico" aria-hidden="true">🌐</span><span class="vc-sponsor-line__sep" aria-hidden="true">|</span><span>Il tuo server può essere sponsorizzato anche nel sito tramite un pop-up in qualsiasi pagina o durante le serate film prima e dopo la proiezione del film.</span></p>
+          <section class="vc-sponsor-tier" aria-label="Prezzi sponsor sul sito 7 giorni">
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 7 giorni</span></p>
             <ul class="vc-sponsor-prices">
-              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">x1 ping <span class="vc-sponsor-mention">@everyone</span></span><span class="vc-sponsor-price">6€</span></li>
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Senza ping</span><span class="vc-sponsor-price">10€</span></li>
+            </ul>
+          </section>
+          <section class="vc-sponsor-tier" aria-label="Prezzi sponsor sul sito 14 giorni">
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 14 giorni</span></p>
+            <ul class="vc-sponsor-prices">
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Senza ping</span><span class="vc-sponsor-price">20€</span></li>
+            </ul>
+          </section>
+          <section class="vc-sponsor-tier" aria-label="Prezzi sponsor sul sito 30 giorni">
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Durata: 30 giorni</span></p>
+            <ul class="vc-sponsor-prices">
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Senza ping</span><span class="vc-sponsor-price">30€</span></li>
+            </ul>
+          </section>
+          <section class="vc-sponsor-tier" aria-label="Prezzo sponsor durante serata film">
+            <p class="vc-sponsor-tier__head"><span aria-hidden="true">»</span> <span class="vc-sponsor-embed__underline">Sponsor durante serata film</span></p>
+            <ul class="vc-sponsor-prices">
+              <li><span class="vc-sponsor-bullet" aria-hidden="true">✦</span><span class="vc-sponsor-prices__mid">Visibilità durante la serata film</span><span class="vc-sponsor-price">2,50€/Serata film</span></li>
             </ul>
           </section>
           <p class="vc-sponsor-foot"><span class="vc-sponsor-line__ico" aria-hidden="true">!</span><span><strong class="vc-sponsor-embed__underline">Se volete un ping <span class="vc-sponsor-mention">@everyone</span> aggiuntivo il prezzo è di 5,00€.</strong></span></p>

@@ -1,5 +1,5 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js");
-const { leaveTtsGuild, handleTtsBotVoiceMove } = require("../Services/TTS/ttsService");
+const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
 const{handleVoiceActivity,}=require("../Services/Community/activityService");
 const IDs = require("../Utils/Config/ids");
 const AUDIT_FETCH_LIMIT = 20;
@@ -350,6 +350,7 @@ module.exports = {
     const botMember = guild.members.me || guild.members.cache.get(client.user.id);
     const botChannel = botMember?.voice?.channel;
     if (!botChannel) return;
+    if (isTtsPostJoinVoiceGraceActive(guild.id)) return;
 
     const humans = botChannel.members.filter((m) => !m.user.bot);
     if (humans.size === 0) {
