@@ -423,6 +423,7 @@
     var roles = Array.isArray(profile.roles) ? profile.roles : [];
     var customProfile = profile.customProfile || null;
     var customRole = customProfile && customProfile.role ? customProfile.role : null;
+    var customSecondaryRole = customProfile && customProfile.secondaryRole ? customProfile.secondaryRole : null;
     var customVoice = customProfile && customProfile.voice ? customProfile.voice : null;
     var rankCardTheme = profile.rankCard || {};
     var multiplier = Number(
@@ -431,7 +432,7 @@
         1,
     );
     var badgesHtml = buildProfileBadges(level.rank, roles);
-    var customRoleCount = (customRole ? 1 : 0) + (customVoice ? 1 : 0);
+    var customRoleCount = (customRole ? 1 : 0) + (customSecondaryRole ? 1 : 0);
     var customRoleIconHtml = customRole
       ? customRole.iconUrl
         ? '<img class="vc-user-profile-customicon__img" src="' +
@@ -516,7 +517,7 @@
               '<span class="vc-user-profile-accordion__copy">' +
               '<span class="vc-user-profile-accordion__title">Ruoli Personalizzati</span>' +
               '<span class="vc-user-profile-accordion__sub">' +
-              (customRole && customVoice
+              (customRole && customSecondaryRole
                 ? "Ruolo principale + 1 ruolo secondario"
                 : customRole
                   ? "Ruolo principale"
@@ -549,25 +550,30 @@
                   "</strong></span>" +
                   "</article>"
                 : "") +
-              (customVoice
+              (customSecondaryRole
                 ? '<article class="vc-user-profile-customcard vc-user-profile-customcard--secondary">' +
                   '<div class="vc-user-profile-customcard__main">' +
                   '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--voice">' +
-                  (customVoiceEmoji ? esc(customVoiceEmoji) : '<i class="fa fa-microphone" aria-hidden="true"></i>') +
+                  (customSecondaryRole.iconUrl
+                    ? '<img class="vc-user-profile-customicon__img" src="' + esc(customSecondaryRole.iconUrl) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />'
+                    : customSecondaryRole.emoji
+                      ? '<span class="vc-user-profile-customicon__emoji">' + esc(customSecondaryRole.emoji) + "</span>"
+                      : '<i class="fa fa-star" aria-hidden="true"></i>') +
                   "</span>" +
                   '<div class="vc-user-profile-customcard__copy">' +
                   '<strong class="vc-user-profile-customcard__title">' +
-                  esc(customVoiceLabel) +
+                  esc((customSecondaryRole.emoji ? customSecondaryRole.emoji + " " : "") + (customSecondaryRole.name || "Ruolo personalizzato secondario")) +
                   "</strong>" +
                   '<span class="vc-user-profile-customcard__meta">Ruolo Secondario</span>' +
                   "</div>" +
                   "</div>" +
                   '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i>Creato<br><strong>' +
-                  esc(formatDateIt(customVoice.createdAt)) +
+                  esc(formatDateIt(customSecondaryRole.createdAt)) +
                   "</strong></span>" +
                   "</article>"
                 : "") +
               (customRole ? sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Condiviso con") : "") +
+              (customSecondaryRole ? sharedMembersMarkup(customSecondaryRole.sharedMembers, customSecondaryRole.memberCount, "Secondario condiviso con") : "") +
               "</div>" +
               "</details>" +
           (false
@@ -647,7 +653,7 @@
           "</section>"
         : "";
 
-    customRoleCount = customRole ? 1 : 0;
+    customRoleCount = (customRole ? 1 : 0) + (customSecondaryRole ? 1 : 0);
     customVoiceLabel = customVoice ? (customVoiceEmoji ? customVoiceEmoji + " " + customVoiceName : customVoiceName) : "";
     customEconomyHtml =
       customRole || customVoice

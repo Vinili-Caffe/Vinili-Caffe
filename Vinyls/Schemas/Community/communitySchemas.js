@@ -400,6 +400,7 @@ const activityUserProfileSchema = new Schema(
       },
       customRole: {
         roleId: { type: String, default: null },
+        secondaryRoleId: { type: String, default: null },
         customVocEmoji: { type: String, default: null },
         customVocChannelId: { type: String, default: null },
         customVocEligibilityLostAt: { type: Date, default: null },
@@ -879,6 +880,7 @@ const CustomRole = {
   _mapFilter(filter = {}) {
     const FIELD_MAP = {
       roleId: "profile.customRole.roleId",
+      secondaryRoleId: "profile.customRole.secondaryRoleId",
       customVocEmoji: "profile.customRole.customVocEmoji",
       customVocChannelId: "profile.customRole.customVocChannelId",
       customVocEligibilityLostAt: "profile.customRole.customVocEligibilityLostAt",
@@ -905,7 +907,7 @@ const CustomRole = {
     const run = async () => {
       const doc = await ActivityUserProfile.findOne(this._mapFilter(filter)).select("_id guildId userId profile.customRole").lean().catch(() => null);
       const s = doc?.profile?.customRole;
-      if (!s?.roleId && !s?.customVocChannelId && !s?.expiresAt) return null;
+      if (!s?.roleId && !s?.secondaryRoleId && !s?.customVocChannelId && !s?.expiresAt) return null;
       const out = { _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...s };
       if (!projection || typeof projection !== "object") return out;
       const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
@@ -937,7 +939,7 @@ const CustomRole = {
       const docs = await q.lean().catch(() => []);
       const mapped = docs
         .map((doc) => ({ _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
-        .filter((x) => x.roleId || x.customVocChannelId || x.expiresAt);
+        .filter((x) => x.roleId || x.secondaryRoleId || x.customVocChannelId || x.expiresAt);
       if (!projection || typeof projection !== "object") return mapped;
       const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
       if (!keys.length) return mapped;
@@ -977,6 +979,7 @@ const CustomRole = {
         $setOnInsert: { guildId: String(filter?.guildId || setOnInsert?.guildId || ""), userId: String(filter?.userId || setOnInsert?.userId || "") },
         $set: {
           ...(setPayload?.roleId !== undefined ? { "profile.customRole.roleId": setPayload.roleId } : {}),
+          ...(setPayload?.secondaryRoleId !== undefined ? { "profile.customRole.secondaryRoleId": setPayload.secondaryRoleId } : {}),
           ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
           ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
           ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
@@ -997,6 +1000,7 @@ const CustomRole = {
         $setOnInsert: { guildId: String(filter?.guildId || ""), userId: String(filter?.userId || "") },
         $set: {
           ...(setPayload?.roleId !== undefined ? { "profile.customRole.roleId": setPayload.roleId } : {}),
+          ...(setPayload?.secondaryRoleId !== undefined ? { "profile.customRole.secondaryRoleId": setPayload.secondaryRoleId } : {}),
           ...(setPayload?.customVocEmoji !== undefined ? { "profile.customRole.customVocEmoji": setPayload.customVocEmoji } : {}),
           ...(setPayload?.customVocChannelId !== undefined ? { "profile.customRole.customVocChannelId": setPayload.customVocChannelId } : {}),
           ...(setPayload?.customVocEligibilityLostAt !== undefined ? { "profile.customRole.customVocEligibilityLostAt": setPayload.customVocEligibilityLostAt } : {}),
@@ -1011,6 +1015,7 @@ const CustomRole = {
     return ActivityUserProfile.updateOne(this._mapFilter(filter), {
       $set: {
         "profile.customRole.roleId": null,
+        "profile.customRole.secondaryRoleId": null,
         "profile.customRole.customVocEmoji": null,
         "profile.customRole.customVocChannelId": null,
         "profile.customRole.customVocEligibilityLostAt": null,

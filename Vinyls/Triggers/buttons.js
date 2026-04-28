@@ -1,4 +1,4 @@
-const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
+const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, } = require("discord.js");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter");
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas");
@@ -22,6 +22,18 @@ function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
   if (!body) return "";
   return `<:VC_Dot:1482532364222595303> ${body}\n`;
+}
+
+function v2Text(content) {
+  return new TextDisplayBuilder().setContent(String(content || ""));
+}
+
+function v2Separator() {
+  return new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
+}
+
+function v2PrivateFlags() {
+  return PRIVATE_FLAG | MessageFlags.IsComponentsV2;
 }
 const IGNORED_BUTTON_LOG_CODES = new Set([
   10062, // Unknown interaction
@@ -127,24 +139,23 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "sanzioni") {
-    const embed = new EmbedBuilder()
-      .setImage(DIVIDER_URL)
-      .setColor("#6f4e37")
-      .setDescription(
-        "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.\n\n" +
-        "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
-        "<:VC_Dot:1482532364222595303> Ogni <@&" +
-        IDs.roles.Mod +
-        "> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
-        "<:VC_Dot:1482532364222595303> Ogni <@&" +
-        IDs.roles.HighStaff +
-        "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
-        "<:VC_Dot:1482532364222595303> Ogni <@&" +
-        IDs.roles.Admin +
-        "> dovrà __eseguire__ almeno: **`3 sanzioni`**\n\n" +
-        "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**."
-      );
-    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    const introText = "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.";
+    const limitsText = [
+      "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.HighStaff + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`3 sanzioni`**",
+      "",
+      "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
+    ].join("\n");
+    await interaction.reply({
+      components: [
+        new TextDisplayBuilder().setContent(introText),
+        new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        new TextDisplayBuilder().setContent(limitsText),
+      ],
+      flags: PRIVATE_FLAG | MessageFlags.IsComponentsV2,
+    }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }
 
@@ -744,30 +755,36 @@ module.exports = {
     }
 
     if (interaction.customId == "metodi") {
-      const embeds = [new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
-        `<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#${IDs.channels.ticket}> \`HIGH STAFF\`.\n\n` +
-        "<:VC_Dot:1482532364222595303> **€1,50** <a:VC_Arrow:1482706699365257397> sponsor per **2** settimane\n" +
-        "<:VC_Dot:1482532364222595303> **€3** <a:VC_Arrow:1482706699365257397> sponsor per **1** mese\n" +
-        "<:VC_Dot:1482532364222595303> **€5** <a:VC_Arrow:1482706699365257397> sponsor **lifetime**"
-      ),];
-      await interaction.reply({ embeds: [embeds[0]], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({
+        components: [
+          v2Text("<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un <#"+IDs.channels.ticket+"> `HIGH STAFF`."),
+          v2Separator(),
+          v2Text([
+            "<:VC_Dot:1482532364222595303> **€1,50** <a:VC_Arrow:1482706699365257397> sponsor per **2** settimane",
+            "<:VC_Dot:1482532364222595303> **€3** <a:VC_Arrow:1482706699365257397> sponsor per **1** mese",
+            "<:VC_Dot:1482532364222595303> **€5** <a:VC_Arrow:1482706699365257397> sponsor **lifetime**",
+          ].join("\n")),
+        ],
+        flags: v2PrivateFlags(),
+      }).catch((err) => { logButtonErr(err); return null; });
     }
     if (interaction.customId == "ping") {
-      const embeds = [new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription(
-        "<:Discord_Mention:1329524304790028328> I **ping** variano in base al __numero__ di **membri** del server.\n\n" +
-        "<:VC_Dot:1482532364222595303> Meno di **500** <a:VC_Arrow:1482706699365257397> `no ping`\n" +
-        "<:VC_Dot:1482532364222595303> Tra i **500** e i **1000** <a:VC_Arrow:1482706699365257397> `ping @here`\n" +
-        "<:VC_Dot:1482532364222595303> **1000+** <a:VC_Arrow:1482706699365257397> `ping @here & @everyone`"
-      ),];
-      await interaction.reply({ embeds: [embeds[0]], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({
+        components: [
+          v2Text("<:Discord_Mention:1329524304790028328> I **ping** variano in base al __numero__ di **membri** del server."),
+          v2Separator(),
+          v2Text([
+            "<:VC_Dot:1482532364222595303> Meno di **500** <a:VC_Arrow:1482706699365257397> `no ping`",
+            "<:VC_Dot:1482532364222595303> Tra i **500** e i **1000** <a:VC_Arrow:1482706699365257397> `ping @here`",
+            "<:VC_Dot:1482532364222595303> **1000+** <a:VC_Arrow:1482706699365257397> `ping @here & @everyone`",
+          ].join("\n")),
+        ],
+        flags: v2PrivateFlags(),
+      }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_rules") {
-      const commonEmbed = new EmbedBuilder()
-        .setImage(DIVIDER_URL)
-        .setColor("#6f4e37")
-        .setDescription("<:5751attentionfromvega:1443651874032062505> __Lo staff si riserva il diritto di cambiare sanzioni e regole in base alla situazione.__");
-      const generalEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription([
+      const generalRules = [
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.1`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.1"]}`,
         "",
@@ -782,8 +799,8 @@ module.exports = {
         "",
         "<:rules:1443307208543703131> **`REGOLA GENERALE 1.5`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.5"]}`,
-      ].join("\n"));
-      const textEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription([
+      ].join("\n");
+      const textRules = [
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.1`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.1"]}`,
         "",
@@ -798,8 +815,8 @@ module.exports = {
         "",
         "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.5`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.5"]}`,
-      ].join("\n"));
-      const voiceEmbed = new EmbedBuilder().setImage(DIVIDER_URL).setColor("#6f4e37").setDescription([
+      ].join("\n");
+      const voiceRules = [
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.1`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.1"]}`,
         "",
@@ -820,19 +837,25 @@ module.exports = {
         "",
         "<:rules:1443307208543703131> **`REGOLA VOCALE 3.7`**",
         `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.7"]}`,
-      ].join("\n"));
-      await interaction.reply({ embeds: [generalEmbed, textEmbed, voiceEmbed, commonEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      ].join("\n");
+      await interaction.reply({
+        components: [
+          v2Text(generalRules),
+          v2Separator(),
+          v2Text(textRules),
+          v2Separator(),
+          v2Text(voiceRules),
+          v2Separator(),
+          v2Text("<:5751attentionfromvega:1443651874032062505> __Lo staff si riserva il diritto di cambiare sanzioni e regole in base alla situazione.__"),
+        ],
+        flags: v2PrivateFlags(),
+      }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_donations") {
-      const donations = new EmbedBuilder()
-        .setImage(DIVIDER_URL)
-        .setColor("#6f4e37")
-        .setAuthor({
-          name: "Supporta il server con l'acquisto di un VIP o una donazione!",
-          iconURL: "https://cdn.discordapp.com/emojis/1448695567244066827.webp?size=40&animated=true",
-        })
-        .setDescription([
+      const donations = [
+        "## <:VC_Sparkles:1468546911936974889> Supporta il server con l'acquisto di un VIP o una donazione!",
+        "",
           "Usiamo i soldi donati per portare eventi con premi migliori, come Discord Nitro o gift card, e per cercare collaborazioni interessanti per voi utenti.",
           "Le donazioni sono completamente volontarie e contribuiscono alla nostra crescita. In anticipo, grazie.",
           "",
@@ -847,13 +870,9 @@ module.exports = {
           "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
           "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
           "<:VC_Dot:1482532364222595303> X4 EXP boost",
-        ].join("\n"))
-        .setImage(DIVIDER_URL);
+      ].join("\n");
 
-      const vip = new EmbedBuilder()
-        .setImage(DIVIDER_URL)
-        .setColor("#6f4e37")
-        .setDescription([
+      const vip = [
           "**Vuoi sostenere il server?** Acquista il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server! <a:VC_HeartsBlue:1468686100045369404>",
           "",
           "ACQUISTA IL <@&1442568950805430312> <a:VC_HeartsPink:1468685897389052008>",
@@ -871,38 +890,35 @@ module.exports = {
           "",
           "<:VC_Attention:1482534443632558151> DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.",
           "I vantaggi segnati con \"✩\" vengono rimossi qualora l'utente violi il regolamento, porti un'immagine negativa al server o sia inattivo per mesi.",
-        ].join("\n"))
-        .setImage(DIVIDER_URL);
+      ].join("\n");
 
-      const ticket = new EmbedBuilder()
-        .setImage(DIVIDER_URL)
-        .setColor("#6f4e37")
-        .setTitle("Acquista ora!")
-        .setDescription("<:blueflash:1470064803157643468> Apri un ticket `HIGH STAFF` in: <#1442569095068254219>.");
-      await interaction.reply({ embeds: [donations, vip, ticket], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({
+        components: [
+          v2Text(donations),
+          v2Separator(),
+          v2Text(vip),
+          v2Separator(),
+          v2Text("## Acquista ora!\n<:blueflash:1470064803157643468> Apri un ticket `HIGH STAFF` in: <#1442569095068254219>."),
+        ],
+        flags: v2PrivateFlags(),
+      }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_sponsor") {
-      const sponsorEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          "<:pinnednew:1443670849990430750> **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un <#1442569095068254219> `HIGH STAFF`.\n\n" +
-          "> Ogni server che vorrà effettuare una **sponsor** dovrà rispettare questi 3 requisiti:\n" +
-          "> <:VC_Dot:1482532364222595303> Rispettare i [**ToS di Discord**](https://discord.com/terms)\n" +
-          "> <:VC_Dot:1482532364222595303> Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n" +
-          "> <:VC_Dot:1482532364222595303> Rispettare il [**Regolamento di Vinili & Caffè**](https://discord.com/channels/1329080093599076474/1442569111119990887)",
-        )
-        .setImage(DIVIDER_URL);
+      const sponsorText = "<:pinnednew:1443670849990430750> **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un <#1442569095068254219> `HIGH STAFF`.\n\n"
+        + "> Ogni server che vorrà effettuare una **sponsor** dovrà rispettare questi 3 requisiti:\n"
+        + "> <:VC_Dot:1482532364222595303> Rispettare i [**ToS di Discord**](https://discord.com/terms)\n"
+        + "> <:VC_Dot:1482532364222595303> Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n"
+        + "> <:VC_Dot:1482532364222595303> Rispettare il [**Regolamento di Vinili & Caffè**](https://discord.com/channels/1329080093599076474/1442569111119990887)";
       const rowSponsor = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("metodi").setLabel("︲METODI").setEmoji("<:Money:1330544713463500970>").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("ping").setLabel("︲PING").setEmoji("<:Discord_Mention:1329524304790028328>").setStyle(ButtonStyle.Secondary));
-      await interaction.reply({ embeds: [sponsorEmbed], components: [rowSponsor], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ components: [v2Text(sponsorText), rowSponsor], flags: v2PrivateFlags() }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "info_tags") {
       const suggestionsMention = IDs.channels.suggestions ? "<#" + IDs.channels.suggestions + ">" : "<#1442569147559973094>";
-      const tagsEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setTitle("<:VC_Firework:1470796227913322658> LE NOSTRE TAGS")
-        .setDescription([
+      const tagsText = [
+          "## <:VC_Firework:1470796227913322658> LE NOSTRE TAGS",
+          "",
           "> Per prendere una di queste tag vi basterà entrare nel server dedicato e verificarvi <a:VC_HeartsBlue:1468686100045369404>",
           "",
           "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
@@ -913,9 +929,8 @@ module.exports = {
           "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
           "",
           "<:VC_Reply:1482532158080942191> _In costante aggiornamento, per consigliarne altre " + suggestionsMention + "_",
-        ].join("\n"))
-        .setImage(DIVIDER_URL);
-      await interaction.reply({ embeds: [tagsEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+        ].join("\n");
+      await interaction.reply({ components: [v2Text(tagsText)], flags: v2PrivateFlags() }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId == "candidature_premi_partner") {
@@ -953,11 +968,9 @@ module.exports = {
       });
     };
     if (interaction.customId == "info_verifica") {
-      const verifyEmbed = new EmbedBuilder()
-        .setImage(DIVIDER_URL)
-        .setColor("#6f4e37")
-        .setTitle("<a:VC_Verified:1482532479637127188> **__Verificati per ottenere vantaggi unici__**")
-        .setDescription([
+      const verifyText = [
+          "## <a:VC_Verified:1482532479637127188> **__Verificati per ottenere vantaggi unici__**",
+          "",
           `Per verificare il tuo profilo dovrai andare in <#${IDs.channels.ticket}> e selezionare la HIGH STAFF`,
           "<:VC_Reply:1482532158080942191> successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
           "con il vostro nickname scritto su un foglio cartaceo o altrimenti con il cellulare nella schermata del vostro profilo Discord",
@@ -965,9 +978,33 @@ module.exports = {
           "<:sparkledred:1470064814502973591> Ruolo <@&1469040179799920801>, <@&1469040190730408018> o <@&1495449189390356521> con badge speciale",
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di scrivere in <#1470029899740873029>",
-        ].join("\n"));
+        ].join("\n");
+      await interaction.reply({ components: [v2Text(verifyText)], flags: v2PrivateFlags() }).catch((err) => { logButtonErr(err); return null; });
+    }
 
-      await interaction.reply({ embeds: [verifyEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    if (interaction.customId === "info_buttons_test") {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("info_buttons_test_ok").setLabel("Funziona").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("info_buttons_test_no").setLabel("Non funziona").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("info_buttons_test_ping").setLabel("Ping test").setStyle(ButtonStyle.Secondary),
+      );
+      await interaction.reply({
+        content: "Test bottoni (nessun embed): clicca uno dei pulsanti qui sotto.",
+        components: [row],
+        flags: PRIVATE_FLAG,
+      }).catch((err) => { logButtonErr(err); return null; });
+    }
+
+    if (interaction.customId === "info_buttons_test_ok") {
+      await interaction.reply({ content: "Perfetto: i bottoni standard stanno funzionando ✅", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    }
+
+    if (interaction.customId === "info_buttons_test_no") {
+      await interaction.reply({ content: "Ricevuto ❌: i bottoni standard non stanno rispondendo come previsto.", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    }
+
+    if (interaction.customId === "info_buttons_test_ping") {
+      await interaction.reply({ content: "pong", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
     const buildBoostLevelsPayload = () => {

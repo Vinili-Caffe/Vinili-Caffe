@@ -101,7 +101,8 @@ async function ensureOwnerCustomRoleActive(
 
   if (
     expectedRoleId &&
-    String(state.role?.id || "") !== String(expectedRoleId)
+    String(state.role?.id || "") !== String(expectedRoleId) &&
+    String(state.secondaryRole?.id || "") !== String(expectedRoleId)
   ) {
     await replyEphemeral(interaction, {
       content:
@@ -110,8 +111,10 @@ async function ensureOwnerCustomRoleActive(
     });
     return { ok: false, state };
   }
-
-  return { ok: true, state };
+  const resolvedRole = expectedRoleId && String(state.secondaryRole?.id || "") === String(expectedRoleId)
+    ? state.secondaryRole
+    : state.role || null;
+  return { ok: true, state: { ...state, resolvedRole } };
 }
 
 async function ensureOwnerCustomReactionAllowed(interaction, ownerId) {
@@ -439,12 +442,14 @@ async function handleRoleActionButton(interaction) {
   const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
   if (!ownerState.ok) return true;
 
-  const role = ownerState.state.role || (await fetchRole(interaction, roleId));
+  const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
   if (!role) {
-    await CustomRole.deleteOne({
-      guildId: interaction.guild.id,
-      userId: ownerId,
-    }).catch(() => { });
+    await CustomRole.updateOne(
+      { guildId: interaction.guild.id, userId: ownerId },
+      String(roleId) === String(ownerState.state.doc?.secondaryRoleId || "")
+        ? { $set: { secondaryRoleId: null } }
+        : { $set: { roleId: null } },
+    ).catch(() => { });
     await interaction
       .reply({
         content:
@@ -494,10 +499,17 @@ async function handleRoleActionButton(interaction) {
         .catch(() => { });
       return true;
     }
-    await CustomRole.deleteOne({
-      guildId: interaction.guild.id,
-      userId: ownerId,
-    }).catch(() => { });
+    const isSecondary = String(roleId) === String(ownerDoc?.secondaryRoleId || "");
+    const hadSecondary = Boolean(ownerDoc?.secondaryRoleId);
+    const updatePayload = isSecondary
+      ? { $set: { secondaryRoleId: null } }
+      : hadSecondary
+        ? { $set: { roleId: ownerDoc.secondaryRoleId, secondaryRoleId: null } }
+        : { $set: { roleId: null } };
+    await CustomRole.updateOne(
+      { guildId: interaction.guild.id, userId: ownerId },
+      updatePayload,
+    ).catch(() => { });
 
     const deletedEmbed = new EmbedBuilder()
       .setColor("#e74c3c")
@@ -697,12 +709,14 @@ async function handleRoleActionModal(interaction) {
   const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
   if (!ownerState.ok) return true;
 
-  const role = ownerState.state.role || (await fetchRole(interaction, roleId));
+  const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
   if (!role) {
-    await CustomRole.deleteOne({
-      guildId: interaction.guild.id,
-      userId: ownerId,
-    }).catch(() => { });
+    await CustomRole.updateOne(
+      { guildId: interaction.guild.id, userId: ownerId },
+      String(roleId) === String(ownerState.state.doc?.secondaryRoleId || "")
+        ? { $set: { secondaryRoleId: null } }
+        : { $set: { roleId: null } },
+    ).catch(() => { });
     await interaction
       .reply({
         content:
@@ -1121,7 +1135,7 @@ async function handleAddRemoveSelectMenus(interaction) {
     if (!ownerState.ok) return true;
 
     const targetId = interaction.values?.[0];
-    const role = ownerState.state.role || (await fetchRole(interaction, roleId));
+    const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
     if (!targetId || !role) {
       await interaction
         .reply({
@@ -1172,12 +1186,14 @@ async function handleAddRemoveSelectMenus(interaction) {
     const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId, roleId,);
     if (!ownerState.ok) return true;
 
-    const role = ownerState.state.role || (await fetchRole(interaction, roleId));
+    const role = ownerState.state.resolvedRole || (await fetchRole(interaction, roleId));
     if (!role) {
-      await CustomRole.deleteOne({
-        guildId: interaction.guild.id,
-        userId: ownerId,
-      }).catch(() => { });
+      await CustomRole.updateOne(
+        { guildId: interaction.guild.id, userId: ownerId },
+        String(roleId) === String(ownerState.state.doc?.secondaryRoleId || "")
+          ? { $set: { secondaryRoleId: null } }
+          : { $set: { roleId: null } },
+      ).catch(() => { });
       await interaction
         .reply({
           content:

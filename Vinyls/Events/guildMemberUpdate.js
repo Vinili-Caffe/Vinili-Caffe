@@ -1148,7 +1148,7 @@ async function syncCustomRoleEligibilityWindow(newMember) {
   const userId = String(newMember.id);
 
   const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
-  if (!doc?.roleId) return;
+  if (!doc?.roleId && !doc?.secondaryRoleId) return;
 
   const hasRequiredRole = CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);

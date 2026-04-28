@@ -14,7 +14,7 @@ async function resolveCustomRoleState({ guild, userId, client = null, cleanupExp
   }
 
   const doc = await CustomRole.findOne({ guildId: guild.id, userId: String(userId), }).lean().catch(() => null);
-  if (!doc?.roleId) {
+  if (!doc?.roleId && !doc?.secondaryRoleId) {
     return { status: "none", doc: null, role: null };
   }
 
@@ -25,16 +25,30 @@ async function resolveCustomRoleState({ guild, userId, client = null, cleanupExp
     return { status: "expired", doc, role: null };
   }
 
-  const role = guild.roles.cache.get(doc.roleId) || (await getGuildRoleCached(guild, doc.roleId));
-  if (!role) {
+  let role = null;
+  let secondaryRole = null;
+  if (doc?.roleId) {
+    role = guild.roles.cache.get(doc.roleId) || (await getGuildRoleCached(guild, doc.roleId));
+  }
+  if (doc?.secondaryRoleId) {
+    secondaryRole = guild.roles.cache.get(doc.secondaryRoleId) || (await getGuildRoleCached(guild, doc.secondaryRoleId));
+  }
+  if (doc?.roleId && !role && doc?.secondaryRoleId && secondaryRole) {
+    await CustomRole.updateOne(
+      { guildId: guild.id, userId: String(userId) },
+      { $set: { roleId: secondaryRole.id, secondaryRoleId: null } },
+    ).catch(() => { });
+    role = secondaryRole;
+    secondaryRole = null;
+  }
+  if (!role && !secondaryRole) {
     await CustomRole.deleteOne({
       guildId: guild.id,
       userId: String(userId),
     }).catch(() => { });
     return { status: "missing_role", doc, role: null };
   }
-
-  return { status: "active", doc, role };
+  return { status: "active", doc, role: role || null, secondaryRole: secondaryRole || null };
 }
 
 function buildExpiryText(doc) {

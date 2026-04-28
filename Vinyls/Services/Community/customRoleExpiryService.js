@@ -79,8 +79,11 @@ async function processExpiredCustomRole(client, doc) {
   let role =
     guild.roles.cache.get(doc.roleId) ||
     (await getGuildRoleCached(guild, doc.roleId));
+  let secondaryRole =
+    guild.roles.cache.get(doc.secondaryRoleId) ||
+    (await getGuildRoleCached(guild, doc.secondaryRoleId));
   let voiceChannel = await resolveVoiceChannel(guild, doc);
-  let roleHandled = !role;
+  let roleHandled = !role && !secondaryRole;
   let channelHandled = !voiceChannel;
 
   if (role) {
@@ -94,6 +97,17 @@ async function processExpiredCustomRole(client, doc) {
       roleHandled = !role;
     }
   }
+  if (secondaryRole) {
+    if (await canManageRole(guild, secondaryRole)) {
+      await secondaryRole
+        .delete(`Custom secondary role expired for user ${doc.userId}`)
+        .catch(() => { });
+      secondaryRole =
+        guild.roles.cache.get(doc.secondaryRoleId) ||
+        (await getGuildRoleCached(guild, doc.secondaryRoleId));
+    }
+  }
+  roleHandled = !role && !secondaryRole;
 
   if (voiceChannel) {
     if (await canManageChannels(guild)) {
@@ -163,7 +177,7 @@ async function runExpiredCustomRolesSweep(client) {
   const roleCutoff = new Date(Date.now() - CUSTOM_ROLE_GRACE_MS);
   const staleRole = await execLean(
     CustomRole.find({
-      roleId: { $ne: null },
+      $or: [{ roleId: { $ne: null } }, { secondaryRoleId: { $ne: null } }],
       customRoleEligibilityLostAt: { $ne: null, $lte: roleCutoff },
     }),
     [],

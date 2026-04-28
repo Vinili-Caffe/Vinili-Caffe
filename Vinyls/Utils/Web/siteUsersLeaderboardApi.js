@@ -162,11 +162,15 @@ async function fetchUserIdentity(client, guild, userId) {
 async function buildCustomProfileData(guild, userId) {
   if (!guild || !userId) return null;
   const doc = await CustomRole.findOne({ guildId: guild.id, userId: String(userId) }).lean().catch(() => null);
-  if (!doc || (!doc.roleId && !doc.customVocChannelId)) return null;
+  if (!doc || (!doc.roleId && !doc.secondaryRoleId && !doc.customVocChannelId)) return null;
 
   const role =
     doc.roleId
       ? guild.roles.cache.get(String(doc.roleId)) || (await guild.roles.fetch(String(doc.roleId)).catch(() => null))
+      : null;
+  const secondaryRole =
+    doc.secondaryRoleId
+      ? guild.roles.cache.get(String(doc.secondaryRoleId)) || (await guild.roles.fetch(String(doc.secondaryRoleId)).catch(() => null))
       : null;
   const channelId = String(doc.customVocChannelId || "").trim();
   const voice =
@@ -183,6 +187,23 @@ async function buildCustomProfileData(guild, userId) {
   }
   const roleMemberCount = roleMembers.length;
   const roleSharedMembers = roleMembers
+    .sort((a, b) =>
+      String(a.user?.username || "").localeCompare(String(b.user?.username || ""), "it"),
+    )
+    .slice(0, 60)
+    .map((member) => ({
+      id: String(member.id || member.user?.id || ""),
+      username: String(member.user?.username || "").trim(),
+      displayName: String(member.user?.username || "Utente").trim(),
+      avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
+    }))
+    .filter((member) => member.id);
+  let secondaryRoleMembers = secondaryRole?.members ? Array.from(secondaryRole.members.values()).filter((m) => !m.user?.bot) : [];
+  if (secondaryRole && secondaryRoleMembers.length === 0) {
+    await guild.members.fetch().catch(() => null);
+    secondaryRoleMembers = secondaryRole.members ? Array.from(secondaryRole.members.values()).filter((m) => !m.user?.bot) : [];
+  }
+  const secondaryRoleSharedMembers = secondaryRoleMembers
     .sort((a, b) =>
       String(a.user?.username || "").localeCompare(String(b.user?.username || ""), "it"),
     )
@@ -219,6 +240,21 @@ async function buildCustomProfileData(guild, userId) {
           createdAt: role.createdAt ? new Date(role.createdAt).toISOString() : "",
           memberCount: roleMemberCount,
           sharedMembers: roleSharedMembers,
+        }
+      : null,
+    secondaryRole: secondaryRole
+      ? {
+          id: String(secondaryRole.id),
+          name: String(secondaryRole.name || "Ruolo personalizzato secondario"),
+          color:
+            String(secondaryRole.hexColor || "").trim() && String(secondaryRole.hexColor || "").trim() !== "#000000"
+              ? String(secondaryRole.hexColor || "").trim()
+              : "",
+          emoji: String(secondaryRole.unicodeEmoji || "").trim(),
+          iconUrl: typeof secondaryRole.iconURL === "function" ? String(secondaryRole.iconURL({ extension: "png", size: 128 }) || "") : "",
+          createdAt: secondaryRole.createdAt ? new Date(secondaryRole.createdAt).toISOString() : "",
+          memberCount: secondaryRoleMembers.length,
+          sharedMembers: secondaryRoleSharedMembers,
         }
       : null,
     voice: voice

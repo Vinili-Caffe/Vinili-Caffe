@@ -95,7 +95,10 @@ async function submitSiteRoleRequest(client, payload) {
     return { ok: false, status: 400, error: "reason_too_short", message: "Scrivi una motivazione di almeno 10 caratteri." };
   }
 
-  const doc = await CustomRole.findOne({ guildId: resolved.guild.id, roleId }).lean().catch(() => null);
+  const doc = await CustomRole.findOne({
+    guildId: resolved.guild.id,
+    $or: [{ roleId }, { secondaryRoleId: roleId }],
+  }).lean().catch(() => null);
   if (!doc?.roleId || isExpired(doc)) {
     return { ok: false, status: 404, error: "role_unavailable", message: "Questo ruolo custom non è più disponibile." };
   }

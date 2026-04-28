@@ -106,23 +106,122 @@
       </div>
     </header>
 
-    <main class="vc-legal-main relative z-10 mx-auto px-4 pb-20 pt-32 sm:pt-40">
-      <section class="vc-legal-hero text-center">
-        <h1 class="vc-legal-hero__title">FAQ</h1>
-        <p class="vc-legal-hero__meta">Domande frequenti</p>
+    <main class="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-24 sm:pt-28">
+      <section class="vc-support-page-hero mb-8 sm:mb-10" aria-labelledby="vc-faq-hero-heading">
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_18rem] lg:items-center">
+          <div class="max-w-3xl">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-4" aria-hidden="true">
+              <i class="fa fa-question-circle-o"></i>
+            </div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Supporto Community</p>
+            <h1 id="vc-faq-hero-heading" class="mt-3 text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
+              Domande <span class="text-emerald-300">Frequenti</span>
+            </h1>
+            <p class="mt-4 max-w-2xl text-base leading-7 text-slate-200/88 sm:text-lg">
+              Trova rapidamente risposte chiare su permessi, comandi, livelli e richieste staff.
+            </p>
+          </div>
+          <div class="rounded-[1.35rem] border border-white/10 bg-slate-950/25 p-4 backdrop-blur">
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Come usarla</p>
+            <ul class="mt-3 space-y-2.5 text-sm leading-6 text-slate-100/90">
+              <li class="flex gap-2.5">
+                <i class="fa fa-list-alt mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                <span>Le domande sono raggruppate per categoria.</span>
+              </li>
+              <li class="flex gap-2.5">
+                <i class="fa fa-chevron-down mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                <span>Clicca una domanda per aprire o chiudere la risposta.</span>
+              </li>
+              <li class="flex gap-2.5">
+                <i class="fa fa-life-ring mt-0.5 text-emerald-300" aria-hidden="true"></i>
+                <span>Se non trovi risposta, apri un ticket dallo staff.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
 
-      <section class="vc-legal-stack" aria-label="Stato FAQ">
-        <article class="vc-legal-card vc-legal-card--gold">
-          <div class="vc-legal-card__head">
-            <span class="vc-legal-card__icon"><i class="fa fa-wrench" aria-hidden="true"></i></span>
-            <h2 class="vc-legal-card__title">Pagina in allestimento</h2>
-          </div>
-          <p class="text-lg leading-relaxed text-slate-100/95">In costruzione…</p>
-          <p class="mt-4 text-sm leading-relaxed text-slate-300/90">Stiamo preparando le risposte alle domande più comuni sulla community e sul server Discord. Torna a trovarci tra poco.</p>
-          <p class="mt-6">
-            <a class="inline-flex items-center gap-2 rounded-xl border border-[#d4a888]/40 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-[#e8c9a8] transition hover:border-[#d4a888]/60 hover:bg-white/[0.09]" href="{{SITE_URL}}"><i class="fa fa-home" aria-hidden="true"></i> Torna alla home</a>
-          </p>
+      <section class="vc-faq-stack" aria-label="Domande frequenti">
+        <article class="vc-faq-group">
+          <header class="vc-faq-group__head">
+            <span class="vc-faq-group__icon vc-faq-group__icon--permessi" aria-hidden="true"><i class="fa fa-shield"></i></span>
+            <h2 class="vc-faq-group__title">Permessi</h2>
+          </header>
+          <details class="vc-faq-item" open>
+            <summary class="vc-faq-item__summary"><span>Come posso streammare e accendere la webcam nelle vocali?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Ti basta avere il ruolo <strong>Member</strong> o superiore. Se non hai ancora l'accesso completo, completa la verifica nel server e usa i canali di introduzione per sbloccare i permessi.</p>
+            </div>
+          </details>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Qual è il livello minimo per mandare immagini e GIF?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>In generale basta il livello base del server (<strong>Member</strong>). Con ruoli premium, booster o verifiche speciali ottieni permessi extra e bypass su alcune limitazioni.</p>
+            </div>
+          </details>
+        </article>
+
+        <article class="vc-faq-group">
+          <header class="vc-faq-group__head">
+            <span class="vc-faq-group__icon vc-faq-group__icon--levels" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
+            <h2 class="vc-faq-group__title">Livelli e Moltiplicatori</h2>
+          </header>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Come posso livellare più velocemente?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Partecipa attivamente in chat e vocali, mantieni una presenza costante e sfrutta eventi/community challenge: sono il modo più veloce per accumulare EXP.</p>
+            </div>
+          </details>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Come ottenere un moltiplicatore gratuito?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Puoi ottenerlo tramite ruoli evento, traguardi contest o iniziative speciali dello staff. Tieni d'occhio annunci e canale info.</p>
+            </div>
+          </details>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Ci sono altri moltiplicatori?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Sì: oltre ai bonus temporanei, esistono moltiplicatori legati a ruoli premium/booster e ad alcune ricompense stagionali.</p>
+            </div>
+          </details>
+        </article>
+
+        <article class="vc-faq-group">
+          <header class="vc-faq-group__head">
+            <span class="vc-faq-group__icon vc-faq-group__icon--bot" aria-hidden="true"><i class="fa fa-android"></i></span>
+            <h2 class="vc-faq-group__title">Bot e Comandi</h2>
+          </header>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Quali sono i comandi principali del server?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>I più usati sono quelli per profilo, rank, colori e gestione funzioni community. Puoi iniziare da <code>+profile</code> e <code>+rank</code>.</p>
+            </div>
+          </details>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Come posso vedere tutti i comandi disponibili?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Usa il comando help del bot nel server oppure consulta la sezione <a href="{{WIKI_URL}}">Wiki</a> per la lista completa aggiornata.</p>
+            </div>
+          </details>
+        </article>
+
+        <article class="vc-faq-group">
+          <header class="vc-faq-group__head">
+            <span class="vc-faq-group__icon vc-faq-group__icon--staff" aria-hidden="true"><i class="fa fa-users"></i></span>
+            <h2 class="vc-faq-group__title">Moderazione e Staff</h2>
+          </header>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Sono stato bannato, come posso richiedere un unban?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Compila la richiesta unban dalla pagina dedicata: <a href="{{RICHIESTE_UNBAN_URL}}">Richiesta Unban</a>. Fornisci più dettagli possibili per velocizzare la revisione.</p>
+            </div>
+          </details>
+          <details class="vc-faq-item">
+            <summary class="vc-faq-item__summary"><span>Come posso diventare membro dello staff?</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="vc-faq-item__answer">
+              <p>Quando le candidature sono aperte, trovi tutto su <a href="{{RICHIESTE_CANDIDATURE_URL}}">Candidature</a>. Richiediamo attività costante, maturità e rispetto del regolamento.</p>
+            </div>
+          </details>
         </article>
       </section>
     </main>

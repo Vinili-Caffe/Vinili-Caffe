@@ -160,53 +160,58 @@ async function handleSiteRolesGet(client, req, res) {
     await guild.roles.fetch().catch(() => null);
     await guild.members.fetch().catch(() => null);
 
-    const docs = await CustomRole.find({ guildId, roleId: { $ne: null } }).lean().catch(() => []);
-    const filtered = (Array.isArray(docs) ? docs : []).filter((doc) => doc?.roleId && !isExpired(doc));
+    const docs = await CustomRole.find({ guildId }).lean().catch(() => []);
+    const filtered = (Array.isArray(docs) ? docs : []).filter((doc) => (doc?.roleId || doc?.secondaryRoleId) && !isExpired(doc));
     const rows = [];
 
     for (const doc of filtered) {
-      const roleId = String(doc.roleId || "").trim();
-      if (!roleId) continue;
-      const role = guild.roles.cache.get(roleId) || (await guild.roles.fetch(roleId).catch(() => null));
-      if (!role) continue;
+      const roleEntries = [
+        { roleId: String(doc.roleId || "").trim(), slot: "primary" },
+        { roleId: String(doc.secondaryRoleId || "").trim(), slot: "secondary" },
+      ].filter((entry) => entry.roleId);
+      for (const entry of roleEntries) {
+        const role = guild.roles.cache.get(entry.roleId) || (await guild.roles.fetch(entry.roleId).catch(() => null));
+        if (!role) continue;
 
-      const identity = await fetchUserIdentity(client, guild, doc.userId);
-      const createdAt =
-        (role.createdAt instanceof Date && Number.isFinite(role.createdAt.getTime()) ? role.createdAt.toISOString() : null) ||
-        snowflakeDateIso(role.id) ||
-        null;
-      const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null;
-      const memberCount = role.members ? role.members.filter((m) => !m.user?.bot).size : 0;
-      const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
-      const members = role.members
-        ? Array.from(role.members.values())
-          .filter((m) => !m.user?.bot)
-          .map((m) => memberIdentityFromGuildMember(m, doc.userId, guild))
-          .sort((a, b) => {
-            if (a.isOwner && !b.isOwner) return -1;
-            if (!a.isOwner && b.isOwner) return 1;
-            return String(a.username || "").localeCompare(
-              String(b.username || ""),
-              "it",
-              { sensitivity: "base" },
-            );
-          })
-        : [];
+        const identity = await fetchUserIdentity(client, guild, doc.userId);
+        const createdAt =
+          (role.createdAt instanceof Date && Number.isFinite(role.createdAt.getTime()) ? role.createdAt.toISOString() : null) ||
+          snowflakeDateIso(role.id) ||
+          null;
+        const expiresAt = doc.expiresAt ? new Date(doc.expiresAt).toISOString() : null;
+        const memberCount = role.members ? role.members.filter((m) => !m.user?.bot).size : 0;
+        const iconUrl = typeof role.iconURL === "function" ? role.iconURL({ size: 256 }) : "";
+        const members = role.members
+          ? Array.from(role.members.values())
+            .filter((m) => !m.user?.bot)
+            .map((m) => memberIdentityFromGuildMember(m, doc.userId, guild))
+            .sort((a, b) => {
+              if (a.isOwner && !b.isOwner) return -1;
+              if (!a.isOwner && b.isOwner) return 1;
+              return String(a.username || "").localeCompare(
+                String(b.username || ""),
+                "it",
+                { sensitivity: "base" },
+              );
+            })
+          : [];
 
-      rows.push({
-        roleId: role.id,
-        roleName: String(role.name || "Ruolo custom").trim(),
-        roleColor: normalizeHexColor(role),
-        roleEmoji: String(role.unicodeEmoji || "").trim(),
-        roleIconUrl: String(iconUrl || "").trim(),
-        createdAt,
-        expiresAt,
-        isPermanent: !expiresAt,
-        memberCount,
-        members,
-        customVocChannelId: String(doc.customVocChannelId || "").trim(),
-        ...identity,
-      });
+        rows.push({
+          roleId: role.id,
+          roleSlot: entry.slot,
+          roleName: String(role.name || "Ruolo custom").trim(),
+          roleColor: normalizeHexColor(role),
+          roleEmoji: String(role.unicodeEmoji || "").trim(),
+          roleIconUrl: String(iconUrl || "").trim(),
+          createdAt,
+          expiresAt,
+          isPermanent: !expiresAt,
+          memberCount,
+          members,
+          customVocChannelId: String(doc.customVocChannelId || "").trim(),
+          ...identity,
+        });
+      }
     }
 
     rows.sort((a, b) => {
