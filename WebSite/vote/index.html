@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
@@ -26,7 +26,7 @@
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
   <body id="top"
-    class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    class="vc-body vc-vote-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -138,59 +138,55 @@
 
     <main class="vc-vote-page relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <section class="vc-support-page-hero vc-vote-page-hero">
-        <div class="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,20.5rem)] lg:items-stretch lg:gap-10">
-          <div class="max-w-3xl text-left">
+        <div class="vc-vote-page-hero__inner flex flex-col gap-8 lg:gap-10">
+          <div class="max-w-3xl w-full text-center">
             <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
               <i class="fa fa-thumbs-o-up"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Voti &amp; visibilità</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#f7ecdf]/80">SOSTIENICI</p>
             <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Vota <span class="text-emerald-300">{{SITE_NAME}}</span>
+              Vota <span class="text-[#f7ecdf]">{{SITE_NAME}}</span>
             </h1>
             <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
-              Supporta il server votando su Discadia ogni 24 ore e su Top.gg ogni 12 ore. Scegli la piattaforma che preferisci e completa il voto sulla pagina ufficiale.
-            </p>
-            <p class="mt-4 text-sm text-slate-300/70">
-              Il voto avviene sulle directory esterne: dal sito passi solo al link ufficiale della piattaforma.
+              Contribuisci alla visibilità del server 
+              <br>votandoci su Discadia ogni 24h e su Top.gg ogni 12h.
             </p>
           </div>
-          <div id="vote-platforms" class="grid content-start gap-4">
+          <div id="vote-platforms" class="vc-vote-page-hero-platforms">
             <a href="{{DISCADIA_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-emerald-400/20 bg-slate-950/30 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-emerald-400/30 hover:bg-slate-950/45">
+              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-[#d4a888]/28 bg-[#221810]/42 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[#d4a888]/42 hover:bg-[#1a120d]/62">
               <div class="flex items-start gap-3">
-                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-lg text-emerald-300 ring-1 ring-emerald-400/20">
+                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#6f4e37]/25 text-lg text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
                   <i class="fa fa-thumbs-o-up" aria-hidden="true"></i>
                 </span>
                 <div class="min-w-0 flex-1">
-                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Piattaforma 1</p>
                   <h2 class="mt-1 text-xl font-extrabold text-white sm:text-2xl">Discadia</h2>
                 </div>
               </div>
               <p class="mt-4 flex-1 text-sm leading-6 text-slate-100/90">
-                Vota il server direttamente su Discadia e aiuta la pagina a crescere nella classifica.
+                Aiutaci a salire in classifica.
               </p>
               <span
-                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-700 px-4 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_12px_28px_rgba(16,185,129,0.22)] transition group-hover:brightness-105">
-                Vota su Discadia <i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
+                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-4 py-2.5 text-sm font-extrabold text-[#f7ecdf] shadow-[0_12px_28px_rgba(212,168,136,0.24)] transition group-hover:brightness-105">
+                Discadia <i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
               </span>
             </a>
             <a href="{{TOPGG_VOTE_URL}}" target="_blank" rel="noopener noreferrer"
-              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-cyan-400/20 bg-slate-950/30 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-cyan-400/32 hover:bg-slate-950/45">
+              class="group flex min-h-0 flex-col rounded-[1.6rem] border border-[#d4a888]/28 bg-[#221810]/42 p-5 text-left shadow-[0_14px_40px_rgba(0,0,0,0.2)] backdrop-blur transition hover:border-[#d4a888]/42 hover:bg-[#1a120d]/62">
               <div class="flex items-start gap-3">
-                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10 text-lg text-cyan-300 ring-1 ring-cyan-400/22">
+                <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#6f4e37]/25 text-lg text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
                   <i class="fa fa-star-o" aria-hidden="true"></i>
                 </span>
                 <div class="min-w-0 flex-1">
-                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200/75">Piattaforma 2</p>
                   <h2 class="mt-1 text-xl font-extrabold text-white sm:text-2xl">Top.gg</h2>
                 </div>
               </div>
               <p class="mt-4 flex-1 text-sm leading-6 text-slate-100/90">
-                Lascia il tuo voto anche su Top.gg per dare ancora più visibilità al progetto.
+                Supporta concretamente il progetto.
               </p>
               <span
-                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-600 px-4 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_12px_28px_rgba(34,211,238,0.2)] transition group-hover:brightness-105">
-                Vota su Top.gg <i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
+                class="mt-5 inline-flex min-h-[2.85rem] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#7a5943] to-[#4f3828] px-4 py-2.5 text-sm font-extrabold text-[#f7ecdf] shadow-[0_12px_28px_rgba(212,168,136,0.24)] transition group-hover:brightness-105">
+               Top.gg<i class="fa fa-external-link text-[0.9em] opacity-90" aria-hidden="true"></i>
               </span>
             </a>
           </div>
@@ -198,39 +194,39 @@
       </section>
 
       <section class="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
-        <article class="rounded-[1.7rem] border border-emerald-400/18 bg-slate-950/25 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-7">
+        <article class="rounded-[1.7rem] border border-[#d4a888]/24 bg-[#20150f]/42 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-7">
           <div class="vc-vote-reward-head flex items-center gap-4">
-            <span class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400/10 text-2xl text-emerald-300 ring-1 ring-emerald-400/15">
+            <span class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#6f4e37]/25 text-2xl text-[#f7ecdf] ring-1 ring-[#d4a888]/35">
               <i class="fa fa-gift" aria-hidden="true"></i>
             </span>
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Ricompense</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#f7ecdf]/75">Ricompense</p>
               <h2 class="mt-1 text-3xl font-extrabold text-white">Perché conviene votare</h2>
             </div>
           </div>
           <div class="mt-6 rounded-[1.3rem] border border-white/8 bg-white/[0.04] p-5">
             <div class="grid gap-5 sm:grid-cols-2 sm:gap-6">
               <div>
-                <p class="text-sm font-semibold text-white">EXP e bonus community</p>
-                <p class="mt-2 text-sm leading-6 text-slate-200/78">I voti possono essere usati per assegnare ricompense, progressi e vantaggi interni al server.</p>
+                <p class="text-sm font-semibold text-white">EXP E BONUS</p>
+                <p class="mt-2 text-sm leading-6 text-slate-200/78">Riceverai ricompense e progressi all'interno del server gratuitamente.</p>
               </div>
               <div class="border-t border-white/8 pt-5 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
                 <p class="text-sm font-semibold text-white">Più visibilità</p>
-                <p class="mt-2 text-sm leading-6 text-slate-200/78">Ogni voto aiuta {{SITE_NAME}} a salire nelle directory e a raggiungere nuovi utenti italiani.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-200/78">Un aiuto concreto per ampliare la nostra community.</p>
               </div>
             </div>
           </div>
         </article>
 
-        <article class="rounded-[1.7rem] border border-emerald-400/18 bg-slate-950/25 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-7">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/70">Come funziona</p>
+        <article class="rounded-[1.7rem] border border-[#d4a888]/24 bg-[#20150f]/42 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur sm:p-7">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#f7ecdf]/75">Come funziona</p>
           <ol class="mt-5 space-y-4 text-sm leading-6 text-slate-100/86">
-            <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-bold text-emerald-200 ring-1 ring-emerald-400/25">1</span><span>Apri una delle due piattaforme ufficiali.</span></li>
-            <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-bold text-emerald-200 ring-1 ring-emerald-400/25">2</span><span>Completa il voto dalla loro pagina dedicata.</span></li>
-            <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 font-bold text-emerald-200 ring-1 ring-emerald-400/25">3</span><span>Torna nel server: il sistema può registrare il tuo supporto e applicare le ricompense.</span></li>
+            <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6f4e37]/30 font-bold text-[#f7ecdf] ring-1 ring-[#d4a888]/32">1</span><span>Apri le piattaforme.</span></li>
+            <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6f4e37]/30 font-bold text-[#f7ecdf] ring-1 ring-[#d4a888]/32">2</span><span>Completa il voto.</span></li>
+            <li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6f4e37]/30 font-bold text-[#f7ecdf] ring-1 ring-[#d4a888]/32">3</span><span>Goditi i vantaggi.</span></li>
           </ol>
           <p class="mt-6 text-xs leading-5 text-slate-300/70">
-            Il voto non avviene direttamente sul sito: verrai reindirizzato alle piattaforme ufficiali per completarlo.
+            La procedura non avviene direttamente sul nostro sito: verrai reindirizzato alle piattaforme ufficiali.
           </p>
         </article>
       </section>
@@ -259,8 +255,8 @@
 
           <div class="vc-vote-progress">
             <div class="vc-vote-progress-head">
-              <span>Progresso Goal 10K</span>
-              <strong id="vc-vote-progress-label">0 / 10.000 (0%)</strong>
+              <span>Progresso Goal 1K</span>
+              <strong id="vc-vote-progress-label">0 / 1.000 (0%)</strong>
             </div>
             <div class="vc-vote-progress-bar" aria-hidden="true">
               <span class="vc-vote-progress-fill" id="vc-vote-progress-fill" style="width:0%"></span>

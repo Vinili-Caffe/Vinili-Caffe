@@ -7,6 +7,31 @@ const IDs = require("../../Utils/Config/ids");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
 const QUOTE_CHANNEL_ID = IDs.channels.quotes;
+
+function normalizeQuoteText(targetMessage) {
+  const raw = String(targetMessage?.content || "");
+  const users = targetMessage?.mentions?.users;
+  const roles = targetMessage?.mentions?.roles;
+  const channels = targetMessage?.mentions?.channels;
+
+  return raw
+    .replace(/<@!?(\d+)>/g, (_, id) => {
+      const u = users?.get(id);
+      const name = u?.username;
+      return name ? `@${name}` : "@utente";
+    })
+    .replace(/<@&(\d+)>/g, (_, id) => {
+      const role = roles?.get(id);
+      return role?.name ? `@${role.name}` : "@ruolo";
+    })
+    .replace(/<#(\d+)>/g, (_, id) => {
+      const ch = channels?.get(id);
+      return ch?.name ? `#${ch.name}` : "#canale";
+    })
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -64,7 +89,7 @@ module.exports = {
       });
     }
 
-    const text = targetMessage.cleanContent || targetMessage.content || "";
+    const text = normalizeQuoteText(targetMessage);
     const author = targetMessage.author;
     const displayName = targetMessage.member?.displayName || author?.username;
     if (!author || !text) {

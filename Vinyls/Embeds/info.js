@@ -3,19 +3,15 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, AttachmentBu
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-const { DIVIDER_URL } = require("../../shared/discord/constants");
 const INFO_CHANNEL_ID = IDs.channels.info;
+const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const INFO_MEDIA_NAME = "info.gif";
 const INFO_MEDIA_PATH = path.join(__dirname, "..", "Photos", INFO_MEDIA_NAME);
-const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 
 async function run(client) {
   const channel = await getClientChannelCached(client, INFO_CHANNEL_ID);
   if (!channel?.isTextBased?.()) return;
-  const attachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
   const infoIntroText = [
-    "# Ti diamo il benvenuto nella nostra community!",
-    "",
     "<a:VC_HeartsBlue:1468686100045369404> Benvenuto/a su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
     "",
     "<a:VC_HeartBlue:1448673354751021190> **Personalizza il tuo profilo:**",
@@ -58,7 +54,7 @@ async function run(client) {
     );
 
   const infoSecondText = [
-    "<:VC_PurpleFlower:1469463879149944943> **Sblocca dei vantaggi, permessi e ruoli:**",
+    "## <:VC_PurpleFlower:1469463879149944943> **Sblocca dei vantaggi, permessi e ruoli:**",
     "",
     "Scopri tramite i bottoni sottostanti come sbloccare permessi, ad esempio: mandare link e immagini in chat, poter cambiare il nickname e molti altri.",
   ].join("\n");
@@ -71,12 +67,10 @@ async function run(client) {
       { name: "<:VC_Link:1482460590894088222> Links", value: infoLinksText, inline: true },
       { name: "<:VC_Info:1482526956703580372> Informazioni", value: infoMetaText, inline: true },
     )
-    .setImage(DIVIDER_URL)
     .setFooter({ text: infoFooterText });
   const infoEmbedSecondary = new EmbedBuilder()
     .setColor("#6f4e37")
     .setDescription(infoSecondText)
-    .setImage(DIVIDER_URL)
     .setFooter({ text: infoFooterText });
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("info_boost_levels").setLabel("︲VANTAGGI BOOST & LIVELLI").setEmoji("<a:VC_Rocket:1468544312475123753>").setStyle(ButtonStyle.Danger),
@@ -98,59 +92,109 @@ async function run(client) {
 
   const id1 = panel?.infoMessageId1 || null;
   const id2 = panel?.infoMessageId2 || null;
-  const distinct = id1 && id2 && String(id1) !== String(id2);
-  const exists1 = id1 ? await channel.messages.fetch(id1).then(() => true).catch(() => false) : false;
-  const exists2 = id2 ? await channel.messages.fetch(id2).then(() => true).catch(() => false) : false;
-  const hasTwoDistinctExisting = Boolean(distinct && exists1 && exists2);
-  let msgGif = null;
-  let msgPanel = null;
-  let msgPanelSecondary = null;
+  const idGif = panel?.infoGifMessageId || null;
+  const gifAttachment = new AttachmentBuilder(INFO_MEDIA_PATH, { name: INFO_MEDIA_NAME });
+  const candidateIds = [...new Set([id1, id2, idGif].filter(Boolean).map((v) => String(v)))];
+  const fetched = await Promise.all(candidateIds.map((mid) => channel.messages.fetch(mid).then((m) => [mid, m]).catch(() => [mid, null])));
+  const messageById = new Map(fetched);
+  const hasButtonCustomId = (message, customId) => {
+    if (!message?.components?.length) return false;
+    for (const row of message.components) {
+      for (const comp of row?.components || []) {
+        if (comp?.customId === customId) return true;
+      }
+    }
+    return false;
+  };
+  const isGifMessage = (message) => {
+    if (!message) return false;
+    for (const att of message.attachments?.values?.() || []) {
+      const name = String(att?.name || "").toLowerCase();
+      if (name === INFO_MEDIA_NAME || name.endsWith(".gif")) return true;
+    }
+    return false;
+  };
 
-  if (hasTwoDistinctExisting) {
-    msgGif = await upsertPanelMessage(channel, client, {
-      messageId: id1,
-      files: [attachment],
+  let normalizedGifId = null;
+  let normalizedPrimaryId = null;
+  let normalizedSecondaryId = null;
+  const staleIds = [];
+  for (const mid of candidateIds) {
+    const message = messageById.get(mid) || null;
+    if (!message) continue;
+    if (isGifMessage(message)) {
+      if (!normalizedGifId) normalizedGifId = mid;
+      else staleIds.push(mid);
+      continue;
+    }
+    if (hasButtonCustomId(message, "info_tags")) {
+      if (!normalizedPrimaryId) normalizedPrimaryId = mid;
+      else staleIds.push(mid);
+      continue;
+    }
+    if (hasButtonCustomId(message, "info_boost_levels")) {
+      if (!normalizedSecondaryId) normalizedSecondaryId = mid;
+      else staleIds.push(mid);
+      continue;
+    }
+    staleIds.push(mid);
+  }
+  for (const staleId of staleIds) {
+    await channel.messages.fetch(staleId).then((m) => m.delete()).catch(() => {});
+  }
+
+  const msgGif = normalizedGifId
+    ? await upsertPanelMessage(channel, client, {
+      messageId: normalizedGifId,
       content: "",
+      files: [gifAttachment],
+      embeds: [],
       components: [],
       attachmentName: INFO_MEDIA_NAME,
-    });
-    msgPanel = await upsertPanelMessage(channel, client, {
-      messageId: id2,
+    })
+    : await channel.send({
+      content: "",
+      files: [gifAttachment],
+      embeds: [],
+      components: [],
+    }).catch(() => null);
+  const msgPanel = normalizedPrimaryId
+    ? await upsertPanelMessage(channel, client, {
+      messageId: normalizedPrimaryId,
       content: "",
       embeds: [infoEmbedPrimary],
       components: [row1],
-    });
-    msgPanelSecondary = await upsertPanelMessage(channel, client, {
-      embeds: [infoEmbedSecondary],
-      components: [row2],
-    });
-  } else {
-    if (id1) await channel.messages.fetch(id1).then((m) => m.delete()).catch(() => {});
-    if (id2 && String(id2) !== String(id1)) await channel.messages.fetch(id2).then((m) => m.delete()).catch(() => {});
-    msgGif = await channel.send({ files: [attachment] }).catch((err) => { global.logger?.warn?.("[embeds] info gif send:", err?.message || err); return null; });
-    msgPanel = await channel.send({
+    })
+    : await channel.send({
       content: "",
       embeds: [infoEmbedPrimary],
       components: [row1],
-    }).catch((err) => { global.logger?.warn?.("[embeds] info panel send:", err?.message || err); return null; });
-    msgPanelSecondary = await channel.send({
+    }).catch(() => null);
+  const msgPanelSecondary = normalizedSecondaryId
+    ? await upsertPanelMessage(channel, client, {
+      messageId: normalizedSecondaryId,
       content: "",
       embeds: [infoEmbedSecondary],
       components: [row2],
-    }).catch((err) => { global.logger?.warn?.("[embeds] info panel second send:", err?.message || err); return null; });
-  }
+    })
+    : await channel.send({
+      content: "",
+      embeds: [infoEmbedSecondary],
+      components: [row2],
+    }).catch(() => null);
 
   if (msgGif?.id || msgPanel?.id || msgPanelSecondary?.id) {
     await personalityPanelUpdateOne(
       { guildId, channelId: INFO_CHANNEL_ID },
       {
         $set: {
-          infoMessageId1: msgGif?.id ?? panel?.infoMessageId1 ?? null,
-          infoMessageId2: msgPanel?.id ?? panel?.infoMessageId2 ?? null,
+          infoGifMessageId: msgGif?.id ?? panel?.infoGifMessageId ?? null,
+          infoMessageId1: msgPanel?.id ?? panel?.infoMessageId1 ?? null,
+          infoMessageId2: msgPanelSecondary?.id ?? panel?.infoMessageId2 ?? null,
         },
       },
     ).catch(() => {});
   }
-};
+}
 
 module.exports = { name: "info", order: 20, section: "embedWithButtons", run }

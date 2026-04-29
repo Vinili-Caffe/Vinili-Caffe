@@ -201,7 +201,7 @@ async function handleTicketInteraction(interaction) {
         await refreshTicketOpenPanelSelect();
         return true;
       }
-      const userOnlyTickets = ["ticket_partnership", "ticket_highstaff", "ticket_supporto",];
+      const userOnlyTickets = ["ticket_partnership", "ticket_highstaff"];
       if (userOnlyTickets.includes(ticketActionId)) {
         if (!ROLE_USER) {
           await safeReply(interaction, {
@@ -252,7 +252,12 @@ async function handleTicketInteraction(interaction) {
         ? {
           ...panelConfig,
           role: panelConfig.type === "supporto" ? ROLE_STAFF : panelConfig.type === "partnership" ? ROLE_PARTNERMANAGER : ROLE_HIGHSTAFF,
-          requiredRoles: ROLE_USER ? [ROLE_USER] : [],
+          requiredRoles:
+            panelConfig.type === "supporto"
+              ? []
+              : ROLE_USER
+                ? [ROLE_USER]
+                : [],
         }
         : null;
       if (
@@ -324,7 +329,6 @@ async function handleTicketInteraction(interaction) {
             [
               "ticket_partnership",
               "ticket_highstaff",
-              "ticket_supporto",
             ].includes(ticketActionId)
           ) {
             if (!ROLE_USER || !memOpen?.roles?.cache?.has(ROLE_USER)) {

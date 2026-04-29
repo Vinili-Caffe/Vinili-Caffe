@@ -152,6 +152,15 @@ function buildRoleSection(roleId, guild, membersSource, newBadgeRoleIdsByUser) {
     if (excludedMembers.has(member.id)) continue;
     filteredMembers.push(member);
   }
+  const isFounderRole = String(roleId) === String(IDs.roles.Founder || "");
+  if (isFounderRole) {
+    const ownerId = String(guild?.ownerId || "");
+    filteredMembers.sort((a, b) => {
+      const aOwner = String(a?.id || "") === ownerId ? 1 : 0;
+      const bOwner = String(b?.id || "") === ownerId ? 1 : 0;
+      return bOwner - aOwner;
+    });
+  }
   const memberCount = filteredMembers.length;
   const { emoji } = ROLE_EMOJIS[roleId];
   const rid = String(roleId);

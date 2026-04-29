@@ -90,7 +90,7 @@
               src="/images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt="" loading="eager"
               decoding="async" /></a>
           <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
-            href="/" aria-label="Vai alla homepage"><span class="text-emerald-300">{{SITE_NAME}}</span></a>
+            href="{{SITE_URL}}" aria-label="Vai alla homepage"><span class="text-emerald-300 vc-caffe-tight">{{SITE_NAME}}</span></a>
         </div>
         <nav
           class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
@@ -109,7 +109,7 @@
                   aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il server</span></a>
               <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
                     class="fa fa-star-o"></i></span><span>Recensioni</span></a>
-              <a class="vc-snav-row" href="{{DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"><span
+              <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span
                   class="vc-snav-row-ico" aria-hidden="true"><i
                     class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
             </div>
@@ -178,7 +178,7 @@
                 </div>
               </div>
               <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
-                <a href="#" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
+                <a href="{{SITE_URL}}notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le notifiche
                   <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
               </div>
             </div>
@@ -212,7 +212,7 @@
           <p class="vc-hero-kicker">Benvenuto su</p>
           <h1
             class="vc-brand-glow mt-1 text-balance text-5xl font-extrabold tracking-tight text-white md:text-7xl lg:text-8xl">
-            <span class="text-emerald-300">{{SITE_NAME}}</span></h1>
+            <span class="text-emerald-300 vc-caffe-tight">{{SITE_NAME}}</span></h1>
           <p class="vc-hero-about">{{ABOUT_DESCRIPTION}}</p>
         </div>
       </div>
@@ -235,8 +235,7 @@
             </a>
             <a class="vc-home-linkitem" href="{{SPONSOR_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-handshake-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Sponsor</strong><small>Tipologie, durate e
-                  prezzi</small></span>
+              <span class="vc-home-linkitem__copy"><strong>Sponsor</strong><small>Tipologie, durate e prezzi</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>

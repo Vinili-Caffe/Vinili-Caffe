@@ -14,8 +14,11 @@
   var previewRefreshTimer = null;
   var previewRenderInFlight = false;
   var previewRefreshQueued = false;
+  var previewLastSignature = "";
   var liveCustomizePollTimer = null;
   var LIVE_CUSTOMIZE_POLL_MS = 90000;
+  var PREVIEW_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  var PREVIEW_CACHE_KEY = "vc_rank_customize_preview_cache_v1";
 
   function setLocalOpacityDragPreview(enabled) {
     var overlay = byId("vc-rank-editor-preview-live-overlay");
@@ -317,11 +320,12 @@
   }
 
   function previewMarkup(data, theme) {
+    var initialPreviewSrc = previewObjectUrl || loadLatestCachedPreview(true);
     return (
       '<div class="vc-rank-editor-preview__imagewrap">' +
       '<span id="vc-rank-editor-preview-live-overlay" class="vc-rank-editor-preview__liveoverlay" aria-hidden="true"></span>' +
       '<img id="vc-rank-editor-preview-image" class="vc-rank-editor-preview__image" alt="Anteprima rank card" loading="eager" decoding="async"' +
-      (previewObjectUrl ? ' src="' + esc(previewObjectUrl) + '"' : "") +
+      (initialPreviewSrc ? ' src="' + esc(initialPreviewSrc) + '"' : "") +
       " />" +
       '<p id="vc-rank-editor-preview-image-status" class="vc-rank-editor-preview__imagestatus">Render anteprima in corso...</p>' +
       "</div>"
@@ -334,6 +338,98 @@
       window.URL.revokeObjectURL(previewObjectUrl);
     } catch (e) {}
     previewObjectUrl = "";
+  }
+
+  function previewSignatureForTheme(theme) {
+    var normalized = normalizeTheme(effectiveRankTheme(theme || {}));
+    return JSON.stringify(normalized);
+  }
+
+  function loadCachedPreview(signature, allowExpired) {
+    try {
+      var raw = "";
+      try {
+        raw = sessionStorage.getItem(PREVIEW_CACHE_KEY) || "";
+      } catch (eSession) {}
+      if (!raw) {
+        try {
+          raw = localStorage.getItem(PREVIEW_CACHE_KEY) || "";
+        } catch (eLocal) {}
+      }
+      if (!raw) return "";
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return "";
+      if (String(parsed.signature || "") !== String(signature || "")) return "";
+      var ts = Number(parsed.ts || 0);
+      if (!Number.isFinite(ts)) return "";
+      if (!allowExpired && Date.now() - ts > PREVIEW_CACHE_TTL_MS) return "";
+      var dataUrl = String(parsed.dataUrl || "");
+      if (!dataUrl || dataUrl.indexOf("data:image/") !== 0) return "";
+      return dataUrl;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function loadLatestCachedPreview(allowExpired) {
+    try {
+      var raw = "";
+      try {
+        raw = sessionStorage.getItem(PREVIEW_CACHE_KEY) || "";
+      } catch (eSession) {}
+      if (!raw) {
+        try {
+          raw = localStorage.getItem(PREVIEW_CACHE_KEY) || "";
+        } catch (eLocal) {}
+      }
+      if (!raw) return "";
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return "";
+      var ts = Number(parsed.ts || 0);
+      if (!Number.isFinite(ts)) return "";
+      if (!allowExpired && Date.now() - ts > PREVIEW_CACHE_TTL_MS) return "";
+      var dataUrl = String(parsed.dataUrl || "");
+      if (!dataUrl || dataUrl.indexOf("data:image/") !== 0) return "";
+      return dataUrl;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function saveCachedPreview(signature, dataUrl) {
+    try {
+      var safeSignature = String(signature || "");
+      var safeDataUrl = String(dataUrl || "");
+      if (!safeSignature || !safeDataUrl || safeDataUrl.indexOf("data:image/") !== 0) return;
+      var serialized = JSON.stringify({
+        ts: Date.now(),
+        signature: safeSignature,
+        dataUrl: safeDataUrl,
+      });
+      try {
+        sessionStorage.setItem(PREVIEW_CACHE_KEY, serialized);
+      } catch (eSession) {}
+      try {
+        localStorage.setItem(PREVIEW_CACHE_KEY, serialized);
+      } catch (eLocal) {}
+    } catch (e) {}
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var reader = new FileReader();
+        reader.onload = function () {
+          resolve(String(reader.result || ""));
+        };
+        reader.onerror = function () {
+          reject(new Error("preview_dataurl_failed"));
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 
   function refreshServerPreview() {
@@ -351,9 +447,43 @@
       previewRenderInFlight = false;
       return;
     }
+    var latestCachedDataUrlAtBoot = loadLatestCachedPreview(true);
+    if (latestCachedDataUrlAtBoot && !img.getAttribute("src")) {
+      img.src = latestCachedDataUrlAtBoot;
+      img.classList.remove("is-rendering");
+      status.textContent = "Aggiorno anteprima...";
+      status.className = "vc-rank-editor-preview__imagestatus";
+      setLocalOpacityDragPreview(false);
+    }
     if (!token || !url || !draft) {
-      status.textContent = "Anteprima non disponibile.";
+      status.textContent = img.getAttribute("src") ? "" : "Anteprima non disponibile.";
       previewRenderInFlight = false;
+      return;
+    }
+    var signature = previewSignatureForTheme(draft);
+    if (signature === previewLastSignature && img.getAttribute("src")) {
+      status.textContent = "";
+      status.className = "vc-rank-editor-preview__imagestatus";
+      previewRenderInFlight = false;
+      return;
+    }
+    var cachedDataUrl = loadCachedPreview(signature, true);
+    var latestCachedDataUrl = cachedDataUrl || loadLatestCachedPreview(true);
+    if (latestCachedDataUrl && (!img.getAttribute("src") || img.classList.contains("is-rendering"))) {
+      img.src = latestCachedDataUrl;
+      img.classList.remove("is-rendering");
+      status.textContent = cachedDataUrl ? "" : "Aggiorno anteprima...";
+      status.className = "vc-rank-editor-preview__imagestatus";
+      setLocalOpacityDragPreview(false);
+    }
+    if (cachedDataUrl) {
+      img.src = cachedDataUrl;
+      img.classList.remove("is-rendering");
+      status.textContent = "";
+      status.className = "vc-rank-editor-preview__imagestatus";
+      previewLastSignature = signature;
+      previewRenderInFlight = false;
+      setLocalOpacityDragPreview(false);
       return;
     }
     var myToken = ++previewRenderToken;
@@ -375,16 +505,25 @@
       .then(function (blob) {
         if (myToken !== previewRenderToken) return;
         if (!blob || !blob.size) throw new Error("preview_empty");
-        var nextObjectUrl = window.URL.createObjectURL(blob);
-        return new Promise(function (resolve, reject) {
-          var probe = new Image();
-          probe.onload = function () { resolve(nextObjectUrl); };
-          probe.onerror = function () { reject(new Error("preview_decode_failed")); };
-          probe.src = nextObjectUrl;
+        return blobToDataUrl(blob).then(function (dataUrl) {
+          var nextObjectUrl = window.URL.createObjectURL(blob);
+          return new Promise(function (resolve, reject) {
+            var probe = new Image();
+            probe.onload = function () {
+              resolve({
+                objectUrl: nextObjectUrl,
+                dataUrl: String(dataUrl || ""),
+              });
+            };
+            probe.onerror = function () { reject(new Error("preview_decode_failed")); };
+            probe.src = nextObjectUrl;
+          });
         });
       })
-      .then(function (nextObjectUrl) {
-        if (!nextObjectUrl) return;
+      .then(function (nextPreview) {
+        if (!nextPreview || !nextPreview.objectUrl) return;
+        var nextObjectUrl = nextPreview.objectUrl;
+        var nextDataUrl = String(nextPreview.dataUrl || "");
         if (myToken !== previewRenderToken) {
           try {
             window.URL.revokeObjectURL(nextObjectUrl);
@@ -396,6 +535,8 @@
         img.src = previewObjectUrl;
         img.classList.remove("is-rendering");
         status.textContent = "";
+        previewLastSignature = signature;
+        if (nextDataUrl) saveCachedPreview(signature, nextDataUrl);
         if (prevObjectUrl) {
           try {
             window.URL.revokeObjectURL(prevObjectUrl);

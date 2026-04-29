@@ -26,7 +26,7 @@
     <link rel="icon" href="{{GUILD_ICON_URL}}" />
   </head>
   <body id="top"
-    class="vc-body relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    class="vc-body vc-donazioni-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
@@ -147,16 +147,15 @@
       <section class="vc-support-page-hero">
         <div class="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(15.5rem,19.5rem)] lg:items-center lg:gap-12">
           <div class="max-w-3xl lg:py-1">
-            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-donazioni-hero-heart mb-5" aria-hidden="true">
               <i class="fa fa-heart-o"></i>
             </div>
-            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Donazioni & Supporto</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#f7ecdf]/80">Donazioni</p>
             <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Supporta <span class="text-emerald-300">{{SITE_NAME}}</span>
+              Supporta <span class="text-[#f7ecdf]">{{SITE_NAME}}</span>
             </h1>
             <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
-              Anche un piccolo contributo ci aiuta a mantenere attivi bot, infrastruttura e strumenti della community.
-              Ogni donazione va direttamente al supporto del progetto.
+              Anche il più piccolo contributo viene reinvestito interamente sul progetto.
             </p>
           </div>
           <aside class="vc-support-hero-pillars" aria-label="Aree supportate dalle donazioni">
@@ -164,7 +163,7 @@
               <ul class="vc-support-hero-pillar-list" role="list">
                 <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--vps">
                   <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-server"></i></span>
-                  <span class="vc-support-hero-pillar-row__label">Server VPS</span>
+                  <span class="vc-support-hero-pillar-row__label">infrastruttura VPS</span>
                 </li>
                 <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--bot">
                   <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
@@ -181,20 +180,18 @@
       </section>
 
       <section class="vc-support-donate-roles mt-12 md:mt-14" aria-label="Livelli di donazione e vantaggi">
-        <div class="vc-support-donate-roles__grid">
+        <div class="vc-support-donate-roles__grid vc-support-donate-roles__grid--podium">
           <article class="vc-support-donate-role vc-support-donate-role--donatore" aria-labelledby="vc-donate-role-donatore">
+            <span class="vc-support-donate-role__badge vc-support-donate-role__badge--cheap" role="status">Più economico</span>
             <div class="vc-support-donate-role__head">
               <h3 id="vc-donate-role-donatore" class="vc-support-donate-role__title">
                 <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-heart"></i></span>
-                Donatore
+                Donator
               </h3>
               <p class="vc-support-donate-role__price" aria-label="Prezzo indicativo 5,00 euro">
-                <span class="vc-support-donate-role__price-inner"><span class="vc-support-donate-role__price-amount">5,00</span><span class="vc-support-donate-role__price-curr">€</span></span>
+                <span class="vc-support-donate-role__price-inner"><span class="vc-support-donate-role__price-amount">Min. 3,00</span><span class="vc-support-donate-role__price-curr">€</span></span>
               </p>
             </div>
-            <p class="vc-support-donate-role__lede">
-              Vuoi acquistare direttamente tutti i vantaggi permanenti e differenti dal VIP? Dona subito e sblocca tutti i vantaggi!
-            </p>
             <ul class="vc-support-donate-role__perks" role="list">
               <li class="vc-support-donate-perk">
                 <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-link"></i></span>
@@ -231,13 +228,57 @@
             </ul>
             <div class="vc-support-donate-role__foot">
               <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
-                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-4 text-base font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
-                <i class="fa fa-paypal" aria-hidden="true"></i> Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-6 py-4 text-base font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
+                <i class="fa fa-paypal" aria-hidden="true"></i> DONA ORA
               </a>
-              <p class="vc-support-donate-role__paypal-hint">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili &amp; Caffè.</p>
             </div>
           </article>
+          <article class="vc-support-donate-role vc-support-donate-role--vip-plus" aria-labelledby="vc-donate-role-vip-plus">
+            <span class="vc-support-donate-role__badge vc-support-donate-role__badge--novita" role="status">Novità</span>
+            <div class="vc-support-donate-role__head">
+              <h3 id="vc-donate-role-vip-plus" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-star-half-o"></i></span>
+                VIP+
+              </h3>
+              <p class="vc-support-donate-role__price" aria-label="Prezzo indicativo 20,00 euro">
+                <span class="vc-support-donate-role__price-inner"><span class="vc-support-donate-role__price-amount">20,00</span><span class="vc-support-donate-role__price-curr">€</span></span>
+              </p>
+            </div>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-check-circle"></i></span>
+                <span class="vc-support-donate-perk__text">Tutti i perks del ruolo VIP</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+                <span class="vc-support-donate-perk__text">Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo). <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+                <span class="vc-support-donate-perk__text">Sfondo personalizzato per la tua card del comando +rank. <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-star"></i></span>
+                <span class="vc-support-donate-perk__text">Potrai crearti un secondo ruolo personalizzato con colore <strong class="text-amber-200">GRADIENTE</strong> scelto da te. <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-comments"></i></span>
+                <span class="vc-support-donate-perk__text">Reazioni al messaggio quando vieni @menzionato in chat (max. 5 reazioni). <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
+                <span class="vc-support-donate-perk__text">X6 EXP boost <span class="vc-support-donate-new">NEW!</span></span>
+              </li>
+            </ul>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-6 py-4 text-base font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
+                <i class="fa fa-paypal" aria-hidden="true"></i> RISCATTA TUTTO
+              </a>
+             </div>
+          </article>
           <article class="vc-support-donate-role vc-support-donate-role--vip" aria-labelledby="vc-donate-role-vip">
+            <span class="vc-support-donate-role__badge vc-support-donate-role__badge--popular" role="status">Più scelto</span>
             <div class="vc-support-donate-role__head">
               <h3 id="vc-donate-role-vip" class="vc-support-donate-role__title">
                 <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-trophy"></i></span>
@@ -247,9 +288,6 @@
                 <span class="vc-support-donate-role__price-inner"><span class="vc-support-donate-role__price-amount">10,00</span><span class="vc-support-donate-role__price-curr">€</span></span>
               </p>
             </div>
-            <p class="vc-support-donate-role__lede">
-              Sostieni il server con il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server.
-            </p>
             <ul class="vc-support-donate-role__perks" role="list">
               <li class="vc-support-donate-perk">
                 <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-check-circle"></i></span>
@@ -274,66 +312,13 @@
             </ul>
             <div class="vc-support-donate-role__foot">
               <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
-                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-4 text-base font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
-                <i class="fa fa-paypal" aria-hidden="true"></i> Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-6 py-4 text-base font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
+                <i class="fa fa-paypal" aria-hidden="true"></i> ACQUISTA SUBITO
               </a>
-              <p class="vc-support-donate-role__paypal-hint">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili &amp; Caffè.</p>
-            </div>
-          </article>
-          <article class="vc-support-donate-role vc-support-donate-role--vip-plus" aria-labelledby="vc-donate-role-vip-plus">
-            <div class="vc-support-donate-role__head">
-              <h3 id="vc-donate-role-vip-plus" class="vc-support-donate-role__title">
-                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-star-half-o"></i></span>
-                VIP+
-              </h3>
-              <p class="vc-support-donate-role__price" aria-label="Prezzo indicativo 20,00 euro">
-                <span class="vc-support-donate-role__price-inner"><span class="vc-support-donate-role__price-amount">20,00</span><span class="vc-support-donate-role__price-curr">€</span></span>
-              </p>
-            </div>
-            <p class="vc-support-donate-role__lede">
-              Sostieni il server con il VIP+ e riscatta tutti i vantaggi che hai sbloccato qui nel server.
-            </p>
-            <ul class="vc-support-donate-role__perks" role="list">
-              <li class="vc-support-donate-perk">
-                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-check-circle"></i></span>
-                <span class="vc-support-donate-perk__text">Tutti i perks del ruolo VIP</span>
-              </li>
-              <li class="vc-support-donate-perk">
-                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
-                <span class="vc-support-donate-perk__text">Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).</span>
-              </li>
-              <li class="vc-support-donate-perk">
-                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
-                <span class="vc-support-donate-perk__text">Sfondo personalizzato per la tua card del comando +rank.</span>
-              </li>
-              <li class="vc-support-donate-perk">
-                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-star"></i></span>
-                <span class="vc-support-donate-perk__text">Potrai crearti un secondo ruolo personalizzato con colore <strong class="text-amber-200">GRADIENTE</strong> scelto da te.</span>
-              </li>
-              <li class="vc-support-donate-perk">
-                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-comments"></i></span>
-                <span class="vc-support-donate-perk__text">Reazioni al messaggio quando vieni @menzionato in chat (max. 5 reazioni).</span>
-              </li>
-              <li class="vc-support-donate-perk">
-                
-                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
-                <span class="vc-support-donate-perk__text">X6 EXP boost</span>
-              </li>
-            </ul>
-            <div class="vc-support-donate-role__foot">
-              <a href="{{PAYPAL_DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
-                class="vc-support-donate-role__cta inline-flex min-h-[4.2rem] w-full items-center justify-center gap-3 rounded-[1.35rem] bg-gradient-to-r from-emerald-500 to-cyan-400 px-6 py-4 text-base font-extrabold text-slate-950 shadow-[0_18px_46px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg">
-                <i class="fa fa-paypal" aria-hidden="true"></i> Dona con PayPal <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
-              </a>
-              <p class="vc-support-donate-role__paypal-hint">Sarai reindirizzato alla pagina ufficiale PayPal di Vinili &amp; Caffè.</p>
-            </div>
+             </div>
           </article>
         </div>
-        <div class="vc-support-donate-after mx-auto mt-10 flex max-w-xl flex-col items-center gap-5 px-2 text-center md:mt-14">
-          <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
-            class="vc-support-donate-discord-cta inline-flex min-h-[3.25rem] w-full max-w-md items-center justify-center gap-2.5 rounded-2xl border border-[#5865F2]/45 bg-[#5865F2]/18 px-6 py-3 text-base font-bold text-white shadow-[0_12px_36px_rgba(88,101,242,0.22)] transition hover:border-[#5865F2]/65 hover:bg-[#5865F2]/28 sm:w-auto sm:min-w-[16rem]">
-            <i class="fa fa-comments" aria-hidden="true"></i> Entra nel server Discord
-          </a>
+        <div class="vc-support-donate-after mx-auto mt-6 flex max-w-xl flex-col items-center gap-5 px-2 text-center md:mt-8">
           <p class="vc-support-donate-refund-note m-0 max-w-lg text-sm leading-relaxed text-slate-400/95">
             <i class="fa fa-exclamation-circle mr-1.5 text-amber-400/90" aria-hidden="true"></i>
             <strong class="font-semibold text-slate-300/95">Importante:</strong> le donazioni tramite PayPal <strong class="text-slate-200/95">non sono rimborsabili</strong>. Se esci dal server principale, i ruoli verranno rimossi e <strong class="text-slate-100">non saranno riassegnati automaticamente</strong>.

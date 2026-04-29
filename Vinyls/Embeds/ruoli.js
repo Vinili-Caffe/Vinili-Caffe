@@ -33,7 +33,6 @@ async function run(client) {
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
     )
-    .setImage(DIVIDER_URL);
   const mentionsAttachment = fs.existsSync(MENTIONS_IMAGE_PATH) ? new AttachmentBuilder(MENTIONS_IMAGE_PATH, { name: MENTIONS_IMAGE_NAME }) : null;
   const mentionsEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -45,13 +44,11 @@ async function run(client) {
         "<a:VC_Exclamation:1482534702077444217> Massimo **1** ruolo per categoria.",
       ].join("\n"),
     )
-    .setImage(DIVIDER_URL);
   const colorsAttachment = fs.existsSync(COLORS_IMAGE_PATH) ? new AttachmentBuilder(COLORS_IMAGE_PATH, { name: COLORS_IMAGE_NAME }) : null;
   const colorsEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:sparkledred:1470064814502973591> Personalità")
     .setDescription(["Scegli il colore per personalizzare il nome del tuo profilo quando scrivi in chat.", "", "<a:VC_Exclamation:1482534702077444217> Verrà mostrato il **colore più in alto** nella lista dei ruoli nel tuo profilo."].join("\n"))
-    .setImage(DIVIDER_URL);
   const plusColorsAttachment = fs.existsSync(PLUS_COLORS_IMAGE_PATH) ? new AttachmentBuilder(PLUS_COLORS_IMAGE_PATH, { name: PLUS_COLORS_IMAGE_NAME }) : null;
   const plusColorsEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -75,7 +72,6 @@ async function run(client) {
         `<:VC_10:1482706613663174707> <@&${IDs.roles.whitePlus}>`,
       ].join("\n"),
     )
-    .setImage(DIVIDER_URL);
   const pronouns = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("personality_pronouns")

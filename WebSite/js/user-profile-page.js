@@ -5,6 +5,10 @@
   var profileRankRenderToken = 0;
   var liveProfilePollTimer = null;
   var LIVE_PROFILE_POLL_MS = 60000;
+  var PROFILE_CACHE_TTL_MS = 90000;
+  var PROFILE_RANK_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
+  var PROFILE_RANK_PREVIEW_CACHE_PREFIX = "vc:profile-rank-preview:";
+  var profileMemoryCache = new Map();
 
   function byId(id) {
     return document.getElementById(id);
@@ -41,6 +45,56 @@
     return api;
   }
 
+  function readSessionCache(key, now) {
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Number.isFinite(parsed.expireAt) || parsed.expireAt <= now) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+      return parsed.value;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeSessionCache(key, value, ttlMs, now) {
+    try {
+      sessionStorage.setItem(
+        key,
+        JSON.stringify({ expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: value })
+      );
+    } catch (e) {}
+  }
+
+  function cachedJsonFetch(url, ttlMs) {
+    var key = "vc:profilecache:" + String(url || "");
+    var now = Date.now();
+    var mem = profileMemoryCache.get(key);
+    if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
+      return Promise.resolve(mem.value);
+    }
+    var sess = readSessionCache(key, now);
+    if (sess) {
+      profileMemoryCache.set(key, { expireAt: now + Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS), value: sess });
+      return Promise.resolve(sess);
+    }
+    return fetch(url, { credentials: "omit" })
+      .then(function (r) {
+        return r.json().then(function (body) {
+          return { httpOk: r.ok, body: body };
+        });
+      })
+      .then(function (payload) {
+        var ttl = Math.max(1, Number(ttlMs) || PROFILE_CACHE_TTL_MS);
+        profileMemoryCache.set(key, { expireAt: now + ttl, value: payload });
+        writeSessionCache(key, payload, ttl, now);
+        return payload;
+      });
+  }
+
   function resolvedPublicRankPreviewUrl(userId) {
     var base = resolvedApiUrl();
     var id = String(userId || "").trim();
@@ -48,6 +102,64 @@
     var root = base.split("?")[0];
     var endpoint = root.replace(/\/site-users\/?$/i, "/site-rank-card-public");
     return endpoint + "?userId=" + encodeURIComponent(id) + "&_v=" + encodeURIComponent(String(Date.now()));
+  }
+
+  function profileRankPreviewCacheKey(userId) {
+    return PROFILE_RANK_PREVIEW_CACHE_PREFIX + String(userId || "").trim();
+  }
+
+  function loadCachedProfileRankPreview(userId) {
+    var key = profileRankPreviewCacheKey(userId);
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (!raw) return "";
+      var parsed = JSON.parse(raw);
+      var now = Date.now();
+      if (
+        !parsed ||
+        typeof parsed.dataUrl !== "string" ||
+        !parsed.dataUrl ||
+        !Number.isFinite(parsed.updatedAt) ||
+        now - parsed.updatedAt > PROFILE_RANK_PREVIEW_CACHE_TTL_MS
+      ) {
+        sessionStorage.removeItem(key);
+        return "";
+      }
+      return parsed.dataUrl;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function saveCachedProfileRankPreview(userId, dataUrl) {
+    var key = profileRankPreviewCacheKey(userId);
+    try {
+      if (!dataUrl || typeof dataUrl !== "string") return;
+      sessionStorage.setItem(
+        key,
+        JSON.stringify({
+          updatedAt: Date.now(),
+          dataUrl: dataUrl,
+        }),
+      );
+    } catch (e) {}
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var reader = new FileReader();
+        reader.onload = function () {
+          resolve(typeof reader.result === "string" ? reader.result : "");
+        };
+        reader.onerror = function () {
+          reject(new Error("blob_to_data_url_failed"));
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 
   function esc(s) {
@@ -249,6 +361,11 @@
       nodes[i].style.display = "none";
     }
     document.body.classList.add("vc-user-profile-page");
+    var pager = byId("vc-ul-pager");
+    if (pager) {
+      pager.hidden = true;
+      pager.style.display = "none";
+    }
   }
 
   function buildApiUrl(board, userId) {
@@ -261,20 +378,14 @@
       encodeURIComponent(board) +
       "&userId=" +
       encodeURIComponent(userId) +
-      "&perPage=1&_vcprofile=" +
-      encodeURIComponent(String(Date.now()))
+      "&perPage=1"
     );
   }
 
   function fetchBoard(board, userId) {
     var url = buildApiUrl(board, userId);
     if (!url) return Promise.resolve({ ok: false, board: board, rows: [] });
-    return fetch(url, { credentials: "omit", cache: "no-store" })
-      .then(function (r) {
-        return r.json().then(function (body) {
-          return { httpOk: r.ok, body: body };
-        });
-      })
+    return cachedJsonFetch(url, PROFILE_CACHE_TTL_MS)
       .then(function (out) {
         var b = out && out.body ? out.body : {};
         return {
@@ -752,7 +863,7 @@
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +
       '<div class="vc-user-profile-backrow">' +
-      '<a class="vc-user-profile-backbtn" href="/user"><i class="fa fa-chevron-left" aria-hidden="true"></i> Community</a>' +
+      '<a class="vc-user-profile-backbtn" href="/user" aria-label="Torna indietro"><i class="fa fa-chevron-left" aria-hidden="true"></i></a>' +
       "</div>" +
       '<section class="vc-user-profile-hero">' +
       '<div class="vc-user-profile-hero__head">' +
@@ -874,16 +985,31 @@
       return;
     }
     var myToken = ++profileRankRenderToken;
-    status.textContent = "Render rank card in corso...";
+    var cachedDataUrl = loadCachedProfileRankPreview(userId);
+    if (cachedDataUrl) {
+      releaseProfileRankObjectUrl();
+      img.src = cachedDataUrl;
+      img.classList.remove("is-rendering");
+      status.textContent = "";
+    } else {
+      status.textContent = "Render rank card in corso...";
+    }
     status.className = "vc-rank-editor-preview__imagestatus";
-    img.classList.add("is-rendering");
+    if (!cachedDataUrl) img.classList.add("is-rendering");
     fetch(url, { cache: "no-store" })
       .then(function (r) {
         if (!r.ok) throw new Error("http_" + r.status);
         return r.blob();
       })
       .then(function (blob) {
+        return blobToDataUrl(blob).then(function (dataUrl) {
+          return { blob: blob, dataUrl: dataUrl };
+        });
+      })
+      .then(function (out) {
         if (myToken !== profileRankRenderToken) return;
+        var blob = out && out.blob;
+        var dataUrl = out && out.dataUrl;
         if (!blob || !blob.size) throw new Error("empty");
         var nextObjectUrl = window.URL.createObjectURL(blob);
         var prevObjectUrl = profileRankObjectUrl;
@@ -891,6 +1017,7 @@
         img.src = nextObjectUrl;
         img.classList.remove("is-rendering");
         status.textContent = "";
+        if (dataUrl) saveCachedProfileRankPreview(userId, dataUrl);
         if (prevObjectUrl) {
           try {
             window.URL.revokeObjectURL(prevObjectUrl);

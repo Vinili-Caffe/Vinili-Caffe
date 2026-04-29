@@ -26,6 +26,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
   avatar: "Mostra l'avatar di un utente.",
   banner: "Mostra il banner di un utente.",
+  colors: "Mostra i colori disponibili per il tuo ruolo o livello.",
   voices: "Mostra le voci TTS disponibili.",
   membercount: "Mostra il numero totale di membri del server.",
   ping: "Mostra latenza bot, database e informazioni di uptime.",

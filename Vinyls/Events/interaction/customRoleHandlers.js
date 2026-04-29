@@ -3,6 +3,7 @@ const { CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
 const {
   MAX_REACTIONS,
+  getCustomReactionMax,
   parseReactionTokens,
   toDisplay,
   buildCustomReactionPanelEmbed,
@@ -122,8 +123,15 @@ async function ensureOwnerCustomReactionAllowed(interaction, ownerId) {
     interaction.member && String(interaction.member.id) === String(ownerId)
       ? interaction.member
       : await interaction.guild?.members?.fetch?.(ownerId).catch(() => null);
-  if (memberHasCustomReactionRoleAccess(member)) return { ok: true };
-  return ensureOwnerCustomRoleActive(interaction, ownerId);
+  if (memberHasCustomReactionRoleAccess(member)) {
+    return { ok: true, member, maxReactions: getCustomReactionMax(member) };
+  }
+  const roleState = await ensureOwnerCustomRoleActive(interaction, ownerId);
+  return {
+    ...roleState,
+    member,
+    maxReactions: getCustomReactionMax(member),
+  };
 }
 
 async function fetchRole(interaction, roleId) {
@@ -1283,9 +1291,10 @@ async function handleCustomReactionButton(interaction) {
 
   if (action === "add" || action === "remove") {
     const isAdd = action === "add";
+    const maxReactions = Number(ownerState.maxReactions) || MAX_REACTIONS;
     const promptText = isAdd 
-      ? "<:VC_Mention:1482526855289634997> Manda da 1 a 3 emoji che vuoi **aggiungere**:" 
-      : "<:VC_Mention:1482526855289634997> Manda da 1 a 3 emoji che vuoi **rimuovere**:";
+      ? `<:VC_Mention:1482526855289634997> Manda da 1 a ${maxReactions} emoji che vuoi **aggiungere**:` 
+      : `<:VC_Mention:1482526855289634997> Manda da 1 a ${maxReactions} emoji che vuoi **rimuovere**:`;
 
     await interaction.reply({
       content: promptText,
@@ -1296,7 +1305,7 @@ async function handleCustomReactionButton(interaction) {
     const collector = interaction.channel.createMessageCollector({ filter, time: 30000, max: 1 });
 
     collector.on("collect", async (m) => {
-      const tokens = parseReactionTokens(m.content, MAX_REACTIONS, interaction.guild);
+      const tokens = parseReactionTokens(m.content, maxReactions, interaction.guild);
       
       if (!tokens.length) {
         await interaction.followUp({
@@ -1311,7 +1320,7 @@ async function handleCustomReactionButton(interaction) {
       let next;
 
       if (isAdd) {
-        next = Array.from(new Set([...current, ...tokens])).slice(0, MAX_REACTIONS);
+        next = Array.from(new Set([...current, ...tokens])).slice(0, maxReactions);
       } else {
         const toRemove = new Set(tokens);
         next = current.filter(t => !toRemove.has(t));
@@ -1329,7 +1338,7 @@ async function handleCustomReactionButton(interaction) {
 
       // Update Panel
       if (interaction.message) {
-        const embed = buildCustomReactionPanelEmbed(next);
+        const embed = buildCustomReactionPanelEmbed(next, maxReactions);
         const rows = buildCustomReactionPanelRows(ownerId);
         await interaction.message.edit({ embeds: [embed], components: rows }).catch(() => {});
       }
@@ -1352,7 +1361,7 @@ async function handleCustomReactionButton(interaction) {
 
   if (action === "clear") {
     await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
-    const embed = buildCustomReactionPanelEmbed([]);
+    const embed = buildCustomReactionPanelEmbed([], Number(ownerState.maxReactions) || MAX_REACTIONS);
     const rows = buildCustomReactionPanelRows(ownerId);
     await interaction.update({ embeds: [embed], components: rows }).catch(() => {});
     return true;
@@ -1379,11 +1388,12 @@ async function handleCustomReactionModal(interaction) {
 
   const ownerState = await ensureOwnerCustomReactionAllowed(interaction, ownerId);
   if (!ownerState.ok) return true;
+  const maxReactions = Number(ownerState.maxReactions) || MAX_REACTIONS;
 
   await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
 
   const raw = interaction.fields.getTextInputValue("value") || "";
-  const tokens = parseReactionTokens(raw, MAX_REACTIONS, interaction.guild);
+  const tokens = parseReactionTokens(raw, maxReactions, interaction.guild);
   if (!tokens.length) {
     await interaction.editReply({
       content:
@@ -1400,7 +1410,7 @@ async function handleCustomReactionModal(interaction) {
 
   const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
   const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
-  const next = Array.from(new Set([...current, ...tokens])).slice(0, MAX_REACTIONS);
+  const next = Array.from(new Set([...current, ...tokens])).slice(0, maxReactions);
 
   if (!next.length) {
     await MentionReaction.deleteOne({ guildId, userId: ownerId }).catch(() => {});
@@ -1417,7 +1427,7 @@ async function handleCustomReactionModal(interaction) {
   }).catch(() => {});
 
   if (interaction.message) {
-    const embed = buildCustomReactionPanelEmbed(next);
+    const embed = buildCustomReactionPanelEmbed(next, maxReactions);
     const rows = buildCustomReactionPanelRows(ownerId);
     await interaction.message.edit({ embeds: [embed], components: rows }).catch(() => {});
   }
@@ -1445,6 +1455,7 @@ async function handleCustomReactionSelect(interaction) {
 
   const ownerState = await ensureOwnerCustomReactionAllowed(interaction, ownerId);
   if (!ownerState.ok) return true;
+  const maxReactions = Number(ownerState.maxReactions) || MAX_REACTIONS;
 
   const token = interaction.values?.[0];
   if (!token) {
@@ -1478,7 +1489,7 @@ async function handleCustomReactionSelect(interaction) {
   if (ch?.messages?.fetch) {
     const panelMessage = await ch.messages.fetch(panelMessageId).catch(() => null);
     if (panelMessage) {
-      const embed = buildCustomReactionPanelEmbed(next);
+      const embed = buildCustomReactionPanelEmbed(next, maxReactions);
       const rows = buildCustomReactionPanelRows(ownerId);
       await panelMessage.edit({ embeds: [embed], components: rows }).catch(() => {});
     }

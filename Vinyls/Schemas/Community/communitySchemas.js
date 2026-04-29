@@ -91,6 +91,7 @@ const personalityPanelEntrySchema = new Schema(
     mentionsMessageId: { type: String, default: null },
     colorsMessageId: { type: String, default: null },
     plusColorsMessageId: { type: String, default: null },
+    infoGifMessageId: { type: String, default: null },
     infoMessageId1: { type: String, default: null },
     infoMessageId2: { type: String, default: null },
     verifyInfoMessageId: { type: String, default: null },

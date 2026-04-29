@@ -45,7 +45,6 @@ async function run(client) {
         "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
       ].join("\n"),
     )
-    .setImage(DIVIDER_URL);
 
   const embeds = [
     new EmbedBuilder()

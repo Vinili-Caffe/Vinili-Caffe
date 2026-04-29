@@ -426,7 +426,7 @@
               '" data-suggestion-comment-edit-save-id="' +
               esc(cid) +
               '">Salva</button>' +
-              '<button type="button" class="vc-reviews-submit" style="background-color:#334155;border-color:rgba(255,255,255,0.12)" data-suggestion-comment-edit-cancel="' +
+              '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-suggestion-comment-edit-cancel="' +
               esc(rawSid) +
               '">Annulla</button>' +
               "</div>";
@@ -434,10 +434,12 @@
             innerBody = '<p class="mt-2 text-sm leading-relaxed text-slate-200/90">' + esc(c.content) + "</p>";
           }
 
-          var replyCls = c.parentCommentId ? " vc-sug-comment--reply ml-5 border-l border-white/15 pl-4" : "";
+          var replyCls = c.parentCommentId
+            ? " vc-suggestions-comment-card--reply vc-sug-comment--reply ml-5 border-l border-white/15 pl-4"
+            : "";
 
           return (
-            '<div class="rounded-xl border border-white/8 bg-white/[0.03] p-3' +
+            '<div class="vc-suggestions-comment-card rounded-xl border border-white/8 bg-white/[0.03] p-3' +
             replyCls +
             '">' +
             '<div class="flex flex-wrap items-center gap-2 text-sm">' +
@@ -509,9 +511,9 @@
     var staffActions = "";
     if (pending && canMod) {
       staffActions =
-        '<div class="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">' +
-        '<p class="text-xs font-semibold uppercase tracking-wider text-amber-200/80">High Staff</p>' +
-        '<label class="mt-2 mb-1 block text-xs text-slate-400" for="vc-sug-staff-reason-' +
+        '<div class="vc-suggestions-staff-card mt-4 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">' +
+        '<p class="vc-suggestions-staff-card__title text-xs font-semibold uppercase tracking-wider text-amber-200/80">High Staff</p>' +
+        '<label class="vc-suggestions-staff-card__label mt-2 mb-1 block text-xs text-slate-400" for="vc-sug-staff-reason-' +
         esc(rawSid) +
         '">Motivo (obbligatorio, min. 3 caratteri)</label>' +
         '<textarea id="vc-sug-staff-reason-' +
@@ -521,7 +523,7 @@
         '<button type="button" class="vc-reviews-submit" data-suggestion-accept="' +
         esc(rawSid) +
         '">Accetta</button>' +
-        '<button type="button" class="vc-reviews-submit" style="background-color:#b91c1c;border-color:rgba(255,255,255,0.12)" data-suggestion-reject="' +
+        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-danger" data-suggestion-reject="' +
         esc(rawSid) +
         '">Rifiuta</button>' +
         "</div></div>";
@@ -530,12 +532,12 @@
     var staffDelete = "";
     if (canMod) {
       staffDelete =
-        '<div class="mt-4 rounded-xl border border-slate-500/30 bg-slate-900/40 p-3">' +
-        '<p class="text-xs font-semibold uppercase tracking-wider text-slate-300/90">High Staff</p>' +
-        '<button type="button" class="vc-reviews-submit mt-2" style="background-color:#0f172a;border-color:rgba(255,255,255,0.12)" data-suggestion-staff-delete="' +
+        '<div class="vc-suggestions-staff-delete-card mt-4 rounded-xl border border-slate-500/30 bg-slate-900/40 p-3">' +
+        '<p class="vc-suggestions-staff-delete-card__title text-xs font-semibold uppercase tracking-wider text-slate-300/90">High Staff</p>' +
+        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted mt-2" data-suggestion-staff-delete="' +
         esc(rawSid) +
         '">Elimina definitivamente</button>' +
-        '<p class="mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database (irreversibile).</p>' +
+        '<p class="vc-suggestions-staff-delete-card__note mt-1 text-xs text-slate-500">Rimuove il suggerimento dal database (irreversibile).</p>' +
         "</div>";
     }
 
@@ -543,10 +545,10 @@
     if (pending && tokenOk && isOwnSuggestion) {
       authorTools =
         '<div class="mt-2 flex flex-wrap gap-2">' +
-        '<button type="button" class="vc-reviews-submit" style="background-color:#0f172a;border-color:rgba(255,255,255,0.12)" data-suggestion-author-edit="' +
+        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-suggestion-author-edit="' +
         esc(rawSid) +
         '">Modifica suggerimento</button>' +
-        '<button type="button" class="vc-reviews-submit" style="background-color:#7f1d1d;border-color:rgba(255,255,255,0.12)" data-suggestion-author-delete="' +
+        '<button type="button" class="vc-reviews-submit vc-suggestions-btn-danger" data-suggestion-author-delete="' +
         esc(rawSid) +
         '">Elimina il mio suggerimento</button></div>';
     }

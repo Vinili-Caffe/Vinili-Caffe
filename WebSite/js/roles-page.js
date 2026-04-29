@@ -14,6 +14,7 @@
     activeRequestRoleId: "",
     requestAuthRequired: false,
     submittingRequest: false,
+    lastSnapshot: "",
     lastFocusEl: null
   };
   var liveRolesPollTimer = null;
@@ -682,6 +683,17 @@
     renderPager();
   }
 
+  function buildDataSnapshot(rows, summary) {
+    try {
+      return JSON.stringify({
+        rows: Array.isArray(rows) ? rows : [],
+        summary: summary || {}
+      });
+    } catch (e) {
+      return String(Date.now());
+    }
+  }
+
   function renderPager() {
     var nav = byId("vc-roles-pager");
     var chips = byId("vc-roles-pagechips");
@@ -873,6 +885,12 @@
 
       state.rows = Array.isArray(data.rows) ? data.rows : [];
       state.summary = data.summary || { totalRoles: state.rows.length, permanentRoles: 0, totalAssignments: 0 };
+      var snapshot = buildDataSnapshot(state.rows, state.summary);
+      var sameData = snapshot && state.lastSnapshot && snapshot === state.lastSnapshot;
+      state.lastSnapshot = snapshot;
+
+      if (silent && sameData) return;
+
       state.page = 1;
       applyFilter();
       setSummary(state.summary);

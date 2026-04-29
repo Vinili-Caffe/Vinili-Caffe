@@ -34,6 +34,8 @@ const weeklyContestMetaSchema = new Schema(
     guildId: { type: String, required: true },
     eventKey: { type: String, required: true },
     dailyBonusGrantLog: { type: Schema.Types.Mixed, default: {} },
+    /** Per giorno (YYYY-MM-DD Roma): annuncio Top 3 bonus già inviato su Discord (evita duplicati al riavvio). */
+    dailyBonusAnnounceLog: { type: Schema.Types.Mixed, default: {} },
     contestFinaleResolved: { type: Boolean, default: false },
     finalePrizesResolvedCategories: { type: Schema.Types.Mixed, default: {} },
     finalePrizeRoleRemovals: { type: [finalePrizeRemovalEntrySchema], default: [] },

@@ -82,6 +82,19 @@ async function pruneSiteInAppNotificationsForUser(userId) {
   if (ids.length) await SiteInAppNotification.deleteMany({ _id: { $in: ids } }).catch(() => null);
 }
 
+async function deleteSiteInAppNotifications(filter = {}) {
+  if (!filter || typeof filter !== "object" || Array.isArray(filter)) return 0;
+  const del = await SiteInAppNotification.deleteMany(filter).catch(() => null);
+  const count = Number(del?.deletedCount ?? del?.n ?? 0);
+  if (count > 0) {
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
+  return count;
+}
+
 async function listSiteInAppNotificationsForUser(userId, limit = 50) {
   const uid = normalizeUserId(userId);
   if (!uid) return [];
@@ -104,4 +117,5 @@ module.exports = {
   enqueueSiteInAppNotification,
   listSiteInAppNotificationsForUser,
   pruneSiteInAppNotificationsForUser,
+  deleteSiteInAppNotifications,
 };

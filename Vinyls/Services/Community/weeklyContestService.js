@@ -453,11 +453,29 @@ function iterContestCalendarDayKeys() {
 }
 
 function totalBonusSlotsForContest(voterLean) {
+  const raw = voterLean?.bonusSlots;
+  if (!raw) return 0;
+
   let s = 0;
-  for (const d of iterContestCalendarDayKeys()) {
-    s += bonusSlotsForDay(voterLean, d);
+  if (raw instanceof Map) {
+    for (const [dayKey, value] of raw.entries()) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dayKey || ""))) continue;
+      const n = Math.floor(Number(value));
+      if (Number.isFinite(n) && n > 0) s += n;
+    }
+    return s;
   }
-  return s;
+
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [dayKey, value] of Object.entries(raw)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dayKey || ""))) continue;
+      const n = Math.floor(Number(value));
+      if (Number.isFinite(n) && n > 0) s += n;
+    }
+    return s;
+  }
+
+  return 0;
 }
 
 function clampPairToBaseAndBonus(mRaw, pRaw, base, bonusTotal) {
@@ -1089,13 +1107,13 @@ function formatDailyBonusRankLine(index, userId, expWindow) {
 }
 
 async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, todayKey, winners }) {
-  if (!CHANNEL_BONUS_ANNOUNCE_ID || !winners?.length) return;
+  if (!CHANNEL_BONUS_ANNOUNCE_ID || !winners?.length) return false;
   const channel =
     client.channels.cache.get(CHANNEL_BONUS_ANNOUNCE_ID) ||
     (await getClientChannelCached(client, CHANNEL_BONUS_ANNOUNCE_ID, { ttlMs: 60_000 }).catch(() => null));
   if (!channel?.isTextBased?.()) {
     global.logger?.warn?.("[WEEKLY_CONTEST] canale annuncio bonus non trovato:", CHANNEL_BONUS_ANNOUNCE_ID);
-    return;
+    return false;
   }
   const lines = winners.map((w, i) => formatDailyBonusRankLine(i, w.userId, w.expWindow));
   const infoLine = `<:VC_Leaderboard:1482534806314287387> // I più attivi di oggi.`;
@@ -1134,8 +1152,10 @@ async function sendContestDailyBonusAnnounce(client, guild, { activityDayKey, to
       );
   try {
     await channel.send({ embeds: [embed], components: [buttons] });
+    return true;
   } catch (err) {
     global.logger?.error?.("[WEEKLY_CONTEST] annuncio bonus:", err?.message || err);
+    return false;
   }
 }
 
@@ -1265,43 +1285,100 @@ async function replayContestDailyBonusAnnounce(client, opts = {}) {
     }
   }
 
-  await sendContestDailyBonusAnnounce(client, guild, { activityDayKey, todayKey: accreditDayKey, winners });
+  const announced = await sendContestDailyBonusAnnounce(client, guild, {
+    activityDayKey,
+    todayKey: accreditDayKey,
+    winners,
+  });
+  if (announced && syncDb) {
+    const ap = `dailyBonusAnnounceLog.${accreditDayKey}`;
+    await WeeklyContestMeta.findOneAndUpdate(
+      { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+      { $set: { [ap]: true } },
+      { upsert: true, setDefaultsOnInsert: true },
+    ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] replay announce log:", err));
+  }
   return out;
 }
 
-async function runDailyTopThreeBonusJob(client) {
+async function runDailyTopThreeBonusJob(client, options = {}) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (CONTEST_TEST_MODE) return;
-  if (!CHANNEL_MOBILE_ID) return;
-  if (!IS_DISEGNI_CONTEST && !CHANNEL_PC_ID) return;
+  // Per il bonus giornaliero serve solo il canale annuncio bonus; non bloccare su channel submission.
+  if (!CHANNEL_BONUS_ANNOUNCE_ID) return;
+  if (!IS_DISEGNI_CONTEST && !CHANNEL_MOBILE_ID && !CHANNEL_PC_ID) return;
   if (isRomeSunday()) return;
 
   const guild = await client.guilds.fetch(gid).catch(() => null);
   if (!guild) return;
 
-  if (getRomeHour(new Date()) !== 21) return;
+  const nowHour = getRomeHour(new Date());
+  const recoveryOnStartup = options?.recoveryOnStartup === true;
+  if (recoveryOnStartup) {
+    if (nowHour < 21) return;
+  } else if (nowHour !== 21) {
+    return;
+  }
 
   const todayKey = getContestDayKey();
   const activityDayKey = todayKey;
-  if (!activityDayKey || !isContestRomeDayKey(todayKey)) return;
-
-  const grantPath = `dailyBonusGrantLog.${todayKey}`;
-  const already = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION })
-    .select("dailyBonusGrantLog")
-    .lean()
-    .catch(() => null);
-  if (already?.dailyBonusGrantLog?.[todayKey] === true) return;
-
-  await WeeklyContestMeta.findOneAndUpdate(
-    { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
-    { $set: { [grantPath]: true } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch(() => null);
+  if (!activityDayKey) return;
 
   const winners = await computeDailyBonusTopThreeWinners(guild, activityDayKey);
+  if (!Array.isArray(winners) || winners.length === 0) {
+    global.logger?.warn?.(
+      `[WEEKLY_CONTEST] Bonus giornaliero ${todayKey}: nessun vincitore calcolato, non marco il giorno come completato.`,
+    );
+    return;
+  }
+  const topIds = winners.map((w) => String(w?.userId || "")).filter(Boolean);
 
-  const topIds = winners.map((w) => w.userId);
+  const grantPath = `dailyBonusGrantLog.${todayKey}`;
+  const announcePath = `dailyBonusAnnounceLog.${todayKey}`;
+  const already = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION })
+    .select("dailyBonusGrantLog dailyBonusAnnounceLog")
+    .lean()
+    .catch(() => null);
+
+  if (already?.dailyBonusAnnounceLog?.[todayKey] === true) {
+    global.logger?.info?.(
+      `[WEEKLY_CONTEST] Bonus giornaliero ${todayKey}: annuncio Top 3 già registrato, skip (no duplicati al riavvio).`,
+    );
+    return;
+  }
+
+  if (already?.dailyBonusGrantLog?.[todayKey] === true) {
+    const bundle = await WeeklyContestBundle.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION })
+      .select("voters")
+      .lean()
+      .catch(() => null);
+    const voters = bundle?.voters && typeof bundle.voters === "object" && !Array.isArray(bundle.voters) ? bundle.voters : {};
+    const alreadyGrantedToTop = topIds.every((uid) => Number(voters?.[uid]?.bonusSlots?.[todayKey] || 0) >= 1);
+    if (alreadyGrantedToTop) {
+      await WeeklyContestMeta.findOneAndUpdate(
+        { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+        { $set: { [announcePath]: true } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).catch((err) =>
+        global.logger?.error?.("[WEEKLY_CONTEST] dailyBonusAnnounceLog backfill dopo grant:", err?.message || err),
+      );
+      return;
+    }
+    global.logger?.warn?.(
+      `[WEEKLY_CONTEST] Bonus giornaliero ${todayKey}: grantLog=true ma slot incompleti: ripristino slot senza reinviare l'annuncio.`,
+    );
+    for (const voterId of topIds) {
+      if (!isValidGuildUserId(gid, voterId)) continue;
+      await WeeklyContestBundle.findOneAndUpdate(
+        { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+        { $set: { [`voters.${voterId}.bonusSlots.${todayKey}`]: 1 } },
+        { upsert: true, setDefaultsOnInsert: true },
+      ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] bonus grant (recovery slot):", err));
+    }
+    return;
+  }
+
   for (const voterId of topIds) {
     if (!isValidGuildUserId(gid, voterId)) continue;
     await WeeklyContestBundle.findOneAndUpdate(
@@ -1315,9 +1392,21 @@ async function runDailyTopThreeBonusJob(client) {
     `[WEEKLY_CONTEST] Bonus giornaliero ${todayKey}: ${topIds.length} utenti (attività ${activityDayKey} 00–21, combinata).`,
   );
 
+  let announcedOk = false;
   if (winners.length) {
-    await sendContestDailyBonusAnnounce(client, guild, { activityDayKey, todayKey, winners });
+    announcedOk = await sendContestDailyBonusAnnounce(client, guild, { activityDayKey, todayKey, winners });
   }
+
+  const metaSet = { [grantPath]: true };
+  if (announcedOk) metaSet[announcePath] = true;
+
+  await WeeklyContestMeta.findOneAndUpdate(
+    { guildId: gid, eventKey: EVENT_KEY_PRODUCTION },
+    { $set: metaSet },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch((err) =>
+    global.logger?.error?.("[WEEKLY_CONTEST] meta bonus giornaliero (grant/announce log):", err?.message || err),
+  );
 }
 
 function rawMobileMessageMapFromVoterLean(lean) {
@@ -1680,6 +1769,8 @@ async function runContestFinalePrizeGrantJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (CONTEST_TEST_MODE) return;
+  // Hard guard: premi finali solo domenica alle 21:00 Europe/Rome.
+  if (!isRomeSunday() || getRomeHour(new Date()) !== 21) return;
   if (Date.now() <= getContestWindowMs().end) return;
 
   const meta0 = await WeeklyContestMeta.findOne({ guildId: gid, eventKey: EVENT_KEY_PRODUCTION }).lean().catch(() => null);
@@ -1765,11 +1856,11 @@ async function runContestFinalePrizeGrantJob(client) {
       const entry = await tryGrantContestFinaleTempRole(guild, second.userId, CONTEST_PRIZE_VIP_ROLE_ID, PRIZE_ROLE_DURATION_MS);
       if (entry) catRemovals.push(entry);
     }
-    if (third?.userId && isValidGuildUserId(gid, third.userId) && CONTEST_PRIZE_DONATOR_ROLE_ID) {
+    if (third?.userId && isValidGuildUserId(gid, third.userId) && CONTEST_PRIZE_VIP_ROLE_ID) {
       const entry = await tryGrantContestFinaleTempRole(
         guild,
         third.userId,
-        CONTEST_PRIZE_DONATOR_ROLE_ID,
+        CONTEST_PRIZE_VIP_ROLE_ID,
         PRIZE_ROLE_DURATION_MS,
       );
       if (entry) catRemovals.push(entry);
@@ -1784,7 +1875,7 @@ async function runContestFinalePrizeGrantJob(client) {
     ).catch((err) => global.logger?.error?.("[WEEKLY_CONTEST] finale meta:", err));
 
     global.logger?.info?.(
-      `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (dedup): 2°=${second?.userId || "-"} (VIP), 3°=${third?.userId || "-"} (Donator), schedulati ${catRemovals.length} rollback ruolo.`,
+      `[WEEKLY_CONTEST] Finale ${EVENT_KEY_PRODUCTION} [${category}] (dedup): 2°=${second?.userId || "-"} (VIP), 3°=${third?.userId || "-"} (VIP 30g), schedulati ${catRemovals.length} rollback ruolo.`,
     );
   }
 }
@@ -1793,6 +1884,8 @@ async function runContestFinaleClassificaAnnounceJob(client) {
   const gid = contestGuildId();
   if (!gid || !client) return;
   if (!IS_DISEGNI_CONTEST || CONTEST_TEST_MODE) return;
+  // Hard guard: annuncio classifica finale solo domenica alle 21:00 Europe/Rome.
+  if (!isRomeSunday() || getRomeHour(new Date()) !== 21) return;
   const channelId = CHANNEL_FINALE_CLASSIFICA_ID.trim();
   if (!channelId) return;
   if (Date.now() <= getContestWindowMs().end) return;
@@ -1871,12 +1964,14 @@ function startWeeklyContestCron(client) {
       backfillDisegniFinaleSecondPlaceUnlock(client).catch((err) =>
         global.logger?.error?.("[WEEKLY_CONTEST] cron backfill 2° disegni:", err),
       );
-      runContestFinaleClassificaAnnounceJob(client).catch((err) =>
-        global.logger?.error?.("[WEEKLY_CONTEST] cron classifica finale:", err),
-      );
-      runContestFinalePrizeGrantJob(client).catch((err) =>
-        global.logger?.error?.("[WEEKLY_CONTEST] cron finale premi:", err),
-      );
+      if (isRomeSunday()) {
+        runContestFinaleClassificaAnnounceJob(client).catch((err) =>
+          global.logger?.error?.("[WEEKLY_CONTEST] cron classifica finale:", err),
+        );
+        runContestFinalePrizeGrantJob(client).catch((err) =>
+          global.logger?.error?.("[WEEKLY_CONTEST] cron finale premi:", err),
+        );
+      }
     },
     { timezone: TIME_ZONE },
   );
@@ -1897,11 +1992,9 @@ function startWeeklyContestCron(client) {
   void backfillDisegniFinaleSecondPlaceUnlock(client).catch((err) =>
     global.logger?.warn?.("[WEEKLY_CONTEST] backfill 2° disegni (catch-up avvio):", err?.message || err),
   );
-  void runContestFinaleClassificaAnnounceJob(client).catch((err) =>
-    global.logger?.warn?.("[WEEKLY_CONTEST] classifica finale (catch-up avvio):", err?.message || err),
-  );
-  void runContestFinalePrizeGrantJob(client).catch((err) =>
-    global.logger?.warn?.("[WEEKLY_CONTEST] finale premi (catch-up avvio):", err?.message || err),
+  // Catch-up al riavvio: pubblica/assegna il bonus Top 3 giornaliero (msg+voice -> exp) se dovuto.
+  void runDailyTopThreeBonusJob(client, { recoveryOnStartup: true }).catch((err) =>
+    global.logger?.warn?.("[WEEKLY_CONTEST] bonus giornaliero (catch-up avvio):", err?.message || err),
   );
   return { evening: contestCronEveningTask, noon: contestCronNoonTask };
 }

@@ -1,5 +1,5 @@
 (function () {
-  var PER_PAGE = 12;
+  var PER_PAGE = 9;
 
   function isProfileMode() {
     try {
@@ -291,6 +291,71 @@
   var state = { page: 1, totalPages: 1, loading: false, board: "level", searchUserId: "", filtersOpen: false };
   var liveUsersPollTimer = null;
   var LIVE_USERS_POLL_MS = 45000;
+  var USERS_CACHE_TTL_MS = 30000;
+  var usersMemoryCache = new Map();
+
+  function usersCacheKey(url) {
+    return "vc:userscache:" + String(url || "");
+  }
+
+  function readUsersSessionCache(key, now) {
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !Number.isFinite(parsed.expireAt) || parsed.expireAt <= now) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+      return parsed.value;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeUsersSessionCache(key, value, ttlMs, now) {
+    try {
+      sessionStorage.setItem(
+        key,
+        JSON.stringify({ expireAt: now + Math.max(1, Number(ttlMs) || USERS_CACHE_TTL_MS), value: value })
+      );
+    } catch (e) {}
+  }
+
+  function cachedUsersFetch(url, opts) {
+    var useCache = Boolean(opts && opts.useCache);
+    if (!useCache) {
+      return fetch(url, { credentials: "omit", cache: "no-store" })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, status: r.status, body: j };
+          });
+        });
+    }
+    var ttl = Math.max(1, Number((opts && opts.ttlMs) || USERS_CACHE_TTL_MS));
+    var now = Date.now();
+    var key = usersCacheKey(url);
+    var mem = usersMemoryCache.get(key);
+    if (mem && Number.isFinite(mem.expireAt) && mem.expireAt > now) {
+      return Promise.resolve(mem.value);
+    }
+    var sess = readUsersSessionCache(key, now);
+    if (sess) {
+      usersMemoryCache.set(key, { expireAt: now + ttl, value: sess });
+      return Promise.resolve(sess);
+    }
+    return fetch(url, { credentials: "omit" })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, status: r.status, body: j };
+        });
+      })
+      .then(function (payload) {
+        usersMemoryCache.set(key, { expireAt: now + ttl, value: payload });
+        writeUsersSessionCache(key, payload, ttl, now);
+        return payload;
+      });
+  }
 
   function setLoading(on, label) {
     state.loading = Boolean(on);
@@ -317,7 +382,7 @@
     var name = rawName || "Utente";
     var rank = Number(row.rank) || 0;
     var rankAria = rank > 0 ? "Posizione " + String(rank) : "Non in classifica";
-    var idShort = String(row.userId || "").slice(0, 10);
+    var userId = String(row.userId || "").trim();
     var avSrc = esc(avatarUrl(row));
     var avFb = defaultEmbedAvatarUrl(row);
     return (
@@ -342,8 +407,8 @@
       "</span>" +
       "</div>" +
       '<p class="vc-ul-card-id">ID: ' +
-      esc(idShort) +
-      "…</p>" +
+      esc(userId) +
+      "</p>" +
       "</div>" +
       "</a>" +
       "</div>"
@@ -718,7 +783,8 @@
     if (fbtn) fbtn.classList.toggle("vc-ul-filter-tab--has-search", Boolean(state.searchUserId));
   }
 
-  function load() {
+  function load(opts) {
+    var silent = Boolean(opts && opts.silent);
     var base = resolvedApiUrl();
     if (!base) {
       setState("Manca l’URL API classifica: in site.config.json imposta usersLeaderboardApiUrl (stesso host dei webhook del bot).", true);
@@ -741,16 +807,13 @@
       /* CDN/proxy che ignorano la query o cache GET: varia l’URL e disabilita cache browser */
       url += "&_vcq=" + encodeURIComponent(String(Date.now()));
     }
-    setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
-    setState("Caricamento…", false);
-    fetch(url, { credentials: "omit", cache: "no-store" })
-      .then(function (r) {
-        return r.json().then(function (j) {
-          return { ok: r.ok, status: r.status, body: j };
-        });
-      })
+    if (!silent) {
+      setLoading(true, state.page === 1 ? "Caricamento classifica" : "Aggiornamento classifica");
+      setState("Caricamento…", false);
+    }
+    cachedUsersFetch(url, { useCache: !state.searchUserId, ttlMs: USERS_CACHE_TTL_MS })
       .then(function (out) {
-        setLoading(false);
+        if (!silent) setLoading(false);
         if (!out.ok || !out.body || out.body.ok !== true) {
           var msg =
             (out.body && (out.body.message || out.body.error)) ||
@@ -790,7 +853,7 @@
         syncSearchUi();
       })
       .catch(function () {
-        setLoading(false);
+        if (!silent) setLoading(false);
         setState(
           "Impossibile contattare l’API classifica (rete, proxy verso il bot, risposta non JSON o CORS). Verifica GET /webhooks/site-users e che l’HTTP del bot sia attivo (WEBSITE_PUBLIC_HTTP se lo disabiliti esplicitamente).",
           true,
@@ -812,7 +875,7 @@
     liveUsersPollTimer = setInterval(function () {
       if (document.visibilityState !== "visible") return;
       if (state.loading || state.filtersOpen) return;
-      load();
+      load({ silent: true });
     }, LIVE_USERS_POLL_MS);
   }
 
@@ -904,7 +967,7 @@
       state.searchUserId = digits;
       state.page = 1;
       if (inp) inp.value = digits;
-      load();
+      load({ silent: true });
       syncSearchUi();
     }
     if (form) {
@@ -935,7 +998,7 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState !== "visible") return;
     if (state.loading || state.filtersOpen) return;
-    load();
+    load({ silent: true });
   });
 
   window.addEventListener("beforeunload", stopLiveUsersPolling);

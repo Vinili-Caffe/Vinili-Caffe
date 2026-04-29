@@ -73,7 +73,7 @@
                 <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-star-o"></i></span
                   ><span>Recensioni</span></a>
-                <a class="vc-snav-row" href="{{DONATIONS_URL}}" target="_blank" rel="noopener noreferrer"
+                <a class="vc-snav-row" href="{{DONATIONS_URL}}"
                   ><span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-heart-o"></i></span
                   ><span>Donazioni</span></a>
               </div>
@@ -164,14 +164,14 @@
 
     <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
       <a
-        class="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition hover:text-white"
+        class="vc-notify-home-btn vc-wiki-home-btn mb-6 inline-flex items-center gap-1.5 text-sm font-medium transition"
         href="{{SITE_URL}}"
         ><i class="fa fa-chevron-left text-xs opacity-80" aria-hidden="true"></i> Home</a>
 
       <section class="vc-support-page-hero mb-8 sm:mb-10" aria-labelledby="vc-wiki-hero-heading">
         <div class="grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_20rem] lg:items-center">
           <div class="max-w-3xl">
-            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5" aria-hidden="true">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start vc-wiki-hero-book mb-5" aria-hidden="true">
               <i class="fa fa-book"></i>
             </div>
             <p class="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/70">Documentazione</p>
@@ -179,9 +179,7 @@
               <span class="text-emerald-300">{{SITE_NAME}}</span> Wiki
             </h1>
             <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
-              I bot <strong class="font-semibold text-white">Vinili</strong> e
-              <strong class="font-semibold text-white">Caffè</strong>: comandi, prefissi e funzioni utili al server
-              Discord.
+              I <strong class="font-semibold text-white">nostri</strong> bot: un'unicità a 360°
             </p>
             <div class="mt-8 flex flex-wrap gap-3">
               <a
@@ -203,7 +201,7 @@
               <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-100/90">
                 <li class="flex gap-3">
                   <i class="fa fa-list-alt mt-0.5 text-emerald-300" aria-hidden="true"></i>
-                  <span>Elenco comandi slash e a prefisso, filtrabili dalla ricerca.</span>
+                  <span>Comandi, prefissi e funzioni utili.</span>
                 </li>
                 <li class="flex gap-3">
                   <i class="fa fa-plug mt-0.5 text-emerald-300" aria-hidden="true"></i>
@@ -225,7 +223,7 @@
       <section id="comandi" class="scroll-mt-28" aria-label="Scelta bot">
         <div class="grid gap-4 md:grid-cols-2">
           <a
-            class="group flex flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur transition hover:border-emerald-400/25 hover:bg-white/[0.07]"
+            class="vc-wiki-bot-card group flex flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur transition hover:border-emerald-400/25 hover:bg-white/[0.07]"
             href="{{WIKI_URL}}"
             data-vc-wiki-scroll="wiki-comandi-panel"
             data-select-cmd-tab="prod">
@@ -247,7 +245,7 @@
               >Apri comandi <i class="fa fa-angle-right" aria-hidden="true"></i></span>
           </a>
           <a
-            class="group flex flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur transition hover:border-emerald-400/25 hover:bg-white/[0.07]"
+            class="vc-wiki-bot-card group flex flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.05] p-6 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur transition hover:border-emerald-400/25 hover:bg-white/[0.07]"
             href="{{WIKI_URL}}"
             data-vc-wiki-scroll="wiki-comandi-panel"
             data-select-cmd-tab="test">

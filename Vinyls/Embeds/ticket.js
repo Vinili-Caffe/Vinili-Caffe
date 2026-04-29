@@ -28,7 +28,6 @@ async function run(client) {
 <:VC_Dot:1482532364222595303> Non **abusare** dei __ticket__;
 <:VC_Dot:1482532364222595303> Non aprire ticket __inutili__;`,
     )
-    .setImage(DIVIDER_URL);
 
   const ticketPanelEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -49,7 +48,6 @@ async function run(client) {
 <:VC_Attention:1482534443632558151> Aprire un ticket **__inutile__** oppure **__non rispondere__** nell'arco di **\`24\` ore** comporterà un **warn**.`,
     )
     .setFooter({ text: `Non garantiamo di rispondere negli orari notturni, dalle 00:00 alle 10:00` })
-    .setImage(DIVIDER_URL);
 
   const ticketSelectRows = buildTicketOpenSelectRows();
 

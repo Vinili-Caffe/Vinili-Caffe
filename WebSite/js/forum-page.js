@@ -322,10 +322,13 @@
       );
     }
     var title = esc(String(thread.title || "Discussione")) + (thread.archived ? " (archiviata)" : "");
+    var mobileBack = !isDesktopForumLayout()
+      ? '<button type="button" data-thread-action="mobile-back" class="rounded-lg border border-white/20 px-2.5 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-amber-300/60 hover:text-amber-100">Indietro</button>'
+      : "";
     head.innerHTML =
       '<div class="flex flex-wrap items-center justify-between gap-2">' +
       '<span class="text-sm font-semibold text-white">' + title + "</span>" +
-      (actions.length ? '<div class="flex flex-wrap items-center gap-1.5">' + actions.join("") + "</div>" : "") +
+      ((mobileBack || actions.length) ? '<div class="flex flex-wrap items-center gap-1.5">' + mobileBack + actions.join("") + "</div>" : "") +
       "</div>";
   }
 
@@ -359,7 +362,7 @@
           .filter(Boolean);
         return (
           '<button type="button" class="vc-forum-thread-item w-full rounded-2xl border p-4 text-left transition ' +
-          (active ? 'border-emerald-400/70 bg-emerald-400/12 shadow-[0_0_0_1px_rgba(52,211,153,0.22)]' : "border-white/10 bg-black/20 hover:border-emerald-400/35") +
+          (active ? 'vc-forum-thread-item--active border-white/10 bg-black/20' : "vc-forum-thread-item--idle border-white/10 bg-black/20") +
           '" data-thread-id="' +
           esc(t.id) +
           '">' +
@@ -367,7 +370,7 @@
           '<span class="min-w-0 truncate">' +
           esc(t.title || "Discussione") +
           "</span>" +
-          (unread > 0 ? '<span class="shrink-0 rounded-full bg-emerald-400 px-2 py-0.5 text-[10px] font-bold text-slate-950">+' + esc(String(unread)) + "</span>" : "") +
+          (unread > 0 ? '<span class="vc-forum-unread-pill shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold">+' + esc(String(unread)) + "</span>" : "") +
           "</p>" +
           '<p class="mt-1 flex items-center gap-2 text-xs text-slate-300">' +
           (t.pinned ? '<span class="rounded-full border border-amber-300/45 bg-amber-300/15 px-2 py-0.5 text-[10px] font-bold text-amber-100">Pinnato</span>' : "") +
@@ -381,7 +384,7 @@
           "</p>" +
           (tagRows.length
             ? '<div class="mt-2 flex flex-wrap gap-1.5">' + tagRows.map(function (tagLabel) {
-              return '<span class="rounded-full border border-cyan-300/35 bg-cyan-300/15 px-2 py-0.5 text-[10px] font-semibold text-cyan-100">' + esc(tagLabel) + "</span>";
+              return '<span class="vc-forum-tag-pill rounded-full border px-2 py-0.5 text-[10px] font-semibold">' + esc(tagLabel) + "</span>";
             }).join("") + "</div>"
             : "") +
           '<p class="mt-2 line-clamp-2 text-sm text-slate-300/90">' +
@@ -419,9 +422,9 @@
     if (total > THREADS_PAGE_SIZE) {
       chunks.push(
         '<div class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-2.5 py-2">' +
-          '<button type="button" id="vc-forum-page-prev" class="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200 ' + (state.threadsPage <= 1 ? "cursor-not-allowed opacity-40" : "") + '"' + (state.threadsPage <= 1 ? " disabled" : "") + '>Prec</button>' +
+          '<button type="button" id="vc-forum-page-prev" aria-label="Pagina precedente" class="rounded-full border border-white/20 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200 ' + (state.threadsPage <= 1 ? "cursor-not-allowed opacity-40" : "") + '"' + (state.threadsPage <= 1 ? " disabled" : "") + '><i class="fa fa-angle-left" aria-hidden="true"></i></button>' +
           '<span class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300">Pagina ' + esc(String(state.threadsPage)) + " / " + esc(String(totalPages)) + "</span>" +
-          '<button type="button" id="vc-forum-page-next" class="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200 ' + (state.threadsPage >= totalPages ? "cursor-not-allowed opacity-40" : "") + '"' + (state.threadsPage >= totalPages ? " disabled" : "") + '>Succ</button>' +
+          '<button type="button" id="vc-forum-page-next" aria-label="Pagina successiva" class="rounded-full border border-white/20 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:border-emerald-400/60 hover:text-emerald-200 ' + (state.threadsPage >= totalPages ? "cursor-not-allowed opacity-40" : "") + '"' + (state.threadsPage >= totalPages ? " disabled" : "") + '><i class="fa fa-angle-right" aria-hidden="true"></i></button>' +
         "</div>"
       );
     }
@@ -521,6 +524,12 @@
     chat.classList.toggle("lg:hidden", !opened);
     chat.classList.toggle("lg:flex", opened);
     chat.classList.toggle("lg:flex-col", opened);
+    if (!isDesktopForumLayout()) {
+      sidebar.classList.toggle("hidden", opened);
+      chat.classList.toggle("hidden", !opened);
+    } else {
+      sidebar.classList.remove("hidden");
+    }
     syncChatPanelHeight();
   }
 
@@ -825,6 +834,13 @@
       await patchThread({ locked: true });
     } else if (action === "unlock") {
       await patchThread({ locked: false });
+    } else if (action === "mobile-back") {
+      state.selectedThreadId = "";
+      state.selectedThreadSyncKey = "";
+      renderThreads();
+      resetChatPanel();
+      syncForumLayout();
+      return;
     }
     await loadMessages(state.selectedThreadId, true, "", false);
     await loadThreads();

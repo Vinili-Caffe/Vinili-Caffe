@@ -4,7 +4,7 @@ const { SiteSuggestion } = require("../../Schemas/Community/communitySchemas");
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
-const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
+const { enqueueSiteInAppNotification, deleteSiteInAppNotifications } = require("./siteInAppNotificationsService");
 
 const HIGH_STAFF_ROLE_ID = String(IDs?.roles?.HighStaff || "").trim();
 const MAX_SUGGESTION_LEN = 2000;
@@ -86,13 +86,16 @@ async function notifyHighStaffNewSuggestion(guild, suggestion, authorName) {
   const highStaffIds = await getHighStaffUserIds(guild);
   if (!highStaffIds.length) return;
   const sid = String(suggestion?._id || suggestion?.id || "").trim();
+  const authorId = String(suggestion?.userId || "").trim();
+  const recipients = highStaffIds.filter((userId) => String(userId || "").trim() && String(userId) !== authorId);
+  if (!recipients.length) return;
   const content = String(suggestion?.content || "")
     .replace(/\s+/g, " ")
     .trim();
   const bodyPreview = content.length > 220 ? `${content.slice(0, 219)}…` : content || "Nuovo suggerimento pubblicato.";
   const safeAuthor = String(authorName || "Un utente").trim() || "Un utente";
   await Promise.all(
-    highStaffIds.map((userId) =>
+    recipients.map((userId) =>
       enqueueSiteInAppNotification({
         guildId,
         userId,
@@ -105,6 +108,18 @@ async function notifyHighStaffNewSuggestion(guild, suggestion, authorName) {
       }),
     ),
   ).catch(() => null);
+}
+
+async function deleteSuggestionNotifications(guildId, suggestionId) {
+  const gid = String(guildId || "").trim();
+  const sid = String(suggestionId || "").trim();
+  if (!gid || !sid || !mongoose.isValidObjectId(sid)) return;
+  const openUrl = suggestionNotifOpenUrl(sid);
+  await deleteSiteInAppNotifications({
+    guildId: gid,
+    kind: "suggestion",
+    $or: [{ openUrl }, { dedupeKey: `suggestion:new:${sid}` }],
+  }).catch(() => null);
 }
 
 async function notifySuggestionAuthor(guildId, authorUserId, payload) {
@@ -642,6 +657,7 @@ async function staffDeleteSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 404, error: "not_found", message: "Suggerimento non trovato." };
   }
 
+  await deleteSuggestionNotifications(resolved.guild.id, suggestionId);
   broadcastSiteSuggestionsChanged();
   return { ok: true, status: 200, message: "Suggerimento eliminato definitivamente." };
 }
@@ -719,6 +735,7 @@ async function deleteOwnSiteSuggestion(client, payload = {}) {
     };
   }
 
+  await deleteSuggestionNotifications(resolved.guild.id, suggestionId);
   broadcastSiteSuggestionsChanged();
   return { ok: true, status: 200, message: "Suggerimento eliminato." };
 }

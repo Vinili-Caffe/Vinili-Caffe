@@ -337,6 +337,9 @@
                     isOwner: false,
                   };
                 })
+                .sort(function (a, b) {
+                  return (b && b.isOwner ? 1 : 0) - (a && a.isOwner ? 1 : 0);
+                })
                 .filter(function (entry) {
                   return entry.name;
                 }),

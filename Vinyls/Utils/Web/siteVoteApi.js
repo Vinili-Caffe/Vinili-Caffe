@@ -241,7 +241,7 @@ async function handleSiteVoteGet(client, req, res) {
       stats: {
         totalVotes,
         totalVoters: activeRowsBase.length,
-        goal: 10000,
+        goal: 1000,
       },
       personal,
       rows,

@@ -2,6 +2,12 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const IDs = require("../Config/ids");
 
 const MAX_REACTIONS = 3;
+const MAX_REACTIONS_PREMIUM = 5;
+const CUSTOM_REACTION_FIVE_ROLE_IDS = [
+  IDs?.roles?.DoubleBooster,
+  IDs?.roles?.VIPplus,
+  IDs?.roles?.["VIP+"],
+].filter(Boolean);
 
 const CUSTOM_REACTION_ROLE_IDS = [
   IDs?.roles?.VIP,
@@ -15,6 +21,13 @@ function memberHasCustomReactionRoleAccess(member) {
   return Boolean(
     member?.roles?.cache && CUSTOM_REACTION_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId)),
   );
+}
+
+function getCustomReactionMax(member) {
+  if (!member?.roles?.cache) return MAX_REACTIONS;
+  return CUSTOM_REACTION_FIVE_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId))
+    ? MAX_REACTIONS_PREMIUM
+    : MAX_REACTIONS;
 }
 
 function parseReactionTokens(input, max = MAX_REACTIONS, guild = null) {
@@ -68,15 +81,16 @@ function toDisplay(token) {
   return token;
 }
 
-function buildCustomReactionPanelEmbed(reactions) {
+function buildCustomReactionPanelEmbed(reactions, maxReactions = MAX_REACTIONS) {
   const current = Array.isArray(reactions) ? reactions : [];
+  const safeMax = Math.max(1, Number(maxReactions) || MAX_REACTIONS);
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Reaction alle menzioni")
     .setDescription(
       current.length
-        ? `Le tue reaction (${current.length}/${MAX_REACTIONS}): ${current.map(toDisplay).join(" ")}`
-        : "Nessuna reaction attiva. Usa **Aggiungi** per impostarne fino a tre.",
+        ? `Le tue reaction (${current.length}/${safeMax}): ${current.map(toDisplay).join(" ")}`
+        : `Nessuna reaction attiva. Usa **Aggiungi** per impostarne fino a ${safeMax}.`,
     )
     .setFooter({ text: "Il bot aggiunge queste reaction solo quando sei menzionato nel messaggio." });
 }
@@ -106,8 +120,11 @@ function buildCustomReactionPanelRows(ownerId) {
 
 module.exports = {
   MAX_REACTIONS,
+  MAX_REACTIONS_PREMIUM,
   CUSTOM_REACTION_ROLE_IDS,
+  CUSTOM_REACTION_FIVE_ROLE_IDS,
   memberHasCustomReactionRoleAccess,
+  getCustomReactionMax,
   parseReactionTokens,
   toDisplay,
   buildCustomReactionPanelEmbed,

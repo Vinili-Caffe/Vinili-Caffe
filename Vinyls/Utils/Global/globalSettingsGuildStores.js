@@ -29,6 +29,7 @@ function panelRowFromDoc(row) {
     mentionsMessageId: o.mentionsMessageId ?? null,
     colorsMessageId: o.colorsMessageId ?? null,
     plusColorsMessageId: o.plusColorsMessageId ?? null,
+    infoGifMessageId: o.infoGifMessageId ?? null,
     infoMessageId1: o.infoMessageId1 ?? null,
     infoMessageId2: o.infoMessageId2 ?? null,
     verifyInfoMessageId: o.verifyInfoMessageId ?? null,

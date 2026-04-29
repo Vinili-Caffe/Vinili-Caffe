@@ -1124,6 +1124,9 @@ async function main() {
   const themeColorHex = String(cfg.themeColor || "#6f4e37").trim();
 
   const discordInviteResolved = cfg.discordInviteUrl || "https://discord.gg/viniliecaffe";
+  const discordSponsorTicketsMessageResolved =
+    String(cfg.discordSponsorTicketsMessageUrl ?? "").trim() ||
+    "https://discord.com/channels/1329080093599076474/1442569095068254219/1469836204873744404";
   const siteBaseNoSlash = siteUrlTrim.replace(/\/+$/, "");
   const defaultLegalPath = (slug) =>
     siteBaseNoSlash ? `${siteBaseNoSlash}/${slug}` : `/${slug}`;
@@ -1457,6 +1460,7 @@ async function main() {
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
     DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
     DISCORD_INVITE_URL: discordInviteResolved,
+    DISCORD_SPONSOR_TICKETS_MESSAGE_URL: escAttr(discordSponsorTicketsMessageResolved),
     WIKI_URL: escAttr(wikiUrlResolved),
     SPONSOR_URL: escAttr(sponsorUrlResolved),
     FAQ_URL: escAttr(faqUrlResolved),
@@ -1712,6 +1716,16 @@ async function main() {
     fs.writeFileSync(faqIndexPath, faqHtml, "utf8");
   } else {
     console.warn("[build-site] Manca faq/index.html (saltato placeholder).");
+  }
+
+  const forumIndexPath = path.join(DIST, "forum", "index.html");
+  if (fs.existsSync(forumIndexPath)) {
+    let forumHtml = fs.readFileSync(forumIndexPath, "utf8");
+    forumHtml = applyPlaceholderMap(forumHtml, map);
+    warnLeftoverPlaceholders(forumHtml, "forum/index.html");
+    fs.writeFileSync(forumIndexPath, forumHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca forum/index.html (saltato placeholder).");
   }
 
   const sponsorIndexPath = path.join(DIST, "sponsor", "index.html");

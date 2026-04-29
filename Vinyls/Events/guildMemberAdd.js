@@ -356,9 +356,9 @@ function buildWelcomeEmbed(member) {
     )
     .setDescription(
       `__${uname}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli <:VC_emoji:1485419161168511036>",
-      "Usa il comando \`+colors\` per **cambiare il tuo colore** <:VC_Color:1482532543273238569>",
-      "Usa il comando \`+profile\` per **personalizzare il tuo profilo** <:VC_addperson:1485419347068588073>",
+      "<:VC_emoji:1485419161168511036> Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli\n" +
+      "<:VC_Color:1482532543273238569> Usa il comando \`+colors\` per **cambiare il tuo colore**\n" +
+      "<:VC_addperson:1485419347068588073> Usa il comando \`+profile\` per **personalizzare il tuo profilo**\n",
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)

@@ -58,7 +58,12 @@ function clamp(value, max) {
 
 function sanitizeUsername(member, author) {
   const fallback = accountUsername(author);
-  const raw = (member ? accountUsername(member) : fallback).replace(/\n/g, " ").trim();
+  const raw = (member ? accountUsername(member) : fallback)
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\n/g, " ")
+    .trim()
+    .normalize("NFKC");
   return clamp(raw || fallback, MAX_DISPLAY_NAME_LENGTH);
 }
 
@@ -99,21 +104,11 @@ function buildBaseContent(message) {
   if (message?.attachments?.size > 0) {
     const firstAttachment = [...message.attachments.values()][0];
     const attachmentName = firstAttachment?.name || "file";
-    if (firstAttachment?.contentType?.startsWith("image/")) return "[Immagine]";
+    if (firstAttachment?.contentType?.startsWith("image/")) return "";
     if (firstAttachment?.contentType?.startsWith("video/")) return "[Video]";
     return `[Allegato: ${attachmentName}]`;
   }
-
-  if (message?.embeds?.length > 0) {
-    const embed = message.embeds[0];
-    if (embed.title || embed.description) {
-      const embedText=[embed.title,embed.description].filter(Boolean).join(" - ").slice(0,100);
-      return `[Embed] ${embedText}`;
-    }
-    return "[Embed]";
-  }
-
-  return "[Messaggio vuoto]";
+  return "";
 }
 
 function getNameColor(member) {
@@ -176,7 +171,7 @@ async function renderSkullCanvas(
   return renderSkullboardCanvas({
     avatarUrl: guildMemberDisplayAvatarUrlDynamic(member || message.author, { size: 256 }) || "",
     username: sanitizeUsername(member, message.author),
-    message: content || "[Messaggio vuoto]",
+    message: content || "",
     nameColor: getNameColor(member),
     createdAt: message.createdAt,
     reply: replyData,
@@ -194,8 +189,8 @@ function buildSkullEmbed(user, message, postImageName) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: user.username,
-      iconURL: guildMemberDisplayAvatarUrlDynamic(user, { size: 64 }) || undefined,
+      name: message.author?.username || user.username,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 64 }) || undefined,
     })
     .setDescription(
       `Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard`,
@@ -235,6 +230,7 @@ module.exports = {
 
       const message = await resolveReactionMessage(reaction);
       if (!message || !message.guild || !message.author) return;
+      if ((message.embeds?.length || 0) > 0) return;
       if (!isSkullboardSourceChannel(message.channel)) {
         return;
       }

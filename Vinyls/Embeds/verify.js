@@ -36,7 +36,6 @@ async function run(client) {
       "<:vegacheckmark:1443666279058772028> Per **verificarti** premi il pulsante **__`Verify`__**: si aprirà il flusso sul sito.\n" +
         "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__<#1442569095068254219> `SUPPORTO`__**",
     )
-    .setImage(DIVIDER_URL);
 
   const color = client?.config?.embedVerify || "#6f4e37";
   const verifyPanelEmbed = new EmbedBuilder()
@@ -48,7 +47,6 @@ async function run(client) {
         "` devi prima verificarti.**\n" +
         "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
     )
-    .setImage(DIVIDER_URL);
 
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

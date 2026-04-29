@@ -357,43 +357,100 @@
       if (txt !== "community") continue;
       var panel = det.querySelector(".vc-snav-panel");
       if (!panel) continue;
-      if (panel.querySelector('a.vc-snav-row[href="/forum"]')) continue;
+      var forumRows = panel.querySelectorAll("a.vc-snav-row");
+      var hasForum = false;
+      forumRows.forEach(function (row) {
+        var rowPath = pathnameFromHref(row.getAttribute("href"));
+        if (rowPath !== "/forum") return;
+        if (!hasForum) {
+          hasForum = true;
+          return;
+        }
+        row.remove();
+      });
+      if (hasForum) continue;
       var row = document.createElement("a");
       row.className = "vc-snav-row";
       row.href = "/forum";
       row.innerHTML =
-        '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-comments-o"></i></span><span>Forum</span>';
+        '<span class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-comments"></i></span><span>Forum</span>';
       panel.appendChild(row);
     }
   }
 
   function normalizePathname(path) {
-    var p = String(path || "");
-    if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
-    return p;
+    var p = String(path || "/").trim() || "/";
+    p = p.replace(/\\/g, "/");
+    p = p.replace(/\/{2,}/g, "/");
+    if (p.charAt(0) !== "/") p = "/" + p;
+    p = p.replace(/\/index\.html$/i, "");
+    if (p.length > 1) p = p.replace(/\/+$/, "");
+    return p || "/";
+  }
+
+  function pathnameFromHref(href) {
+    var raw = String(href || "").trim();
+    if (!raw || raw.charAt(0) === "#") return "";
+    try {
+      var u = new URL(raw, window.location.href);
+      if (u.origin !== window.location.origin) return "";
+      return normalizePathname(u.pathname);
+    } catch (e) {
+      return "";
+    }
   }
 
   function markSnavDetailsCurrentFromLocation() {
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
     var cur = normalizePathname(window.location.pathname);
+    var isUserProfileDetail = false;
+    try {
+      if (/^\/users\/\d{17,20}$/.test(cur)) {
+        isUserProfileDetail = true;
+      } else if (cur === "/user") {
+        var q = new URLSearchParams(window.location.search || "");
+        isUserProfileDetail = /^\d{17,20}$/.test(String(q.get("id") || "").trim());
+      }
+    } catch (e0) {}
+    var allRows = bar.querySelectorAll("a.vc-snav-row");
+    var allItems = bar.querySelectorAll("a.vc-snav-item");
+    allRows.forEach(function (a) {
+      a.classList.remove("vc-snav-row--active");
+      a.removeAttribute("aria-current");
+    });
+    allItems.forEach(function (a) {
+      a.classList.remove("vc-snav-item--active");
+      a.removeAttribute("aria-current");
+    });
+    bar.querySelectorAll("details.vc-snav-details").forEach(function (d) {
+      d.classList.remove("vc-snav-details--current");
+    });
+
+    var itemHit = false;
+    allItems.forEach(function (a) {
+      var p = pathnameFromHref(a.getAttribute("href"));
+      if (!p || p !== cur) return;
+      itemHit = true;
+      a.classList.add("vc-snav-item--active");
+      a.setAttribute("aria-current", "page");
+    });
+
+    var rowHit = false;
     bar.querySelectorAll("details.vc-snav-details").forEach(function (det) {
       var hit = false;
       det.querySelectorAll("a.vc-snav-row").forEach(function (a) {
-        if (a.classList.contains("vc-snav-row--active") || a.getAttribute("aria-current") === "page") {
-          hit = true;
-          return;
-        }
-        var href = a.getAttribute("href");
-        if (!href || href.charAt(0) === "#") return;
-        try {
-          var u = new URL(href, window.location.href);
-          if (u.origin !== window.location.origin) return;
-          if (normalizePathname(u.pathname) === cur) hit = true;
-        } catch (e) {}
+        var p = pathnameFromHref(a.getAttribute("href"));
+        if (!p || p !== cur) return;
+        if (isUserProfileDetail && p === "/user") return;
+        hit = true;
+        rowHit = true;
+        a.classList.add("vc-snav-row--active");
+        a.setAttribute("aria-current", "page");
       });
       if (hit) det.classList.add("vc-snav-details--current");
     });
+
   }
 
   function initHeaderNavAccordion() {
@@ -402,6 +459,12 @@
     if (!bar) return;
     var detailsList = bar.querySelectorAll("details.vc-snav-details");
     var notif = bar.querySelector("details.vc-notif-dropdown");
+    var accountMenu = bar.querySelector(".discord-account-menu");
+    function syncNotifOpenClass() {
+      var root = document.documentElement;
+      if (!root) return;
+      root.classList.toggle("vc-notif-dropdown-open", Boolean(notif && notif.open));
+    }
     detailsList.forEach(function (d) {
       d.addEventListener("toggle", function () {
         if (!d.open) return;
@@ -409,14 +472,26 @@
           if (other !== d) other.open = false;
         });
         if (notif) notif.open = false;
+        syncNotifOpenClass();
       });
     });
     if (notif) {
       notif.addEventListener("toggle", function () {
+        syncNotifOpenClass();
         if (!notif.open) return;
         detailsList.forEach(function (other) {
           other.open = false;
         });
+      });
+    }
+    if (accountMenu && notif) {
+      accountMenu.addEventListener("pointerenter", function () {
+        if (notif.open) notif.open = false;
+        syncNotifOpenClass();
+      });
+      accountMenu.addEventListener("focusin", function () {
+        if (notif.open) notif.open = false;
+        syncNotifOpenClass();
       });
     }
     function closeAllHeaderDropdowns() {
@@ -424,6 +499,7 @@
         d.open = false;
       });
       if (notif) notif.open = false;
+      syncNotifOpenClass();
     }
     document.addEventListener(
       "pointerdown",
@@ -442,6 +518,7 @@
       },
       true,
     );
+    syncNotifOpenClass();
     markSnavDetailsCurrentFromLocation();
   }
   if (document.readyState === "loading") {
@@ -802,6 +879,7 @@
 })();
 (function () {
   var STORAGE_PREFIX = "vc_notifications_v1:";
+  var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var NOTIFICATIONS_PATH = "/notifications/";
   var DEMO_ID = "__vc_ephemeral_demo__";
@@ -839,8 +917,64 @@
     var id = normalizeUserId(userId || currentUserId);
     return id ? STORAGE_PREFIX + id : "";
   }
+  function userDismissedKey(userId) {
+    var id = normalizeUserId(userId || currentUserId);
+    return id ? DISMISSED_PREFIX + id : "";
+  }
   function setCurrentUser(user) {
     currentUserId = normalizeUserId(user && user.id);
+  }
+  function loadDismissedSet(userId) {
+    var key = userDismissedKey(userId);
+    if (!key) return new Set();
+    try {
+      var raw = localStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr)) return new Set();
+      return new Set(
+        arr
+          .map(function (x) {
+            return String(x || "").trim();
+          })
+          .filter(Boolean),
+      );
+    } catch (e) {
+      return new Set();
+    }
+  }
+  function saveDismissedSet(setLike, userId) {
+    var key = userDismissedKey(userId);
+    if (!key) return;
+    var arr = Array.from(setLike || []).filter(Boolean);
+    if (arr.length > 500) arr = arr.slice(arr.length - 500);
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+    } catch (e) {}
+  }
+  function markDismissed(id, userId) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var set = loadDismissedSet(userId);
+    set.add(sid);
+    saveDismissedSet(set, userId);
+  }
+  function hashText(input) {
+    var s = String(input || "");
+    var h = 5381;
+    for (var i = 0; i < s.length; i += 1) {
+      h = ((h << 5) + h) + s.charCodeAt(i);
+      h = h >>> 0;
+    }
+    return h.toString(36);
+  }
+  function buildStableNotifId(payload, ownerId, kind, openUrl) {
+    var explicit = payload && payload.id != null ? String(payload.id).trim() : "";
+    if (explicit) return explicit;
+    var title = String((payload && payload.title) || "").trim();
+    var body = String((payload && payload.body) || "").trim();
+    var atRaw = payload && payload.at;
+    var at = Number.isFinite(Number(atRaw)) ? String(Math.floor(Number(atRaw))) : "";
+    return "auto:" + hashText([ownerId, kind, title, body, String(openUrl || ""), at].join("|"));
   }
   function loadStored() {
     var key = userStorageKey();
@@ -866,12 +1000,13 @@
     return ephemeralDemo ? [ephemeralDemo].concat(s) : s;
   }
   function iconClass(kind) {
-    if (kind === "vote") return "fa-check-square-o";
-    if (kind === "success") return "fa-check-circle-o";
-    if (kind === "review") return "fa-star-o";
+    if (kind === "vote") return "fa-trophy";
+    if (kind === "vote_reminder") return "fa-clock-o";
+    if (kind === "success") return "fa-check-circle";
+    if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
-    if (kind === "suggestion") return "fa-lightbulb-o";
-    return "fa-info-circle";
+    if (kind === "suggestion") return "fa-magic";
+    return "fa-bell-o";
   }
   function notificationsPageUrl() {
     try {
@@ -1060,6 +1195,11 @@
   }
   function clearAll() {
     ephemeralDemo = null;
+    var all = loadStored();
+    for (var i = 0; i < all.length; i += 1) {
+      var sid = String((all[i] && all[i].id) || "").trim();
+      if (sid) markDismissed(sid);
+    }
     saveStored([]);
     render();
   }
@@ -1089,7 +1229,8 @@
   }
 
   function shouldOpenNotifInNewTab(href, kind) {
-    if (String(kind || "").toLowerCase() !== "vote") return false;
+    var k = String(kind || "").toLowerCase();
+    if (k !== "vote" && k !== "vote_reminder") return false;
     try {
       var u = new URL(String(href || ""), window.location.origin);
       var host = String(u.hostname || "").toLowerCase();
@@ -1225,6 +1366,8 @@
     var kind =
       kindRaw === "vote"
         ? "vote"
+        : kindRaw === "vote_reminder"
+          ? "vote_reminder"
         : kindRaw === "success"
           ? "success"
           : kindRaw === "review"
@@ -1236,7 +1379,17 @@
                 : "info";
     var openUrl = "";
     if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
-    var stableId = p && p.id != null ? String(p.id).trim() : "";
+    var stableId = buildStableNotifId(p, ownerId, kind, openUrl);
+    var titleRaw = String((p && p.title) || "").toLowerCase();
+    var bodyRaw = String((p && p.body) || "").toLowerCase();
+    if (
+      kind === "vote" &&
+      (titleRaw.indexOf("promemoria") !== -1 ||
+        bodyRaw.indexOf("promemoria") !== -1)
+    ) {
+      kind = "vote_reminder";
+    }
+    if (stableId && loadDismissedSet(ownerId).has(stableId)) return { added: false };
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),

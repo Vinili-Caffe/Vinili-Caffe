@@ -646,6 +646,9 @@ function startWeeklyActivityWinnersLoop(client) {
   };
   const runRecoveryIfNeeded = async () => {
     const now = new Date();
+    const nowRome = getRomeDateTimeParts(now);
+    // Hard guard richiesto: recovery weekly solo di domenica.
+    if (Number(nowRome?.weekday) !== 0) return;
     const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
     const gid = channel?.guild?.id;
     if (!gid) return;

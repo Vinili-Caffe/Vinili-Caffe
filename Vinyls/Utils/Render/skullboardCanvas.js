@@ -1,7 +1,20 @@
 const canvasModule = require("canvas");
 const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback, } = require("./canvasFonts");
-const { createCanvas, loadImage } = canvasModule;
+const { createCanvas } = canvasModule;
 const { safeLoadImage } = require("./safeLoadImage");
+const { normalizeTextForCanvas } = require("./canvasUtils");
+
+function cleanDisplayText(value, maxLength = 0) {
+  const normalized = normalizeTextForCanvas(String(value || ""))
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .normalize("NFKC");
+  if (maxLength > 0 && normalized.length > maxLength) {
+    return `${normalized.slice(0, Math.max(0, maxLength - 3))}...`;
+  }
+  return normalized;
+}
 
 function wrapLines(ctx, text, maxWidth) {
   const lines = [];
@@ -91,7 +104,9 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
 
   const probe = createCanvas(width, 10).getContext("2d");
   probe.font = fontStack(16, "500");
-  const rawLines = hasEmbedOnly ? [] : wrapLines(probe, message || "", textMaxWidth);
+  const displayUsername = cleanDisplayText(username, 80);
+  const displayMessage = cleanDisplayText(message);
+  const rawLines = hasEmbedOnly ? [] : wrapLines(probe, displayMessage || "", textMaxWidth);
   const maxMessageLines = 20;
   const messageLines = rawLines.slice(0, maxMessageLines);
   const messageTruncated = rawLines.length > maxMessageLines;
@@ -99,7 +114,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
 
   let mediaImage = null;
   if (hasMedia && mediaUrl) {
-    mediaImage = await loadImage(mediaUrl).catch(() => null);
+    mediaImage = await safeLoadImage(mediaUrl, { timeoutMs: 15000, suppressWarning: true });
   }
 
   const replyRowHeight = 22;
@@ -150,7 +165,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
     }
 
     ctx.font = fontStack(12, "600");
-    const replyName = reply.author || "Sconosciuto";
+    const replyName = cleanDisplayText(reply.author || "Sconosciuto", 48) || "Sconosciuto";
     const replyNameColor = reply.nameColor || "#b9bbbe";
     drawTextWithSpecialFallback(ctx, replyName, rx, replyRowMidY, {
       size: 12,
@@ -171,7 +186,7 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
       }
     }
 
-    const replyContent = String(reply.content || "").slice(0, 72);
+    const replyContent = cleanDisplayText(reply.content || "", 72);
     drawTextWithSpecialFallback(ctx, replyContent, rx, replyRowMidY, {
       size: 12,
       weight: "500",
@@ -212,14 +227,15 @@ module.exports = async function renderSkullboardCanvas({ avatarUrl, username, me
   ctx.textBaseline = "top";
   const usernameSize = 34 / 2;
   const usernameWeight = "600";
-  drawTextWithSpecialFallback(ctx, username || "", contentX, headerY, {
+  drawTextWithSpecialFallback(ctx, displayUsername || "", contentX, headerY, {
     size: usernameSize,
     weight: usernameWeight,
     color: userColor,
+    forcePrimaryFont: true,
   });
 
   ctx.font = fontStack(usernameSize, usernameWeight);
-  const usernameWidth = ctx.measureText(username || "").width;
+  const usernameWidth = ctx.measureText(displayUsername || "").width;
   let cursorX = contentX + usernameWidth + usernameToIconGap;
   if (roleIconUrl) {
     const roleIcon = await safeLoadImage(roleIconUrl, { timeoutMs: 10000 });

@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
 const { WeeklyContestBundle, WeeklyContestMeta } = require("../Schemas/Community/weeklyContestSchemas");
-const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST } = require("../Services/Community/weeklyContestService");
+const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST, disegniContestUiOutfit } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
@@ -28,6 +28,9 @@ const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
 const CUSTOM_ROLE_VOC_ROLE_IDS = [ IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.Level50, IDs?.roles?.VIPplus ].filter(Boolean);
 const CUSTOM_ROLE_SECONDARY_ROLE_IDS = [IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, IDs?.roles?.["VIP+"]].filter(Boolean);
+const IS_OUTFIT_UI = IS_DISEGNI_CONTEST && disegniContestUiOutfit();
+const CONTEST_VOTES_LABEL = IS_OUTFIT_UI ? "outfit" : IS_DISEGNI_CONTEST ? "contest disegni" : "contest sfondi";
+const CONTEST_MENU_LABEL = IS_OUTFIT_UI ? "Outfit" : IS_DISEGNI_CONTEST ? "Contest disegni" : "Evento Sfondi";
 const CONTEST_CHANNEL_MOBILE_ID = IS_DISEGNI_CONTEST
   ? String(IDs.channels?.contestDisegni || "").trim()
   : String(IDs.channels?.contestSfondiMobile || "").trim();
@@ -508,7 +511,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
           .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
         : ["- Nessun voto registrato."];
       return base.setDescription([
-        "<:VC_PinkQuestionMark:1471892611026391306> Stato voti del **contest disegni**.",
+        `<:VC_PinkQuestionMark:1471892611026391306> Stato voti del **${CONTEST_VOTES_LABEL}**.`,
         "",
         `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
         `<:VC_Dot:1482532364222595303> Voti usati: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,
@@ -559,7 +562,7 @@ function buildSectionEmbed(section, state, user, guild = null) {
       `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
       `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
       IS_DISEGNI_CONTEST
-        ? `<a:VC_Events:1482706144953897223> Contest disegni — voti disponibili: **${remM}**`
+        ? `<a:VC_Events:1482706144953897223> ${CONTEST_MENU_LABEL} — voti disponibili: **${remM}**`
         : `<a:VC_Events:1482706144953897223> Contest sfondi — voti disponibili: **Mobile** ${remM} · **PC** ${remP}`,
       `<:VC_Color:1482532543273238569> Custom Role: ${customRoleMention}`,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
@@ -579,7 +582,7 @@ function buildRows(ownerId, section, state = null) {
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
     {
-      label: IS_DISEGNI_CONTEST ? "Contest disegni" : "Evento Sfondi",
+      label: CONTEST_MENU_LABEL,
       value: SECTION_EVENT_VOTES,
       emoji: "<a:VC_Events:1482706144953897223>",
       default: section === SECTION_EVENT_VOTES,

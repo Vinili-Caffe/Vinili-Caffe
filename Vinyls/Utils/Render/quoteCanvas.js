@@ -14,6 +14,7 @@ const QUOTE_HEIGHT = 512;
 const QUOTE_LEFT = 512;
 const QUOTE_GIF_FRAMES = 18;
 const QUOTE_GIF_FPS = 10;
+const CUSTOM_EMOJI_TOKEN_RE = /<a?:[a-zA-Z0-9_]{2,32}:\d+>/g;
 
 function runFfmpeg(args) {
   if (!ffmpegPath) return false;
@@ -65,6 +66,84 @@ function wrapLines(ctx, text, maxWidth, maxLines = Infinity) {
   return lines.slice(0, maxLines);
 }
 
+function emojiUrlFromToken(token) {
+  const m = /^<(a?):([a-zA-Z0-9_]{2,32}):(\d+)>$/.exec(String(token || ""));
+  if (!m) return null;
+  const animated = m[1] === "a";
+  const id = m[3];
+  return `https://cdn.discordapp.com/emojis/${id}.${animated ? "gif" : "png"}?size=64&quality=lossless`;
+}
+
+function parseLineParts(line) {
+  const parts = [];
+  const src = String(line || "");
+  let last = 0;
+  let m = null;
+  const re = new RegExp(CUSTOM_EMOJI_TOKEN_RE.source, "g");
+  while ((m = re.exec(src)) !== null) {
+    if (m.index > last) parts.push({ type: "text", value: src.slice(last, m.index) });
+    parts.push({ type: "emoji", value: m[0] });
+    last = re.lastIndex;
+  }
+  if (last < src.length) parts.push({ type: "text", value: src.slice(last) });
+  return parts;
+}
+
+function measureLineParts(ctx, parts, fontSize) {
+  return parts.reduce((acc, part) => {
+    if (part.type === "emoji") return acc + Math.round(fontSize * 1.05);
+    return acc + ctx.measureText(part.value).width;
+  }, 0);
+}
+
+function drawLineWithCustomEmoji(ctx, line, centerX, y, fontSize, emojiAssets) {
+  const parts = parseLineParts(line);
+  const totalWidth = measureLineParts(ctx, parts, fontSize);
+  let x = centerX - totalWidth / 2;
+  for (const part of parts) {
+    if (part.type === "emoji") {
+      const img = emojiAssets?.get(part.value);
+      const emojiSize = Math.round(fontSize * 1.05);
+      if (img) {
+        ctx.drawImage(img, x, y + Math.round((fontSize - emojiSize) / 2) + 2, emojiSize, emojiSize);
+      } else {
+        drawTextWithSpecialFallback(ctx, "?", x + emojiSize / 2, y, {
+          size: fontSize,
+          weight: "600",
+          color: "#f7f7f7",
+          forcePrimaryFont: true,
+          align: "center",
+        });
+      }
+      x += emojiSize;
+    } else if (part.value) {
+      drawTextWithSpecialFallback(ctx, part.value, x, y, {
+        size: fontSize,
+        weight: "600",
+        color: "#f7f7f7",
+        forcePrimaryFont: true,
+        align: "left",
+      });
+      x += ctx.measureText(part.value).width;
+    }
+  }
+}
+
+async function loadEmojiAssets(text) {
+  const map = new Map();
+  const tokens = String(text || "").match(CUSTOM_EMOJI_TOKEN_RE) || [];
+  const uniqueTokens = [...new Set(tokens)];
+  await Promise.all(
+    uniqueTokens.map(async (token) => {
+      const url = emojiUrlFromToken(token);
+      if (!url) return;
+      const img = await safeLoadImage(url, { timeoutMs: 12000, suppressWarning: true });
+      if (img) map.set(token, img);
+    }),
+  );
+  return map;
+}
+
 function drawImageCover(ctx, image, x, y, w, h) {
   const { width, height } = image;
   const scale = Math.max(w / width, h / height);
@@ -102,7 +181,7 @@ function measureQuoteLayout(message, username, footerText) {
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
 
-  const mainText = String(message || "").trim().toUpperCase();
+  const mainText = String(message || "").trim();
   let fontSize = 34;
   let lines = [];
   let lineHeight = 40;
@@ -112,9 +191,7 @@ function measureQuoteLayout(message, username, footerText) {
     lines = wrapLines(ctx, mainText, maxTextWidth);
     lineHeight = Math.round(fontSize * 1.25);
     const blockHeight = lines.length * lineHeight;
-    const words = mainText.split(/\s+/);
-    const allWordsFit = words.every((w) => ctx.measureText(w).width <= maxTextWidth);
-    if (blockHeight <= maxBlockHeight && allWordsFit) break;
+    if (blockHeight <= maxBlockHeight) break;
     fontSize -= 2;
   }
 
@@ -182,12 +259,7 @@ function drawQuoteFrame(ctx, leftImage, layout) {
   let y = lineStartY;
   for (const line of lines) {
     if (y + lineHeight > height - 36) break;
-    drawTextWithSpecialFallback(ctx, line, textX, y, {
-      size: fontSize,
-      weight: "600",
-      color: "#f7f7f7",
-      forcePrimaryFont: true,
-    });
+    drawLineWithCustomEmoji(ctx, line, textX, y, fontSize, layout.emojiAssets);
     y += lineHeight;
   }
 
@@ -325,6 +397,7 @@ module.exports = async function renderQuoteCanvas(params) {
   const { coverImageUrl, message, username, footerText } = params;
   const url = String(coverImageUrl || "").trim();
   const layout = measureQuoteLayout(message, username, footerText);
+  layout.emojiAssets = await loadEmojiAssets(layout.mainText);
 
   const gifBuf = await tryRenderAnimatedQuoteGif(url, layout);
   if (gifBuf) return { buffer: gifBuf, format: "gif" };

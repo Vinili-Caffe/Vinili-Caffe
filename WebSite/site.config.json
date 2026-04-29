@@ -12,7 +12,7 @@
   },
   "maintenance": {
     "enabled": true,
-    "allowedUserIds": ["1243295906934161519", "295500038401163264", "700814270069342339", "799084082855411722", "470373387609571339", "610531025470095390", "1418211224432148482", "1474793709533925480", "1428410611552751676", "1416505080781209642", "1438235854735802571", "1101125692252499988"],
+    "allowedUserIds": ["1243295906934161519", "295500038401163264", "700814270069342339", "799084082855411722", "470373387609571339", "610531025470095390", "1418211224432148482", "1474793709533925480", "1428410611552751676", "1416505080781209642", "1438235854735802571", "1101125692252499988", "825996687864234004", "610531025470095390"],
     "title": "Sito in manutenzione",
     "message": "Stiamo sistemando alcune parti del sito. Torna tra poco!"
   },
@@ -21,6 +21,7 @@
   "unbanSubmitApiUrl": "https://www.viniliecaffe.it/webhooks/site-unban",
   "unbanSubmitApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-unban",
   "discordInviteUrl": "https://discord.gg/viniliecaffe",
+  "discordSponsorTicketsMessageUrl": "https://discord.com/channels/1329080093599076474/1442569095068254219/1469836204873744404",
   "wikiUrl": "/wiki",
   "sponsorUrl": "/sponsor",
   "wikiBotViniliAvatarUrl": "",
@@ -69,7 +70,7 @@
       "1494089487863644330"
     ],
     "staffRoleLabels": {
-      "1494089487863644330": "Community Manager"
+      "1494089487863644330": "༄ Community Manager"
     },
     "staffRoleCdnEmojiByRoleId": {
       "1494089487863644330": "1494286896459681924"

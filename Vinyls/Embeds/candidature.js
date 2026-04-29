@@ -26,7 +26,6 @@ Per candidarsi, è necessario **soddisfare** i seguenti __requisiti__:
 <:3_:1444099160294031471> Essere **maturi** e **attivi**
 <:4_:1444099158859321435> Non essere mai stato **sanzionato** nel server.`,
     )
-    .setImage(DIVIDER_URL);
   const candidatureAttachment = new AttachmentBuilder(CANDIDATURE_MEDIA_PATH, { name: CANDIDATURE_MEDIA_NAME });
   const rowCandidature = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setLabel("︲HELPER").setEmoji("<:VC_Helper:1494287597952958514>").setStyle(ButtonStyle.Secondary).setCustomId("apply_helper"),

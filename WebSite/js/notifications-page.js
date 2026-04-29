@@ -1,5 +1,6 @@
 (function () {
   var STORAGE_PREFIX = "vc_notifications_v1:";
+  var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var filterMode = "all";
   var currentUserId = "";
@@ -20,7 +21,8 @@
   }
 
   function shouldOpenNotifInNewTab(href, kind) {
-    if (String(kind || "").toLowerCase() !== "vote") return false;
+    var k = String(kind || "").toLowerCase();
+    if (k !== "vote" && k !== "vote_reminder") return false;
     try {
       var u = new URL(String(href || ""), window.location.origin);
       var host = String(u.hostname || "").toLowerCase();
@@ -51,8 +53,70 @@
     return id ? STORAGE_PREFIX + id : "";
   }
 
+  function userDismissedKey(userId) {
+    var id = normalizeUserId(userId || currentUserId);
+    return id ? DISMISSED_PREFIX + id : "";
+  }
+
   function setCurrentUser(user) {
     currentUserId = normalizeUserId(user && user.id);
+  }
+
+  function loadDismissedSet(userId) {
+    var key = userDismissedKey(userId);
+    if (!key) return new Set();
+    try {
+      var raw = localStorage.getItem(key);
+      var arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr)) return new Set();
+      return new Set(
+        arr
+          .map(function (x) {
+            return String(x || "").trim();
+          })
+          .filter(Boolean),
+      );
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveDismissedSet(setLike, userId) {
+    var key = userDismissedKey(userId);
+    if (!key) return;
+    var arr = Array.from(setLike || []).filter(Boolean);
+    if (arr.length > 500) arr = arr.slice(arr.length - 500);
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+    } catch (e) {}
+  }
+
+  function markDismissed(id, userId) {
+    var sid = String(id || "").trim();
+    if (!sid) return;
+    var set = loadDismissedSet(userId);
+    set.add(sid);
+    saveDismissedSet(set, userId);
+  }
+
+  function hashText(input) {
+    var s = String(input || "");
+    var h = 5381;
+    for (var i = 0; i < s.length; i += 1) {
+      h = ((h << 5) + h) + s.charCodeAt(i);
+      h = h >>> 0;
+    }
+    return h.toString(36);
+  }
+
+  function buildStableNotifId(payload, ownerId, kind, openUrl) {
+    var explicit = payload && payload.id != null ? String(payload.id).trim() : "";
+    if (explicit) return explicit;
+    var title = String((payload && payload.title) || "").trim();
+    var body = String((payload && payload.body) || "").trim();
+    var atRaw = payload && payload.at;
+    var at = Number.isFinite(Number(atRaw)) ? String(Math.floor(Number(atRaw))) : "";
+    return "auto:" + hashText([ownerId, kind, title, body, String(openUrl || ""), at].join("|"));
   }
 
   function loadStored() {
@@ -83,6 +147,8 @@
     var kind =
       kindRaw === "vote"
         ? "vote"
+        : kindRaw === "vote_reminder"
+          ? "vote_reminder"
         : kindRaw === "success"
           ? "success"
           : kindRaw === "review"
@@ -94,7 +160,17 @@
                 : "info";
     var openUrl = "";
     if (p && typeof p.openUrl === "string") openUrl = String(p.openUrl).trim();
-    var stableId = p && p.id != null ? String(p.id).trim() : "";
+    var stableId = buildStableNotifId(p, ownerId, kind, openUrl);
+    var titleRaw = String((p && p.title) || "").toLowerCase();
+    var bodyRaw = String((p && p.body) || "").toLowerCase();
+    if (
+      kind === "vote" &&
+      (titleRaw.indexOf("promemoria") !== -1 ||
+        bodyRaw.indexOf("promemoria") !== -1)
+    ) {
+      kind = "vote_reminder";
+    }
+    if (stableId && loadDismissedSet(ownerId).has(stableId)) return loadStored();
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
@@ -155,12 +231,23 @@
   }
 
   function iconClass(kind) {
-    if (kind === "vote") return "fa-check-square-o";
-    if (kind === "success") return "fa-check-circle-o";
-    if (kind === "review") return "fa-star-o";
+    if (kind === "vote") return "fa-trophy";
+    if (kind === "vote_reminder") return "fa-clock-o";
+    if (kind === "success") return "fa-check-circle";
+    if (kind === "review") return "fa-star";
     if (kind === "mod") return "fa-shield";
-    if (kind === "suggestion") return "fa-lightbulb-o";
-    return "fa-user-plus";
+    if (kind === "suggestion") return "fa-magic";
+    return "fa-bell-o";
+  }
+
+  function kindUiLabel(kind) {
+    if (kind === "vote") return "Voto";
+    if (kind === "vote_reminder") return "Promemoria";
+    if (kind === "success") return "Successo";
+    if (kind === "review") return "Recensione";
+    if (kind === "mod") return "Moderazione";
+    if (kind === "suggestion") return "Suggerimento";
+    return "Info";
   }
 
   function timeAgoIt(atMs) {
@@ -231,6 +318,7 @@
   }
 
   function removeOne(id) {
+    markDismissed(id);
     var next = loadStored().filter(function (x) {
       return x.id !== id;
     });
@@ -238,6 +326,11 @@
   }
 
   function clearAll() {
+    var all = loadStored();
+    for (var i = 0; i < all.length; i += 1) {
+      var sid = String((all[i] && all[i].id) || "").trim();
+      if (sid) markDismissed(sid);
+    }
     saveStored([]);
   }
 
@@ -260,6 +353,7 @@
     shown.forEach(function (n) {
       var li = document.createElement("li");
       li.className = "vc-notify-row";
+      li.classList.add("vc-notify-row--kind-" + String(n.kind || "info"));
       if (n.kind === "success") li.classList.add("vc-notify-row--success");
       if (n.read) li.classList.add("vc-notify-row--read");
       li.setAttribute("data-id", n.id);
@@ -299,7 +393,7 @@
       if (!n.read) {
         var badge = document.createElement("span");
         badge.className = "vc-notify-row-badge";
-        badge.textContent = n.kind === "success" ? "Successo" : "Nuova";
+        badge.textContent = kindUiLabel(n.kind);
         meta.appendChild(badge);
       }
 
