@@ -2419,6 +2419,15 @@ a.vc-header-legal-pill[aria-current="page"] {
     0 0 28px rgba(var(--vc-mocha-rgb), 0.16);
 }
 
+/* Home hero brand: remove visible gap in "Caffè" glyph pair */
+body.vc-body--home .vc-support-intro-shell .vc-brand-glow .text-emerald-300 {
+  letter-spacing: -0.045em;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures contextual;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1;
+  text-rendering: optimizeLegibility;
+}
+
 @keyframes vc-brand-shimmer {
 
   0%,
@@ -3031,15 +3040,15 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   overflow: hidden;
   z-index: 20;
   border-radius: 0.9rem;
-  border: 1px solid rgba(var(--vc-sand-rgb), 0.28);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.46);
   background:
-    radial-gradient(95% 80% at 14% 0%, rgba(247, 236, 223, 0.08), transparent 62%),
-    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.58), rgba(22, 16, 12, 0.46));
+    radial-gradient(95% 80% at 14% 0%, rgba(247, 236, 223, 0.14), transparent 62%),
+    linear-gradient(145deg, rgba(40, 28, 21, 0.94), rgba(20, 14, 10, 0.92));
   box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.38),
-    0 0 20px rgba(var(--vc-sand-rgb), 0.1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+    0 18px 42px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(var(--vc-sand-rgb), 0.16);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
   padding: 0.68rem 0.74rem;
   opacity: 0;
   pointer-events: none;
@@ -3071,6 +3080,8 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   max-height: min(42vh, 15.5rem);
   overflow: auto;
   padding-right: 0.22rem;
+  background: rgba(10, 7, 5, 0.22);
+  border-radius: 0.55rem;
 }
 
 .vc-stat-staff-popover__group + .vc-stat-staff-popover__group {

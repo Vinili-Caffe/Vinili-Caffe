@@ -87,6 +87,7 @@ async function run(client) {
     );
   }
   rowGuideMainButtons.push(
+    new ButtonBuilder().setCustomId("moderazione_staff").setLabel("︲MODERAZIONE").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("warnstaff").setLabel("︲WARN STAFF").setEmoji("<:banhammer:1443651875441217639>").setStyle(ButtonStyle.Secondary),
   );
   const rowGuideMain = new ActionRowBuilder().addComponents(...rowGuideMainButtons);

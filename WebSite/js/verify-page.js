@@ -57,6 +57,14 @@
     return fromCfg || "";
   }
 
+  function isTemporaryOnlyMode() {
+    try {
+      return Boolean(window.__VC_VERIFY && window.__VC_VERIFY.temporaryOnly === true);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function showVerifiedSuccessView(data) {
     var pre = byId("vc-verify-phase-pre");
     var done = byId("vc-verify-phase-done");
@@ -134,6 +142,16 @@
     if (!token) {
       if (loginBtn) loginBtn.hidden = false;
       setStatus('<i class="fa fa-lock"></i> Devi fare login con Discord per completare la verifica.', "err");
+      return;
+    }
+
+    if (isTemporaryOnlyMode()) {
+      if (loginBtn) loginBtn.hidden = true;
+      setStatus('<i class="fa fa-check-circle"></i> Login Discord riuscito. Verifica completata.', "ok");
+      showVerifiedSuccessView({
+        ok: true,
+        message: "Verifica completata. Reindirizzamento al server Discord in corso...",
+      });
       return;
     }
 
