@@ -491,6 +491,29 @@ body.vc-body .vc-support-page-hero__icon.vc-donazioni-hero-heart i {
   }
 }
 
+/* Perks: tre card (boost+livelli, badge, verifica), una colonna su mobile */
+@media (min-width: 768px) {
+  .vc-support-donate-roles__grid--perks-three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .vc-support-donate-roles__grid--perks-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099.98px) {
+  .vc-support-donate-roles__grid--perks-three > .vc-support-donate-role--perks-block:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.vc-support-donate-role--perks-block .vc-support-donate-role__price {
+  display: none;
+}
+
 /* Donazioni: podio — 2° VIP (sinistra) | 1° VIP+ (centro, in evidenza) | 3° Donator (destra) */
 .vc-support-donate-roles__grid--podium {
   overflow: visible;
@@ -8131,12 +8154,6 @@ header .vc-header-snav .vc-snav-details.vc-snav-details--current > .vc-snav-summ
   color: #f3dfc8 !important;
 }
 
-/* Header hard-unify across every page/state */
-header .vc-header-snav > .vc-snav-sep,
-header .vc-snav-sep {
-  display: none !important;
-}
-
 header .vc-header-snav .vc-snav-item,
 header .vc-header-snav .vc-snav-summary,
 header .vc-header-snav .vc-snav-item--active,
@@ -8830,6 +8847,10 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   display: none;
 }
 
+.vc-user-profile-accordion__summary--static {
+  cursor: default;
+}
+
 .vc-user-profile-accordion__icon {
   position: relative;
   display: inline-flex;
@@ -9171,6 +9192,9 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
 }
 
 .vc-user-profile-customgrid__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   color: rgba(226, 232, 240, 0.7);
 }
 
@@ -16247,19 +16271,6 @@ body.vc-body.vc-sponsor-page header .vc-header-snav > a.vc-snav-item[href*="spon
   padding-inline: 0.72rem;
 }
 
-@media (min-width: 640px) {
-  body.vc-body.vc-sponsor-page header .vc-header-snav > .vc-snav-sep {
-    display: inline-block !important;
-    width: 1px !important;
-    min-width: 1px !important;
-    max-width: 1px !important;
-    height: 1.1rem !important;
-    margin: 0 0.2rem !important;
-    opacity: 0.65;
-    align-self: center;
-  }
-}
-
 /* Vote page: hide bottom pager/counter ("x / y") */
 .vc-vote-pager {
   display: none !important;
@@ -17024,6 +17035,10 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-customgrid__row
   border-bottom: 1px solid rgba(var(--vc-sand-rgb), 0.16) !important;
   padding: 0.72rem 0.85rem !important;
   background: transparent !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-accordion--voice .vc-user-profile-customgrid {
+  margin-top: 0.85rem !important;
 }
 
 body.vc-body.vc-rank-customize-page .vc-rank-editor-tabs {

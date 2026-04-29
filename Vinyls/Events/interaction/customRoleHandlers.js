@@ -20,6 +20,20 @@ const pendingRoleGrants = new Map();
 const pendingSiteRoleRequests = new Map();
 const PRIVATE_FLAG = 1 << 6;
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
+const IDs = require("../../Utils/Config/ids");
+const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.DoubleBooster].filter(Boolean);
+const GRADIENT_HOLO_DENIED_MSG =
+  "<:VC_Attention:1482534443632558151> **Gradiente** e **olografico** sono riservati a chi ha ruolo **VIP** o **Double Booster**. Gli altri possono usare solo il **colore solido** (stesso menu → Solido).";
+
+async function getGuildMemberForOwner(interaction, ownerId) {
+  if (interaction.member && String(interaction.member.id) === String(ownerId)) return interaction.member;
+  return interaction.guild?.members?.fetch?.(ownerId).catch(() => null) || null;
+}
+
+function memberHasCustomRoleGradientHoloAccess(member) {
+  if (!member?.roles?.cache) return false;
+  return CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+}
 
 function isSafeRoleIconUrl(raw) {
   const value = String(raw || "").trim();
@@ -415,6 +429,11 @@ async function handleRoleActionButton(interaction) {
       label = "Colore HEX";
       placeholder = "Es: #ff66cc";
     } else if (head === "customrole_color_gradient") {
+      const member = await getGuildMemberForOwner(interaction, ownerId);
+      if (!memberHasCustomRoleGradientHoloAccess(member)) {
+        await replyEphemeral(interaction, { content: GRADIENT_HOLO_DENIED_MSG, flags: PRIVATE_FLAG });
+        return true;
+      }
       modalId = `customrole_modal_color_gradient:${ownerId}:${roleId}:${panelMessageId}`;
       title = "Colore gradiente";
     } else if (head === "customrole_emoji") {
@@ -614,13 +633,19 @@ async function handleRoleActionButton(interaction) {
 
   if (head === "customrole_color") {
     const panelMessageId = interaction.message?.id || "";
+    const member = await getGuildMemberForOwner(interaction, ownerId);
+    const allowGradientHolo = memberHasCustomRoleGradientHoloAccess(member);
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`customrole_color_type_select:${ownerId}:${roleId}:${panelMessageId}`)
       .setPlaceholder("Scegli il tipo di colore")
       .addOptions(
         { label: "Solido (1 colore)", value: "solid", description: "Imposta un singolo colore HEX" },
-        { label: "Gradiente (2 colori)", value: "gradient", description: "Imposta due colori HEX" },
-        { label: "Olografico", value: "holo", description: "Stile olografico predefinito" },
+        ...(allowGradientHolo
+          ? [
+            { label: "Gradiente (2 colori)", value: "gradient", description: "Imposta due colori HEX" },
+            { label: "Olografico", value: "holo", description: "Stile olografico predefinito" },
+          ]
+          : []),
       );
     await interaction
       .reply({
@@ -628,7 +653,11 @@ async function handleRoleActionButton(interaction) {
           new EmbedBuilder()
             .setColor("#6f4e37")
             .setTitle("Modifica colore ruolo")
-            .setDescription("Scegli come vuoi impostare il colore del tuo custom role."),
+            .setDescription(
+              allowGradientHolo
+                ? "Scegli come vuoi impostare il colore del tuo custom role."
+                : "Scegli il **colore solido** (HEX). Gradiente e olografico sono riservati a **VIP** e **Double Booster**.",
+            ),
         ],
         components: [new ActionRowBuilder().addComponents(menu)],
         flags: 1 << 6,
@@ -662,6 +691,11 @@ async function handleRoleActionButton(interaction) {
     label = "Emoji / icona (unicode, URL, :nome:, <:...:...>)";
     placeholder = "Es: :VC_PandaExcited: oppure <:VC_PandaExcited:123> oppure https://.../icon.png";
   } else if (head === "customrole_color_holo") {
+    const member = await getGuildMemberForOwner(interaction, ownerId);
+    if (!memberHasCustomRoleGradientHoloAccess(member)) {
+      await replyEphemeral(interaction, { content: GRADIENT_HOLO_DENIED_MSG, flags: PRIVATE_FLAG });
+      return true;
+    }
     const role = await fetchRole(interaction, roleId);
     if (!role) return true;
     if (!canManageRole(interaction, role)) {
@@ -830,6 +864,11 @@ async function handleRoleActionModal(interaction) {
   }
 
   if (action === "color_gradient") {
+    const member = await getGuildMemberForOwner(interaction, ownerId);
+    if (!memberHasCustomRoleGradientHoloAccess(member)) {
+      await interaction.reply({ content: GRADIENT_HOLO_DENIED_MSG, flags: 1 << 6 }).catch(() => { });
+      return true;
+    }
     const raw1 = interaction.fields.getTextInputValue("value1")?.trim() || "";
     const raw2 = interaction.fields.getTextInputValue("value2")?.trim() || "";
     const hex1 = raw1.startsWith("#") ? raw1 : `#${raw1}`;
@@ -1093,6 +1132,11 @@ async function handleRoleColorTypeSelect(interaction) {
   }
 
   if (choice === "gradient") {
+    const member = await getGuildMemberForOwner(interaction, ownerId);
+    if (!memberHasCustomRoleGradientHoloAccess(member)) {
+      await interaction.update({ content: GRADIENT_HOLO_DENIED_MSG, embeds: [], components: [] }).catch(() => { });
+      return true;
+    }
     const modalId = `customrole_modal_color_gradient:${ownerId}:${roleId}:${panelMessageId || ""}`;
     const input1 = new TextInputBuilder().setCustomId("value1").setLabel("Colore 1 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #ff66cc").setMaxLength(64);
     const input2 = new TextInputBuilder().setCustomId("value2").setLabel("Colore 2 (HEX)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Es: #6f4e37").setMaxLength(64);
@@ -1111,6 +1155,11 @@ async function handleRoleColorTypeSelect(interaction) {
   }
 
   if (choice === "holo") {
+    const member = await getGuildMemberForOwner(interaction, ownerId);
+    if (!memberHasCustomRoleGradientHoloAccess(member)) {
+      await interaction.update({ content: GRADIENT_HOLO_DENIED_MSG, embeds: [], components: [] }).catch(() => { });
+      return true;
+    }
     const role = await fetchRole(interaction, roleId);
     if (!role) return true;
     if (!canManageRole(interaction, role)) {
@@ -1397,7 +1446,7 @@ async function handleCustomReactionModal(interaction) {
   if (!tokens.length) {
     await interaction.editReply({
       content:
-        "<:vegax:1443934876440068179> Nessuna reaction valida. Usa emoji unicode o `<:nome:id>`.",
+        "<:vegax:1443934876440068179> Nessuna reaction valida. Usa emoji unicode, `<:nome:id>` (anche da altri server dove il bot è presente) o `:nome:` risolto su questo server o su altri server del bot.",
     }).catch(() => {});
     return true;
   }

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+{{COOKIEYES_BLOCK}}{{GA_BLOCK}}
+    <meta charset="utf-8" />
+    <title>{{PERKS_PAGE_TITLE}}</title>
+    <meta name="description" content="{{PERKS_META_DESCRIPTION}}" />
+    <meta name="author" content="{{SITE_NAME}}" />
+    <meta name="robots" content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{PERKS_OG_TITLE}}" />
+    <meta property="og:description" content="{{PERKS_META_DESCRIPTION}}" />
+    <meta property="og:url" content="{{PERKS_OG_URL}}" />
+    <meta property="og:image" content="{{OG_IMAGE_URL}}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap"
+      rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="../css/tw-build.css" />
+    <link rel="stylesheet" href="../css/vc-landing.css" />
+    <script src="../js/vc-auth-pending.js"></script>
+    <link rel="icon" href="{{GUILD_ICON_URL}}" />
+  </head>
+  <body id="top"
+    class="vc-body vc-donazioni-page relative min-h-screen overflow-x-hidden font-sans text-slate-100 antialiased">
+    <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-b" aria-hidden="true"></div>
+    <div class="vc-blob vc-blob-c" aria-hidden="true"></div>
+
+    <header class="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+      <div
+        class="vc-nav-shell vc-glass mx-auto flex max-w-6xl flex-col gap-0 overflow-visible rounded-2xl border border-white/[0.08] bg-[#140f0c]/78 shadow-[0_8px_40px_rgba(0,0,0,0.48),0_0_48px_rgba(212,168,136,0.07)]">
+        <div
+          class="vc-header-bar grid w-full grid-cols-1 items-center gap-y-2.5 gap-x-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-x-3 sm:px-5">
+          <div class="flex min-w-0 items-center gap-2.5 justify-self-start sm:gap-3">
+            <a class="vc-header-logo-link shrink-0 rounded-2xl ring-1 ring-[#d4a888]/35 transition hover:ring-[#d4a888]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a888]/60"
+              href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Entra su Discord"><img
+                src="../images/vc-header-logo.png" width="40" height="40" class="vc-header-logo-img" alt=""
+                loading="eager" decoding="async" /></a>
+            <a class="min-w-0 truncate text-[0.7rem] font-bold uppercase tracking-[0.18em] text-white underline-offset-4 transition hover:text-[#e8c9a8] hover:underline sm:text-xs"
+              href="{{SITE_URL}}" aria-label="Vai alla homepage">{{SITE_NAME}}</a>
+          </div>
+          <nav
+            class="vc-header-snav vc-glass flex max-w-full flex-wrap items-center justify-center justify-self-center gap-0.5 px-1.5 py-1 sm:min-w-0 sm:gap-1 sm:px-2"
+            aria-label="Collegamenti rapidi">
+            <a class="vc-snav-item" href="{{WIKI_URL}}"><i class="fa fa-map-o" aria-hidden="true"></i><span>Wiki</span></a>
+            <a class="vc-snav-item" href="{{SPONSOR_URL}}"><i class="fa fa-handshake-o" aria-hidden="true"></i><span>Sponsor</span></a>
+            <span class="vc-snav-sep mx-0.5 hidden h-5 w-px shrink-0 bg-white/15 sm:inline-block"
+              aria-hidden="true"></span>
+            <details class="vc-snav-details vc-snav-details--current">
+              <summary class="vc-snav-summary"><span>Supporta</span><i
+                  class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{VOTE_URL}}" data-vc-loading="vote"><span
+                    class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span><span>Vota il
+                    server</span></a>
+                <a class="vc-snav-row" href="{{REVIEWS_PAGE_URL}}"><span
+                      class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-star-o"></i></span><span>Recensioni</span></a>
+                <a class="vc-snav-row" href="{{DONATIONS_URL}}"><span
+                    class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-heart-o"></i></span><span>Donazioni</span></a>
+                <a class="vc-snav-row vc-snav-row--active" href="{{PERKS_URL}}" aria-current="page"><span
+                    class="vc-snav-row-ico" aria-hidden="true"><i class="fa fa-diamond"></i></span><span>Perks</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Community</span><i
+                  class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{USER_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-users"></i></span><span>Users</span></a>
+                <a class="vc-snav-row" href="{{RUOLI_PAGE_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-shield"></i></span><span>Ruoli</span></a>
+                <a class="vc-snav-row" href="{{COMMUNITY_RULES_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-file-text-o"></i></span><span>Regole</span></a>
+                <a class="vc-snav-row" href="{{FAQ_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-question-circle"></i></span><span>FAQ</span></a>
+              </div>
+            </details>
+            <details class="vc-snav-details">
+              <summary class="vc-snav-summary"><span>Richieste</span><i
+                  class="fa fa-chevron-down vc-snav-chev text-[0.65rem] opacity-80" aria-hidden="true"></i></summary>
+              <div class="vc-snav-panel">
+                <a class="vc-snav-row" href="{{RICHIESTE_UNBAN_URL}}"><span class="vc-snav-row-ico" aria-hidden="true"><i
+                      class="fa fa-unlock"></i></span><span>Unban</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_CANDIDATURE_URL}}"><span class="vc-snav-row-ico"
+                    aria-hidden="true"><i class="fa fa-file-text-o"></i></span><span>Candidature</span></a>
+                <a class="vc-snav-row" href="{{RICHIESTE_SUGGERIMENTI_URL}}"><span class="vc-snav-row-ico"
+                    aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span><span>Suggerimenti</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 justify-self-end" id="header-quick-actions">
+            <details class="vc-notif-dropdown" id="vc-notif-dropdown">
+              <summary class="vc-icon-btn vc-notif-summary relative inline-flex" aria-label="Notifiche"><i
+                  class="fa fa-bell-o" aria-hidden="true"></i><span class="vc-notif-badge" id="vc-notif-badge" hidden
+                  aria-live="polite">0</span></summary>
+              <div class="vc-notif-panel" role="region" aria-label="Elenco notifiche">
+                <div class="vc-notif-panel-head">
+                  <div class="vc-notif-panel-head-start">
+                    <span class="vc-notif-panel-head-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></span>
+                    <div class="vc-notif-panel-head-text">
+                      <span class="vc-notif-panel-title">Notifiche</span>
+                      <span class="vc-notif-panel-sub" id="vc-notif-unread-sub">0 non lette</span>
+                    </div>
+                  </div>
+                  <div class="vc-notif-panel-head-actions">
+                    <button type="button" class="vc-notif-action" id="vc-notif-mark-all" title="Segna tutte come lette"
+                      aria-label="Segna tutte come lette"><i class="fa fa-check" aria-hidden="true"></i></button>
+                    <button type="button" class="vc-notif-action" id="vc-notif-clear-all" title="Elimina tutte"
+                      aria-label="Elimina tutte"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-body">
+                  <div class="vc-notif-empty-wrap" id="vc-notif-empty-wrap">
+                    <div class="vc-notif-empty">
+                      <div class="vc-notif-empty-ico" aria-hidden="true"><i class="fa fa-bell-o"></i></div>
+                      <p class="vc-notif-empty-title">Nessuna notifica</p>
+                      <p class="vc-notif-empty-sub">Sei tutto aggiornato!</p>
+                    </div>
+                  </div>
+                  <div class="vc-notif-list-wrap" id="vc-notif-list-wrap">
+                    <ul class="vc-notif-list" id="vc-notif-list" role="list"></ul>
+                  </div>
+                </div>
+                <div class="vc-notif-panel-foot" id="vc-notif-panel-foot">
+                  <a href="{{SITE_URL}}notifications/" class="vc-notif-see-all" id="vc-notif-see-all">Vedi tutte le
+                    notifiche <i class="fa fa-chevron-right" aria-hidden="true"></i></a>
+                </div>
+              </div>
+            </details>
+            <button class="vc-header-pill" id="discord-login-btn" type="button">Login</button>
+            <div class="header-login-state" id="discord-login-state" hidden></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-28 sm:pt-32">
+      <section class="vc-support-page-hero">
+        <div class="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(15.5rem,19.5rem)] lg:items-center lg:gap-12">
+          <div class="max-w-3xl lg:py-1">
+            <div class="vc-support-page-hero__icon vc-support-page-hero__icon--start mb-5 text-[#f7ecdf]" aria-hidden="true">
+              <i class="fa fa-rocket"></i>
+            </div>
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[#f7ecdf]/80">Community</p>
+            <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
+              <span class="text-[#f7ecdf]">Perks</span> boost, livelli e ruoli
+            </h1>
+            <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-200/88 sm:text-xl">
+              Riepilogo dei vantaggi descritti nel canale info su Discord: boost Nitro, progressione livelli, badge ottenibili e verifica selfie.
+            </p>
+          </div>
+          <aside class="vc-support-hero-pillars" aria-label="Come approfondire">
+            <div class="vc-support-hero-pillars__panel">
+              <ul class="vc-support-hero-pillar-list" role="list">
+                <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--bot">
+                  <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
+                  <span class="vc-support-hero-pillar-row__label">Stessi colori della pagina Donazioni</span>
+                </li>
+                <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--events">
+                  <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-comments"></i></span>
+                  <span class="vc-support-hero-pillar-row__label">Sul server usa i bottoni sotto il messaggio info</span>
+                </li>
+                <li class="vc-support-hero-pillar-row vc-support-hero-pillar-row--vps">
+                  <span class="vc-support-hero-pillar-row__ico" aria-hidden="true"><i class="fa fa-link"></i></span>
+                  <span class="vc-support-hero-pillar-row__label">Link rapido anche dal pannello info</span>
+                </li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="vc-support-donate-roles mt-12 md:mt-14" aria-label="Perks e vantaggi">
+        <div class="vc-support-donate-roles__grid vc-support-donate-roles__grid--perks-three">
+          <article class="vc-support-donate-role vc-support-donate-role--vip-plus vc-support-donate-role--perks-block" aria-labelledby="vc-perks-boost">
+            <span class="vc-support-donate-role__badge vc-support-donate-role__badge--popular" role="status">Boost Nitro</span>
+            <div class="vc-support-donate-role__head">
+              <h2 id="vc-perks-boost" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
+                Vantaggi boost &amp; livelli
+              </h2>
+              <p class="mt-2 text-sm leading-relaxed text-slate-300/90">
+                Potenziando <strong class="text-white">{{SITE_NAME}}</strong> con Nitro Boost sblocchi permessi e ricompense. Con due boost attivi ottieni anche ruolo e vocale custom (vedi <code class="vc-sponsor-code">+profile</code> sul server).
+              </p>
+            </div>
+            <p class="mt-3 text-xs font-bold uppercase tracking-[0.2em] text-[#f7ecdf]/75">Un boost al server</p>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-shield"></i></span>
+                <span class="vc-support-donate-perk__text">Ruolo <strong class="text-white">Server Booster</strong> con badge speciale</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-link"></i></span>
+                <span class="vc-support-donate-perk__text">Allegare immagini e link in chat</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-smile-o"></i></span>
+                <span class="vc-support-donate-perk__text">Emoji e sticker di altri server</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-volume-up"></i></span>
+                <span class="vc-support-donate-perk__text">Soundboard del server</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-paint-brush"></i></span>
+                <span class="vc-support-donate-perk__text">Colori <strong class="text-white">PLUS</strong> in <code class="vc-sponsor-code">+colors</code></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-at"></i></span>
+                <span class="vc-support-donate-perk__text">Reazioni automatiche quando ti @menzionano (max 3)</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-quote-left"></i></span>
+                <span class="vc-support-donate-perk__text">Comando <code class="vc-sponsor-code">+quote</code></span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">×2</strong> moltiplicatore EXP</span>
+              </li>
+            </ul>
+            <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-[#f7ecdf]/75">Due boost al server</p>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-star"></i></span>
+                <span class="vc-support-donate-perk__text">Ruolo <strong class="text-white">Double Booster</strong> con badge speciale</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-check-circle"></i></span>
+                <span class="vc-support-donate-perk__text">Tutti i vantaggi del singolo boost</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-volume-up"></i></span>
+                <span class="vc-support-donate-perk__text">Soundboard esterne</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-microphone"></i></span>
+                <span class="vc-support-donate-perk__text">Ruolo <strong class="text-white">custom</strong> e canale <strong class="text-white">vocale privata custom</strong> (<code class="vc-sponsor-code">+profile</code>)</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+                <span class="vc-support-donate-perk__text">Cooldown comandi bot ridotto (30s → 5s)</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-gift"></i></span>
+                <span class="vc-support-donate-perk__text">Bypass requisiti giveaway</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">×3</strong> moltiplicatore EXP</span>
+              </li>
+            </ul>
+            <p class="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-[#f7ecdf]/75">Sottobottone «Info &amp; vantaggi ruoli» (livelli EXP)</p>
+            <p class="mt-1 text-sm leading-relaxed text-slate-300/90">
+              Salendo di livello con messaggi in chat e minuti in vocale sblocchi ruoli e permessi progressivi (nickname, link, quote, colori gradiente aggiuntivi in <code class="vc-sponsor-code">+colors</code>, reazioni, custom role permanente dal livello 50, cooldown ridotto, bypass candidature al 100, bonus EXP +25%, …).
+            </p>
+            <ul class="vc-support-donate-role__perks mt-3" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">10–19</strong>: nickname, link/immagini, messaggi vocali, <code class="vc-sponsor-code">+quote</code>, nuovi colori gradiente</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">20–29</strong>: reazioni ai messaggi, altri gradienti</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">30–49</strong>: soundboard esterne, cooldown 15s, altri gradienti</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">50–69</strong>: ruolo e vocale custom <strong class="text-white">permanenti</strong>, cooldown 5s, altri gradienti</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">70–99</strong>: sticker/emoji esterni, @mention reactions (max 3), altri gradienti</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-angle-right"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">100</strong>: cooldown 1s, bypass giveaway e candidature, <strong class="text-white">+25% EXP</strong> permanente, ultimi gradienti</span>
+              </li>
+            </ul>
+            <p class="mt-3 text-xs text-slate-400/95">Se lasci il server o cambi account i livelli non vengono ripristinati.</p>
+            <p class="mt-3 text-sm leading-relaxed text-slate-300/85">
+              <strong class="text-white">Nitro:</strong> <a class="text-[#e8c9a8] underline underline-offset-2 hover:text-white" href="https://discord.com/nitro" target="_blank" rel="noopener noreferrer">discord.com/nitro</a> — comandi <code class="vc-sponsor-code">+profile</code>, <code class="vc-sponsor-code">+colors</code>, <code class="vc-sponsor-code">+help</code> nel canale comandi del server.
+            </p>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-5 py-3 text-sm font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-base">
+                <i class="fa fa-comments" aria-hidden="true"></i> Entra su Discord
+              </a>
+            </div>
+          </article>
+
+          <article class="vc-support-donate-role vc-support-donate-role--vip vc-support-donate-role--perks-block" aria-labelledby="vc-perks-badges">
+            <span class="vc-support-donate-role__badge vc-support-donate-role__badge--novita" role="status">Profilo</span>
+            <div class="vc-support-donate-role__head">
+              <h2 id="vc-perks-badges" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-certificate"></i></span>
+                Badge e altri ruoli
+              </h2>
+              <p class="mt-2 text-sm leading-relaxed text-slate-300/90">
+                Ruoli aggiuntivi con requisiti diversi: classifiche, inviti, voto, stato Discord, permanenza nel server e altro.
+              </p>
+            </div>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-trophy"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Weekly Winners</strong> — primo per EXP (messaggi o vocale) nella classifica settimanale: ruolo esclusivo ~7 giorni, soundboard esterne</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-heart"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Supporter</strong> — <code class="vc-sponsor-code">.gg/viniliecaffe</code> o <code class="vc-sponsor-code">discord.gg/viniliecaffe</code> nello <em>stato</em> del profilo: link/immagini in chat, cambio nickname</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-thumbs-o-up"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Voter</strong> — voto su Discadia / Top.gg: EXP casuale 100–250, ruolo temporaneo 12–24h</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-user-plus"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Promoter</strong> — 5 inviti con link personalizzato: link/immagini, nickname</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-users"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Propulsor</strong> — 25 inviti: tutto prima, emoji/sticker esterni, reazioni</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-rocket"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Catalyst</strong> — 100 inviti: tutto prima, soundboard esterne in vocale</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-tag"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Guilded</strong> — una guild tag del server: esclusività ruolo</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-clock-o"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">Veterano</strong> — almeno 1 mese nel server</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-star"></i></span>
+                <span class="vc-support-donate-perk__text"><strong class="text-white">OG</strong> — almeno 1 anno nel server</span>
+              </li>
+            </ul>
+            <p class="mt-3 text-xs text-slate-400/95">Uscendo dal server o cambiando account perdi badge e permessi collegati.</p>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-5 py-3 text-sm font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-base">
+                <i class="fa fa-comments" aria-hidden="true"></i> Scopri i badge sul server
+              </a>
+            </div>
+          </article>
+
+          <article class="vc-support-donate-role vc-support-donate-role--donatore vc-support-donate-role--perks-block" aria-labelledby="vc-perks-verify">
+            <span class="vc-support-donate-role__badge vc-support-donate-role__badge--cheap" role="status">Sicurezza</span>
+            <div class="vc-support-donate-role__head">
+              <h2 id="vc-perks-verify" class="vc-support-donate-role__title">
+                <span class="vc-support-donate-role__title-ico" aria-hidden="true"><i class="fa fa-camera"></i></span>
+                Verifica selfie
+              </h2>
+              <p class="mt-2 text-sm leading-relaxed text-slate-300/90">
+                Verifica il profilo con uno selfie riconoscibile per sbloccare ruoli e permessi dedicati (come indicato nel flusso ticket High Staff sul server).
+              </p>
+            </div>
+            <ul class="vc-support-donate-role__perks" role="list">
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-ticket"></i></span>
+                <span class="vc-support-donate-perk__text">Apri un ticket e scegli <strong class="text-white">High Staff</strong>; invia foto in cui si vede bene il viso con il nickname su carta <strong class="text-white">oppure</strong> telefono con profilo Discord visibile</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-id-badge"></i></span>
+                <span class="vc-support-donate-perk__text">Ruoli verificati con <strong class="text-white">badge speciale</strong> (varianti in base al percorso di verifica)</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-image"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di allegare <strong class="text-white">immagini e link</strong> in chat</span>
+              </li>
+              <li class="vc-support-donate-perk">
+                <span class="vc-support-donate-perk__ico" aria-hidden="true"><i class="fa fa-comment"></i></span>
+                <span class="vc-support-donate-perk__text">Permesso di scrivere nel <strong class="text-white">canale dedicato</strong> ai verificati (indicato nel messaggio info su Discord)</span>
+              </li>
+            </ul>
+            <div class="vc-support-donate-role__foot">
+              <a href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer"
+                class="vc-support-donate-role__cta inline-flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[1.35rem] bg-gradient-to-r from-[#6f4e37] to-[#4a3425] px-5 py-3 text-sm font-extrabold text-[#f7ecdf] shadow-[0_18px_46px_rgba(212,168,136,0.26)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-base">
+                <i class="fa fa-comments" aria-hidden="true"></i> Richiedi verifica su Discord
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="relative z-10 border-t border-white/8 bg-slate-950/20">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-center">
+        <div class="vc-footer-brand-row flex flex-wrap items-center justify-center gap-3 sm:gap-5" aria-label="Social e home">
+{{FOOTER_SOCIAL_LEFT}}
+          <a class="inline-flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-lg font-extrabold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            href="{{SITE_URL}}">{{SITE_NAME}}</a>
+{{FOOTER_SOCIAL_RIGHT}}
+        </div>
+        <nav class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-300/80" aria-label="Link legali">
+          <a class="transition hover:text-white" href="{{TERMS_URL}}">Termini di Servizio</a>
+          <a class="transition hover:text-white" href="{{PRIVACY_URL}}">Privacy Policy</a>
+          <a class="transition hover:text-white" href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+        </nav>
+        <p class="max-w-xl text-sm leading-relaxed text-slate-400">
+          © {{YEAR}} {{SITE_NAME}}. Sito realizzato da {{SITE_NAME}} con
+          <span class="vc-footer-heart" role="img" aria-label="amore">❤️</span> per la community.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      window.__VC_AUTH = {
+        clientId: "{{DISCORD_OAUTH_CLIENT_ID}}",
+        redirectUri: "{{DISCORD_OAUTH_REDIRECT_URI}}",
+        homeUrl: "{{SITE_URL}}",
+      };
+      window.__VC_SITE_NOTIFS = {
+        apiUrl: "{{SITE_NOTIFICATIONS_API_URL}}",
+        apiUrlLocal: "{{SITE_NOTIFICATIONS_API_URL_LOCAL}}",
+      };
+    </script>
+    <script src="../js/discord-auth.js" defer></script>
+    <script src="../js/vc-landing.js" defer></script>
+  </body>
+</html>

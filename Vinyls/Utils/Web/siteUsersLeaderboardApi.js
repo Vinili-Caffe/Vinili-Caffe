@@ -664,6 +664,8 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
       const stats = buildSearchStats(guild, board, doc, row.username, globalExpMultiplier, hourlySingular, null);
       const member =
         guild?.members?.cache?.get?.(searchId) || (guild ? await guild.members.fetch({ user: searchId, force: true }).catch(() => null) : null);
+      const profileAvatarUrl =
+        (member && guildMemberDisplayAvatarUrlDynamic(member, { size: 256 })) || String(row.avatarUrl || "").trim();
       const profileRoles = member?.roles?.cache
         ? [...member.roles.cache.values()]
             .filter((role) => String(role?.id || "") && String(role.id) !== String(guild?.id || ""))
@@ -698,7 +700,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
           userId: String(row.userId || searchId),
           username: String(row.username || "").trim(),
           displayName: String((member && member.user?.username) || row.username || "").trim(),
-          avatarUrl: String(row.avatarUrl || "").trim(),
+          avatarUrl: String(profileAvatarUrl || "").trim(),
           joinedAt: member?.joinedAt ? new Date(member.joinedAt).toISOString() : "",
           rankCard: getRankCardThemeFromDoc(doc),
           rankCardResolvedWallpaper: resolveRankCardWallpaper(doc?.profile?.rankCard || {}),

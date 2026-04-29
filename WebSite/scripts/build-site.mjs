@@ -1154,6 +1154,7 @@ async function main() {
   const richiesteCandidatureUrl = defaultLegalPath("candidature");
   const richiesteSuggerimentiUrl = defaultLegalPath("suggerimenti");
   const donationsPageUrl = defaultLegalPath("donazioni");
+  const perksPageUrl = defaultLegalPath("perks");
   const votePageUrl = defaultLegalPath("vote");
   const discadiaVoteUrlResolved =
     String(cfg.discadiaVoteUrl ?? "").trim() ||
@@ -1456,6 +1457,7 @@ async function main() {
     TOPGG_VOTE_URL: escAttr(topggVoteUrlResolved),
     REVIEWS_URL: cfg.reviewsUrl || "https://disboard.org/it/server/1329080093599076474",
     DONATIONS_URL: escAttr(donationsPageUrl),
+    PERKS_URL: escAttr(perksPageUrl),
     PAYPAL_DONATIONS_URL: escAttr(paypalDonationsUrlResolved),
     DISCORD_OAUTH_CLIENT_ID: String(cfg.discordOauth?.clientId || "").trim(),
     DISCORD_OAUTH_REDIRECT_URI: discordOauthRedirectResolved,
@@ -1520,6 +1522,12 @@ async function main() {
     ),
     DONAZIONI_OG_TITLE: escAttr(`${siteName} | Donazioni`),
     DONAZIONI_OG_URL: escAttr(donationsPageUrl),
+    PERKS_PAGE_TITLE: `${siteName} | Perks`,
+    PERKS_META_DESCRIPTION: escAttr(
+      `Perks boost Nitro, livelli EXP, badge e verifica selfie della community Discord ${siteName}: riepilogo vantaggi.`,
+    ),
+    PERKS_OG_TITLE: escAttr(`${siteName} | Perks`),
+    PERKS_OG_URL: escAttr(perksPageUrl),
     VOTE_PAGE_TITLE: `${siteName} | Vota`,
     VOTE_META_DESCRIPTION: escAttr(
       `Vota ${siteName} su Discadia e Top.gg, supporta la community e ottieni ricompense.`,
@@ -1676,6 +1684,16 @@ async function main() {
     fs.writeFileSync(donazioniIndexPath, donazioniHtml, "utf8");
   } else {
     console.warn("[build-site] Manca donazioni/index.html (saltato placeholder).");
+  }
+
+  const perksIndexPath = path.join(DIST, "perks", "index.html");
+  if (fs.existsSync(perksIndexPath)) {
+    let perksHtml = fs.readFileSync(perksIndexPath, "utf8");
+    perksHtml = applyPlaceholderMap(perksHtml, map);
+    warnLeftoverPlaceholders(perksHtml, "perks/index.html");
+    fs.writeFileSync(perksIndexPath, perksHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca perks/index.html (saltato placeholder).");
   }
 
   const voteIndexPath = path.join(DIST, "vote", "index.html");

@@ -8,7 +8,7 @@ const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/C
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
 const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
-const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, parseReactionTokens, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
+const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, parseReactionTokens, resolveStoredCustomEmojiFromClient, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
 const { userAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
@@ -276,7 +276,8 @@ function renderReactionToken(token, guild) {
   const raw = String(token || "");
   if (raw.startsWith("custom:")) {
     const id = raw.slice("custom:".length);
-    const emoji = guild?.emojis?.cache?.get?.(id) || null;
+    const emoji =
+      guild?.emojis?.cache?.get?.(id) || resolveStoredCustomEmojiFromClient(guild?.client, id) || null;
     if (emoji?.id) {
       return `<${emoji.animated ? "a" : ""}:${emoji.name || "emoji"}:${emoji.id}>`;
     }

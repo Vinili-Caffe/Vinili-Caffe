@@ -30,6 +30,36 @@ function getCustomReactionMax(member) {
     : MAX_REACTIONS;
 }
 
+/** Risolve `:short:` sul guild corrente, poi su ogni altro guild dove il bot è membro (nome univoco ambiguo: guild id crescente). */
+function findEmojiByShortName(guild, shortName) {
+  const name = String(shortName || "");
+  if (!name || !guild?.emojis?.cache) return null;
+  const local = guild.emojis.cache.find((e) => e.name === name);
+  if (local) return local;
+  const client = guild.client;
+  if (!client?.guilds?.cache) return null;
+  const candidates = [];
+  for (const g of client.guilds.cache.values()) {
+    if (String(g.id) === String(guild.id)) continue;
+    const e = g.emojis?.cache?.find((em) => em.name === name);
+    if (e) candidates.push(e);
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => String(a.guild?.id || "").localeCompare(String(b.guild?.id || "")));
+  return candidates[0];
+}
+
+/** Emoji custom per id, cercando in tutti i guild del client (cache). */
+function resolveStoredCustomEmojiFromClient(client, emojiId) {
+  const id = String(emojiId || "").trim();
+  if (!/^\d{16,20}$/.test(id) || !client?.guilds?.cache) return null;
+  for (const g of client.guilds.cache.values()) {
+    const e = g.emojis?.cache?.get(id);
+    if (e) return e;
+  }
+  return null;
+}
+
 function parseReactionTokens(input, max = MAX_REACTIONS, guild = null) {
   const text = String(input || "").trim();
   if (!text) return [];
@@ -44,7 +74,7 @@ function parseReactionTokens(input, max = MAX_REACTIONS, guild = null) {
   const nameOnlyRegex = /:([a-zA-Z0-9_]{2,32}):/g;
   const processedText = guild
     ? cleaned.replace(nameOnlyRegex, (m, name) => {
-      const found = guild.emojis.cache.find(e => e.name === name);
+      const found = findEmojiByShortName(guild, name);
       if (found) {
         out.push(`custom:${found.id}`);
         return " ";
@@ -126,6 +156,8 @@ module.exports = {
   memberHasCustomReactionRoleAccess,
   getCustomReactionMax,
   parseReactionTokens,
+  findEmojiByShortName,
+  resolveStoredCustomEmojiFromClient,
   toDisplay,
   buildCustomReactionPanelEmbed,
   buildCustomReactionPanelRows,
