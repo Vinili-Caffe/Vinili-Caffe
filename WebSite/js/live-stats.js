@@ -494,6 +494,30 @@
     return apiProd;
   }
 
+  var LIVE_EVENT_DISMISS_KEY = "vc_live_event_dismiss_v1";
+
+  function getDismissedEventId() {
+    try {
+      return String(localStorage.getItem(LIVE_EVENT_DISMISS_KEY) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setDismissedEventId(id) {
+    var s = String(id || "").trim();
+    if (!s) return;
+    try {
+      localStorage.setItem(LIVE_EVENT_DISMISS_KEY, s);
+    } catch (e) {}
+  }
+
+  function clearDismissedEventId() {
+    try {
+      localStorage.removeItem(LIVE_EVENT_DISMISS_KEY);
+    } catch (e) {}
+  }
+
   function ensureLiveEventRoot() {
     var n = document.getElementById("vc-live-event-home");
     if (!n) {
@@ -548,15 +572,7 @@
   if (!root || !reopenBtn || !titleEl || !descEl || !prim) return;
 
   var pollMs = Math.max(20000, Math.min(600000, Number(cfg.liveEventPollMs) || 90000));
-  var isManuallyHidden = false;
   var lastEventPayload = null;
-
-  function hideStrip(manual) {
-    if (manual === true) isManuallyHidden = true;
-    if (manual === false) isManuallyHidden = false;
-    root.hidden = true;
-    reopenBtn.hidden = !isManuallyHidden;
-  }
 
   function showStrip(data) {
     var ev = data && data.event ? data.event : null;
@@ -576,7 +592,7 @@
     prim.textContent = label;
 
     lastEventPayload = data;
-    if (isManuallyHidden) {
+    if (getDismissedEventId() === eid) {
       root.hidden = true;
       reopenBtn.hidden = false;
       return;
@@ -590,12 +606,16 @@
     var t = e && e.target;
     if (!t || !t.closest) return;
     if (t.closest("[data-vc-live-event-dismiss]")) {
-      hideStrip(true);
+      var ev0 = lastEventPayload && lastEventPayload.event ? lastEventPayload.event : null;
+      var id0 = ev0 && ev0.id != null ? String(ev0.id).trim() : "";
+      if (id0) setDismissedEventId(id0);
+      root.hidden = true;
+      reopenBtn.hidden = false;
     }
   });
 
   reopenBtn.addEventListener("click", function () {
-    isManuallyHidden = false;
+    clearDismissedEventId();
     reopenBtn.hidden = true;
     if (lastEventPayload) {
       showStrip(lastEventPayload);
@@ -622,7 +642,9 @@
           showStrip(j);
         } else {
           lastEventPayload = null;
-          hideStrip(false);
+          clearDismissedEventId();
+          root.hidden = true;
+          reopenBtn.hidden = true;
         }
       })
       .catch(function () {});

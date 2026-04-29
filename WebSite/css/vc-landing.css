@@ -235,6 +235,14 @@ body.vc-body--home.vc-body::before {
   border-radius: 1.35rem;
 }
 
+.vc-vote-page-hero:hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 22px 56px rgba(0, 0, 0, 0.32),
+    0 0 22px rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
 @media (min-width: 640px) {
   .vc-vote-page-hero {
     padding: 1.55rem 1.35rem 1.65rem;
@@ -483,10 +491,24 @@ body.vc-body .vc-support-page-hero__icon.vc-donazioni-hero-heart i {
   }
 }
 
-/* Donazioni: podio — 3° Donator | 1° VIP+ (centro, in evidenza) | 2° VIP */
+/* Donazioni: podio — 2° VIP (sinistra) | 1° VIP+ (centro, in evidenza) | 3° Donator (destra) */
 .vc-support-donate-roles__grid--podium {
   overflow: visible;
   padding-top: 0.65rem;
+}
+
+@media (min-width: 768px) {
+  .vc-support-donate-roles__grid--podium .vc-support-donate-role--vip {
+    order: 1;
+  }
+
+  .vc-support-donate-roles__grid--podium .vc-support-donate-role--vip-plus {
+    order: 2;
+  }
+
+  .vc-support-donate-roles__grid--podium .vc-support-donate-role--donatore {
+    order: 3;
+  }
 }
 
 @media (max-width: 767.98px) {
@@ -1124,7 +1146,7 @@ html.vc-session-verify-pending::before {
 .vc-page-transition--login .vc-page-transition-sub {
   display: block;
   margin: 0;
-  color: #a7f3d0;
+  color: rgba(247, 236, 223, 0.9);
   font-size: 1.05rem;
   font-weight: 800;
 }
@@ -2359,18 +2381,33 @@ a.vc-header-legal-pill[aria-current="page"] {
   background: rgba(0, 0, 0, 0.45);
 }
 
+/* Hero titolo: spaziatura normale e testo centrato nella card */
 .vc-support-intro-shell .vc-brand-glow {
   color: rgba(232, 201, 168, 0.72);
-  text-shadow:
-    0 0 10px rgba(var(--vc-mocha-rgb), 0.14),
-    0 0 22px rgba(var(--vc-mocha-rgb), 0.1);
+  text-shadow: none;
+  letter-spacing: normal;
+  text-align: center;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .vc-support-intro-shell .vc-brand-glow .text-emerald-300 {
-  color: rgba(232, 201, 168, 0.72) !important;
+  color: rgba(232, 201, 168, 0.94) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55) !important;
+  letter-spacing: normal;
+}
+
+/* Micro-fix solo su "Caffè": chiude la fessura subpixel tra le due "f". */
+body.vc-body--home .vc-support-intro-shell .vc-brand-glow .vc-hero-brand-caffe {
+  letter-spacing: -0.072em;
+  font-feature-settings: "liga" 1, "kern" 1;
+  font-kerning: normal;
+  /* Copia orizzontale sullo stesso colore: riempie la “cicatrice” 1px senza alone largo. */
   text-shadow:
-    0 0 10px rgba(var(--vc-mocha-rgb), 0.14),
-    0 0 22px rgba(var(--vc-mocha-rgb), 0.1) !important;
+    0.55px 0 0 rgba(232, 201, 168, 0.99),
+    -0.55px 0 0 rgba(232, 201, 168, 0.99),
+    0 1px 2px rgba(0, 0, 0, 0.55) !important;
 }
 
 .vc-hero-about {
@@ -2417,15 +2454,6 @@ a.vc-header-legal-pill[aria-current="page"] {
     0 2px 20px rgba(0, 0, 0, 0.92),
     0 0 14px rgba(var(--vc-sand-rgb), 0.18),
     0 0 28px rgba(var(--vc-mocha-rgb), 0.16);
-}
-
-/* Home hero brand: remove visible gap in "Caffè" glyph pair */
-body.vc-body--home .vc-support-intro-shell .vc-brand-glow .text-emerald-300 {
-  letter-spacing: -0.045em;
-  font-kerning: normal;
-  font-variant-ligatures: common-ligatures contextual;
-  font-feature-settings: "kern" 1, "liga" 1, "clig" 1;
-  text-rendering: optimizeLegibility;
 }
 
 @keyframes vc-brand-shimmer {
@@ -3637,6 +3665,18 @@ html.vc-notif-dropdown-open .discord-account-menu:focus-within .discord-account-
 
 .discord-account-popover__item--danger i {
   color: rgba(252, 165, 165, 0.9);
+}
+
+.discord-account-popover__item.is-current,
+.discord-account-popover__item[aria-current="page"] {
+  color: rgba(255, 247, 236, 0.98);
+  background:
+    radial-gradient(120% 92% at 14% 0%, rgba(247, 236, 223, 0.14), transparent 62%),
+    linear-gradient(135deg, rgba(111, 78, 55, 0.76), rgba(74, 52, 37, 0.72));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 20px rgba(0, 0, 0, 0.24),
+    0 0 14px rgba(var(--vc-sand-rgb), 0.12);
 }
 
 .discord-avatar-img {
@@ -5786,9 +5826,11 @@ a.vc-snav-item[href*="sponsor"] svg {
 }
 
 .vc-notif-see-all:hover {
-  color: #f8fafc;
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.28);
-  background: rgba(var(--vc-reviews-emerald-rgb), 0.08);
+  color: rgba(255, 247, 236, 0.98);
+  border-color: rgba(var(--vc-sand-rgb), 0.34);
+  background:
+    radial-gradient(120% 92% at 14% 0%, rgba(247, 236, 223, 0.1), transparent 62%),
+    rgba(var(--vc-mocha-rgb), 0.42);
 }
 
 .vc-notif-see-all .fa {
@@ -6094,10 +6136,11 @@ a.vc-snav-item[href*="sponsor"] svg {
 }
 
 .vc-caffe-tight {
-  letter-spacing: -0.03em;
-  font-kerning: normal;
-  font-feature-settings: "kern" 1, "liga" 1;
-  text-rendering: geometricPrecision;
+  letter-spacing: -0.06em;
+  font-kerning: none;
+  font-family: inherit;
+  font-style: inherit;
+  font-weight: inherit;
 }
 
 .vc-cmd-search {
@@ -6148,6 +6191,23 @@ a.vc-snav-item[href*="sponsor"] svg {
 .vc-wiki-bot-card .text-emerald-300,
 .vc-wiki-bot-card.group:hover .group-hover\:text-emerald-200 {
   color: rgba(247, 236, 223, 0.96) !important;
+}
+
+.vc-wiki-hero-card,
+.vc-regole-hero-card {
+  border-color: rgba(var(--vc-sand-rgb), 0.26) !important;
+  background:
+    radial-gradient(120% 110% at 8% 0%, rgba(236, 205, 176, 0.16), transparent 46%),
+    linear-gradient(145deg, rgba(34, 24, 18, 0.86), rgba(18, 13, 10, 0.9)) !important;
+}
+
+.vc-wiki-hero-card:hover,
+.vc-regole-hero-card:hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
+  box-shadow:
+    0 24px 62px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 22px rgba(var(--vc-sand-rgb), 0.12) !important;
 }
 
 .vc-wiki-home-btn {
@@ -8337,7 +8397,11 @@ body.vc-body--home .discord-account-popover__name {
 }
 
 body.vc-body--home .discord-account-popover__item i {
-  color: rgba(110, 231, 183, 0.82);
+  color: rgba(var(--vc-sand-rgb), 0.9);
+}
+
+body.vc-body--home .discord-account-popover__item--danger i {
+  color: rgba(252, 165, 165, 0.9);
 }
 
 body.vc-body--home .discord-account-popover__item:hover,
@@ -13098,6 +13162,10 @@ html.vc-notif-overlay-active .vc-live-event-reopen:not([hidden]) {
   margin-top: 0;
 }
 
+.vc-reviews-page .vc-support-page-hero:not(.vc-vote-page-hero) {
+  border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
+}
+
 .vc-reviews-page .vc-support-page-hero__icon.vc-reviews-hero-star {
   border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
   background: rgba(var(--vc-mocha-rgb), 0.38) !important;
@@ -16169,24 +16237,27 @@ body.vc-body.vc-roles-page :where(
   text-shadow: none !important;
 }
 
-/* Header: divisore fisso dopo "Sponsor" */
-header .vc-header-snav > a.vc-snav-item[href*="sponsor"] {
-  position: relative;
-  margin-right: 0.42rem;
-  padding-right: 0.95rem;
+/* Header sponsor page: keep Wiki/Sponsor clear from divider overlap */
+body.vc-body.vc-sponsor-page header .vc-header-snav > a.vc-snav-item[href*="wiki"] {
+  margin-right: 0.08rem;
 }
 
-header .vc-header-snav > a.vc-snav-item[href*="sponsor"]::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1px;
-  height: 1.05rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08));
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.09);
-  pointer-events: none;
+body.vc-body.vc-sponsor-page header .vc-header-snav > a.vc-snav-item[href*="sponsor"] {
+  margin-right: 0.08rem;
+  padding-inline: 0.72rem;
+}
+
+@media (min-width: 640px) {
+  body.vc-body.vc-sponsor-page header .vc-header-snav > .vc-snav-sep {
+    display: inline-block !important;
+    width: 1px !important;
+    min-width: 1px !important;
+    max-width: 1px !important;
+    height: 1.1rem !important;
+    margin: 0 0.2rem !important;
+    opacity: 0.65;
+    align-self: center;
+  }
 }
 
 /* Vote page: hide bottom pager/counter ("x / y") */
@@ -16265,6 +16336,7 @@ body.vc-body.vc-users-page .vc-ul-filters-submit {
   border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
   background: linear-gradient(135deg, rgba(122, 84, 58, 0.88), rgba(78, 54, 38, 0.84)) !important;
   color: rgba(247, 236, 223, 0.98) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24), 0 0 12px rgba(var(--vc-sand-rgb), 0.12) !important;
 }
 
 body.vc-body.vc-users-page .vc-roles-pagechip--on {
@@ -16955,14 +17027,9 @@ body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-customgrid__row
 }
 
 body.vc-body.vc-rank-customize-page .vc-rank-editor-tabs {
-  border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  background:
-    radial-gradient(120% 90% at 12% 0%, rgba(247, 236, 223, 0.08), transparent 62%),
-    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.5), rgba(23, 17, 13, 0.44)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 10px 24px rgba(0, 0, 0, 0.24),
-    0 0 14px rgba(var(--vc-sand-rgb), 0.08) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 body.vc-body.vc-rank-customize-page .vc-rank-editor-tab {
@@ -16983,16 +17050,21 @@ body.vc-body.vc-rank-customize-page .vc-rank-editor-tab.is-active {
 body.vc-body .vc-stat-staff-popover {
   width: min(92vw, 38rem) !important;
   max-height: min(64vh, 28rem) !important;
-  border-color: rgba(var(--vc-sand-rgb), 0.26) !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.46) !important;
   background:
-    radial-gradient(100% 85% at 14% 0%, rgba(247, 236, 223, 0.09), transparent 62%),
-    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.62), rgba(21, 15, 11, 0.48)) !important;
+    radial-gradient(100% 85% at 14% 0%, rgba(247, 236, 223, 0.16), transparent 62%),
+    linear-gradient(145deg, rgba(45, 31, 23, 0.96), rgba(20, 14, 10, 0.94)) !important;
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.56),
+    0 0 26px rgba(var(--vc-sand-rgb), 0.18) !important;
 }
 
 body.vc-body .vc-stat-staff-popover__body {
   max-height: min(56vh, 22rem) !important;
   font-size: 0.9rem !important;
   line-height: 1.45 !important;
+  background: rgba(8, 5, 4, 0.34) !important;
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.2) !important;
 }
 
 body.vc-body .vc-staff-block {
@@ -17021,7 +17093,8 @@ body.vc-body .vc-staff-member-chip {
 }
 
 body.vc-body .vc-staff-member-chip a {
-  color: rgba(247, 236, 223, 0.96) !important;
+  color: rgba(255, 247, 236, 0.99) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55) !important;
 }
 
 body.vc-body .vc-staff-member-chip__badges {
@@ -17030,10 +17103,10 @@ body.vc-body .vc-staff-member-chip__badges {
 
 body.vc-body .vc-stat-staff-popover__list li,
 body.vc-body .vc-stat-staff-popover__list li:hover {
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  padding: 0.22rem 0 !important;
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.24) !important;
+  background: rgba(var(--vc-mocha-rgb), 0.34) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  padding: 0.3rem 0.35rem !important;
 }
 
 body.vc-body .vc-staff-member-chip--popover {
@@ -17350,6 +17423,121 @@ body.vc-body.vc-regole-page .vc-regole-card-body-inner {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 0 14px rgba(var(--vc-sand-rgb), 0.08) !important;
+}
+
+body.vc-body.vc-users-page .vc-user-profile-accordion__chev {
+  color: rgba(247, 236, 223, 0.82) !important;
+  text-shadow: 0 0 10px rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
+body.vc-body.vc-users-page .vc-user-profile-accordion[open] .vc-user-profile-accordion__chev {
+  color: rgba(255, 247, 236, 0.94) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-disclosure__chev,
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-shared__chev {
+  color: rgba(247, 236, 223, 0.82) !important;
+  text-shadow: 0 0 10px rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-disclosure[open] .vc-user-profile-disclosure__chev,
+body.vc-body.vc-users-page.vc-user-profile-page .vc-user-profile-shared[open] .vc-user-profile-shared__chev {
+  color: rgba(255, 247, 236, 0.94) !important;
+}
+
+body.vc-body.vc-users-page #vc-rank-customize-page .vc-rank-editor-tabs {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filter-tab--open.vc-notify-filter-btn--on,
+body.vc-body.vc-users-page .vc-ul-filter-tab[aria-expanded="true"].vc-notify-filter-btn--on {
+  border-color: rgba(var(--vc-sand-rgb), 0.38) !important;
+  background:
+    radial-gradient(120% 92% at 14% 0%, rgba(247, 236, 223, 0.1), transparent 62%),
+    linear-gradient(135deg, rgba(var(--vc-mocha-rgb), 0.72), rgba(44, 31, 23, 0.68)) !important;
+  color: rgba(255, 247, 236, 0.98) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24), 0 0 14px rgba(var(--vc-sand-rgb), 0.1) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-panel {
+  border-color: rgba(var(--vc-sand-rgb), 0.24) !important;
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(247, 236, 223, 0.1), transparent 64%),
+    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.5), rgba(22, 16, 12, 0.42)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 14px 34px rgba(0, 0, 0, 0.24),
+    0 0 18px rgba(var(--vc-sand-rgb), 0.08) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-heading,
+body.vc-body.vc-users-page .vc-ul-filters-hint-title {
+  color: rgba(247, 236, 223, 0.96) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-ico,
+body.vc-body.vc-users-page .vc-ul-filters-hint-ol,
+body.vc-body.vc-users-page .vc-ul-filters-hint-ol li {
+  color: rgba(247, 236, 223, 0.82) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-input {
+  border-color: rgba(var(--vc-sand-rgb), 0.24) !important;
+  background: rgba(13, 10, 8, 0.76) !important;
+  color: rgba(255, 247, 236, 0.96) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-input::placeholder {
+  color: rgba(234, 212, 192, 0.5) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-input:focus {
+  border-color: rgba(var(--vc-sand-rgb), 0.44) !important;
+  box-shadow: 0 0 0 2px rgba(var(--vc-sand-rgb), 0.16) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-submit {
+  border-color: rgba(var(--vc-sand-rgb), 0.4) !important;
+  background:
+    radial-gradient(120% 92% at 14% 0%, rgba(247, 236, 223, 0.14), transparent 62%),
+    linear-gradient(135deg, rgba(111, 78, 55, 0.94), rgba(74, 52, 37, 0.9)) !important;
+  color: rgba(255, 247, 236, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    0 0 14px rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-submit:hover {
+  filter: brightness(1.03) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-hint {
+  border-color: rgba(var(--vc-sand-rgb), 0.24) !important;
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(247, 236, 223, 0.08), transparent 64%),
+    rgba(var(--vc-mocha-rgb), 0.36) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-linkbtn {
+  color: rgba(247, 236, 223, 0.86) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-filters-linkbtn:hover {
+  color: rgba(255, 247, 236, 0.98) !important;
+}
+
+body.vc-body.vc-users-page .vc-ul-progress {
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(247, 236, 223, 0.06), transparent 64%),
+    rgba(var(--vc-mocha-rgb), 0.36) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--vc-sand-rgb), 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
 }
 
 body.vc-body.vc-faq-page .vc-support-page-hero {

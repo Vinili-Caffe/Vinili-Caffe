@@ -68,12 +68,12 @@ async function fetchDiscordUserForIdentity(client, guild, userId) {
 }
 
 function boardQuery(board, guildId) {
-  const g = { guildId };
-  if (board === "level") return { ...g, "profile.totals.exp.totalExp": { $gt: 0 } };
+  const g = { guildId, "profile.totals.exp.totalExp": { $gt: 0 } };
+  if (board === "level") return g;
   if (board === "weekly") return { ...g, "profile.totals.exp.weeklyExp": { $gt: 0 } };
   if (board === "messages") return { ...g, "profile.totals.messagesTotal": { $gt: 0 } };
   if (board === "voice") return { ...g, "profile.totals.voiceTotalSeconds": { $gt: 0 } };
-  return { ...g, "profile.totals.exp.totalExp": { $gt: 0 } };
+  return g;
 }
 
 function boardSort(board) {
@@ -614,7 +614,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         const mt = nInt(doc.profile?.totals?.messagesTotal);
         pageMaxSecondary = Math.max(1, mt);
         const higherAgg = await ActivityUserProfile.aggregate([
-          { $match: { guildId } },
+          { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
           { $addFields: { __sortVal: numericSortExpr("messages") } },
           { $match: { __sortVal: { $gt: mt } } },
           { $count: "n" },
@@ -625,7 +625,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
         const vs = nInt(doc.profile?.totals?.voiceTotalSeconds);
         pageMaxSecondary = Math.max(1, vs);
         const higherAgg = await ActivityUserProfile.aggregate([
-          { $match: { guildId } },
+          { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
           { $addFields: { __sortVal: numericSortExpr("voice") } },
           { $match: { __sortVal: { $gt: vs } } },
           { $count: "n" },
@@ -819,7 +819,7 @@ async function handleSiteUsersLeaderboardGet(client, req, res) {
     if (board === "messages" || board === "voice") {
       const sortExpr = numericSortExpr(board);
       const agg = await ActivityUserProfile.aggregate([
-        { $match: { guildId } },
+        { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
         { $addFields: { __sortVal: sortExpr } },
         { $match: { __sortVal: { $gt: 0 } } },
         { $sort: { __sortVal: -1 } },

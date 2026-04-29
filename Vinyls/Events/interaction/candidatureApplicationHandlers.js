@@ -24,7 +24,7 @@ const APPLY_PEX_REASON_INPUT_ID = "apply_pex_reason";
 const VISIONE_MODULI_AUTO_PEX_REASON = "Candidatura accettata";
 const STATE_TTL_MS = 30 * 60 * 1000;
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const APPLICATION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const APPLICATION_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const APPLICATION_REACTIONS = ["<:thumbsup:1471292172145004768>", "<:thumbsdown:1471292163957457013>",];
 const NOMODULI_ROLE_ID = IDs.roles.blacklistModuli;
 const MEMBER_ROLE_ID = IDs.roles.Member;
@@ -338,7 +338,7 @@ function buildCooldownDeniedEmbed(untilTs, type) {
         `<:VC_update:1478721333096349817> Potrai reinviare **solo quella** (${label}) dopo: <t:${unix}:F> (<t:${unix}:R>).`,
         "",
         "<:VC_InactiveStatus:1482526984234860574> Le candidature **Helper** e **Partner Manager** hanno cooldown **separati**: puoi comunque candidarti all’altra se non è in cooldown.",
-        "<a:VC_Timer:1482527426557775954> Tra una candidatura e la successiva **dello stesso tipo** passano 7 giorni.",
+        "<a:VC_Timer:1482527426557775954> Tra una candidatura e la successiva **dello stesso tipo** passano 15 giorni.",
       ].join("\n"),
     );
 }

@@ -161,9 +161,46 @@
     return "https://cdn.discordapp.com/avatars/" + u.id + "/" + u.avatar + "." + ext + "?size=64";
   }
 
+  function resolveRankCardApiUrl() {
+    var cfgRank = (typeof window !== "undefined" && window.__VC_SITE_RANK_CARD) || {};
+    var isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
+    var raw = String((isLocal && cfgRank.apiUrlLocal) ? cfgRank.apiUrlLocal : (cfgRank.apiUrl || "")).trim();
+    if (raw) return raw;
+    if (isLocal) return "http://127.0.0.1:3042/webhooks/site-rank-card";
+    return "/webhooks/site-rank-card";
+  }
+
+  async function fetchServerAvatarUrl(accessToken) {
+    var token = String(accessToken || "").trim();
+    if (!token) return "";
+    try {
+      var res = await fetch(resolveRankCardApiUrl(), {
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!res.ok) return "";
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      var u = String(data && data.avatarUrl || "").trim();
+      return /^https?:\/\//i.test(u) ? u : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
   function profileHref(userId) {
     var id = String(userId || "").trim();
     return id ? "/users/" + encodeURIComponent(id) : "/user";
+  }
+
+  function isProfileContextPath() {
+    try {
+      var p = String(window.location.pathname || "").toLowerCase().replace(/\/+$/, "") || "/";
+      if (p === "/user" || p === "/user/customize" || p === "/user/personalizza") return true;
+      return /^\/users\/\d{17,22}$/.test(p);
+    } catch (e) {
+      return false;
+    }
   }
 
   /**
@@ -351,6 +388,7 @@
     var img = avatarUrl(user);
     var label = escAttr(name);
     var href = escAttr(profileHref(user && user.id));
+    var isProfileCurrent = isProfileContextPath();
     var avatarVisual = img
       ? '<img class="discord-avatar-img" src="' +
         img +
@@ -375,8 +413,12 @@
       '</span><span class="discord-account-popover__name">' +
       label +
       "</span></div>" +
-      '<a class="discord-account-popover__item" role="menuitem" href="' +
+      '<a class="discord-account-popover__item' +
+      (isProfileCurrent ? " is-current" : "") +
+      '" role="menuitem" href="' +
       href +
+      '"' +
+      (isProfileCurrent ? ' aria-current="page"' : "") +
       '"><i class="fa fa-user-o" aria-hidden="true"></i><span>Vai al profilo</span></a>' +
       '<button type="button" class="discord-account-popover__item discord-account-popover__item--danger" role="menuitem" id="discord-logout-btn"><i class="fa fa-sign-out" aria-hidden="true"></i><span>Logout</span></button>' +
       "</div></div>";
@@ -392,6 +434,28 @@
         renderLoggedOut();
       });
     }
+    var token = getToken();
+    fetchServerAvatarUrl(token).then(function (serverAvatar) {
+      if (!serverAvatar) return;
+      try {
+        var clips = state.querySelectorAll(".discord-avatar-clip, .discord-account-popover__avatar");
+        for (var i = 0; i < clips.length; i += 1) {
+          var el = clips[i];
+          if (!el) continue;
+          var currentImg = el.querySelector("img.discord-avatar-img");
+          if (currentImg) {
+            currentImg.src = serverAvatar;
+            continue;
+          }
+          el.innerHTML =
+            '<img class="discord-avatar-img" src="' +
+            serverAvatar +
+            '" alt="" width="38" height="38" decoding="async" aria-label="' +
+            label +
+            '">';
+        }
+      } catch (e) {}
+    });
     emitProfile(user);
   }
 

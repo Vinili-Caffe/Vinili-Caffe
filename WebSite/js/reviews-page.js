@@ -5,6 +5,7 @@
     payload: null,
     replyOpenId: null,
     editModalOpen: false,
+    deepLinkAppliedId: "",
     reviewsWs: null,
     reviewsWsReconnectTimer: null,
     draft: {
@@ -506,8 +507,10 @@
       if (!h || h.indexOf("#vc-review-") !== 0) return;
       var raw = h.slice("#vc-review-".length).trim();
       if (!raw || !/^[a-f0-9]{24}$/i.test(raw)) return;
+      if (state.deepLinkAppliedId === raw) return;
       var el = document.getElementById("vc-review-" + raw);
       if (!el) return;
+      state.deepLinkAppliedId = raw;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("vc-deep-link-flash");
       window.setTimeout(function () {
@@ -515,6 +518,11 @@
           el.classList.remove("vc-deep-link-flash");
         } catch (e0) {}
       }, 2200);
+      try {
+        if (window.history && typeof window.history.replaceState === "function") {
+          window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+        }
+      } catch (e2) {}
     } catch (e1) {}
   }
 

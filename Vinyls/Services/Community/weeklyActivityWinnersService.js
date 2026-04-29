@@ -606,20 +606,6 @@ function startWeeklyActivityWinnersLoop(client) {
   if (weeklyActivityWinnersLoopStarted) return;
   weeklyActivityWinnersLoopStarted = true;
   cron.schedule(
-    "0 21 * * *",
-    async () => {
-      try {
-        await publishWeeklyActivityWinners(client, {
-          mode: "daily",
-          skipWeeklyRoles: true,
-        });
-      } catch (error) {
-        global.logger.error("[WEEKLY ACTIVITY] Daily execution failed:", error);
-      }
-    },
-    { timezone: TIME_ZONE },
-  );
-  cron.schedule(
     "0 21 * * 0",
     async () => {
       try {

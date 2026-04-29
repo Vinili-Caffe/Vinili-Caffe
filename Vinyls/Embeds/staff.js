@@ -52,12 +52,13 @@ async function run(client) {
       .setDescription(
         `<:discordstaff:1443651872258003005> La **__guida staff__** di __Vinili & Caffè__ serve per portare **ordine** tra lo __staff__, infatti sono presenti delle **__regole__** che __tutti__ dovranno **rispettare**; in __caso__ vengano \`trasgredite\`, potreste andare **incontro** a **__sanzioni__**, come **__\`valutazioni negative\`__** o in casi estremi il **__\`depex\`__**.
 
-> La __guida staff__ si divide in **__\`5\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
+> La __guida staff__ si divide in **__\`6\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
 <:VC_1:1482706338021642333> **Regolamento**
 <:VC_2:1482706376525611090> **Limiti Settimanali**
 <:VC_3:1482706404773990460> **Pause**
 <:VC_4:1482706432347344916> **Valutazioni**
-<:VC_5:1482706459765637272> **Warn Staff**`,
+<:VC_5:1482706459765637272> **Moderazione**
+<:VC_6:1482706490769801327> **Warn Staff**`,
       )
       .setImage(DIVIDER_URL),
     new EmbedBuilder()
@@ -80,17 +81,22 @@ async function run(client) {
     new ButtonBuilder().setCustomId("limiti").setLabel("︲LIMITI SETTIMANALI").setEmoji("<:reportmessage:1443670575376765130>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("pause").setLabel("︲PAUSE").setEmoji("<:Clock:1330530065133338685>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("valutazioni").setLabel("︲VALUTAZIONI").setEmoji("<a:loading:1443934440614264924>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("moderazione_staff").setLabel("︲MODERAZIONE").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("warnstaff").setLabel("︲WARN STAFF").setEmoji("<:banhammer:1443651875441217639>").setStyle(ButtonStyle.Secondary),
   ];
   if (SHOW_SANZIONI_IN_GUIDA_STAFF) {
-    rowGuideMainButtons.push(
+    rowGuideMainButtons.splice(
+      5,
+      0,
       new ButtonBuilder().setCustomId("sanzioni").setLabel("︲SANZIONI").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
     );
   }
-  rowGuideMainButtons.push(
-    new ButtonBuilder().setCustomId("moderazione_staff").setLabel("︲MODERAZIONE").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("warnstaff").setLabel("︲WARN STAFF").setEmoji("<:banhammer:1443651875441217639>").setStyle(ButtonStyle.Secondary),
-  );
-  const rowGuideMain = new ActionRowBuilder().addComponents(...rowGuideMainButtons);
+  const rowGuideMain = new ActionRowBuilder().addComponents(...rowGuideMainButtons.slice(0, 3));
+  const rowGuideSecondary = new ActionRowBuilder().addComponents(...rowGuideMainButtons.slice(3, 6));
+  const rowGuideTertiaryButtons = rowGuideMainButtons.slice(6);
+  const rowGuideTertiary = rowGuideTertiaryButtons.length
+    ? new ActionRowBuilder().addComponents(...rowGuideTertiaryButtons)
+    : null;
   const rowModeration = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("generalimoderazione").setLabel("︲GENERALI").setEmoji("<:appdirectoryallwhite:1443308556995788840>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("testualimoderazione").setLabel("︲TESTUALI").setEmoji("<:discordchannelwhite:1443308552536985810>").setStyle(ButtonStyle.Secondary),
@@ -114,7 +120,7 @@ async function run(client) {
   if (guideChannel?.isTextBased?.()) {
     await upsertPanelMessage(guideChannel, client, {
       embeds: [embeds[0]],
-      components: [rowGuideMain],
+      components: rowGuideTertiary ? [rowGuideMain, rowGuideSecondary, rowGuideTertiary] : [rowGuideMain, rowGuideSecondary],
     });
   }
   if (moderationChannel?.isTextBased?.()) {

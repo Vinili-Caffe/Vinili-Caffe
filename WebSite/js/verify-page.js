@@ -46,8 +46,16 @@
   function resolveApiUrl() {
     var cfg = window.__VC_SITE_VERIFY || {};
     var isLocal = /^(localhost|127\.0\.0\.1)$/i.test(String(window.location.hostname || ""));
-    if (isLocal && cfg.apiUrlLocal) return String(cfg.apiUrlLocal);
-    return String(cfg.apiUrl || "/webhooks/site-verify/complete");
+    var raw = String((isLocal && cfg.apiUrlLocal) ? cfg.apiUrlLocal : (cfg.apiUrl || "/webhooks/site-verify/complete")).trim();
+    if (!raw) return "/webhooks/site-verify/complete";
+    try {
+      if (/^https?:\/\//i.test(raw)) {
+        var u = new URL(raw);
+        u.pathname = String(u.pathname || "/").replace(/\/{2,}/g, "/");
+        return u.toString();
+      }
+    } catch (e) {}
+    return raw.replace(/\/{2,}/g, "/");
   }
 
   function resolveInviteUrl(data) {

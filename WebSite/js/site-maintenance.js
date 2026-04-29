@@ -31,6 +31,15 @@
     }
   }
 
+  function isVerifyPage() {
+    try {
+      var path = normalizeLegalPath(window.location.pathname);
+      return path === "/verify";
+    } catch (e) {
+      return false;
+    }
+  }
+
   function allowedIds() {
     var ids = cfg().allowedUserIds;
     if (!Array.isArray(ids)) return [];
@@ -201,6 +210,7 @@
   }
 
   async function verify() {
+    if (isVerifyPage()) return allowSite();
     if (isPublicLegalPage()) return allowSite();
     if (!enabled()) return allowSite();
     installStyle();

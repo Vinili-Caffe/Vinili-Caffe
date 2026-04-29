@@ -4,7 +4,7 @@
 {{COOKIEYES_BLOCK}}{{GA_BLOCK}}
     <meta charset="utf-8" />
     <title>Verifica account - {{SITE_NAME}}</title>
-    <meta name="description" content="Pagina temporanea di verifica: login Discord rapido e ritorno al server." />
+    <meta name="description" content="Completa la verifica account con login Discord e conferma backend." />
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
@@ -30,8 +30,8 @@
         <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-emerald-200">
           <i class="fa fa-shield" aria-hidden="true"></i>
         </div>
-        <h1 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Verifica account (temporanea)</h1>
-        <p class="mt-2 text-sm text-slate-300">Per ora basta un login con Discord. Appena completato, ti rimandiamo al server.</p>
+        <h1 class="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Verifica account</h1>
+        <p class="mt-2 text-sm text-slate-300">Accedi con Discord per completare la verifica lato backend e sbloccare l'accesso.</p>
         <div id="vc-verify-status" class="mt-5 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200">
           Verifica sessione in corso...
         </div>
@@ -63,13 +63,12 @@
         homeUrl: "{{SITE_URL}}",
       };
       window.__VC_SITE_VERIFY = {
-        apiUrl: "{{SITE_URL}}webhooks/site-verify/complete",
+        apiUrl: "{{SITE_URL}}/webhooks/site-verify/complete",
         apiUrlLocal: "http://127.0.0.1:3042/webhooks/site-verify/complete",
       };
       window.__VC_VERIFY = {
         inviteUrl: "{{DISCORD_INVITE_URL}}",
         redirectDelayMs: 3400,
-        temporaryOnly: true,
       };
     </script>
     <script src="../js/discord-auth.js" defer></script>
