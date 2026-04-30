@@ -168,8 +168,9 @@
 
     moreWrap.hidden = visible.length === 0;
     moreWrap.innerHTML = visible.map(topRowHtml).join("");
-    actions.hidden = remaining.length === 0;
-    pager.hidden = remaining.length === 0 || visible.length === 0;
+    var noExtraRows = remaining.length === 0;
+    actions.hidden = noExtraRows;
+    pager.hidden = noExtraRows || visible.length === 0;
 
     if (remaining.length > 0) {
       var left = Math.max(0, remaining.length - loadedExtra);
@@ -178,6 +179,11 @@
       minimizeBtn.hidden = loadedExtra === 0;
       pagerFill.style.width = (remaining.length ? (visible.length / remaining.length) * 100 : 0).toFixed(2) + "%";
       pagerLabel.textContent = String(visible.length) + " / " + String(remaining.length);
+    } else if (loadBtn && minimizeBtn && pagerFill && pagerLabel) {
+      loadBtn.hidden = true;
+      minimizeBtn.hidden = true;
+      pagerFill.style.width = "0%";
+      pagerLabel.textContent = "0 / 0";
     }
   }
 

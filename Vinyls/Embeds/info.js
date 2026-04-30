@@ -47,11 +47,11 @@ async function run(client) {
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/sponsor"),
     new ButtonBuilder()
-      .setCustomId("info_tags")
-      .setLabel("︲TAGS")
-      .setEmoji("<:VC_Firework:1470796227913322658>")
-      .setStyle(ButtonStyle.Success),
-    );
+      .setLabel("︲PERKS")
+      .setEmoji("<:VC_PurpleFlower:1469463879149944943>")
+      .setStyle(ButtonStyle.Link)
+      .setURL("https://viniliecaffe.it/perks"),
+  );
 
   const infoSecondText = [
     "## <:VC_PurpleFlower:1469463879149944943> **Sblocca dei vantaggi, permessi e ruoli:**",
@@ -66,11 +66,8 @@ async function run(client) {
     .addFields(
       { name: "<:VC_Link:1482460590894088222> Links", value: infoLinksText, inline: true },
       { name: "<:VC_Info:1482526956703580372> Informazioni", value: infoMetaText, inline: true },
+      { name: "<:VC_PurpleFlower:1469463879149944943> Vantaggi sul sito", value: infoSecondText, inline: false },
     )
-    .setFooter({ text: infoFooterText });
-  const infoEmbedSecondary = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setDescription(infoSecondText)
     .setFooter({ text: infoFooterText });
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("info_boost_levels").setLabel("︲VANTAGGI BOOST & LIVELLI").setEmoji("<a:VC_Rocket:1468544312475123753>").setStyle(ButtonStyle.Danger),
@@ -114,10 +111,16 @@ async function run(client) {
     }
     return false;
   };
+  const welcomeTitle = "Ti diamo il benvenuto nella nostra community!";
+  const isPrimaryInfoPanel = (message) => {
+    if (!message || isGifMessage(message)) return false;
+    const t = String(message.embeds?.[0]?.title ?? "").trim();
+    if (t === welcomeTitle) return true;
+    return hasButtonCustomId(message, "info_tags");
+  };
 
   let normalizedGifId = null;
   let normalizedPrimaryId = null;
-  let normalizedSecondaryId = null;
   const staleIds = [];
   for (const mid of candidateIds) {
     const message = messageById.get(mid) || null;
@@ -127,13 +130,8 @@ async function run(client) {
       else staleIds.push(mid);
       continue;
     }
-    if (hasButtonCustomId(message, "info_tags")) {
+    if (isPrimaryInfoPanel(message)) {
       if (!normalizedPrimaryId) normalizedPrimaryId = mid;
-      else staleIds.push(mid);
-      continue;
-    }
-    if (hasButtonCustomId(message, "info_boost_levels")) {
-      if (!normalizedSecondaryId) normalizedSecondaryId = mid;
       else staleIds.push(mid);
       continue;
     }
@@ -163,34 +161,22 @@ async function run(client) {
       messageId: normalizedPrimaryId,
       content: "",
       embeds: [infoEmbedPrimary],
-      components: [row1],
+      components: [row1, row2],
     })
     : await channel.send({
       content: "",
       embeds: [infoEmbedPrimary],
-      components: [row1],
-    }).catch(() => null);
-  const msgPanelSecondary = normalizedSecondaryId
-    ? await upsertPanelMessage(channel, client, {
-      messageId: normalizedSecondaryId,
-      content: "",
-      embeds: [infoEmbedSecondary],
-      components: [row2],
-    })
-    : await channel.send({
-      content: "",
-      embeds: [infoEmbedSecondary],
-      components: [row2],
+      components: [row1, row2],
     }).catch(() => null);
 
-  if (msgGif?.id || msgPanel?.id || msgPanelSecondary?.id) {
+  if (msgGif?.id || msgPanel?.id) {
     await personalityPanelUpdateOne(
       { guildId, channelId: INFO_CHANNEL_ID },
       {
         $set: {
           infoGifMessageId: msgGif?.id ?? panel?.infoGifMessageId ?? null,
           infoMessageId1: msgPanel?.id ?? panel?.infoMessageId1 ?? null,
-          infoMessageId2: msgPanelSecondary?.id ?? panel?.infoMessageId2 ?? null,
+          infoMessageId2: null,
         },
       },
     ).catch(() => {});

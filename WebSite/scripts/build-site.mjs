@@ -266,6 +266,10 @@ async function discordBotGet(path, botToken, attempt = 0) {
     await new Promise((r) => setTimeout(r, Math.ceil(waitSec * 1000) + 200));
     return discordBotGet(path, botToken, attempt + 1);
   }
+  if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < 6) {
+    await new Promise((r) => setTimeout(r, 800 + attempt * 1200));
+    return discordBotGet(path, botToken, attempt + 1);
+  }
   return res;
 }
 
@@ -295,14 +299,14 @@ async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
 }
 
 async function fetchGuildRoleMetas(guildId, botToken) {
+  const map = new Map();
   const res = await discordBotGet(`/guilds/${guildId}/roles`, botToken);
   if (!res.ok) {
     console.warn("[build-site] Guild roles HTTP", res.status);
-    return new Map();
+    return { ok: false, map, httpStatus: res.status };
   }
   const roles = await res.json().catch(() => []);
-  const map = new Map();
-  if (!Array.isArray(roles)) return map;
+  if (!Array.isArray(roles)) return { ok: true, map };
   for (const r of roles) {
     const id = String(r?.id || "");
     if (!id) continue;
@@ -311,7 +315,7 @@ async function fetchGuildRoleMetas(guildId, botToken) {
       position: Number(r?.position ?? 0),
     });
   }
-  return map;
+  return { ok: true, map };
 }
 
 async function fetchGuildOwnerId(guildId, botToken) {
@@ -595,12 +599,18 @@ async function buildStaffListBlock(cfg, guildId) {
     return staffListFallback();
   }
 
-  const roleMetas = await fetchGuildRoleMetas(gid, botToken);
+  const { ok: roleMetasFetchOk, map: roleMetas } = await fetchGuildRoleMetas(gid, botToken);
   const ownerUserId = await fetchGuildOwnerId(gid, botToken);
-  for (const rid of staffRoleIds) {
-    if (!roleMetas.has(rid)) {
-      console.warn("[build-site] staffRoleIds: ruolo non trovato in guild (ID errato o ruolo rimosso):", rid);
+  if (roleMetasFetchOk) {
+    for (const rid of staffRoleIds) {
+      if (!roleMetas.has(rid)) {
+        console.warn("[build-site] staffRoleIds: ruolo non trovato in guild (ID errato o ruolo rimosso):", rid);
+      }
     }
+  } else {
+    console.warn(
+      "[build-site] staffRoleIds: controllo presenza ruoli saltato (elenco ruoli guild non scaricato; spesso 502/503 temporaneo di Discord).",
+    );
   }
 
   const maxScan = Number.isFinite(Number(b.maxMembersToScan)) ? Number(b.maxMembersToScan) : 10000;

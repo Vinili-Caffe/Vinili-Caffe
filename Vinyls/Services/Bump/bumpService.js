@@ -5,6 +5,7 @@ const { shouldBlockDm } = require("../../Utils/noDmList");
 const { enqueueSiteInAppNotification } = require("../../Utils/Web/siteInAppNotificationsService");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
+const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
 const discadiaVoteTimers = new Map();
 const STAFF_BYPASS_ROLE_IDS = new Set(
   [
@@ -33,11 +34,14 @@ const DISCADIA_VOTE_COUNT_TOPGG_PATH = `${DISCADIA_VOTE_ROOT}.voteCountTopgg`;
 const DISCADIA_VOTE_COUNT_DISCADIA_PATH = `${DISCADIA_VOTE_ROOT}.voteCountDiscadia`;
 const DISCADIA_VOTE_COUNT_MONTH_KEY_PATH = `${DISCADIA_VOTE_ROOT}.voteCountMonthKey`;
 
-function voteCountMonthKey(date = new Date()) {
-  const d = date instanceof Date ? date : new Date(date);
-  const y = Number.isFinite(d.getTime()) ? d.getUTCFullYear() : new Date().getUTCFullYear();
-  const m = Number.isFinite(d.getTime()) ? d.getUTCMonth() + 1 : new Date().getUTCMonth() + 1;
-  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
+function latestVoteDateFromVoteSub(sub) {
+  const raw = [sub?.lastVoteAtTopgg, sub?.lastVoteAtDiscadia, sub?.lastVoteAt].filter(Boolean);
+  let best = 0;
+  for (const r of raw) {
+    const t = new Date(r).getTime();
+    if (Number.isFinite(t) && t > best) best = t;
+  }
+  return best ? new Date(best) : null;
 }
 
 function voteListingKey(voteListing) {
@@ -828,7 +832,7 @@ async function sendVoteFallbackChannelReminder(client, guildId, userId, voteList
 async function recordDiscadiaVote(client, guildId, userId, options = {}) {
   const voteListing = voteListingKey(options?.voteListing);
   const now = new Date();
-  const currentMonthKey = voteCountMonthKey(now);
+  const currentMonthKey = voteCountMonthKeyRome(now);
   const mainGuildId = IDs.guilds.main;
   guildId = mainGuildId;
   let previousLastVoteAt = null;
@@ -845,7 +849,17 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
   const sub = before?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || {};
   const legacy = Number(sub.voteCount) || 0;
   const storedMonthKey = String(sub.voteCountMonthKey || "").trim();
-  const monthChanged = Boolean(storedMonthKey) && storedMonthKey !== currentMonthKey;
+  const topggC = Math.max(0, Math.floor(Number(sub.voteCountTopgg) || 0));
+  const discadiaC = Math.max(0, Math.floor(Number(sub.voteCountDiscadia) || 0));
+  const hasAnyCounter = legacy > 0 || topggC > 0 || discadiaC > 0;
+  const lastVoteMonthKey = (() => {
+    const d = latestVoteDateFromVoteSub(sub);
+    return d ? voteCountMonthKeyRome(d) : "";
+  })();
+  const staleWithoutMonthKey =
+    !storedMonthKey && hasAnyCounter && (!lastVoteMonthKey || lastVoteMonthKey !== currentMonthKey);
+  const monthChanged =
+    (Boolean(storedMonthKey) && storedMonthKey !== currentMonthKey) || staleWithoutMonthKey;
   const hasSplitCounters =
     Object.prototype.hasOwnProperty.call(sub, "voteCountTopgg") ||
     Object.prototype.hasOwnProperty.call(sub, "voteCountDiscadia");
@@ -871,11 +885,12 @@ async function recordDiscadiaVote(client, guildId, userId, options = {}) {
     }
     update.$unset = { [DISCADIA_VOTE_COUNT_LEGACY_PATH]: "" };
   } else if (needsMigrate) {
+    update.$set[DISCADIA_VOTE_COUNT_MONTH_KEY_PATH] = currentMonthKey;
     if (voteListing === "topgg") {
       update.$set[DISCADIA_VOTE_COUNT_TOPGG_PATH] = 1;
-      update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = legacy;
+      update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = 0;
     } else {
-      update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = legacy + 1;
+      update.$set[DISCADIA_VOTE_COUNT_DISCADIA_PATH] = 1;
       update.$set[DISCADIA_VOTE_COUNT_TOPGG_PATH] = 0;
     }
     update.$unset = { [DISCADIA_VOTE_COUNT_LEGACY_PATH]: "" };

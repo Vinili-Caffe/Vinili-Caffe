@@ -954,29 +954,6 @@ module.exports = {
       await interaction.reply({ components: [v2Text(sponsorText), rowSponsor], flags: v2PrivateFlags() }).catch((err) => { logButtonErr(err); return null; });
     }
 
-    if (interaction.customId == "info_tags") {
-      const suggestionsMention = IDs.channels.suggestions ? "<#" + IDs.channels.suggestions + ">" : "<#1442569147559973094>";
-      const tagsEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          [
-            "## <:VC_Firework:1470796227913322658> LE NOSTRE TAGS",
-            "",
-            "> Per prendere una di queste tag vi basterà entrare nel server dedicato e verificarvi <a:VC_HeartsBlue:1468686100045369404>",
-            "",
-            "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
-            "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
-            "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
-            "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
-            "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
-            "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
-            "",
-            "<:VC_Reply:1482532158080942191> _In costante aggiornamento, per consigliarne altre " + suggestionsMention + "_",
-          ].join("\n"),
-        );
-      await interaction.reply({ embeds: [tagsEmbed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
-    }
-
     if (interaction.customId == "candidature_premi_partner") {
       const premiPartnerEmbed = new EmbedBuilder()
         .setColor("#6f4e37")

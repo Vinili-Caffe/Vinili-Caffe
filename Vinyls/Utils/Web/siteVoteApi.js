@@ -1,6 +1,7 @@
 const IDs = require("../Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { voteCountMonthKeyRome, romeMonthStartMs } = require("../romeVoteMonthKey");
 
 const CACHE_TTL_MS = 30_000;
 const cache = new Map();
@@ -34,21 +35,16 @@ function voteLeaf(doc) {
   return doc?.profile?.totals?.exp?.bumpVoteRewards?.discadia_vote || {};
 }
 
-function voteCountMonthKey(date = new Date()) {
-  const d = date instanceof Date ? date : new Date(date);
-  const y = Number.isFinite(d.getTime()) ? d.getUTCFullYear() : new Date().getUTCFullYear();
-  const m = Number.isFinite(d.getTime()) ? d.getUTCMonth() + 1 : new Date().getUTCMonth() + 1;
-  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
-}
-
 function combinedVotesFromLeaf(leaf, now = new Date()) {
-  const currentMonthKey = voteCountMonthKey(now);
+  const currentMonthKey = voteCountMonthKeyRome(now);
   const storedMonthKey = String(leaf?.voteCountMonthKey || "").trim();
   const monthChanged = Boolean(storedMonthKey) && storedMonthKey !== currentMonthKey;
   if (monthChanged) {
     return { total: 0, topgg: 0, discadia: 0 };
   }
-  const legacy = nInt(leaf?.voteCount);
+  if (!storedMonthKey) {
+    return { total: 0, topgg: 0, discadia: 0 };
+  }
   const topgg = nInt(leaf?.voteCountTopgg);
   const discadia = nInt(leaf?.voteCountDiscadia);
   if (topgg > 0 || discadia > 0) {
@@ -58,11 +54,7 @@ function combinedVotesFromLeaf(leaf, now = new Date()) {
       discadia,
     };
   }
-  return {
-    total: legacy,
-    topgg: 0,
-    discadia: legacy,
-  };
+  return { total: 0, topgg: 0, discadia: 0 };
 }
 
 function voteCooldownMs(client, platform) {
@@ -152,7 +144,6 @@ async function handleSiteVoteGet(client, req, res) {
       $or: [
         { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountTopgg": { $gt: 0 } },
         { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCountDiscadia": { $gt: 0 } },
-        { "profile.totals.exp.bumpVoteRewards.discadia_vote.voteCount": { $gt: 0 } },
       ],
     })
       .select(
@@ -162,9 +153,10 @@ async function handleSiteVoteGet(client, req, res) {
       .catch(() => []);
 
     const now = new Date();
+    const voteCd = { topggCdMs: voteCooldownMs(client, "topgg"), discadiaCdMs: voteCooldownMs(client, "discadia") };
     const rowsBase = docs
       .map((doc) => {
-        const counts = combinedVotesFromLeaf(voteLeaf(doc), now);
+        const counts = combinedVotesFromLeaf(voteLeaf(doc), now, voteCd);
         return {
           userId: String(doc?.userId || ""),
           votes: counts.total,
@@ -231,6 +223,10 @@ async function handleSiteVoteGet(client, req, res) {
           discadia: platformVoteState(client, personalLeaf, "discadia"),
         };
       } else {
+        const c = combinedVotesFromLeaf(personalLeaf, now, voteCd);
+        personal.votes = c.total;
+        personal.topggVotes = c.topgg;
+        personal.discadiaVotes = c.discadia;
         personal.topgg = platformVoteState(client, personalLeaf, "topgg");
         personal.discadia = platformVoteState(client, personalLeaf, "discadia");
       }

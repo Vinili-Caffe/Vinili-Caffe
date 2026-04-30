@@ -1200,9 +1200,6 @@
         "info_sponsor": [
             "roles.Member"
         ],
-        "info_tags": [
-            "roles.Member"
-        ],
         "me_period_back*": {
             "ownerSegment": 1
         },

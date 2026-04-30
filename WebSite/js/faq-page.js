@@ -6,8 +6,8 @@
   var activeCategory = "livelli";
 
   var categories = [
-    { id: "livelli", label: "Livelli & attività" },
-    { id: "voce", label: "Voce & musica" },
+    { id: "livelli", label: "Livelli" },
+    { id: "voce", label: "Musica" },
     { id: "giochi", label: "Giochi" },
     { id: "eventi", label: "Eventi" },
     { id: "staff", label: "Staff" },
@@ -24,7 +24,6 @@
     return m[catId] || "fa-question-circle";
   }
 
-  /** Testo statico: solo link interni /… */
   var items = [
     {
       category: "livelli",
@@ -32,15 +31,15 @@
       tag: "Livelli",
       icon: "fa-level-up",
       bodyHtml:
-        "Messaggi in chat e tempo passato nelle vocali (con ActivityRank attivo) fanno salire l’EXP: niente trucchi, basta partecipare senza spam. Più sei presente in modo normale, più il livello avanza. Su <a href=\"/perks/\">Perks</a> trovi cosa si sblocca col level cap; la classifica è anche in <a href=\"/user/\">Community</a>. Comandi utili in server: <code>+rank</code> e <a href=\"/wiki/\">Wiki</a> per il resto.",
+        "Ogni messaggio in chat e il tempo passato nelle vocali fanno salire l’EXP. In vocale l'esperienza guadagnata è il doppio. Su <a href=\"/perks/\">Perks</a> trovi cosa si sblocca coi vari livelli; Le classifiche sono in <a href=\"/user/\">Community</a>.",
     },
     {
       category: "livelli",
-      title: "Posso fare attività come minigame?",
+      title: "Come posso partecipare ai minigames?",
       tag: "Livelli",
       icon: "fa-puzzle-piece",
       bodyHtml:
-        "Sì. Oltre alla chat ci sono robe leggere tipo la catena del counting, reaction game e minigame dei bot nei canali dedicati: non sono obbligatori e servono per passare il tempo in chill. Apri la categoria giochi sul Discord e leggi il topic del canale prima di postare, così non combini pasticci con le regole.",
+        "Ogni 15 minuti dalle 8 di mattina fino alle 24 di notte ci sono minigames in chat col bot, non sono obbligatori e servono per passare il tempo in chill.",
     },
     {
       category: "voce",
@@ -48,7 +47,7 @@
       tag: "Voce",
       icon: "fa-headphones",
       bodyHtml:
-        "Sì. Nelle stanze vocali puoi stare in ascolto o condividere quello che ti piace, rispettando volume e regolamento (niente earrape, niente robe che disturbino). Ci sono lounge e vocal “aperte” dove la gente si aggrega: se non sai quale usare, chiedi in chat testuale o guarda il nome del canale.",
+        "Sì. Nelle stanze vocali puoi stare in ascolto o condividere quello che ti piace, rispettando volume e regolamento (niente earrape, niente robe che disturbino).",
     },
     {
       category: "giochi",
@@ -56,7 +55,7 @@
       tag: "Giochi",
       icon: "fa-trophy",
       bodyHtml:
-        "Dipende dai canali che hai sbloccato dopo la verifica, ma in generale trovi roba come Mudae, Poketwo, counting, ship e altri bot nei rispettivi canali. Non tutti i giochi sono per tutti i gusti: se uno non ti piace, passa oltre. Lista comandi e dettagli: <a href=\"/wiki/\">Wiki</a> e topic fissati nei canali.",
+        "Ci sono molti canali come Mudae, Pokétwo, Counting, Ship nei rispettivi canali oltre i minigames in chat col bot . Non tutti i giochi sono per tutti i gusti: se uno non ti piace, passa oltre.",
     },
     {
       category: "eventi",
@@ -64,7 +63,7 @@
       tag: "Eventi",
       icon: "fa-star",
       bodyHtml:
-        "Ogni tanto lo staff lancia contest, giveaway o iniziative a tema (Natale, estate, collaborazioni, ecc.). Regole e scadenze stanno sempre nel messaggio annuncio o nel canale eventi/news: lì trovi come iscriverti, cosa è permesso e fino a quando vale. Se qualcosa non è scritto, chiedi nello thread o al mod di turno invece di improvvisare.",
+        "In questo server ci sono eventi stagionali che durano dai 2 ai 3 mesi, ogniuno di questi eventi ha un tema principale insieme ad altri piccoli eventi durante la stagione.",
     },
     {
       category: "eventi",
@@ -80,7 +79,7 @@
       tag: "Staff",
       icon: "fa-briefcase",
       bodyHtml:
-        "Vuol dire che per alcuni incarichi lo staff può avere un compenso o un rimborso per il lavoro organizzativo — non è una cosa che riguarda tutti i ruoli e non è un “salario” da assumere come verità per ogni membro. I dettagli economici non si discutono in pubblico. Se ti interessa come funziona la squadra, il punto di ingresso restano le candidature quando sono aperte.",
+        "Ogni mese viene premiato il migliore tra tutto lo staff con un Nitro Boost, inoltre i Partner Manager vengono premiato con un Nitro Boost e premi in denaro.",
     },
     {
       category: "staff",
@@ -88,7 +87,7 @@
       tag: "Staff",
       icon: "fa-user-plus",
       bodyHtml:
-        "Sì, ma solo quando le candidature sono aperte e dopo aver letto bene regole e requisiti. Il modulo sta su <a href=\"/candidature/\">Candidature</a>: servono serietà, costanza sul server e un minimo di esperienza con la community. Manda il modulo completo e non trattare lo staff come un DM veloce per “farmi mod”. Se non sei pronto, nessun drama: resta attivo e riprova ai prossimi cicli.",
+        "Sì, dopo aver letto bene regole e requisiti. Il modulo sta su <a href=\"/candidature/\">Candidature</a>: servono serietà, costanza sul server e un minimo di esperienza con la community. Non taggare lo staff e non aprire ticket per chiedere l'esito della tua candidatura.",
     },
   ];
 
