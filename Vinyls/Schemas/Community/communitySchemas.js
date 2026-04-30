@@ -521,6 +521,7 @@ const siteInAppNotificationSchema = new Schema(
     kind: { type: String, default: "info", trim: true, maxlength: 24 },
     openUrl: { type: String, default: "", trim: true, maxlength: 400 },
     dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
+    readAt: { type: Date, default: null, index: true },
   },
   { timestamps: true },
 );

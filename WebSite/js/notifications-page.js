@@ -2,6 +2,7 @@
   var STORAGE_PREFIX = "vc_notifications_v1:";
   var DISMISSED_PREFIX = "vc_notifications_dismissed_v1:";
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
+  var DISCORD_ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var filterMode = "all";
   var currentUserId = "";
 
@@ -60,6 +61,34 @@
 
   function setCurrentUser(user) {
     currentUserId = normalizeUserId(user && user.id);
+  }
+  function isLocalFrontendOrigin() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+    } catch (e) {
+      return false;
+    }
+  }
+  function resolvedSiteNotificationsUrl() {
+    var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
+    var local = String(c.apiUrlLocal || "").trim();
+    if (isLocalFrontendOrigin() && local) return local;
+    var u = String(c.apiUrl || "").trim();
+    if (u) return u;
+    return "/webhooks/site-notifications";
+  }
+  function resolvedSiteNotificationsReadUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/read";
+    return String(base).replace(/\/+$/, "") + "/read";
+  }
+  function getDiscordAccessToken() {
+    try {
+      return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
+    } catch (e) {
+      return "";
+    }
   }
 
   function loadDismissedSet(userId) {
@@ -171,12 +200,13 @@
       kind = "vote_reminder";
     }
     if (stableId && loadDismissedSet(ownerId).has(stableId)) return loadStored();
+    var incomingRead = Boolean(p && p.read === true);
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
       body: String((p && p.body) || ""),
       at: typeof (p && p.at) === "number" ? p.at : Date.now(),
-      read: false,
+      read: incomingRead,
       kind: kind,
       openUrl: openUrl,
     };
@@ -191,7 +221,15 @@
     }
     if (stableId) {
       for (var dup = 0; dup < s.length; dup += 1) {
-        if (String(s[dup].id) === stableId) return s;
+        if (String(s[dup].id) === stableId) {
+          if (!s[dup].read && incomingRead) {
+            s[dup] = Object.assign({}, s[dup], { read: true });
+            try {
+              localStorage.setItem(key, JSON.stringify(s));
+            } catch (e3) {}
+          }
+          return s;
+        }
       }
     }
     s.unshift(item);
@@ -316,6 +354,64 @@
     });
     saveStored(next);
   }
+  function markReadOnServer(id) {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    var sid = String(id || "").trim();
+    if (!token || !uid || !sid) return;
+    fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ id: sid }),
+    }).catch(function () {});
+  }
+  function markAllReadOnServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return;
+    fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ all: true }),
+    }).catch(function () {});
+  }
+  function syncSiteNotificationsFromServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return;
+    fetch(resolvedSiteNotificationsUrl(), { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j || j.ok !== true || !Array.isArray(j.items)) return;
+        var list = j.items.slice().reverse();
+        for (var i = 0; i < list.length; i += 1) {
+          var row = list[i];
+          if (!row || !row.title) continue;
+          addNotif({
+            id: row.id,
+            userId: uid,
+            title: row.title,
+            body: row.body || "",
+            kind: row.kind || "info",
+            at: typeof row.at === "number" ? row.at : Date.now(),
+            openUrl: row.openUrl || "",
+            read: row.read === true,
+          });
+        }
+        renderList();
+      })
+      .catch(function () {});
+  }
 
   function removeOne(id) {
     markDismissed(id);
@@ -331,6 +427,7 @@
       var sid = String((all[i] && all[i].id) || "").trim();
       if (sid) markDismissed(sid);
     }
+    markAllReadOnServer();
     saveStored([]);
   }
 
@@ -362,6 +459,7 @@
       li.addEventListener("click", function (ev) {
         if (ev.target.closest(".vc-notify-close-btn") || ev.target.closest(".vc-notify-open-btn")) return;
         markRead(n.id);
+        markReadOnServer(n.id);
         if (destRaw) {
           openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
           return;
@@ -415,6 +513,7 @@
       openBtn.setAttribute("aria-label", "Vai alla schermata principale");
       openBtn.addEventListener("click", function () {
         markRead(n.id);
+        markReadOnServer(n.id);
         if (destRaw) {
           openNotifDestination(resolveNotifDestUrl(destRaw), n.kind);
           return;
@@ -468,12 +567,14 @@
     }
 
     flushPendingLoginNotification();
+    syncSiteNotificationsFromServer();
     renderList();
   }
 
   window.addEventListener("vc-discord-profile", function (ev) {
     setCurrentUser(ev && ev.detail ? ev.detail.user : null);
     flushPendingLoginNotification();
+    syncSiteNotificationsFromServer();
     renderList();
   });
 

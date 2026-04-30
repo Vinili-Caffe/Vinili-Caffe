@@ -4,6 +4,7 @@
   var PENDING_LOGIN_NOTIF_KEY = "vc_pending_login_notification_v1";
   var OAUTH_LOGIN_COUNT_KEY = "vc_discord_oauth_login_count_v1";
   var OAUTH_FRESH_AFTER_BOUNCE_KEY = "vc_oauth_fresh_after_bounce_v1";
+  var OAUTH_STATE_NONCE_KEY = "vc_oauth_state_nonce_v1";
   /** Backup percorso ritorno se `state` non torna nel fragment OAuth. */
   var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 
@@ -90,6 +91,62 @@
     return s;
   }
 
+  function randomHex(bytes) {
+    var b = Math.max(8, Number(bytes) || 16);
+    var arr = new Uint8Array(b);
+    try {
+      if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        window.crypto.getRandomValues(arr);
+      } else {
+        throw new Error("no_crypto");
+      }
+    } catch (e) {
+      for (var i = 0; i < b; i += 1) arr[i] = Math.floor(Math.random() * 256);
+    }
+    var out = "";
+    for (var j = 0; j < arr.length; j += 1) {
+      out += arr[j].toString(16).padStart(2, "0");
+    }
+    return out;
+  }
+
+  function buildOAuthState(path) {
+    var returnPath = normalizeReturnPath(path) || "/";
+    var nonce = randomHex(16);
+    var payload = JSON.stringify({ r: returnPath, n: nonce, t: Date.now() });
+    try {
+      sessionStorage.setItem(OAUTH_STATE_NONCE_KEY, nonce);
+    } catch (e) {}
+    try {
+      return encodeURIComponent(payload);
+    } catch (e2) {
+      return encodeURIComponent(JSON.stringify({ r: returnPath }));
+    }
+  }
+
+  function parseOAuthState(stateRaw) {
+    var out = { returnPath: "", validNonce: false };
+    var s = String(stateRaw == null ? "" : stateRaw).trim();
+    if (!s) return out;
+    try {
+      var decoded = decodeURIComponent(s);
+      var obj = JSON.parse(decoded);
+      var rp = normalizeReturnPath(obj && obj.r);
+      if (rp) out.returnPath = rp;
+      var n = String(obj && obj.n || "").trim();
+      var expected = "";
+      try {
+        expected = String(sessionStorage.getItem(OAUTH_STATE_NONCE_KEY) || "").trim();
+        sessionStorage.removeItem(OAUTH_STATE_NONCE_KEY);
+      } catch (e0) {}
+      out.validNonce = Boolean(expected) && Boolean(n) && n === expected;
+      return out;
+    } catch (e) {
+      out.returnPath = normalizeReturnPath(s);
+      return out;
+    }
+  }
+
   function currentPathPlusQuery() {
     try {
       var path = String(window.location.pathname || "");
@@ -109,13 +166,15 @@
     var p = new URLSearchParams(h.slice(1));
     var t = p.get("access_token");
     var sec = Number(p.get("expires_in") || "0");
-    var returnPath = normalizeReturnPath(p.get("state"));
+    var stateParsed = parseOAuthState(p.get("state"));
+    var returnPath = stateParsed.returnPath;
     if (!returnPath && t) {
       try {
         returnPath = normalizeReturnPath(sessionStorage.getItem(OAUTH_PENDING_RETURN_KEY));
       } catch (eS) {}
     }
     if (!t) return { token: "", freshLogin: false, returnPath: "" };
+    if (!stateParsed.validNonce) return { token: "", freshLogin: false, returnPath: "", stateMismatch: true };
     try {
       sessionStorage.removeItem(OAUTH_PENDING_RETURN_KEY);
     } catch (eR) {}
@@ -151,7 +210,7 @@
       response_type: "token",
       scope: "identify",
     });
-    q.set("state", currentPathPlusQuery() || "/");
+    q.set("state", buildOAuthState(currentPathPlusQuery() || "/"));
     return "https://discord.com/oauth2/authorize?" + q.toString();
   }
 
@@ -470,6 +529,14 @@
 
   function main() {
     var parsed = parseHashToken();
+    if (parsed && parsed.stateMismatch) {
+      try {
+        clearToken();
+      } catch (eSm) {}
+      try {
+        history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      } catch (eSm2) {}
+    }
     var here = currentPathPlusQuery();
     var bounce =
       Boolean(parsed && parsed.token && parsed.returnPath) && parsed.returnPath !== here;

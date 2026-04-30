@@ -8,6 +8,10 @@ const SPONSOR_PANEL_COLOR = "#6f4e37";
 const SPONSOR_BATCH_SIZE = 6;
 const TAG_IMAGE_NAME = "guildtag.gif";
 const TAG_IMAGE_PATH = path.join(__dirname, "..", "Photos", TAG_IMAGE_NAME);
+const VERIFY_OAUTH_IMAGE_NAME = "oauth-consenso-verifica.png";
+const VERIFY_OAUTH_IMAGE_PATH = path.join(__dirname, "..", "Photos", VERIFY_OAUTH_IMAGE_NAME);
+const VERIFY_FALLBACK_IMAGE_NAME = "verifica.gif";
+const VERIFY_FALLBACK_IMAGE_PATH = path.join(__dirname, "..", "Photos", VERIFY_FALLBACK_IMAGE_NAME);
 
 function sponsorDividerLine() {
   return "<a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531><a:xdivisore:1471892113426874531>";
@@ -164,8 +168,19 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
       "<:VC_Space:1482459974667075685> <:alarm:1461725841451909183> **Per accedere a `" +
         (guild.name || "this server") +
         "` devi prima verificarti.**\n" +
-        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.",
+        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Clicca il pulsante **Verify** qui sotto per iniziare.\n" +
+        "<:VC_Space:1482459974667075685><:VC_Space:1482459974667075685> <:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
     );
+  const verifyAttachment = sponsorMaybeAttachment(
+    VERIFY_OAUTH_IMAGE_PATH,
+    VERIFY_OAUTH_IMAGE_NAME,
+    "SPONSOR VERIFY",
+  ) || sponsorMaybeAttachment(
+    VERIFY_FALLBACK_IMAGE_PATH,
+    VERIFY_FALLBACK_IMAGE_NAME,
+    "SPONSOR VERIFY",
+  );
+  if (verifyAttachment) verifyEmbed.setImage(`attachment://${verifyAttachment.name}`);
   const baseRaw = String(process.env.WEBSITE_PUBLIC_URL || "https://www.viniliecaffe.it").trim();
   const base = baseRaw.replace(/\/+$/, "");
   const verifyUrl = `${base}/verify/?guildId=${encodeURIComponent(String(guildId || ""))}`;
@@ -180,7 +195,12 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
   const panelDoc = await sponsorGetOrCreatePanelDoc(guildId, channel.id).catch(() => null);
   if (!panelDoc) return 0;
 
-  const verifyPayload = { messageId: panelDoc.verifyPanelMessageId || null, embeds: [verifyEmbed], components: [verifyRow] };
+  const verifyPayload = {
+    messageId: panelDoc.verifyPanelMessageId || null,
+    embeds: [verifyEmbed],
+    ...(verifyAttachment ? { files: [verifyAttachment], attachmentName: verifyAttachment.name } : {}),
+    components: [verifyRow],
+  };
   const panelMessage = await upsertPanelMessage(channel, client, verifyPayload);
   if (panelMessage?.id) {
     await personalityPanelUpdateOne({ guildId, channelId: channel.id }, { $set: { verifyPanelMessageId: panelMessage.id } }).catch(() => {});

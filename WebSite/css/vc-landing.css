@@ -12,6 +12,7 @@
   --vc-glass-blur: 24px;
   --vc-glass-blur-strong: 34px;
   --vc-glass-blur-dropdown: 38px;
+  --vc-transparency-auto-blur: 10px;
   --vc-header-ctrl-bg: rgba(18, 12, 9, 0.78);
   --vc-header-ctrl-bg-hover: rgba(32, 22, 15, 0.92);
   --vc-header-ctrl-border: rgba(212, 168, 136, 0.28);
@@ -339,6 +340,21 @@ body.vc-body .vc-support-page-hero__icon.vc-donazioni-hero-heart i {
   box-shadow: 0 0 34px rgba(var(--vc-sand-rgb), 0.16) !important;
 }
 
+.vc-perks-hero-rocket {
+  border-color: rgba(var(--vc-sand-rgb), 0.34);
+  background: rgba(var(--vc-mocha-rgb), 0.38);
+  color: rgba(247, 236, 223, 0.98);
+  box-shadow: 0 0 34px rgba(var(--vc-sand-rgb), 0.16);
+}
+
+body.vc-body .vc-support-page-hero__icon.vc-perks-hero-rocket,
+body.vc-body .vc-support-page-hero__icon.vc-perks-hero-rocket i {
+  border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
+  background: rgba(var(--vc-mocha-rgb), 0.38) !important;
+  color: rgba(247, 236, 223, 0.98) !important;
+  box-shadow: 0 0 34px rgba(var(--vc-sand-rgb), 0.16) !important;
+}
+
 /* Donazioni hero: pannello unico a destra (lista compatta, stesso linguaggio dell’hero) */
 .vc-support-hero-pillars {
   display: block;
@@ -491,23 +507,595 @@ body.vc-body .vc-support-page-hero__icon.vc-donazioni-hero-heart i {
   }
 }
 
-/* Perks: tre card (boost+livelli, badge, verifica), una colonna su mobile */
-@media (min-width: 768px) {
-  .vc-support-donate-roles__grid--perks-three {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Perks: card a tutta larghezza del main, una sotto l'altra */
+.vc-perks-showcase {
+  overflow: visible;
+}
+
+.vc-perks-deck {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .vc-perks-deck {
+    gap: 1.35rem;
   }
 }
 
-@media (min-width: 1100px) {
-  .vc-support-donate-roles__grid--perks-three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (min-width: 960px) {
+  .vc-perks-deck {
+    gap: 1.4rem;
+  }
+
+  .vc-perks-page .vc-support-donate-role--perks-block .vc-support-donate-role__title {
+    font-size: 0.98rem;
+  }
+
+  .vc-perks-page .vc-support-donate-role--perks-block .vc-support-donate-role__title-ico {
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 0.82rem;
+  }
+
+  .vc-perks-card__subtitle {
+    font-size: 0.78rem;
+    line-height: 1.46;
+  }
+
+  .vc-perks-card__subtitle--meta,
+  .vc-perks-card__subtitle--note {
+    font-size: 0.7rem;
+    line-height: 1.42;
+  }
+
+  .vc-perks-page .vc-support-donate-perk__text {
+    font-size: 0.78rem;
+    line-height: 1.42;
+  }
+
+  .vc-perks-tier__label {
+    font-size: 0.63rem;
+    letter-spacing: 0.17em;
+  }
+
+  .vc-perks-verify__label {
+    font-size: 0.63rem;
+    letter-spacing: 0.17em;
+  }
+
+  .vc-perks-pane__title {
+    font-size: 0.92rem;
+  }
+
+  .vc-perks-pane__lede {
+    font-size: 0.74rem;
   }
 }
 
-@media (min-width: 768px) and (max-width: 1099.98px) {
-  .vc-support-donate-roles__grid--perks-three > .vc-support-donate-role--perks-block:last-child {
+@media (min-width: 1024px) {
+  body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    column-gap: 1.35rem;
+    align-items: start;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > .vc-support-donate-role__head {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > p.vc-perks-tier__label:first-of-type {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 0;
+    margin-bottom: 0.65rem;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > ul.vc-support-donate-role__perks:first-of-type {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > .vc-perks-tier {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    padding-left: 1.15rem;
+    margin-left: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    align-self: stretch;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-deck > article.vc-perks-card:first-of-type > .vc-support-donate-role__foot {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-card--community {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    column-gap: 1.25rem;
+    align-items: start;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-card--community > .vc-support-donate-role__head {
     grid-column: 1 / -1;
   }
+
+  body.vc-body.vc-perks-page .vc-perks-card--community > .vc-perks-pane--levels {
+    grid-column: 1;
+    margin-top: 0.35rem;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-card--community > .vc-perks-pane--verify {
+    grid-column: 2;
+    margin-top: 0.35rem;
+    align-self: stretch;
+  }
+
+  body.vc-body.vc-perks-page .vc-perks-card--community > .vc-support-donate-role__foot {
+    grid-column: 1 / -1;
+  }
+}
+
+body.vc-body.vc-perks-page .vc-support-donate-role--perks-block {
+  padding: 1.05rem 0.95rem 0.95rem;
+  border-radius: 1.12rem;
+  border-color: rgba(251, 191, 36, 0.48) !important;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.26),
+    0 0 0 1px rgba(251, 191, 36, 0.42),
+    0 0 40px rgba(245, 158, 11, 0.35),
+    0 0 80px rgba(217, 119, 6, 0.2) !important;
+}
+
+@media (min-width: 640px) {
+  .vc-perks-page .vc-support-donate-role--perks-block {
+    padding: 1.15rem 1.05rem 1rem;
+  }
+}
+
+.vc-perks-card__head {
+  flex-direction: column;
+  align-items: stretch;
+  align-content: flex-start;
+  gap: 0;
+  margin-bottom: 0.45rem;
+  min-height: 0;
+}
+
+.vc-perks-card__head .vc-perks-card__titleblock {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vc-perks-card__titleblock {
+  display: block;
+}
+
+.vc-perks-page .vc-support-donate-role--perks-block .vc-support-donate-role__title {
+  margin-bottom: 0.4rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.018em;
+}
+
+.vc-perks-page .vc-support-donate-role--perks-block .vc-support-donate-role__title-ico {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 0.88rem;
+  border-radius: 0.48rem;
+}
+
+.vc-perks-card__subtitle {
+  margin: 0 0 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.52;
+  font-weight: 500;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.vc-perks-card__subtitle:last-child {
+  margin-bottom: 0;
+}
+
+.vc-perks-card__subtitle--meta {
+  margin-top: 0.15rem;
+  margin-bottom: 0;
+  font-size: 0.78rem;
+  line-height: 1.48;
+  color: rgba(186, 198, 216, 0.88);
+}
+
+.vc-perks-card__subtitle--note {
+  margin-top: 0.2rem;
+  margin-bottom: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.vc-perks-card__foot {
+  margin-top: 0.85rem;
+}
+
+.vc-perks-page .vc-support-donate-role--perks-block .vc-support-donate-role__cta {
+  min-height: 2.65rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  font-size: 0.8125rem;
+  border-radius: 1.05rem;
+}
+
+.vc-perks-page .vc-support-donate-role__perks {
+  gap: 0.5rem;
+}
+
+.vc-perks-page .vc-support-donate-perk__text {
+  font-size: 0.8125rem;
+  line-height: 1.48;
+}
+
+.vc-perks-tier {
+  margin-top: 1.05rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.vc-perks-tier:first-of-type {
+  margin-top: 0.55rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.vc-perks-tier__label {
+  margin: 0 0 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(247, 236, 223, 0.78);
+}
+
+.vc-perks-pane {
+  display: block;
+  min-width: 0;
+}
+
+.vc-perks-pane__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(251, 191, 36, 0.82);
+}
+
+.vc-perks-pane__title {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.vc-perks-pane__lede {
+  margin: 0 0 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.52;
+  font-weight: 500;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.vc-perks-pane__footnote {
+  margin: 0.75rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.vc-perks-pane--levels {
+  margin-top: 0.65rem;
+}
+
+.vc-perks-pane--levels .vc-perks-tier--in-pane {
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.vc-perks-tier-acc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.vc-perks-tier-acc {
+  margin: 0;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.vc-perks-tier-acc__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.52rem 0.6rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.96);
+  outline: none;
+}
+
+.vc-perks-tier-acc__summary::-webkit-details-marker {
+  display: none;
+}
+
+.vc-perks-tier-acc__summary::marker {
+  content: "";
+}
+
+.vc-perks-tier-acc__summary:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.vc-perks-tier-acc__summary:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.55);
+  outline-offset: 2px;
+}
+
+.vc-perks-tier-acc__ico {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.42rem;
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  font-size: 0.72rem;
+  color: rgba(253, 230, 138, 0.95);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.vc-perks-tier-acc__ico .fa {
+  transition: transform 0.22s ease;
+}
+
+.vc-perks-tier-acc[open] > .vc-perks-tier-acc__summary .fa {
+  transform: rotate(90deg);
+}
+
+.vc-perks-tier-acc__headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  min-width: 0;
+}
+
+.vc-perks-tier-acc__range {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.55);
+}
+
+.vc-perks-tier-acc__body {
+  padding: 0 0.6rem 0.58rem 2.38rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vc-perks-tier-acc__list {
+  margin: 0.42rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  line-height: 1.48;
+  font-weight: 500;
+  color: rgba(203, 213, 225, 0.94);
+}
+
+.vc-perks-tier-acc__list li {
+  margin: 0 0 0.32rem;
+  padding-left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.vc-perks-tier-acc__list li:last-child {
+  margin-bottom: 0;
+}
+
+.vc-perks-tag-name {
+  color: rgba(245, 232, 218, 0.95);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vc-perks-tag-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--vc-sand-rgb), 0.92);
+  animation: vcPerksArrowPulse 1.2s ease-in-out infinite;
+}
+
+.vc-perks-tag-link {
+  color: #f1cda8;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+  word-break: break-all;
+}
+
+.vc-perks-tag-link:hover {
+  color: #f7e3ce;
+}
+
+@keyframes vcPerksArrowPulse {
+  0%, 100% { transform: translateX(0); opacity: 0.68; }
+  50% { transform: translateX(3px); opacity: 1; }
+}
+
+.vc-perks-tier-acc__list .vc-sponsor-code {
+  font-size: 0.92em;
+}
+
+.vc-perks-tier-acc__intro {
+  margin: 0.45rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.48;
+  font-weight: 500;
+  color: rgba(186, 198, 216, 0.9);
+}
+
+.vc-perks-tier-acc__body .vc-perks-tier-acc__intro + .vc-perks-tier-acc__list {
+  margin-top: 0.38rem;
+}
+
+.vc-perks-tier-acc-group--badges {
+  margin-top: 0.25rem;
+}
+
+.vc-perks-pane--verify {
+  margin-top: 1.1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.vc-perks-verify__label {
+  margin: 0 0 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(247, 236, 223, 0.82);
+}
+
+.vc-perks-verify-box {
+  padding: 0.85rem 0.85rem 0.8rem;
+  border-radius: 0.88rem;
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.32);
+  background:
+    radial-gradient(120% 88% at 14% 0%, rgba(247, 236, 223, 0.1), transparent 58%),
+    linear-gradient(165deg, rgba(var(--vc-mocha-rgb), 0.58), rgba(22, 16, 12, 0.78));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 28px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.vc-perks-pane--verify .vc-perks-pane__eyebrow {
+  color: rgba(251, 191, 36, 0.88);
+}
+
+.vc-perks-verify-guide {
+  max-width: 74rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.vc-perks-verify-guide__inner {
+  padding: 1rem 1.05rem 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.3);
+  background:
+    radial-gradient(110% 84% at 8% 0%, rgba(247, 236, 223, 0.12), transparent 60%),
+    linear-gradient(170deg, rgba(54, 36, 24, 0.62), rgba(16, 11, 8, 0.82));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 30px rgba(0, 0, 0, 0.24);
+}
+
+.vc-perks-verify-guide__kicker {
+  margin: 0 0 0.34rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(247, 236, 223, 0.76);
+}
+
+.vc-perks-verify-guide__title {
+  margin: 0 0 0.58rem;
+  font-size: clamp(1.05rem, 2.15vw, 1.34rem);
+  line-height: 1.2;
+  font-weight: 800;
+  color: rgba(255, 246, 235, 0.98);
+}
+
+.vc-perks-verify-guide__lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.58;
+  color: rgba(241, 229, 217, 0.94);
+}
+
+.vc-perks-verify-guide__list {
+  margin: 0.5rem 0 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.24rem;
+}
+
+.vc-perks-verify-guide__list li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: rgba(241, 229, 217, 0.95);
+}
+
+.vc-perks-verify-guide__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.56em;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(var(--vc-sand-rgb), 0.95), rgba(185, 133, 94, 0.95));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.vc-perks-verify-guide__divider {
+  height: 1px;
+  margin: 0.95rem 0 0;
+  background: linear-gradient(90deg, transparent, rgba(var(--vc-sand-rgb), 0.45) 18%, rgba(var(--vc-sand-rgb), 0.78) 50%, rgba(var(--vc-sand-rgb), 0.45) 82%, transparent);
+}
+
+.vc-perks-card__foot--duo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.vc-perks-card__foot--duo .vc-perks-card__cta-half {
+  flex: 1 1 calc(50% - 0.25rem);
+  min-width: min(100%, 7.5rem);
+}
+
+.vc-perks-card__foot--duo .vc-support-donate-role__cta {
+  width: auto;
+  min-height: 2.5rem !important;
+  padding: 0.48rem 0.5rem !important;
+  font-size: 0.74rem !important;
 }
 
 .vc-support-donate-role--perks-block .vc-support-donate-role__price {
@@ -1496,6 +2084,11 @@ html.vc-session-verify-pending::before {
 }
 
 /* Glass: backdrop-filter su shell, card e menu (variabili in :root) */
+.vc-body :is(section, article, div, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"]:not([data-vc-no-auto-blur]) {
+  backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(140%);
+}
+
 .vc-glass {
   backdrop-filter: blur(var(--vc-glass-blur)) saturate(160%);
   -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(160%);
@@ -5949,7 +6542,7 @@ a.vc-snav-item[href*="sponsor"] svg {
     display: none !important;
   }
 
-  .vc-notif-dropdown[open] .vc-notif-panel {
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-panel {
     position: relative;
     top: auto;
     right: auto;
@@ -5959,11 +6552,53 @@ a.vc-snav-item[href*="sponsor"] svg {
     margin: 0;
     border-radius: 1.35rem 1.35rem 0 0;
     max-height: min(78vh, 36rem);
+    border: 1px solid rgba(var(--vc-sand-rgb), 0.34);
+    background:
+      radial-gradient(ellipse 100% 64% at 50% 0%, rgba(236, 205, 176, 0.14), transparent 55%),
+      linear-gradient(180deg, rgba(28, 20, 15, 0.98), rgba(12, 9, 7, 0.99));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     box-shadow:
       0 -16px 52px rgba(0, 0, 0, 0.58),
-      0 0 0 1px rgba(0, 0, 0, 0.35);
+      0 0 0 1px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
     overflow: hidden;
     animation: vc-notif-sheet-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-panel-foot {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 6, 5, 0.28);
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-item {
+    border-color: rgba(var(--vc-sand-rgb), 0.28);
+    background: linear-gradient(125deg, rgba(36, 26, 20, 0.92), rgba(14, 10, 8, 0.94));
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-item--read {
+    background: rgba(18, 14, 11, 0.88);
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-item--success {
+    border-color: rgba(var(--vc-reviews-emerald-rgb), 0.42);
+    background: linear-gradient(125deg, rgba(8, 36, 26, 0.95), rgba(14, 28, 22, 0.94));
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-item--success.vc-notif-item--read {
+    background: rgba(16, 24, 20, 0.9);
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-empty-ico {
+    border-color: rgba(var(--vc-sand-rgb), 0.28);
+    background: rgba(24, 18, 14, 0.85);
+    color: rgba(232, 201, 168, 0.55);
+  }
+
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-see-all {
+    background: rgba(24, 18, 14, 0.88);
+    border-color: rgba(var(--vc-sand-rgb), 0.26);
+    color: rgba(241, 245, 249, 0.94);
   }
 
   .vc-notif-dropdown[open] .vc-notif-sheet-handle {
@@ -5990,10 +6625,12 @@ a.vc-snav-item[href*="sponsor"] svg {
     max-height: min(42vh, 20rem);
   }
 
-  .vc-notif-dropdown[open] .vc-notif-panel-head {
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-panel-head {
     justify-content: flex-start;
     flex-wrap: nowrap;
     gap: 0.65rem;
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+    background: rgba(8, 6, 5, 0.35);
   }
 
   .vc-notif-dropdown[open] .vc-notif-close-mobile {
@@ -6017,7 +6654,7 @@ a.vc-snav-item[href*="sponsor"] svg {
 }
 
 @media (max-width: 639.98px) and (prefers-reduced-motion: reduce) {
-  .vc-notif-dropdown[open] .vc-notif-panel {
+  body.vc-body .vc-notif-dropdown[open] .vc-notif-panel {
     animation: none;
   }
 }
@@ -15282,6 +15919,43 @@ body.vc-body.vc-terms-page {
     radial-gradient(ellipse 102% 84% at 10% 90%, rgba(111, 78, 55, 0.34), transparent 58%),
     radial-gradient(ellipse 96% 74% at 48% -8%, rgba(176, 129, 96, 0.24), transparent 62%),
     linear-gradient(180deg, #120d09 0%, #1a120d 26%, #1e1510 50%, #16100c 78%, #0b0806 100%) !important;
+}
+
+body.vc-body .cky-consent-container .cky-consent-bar,
+body.vc-body .cky-consent-container .cky-modal {
+  background: linear-gradient(180deg, rgba(30, 21, 16, 0.96), rgba(16, 12, 9, 0.96)) !important;
+  border: 1px solid rgba(212, 168, 136, 0.35) !important;
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.42), 0 0 40px rgba(212, 168, 136, 0.12) !important;
+  color: #f6efe8 !important;
+}
+
+body.vc-body .cky-consent-container .cky-title,
+body.vc-body .cky-consent-container .cky-notice-des,
+body.vc-body .cky-consent-container .cky-preference-content-wrapper,
+body.vc-body .cky-consent-container .cky-accordion-header .cky-accordion-title {
+  color: #f6efe8 !important;
+}
+
+body.vc-body .cky-consent-container .cky-notice-des a,
+body.vc-body .cky-consent-container .cky-preference-content-wrapper a {
+  color: #f1cda8 !important;
+}
+
+body.vc-body .cky-consent-container .cky-btn {
+  border-radius: 12px !important;
+  border: 1px solid rgba(212, 168, 136, 0.35) !important;
+}
+
+body.vc-body .cky-consent-container .cky-btn-customize,
+body.vc-body .cky-consent-container .cky-btn-reject {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f8efe5 !important;
+}
+
+body.vc-body .cky-consent-container .cky-btn-accept {
+  background: linear-gradient(135deg, #d4a888, #b9855e) !important;
+  border-color: rgba(212, 168, 136, 0.55) !important;
+  color: #1d120b !important;
 }
 
 body.vc-body.vc-users-page .vc-rank-editor-tab {

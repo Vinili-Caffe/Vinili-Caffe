@@ -1,4 +1,8 @@
-const { listSiteInAppNotificationsForUser } = require("./siteInAppNotificationsService");
+const {
+  listSiteInAppNotificationsForUser,
+  markSiteInAppNotificationRead,
+  markAllSiteInAppNotificationsRead,
+} = require("./siteInAppNotificationsService");
 
 function normalizeHeaderSecret(raw) {
   if (raw == null) return "";
@@ -49,4 +53,28 @@ async function handleSiteNotificationsGet(client, req, res) {
   }
 }
 
-module.exports = { handleSiteNotificationsGet };
+async function handleSiteNotificationsMarkReadPost(client, req, res) {
+  try {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const resolved = await resolveUserIdFromBearer(accessToken);
+    if (!resolved.ok) {
+      return res.status(Number(resolved.status) || 401).json(resolved);
+    }
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    if (body.all === true) {
+      const modified = await markAllSiteInAppNotificationsRead(resolved.userId);
+      return res.status(200).json({ ok: true, modified });
+    }
+    const id = String(body.id || "").trim();
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "missing_id", message: "Campo id richiesto." });
+    }
+    const updated = await markSiteInAppNotificationRead(resolved.userId, id);
+    return res.status(200).json({ ok: true, updated });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-notifications mark-read:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+module.exports = { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost };

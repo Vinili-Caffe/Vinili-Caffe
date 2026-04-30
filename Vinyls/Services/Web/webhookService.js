@@ -491,7 +491,7 @@ async function startWebhookServer(client) {
     staffRejectSiteSuggestion,
     staffDeleteSiteSuggestion,
   } = require("../../Utils/Web/siteSuggestionsApi");
-  const { handleSiteNotificationsGet } = require("../../Utils/Web/siteInAppNotificationsApi");
+  const { handleSiteNotificationsGet, handleSiteNotificationsMarkReadPost } = require("../../Utils/Web/siteInAppNotificationsApi");
   const {
     listSitePaymentPlans,
     createSitePaymentOrder,
@@ -524,6 +524,9 @@ async function startWebhookServer(client) {
   });
   app.get("/webhooks/site-notifications", (req, res) => {
     return handleSiteNotificationsGet(client, req, res);
+  });
+  app.post("/webhooks/site-notifications/read", (req, res) => {
+    return handleSiteNotificationsMarkReadPost(client, req, res);
   });
   app.get("/webhooks/site-payments/plans", (req, res) => {
     try {

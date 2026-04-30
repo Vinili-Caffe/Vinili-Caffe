@@ -1,4 +1,5 @@
 const { SiteInAppNotification } = require("../../Schemas/Community/communitySchemas");
+const mongoose = require("mongoose");
 
 const MAX_PER_USER = 150;
 const DEDUPE_KEY_MAX = 120;
@@ -95,6 +96,46 @@ async function deleteSiteInAppNotifications(filter = {}) {
   return count;
 }
 
+function isValidNotificationId(id) {
+  const sid = String(id || "").trim();
+  return Boolean(sid) && mongoose.isValidObjectId(sid);
+}
+
+async function markSiteInAppNotificationRead(userId, notificationId) {
+  const uid = normalizeUserId(userId);
+  const nid = String(notificationId || "").trim();
+  if (!uid || !isValidNotificationId(nid)) return false;
+  const out = await SiteInAppNotification.updateOne(
+    { _id: nid, userId: uid, readAt: null },
+    { $set: { readAt: new Date() } },
+  ).catch(() => null);
+  const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
+  if (modified) {
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
+  return modified;
+}
+
+async function markAllSiteInAppNotificationsRead(userId) {
+  const uid = normalizeUserId(userId);
+  if (!uid) return 0;
+  const out = await SiteInAppNotification.updateMany(
+    { userId: uid, readAt: null },
+    { $set: { readAt: new Date() } },
+  ).catch(() => null);
+  const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0);
+  if (modified > 0) {
+    try {
+      const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+      broadcastSiteNotificationsChanged();
+    } catch (_) {}
+  }
+  return modified;
+}
+
 async function listSiteInAppNotificationsForUser(userId, limit = 50) {
   const uid = normalizeUserId(userId);
   if (!uid) return [];
@@ -110,6 +151,8 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     kind: normalizeKind(doc.kind),
     at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
     openUrl: String(doc.openUrl || "").trim(),
+    read: Boolean(doc.readAt),
+    readAt: doc.readAt ? new Date(doc.readAt).getTime() : null,
   }));
 }
 
@@ -118,4 +161,6 @@ module.exports = {
   listSiteInAppNotificationsForUser,
   pruneSiteInAppNotificationsForUser,
   deleteSiteInAppNotifications,
+  markSiteInAppNotificationRead,
+  markAllSiteInAppNotificationsRead,
 };

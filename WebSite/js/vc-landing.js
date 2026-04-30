@@ -1191,6 +1191,7 @@
         return Object.assign({}, x, { read: true });
       }),
     );
+    markAllSiteNotificationsReadOnServer();
     render();
   }
   function clearAll() {
@@ -1215,6 +1216,7 @@
         return x;
       }),
     );
+    markSiteNotificationReadOnServer(id);
     render();
   }
   function resolveNotifDestUrl(dest) {
@@ -1390,12 +1392,13 @@
       kind = "vote_reminder";
     }
     if (stableId && loadDismissedSet(ownerId).has(stableId)) return { added: false };
+    var incomingRead = Boolean(p && p.read === true);
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
       body: String((p && p.body) || ""),
       at: typeof (p && p.at) === "number" ? p.at : Date.now(),
-      read: false,
+      read: incomingRead,
       kind: kind,
       openUrl: openUrl,
     };
@@ -1410,7 +1413,16 @@
     }
     if (stableId) {
       for (var dup = 0; dup < s.length; dup += 1) {
-        if (String(s[dup].id) === stableId) return { added: false };
+        if (String(s[dup].id) === stableId) {
+          if (!s[dup].read && incomingRead) {
+            s[dup] = Object.assign({}, s[dup], { read: true });
+            try {
+              localStorage.setItem(key, JSON.stringify(s));
+            } catch (e3) {}
+            if (!p || !p.__noRender) render();
+          }
+          return { added: false };
+        }
       }
     }
     s.unshift(item);
@@ -1499,6 +1511,11 @@
     var u = String(c.apiUrl || "").trim();
     if (u) return u;
     return "/webhooks/site-notifications";
+  }
+  function resolvedSiteNotificationsReadUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/read";
+    return String(base).replace(/\/+$/, "") + "/read";
   }
   function siteRealtimeWsUrl() {
     var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
@@ -1600,6 +1617,35 @@
       return "";
     }
   }
+  function markSiteNotificationReadOnServer(id) {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    var sid = String(id || "").trim();
+    if (!token || !uid || !sid) return;
+    fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ id: sid }),
+    }).catch(function () {});
+  }
+  function markAllSiteNotificationsReadOnServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return;
+    fetch(resolvedSiteNotificationsReadUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ all: true }),
+    }).catch(function () {});
+  }
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
@@ -1626,6 +1672,7 @@
             kind: row.kind || "info",
             at: atMs,
             openUrl: row.openUrl || "",
+            read: row.read === true,
             __noRender: true,
           });
           if (ins && ins.added && Date.now() - atMs < freshMs) {
