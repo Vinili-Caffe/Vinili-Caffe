@@ -280,6 +280,18 @@ async function resolveValidVerifyRoleIds(guild) {
   return Array.from(new Set(valid));
 }
 
+/** Ruoli che devono risultare assegnati affinché la verifica sia considerata riuscita (es. Member nel main; ruolo sponsor altrove). I separatori nel main sono opzionali se il bot non può gestirli. */
+function resolveRequiredVerifyRoleIds(guild) {
+  if (!guild) return [];
+  const gid = String(guild.id || "");
+  if (isResolvedMainGuildId(gid)) {
+    return [IDs.roles.Member].filter(Boolean).map(String);
+  }
+  const sponsorRoleId =
+    IDs.verificatoRoleIds?.[gid] ?? IDs.verificatoRoleIds?.[String(gid)];
+  return sponsorRoleId ? [String(sponsorRoleId)] : [];
+}
+
 function isAlreadyVerifiedInThisGuild(member, guildId) {
   if (!member?.roles?.cache) return false;
   if (isResolvedMainGuildId(guildId)) {
@@ -293,4 +305,4 @@ function isAlreadyVerifiedInThisGuild(member, guildId) {
   return false;
 }
 
-module.exports = { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserInMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, isAlreadyVerifiedInThisGuild, isResolvedMainGuildId }; 
+module.exports = { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserInMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, resolveRequiredVerifyRoleIds, isAlreadyVerifiedInThisGuild, isResolvedMainGuildId }; 

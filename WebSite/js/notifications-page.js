@@ -147,6 +147,23 @@
     var at = Number.isFinite(Number(atRaw)) ? String(Math.floor(Number(atRaw))) : "";
     return "auto:" + hashText([ownerId, kind, title, body, String(openUrl || ""), at].join("|"));
   }
+  function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
+    var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
+    delete p.id;
+    return buildStableNotifId(p, ownerId, kind, openUrl);
+  }
+  function isAutoClientNotifId(id) {
+    return String(id || "").indexOf("auto:") === 0;
+  }
+  function sameNotifCore(a, b) {
+    if (!a || !b) return false;
+    return (
+      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
+      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
+      String((a && a.kind) || "").trim() === String((b && b.kind) || "").trim() &&
+      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
+    );
+  }
 
   function loadStored() {
     var key = userStorageKey();
@@ -199,8 +216,10 @@
     ) {
       kind = "vote_reminder";
     }
-    if (stableId && loadDismissedSet(ownerId).has(stableId)) return loadStored();
-    var incomingRead = Boolean(p && p.read === true);
+    var fpId = buildNotifFingerprintId(p, ownerId, kind, openUrl);
+    var dismissed = loadDismissedSet(ownerId);
+    if ((stableId && dismissed.has(stableId)) || (fpId && dismissed.has(fpId))) return loadStored();
+    var incomingRead = Boolean(p && (p.read === true || p.readAt));
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
@@ -219,17 +238,47 @@
     } catch (e) {
       s = [];
     }
-    if (stableId) {
+    if (stableId || fpId) {
       for (var dup = 0; dup < s.length; dup += 1) {
-        if (String(s[dup].id) === stableId) {
-          if (!s[dup].read && incomingRead) {
-            s[dup] = Object.assign({}, s[dup], { read: true });
-            try {
-              localStorage.setItem(key, JSON.stringify(s));
-            } catch (e3) {}
-          }
-          return s;
-        }
+        var exId = String((s[dup] && s[dup].id) || "").trim();
+        var exKind = String((s[dup] && s[dup].kind) || kind);
+        var exOpen = String((s[dup] && s[dup].openUrl) || openUrl);
+        var exFp = buildNotifFingerprintId(s[dup], ownerId, exKind, exOpen);
+        var idMatch = Boolean(stableId && exId === stableId);
+        var fpMatch = Boolean(fpId && (exId === fpId || exFp === fpId));
+        var mongoToAutoFp = Boolean(
+          stableId &&
+            !isAutoClientNotifId(stableId) &&
+            isAutoClientNotifId(exId) &&
+            exFp === fpId,
+        );
+        if (!idMatch && !fpMatch && !mongoToAutoFp) continue;
+        var merged = Object.assign({}, s[dup], item, {
+          id: stableId || exId,
+          read: Boolean(s[dup].read) || incomingRead,
+        });
+        s[dup] = merged;
+        try {
+          localStorage.setItem(key, JSON.stringify(s));
+        } catch (e3) {}
+        return s;
+      }
+    }
+    if (stableId && !isAutoClientNotifId(stableId)) {
+      for (var c = 0; c < s.length; c += 1) {
+        var cid = String((s[c] && s[c].id) || "").trim();
+        if (!cid || cid === stableId) continue;
+        if (!isAutoClientNotifId(cid) && cid.length === 24) continue;
+        if (!sameNotifCore(s[c], item)) continue;
+        var mergedC = Object.assign({}, s[c], item, {
+          id: stableId,
+          read: Boolean(s[c].read) || incomingRead,
+        });
+        s[c] = mergedC;
+        try {
+          localStorage.setItem(key, JSON.stringify(s));
+        } catch (e4) {}
+        return s;
       }
     }
     s.unshift(item);
@@ -405,7 +454,7 @@
             kind: row.kind || "info",
             at: typeof row.at === "number" ? row.at : Date.now(),
             openUrl: row.openUrl || "",
-            read: row.read === true,
+            read: Boolean(row.read === true || row.readAt),
           });
         }
         renderList();

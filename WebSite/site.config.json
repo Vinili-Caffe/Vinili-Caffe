@@ -12,7 +12,8 @@
   },
   "maintenance": {
     "enabled": true,
-    "allowedUserIds": ["1243295906934161519", "295500038401163264", "700814270069342339", "799084082855411722", "470373387609571339", "610531025470095390", "1418211224432148482", "1474793709533925480", "1428410611552751676", "1416505080781209642", "1438235854735802571", "1101125692252499988", "825996687864234004", "610531025470095390"],
+    "allowedUserIds": [],
+    "includeGuildStaffInMaintenanceBypass": true,
     "title": "Sito in manutenzione",
     "message": "Stiamo sistemando alcune parti del sito. Torna tra poco!"
   },

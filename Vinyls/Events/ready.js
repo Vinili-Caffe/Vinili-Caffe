@@ -28,6 +28,7 @@ const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService"
 const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
+const { runCustomPerksRulesMigration } = require("../Services/Community/customPerksRulesMigrationService");
 const { startStaffGracePurgeLoop } = require("../Services/Community/userLeaveBackupService");
 const { startDbMaintenanceLoop } = require("../Services/Community/dbMaintenanceService");
 const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService");
@@ -171,6 +172,10 @@ function buildPrimaryHeavyTasks(client, mainGuild, engagementTick) {
     {
       label: "heavy task: custom role expiry sweep",
       run: () => runExpiredCustomRolesSweep(client),
+    },
+    {
+      label: "heavy task: custom perks rules migration",
+      run: () => runCustomPerksRulesMigration(client),
     },
   ];
 }

@@ -1,6 +1,7 @@
 const { PermissionFlagsBits } = require("discord.js");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
 /** Titoli Discord: inizio riga con 1–6 `#` seguiti da spazio (testo ingrandito). */
 const DISCORD_HEADING_LINE_RE = /^#{1,6}\s+/m;
@@ -18,6 +19,18 @@ function discordMessageUsesHeadingMarkdown(content) {
 function memberHasDiscordAdministrator(member) {
   if (!member?.permissions || typeof member.permissions.has !== "function") return false;
   return member.permissions.has(PermissionFlagsBits.Administrator);
+}
+
+async function memberHasLevel20OrMore(guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return false;
+  const row = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select("profile.totals.exp.level")
+    .lean()
+    .catch(() => null);
+  const level = Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.level || 0)));
+  return level >= 20;
 }
 
 /**
@@ -38,6 +51,7 @@ async function maybeBlockDiscordHeadingMarkdown(message) {
   }
   if (!member) return false;
   if (memberHasDiscordAdministrator(member)) return false;
+  if (await memberHasLevel20OrMore(message.guild?.id, message.author?.id)) return false;
 
   await message.delete().catch(() => {});
   return true;

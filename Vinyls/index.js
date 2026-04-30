@@ -4,6 +4,7 @@ const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags ||
 const Partials = discord.Partials || {};
 const fs = require("fs");
 const path = require("path");
+const { EventEmitter } = require("events");
 const APP_ROOT = __dirname;
 const { acquireSingleInstanceLock, installHandlers, listFoldersIfExists, loadEnvFiles, } = require("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime");
@@ -20,6 +21,25 @@ const pcommandFolders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
 const commandFolders = listFoldersIfExists(path.join(APP_ROOT, "Commands"));
 
 let client;
+
+function resolveEventListenersCeiling(configLike) {
+  const raw = Number(configLike?.eventListeners ?? 50);
+  if (!Number.isFinite(raw) || raw <= 0) return 50;
+  return Math.max(10, Math.floor(raw));
+}
+
+function applyListenerCeiling(clientRef, configLike) {
+  if (!clientRef) return;
+  const maxListeners = resolveEventListenersCeiling(configLike);
+  try {
+    clientRef.setMaxListeners(maxListeners);
+  } catch (_) {}
+  try {
+    if (Number(EventEmitter.defaultMaxListeners || 0) < maxListeners) {
+      EventEmitter.defaultMaxListeners = maxListeners;
+    }
+  } catch (_) {}
+}
 
 try {
   installEmbedFooterPatch();
@@ -62,6 +82,7 @@ const envMongoUrl =
   process.env.MONGODB_URI;
 client.config.token = envToken || client.config.token;
 client.config.mongoURL = envMongoUrl || client.config.mongoURL;
+applyListenerCeiling(client, client.config);
 
 if (!client.config.token) {
   global.logger.error(

@@ -69,6 +69,18 @@ async function getClientGuildCached(client, guildId, options = {}) {
   });
 }
 
+async function getGuildChannelCached(guild, channelId, options = {}) {
+  if (!guild || !channelId) return null;
+  return getOrFetchEntity({
+    kind: "channel",
+    parentId: guild.id,
+    entityId: channelId,
+    ttlMs: options.ttlMs,
+    resolveFromCache: () => guild.channels?.cache?.get(String(channelId)) || null,
+    fetchEntity: () => guild.channels.fetch(String(channelId)),
+  });
+}
+
 async function getGuildMemberCached(guild, userId, options = {}) {
   if (!guild || !userId) return null;
   const preferFresh = Boolean(options.preferFresh);
@@ -86,5 +98,6 @@ async function getGuildMemberCached(guild, userId, options = {}) {
 module.exports = {
   getClientChannelCached,
   getClientGuildCached,
+  getGuildChannelCached,
   getGuildMemberCached,
 };

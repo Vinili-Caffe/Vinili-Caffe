@@ -296,7 +296,7 @@ module.exports = {
 
       await skullboardUpsert(message.guild.id, message.id, postMessage.id).catch(() => null);
 
-      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`Il messaggio è stato pubblicato nella <#${SKULLBOARD_CHANNEL_ID}>.`,
+      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`Il messaggio è stato pubblicato nel canale <#${SKULLBOARD_CHANNEL_ID}>.`,
         );
 
       const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);

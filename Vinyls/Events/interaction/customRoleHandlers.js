@@ -21,9 +21,15 @@ const pendingSiteRoleRequests = new Map();
 const PRIVATE_FLAG = 1 << 6;
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
 const IDs = require("../../Utils/Config/ids");
-const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.DoubleBooster].filter(Boolean);
+const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [
+  IDs?.roles?.VIP,
+  IDs?.roles?.ServerBooster,
+  IDs?.roles?.DoubleBooster,
+  IDs?.roles?.VIPplus,
+  IDs?.roles?.["VIP+"],
+].filter(Boolean);
 const GRADIENT_HOLO_DENIED_MSG =
-  "<:VC_Attention:1482534443632558151> **Gradiente** e **olografico** sono riservati a chi ha ruolo **VIP** o **Double Booster**. Gli altri possono usare solo il **colore solido** (stesso menu → Solido).";
+  "<:VC_Attention:1482534443632558151> **Gradiente** e **olografico** sono riservati a chi ha ruolo **VIP**, **Server Booster**, **Double Booster** o **VIP+**. Gli altri possono usare solo il **colore solido** (stesso menu → Solido).";
 
 async function getGuildMemberForOwner(interaction, ownerId) {
   if (interaction.member && String(interaction.member.id) === String(ownerId)) return interaction.member;
@@ -140,12 +146,38 @@ async function ensureOwnerCustomReactionAllowed(interaction, ownerId) {
   if (memberHasCustomReactionRoleAccess(member)) {
     return { ok: true, member, maxReactions: getCustomReactionMax(member) };
   }
-  const roleState = await ensureOwnerCustomRoleActive(interaction, ownerId);
-  return {
-    ...roleState,
-    member,
-    maxReactions: getCustomReactionMax(member),
-  };
+  await replyEphemeral(interaction, {
+    content:
+      "<:VC_Attention:1482534443632558151> Serve VIP, Server Booster, Level 70, Double Booster o VIP+ per usare le custom reactions.",
+    flags: PRIVATE_FLAG,
+  });
+  return { ok: false, member, maxReactions: getCustomReactionMax(member) };
+}
+
+async function ensureOwnerCustomVocAccess(interaction, ownerId, expectedChannelId = null) {
+  const doc = await CustomRole.findOne(
+    { guildId: interaction.guild?.id, userId: String(ownerId) },
+    { customVocChannelId: 1, customVocEmoji: 1 },
+  )
+    .lean()
+    .catch(() => null);
+  const storedChannelId = String(doc?.customVocChannelId || "").trim();
+  if (!storedChannelId) {
+    await replyEphemeral(interaction, {
+      content: "<:VC_Attention:1482534443632558151> Non hai una custom voc attiva. Usa `+profile`.",
+      flags: PRIVATE_FLAG,
+    });
+    return { ok: false, doc: null, channelId: "" };
+  }
+  if (expectedChannelId && String(storedChannelId) !== String(expectedChannelId)) {
+    await replyEphemeral(interaction, {
+      content:
+        "<:vegax:1443934876440068179> Questo pannello non è più allineato alla tua custom voc. Riapri con `+profile`.",
+      flags: PRIVATE_FLAG,
+    });
+    return { ok: false, doc, channelId: storedChannelId };
+  }
+  return { ok: true, doc, channelId: storedChannelId };
 }
 
 async function fetchRole(interaction, roleId) {
@@ -656,7 +688,7 @@ async function handleRoleActionButton(interaction) {
             .setDescription(
               allowGradientHolo
                 ? "Scegli come vuoi impostare il colore del tuo custom role."
-                : "Scegli il **colore solido** (HEX). Gradiente e olografico sono riservati a **VIP** e **Double Booster**.",
+                : "Scegli il **colore solido** (HEX). Gradiente e olografico sono riservati a **VIP**, **Server Booster**, **Double Booster** e **VIP+**.",
             ),
         ],
         components: [new ActionRowBuilder().addComponents(menu)],
@@ -1321,6 +1353,90 @@ async function handleAddRemoveSelectMenus(interaction) {
     return true;
   }
 
+  if (
+    interaction.isUserSelectMenu &&
+    interaction.isUserSelectMenu() &&
+    String(interaction.customId || "").startsWith("customvoc_add_select:")
+  ) {
+    const addParts = String(interaction.customId).split(":");
+    if (addParts.length !== 3) return true;
+    const [, ownerId, channelId] = addParts;
+    if (!ownerId || !channelId) return true;
+    if (!(await checkOwnership(interaction, ownerId))) return true;
+    const vocState = await ensureOwnerCustomVocAccess(interaction, ownerId, channelId);
+    if (!vocState.ok) return true;
+    const channel =
+      interaction.guild?.channels?.cache?.get(channelId) ||
+      (await interaction.guild?.channels?.fetch(channelId).catch(() => null));
+    if (!channel || channel.type !== ChannelType.GuildVoice) {
+      await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Canale vocale non trovato.", flags: PRIVATE_FLAG }).catch(() => {});
+      return true;
+    }
+    const targetId = String(interaction.values?.[0] || "").trim();
+    if (!/^\d{16,20}$/.test(targetId)) {
+      await interaction.reply({ content: "<:vegax:1443934876440068179> Utente non valido.", flags: PRIVATE_FLAG }).catch(() => {});
+      return true;
+    }
+    await channel.permissionOverwrites.edit(
+      targetId,
+      {
+        ViewChannel: true,
+        Connect: true,
+        Speak: true,
+        UseVAD: true,
+        Stream: true,
+      },
+      { reason: `Custom voc grant by ${interaction.user?.tag || interaction.user?.id}` },
+    ).catch(() => {});
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#2ecc71")
+          .setTitle("<:success:1461731530333229226> Utente aggiunto")
+          .setDescription(`<:thumbsup:1471292172145004768> <@${targetId}> ora può accedere alla tua custom voc.`),
+      ],
+      components: [],
+    }).catch(() => {});
+    return true;
+  }
+
+  if (
+    interaction.isStringSelectMenu &&
+    interaction.isStringSelectMenu() &&
+    String(interaction.customId || "").startsWith("customvoc_remove_select:")
+  ) {
+    const removeParts = String(interaction.customId).split(":");
+    if (removeParts.length !== 3) return true;
+    const [, ownerId, channelId] = removeParts;
+    if (!ownerId || !channelId) return true;
+    if (!(await checkOwnership(interaction, ownerId))) return true;
+    const vocState = await ensureOwnerCustomVocAccess(interaction, ownerId, channelId);
+    if (!vocState.ok) return true;
+    const channel =
+      interaction.guild?.channels?.cache?.get(channelId) ||
+      (await interaction.guild?.channels?.fetch(channelId).catch(() => null));
+    if (!channel || channel.type !== ChannelType.GuildVoice) {
+      await interaction.reply({ content: "<:VC_Attention:1482534443632558151> Canale vocale non trovato.", flags: PRIVATE_FLAG }).catch(() => {});
+      return true;
+    }
+    const targetId = String(interaction.values?.[0] || "").trim();
+    if (!/^\d{16,20}$/.test(targetId)) {
+      await interaction.reply({ content: "<:vegax:1443934876440068179> Utente non valido.", flags: PRIVATE_FLAG }).catch(() => {});
+      return true;
+    }
+    await channel.permissionOverwrites.delete(targetId, `Custom voc revoke by ${interaction.user?.tag || interaction.user?.id}`).catch(() => {});
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#e67e22")
+          .setTitle("<:cancel:1461730653677551691> Utente rimosso")
+          .setDescription(`<:thumbsdown:1471292163957457013> <@${targetId}> non ha più accesso alla tua custom voc.`),
+      ],
+      components: [],
+    }).catch(() => {});
+    return true;
+  }
+
   return false;
 }
 
@@ -1568,8 +1684,8 @@ async function handleCustomVocButton(interaction) {
       .catch(() => { });
     return true;
   }
-  const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
-  if (!ownerState.ok) return true;
+  const ownerVocState = await ensureOwnerCustomVocAccess(interaction, ownerId, channelId);
+  if (!ownerVocState.ok) return true;
 
   const channel = interaction.guild?.channels?.cache?.get(channelId) || (await interaction.guild?.channels?.fetch(channelId).catch(() => null));
   if (!channel || channel.type !== ChannelType.GuildVoice) {
@@ -1579,6 +1695,58 @@ async function handleCustomVocButton(interaction) {
         flags: 1 << 6,
       })
       .catch(() => { });
+    return true;
+  }
+
+  if (head === "customvoc_add") {
+    const menu = new UserSelectMenuBuilder()
+      .setCustomId(`customvoc_add_select:${ownerId}:${channelId}`)
+      .setPlaceholder("Scegli un utente da aggiungere")
+      .setMinValues(1)
+      .setMaxValues(1);
+    const row = new ActionRowBuilder().addComponents(menu);
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#2ecc71")
+          .setTitle("<:VC_addperson:1485419347068588073> Aggiungi utente alla vocale")
+          .setDescription("Seleziona un utente da autorizzare nella custom voc."),
+      ],
+      components: [row],
+    }).catch(() => {});
+    return true;
+  }
+
+  if (head === "customvoc_remove") {
+    const overwriteUsers = channel.permissionOverwrites.cache
+      .filter((ov) => ov.type === 1 && String(ov.id) !== String(ownerId) && String(ov.id) !== String(interaction.client.user?.id || ""))
+      .map((ov) => String(ov.id));
+    if (!overwriteUsers.length) {
+      await replyEphemeral(interaction, {
+        content: "<:VC_Refresh:1473359252276904203> Non ci sono utenti aggiunti da rimuovere.",
+        flags: PRIVATE_FLAG,
+      });
+      return true;
+    }
+    const options = overwriteUsers.slice(0, 25).map((id) => ({
+      label: `Utente ${id}`,
+      value: id,
+      description: "Rimuovi accesso custom voc",
+    }));
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`customvoc_remove_select:${ownerId}:${channelId}`)
+      .setPlaceholder("Scegli un utente da rimuovere")
+      .addOptions(...options);
+    const row = new ActionRowBuilder().addComponents(select);
+    await interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#e67e22")
+          .setTitle("<:VC_delete:1485421886589501511> Rimuovi utente dalla vocale")
+          .setDescription("Seleziona l'utente da rimuovere dall'accesso alla custom voc."),
+      ],
+      components: [row],
+    }).catch(() => {});
     return true;
   }
 
@@ -1624,8 +1792,8 @@ async function handleCustomVocModal(interaction) {
       return true;
     }
 
-    const ownerState = await ensureOwnerCustomRoleActive(interaction, ownerId);
-    if (!ownerState.ok) return true;
+    const ownerVocState = await ensureOwnerCustomVocAccess(interaction, ownerId, channelId);
+    if (!ownerVocState.ok) return true;
 
     await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
 
@@ -1647,8 +1815,7 @@ async function handleCustomVocModal(interaction) {
     }
 
     const raw = interaction.fields.getTextInputValue("value") || "";
-    const ownerCustomRoleDoc = ownerState.state.doc || null;
-    const ownerRole = ownerState.state.role || null;
+    const ownerCustomRoleDoc = ownerVocState.doc || null;
 
     if (isEmojiModal) {
       const emoji = raw.trim();
@@ -1680,7 +1847,7 @@ async function handleCustomVocModal(interaction) {
     }
 
     const parsedCurrent = parseCustomVocName(channel.name || "");
-    const preservedEmoji = parsedCurrent.emoji || ownerCustomRoleDoc?.customVocEmoji || ownerRole?.unicodeEmoji || "?";
+    const preservedEmoji = parsedCurrent.emoji || ownerCustomRoleDoc?.customVocEmoji || "🎧";
     const nextName = buildCustomVocName(preservedEmoji, raw);
     await channel
       .edit({ name: nextName }, `Custom voc rename by ${interaction.user.tag}`)

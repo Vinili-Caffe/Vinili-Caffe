@@ -1,5 +1,11 @@
 {
-    "slash": {},
+    "slash": {
+        "say": {
+            "roles": [
+                "roles.Founder"
+            ]
+        }
+    },
     "prefix": {
         "join": {
             "roles": [

@@ -1,5 +1,9 @@
 const crypto = require("node:crypto");
 const IDs = require("../../Utils/Config/ids");
+const {
+  resolveDiscordOauthClientIdForSite,
+  resolveDiscordOauthRedirectUriForSite,
+} = require("../../Utils/Web/verifyOauthPublicUrl");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
 
 /** Allineato a @top-gg/sdk (structs/Webhook.ts): finestra anti-replay in ms. */
@@ -601,6 +605,39 @@ async function startWebhookServer(client) {
       global.logger?.error?.("[WEBHOOK] site-verify complete:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
+  });
+  app.get("/webhooks/site-verify/oauth-start", (req, res) => {
+    const clientId = resolveDiscordOauthClientIdForSite();
+    const redirectUri = resolveDiscordOauthRedirectUriForSite();
+    if (!clientId || !redirectUri) {
+      res
+        .status(503)
+        .type("text/plain; charset=utf-8")
+        .send("OAuth sito non configurato sul bot. Imposta DISCORD_OAUTH_CLIENT_ID e DISCORD_OAUTH_REDIRECT_URI (o WEBSITE_*).");
+      return;
+    }
+    const gid = String(req.query?.guildId || req.query?.guild || "").trim();
+    const returnPath = /^\d{17,22}$/.test(gid) ? `/verify/?guildId=${encodeURIComponent(gid)}` : "/verify/";
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const state = encodeURIComponent(JSON.stringify({ r: returnPath, n: nonce, t: Date.now() }));
+    const q = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "token",
+      scope: "identify",
+      state,
+    });
+    const authorizeUrl = `https://discord.com/oauth2/authorize?${q.toString()}`;
+    const nonceJson = JSON.stringify(nonce);
+    const urlJson = JSON.stringify(authorizeUrl);
+    const html =
+      "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex\"><title>Discord</title></head><body>" +
+      "<script>(function(){var n=" +
+      nonceJson +
+      ";try{sessionStorage.setItem(\"vc_oauth_state_nonce_v1\",n);}catch(e){}location.replace(" +
+      urlJson +
+      ");})();<\/script></body></html>";
+    res.status(200).type("text/html; charset=utf-8").send(html);
   });
   app.get("/webhooks/site-forum", async (req, res) => {
     try {

@@ -56,7 +56,29 @@
     if (document.getElementById("vc-necessity-banner")) return;
     if (document.getElementById("cookieyes")) return;
     if (!document.documentElement) return;
-    var cookiePolicyUrl = "/cookie/";
+    function sanitizeLegalHref(raw) {
+      var value = String(raw || "").trim();
+      if (!value) return "";
+      if (/^javascript:/i.test(value)) return "";
+      if (value.startsWith("/")) return value;
+      if (/^https?:\/\//i.test(value)) return value;
+      return "";
+    }
+    function resolveCookiePolicyUrl() {
+      var fromWindow = "";
+      try {
+        fromWindow = sanitizeLegalHref(window.__VC_COOKIE_POLICY_URL);
+      } catch (e0) {}
+      if (fromWindow) return fromWindow;
+      var fromDom = "";
+      try {
+        var link = document.querySelector('a[href*="/cookie"], a[href*="cookie-policy"], a[href*="cookie"]');
+        fromDom = sanitizeLegalHref(link && link.getAttribute("href"));
+      } catch (e1) {}
+      if (fromDom) return fromDom;
+      return "/cookie/";
+    }
+    var cookiePolicyUrl = resolveCookiePolicyUrl();
 
     var cookieIcon =
       '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
@@ -99,8 +121,8 @@
       '<div class="vc-necessity-banner__head">' +
       '<span class="vc-necessity-banner__icon" aria-hidden="true">' + cookieIcon + "</span>" +
       '<div class="vc-necessity-banner__titlewrap">' +
-      '<h2 id="vc-necessity-title">Utilizzo dei Cookie</h2>' +
-      '<p>Usiamo solo cookie tecnici essenziali per login, sicurezza e corretto funzionamento del sito.</p>' +
+      '<h2 id="vc-necessity-title">Cookie essenziali</h2>' +
+      '<p>Usiamo solo dati tecnici necessari per login Discord, sicurezza e funzioni base del sito.</p>' +
       "</div>" +
       '<button type="button" class="vc-necessity-banner__close" data-vc-necessity-dismiss aria-label="Chiudi avviso cookie">' + closeIcon + "</button>" +
       "</div>" +
@@ -108,16 +130,15 @@
       '<div class="vc-necessity-banner__scroll">' +
       '<div class="vc-necessity-banner__notice">' +
       '<span class="vc-necessity-banner__noticeico" aria-hidden="true">' + infoIcon + "</span>" +
-      '<p><strong>Cookie necessari.</strong> Servono per login, sicurezza, preferenza banner e funzioni base. Nessun uso marketing.</p>' +
+      '<p><strong>Solo tecnici essenziali.</strong> Nessun cookie di marketing o profilazione: solo accesso, sicurezza e preferenze minime.</p>' +
       "</div>" +
       '<details class="vc-necessity-banner__details">' +
       '<summary><span><span class="vc-necessity-banner__summaryico" aria-hidden="true">' + shieldIcon + '</span> Dettagli tecnici</span><span class="vc-necessity-banner__chev" aria-hidden="true">' + chevIcon + "</span></summary>" +
       '<div class="vc-necessity-banner__tech">' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Session Token</strong><small>Mantiene il login attivo fino a 90 giorni</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>CSRF Token</strong><small>Protezione da attacchi informatici</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>OAuth State</strong><small>Autenticazione Discord sicura</small></span></div>' +
-      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda la scelta per 180 giorni</small></span></div>' +
-      '<div class="vc-necessity-banner__chips"><span>HttpOnly</span><span>Secure</span><span>SameSite</span><span>Crittografati</span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Token accesso Discord</strong><small>Salvato nel browser per mantenere la sessione (max 90 giorni)</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Stato OAuth + nonce</strong><small>Controlli anti-CSRF per login Discord sicuro</small></span></div>' +
+      '<div><span class="vc-necessity-banner__techico" aria-hidden="true">' + lockIcon + '</span><span><strong>Preferenza banner</strong><small>Ricorda accettazione/chiusura per 180 giorni</small></span></div>' +
+      '<div class="vc-necessity-banner__chips"><span>Tecnici essenziali</span><span>Sicurezza</span><span>No marketing</span><span>No profilazione</span></div>' +
       '<a href="' + cookiePolicyUrl + '">Leggi la Cookie Policy completa <span aria-hidden="true">&rarr;</span></a>' +
       "</div>" +
       "</details>" +
@@ -127,7 +148,7 @@
       '<button type="button" class="vc-necessity-banner__accept" data-vc-necessity-confirm>Accetta</button>' +
       '<a class="vc-necessity-banner__link" href="' + cookiePolicyUrl + '">Cookie Policy</a>' +
       "</div>" +
-      '<p class="vc-necessity-banner__foot"><strong>Accetta</strong> o la <strong>X</strong> in alto: salvano la stessa preferenza (180 giorni) e nascondono l’avviso. Se chiudi il sito senza fare nulla, alla prossima visita l’avviso compare di nuovo.</p>' +
+      '<p class="vc-necessity-banner__foot"><strong>Accetta</strong> o <strong>X</strong> salvano la stessa scelta tecnica per 180 giorni. Se non scegli nulla, l’avviso ricompare alla visita successiva.</p>' +
       "</div>" +
       "</div>" +
       "</div>";
@@ -457,6 +478,8 @@
     injectForumLinkInCommunityMenus();
     var bar = document.querySelector(".vc-header-bar");
     if (!bar) return;
+    var HEADER_MENU_SYNC_KEY = "vc_header_menu_sync_v1";
+    var localWindowId = String(Date.now()) + "-" + String(Math.random()).slice(2);
     var detailsList = bar.querySelectorAll("details.vc-snav-details");
     var notif = bar.querySelector("details.vc-notif-dropdown");
     var accountMenu = bar.querySelector(".discord-account-menu");
@@ -465,9 +488,22 @@
       if (!root) return;
       root.classList.toggle("vc-notif-dropdown-open", Boolean(notif && notif.open));
     }
+    function broadcastHeaderMenuOpen(sourceId) {
+      try {
+        localStorage.setItem(
+          HEADER_MENU_SYNC_KEY,
+          JSON.stringify({
+            t: Date.now(),
+            src: localWindowId,
+            id: String(sourceId || ""),
+          }),
+        );
+      } catch (e) {}
+    }
     detailsList.forEach(function (d) {
       d.addEventListener("toggle", function () {
         if (!d.open) return;
+        broadcastHeaderMenuOpen(d.id || d.getAttribute("data-menu-id") || "snav");
         detailsList.forEach(function (other) {
           if (other !== d) other.open = false;
         });
@@ -479,6 +515,7 @@
       notif.addEventListener("toggle", function () {
         syncNotifOpenClass();
         if (!notif.open) return;
+        broadcastHeaderMenuOpen(notif.id || "notif");
         detailsList.forEach(function (other) {
           other.open = false;
         });
@@ -518,6 +555,17 @@
       },
       true,
     );
+    window.addEventListener("storage", function (ev) {
+      if (!ev || ev.key !== HEADER_MENU_SYNC_KEY || !ev.newValue) return;
+      var payload = null;
+      try {
+        payload = JSON.parse(ev.newValue);
+      } catch (e) {
+        payload = null;
+      }
+      if (!payload || payload.src === localWindowId) return;
+      closeAllHeaderDropdowns();
+    });
     syncNotifOpenClass();
     markSnavDetailsCurrentFromLocation();
   }
@@ -976,6 +1024,23 @@
     var at = Number.isFinite(Number(atRaw)) ? String(Math.floor(Number(atRaw))) : "";
     return "auto:" + hashText([ownerId, kind, title, body, String(openUrl || ""), at].join("|"));
   }
+  function buildNotifFingerprintId(payload, ownerId, kind, openUrl) {
+    var p = payload && typeof payload === "object" ? Object.assign({}, payload) : {};
+    delete p.id;
+    return buildStableNotifId(p, ownerId, kind, openUrl);
+  }
+  function isAutoClientNotifId(id) {
+    return String(id || "").indexOf("auto:") === 0;
+  }
+  function sameNotifCore(a, b) {
+    if (!a || !b) return false;
+    return (
+      String((a && a.title) || "").trim() === String((b && b.title) || "").trim() &&
+      String((a && a.body) || "").trim() === String((b && b.body) || "").trim() &&
+      String((a && a.kind) || "").trim() === String((b && b.kind) || "").trim() &&
+      String((a && a.openUrl) || "").trim() === String((b && b.openUrl) || "").trim()
+    );
+  }
   function loadStored() {
     var key = userStorageKey();
     if (!key) return [];
@@ -1391,8 +1456,10 @@
     ) {
       kind = "vote_reminder";
     }
-    if (stableId && loadDismissedSet(ownerId).has(stableId)) return { added: false };
-    var incomingRead = Boolean(p && p.read === true);
+    var fpId = buildNotifFingerprintId(p, ownerId, kind, openUrl);
+    var dismissed = loadDismissedSet(ownerId);
+    if ((stableId && dismissed.has(stableId)) || (fpId && dismissed.has(fpId))) return { added: false };
+    var incomingRead = Boolean(p && (p.read === true || p.readAt));
     var item = {
       id: stableId || String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9)),
       title: String((p && p.title) || ""),
@@ -1411,18 +1478,49 @@
     } catch (e) {
       s = [];
     }
-    if (stableId) {
+    if (stableId || fpId) {
       for (var dup = 0; dup < s.length; dup += 1) {
-        if (String(s[dup].id) === stableId) {
-          if (!s[dup].read && incomingRead) {
-            s[dup] = Object.assign({}, s[dup], { read: true });
-            try {
-              localStorage.setItem(key, JSON.stringify(s));
-            } catch (e3) {}
-            if (!p || !p.__noRender) render();
-          }
-          return { added: false };
-        }
+        var exId = String((s[dup] && s[dup].id) || "").trim();
+        var exKind = String((s[dup] && s[dup].kind) || kind);
+        var exOpen = String((s[dup] && s[dup].openUrl) || openUrl);
+        var exFp = buildNotifFingerprintId(s[dup], ownerId, exKind, exOpen);
+        var idMatch = Boolean(stableId && exId === stableId);
+        var fpMatch = Boolean(fpId && (exId === fpId || exFp === fpId));
+        var mongoToAutoFp = Boolean(
+          stableId &&
+            !isAutoClientNotifId(stableId) &&
+            isAutoClientNotifId(exId) &&
+            exFp === fpId,
+        );
+        if (!idMatch && !fpMatch && !mongoToAutoFp) continue;
+        var merged = Object.assign({}, s[dup], item, {
+          id: stableId || exId,
+          read: Boolean(s[dup].read) || incomingRead,
+        });
+        s[dup] = merged;
+        try {
+          localStorage.setItem(key, JSON.stringify(s));
+        } catch (e3) {}
+        if (!p || !p.__noRender) render();
+        return { added: false };
+      }
+    }
+    if (stableId && !isAutoClientNotifId(stableId)) {
+      for (var c = 0; c < s.length; c += 1) {
+        var cid = String((s[c] && s[c].id) || "").trim();
+        if (!cid || cid === stableId) continue;
+        if (!isAutoClientNotifId(cid) && cid.length === 24) continue;
+        if (!sameNotifCore(s[c], item)) continue;
+        var mergedC = Object.assign({}, s[c], item, {
+          id: stableId,
+          read: Boolean(s[c].read) || incomingRead,
+        });
+        s[c] = mergedC;
+        try {
+          localStorage.setItem(key, JSON.stringify(s));
+        } catch (e4) {}
+        if (!p || !p.__noRender) render();
+        return { added: false };
       }
     }
     s.unshift(item);
@@ -1672,7 +1770,7 @@
             kind: row.kind || "info",
             at: atMs,
             openUrl: row.openUrl || "",
-            read: row.read === true,
+            read: Boolean(row.read === true || row.readAt),
             __noRender: true,
           });
           if (ins && ins.added && Date.now() - atMs < freshMs) {

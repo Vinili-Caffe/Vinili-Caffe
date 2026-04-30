@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 const CONFIG_PATH = path.join(ROOT, "site.config.json");
+const botIds = require(path.join(ROOT, "..", "Vinyls", "Utils", "Config", "ids.js"));
 const FALLBACK_GUILD_ICON = "images/vc-header-logo.png";
 /** Discord snowflake epoch (2015-01-01 UTC), ms since Unix epoch. */
 const DISCORD_EPOCH_MS = 1420070400000;
@@ -363,6 +364,24 @@ function memberRoleIds(m) {
   return [];
 }
 
+function maintenanceBypassUserIdsFromMembers(members, roleIdList) {
+  const roleSet = new Set(
+    (Array.isArray(roleIdList) ? roleIdList : []).map((x) => String(x).trim()).filter(Boolean),
+  );
+  if (!roleSet.size || !Array.isArray(members)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const m of members) {
+    if (!m?.user || m.user.bot) continue;
+    if (!memberRoleIds(m).some((r) => roleSet.has(String(r)))) continue;
+    const uid = String(m.user.id).trim();
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    out.push(uid);
+  }
+  return out;
+}
+
 /** Nome in elenco tipo “Blear#3218” (discriminator) o display / @handle senza #0. */
 function memberStaffLineName(m) {
   const u = m?.user;
@@ -488,16 +507,21 @@ function listFromCsv(value) {
     .filter(Boolean);
 }
 
-function buildMaintenanceBootHtml(cfg) {
+function buildMaintenanceBootHtml(cfg, extra = {}) {
   const maintenance = cfg.maintenance && typeof cfg.maintenance === "object" ? cfg.maintenance : {};
   const envEnabled = boolFromEnv(process.env.VC_SITE_MAINTENANCE);
   const enabled = envEnabled == null ? maintenance.enabled === true : envEnabled;
   const envAllowedIds = listFromCsv(process.env.VC_SITE_MAINTENANCE_ALLOWED_IDS);
+  const fromConfig = Array.isArray(maintenance.allowedUserIds)
+    ? maintenance.allowedUserIds.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  const fromStaffRaw = Array.isArray(extra.guildStaffBypassIds) ? extra.guildStaffBypassIds : [];
+  const fromStaff = fromStaffRaw.map((id) => String(id || "").trim()).filter(Boolean);
+  const includeStaffBypass = maintenance.includeGuildStaffInMaintenanceBypass === true;
+  const staffBypassIds = includeStaffBypass ? fromStaff : [];
   const allowedUserIds = envAllowedIds.length
     ? envAllowedIds
-    : Array.isArray(maintenance.allowedUserIds)
-      ? maintenance.allowedUserIds.map((id) => String(id || "").trim()).filter(Boolean)
-      : [];
+    : [...new Set([...fromConfig, ...staffBypassIds])];
   const payload = {
     enabled,
     allowedUserIds,
@@ -707,7 +731,10 @@ async function buildStaffListBlock(cfg, guildId) {
 
   if (!rows.length) {
     console.warn("[build-site] Staff list: nessun membro dopo filtri (ruoli o intent).");
-    return staffListFallback();
+    return {
+      ...staffListFallback(),
+      maintenanceBypassUserIds: maintenanceBypassUserIdsFromMembers(members, botIds.websiteMaintenanceBypassRoleIds),
+    };
   }
 
   const byRole = new Map();
@@ -849,7 +876,11 @@ async function buildStaffListBlock(cfg, guildId) {
     appendRoleGroupIfMissing(communityManagerRoleId, communityManagerRoleLabel);
   }
   const staffCount = countedStaffUserIds.size;
-  return { html, staffCount, staffHoverGroups };
+  const maintenanceBypassUserIds = maintenanceBypassUserIdsFromMembers(
+    members,
+    botIds.websiteMaintenanceBypassRoleIds,
+  );
+  return { html, staffCount, staffHoverGroups, maintenanceBypassUserIds };
 }
 
 /** Solo `live-stats-extra.json` (nessun rebuild HTML). Utile con cron sul VPS. */
@@ -1064,7 +1095,9 @@ async function main() {
   const liveStatsBoot = buildLiveStatsBootHtml(cfg, inviteCode);
   const liveStatsBootWiki = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
   const liveStatsBootUser = buildLiveStatsBootHtml(cfg, inviteCode, { scriptPrefix: "../" });
-  const maintenanceBoot = buildMaintenanceBootHtml(cfg);
+  const maintenanceBoot = buildMaintenanceBootHtml(cfg, {
+    guildStaffBypassIds: staffResult.maintenanceBypassUserIds || [],
+  });
 
   if (lsForProxy.enabled !== false) {
     const extraPath = path.join(DIST, "live-stats-extra.json");
@@ -1450,6 +1483,24 @@ async function main() {
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
     LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
+    COOKIE_OG_TITLE: escAttr(`Cookie Policy | ${siteName}`),
+    COOKIE_OG_DESCRIPTION: escAttr(
+      `Cookie Policy del sito ${siteName}: cookie tecnici, sicurezza, durata e gestione.`,
+    ),
+    TERMS_OG_TITLE: escAttr(`Termini di Servizio | ${siteName}`),
+    TERMS_OG_DESCRIPTION: escAttr(`Termini di Servizio del sito e del server Discord ${siteName}.`),
+    PRIVACY_OG_TITLE: escAttr(`Privacy Policy | ${siteName}`),
+    PRIVACY_OG_DESCRIPTION: escAttr(`Informativa sulla privacy per il sito e la community ${siteName}.`),
+    VERIFY_OG_TITLE: escAttr(`Verifica account — ${siteName}`),
+    VERIFY_OG_DESCRIPTION: escAttr(`Completa la verifica account con login Discord e conferma backend.`),
+    VERIFY_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/verify` : ""),
+    FORUM_OG_TITLE: escAttr(`${siteName} | Forum`),
+    FORUM_OG_DESCRIPTION: escAttr(`Forum della community: discussioni sincronizzate con Discord.`),
+    FORUM_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/forum` : ""),
+    USER_RANK_CUSTOMIZE_OG_TITLE: escAttr(`${siteName} | Personalizza rank card`),
+    USER_RANK_CUSTOMIZE_OG_DESCRIPTION: escAttr(`Personalizza la tua rank card direttamente dal sito.`),
+    USER_PERSONALIZZA_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/personalizza` : ""),
+    USER_CUSTOMIZE_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/user/customize` : ""),
     DISCORD_INVITE_DISPLAY: escHtml(discordInviteDisplay),
     SUPPORT_MAILTO: supEmail ? escAttr(`mailto:${supEmail}`) : escAttr("#"),
     VOTE_URL: escAttr(votePageUrl),
@@ -1548,7 +1599,7 @@ async function main() {
     SUGGESTIONS_OG_URL: escAttr(suggestionsPageUrl),
     FAQ_PAGE_TITLE: `${siteName} | FAQ`,
     FAQ_META_DESCRIPTION: escAttr(
-      `Domande frequenti su ${siteName}: la pagina è in costruzione; torna presto per le risposte.`,
+      `Domande frequenti su ${siteName}: EXP e livelli, vocali, giochi (Mudae, Poketwo, counting), eventi e come entrare nello staff.`,
     ),
     FAQ_OG_TITLE: escAttr(`${siteName} | FAQ`),
     FAQ_OG_URL: escAttr(siteBaseNoSlash ? `${siteBaseNoSlash}/faq` : ""),

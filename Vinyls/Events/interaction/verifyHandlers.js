@@ -3,10 +3,11 @@ const { safeReply, safeEditReply, safeDeferReply } = require("../../../shared/di
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, addRolesAndGetMember } = require("../../Utils/Interaction/interactionEntityCache");
-const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
+const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, resolveRequiredVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
 const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { buildSiteVerifyOAuthStartUrl } = require("../../Utils/Web/verifyOauthPublicUrl");
 
 const CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID = String(IDs.channels?.contestDisegniEventVerifyPing || "").trim();
 const VERIFY_GHOST_PING_DELETE_MS = 2500;
@@ -25,13 +26,7 @@ function withFooter(interaction, payload) {
 }
 
 function buildWebsiteVerifyUrl(guildId) {
-  const baseRaw = String(process.env.WEBSITE_PUBLIC_URL || "https://www.viniliecaffe.it").trim();
-  const base = baseRaw.replace(/\/+$/, "");
-  const gid = String(guildId || "").trim();
-  const params = new URLSearchParams();
-  if (/^\d{17,22}$/.test(gid)) params.set("guildId", gid);
-  const query = params.toString();
-  return `${base}/verify/${query ? `?${query}` : ""}`;
+  return buildSiteVerifyOAuthStartUrl(guildId);
 }
 
 async function finalizeVerification(interaction, member) {
@@ -65,6 +60,7 @@ async function finalizeVerification(interaction, member) {
   }
 
   const validRoleIds = await resolveValidVerifyRoleIds(guild);
+  const requiredRoleIds = resolveRequiredVerifyRoleIds(guild);
   if (!validRoleIds.length) {
     await safeReply(interaction, withFooter(interaction, {
       embeds: [
@@ -88,12 +84,16 @@ async function finalizeVerification(interaction, member) {
     return true;
   }
   if (rolesToAdd.length > 0) {
-    const missingRoles = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
-    if (missingRoles.length > 0) {
+    const missingRequired = requiredRoleIds.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    if (missingRequired.length > 0) {
       await safeEditReply(interaction, withFooter(interaction, {
         embeds: [new EmbedBuilder().setColor("Red").setDescription(VERIFY_ROLES_FAILED)],
       })).catch(() => { });
       return true;
+    }
+    const missingOptional = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    if (missingOptional.length > 0) {
+      global.logger?.warn?.("[VERIFY] optional verify roles not assigned", guildId, missingOptional.join(","));
     }
   }
 

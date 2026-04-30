@@ -3,6 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const { upsertVerifiedMember, applyTenureForMember, } = require("../../Services/Community/communityOpsService");
 const {
   resolveValidVerifyRoleIds,
+  resolveRequiredVerifyRoleIds,
   isResolvedMainGuildId,
 } = require("../../Utils/Interaction/verifyUtils");
 const { addRolesAndGetMember, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -236,9 +237,13 @@ module.exports = {
             if (!resolvedMember) {
               throw new Error("Failed to add roles or fetch member");
             }
-            const missingRoleIds = rolesToAdd.filter((id) => !resolvedMember.roles.cache.has(id));
+            const missingRoleIds = requiredVerifyRoleIds.filter((id) => !resolvedMember.roles.cache.has(id));
             if (missingRoleIds.length > 0) {
               throw new Error(`Verify roles not applied: ${missingRoleIds.join(",")}`);
+            }
+            const missingOptional = rolesToAdd.filter((id) => !resolvedMember.roles.cache.has(id));
+            if (missingOptional.length > 0) {
+              global.logger?.warn?.("[+verify] optional layout roles not assigned", guildId, missingOptional.join(","));
             }
             success.push(displayName);
             try {

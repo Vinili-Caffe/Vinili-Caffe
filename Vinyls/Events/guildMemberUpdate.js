@@ -13,6 +13,7 @@ const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsib
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
 const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("../Services/Moderation/antiNukeService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
+const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
@@ -1121,7 +1122,8 @@ async function syncCustomVocEligibilityWindow(newMember) {
   const hasRequiredRole = CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
   const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
-  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant;
+  const hasContestExtraUnlock = await hasExtraCustomPerksUnlock(guildId, userId).catch(() => false);
+  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant || hasContestExtraUnlock;
 
   if (eligible) {
     if (doc.customVocEligibilityLostAt) {
@@ -1153,7 +1155,8 @@ async function syncCustomRoleEligibilityWindow(newMember) {
   const hasRequiredRole = CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS.some((roleId) => newMember.roles.cache.has(roleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
   const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
-  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant;
+  const hasContestExtraUnlock = await hasExtraCustomPerksUnlock(guildId, userId).catch(() => false);
+  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant || hasContestExtraUnlock;
 
   if (eligible) {
     if (doc.customRoleEligibilityLostAt) {

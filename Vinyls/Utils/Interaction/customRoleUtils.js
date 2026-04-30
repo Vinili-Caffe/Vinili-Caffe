@@ -38,7 +38,13 @@ function parseVoiceActionId(customId) {
   if (parts.length !== 3) return null;
   const [head, ownerId, channelId] = parts;
   if (!head || !ownerId || !channelId) return null;
-  if (head !== "customvoc_name" && head !== "customvoc_emoji") return null;
+  if (
+    head !== "customvoc_name" &&
+    head !== "customvoc_emoji" &&
+    head !== "customvoc_add" &&
+    head !== "customvoc_remove"
+  )
+    return null;
   return { head, ownerId, channelId };
 }
 

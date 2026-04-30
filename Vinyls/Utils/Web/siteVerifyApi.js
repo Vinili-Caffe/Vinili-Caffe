@@ -2,6 +2,7 @@ const IDs = require("../Config/ids");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const {
   resolveValidVerifyRoleIds,
+  resolveRequiredVerifyRoleIds,
   isSponsorGuildVerify,
   isUserVerifiedInMainGuild,
   isAlreadyVerifiedInThisGuild,
@@ -85,6 +86,7 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
   }
 
   const validVerifyRoleIds = await resolveValidVerifyRoleIds(guild);
+  const requiredVerifyRoleIds = resolveRequiredVerifyRoleIds(guild);
   if (!validVerifyRoleIds.length) {
     return {
       ok: false,
@@ -101,19 +103,36 @@ async function completeSiteVerify(client, { accessToken, guildId }) {
   }
 
   if (rolesToAdd.length) {
-    let missing = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
-    for (let retry = 0; retry < 3 && missing.length; retry += 1) {
+    const missingRequired = (m) =>
+      requiredVerifyRoleIds.filter((roleId) => !m?.roles?.cache?.has?.(roleId));
+    let missingReq = missingRequired(memberAfterAdd);
+    for (let retry = 0; retry < 3 && missingReq.length; retry += 1) {
       await sleep(400 + retry * 140);
-      global.logger?.warn?.("[siteVerifyApi] retry verify roles", guild.id, userId, "missing:", missing.join(","));
-      memberAfterAdd = await addRolesAndGetMember(guild, member.id, missing);
+      global.logger?.warn?.(
+        "[siteVerifyApi] retry verify roles",
+        guild.id,
+        userId,
+        "missing required:",
+        missingReq.join(","),
+      );
+      memberAfterAdd = await addRolesAndGetMember(guild, member.id, missingReq);
       if (!memberAfterAdd) break;
-      missing = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
-      if (!missing.length) break;
+      missingReq = missingRequired(memberAfterAdd);
+      if (!missingReq.length) break;
     }
-    missing = rolesToAdd.filter((roleId) => !memberAfterAdd?.roles?.cache?.has?.(roleId));
-    if (missing.length) {
-      global.logger?.warn?.("[siteVerifyApi] verify_roles_failed final", guild.id, userId, missing.join(","));
+    missingReq = memberAfterAdd ? missingRequired(memberAfterAdd) : requiredVerifyRoleIds;
+    if (missingReq.length) {
+      global.logger?.warn?.("[siteVerifyApi] verify_roles_failed final", guild.id, userId, missingReq.join(","));
       return { ok: false, status: 500, error: "verify_roles_failed", message: "Non sono riuscito ad assegnare i ruoli verifica." };
+    }
+    const missingOptional = rolesToAdd.filter((roleId) => !memberAfterAdd.roles.cache.has(roleId));
+    if (missingOptional.length) {
+      global.logger?.warn?.(
+        "[siteVerifyApi] verify optional layout roles not assigned",
+        guild.id,
+        userId,
+        missingOptional.join(","),
+      );
     }
   }
 

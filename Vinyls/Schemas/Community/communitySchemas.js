@@ -905,14 +905,27 @@ const CustomRole = {
     };
     return walk(filter);
   },
+  _pickProjectionKeys(projection) {
+    if (!projection) return [];
+    if (typeof projection === "string") {
+      return projection
+        .split(/\s+/)
+        .map((x) => String(x || "").trim())
+        .filter(Boolean)
+        .filter((x) => !x.startsWith("-"));
+    }
+    if (typeof projection === "object") {
+      return Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+    }
+    return [];
+  },
   findOne(filter = {}, projection = null) {
     const run = async () => {
       const doc = await ActivityUserProfile.findOne(this._mapFilter(filter)).select("_id guildId userId profile.customRole").lean().catch(() => null);
       const s = doc?.profile?.customRole;
       if (!s?.roleId && !s?.secondaryRoleId && !s?.customVocChannelId && !s?.expiresAt) return null;
       const out = { _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...s };
-      if (!projection || typeof projection !== "object") return out;
-      const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+      const keys = this._pickProjectionKeys(projection);
       if (!keys.length) return out;
       const picked = {};
       for (const key of keys) picked[key] = out[key];
@@ -942,8 +955,7 @@ const CustomRole = {
       const mapped = docs
         .map((doc) => ({ _id: doc?._id || null, guildId: doc.guildId, userId: doc.userId, ...(doc?.profile?.customRole || {}) }))
         .filter((x) => x.roleId || x.secondaryRoleId || x.customVocChannelId || x.expiresAt);
-      if (!projection || typeof projection !== "object") return mapped;
-      const keys = Object.keys(projection).filter((k) => Number(projection[k]) === 1);
+      const keys = this._pickProjectionKeys(projection);
       if (!keys.length) return mapped;
       return mapped.map((row) => {
         const out = {};

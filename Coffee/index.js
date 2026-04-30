@@ -3,6 +3,7 @@ const { Client, IntentsBitField } = discord;
 const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags || {};
 const Partials = discord.Partials || {};
 const path = require("path");
+const { EventEmitter } = require("events");
 const APP_ROOT = __dirname;
 const {acquireSingleInstanceLock,installHandlers,listFoldersIfExists,loadEnvFiles,}= require("../shared/runtime/fsRuntime");
 const { initializeCommandCollections } = require("../shared/runtime/clientRuntime");
@@ -26,6 +27,25 @@ const client = new Client({
   rest: { timeout: 30_000, offset: 50, retries: 3 },
 });
 
+function resolveEventListenersCeiling(configLike) {
+  const raw = Number(configLike?.eventListeners ?? 50);
+  if (!Number.isFinite(raw) || raw <= 0) return 50;
+  return Math.max(10, Math.floor(raw));
+}
+
+function applyListenerCeiling(clientRef, configLike) {
+  if (!clientRef) return;
+  const maxListeners = resolveEventListenersCeiling(configLike);
+  try {
+    clientRef.setMaxListeners(maxListeners);
+  } catch (_) {}
+  try {
+    if (Number(EventEmitter.defaultMaxListeners || 0) < maxListeners) {
+      EventEmitter.defaultMaxListeners = maxListeners;
+    }
+  } catch (_) {}
+}
+
 try {
   client.config = require("./config.json");
 } catch (err) {
@@ -40,6 +60,7 @@ const { getToken, getMongoUrl, ensureToken } = require("../shared/config/env");
 client.config.token = getToken(client.config, "DISCORD_TOKEN_TEST");
 client.config.mongoURL = getMongoUrl(client.config);
 ensureToken(client.config.token, "Bot Test (DISCORD_TOKEN_TEST)");
+applyListenerCeiling(client, client.config);
 
 client.logs = require("./Utils/Moderation/logs");
 initializeCommandCollections(client);

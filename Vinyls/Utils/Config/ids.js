@@ -198,6 +198,7 @@ const ids = {
     Mod: "1442568901887000618",
     Helper: "1442568904311570555",
     PartnerManager: "1442568905582317740",
+    CommunityManager: "1494089487863644330",
     Staff: "1442568910070349985",
     separatore2: "1469759519159615620",
     redPlus: "1469759694930182284",
@@ -550,5 +551,17 @@ ids.aliasEntries = {
     Object.entries(ids.bots).map(([k, id]) => [k, { name: "", id }])
   ),
 };
+
+/** Ruoli che sbloccano il sito in manutenzione (build-time da build-site.mjs). */
+ids.websiteMaintenanceBypassRoleIds = [
+  ids.roles.Founder,
+  ids.roles.Admin,
+  ids.roles.HighStaff,
+  ids.roles.Mod,
+  ids.roles.Helper,
+  ids.roles.Staff,
+  ids.roles.CommunityManager,
+  ids.roles.PartnerManager,
+];
 
 module.exports = ids;

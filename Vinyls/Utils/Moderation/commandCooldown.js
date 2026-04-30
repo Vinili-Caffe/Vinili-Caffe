@@ -3,9 +3,11 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../Config/ids");
 const ROLE_COOLDOWN_BYPASS = IDs.roles.Staff;
 const ROLE_DOUBLE_BOOSTER = IDs.roles.DoubleBooster;
+const ROLE_SERVER_BOOSTER = IDs.roles.ServerBooster;
 const ROLE_LEVEL_30 = IDs.roles.Level30;
 const ROLE_LEVEL_50 = IDs.roles.Level50;
 const ROLE_LEVEL_100 = IDs.roles.Level100;
+const ROLE_VIP = IDs.roles.VIP;
 const ROLE_VIP_PLUS = IDs.roles.VIPplus;
 
 function isDbReady() {
@@ -44,6 +46,7 @@ function computeCooldownSeconds(member, level) {
   if (hasBypassRole) return 0;
   if (hasRole100 || level >= 100) return 0;
   if (hasRole(member, ROLE_DOUBLE_BOOSTER)) return 5;
+  if (hasRole(member, ROLE_SERVER_BOOSTER) || hasRole(member, ROLE_VIP)) return 15;
   if (hasRole50 || level >= 50) return 5;
   if (hasRole30 || level >= 30) return 15;
   return 30;

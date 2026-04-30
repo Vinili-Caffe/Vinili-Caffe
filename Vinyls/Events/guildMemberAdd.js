@@ -14,6 +14,7 @@ const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
+const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
@@ -1212,7 +1213,8 @@ async function restoreCustomRoleOnRejoin(member) {
   const hasRequiredRole = CUSTOM_ROLE_REQUIRED_ROLE_IDS.some((requiredRoleId) => member.roles.cache.has(requiredRoleId));
   const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
   const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
-  if (!hasRequiredRole && !hasEventWeek2Grant && !hasEventWeek3Grant) return;
+  const hasContestExtraUnlock = await hasExtraCustomPerksUnlock(guildId, userId).catch(() => false);
+  if (!hasRequiredRole && !hasEventWeek2Grant && !hasEventWeek3Grant && !hasContestExtraUnlock) return;
 
   const refreshed = await addRolesAndGetMember(member.guild, member.id, [roleId]).catch(() => null);
   if (!refreshed?.roles?.cache?.has?.(roleId)) return;

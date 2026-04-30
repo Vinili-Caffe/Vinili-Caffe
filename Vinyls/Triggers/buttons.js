@@ -1021,18 +1021,14 @@ module.exports = {
             `Per verificare il tuo profilo dovrai andare in <#${IDs.channels.ticket}> e selezionare la HIGH STAFF`,
             "<:VC_Reply:1482532158080942191> successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
             "con il vostro nickname scritto su un foglio cartaceo o altrimenti con il cellulare nella schermata del vostro profilo Discord",
-            "Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
             "",
             "<:sparkledred:1470064814502973591> Ruolo <@&1469040179799920801>, <@&1469040190730408018> o <@&1495449189390356521> con badge speciale",
             "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
             "<:pinkstar:1470064804835229768> Permesso di scrivere in <#1470029899740873029>",
           ].join("\n"),
         );
-      const verifyAttachment = buildVerifyImageAttachmentOrNull();
-      if (verifyAttachment) verifyEmbed.setImage(`attachment://${verifyAttachment.name}`);
       await interaction.reply({
         embeds: [verifyEmbed],
-        ...(verifyAttachment ? { files: [verifyAttachment] } : {}),
         flags: PRIVATE_FLAG,
       }).catch((err) => { logButtonErr(err); return null; });
     }

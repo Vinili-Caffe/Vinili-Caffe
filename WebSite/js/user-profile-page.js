@@ -755,66 +755,6 @@
           "</section>"
         : "";
 
-    customRoleCount = (customRole ? 1 : 0) + (customSecondaryRole ? 1 : 0);
-    customEconomyHtml =
-      customRole || customVoice
-        ? '<section class="vc-user-profile-block vc-user-profile-block--custom">' +
-          '<div class="vc-user-profile-sectioneyebrow"><i class="fa fa-diamond" aria-hidden="true"></i> Ruoli & Economy</div>' +
-          (customRole
-            ? '<details class="vc-user-profile-accordion vc-user-profile-accordion--role"' +
-              (viewerOwns ? " open" : "") +
-              ">" +
-              '<summary class="vc-user-profile-accordion__summary">' +
-              '<span class="vc-user-profile-accordion__icon"><i class="fa fa-certificate" aria-hidden="true"></i><i class="fa fa-star vc-user-profile-accordion__iconmark" aria-hidden="true"></i></span>' +
-              '<span class="vc-user-profile-accordion__copy">' +
-              '<span class="vc-user-profile-accordion__title">Ruoli Personalizzati</span>' +
-              '<span class="vc-user-profile-accordion__sub">Ruolo principale</span>' +
-              "</span>" +
-              '<span class="vc-user-profile-accordion__badge">' +
-              esc(formatIntIt(customRoleCount)) +
-              "</span>" +
-              '<i class="fa fa-angle-down vc-user-profile-accordion__chev" aria-hidden="true"></i>' +
-              "</summary>" +
-              '<div class="vc-user-profile-accordion__body">' +
-              '<article class="vc-user-profile-customcard">' +
-              '<div class="vc-user-profile-customcard__main">' +
-              '<span class="vc-user-profile-customcard__dot vc-user-profile-customcard__dot--role"' +
-              (customRole.color ? ' style="--vc-custom-dot:' + esc(customRole.color) + '"' : "") +
-              ">" +
-              customRoleIconHtml +
-              "</span>" +
-              '<div class="vc-user-profile-customcard__copy">' +
-              '<strong class="vc-user-profile-customcard__title">' +
-              esc((customRole.emoji ? customRole.emoji + " " : "") + (customRole.name || "Ruolo personalizzato")) +
-              "</strong>" +
-              '<span class="vc-user-profile-customcard__meta">Ruolo Principale</span>' +
-              "</div>" +
-              "</div>" +
-              '<span class="vc-user-profile-customcard__date"><i class="fa fa-calendar-o" aria-hidden="true"></i><span>Creato</span><strong>' +
-              esc(formatDateIt(customRole.createdAt)) +
-              "</strong></span>" +
-              "</article>" +
-              sharedMembersMarkup(customRole.sharedMembers, customRole.memberCount, "Condiviso con") +
-              "</div>" +
-              "</details>"
-            : "") +
-          (customVoice
-            ? '<div class="vc-user-profile-accordion vc-user-profile-accordion--voice">' +
-              '<div class="vc-user-profile-accordion__summary vc-user-profile-accordion__summary--static">' +
-              '<span class="vc-user-profile-accordion__icon"><i class="fa fa-microphone" aria-hidden="true"></i></span>' +
-              '<span class="vc-user-profile-accordion__copy">' +
-              '<span class="vc-user-profile-accordion__title">Canale vocale privato</span>' +
-              '<span class="vc-user-profile-accordion__sub">' +
-              esc(customVoiceName) +
-              "</span>" +
-              "</span>" +
-              "</div>" +
-              voiceStatsHtml(customVoice) +
-              "</div>"
-            : "") +
-          "</section>"
-        : "";
-
     document.title = "Profilo " + userId + " | " + siteName();
     root.innerHTML =
       '<section class="vc-user-profile-shell">' +

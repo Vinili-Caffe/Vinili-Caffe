@@ -26,6 +26,19 @@ function guildIconUrl(guild, { size = 256 } = {}) {
  * @returns {string|null}
  */
 function userAvatarUrlDynamic(userLike, { size = 256 } = {}) {
+  if (userLike?.guild && typeof userLike.displayAvatarURL === "function") {
+    const guildHash = userLike.avatar;
+    const userHash = userLike.user?.avatar ?? null;
+    const hash = guildHash != null ? guildHash : userHash;
+    const animated = Boolean(hash && String(hash).startsWith("a_"));
+    return (
+      userLike.displayAvatarURL({
+        size,
+        extension: animated ? "gif" : "png",
+        forceStatic: false,
+      }) || null
+    );
+  }
   const user = userLike?.user || userLike;
   if (!user || typeof user.displayAvatarURL !== "function") return null;
   const animated = Boolean(user.avatar && String(user.avatar).startsWith("a_"));

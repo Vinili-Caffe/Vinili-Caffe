@@ -1,3 +1,4 @@
+const { PermissionsBitField, OverwriteType } = require("discord.js");
 const IDs = require("../Config/ids");
 const { ActivityUserProfile, CustomRole } = require("../../Schemas/Community/communitySchemas");
 const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getRoleMultiplier, getResolvedWeeklyExpMultiplier } = require("../../Services/Community/expService");
@@ -215,12 +216,21 @@ async function buildCustomProfileData(guild, userId) {
       avatarUrl: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || "",
     }))
     .filter((member) => member.id);
+  /** Solo utenti aggiunti alla voc (overwrite membro: Connect+ViewChannel, senza Gestisci canali come il proprietario). */
   let voiceSharedCount = 0;
   if (voice?.permissionOverwrites?.cache) {
+    const ownerSid = String(userId || "").trim();
+    const botSid = String(guild.members?.me?.id || guild.client?.user?.id || "").trim();
+    const V = PermissionsBitField.Flags.ViewChannel;
+    const C = PermissionsBitField.Flags.Connect;
+    const M = PermissionsBitField.Flags.ManageChannels;
     voice.permissionOverwrites.cache.forEach((overwrite) => {
-      if (String(overwrite.id || "") === String(guild.id || "")) return;
-      if (overwrite.type !== 1 && overwrite.type !== 0) return;
-      if (!overwrite.allow?.has?.("ViewChannel")) return;
+      if (overwrite.type !== OverwriteType.Member) return;
+      const sid = String(overwrite.id || "");
+      if (!sid || sid === ownerSid || (botSid && sid === botSid)) return;
+      const allow = overwrite.allow;
+      if (!allow?.has?.(V) || !allow?.has?.(C)) return;
+      if (allow.has(M)) return;
       voiceSharedCount += 1;
     });
   }
