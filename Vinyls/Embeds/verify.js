@@ -9,7 +9,7 @@ const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime"
 const VERIFY_CHANNEL_ID = IDs.channels.verify;
 const VERIFY_MEDIA_NAME = "verifica.gif";
 const VERIFY_MEDIA_PATH = path.join(__dirname, "..", "Photos", VERIFY_MEDIA_NAME);
-const VERIFY_OAUTH_IMAGE_NAME = "oauth-consenso-verifica.png";
+const VERIFY_OAUTH_IMAGE_NAME = "image0.jpg";
 const VERIFY_OAUTH_IMAGE_PATH = path.join(__dirname, "..", "Photos", VERIFY_OAUTH_IMAGE_NAME);
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 
@@ -47,8 +47,7 @@ async function run(client) {
     .setTitle("<a:VC_HeartsPink:1468685897389052008> **__Benvenutx su Vinili & Caffè__**")
     .setDescription(
       "<:vegacheckmark:1443666279058772028> Per **verificarti** premi il pulsante **__`Verify`__**: si aprirà il flusso sul sito.\n" +
-        "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__<#1442569095068254219> `SUPPORTO`__**\n" +
-        "<:VC_Reply:1482532158080942191> Gli unici dati a cui avremo accesso saranno, come indicato direttamente da Discord, nome utente, avatar e banner del tuo profilo.",
+        "<:VC_Ticket:1482535175283019888> Per **qualsiasi** problema, non **esitate** ad aprire un **__<#1442569095068254219> `SUPPORTO`__**",
     )
 
   const color = client?.config?.embedVerify || "#6f4e37";
