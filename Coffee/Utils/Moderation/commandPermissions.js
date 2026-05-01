@@ -401,6 +401,19 @@ async function checkButtonPermission(interaction) {
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
 
+  if (customId.startsWith("stanza_")) {
+    const { isStanzaButtonActorAllowed } = require("../../Services/Voice/stanzaVoiceRoomsService");
+    const stanzaOk = await isStanzaButtonActorAllowed(interaction);
+    if (!stanzaOk) {
+      return {
+        allowed: false,
+        reason: "stanza_actor",
+        requiredRoles: policy?.roles || null,
+        ownerId: null,
+      };
+    }
+  }
+
   if (Array.isArray(policy?.roles)) {
     if (!interaction?.inGuild?.()) {
       return {
@@ -556,20 +569,29 @@ function buildGlobalPermissionDeniedEmbed(
   requiredRoleIds = [],
   entityLabel = "comando",
   customDescription = null,
+  guild = null,
 ) {
-  const roles = Array.isArray(requiredRoleIds)? requiredRoleIds.filter(Boolean):[];
-  const rolesText = roles.length ? roles.map((id)=>`<@&${id}>`).join(", "):"Nessun ruolo configurato.";
-  const description = customDescription != null ? customDescription:`Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;
+  let roles = Array.isArray(requiredRoleIds) ? requiredRoleIds.filter(Boolean) : [];
+  if (guild?.roles?.cache) {
+    roles = roles.filter((id) => guild.roles.cache.has(id));
+  }
+  const rolesText = roles.length
+    ? roles.map((id) => `<@&${id}>`).join(", ")
+    : "<:VC_Attention:1482534443632558151> Nessun ruolo configurato.";
+  const description =
+    customDescription != null
+      ? customDescription
+      : `<:VC_Lock:1482526739044368476> Questo ${entityLabel} è riservato ad una categoria di utenti specifici.`;
 
   const embed = new EmbedBuilder()
-    .setColor("Red")
+    .setColor("#6f4e37")
     .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
     .setDescription(description);
 
   if (roles.length > 0) {
     embed.addFields({
       name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-      value: `Ottieni uno dei seguenti ruoli: ${rolesText}`,
+      value: `<a:VC_Arrow:1482706699365257397> Ottieni uno dei seguenti ruoli: ${rolesText}`,
     });
   }
   return embed;
@@ -577,9 +599,9 @@ function buildGlobalPermissionDeniedEmbed(
 
 function buildGlobalNotYourControlEmbed() {
   return new EmbedBuilder()
-    .setColor("Red")
+    .setColor("#6f4e37")
     .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
-    .setDescription("Questo controllo non è associato al tuo comando.");
+    .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
 }
 
 module.exports = {

@@ -9,6 +9,8 @@ const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
 const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzati.";
+const STANZA_BUTTON_DENIED =
+  "<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
 const INTERACTION_DEDUPE_TTL_MS = 30 * 1000;
 const ALLOWED_GUILD_IDS = new Set([IDs.guilds?.main, IDs.guilds?.test].filter(Boolean).map((id) => String(id)),);
 
@@ -80,17 +82,20 @@ function acquireButtonSpamGuard(interaction, client) {
   };
 }
 
-function buildDeniedEmbed(gate, controlLabel) {
+function buildDeniedEmbed(gate, controlLabel, guild = null) {
+  if (gate.reason === "stanza_actor") {
+    return buildGlobalPermissionDeniedEmbed([], controlLabel, STANZA_BUTTON_DENIED, guild);
+  }
   if (gate.reason === "not_owner") return buildGlobalNotYourControlEmbed();
   if (gate.reason === "mono_guild") {
-    return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED);
+    return buildGlobalPermissionDeniedEmbed([], controlLabel, MONO_GUILD_DENIED, guild);
   }
-  return buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], controlLabel);
+  return buildGlobalPermissionDeniedEmbed(gate.requiredRoles || [], controlLabel, null, guild);
 }
 
 async function sendPrivateInteractionResponse(interaction, payload) {
   if (!interaction?.isRepliable?.()) return;
-  await safeReply(interaction, payload).catch(() => { });
+  await safeReply(interaction, payload).catch(() => {});
 }
 
 async function runPermissionGate(interaction) {
@@ -109,7 +114,7 @@ async function runPermissionGate(interaction) {
     const gate = await checkStringSelectPermission(interaction);
     if (!gate.allowed) {
       await sendPrivateInteractionResponse(interaction, {
-        embeds: [buildDeniedEmbed(gate, "menu")],
+        embeds: [buildDeniedEmbed(gate, "menu", interaction.guild)],
         flags: PRIVATE_FLAG,
       });
       return false;
@@ -120,7 +125,7 @@ async function runPermissionGate(interaction) {
     const gate = await checkModalPermission(interaction);
     if (!gate.allowed) {
       await sendPrivateInteractionResponse(interaction, {
-        embeds: [buildDeniedEmbed(gate, "modulo")],
+        embeds: [buildDeniedEmbed(gate, "modulo", interaction.guild)],
         flags: PRIVATE_FLAG,
       });
       return false;
@@ -222,7 +227,7 @@ module.exports = {
         if (!allowed) {
           await interaction
             .reply({
-              embeds: [buildGlobalPermissionDeniedEmbed([], "comando")],
+              embeds: [buildGlobalPermissionDeniedEmbed([], "comando", null, interaction.guild)],
               flags: PRIVATE_FLAG,
             })
             .catch(() => { });

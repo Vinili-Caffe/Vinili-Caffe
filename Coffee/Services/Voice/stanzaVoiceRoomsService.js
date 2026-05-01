@@ -83,6 +83,18 @@ function ownerKey(guildId, userId) {
   return `${String(guildId || "")}:${String(userId || "")}`;
 }
 
+function normalizeStanzaDiscordUserId(val) {
+  const s = String(val ?? "").trim();
+  if (!s || s === "null" || s === "undefined") return "";
+  if (!/^\d{5,30}$/.test(s)) return "";
+  return s;
+}
+
+function sanitizeStanzaMetaViceUserId(meta) {
+  if (!meta) return;
+  meta.viceUserId = normalizeStanzaDiscordUserId(meta.viceUserId) || null;
+}
+
 function clearStanzaEmptyTeardownTimer(channelId) {
   const id = String(channelId || "");
   const row = stanzaEmptyTeardownTimers.get(id);
@@ -901,7 +913,7 @@ async function applyStanzaMemberVoicePerms(voiceChannel, userId, permsObject, re
 
 async function ensureStanzaViceOverwriteIfAny(voiceChannel, ownerId) {
   const chId = String(voiceChannel?.id || "");
-  const viceId = String(stanzaChannelMeta.get(chId)?.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(stanzaChannelMeta.get(chId)?.viceUserId);
   const oid = String(ownerId || "");
   if (!viceId || viceId === oid) return true;
   return setStanzaPrivilegedUserVoiceOverwrite(
@@ -1107,7 +1119,7 @@ async function ensureStanzaEveryoneNoAccessText(textChannel, guild) {
 }
 
 async function ensureStanzaViceTextOverwriteIfAny(textChannel, voiceChannelId, ownerId) {
-  const viceId = String(stanzaChannelMeta.get(String(voiceChannelId || ""))?.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(stanzaChannelMeta.get(String(voiceChannelId || ""))?.viceUserId);
   const oid = String(ownerId || "");
   if (!viceId || viceId === oid) return true;
   return setStanzaPrivilegedUserTextOverwrite(
@@ -1187,7 +1199,7 @@ function buildStanzaHomePanelEmbed(ownerMember, voiceChannel, startedAt, meta = 
   const ownerId = String(ownerMember?.id || "");
   const limit = voiceChannel?.userLimit ? String(voiceChannel.userLimit) : "Infinito";
   const { privacy, visibility } = resolveVoicePrivacyLines(voiceChannel, voiceChannel.guild);
-  const viceId = String(meta?.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(meta?.viceUserId);
   const viceLine = viceId ? `<@${viceId}>` : "Nessuno";
   const chatId = String(meta?.textChannelId || "").trim();
   const voiceId = String(voiceChannel?.id || "").trim();
@@ -1219,7 +1231,7 @@ function buildStanzaManageSettingsEmbed(voiceChannel, meta = null) {
   const emoji = displayEmojiFromVoiceName(chName);
   const limit = voiceChannel?.userLimit ? String(voiceChannel.userLimit) : "Infinito";
   const { privacy, visibility } = resolveVoicePrivacyLines(voiceChannel, voiceChannel.guild);
-  const viceId = String(meta?.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(meta?.viceUserId);
   const viceVal = viceId ? `<@${viceId}>` : "Nessuno";
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -1618,7 +1630,7 @@ function formatStanzaPermListLines(ids, cap = 18) {
 
 function collectStanzaPermissionMemberLists(voiceChannel, meta) {
   const ownerId = String(meta?.ownerId || "");
-  const viceId = String(meta?.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(meta?.viceUserId);
   const botId = String(voiceChannel.client?.user?.id || "");
   const everyoneId = voiceChannel.guild?.roles?.everyone?.id;
   const P = PermissionsBitField.Flags;
@@ -1651,7 +1663,7 @@ function collectStanzaPermissionMemberLists(voiceChannel, meta) {
 
 function buildStanzaPermissionsListEmbed(voiceChannel, meta) {
   const ownerId = String(meta?.ownerId || "");
-  const viceId = String(meta?.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(meta?.viceUserId);
   const lists = collectStanzaPermissionMemberLists(voiceChannel, meta);
   const staffLines = [`👑 <@${ownerId}> **(Owner)**`];
   if (viceId) staffLines.push(`⭐ <@${viceId}> **(Vice)**`);
@@ -1682,16 +1694,25 @@ async function fetchStanzaVoiceChannel(guild, channelId) {
   return ch;
 }
 
+/** Su molte guild solo Member ha Connect sulle lounge: @everyone darebbe zero candidati. */
+async function resolveStanzaTeardownPermissionProbe(guild) {
+  const rid = getStanzaMemberRoleId();
+  if (!rid || !/^\d{5,30}$/.test(rid)) return guild.roles.everyone;
+  let role = guild.roles.cache.get(rid);
+  if (!role) role = await guild.roles.fetch(rid).catch(() => null);
+  return role || guild.roles.everyone;
+}
+
 async function pickRandomTeardownMoveTarget(guild, excludeChannelId) {
   const exclude = new Set([String(excludeChannelId || ""), STANZA_LOBBY_VOICE_ID].filter(Boolean));
-  const everyone = guild.roles.everyone;
+  const probe = await resolveStanzaTeardownPermissionProbe(guild);
   const candidates = [];
   for (const id of STANZA_TEARDOWN_MOVE_TARGET_VOICE_IDS) {
     if (exclude.has(id)) continue;
     const ch = await fetchStanzaVoiceChannel(guild, id);
     if (!ch) continue;
     if (guild.afkChannelId && ch.id === guild.afkChannelId) continue;
-    const perms = ch.permissionsFor(everyone);
+    const perms = ch.permissionsFor(probe);
     if (!perms?.has(PermissionsBitField.Flags.ViewChannel)) continue;
     if (!perms.has(PermissionsBitField.Flags.Connect)) continue;
     const limit = Number(ch.userLimit) || 0;
@@ -1703,11 +1724,14 @@ async function pickRandomTeardownMoveTarget(guild, excludeChannelId) {
 }
 
 async function moveStanzaOccupantsToChannel(voiceChannel, targetVoice) {
-  if (!voiceChannel || !targetVoice) return;
-  const moves = [...voiceChannel.members.values()]
-    .filter((m) => !m.user?.bot)
-    .map((m) => m.voice.setChannel(targetVoice).catch(() => {}));
-  await Promise.all(moves);
+  if (!voiceChannel || !targetVoice) return { moved: 0, attempted: 0 };
+  const humans = [...voiceChannel.members.values()].filter((m) => !m.user?.bot);
+  if (!humans.length) return { moved: 0, attempted: 0 };
+  const results = await Promise.all(
+    humans.map((m) => m.voice.setChannel(targetVoice).then(() => true).catch(() => false)),
+  );
+  const moved = results.filter(Boolean).length;
+  return { moved, attempted: humans.length };
 }
 
 function persistStanzaSnapshotNow() {
@@ -1715,6 +1739,7 @@ function persistStanzaSnapshotNow() {
   try {
     const rooms = {};
     for (const [channelId, meta] of stanzaChannelMeta) {
+      sanitizeStanzaMetaViceUserId(meta);
       rooms[channelId] = {
         ownerId: meta.ownerId,
         viceUserId: meta.viceUserId ?? null,
@@ -1747,14 +1772,12 @@ function readStanzaSnapshotRoomsRaw() {
 }
 
 function normalizeStanzaRecordFromSnapshot(rec, guildId) {
-  const ownerId = String(rec?.ownerId || "").trim();
+  const ownerId = normalizeStanzaDiscordUserId(rec?.ownerId);
   if (!ownerId) return null;
   const panelMessageId = String(rec?.panelMessageId || "").trim();
   if (!panelMessageId) return null;
   const gid = String(rec?.guildId || guildId || MAIN_GUILD_ID).trim();
-  let viceUserId = rec?.viceUserId;
-  if (viceUserId === undefined || viceUserId === "") viceUserId = null;
-  else viceUserId = String(viceUserId).trim() || null;
+  const viceUserId = normalizeStanzaDiscordUserId(rec?.viceUserId) || null;
   let textChannelId = String(rec?.textChannelId || "").trim();
   if (!textChannelId || !/^\d{5,30}$/.test(textChannelId)) textChannelId = null;
   return {
@@ -1952,11 +1975,39 @@ async function getStanzaMetaOrRehydrate(guild, channelId) {
   if (!id || !guild) return null;
   if (String(guild.id) !== MAIN_GUILD_ID) return null;
   const cur = stanzaChannelMeta.get(id);
-  if (cur && String(cur.guildId) === String(guild.id)) return cur;
+  if (cur && String(cur.guildId) === String(guild.id)) {
+    sanitizeStanzaMetaViceUserId(cur);
+    return cur;
+  }
   await tryRehydrateStanzaRoomByChannelId(guild, id);
   const meta = stanzaChannelMeta.get(id);
-  if (meta && String(meta.guildId) === String(guild.id)) return meta;
+  if (meta && String(meta.guildId) === String(guild.id)) {
+    sanitizeStanzaMetaViceUserId(meta);
+    return meta;
+  }
   return null;
+}
+
+function isStanzaRoomController(meta, userId) {
+  const uid = String(userId || "").trim();
+  if (!uid || !meta) return false;
+  if (uid === String(meta.ownerId || "")) return true;
+  const vice = normalizeStanzaDiscordUserId(meta.viceUserId);
+  return Boolean(vice && uid === vice);
+}
+
+async function isStanzaButtonActorAllowed(interaction) {
+  if (!interaction?.isButton?.()) return false;
+  const customId = String(interaction?.customId || "");
+  if (!customId.startsWith("stanza_")) return false;
+  const parsed = parseStanzaButtonId(customId);
+  if (!parsed) return false;
+  const guild = interaction.guild;
+  if (!guild) return false;
+  if (String(guild.id) !== MAIN_GUILD_ID) return true;
+  const meta = await getStanzaMetaOrRehydrate(guild, parsed.channelId);
+  if (!meta) return false;
+  return isStanzaRoomController(meta, interaction.user?.id);
 }
 
 async function restoreStanzaRoomsFromSnapshot(client) {
@@ -1991,12 +2042,10 @@ async function handleStanzaButton(interaction) {
     await interaction.reply({ content: "Questa stanza non è più attiva.", flags: 64 }).catch(() => {});
     return true;
   }
-  const isOwner = String(interaction.user?.id || "") === String(meta.ownerId);
-  const canMod = Boolean(
-    interaction.member?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels),
-  );
-  if (!isOwner && !canMod) {
-    await interaction.reply({ content: "Solo il creatore della stanza (o lo staff) può usare questi pulsanti.", flags: 64 }).catch(() => {});
+  if (!isStanzaRoomController(meta, interaction.user?.id)) {
+    await interaction
+      .reply({ content: "Solo il creatore della stanza e il vice possono usare questi pulsanti.", flags: 64 })
+      .catch(() => {});
     return true;
   }
   if (
@@ -2024,12 +2073,11 @@ async function handleStanzaButton(interaction) {
     const me = guild.members.me;
     const canMove = Boolean(me?.permissions?.has(PermissionsBitField.Flags.MoveMembers));
     let moveTarget = null;
-    let movedOk = false;
+    let moveStats = { moved: 0, attempted: 0 };
     if (voiceCh && canMove) {
       moveTarget = await pickRandomTeardownMoveTarget(guild, vid);
       if (moveTarget) {
-        await moveStanzaOccupantsToChannel(voiceCh, moveTarget);
-        movedOk = true;
+        moveStats = await moveStanzaOccupantsToChannel(voiceCh, moveTarget);
       }
     }
     await teardownStanza(guild, vid);
@@ -2039,9 +2087,15 @@ async function handleStanzaButton(interaction) {
         "✅ Stanza eliminata. Non ho potuto spostare gli utenti: al bot manca **Sposta membri**.";
     } else if (voiceCh && canMove && !moveTarget) {
       doneText =
-        "✅ Stanza eliminata. Le vocali di destinazione configurate sono **piene** o non disponibili: chi era in stanza non è stato spostato (canale chiuso).";
-    } else if (voiceCh && movedOk) {
-      doneText = "✅ Stanza eliminata. Gli utenti in stanza sono stati spostati in una delle vocali di destinazione.";
+        "✅ Stanza eliminata. Le vocali di destinazione sono **piene**, **non trovate** o il ruolo **Member** non ha **Visualizza / Connetti** su quelle vocali: chi era in stanza non è stato spostato.";
+    } else if (voiceCh && moveTarget && moveStats.attempted > 0 && moveStats.moved === 0) {
+      doneText =
+        "✅ Stanza eliminata. C'era una vocale di destinazione libera, ma **nessuno** è stato spostato (permessi Discord sul canale o sul bot).";
+    } else if (voiceCh && moveStats.moved > 0) {
+      doneText =
+        moveStats.moved === moveStats.attempted
+          ? "✅ Stanza eliminata. Gli utenti in stanza sono stati spostati in una delle vocali di destinazione."
+          : `✅ Stanza eliminata. Spostati **${moveStats.moved}/${moveStats.attempted}** utenti in una vocale di destinazione.`;
     }
     await interaction.editReply({ content: doneText }).catch(() => {});
     return true;
@@ -2230,6 +2284,12 @@ async function handleStanzaButton(interaction) {
   }
 
   if (parsed.head === "stanza_vice") {
+    if (String(interaction.user?.id || "") !== String(meta.ownerId || "")) {
+      await interaction
+        .reply({ content: "Solo il creatore della stanza può nominare o revocare il vice.", flags: 64 })
+        .catch(() => {});
+      return true;
+    }
     registerStanzaVicePending(guild.id, interaction.user.id, parsed.channelId);
     await interaction
       .reply({
@@ -2562,11 +2622,9 @@ async function handleStanzaUsersMemberMessageCreate(message) {
     return true;
   }
 
-  const isOwner = String(message.author.id) === String(meta.ownerId);
-  const canMod = Boolean(message.member?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels));
-  if (!isOwner && !canMod) {
+  if (!isStanzaRoomController(meta, message.author.id)) {
     await editStanzaUsersMemberFollowup(message.client, pending, {
-      content: "Solo il creatore della stanza (o lo staff) può usare questa azione.",
+      content: "Solo il creatore della stanza e il vice possono usare questa azione.",
     });
     await message.delete().catch(() => {});
     clearStanzaUsersMemberPending(message.guild.id, message.author.id);
@@ -2578,7 +2636,7 @@ async function handleStanzaUsersMemberMessageCreate(message) {
 
   const targetId = mentioned.id;
   const botId = String(message.client.user.id);
-  const viceId = String(meta.viceUserId || "").trim();
+  const viceId = normalizeStanzaDiscordUserId(meta.viceUserId);
   const failPerm =
     "❌ Non sono riuscito ad aggiornare i permessi sul canale. Verifica che il bot abbia **Gestisci canali**.";
 
@@ -2701,7 +2759,7 @@ async function handleStanzaViceMessageCreate(message) {
   const tchVice = await stanzaCompanionTextChannel(message.guild, vid);
 
   if (/^nessuno$/i.test(rawLine)) {
-    const oldVice = String(meta.viceUserId || "").trim();
+    const oldVice = normalizeStanzaDiscordUserId(meta.viceUserId);
     if (oldVice) {
       await removeStanzaMemberVoiceOverwrite(voiceCh, oldVice);
       if (tchVice) await removeStanzaMemberTextOverwrite(tchVice, oldVice);
@@ -2726,7 +2784,7 @@ async function handleStanzaViceMessageCreate(message) {
     return true;
   }
 
-  const currentVice = String(meta.viceUserId || "").trim();
+  const currentVice = normalizeStanzaDiscordUserId(meta.viceUserId);
   if (currentVice && targetId === currentVice) {
     await removeStanzaMemberVoiceOverwrite(voiceCh, currentVice);
     if (tchVice) await removeStanzaMemberTextOverwrite(tchVice, currentVice);
@@ -2778,7 +2836,7 @@ async function handleStanzaViceMessageCreate(message) {
       "Stanza: accesso vice (stessi permessi del creatore) chat",
     );
   }
-  meta.viceUserId = targetId;
+  meta.viceUserId = normalizeStanzaDiscordUserId(targetId) || null;
   await message.delete().catch(() => {});
   clearStanzaVicePending(message.guild.id, message.author.id);
   await refreshStanzaPanelEmbedsIfPossible(message.guild, vid);
@@ -2797,6 +2855,7 @@ async function handleStanzaPanelPromptMessageCreate(message) {
 }
 
 module.exports = {
+  isStanzaButtonActorAllowed,
   restoreStanzaRoomsFromSnapshot,
   finalizeStanzaVisitorVoiceSessionIfLeft,
   handleStanzaVoiceLobbyJoin,

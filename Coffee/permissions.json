@@ -53,11 +53,7 @@
     },
     "channels": {},
     "buttons": {
-        "stanza_*": {
-            "roles": [
-                "roles.Member"
-            ]
-        },
+        "stanza_*": {},
         "help_prev_*": {
             "roles": [
                 "roles.Member"
