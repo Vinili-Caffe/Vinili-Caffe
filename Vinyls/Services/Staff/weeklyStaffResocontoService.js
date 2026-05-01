@@ -11,6 +11,14 @@ const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const TIME_ZONE = "Europe/Rome";
+/** Chiusura settimana resoconti (Europe/Rome): ultimo invio = Admin domenica. */
+const RESOCONTO_CLOSE_HOUR_ROME = 18;
+const RESOCONTO_CRON_SEGMENTS = [
+  { segment: "pm", expression: "0 15 * * 0" },
+  { segment: "helper", expression: "0 16 * * 0" },
+  { segment: "mod", expression: "0 17 * * 0" },
+  { segment: "admin", expression: "0 18 * * 0" },
+];
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
   [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
@@ -49,13 +57,13 @@ const ROLE_UP = {
   [String(IDs.roles.Mod)]: String(IDs.roles.Admin),
 };
 
-let weeklyStaffResocontoTask = null;
+let weeklyStaffResocontoTasks = [];
 const BOT_STATE_KEY_LAST_RESOCONTO = "lastResocontoRun";
 
-function getLastSunday20RomeUtc(now = new Date()) {
+function getLastSundayResocontoCloseRomeUtc(now = new Date()) {
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const romeParts = getRomeDateParts(yesterday);
-  return createUtcFromRomeLocal(romeParts.year, romeParts.month, romeParts.day, 20, 0, 0);
+  return createUtcFromRomeLocal(romeParts.year, romeParts.month, romeParts.day, RESOCONTO_CLOSE_HOUR_ROME, 0, 0);
 }
 
 async function readLastResocontoRun() {
@@ -199,13 +207,14 @@ function addDaysToRomeYmd(year, month, day, deltaDays) {
   return getRomeDateParts(new Date(mid.getTime() + deltaDays * 86400000));
 }
 
-/** Domenica 20:00 Europe/Rome che chiude la settimana del resoconto rispetto a `referenceNow`. */
-function getResocontoClosingSunday20Utc(referenceNow = new Date()) {
+/** Domenica all'ora di chiusura resoconti (Europe/Rome) che delimita il ciclo rispetto a `referenceNow`. */
+function getResocontoClosingSundayUtc(referenceNow = new Date()) {
   const r = parseRomeWallClock(referenceNow);
   const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const w = wdMap[r.weekday];
+  const H = RESOCONTO_CLOSE_HOUR_ROME;
   if (w == null) {
-    return createUtcFromRomeLocal(r.year, r.month, r.day, 20, 0, 0);
+    return createUtcFromRomeLocal(r.year, r.month, r.day, H, 0, 0);
   }
 
   let sunY = r.year;
@@ -213,8 +222,8 @@ function getResocontoClosingSunday20Utc(referenceNow = new Date()) {
   let sunD = r.day;
 
   if (w === 0) {
-    const thisSun20 = createUtcFromRomeLocal(r.year, r.month, r.day, 20, 0, 0);
-    if (referenceNow.getTime() < thisSun20.getTime()) {
+    const thisSunClose = createUtcFromRomeLocal(r.year, r.month, r.day, H, 0, 0);
+    if (referenceNow.getTime() < thisSunClose.getTime()) {
       const prev = addDaysToRomeYmd(r.year, r.month, r.day, -7);
       sunY = prev.year;
       sunM = prev.month;
@@ -227,28 +236,34 @@ function getResocontoClosingSunday20Utc(referenceNow = new Date()) {
     sunD = prev.day;
   }
 
-  return createUtcFromRomeLocal(sunY, sunM, sunD, 20, 0, 0);
+  return createUtcFromRomeLocal(sunY, sunM, sunD, H, 0, 0);
 }
 
 /**
- * Finestra classifica partner “settimanale”: [domenica 20:00 dopo resoconto, domenica 20:00 dopo 7 giorni) in Europe/Rome.
- * Stesso ancoraggio di `getResocontoClosingSunday20Utc` (allineato al ciclo resoconto domenica 20).
+ * Finestra classifica partner “settimanale”: [chiusura resoconti domenica, stessa ora dopo 7 giorni) in Europe/Rome.
  */
 function getPartnerLeaderboardWeekBoundsUtc(now = new Date()) {
-  const weekStart = getResocontoClosingSunday20Utc(now);
+  const weekStart = getResocontoClosingSundayUtc(now);
   const sunParts = getRomeDateParts(weekStart);
   const endParts = addDaysToRomeYmd(sunParts.year, sunParts.month, sunParts.day, 7);
-  const weekEndExclusive = createUtcFromRomeLocal(endParts.year, endParts.month, endParts.day, 20, 0, 0);
+  const weekEndExclusive = createUtcFromRomeLocal(
+    endParts.year,
+    endParts.month,
+    endParts.day,
+    RESOCONTO_CLOSE_HOUR_ROME,
+    0,
+    0,
+  );
   return { weekStart, weekEndExclusive };
 }
 
-/** Lunedì 00:00 → domenica 20:00 (escluso) Roma per la settimana chiusa da quel resoconto. */
+/** Lunedì 00:00 → domenica chiusura resoconti (escluso) Roma per la settimana chiusa da quel ciclo. */
 function getResocontoPexSkipWindowUtc(referenceNow = new Date()) {
-  const closingSunday20 = getResocontoClosingSunday20Utc(referenceNow);
-  const sunParts = getRomeDateParts(closingSunday20);
+  const closingSunday = getResocontoClosingSundayUtc(referenceNow);
+  const sunParts = getRomeDateParts(closingSunday);
   const monParts = addDaysToRomeYmd(sunParts.year, sunParts.month, sunParts.day, -6);
   const windowStart = createUtcFromRomeLocal(monParts.year, monParts.month, monParts.day, 0, 0, 0);
-  return { windowStart, windowEndExclusive: closingSunday20 };
+  return { windowStart, windowEndExclusive: closingSunday };
 }
 
 function getPmResocontoWindow(now = new Date()) {
@@ -266,7 +281,7 @@ function getPmResocontoWindow(now = new Date()) {
   const sundayM = sundayNoonUtc.getUTCMonth() + 1;
   const sundayD = sundayNoonUtc.getUTCDate();
 
-  const thisSundayStart = createUtcFromRomeLocal(sundayY, sundayM, sundayD, 20, 1, 0,);
+  const thisSundayStart = createUtcFromRomeLocal(sundayY, sundayM, sundayD, RESOCONTO_CLOSE_HOUR_ROME, 1, 0,);
   const weekStart = now.getTime() < thisSundayStart.getTime() ? new Date(thisSundayStart.getTime() - 7 * 24 * 60 * 60 * 1000) : thisSundayStart;
   const scheduledEnd = new Date(weekStart.getTime() + (7 * 24 * 60 * 60 * 1000 - 2 * 60 * 1000),);
   const weekEnd = now.getTime() < scheduledEnd.getTime() ? now : scheduledEnd;
@@ -782,7 +797,10 @@ async function resolveChannel(client, channelId) {
     (await client.channels.fetch(String(channelId)).catch(() => null));
 }
 
-async function runWeeklyStaffResoconti(client) {
+async function runWeeklyStaffResocontoSegment(client, segment) {
+  const allowed = new Set(["pm", "helper", "mod", "admin"]);
+  if (!allowed.has(segment)) return;
+
   const guildId = String(IDs.guilds?.main || "");
   const channelId = String(IDs.channels?.resocontiStaff || "");
   if (!guildId || !channelId) return;
@@ -841,6 +859,17 @@ async function runWeeklyStaffResoconti(client) {
   const overviewMap = new Map(staffUserIds.map((id, i) => [id, overviewResults[i] || null]),);
   const sanctionCountByModId = await getWeeklySanctionCountByMod(guildId, weekStart, weekEnd);
 
+  const wantStaffForSegment =
+    segment === "helper" || segment === "mod" || segment === "admin"
+      ? String(
+          segment === "helper"
+            ? IDs.roles.Helper
+            : segment === "mod"
+              ? IDs.roles.Mod
+              : IDs.roles.Admin,
+        )
+      : null;
+
   for (const member of candidateMembers) {
     const userId = String(member.id);
     const staffDoc = staffMap.get(userId) || null;
@@ -861,7 +890,10 @@ async function runWeeklyStaffResoconti(client) {
     const shouldSkipStaffResoconto = skipForStaffPexInWindow && !graceNewStaffRole;
     const shouldSkipPmResoconto = skipForPmPromotionInWindow && !pmPexedInLast7Days;
 
-    if (staffRoleId && !shouldSkipStaffResoconto) {
+    const matchStaffSegment =
+      wantStaffForSegment && staffRoleId && String(staffRoleId) === wantStaffForSegment;
+
+    if (matchStaffSegment && !shouldSkipStaffResoconto) {
       const overview = overviewMap.get(userId);
       const d7 = overview?.windows?.d7;
       const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)),);
@@ -921,6 +953,7 @@ async function runWeeklyStaffResoconti(client) {
     }
 
     if (
+      segment === "pm" &&
       member.roles.cache.has(String(IDs.roles.PartnerManager)) &&
       !shouldSkipPmResoconto &&
       !isPmResocontoExcludedUserId(userId)
@@ -950,7 +983,20 @@ async function runWeeklyStaffResoconti(client) {
         .catch(() => null);
     }
   }
-  await writeLastResocontoRun();
+  if (segment === "admin") {
+    await writeLastResocontoRun();
+  }
+}
+
+async function runWeeklyStaffResoconti(client, opts = {}) {
+  const seg = opts.segment;
+  if (seg && seg !== "all") {
+    await runWeeklyStaffResocontoSegment(client, seg);
+    return;
+  }
+  for (const { segment: s } of RESOCONTO_CRON_SEGMENTS) {
+    await runWeeklyStaffResocontoSegment(client, s);
+  }
 }
 
 async function runPreResocontoReminders(client) {
@@ -994,7 +1040,8 @@ async function runPreResocontoReminders(client) {
       )),
   );
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
-  const resocontoTime = "**domenica alle 20:00**";
+  const resocontoTime =
+    "**domenica (ora italiana):** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Admin **18:00**";
   const reminderWindow = getPmResocontoWindow(new Date());
   const skipDmUserIds = new Set(getDevIds(client).map((id) => String(id)).filter((id) => /^\d{16,20}$/.test(id)));
 
@@ -1047,17 +1094,20 @@ function getRomeWeekdayShort(now = new Date()) {
 }
 
 function startWeeklyStaffResocontoLoop(client) {
-  if (weeklyStaffResocontoTask) return weeklyStaffResocontoTask;
+  if (weeklyStaffResocontoTasks.length) return weeklyStaffResocontoTasks[0];
 
-  weeklyStaffResocontoTask = cron.schedule(
-    "0 20 * * 0",
-    async () => {
-      await runWeeklyStaffResoconti(client).catch((err) => {
-        global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Execution failed", err);
-      });
-    },
-    { timezone: TIME_ZONE },
-  );
+  for (const { segment, expression } of RESOCONTO_CRON_SEGMENTS) {
+    const task = cron.schedule(
+      expression,
+      async () => {
+        await runWeeklyStaffResocontoSegment(client, segment).catch((err) => {
+          global.logger?.error?.(`[WEEKLY STAFF RESOCONTO] Execution failed (${segment})`, err);
+        });
+      },
+      { timezone: TIME_ZONE },
+    );
+    weeklyStaffResocontoTasks.push(task);
+  }
 
   const preResocontoTask = cron.schedule(
     "0 18 * * 5",
@@ -1074,16 +1124,20 @@ function startWeeklyStaffResocontoLoop(client) {
     const wd = getRomeWeekdayShort(new Date());
     if (wd !== "Mon") return;
     const lastRunAt = await readLastResocontoRun();
-    const lastSunday20 = getLastSunday20RomeUtc(new Date());
+    const lastSundayClose = getLastSundayResocontoCloseRomeUtc(new Date());
     const twoHoursMs = 2 * 60 * 60 * 1000;
-    if (lastRunAt != null && lastRunAt >= lastSunday20.getTime() - twoHoursMs) {
+    if (lastRunAt != null && lastRunAt >= lastSundayClose.getTime() - twoHoursMs) {
       return;
     }
-    global.logger?.info?.("[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto (bot was likely offline Sunday 20:00).");
-    runWeeklyStaffResoconti(client).catch((err) => global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err));
+    global.logger?.info?.(
+      "[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto segments (bot was likely offline Sunday).",
+    );
+    runWeeklyStaffResoconti(client, { segment: "all" }).catch((err) =>
+      global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err),
+    );
   });
 
-  return weeklyStaffResocontoTask;
+  return weeklyStaffResocontoTasks[0];
 }
 
 module.exports = {

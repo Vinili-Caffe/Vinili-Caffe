@@ -6072,15 +6072,21 @@ a.vc-snav-item[href*="sponsor"] svg {
 
 .vc-notif-dropdown {
   position: relative;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .vc-notif-summary {
   list-style: none;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .vc-notif-summary::-webkit-details-marker {
   display: none;
+}
+
+.vc-notif-summary:focus {
+  outline: none;
 }
 
 .vc-notif-summary:focus-visible {
@@ -6521,12 +6527,14 @@ a.vc-snav-item[href*="sponsor"] svg {
     min-height: 22%;
     width: 100%;
     cursor: pointer;
-    background: rgba(2, 6, 23, 0.92);
+    background: rgba(10, 8, 6, 0.9);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 0;
     padding: 0;
     margin: 0;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
   }
 
   .vc-notif-dropdown[open] .vc-notif-summary {

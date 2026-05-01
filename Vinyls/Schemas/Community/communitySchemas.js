@@ -200,6 +200,8 @@ const staffPartnerActionSchema = new Schema(
     action: String,
     partner: String,
     invite: String,
+    /** ID Discord del server target (da API invite), per audit duplicati stesso giorno. */
+    partnerGuildId: { type: String, default: null },
     managerId: String,
     partnershipChannelId: String,
     partnerMessageIds: { type: [String], default: [] },

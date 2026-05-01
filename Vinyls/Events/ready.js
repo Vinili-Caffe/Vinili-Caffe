@@ -3,6 +3,11 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
+const {
+  shouldRunDiscadiaVoteMonthRepairOnStartup,
+  repairDiscadiaVoteMonthRowsForMainGuild,
+  startDiscadiaVoteMonthRolloverCron,
+} = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
@@ -186,6 +191,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "restore bump reminders",
       enabled: primaryScheduler,
       run: () => restoreBumpReminders(client),
+    },
+    {
+      label: "discadia vote month DB repair (stale month key)",
+      enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
+      run: () => repairDiscadiaVoteMonthRowsForMainGuild(client),
     },
     {
       label: "process recent automation messages (vote, bump)",
@@ -722,7 +732,14 @@ module.exports = {
       client._engagementTick = engagementTick;
     }
 
-    if (primaryScheduler) scheduleMonthlyGif(client);
+    if (primaryScheduler) {
+      scheduleMonthlyGif(client);
+      try {
+        startDiscadiaVoteMonthRolloverCron(client);
+      } catch (err) {
+        logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err?.message || err);
+      }
+    }
     setClientPresence(client);
     maybeCheckPackagesOnReady(client);
     try {

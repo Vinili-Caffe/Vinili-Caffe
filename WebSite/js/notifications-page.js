@@ -83,6 +83,11 @@
     if (!base) return "/webhooks/site-notifications/read";
     return String(base).replace(/\/+$/, "") + "/read";
   }
+  function resolvedSiteNotificationsClearUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/clear";
+    return String(base).replace(/\/+$/, "") + "/clear";
+  }
   function getDiscordAccessToken() {
     try {
       return String(localStorage.getItem(DISCORD_ACCESS_TOKEN_KEY) || "").trim();
@@ -432,6 +437,96 @@
       body: JSON.stringify({ all: true }),
     }).catch(function () {});
   }
+  function clearAllSiteNotificationsOnServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsClearUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({}),
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return null;
+        });
+      })
+      .then(function (j) {
+        return Boolean(j && j.ok);
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function mapServerRowToStoredItemPage(row) {
+    var kindRaw = row && row.kind;
+    var kind =
+      kindRaw === "vote"
+        ? "vote"
+        : kindRaw === "vote_reminder"
+          ? "vote_reminder"
+          : kindRaw === "success"
+            ? "success"
+            : kindRaw === "review"
+              ? "review"
+              : kindRaw === "mod"
+                ? "mod"
+                : kindRaw === "suggestion"
+                  ? "suggestion"
+                  : "info";
+    var titleRaw = String((row && row.title) || "").toLowerCase();
+    var bodyRaw = String((row && row.body) || "").toLowerCase();
+    if (
+      kind === "vote" &&
+      (titleRaw.indexOf("promemoria") !== -1 ||
+        bodyRaw.indexOf("promemoria") !== -1)
+    ) {
+      kind = "vote_reminder";
+    }
+    var openUrl = "";
+    if (row && typeof row.openUrl === "string") openUrl = String(row.openUrl).trim();
+    var atMs = typeof row.at === "number" ? row.at : Date.now();
+    return {
+      id: String(row.id || "").trim(),
+      title: String((row && row.title) || ""),
+      body: String((row && row.body) || ""),
+      at: atMs,
+      read: Boolean(row.read === true || row.readAt),
+      kind: kind,
+      openUrl: openUrl,
+    };
+  }
+  function mergePageStoredWithServerList(list, uid) {
+    var oldItems = loadStored();
+    var serverIdMap = {};
+    var fromServer = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i];
+      if (!row || !row.title) continue;
+      var sid = String(row.id || "").trim();
+      if (!sid) continue;
+      serverIdMap[sid] = true;
+      fromServer.unshift(mapServerRowToStoredItemPage(row));
+    }
+    var dismissed = loadDismissedSet(uid);
+    var keepLocal = [];
+    for (var li = 0; li < oldItems.length; li += 1) {
+      var it = oldItems[li];
+      var lid = String((it && it.id) || "").trim();
+      if (!lid) continue;
+      if (!isAutoClientNotifId(lid) || serverIdMap[lid]) continue;
+      var exKind = String((it && it.kind) || "info");
+      var exOpen = String((it && it.openUrl) || "");
+      var fpId = buildNotifFingerprintId(it, uid, exKind, exOpen);
+      if (dismissed.has(lid) || dismissed.has(fpId)) continue;
+      keepLocal.push(it);
+    }
+    saveStored(keepLocal.concat(fromServer));
+  }
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
@@ -443,20 +538,7 @@
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
         var list = j.items.slice().reverse();
-        for (var i = 0; i < list.length; i += 1) {
-          var row = list[i];
-          if (!row || !row.title) continue;
-          addNotif({
-            id: row.id,
-            userId: uid,
-            title: row.title,
-            body: row.body || "",
-            kind: row.kind || "info",
-            at: typeof row.at === "number" ? row.at : Date.now(),
-            openUrl: row.openUrl || "",
-            read: Boolean(row.read === true || row.readAt),
-          });
-        }
+        mergePageStoredWithServerList(list, uid);
         renderList();
       })
       .catch(function () {});
@@ -471,13 +553,12 @@
   }
 
   function clearAll() {
-    var all = loadStored();
-    for (var i = 0; i < all.length; i += 1) {
-      var sid = String((all[i] && all[i].id) || "").trim();
-      if (sid) markDismissed(sid);
-    }
-    markAllReadOnServer();
+    var uid = normalizeUserId(currentUserId);
     saveStored([]);
+    saveDismissedSet(new Set(), uid);
+    clearAllSiteNotificationsOnServer().finally(function () {
+      syncSiteNotificationsFromServer();
+    });
   }
 
   function renderList() {

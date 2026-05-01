@@ -156,11 +156,18 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
   }));
 }
 
+async function deleteAllSiteInAppNotificationsForUser(userId) {
+  const uid = normalizeUserId(userId);
+  if (!uid) return 0;
+  return deleteSiteInAppNotifications({ userId: uid });
+}
+
 module.exports = {
   enqueueSiteInAppNotification,
   listSiteInAppNotificationsForUser,
   pruneSiteInAppNotificationsForUser,
   deleteSiteInAppNotifications,
+  deleteAllSiteInAppNotificationsForUser,
   markSiteInAppNotificationRead,
   markAllSiteInAppNotificationsRead,
 };

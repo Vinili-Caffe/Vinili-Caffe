@@ -12,6 +12,7 @@ const {
 } = require("../../Utils/Partner/partnersChatChannelUtils");
 const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
 const { maybeSendPartnerManagerRewardMilestoneDms } = require("../../Utils/Staff/partnerManagerMilestoneDm");
+const { runImmediatePartnerAuditForUser } = require("../../Services/Partner/partnerAuditService");
 
 function extractInviteCode(text) {
   if (!text) return null;
@@ -284,26 +285,19 @@ async function handlePartnerModal(interaction) {
     const beforePoints = resolvePartnerPointsShown(s);
     s.partnerCount++;
     s.managerId = managerId;
-    const actionEntry = { action: "create", partner: serverName, invite: inviteUrl, managerId, partnershipChannelId: IDs.channels.partnerships, partnerMessageIds: [], };
+    const actionEntry = {
+      action: "create",
+      partner: serverName,
+      invite: inviteUrl,
+      partnerGuildId: /^\d{17,20}$/.test(String(resolvedInviteGuildId || "").trim()) ? String(resolvedInviteGuildId).trim() : undefined,
+      managerId,
+      partnershipChannelId: IDs.channels.partnerships,
+      partnerMessageIds: [],
+    };
     s.partnerActions.push(actionEntry);
     const actionIndex = Math.max(0, s.partnerActions.length - 1);
     staffDoc.markModified("staff");
     await staffDoc.save();
-    const shownPartnerPoints = resolvePartnerPointsShown(s);
-
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: interaction.user.username,
-        iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
-      })
-      .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
-      .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
-    <:mariolevelup:1443679595084910634> Ora sei a **\`${shownPartnerPoints}\`** partner!
-    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** in <#1442569232507473951>`,)
-      .setFooter({ text: serverName, iconURL: serverIcon })
-      .setColor("#6f4e37")
-      .setTimestamp()
-      .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
 
     const sentMessageIds = [];
     const contentWithManager = normalizeManagerLine(sanitizedDescription, managerId,);
@@ -312,8 +306,6 @@ async function handlePartnerModal(interaction) {
       const sent = await partnershipChannel.send({ content: part }).catch(() => null);
       if (sent?.id) sentMessageIds.push(sent.id);
     }
-    const thankYouMessage = await partnershipChannel.send({ embeds: [embed] }).catch(() => null);
-    if (thankYouMessage?.id) sentMessageIds.push(thankYouMessage.id);
     if (sentMessageIds.length === 0) {
       if (Array.isArray(s.partnerActions) && s.partnerActions.length > actionIndex) {
         s.partnerActions.splice(actionIndex, 1);
@@ -340,9 +332,40 @@ async function handlePartnerModal(interaction) {
     if (s.partnerActions?.[actionIndex]) {
       s.partnerActions[actionIndex].partnershipChannelId =
         partnershipChannel.id;
-      s.partnerActions[actionIndex].partnerMessageIds = sentMessageIds;
+      s.partnerActions[actionIndex].partnerMessageIds = sentMessageIds.slice();
       staffDoc.markModified("staff");
       await staffDoc.save().catch(() => { });
+    }
+
+    await runImmediatePartnerAuditForUser(interaction.client, interaction.user.id);
+
+    const staffAfterAudit = await getOrCreateStaffPartnerDoc(guildId, interaction.user.id);
+    const sAfter = staffAfterAudit && staffAfterAudit.staff ? staffAfterAudit.staff : s;
+    const shownPartnerPoints = resolvePartnerPointsShown(sAfter);
+
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: interaction.user.username,
+        iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
+      })
+      .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
+      .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
+    <:mariolevelup:1443679595084910634> Ora sei a **\`${shownPartnerPoints}\`** partner!
+    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** in <#1442569232507473951>`,)
+      .setFooter({ text: serverName, iconURL: serverIcon })
+      .setColor("#6f4e37")
+      .setTimestamp()
+      .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
+
+    const thankYouMessage = await partnershipChannel.send({ embeds: [embed] }).catch(() => null);
+    if (thankYouMessage?.id && staffAfterAudit?.staff?.partnerActions?.[actionIndex]) {
+      const ids = Array.isArray(staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds)
+        ? staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds.slice()
+        : sentMessageIds.slice();
+      ids.push(thankYouMessage.id);
+      staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds = ids;
+      staffAfterAudit.markModified("staff");
+      await staffAfterAudit.save().catch(() => { });
     }
 
     void maybeSendPartnerManagerRewardMilestoneDms(
@@ -350,7 +373,7 @@ async function handlePartnerModal(interaction) {
       guild,
       interaction.user.id,
       beforePoints,
-      resolvePartnerPointsShown(s),
+      resolvePartnerPointsShown(sAfter),
     ).catch(() => null);
 
     const doneEmbed = new EmbedBuilder()

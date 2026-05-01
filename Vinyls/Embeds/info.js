@@ -66,14 +66,8 @@ async function run(client) {
     .addFields(
       { name: "<:VC_Link:1482460590894088222> Links", value: infoLinksText, inline: true },
       { name: "<:VC_Info:1482526956703580372> Informazioni", value: infoMetaText, inline: true },
-      { name: "<:VC_PurpleFlower:1469463879149944943> Vantaggi sul sito", value: infoSecondText, inline: false },
     )
     .setFooter({ text: infoFooterText });
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("info_boost_levels").setLabel("︲VANTAGGI BOOST & LIVELLI").setEmoji("<a:VC_Rocket:1468544312475123753>").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("info_badges_roles").setLabel("︲BADGE & ALTRI RUOLI").setEmoji("<a:VC_Diamon:1482706116873031680>").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("info_verifica").setLabel("︲VERIFICA SELFIE").setEmoji(`<a:VC_Verified:1482532479637127188>`).setStyle(ButtonStyle.Secondary),
-  );
   const guildId = channel.guild?.id;
   if (!guildId) return;
   let panel = null;
@@ -161,12 +155,12 @@ async function run(client) {
       messageId: normalizedPrimaryId,
       content: "",
       embeds: [infoEmbedPrimary],
-      components: [row1, row2],
+      components: [row1],
     })
     : await channel.send({
       content: "",
       embeds: [infoEmbedPrimary],
-      components: [row1, row2],
+      components: [row1],
     }).catch(() => null);
 
   if (msgGif?.id || msgPanel?.id) {

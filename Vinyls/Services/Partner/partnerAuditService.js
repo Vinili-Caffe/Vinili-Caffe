@@ -1,11 +1,13 @@
 const cron = require("node-cron");
+const axios = require("axios");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 let dailyPartnerAuditTask = null;
-const SAME_DAY_DUPLICATE_REASON = "Non fare la stessa partnership più di una volta al giorno";
+const SAME_DAY_DUPLICATE_REASON = "Non fare partnership con lo stesso server più di una volta al giorno";
 const SELF_PARTNERSHIP_DAILY_REASON = "Non fare partnership con se stessi più di una volta al giorno";
 const SAME_MANAGER_DAILY_CAP_REASON = "Non mettere più di 5 partnership con lo stesso utente";
+const MANAGER_LEFT_SERVER_REASON = "Manager fuori dal server";
 
 function getRomeDateKey(date) {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit", });
@@ -42,26 +44,12 @@ function extractInviteCodes(text) {
   return Array.from(out);
 }
 
-function buildDescriptionFingerprint(rawText) {
-  const text = String(rawText || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n*Manager:\s*<@!?\d+>\s*$/i, "").replace(/\n*Partner effettuata con\s*\*\*<@!?\d+>\*\*\s*$/i, "").trim();
-  return text;
-}
-
-function normalizeFingerprint(rawText) {
-  return buildDescriptionFingerprint(rawText)
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractManagerMentions(sourceText) {
+/** Solo la riga "Manager: <@...>"; mai tutti i mention (evita falsi positivi sulla regola "con te stesso"). */
+function extractDesignatedManagerIdsFromText(sourceText) {
   const text = String(sourceText || "");
-  const managerLineMatches = Array.from(text.matchAll(/Manager:\s*<@!?(\d+)>/gi),);
+  const managerLineMatches = Array.from(text.matchAll(/Manager:\s*<@!?(\d+)>/gi));
   const ids = managerLineMatches.map((m) => m?.[1]).filter(Boolean).map((id) => String(id));
-  if (ids.length) return Array.from(new Set(ids));
-
-  const genericMentions = Array.from(text.matchAll(/<@!?(\d+)>/g)).map((m) => m?.[1]).filter(Boolean).map((id) => String(id));
-  return Array.from(new Set(genericMentions));
+  return Array.from(new Set(ids));
 }
 
 async function fetchPartnerActionText(guild, action) {
@@ -114,6 +102,54 @@ async function fetchPartnerActionText(guild, action) {
   }
 
   return chunks.join("\n");
+}
+
+async function resolveInviteCodeToGuildId(rawCode, cache) {
+  const code = String(rawCode || "").trim();
+  if (!code) return "";
+  const key = code.toLowerCase();
+  if (cache.has(key)) return cache.get(key);
+  try {
+    const res = await axios.get(`https://discord.com/api/v10/invites/${encodeURIComponent(code)}?with_counts=true`, {
+      timeout: 12000,
+      headers: { Accept: "application/json" },
+      validateStatus: () => true,
+    });
+    const gid =
+      res?.status === 200 && res.data?.guild?.id ? String(res.data.guild.id).trim() : "";
+    if (/^\d{17,20}$/.test(gid)) {
+      cache.set(key, gid);
+      return gid;
+    }
+    cache.set(key, "");
+    return "";
+  } catch {
+    cache.set(key, "");
+    return "";
+  }
+}
+
+async function resolveRowPartnerGuildId(row, inviteGuildIdCache) {
+  const ex = String(row?.action?.partnerGuildId || "").trim();
+  if (/^\d{17,20}$/.test(ex)) {
+    row.resolvedPartnerGuildId = ex;
+    return ex;
+  }
+  for (const c of row.inviteCodes || []) {
+    const gid = await resolveInviteCodeToGuildId(c, inviteGuildIdCache);
+    if (gid) {
+      row.resolvedPartnerGuildId = gid;
+      return gid;
+    }
+  }
+  const single = extractInviteCode(row.action?.invite || "");
+  if (single) {
+    const gid = await resolveInviteCodeToGuildId(single, inviteGuildIdCache);
+    row.resolvedPartnerGuildId = gid || "";
+    return row.resolvedPartnerGuildId;
+  }
+  row.resolvedPartnerGuildId = "";
+  return "";
 }
 
 async function resolveTextLogChannel(guild, channelId) {
@@ -172,6 +208,223 @@ async function logPointRemoval(guild, staffUserId, reason, action) {
   }
 }
 
+async function auditSingleProfilePartnerDay(guild, doc, targetDateKey, opts = {}) {
+  let checked = 0;
+  let removed = 0;
+  let logsSent = 0;
+  const inviteGuildIdCache = opts.inviteGuildIdCache instanceof Map ? opts.inviteGuildIdCache : new Map();
+  if (!doc.staff) doc.staff = {};
+  const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
+  const allCreates = actions
+    .map((action, index) => ({ action, index }))
+    .filter(({ action }) => String(action?.action || "create") === "create")
+    .map(({ action, index }) => {
+      const dateMs = new Date(action?.date || 0).getTime();
+      return { action, index, dateMs, inviteCodes: [] };
+    })
+    .sort((a, b) => a.dateMs - b.dateMs);
+
+  const dayCreates = allCreates
+    .filter(({ action }) => getRomeDateKey(new Date(action?.date || Date.now())) === targetDateKey)
+    .sort((a, b) => a.dateMs - b.dateMs);
+
+  if (!dayCreates.length) return { checked, removed, logsSent };
+
+  checked = dayCreates.length;
+
+  const rowsForAudit = allCreates
+    .filter((row) => {
+      const rowKey = getRomeDateKey(new Date(row?.action?.date || Date.now()));
+      return rowKey === targetDateKey;
+    })
+    .sort((a, b) => a.dateMs - b.dateMs);
+
+  const actionTextCache = new Map();
+  const getActionTextCached = async (row) => {
+    if (!row?.action) return "";
+    if (actionTextCache.has(row.index)) return actionTextCache.get(row.index);
+    const text = await fetchPartnerActionText(guild, row.action);
+    actionTextCache.set(row.index, text || "");
+    return actionTextCache.get(row.index);
+  };
+  const enrichInviteCodes = async (row) => {
+    if (!row?.action) {
+      row.inviteCodes = [];
+      return row.inviteCodes;
+    }
+    const fromInviteField = extractInviteCodes(row.action?.invite || "");
+    const actionText = await getActionTextCached(row);
+    const fromText = extractInviteCodes(actionText);
+    const combined = Array.from(new Set([...fromInviteField, ...fromText]));
+    if (!combined.length && row.action?.invite) {
+      const singleCode = extractInviteCode(row.action.invite);
+      if (singleCode) combined.push(singleCode);
+    }
+    row.inviteCodes = combined;
+    return row.inviteCodes;
+  };
+
+  await Promise.all(rowsForAudit.map((row) => enrichInviteCodes(row)));
+  await Promise.all(rowsForAudit.map((row) => resolveRowPartnerGuildId(row, inviteGuildIdCache)));
+
+  const managerIdsUnique = [
+    ...new Set(
+      dayCreates
+        .map(({ action }) => String(action?.managerId || "").trim())
+        .filter((id) => /^\d{17,20}$/.test(id)),
+    ),
+  ];
+  const managerPresentInGuild = new Map();
+  await Promise.all(
+    managerIdsUnique.map(async (mid) => {
+      const m = await guild.members.fetch(mid).catch(() => null);
+      managerPresentInGuild.set(mid, Boolean(m));
+    }),
+  );
+
+  const firstPartnerGuildIdIndexSameDay = new Map();
+  const managerDailyCounter = new Map();
+  const selfDailyCounter = new Map();
+  const invalidIndices = new Set();
+  const invalidReasonsByIndex = new Map();
+  const addInvalidReason = (index, reason) => {
+    if (!reason) return;
+    if (!invalidReasonsByIndex.has(index)) {
+      invalidReasonsByIndex.set(index, []);
+    }
+    const current = invalidReasonsByIndex.get(index);
+    if (!current.includes(reason)) current.push(reason);
+  };
+
+  for (const item of dayCreates) {
+    const { index } = item;
+    const reasons = [];
+    const actionText = await getActionTextCached(item);
+    const storedManagerId = String(item.action?.managerId || "").trim();
+    const designatedManagerFromDb = /^\d{17,20}$/.test(storedManagerId) ? storedManagerId : "";
+
+    const partnerGuildId = String(item.resolvedPartnerGuildId || "").trim();
+    if (partnerGuildId) {
+      if (!firstPartnerGuildIdIndexSameDay.has(partnerGuildId)) {
+        firstPartnerGuildIdIndexSameDay.set(partnerGuildId, index);
+      } else {
+        reasons.push(SAME_DAY_DUPLICATE_REASON);
+      }
+    }
+
+    const isDuplicatePartnerGuildSameDay =
+      Boolean(partnerGuildId) &&
+      firstPartnerGuildIdIndexSameDay.get(partnerGuildId) !== index;
+
+    if (!isDuplicatePartnerGuildSameDay) {
+      if (designatedManagerFromDb && designatedManagerFromDb === String(doc.userId)) {
+        const selfUsed = Number(selfDailyCounter.get(String(doc.userId)) || 0) + 1;
+        selfDailyCounter.set(String(doc.userId), selfUsed);
+        if (selfUsed > 1) {
+          reasons.push(SELF_PARTNERSHIP_DAILY_REASON);
+        }
+      }
+
+      const canonicalManagers =
+        designatedManagerFromDb !== ""
+          ? [designatedManagerFromDb]
+          : extractDesignatedManagerIdsFromText(actionText);
+
+      for (const managerId of canonicalManagers) {
+        if (!/^\d{17,20}$/.test(String(managerId || ""))) continue;
+        const used = Number(managerDailyCounter.get(managerId) || 0) + 1;
+        managerDailyCounter.set(managerId, used);
+        if (used > 5) {
+          reasons.push(SAME_MANAGER_DAILY_CAP_REASON);
+        }
+      }
+    }
+
+    const mgrId = String(item.action?.managerId || "").trim();
+    if (mgrId && /^\d{17,20}$/.test(mgrId) && !managerPresentInGuild.get(mgrId)) {
+      reasons.push(MANAGER_LEFT_SERVER_REASON);
+    }
+
+    if (reasons.length) {
+      invalidIndices.add(index);
+      for (const reason of reasons) {
+        addInvalidReason(index, reason);
+      }
+    }
+  }
+
+  for (const keepIndex of firstPartnerGuildIdIndexSameDay.values()) {
+    const reasons = invalidReasonsByIndex.get(keepIndex);
+    if (!Array.isArray(reasons) || !reasons.length) continue;
+
+    const filteredReasons = reasons.filter((reason) => reason !== SAME_DAY_DUPLICATE_REASON);
+
+    if (filteredReasons.length) {
+      invalidReasonsByIndex.set(keepIndex, filteredReasons);
+      invalidIndices.add(keepIndex);
+    } else {
+      invalidReasonsByIndex.delete(keepIndex);
+      invalidIndices.delete(keepIndex);
+    }
+  }
+
+  if (!invalidIndices.size) return { checked, removed, logsSent };
+
+  let flagged = 0;
+  for (const index of invalidIndices) {
+    const action = actions[index];
+    if (!action) continue;
+    const alreadyPenalized = Array.isArray(action.auditPenaltyDates) && action.auditPenaltyDates.includes(targetDateKey);
+    if (alreadyPenalized) continue;
+
+    const sent = await logPointRemoval(
+      guild,
+      doc.userId,
+      invalidReasonsByIndex.get(index).join(" | "),
+      action,
+    );
+    if (sent) logsSent += 1;
+    action.auditPenaltyDates = Array.isArray(action.auditPenaltyDates) ? action.auditPenaltyDates : [];
+    action.auditPenaltyDates.push(targetDateKey);
+    flagged += 1;
+  }
+
+  if (flagged > 0) {
+    const currentCount = Number(doc.staff?.partnerCount || 0);
+    doc.staff.partnerCount = Math.max(0, currentCount - flagged);
+    doc.markModified("staff");
+    try {
+      await doc.save();
+      removed = flagged;
+    } catch (saveErr) {
+      global.logger?.error?.(`[PARTNER AUDIT] User ${doc.userId}: failed to persist penalties ${saveErr?.message || saveErr}`);
+    }
+  }
+
+  return { checked, removed, logsSent };
+}
+
+async function runImmediatePartnerAuditForUser(client, userId) {
+  const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
+  const uid = String(userId || "").trim();
+  if (!guildId || !uid) return { checked: 0, removed: 0, logsSent: 0 };
+  const guild = await getClientGuildCached(client, guildId);
+  if (!guild) return { checked: 0, removed: 0, logsSent: 0 };
+  const dateKey = getRomeDateKey(new Date());
+  const doc = await ActivityUserProfile.findOne({ guildId: guild.id, userId: uid }).catch(() => null);
+  if (!doc) return { checked: 0, removed: 0, logsSent: 0 };
+  try {
+    const out = await auditSingleProfilePartnerDay(guild, doc, dateKey, { inviteGuildIdCache: new Map() });
+    if (out.removed > 0) {
+      global.logger?.info?.(`[PARTNER AUDIT] immediate user=${uid} date=${dateKey} removed=${out.removed} logs=${out.logsSent}`);
+    }
+    return out;
+  } catch (err) {
+    global.logger?.error?.(`[PARTNER AUDIT] Immediate audit failed for ${uid}: ${err?.message || err}`);
+    return { checked: 0, removed: 0, logsSent: 0 };
+  }
+}
+
 async function runDailyPartnerAudit(client, opts = {}) {
   const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
   if (!guildId) return;
@@ -187,137 +440,15 @@ async function runDailyPartnerAudit(client, opts = {}) {
   let totalChecked = 0;
   let totalRemoved = 0;
   let totalRemovalLogsSent = 0;
+  const inviteGuildIdCache = new Map();
 
   for (const doc of docs) {
-    if (!doc.staff) doc.staff = {};
-    const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
-    const allCreates = actions.map((action, index) => ({ action, index })).filter(({ action }) => String(action?.action || "create") === "create").map(({ action, index }) => { const dateMs = new Date(action?.date || 0).getTime(); return { action, index, dateMs, inviteCodes: [] }; }).sort((a, b) => a.dateMs - b.dateMs);
-
-    const dayCreates = allCreates.filter(({ action }) => getRomeDateKey(new Date(action?.date || Date.now())) === targetDateKey,).sort((a, b) => a.dateMs - b.dateMs);
-
-    if (!dayCreates.length) continue;
-    totalChecked += dayCreates.length;
-
-    const rowsForAudit = allCreates.filter((row) => { const rowKey = getRomeDateKey(new Date(row?.action?.date || Date.now())); return rowKey === targetDateKey; }).sort((a, b) => a.dateMs - b.dateMs);
-
-    const actionTextCache = new Map();
-    const getActionTextCached = async (row) => { if (!row?.action) return ""; if (actionTextCache.has(row.index)) return actionTextCache.get(row.index); const text = await fetchPartnerActionText(guild, row.action); actionTextCache.set(row.index, text || ""); return actionTextCache.get(row.index); };
-    const enrichInviteCodes = async (row) => { if (!row?.action) { row.inviteCodes = []; return row.inviteCodes; } const fromInviteField = extractInviteCodes(row.action?.invite || ""); const actionText = await getActionTextCached(row); const fromText = extractInviteCodes(actionText); const combined = Array.from(new Set([...fromInviteField, ...fromText])); if (!combined.length && row.action?.invite) { const singleCode = extractInviteCode(row.action.invite); if (singleCode) combined.push(singleCode); } row.inviteCodes = combined; return row.inviteCodes; };
-
-    await Promise.all(rowsForAudit.map((row) => enrichInviteCodes(row)));
-
-    const firstFingerprintIndexSameDay = new Map();
-    const managerDailyCounter = new Map();
-    const selfDailyCounter = new Map();
-    const invalidIndices = new Set();
-    const invalidReasonsByIndex = new Map();
-    const addInvalidReason = (index, reason) => { if (!reason) return; if (!invalidReasonsByIndex.has(index)) { invalidReasonsByIndex.set(index, []); } const current = invalidReasonsByIndex.get(index); if (!current.includes(reason)) current.push(reason); };
-
-    for (const item of dayCreates) {
-      const { index } = item;
-      const reasons = [];
-      const actionText = await getActionTextCached(item);
-      const descriptionFingerprint = normalizeFingerprint(actionText);
-      let managerMentions = extractManagerMentions(descriptionFingerprint);
-
-      if (!managerMentions.length && item.action?.managerId) {
-        managerMentions = [String(item.action.managerId)];
-      }
-
-      await enrichInviteCodes(item);
-
-      if (descriptionFingerprint) {
-        if (!firstFingerprintIndexSameDay.has(descriptionFingerprint)) {
-          firstFingerprintIndexSameDay.set(descriptionFingerprint, index);
-        } else {
-          reasons.push(SAME_DAY_DUPLICATE_REASON);
-        }
-      }
-
-      const isDuplicateFingerprintSameDay =
-        Boolean(descriptionFingerprint) &&
-        firstFingerprintIndexSameDay.get(descriptionFingerprint) !== index;
-
-      if (!isDuplicateFingerprintSameDay) {
-        const canonicalManagers =
-          item.action?.managerId != null && String(item.action.managerId).trim() !== ""
-            ? [String(item.action.managerId)]
-            : managerMentions;
-
-        for (const managerId of canonicalManagers) {
-          const used = Number(managerDailyCounter.get(managerId) || 0) + 1;
-          managerDailyCounter.set(managerId, used);
-          if (used > 5) {
-            reasons.push(SAME_MANAGER_DAILY_CAP_REASON);
-          }
-
-          if (String(managerId) === String(doc.userId)) {
-            const selfUsed = Number(selfDailyCounter.get(managerId) || 0) + 1;
-            selfDailyCounter.set(managerId, selfUsed);
-            if (selfUsed > 1) {
-              reasons.push(SELF_PARTNERSHIP_DAILY_REASON);
-            }
-          }
-        }
-      }
-
-      if (reasons.length) {
-        invalidIndices.add(index);
-        for (const reason of reasons) {
-          addInvalidReason(index, reason);
-        }
-      }
-    }
-
-    for (const keepIndex of firstFingerprintIndexSameDay.values()) {
-      const reasons = invalidReasonsByIndex.get(keepIndex);
-      if (!Array.isArray(reasons) || !reasons.length) continue;
-
-      const filteredReasons = reasons.filter((reason) => reason !== SAME_DAY_DUPLICATE_REASON,);
-
-      if (filteredReasons.length) {
-        invalidReasonsByIndex.set(keepIndex, filteredReasons);
-        invalidIndices.add(keepIndex);
-      } else {
-        invalidReasonsByIndex.delete(keepIndex);
-        invalidIndices.delete(keepIndex);
-      }
-    }
-
-    if (!invalidIndices.size) continue;
-
-    let flagged = 0;
-    for (const index of invalidIndices) {
-      const action = actions[index];
-      if (!action) continue;
-      const alreadyPenalized = Array.isArray(action.auditPenaltyDates) && action.auditPenaltyDates.includes(targetDateKey);
-      if (alreadyPenalized) continue;
-
-      const sent = await logPointRemoval(
-        guild,
-        doc.userId,
-        invalidReasonsByIndex.get(index).join(" | "),
-        action,
-      );
-      if (sent) totalRemovalLogsSent += 1;
-      action.auditPenaltyDates = Array.isArray(action.auditPenaltyDates)
-        ? action.auditPenaltyDates
-        : [];
-      action.auditPenaltyDates.push(targetDateKey);
-      flagged += 1;
-    }
-
-    if (flagged > 0) {
-      const currentCount = Number(doc.staff?.partnerCount || 0);
-      doc.staff.partnerCount = Math.max(0, currentCount - flagged);
-      doc.markModified("staff");
-      try {
-        await doc.save();
-        totalRemoved += flagged;
-      } catch (saveErr) {
-        global.logger?.error?.(`[PARTNER AUDIT] User ${doc.userId}: failed to persist penalties ${saveErr?.message || saveErr}`);
-      }
-    }
+    const { checked, removed, logsSent } = await auditSingleProfilePartnerDay(guild, doc, targetDateKey, {
+      inviteGuildIdCache,
+    });
+    totalChecked += checked;
+    totalRemoved += removed;
+    totalRemovalLogsSent += logsSent;
   }
 
   global.logger?.info?.(
@@ -341,10 +472,17 @@ function startDailyPartnerAuditLoop(client) {
   );
 
   setImmediate(() => {
-    runDailyPartnerAudit(client).catch((err) => global.logger?.warn?.(`[PARTNER AUDIT] Recovery on start failed: ${err?.message || err}`));
+    const todayKey = getRomeDateKey(new Date());
+    runDailyPartnerAudit(client, { dateKey: todayKey }).catch((err) =>
+      global.logger?.warn?.(`[PARTNER AUDIT] Run on bot start failed (${todayKey}): ${err?.message || err}`),
+    );
   });
 
   return dailyPartnerAuditTask;
 }
 
-module.exports = { startDailyPartnerAuditLoop, runDailyPartnerAudit };
+module.exports = {
+  startDailyPartnerAuditLoop,
+  runDailyPartnerAudit,
+  runImmediatePartnerAuditForUser,
+};

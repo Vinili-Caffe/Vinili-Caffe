@@ -1261,13 +1261,13 @@
   }
   function clearAll() {
     ephemeralDemo = null;
-    var all = loadStored();
-    for (var i = 0; i < all.length; i += 1) {
-      var sid = String((all[i] && all[i].id) || "").trim();
-      if (sid) markDismissed(sid);
-    }
+    var uid = normalizeUserId(currentUserId);
     saveStored([]);
+    saveDismissedSet(new Set(), uid);
     render();
+    clearAllSiteNotificationsOnServer().finally(function () {
+      syncSiteNotificationsFromServer();
+    });
   }
   function markOneRead(id) {
     if (ephemeralDemo && ephemeralDemo.id === id) {
@@ -1615,6 +1615,11 @@
     if (!base) return "/webhooks/site-notifications/read";
     return String(base).replace(/\/+$/, "") + "/read";
   }
+  function resolvedSiteNotificationsClearUrl() {
+    var base = resolvedSiteNotificationsUrl();
+    if (!base) return "/webhooks/site-notifications/clear";
+    return String(base).replace(/\/+$/, "") + "/clear";
+  }
   function siteRealtimeWsUrl() {
     var c = typeof window !== "undefined" && window.__VC_SITE_NOTIFS ? window.__VC_SITE_NOTIFS : {};
     var explicit = String(c.wsUrl || "").trim();
@@ -1744,6 +1749,123 @@
       body: JSON.stringify({ all: true }),
     }).catch(function () {});
   }
+  function clearAllSiteNotificationsOnServer() {
+    var token = getDiscordAccessToken();
+    var uid = normalizeUserId(currentUserId);
+    if (!token || !uid) return Promise.resolve(false);
+    return fetch(resolvedSiteNotificationsClearUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({}),
+    })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return null;
+        });
+      })
+      .then(function (j) {
+        return Boolean(j && j.ok);
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+  function mapServerRowToStoredItem(row) {
+    var kindRaw = row && row.kind;
+    var kind =
+      kindRaw === "vote"
+        ? "vote"
+        : kindRaw === "vote_reminder"
+          ? "vote_reminder"
+          : kindRaw === "success"
+            ? "success"
+            : kindRaw === "review"
+              ? "review"
+              : kindRaw === "mod"
+                ? "mod"
+                : kindRaw === "suggestion"
+                  ? "suggestion"
+                  : "info";
+    var titleRaw = String((row && row.title) || "").toLowerCase();
+    var bodyRaw = String((row && row.body) || "").toLowerCase();
+    if (
+      kind === "vote" &&
+      (titleRaw.indexOf("promemoria") !== -1 ||
+        bodyRaw.indexOf("promemoria") !== -1)
+    ) {
+      kind = "vote_reminder";
+    }
+    var openUrl = "";
+    if (row && typeof row.openUrl === "string") openUrl = String(row.openUrl).trim();
+    var atMs = typeof row.at === "number" ? row.at : Date.now();
+    return {
+      id: String(row.id || "").trim(),
+      title: String((row && row.title) || ""),
+      body: String((row && row.body) || ""),
+      at: atMs,
+      read: Boolean(row.read === true || row.readAt),
+      kind: kind,
+      openUrl: openUrl,
+    };
+  }
+  function mergeStoredWithServerNotificationList(list, uid) {
+    var oldItems = loadStored();
+    var oldIdMap = {};
+    for (var oi = 0; oi < oldItems.length; oi += 1) {
+      var oix = oldItems[oi];
+      var oid = String((oix && oix.id) || "").trim();
+      if (oid) oldIdMap[oid] = true;
+    }
+    var serverIdMap = {};
+    var fromServer = [];
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i];
+      if (!row || !row.title) continue;
+      var sid = String(row.id || "").trim();
+      if (!sid) continue;
+      serverIdMap[sid] = true;
+      fromServer.unshift(mapServerRowToStoredItem(row));
+    }
+    var dismissed = loadDismissedSet(uid);
+    var keepLocal = [];
+    for (var li = 0; li < oldItems.length; li += 1) {
+      var it = oldItems[li];
+      var lid = String((it && it.id) || "").trim();
+      if (!lid) continue;
+      if (!isAutoClientNotifId(lid) || serverIdMap[lid]) continue;
+      var exKind = String((it && it.kind) || "info");
+      var exOpen = String((it && it.openUrl) || "");
+      var fpId = buildNotifFingerprintId(it, uid, exKind, exOpen);
+      if (dismissed.has(lid) || dismissed.has(fpId)) continue;
+      keepLocal.push(it);
+    }
+    saveStored(keepLocal.concat(fromServer));
+    var freshMs = 600000;
+    var toastRow = null;
+    for (var ti = 0; ti < fromServer.length; ti += 1) {
+      var fr = fromServer[ti];
+      if (!fr) continue;
+      var frid = String(fr.id || "").trim();
+      if (!frid || oldIdMap[frid]) continue;
+      if (Date.now() - (fr.at || 0) < freshMs) {
+        toastRow = {
+          id: fr.id,
+          title: fr.title,
+          body: fr.body,
+          kind: fr.kind,
+          at: fr.at,
+          read: fr.read,
+          openUrl: fr.openUrl,
+        };
+        break;
+      }
+    }
+    return toastRow;
+  }
   function syncSiteNotificationsFromServer() {
     var token = getDiscordAccessToken();
     var uid = normalizeUserId(currentUserId);
@@ -1756,27 +1878,7 @@
       .then(function (j) {
         if (!j || j.ok !== true || !Array.isArray(j.items)) return;
         var list = j.items.slice().reverse();
-        var freshMs = 600000;
-        var toastRow = null;
-        for (var i = 0; i < list.length; i += 1) {
-          var row = list[i];
-          if (!row || !row.title) continue;
-          var atMs = typeof row.at === "number" ? row.at : Date.now();
-          var ins = addNotif({
-            id: row.id,
-            userId: uid,
-            title: row.title,
-            body: row.body || "",
-            kind: row.kind || "info",
-            at: atMs,
-            openUrl: row.openUrl || "",
-            read: Boolean(row.read === true || row.readAt),
-            __noRender: true,
-          });
-          if (ins && ins.added && Date.now() - atMs < freshMs) {
-            toastRow = row;
-          }
-        }
+        var toastRow = mergeStoredWithServerNotificationList(list, uid);
         render();
         if (toastRow) {
           playNotifSound();
