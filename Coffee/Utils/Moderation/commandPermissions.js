@@ -366,6 +366,14 @@ function evaluateComponentPolicy(interaction, policy) {
 async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
+  if (customId.startsWith("stanza_")) {
+    return {
+      allowed: true,
+      reason: null,
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
   if (guildId && isOfficialMainGuild(guildId)) {
     return {
       allowed: false,

@@ -1046,6 +1046,7 @@ module.exports = {
           "",
           "<a:VC_Boost:1482706171386269830> **Boostando il server una volta sbloccherai questi vantaggi:**",
           `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.ServerBooster}> con badge speciale`,
+          "<:VC_Dot:1482532364222595303> Permesso di cambiare il nickname",
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",

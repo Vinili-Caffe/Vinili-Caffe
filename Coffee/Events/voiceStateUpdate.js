@@ -1,5 +1,11 @@
 const IDs = require("../Utils/Config/ids");
 const { leaveTtsGuild } = require("../Services/TTS/ttsService");
+const {
+  finalizeStanzaVisitorVoiceSessionIfLeft,
+  handleStanzaVoiceLobbyJoin,
+  handleStanzaVoiceOccupied,
+  handleStanzaVoiceEmpty,
+} = require("../Services/Voice/stanzaVoiceRoomsService");
 
 const ALLOWED_GUILD_IDS = new Set([IDs.guilds ?. main,IDs.guilds ?. test].filter(Boolean).map((id)=>String(id)),);
 
@@ -12,6 +18,28 @@ module.exports = {
       return;
     }
     if (!client?.user?.id) return;
+
+    try {
+      await finalizeStanzaVisitorVoiceSessionIfLeft(oldState, newState);
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] stanza visitor flush:", error?.message || error);
+    }
+    try {
+      await handleStanzaVoiceLobbyJoin(oldState, newState, client);
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] stanza lobby join:", error?.message || error);
+    }
+    try {
+      await handleStanzaVoiceOccupied(oldState, newState);
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] stanza occupied:", error?.message || error);
+    }
+    try {
+      await handleStanzaVoiceEmpty(oldState, newState);
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] stanza empty:", error?.message || error);
+    }
+
     if (client?.config?.tts?.stayConnected) return;
 
     if (

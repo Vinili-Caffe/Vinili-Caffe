@@ -23,6 +23,7 @@ const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils"
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { findOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketGuildUserQueries");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const STAFF_TRACKED_ROLE_IDS = new Set([
@@ -151,7 +152,7 @@ async function markInviteInactive(member) {
 async function closeOpenTicketsForMember(member, closeReason = "Utente uscito dal server") {
   const guild = member.guild;
   const client = member.client;
-  const openTickets = await Ticket.find({ userId: member.id, open: true, guildId: guild.id }).catch(() => []);
+  const openTickets = await findOpenTicketsForGuildUser(guild.id, member.id).catch(() => []);
   if (!openTickets.length) return;
 
   const centralTicketLogChannelId = IDs.channels.ticketLogs || "1442569290682208296";
@@ -161,7 +162,11 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
   if (!logChannel?.isTextBased?.()) logChannel = null;
 
   for (const ticket of openTickets) {
-    const ticketGuild = String(ticket.guildId || "") === String(guild.id) ? guild : await client.guilds.fetch(ticket.guildId).catch(() => null);
+    const ticketGid = String(ticket.guildId || "").trim();
+    const ticketGuild =
+      !ticketGid || ticketGid === String(guild.id)
+        ? guild
+        : await client.guilds.fetch(ticketGid).catch(() => null);
     let channel = ticketGuild ? ticketGuild.channels.cache.get(ticket.channelId) || (await ticketGuild.channels.fetch(ticket.channelId).catch(() => null)) : null;
     if (!channel) channel = client.channels.cache.get(ticket.channelId) || (await client.channels.fetch(ticket.channelId).catch(() => null));
 
@@ -191,7 +196,8 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
       },
     ).catch(() => { });
 
-    const ticketAfter = await Ticket.findById(ticket._id).lean().catch(() => null);
+    const ticketAfterRaw = await Ticket.findById(ticket._id).catch(() => null);
+    const ticketAfter = ticketAfterRaw?.toObject?.() || ticketAfterRaw || null;
     if (logChannel?.isTextBased?.()) {
       const closeEmbedData = {
         ...(ticketAfter || ticket.toObject?.() || {}),

@@ -13,12 +13,7 @@ const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, getCustomReactionMax, 
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
 const { userAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
-const {
-  getCustomRoleSlotCapFromRoles,
-  getCustomRoleSlotCapWithContest,
-  memberHasCustomRolePanelAccess,
-  memberHasCustomRoleSecondarySlot,
-} = require("../Utils/Community/customRoleSlots");
+const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils");
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
@@ -35,26 +30,12 @@ const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078379118755";
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
-const CUSTOM_VOC_CREATE_ROLE_IDS = [
-  IDs?.roles?.VIP,
-  IDs?.roles?.DoubleBooster,
-  IDs?.roles?.VIPplus,
-  IDs?.roles?.["VIP+"],
-  IDs?.roles?.Level50,
-].filter(Boolean);
-const CUSTOM_VOC_MEMBER_ALLOW_FLAGS = [
-  PermissionsBitField.Flags.ViewChannel,
-  PermissionsBitField.Flags.Connect,
-  PermissionsBitField.Flags.Speak,
-  PermissionsBitField.Flags.UseVAD,
-  PermissionsBitField.Flags.Stream,
-];
+const CUSTOM_VOC_CREATE_ROLE_IDS = [ IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, IDs?.roles?.["VIP+"], IDs?.roles?.Level50 ].filter(Boolean);
+const CUSTOM_VOC_MEMBER_ALLOW_FLAGS = [ PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak, PermissionsBitField.Flags.UseVAD, PermissionsBitField.Flags.Stream ];
 const IS_OUTFIT_UI = IS_DISEGNI_CONTEST && disegniContestUiOutfit();
 const CONTEST_VOTES_LABEL = IS_OUTFIT_UI ? "outfit" : IS_DISEGNI_CONTEST ? "contest disegni" : "contest sfondi";
-const CONTEST_MENU_LABEL = IS_OUTFIT_UI ? "Outfit" : IS_DISEGNI_CONTEST ? "Contest disegni" : "Evento Sfondi";
-const CONTEST_CHANNEL_MOBILE_ID = IS_DISEGNI_CONTEST
-  ? String(IDs.channels?.contestDisegni || "").trim()
-  : String(IDs.channels?.contestSfondiMobile || "").trim();
+const CONTEST_MENU_LABEL = IS_OUTFIT_UI ? "Contest Outfit" : IS_DISEGNI_CONTEST ? "Contest disegni" : "Contest Sfondi";
+const CONTEST_CHANNEL_MOBILE_ID = IS_DISEGNI_CONTEST ? String(IDs.channels?.contestDisegni || "").trim() : String(IDs.channels?.contestSfondiMobile || "").trim();
 const CONTEST_CHANNEL_PC_ID = IS_DISEGNI_CONTEST ? "" : String(IDs.channels?.contestSfondiPc || "").trim();
 
 function parseBirthdayDate(rawValue) {
@@ -152,7 +133,6 @@ function buildCustomVocName(emoji, baseName) {
   return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }
 
-/** Idoneità alla custom voc: basta uno tra i ruoli (o unlock contest); max 1 vocale per utente, i ruoli non si sommano. */
 function memberCanCreateCustomVoc(member) {
   if (!member?.roles?.cache) return false;
   return CUSTOM_VOC_CREATE_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
@@ -483,7 +463,9 @@ function buildSectionEmbed(section, state, user, guild = null) {
   const customSecondaryRoleName = custom?.secondaryRole?.name ? `**${custom.secondaryRole.name}**` : "Nessun ruolo secondario";
   const customRoleMention = custom?.role?.id ? `<@&${custom.role.id}>` : null;
   const customSecondaryRoleMention = custom?.secondaryRole?.id ? `<@&${custom.secondaryRole.id}>` : null;
-  const customRolesMention = [customRoleMention, customSecondaryRoleMention].filter(Boolean).join(" · ") || "Non impostato";
+  const hasSecondaryCustomRole = Boolean(custom?.secondaryRole?.id || custom?.secondaryRole?.name);
+  const primaryRoleDisplay = customRoleMention || customRoleName;
+  const secondaryRoleDisplay = customSecondaryRoleMention || customSecondaryRoleName;
   const customRoleExpiry = customDoc ? buildExpiryText(customDoc) : "—";
   const customVocLinked = customDoc?.customVocChannelId ? `<#${customDoc.customVocChannelId}>` : "Nessuna vocale";
   const customVocEmoji = String(customDoc?.customVocEmoji || "").trim() || "Non impostata";
@@ -509,45 +491,61 @@ function buildSectionEmbed(section, state, user, guild = null) {
 
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
-    return base
-      .setDescription([
-        "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
-        "",
-        `<a:VC_Calendar:1482706208149475358> Data: **${formatBirthday(birthday)}**`,
+    const showAgeLine = birthday?.showAge !== false;
+    const birthdayLines = [
+      "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
+      "",
+      `<a:VC_Calendar:1482706208149475358> Data: **${formatBirthday(birthday)}**`,
+    ];
+    if (showAgeLine) {
+      birthdayLines.push(
         `<:VC_addperson:1485419347068588073> Età: **${Number.isInteger(ageNow) ? `${ageNow} anni` : "Non impostata"}**`,
-        `<:VC_Lock:1482526739044368476> Privacy età: **${birthdayPrivacy}**`,
-        "",
-        hasBirthday
-          ? "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire."
-          : "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
-      ].join("\n"));
+      );
+    }
+    birthdayLines.push(
+      `<:VC_Lock:1482526739044368476> Privacy età: **${birthdayPrivacy}**`,
+      "",
+      hasBirthday
+        ? "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire."
+        : "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
+    );
+    return base.setDescription(birthdayLines.join("\n"));
   }
 
   if (section === SECTION_CUSTOMROLE) {
-    return base
-      .setDescription([
-        "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
-        "",
-        `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
-        `<:VC_Color:1482532543273238569> Ruolo Primario: ${customRoleName}`,
-        `<:VC_Color:1482532543273238569> Ruolo Secondario: ${customSecondaryRoleName}`,
-        `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
-        "",
-        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
-      ].join("\n"));
+    const roleLines = [
+      "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
+      "",
+      `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
+      `<:VC_Color:1482532543273238569> **Ruolo primario:** ${customRoleName}`,
+    ];
+    if (hasSecondaryCustomRole) {
+      roleLines.push("", `<:VC_Color:1482532543273238569> **Ruolo secondario:** ${customSecondaryRoleName}`);
+    }
+    roleLines.push(
+      `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
+    );
+    return base.setDescription(roleLines.join("\n"));
   }
 
   if (section === SECTION_CUSTOMROLE_SECONDARY) {
-    return base
-      .setDescription([
-        "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
-        "",
-        `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
-        `<:VC_Color:1482532543273238569> Ruolo Secondario: ${customSecondaryRoleName}`,
-        `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
-        "",
-        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
-      ].join("\n"));
+    const secLines = [
+      "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
+      "",
+      `<:VC_emoji:1485419161168511036> Stato: **${customRoleStatus}**`,
+      `<:VC_Color:1482532543273238569> **Ruolo primario:** ${customRoleName}`,
+    ];
+    if (hasSecondaryCustomRole) {
+      secLines.push("", `<:VC_Color:1482532543273238569> **Ruolo secondario:** ${customSecondaryRoleName}`);
+    }
+    secLines.push(
+      `<a:VC_Calendar:1482706208149475358> Scadenza: **${customRoleExpiry}**`,
+      "",
+      "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina e i pulsanti per agire.",
+    );
+    return base.setDescription(secLines.join("\n"));
   }
 
   if (section === SECTION_CUSTOMVOC) {
@@ -663,6 +661,12 @@ function buildSectionEmbed(section, state, user, guild = null) {
     ].join("\n"));
   }
 
+  const homeRoleLines = [`<:VC_Color:1482532543273238569> **Ruolo primario:** ${primaryRoleDisplay}`];
+  if (hasSecondaryCustomRole) {
+    homeRoleLines.push(`<:VC_Color:1482532543273238569> **Ruolo secondario:** ${secondaryRoleDisplay}`);
+  }
+  const homeBirthdaySummary =
+    birthday?.showAge === false ? formatBirthday(birthday) : formatBirthdayWithOptionalYear(birthday);
   return base
     .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${profileDisplayName}.`)
     .setDescription([
@@ -670,13 +674,13 @@ function buildSectionEmbed(section, state, user, guild = null) {
       "",
       "<:VC_Info:1482526956703580372> **Configurazione attuale:**",
       "",
-      `<a:VC_Events:1482706144953897223> Birthday: **${formatBirthdayWithOptionalYear(birthday)}**`,
+      `<a:VC_Events:1482706144953897223> Birthday: **${homeBirthdaySummary}**`,
       `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
       `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
       IS_DISEGNI_CONTEST
         ? `<a:VC_Events:1482706144953897223> ${CONTEST_MENU_LABEL} — voti disponibili: **${remM}**`
         : `<a:VC_Events:1482706144953897223> Contest sfondi — voti disponibili: **Mobile** ${remM} · **PC** ${remP}`,
-      `<:VC_Color:1482532543273238569> Custom Role: ${customRolesMention}`,
+      ...homeRoleLines,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
       "",
@@ -689,6 +693,11 @@ function buildRows(ownerId, section, state = null) {
   const canAccessCustomVoc = Boolean(state?.featureAccess?.customVoc);
   const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
   const canCreateSecondaryRole = Boolean(state?.featureAccess?.secondaryCustomRole);
+  const roleId = String(state?.custom?.role?.id || "").trim();
+  const secondaryRoleId = String(state?.custom?.secondaryRole?.id || "").trim();
+  const customVocChannelId = String(state?.custom?.doc?.customVocChannelId || "").trim();
+  const primaryRoleStored = String(state?.custom?.doc?.roleId || "").trim();
+  const hasPrimaryCustomRole = Boolean(roleId || primaryRoleStored);
   const selectOptions = [
     { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
@@ -703,22 +712,22 @@ function buildRows(ownerId, section, state = null) {
   ];
   if (canAccessCustomRole) {
     selectOptions.push(
-      { label: "Custom Role", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
+      { label: "Ruolo primario", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },
     );
   }
-  if (canCreateSecondaryRole) {
+  if (canCreateSecondaryRole && hasPrimaryCustomRole) {
     selectOptions.push(
-      { label: "Custom Role 2nd", value: SECTION_CUSTOMROLE_SECONDARY, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE_SECONDARY },
+      { label: "Ruolo secondario", value: SECTION_CUSTOMROLE_SECONDARY, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE_SECONDARY },
     );
   }
   if (canAccessCustomVoc) {
     selectOptions.push(
-      { label: "Custom Voc", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
+      { label: "Vocale Privata", value: SECTION_CUSTOMVOC, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMVOC },
     );
   }
   if (canAccessCustomReaction) {
     selectOptions.push(
-      { label: "Custom Reaction", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
+      { label: "Mention Reactions", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
     );
   }
   const select = new StringSelectMenuBuilder()
@@ -728,9 +737,6 @@ function buildRows(ownerId, section, state = null) {
 
   const row1 = new ActionRowBuilder().addComponents(select);
   const row2 = new ActionRowBuilder();
-  const roleId = String(state?.custom?.role?.id || "").trim();
-  const secondaryRoleId = String(state?.custom?.secondaryRole?.id || "").trim();
-  const customVocChannelId = String(state?.custom?.doc?.customVocChannelId || "").trim();
 
   if (section === SECTION_BIRTHDAY) {
     row2.addComponents(
@@ -762,33 +768,33 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
     );
     const row4 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Aggiungi 2nd").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!secondaryRoleId),
-      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Rimuovi 2nd").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger).setDisabled(!secondaryRoleId),
-      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Elimina 2nd").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!secondaryRoleId),
+      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!secondaryRoleId),
+      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger).setDisabled(!secondaryRoleId),
+      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!secondaryRoleId),
     );
-    if (!secondaryRoleId && canCreateSecondaryRole) {
+    if (!secondaryRoleId && canCreateSecondaryRole && hasPrimaryCustomRole) {
       const row5 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create_secondary`).setLabel("Crea Ruolo Secondario").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create_secondary`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
       );
       return [row1, row2, row3, row4, row5];
     }
     return [row1, row2, row3, row4];
   } else if (section === SECTION_CUSTOMROLE_SECONDARY) {
     row2.addComponents(
-      new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Nome 2nd").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
-      new ButtonBuilder().setCustomId(`customrole_color:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Colore 2nd").setEmoji("<:VC_Color:1482532543273238569>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
-      new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Icona 2nd").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
+      new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
+      new ButtonBuilder().setCustomId(`customrole_color:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Colore").setEmoji("<:VC_Color:1482532543273238569>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
+      new ButtonBuilder().setCustomId(`customrole_emoji:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Icona").setEmoji("<:VC_emoji:1485419161168511036>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
     );
     if (!secondaryRoleId) {
       const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create_secondary`).setLabel("Crea Ruolo Secondario").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!canCreateSecondaryRole),
+        new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create_secondary`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!canCreateSecondaryRole || !hasPrimaryCustomRole),
       );
       return [row1, row2, row3];
     }
     const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Aggiungi Utenti 2nd").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Rimuovi Utenti 2nd").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Elimina Ruolo 2nd").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
     );
     return [row1, row2, row3];
   } else if (section === SECTION_CUSTOMVOC) {
@@ -877,10 +883,15 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME)
     !canAccessCustomRole && requestedSection === SECTION_CUSTOMROLE;
   const isDeniedSecondaryCustomRole =
     !canAccessSecondaryCustomRole && requestedSection === SECTION_CUSTOMROLE_SECONDARY;
+  const hasPrimaryCustomRole = Boolean(
+    String(state?.custom?.doc?.roleId || state?.custom?.role?.id || "").trim(),
+  );
+  const isDeniedSecondaryNoPrimary =
+    requestedSection === SECTION_CUSTOMROLE_SECONDARY && !hasPrimaryCustomRole;
   const isDeniedCustomVoc =
     !canAccessCustomVoc && requestedSection === SECTION_CUSTOMVOC;
   const isDeniedCustomReaction = !canAccessCustomReaction && requestedSection === SECTION_CUSTOMREACTION;
-  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedCustomVoc || isDeniedCustomReaction)
+  const safeSection = (isDeniedCustomRole || isDeniedSecondaryCustomRole || isDeniedSecondaryNoPrimary || isDeniedCustomVoc || isDeniedCustomReaction)
     ? SECTION_HOME
     : requestedSection;
   const draft = getBirthdayDraft(guild?.id, ownerId);
@@ -961,6 +972,18 @@ async function ensureCustomRoleExists(interaction, ownerId, client, slot = "prim
   const me = guild.members?.me || guild.members?.cache?.get?.(client?.user?.id);
   if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles)) {
     return { ok: false, reason: "no_manage_roles" };
+  }
+
+  if (targetSlot === "secondary") {
+    const primaryRow = await CustomRole.findOne(
+      { guildId: guild.id, userId: ownerId },
+      { roleId: 1 },
+    )
+      .lean()
+      .catch(() => null);
+    if (!String(primaryRow?.roleId || "").trim()) {
+      return { ok: false, reason: "primary_required" };
+    }
   }
 
   const roleName = trimRoleName(accountUsername(member || interaction.user) || "Custom Role");
@@ -1449,7 +1472,12 @@ async function execute(interaction, client) {
         return true;
       }
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMROLE);
-      await safeUpdatePanelInteraction(interaction, payload);
+      const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+      if (deferred) {
+        await interaction.message?.edit?.(payload).catch(() => { });
+      } else {
+        await safeUpdatePanelInteraction(interaction, payload);
+      }
       await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Custom role creato.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
@@ -1467,6 +1495,9 @@ async function execute(interaction, client) {
       if (!result.ok) {
         let reason = "Non sono riuscito a creare il ruolo secondario.";
         if (result.reason === "no_manage_roles") reason = "Mi serve `Gestisci Ruoli` per creare il ruolo secondario.";
+        if (result.reason === "primary_required") {
+          reason = "Crea prima il custom role primario: il secondo slot si sblocca solo dopo.";
+        }
         if (result.reason === "missing_secondary_access") {
           reason =
             "Il secondo custom role e solo per VIP+ / Double Booster (max 2 totali; Level 50, Booster e VIP non si sommano).";
@@ -1475,7 +1506,12 @@ async function execute(interaction, client) {
         return true;
       }
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMROLE_SECONDARY);
-      await safeUpdatePanelInteraction(interaction, payload);
+      const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+      if (deferred) {
+        await interaction.message?.edit?.(payload).catch(() => { });
+      } else {
+        await safeUpdatePanelInteraction(interaction, payload);
+      }
       await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Ruolo secondario creato.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
@@ -1491,7 +1527,12 @@ async function execute(interaction, client) {
         return true;
       }
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
-      await safeUpdatePanelInteraction(interaction, payload);
+      const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+      if (deferred) {
+        await interaction.message?.edit?.(payload).catch(() => { });
+      } else {
+        await safeUpdatePanelInteraction(interaction, payload);
+      }
       await interaction.followUp?.({ content: "<:vegacheckmark:1443666279058772028> Vocale privata creata.", flags: PRIVATE_FLAG }).catch(() => { });
       return true;
     }
@@ -1518,7 +1559,12 @@ async function execute(interaction, client) {
         { $unset: { customVocChannelId: 1 } },
       ).catch(() => { });
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
-      await safeUpdatePanelInteraction(interaction, payload);
+      const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+      if (deferred) {
+        await interaction.message?.edit?.(payload).catch(() => { });
+      } else {
+        await safeUpdatePanelInteraction(interaction, payload);
+      }
       await interaction.followUp?.({
         content: "<:vegacheckmark:1443666279058772028> Vocale privata eliminata.",
         flags: PRIVATE_FLAG,

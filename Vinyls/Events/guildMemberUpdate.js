@@ -7,7 +7,7 @@ const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buil
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
-const { getJoinGateConfigSnapshot,}=require("../Services/Moderation/joinGateService");
+const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
 const { resolveJoinGateConfiguredExempt, isSponsorJoinGateGuildId, } = require("../Services/Moderation/joinGateExemptUtils");
 const { ARROW, formatAuditActor, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs } = require("../Utils/Logging/modAuditLogUtils");
@@ -24,6 +24,12 @@ const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/part
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community/donationPackageSupportersAnnounce");
+const {
+  buildBoostEmbed,
+  buildBoostEmbedSecond,
+  buildBoostAnnounceContent,
+} = require("../Utils/Community/boostAnnounceEmbeds");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -31,8 +37,8 @@ const ROLE_UPDATE_LOG_DEDUPE = new Map();
 const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
-const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [ IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus ].filter(Boolean);
-const PLUS_COLOR_ROLE_IDS=[IDs.roles.redPlus,IDs.roles.orangePlus,IDs.roles.yellowPlus,IDs.roles.greenPlus,IDs.roles.bluePlus,IDs.roles.purplePlus,IDs.roles.pinkPlus,IDs.roles.blackPlus,IDs.roles.grayPlus,IDs.roles.whitePlus,].filter(Boolean);
+const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus].filter(Boolean);
+const PLUS_COLOR_ROLE_IDS = [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus,].filter(Boolean);
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
@@ -85,7 +91,7 @@ function cleanupRoleUpdateLogDedupe(now = Date.now()) {
 function shouldSkipRoleUpdateLog(guildId, userId, additions = [], removals = []) {
   const now = Date.now();
   cleanupRoleUpdateLogDedupe(now);
-  const signature=[String(guildId||""),String(userId||""),additions.map((role) => String(role?.id||"")).sort().join(","),removals.map((role) => String(role?.id||"")).sort().join(","),].join(":");
+  const signature = [String(guildId || ""), String(userId || ""), additions.map((role) => String(role?.id || "")).sort().join(","), removals.map((role) => String(role?.id || "")).sort().join(","),].join(":");
   const lastTs = Number(ROLE_UPDATE_LOG_DEDUPE.get(signature) || 0);
   ROLE_UPDATE_LOG_DEDUPE.set(signature, now);
   return now - lastTs <= ROLE_UPDATE_LOG_DEDUPE_TTL_MS;
@@ -132,7 +138,7 @@ async function resolveMemberUpdateAuditInfo(guild, targetUserId) {
 
   let entry = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const logs=await guild.fetchAuditLogs({type:AuditLogEvent.MemberUpdate,limit:AUDIT_FETCH_LIMIT,}).catch(() => null);
+    const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberUpdate, limit: AUDIT_FETCH_LIMIT, }).catch(() => null);
 
     if (logs?.entries?.size) {
       const nowMs = Date.now();
@@ -140,7 +146,7 @@ async function resolveMemberUpdateAuditInfo(guild, targetUserId) {
         logs.entries.find((item) => {
           const createdMs = Number(item?.createdTimestamp || 0);
           const targetId = String(item?.target?.id || "");
-          const withinWindow=createdMs>0&&nowMs-createdMs<=AUDIT_LOOKBACK_MS;
+          const withinWindow = createdMs > 0 && nowMs - createdMs <= AUDIT_LOOKBACK_MS;
           return withinWindow && targetId === String(targetUserId || "");
         }) || null;
     }
@@ -262,18 +268,19 @@ async function sendMemberRoleUpdateLog(oldMember, newMember) {
 
   const expectedAddedIds = new Set(cacheAdditions.map((role) => String(role?.id || "")).filter(Boolean));
   const expectedRemovedIds = new Set(cacheRemovals.map((role) => String(role?.id || "")).filter(Boolean));
-  const audit=await resolveResponsible(guild,actionType,(entry) => {if(String(entry?.target?.id||"")!==String(newMember?.id||""))return 0;let score=3;const changes=Array.isArray(entry?.changes)?entry.changes:[];const auditAddedIds=new Set();const auditRemovedIds=new Set();for(const change of changes){const key=String(change?.key||"");const raw=Array.isArray(change?.new)?change.new:Array.isArray(change?.old)?change.old:[];if(key!=="$add"&&key!=="$remove")continue;for(const item of raw){const id=String(item?.id||item?.role_id||"").trim();if(!id)continue;if(key==="$add")auditAddedIds.add(id);if(key==="$remove")auditRemovedIds.add(id);}}if(!auditAddedIds.size&&!auditRemovedIds.size)return score;for(const id of auditAddedIds){if(expectedAddedIds.has(id))score+=4;}for(const id of auditRemovedIds){if(expectedRemovedIds.has(id))score+=4;}if(auditAddedIds.size===expectedAddedIds.size&&auditRemovedIds.size===expectedRemovedIds.size){score+=6;}return score;},);const auditAdditions=[];const auditRemovals= [];
+  const audit = await resolveResponsible(guild, actionType, (entry) => { if (String(entry?.target?.id || "") !== String(newMember?.id || "")) return 0; let score = 3; const changes = Array.isArray(entry?.changes) ? entry.changes : []; const auditAddedIds = new Set(); const auditRemovedIds = new Set(); for (const change of changes) { const key = String(change?.key || ""); const raw = Array.isArray(change?.new) ? change.new : Array.isArray(change?.old) ? change.old : []; if (key !== "$add" && key !== "$remove") continue; for (const item of raw) { const id = String(item?.id || item?.role_id || "").trim(); if (!id) continue; if (key === "$add") auditAddedIds.add(id); if (key === "$remove") auditRemovedIds.add(id); } } if (!auditAddedIds.size && !auditRemovedIds.size) return score; for (const id of auditAddedIds) { if (expectedAddedIds.has(id)) score += 4; } for (const id of auditRemovedIds) { if (expectedRemovedIds.has(id)) score += 4; } if (auditAddedIds.size === expectedAddedIds.size && auditRemovedIds.size === expectedRemovedIds.size) { score += 6; } return score; },); const auditAdditions = []; const auditRemovals = [];
   const auditChanges = Array.isArray(audit?.entry?.changes) ? audit.entry.changes : [];
   for (const change of auditChanges) {
     const key = String(change?.key || "");
-    const raw=Array.isArray(change?.new)?change.new:Array.isArray(change?.old)?change.old:[];
+    const raw = Array.isArray(change?.new) ? change.new : Array.isArray(change?.old) ? change.old : [];
     if (key !== "$add" && key !== "$remove") continue;
 
     for (const item of raw) {
       const roleId = String(item?.id || item?.role_id || "").trim();
       if (!roleId || roleId === guild.id) continue;
       const role = guild.roles.cache.get(roleId);
-      const fallback={id:roleId,toString:() => `<@&${roleId}>`,
+      const fallback = {
+        id: roleId, toString: () => `<@&${roleId}>`,
       };
       if (key === "$add") auditAdditions.push(role || fallback);
       if (key === "$remove") auditRemovals.push(role || fallback);
@@ -389,10 +396,10 @@ async function removePlusColorsIfNotEligible(member) {
   const { memberHasPlusColorFullEligibilityAsync } = require("../Utils/Community/personalityColorUnlocks");
   if (await memberHasPlusColorFullEligibilityAsync(member)) return;
 
-  const heldPlusRoles=PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
+  const heldPlusRoles = PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
   if (!heldPlusRoles.length) return;
 
-  const removableRoleIds=heldPlusRoles.filter((roleId) => {const role=member.guild.roles.cache.get(roleId);return role&&role.position<me.roles.highest.position;});
+  const removableRoleIds = heldPlusRoles.filter((roleId) => { const role = member.guild.roles.cache.get(roleId); return role && role.position < me.roles.highest.position; });
   if (!removableRoleIds.length) return;
 
   const removed = await member.roles.remove(removableRoleIds).then(() => true).catch(() => false);
@@ -404,31 +411,16 @@ async function removePlusColorsIfNotEligible(member) {
   }
 }
 
-function buildBoostEmbed(member, boostCount) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
-  return new EmbedBuilder()
-    .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
-    .setTitle(
-      "<a:vegarightarrow:1443673039156936837> **__GRAZIE PER IL BOOST!__**",
-    )
-    .setDescription(
-      `<a:ThankYou:1329504268369002507> **Grazie** ${member.user} per aver **boostato** **${member.guild.name}**!
-<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.
-> <a:Boost_Cycle:1329504283007385642> Ora hai dei **nuovi** perks, vai a __controllarli__ in <#1442569111119990887>!`,
-    )
-    .setColor("#6f4e37")
-    .setFooter({ text: `Ora siamo a ${boostCount} boost!` })
-    .setThumbnail(avatarUrl || null)
-    .setImage(DIVIDER_URL)
-}
-
-async function sendBoostEmbeds(channel, member, times, boostCount) {
+async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnouncedSlots = 0) {
   if (!channel?.isTextBased?.()) return;
   const safeTimes = Math.max(0, Number(times || 0));
+  const start = Math.max(0, Math.floor(Number(priorAnnouncedSlots || 0)));
   for (let i = 0; i < safeTimes; i += 1) {
+    const slotIndex = start + i;
+    const embed = slotIndex >= 1 ? buildBoostEmbedSecond(member, boostCount) : buildBoostEmbed(member, boostCount);
     await channel.send({
-      content: `<a:VC_Boost:1482706171386269830> \`|\`  ${member.user} \`|\` <@&1442568910070349985>`,
-      embeds: [buildBoostEmbed(member, boostCount)],
+      content: buildBoostAnnounceContent(member.user),
+      embeds: [embed],
     }).catch(() => null);
   }
 }
@@ -468,10 +460,10 @@ function rolesChanged(oldMember, newMember) {
 function getJoinGateNameCandidate(member) {
   return String(
     member?.user?.globalName ||
-      member?.displayName ||
-      member?.nickname ||
-      member?.user?.username ||
-      "",
+    member?.displayName ||
+    member?.nickname ||
+    member?.user?.username ||
+    "",
   );
 }
 
@@ -501,7 +493,7 @@ function matchUsernameFilters(candidate, rules) {
     }
   }
 
-  const wildcardWords=Array.isArray(rules?.wildcardWords)?rules.wildcardWords:[];
+  const wildcardWords = Array.isArray(rules?.wildcardWords) ? rules.wildcardWords : [];
   for (const wildcard of wildcardWords) {
     const regex = wildcardToRegex(normalizeText(wildcard));
     if (regex.test(normalized)) {
@@ -513,11 +505,11 @@ function matchUsernameFilters(candidate, rules) {
 }
 
 async function sendJoinGatePostJoinDm(member, reason, extraLines = []) {
-  const embed=new EmbedBuilder().setColor("#ED4245").setTitle("Join Gate").setDescription([`${ARROW} **Azione applicata dopo il join**`,
-        `${ARROW} **Motivo:** ${reason}`,
-        ...extraLines.filter(Boolean),
-      ].join("\n"),
-    );
+  const embed = new EmbedBuilder().setColor("#ED4245").setTitle("Join Gate").setDescription([`${ARROW} **Azione applicata dopo il join**`,
+  `${ARROW} **Motivo:** ${reason}`,
+  ...extraLines.filter(Boolean),
+  ].join("\n"),
+  );
   try {
     await member.send({ embeds: [embed] });
     return true;
@@ -546,9 +538,9 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
 
   const action = String(cfg?.usernameFilter?.action || "kick").toLowerCase();
   const me = newMember.guild.members.me;
-  const canKick=Boolean(me?.permissions?.has(PermissionsBitField.Flags.KickMembers))&&Boolean(newMember?.kickable);
-  const canBan=Boolean(me?.permissions?.has(PermissionsBitField.Flags.BanMembers))&&Boolean(newMember?.bannable);
-  const canTimeout=Boolean(me?.permissions?.has(PermissionsBitField.Flags.ModerateMembers))&&Boolean(newMember?.moderatable);
+  const canKick = Boolean(me?.permissions?.has(PermissionsBitField.Flags.KickMembers)) && Boolean(newMember?.kickable);
+  const canBan = Boolean(me?.permissions?.has(PermissionsBitField.Flags.BanMembers)) && Boolean(newMember?.bannable);
+  const canTimeout = Boolean(me?.permissions?.has(PermissionsBitField.Flags.ModerateMembers)) && Boolean(newMember?.moderatable);
 
   let punished = false;
   let appliedAction = action;
@@ -592,12 +584,12 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
   }
 
   if (punished && appliedAction !== "log" && newMember.guild?.client) {
-    const modAction=appliedAction==="timeout"?"MUTE":appliedAction==="ban"?"BAN":"KICK";
+    const modAction = appliedAction === "timeout" ? "MUTE" : appliedAction === "ban" ? "BAN" : "KICK";
     const durationMs = appliedAction === "timeout" ? 6 * 60 * 60_000 : null;
     const caseReason = `JoinGate post-join: ${reason}`;
     try {
       const config = await getModConfig(newMember.guild.id);
-      const{doc,created}=await createModCase({guildId:newMember.guild.id,action:modAction,userId:newMember.id,modId:newMember.client.user.id,reason:caseReason,durationMs,context:{},dedupe:{enabled:true,windowMs:15_000,matchReason:true},});
+      const { doc, created } = await createModCase({ guildId: newMember.guild.id, action: modAction, userId: newMember.id, modId: newMember.client.user.id, reason: caseReason, durationMs, context: {}, dedupe: { enabled: true, windowMs: 15_000, matchReason: true }, });
       if (created) {
         await logModCase({ client: newMember.client, guild: newMember.guild, modCase: doc, config });
       }
@@ -610,31 +602,31 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
   const logChannel = modLogId ? (newMember.guild.channels.cache.get(modLogId) || (await getGuildChannelCached(newMember.guild, modLogId))) : null;
   if (!logChannel?.isTextBased?.()) return;
 
-  const embed=punished?new EmbedBuilder().setColor("#A97142").setTitle(`${newMember.user.username} has been ${String(appliedAction||"kick").toLowerCase()==="timeout"?"timed out":String(appliedAction||"kick").toLowerCase()==="ban"?"banned":"kicked"}!!`,
-        )
-        .setDescription(
-          [
-            `${ARROW} **Member:** ${newMember.user.username} [\`${newMember.user.id}\`]`,`${ARROW} **Reason:** Username matches blocked pattern (post-join filter).`,
-            `${ARROW} **Rule:** Username Filter (Post Join)`,
-            `${ARROW} **Action:** ${String(appliedAction||"log").toUpperCase()}`,
-            `${ARROW} **Match Type:** ${match.type}`,
-            `${ARROW} **Match:** ${match.value}`,
-            `${ARROW} **Old Name:** ${oldCandidate||"N/A"}`,
-            `${ARROW} **New Name:** ${newCandidate||"N/A"}`,
-            "",
-            "**More Details:**",
-            `${ARROW} **Member Direct Messaged?** ${dmSent?"Yes":"No"}`,
-            `${ARROW} **Member Punished?** ${punished?"Yes":"No"}`,
-          ].join("\n"),
-        )
-        .setThumbnail(guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || null)
-        .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
+  const embed = punished ? new EmbedBuilder().setColor("#A97142").setTitle(`${newMember.user.username} has been ${String(appliedAction || "kick").toLowerCase() === "timeout" ? "timed out" : String(appliedAction || "kick").toLowerCase() === "ban" ? "banned" : "kicked"}!!`,
+  )
+    .setDescription(
+      [
+        `${ARROW} **Member:** ${newMember.user.username} [\`${newMember.user.id}\`]`, `${ARROW} **Reason:** Username matches blocked pattern (post-join filter).`,
+        `${ARROW} **Rule:** Username Filter (Post Join)`,
+        `${ARROW} **Action:** ${String(appliedAction || "log").toUpperCase()}`,
+        `${ARROW} **Match Type:** ${match.type}`,
+        `${ARROW} **Match:** ${match.value}`,
+        `${ARROW} **Old Name:** ${oldCandidate || "N/A"}`,
+        `${ARROW} **New Name:** ${newCandidate || "N/A"}`,
+        "",
+        "**More Details:**",
+        `${ARROW} **Member Direct Messaged?** ${dmSent ? "Yes" : "No"}`,
+        `${ARROW} **Member Punished?** ${punished ? "Yes" : "No"}`,
+      ].join("\n"),
+    )
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || null)
+    .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
     : buildJoinGateTriggeredEmbed(
-        newMember,
-        "Username matches blocked pattern (post-join filter).",
-      );
+      newMember,
+      "Username matches blocked pattern (post-join filter).",
+    );
 
-  await logChannel.send({ embeds: [embed] }).catch(() => {});
+  await logChannel.send({ embeds: [embed] }).catch(() => { });
 }
 
 function computeBoostDelta(oldMember, newMember, guildId) {
@@ -644,7 +636,6 @@ function computeBoostDelta(oldMember, newMember, guildId) {
     typeof boostCountCache.get(guildId) === "number"
       ? boostCountCache.get(guildId)
       : oldCountFromEvent;
-  // oldMember/newMember condividono spesso la stessa Guild: il count può essere già aggiornato su "old".
   const effectivePrev = Math.min(
     prevCount,
     oldCountFromEvent > 0 ? oldCountFromEvent : prevCount,
@@ -704,7 +695,7 @@ async function maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, gui
       role &&
       role.position < me.roles.highest.position
     ) {
-      await newMember.roles.remove(doubleBoosterId).catch(() => {});
+      await newMember.roles.remove(doubleBoosterId).catch(() => { });
     }
   }
   if (slots <= 0) deleteAnnouncedBoostSlots(guildId, newMember.id);
@@ -723,16 +714,18 @@ function scheduleBoostFollowup(
   const boostFollowupTimer = setTimeout(async () => {
     try {
       const freshGuild = await newMember.guild.fetch().catch(() => null);
-      const latestCount=Number(freshGuild?.premiumSubscriptionCount||newMember.guild.premiumSubscriptionCount||0,);
+      const latestCount = Number(freshGuild?.premiumSubscriptionCount || newMember.guild.premiumSubscriptionCount || 0,);
       const knownCount = Number(boostCountCache.get(guildId) || currentCount);
       const missing = Math.max(0, latestCount - knownCount);
 
       if (missing > 0) {
+        const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
         await sendBoostEmbeds(
           boostAnnounceChannel,
           newMember,
           missing,
           latestCount,
+          priorSlots,
         );
         await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, missing);
         boostAnnounceCache.set(boostKey, latestCount);
@@ -775,7 +768,7 @@ async function handleBoostUpdate(oldMember, newMember) {
       role &&
       role.position < me.roles.highest.position
     ) {
-      await newMember.roles.remove(doubleBoosterId).catch(() => {});
+      await newMember.roles.remove(doubleBoosterId).catch(() => { });
     }
   }
 
@@ -791,17 +784,17 @@ async function handleBoostUpdate(oldMember, newMember) {
   const boosterRoleId = IDs?.roles?.ServerBooster || null;
   const boosterRoleAdded = Boolean(
     boosterRoleId &&
-      oldMember?.roles?.cache &&
-      newMember?.roles?.cache &&
-      !oldMember.roles.cache.has(boosterRoleId) &&
-      newMember.roles.cache.has(boosterRoleId),
+    oldMember?.roles?.cache &&
+    newMember?.roles?.cache &&
+    !oldMember.roles.cache.has(boosterRoleId) &&
+    newMember.roles.cache.has(boosterRoleId),
   );
   const premiumSinceChanged =
     alreadyBoostingBefore && newBoostTs > 0 && newBoostTs !== oldBoostTs;
   const realNewBoost = newBoostTs > 0 && countIncreased;
   const shouldAnnounce = Boolean(
     (newBoostTs || boosterRoleAdded) &&
-      (startedBoostingNow || realNewBoost || premiumSinceChanged || boosterRoleAdded),
+    (startedBoostingNow || realNewBoost || premiumSinceChanged || boosterRoleAdded),
   );
   if (!shouldAnnounce) {
     boostCountCache.set(guildId, currentCount);
@@ -825,11 +818,13 @@ async function handleBoostUpdate(oldMember, newMember) {
 
   await addPerkRoleIfPossible(newMember);
   const sendTimes = countIncreased ? boostDelta : 1;
+  const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
   await sendBoostEmbeds(
     boostAnnounceChannel,
     newMember,
     sendTimes,
     currentCount,
+    priorSlots,
   );
   await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
   boostAnnounceCache.set(boostKey, currentCount);
@@ -922,7 +917,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
         MessageType?.UserPremiumGuildSubscriptionTier1,
         MessageType?.UserPremiumGuildSubscriptionTier2,
         MessageType?.UserPremiumGuildSubscriptionTier3,
-        8, // discord system message: USER_PREMIUM_GUILD_SUBSCRIPTION (fallback when enum missing)
+        8,
       ].filter((x) => typeof x === "number"),
     );
     const boostTextRe = /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i;
@@ -1038,8 +1033,9 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     if (!user) continue;
     if (member && !Number(member.premiumSinceTimestamp || 0)) continue;
 
-    if (member) await addPerkRoleIfPossible(member).catch(() => {});
-    await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, missing, currentCount).catch(() => {});
+    if (member) await addPerkRoleIfPossible(member).catch(() => { });
+    const priorSlots = getAnnouncedBoostSlots(guild.id, targetId);
+    await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, missing, currentCount, priorSlots).catch(() => { });
     if (member) await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guild.id, missing);
 
     const boostKey = `${guild.id}:${String(targetId)}`;
@@ -1091,14 +1087,14 @@ async function ensureCustomVocAccess(newMember) {
       Connect: false,
       Speak: false,
     })
-    .catch(() => {});
+    .catch(() => { });
   await channel.permissionOverwrites
     .edit(roleId, {
       ViewChannel: true,
       Connect: true,
       Speak: true,
     })
-    .catch(() => {});
+    .catch(() => { });
   await channel.permissionOverwrites
     .edit(me.id, {
       ViewChannel: true,
@@ -1107,7 +1103,7 @@ async function ensureCustomVocAccess(newMember) {
       ManageChannels: true,
       MoveMembers: true,
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 async function syncCustomVocEligibilityWindow(newMember) {
@@ -1130,7 +1126,7 @@ async function syncCustomVocEligibilityWindow(newMember) {
       await CustomRole.updateOne(
         { guildId, userId },
         { $set: { customVocEligibilityLostAt: null } },
-      ).catch(() => {});
+      ).catch(() => { });
     }
     return;
   }
@@ -1139,7 +1135,7 @@ async function syncCustomVocEligibilityWindow(newMember) {
     await CustomRole.updateOne(
       { guildId, userId },
       { $set: { customVocEligibilityLostAt: new Date() } },
-    ).catch(() => {});
+    ).catch(() => { });
   }
 }
 
@@ -1163,7 +1159,7 @@ async function syncCustomRoleEligibilityWindow(newMember) {
       await CustomRole.updateOne(
         { guildId, userId },
         { $set: { customRoleEligibilityLostAt: null } },
-      ).catch(() => {});
+      ).catch(() => { });
     }
     return;
   }
@@ -1172,7 +1168,7 @@ async function syncCustomRoleEligibilityWindow(newMember) {
     await CustomRole.updateOne(
       { guildId, userId },
       { $set: { customRoleEligibilityLostAt: new Date() } },
-    ).catch(() => {});
+    ).catch(() => { });
   }
 }
 
@@ -1190,7 +1186,7 @@ module.exports = {
           });
         }
       }
-      await syncPartnerPmThreadForMemberChange(oldMember, newMember).catch(() => {});
+      await syncPartnerPmThreadForMemberChange(oldMember, newMember).catch(() => { });
       await sponsorVerifiedRequiresMain
         .handleGuildMemberUpdate(oldMember, newMember, client)
         .catch((err) => {
@@ -1229,7 +1225,7 @@ module.exports = {
             await ActivityUserProfile.updateOne(
               { guildId: newMember.guild.id, userId: newMember.id, staff: { $exists: true } },
               { $unset: { staff: "" } },
-            ).catch(() => {});
+            ).catch(() => { });
             await autoUnclaimOpenTicketsClaimedByUser(newMember.guild, newMember.id).catch((err) => {
               global.logger?.warn?.("[guildMemberUpdate] ticket auto-unclaim on depex:", newMember.id, err?.message || err);
             });
@@ -1238,7 +1234,7 @@ module.exports = {
             await ActivityUserProfile.updateOne(
               { guildId: newMember.guild.id, userId: newMember.id },
               buildStaffPartnerManagerIdUnsetUpdate(),
-            ).catch(() => {});
+            ).catch(() => { });
           }
         }
       }
@@ -1248,6 +1244,7 @@ module.exports = {
       await syncCustomVocEligibilityWindow(newMember);
       await syncCustomRoleEligibilityWindow(newMember);
       await handleBoostUpdate(oldMember, newMember);
+      await maybeAnnounceDonationPackageInSupporters(oldMember, newMember);
     } catch (error) {
       global.logger?.error?.("[guildMemberUpdate] failed:", error);
     }

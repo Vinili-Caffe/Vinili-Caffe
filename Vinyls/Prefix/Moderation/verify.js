@@ -199,6 +199,7 @@ module.exports = {
     const yesId = `verify_yes:${message.id}:${message.author.id}`;
     const noId = `verify_no:${message.id}:${message.author.id}`;
     const validVerifyRoleIds = await resolveValidVerifyRoleIds(message.guild);
+    const requiredVerifyRoleIds = resolveRequiredVerifyRoleIds(message.guild);
     if (!validVerifyRoleIds.length) {
       const sent=await message.channel.send({embeds:[new EmbedBuilder().setColor("Red").setTitle("Unsuccessful Operation!").setDescription("Nessun ruolo verifica valido configurato (IDs.roles).",),],}).catch(() => null);
       await message.delete().catch(() => {});

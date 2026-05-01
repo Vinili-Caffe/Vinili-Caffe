@@ -128,7 +128,7 @@ async function processExpiredCustomRole(client, doc) {
   if (channelHandled && doc.customVocChannelId) {
     await CustomRole.updateOne(
       identityFilter,
-      { $set: { customVocChannelId: null } },
+      { $set: { customVocChannelId: null, customVocViceUserId: null } },
     ).catch(() => { });
   }
 
@@ -168,7 +168,7 @@ async function runExpiredCustomRolesSweep(client) {
       }
       await CustomRole.updateOne(
         { guildId: doc.guildId, userId: doc.userId },
-        { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } },
+        { $set: { customVocChannelId: null, customVocViceUserId: null, customVocEligibilityLostAt: null } },
       ).catch(() => {});
     } catch {
     }

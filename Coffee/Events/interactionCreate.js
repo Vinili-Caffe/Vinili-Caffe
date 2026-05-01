@@ -2,6 +2,7 @@ const { InteractionType, EmbedBuilder } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed");
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
+const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { safeReply } = require("../../shared/discord/replyRuntime");
 const { getClientChannelCached } = require("../Utils/Interaction/entityCache");
 const PRIVATE_FLAG = 1 << 6;
@@ -246,6 +247,7 @@ module.exports = {
           const handled = await gw.rerollGiveaway(interaction, client);
           if (handled) return;
         }
+        if (await handleButtonInteraction(interaction, client)) return;
       }
     } catch (err) {
       global.logger.error("[interactionCreate] error", err);

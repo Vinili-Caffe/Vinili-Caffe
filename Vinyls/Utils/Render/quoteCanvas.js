@@ -5,7 +5,12 @@ const os = require("os");
 const { spawnSync } = require("child_process");
 const axios = require("axios");
 const ffmpegPath = require("ffmpeg-static");
-const { registerCanvasFonts, fontStack, drawTextWithSpecialFallback } = require("./canvasFonts");
+const {
+  registerCanvasFonts,
+  fontStack,
+  fontStackPrimaryOnly,
+  drawTextWithSpecialFallback,
+} = require("./canvasFonts");
 const { createCanvas } = canvasModule;
 const { safeLoadImage } = require("./safeLoadImage");
 
@@ -154,6 +159,7 @@ function emojiUrlFromToken(token) {
 }
 
 function measureLineParts(ctx, parts, fontSize) {
+  ctx.font = fontStackPrimaryOnly(fontSize, "600");
   return parts.reduce((acc, part) => {
     if (part.type === "emoji") return acc + Math.round(fontSize * 1.05);
     return acc + ctx.measureText(part.value).width;
@@ -164,6 +170,7 @@ function drawQuoteLineParts(ctx, parts, centerX, y, fontSize, emojiAssets) {
   if (!parts?.length) return;
   const totalWidth = measureLineParts(ctx, parts, fontSize);
   let x = centerX - totalWidth / 2;
+  ctx.font = fontStackPrimaryOnly(fontSize, "600");
   for (const part of parts) {
     if (part.type === "emoji") {
       const img = emojiAssets?.get(part.value);
@@ -252,7 +259,7 @@ function measureQuoteLayout(message, username, footerText) {
   let lineHeight = 40;
 
   while (fontSize >= 10) {
-    ctx.font = fontStack(fontSize, "600");
+    ctx.font = fontStackPrimaryOnly(fontSize, "600");
     lineParts = wrapQuoteTokenLines(ctx, wrapTokens, maxTextWidth, Infinity, fontSize);
     lineHeight = Math.round(fontSize * 1.25);
     const blockHeight = lineParts.length * lineHeight;
@@ -320,7 +327,7 @@ function drawQuoteFrame(ctx, leftImage, layout) {
     forcePrimaryFont: true,
   });
 
-  ctx.font = fontStack(fontSize, "600");
+  ctx.font = fontStackPrimaryOnly(fontSize, "600");
   let y = lineStartY;
   for (const parts of lineParts) {
     if (y + lineHeight > height - 36) break;

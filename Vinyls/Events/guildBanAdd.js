@@ -4,6 +4,7 @@ const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDisco
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const Ticket = require("../Schemas/Ticket/ticketSchema");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { findOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketGuildUserQueries");
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -30,15 +31,11 @@ function normalizeReason(value) {
 
 async function closeOpenTicketsForBannedUser(guild, userId, reason = null) {
   if (!guild || !userId) return { closed: 0 };
-  const openTickets = await Ticket.find({
-    guildId: String(guild.id),
-    userId: String(userId),
-    open: true,
-  }).limit(30).lean().catch(() => []);
+  const openTickets = await findOpenTicketsForGuildUser(guild.id, userId).catch(() => []);
   if (!Array.isArray(openTickets) || openTickets.length === 0) return { closed: 0 };
 
   let closed = 0;
-  for (const ticket of openTickets) {
+  for (const ticket of openTickets.slice(0, 30)) {
     try {
       const channelId = String(ticket?.channelId || "");
       const channel = channelId
@@ -46,13 +43,14 @@ async function closeOpenTicketsForBannedUser(guild, userId, reason = null) {
         : null;
 
       await Ticket.updateOne(
-        { _id: ticket._id, guildId: String(guild.id), open: true },
+        { _id: ticket._id, open: true },
         {
           $set: {
             open: false,
             closedAt: new Date(),
             closeReason: reason || "Ticket chiuso automaticamente: utente bannato.",
             closedBy: "system:ban",
+            guildId: String(guild.id),
           },
         },
       ).catch(() => ({ modifiedCount: 0 }));

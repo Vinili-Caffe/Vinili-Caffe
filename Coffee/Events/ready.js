@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { logBotReady } = require("../../shared/discord/readyLog");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService");
+const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService");
 
 const PRESENCE_STATE = "☕📀 discord.gg/viniliecaffe";
 const PRESENCE_TYPE_CUSTOM = 4;
@@ -62,6 +63,9 @@ module.exports = {
     await setPresence(activeClient);
     await connectMongo(activeClient);
     await restoreTtsState(activeClient);
+    void restoreStanzaRoomsFromSnapshot(activeClient).catch((err) => {
+      global.logger?.warn?.("[stanza] snapshot restore failed:", err?.message || err);
+    });
     try {
       startHourlyReminderLoop(activeClient);
     } catch (err) {

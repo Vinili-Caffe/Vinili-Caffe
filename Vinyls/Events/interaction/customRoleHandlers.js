@@ -16,6 +16,7 @@ const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Commun
 const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName } = require("../../Utils/Interaction/customRoleUtils");
+const { buildPanelPayload } = require("../../Buttons/profile");
 const pendingRoleGrants = new Map();
 const pendingSiteRoleRequests = new Map();
 const PRIVATE_FLAG = 1 << 6;
@@ -570,27 +571,18 @@ async function handleRoleActionButton(interaction) {
       updatePayload,
     ).catch(() => { });
 
-    const deletedEmbed = new EmbedBuilder()
-      .setColor("#e74c3c")
-      .setTitle("<:VC_Attention:1482534443632558151> Ruolo eliminato")
-      .setDescription(
-        `<:success:1461731530333229226> Il ruolo **${roleName}** è stato cancellato con successo.`,
-    );
-
-    const updated = await interaction.update({ embeds: [deletedEmbed], components: [] }).then(() => true).catch(() => false);
-    if (!updated) {
-      await interaction.message
-        ?.edit({ embeds: [deletedEmbed], components: [] })
-        .catch(() => { });
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction
-          .reply({
-            content: "<:vegacheckmark:1443666279058772028> Ruolo eliminato.",
-            flags: 1 << 6,
-          })
-          .catch(() => { });
-      }
+    const panelPayload = await buildPanelPayload(interaction.guild, ownerId, interaction.client, "customrole");
+    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+    if (deferred) {
+      await interaction.message?.edit?.(panelPayload).catch(() => { });
+    } else {
+      const updated = await interaction.update(panelPayload).then(() => true).catch(() => false);
+      if (!updated) await interaction.message?.edit?.(panelPayload).catch(() => { });
     }
+    const doneMsg = `<:vegacheckmark:1443666279058772028> Il ruolo **${roleName}** è stato eliminato.`;
+    await interaction.followUp({ content: doneMsg, flags: PRIVATE_FLAG }).catch(() => {
+      return interaction.reply({ content: doneMsg, flags: PRIVATE_FLAG }).catch(() => { });
+    });
     return true;
   }
 
@@ -1705,15 +1697,18 @@ async function handleCustomVocButton(interaction) {
       .setMinValues(1)
       .setMaxValues(1);
     const row = new ActionRowBuilder().addComponents(menu);
-    await interaction.update({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#2ecc71")
-          .setTitle("<:VC_addperson:1485419347068588073> Aggiungi utente alla vocale")
-          .setDescription("Seleziona un utente da autorizzare nella custom voc."),
-      ],
-      components: [row],
-    }).catch(() => {});
+    await interaction
+      .reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#2ecc71")
+            .setTitle("<:VC_addperson:1485419347068588073> Aggiungi utente alla vocale")
+            .setDescription("Seleziona un utente da autorizzare nella custom voc."),
+        ],
+        components: [row],
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
     return true;
   }
 
@@ -1738,15 +1733,18 @@ async function handleCustomVocButton(interaction) {
       .setPlaceholder("Scegli un utente da rimuovere")
       .addOptions(...options);
     const row = new ActionRowBuilder().addComponents(select);
-    await interaction.update({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#e67e22")
-          .setTitle("<:VC_delete:1485421886589501511> Rimuovi utente dalla vocale")
-          .setDescription("Seleziona l'utente da rimuovere dall'accesso alla custom voc."),
-      ],
-      components: [row],
-    }).catch(() => {});
+    await interaction
+      .reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#e67e22")
+            .setTitle("<:VC_delete:1485421886589501511> Rimuovi utente dalla vocale")
+            .setDescription("Seleziona l'utente da rimuovere dall'accesso alla custom voc."),
+        ],
+        components: [row],
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
     return true;
   }
 

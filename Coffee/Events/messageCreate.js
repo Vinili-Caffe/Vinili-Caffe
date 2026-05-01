@@ -2,6 +2,7 @@ const { dispatchPrefixMessage } = require("../Utils/Prefix/prefixDispatcher");
 const IDs = require("../Utils/Config/ids");
 const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { recordReminderActivity } = require("../Services/Community/chatReminderService");
+const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
 
 const ALLOWED_GUILD_IDS = new Set([IDs.guilds ?. main,IDs.guilds ?. test].filter(Boolean).map((id)=>String(id)),);
 
@@ -23,6 +24,11 @@ module.exports = {
       } catch (error) {
         global.logger?.error?.("[REMINDER ACTIVITY ERROR]", error);
       }
+    }
+    try {
+      if (await handleStanzaPanelPromptMessageCreate(message)) return;
+    } catch (error) {
+      global.logger?.error?.("[STANZA PANEL MESSAGE ERROR]", error);
     }
     try {
       const safePrefix = String(client?.config?.prefix || "-").trim() || "-";

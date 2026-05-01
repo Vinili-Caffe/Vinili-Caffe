@@ -92,6 +92,12 @@ const commandFolders = listFoldersIfExists(commandsDir);
       });
   }
 
+  if (typeof client.loadButtonHandlers === "function") {
+    await client.loadButtonHandlers(path.join(APP_ROOT, "Buttons")).catch((err) => {
+      global.logger.error(" loadButtonHandlers:", err);
+    });
+  }
+
   if (typeof client.handleTriggers === "function") {
     await client.handleTriggers(APP_ROOT).catch((err) => {
       global.logger.error(" handleTriggers:", err);
