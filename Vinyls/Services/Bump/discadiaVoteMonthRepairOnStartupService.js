@@ -2,16 +2,16 @@ const cron = require("node-cron");
 const mongoose = require("mongoose");
 const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { voteCountMonthKeyRome } = require("../../Utils/romeVoteMonthKey");
+const { voteCountMonthKeyRome, isFirstCalendarDayRome } = require("../../Utils/romeVoteMonthKey");
 
 const VOTE_LEAF = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 
 function shouldRunDiscadiaVoteMonthRepairOnStartup(client) {
   const envValue = String(process.env.DISCADIA_VOTE_MONTH_REPAIR_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "no", "off"].includes(envValue)) return false;
-  if (["1", "true", "yes", "on"].includes(envValue)) return true;
   if (client?.config?.discadiaVoteMonthRepairOnStartup === false) return false;
-  return true;
+  if (["always", "force", "every"].includes(envValue)) return true;
+  return isFirstCalendarDayRome(new Date());
 }
 
 function shouldRunDiscadiaVoteMonthRolloverCron(client) {

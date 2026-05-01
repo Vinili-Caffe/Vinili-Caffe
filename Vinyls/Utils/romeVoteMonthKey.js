@@ -18,6 +18,14 @@ function voteCountMonthKeyRome(date = new Date()) {
   return `${y}-${m}`;
 }
 
+/** True se `date` è il primo giorno del mese nel calendario Europe/Roma. */
+function isFirstCalendarDayRome(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const ref = Number.isFinite(d.getTime()) ? d : new Date();
+  const day = new Intl.DateTimeFormat("en-GB", { timeZone: ROME_TZ, day: "numeric" }).format(ref);
+  return day === "1";
+}
+
 /** First millisecond of the current Rome calendar month (for vote display caps). */
 function romeMonthStartMs(now = new Date()) {
   const end = Number.isFinite(now.getTime()) ? now.getTime() : Date.now();
@@ -33,4 +41,4 @@ function romeMonthStartMs(now = new Date()) {
   return lo;
 }
 
-module.exports = { voteCountMonthKeyRome, romeMonthStartMs };
+module.exports = { voteCountMonthKeyRome, romeMonthStartMs, isFirstCalendarDayRome };

@@ -193,7 +193,7 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => restoreBumpReminders(client),
     },
     {
-      label: "discadia vote month DB repair (stale month key)",
+      label: "discadia vote month DB repair (solo 1° mese Roma, stale month key)",
       enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
       run: () => repairDiscadiaVoteMonthRowsForMainGuild(client),
     },

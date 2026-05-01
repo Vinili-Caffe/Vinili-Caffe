@@ -17,6 +17,17 @@ const FALLBACK_GUILD_ICON = "images/vc-header-logo.png";
 /** Discord snowflake epoch (2015-01-01 UTC), ms since Unix epoch. */
 const DISCORD_EPOCH_MS = 1420070400000;
 
+function envFlagTrue(name) {
+  const v = String(process.env[name] ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/** Log informativi build (OAuth, override env, ecc.); disattiva con VC_BUILD_QUIET=1. */
+function buildInfoLog(...args) {
+  if (envFlagTrue("VC_BUILD_QUIET")) return;
+  console.log(...args);
+}
+
 const STAFF_LIST_FALLBACK_HTML = `          <p>
             L&apos;organico dello staff, i permessi e i canali dedicati sono gestiti sul server Discord. Per segnalazioni o partnership
             usa i contatti qui sotto o i ticket indicati nelle regole del server.
@@ -575,6 +586,12 @@ function applyMaintenanceGateToDist(distDir, maintenanceBoot) {
 async function buildStaffListBlock(cfg, guildId) {
   const b = cfg.discordStaffListBuild;
   if (!b || b.enabled !== true) return staffListFallback();
+  if (envFlagTrue("VC_BUILD_FAST") && b.alwaysFetchStaffListInFastBuild !== true) {
+    buildInfoLog(
+      "[build-site] VC_BUILD_FAST: salto download membri per la staff list (HTML fallback; build pieno senza VC_BUILD_FAST per lista reale).",
+    );
+    return staffListFallback();
+  }
   const gid = String(guildId || b.guildId || "").trim();
   const botToken = process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN?.trim();
   if (!gid || !botToken) {
@@ -727,7 +744,7 @@ async function buildStaffListBlock(cfg, guildId) {
   const withStaff = new Set(
     rows.map((r) => String(r.m?.user?.id || "")).filter(Boolean),
   ).size;
-  console.log(
+  buildInfoLog(
     "[build-site] Staff list:",
     members.length,
     "membri scaricati (",
@@ -899,6 +916,8 @@ async function mainLiveStatsExtraOnly() {
     console.error("Manca site.config.json in", ROOT);
     process.exit(1);
   }
+  const { loadEnvFiles } = require(path.join(__dirname, "..", "..", "shared", "runtime", "fsRuntime.js"));
+  loadEnvFiles(ROOT);
   const cfg = readJson(CONFIG_PATH);
   const staffB = cfg.discordStaffListBuild || {};
   const guildIdConfigured = String(staffB.guildId || "").trim();
@@ -927,7 +946,9 @@ async function mainLiveStatsExtraOnly() {
   }
   const botTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
   const guildLiveCounts =
-    guildIdResolved && botTok ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok) : null;
+    !envFlagTrue("VC_BUILD_FAST") && guildIdResolved && botTok
+      ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, botTok)
+      : null;
   const payload = { staffNoPm: n };
   if (Array.isArray(staffResult.staffHoverGroups) && staffResult.staffHoverGroups.length) {
     payload.staffHoverGroups = staffResult.staffHoverGroups;
@@ -977,6 +998,12 @@ async function main() {
     process.exit(1);
   }
   const cfg = readJson(CONFIG_PATH);
+  const buildFast = envFlagTrue("VC_BUILD_FAST");
+  if (buildFast) {
+    console.log(
+      "[build-site] VC_BUILD_FAST: niente scan membri / guild stats bot / avatar wiki via API (invite pubblico resta per banner·icona). Imposta VC_BUILD_QUIET=1 per meno log.",
+    );
+  }
   rmrf(DIST);
   copyRecursive(ROOT, DIST);
 
@@ -1051,7 +1078,7 @@ async function main() {
   const siteUrlTrim =
     String(process.env.VC_SITE_URL ?? "").trim() || String(cfg.siteUrl || "").trim();
   if (String(process.env.VC_SITE_URL ?? "").trim()) {
-    console.log("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
+    buildInfoLog("[build-site] VC_SITE_URL (override solo per questo build):", siteUrlTrim);
   }
 
   const defaultInstagramUrl = "https://www.instagram.com/viniliecaffe/";
@@ -1081,7 +1108,7 @@ async function main() {
   const staffResult = await buildStaffListBlock(cfg, guildIdResolved);
   const buildBotTok = String(process.env.DISCORD_WEBSITE_BUILD_BOT_TOKEN || "").trim();
   const guildLiveCounts =
-    guildIdResolved && buildBotTok
+    !buildFast && guildIdResolved && buildBotTok
       ? await fetchGuildLiveStatsCountsFromBot(guildIdResolved, buildBotTok)
       : null;
 
@@ -1133,7 +1160,7 @@ async function main() {
     invitePayload?.raw
   ) {
     fs.writeFileSync(path.join(DIST, "discord-invite.json"), JSON.stringify(invitePayload.raw), "utf8");
-    console.log(
+    buildInfoLog(
       "[build-site] Scritto discord-invite.json (snapshot all’avvio del build; in produzione nginx può sostituirlo con il proxy live).",
     );
   }
@@ -1217,20 +1244,20 @@ async function main() {
   const tokenCaffe = process.env.DISCORD_TOKEN_TEST?.trim();
   let wikiViniliFromApi = null;
   let wikiCaffeFromApi = null;
-  if (!wikiViniliCfgUrl && tokenVinili) {
+  if (!wikiViniliCfgUrl && tokenVinili && !buildFast) {
     wikiViniliFromApi = await fetchBotSelfAvatarUrl(tokenVinili, "Vinili");
     if (wikiViniliFromApi) {
-      console.log("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
+      buildInfoLog("[build-site] Wiki Vinili: avatar da Discord GET /users/@me (account bot).");
     } else {
       console.warn(
         "[build-site] Wiki Vinili: impossibile ottenere l’avatar via API. Imposta DISCORD_TOKEN o DISCORD_WEBSITE_BUILD_BOT_TOKEN nel .env del build, oppure wikiBotViniliAvatarUrl in site.config.json.",
       );
     }
   }
-  if (!wikiCaffeCfgUrl && tokenCaffe) {
+  if (!wikiCaffeCfgUrl && tokenCaffe && !buildFast) {
     wikiCaffeFromApi = await fetchBotSelfAvatarUrl(tokenCaffe, "Caffè");
     if (wikiCaffeFromApi) {
-      console.log("[build-site] Wiki Caffè: avatar da Discord GET /users/@me (account bot).");
+      buildInfoLog("[build-site] Wiki Caffè: avatar da Discord GET /users/@me (account bot).");
     } else {
       console.warn(
         "[build-site] Wiki Caffè: impossibile ottenere l’avatar via API. Imposta DISCORD_TOKEN_TEST (token del bot Coffee) nel .env del build, oppure wikiBotCaffeAvatarUrl in site.config.json.",
@@ -1271,7 +1298,7 @@ async function main() {
   const candidatureSubmitApiRaw =
     candidatureSubmitApiFromEnv || String(cfg.candidatureSubmitApiUrl ?? "").trim();
   if (candidatureSubmitApiFromEnv) {
-    console.log("[build-site] VC_CANDIDATURE_SUBMIT_API_URL (override):", candidatureSubmitApiFromEnv);
+    buildInfoLog("[build-site] VC_CANDIDATURE_SUBMIT_API_URL (override):", candidatureSubmitApiFromEnv);
   }
   const candidatureSubmitApiResolved =
     candidatureSubmitApiRaw && /^https?:\/\//i.test(candidatureSubmitApiRaw)
@@ -1285,7 +1312,7 @@ async function main() {
   const candidatureSubmitApiLocalRaw =
     candidatureSubmitApiLocalFromEnv || String(cfg.candidatureSubmitApiUrlLocal ?? "").trim();
   if (candidatureSubmitApiLocalFromEnv) {
-    console.log(
+    buildInfoLog(
       "[build-site] VC_CANDIDATURE_SUBMIT_API_URL_LOCAL (override):",
       candidatureSubmitApiLocalFromEnv,
     );
@@ -1451,17 +1478,17 @@ async function main() {
   const userPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/user` : "/user";
   const ruoliPageUrl = siteBaseNoSlash ? `${siteBaseNoSlash}/ruoli` : "/ruoli";
   if (discordOauthRedirectResolved) {
-    console.log(
+    buildInfoLog(
       "[build-site] OAuth2 Redirect (Discord Developer Portal): registra solo questa callback (stesso redirect da tutte le pagine; il ritorno alla pagina corretta usa state):",
       JSON.stringify(discordOauthRedirectResolved),
     );
     if (discordOauthRedirectNoSlash !== discordOauthRedirectResolved) {
-      console.log(
+      buildInfoLog(
         "[build-site] Se in portale hai solo la variante senza slash finale, aggiungi anche:",
         JSON.stringify(discordOauthRedirectNoSlash),
       );
     }
-    console.log(
+    buildInfoLog(
       "[build-site] Stessa applicazione (client_id), sezione OAuth2: attiva «Implicit Grant» se usi response_type=token.",
     );
   }
