@@ -15,7 +15,7 @@ const { checkButtonPermission, checkStringSelectPermission, buildGlobalPermissio
 const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { ROLE_TRY_AGAIN, ROLE_PLUS_FORBIDDEN } = require("../Utils/Text/replyMessages");
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
@@ -497,7 +497,7 @@ async function sendPrivacyViewsLeaderboard(interaction, kind, title) {
 
   const description = lines.length ? lines.join("\n") : "Nessuna visualizzazione registrata.";
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", });
-  const footerText = `Classifica richiesta da ${interaction.user.username} \u2022 Oggi alle ${time}`;
+  const footerText = `Classifica richiesta da ${accountUsername(interaction.member || interaction.user)} \u2022 Oggi alle ${time}`;
 
   const embed = new EmbedBuilder()
     

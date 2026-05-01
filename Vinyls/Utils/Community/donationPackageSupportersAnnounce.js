@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { DIVIDER_URL } = require("../../../shared/discord/constants");
 const IDs = require("../Config/ids");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const DONATIONS_INFO_URL = "https://www.viniliecaffe.it/donazioni/";
 
@@ -30,11 +30,11 @@ function buildDonationPackageEmbed(tier, member) {
   const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   const roleMention = (id) => `<@&${id}>`;
 
-  let title = "";
   let perkBlock = "";
   if (tier === "donator") {
-    title = `<a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO DONATOR!__**`;
     perkBlock =
+      `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO DONATOR!__**\n` +
+      "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
       `<:sparkledred:1470064814502973591> Permesso di allegare **link e immagini** in chat\n` +
@@ -42,7 +42,7 @@ function buildDonationPackageEmbed(tier, member) {
       `<:pinkstar:1470064804835229768> Permesso di mandare **sticker ed emoji** di altri server\n` +
       `<a:reddiamond:1443652837346377841> Bypass dei requisiti nei **giveaway**\n` +
       `<:moon:1470064812615667827> Permesso di cambiare il tuo **nickname**\n` +
-      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in \`+colors\` <:VC_New:1471891729471770819>\n` +
+      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in \`+colors\`\n` +
       `<a:reddiamond:1443652837346377841> Sblocchi il comando \`+quote\`\n` +
       "<:exp:1470067108543987846> X4 EXP boost\n" +
       "\n" +
@@ -50,8 +50,9 @@ function buildDonationPackageEmbed(tier, member) {
       "\n" +
       "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   } else if (tier === "vip") {
-    title = `<a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO VIP!__**`;
     perkBlock =
+      `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO VIP!__**\n` +
+      "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
       `<:sparkledred:1470064814502973591> Tutti i perks del ruolo ${roleMention(IDs.roles.Donator)}\n` +
@@ -66,8 +67,9 @@ function buildDonationPackageEmbed(tier, member) {
       "\n" +
       "<:VC_Logo:1498073401317916803> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
   } else {
-    title = `<a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO VIP+!__**`;
     perkBlock =
+      `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO VIP+!__**\n` +
+      "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
       `<:sparkledred:1470064814502973591> Tutti i perks del ruolo ${roleMention(IDs.roles.VIP)}\n` +
@@ -84,8 +86,7 @@ function buildDonationPackageEmbed(tier, member) {
   }
 
   return new EmbedBuilder()
-    .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
-    .setTitle(title)
+    .setAuthor({ name: accountUsername(member), iconURL: avatarUrl || undefined })
     .setDescription(perkBlock)
     .setColor("#6f4e37")
     .setFooter({ text: `Dettagli e aggiornamenti: ${DONATIONS_INFO_URL}` })

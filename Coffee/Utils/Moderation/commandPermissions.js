@@ -366,23 +366,19 @@ function evaluateComponentPolicy(interaction, policy) {
 async function checkButtonPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
-  if (customId.startsWith("stanza_")) {
-    return {
-      allowed: true,
-      reason: null,
-      requiredRoles: null,
-      ownerId: null,
-    };
-  }
+  const data = loadPermissions();
+  const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
+
   if (guildId && isOfficialMainGuild(guildId)) {
-    return {
-      allowed: false,
-      reason: "mono_guild",
-      requiredRoles: null,
-      ownerId: null,
-    };
-  }
-  if (guildId && !isTestMainScopeGuild(guildId)) {
+    if (!rawPolicy) {
+      return {
+        allowed: false,
+        reason: "mono_guild",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  } else if (guildId && !isTestMainScopeGuild(guildId)) {
     const member = interaction?.member || (await fetchLiveMember(interaction));
     const allowed = Boolean(member ?. permissions ?. has ?.(PermissionFlagsBits.Administrator),);
     if (allowed) {
@@ -401,8 +397,6 @@ async function checkButtonPermission(interaction) {
     };
   }
 
-  const data = loadPermissions();
-  const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
   const policy = normalizeComponentPolicy(rawPolicy);
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
@@ -437,15 +431,20 @@ async function checkButtonPermission(interaction) {
 async function checkStringSelectPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
+  const data = loadPermissions();
+  const rawPolicy =
+    resolveComponentPolicy(data?.selectMenus, customId) || resolveComponentPolicy(data?.buttons, customId);
+
   if (guildId && isOfficialMainGuild(guildId)) {
-    return {
-      allowed: false,
-      reason: "mono_guild",
-      requiredRoles: null,
-      ownerId: null,
-    };
-  }
-  if (guildId && !isTestMainScopeGuild(guildId)) {
+    if (!rawPolicy) {
+      return {
+        allowed: false,
+        reason: "mono_guild",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  } else if (guildId && !isTestMainScopeGuild(guildId)) {
     return {
       allowed: false,
       reason: "mono_guild",
@@ -454,8 +453,6 @@ async function checkStringSelectPermission(interaction) {
     };
   }
 
-  const data = loadPermissions();
-  const rawPolicy = resolveComponentPolicy(data ?. selectMenus,customId)|| resolveComponentPolicy(data ?. buttons,customId);
   const policy = normalizeComponentPolicy(rawPolicy);
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
@@ -490,15 +487,20 @@ async function checkStringSelectPermission(interaction) {
 async function checkModalPermission(interaction) {
   const customId = String(interaction?.customId || "");
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
+  const data = loadPermissions();
+  const rawPolicy =
+    resolveComponentPolicy(data?.modals, customId) || resolveComponentPolicy(data?.buttons, customId);
+
   if (guildId && isOfficialMainGuild(guildId)) {
-    return {
-      allowed: false,
-      reason: "mono_guild",
-      requiredRoles: null,
-      ownerId: null,
-    };
-  }
-  if (guildId && !isTestMainScopeGuild(guildId)) {
+    if (!rawPolicy) {
+      return {
+        allowed: false,
+        reason: "mono_guild",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  } else if (guildId && !isTestMainScopeGuild(guildId)) {
     return {
       allowed: false,
       reason: "mono_guild",
@@ -507,8 +509,6 @@ async function checkModalPermission(interaction) {
     };
   }
 
-  const data = loadPermissions();
-  const rawPolicy = resolveComponentPolicy(data ?. modals,customId)|| resolveComponentPolicy(data ?. buttons,customId);
   const policy = normalizeComponentPolicy(rawPolicy);
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;

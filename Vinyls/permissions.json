@@ -758,6 +758,16 @@
             ],
             "ownerSegment": 1
         },
+        "customrole_members_remove:*": {
+            "roles": [
+                "roles.VIP",
+                "roles.ServerBooster",
+                "roles.DoubleBooster",
+                "roles.Level50",
+                "roles.VIPplus"
+            ],
+            "ownerSegment": 1
+        },
         "customrole_name:*": {
             "roles": [
                 "roles.VIP",
@@ -1084,6 +1094,12 @@
         },
         "stats_top_channel_view_select*": {
             "ownerSegment": 1
+        },
+        "siterolerequest:*": {
+            "roles": [
+                "roles.HighStaff",
+                "roles.Founder"
+            ]
         },
         "suggestion_staff_accept": [
             "roles.HighStaff"

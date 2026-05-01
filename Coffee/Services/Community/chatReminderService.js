@@ -17,6 +17,8 @@ let rotationDate = null;
 let rotationQueue = [];
 let rotationGuildId = null;
 let lastSentAt = null;
+/** Permutazione iniziale del ciclo corrente (indici separati da virgola), per evitare di ripetere la stessa sequenza al giro successivo. */
+let currentCycleStartKey = "";
 const reminderActivity = new Map();
 let hourlyLoopHandle = null;
 
@@ -199,19 +201,11 @@ async function saveRotationState() {
         dateKey: rotationDate,
         queue: rotationQueue,
         lastSentAt: lastSentAt ? new Date(lastSentAt) : null,
+        cycleStartKey: currentCycleStartKey || "",
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => { });
-}
-
-function queueHasAllReminderIndices(queue) {
-  const set = new Set(queue);
-  if (set.size !== reminderPool.length) return false;
-  for (let i = 0; i < reminderPool.length; i += 1) {
-    if (!set.has(i)) return false;
-  }
-  return true;
 }
 
 function shuffleArray(arr) {
@@ -223,23 +217,41 @@ function shuffleArray(arr) {
   return a;
 }
 
+function buildShuffledQueueAvoiding(avoidCommaKey) {
+  const base = reminderPool.map((_, idx) => idx);
+  const avoid = String(avoidCommaKey || "").trim();
+  let out = shuffleArray(base);
+  let guard = 0;
+  while (
+    avoid &&
+    out.join(",") === avoid &&
+    reminderPool.length > 1 &&
+    guard < 64
+  ) {
+    out = shuffleArray(base);
+    guard += 1;
+  }
+  return out;
+}
+
 async function loadRotationState(guildId, dateKey) {
   rotationGuildId = guildId;
   const doc = await chatReminderRotationFindOneLean({ guildId }).catch(() => null);
   const normDate = dateKey ? String(dateKey) : "";
-  if (doc && normDate && doc.dateKey === normDate && Array.isArray(doc.queue)) {
-    rotationQueue = doc.queue.slice().filter((i) => Number.isInteger(i) && i >= 0 && i < reminderPool.length);
-    if (queueHasAllReminderIndices(rotationQueue)) {
+  if (doc && normDate && String(doc.dateKey || "") === normDate && Array.isArray(doc.queue)) {
+    const filtered = doc.queue.filter((i) => Number.isInteger(i) && i >= 0 && i < reminderPool.length);
+    if (filtered.length > 0) {
       rotationDate = doc.dateKey;
       lastSentAt = doc.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
-      rotationQueue = shuffleArray(rotationQueue);
+      rotationQueue = filtered.slice();
+      currentCycleStartKey = String(doc.cycleStartKey || "").trim();
       return;
     }
   }
   rotationDate = normDate;
   rotationQueue = [];
+  currentCycleStartKey = "";
   lastSentAt = doc?.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
-  await saveRotationState();
 }
 
 async function nextReminderEmbed(parts, guildId) {
@@ -247,18 +259,33 @@ async function nextReminderEmbed(parts, guildId) {
   const gid = guildId || rotationGuildId;
   if (gid) await loadRotationState(gid, key);
 
-  if (rotationDate !== key || rotationQueue.length === 0) {
+  if (rotationDate !== key) {
     rotationDate = key;
-    rotationQueue = shuffleArray(reminderPool.map((_, idx) => idx));
+    rotationQueue = [];
+    currentCycleStartKey = "";
+  }
+
+  if (rotationQueue.length === 0) {
+    let avoidKey = "";
+    if (gid && String(rotationDate || "") === key) {
+      const prevDoc = await chatReminderRotationFindOneLean({ guildId: gid }).catch(() => null);
+      if (
+        prevDoc &&
+        String(prevDoc.dateKey || "") === key &&
+        String(prevDoc.cycleStartKey || "").trim()
+      ) {
+        avoidKey = String(prevDoc.cycleStartKey).trim();
+      }
+    }
+    rotationQueue = buildShuffledQueueAvoiding(avoidKey);
+    currentCycleStartKey = rotationQueue.join(",");
     await saveRotationState();
   }
   if (rotationQueue.length === 0) {
     const next = reminderPool[0];
     return next ? next() : null;
   }
-  const pos = randomInt(0, rotationQueue.length);
-  const index = rotationQueue[pos];
-  rotationQueue.splice(pos, 1);
+  const index = rotationQueue.shift();
   await saveRotationState();
   const next = Number.isFinite(index) ? reminderPool[index] : reminderPool[0];
   return next ? next() : null;

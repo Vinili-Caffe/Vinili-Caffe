@@ -8,7 +8,7 @@ const { scheduleStaffListRefresh } = require("../../Utils/Community/staffListUti
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
-const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
@@ -648,13 +648,21 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
     return { ok: false, code: "no_channel" };
   }
 
+  const member =
+    guild?.members?.cache?.get(user.id) ||
+    (await guild.members.fetch(user.id).catch(() => null));
+  const authorLike = member || user;
+
   const applicationNumber = await nextApplicationNumber(type);
   const fullText = formatApplicationDescription(type, answers);
   const descChunks = capChunksToMaxEmbeds(chunkStringForEmbedDescriptions(fullText));
   const embeds = descChunks.map((chunk, idx) => {
     const e = new EmbedBuilder().setColor("#3498DB");
     if (idx === 0) {
-      e.setAuthor({ name: user.username, iconURL: userAvatarUrlDynamic(user, { size: 128 }) || undefined })
+      e.setAuthor({
+        name: accountUsername(authorLike),
+        iconURL: guildMemberDisplayAvatarUrlDynamic(authorLike, { size: 128 }) || undefined,
+      })
         .setTitle(`<:VC_Poll:1482535102436216832> CANDIDATURA ${cfg.label.toUpperCase()} (#${applicationNumber})`)
         .setDescription(chunk)
         .setFooter({

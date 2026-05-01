@@ -12,7 +12,7 @@
                 "roles.Member"
             ],
             "channels": [
-                "1442569187376763010"
+                "channels.noMic"
             ]
         },
         "leave": {
@@ -20,12 +20,9 @@
                 "roles.Member"
             ],
             "channels": [
-                "1442569187376763010"
+                "channels.noMic"
             ]
         },
-        "restart": [
-            "roles.Founder"
-        ],
         "set": {
             "roles": [
                 "roles.Member"
@@ -47,15 +44,45 @@
         "help": {
             "roles": [
                 "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.chat"
             ]
         }
     },
-    "buttons": {},
+    "channels": {},
+    "buttons": {
+        "stanza_*": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
+        "help_prev_*": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
+        "help_next_*": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
+        "giveaway_enter:*": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
+        "giveaway_reroll:*": {
+            "roles": [
+                "roles.HighStaff"
+            ]
+        }
+    },
     "selectMenus": {
         "usage_guide:*": {
             "ownerSegment": 2
         }
     },
-    "modals": {},
-    "channels": {}
+    "modals": {}
 }

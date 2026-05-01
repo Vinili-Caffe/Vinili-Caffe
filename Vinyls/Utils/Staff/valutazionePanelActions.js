@@ -10,7 +10,7 @@ const {
   STAFF_WARN_THREE_NEGATIVES_REASON,
 } = require("../../Services/Staff/staffWarnService");
 const { syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
-const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 async function ensureStaffProfileDoc(profileDoc, guildId, userId) {
   if (profileDoc) {
@@ -34,15 +34,17 @@ function makeLogEmbed(
   reason,
   idValue,
   color = "#6f4e37",
+  guild = null,
 ) {
-  const iconSource = actor.member || actor.user;
+  const actorLike = actor.member || actor.user;
+  const targetMember = guild?.members?.cache?.get(user.id) || null;
   return new EmbedBuilder()
     .setAuthor({
-      name: `Valutazione eseguita da ${actor.user.username}`,
-      iconURL: userAvatarUrlDynamic(iconSource || actor.user) || undefined,
+      name: `Valutazione eseguita da ${accountUsername(actorLike)}`,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
     })
     .setTitle(title)
-    .setThumbnail(userAvatarUrlDynamic(user) || undefined)
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetMember || user) || undefined)
     .setDescription(
       [
         `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${user}`,
@@ -54,17 +56,16 @@ function makeLogEmbed(
 }
 
 /** Embed warn automatico: stesso author/descrizione delle valutazioni da pannello (`makeLogEmbed`). */
-function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount) {
-  const userObj = actorLike?.user || actorLike;
-  const memberObj = actorLike?.user ? actorLike : null;
-  const iconSource = memberObj || userObj;
-  const username = userObj?.username || "Staff";
+function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount, guild = null) {
+  const actorForAuthor = actorLike?.member || actorLike?.user || actorLike;
+  const username = accountUsername(actorForAuthor) || "Staff";
   const targetMention = targetUser?.id ? `<@${targetUser.id}>` : String(targetUser || "");
-  const thumb = userAvatarUrlDynamic(targetUser);
+  const targetMember = guild?.members?.cache?.get(targetUser.id) || null;
+  const thumb = guildMemberDisplayAvatarUrlDynamic(targetMember || targetUser);
   return new EmbedBuilder()
     .setAuthor({
       name: `Valutazione eseguita da ${username}`,
-      iconURL: userAvatarUrlDynamic(iconSource || userObj) || undefined,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(actorForAuthor) || undefined,
     })
     .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnCount}\``)
     .setThumbnail(thumb)
@@ -79,7 +80,7 @@ function buildAutoStaffWarnFromNegativesEmbed(actorLike, targetUser, warnCount) 
 }
 
 function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel, updatedValue) {
-  const iconSource = actor.member || actor.user;
+  const actorLike = actor.member || actor.user;
   const safeDescriptionRaw = String(description || "").trim();
   const safeDescription = safeDescriptionRaw
     ? safeDescriptionRaw.replace("{user}", user.toString())
@@ -89,8 +90,8 @@ function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel,
   const safeUpdatedValue = String(updatedValue || "").trim() || "—";
   return new EmbedBuilder()
     .setAuthor({
-      name: `Valutazione rimossa da ${actor.user.username}`,
-      iconURL: userAvatarUrlDynamic(iconSource || actor.user) || undefined,
+      name: `Valutazione rimossa da ${accountUsername(actorLike)}`,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
     })
     .setTitle(title)
     .setDescription(safeDescription)
@@ -114,7 +115,7 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
   s.positiveReasons.push(reason);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const embed = makeLogEmbed(actor, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount);
+  const embed = makeLogEmbed(actor, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount, "#6f4e37", channel.guild);
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
 }
 
@@ -136,7 +137,7 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
     actor,
     staffUser,
     "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
-    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Positiva!_`,
+    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva!_`,
     reason,
     "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`,
@@ -153,14 +154,15 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   s.negativeReasons.push(reason);
   profileDoc.markModified("staff");
   await profileDoc.save();
-  const embed = makeLogEmbed(actor, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount);
+  const embed = makeLogEmbed(actor, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount, "#6f4e37", guild);
   await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
-    const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount);
+    const warnEmbed = buildAutoStaffWarnFromNegativesEmbed(actor, staffUser, warnResult.warnCount, guild);
     await warnChannel.send({ content: `${staffUser}`, embeds: [warnEmbed] }).catch(() => null);
     if (warnResult.shouldAskDepex) {
+      const staffMemberForThumb = await getGuildMemberCached(guild, staffUser.id).catch(() => null);
       const promptEmbed = new EmbedBuilder()
         .setColor("#E74C3C")
         .setTitle("<a:VC_Alert:1482706673176150077> 2 warn staff — Decidi azione")
@@ -169,7 +171,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
           "**Depex ora** = un livello in basso.\n" +
           "**No** = nessuna azione ora; al **3° warn** scatterà il **depex completo**.",
         )
-        .setThumbnail(userAvatarUrlDynamic(staffUser) || undefined);
+        .setThumbnail(guildMemberDisplayAvatarUrlDynamic(staffMemberForThumb || staffUser) || undefined);
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`staff_warn_depex:${staffUser.id}:yes`).setLabel("Depex ora").setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId(`staff_warn_depex:${staffUser.id}:no`).setLabel("No (al 3° warn depex completo)").setStyle(ButtonStyle.Secondary),
@@ -216,7 +218,7 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
     actor,
     staffUser,
     "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
-    `<:VC_reason:1478517122929004544> A __${staffUser.username}__ è stata **rimossa** una _Valutazione Negativa!_`,
+    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
     reason,
     "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`,

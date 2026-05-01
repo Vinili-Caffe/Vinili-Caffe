@@ -5,6 +5,7 @@ const { upsertVoteRole } = require("../../Services/Community/communityOpsService
 const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+const { accountUsername } = require("../Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
 const SuggestionCount = require("../../Schemas/Suggestion/suggestionSchema");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
@@ -857,7 +858,7 @@ async function handleSuggestionChannelMessage(message) {
   const suggestionEmbed =
     new EmbedBuilder()
       .setColor("#6f4e37")
-      .setDescription(`**<:VC_Mention:1482526855289634997> Mandato da:**\n${message.author.username}
+      .setDescription(`**<:VC_Mention:1482526855289634997> Mandato da:**\n${accountUsername(message.member || message.author)}
     
     **<:VC_PinkQuestionMark:1471892611026391306> Suggerimento:**
     ${suggestionText}

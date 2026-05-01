@@ -10,6 +10,9 @@
     "commands": "1442569138114662490",
     "stanzaLobbyVoice": "1499754530076626964"
   },
+  "stanzaDiscoveryExcludeParentIds": [
+    "1442569078379118755"
+  ],
   "chatReminder": {
     "channelId": "1442569130573303898",
     "timeZone": "Europe/Rome",

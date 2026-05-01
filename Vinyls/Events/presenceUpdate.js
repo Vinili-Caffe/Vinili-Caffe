@@ -5,7 +5,7 @@ const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas")
 const IDs = require("../Utils/Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Supporter;
@@ -471,7 +471,7 @@ function buildPendingEmbed(member) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: member.user.username,
+      name: accountUsername(member),
       iconURL: thumb || undefined,
     })
     .setTitle("Nuovx sostenitore <a:VC_StarPink:1330194976440848500>")

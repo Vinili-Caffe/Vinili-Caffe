@@ -5,7 +5,7 @@ const { initPartnerManagerFieldsIfMissing } = require("../../Utils/Staff/staffPm
 const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildIconUrl, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
@@ -225,12 +225,13 @@ async function handlePartnerModal(interaction) {
   const vanitySlugLooksLikeOurs =
     !resolvedInviteGuildId && inviteCode.toLowerCase().includes("viniliecaffe");
   if (inviteTargetsOurGuild || vanitySlugLooksLikeOurs) {
+    const ownGuildActorLabel = accountUsername(interaction.member || interaction.user);
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: interaction.user.username,
+        name: ownGuildActorLabel,
         iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
       })
-      .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${interaction.user.username}**`)
+      .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${ownGuildActorLabel}**`)
       .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("Red")
@@ -343,9 +344,10 @@ async function handlePartnerModal(interaction) {
     const sAfter = staffAfterAudit && staffAfterAudit.staff ? staffAfterAudit.staff : s;
     const shownPartnerPoints = resolvePartnerPointsShown(sAfter);
 
+    const partnerActorLabel = accountUsername(interaction.member || interaction.user);
     const embed = new EmbedBuilder()
       .setAuthor({
-        name: interaction.user.username,
+        name: partnerActorLabel,
         iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
       })
       .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)

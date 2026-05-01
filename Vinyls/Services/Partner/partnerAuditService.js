@@ -4,6 +4,8 @@ const { ActivityUserProfile } = require("../../Schemas/Community/communitySchema
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../Utils/Interaction/interactionEntityCache");
 let dailyPartnerAuditTask = null;
+let intradayPartnerAuditTimer = null;
+let intradayPartnerAuditInFlight = false;
 const SAME_DAY_DUPLICATE_REASON = "Non fare partnership con lo stesso server più di una volta al giorno";
 const SELF_PARTNERSHIP_DAILY_REASON = "Non fare partnership con se stessi più di una volta al giorno";
 const SAME_MANAGER_DAILY_CAP_REASON = "Non mettere più di 5 partnership con lo stesso utente";
@@ -18,6 +20,15 @@ function getPreviousRomeDateKey(baseDate = new Date()) {
   const romeNow = new Date(baseDate.toLocaleString("en-US", { timeZone: "Europe/Rome" }),);
   romeNow.setDate(romeNow.getDate() - 1);
   return getRomeDateKey(romeNow);
+}
+
+/** Minuti tra un passaggio e l’altro dell’audit sul giorno corrente (Roma). `0` / env assente = disattivato. Clamp 5–120. */
+function resolvePartnerAuditIntradayIntervalMinutes() {
+  const raw = String(process.env.PARTNER_AUDIT_INTRADAY_MINUTES ?? "30").trim().toLowerCase();
+  if (!raw || ["0", "false", "no", "off"].includes(raw)) return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(120, Math.max(5, Math.floor(n)));
 }
 
 function extractInviteCode(text) {
@@ -432,6 +443,7 @@ async function runDailyPartnerAudit(client, opts = {}) {
   if (!guild) return;
 
   const targetDateKey = opts.dateKey || getPreviousRomeDateKey(new Date());
+  const quiet = Boolean(opts.quiet);
   const docs = await ActivityUserProfile.find({
     guildId: guild.id,
     "staff.partnerActions.0": { $exists: true },
@@ -451,9 +463,24 @@ async function runDailyPartnerAudit(client, opts = {}) {
     totalRemovalLogsSent += logsSent;
   }
 
-  global.logger?.info?.(
-    `[PARTNER AUDIT] date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}`,
-  );
+  if (!quiet || totalRemoved > 0 || totalRemovalLogsSent > 0) {
+    global.logger?.info?.(
+      `[PARTNER AUDIT] date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}${quiet ? " intraday" : ""}`,
+    );
+  }
+}
+
+async function runIntradayPartnerAuditTick(client) {
+  if (intradayPartnerAuditInFlight) return;
+  intradayPartnerAuditInFlight = true;
+  try {
+    const todayKey = getRomeDateKey(new Date());
+    await runDailyPartnerAudit(client, { dateKey: todayKey, quiet: true });
+  } catch (err) {
+    global.logger?.error?.(`[PARTNER AUDIT] Intraday tick failed: ${err?.message || err}`);
+  } finally {
+    intradayPartnerAuditInFlight = false;
+  }
 }
 
 function startDailyPartnerAuditLoop(client) {
@@ -477,6 +504,16 @@ function startDailyPartnerAuditLoop(client) {
       global.logger?.warn?.(`[PARTNER AUDIT] Run on bot start failed (${todayKey}): ${err?.message || err}`),
     );
   });
+
+  const intradayMin = resolvePartnerAuditIntradayIntervalMinutes();
+  if (intradayMin > 0 && !intradayPartnerAuditTimer) {
+    const ms = intradayMin * 60 * 1000;
+    intradayPartnerAuditTimer = setInterval(() => {
+      void runIntradayPartnerAuditTick(client);
+    }, ms);
+    if (typeof intradayPartnerAuditTimer.unref === "function") intradayPartnerAuditTimer.unref();
+    global.logger?.info?.(`[PARTNER AUDIT] Intraday loop ogni ${intradayMin} min (giorno corrente Europe/Rome)`);
+  }
 
   return dailyPartnerAuditTask;
 }

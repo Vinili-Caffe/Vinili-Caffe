@@ -11,6 +11,22 @@ const MAIN_GUILD_ID = config.mainGuildId || process.env.MAIN_GUILD_ID || "132908
 const GUILD_TEST_ID = "1462458562507964584";
 const ch = config.channels || {};
 
+function parseSnowflakeIdList(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x || "").trim()).filter((x) => /^\d{5,30}$/.test(x));
+  }
+  if (typeof raw === "string") {
+    return raw
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter((x) => /^\d{5,30}$/.test(x));
+  }
+  return [];
+}
+
+const stanzaDiscoveryExcludeParentIds = parseSnowflakeIdList(config.stanzaDiscoveryExcludeParentIds);
+
 const IDs = {
   guilds: {
     main: MAIN_GUILD_ID,
@@ -33,10 +49,15 @@ const IDs = {
     vocaleLounge1: ch.vocaleLounge1 || "1442569101225496819",
     vocaleLounge2: ch.vocaleLounge2 || "1442569106514645042",
     vocaleLounge3: ch.vocaleLounge3 || "1470168983507435631",
+    noMic: ch.noMic || "1442569187376763010",
   },
   roles: {
     Member: (config.roles && config.roles.Member) || "1442568949605597264",
+    HighStaff: (config.roles && config.roles.HighStaff) || "1442568894349840435",
+    Founder: (config.roles && config.roles.Founder) || "1442568886988963923",
   },
+  /** Categorie (ID) in cui non cercare stanze (es. vocali private custom). Vedi `stanzaDiscoveryExcludeParentIds` in config.json */
+  stanzaDiscoveryExcludeParentIds,
 };
 
 module.exports = IDs;

@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
@@ -319,7 +319,7 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setAuthor({
-        name: member.user.username,
+        name: accountUsername(member),
         iconURL: avatarUrl,
       })
       .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")

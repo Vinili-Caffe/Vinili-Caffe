@@ -189,7 +189,7 @@ function buildSkullEmbed(user, message, postImageName) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({
-      name: message.author?.username || user.username,
+      name: accountUsername(message.member || message.author),
       iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 64 }) || undefined,
     })
     .setDescription(

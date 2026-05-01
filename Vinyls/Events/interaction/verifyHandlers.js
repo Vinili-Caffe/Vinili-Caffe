@@ -6,7 +6,7 @@ const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, add
 const { verifyState, VERIFY_CODE_TTL_MS, VERIFY_MAX_ATTEMPTS, CENTRAL_VERIFY_LOG_CHANNEL_ID, VERIFY_PING_CHANNEL_IDS, VERIFY_CAPTCHA, getVerifyStateKey, clearVerifyState, isSponsorGuildVerify, getMainGuild, isUserVerifiedInMainGuild, makeExpiredEmbed, makeWrongAnswerEmbed, makeTooManyAttemptsEmbed, makeVerifyStartRow, makeVerifiedEmbed, makeAlreadyVerifiedEmbed, makeOwnerEmbed, isUnknownInteraction, sanitizeEmbedText, makeCode, makeCaptchaPng, resolveValidVerifyRoleIds, resolveRequiredVerifyRoleIds, isAlreadyVerifiedInThisGuild } = require("../../Utils/Interaction/verifyUtils");
 const { VERIFY_UNAVAILABLE, VERIFY_LOAD_MEMBER, VERIFY_CONFIG, VERIFY_ROLES_FAILED } = require("../../Utils/Text/replyMessages");
 const { upsertVerifiedMember, applyTenureForMember } = require("../../Services/Community/communityOpsService");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { buildSiteVerifyOAuthStartUrl } = require("../../Utils/Web/verifyOauthPublicUrl");
 
 const CONTEST_DISEGNI_VERIFY_FLOW_CHANNEL_ID = String(IDs.channels?.contestDisegniEventVerifyPing || "").trim();
@@ -112,7 +112,7 @@ async function finalizeVerification(interaction, member) {
   if (logChannel?.isTextBased?.()) {
     const createdAtUnix = Math.floor(interaction.user.createdTimestamp / 1000);
     const createdAtText = `<t:${createdAtUnix}:F>`;
-    const safeUsername = sanitizeEmbedText(interaction.user.username);
+    const safeUsername = sanitizeEmbedText(accountUsername(interaction.member || interaction.user));
     const serverName = guild?.name || "Unknown";
 
     const logEmbed = new EmbedBuilder()

@@ -23,7 +23,7 @@ const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
-const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const {
   buildBoostEmbed,
@@ -372,7 +372,7 @@ function buildGuildedEmbed(member) {
   const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setAuthor({ name: member.user.username, iconURL: avatarUrl || undefined })
+    .setAuthor({ name: accountUsername(member), iconURL: avatarUrl || undefined })
     .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
     .setDescription(
       [
@@ -1010,6 +1010,8 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
       if (!text.includes(needle)) continue;
       const looksLikeBoost = (
         /grazie\s+per\s+il\s+boost/i.test(text) ||
+        /per\s+il\s+doppio\s+boost/i.test(text) ||
+        /per\s+il\s+boost/i.test(text) ||
         /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
       );
       if (looksLikeBoost) n += 1;

@@ -21,6 +21,7 @@ const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategory
 const { isMinigameFloodExemptChannel } = require("../Minigames/minigameService");
 const { createModCase, getModConfig, logModCase, formatDuration } = require("../../Utils/Moderation/moderation");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
+const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const USER_STATE = new Map();
 const ACTION_COOLDOWN = new Map();
@@ -2445,16 +2446,17 @@ async function sendAutomodActionInChannel(message, action, violations, context =
   ACTION_CHANNEL_LOG_COOLDOWN.set(cooldownKey, nowMs());
   const durationLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
     : "";
-  const title = action === "timeout" ? `${message.author.username}: timeout${durationLabel}`
-    : action === "ban" ? `${message.author.username}: ban dal server (AutoMod)`
+  const who = accountUsername(message.member || message.author);
+  const title = action === "timeout" ? `${who}: timeout${durationLabel}`
+    : action === "ban" ? `${who}: ban dal server (AutoMod)`
     : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}: messaggio rimosso dall’AutoMod` : `${message.author.username}: avviso AutoMod`;
+      ? `${who}: messaggio rimosso dall’AutoMod` : `${who}: avviso AutoMod`;
 
   const embed = new EmbedBuilder()
     .setColor(action === "ban" ? "#992f22" : action === "timeout" ? "#f4d35e" : action === "delete" || action === "delete_webhook" ? "#f59e0b" : "#5865f2",)
     .setTitle(title)
     .setDescription([`${ARROW} **Motivo:** ${reason}`].join("\n"))
-    .setFooter({ text: `${message.author.username} | ${message.author.id}` });
+    .setFooter({ text: `${who} | ${message.author.id}` });
 
   const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
   if (sent) {
@@ -2472,10 +2474,11 @@ async function sendAutomodLog(message, action, violations, heatValue, context = 
   const primaryFilter = firstViolationLabel(violations);
   const timeoutLabel = context.timeoutMs ? ` (${formatDurationShort(context.timeoutMs)})`
     : "";
-  const actionHeadline = action === "timeout" ? `${message.author.username}: timeout AutoMod${timeoutLabel}`
-    : action === "ban" ? `${message.author.username}: ban dal server (AutoMod)`
+  const whoLog = accountUsername(message.member || message.author);
+  const actionHeadline = action === "timeout" ? `${whoLog}: timeout AutoMod${timeoutLabel}`
+    : action === "ban" ? `${whoLog}: ban dal server (AutoMod)`
     : action === "delete" || action === "delete_webhook"
-      ? `${message.author.username}: messaggio rimosso (AutoMod)` : `${message.author.username}: avviso AutoMod`;
+      ? `${whoLog}: messaggio rimosso (AutoMod)` : `${whoLog}: avviso AutoMod`;
 
   const regolaSummary = truncateText(buildAutomodRegolaSummaryLine(violations), 400);
   const linkEvidenceLine = buildAutomodAttachmentLinkEvidenceLine(message, violations);
