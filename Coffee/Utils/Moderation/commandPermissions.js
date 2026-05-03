@@ -57,6 +57,19 @@ function normalizeChannelList(channelIds) {
     .filter(Boolean);
 }
 
+function channelMatchesPolicyChannelList(channel, policyIds) {
+  const ids = (Array.isArray(policyIds) ? policyIds : []).map(String).filter(Boolean);
+  if (!ids.length) return false;
+  const ch = channel;
+  if (!ch?.id) return false;
+  if (ids.includes(String(ch.id))) return true;
+  if (typeof ch.isThread === "function" && ch.isThread()) {
+    const parent = String(ch.parentId || "");
+    return Boolean(parent && ids.includes(parent));
+  }
+  return false;
+}
+
 function resolveCommandChannelPolicy(data, keys) {
   const map = data?.channels;
   if (!map || typeof map !== "object") return null;
@@ -65,6 +78,22 @@ function resolveCommandChannelPolicy(data, keys) {
     const normalized = normalizeChannelList(map[key]);
     if (Array.isArray(normalized)) return normalized;
   }
+  return null;
+}
+
+function resolvePrefixCommandChannels(data, commandName, subcommandName = null) {
+  const cmd = data?.prefix?.[commandName];
+  if (!cmd || typeof cmd !== "object") return null;
+  const subcommands = cmd.subcommands || {};
+  if (
+    subcommandName &&
+    subcommands[subcommandName] &&
+    typeof subcommands[subcommandName] === "object" &&
+    Array.isArray(subcommands[subcommandName].channels)
+  ) {
+    return normalizeChannelList(subcommands[subcommandName].channels);
+  }
+  if (Array.isArray(cmd.channels)) return normalizeChannelList(cmd.channels);
   return null;
 }
 
@@ -307,23 +336,21 @@ async function checkSlashPermission(interaction) {
 
 async function checkPrefixPermission(message, commandName, subcommandName = null) {
   const guildId = message?.guild?.id || null;
-  const userId = message?.author?.id || null;
   if (!guildId) return false;
 
   if (!isTestMainScopeGuild(guildId)) return false;
 
-  if (
-    String(guildId) === String(TEST_MAIN_GUILD_ID || "") ||
-    isOfficialMainGuild(guildId)
-  ) {
-    return hasAdminPermissionWithFallback(message);
-  }
-
   const data = loadPermissions();
-  const channelPolicy = resolveCommandChannelPolicy(data,buildPrefixLookupKeys(commandName,subcommandName),);
-  if (isOfficialMainGuild(guildId) && Array.isArray(channelPolicy) && channelPolicy.length > 0) {
-    const channelId = message?.channelId || message?.channel?.id || null;
-    if (!channelId || !channelPolicy.includes(String(channelId))) return false;
+  const safeCommand = String(commandName || "").toLowerCase();
+  const channelPolicy =
+    resolvePrefixCommandChannels(data, safeCommand, subcommandName) ??
+    resolveCommandChannelPolicy(data, buildPrefixLookupKeys(commandName, subcommandName));
+  if (Array.isArray(channelPolicy) && channelPolicy.length > 0) {
+    const ch = message?.channel;
+    const allowed = ch
+      ? channelMatchesPolicyChannelList(ch, channelPolicy)
+      : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
+    if (!allowed) return false;
   }
   const roles = resolvePrefixRoles(data, commandName, subcommandName);
   if (!Array.isArray(roles)) return true;

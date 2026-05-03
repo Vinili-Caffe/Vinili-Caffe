@@ -71,5 +71,11 @@ module.exports = {
     } catch (err) {
       global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
     }
+    try {
+      const { initLavalinkMusicIfEnabled } = require("../Services/Music/lavalinkMusicService");
+      initLavalinkMusicIfEnabled(activeClient);
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] init:", err?.message || err);
+    }
   },
 };

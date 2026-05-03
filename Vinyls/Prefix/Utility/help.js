@@ -13,8 +13,24 @@ const PRIVATE_FLAG = 1 << 6;
 const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
-const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
-const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "staff", "moderation", "admin", "dev",];
+const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
+const CATEGORY_ORDER = ["utility", "music", "tts", "level", "minigames", "stats", "staff", "moderation", "admin", "dev",];
+/** Comandi musica che in runtime richiedono di aver avviato la sessione (+play con coda ferma). */
+const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set([
+  "skip",
+  "stop",
+  "pause",
+  "resume",
+  "volume",
+  "shuffle",
+  "clear",
+  "repeat",
+  "previous",
+  "rewind",
+  "restart",
+]);
+const PREFIX_MUSIC_SESSION_OWNER_NOTE =
+  " *Solo chi ha avviato la riproduzione* (primo +play con coda ferma) *può usarlo.*";
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const HELP_NEW_DAYS = 14;
 const HELP_NEW_INVOKES = new Set([]);
@@ -224,10 +240,17 @@ function normalizeDescription(
 
 function getPrefixDescription(command) {
   const commandName = String(command?.name || "").toLowerCase();
+  let base;
   if (PREFIX_HELP_DESCRIPTIONS[commandName]) {
-    return PREFIX_HELP_DESCRIPTIONS[commandName];
+    base = PREFIX_HELP_DESCRIPTIONS[commandName];
+  } else {
+    const fromCommand = String(command?.description || "").trim();
+    base = fromCommand.length ? fromCommand : "Descrizione non disponibile.";
   }
-  return "Descrizione non disponibile.";
+  if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
+    return `${base}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`;
+  }
+  return base;
 }
 
 function prettifySubcommandName(name) {
@@ -990,6 +1013,11 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
     );
   }
   usageLines.push(`Ruoli richiesti: ${formatRoleMentions(permConfig.roles)}`);
+  if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
+    usageLines.push(
+      "Restrizione musica: solo l’utente che ha avviato la sessione (primo +play con coda ferma) può usare questo comando.",
+    );
+  }
 
   const subEntries = visibleForCommand.filter((entry) => normalizeInvokeLookup(entry.invoke).split(" ").length > 1,).filter((entry) => { if (!requestedSub) return true; return normalizeInvokeLookup(entry.invoke).split(" ")[1] === requestedSub; }).sort((a, b) => String(a.invoke || "").localeCompare(String(b.invoke || ""), "it"),);
 

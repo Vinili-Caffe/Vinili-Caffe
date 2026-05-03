@@ -5,6 +5,7 @@ const path = require("path");
 const ascii = require("ascii-table");
 const IDs = require("../Utils/Config/ids");
 const { clearCommandDeployCache, isCommandDeployRequired, markCommandDeployComplete } = require("../../shared/runtime/commandDeployCache");
+const { purgeObsoleteApplicationCommands } = require("../../shared/discord/purgeObsoleteApplicationCommands");
 
 const LOG_COMMANDS = String(process.env.LOG_COMMANDS || "0") === "1";
 
@@ -148,6 +149,15 @@ module.exports = (client) => {
           error,
         );
       }
+    }
+
+    try {
+      const n = await purgeObsoleteApplicationCommands(rest, clientId, allowedGuildIds);
+      if (n > 0) {
+        global.logger?.info?.(`[COMMANDS] Rimossi ${n} comando/i slash obsoleti (es. /music) dall'API Discord.`);
+      }
+    } catch (e) {
+      global.logger?.warn?.("[COMMANDS] Purge comandi slash obsoleti:", e?.message || e);
     }
   };
 };

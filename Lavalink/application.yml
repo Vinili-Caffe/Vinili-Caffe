@@ -21,6 +21,15 @@ plugins:
       countryCode: "IT"
       playlistLoadLimit: 6
       albumLoadLimit: 6
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients:
+      - WEB
+      - MUSIC
+      - ANDROID_VR
 
 lavalink:
   server:

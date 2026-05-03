@@ -5,6 +5,7 @@ const path = require("path");
 const ascii = require("ascii-table");
 const IDs = require("../Utils/Config/ids");
 const{isCommandDeployRequired,markCommandDeployComplete,}=require("../../shared/runtime/commandDeployCache");
+const { purgeObsoleteApplicationCommands } = require("../../shared/discord/purgeObsoleteApplicationCommands");
 
 const LOG_COMMANDS = String(process.env.LOG_COMMANDS || "0") === "1";
 const BOT_DEPLOY_CACHE_KEY = "official";
@@ -83,43 +84,52 @@ module.exports = (client) => {
     }
     const deployCheck=isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY,{clientId},client.commandArray,);
     const forceDeploy = shouldForceSlashDeploy();
-    if (!deployCheck.required && !forceDeploy) {
-      if (LOG_COMMANDS) global.logger.info(`[COMMANDS] Nessuna modifica ai comandi globali, deploy REST saltato. scope=${deployCheck.scopeKey} hash=${deployCheck.hash}`);
-      return;
-    }
-    if (LOG_COMMANDS) global.logger.info(`[COMMANDS] Deploy slash richiesto. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""}`);
-
     const rest = new REST({ version: "10" }).setToken(token);
 
-    try {
-      const me = await rest.get(Routes.currentApplication());
-      const tokenAppId = me?.id || null;
-      if (tokenAppId && String(tokenAppId) !== String(clientId) && LOG_COMMANDS) {
-        global.logger.warn(`[COMMANDS] Token appartiene all'app ${tokenAppId}, ma in codice usi clientId ${clientId}. Imposta DISCORD_CLIENT_ID uguale all'Application ID dell'app del token.`);
+    if (deployCheck.required || forceDeploy) {
+      if (LOG_COMMANDS) global.logger.info(`[COMMANDS] Deploy slash richiesto. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""}`);
+      try {
+        const me = await rest.get(Routes.currentApplication());
+        const tokenAppId = me?.id || null;
+        if (tokenAppId && String(tokenAppId) !== String(clientId) && LOG_COMMANDS) {
+          global.logger.warn(`[COMMANDS] Token appartiene all'app ${tokenAppId}, ma in codice usi clientId ${clientId}. Imposta DISCORD_CLIENT_ID uguale all'Application ID dell'app del token.`);
+        }
+      } catch (e) {
+        if (LOG_COMMANDS) global.logger.warn("[COMMANDS] Impossibile verificare app del token:", e?.message || e);
       }
-    } catch (e) {
-      if (LOG_COMMANDS) global.logger.warn("[COMMANDS] Impossibile verificare app del token:", e?.message || e);
+
+      try {
+        if (LOG_COMMANDS) client.logs.info("[FUNCTION] Refreshing application (/) commands...");
+        await rest.put(Routes.applicationCommands(clientId), {
+          body: client.commandArray,
+        });
+        markCommandDeployComplete(
+          BOT_DEPLOY_CACHE_KEY,
+          { clientId },
+          deployCheck.hash,
+        );
+        if (LOG_COMMANDS) client.logs.success("[FUNCTION] Successfully reloaded application (/) commands.");
+      } catch (error) {
+        global.logger.error("[COMMANDS] Failed to deploy commands:", error);
+        if (error?.code === 20012 || error?.status === 403) {
+          global.logger.error(
+            '[COMMANDS] 20012/403: Se token e ID sono giusti, controlla su Developer Portal che l\'app NON sia in un Team, oppure che il tuo account abbia permesso "Admin" sul Team. Le app in Team possono registrare comandi solo da chi ha i permessi sul Team.',
+          );
+        }
+        client.logs.error("[FUNCTION] Error loading slash commands.");
+      }
+    } else if (LOG_COMMANDS) {
+      global.logger.info(`[COMMANDS] Nessuna modifica ai comandi globali, deploy REST saltato. scope=${deployCheck.scopeKey} hash=${deployCheck.hash}`);
     }
 
     try {
-      if (LOG_COMMANDS) client.logs.info("[FUNCTION] Refreshing application (/) commands...");
-      await rest.put(Routes.applicationCommands(clientId), {
-        body: client.commandArray,
-      });
-      markCommandDeployComplete(
-        BOT_DEPLOY_CACHE_KEY,
-        { clientId },
-        deployCheck.hash,
-      );
-      if (LOG_COMMANDS) client.logs.success("[FUNCTION] Successfully reloaded application (/) commands.");
-    } catch (error) {
-      global.logger.error("[COMMANDS] Failed to deploy commands:", error);
-      if (error?.code === 20012 || error?.status === 403) {
-        global.logger.error(
-          '[COMMANDS] 20012/403: Se token e ID sono giusti, controlla su Developer Portal che l\'app NON sia in un Team, oppure che il tuo account abbia permesso "Admin" sul Team. Le app in Team possono registrare comandi solo da chi ha i permessi sul Team.',
-        );
+      const guildIds = [IDs?.guilds?.main, IDs?.guilds?.test].filter(Boolean).map(String);
+      const n = await purgeObsoleteApplicationCommands(rest, clientId, guildIds);
+      if (n > 0) {
+        global.logger?.info?.(`[COMMANDS] Rimossi ${n} comando/i slash obsoleti (es. /music) dall'API Discord.`);
       }
-      client.logs.error("[FUNCTION] Error loading slash commands.");
+    } catch (e) {
+      global.logger?.warn?.("[COMMANDS] Purge comandi slash obsoleti:", e?.message || e);
     }
   };
 };

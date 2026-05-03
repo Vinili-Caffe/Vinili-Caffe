@@ -698,21 +698,16 @@ async function checkSlashPermission(interaction, options = {}) {
   }
 
   if (guildId && !onMainGuild) {
-    const musicOnSponsor =
-      String(interaction.commandName || "").toLowerCase() === "music" &&
-      isAllowedGuildUfficiale(guildId);
-    if (!musicOnSponsor) {
-      const allowed = await hasAllPermissionsWithLiveFallback(interaction, [PermissionFlagsBits.Administrator,]);
-      if (options.returnDetails) {
-        return {
-          allowed,
-          reason: allowed ? null : "missing_permission",
-          requiredRoles: null,
-          channels: null,
-        };
-      }
-      return allowed;
+    const allowed = await hasAllPermissionsWithLiveFallback(interaction, [PermissionFlagsBits.Administrator,]);
+    if (options.returnDetails) {
+      return {
+        allowed,
+        reason: allowed ? null : "missing_permission",
+        requiredRoles: null,
+        channels: null,
+      };
     }
+    return allowed;
   }
 
   const data = loadPermissions();
@@ -789,16 +784,19 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   }
 
   if (guildId && !onMainGuild) {
-    const allowed = await hasAllPermissionsWithLiveFallback(message, [PermissionFlagsBits.Administrator,]);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_permission",
-        requiredRoles: null,
-        channels: null,
-      };
+    const playOnSponsor = safeCommand === "play" && isAllowedGuildUfficiale(guildId);
+    if (!playOnSponsor) {
+      const allowed = await hasAllPermissionsWithLiveFallback(message, [PermissionFlagsBits.Administrator,]);
+      if (options.returnDetails) {
+        return {
+          allowed,
+          reason: allowed ? null : "missing_permission",
+          requiredRoles: null,
+          channels: null,
+        };
+      }
+      return allowed;
     }
-    return allowed;
   }
 
   const data = loadPermissions();

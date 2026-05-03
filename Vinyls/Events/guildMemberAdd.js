@@ -25,8 +25,8 @@ const {
   guildMemberDisplayAvatarUrlDynamic,
   accountUsername,
 } = require("../Utils/Discord/guildDiscordIdentity");
-const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils");
-const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
+const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils/Interaction/verifyUtils");
+const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -1529,17 +1529,27 @@ module.exports = {
 
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
 
-      await sponsorVerifiedRequiresMain.handleGuildMemberAdd(member).catch((err) => {
+      await applySponsorGuildAutoVerificato(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] applySponsorGuildAutoVerificato:", err?.message || err);
+      });
+
+      const sponsorJoinGid = String(member.guild?.id || "");
+      const memberForTenure =
+        isSponsorGuildVerify(sponsorJoinGid)
+          ? (await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)) || member
+          : member;
+
+      await sponsorVerifiedRequiresMain.handleGuildMemberAdd(memberForTenure).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] sponsorVerifiedRequiresMain:", err?.message || err);
       });
 
-      const hadVerifyRole = isAlreadyVerifiedInThisGuild(member, member.guild.id);
-      await maybeApplyVerificationTenureOnJoin(member).catch((err) => {
+      const hadVerifyRole = isAlreadyVerifiedInThisGuild(memberForTenure, member.guild.id);
+      await maybeApplyVerificationTenureOnJoin(memberForTenure).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] verificationTenureOnJoin:", err?.message || err);
       });
       const memberAfterVerifyJoin = hadVerifyRole
-        ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member)
-        : member;
+        ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => memberForTenure)
+        : memberForTenure;
 
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });

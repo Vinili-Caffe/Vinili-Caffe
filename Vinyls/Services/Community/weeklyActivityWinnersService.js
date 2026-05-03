@@ -619,7 +619,7 @@ function startWeeklyActivityWinnersLoop(client) {
   );
   const wasWeeklyPostAlreadyPublishedAfterBoundary = async (channel, boundaryMs) => {
     if (!channel?.messages?.fetch || !client?.user?.id || !Number.isFinite(boundaryMs)) return false;
-    const fetched = await channel.messages.fetch({ limit: 25 }).catch(() => null);
+    const fetched = await channel.messages.fetch({ limit: 50 }).catch(() => null);
     if (!fetched?.size) return false;
     for (const msg of fetched.values()) {
       if (Number(msg?.createdTimestamp || 0) < boundaryMs) continue;
@@ -632,29 +632,38 @@ function startWeeklyActivityWinnersLoop(client) {
   };
   const runRecoveryIfNeeded = async () => {
     const now = new Date();
-    const nowRome = getRomeDateTimeParts(now);
-    // Hard guard richiesto: recovery weekly solo di domenica.
-    if (Number(nowRome?.weekday) !== 0) return;
     const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
     const gid = channel?.guild?.id;
-    if (!gid) return;
+    if (!gid) {
+      global.logger?.warn?.(
+        "[WEEKLY ACTIVITY] Recovery skipped: canale top weekly non risolto al boot.",
+        String(TARGET_CHANNEL_ID || ""),
+      );
+      return;
+    }
     const lastSunday21BoundaryMs = getLastSunday21BoundaryMsAtOrBefore(now);
     const alreadyPublished = await wasWeeklyPostAlreadyPublishedAfterBoundary(channel, lastSunday21BoundaryMs);
     if (alreadyPublished) return;
     const currentWeekKey = getWeekKey(now);
     const previousWeekKey = getLastCompletedWeekKey(now);
-    if (previousWeekKey === currentWeekKey) return;
     try {
       global.logger.info("[WEEKLY ACTIVITY] Recovery: running missed weekly winners (bot was likely offline Sunday 21:00).");
-      await publishWeeklyActivityWinners(client, { weekKey: previousWeekKey });
-      await resetWeeklyActivityCounters(client, { nextWeekKey: currentWeekKey });
+      /* Di domenica ISO `previousWeekKey` coincide con `currentWeekKey` (ultima domenica = “oggi”):
+       * il vecchio `return` bloccava per sempre la recovery dopo il 21:00 domenica mancato. */
+      if (previousWeekKey !== currentWeekKey) {
+        await publishWeeklyActivityWinners(client, { weekKey: previousWeekKey });
+        await resetWeeklyActivityCounters(client, { nextWeekKey: currentWeekKey });
+      } else {
+        await publishWeeklyActivityWinners(client);
+        await resetWeeklyActivityCounters(client);
+      }
     } catch (error) {
       global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error);
     }
   };
-  setImmediate(() => {
+  setTimeout(() => {
     runRecoveryIfNeeded().catch((err) => global.logger?.error?.("[WEEKLY ACTIVITY] Recovery on start failed:", err));
-  });
+  }, 15_000);
 }
 
 module.exports = {

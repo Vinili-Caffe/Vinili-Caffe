@@ -3,6 +3,7 @@
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isUserInMainGuild } = require("../../Utils/Interaction/verifyUtils");
+const { ensureSponsorVerificatoForMember } = require("./communityOpsService");
 
 const KICK_DELAY_MS = 24 * 60 * 60 * 1000;
 /** Solo questo nome ruolo sul server TAG sponsor attiva il bypass (non altri ruoli booster). */
@@ -207,6 +208,7 @@ async function handleGuildMemberUpdate(_oldMember, newMember, client) {
     return;
   }
 
+  await ensureSponsorVerificatoForMember(newMember).catch(() => {});
   await maybeScheduleEnforcement(newMember, client || newMember.client);
 }
 

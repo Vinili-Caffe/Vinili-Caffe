@@ -2,6 +2,7 @@ const { ChannelType, PermissionsBitField } = require("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../../Utils/Community/activityUserProfilePaths");
+const { isSponsorGuildVerify } = require("../../Utils/Interaction/verifyUtils");
 const IDs = require("../../Utils/Config/ids");
 const VOTE_ROLE_ID = IDs.roles.Voter;
 const CHECK_INTERVAL_MS = 60 * 1000;
@@ -22,8 +23,19 @@ let numberingLoopHandle = null;
 let voteCleanupLoopHandle = null;
 let verificationTenureLoopHandle = null;
 let sponsorKickLoopHandle = null;
+let sponsorNickSweepLoopHandle = null;
 const SPONSOR_KICK_REASON = "<a:VC_Alert:1482706673176150077> Non sei più nel server principale da 24 ore. Rientra nel server principale per accedere di nuovo agli server sponsor.";
 const SPONSOR_KICK_INTERVAL_MS = 15 * 60 * 1000;
+const SPONSOR_GUILD_NICK_SWEEP_INTERVAL_MS = (() => {
+  const n = Number(process.env.SPONSOR_GUILD_NICK_SWEEP_INTERVAL_MS);
+  if (Number.isFinite(n) && n >= 60_000) return n;
+  return 6 * 60 * 60 * 1000;
+})();
+const SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS = (() => {
+  const n = Number(process.env.SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS);
+  if (Number.isFinite(n) && n >= 0) return Math.min(Math.floor(n), 5000);
+  return 200;
+})();
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
 const VOTE_ROLE_GRANTED_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.grantedAt`;
@@ -110,37 +122,64 @@ async function upsertVerifiedMember(guildId, userId, verifiedAt = new Date()) {
   return ActivityUserProfile.findOne({ guildId, userId });
 }
 
+/**
+ * Server TAG sponsor: ruolo verificato da config + nickname convenzione, senza flusso verifica Discord.
+ * @param {import("discord.js").GuildMember} member
+ */
+async function ensureSponsorVerificatoForMember(member) {
+  if (!member?.guild || member.user?.bot) return;
+  const guildId = String(member.guild.id || "");
+  if (!isSponsorGuildVerify(guildId)) return;
+  const sponsorVerifyRoleId =
+    IDs.verificatoRoleIds?.[guildId] ?? IDs.verificatoRoleIds?.[member.guild?.id];
+  if (!sponsorVerifyRoleId) {
+    global.logger?.warn?.("[SPONSOR AUTO] Guild sponsor senza verificatoRoleIds in config:", guildId);
+    return;
+  }
+  const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));
+  const canManageRoles = Boolean(me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles));
+  const sponsorVerifyRole = await getGuildRoleCached(member.guild, sponsorVerifyRoleId);
+  const canReachSponsorRole = Boolean(
+    sponsorVerifyRole && me && sponsorVerifyRole.position < me.roles.highest.position,
+  );
+  if (canManageRoles && canReachSponsorRole && !member.roles.cache.has(sponsorVerifyRoleId)) {
+    await addRolesAndGetMember(member.guild, member.id, [sponsorVerifyRoleId]);
+  }
+  const m =
+    (await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => null)) || member;
+  if (String(m.nickname || "") === SPONSOR_VERIFY_NICKNAME) return;
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageNicknames)) return;
+  await m.setNickname(SPONSOR_VERIFY_NICKNAME).catch(() => {});
+}
+
+/** Chiamata da guildMemberAdd: assegna verificato sponsor all’ingresso. */
+async function applySponsorGuildAutoVerificato(member) {
+  await ensureSponsorVerificatoForMember(member);
+}
+
 async function applyTenureForMember(member, record) {
   if (!member || !record) return;
   const guildId = String(member.guild?.id || "");
-  const sponsorVerifyRoleId =
-    IDs.verificatoRoleIds?.[guildId] ?? IDs.verificatoRoleIds?.[member.guild?.id];
   const hasVerifiedRole = VERIFIED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
   const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));
   const canManageRoles = Boolean(me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles));
-  if (sponsorVerifyRoleId) {
-    const sponsorVerifyRole = await getGuildRoleCached(member.guild, sponsorVerifyRoleId);
-    const canReachSponsorRole = Boolean(sponsorVerifyRole && me && sponsorVerifyRole.position < me.roles.highest.position,);
-    if (
-      canManageRoles &&
-      canReachSponsorRole &&
-      !member.roles.cache.has(sponsorVerifyRoleId)
-    ) {
-      await member.roles.add(sponsorVerifyRoleId).catch(() => { });
-    }
-    if (member.manageable && member.nickname !== SPONSOR_VERIFY_NICKNAME) {
-      await member.setNickname(SPONSOR_VERIFY_NICKNAME).catch(() => { });
-    }
+  if (isSponsorGuildVerify(guildId)) {
+    await ensureSponsorVerificatoForMember(member);
     return;
   }
   if (!guildId || String(guildId) !== String(MAIN_GUILD_ID || "")) return;
   if (!hasVerifiedRole) return;
   const now = new Date();
-  const baseJoinedAtMs = Number(member.joinedTimestamp || member.joinedAt?.getTime?.() || 0);
+  const joinedMs = Number(member.joinedTimestamp || member.joinedAt?.getTime?.() || 0);
   const verifiedAtValue = record?.profile?.verificationTenure?.verifiedAt || record?.verifiedAt;
   const stageValue = Number(record?.profile?.verificationTenure?.stage ?? record?.stage ?? 1);
-  const baseVerifiedAtMs = Number(new Date(verifiedAtValue).getTime() || 0);
-  const baseTenureMs = baseJoinedAtMs > 0 ? baseJoinedAtMs : baseVerifiedAtMs;
+  const verifiedMs = Number(new Date(verifiedAtValue).getTime() || 0);
+  const joinedOk = Number.isFinite(joinedMs) && joinedMs > 0;
+  const verifiedOk = Number.isFinite(verifiedMs) && verifiedMs > 0;
+  let baseTenureMs = 0;
+  if (joinedOk && verifiedOk) baseTenureMs = Math.max(joinedMs, verifiedMs);
+  else if (joinedOk) baseTenureMs = joinedMs;
+  else if (verifiedOk) baseTenureMs = verifiedMs;
   if (!Number.isFinite(baseTenureMs) || baseTenureMs <= 0) return;
   const stage1At = new Date(baseTenureMs + STAGE_1_DAYS * DAY_MS,);
   const stage2At = new Date(baseTenureMs + STAGE_2_DAYS * DAY_MS,);
@@ -190,7 +229,13 @@ async function applyTenureForMember(member, record) {
   if (!has1) {
     if (canManageRoles && ROLE_STAGE_1) {
       const refreshedMember = (await addRolesAndGetMember(member.guild, member.id, [ROLE_STAGE_1])) || member;
-      if (!refreshedMember.roles.cache.has(ROLE_STAGE_1)) return;
+      if (!refreshedMember.roles.cache.has(ROLE_STAGE_1)) {
+        global.logger?.warn?.(
+          "[VERIFY TENURE] NuovoUtente non assegnato dopo tentativo:",
+          guildId,
+          member.id,
+        );
+      }
     }
   }
 }
@@ -440,4 +485,64 @@ function startSponsorKickLoop(client) {
   return sponsorKickLoopHandle;
 }
 
-module.exports = { upsertVoteRole, removeExpiredVoteRoles, startVoteRoleCleanupLoop, upsertVerifiedMember, applyTenureForMember, startVerificationTenureLoop, backfillVerificationTenure, queueCategoryRenumber, runAllGuilds, startCategoryNumberingLoop, runSponsorKickAfter24h, startSponsorKickLoop };
+/**
+ * Tutti i membri (non bot) nei guild sponsor in config: ruolo verificato se mancante + nickname promozionale.
+ * Chiamata periodica e dopo avvio (stagger tra richieste per rate limit).
+ * @param {import("discord.js").Client} client
+ */
+async function runSponsorGuildNicknameSweep(client) {
+  if (!client) return;
+  const sponsorGuildIds = Array.isArray(IDs.guilds?.sponsorGuildIds) ? IDs.guilds.sponsorGuildIds : [];
+  for (const gidRaw of sponsorGuildIds) {
+    const gId = String(gidRaw || "");
+    if (!isSponsorGuildVerify(gId)) continue;
+    const guild = await getClientGuildCached(client, gId).catch(() => null);
+    if (!guild) continue;
+    await guild.members.fetch().catch(() => null);
+    for (const m of guild.members.cache.values()) {
+      if (m.user?.bot) continue;
+      await ensureSponsorVerificatoForMember(m).catch(() => {});
+      if (SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS > 0) {
+        await new Promise((r) => setTimeout(r, SPONSOR_GUILD_NICK_SWEEP_STAGGER_MS));
+      }
+    }
+  }
+}
+
+function startSponsorGuildNicknameSweepLoop(client) {
+  if (!client) return;
+  if (sponsorNickSweepLoopHandle) return sponsorNickSweepLoopHandle;
+  sponsorNickSweepLoopHandle = setInterval(() => {
+    runSponsorGuildNicknameSweep(client).catch((err) => {
+      global.logger?.warn?.("[SPONSOR NICK SWEEP] loop failed:", err?.message || err);
+    });
+  }, SPONSOR_GUILD_NICK_SWEEP_INTERVAL_MS);
+  sponsorNickSweepLoopHandle.unref?.();
+  const initialMs = Number(process.env.SPONSOR_GUILD_NICK_SWEEP_INITIAL_DELAY_MS);
+  const delay = Number.isFinite(initialMs) && initialMs >= 0 ? initialMs : 3 * 60 * 1000;
+  setTimeout(() => {
+    runSponsorGuildNicknameSweep(client).catch((err) => {
+      global.logger?.warn?.("[SPONSOR NICK SWEEP] initial run failed:", err?.message || err);
+    });
+  }, delay);
+  return sponsorNickSweepLoopHandle;
+}
+
+module.exports = {
+  upsertVoteRole,
+  removeExpiredVoteRoles,
+  startVoteRoleCleanupLoop,
+  upsertVerifiedMember,
+  applyTenureForMember,
+  applySponsorGuildAutoVerificato,
+  ensureSponsorVerificatoForMember,
+  startVerificationTenureLoop,
+  backfillVerificationTenure,
+  queueCategoryRenumber,
+  runAllGuilds,
+  startCategoryNumberingLoop,
+  runSponsorKickAfter24h,
+  startSponsorKickLoop,
+  runSponsorGuildNicknameSweep,
+  startSponsorGuildNicknameSweepLoop,
+};

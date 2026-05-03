@@ -6,6 +6,16 @@ const { getGuildChannelCached, getGuildRoleCached } = require("../Utils/Interact
 
 const SPONSOR_PANEL_COLOR = "#6f4e37";
 const SPONSOR_BATCH_SIZE = 6;
+
+function sponsorVerifyPanelVerbose() {
+  return String(process.env.SPONSOR_VERIFY_PANEL_VERBOSE || "").trim() === "1";
+}
+
+function sponsorVerifyPanelsDisabled(client) {
+  const env = String(process.env.SPONSOR_VERIFY_PANELS || "").trim().toLowerCase();
+  if (["0", "false", "off", "no"].includes(env)) return true;
+  return client?.config?.sponsorVerifyPanelsEnabled === false;
+}
 const TAG_IMAGE_NAME = "guildtag.gif";
 const TAG_IMAGE_PATH = path.join(__dirname, "..", "Photos", TAG_IMAGE_NAME);
 const VERIFY_OAUTH_IMAGE_NAME = "image0.jpg";
@@ -149,7 +159,7 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
   const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
   const guild = await sponsorFetchGuild(client, guildId);
   if (!guild) {
-    global.logger.warn("[SPONSOR] Verify panel: guild non trovata:", guildId);
+    if (sponsorVerifyPanelVerbose()) global.logger.warn("[SPONSOR] Verify panel: guild non trovata:", guildId);
     return 0;
   }
   await sponsorEnsureChannelsFetched(guild);
@@ -211,6 +221,7 @@ async function processOneVerifyPanel(client, guildId, verifyChannelIds) {
 }
 
 async function runSponsorVerifyPanels(client) {
+  if (sponsorVerifyPanelsDisabled(client)) return 0;
   let sponsorGuildIds = Array.isArray(client.config?.sponsorGuildIds) ? [...client.config.sponsorGuildIds] : [];
   const verifyChannelIds = client.config?.sponsorVerifyChannelIds || {};
   if (sponsorGuildIds.length === 0) sponsorGuildIds = Object.keys(verifyChannelIds);

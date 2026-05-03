@@ -1,4 +1,5 @@
 const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.js");
+const { handleMusicBotVoiceDisconnect } = require("../Services/Music/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
 const{handleVoiceActivity,}=require("../Services/Community/activityService");
 const IDs = require("../Utils/Config/ids");
@@ -345,6 +346,9 @@ module.exports = {
       oldState.channelId &&
       !newState.channelId
     ) {
+      await handleMusicBotVoiceDisconnect(client, guild).catch((err) => {
+        global.logger?.warn?.("[voiceStateUpdate] handleMusicBotVoiceDisconnect failed:", err?.message || err);
+      });
       await leaveTtsGuild(guild.id, client).catch((err) => {
         global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
       });
@@ -358,9 +362,14 @@ module.exports = {
 
     const humans = botChannel.members.filter((m) => !m.user.bot);
     if (humans.size === 0) {
-      await leaveTtsGuild(guild.id, client).catch((err) => {
-        global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
-      });
+      const { shouldDeferTtsLeaveForMusicEmptyVc } = require("../Services/Music/lavalinkMusicService");
+      if (shouldDeferTtsLeaveForMusicEmptyVc(client, guild.id)) {
+        /* Musica: uscita dopo inattività (timer in lavalinkMusicService). */
+      } else {
+        await leaveTtsGuild(guild.id, client).catch((err) => {
+          global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
+        });
+      }
     }
   },
 };

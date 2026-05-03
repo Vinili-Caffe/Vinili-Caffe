@@ -220,6 +220,438 @@
                 "channels.staffCmds"
             ]
         },
+        "clear": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "lyrics": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "next": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "now": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "pause": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "play": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "previous": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "queue": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "repeat": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "requested": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "restart": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "resume": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "rewind": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "shuffle": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "skip": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "stop": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "upcoming": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
+        "volume": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.chat",
+                "channels.media",
+                "channels.commands",
+                "channels.forum",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.vocaleDuo1",
+                "channels.vocaleDuo2",
+                "channels.vocaleduo3",
+                "channels.vocaleTrio1",
+                "channels.trio2",
+                "channels.vocaleTrio3",
+                "channels.vocaleSquad1",
+                "channels.vocaleSquad2",
+                "channels.vocaleSquad3",
+                "channels.staffCmds"
+            ]
+        },
         "staff": {
             "roles": [
                 "roles.Staff",

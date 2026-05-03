@@ -14,8 +14,23 @@ const PAGE_TITLES = {
   [IDs.roles.Founder]: "Comandi Dev",
   all: "Comandi Disponibili",
 };
-const CATEGORY_LABELS = { utility: "Utility", tts: "TTS", dev: "Dev" };
-const CATEGORY_ORDER = ["utility", "tts", "dev"];
+const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", dev: "Dev" };
+const CATEGORY_ORDER = ["utility", "music", "tts", "dev"];
+const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set([
+  "skip",
+  "stop",
+  "pause",
+  "resume",
+  "volume",
+  "shuffle",
+  "clear",
+  "repeat",
+  "previous",
+  "rewind",
+  "restart",
+]);
+const PREFIX_MUSIC_SESSION_OWNER_NOTE =
+  " *Solo chi ha avviato la riproduzione* (primo comando play con coda ferma) *può usarlo.*";
 const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
 const PREFIX_HELP_DESCRIPTIONS = {
@@ -55,12 +70,20 @@ function normalizeDescription(
 
 function getPrefixDescription(command) {
   const commandName = String(command?.name || "").toLowerCase();
+  let base;
   if (PREFIX_HELP_DESCRIPTIONS[commandName]) {
-    return PREFIX_HELP_DESCRIPTIONS[commandName];
+    base = PREFIX_HELP_DESCRIPTIONS[commandName];
+  } else {
+    const fromCommand = normalizeDescription(
+      command?.description || command?.desc || command?.help || command?.usage || "",
+      "",
+    );
+    base = fromCommand || "Descrizione non disponibile.";
   }
-  const fromCommand=normalizeDescription(command?.description||command?.desc||command?.help||command?.usage,"",);
-  if (fromCommand) return fromCommand;
-  return "Descrizione non disponibile.";
+  if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
+    return `${base}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`;
+  }
+  return base;
 }
 
 function getPrefixSubcommandDescription(command, subcommandName) {
@@ -78,9 +101,10 @@ function getPrefixSubcommandDescription(command, subcommandName) {
   return "Descrizione non disponibile.";
 }
 
-function getPrefixBase(command) {
+function getPrefixBase(command, client) {
   void command;
-  return "-";
+  const p = String(client?.config?.prefix ?? ",").trim();
+  return p || ",";
 }
 
 function extractPrefixSubcommands(command) {
@@ -195,7 +219,7 @@ function buildEntries(client, permissions) {
     const commandRoles=Array.isArray(perm)?perm:Array.isArray(perm?.roles)?perm.roles:null;
     const subcommandRoles=perm&&typeof perm==="object"&&!Array.isArray(perm)?perm.subcommands||{}:{};
     const aliases=Array.isArray(command.aliases)?command.aliases.filter((alias) => typeof alias==="string"&&alias.trim().length,):[];
-    const prefixBase = getPrefixBase(command);
+    const prefixBase = getPrefixBase(command, client);
     const base={type:"prefix",description:getPrefixDescription(command),aliases,prefixBase,category:normalizeCategoryKey(command.folder||"misc"),roles:commandRoles,};
 
     const canonicalSubs=Array.isArray(command?.canonicalSubcommands)?Array.from(new Set(command.canonicalSubcommands.map((s) => String(s||"").trim().toLowerCase()).filter(Boolean),),):Array.isArray(command?.subcommands)?Array.from(new Set(command.subcommands.map((s) => String(s||"").trim().toLowerCase()).filter(Boolean),),):[];
@@ -608,7 +632,7 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
   if (!command) return null;
 
   const commandName=String(command.name||"").trim().toLowerCase();
-  const prefixBase = getPrefixBase(command);
+  const prefixBase = getPrefixBase(command, context?.client);
   const visibleForCommand=entries.filter((entry) => {if(entry.type!=="prefix")return false;const invoke=normalizeInvokeLookup(entry.invoke);return invoke.split(" ")[0]===commandName;});
   if (!visibleForCommand.length) return null;
 
@@ -639,6 +663,11 @@ function buildPrefixDetailedHelpEmbed(query, entries, context = {}) {
     );
   }
   usageLines.push(`Ruoli richiesti: ${formatRoleMentions(permConfig.roles)}`);
+  if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
+    usageLines.push(
+      "Restrizione musica: solo l’utente che ha avviato la sessione (primo play con coda ferma) può usare questo comando.",
+    );
+  }
 
   const subEntries=visibleForCommand.filter((entry) => normalizeInvokeLookup(entry.invoke).split(" ").length>1,).filter((entry) => {if(!requestedSub)return true;return normalizeInvokeLookup(entry.invoke).split(" ")[1]===requestedSub;}).sort((a,b) => String(a.invoke||"").localeCompare(String(b.invoke||""),"it"),);
 
@@ -806,7 +835,7 @@ function buildSubcommandFallbackEmbed(query, visibleEntries, context = {}) {
   const prefixCommand=resolvePrefixCommandByToken(context?.client,queryToken,);
   if (prefixCommand) {
     const commandName=String(prefixCommand.name||"").trim().toLowerCase();
-    const prefixBase = getPrefixBase(prefixCommand);
+    const prefixBase = getPrefixBase(prefixCommand, context?.client);
     const subcommands=listPrefixSubcommandsForCommand(prefixCommand,commandName,permissions,);
     if (subcommands.length) {
       const lines=subcommands.map((sub) => {const invoke=`${prefixBase}${commandName}${sub}`;

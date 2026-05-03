@@ -8,7 +8,7 @@ module.exports = {
   canonicalSubcommands: ["classifica"],
   subcommands: ["classifica"],
   subcommandDescriptions: {
-    classifica: "Classifica del weekly contest (sfondi Mobile/PC oppure disegni, in base al profilo attivo)",
+    classifica: "Classifica weekly contest (env `WEEKLY_CONTEST_ACTIVE_PROFILE`: sfondi | disegni | outfit)",
   },
   subcommandUsages: {
     classifica: "+evento classifica",
