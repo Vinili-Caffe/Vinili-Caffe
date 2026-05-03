@@ -1,0 +1,495 @@
+const { drawTextWithSpecialFallback, fontStack } = require("./canvasFonts");
+const { safeLoadImage } = require("./safeLoadImage");
+
+const emojiImageCache = new Map();
+const CUSTOM_EMOJI_START_RE = /^<(a)?:([a-zA-Z0-9_~]+):(\d{16,22})>/;
+
+function prepareVisibleText(value) {
+  const raw = String(value || "");
+  const protectedMap = new Map([
+    ["\u00B9", "__VC_KEEP_SUP_1__"],
+    ["\u00B2", "__VC_KEEP_SUP_2__"],
+    ["\u00B3", "__VC_KEEP_SUP_3__"],
+  ]);
+  const compatibilityMap = new Map([
+    ["\u0F04", "\u2736"],
+    ["\uFE32", "\u2502"],
+    ["\u1CBC", "\u00B7"],
+  ]);
+
+  let out = raw;
+  for (const [char, token] of protectedMap.entries()) {
+    out = out.split(char).join(token);
+  }
+  for (const [char, replacement] of compatibilityMap.entries()) {
+    out = out.split(char).join(replacement);
+  }
+
+  out = out
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\uFFFD/g, "")
+    .normalize("NFC")
+    .trim();
+
+  out = out.replace(/[\u{1D400}-\u{1D7FF}]/gu, (ch) => ch.normalize("NFKC"));
+
+  for (const [char, token] of protectedMap.entries()) {
+    out = out.split(token).join(char);
+  }
+
+  return out || "-";
+}
+
+function shouldSkipRichWrap(text) {
+  return !String(text || "").trim();
+}
+
+function textWidth(ctx, text, size = 16, weight = "600") {
+  ctx.save();
+  ctx.font = fontStack(size, weight);
+  const width = ctx.measureText(String(text || "")).width;
+  ctx.restore();
+  return width;
+}
+
+function drawLabel(
+  ctx,
+  text,
+  x,
+  y,
+  {
+    size = 16,
+    weight = "600",
+    color = "#d7dbe3",
+    align = "left",
+    baseline = "middle",
+    useNumericFont = false,
+    forcePrimaryFont = false,
+  } = {},
+) {
+  drawTextWithSpecialFallback(ctx, prepareVisibleText(text), x, y, {
+    size,
+    weight,
+    color,
+    align,
+    baseline,
+    normalizeCompatibility: false,
+    useNumericFont,
+    forcePrimaryFont,
+  });
+}
+
+function isEmojiCodePoint(cp) {
+  if (!Number.isFinite(cp)) return false;
+  if (cp >= 0x1f000 && cp <= 0x1faff) return true;
+  if (cp >= 0x2600 && cp <= 0x27bf) return true;
+  if (cp >= 0x2300 && cp <= 0x23ff) return true;
+  if (cp >= 0x2b00 && cp <= 0x2bff) return true;
+  if (
+    cp === 0x00a9 ||
+    cp === 0x00ae ||
+    cp === 0x2122 ||
+    cp === 0x3030 ||
+    cp === 0x303d
+  )
+    return true;
+  return false;
+}
+
+const PICTOGRAPHIC_RE = (() => {
+  try {
+    return /\p{Extended_Pictographic}/u;
+  } catch {
+    return null;
+  }
+})();
+
+/** Rileva emoji moderne (inclusi ☕ e simili) + indicatori regionali bandiere. */
+function codePointIsEmoji(cp) {
+  if (!Number.isFinite(cp)) return false;
+  if (cp >= 0x1f1e6 && cp <= 0x1f1ff) return true;
+  if (PICTOGRAPHIC_RE) {
+    try {
+      if (PICTOGRAPHIC_RE.test(String.fromCodePoint(cp))) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  return isEmojiCodePoint(cp);
+}
+
+function isEmojiSkinToneModifier(cp) {
+  return Number.isFinite(cp) && cp >= 0x1f3fb && cp <= 0x1f3ff;
+}
+
+function tokenizeEmojiText(text) {
+  const raw = String(text || "").trim();
+  if (!raw) {
+    return [{ type: "text", value: "" }];
+  }
+  const chars = Array.from(prepareVisibleText(raw));
+  const tokens = [];
+  let buffer = "";
+  let emoji = "";
+
+  const flushText = () => {
+    if (!buffer) return;
+    tokens.push({ type: "text", value: buffer });
+    buffer = "";
+  };
+  const flushEmoji = () => {
+    if (!emoji) return;
+    tokens.push({ type: "emoji", value: emoji });
+    emoji = "";
+  };
+
+  for (let i = 0; i < chars.length; i += 1) {
+    const rest = chars.slice(i).join("");
+    const customMatch = rest.match(CUSTOM_EMOJI_START_RE);
+    if (customMatch) {
+      flushEmoji();
+      flushText();
+      tokens.push({
+        type: "custom_emoji",
+        id: customMatch[3],
+        animated: customMatch[1] === "a",
+        raw: customMatch[0],
+      });
+      i += customMatch[0].length - 1;
+      continue;
+    }
+
+    const ch = chars[i];
+    const cp = ch.codePointAt(0);
+    const next = chars[i + 1];
+    const nextCp = next ? next.codePointAt(0) : null;
+    const isJoiner = cp === 0x200d;
+    const isVariation = cp === 0xfe0f;
+    const isEmoji = codePointIsEmoji(cp);
+
+    if (isEmoji || (emoji && (isJoiner || isVariation))) {
+      flushText();
+      emoji += ch;
+      const nextIsEmoji = codePointIsEmoji(nextCp);
+      const nextIsJoiner = nextCp === 0x200d;
+      const nextIsVariation = nextCp === 0xfe0f;
+      const nextIsSkinTone = isEmojiSkinToneModifier(nextCp);
+
+      if (isJoiner || nextIsJoiner || nextIsVariation) {
+        continue;
+      }
+      if (nextIsSkinTone) {
+        continue;
+      }
+      if (isEmoji && nextIsEmoji) {
+        flushEmoji();
+        continue;
+      }
+      flushEmoji();
+      continue;
+    }
+
+    flushEmoji();
+    buffer += ch;
+  }
+
+  flushEmoji();
+  flushText();
+  return tokens.length ? tokens : [{ type: "text", value: "" }];
+}
+
+function twemojiUrlFromCodepoints(codepoints) {
+  return `https://cdn.jsdelivr.net/gh/twitter/twemoji@15.1.0/assets/144x144/${codepoints.join("-")}.png`;
+}
+
+function emojiDrawSizeForFont(size) {
+  return Math.max(size + 1, Math.round(size * 1.12));
+}
+
+function emojiToTwemojiUrls(emoji) {
+  const cps = Array.from(String(emoji || "")).map((ch) =>
+    ch.codePointAt(0).toString(16).toLowerCase(),
+  );
+  if (!cps.length) return [];
+  const urls = [];
+  const pushByCps = (list) => {
+    if (!Array.isArray(list) || !list.length) return;
+    const url = twemojiUrlFromCodepoints(list);
+    if (!urls.includes(url)) urls.push(url);
+  };
+
+  pushByCps(cps);
+
+  const withoutVariation = cps.filter((cp) => cp !== "fe0f");
+  pushByCps(withoutVariation);
+
+  const hasVariation = cps.includes("fe0f");
+  if (!hasVariation && cps.length === 1) {
+    const cpNum = Number.parseInt(cps[0], 16);
+    if (Number.isFinite(cpNum) && cpNum >= 0x2600 && cpNum <= 0x27bf) {
+      pushByCps([cps[0], "fe0f"]);
+    }
+  }
+
+  return urls;
+}
+
+function customEmojiUrl(id, animated = false) {
+  const ext = animated ? "gif" : "png";
+  return `https://cdn.discordapp.com/emojis/${id}.${ext}?size=96&quality=lossless`;
+}
+
+async function getEmojiImage(token) {
+  const key =
+    typeof token === "string"
+      ? token
+      : `custom:${token.id}:${token.animated ? 1 : 0}`;
+  if (emojiImageCache.has(key)) return emojiImageCache.get(key);
+  const promise = (async () => {
+    if (typeof token !== "string") {
+      return safeLoadImage(customEmojiUrl(token.id, Boolean(token.animated)), {
+        timeoutMs: 10000,
+      }).catch(() => null);
+    }
+    const sources = emojiToTwemojiUrls(token);
+    for (const sourceUrl of sources) {
+      const img = await safeLoadImage(sourceUrl, {
+        timeoutMs: 10000,
+        suppressWarning: true,
+      }).catch(() => null);
+      if (img) return img;
+    }
+    return null;
+  })();
+  emojiImageCache.set(key, promise);
+  return promise;
+}
+
+function tokenWidth(ctx, token, size, weight) {
+  if (token.type === "emoji" || token.type === "custom_emoji") {
+    const drawSize = emojiDrawSizeForFont(size);
+    return drawSize + 1;
+  }
+  return textWidth(ctx, token.value, size, weight);
+}
+
+async function drawLabelWithEmoji(
+  ctx,
+  text,
+  x,
+  y,
+  {
+    size = 16,
+    weight = "600",
+    color = "#d7dbe3",
+    align = "left",
+    baseline = "middle",
+    forcePrimaryFont = false,
+    useNumericFont = false,
+  } = {},
+) {
+  const labelOpts = {
+    size,
+    weight,
+    color,
+    align,
+    baseline,
+    forcePrimaryFont,
+    useNumericFont,
+  };
+  const tokens = tokenizeEmojiText(text);
+  const hasEmoji = tokens.some(
+    (t) => t.type === "emoji" || t.type === "custom_emoji",
+  );
+  if (!hasEmoji) {
+    drawLabel(ctx, text, x, y, labelOpts);
+    return;
+  }
+
+  const total = tokens.reduce(
+    (sum, token) => sum + tokenWidth(ctx, token, size, weight),
+    0,
+  );
+  let cursorX = x;
+  if (align === "center") cursorX = x - total / 2;
+  else if (align === "right") cursorX = x - total;
+
+  for (const token of tokens) {
+    if (token.type === "text") {
+      if (token.value) {
+        drawLabel(ctx, token.value, cursorX, y, { ...labelOpts, align: "left" });
+        cursorX += textWidth(ctx, token.value, size, weight);
+      }
+      continue;
+    }
+
+    const img =
+      token.type === "custom_emoji"
+        ? await getEmojiImage(token)
+        : await getEmojiImage(token.value);
+    if (img) {
+      const drawSize = emojiDrawSizeForFont(size);
+      let drawY = y;
+      if (baseline === "middle") drawY = y - drawSize / 2;
+      else if (baseline === "top" || baseline === "alphabetic" || baseline === "hanging")
+        drawY = y;
+      else if (baseline === "bottom") drawY = y - drawSize;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, cursorX, drawY, drawSize, drawSize);
+      cursorX += drawSize + 1;
+    } else {
+      const fallback =
+        token.type === "custom_emoji"
+          ? token.raw || ""
+          : token.value || "";
+      drawLabel(ctx, fallback, cursorX, y, { ...labelOpts, align: "left" });
+      cursorX += textWidth(ctx, fallback, size, weight);
+    }
+  }
+}
+
+function expandTokensForWrap(tokens) {
+  const out = [];
+  for (const t of tokens) {
+    if (t.type === "custom_emoji" || t.type === "emoji") {
+      out.push(t);
+      continue;
+    }
+    if (t.type === "text") {
+      const raw = t.value || "";
+      const parts = raw.split(/(\s+)/u);
+      for (const p of parts) {
+        if (!p) continue;
+        if (/^\s+$/u.test(p)) out.push({ type: "space", value: p });
+        else out.push({ type: "text", value: p });
+      }
+    }
+  }
+  return out;
+}
+
+function measureAtomic(ctx, u, size, weight) {
+  if (u.type === "emoji" || u.type === "custom_emoji") {
+    return emojiDrawSizeForFont(size) + 1;
+  }
+  return textWidth(ctx, u.value, size, weight);
+}
+
+function breakLongTextChunk(ctx, word, maxWidth, size, weight) {
+  if (textWidth(ctx, word, size, weight) <= maxWidth) return [word];
+  const chunks = [];
+  let rest = word;
+  while (rest.length) {
+    let lo = 1;
+    let hi = rest.length;
+    let best = 1;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      const slice = rest.slice(0, mid);
+      if (textWidth(ctx, slice, size, weight) <= maxWidth) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    if (best < 1) best = 1;
+    chunks.push(rest.slice(0, best));
+    rest = rest.slice(best);
+  }
+  return chunks;
+}
+
+/**
+ * @returns {string[]} una riga per elemento, pronta per drawLabelWithEmoji
+ */
+function wrapRichTextToLines(ctx, text, maxWidth, size, weight) {
+  if (shouldSkipRichWrap(text)) return [];
+  const prepared = prepareVisibleText(String(text || "").trim());
+  const tokens = tokenizeEmojiText(prepared === "-" ? "" : prepared);
+  const units = expandTokensForWrap(tokens);
+  if (!units.length) return [];
+
+  const lines = [];
+  let cur = [];
+  let wsum = 0;
+
+  const flushLine = () => {
+    if (!cur.length) return;
+    const s = atomicLineToString(cur);
+    lines.push(s);
+    cur = [];
+    wsum = 0;
+  };
+
+  for (const u of units) {
+    const m = measureAtomic(ctx, u, size, weight);
+
+    if (!cur.length) {
+      if (u.type === "text" && m > maxWidth) {
+        const parts = breakLongTextChunk(ctx, u.value, maxWidth, size, weight);
+        for (let i = 0; i < parts.length; i += 1) {
+          const part = parts[i];
+          const pseudo = { type: "text", value: part };
+          if (i === 0) {
+            cur = [pseudo];
+            wsum = measureAtomic(ctx, pseudo, size, weight);
+          } else {
+            lines.push(atomicLineToString([pseudo]));
+          }
+        }
+        continue;
+      }
+      cur.push(u);
+      wsum = m;
+      continue;
+    }
+
+    if (wsum + m <= maxWidth) {
+      cur.push(u);
+      wsum += m;
+      continue;
+    }
+
+    flushLine();
+
+    if (u.type === "text" && m > maxWidth) {
+      const parts = breakLongTextChunk(ctx, u.value, maxWidth, size, weight);
+      for (let i = 0; i < parts.length; i += 1) {
+        const part = parts[i];
+        const pseudo = { type: "text", value: part };
+        if (i === 0) {
+          cur = [pseudo];
+          wsum = measureAtomic(ctx, pseudo, size, weight);
+        } else {
+          lines.push(atomicLineToString([pseudo]));
+        }
+      }
+    } else {
+      cur = [u];
+      wsum = m;
+    }
+  }
+
+  flushLine();
+  return lines;
+}
+
+function atomicLineToString(units) {
+  return units
+    .map((u) => {
+      if (u.type === "custom_emoji") return u.raw || "";
+      if (u.type === "emoji") return u.value;
+      return u.value;
+    })
+    .join("");
+}
+
+module.exports = {
+  prepareVisibleText,
+  tokenizeEmojiText,
+  drawLabelWithEmoji,
+  wrapRichTextToLines,
+  textWidth,
+};

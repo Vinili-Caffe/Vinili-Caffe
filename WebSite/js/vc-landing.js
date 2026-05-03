@@ -483,10 +483,11 @@
     var detailsList = bar.querySelectorAll("details.vc-snav-details");
     var notif = bar.querySelector("details.vc-notif-dropdown");
     var accountMenu = bar.querySelector(".discord-account-menu");
-    function syncNotifOpenClass() {
+    function syncHeaderDropdownOpenClasses() {
       var root = document.documentElement;
       if (!root) return;
-      root.classList.toggle("vc-notif-dropdown-open", Boolean(notif && notif.open));
+      var notifOpen = Boolean(notif && notif.open);
+      root.classList.toggle("vc-notif-dropdown-open", notifOpen);
     }
     function broadcastHeaderMenuOpen(sourceId) {
       try {
@@ -502,18 +503,19 @@
     }
     detailsList.forEach(function (d) {
       d.addEventListener("toggle", function () {
-        if (!d.open) return;
-        broadcastHeaderMenuOpen(d.id || d.getAttribute("data-menu-id") || "snav");
-        detailsList.forEach(function (other) {
-          if (other !== d) other.open = false;
-        });
-        if (notif) notif.open = false;
-        syncNotifOpenClass();
+        if (d.open) {
+          broadcastHeaderMenuOpen(d.id || d.getAttribute("data-menu-id") || "snav");
+          detailsList.forEach(function (other) {
+            if (other !== d) other.open = false;
+          });
+          if (notif) notif.open = false;
+        }
+        syncHeaderDropdownOpenClasses();
       });
     });
     if (notif) {
       notif.addEventListener("toggle", function () {
-        syncNotifOpenClass();
+        syncHeaderDropdownOpenClasses();
         if (!notif.open) return;
         broadcastHeaderMenuOpen(notif.id || "notif");
         detailsList.forEach(function (other) {
@@ -524,11 +526,11 @@
     if (accountMenu && notif) {
       accountMenu.addEventListener("pointerenter", function () {
         if (notif.open) notif.open = false;
-        syncNotifOpenClass();
+        syncHeaderDropdownOpenClasses();
       });
       accountMenu.addEventListener("focusin", function () {
         if (notif.open) notif.open = false;
-        syncNotifOpenClass();
+        syncHeaderDropdownOpenClasses();
       });
     }
     function closeAllHeaderDropdowns() {
@@ -536,7 +538,7 @@
         d.open = false;
       });
       if (notif) notif.open = false;
-      syncNotifOpenClass();
+      syncHeaderDropdownOpenClasses();
     }
     document.addEventListener(
       "pointerdown",
@@ -566,7 +568,7 @@
       if (!payload || payload.src === localWindowId) return;
       closeAllHeaderDropdowns();
     });
-    syncNotifOpenClass();
+    syncHeaderDropdownOpenClasses();
     markSnavDetailsCurrentFromLocation();
   }
   if (document.readyState === "loading") {
@@ -851,7 +853,10 @@
     var kind = readKind(node);
     var to = readTarget(node);
     node.setAttribute("data-vc-count-visible", "true");
-    animateNode(node, 0, to, kind, readDuration(node));
+    var fromRaw = node.getAttribute("data-vc-count-current");
+    var from = normalizeValue(fromRaw, kind);
+    if (!Number.isFinite(from)) from = 0;
+    animateNode(node, from, to, kind, readDuration(node));
   }
 
   function createObserver() {

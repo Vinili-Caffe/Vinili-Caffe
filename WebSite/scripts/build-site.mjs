@@ -284,7 +284,7 @@ async function discordBotGet(path, botToken, attempt = 0) {
   return res;
 }
 
-/** Conteggi guild dal bot (allineati a Discord.js `guild.memberCount` in classifica). REST può esporre `member_count` o solo `approximate_member_count`. */
+/** Conteggi membri/boost da GET /guilds/:id?with_counts=true. Preferisci `approximate_member_count` (totale pubblico); `member_count` può essere più basso o non affidabile. */
 async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
   const gid = String(guildId || "").trim();
   const t = String(botToken || "").trim();
@@ -297,10 +297,10 @@ async function fetchGuildLiveStatsCountsFromBot(guildId, botToken) {
   const g = await res.json().catch(() => null);
   if (!g || typeof g !== "object") return null;
   const memberCount =
-    g.member_count != null && Number.isFinite(Number(g.member_count))
-      ? Math.floor(Number(g.member_count))
-      : g.approximate_member_count != null && Number.isFinite(Number(g.approximate_member_count))
-        ? Math.floor(Number(g.approximate_member_count))
+    g.approximate_member_count != null && Number.isFinite(Number(g.approximate_member_count))
+      ? Math.floor(Number(g.approximate_member_count))
+      : g.member_count != null && Number.isFinite(Number(g.member_count))
+        ? Math.floor(Number(g.member_count))
         : null;
   const boostCount =
     g.premium_subscription_count != null && Number.isFinite(Number(g.premium_subscription_count))

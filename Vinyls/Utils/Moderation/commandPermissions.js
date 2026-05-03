@@ -698,16 +698,21 @@ async function checkSlashPermission(interaction, options = {}) {
   }
 
   if (guildId && !onMainGuild) {
-    const allowed = await hasAllPermissionsWithLiveFallback(interaction, [PermissionFlagsBits.Administrator,]);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_permission",
-        requiredRoles: null,
-        channels: null,
-      };
+    const musicOnSponsor =
+      String(interaction.commandName || "").toLowerCase() === "music" &&
+      isAllowedGuildUfficiale(guildId);
+    if (!musicOnSponsor) {
+      const allowed = await hasAllPermissionsWithLiveFallback(interaction, [PermissionFlagsBits.Administrator,]);
+      if (options.returnDetails) {
+        return {
+          allowed,
+          reason: allowed ? null : "missing_permission",
+          requiredRoles: null,
+          channels: null,
+        };
+      }
+      return allowed;
     }
-    return allowed;
   }
 
   const data = loadPermissions();

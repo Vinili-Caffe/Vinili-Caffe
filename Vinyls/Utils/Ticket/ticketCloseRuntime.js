@@ -1,6 +1,11 @@
 const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, } = require("discord.js");
 const Ticket = require("../../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("./transcriptUtils");
+const { createTranscript, createTranscriptHtml, } = require("./transcriptUtils");
+const {
+  buildTicketTranscriptViewUrl,
+  prepareTicketTranscriptSecureFields,
+  buildTicketTranscriptActionRow,
+} = require("./ticketTranscriptSecure");
 const { getNextTicketId } = require("./ticketIdUtils");
 const { sendDm } = require("../noDmList");
 const IDs = require("../Config/ids");
@@ -146,7 +151,11 @@ async function closeTicket(targetInteraction, motivo, helpers) {
 
     const transcriptTXT = await createTranscript(targetInteraction.channel).catch(() => "");
     const transcriptHTML = await createTranscriptHtml(targetInteraction.channel).catch(() => "");
-    const transcriptHtmlPath = transcriptHTML ? await saveTranscriptHtml(targetInteraction.channel, transcriptHTML).catch(() => null) : null;
+    const secureT = await prepareTicketTranscriptSecureFields(targetInteraction.channel, transcriptHTML).catch(() => ({}));
+    const transcriptHtmlPath = secureT.transcriptHtmlPath || null;
+    const transcriptViewToken = secureT.transcriptViewToken || null;
+    const transcriptHtmlInline = secureT.transcriptHtmlInline || null;
+    const transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
 
     const existingNum = Number(ticketOpen.ticketNumber);
     let ticketNumber =
@@ -163,6 +172,9 @@ async function closeTicket(targetInteraction, motivo, helpers) {
           ticketNumber,
           transcript: transcriptTXT,
           transcriptHtmlPath: transcriptHtmlPath || null,
+          transcriptViewToken: transcriptViewToken || null,
+          transcriptHtmlInline: transcriptHtmlInline || null,
+          transcriptViewExpiresAt: transcriptViewExpiresAt || null,
           closeReason: motivo || null,
           claimedBy: ticketOpen.claimedBy || null,
           closeRequestedBy: null,
@@ -201,9 +213,9 @@ async function closeTicket(targetInteraction, motivo, helpers) {
     };
     const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
     const ratingRows = buildTicketRatingRows(String(ticket._id));
-    const transcriptRows = transcriptHtmlPath
-      ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`ticket_transcript:${ticket._id}`).setLabel("Visualizza Trascrizione").setStyle(ButtonStyle.Secondary).setEmoji("<:VC_file:1478515880722698300>"))]
-      : [];
+    const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
+    const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
+    const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
 
     let logSentMessage = null;
     if (logChannel?.isTextBased?.()) {

@@ -15,6 +15,7 @@ const path = require("path");
 const IDs = require("../../Utils/Config/ids");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { StanzaUserVoiceTotal } = require("../../Schemas/stanzaUserVoiceTotal");
+const { CustomRole } = require("../../../Vinyls/Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
@@ -81,6 +82,17 @@ const stanzaVisitorVoiceSession = new Map();
 
 function ownerKey(guildId, userId) {
   return `${String(guildId || "")}:${String(userId || "")}`;
+}
+
+/** Canale vocale registrato su CustomRole (+profile): non è una stanza temporanea. */
+async function channelIdIsLinkedCustomRolePrivateVoc(guildId, channelId) {
+  const gid = String(guildId || "").trim();
+  const cid = String(channelId || "").trim();
+  if (!gid || !/^\d{5,30}$/.test(cid)) return false;
+  const doc = await CustomRole.findOne({ guildId: gid, customVocChannelId: cid }, { customVocChannelId: 1 })
+    .lean()
+    .catch(() => null);
+  return Boolean(doc?.customVocChannelId && String(doc.customVocChannelId).trim() === cid);
 }
 
 function normalizeStanzaDiscordUserId(val) {
@@ -1375,10 +1387,15 @@ async function postStanzaPanel(guild, member, voiceChannel, textChannel, metaFor
   return { panelMessageId: msg?.id || null, startedAt };
 }
 
-async function teardownStanza(guild, channelId) {
+async function teardownStanza(guild, channelId, opts = {}) {
   const id = String(channelId || "");
   const meta = stanzaChannelMeta.get(id);
-  if (!meta) return;
+  if (!meta) return false;
+  const linkedProfileVoc = await channelIdIsLinkedCustomRolePrivateVoc(guild.id, id);
+  const preserveVoice = Boolean(opts?.preserveVoiceChannel) || linkedProfileVoc;
+  if (linkedProfileVoc) {
+    global.logger?.warn?.("[stanza] teardown: vocale collegata a CustomRole; non elimino il canale", id);
+  }
   await flushStanzaVisitorVoiceSessionsForChannel(guild.id, id);
   clearStanzaEmptyTeardownTimer(id);
   stanzaChannelMeta.delete(id);
@@ -1411,8 +1428,16 @@ async function teardownStanza(guild, channelId) {
   }
 
   const ch = guild.channels.cache.get(id) || (await guild.channels.fetch(id).catch(() => null));
-  if (ch?.deletable) await ch.delete("Stanza vuota o chiusura").catch(() => {});
+  if (!preserveVoice && ch?.deletable) await ch.delete("Stanza vuota o chiusura").catch(() => {});
+  else if (preserveVoice) {
+    const panelId = String(meta.panelMessageId || "").trim();
+    if (panelId && /^\d{5,30}$/.test(panelId) && ch?.messages) {
+      const pm = await ch.messages.fetch(panelId).catch(() => null);
+      if (pm?.deletable) await pm.delete("Rimozione pannello stanza (vocale profilo)").catch(() => {});
+    }
+  }
   persistStanzaSnapshotNow();
+  return preserveVoice;
 }
 
 async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
@@ -1456,12 +1481,19 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
     const existing =
       guild.channels.cache.get(existingId) || (await guild.channels.fetch(existingId).catch(() => null));
     if (existing?.isVoiceBased?.()) {
-      await member.voice.setChannel(existing).catch(() => {});
-      return;
+      if (await channelIdIsLinkedCustomRolePrivateVoc(guild.id, existingId)) {
+        stanzaOwnerToChannel.delete(okKey);
+        stanzaChannelMeta.delete(existingId);
+        persistStanzaSnapshotNow();
+      } else {
+        await member.voice.setChannel(existing).catch(() => {});
+        return;
+      }
+    } else {
+      stanzaOwnerToChannel.delete(okKey);
+      stanzaChannelMeta.delete(existingId);
+      persistStanzaSnapshotNow();
     }
-    stanzaOwnerToChannel.delete(okKey);
-    stanzaChannelMeta.delete(existingId);
-    persistStanzaSnapshotNow();
   }
 
   stanzaCreateLocks.add(uid);
@@ -1798,10 +1830,15 @@ async function tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec) {
   if (!meta || String(meta.guildId) !== String(guild.id)) return false;
   const voiceCh = await fetchStanzaVoiceChannel(guild, id);
   if (!voiceCh || !isVoiceChannelProbablyStanza(voiceCh)) return false;
+  if (await channelIdIsLinkedCustomRolePrivateVoc(guild.id, id)) return false;
   const ownerOw = voiceCh.permissionOverwrites.cache.get(meta.ownerId);
   if (!ownerOw?.allow?.has(PermissionsBitField.Flags.ManageChannels)) return false;
   stanzaChannelMeta.set(id, meta);
   stanzaOwnerToChannel.set(ownerKey(guild.id, meta.ownerId), id);
+  const humans = voiceCh.members.filter((m) => !m.user.bot);
+  if (humans.size === 0) {
+    scheduleStanzaEmptyTeardown(guild, id);
+  }
   return true;
 }
 
@@ -1859,6 +1896,7 @@ async function ensureStanzaMetaForOwnedVoiceChannel(guild, voiceCh, ownerId) {
   const uid = String(ownerId || "").trim();
   const id = String(voiceCh?.id || "");
   if (!uid || !id) return null;
+  if (await channelIdIsLinkedCustomRolePrivateVoc(guild.id, id)) return null;
   const ok = ownerKey(guild.id, uid);
   const existingMeta = stanzaChannelMeta.get(id);
   if (existingMeta && String(existingMeta.ownerId || "") === uid) {
@@ -1949,7 +1987,13 @@ async function tryDiscoverOwnerStanzaVoiceInGuild(guild, ownerUserId) {
     parentFilter,
     isVoiceChannelDiscoveryStanzaCandidate,
   );
-  let best = byAnchor[0];
+  let best = null;
+  for (const ch of byAnchor) {
+    if (!(await channelIdIsLinkedCustomRolePrivateVoc(guild.id, ch.id))) {
+      best = ch;
+      break;
+    }
+  }
   if (!best) {
     const renamed = collectOwnerStanzaVoiceCandidatesForDiscovery(
       guild,
@@ -1959,6 +2003,7 @@ async function tryDiscoverOwnerStanzaVoiceInGuild(guild, ownerUserId) {
     );
     const slice = renamed.slice(0, STANZA_DISCOVERY_RENAMED_PANEL_CHECK_CAP);
     for (const ch of slice) {
+      if (await channelIdIsLinkedCustomRolePrivateVoc(guild.id, ch.id)) continue;
       if (await voiceChannelHasBoundStanzaPanel(guild, ch)) {
         best = ch;
         break;
@@ -2067,31 +2112,42 @@ async function handleStanzaButton(interaction) {
     await interaction.deferReply({ flags: 64 }).catch(() => {});
     const vid = parsed.channelId;
     const voiceCh = await fetchStanzaVoiceChannel(guild, vid);
+    const profileVoc = await channelIdIsLinkedCustomRolePrivateVoc(guild.id, vid);
     await interaction
-      .editReply({ content: "💥 Eliminazione stanza e spostamento..." })
+      .editReply({
+        content: profileVoc
+          ? "🔧 Rimuovo il pannello stanza dalla vocale privata…"
+          : "💥 Eliminazione stanza e spostamento...",
+      })
       .catch(() => {});
     const me = guild.members.me;
     const canMove = Boolean(me?.permissions?.has(PermissionsBitField.Flags.MoveMembers));
     let moveTarget = null;
     let moveStats = { moved: 0, attempted: 0 };
-    if (voiceCh && canMove) {
+    if (!profileVoc && voiceCh && canMove) {
       moveTarget = await pickRandomTeardownMoveTarget(guild, vid);
       if (moveTarget) {
         moveStats = await moveStanzaOccupantsToChannel(voiceCh, moveTarget);
       }
     }
-    await teardownStanza(guild, vid);
-    let doneText = "✅ Stanza eliminata.";
-    if (voiceCh && !canMove) {
+    const preservedProfileVoc = await teardownStanza(guild, vid);
+    let doneText = preservedProfileVoc
+      ? "✅ Pannello stanza rimosso. La vocale è il **canale privato del profilo**: non è stata eliminata."
+      : "✅ Stanza eliminata.";
+    if (
+      !preservedProfileVoc &&
+      voiceCh &&
+      !canMove
+    ) {
       doneText =
         "✅ Stanza eliminata. Non ho potuto spostare gli utenti: al bot manca **Sposta membri**.";
-    } else if (voiceCh && canMove && !moveTarget) {
+    } else if (!preservedProfileVoc && voiceCh && canMove && !moveTarget) {
       doneText =
         "✅ Stanza eliminata. Le vocali di destinazione sono **piene**, **non trovate** o il ruolo **Member** non ha **Visualizza / Connetti** su quelle vocali: chi era in stanza non è stato spostato.";
-    } else if (voiceCh && moveTarget && moveStats.attempted > 0 && moveStats.moved === 0) {
+    } else if (!preservedProfileVoc && voiceCh && moveTarget && moveStats.attempted > 0 && moveStats.moved === 0) {
       doneText =
         "✅ Stanza eliminata. C'era una vocale di destinazione libera, ma **nessuno** è stato spostato (permessi Discord sul canale o sul bot).";
-    } else if (voiceCh && moveStats.moved > 0) {
+    } else if (!preservedProfileVoc && voiceCh && moveStats.moved > 0) {
       doneText =
         moveStats.moved === moveStats.attempted
           ? "✅ Stanza eliminata. Gli utenti in stanza sono stati spostati in una delle vocali di destinazione."

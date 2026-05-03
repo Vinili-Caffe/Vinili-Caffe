@@ -25,6 +25,13 @@ const {
   guildMemberDisplayAvatarUrlDynamic,
   accountUsername,
 } = require("../Utils/Discord/guildDiscordIdentity");
+const clientConfig = require("../config.json");
+const {
+  resolveValidVerifyRoleIds,
+  resolveRequiredVerifyRoleIds,
+  isAlreadyVerifiedInThisGuild,
+} = require("../Utils/Interaction/verifyUtils");
+const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -387,8 +394,8 @@ function buildDmWelcomeEmbed(member) {
         "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813>",
         "<a:VC_PepeSmoke:1331590685673132103>[⭑.ᐟ](<https://discord.gg/SzBwnxHXNv>)<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> & <a:VC_PepeExcited:1331621719093284956>[⭑.ᐟ](<https://discord.gg/z3EXtJwvQH>)<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937>",
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102239094767699>",
-        "------------------------------",
-        "<a:VC_Exclamation:1482534702077444217> Verify Yourself: <https://discord.com/channels/1329080093599076474/1442569059983163403>",
+        //"------------------------------",
+        //"<a:VC_Exclamation:1482534702077444217> Verify Yourself: <https://discord.com/channels/1329080093599076474/1442569059983163403>",
       ].join("\n"),
     )
     .setThumbnail(dmGuildIcon || undefined)
@@ -1384,6 +1391,59 @@ async function runDeferredJoinAnnouncements(member) {
   }
 }
 
+async function maybeAssignVerifyRolesOnJoinIfEnabled(member) {
+  if (!clientConfig?.verification?.assignVerifyRolesOnMemberJoin) return;
+  if (!member?.guild || member.user?.bot) return;
+  const guild = member.guild;
+  if (isAlreadyVerifiedInThisGuild(member, guild.id)) {
+    try {
+      const record = await upsertVerifiedMember(guild.id, member.id, new Date());
+      await applyTenureForMember(member, record);
+    } catch (err) {
+      global.logger?.warn?.("[guildMemberAdd] auto-verify tenure (already verified):", err?.message || err);
+    }
+    return;
+  }
+  const validVerifyRoleIds = await resolveValidVerifyRoleIds(guild);
+  const requiredVerifyRoleIds = resolveRequiredVerifyRoleIds(guild);
+  if (!validVerifyRoleIds.length) return;
+  const rolesToAdd = validVerifyRoleIds.filter((id) => !member.roles.cache.has(id));
+  if (!rolesToAdd.length) {
+    try {
+      const record = await upsertVerifiedMember(guild.id, member.id, new Date());
+      await applyTenureForMember(member, record);
+    } catch (err) {
+      global.logger?.warn?.("[guildMemberAdd] auto-verify tenure (no new roles):", err?.message || err);
+    }
+    return;
+  }
+  const memberAfter = await addRolesAndGetMember(guild, member.id, rolesToAdd);
+  if (!memberAfter) {
+    global.logger?.warn?.("[guildMemberAdd] auto-verify: addRolesAndGetMember failed", guild.id, member.id);
+    return;
+  }
+  const missingRequired = requiredVerifyRoleIds.filter((id) => !memberAfter.roles.cache.has(id));
+  if (missingRequired.length) {
+    global.logger?.warn?.(
+      "[guildMemberAdd] auto-verify: required roles missing after add",
+      guild.id,
+      member.id,
+      missingRequired.join(","),
+    );
+    return;
+  }
+  const missingOptional = rolesToAdd.filter((id) => !memberAfter.roles.cache.has(id));
+  if (missingOptional.length) {
+    global.logger?.warn?.("[guildMemberAdd] auto-verify: optional roles not assigned", guild.id, missingOptional.join(","));
+  }
+  try {
+    const record = await upsertVerifiedMember(guild.id, memberAfter.id, new Date());
+    await applyTenureForMember(memberAfter, record);
+  } catch (err) {
+    global.logger?.warn?.("[guildMemberAdd] auto-verify upsert/tenure:", err?.message || err);
+  }
+}
+
 module.exports = {
   name: "guildMemberAdd",
   kickForJoinGate,
@@ -1518,6 +1578,13 @@ module.exports = {
         global.logger?.warn?.("[guildMemberAdd] sponsorVerifiedRequiresMain:", err?.message || err);
       });
 
+      await maybeAssignVerifyRolesOnJoinIfEnabled(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] assignVerifyRolesOnMemberJoin:", err?.message || err);
+      });
+      const memberAfterVerifyJoin = clientConfig?.verification?.assignVerifyRolesOnMemberJoin
+        ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member)
+        : member;
+
       if (isCoreExempt) {
         await updateMemberCounterNow(member.guild).catch(() => { });
         scheduleMemberCounterRefresh(member.guild, {
@@ -1531,24 +1598,24 @@ module.exports = {
       let info = null;
       let canAnnounce = true;
       if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
-        canAnnounce = await shouldSendPublicMemberAnnouncement(member);
-        if (!canAnnounce) await markJoinAnnouncePending(member);
-        else await clearJoinAnnouncePending(member);
+        canAnnounce = await shouldSendPublicMemberAnnouncement(memberAfterVerifyJoin);
+        if (!canAnnounce) await markJoinAnnouncePending(memberAfterVerifyJoin);
+        else await clearJoinAnnouncePending(memberAfterVerifyJoin);
 
         const welcomeChannelId = IDs.channels.chat;
-        let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
-        if (!welcomeChannel && member.client) {
-          const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
+        let welcomeChannel = await resolveGuildChannel(memberAfterVerifyJoin.guild, welcomeChannelId);
+        if (!welcomeChannel && memberAfterVerifyJoin.client) {
+          const mainGuild = await getClientGuildCached(memberAfterVerifyJoin.client, IDs.guilds.main);
           welcomeChannel = mainGuild ? await getGuildChannelCached(mainGuild, welcomeChannelId) : null;
         }
         if (!welcomeChannel) {
           const detail = {
-            guildId: String(member.guild?.id || ""),
+            guildId: String(memberAfterVerifyJoin.guild?.id || ""),
             channelId: String(welcomeChannelId || ""),
-            cached: Boolean(member.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
+            cached: Boolean(memberAfterVerifyJoin.guild?.channels?.cache?.has?.(String(welcomeChannelId || ""))),
           };
           try {
-            const fetched = await member.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
+            const fetched = await memberAfterVerifyJoin.guild.channels.fetch(String(welcomeChannelId)).catch((err) => {
               const code = err?.code || err?.rawError?.code || null;
               global.logger?.warn?.("[guildMemberAdd] Welcome channel fetch failed:", {
                 ...detail,
@@ -1572,15 +1639,15 @@ module.exports = {
         if (welcomeChannel && canAnnounce) {
           await welcomeChannel
             .send(applyDefaultFooterToEmbeds({
-              content: `Ciao ${member.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
-              embeds: [buildWelcomeEmbed(member)],
-            }, member.guild))
+              content: `Ciao ${memberAfterVerifyJoin.user}, benvenuto/a! <@&${IDs.roles.Staff}> <a:VC_HeartOrange:1448673443762405386>`,
+              embeds: [buildWelcomeEmbed(memberAfterVerifyJoin)],
+            }, memberAfterVerifyJoin.guild))
             .catch(() => { });
 
-          if (member.client) setWelcomeContextActive(member.guild.id, member.client);
+          if (memberAfterVerifyJoin.client) setWelcomeContextActive(memberAfterVerifyJoin.guild.id, memberAfterVerifyJoin.client);
 
-          info = await resolveInviteInfo(member).catch(() => null);
-          await announceInviteInfo(member, welcomeChannel, info);
+          info = await resolveInviteInfo(memberAfterVerifyJoin).catch(() => null);
+          await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
         }
       }
 

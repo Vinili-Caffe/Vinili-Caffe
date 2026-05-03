@@ -145,7 +145,7 @@
 
     var top3 = allRows.slice(0, 3);
     var remaining = allRows.slice(3);
-    byId("vc-vote-top-chip").textContent = "Top " + String(allRows.length || 0) + (remaining.length ? " (+" + remaining.length + ")" : "");
+    byId("vc-vote-top-chip").textContent = "Top " + String(allRows.length || 0);
     byId("vc-vote-top3").innerHTML = top3
       .map(function (row, idx) {
         return podiumRowHtml(row, idx + 1);
@@ -160,7 +160,6 @@
     var moreWrap = byId("vc-vote-more");
     var actions = byId("vc-vote-more-actions");
     var pager = byId("vc-vote-pager");
-    var badge = byId("vc-vote-more-badge");
     var loadBtn = byId("vc-vote-load-more");
     var minimizeBtn = byId("vc-vote-minimize");
     var pagerFill = byId("vc-vote-pager-fill");
@@ -174,9 +173,17 @@
 
     if (remaining.length > 0) {
       var left = Math.max(0, remaining.length - loadedExtra);
-      badge.textContent = "+" + String(Math.min(EXTRA_STEP, left || EXTRA_STEP));
-      loadBtn.hidden = loadedExtra >= remaining.length;
+      var nextChunk = Math.min(EXTRA_STEP, left);
+      loadBtn.hidden = left === 0;
       minimizeBtn.hidden = loadedExtra === 0;
+      if (left > 0) {
+        loadBtn.innerHTML =
+          '<i class="fa fa-angle-down" aria-hidden="true"></i> Carica altri ' +
+          String(nextChunk) +
+          ' <span class="vc-vote-more-badge" id="vc-vote-more-badge">+' +
+          String(nextChunk) +
+          "</span>";
+      }
       pagerFill.style.width = (remaining.length ? (visible.length / remaining.length) * 100 : 0).toFixed(2) + "%";
       pagerLabel.textContent = String(visible.length) + " / " + String(remaining.length);
     } else if (loadBtn && minimizeBtn && pagerFill && pagerLabel) {

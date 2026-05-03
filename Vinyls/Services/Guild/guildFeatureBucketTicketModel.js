@@ -263,6 +263,16 @@ const Ticket = {
     });
   },
 
+  findOneByTranscriptViewToken(token) {
+    const t = String(token || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(t)) return Promise.resolve(null);
+    return GuildFeatureBucket.findOne({ "tickets.transcriptViewToken": t }).then((bucket) => {
+      if (!bucket?.tickets) return null;
+      const sub = bucket.tickets.find((x) => String(x.transcriptViewToken || "").toLowerCase() === t);
+      return sub || null;
+    });
+  },
+
   findOne(filter, projection) {
     if (!filter || typeof filter !== "object") return Promise.resolve(null);
     return new TicketFindOneQuery(filter, projection);

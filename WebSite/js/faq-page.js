@@ -31,7 +31,7 @@
       tag: "Livelli",
       icon: "fa-level-up",
       bodyHtml:
-        "Ogni messaggio in chat e il tempo passato nelle vocali fanno salire l’EXP. In vocale l'esperienza guadagnata è il doppio. Su <a href=\"/perks/\">Perks</a> trovi cosa si sblocca coi vari livelli; Le classifiche sono in <a href=\"/user/\">Community</a>.",
+        "Ogni messaggio in chat e il tempo passato nelle vocali fanno salire l’EXP. In vocale l'esperienza guadagnata è il doppio. Su <a href=\"/perks/\">Perks</a> trovi cosa si sblocca coi vari livelli. Le classifiche sono in <a href=\"/user/\">Community</a>.",
     },
     {
       category: "livelli",

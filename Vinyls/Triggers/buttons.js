@@ -157,7 +157,7 @@ async function handleStaffButtons(interaction) {
   }
 
   if (interaction.customId == "sanzioni") {
-    const introText = "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ <#1442569243626307634>.";
+    const introText = "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.";
     const limitsText = [
       "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**",
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",

@@ -108,7 +108,9 @@ async function buildChannelOverviewPayload(guild, channel, lookbackDays, view, o
   });
 
   const components = buildChannelComponents(ownerId, channelId, safeLookback, view);
-  const file = new AttachmentBuilder(buffer, { name: `channel-${channelId}-${safeLookback}d.png` });
+  const overviewExt =
+    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
+  const file = new AttachmentBuilder(buffer, { name: `channel-${channelId}-${safeLookback}d.${overviewExt}` });
   return { files: [file], components };
 }
 

@@ -1,6 +1,11 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
 const Ticket = require("../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, saveTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
+const { createTranscript, createTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
+const {
+  buildTicketTranscriptViewUrl,
+  prepareTicketTranscriptSecureFields,
+  buildTicketTranscriptActionRow,
+} = require("../Utils/Ticket/ticketTranscriptSecure");
 const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
 const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
 const {
@@ -172,10 +177,17 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
 
     let transcriptTXT = "";
     let transcriptHtmlPath = null;
+    let transcriptViewToken = null;
+    let transcriptHtmlInline = null;
+    let transcriptViewExpiresAt = null;
     if (channel) {
       transcriptTXT = await createTranscript(channel).catch(() => "");
       const transcriptHTML = await createTranscriptHtml(channel).catch(() => "");
-      transcriptHtmlPath = transcriptHTML ? await saveTranscriptHtml(channel, transcriptHTML).catch(() => null) : null;
+      const secureT = await prepareTicketTranscriptSecureFields(channel, transcriptHTML).catch(() => ({}));
+      transcriptHtmlPath = secureT.transcriptHtmlPath || null;
+      transcriptViewToken = secureT.transcriptViewToken || null;
+      transcriptHtmlInline = secureT.transcriptHtmlInline || null;
+      transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
     }
 
     let ticketNumber = Number(ticket.ticketNumber || 0);
@@ -189,6 +201,9 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
           ticketNumber,
           transcript: transcriptTXT,
           transcriptHtmlPath: transcriptHtmlPath || null,
+          transcriptViewToken: transcriptViewToken || null,
+          transcriptHtmlInline: transcriptHtmlInline || null,
+          transcriptViewExpiresAt: transcriptViewExpiresAt || null,
           closeReason,
           closedAt: new Date(),
           closedBy: member.client.user?.id || null,
@@ -209,9 +224,9 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
         guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || guild?.iconURL?.({ size: 128 }) || null,
       };
       const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
-      const transcriptRows = transcriptHtmlPath
-        ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`ticket_transcript:${ticket._id}`).setLabel("Visualizza Trascrizione").setStyle(ButtonStyle.Secondary).setEmoji("<:VC_file:1478515880722698300>"))]
-        : [];
+      const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
+      const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
+      const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
       const logSentMessage = await sendTranscriptWithBrowserLink(logChannel, { embeds: [closeEmbed] }, false, transcriptRows).catch(() => null);
       if (logSentMessage?.id && logChannel?.id) {
         await Ticket.updateOne(

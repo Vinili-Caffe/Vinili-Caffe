@@ -8,6 +8,20 @@ logging:
   request:
     enabled: false
 
+plugins:
+  lavasrc:
+    providers:
+      - "ytsearch:\"%ISRC%\""
+      - "ytsearch:%QUERY%"
+    sources:
+      spotify: true
+    spotify:
+      clientId: "5e7d3614e8d94e008e0917f2e230d89b"
+      clientSecret: "4e0ce68e108d423592624a13cd17efeb"
+      countryCode: "IT"
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+
 lavalink:
   server:
     password: "youshallnotpass"
@@ -19,4 +33,6 @@ lavalink:
       youtube: false
   plugins:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.0"
+      repository: "https://maven.lavalink.dev/releases"
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.7.3"
       repository: "https://maven.lavalink.dev/releases"

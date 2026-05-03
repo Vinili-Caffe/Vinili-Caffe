@@ -3838,6 +3838,25 @@ function buildTimeoutHangmanEmbed(word) {
     );
 }
 
+function buildHangmanLossEmbed(word) {
+  return new EmbedBuilder()
+    .setColor("#ED4245")
+    .setDescription(
+      `<a:VC_pixeltime:1482535344103620771> Errori esauriti! La parola era **${word}**.`,
+    );
+}
+
+async function finalizeHangmanLoss(message, client, cfg, game) {
+  recordNoParticipationIfNeeded(cfg.channelId, game);
+  if (game.timeout) clearTimeout(game.timeout);
+  if (game.hintTimeout) clearTimeout(game.hintTimeout);
+  activeGames.delete(cfg.channelId);
+  await message.channel
+    .send({ embeds: [buildHangmanLossEmbed(String(game.word || ""))] })
+    .catch(() => {});
+  await clearActiveGame(client, { ...cfg, guildId: message.guild.id });
+}
+
 function buildTimeoutItalianGkEmbed(answer) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -6761,6 +6780,11 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "hangman") {
+    const maxMisses = Number(game.maxMisses || 7);
+    if (Number(game.misses || 0) >= maxMisses) {
+      await finalizeHangmanLoss(message, client, cfg, game);
+      return true;
+    }
     const normalized = normalizeCountryName(contentForGuess);
     if (!normalized) return false;
     const guessParts = normalized.split(" ").filter(Boolean);
@@ -6769,7 +6793,6 @@ async function handleMinigameMessage(message, client) {
     const wordNorm = normalizeCountryName(String(game.word || ""));
     const userId = String(message.author?.id || "");
     if (!userId) return false;
-    const maxMisses = Number(game.maxMisses || 7);
     const userMisses = game.userMisses && typeof game.userMisses === "object" ? game.userMisses : {};
     game.userMisses = userMisses;
     const currentUserMisses = Number(userMisses[userId] || 0);
@@ -6784,9 +6807,11 @@ async function handleMinigameMessage(message, client) {
         ? await channel.messages.fetch(game.gameMessageId).catch(() => null)
         : null;
       if (!gameMsg) return;
+      const hmMax = Number(game.maxMisses || 7);
+      const hmErr = Math.min(hmMax, Number(game.misses || 0));
       const hangmanSolvedAttachment = buildPromptImageAttachment(
         "Impiccato",
-        [shownWord, `Tentativi per utente: ${Number(game.maxMisses || 7)}`],
+        [shownWord, `Errori: ${hmErr}/${hmMax}`],
         "hangman",
       );
       const hangmanSolvedEmbed = buildHangmanEmbed(
@@ -6836,7 +6861,10 @@ async function handleMinigameMessage(message, client) {
     if (guessText.length === 1 && /^[a-z0-9]$/.test(guessText)) {
       const letter = guessText;
       guessHandled = true;
-      if (guessed.has(letter)) return true;
+      if (guessed.has(letter)) {
+        await message.delete().catch(() => {});
+        return true;
+      }
       guessed.add(letter);
       game.guessedLetters = Array.from(guessed.values());
       const isCorrectLetter = wordNorm && wordNorm.includes(letter);
@@ -6868,6 +6896,11 @@ async function handleMinigameMessage(message, client) {
       return true;
     }
 
+    if (Number(game.misses || 0) >= maxMisses) {
+      await finalizeHangmanLoss(message, client, cfg, game);
+      return true;
+    }
+
     await saveActiveGame(client, cfg, {
       type: "hangman",
       target: JSON.stringify({
@@ -6884,7 +6917,11 @@ async function handleMinigameMessage(message, client) {
     });
 
     const maskedWord = maskHangmanWord(game.word, guessed);
-    const hangmanUpdateAttachment = buildPromptImageAttachment("Impiccato", [maskedWord, `Tentativi per utente: ${Number(game.maxMisses || 7)}`,
+    const hmMaxU = Number(game.maxMisses || 7);
+    const hmErrU = Math.min(hmMaxU, Number(game.misses || 0));
+    const hangmanUpdateAttachment = buildPromptImageAttachment("Impiccato", [
+      maskedWord,
+      `Errori: ${hmErrU}/${hmMaxU}`,
     ],
       "hangman",
     );

@@ -74,6 +74,30 @@ function guildMemberDisplayAvatarUrlDynamic(memberLike, { size = 256 } = {}) {
 }
 
 /**
+ * PNG statico (CDN): per canvas/GIF senza decodifica GIF frame-by-frame.
+ * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string|null}
+ */
+function userAvatarUrlStatic(userLike, { size = 256 } = {}) {
+  const user = userLike?.user || userLike;
+  if (!user || typeof user.displayAvatarURL !== "function") return null;
+  return user.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
+}
+
+/**
+ * @param {import("discord.js").GuildMember|import("discord.js").User|null|undefined} memberLike
+ * @param {{ size?: number }} [opts]
+ * @returns {string|null}
+ */
+function guildMemberDisplayAvatarUrlStatic(memberLike, { size = 256 } = {}) {
+  if (memberLike?.guild && typeof memberLike.displayAvatarURL === "function") {
+    return memberLike.displayAvatarURL({ size, extension: "png", forceStatic: true }) || null;
+  }
+  return userAvatarUrlStatic(memberLike, { size });
+}
+
+/**
  * Username Discord (handle), non `displayName` / nickname.
  * @param {import("discord.js").User|import("discord.js").GuildMember|null|undefined} userLike
  * @returns {string}
@@ -97,7 +121,9 @@ function guildFirstThumbnailUrl(guild, userLike, { size = 256 } = {}) {
 module.exports = {
   guildIconUrl,
   userAvatarUrlDynamic,
+  userAvatarUrlStatic,
   guildMemberDisplayAvatarUrlDynamic,
+  guildMemberDisplayAvatarUrlStatic,
   accountUsername,
   guildFirstThumbnailUrl,
 };

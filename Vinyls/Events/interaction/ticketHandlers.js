@@ -12,6 +12,7 @@ const { createTicketsCategory: runtimeCreateTicketsCategory } = require("../../U
 const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtils");
 const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
 const { resetTicketOpenPanelAfterInteraction } = require("../../Utils/Ticket/ticketOpenMenuComponents");
+const { buildTicketTranscriptViewUrl, transcriptViewExpired, } = require("../../Utils/Ticket/ticketTranscriptSecure");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -646,8 +647,22 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
 
+        const viewUrl =
+          !transcriptViewExpired(ticketDoc) ? buildTicketTranscriptViewUrl(ticketDoc.transcriptViewToken) : "";
+        if (viewUrl) {
+          const transcriptEmbed = new EmbedBuilder()
+            .setTitle("<:VC_file:1478515880722698300> • **__TRANSCRIPT DEL TICKET__**")
+            .setDescription(
+              `<:VC_Ticket:1482535175283019888> Transcript ticket **#${ticketDoc.ticketNumber || ticketDoc._id}** — apri nel browser:\n${viewUrl}\n\n<:VC_Attention:1482534443632558151> Il link richiede login Discord: possono leggerlo solo tu (autore del ticket) o lo staff.`,
+            )
+            .setColor("#6f4e37");
+          await safeReply(interaction, { embeds: [transcriptEmbed], flags: 1 << 6 });
+          return true;
+        }
+
         const transcriptHtmlPath = String(ticketDoc.transcriptHtmlPath || "");
-        if (!transcriptHtmlPath || !fs.existsSync(transcriptHtmlPath)) {
+        const inlineHtml = typeof ticketDoc.transcriptHtmlInline === "string" ? ticketDoc.transcriptHtmlInline : "";
+        if ((!transcriptHtmlPath || !fs.existsSync(transcriptHtmlPath)) && !inlineHtml) {
           await safeReply(interaction, {
             embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Info", "<:vegax:1443934876440068179> Transcript HTML non disponibile.")],
             flags: 1 << 6,
@@ -661,16 +676,10 @@ async function handleTicketInteraction(interaction) {
             `<:VC_Ticket:1482535175283019888> In allegato il file HTML del transcript del ticket **#${ticketDoc.ticketNumber || ticketDoc._id}**.\n\n<:VC_open:1478517277279129712> Apri il file nel browser per visualizzare la conversazione.`,
           )
           .setColor("#6f4e37");
-        await safeReply(interaction, {
-          embeds: [transcriptEmbed],
-          files: [
-            {
-              attachment: transcriptHtmlPath,
-              name: `transcript_ticket_${ticketDoc.ticketNumber || ticketDoc._id}.html`,
-            },
-          ],
-          flags: 1 << 6,
-        });
+        const files = transcriptHtmlPath && fs.existsSync(transcriptHtmlPath)
+          ? [{ attachment: transcriptHtmlPath, name: `transcript_ticket_${ticketDoc.ticketNumber || ticketDoc._id}.html` }]
+          : [{ attachment: Buffer.from(inlineHtml, "utf8"), name: `transcript_ticket_${ticketDoc.ticketNumber || ticketDoc._id}.html` }];
+        await safeReply(interaction, { embeds: [transcriptEmbed], files, flags: 1 << 6 });
         return true;
       }
       if (interaction.customId === "claim_ticket") {
@@ -1192,10 +1201,7 @@ async function handleTicketInteraction(interaction) {
         const canClose = await runtimeEnsureClosableTicketOrReply({ interaction, safeReply, makeErrorEmbed, ticketDoc, highStaff: isHighStaffActor(), });
         if (!canClose) return true;
         try {
-          await interaction
-            .deferReply({ flags: 1 << 6 })
-            .catch(() => { })
-            .catch(() => { });
+          await interaction.deferReply().catch(() => { });
         } catch (err) {
           global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
         }
@@ -1378,10 +1384,7 @@ async function handleTicketInteraction(interaction) {
       String(interaction.customId || "").startsWith("modal_close_ticket")
     ) {
       try {
-        await interaction
-          .deferReply({ flags: 1 << 6 })
-          .catch(() => { })
-          .catch(() => { });
+        await interaction.deferReply().catch(() => { });
       } catch (err) {
         global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
       }

@@ -41,7 +41,6 @@ const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/We
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
 const IDs = require("../Utils/Config/ids");
-const { refreshLastTwoBoostAnnounceEmbedsOnStartup } = require("../Utils/Community/boostAnnounceEmbeds");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
@@ -751,6 +750,13 @@ module.exports = {
 
     logBotReady(client, readyStartedAt);
 
+    try {
+      const { initLavalinkMusicIfEnabled } = require("../Services/Music/lavalinkMusicService");
+      initLavalinkMusicIfEnabled(client);
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] init:", err?.message || err);
+    }
+
     void processPendingPrefixCommands(client).catch((err) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
     void processPendingCountingMessages(client).catch((err) => global.logger?.warn?.("[READY] counting catch-up:", err?.message || err));
 
@@ -772,13 +778,6 @@ module.exports = {
         void runStartupPanels(client, "ready-retry").catch(() => {});
       }, STARTUP_PANELS_RETRY_MS);
       retryPanels.unref?.();
-      void refreshLastTwoBoostAnnounceEmbedsOnStartup(client).then((r) => {
-        if (r?.updated > 0) {
-          global.logger?.info?.(`[BOOST] Aggiornati ${r.updated} annunci boost (ultimi messaggi) al riavvio.`);
-        }
-      }).catch((err) => {
-        global.logger?.warn?.("[BOOST] Aggiornamento embed annunci al riavvio fallito:", err?.message || err);
-      });
     }
 
     const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";

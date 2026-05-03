@@ -18,6 +18,11 @@
   --vc-header-ctrl-border: rgba(212, 168, 136, 0.28);
   --vc-header-ctrl-border-hover: rgba(212, 168, 136, 0.55);
   --vc-header-ctrl-blur: 16px;
+  /* Menu header: base coprente + blur (evita “solo trasparenza” se il backdrop fallisce) */
+  --vc-header-menu-frost-blur: 48px;
+  --vc-header-menu-frost-bg:
+    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.16), transparent 50%),
+    linear-gradient(180deg, rgba(28, 20, 15, 0.9), rgba(10, 8, 6, 0.94));
   /* Palette “supporto” (hero donazioni: smeraldo + teal su blu notte) */
   --vc-support-hero-border: rgba(110, 231, 183, 0.12);
   --vc-support-hero-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
@@ -46,6 +51,25 @@ html {
   scrollbar-color: #6b4e3d #140f0c;
   min-height: 100%;
   cursor: url("../images/cursors/vc-cursor-vinyl.svg") 16 16, auto;
+}
+
+/* Vetro: blur solo sui pannelli menu (dropdown), non sullo sfondo della pagina */
+header .vc-header-snav .vc-snav-details[open] .vc-snav-panel,
+header .vc-header-bar details.vc-notif-dropdown[open] .vc-notif-panel,
+header .vc-header-bar .discord-account-menu:hover .discord-account-popover,
+header .vc-header-bar .discord-account-menu:focus-within .discord-account-popover {
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(175%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(175%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header .vc-header-snav .vc-snav-details[open] .vc-snav-panel,
+  header .vc-header-bar details.vc-notif-dropdown[open] .vc-notif-panel,
+  header .vc-header-bar .discord-account-menu:hover .discord-account-popover,
+  header .vc-header-bar .discord-account-menu:focus-within .discord-account-popover {
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
 }
 
 body {
@@ -164,12 +188,16 @@ html::-webkit-scrollbar-thumb:hover {
       rgba(0, 0, 0, 0.05) 3px);
 }
 
-body.vc-body--home.vc-body {
+/* Stessi “token” smeraldo/teal della home: in realtà panna/sabbia così non spunta il verde sulle pagine interne (header, menu, glow, ecc.). */
+body.vc-body {
   --vc-reviews-emerald-rgb: 234, 214, 187;
   --vc-reviews-teal-rgb: 176, 138, 104;
   --vc-reviews-glow-rgb: 212, 168, 136;
   --vc-unified-emerald: #ead6bb;
   --vc-unified-emerald-rgb: 234, 214, 187;
+}
+
+body.vc-body--home.vc-body {
   background-image:
     radial-gradient(ellipse 96% 72% at 84% 4%, rgba(244, 224, 196, 0.24), transparent 50%),
     radial-gradient(ellipse 102% 84% at 10% 90%, rgba(111, 78, 55, 0.34), transparent 58%),
@@ -2007,7 +2035,8 @@ html.vc-session-verify-pending::before {
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* none: translateY(0) lascia comunque transform attivo e rompe backdrop-filter nei menu in header */
+    transform: none;
   }
 }
 
@@ -2020,7 +2049,7 @@ html.vc-session-verify-pending::before {
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -2088,8 +2117,8 @@ html.vc-session-verify-pending::before {
   transform: translateY(-1px);
 }
 
-/* Glass: backdrop-filter su shell, card e menu (variabili in :root) */
-.vc-body :is(section, article, div, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"]:not([data-vc-no-auto-blur]) {
+/* Glass: backdrop-filter su utility bg con opacità (es. bg-white/5). Esclusa .vc-nav-shell: il blur sulla shell impedisce il backdrop-filter dei menu sotto. */
+.vc-body :is(div:not(.vc-nav-shell), section, article, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"]:not([data-vc-no-auto-blur]) {
   backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(140%);
   -webkit-backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(140%);
 }
@@ -2136,11 +2165,11 @@ body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
   max-width: none !important;
   width: 100%;
   border-radius: 0;
-  background: transparent !important;
+  background: rgba(8, 6, 5, 0.78);
   border-color: rgba(var(--vc-sand-rgb), 0.22);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(var(--vc-sand-rgb), 0.06);
+    0 8px 40px rgba(0, 0, 0, 0.48),
+    0 0 48px rgba(212, 168, 136, 0.07);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -3015,20 +3044,16 @@ a.vc-header-legal-pill[aria-current="page"] {
 
 .vc-support-intro-shell .vc-brand-glow .text-emerald-300 {
   color: rgba(232, 201, 168, 0.94) !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55) !important;
-  letter-spacing: normal;
+  text-shadow: none !important;
+  letter-spacing: inherit;
 }
 
-/* Micro-fix solo su "Caffè": chiude la fessura subpixel tra le due "f". */
+/* "Caffè": stesso tracking del titolo (niente crenatura extra) e colore pieno senza alone. */
 body.vc-body--home .vc-support-intro-shell .vc-brand-glow .vc-hero-brand-caffe {
-  letter-spacing: -0.072em;
-  font-feature-settings: "liga" 1, "kern" 1;
-  font-kerning: normal;
-  /* Copia orizzontale sullo stesso colore: riempie la “cicatrice” 1px senza alone largo. */
-  text-shadow:
-    0.55px 0 0 rgba(232, 201, 168, 0.99),
-    -0.55px 0 0 rgba(232, 201, 168, 0.99),
-    0 1px 2px rgba(0, 0, 0, 0.55) !important;
+  letter-spacing: inherit;
+  text-shadow: none !important;
+  color: inherit;
+  font-feature-settings: normal;
 }
 
 .vc-hero-about {
@@ -4165,21 +4190,17 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   padding: 0.65rem;
   border-radius: 1.15rem;
   border: 1px solid rgba(var(--vc-sand-rgb), 0.26);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
+  background: var(--vc-header-menu-frost-bg);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transform: translateY(-0.45rem) scale(0.97);
-  transform-origin: top right;
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
+  transform: none;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
 }
 
 .discord-account-popover::before {
@@ -4192,14 +4213,14 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
   transform: rotate(45deg);
   border-left: 1px solid rgba(var(--vc-sand-rgb), 0.28);
   border-top: 1px solid rgba(var(--vc-sand-rgb), 0.28);
-  background: rgba(40, 28, 20, 0.45);
+  background: rgba(18, 13, 10, 0.94);
 }
 
 .discord-account-menu:hover .discord-account-popover,
 .discord-account-menu:focus-within .discord-account-popover {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
 }
 
 .discord-account-popover__head {
@@ -4274,8 +4295,8 @@ body.vc-body header .vc-notif-summary.vc-icon-btn:hover {
 html.vc-notif-dropdown-open .discord-account-menu:hover .discord-account-popover,
 html.vc-notif-dropdown-open .discord-account-menu:focus-within .discord-account-popover {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transform: translateY(-0.45rem) scale(0.97);
 }
 
 .discord-account-popover__item--danger:hover,
@@ -5399,7 +5420,9 @@ body.vc-body.vc-sponsor-page .vc-sponsor-embed--popular:hover {
 .vc-mobile-nav-drawer__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(2, 6, 23, 0.62);
+  background: rgba(2, 6, 23, 0.52);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
 }
 
 .vc-mobile-nav-drawer__panel {
@@ -5999,23 +6022,29 @@ a.vc-snav-item[href*="sponsor"] svg {
   position: absolute;
   top: calc(100% + 0.35rem);
   left: 50%;
-  transform: translateX(-50%);
+  translate: -50% 0;
+  transform: none;
   min-width: 13rem;
   padding: 0.4rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(var(--vc-sand-rgb), 0.26);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  background: var(--vc-header-menu-frost-bg);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
   box-shadow:
     0 18px 48px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(0, 0, 0, 0.35),
     0 0 32px rgba(var(--vc-reviews-glow-rgb), 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   z-index: 100;
-  overflow: clip;
+  overflow: visible;
+}
+
+@supports not (translate: 0) {
+  .vc-snav-panel {
+    translate: unset;
+    transform: translateX(-50%);
+  }
 }
 
 .vc-snav-panel::before {
@@ -6138,17 +6167,15 @@ a.vc-snav-item[href*="sponsor"] svg {
   max-width: min(22rem, calc(100vw - 2rem));
   border-radius: 1rem;
   border: 1px solid rgba(var(--vc-sand-rgb), 0.26);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  background: var(--vc-header-menu-frost-bg);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
   box-shadow:
     0 18px 48px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(0, 0, 0, 0.35),
     0 0 36px rgba(var(--vc-reviews-glow-rgb), 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  overflow: clip;
+  overflow: visible;
   z-index: 130;
 }
 
@@ -6670,11 +6697,10 @@ a.vc-snav-item[href*="sponsor"] svg {
   }
 }
 
-/* Wiki: pannello comandi centrato (layout allineato a donazioni / vote). */
-.vc-wiki-cmd-shell {
-  max-width: 42rem;
-  margin-left: auto;
-  margin-right: auto;
+/* Wiki: area comandi a tutta larghezza (wrapper esterno). */
+.vc-wiki-cmd-bleed {
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .vc-body.vc-regole-page .vc-snav-row.vc-snav-row--active,
@@ -6747,11 +6773,11 @@ a.vc-snav-item[href*="sponsor"] svg {
   gap: 0.45rem;
   padding: 0.55rem 1rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.2);
+  background: rgba(28, 20, 14, 0.58);
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(226, 232, 240, 0.92);
+  color: rgba(247, 236, 223, 0.88);
   cursor: pointer;
   transition:
     border-color 0.15s,
@@ -6809,9 +6835,9 @@ a.vc-snav-item[href*="sponsor"] svg {
   gap: 0.65rem;
   padding: 0.55rem 0.9rem;
   border-radius: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.5);
-  color: rgba(148, 163, 184, 0.92);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.22);
+  background: rgba(22, 16, 12, 0.62);
+  color: rgba(212, 184, 160, 0.9);
 }
 
 .vc-cmd-search:focus-within {
@@ -6820,6 +6846,10 @@ a.vc-snav-item[href*="sponsor"] svg {
 }
 
 .vc-wiki-cmd-shell {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   border-color: rgba(var(--vc-sand-rgb), 0.3) !important;
   background:
     radial-gradient(120% 95% at 16% 0%, rgba(247, 236, 223, 0.09), transparent 58%),
@@ -6910,12 +6940,12 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   background: transparent;
   font: inherit;
   font-size: 0.875rem;
-  color: #f1f5f9;
+  color: rgba(247, 236, 223, 0.95);
   outline: none;
 }
 
 .vc-cmd-search input::placeholder {
-  color: rgba(100, 116, 139, 0.85);
+  color: rgba(180, 152, 128, 0.72);
 }
 
 .vc-cmd-search-results {
@@ -6931,8 +6961,8 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   gap: 1rem;
   padding: 2.5rem 1.5rem;
   border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.2);
+  background: rgba(26, 18, 13, 0.52);
   text-align: center;
 }
 
@@ -6947,9 +6977,9 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   align-items: center;
   justify-content: center;
   border-radius: 0.65rem;
-  border: 1px solid rgba(110, 231, 183, 0.2);
-  background: rgba(52, 211, 153, 0.08);
-  color: rgba(110, 231, 183, 0.55);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.32);
+  background: rgba(var(--vc-mocha-rgb), 0.35);
+  color: rgba(232, 201, 168, 0.72);
   font-size: 1.1rem;
 }
 
@@ -6957,7 +6987,7 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   margin: 0;
   font-size: 0.9rem;
   font-weight: 500;
-  color: rgba(203, 213, 225, 0.9);
+  color: rgba(230, 210, 192, 0.9);
 }
 
 .vc-cmd-panes--search-miss {
@@ -6981,10 +7011,18 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
 
 .vc-cmd-acc {
   border-radius: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.38);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.22);
+  background: linear-gradient(165deg, rgba(55, 39, 29, 0.58), rgba(22, 16, 12, 0.52));
   overflow: hidden;
-  transition: opacity 0.15s;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.vc-cmd-acc[open] {
+  border-color: rgba(var(--vc-sand-rgb), 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .vc-cmd-acc--hidden {
@@ -7018,7 +7056,7 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
 .vc-cmd-invoke-kind {
   font-size: 0.72rem;
   font-weight: 600;
-  color: rgba(148, 163, 184, 0.88);
+  color: rgba(212, 184, 160, 0.82);
 }
 
 .vc-cmd-acc-ico {
@@ -7029,13 +7067,13 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   align-items: center;
   justify-content: center;
   border-radius: 0.45rem;
-  background: linear-gradient(145deg, #047857, #34d399);
+  background: linear-gradient(145deg, rgba(74, 52, 37, 0.98), rgba(111, 78, 55, 0.92));
   font-size: 0.85rem;
-  color: #fff;
+  color: rgba(247, 236, 223, 0.98);
 }
 
 .vc-cmd-acc-ico--violet {
-  background: linear-gradient(145deg, #6d28d9, #8b5cf6);
+  background: linear-gradient(145deg, rgba(72, 48, 58, 0.96), rgba(120, 82, 108, 0.9));
 }
 
 .vc-cmd-acc-text {
@@ -7050,18 +7088,18 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
 .vc-cmd-acc-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: rgba(252, 248, 242, 0.98);
 }
 
 .vc-cmd-acc-meta {
   font-size: 0.72rem;
-  color: rgba(148, 163, 184, 0.88);
+  color: rgba(205, 178, 152, 0.88);
 }
 
 .vc-cmd-acc-chev {
   flex-shrink: 0;
   font-size: 0.65rem;
-  color: rgba(100, 116, 139, 0.8);
+  color: rgba(180, 152, 128, 0.78);
   transition: transform 0.2s ease;
 }
 
@@ -7071,7 +7109,8 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
 
 .vc-cmd-acc-body {
   padding: 0 1rem 0.85rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(var(--vc-sand-rgb), 0.14);
+  background: rgba(14, 10, 8, 0.35);
 }
 
 .vc-cmd-list {
@@ -7086,7 +7125,7 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   align-items: baseline;
   gap: 0.5rem 0.75rem;
   padding: 0.4rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(var(--vc-sand-rgb), 0.1);
   font-size: 0.82rem;
 }
 
@@ -7097,7 +7136,7 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
 .vc-cmd-name {
   flex-shrink: 0;
   font-weight: 600;
-  color: rgba(241, 245, 249, 0.96);
+  color: rgba(247, 236, 223, 0.96);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8rem;
 }
@@ -7106,8 +7145,164 @@ body.vc-body main .vc-support-page-hero a[data-vc-wiki-scroll="wiki-comandi-pane
   flex: 1 1 0;
   min-width: 0;
   overflow-wrap: anywhere;
-  color: rgba(148, 163, 184, 0.92);
+  color: rgba(198, 172, 148, 0.92);
   font-size: 0.78rem;
+}
+
+.vc-cmd-grp--hidden {
+  display: none !important;
+}
+
+.vc-cmd-acc-title.vc-cmd-grp-title {
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.vc-cmd-acc-body.vc-cmd-grp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.35rem;
+}
+
+.vc-cmd-item {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.24);
+  background: linear-gradient(165deg, rgba(62, 44, 32, 0.62), rgba(20, 14, 10, 0.55));
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vc-cmd-item:hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.38);
+  box-shadow: 0 0 0 1px rgba(var(--vc-sand-rgb), 0.12);
+}
+
+.vc-cmd-item--hidden {
+  display: none !important;
+}
+
+.vc-cmd-item-sum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.95rem 1.05rem;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.vc-cmd-item-sum::-webkit-details-marker {
+  display: none;
+}
+
+.vc-cmd-item-sum-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.vc-cmd-item-name {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: rgba(252, 248, 242, 0.98);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.vc-cmd-item-blurb {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: rgba(210, 186, 164, 0.9);
+}
+
+.vc-cmd-item-chev {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: rgba(176, 148, 124, 0.82);
+  transition: transform 0.2s ease;
+}
+
+.vc-cmd-item[open] .vc-cmd-item-chev {
+  transform: rotate(180deg);
+}
+
+.vc-cmd-item-body {
+  padding: 0 1.05rem 1.05rem;
+  border-top: 1px solid rgba(var(--vc-sand-rgb), 0.16);
+  background: rgba(12, 9, 7, 0.42);
+}
+
+.vc-cmd-field {
+  margin-top: 0.85rem;
+}
+
+.vc-cmd-field:first-of-type {
+  margin-top: 0.65rem;
+}
+
+.vc-cmd-field-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(196, 168, 142, 0.78);
+  margin-bottom: 0.35rem;
+}
+
+.vc-cmd-field-text {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(236, 218, 200, 0.92);
+}
+
+.vc-cmd-code {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.2);
+}
+
+.vc-cmd-code--usage {
+  color: rgba(186, 230, 253, 0.96);
+  background: rgba(14, 10, 8, 0.88);
+}
+
+.vc-cmd-code--example {
+  color: rgba(196, 230, 208, 0.96);
+  background: rgba(14, 10, 8, 0.88);
+}
+
+.vc-cmd-field--category {
+  margin-top: 1rem;
+}
+
+.vc-cmd-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(247, 236, 223, 0.94);
+  background: rgba(var(--vc-mocha-rgb), 0.52);
+  border: 1px solid rgba(var(--vc-sand-rgb), 0.3);
+}
+
+.vc-cmd-cat-pill .fa-diamond {
+  font-size: 0.55rem;
+  color: rgba(232, 201, 168, 0.95);
 }
 
 .vc-snav-row.vc-snav-row--active {
@@ -8844,14 +9039,12 @@ header .vc-header-snav .vc-snav-panel,
 header .discord-account-popover,
 header .vc-notif-panel {
   border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%) !important,
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36)) !important;
+  background: var(--vc-header-menu-frost-bg) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
 }
 
 header .vc-snav-row.vc-snav-row--active,
@@ -8999,11 +9192,11 @@ body.vc-body--home .vc-hero-secondary-link {
 
 body.vc-body--home header .vc-nav-shell.vc-glass,
 body.vc-body--home header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: transparent;
+  background: rgba(8, 6, 5, 0.78);
   border-color: rgba(var(--vc-sand-rgb), 0.22);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(var(--vc-sand-rgb), 0.06);
+    0 8px 40px rgba(0, 0, 0, 0.48),
+    0 0 48px rgba(212, 168, 136, 0.07);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -9036,14 +9229,12 @@ body.vc-body--home header .vc-notif-summary.vc-icon-btn:hover {
 
 body.vc-body--home .vc-snav-panel {
   border-color: rgba(var(--vc-sand-rgb), 0.28);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
+  background: var(--vc-header-menu-frost-bg);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
 }
 
 body.vc-body--home .vc-snav-row:hover {
@@ -9065,20 +9256,18 @@ body.vc-body--home .discord-profile-link::after {
 
 body.vc-body--home .discord-account-popover {
   border-color: rgba(var(--vc-sand-rgb), 0.28);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
+  background: var(--vc-header-menu-frost-bg);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
 }
 
 body.vc-body--home .discord-account-popover::before {
   border-left-color: rgba(var(--vc-sand-rgb), 0.32);
   border-top-color: rgba(var(--vc-sand-rgb), 0.32);
-  background: rgba(40, 28, 20, 0.45);
+  background: rgba(18, 13, 10, 0.94);
 }
 
 body.vc-body--home .discord-account-popover__name {
@@ -12349,6 +12538,16 @@ body.vc-body--home a.vc-header-logo-link + a[href]:focus-visible {
   transform: translateY(-1px);
 }
 
+.vc-role-card-cta.vc-role-card-cta--owner-self:disabled,
+.vc-role-card-cta.vc-role-card-cta--owner-self[disabled] {
+  cursor: not-allowed;
+  opacity: 0.52;
+  filter: grayscale(0.35) brightness(0.95);
+  transform: none;
+  box-shadow: none;
+  background: linear-gradient(90deg, rgba(100, 100, 120, 0.55), rgba(70, 70, 88, 0.5));
+}
+
 .vc-role-card-actions {
   display: grid;
   grid-template-columns: 1fr;
@@ -15279,29 +15478,16 @@ body.vc-body:not(.vc-body--home)::before {
     radial-gradient(ellipse 72% 54% at 100% 100%, rgba(111, 78, 55, 0.14), transparent 46%);
 }
 
-body.vc-body:not(.vc-body--home) header .vc-nav-shell.vc-glass,
-body.vc-body:not(.vc-body--home) header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(10, 7, 6, 0.44);
-  border-color: rgba(var(--vc-sand-rgb), 0.22);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(var(--vc-sand-rgb), 0.06);
-  backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(165%);
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(165%);
-}
-
 body.vc-body .vc-snav-panel,
 body.vc-body .discord-account-popover,
 body.vc-body .vc-notif-panel {
   border-color: rgba(var(--vc-sand-rgb), 0.26);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
+  background: var(--vc-header-menu-frost-bg);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(var(--vc-glass-blur-dropdown)) saturate(135%);
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur-dropdown)) saturate(135%);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
 }
 
 body.vc-body .vc-notif-dropdown[open] .vc-notif-summary {
@@ -15311,27 +15497,18 @@ body.vc-body .vc-notif-dropdown[open] .vc-notif-summary {
   box-shadow:
     0 0 20px rgba(var(--vc-sand-rgb), 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
-}
-
-body.vc-body .vc-header-snav .vc-snav-details[open] > .vc-snav-summary {
-  backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--vc-header-ctrl-blur)) saturate(150%);
 }
 
 body.vc-body:not(.vc-body--home) .vc-snav-panel,
 body.vc-body:not(.vc-body--home) .discord-account-popover,
 body.vc-body:not(.vc-body--home) .vc-notif-panel {
   border-color: rgba(var(--vc-sand-rgb), 0.26);
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%),
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36));
+  background: var(--vc-header-menu-frost-bg);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(165%);
 }
 
 body.vc-body:not(.vc-body--home) .vc-snav-row:hover {
@@ -16085,7 +16262,8 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
     padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
   }
 
-  .vc-cmd-acc-sum {
+  .vc-cmd-acc-sum,
+  .vc-cmd-item-sum {
     flex-wrap: wrap;
     gap: 0.5rem 0.75rem;
   }
@@ -17031,11 +17209,13 @@ header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary {
 header .vc-header-snav .vc-snav-panel,
 header .discord-account-popover,
 header .vc-notif-panel {
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%) !important,
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36)) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
+  background: var(--vc-header-menu-frost-bg) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 28px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
 }
 
 /* Header profile avatar glow: remove green tint */
@@ -17151,19 +17331,6 @@ body.vc-body.vc-users-page .vc-ul-board-tabs .vc-ul-filter-tab[aria-expanded="tr
   background: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.24) !important;
   color: rgba(255, 255, 255, 0.98) !important;
-}
-
-/* Header dropdown panel/rows in transparent moka-panna palette */
-header .vc-header-snav .vc-snav-panel {
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%) !important,
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36)) !important;
-  border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 10px 28px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
 }
 
 header .vc-snav-row {
@@ -17327,13 +17494,15 @@ body.vc-body.vc-users-page .vc-ul-toolbar {
   -webkit-backdrop-filter: none !important;
 }
 
-/* Global header lock: identical across all pages */
+/* Barra header unica su tutte le pagine: stesso castano delle utility Tailwind (bg #140f0c ~78%), senza backdrop-filter sulla shell così i menu possono blurare il main. */
 body.vc-body header .vc-nav-shell,
 body.vc-body header .vc-nav-shell.vc-glass,
 body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: transparent !important;
+  background: rgba(8, 6, 5, 0.78) !important;
   border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
-  box-shadow: none !important;
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.48),
+    0 0 48px rgba(212, 168, 136, 0.07) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -17376,14 +17545,12 @@ body.vc-body header .vc-header-snav .vc-snav-panel,
 body.vc-body header .discord-account-popover,
 body.vc-body header .vc-notif-panel {
   border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%) !important,
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36)) !important;
+  background: var(--vc-header-menu-frost-bg) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(170%) !important;
 }
 
 body.vc-body header .vc-snav-row,
@@ -18312,57 +18479,26 @@ body.vc-body.vc-faq-page .vc-support-page-hero {
     0 0 20px rgba(var(--vc-sand-rgb), 0.1) !important;
 }
 
-/* Header: menu a tendina sempre vetro moka trasparente (specificità massima) */
+/* Header: menu vetro moka (specificità massima) */
 html body.vc-body header .vc-header-snav .vc-snav-panel,
 html body.vc-body header .discord-account-popover,
 html body.vc-body header .vc-notif-panel {
   border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
-  background:
-    radial-gradient(ellipse 104% 76% at 16% 0%, rgba(236, 205, 176, 0.12), transparent 56%) !important,
-    linear-gradient(180deg, rgba(40, 28, 20, 0.48), rgba(20, 14, 10, 0.36)) !important;
+  background: var(--vc-header-menu-frost-bg) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 28px rgba(0, 0, 0, 0.22) !important;
-  backdrop-filter: blur(14px) saturate(120%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
-}
-
-html body.vc-body header .vc-header-snav .vc-snav-panel::before {
-  opacity: 0.28 !important;
+  backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(175%) !important;
+  -webkit-backdrop-filter: blur(var(--vc-header-menu-frost-blur)) saturate(175%) !important;
 }
 
 html body.vc-body header .discord-account-popover::before {
   border-left-color: rgba(var(--vc-sand-rgb), 0.32) !important;
   border-top-color: rgba(var(--vc-sand-rgb), 0.32) !important;
-  background: rgba(40, 28, 20, 0.45) !important;
+  background: rgba(22, 16, 12, 0.92) !important;
 }
 
-/* Global blur lock: effetto vetro evidente in tutte le pagine */
-html body.vc-body header .vc-nav-shell,
-html body.vc-body header .vc-nav-shell.vc-glass,
-html body.vc-body header .vc-nav-shell.vc-glass.vc-nav-shell--scrolled {
-  background: rgba(9, 7, 6, 0.46) !important;
-  backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(170%) !important;
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur-strong)) saturate(170%) !important;
-}
-
-html body.vc-body header .vc-header-snav .vc-snav-details[open] > .vc-snav-summary,
-html body.vc-body header .vc-notif-dropdown[open] .vc-notif-summary,
-html body.vc-body header .discord-profile-link,
-html body.vc-body header .vc-header-pill,
-html body.vc-body header .vc-header-legal-pill {
-  backdrop-filter: blur(var(--vc-glass-blur)) saturate(165%) !important;
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(165%) !important;
-}
-
-html body.vc-body header .vc-header-snav .vc-snav-panel,
-html body.vc-body header .discord-account-popover,
-html body.vc-body header .vc-notif-panel {
-  backdrop-filter: blur(var(--vc-glass-blur-dropdown)) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(var(--vc-glass-blur-dropdown)) saturate(150%) !important;
-}
-
-html body.vc-body :is(section, article, div, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"] {
+html body.vc-body :is(div:not(.vc-nav-shell), section, article, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"] {
   backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(145%) !important;
   -webkit-backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(145%) !important;
 }

@@ -31,9 +31,27 @@ function resolveDiscordOauthRedirectUriForSite() {
   return `${resolvePublicSiteBase()}/`;
 }
 
+/** Percorso di ritorno post OAuth (stesse regole di `discord-auth.js` / fragment state). */
+function normalizeSiteOAuthReturnPath(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  let decoded = s;
+  try {
+    decoded = decodeURIComponent(s);
+  } catch {
+    return "";
+  }
+  if (decoded.indexOf("://") !== -1) return "";
+  if (!decoded.startsWith("/")) return "";
+  if (decoded.startsWith("//")) return "";
+  if (decoded.indexOf("\0") !== -1) return "";
+  return decoded;
+}
+
 module.exports = {
   buildSiteVerifyOAuthStartUrl,
   resolvePublicSiteBase,
   resolveDiscordOauthClientIdForSite,
   resolveDiscordOauthRedirectUriForSite,
+  normalizeSiteOAuthReturnPath,
 };

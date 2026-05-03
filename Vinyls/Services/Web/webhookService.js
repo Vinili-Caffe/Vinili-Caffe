@@ -3,6 +3,7 @@ const IDs = require("../../Utils/Config/ids");
 const {
   resolveDiscordOauthClientIdForSite,
   resolveDiscordOauthRedirectUriForSite,
+  normalizeSiteOAuthReturnPath,
 } = require("../../Utils/Web/verifyOauthPublicUrl");
 const { processDiscadiaVote } = require("../../Utils/Message/officialMessageAutomationHandlers");
 
@@ -234,6 +235,13 @@ async function startWebhookServer(client) {
       },
     }),
   );
+
+  try {
+    const { mountTicketTranscriptRoutes } = require("./ticketTranscriptHttp");
+    mountTicketTranscriptRoutes(app, client);
+  } catch (err) {
+    global.logger?.warn?.("[WEBHOOK] ticket-transcript routes:", err?.message || err);
+  }
 
   const candidatureCorsAllowlist = expandCorsOriginAllowlist(
     parseCorsOriginAllowlist(
@@ -623,8 +631,11 @@ async function startWebhookServer(client) {
         .send("OAuth sito non configurato sul bot. Imposta DISCORD_OAUTH_CLIENT_ID e DISCORD_OAUTH_REDIRECT_URI (o WEBSITE_*).");
       return;
     }
+    const fromR = normalizeSiteOAuthReturnPath(req.query?.r);
     const gid = String(req.query?.guildId || req.query?.guild || "").trim();
-    const returnPath = /^\d{17,22}$/.test(gid) ? `/verify/?guildId=${encodeURIComponent(gid)}` : "/verify/";
+    const returnPath =
+      fromR ||
+      (/^\d{17,22}$/.test(gid) ? `/verify/?guildId=${encodeURIComponent(gid)}` : "/verify/");
     const nonce = crypto.randomBytes(16).toString("hex");
     const state = encodeURIComponent(JSON.stringify({ r: returnPath, n: nonce, t: Date.now() }));
     const q = new URLSearchParams({

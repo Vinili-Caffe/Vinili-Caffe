@@ -56,7 +56,11 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
   const safeLookback = normalizeLookback(lookbackDays);
   const stats = await getServerOverviewStats(guild.id, safeLookback, 3);
   const guildName = guild.name || "Server";
-  const guildIconUrlResolved = guildIconUrl(guild, { size: 256 });
+  let guildIconUrlResolved = null;
+  if (guild?.icon && typeof guild.iconURL === "function") {
+    guildIconUrlResolved = guild.iconURL({ size: 512, extension: "png", forceStatic: true });
+  }
+  if (!guildIconUrlResolved) guildIconUrlResolved = guildIconUrl(guild, { size: 512 });
   const createdOn = guild.createdAt ?? new Date(0);
   const me = guild.members?.me;
   const invitedBotOn = (me?.joinedAt && me.joinedAt instanceof Date) ? me.joinedAt : (me?.joinedTimestamp ? new Date(me.joinedTimestamp) : createdOn);
@@ -76,7 +80,9 @@ async function buildServerOverviewPayload(guild, lookbackDays, authorId) {
       .setEmoji("<:VC_Refresh:1473359252276904203> ")
   );
 
-  const file = new AttachmentBuilder(buffer, { name: "server-overview.png" });
+  const overviewExt =
+    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
+  const file = new AttachmentBuilder(buffer, { name: `server-overview.${overviewExt}` });
   return { files: [file], components: [row] };
 }
 

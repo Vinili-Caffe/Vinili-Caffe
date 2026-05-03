@@ -1,11 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../../Utils/Config/ids");
 const { upsertVerifiedMember, applyTenureForMember, } = require("../../Services/Community/communityOpsService");
-const {
-  resolveValidVerifyRoleIds,
-  resolveRequiredVerifyRoleIds,
-  isResolvedMainGuildId,
-} = require("../../Utils/Interaction/verifyUtils");
+const { resolveValidVerifyRoleIds, resolveRequiredVerifyRoleIds, isResolvedMainGuildId } = require("../../Utils/Interaction/verifyUtils");
 const { addRolesAndGetMember, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 
@@ -149,6 +145,7 @@ async function resolveTargetsFlexible(message, args) {
 }
 
 module.exports = {
+  skipPrefix: true,
   name: "verify",
   async execute(message, args) {
     const { safeMessageReply } = require("../../../shared/discord/replyRuntime");

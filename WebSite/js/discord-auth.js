@@ -166,6 +166,7 @@
     var p = new URLSearchParams(h.slice(1));
     var t = p.get("access_token");
     var sec = Number(p.get("expires_in") || "0");
+    if (!Number.isFinite(sec) || sec <= 0) sec = 604800;
     var stateParsed = parseOAuthState(p.get("state"));
     var returnPath = stateParsed.returnPath;
     if (!returnPath && t) {
@@ -193,6 +194,10 @@
     if (!t || !exp || Date.now() >= exp) return "";
     return t;
   }
+
+  try {
+    window.__vcDiscordGetAccessToken = getToken;
+  } catch (eGt) {}
 
   function clearToken() {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
@@ -591,6 +596,14 @@
         renderLoggedOut();
       });
   }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    try {
+      if (getToken()) return;
+      if (window.__VC_DISCORD_PROFILE) renderLoggedOut();
+    } catch (eVis) {}
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", main);

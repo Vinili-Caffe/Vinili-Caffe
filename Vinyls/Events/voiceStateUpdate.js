@@ -24,8 +24,12 @@ function toDiscordTimestamp(value = new Date(), style = "F") {
 }
 
 function isTransientSendError(err) {
+  const status = Number(err?.status ?? err?.statusCode ?? err?.httpStatus ?? 0);
+  if (status === 500 || status === 502 || status === 503 || status === 504) return true;
   const msg = err?.message || String(err);
-  return /service unavailable|503|502|504|ECONNRESET|ETIMEDOUT/i.test(msg);
+  return /service unavailable|internal server error|503|502|504|500|ECONNRESET|ETIMEDOUT|rate.?limit/i.test(
+    msg,
+  );
 }
 
 async function sendLogWithRetry(logChannel, payload, logTag) {

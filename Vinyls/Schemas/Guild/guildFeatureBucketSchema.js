@@ -48,6 +48,9 @@ const ticketEntrySchema = new Schema(
     createdAt: { type: Date, default: Date.now },
     transcript: { type: String, default: "" },
     transcriptHtmlPath: { type: String, default: null },
+    transcriptViewToken: { type: String, default: null },
+    transcriptHtmlInline: { type: String, default: null },
+    transcriptViewExpiresAt: { type: Date, default: null },
     messageId: { type: String, default: null },
     descriptionPromptMessageId: { type: String, default: null },
     descriptionSubmitted: { type: Boolean, default: false },
@@ -97,6 +100,7 @@ const guildFeatureBucketSchema = new Schema(
   { timestamps: true },
 );
 
+guildFeatureBucketSchema.index({ "tickets.transcriptViewToken": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.channelId": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.ticketNumber": 1 }, { unique: true, sparse: true });
 guildFeatureBucketSchema.index({ "tickets.open": 1, "tickets.createdAt": 1 });

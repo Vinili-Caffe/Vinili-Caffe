@@ -19,6 +19,7 @@ const ALLOWED_VIEWS = [
   { value: "message_channels", label: "Top canali messaggi" },
   { value: "voice_channels", label: "Top canali vocali" },
   { value: "invites_users", label: "Inviti utenti" },
+  { value: "votes_users", label: "Top voti" },
   { value: "exp_users", label: "Top EXP" },
   { value: "level_users", label: "Top livelli" },
 ];

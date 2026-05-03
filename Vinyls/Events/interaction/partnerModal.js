@@ -13,6 +13,9 @@ const {
 const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
 const { maybeSendPartnerManagerRewardMilestoneDms } = require("../../Utils/Staff/partnerManagerMilestoneDm");
 const { runImmediatePartnerAuditForUser } = require("../../Services/Partner/partnerAuditService");
+const { checkSamePartnerTargetCooldown } = require("../../Utils/Partner/partnerSameTargetCooldown");
+
+const EPHEMERAL_FLAG = 1 << 6;
 
 function extractInviteCode(text) {
   if (!text) return null;
@@ -94,10 +97,7 @@ async function handlePartnerModal(interaction) {
     schedulePartnersDeniedDeleteReply(interaction);
     return true;
   }
-  await interaction
-    .deferReply()
-    .catch(() => { })
-    .catch(() => { });
+  await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => {});
   if (!interaction.member.roles.cache.has(IDs.roles.PartnerManager)) {
     await interaction.editReply({
       embeds: [
@@ -241,6 +241,25 @@ async function handlePartnerModal(interaction) {
     return true;
   }
 
+  const cooldown = await checkSamePartnerTargetCooldown(
+    interaction.guild.id,
+    resolvedInviteGuildId,
+    inviteCode,
+  );
+  if (!cooldown.ok && cooldown.nextAllowedAt) {
+    const ts = Math.floor(cooldown.nextAllowedAt.getTime() / 1000);
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("Red")
+          .setDescription(
+            `<a:VC_Alert:1482706673176150077> È già stata pubblicata una **partnership con questo server** nelle ultime **12 ore**.\nPuoi ripetere la stessa partner a partire da **<t:${ts}:F>** (<t:${ts}:R>).`,
+          ),
+      ],
+    });
+    return true;
+  }
+
   const filteredDescription = description.replace(/<@!?\d+>/g, "").replace(/<@&\d+>/g, "").replace(/<#\d+>/g, "").replace(/@everyone/g, "").replace(/@here/g, "").trim();
   const sanitizedDescription = stripLinksFromDescription(filteredDescription);
   if (!sanitizedDescription) {
@@ -275,9 +294,14 @@ async function handlePartnerModal(interaction) {
     }
     const staffDoc = await getOrCreateStaffPartnerDoc(guildId, interaction.user.id,);
     if (!staffDoc) {
-      await interaction.reply({
-        content: "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff. Riprova.",
-        ephemeral: true,
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("Red")
+            .setDescription(
+              "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff. Riprova.",
+            ),
+        ],
       }).catch(() => {});
       return true;
     }
@@ -294,6 +318,7 @@ async function handlePartnerModal(interaction) {
       managerId,
       partnershipChannelId: IDs.channels.partnerships,
       partnerMessageIds: [],
+      date: new Date(),
     };
     s.partnerActions.push(actionEntry);
     const actionIndex = Math.max(0, s.partnerActions.length - 1);

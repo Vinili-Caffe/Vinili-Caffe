@@ -2,7 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, Message
 const { getUserOverviewStats } = require("../Services/Community/activityService");
 const { resolveTopChannelEntries } = require("../Prefix/Stats/top");
 const { renderUserActivityCanvas } = require("../Utils/Render/activityCanvas");
-const { accountUsername, userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../Utils/Discord/guildDiscordIdentity");
 const USER_REFRESH_CUSTOM_ID_PREFIX = "user_refresh";
 const USER_PERIOD_OPEN_CUSTOM_ID_PREFIX = "user_period_open";
 const USER_PERIOD_SET_CUSTOM_ID_PREFIX = "user_period_set";
@@ -81,7 +81,8 @@ async function buildUserOverviewPayload(guild, targetId, lookbackDays, view, cli
   }
   const displayName = accountUsername(member || user);
   const userTag = user?.tag ?? user?.username ?? "User";
-  const avatarUrl = userAvatarUrlDynamic(user, { size: 256 });
+  const avatarUrl =
+    guildMemberDisplayAvatarUrlStatic(member || user, { size: 512 }) || userAvatarUrlStatic(user, { size: 512 });
   const createdOn = user?.createdAt ?? new Date(0);
   const joinedOn = (member?.joinedAt && member.joinedAt instanceof Date) ? member.joinedAt : (member?.joinedTimestamp ? new Date(member.joinedTimestamp) : createdOn);
   const emptySnapshot = new Map();
@@ -90,7 +91,9 @@ async function buildUserOverviewPayload(guild, targetId, lookbackDays, view, cli
     resolveTopChannelEntries(guild, stats.topChannelsVoice || [], emptySnapshot),
   ]);
   const buffer = await renderUserActivityCanvas({ guildName: guild.name || "Server", userTag, displayName, avatarUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, ranks: stats.ranks, topChannelsText, topChannelsVoice, chart: stats.chart });
-  const file = new AttachmentBuilder(buffer, { name: "user-activity.png" });
+  const activityExt =
+    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
+  const file = new AttachmentBuilder(buffer, { name: `user-activity.${activityExt}` });
   return { files: [file], components: [] };
 }
 
