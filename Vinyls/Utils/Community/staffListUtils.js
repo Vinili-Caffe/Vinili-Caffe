@@ -1,3 +1,4 @@
+const { ChannelType, PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getClientGuildCached, getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
@@ -51,6 +52,8 @@ const STAFF_LIST_WATCH_ROLE_IDS = Array.from(
   new Set([
     ...STAFF_LIST_SECTION_ROLE_IDS.map((id) => String(id)),
     ...STAFF_LIST_EXTRA_PM_SECTIONS.map((row) => String(row?.roleId || "")).filter(Boolean),
+    ...(HIGH_STAFF_ROLE_ID ? [HIGH_STAFF_ROLE_ID] : []),
+    ...(STAFF_GENERIC_ROLE_ID ? [STAFF_GENERIC_ROLE_ID] : []),
   ]),
 );
 
@@ -59,6 +62,17 @@ function wait(ms) {
     const timer = setTimeout(resolve, ms);
     timer.unref?.();
   });
+}
+
+/** Discord LIST /members richiede `after` = max user id della pagina precedente, non l’ultimo in Collection order. */
+function maxMemberSnowflakeInChunk(chunk) {
+  if (!chunk?.size) return null;
+  let max = null;
+  for (const id of chunk.keys()) {
+    const s = String(id);
+    if (!max || BigInt(s) > BigInt(max)) max = s;
+  }
+  return max;
 }
 
 function ensureState(client) {
@@ -229,12 +243,13 @@ async function fetchChannelMessage(channel, messageId) {
 
 async function resolveStaffListMessages(channel, client, guildId) {
   const state = ensureState(client);
-  const known = state.messageIdsByGuild.get(guildId);
+  const gk = String(guildId ?? "").trim();
+  const known = state.messageIdsByGuild.get(gk);
   if (Array.isArray(known) && known[0] && known[1]) {
     const main = await fetchChannelMessage(channel, known[0]);
     const pm = await fetchChannelMessage(channel, known[1]);
     if (main && pm) return { main, pm };
-    state.messageIdsByGuild.delete(guildId);
+    state.messageIdsByGuild.delete(gk);
   }
 
   const batch = await channel.messages.fetch({ limit: 100 }).catch(() => null);
@@ -249,48 +264,124 @@ async function resolveStaffListMessages(channel, client, guildId) {
   const mainMsg = candidates.find((m) => isMainStaffListMessageContent(m.content));
   const pmMsg = candidates.find((m) => m !== mainMsg && isPmStaffListMessageContent(m.content));
   if (mainMsg && pmMsg) {
-    state.messageIdsByGuild.set(guildId, [mainMsg.id, pmMsg.id]);
+    state.messageIdsByGuild.set(gk, [mainMsg.id, pmMsg.id]);
   }
   return { main: mainMsg || null, pm: pmMsg || null };
 }
 
 async function fetchMembersForStaffList(guild) {
+  const gid = String(guild?.id || "");
+  const mc = Number(guild?.memberCount ?? 0) || 0;
+  const cs = guild?.members?.cache?.size ?? 0;
+
+  if (mc > 0 && cs >= mc) {
+    return guild.members.cache;
+  }
+
   const all = new Map();
   let after = null;
   const limit = 1000;
+  let page = 0;
+  const maxPages = Math.min(50, Math.max(1, Math.ceil((mc || 25000) / limit) + 2));
 
-  while (true) {
+  while (page < maxPages) {
+    page += 1;
     const chunk = await guild.members
       .fetch({ limit, after: after ?? undefined, force: true })
-      .catch(() => null);
+      .catch((err) => {
+        global.logger?.error?.("[STAFF LIST] fetch membri chunk fallito", {
+          guildId: gid,
+          page,
+          after: after ?? null,
+          err: err?.message || String(err),
+          code: err?.code,
+        });
+        return null;
+      });
     if (!chunk?.size) break;
 
+    const before = all.size;
     for (const [id, member] of chunk) all.set(id, member);
+    if (all.size === before) {
+      global.logger?.warn?.("[STAFF LIST] fetch membri: pagina senza nuovi id (stop)", { guildId: gid, page, after: after ?? null });
+      break;
+    }
 
     if (chunk.size < limit) break;
-    const last = chunk.last?.();
-    after = last?.id ?? null;
+
+    const nextAfter = maxMemberSnowflakeInChunk(chunk);
+    if (!nextAfter || String(nextAfter) === String(after ?? "")) {
+      global.logger?.warn?.("[STAFF LIST] fetch membri: cursore after non avanza (stop)", {
+        guildId: gid,
+        page,
+        after: after ?? null,
+        nextAfter,
+      });
+      break;
+    }
+    after = nextAfter;
     await wait(400);
+  }
+
+  if (page >= maxPages && mc > 0 && all.size < mc - 1) {
+    global.logger?.warn?.("[STAFF LIST] fetch membri: limite pagine raggiunto", { guildId: gid, maxPages, accumulated: all.size, memberCount: mc });
   }
 
   for (const [id, m] of guild.members.cache) {
     all.set(id, m);
   }
-  return all.size ? all : guild.members.cache;
+  const out = all.size ? all : guild.members.cache;
+  return out;
 }
 
 async function refreshStaffList(client, guildId = IDs.guilds.main, { force = false } = {}) {
   const state = ensureState(client);
-  const guild = client.guilds.cache.get(guildId) || (await getClientGuildCached(client, guildId));
-  if (!guild) return;
+  const gidKey = String(guildId ?? IDs.guilds.main ?? "").trim();
+  if (!gidKey) {
+    global.logger?.error?.("[STAFF LIST] guildId main non configurato");
+    return;
+  }
+  const guild = client.guilds.cache.get(gidKey) || (await getClientGuildCached(client, gidKey));
+  if (!guild) {
+    global.logger?.error?.("[STAFF LIST] guild non disponibile (né cache né fetch)", { guildId: gidKey });
+    return;
+  }
 
   const channelId = IDs.channels.staffList;
   const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId)) || (await getClientChannelCached(client, channelId));
-  if (!channel?.isTextBased?.()) return;
+  if (!channel?.isTextBased?.()) {
+    global.logger?.error?.("[STAFF LIST] canale staff list assente o non testuale", {
+      guildId: gidKey,
+      channelId: String(channelId || ""),
+      channelType: channel?.type ?? null,
+    });
+    return;
+  }
 
+  if (channel.type === ChannelType.GuildForum) {
+    global.logger?.error?.(
+      "[STAFF LIST] il canale `staffList` è un forum: Discord non consente messaggi diretti sul canale; usa un canale testo o un thread dedicato e aggiorna `IDs.channels.staffList`.",
+      { guildId: gidKey, channelId: String(channel.id) },
+    );
+    return;
+  }
+
+  const me = guild.members?.me;
+  if (me && channel.permissionsFor?.(me)?.has?.(PermissionFlagsBits.SendMessages) === false) {
+    global.logger?.error?.("[STAFF LIST] bot senza permesso SendMessages nel canale staff list", {
+      guildId: gidKey,
+      channelId: String(channel.id),
+    });
+    return;
+  }
+
+  if (client._staffListRefreshInFlight) {
+    return;
+  }
+  client._staffListRefreshInFlight = true;
+  try {
   const membersSource = await fetchMembersForStaffList(guild);
   const newBadgeRoleIdsByUser = await getStaffListNewBadgeRoleIdsByUser(guild.id);
-
   const parts = buildStaffListParts(guild, membersSource, newBadgeRoleIdsByUser);
   const serial = `${parts.main}${STAFF_LIST_HASH_SPLIT}${parts.pm}`;
 
@@ -309,10 +400,15 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
     });
   }
 
-  const previousHash = state.contentHashByGuild.get(guildId);
-  if (!force && previousHash === serial) return;
+  let { main: mainMsg, pm: pmMsg } = await resolveStaffListMessages(channel, client, gidKey);
+  if (!mainMsg || !pmMsg) {
+    state.contentHashByGuild.delete(gidKey);
+  }
 
-  let { main: mainMsg, pm: pmMsg } = await resolveStaffListMessages(channel, client, guildId);
+  const previousHash = state.contentHashByGuild.get(gidKey);
+  if (!force && previousHash === serial && mainMsg && pmMsg) {
+    return;
+  }
 
   if (
     !force &&
@@ -325,9 +421,19 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
     pmMsg.content !== undefined
   ) {
     if (String(mainMsg.content).trim() === String(parts.main).trim() && String(pmMsg.content).trim() === String(parts.pm).trim()) {
-      state.contentHashByGuild.set(guildId, serial);
+      state.contentHashByGuild.set(gidKey, serial);
       return;
     }
+  }
+
+  const maxLen = 2000;
+  if (parts.main.length > maxLen || parts.pm.length > maxLen) {
+    global.logger?.error?.("[STAFF LIST] contenuto supera il limite Discord (2000)", {
+      guildId: gidKey,
+      mainLen: parts.main.length,
+      pmLen: parts.pm.length,
+    });
+    return;
   }
 
   let synced = false;
@@ -337,16 +443,32 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   if (mainMsg) {
     if (force || mainMsg.content !== parts.main) {
       const edited = await mainMsg.edit(parts.main).catch((err) => {
-        global.logger?.warn?.("[STAFF LIST] main message.edit failed:", err?.message || err);
+        global.logger?.error?.("[STAFF LIST] main message.edit failed:", err?.message || err, {
+          code: err?.code,
+          guildId: gidKey,
+        });
         return null;
       });
-      if (edited) mainId = edited.id;
+      if (edited) {
+        mainId = edited.id;
+      } else {
+        state.messageIdsByGuild.delete(gidKey);
+        const sent = await channel.send(parts.main).catch((err) => {
+          global.logger?.warn?.("[STAFF LIST] main channel.send (after edit fail):", err?.message || err);
+          return null;
+        });
+        if (sent) mainId = sent.id;
+      }
     } else {
       mainId = mainMsg.id;
     }
   } else {
     const sent = await channel.send(parts.main).catch((err) => {
-      global.logger?.warn?.("[STAFF LIST] main channel.send failed:", err?.message || err);
+      global.logger?.error?.("[STAFF LIST] main channel.send failed:", err?.message || err, {
+        code: err?.code,
+        guildId: gidKey,
+        channelId: String(channel.id),
+      });
       return null;
     });
     if (sent) mainId = sent.id;
@@ -359,7 +481,20 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
           global.logger?.warn?.("[STAFF LIST] pm message.edit failed:", err?.message || err);
           return null;
         });
-        if (editedPm) pmId = editedPm.id;
+        if (editedPm) {
+          pmId = editedPm.id;
+        } else {
+          state.messageIdsByGuild.delete(gidKey);
+          const sentPm = await channel.send(parts.pm).catch((err) => {
+            global.logger?.error?.("[STAFF LIST] pm channel.send (after edit fail):", err?.message || err, {
+              code: err?.code,
+              guildId: gidKey,
+              channelId: String(channel.id),
+            });
+            return null;
+          });
+          if (sentPm) pmId = sentPm.id;
+        }
       } else {
         pmId = pmMsg.id;
       }
@@ -373,22 +508,32 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   }
 
   if (mainId && pmId) {
-    state.messageIdsByGuild.set(guildId, [mainId, pmId]);
+    state.messageIdsByGuild.set(gidKey, [mainId, pmId]);
     synced = true;
+  } else if (!mainId || !pmId) {
+    global.logger?.error?.("[STAFF LIST] sync incompleto (manca main o pm)", {
+      guildId: gidKey,
+      channelId: String(channelId || ""),
+      mainId: mainId || null,
+      pmId: pmId || null,
+    });
   }
 
-  if (synced) state.contentHashByGuild.set(guildId, serial);
+  if (synced) state.contentHashByGuild.set(gidKey, serial);
+  } finally {
+    client._staffListRefreshInFlight = false;
+  }
 }
 
 const STAFF_LIST_PERIODIC_REFRESH_MS = 15 * 60 * 1000;
 
 function startStaffListPeriodicRefreshLoop(client) {
   if (!client || client._staffListPeriodicRefreshStarted) return;
-  const gid = String(IDs.guilds.main || "");
-  if (!gid || !client.guilds.cache.has(gid)) return;
+  const gid = String(IDs.guilds.main || "").trim();
+  if (!gid) return;
   client._staffListPeriodicRefreshStarted = true;
   const tick = () => {
-    refreshStaffList(client, gid).catch((err) => {
+    refreshStaffList(client, gid, { force: true }).catch((err) => {
       global.logger?.warn?.("[STAFF LIST] periodic refresh failed:", err?.message || err);
     });
   };
@@ -396,15 +541,36 @@ function startStaffListPeriodicRefreshLoop(client) {
   tick();
 }
 
-function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500) {
+function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, { force = false } = {}) {
   const state = ensureState(client);
-  const existingTimer = state.timersByGuild.get(guildId);
+  const gidKey = String(guildId ?? IDs.guilds.main ?? "").trim();
+  if (!gidKey) return;
+  const existingTimer = state.timersByGuild.get(gidKey);
   if (existingTimer) clearTimeout(existingTimer);
 
-  const timer = setTimeout(() => { state.timersByGuild.delete(guildId); refreshStaffList(client, guildId).catch((err) => { global.logger.error("[STAFF LIST] refresh failed:", err); }); }, delayMs);
+  const timer = setTimeout(() => {
+    state.timersByGuild.delete(gidKey);
+    refreshStaffList(client, gidKey, { force }).catch((err) => {
+      global.logger.error("[STAFF LIST] refresh failed:", err);
+    });
+  }, delayMs);
   timer.unref?.();
 
-  state.timersByGuild.set(guildId, timer);
+  state.timersByGuild.set(gidKey, timer);
+}
+
+function queueStaffListRefreshAfterRoleMutation(client, guildId = IDs.guilds.main) {
+  const gid = String(guildId || "").trim();
+  if (!client?.guilds || !gid) return;
+  const mainGid = String(IDs.guilds?.main || "").trim();
+  if (mainGid && gid !== mainGid) return;
+  scheduleStaffListRefresh(client, gid, 750);
+  const t = setTimeout(() => {
+    refreshStaffList(client, gid, { force: true }).catch((err) => {
+      global.logger?.warn?.("[STAFF LIST] forced refresh (post-role mutation):", err?.message || err);
+    });
+  }, 2400);
+  t.unref?.();
 }
 
 module.exports = {
@@ -415,5 +581,6 @@ module.exports = {
   didStaffRolesChange,
   refreshStaffList,
   scheduleStaffListRefresh,
+  queueStaffListRefreshAfterRoleMutation,
   startStaffListPeriodicRefreshLoop,
 };

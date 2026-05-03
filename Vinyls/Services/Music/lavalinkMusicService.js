@@ -125,7 +125,7 @@ function initLavalinkMusicIfEnabled(client) {
       resume: true,
       resumeByLibrary: true,
       resumeTimeout: 60,
-      reconnectTries: 5,
+      reconnectTries: 60,
       reconnectInterval: 7,
       restTimeout: 120,
       voiceConnectionTimeout: 30,
@@ -154,10 +154,19 @@ async function playFromInteraction(interaction, query) {
     return { ok: false, message: "Usa questo comando in un server." };
   }
   if (!isLavalinkUsable(client)) {
+    const sh = client?.shoukaku;
+    const node =
+      sh?.nodes?.get(process.env.LAVALINK_NODE_NAME || "main") ||
+      (sh?.nodes?.size ? sh.nodes.values().next().value : undefined);
+    const state = node?.state;
+    global.logger?.warn?.("[MUSIC] play bloccato: nodo Shoukaku non CONNECTED", {
+      nodes: sh?.nodes?.size ?? 0,
+      state: state != null ? String(state) : "no-node",
+    });
     return {
       ok: false,
       message:
-        "Il servizio musica non è disponibile (Lavalink non raggiungibile). Controlla che il nodo sia avviato e le variabili `LAVALINK_HOST` / `LAVALINK_PASSWORD`.",
+        "Musica non disponibile: il bot non ha il **WebSocket** verso Lavalink (non basta che la porta risponda). Riavvia **dopo** che Lavalink è su, oppure usa `wait-for-lavalink.js` che ora avvia i bot solo dopo il primo check OK. Controlla `LAVALINK_HOST`, `LAVALINK_PASSWORD` (= `application.yml`) e `LAVALINK_SECURE` se usi TLS.",
     };
   }
   const voiceChannel = member.voice?.channel;

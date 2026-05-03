@@ -438,6 +438,59 @@ function resolveStaffRole(member) {
   return null;
 }
 
+/** Utenti in cache il cui ruolo staff per resoconto coincide col tier (stesso criterio di `resolveStaffRole`). Copre chi non ha ancora `staff` su Mongo. */
+function collectMemberIdsMatchingResocontoStaffSegment(guild, wantStaffRoleId) {
+  const want = String(wantStaffRoleId || "").trim();
+  if (!want || !guild?.members?.cache) return [];
+  const ids = [];
+  for (const member of guild.members.cache.values()) {
+    if (!member || member.user?.bot) continue;
+    const resolved = resolveStaffRole(member);
+    if (resolved && String(resolved) === want) ids.push(String(member.id));
+  }
+  return ids;
+}
+
+/** ID membri da includere per questo segmento cron (helper / mod / admin / pm), dalla cache guild. */
+function collectResocontoDiscordMemberIdsForSegment(guild, segment) {
+  if (segment === "pm") {
+    const pmId = String(IDs.roles.PartnerManager || "").trim();
+    if (!pmId || !guild?.members?.cache) return [];
+    const out = [];
+    for (const member of guild.members.cache.values()) {
+      if (!member || member.user?.bot) continue;
+      if (member.roles?.cache?.has(pmId)) out.push(String(member.id));
+    }
+    return out;
+  }
+  if (segment === "helper" || segment === "mod" || segment === "admin") {
+    const want =
+      segment === "helper"
+        ? String(IDs.roles.Helper || "").trim()
+        : segment === "mod"
+          ? String(IDs.roles.Mod || "").trim()
+          : String(IDs.roles.Admin || "").trim();
+    return collectMemberIdsMatchingResocontoStaffSegment(guild, want);
+  }
+  return [];
+}
+
+/** Tutti gli ID staff (scala helper→admin) o PM presenti in guild — per promemoria e liste oltre al solo DB `staff`. */
+function collectAllResocontoRelevantMemberIdsFromGuild(guild) {
+  if (!guild?.members?.cache) return [];
+  const ids = new Set();
+  const pmId = String(IDs.roles.PartnerManager || "").trim();
+  for (const member of guild.members.cache.values()) {
+    if (!member || member.user?.bot) continue;
+    if (pmId && member.roles?.cache?.has(pmId)) {
+      ids.add(String(member.id));
+      continue;
+    }
+    if (resolveStaffRole(member)) ids.add(String(member.id));
+  }
+  return Array.from(ids);
+}
+
 function getResocontoMemberRank(member) {
   const staffRoleId = resolveStaffRole(member);
   if (staffRoleId) {
@@ -825,7 +878,22 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
   const pexSkipWindow = getResocontoPexSkipWindowUtc(now);
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
 
-  const knownStaffUserIds = Array.from(new Set((Array.isArray(staffDocs) ? staffDocs : []).map((row) => String(row?.userId || "")).filter(Boolean),),);
+  const wantStaffForSegment =
+    segment === "helper" || segment === "mod" || segment === "admin"
+      ? String(
+          segment === "helper"
+            ? IDs.roles.Helper
+            : segment === "mod"
+              ? IDs.roles.Mod
+              : IDs.roles.Admin,
+        )
+      : null;
+
+  const idsFromStaffDocs = (Array.isArray(staffDocs) ? staffDocs : [])
+    .map((row) => String(row?.userId || ""))
+    .filter(Boolean);
+  const idsFromGuildRoles = collectResocontoDiscordMemberIdsForSegment(guild, segment);
+  const knownStaffUserIds = Array.from(new Set([...idsFromStaffDocs, ...idsFromGuildRoles]));
   if (!knownStaffUserIds.length) return;
 
   const fetchedMembers = await Promise.all(knownStaffUserIds.map((userId) => getGuildMemberCached(guild, userId)),);
@@ -858,17 +926,6 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
   );
   const overviewMap = new Map(staffUserIds.map((id, i) => [id, overviewResults[i] || null]),);
   const sanctionCountByModId = await getWeeklySanctionCountByMod(guildId, weekStart, weekEnd);
-
-  const wantStaffForSegment =
-    segment === "helper" || segment === "mod" || segment === "admin"
-      ? String(
-          segment === "helper"
-            ? IDs.roles.Helper
-            : segment === "mod"
-              ? IDs.roles.Mod
-              : IDs.roles.Admin,
-        )
-      : null;
 
   for (const member of candidateMembers) {
     const userId = String(member.id);
@@ -1014,7 +1071,11 @@ async function runPreResocontoReminders(client) {
   const resocontoScope = buildResocontoActivityScope(guild);
 
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
-  const staffUserIds = Array.from(new Set((staffDocs || []).map((r) => String(r?.userId || "")).filter((id) => /^\d{16,20}$/.test(id))));
+  const idsFromStaffDocs = (staffDocs || [])
+    .map((r) => String(r?.userId || ""))
+    .filter((id) => /^\d{16,20}$/.test(id));
+  const idsFromGuild = collectAllResocontoRelevantMemberIdsFromGuild(guild).filter((id) => /^\d{16,20}$/.test(id));
+  const staffUserIds = Array.from(new Set([...idsFromStaffDocs, ...idsFromGuild]));
   if (!staffUserIds.length) return;
 
   const fetchedMembers = await Promise.all(staffUserIds.map((id) => getGuildMemberCached(guild, id)));

@@ -13,6 +13,7 @@ let stopping = false;
 let lavalinkReady = false;
 let settleTimer = null;
 let lavalinkUnavailableLogged = false;
+let loaderStarted = false;
 
 function killChildTree(pid) {
   if (!pid || Number.isNaN(pid)) return;
@@ -114,13 +115,23 @@ function checkLavalinkStatus() {
         lavalinkReady = true;
         lavalinkUnavailableLogged = false;
         console.log("[wait-for-lavalink] Lavalink pronto.");
+        if (!loaderStarted) {
+          loaderStarted = true;
+          runLoader();
+        }
         scheduleNextCheck(intervalMs);
       });
     }, settleMs);
   });
 }
 
-console.log("[wait-for-lavalink] Avvio immediato backend; controllo Lavalink su " + host + ":" + port + " in background...");
+console.log(
+  "[wait-for-lavalink] Controllo Lavalink su " +
+    host +
+    ":" +
+    port +
+    "; il backend parte solo dopo il primo check TCP+stabilizzazione OK (così Shoukaku non prova il WebSocket su nodo non pronto).",
+);
 ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"].forEach((signalName) => {
   process.on(signalName, () => requestStop(0, "segnale " + signalName + " ricevuto"));
 });
@@ -130,5 +141,4 @@ process.on("exit", () => {
   if (loaderChild?.pid) killChildTree(loaderChild.pid);
 });
 
-runLoader();
 checkLavalinkStatus();

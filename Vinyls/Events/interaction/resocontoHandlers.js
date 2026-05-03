@@ -3,9 +3,9 @@ const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getClientChannelCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { getOrCreateStaffDoc, deleteThreadForMessage, ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../Utils/Staff/staffPmUtils");
-const { addStaffWarnFromNegatives, applyFullDepex, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
+const { addStaffWarnFromNegatives, applyFullDepex, applyDepexOneLevel, getHighestStaffRoleId } = require("../../Services/Staff/staffWarnService");
 const { buildAutoStaffWarnFromNegativesEmbed } = require("../../Utils/Staff/valutazionePanelActions");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
@@ -400,20 +400,43 @@ async function applyStaffAction(guild, actor, payload, reasonOverride = null) {
     await profileDoc.save();
     await clearStaffPendingPurgeAt(guild.id, payload.userId);
     await sendPexDepexLog(guild, "pex", targetUser, roleBeforeId, roleAfterId, reason);
+    queueStaffListRefreshAfterRoleMutation(guild.client, guild.id);
     return "<:success:1461731530333229226> Pex applicato.";
   }
 
   if (payload.actionKey === "dp") {
     if (!member.roles.cache.has(roleBeforeId)) return "<a:VC_Alert:1482706673176150077> Depex non applicato: ruolo corrente non presente.";
 
-    const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
-    if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
-    const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
-    if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
+    let roleAfterId = "";
+    if (String(roleBeforeId) === String(ROLE_PARTNER_MANAGER)) {
+      const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
+      if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
+      const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
+      if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
+    } else {
+      const step = await applyDepexOneLevel(guild, member, roleBeforeId);
+      if (!step?.ok) {
+        return `<a:VC_Alert:1482706673176150077> Depex non applicato: ${String(step?.reason || "errore sconosciuto")}`;
+      }
+      roleAfterId = step.newRole != null && step.newRole !== "" ? String(step.newRole) : "";
+    }
+
     const memberAfterDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
     await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterDepex);
-    const roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterDepex);
+    if (!roleAfterId) roleAfterId = resolvePexDepexLogRoleAfterId(memberAfterDepex);
+    const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
+    const s = ensureStaff(profileDoc);
+    if (!Array.isArray(s.rolesHistory)) s.rolesHistory = [];
+    s.rolesHistory.push({
+      oldRole: roleBeforeId,
+      newRole: roleAfterId || "",
+      reason,
+      date: new Date(),
+    });
+    profileDoc.markModified("staff");
+    await profileDoc.save().catch(() => null);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
+    queueStaffListRefreshAfterRoleMutation(guild.client, guild.id);
     return "<:success:1461731530333229226> Depex applicato.";
   }
 

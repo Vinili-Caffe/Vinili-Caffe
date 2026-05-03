@@ -25,12 +25,7 @@ const {
   guildMemberDisplayAvatarUrlDynamic,
   accountUsername,
 } = require("../Utils/Discord/guildDiscordIdentity");
-const clientConfig = require("../config.json");
-const {
-  resolveValidVerifyRoleIds,
-  resolveRequiredVerifyRoleIds,
-  isAlreadyVerifiedInThisGuild,
-} = require("../Utils/Interaction/verifyUtils");
+const { isAlreadyVerifiedInThisGuild } = require("../Utils/Interaction/verifyUtils");
 const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
@@ -1391,56 +1386,16 @@ async function runDeferredJoinAnnouncements(member) {
   }
 }
 
-async function maybeAssignVerifyRolesOnJoinIfEnabled(member) {
-  if (!clientConfig?.verification?.assignVerifyRolesOnMemberJoin) return;
+/** Nessun ruolo verify in join: solo DB + ruoli tenure se il membro ha già Member (o verificato sponsor). */
+async function maybeApplyVerificationTenureOnJoin(member) {
   if (!member?.guild || member.user?.bot) return;
   const guild = member.guild;
-  if (isAlreadyVerifiedInThisGuild(member, guild.id)) {
-    try {
-      const record = await upsertVerifiedMember(guild.id, member.id, new Date());
-      await applyTenureForMember(member, record);
-    } catch (err) {
-      global.logger?.warn?.("[guildMemberAdd] auto-verify tenure (already verified):", err?.message || err);
-    }
-    return;
-  }
-  const validVerifyRoleIds = await resolveValidVerifyRoleIds(guild);
-  const requiredVerifyRoleIds = resolveRequiredVerifyRoleIds(guild);
-  if (!validVerifyRoleIds.length) return;
-  const rolesToAdd = validVerifyRoleIds.filter((id) => !member.roles.cache.has(id));
-  if (!rolesToAdd.length) {
-    try {
-      const record = await upsertVerifiedMember(guild.id, member.id, new Date());
-      await applyTenureForMember(member, record);
-    } catch (err) {
-      global.logger?.warn?.("[guildMemberAdd] auto-verify tenure (no new roles):", err?.message || err);
-    }
-    return;
-  }
-  const memberAfter = await addRolesAndGetMember(guild, member.id, rolesToAdd);
-  if (!memberAfter) {
-    global.logger?.warn?.("[guildMemberAdd] auto-verify: addRolesAndGetMember failed", guild.id, member.id);
-    return;
-  }
-  const missingRequired = requiredVerifyRoleIds.filter((id) => !memberAfter.roles.cache.has(id));
-  if (missingRequired.length) {
-    global.logger?.warn?.(
-      "[guildMemberAdd] auto-verify: required roles missing after add",
-      guild.id,
-      member.id,
-      missingRequired.join(","),
-    );
-    return;
-  }
-  const missingOptional = rolesToAdd.filter((id) => !memberAfter.roles.cache.has(id));
-  if (missingOptional.length) {
-    global.logger?.warn?.("[guildMemberAdd] auto-verify: optional roles not assigned", guild.id, missingOptional.join(","));
-  }
+  if (!isAlreadyVerifiedInThisGuild(member, guild.id)) return;
   try {
-    const record = await upsertVerifiedMember(guild.id, memberAfter.id, new Date());
-    await applyTenureForMember(memberAfter, record);
+    const record = await upsertVerifiedMember(guild.id, member.id, new Date());
+    await applyTenureForMember(member, record);
   } catch (err) {
-    global.logger?.warn?.("[guildMemberAdd] auto-verify upsert/tenure:", err?.message || err);
+    global.logger?.warn?.("[guildMemberAdd] verification tenure on join:", err?.message || err);
   }
 }
 
@@ -1578,10 +1533,11 @@ module.exports = {
         global.logger?.warn?.("[guildMemberAdd] sponsorVerifiedRequiresMain:", err?.message || err);
       });
 
-      await maybeAssignVerifyRolesOnJoinIfEnabled(member).catch((err) => {
-        global.logger?.warn?.("[guildMemberAdd] assignVerifyRolesOnMemberJoin:", err?.message || err);
+      const hadVerifyRole = isAlreadyVerifiedInThisGuild(member, member.guild.id);
+      await maybeApplyVerificationTenureOnJoin(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] verificationTenureOnJoin:", err?.message || err);
       });
-      const memberAfterVerifyJoin = clientConfig?.verification?.assignVerifyRolesOnMemberJoin
+      const memberAfterVerifyJoin = hadVerifyRole
         ? await getGuildMemberCached(member.guild, member.id, { preferFresh: true }).catch(() => member)
         : member;
 

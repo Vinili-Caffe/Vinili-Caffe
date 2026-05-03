@@ -30,7 +30,23 @@ function parseModalId(customId) {
   const [prefix, action, ownerId] = parts;
   if (prefix !== MODAL_PREFIX) return null;
   if (!/^\d{16,20}$/.test(String(ownerId || ""))) return null;
-  return { action, ownerId };
+  if (action !== "add" && action !== "remove") return null;
+  const panelMessageId =
+    parts.length >= 4 && /^\d{16,20}$/.test(String(parts[3] || "")) ? String(parts[3]) : null;
+  return { action, ownerId, panelMessageId };
+}
+
+async function refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId) {
+  const mid = String(panelMessageId || "").trim();
+  const ch = interaction.channel;
+  if (!mid || !ch?.messages?.fetch || !interaction.guild) return;
+  const msg = await ch.messages.fetch(mid).catch(() => null);
+  if (!msg?.editable) return;
+  const canView = blacklistCommand.hasBlacklistViewRole(interaction.member);
+  const canManage = blacklistCommand.hasBlacklistManageRole(interaction.member);
+  const rows = canView ? await listPartnershipBlacklistGuilds(200).catch(() => []) : [];
+  const payload = blacklistCommand.buildBlacklistPanelPayload(ownerId, canView, canManage, rows);
+  await msg.edit(payload).catch(() => null);
 }
 
 async function ensureOwnerAndRole(interaction, ownerId, mode = "view") {
@@ -94,8 +110,16 @@ async function execute(interaction) {
     }
 
     if (action === "add" || action === "remove") {
+      const panelMessageId = interaction.message?.id;
+      if (!panelMessageId) {
+        await interaction.reply({
+          content: "<:vegax:1443934876440068179> Impossibile aggiornare il pannello: messaggio non trovato. Rilancia `+blacklist`.",
+          flags: PRIVATE_FLAG,
+        }).catch(() => {});
+        return true;
+      }
       const modal = new ModalBuilder()
-        .setCustomId(`${MODAL_PREFIX}:${action}:${ownerId}`)
+        .setCustomId(`${MODAL_PREFIX}:${action}:${ownerId}:${panelMessageId}`)
         .setTitle(action === "add" ? "Aggiungi blacklist" : "Rimuovi blacklist");
       const idInput = new TextInputBuilder()
         .setCustomId("guild_id")
@@ -143,6 +167,7 @@ async function execute(interaction) {
         }).catch(() => {});
         return true;
       }
+      await refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId);
       await interaction.reply({
         content: `<:success:1461731530333229226> Server \`${gid}\` aggiunto alla blacklist partnership.`,
         flags: PRIVATE_FLAG,
@@ -155,6 +180,7 @@ async function execute(interaction) {
       const content = r.deleted
         ? `<:success:1461731530333229226> Server \`${gid}\` rimosso dalla blacklist.`
         : `Nessuna entry per \`${gid}\` (già assente o ID errato).`;
+      if (r.deleted) await refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId);
       await interaction.reply({ content, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }

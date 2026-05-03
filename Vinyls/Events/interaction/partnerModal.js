@@ -17,6 +17,13 @@ const { checkSamePartnerTargetCooldown } = require("../../Utils/Partner/partnerS
 
 const EPHEMERAL_FLAG = 1 << 6;
 
+async function partnerModalReply(interaction, payload) {
+  if (interaction.deferred || interaction.replied) {
+    return interaction.editReply(payload).catch(() => null);
+  }
+  return interaction.reply({ ...payload, flags: (payload.flags ?? 0) | EPHEMERAL_FLAG }).catch(() => null);
+}
+
 function extractInviteCode(text) {
   if (!text) return null;
   const patterns = [/discord\.gg\/([a-zA-Z0-9-]+)/i, /discord\.com\/invite\/([a-zA-Z0-9-]+)/i, /discordapp\.com\/invite\/([a-zA-Z0-9-]+)/i,];
@@ -99,7 +106,7 @@ async function handlePartnerModal(interaction) {
   }
   await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => {});
   if (!interaction.member.roles.cache.has(IDs.roles.PartnerManager)) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setDescription(
@@ -114,7 +121,7 @@ async function handlePartnerModal(interaction) {
   const description = stripOuterCodeBlock(String(rawDescription || "").trim());
   const PARTNER_BLACKLIST_ROLE = IDs.roles.blackilistPartner;
   if (!managerId) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -128,7 +135,7 @@ async function handlePartnerModal(interaction) {
   let managerMember = null;
   managerMember = await getGuildMemberCached(interaction.guild, managerId);
   if (!managerMember) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -144,7 +151,7 @@ async function handlePartnerModal(interaction) {
     : managerMember;
   const isVerifiedMember = Boolean(memberForRoles.roles?.cache?.has(IDs.roles.Member));
   if (!isVerifiedMember) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -156,7 +163,7 @@ async function handlePartnerModal(interaction) {
     return true;
   }
   if (memberForRoles?.roles?.cache?.has(PARTNER_BLACKLIST_ROLE)) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
@@ -169,7 +176,7 @@ async function handlePartnerModal(interaction) {
   }
   const inviteCode = extractInviteCode(description);
   if (!inviteCode) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -202,7 +209,7 @@ async function handlePartnerModal(interaction) {
       ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png`
       : null;
     if (await isPartnershipGuildBlacklisted(data.guild.id)) {
-      await interaction.editReply({
+      await partnerModalReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -237,7 +244,7 @@ async function handlePartnerModal(interaction) {
       .setColor("Red")
       .setTimestamp()
       .setThumbnail(guildIconUrl(interaction.guild, { size: 256 }) || undefined);
-    await interaction.editReply({ embeds: [embed] });
+    await partnerModalReply(interaction, { embeds: [embed] });
     return true;
   }
 
@@ -248,7 +255,7 @@ async function handlePartnerModal(interaction) {
   );
   if (!cooldown.ok && cooldown.nextAllowedAt) {
     const ts = Math.floor(cooldown.nextAllowedAt.getTime() / 1000);
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -263,7 +270,7 @@ async function handlePartnerModal(interaction) {
   const filteredDescription = description.replace(/<@!?\d+>/g, "").replace(/<@&\d+>/g, "").replace(/<#\d+>/g, "").replace(/@everyone/g, "").replace(/@here/g, "").trim();
   const sanitizedDescription = stripLinksFromDescription(filteredDescription);
   if (!sanitizedDescription) {
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
@@ -281,7 +288,7 @@ async function handlePartnerModal(interaction) {
     const client = interaction.client;
     const partnershipChannel = guild.channels.cache.get(IDs.channels.partnerships) || (await getGuildChannelCached(guild, IDs.channels.partnerships)) || (await getClientChannelCached(client, IDs.channels.partnerships));
     if (!partnershipChannel?.isTextBased?.()) {
-      await interaction.editReply({
+      await partnerModalReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -294,7 +301,7 @@ async function handlePartnerModal(interaction) {
     }
     const staffDoc = await getOrCreateStaffPartnerDoc(guildId, interaction.user.id,);
     if (!staffDoc) {
-      await interaction.editReply({
+      await partnerModalReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -343,7 +350,7 @@ async function handlePartnerModal(interaction) {
       }
       staffDoc.markModified("staff");
       await staffDoc.save().catch(() => { });
-      await interaction.editReply({
+      await partnerModalReply(interaction, {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
@@ -407,10 +414,10 @@ async function handlePartnerModal(interaction) {
       .setDescription(`<:success:1461731530333229226> Partner inviata in ${partnershipChannel}`,)
       .setColor("#6f4e37");
 
-    await interaction.editReply({ embeds: [doneEmbed] });
+    await partnerModalReply(interaction, { embeds: [doneEmbed] });
   } catch (err) {
     global.logger.error(err);
-    await interaction.editReply({
+    await partnerModalReply(interaction, {
       embeds: [
         new EmbedBuilder()
           .setColor("#e74c3c")

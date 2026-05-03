@@ -1,6 +1,6 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
-const { memberHasStaffRole } = require("../Community/staffListUtils");
+const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels } = require("./staffDocUtils");
 
 const ROLE_PM = IDs.roles.PartnerManager;
@@ -80,6 +80,7 @@ async function syncStaffDbAndPauseChannelAfterDepex(guild, userId, member) {
     await deleteStaffRelatedMessagesFromConfiguredChannels(guild, uid);
   }
   await applyStaffDatabaseAfterDepex(gid, uid, member);
+  queueStaffListRefreshAfterRoleMutation(guild.client, gid);
 }
 
 module.exports = {
