@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning loader.js",
+    "start:wait-lavalink": "node wait-for-lavalink.js",
     "start:official": "npm run start --workspace=Vinyls",
     "start:test": "npm run start --workspace=Coffee",
     "install:bots": "npm install --legacy-peer-deps --prefix Vinyls && npm install --legacy-peer-deps --prefix Coffee",
