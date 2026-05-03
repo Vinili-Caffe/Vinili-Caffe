@@ -105,9 +105,9 @@ function initLavalinkMusicIfEnabled(client) {
   if (client._shoukakuInitDone) return;
   if (String(process.env.MUSIC_ENABLED || "1").trim() === "0") {
     logMusic("disabilitato (MUSIC_ENABLED=0)");
+    client._shoukakuInitDone = true;
     return;
   }
-  client._shoukakuInitDone = true;
   const { url } = parseLavalinkHost();
   const password = process.env.LAVALINK_PASSWORD || "youshallnotpass";
   const secure = String(process.env.LAVALINK_SECURE || "").trim() === "1";
@@ -131,6 +131,7 @@ function initLavalinkMusicIfEnabled(client) {
       voiceConnectionTimeout: 30,
     });
     client.shoukaku = shoukaku;
+    client._shoukakuInitDone = true;
     shoukaku.on("error", (name, err) => {
       global.logger?.warn?.(`[MUSIC] Shoukaku node ${name}:`, err?.message || err);
     });
@@ -138,7 +139,7 @@ function initLavalinkMusicIfEnabled(client) {
       global.logger?.info?.(`[MUSIC] Lavalink collegato (nodo ${name})`);
     });
   } catch (err) {
-    global.logger?.error?.("[MUSIC] Inizializzazione Shoukaku fallita:", err?.message || err);
+    global.logger?.error?.("[MUSIC] Inizializzazione Shoukaku fallita:", err?.message || err, err?.stack);
   }
 }
 
@@ -153,6 +154,7 @@ async function playFromInteraction(interaction, query) {
   if (!guild || !member) {
     return { ok: false, message: "Usa questo comando in un server." };
   }
+  initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
     const sh = client?.shoukaku;
     const node =
@@ -160,8 +162,10 @@ async function playFromInteraction(interaction, query) {
       (sh?.nodes?.size ? sh.nodes.values().next().value : undefined);
     const state = node?.state;
     global.logger?.warn?.("[MUSIC] play bloccato: nodo Shoukaku non CONNECTED", {
+      hasShoukaku: Boolean(sh),
       nodes: sh?.nodes?.size ?? 0,
       state: state != null ? String(state) : "no-node",
+      initDone: Boolean(client._shoukakuInitDone),
     });
     return {
       ok: false,
@@ -253,6 +257,7 @@ async function skipGuild(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
   if (!guild) return { ok: false, message: "Solo in server." };
+  initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
     return { ok: false, message: "Lavalink non disponibile." };
   }

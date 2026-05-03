@@ -2139,9 +2139,13 @@ async function buildSfondiClassificaPayload(guild, categoryMode, eventKeyOverrid
   }
 
   const titleSuffix = !CHANNEL_PC_ID
-    ? disegniContestUiOutfit()
+    ? IS_SINGLE_OUTFIT_FLOW
       ? "Contest outfit"
-      : "Contest disegni"
+      : IS_DISEGNI_CONTEST
+        ? "Contest disegni"
+        : cat === "pc"
+          ? "Sfondi PC"
+          : "Sfondi mobile"
     : cat === "mobile"
       ? "Sfondi mobile"
       : "Sfondi PC";

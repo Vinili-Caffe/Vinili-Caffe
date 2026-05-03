@@ -1,3 +1,5 @@
+# Backend: il tarball include wait-for-lavalink.js + ecosystem.config.cjs. Sul server, se esiste ecosystem.config.cjs,
+# PM2 usa quello (--only $Pm2AppName): l'app deve chiamarsi come in ecosystem (default "bots").
 param(
   [string]$Server = "45.143.196.131",
   [string]$User = "root",
@@ -152,7 +154,8 @@ try {
     --exclude "node_modules" `
     --exclude ".cursor" `
     --exclude "WebSite/dist" `
-    "Vinyls" "shared" "Coffee" "scripts" "package.json" "package-lock.json"
+    "Vinyls" "shared" "Coffee" "scripts" "package.json" "package-lock.json" `
+    "wait-for-lavalink.js" "loader.js" "ecosystem.config.cjs"
 
   Write-Host "Upload archivio backend su ${User}@${Server}:${remoteTgz}"
   Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
@@ -188,7 +191,8 @@ try {
     "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
   )
   if (-not $SkipBackendRestart) {
-    $remoteCmd += "pm2 restart '$Pm2AppName' --update-env"
+    $reloadEcosystem = "if [ -f '$BotRemotePath/ecosystem.config.cjs' ]; then cd '$BotRemotePath' && (pm2 describe '$Pm2AppName' >/dev/null 2>&1 && pm2 reload ecosystem.config.cjs --only '$Pm2AppName' --update-env || pm2 start ecosystem.config.cjs --only '$Pm2AppName' --update-env); else pm2 restart '$Pm2AppName' --update-env; fi"
+    $remoteCmd += $reloadEcosystem
     $remoteCmd += "pm2 list"
     $remoteCmd += "pm2 pid '$Pm2AppName'"
   } else {
