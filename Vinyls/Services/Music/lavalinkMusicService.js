@@ -1182,22 +1182,23 @@ async function leaveMusicVoiceChannelMarked(client, guildId) {
 
 /**
  * Bot uscito dal vocale senza leave “intenzionale” (es. kick / disconnessione): pulizia sessione musica + embed.
+ * `intentional` sopprime solo l’embed (leave da codice), non la pulizia: altrimenti resta un player Lavalink “fantasma”.
  * @param {import("discord.js").Client} client
  * @param {import("discord.js").Guild} guild
  */
 async function handleMusicBotVoiceDisconnect(client, guild) {
   const gid = String(guild?.id || "").trim();
   if (!gid || !client) return;
-  const intentional = client._musicIntentionalVoiceLeaveGuildIds;
-  if (intentional?.has(gid)) {
-    intentional.delete(gid);
-    return;
+  const intentional = Boolean(client._musicIntentionalVoiceLeaveGuildIds?.has(gid));
+  if (intentional) {
+    client._musicIntentionalVoiceLeaveGuildIds?.delete(gid);
   }
   const sh = client.shoukaku;
   const session = guildQueues.get(gid);
   const hadPlayer = Boolean(sh?.players?.get(gid));
+  const hadConn = Boolean(sh?.connections?.get(gid)?.channelId);
   const hadSessionMusic = Boolean(session && (session.tracks?.length || session.nowPlaying));
-  if (!hadPlayer && !hadSessionMusic) return;
+  if (!hadPlayer && !hadSessionMusic && !hadConn) return;
   const textChannelId = session?.textChannelId || null;
   guildQueues.delete(gid);
   endListeners.delete(gid);
@@ -1206,9 +1207,40 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
       await sh.players.get(gid).destroy();
     } catch (_) {}
   }
-  if (textChannelId) {
+  try {
+    await sh?.leaveVoiceChannel(gid);
+  } catch (_) {}
+  if (textChannelId && !intentional) {
     await sendMusicKickedFromVoiceEmbed(client, textChannelId, gid);
   }
+}
+
+/**
+ * Se il bot non è in vocale su Discord ma Lavalink ha ancora sessione (kick / desync), azzera tutto.
+ * @param {import("discord.js").Client} client
+ * @param {import("discord.js").Guild} guild
+ */
+async function destroyGhostMusicStateIfBotNotInVoice(client, guild) {
+  const gid = String(guild?.id || "").trim();
+  if (!gid || !client?.shoukaku) return;
+  if (guild.members?.me?.voice?.channel?.id) return;
+  const sh = client.shoukaku;
+  const player = sh.players?.get(gid);
+  const conn = sh.connections?.get(gid);
+  const session = guildQueues.get(gid);
+  const stale =
+    Boolean(player?.track) ||
+    Boolean(conn?.channelId) ||
+    Boolean(session && (session.tracks?.length || session.nowPlaying));
+  if (!stale) return;
+  endListeners.delete(gid);
+  guildQueues.delete(gid);
+  try {
+    if (player) await player.destroy();
+  } catch (_) {}
+  try {
+    await sh.leaveVoiceChannel(gid);
+  } catch (_) {}
 }
 
 /**
@@ -1396,6 +1428,8 @@ async function playMusicRequest(ctx, query) {
         "Il bot ha già una sessione **TTS** (lettura messaggi) in vocale: la musica non può avviarsi insieme. Fai uscire il TTS con il comando **leave** del modulo TTS (es. `+tts leave`), poi riprova `+play`.",
     };
   }
+
+  await destroyGhostMusicStateIfBotNotInVoice(client, guild);
 
   const shoukaku = client.shoukaku;
   const existingConn = shoukaku.connections.get(guildId);
@@ -1682,6 +1716,7 @@ async function stopGuild(interaction) {
   if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
   const guildId = guild.id;
   initLavalinkMusicIfEnabled(client);
+  await destroyGhostMusicStateIfBotNotInVoice(client, guild);
   const sh = client.shoukaku;
   const session = guildQueues.get(guildId);
   const player = sh?.players?.get(guildId);
@@ -1693,6 +1728,12 @@ async function stopGuild(interaction) {
     Boolean(session?.nowPlaying);
   if (!active) {
     return { ok: false, message: "Non c'è musica attiva in questo server." };
+  }
+  if (!guild.members?.me?.voice?.channel?.id) {
+    return {
+      ok: false,
+      message: "Il bot non è in un canale vocale: non c'è una sessione musica da fermare.",
+    };
   }
   const stopGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
   if (!stopGate.ok) return stopGate;

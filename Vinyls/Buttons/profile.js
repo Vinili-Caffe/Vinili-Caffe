@@ -4,7 +4,7 @@ const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePriv
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
-const { inferBirthYearFromAge, getRomeDateParts } = require("../Services/Community/birthdayService");
+const { inferBirthYearFromAge, getRomeDateParts, tryCelebrateBirthdayAfterProfileSave } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, getCustomReactionMax, parseReactionTokens, resolveStoredCustomEmojiFromClient, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
@@ -969,6 +969,7 @@ async function handleBirthdaySetModal(interaction, ownerId) {
     birthYear,
     showAge: true,
   }).catch(() => { });
+  void tryCelebrateBirthdayAfterProfileSave(interaction.client, interaction.guild.id, ownerId).catch(() => { });
   await applyZodiacRoleFromBirthday(interaction.guild, ownerId, parsedDate.month, parsedDate.day).catch(() => { });
   await applyAgeBracketRoleFromBirthday(
     interaction.guild,
@@ -1180,6 +1181,7 @@ async function execute(interaction, client) {
         registrationMessageId: profile?.registrationMessageId,
         registrationChannelId: profile?.registrationChannelId,
       }).catch(() => { });
+      void tryCelebrateBirthdayAfterProfileSave(interaction.client, interaction.guild.id, ownerId).catch(() => { });
       await applyZodiacRoleFromBirthday(interaction.guild, ownerId, month, day).catch(() => { });
       await applyAgeBracketRoleFromBirthday(interaction.guild, ownerId, day, month, birthYear).catch(() => { });
       clearBirthdayDraft(interaction.guild.id, ownerId);

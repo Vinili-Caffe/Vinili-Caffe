@@ -1153,7 +1153,7 @@ module.exports = {
             inline: true,
           },
           {
-            name: "\`LIVELLO 100\`",
+            name: "\`LIVELLO 100-119\`",
             value: [
               `<@&${IDs.roles.Level100}>`,
               "Tutte le ricompense precedenti",
@@ -1163,6 +1163,21 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv100}>`
             ].join("\n"),
+            inline: true,
+          },
+          {
+            name: "\`LIVELLO 120-149\`",
+            value: [`<@&${IDs.roles.Level120}>`, "Tutte le ricompense precedenti"].join("\n"),
+            inline: true,
+          },
+          {
+            name: "\`LIVELLO 150-199\`",
+            value: [`<@&${IDs.roles.Level150}>`, "Tutte le ricompense precedenti"].join("\n"),
+            inline: true,
+          },
+          {
+            name: "\`LIVELLO 200+\`",
+            value: [`<@&${IDs.roles.Level200}>`, "Tutte le ricompense precedenti"].join("\n"),
             inline: true,
           },
         )
@@ -1218,9 +1233,9 @@ module.exports = {
             inline: true,
           },
           {
-            name: "`SUPPORTER`",
+            name: "`FAN`",
             value: [
-              "<@&1442568948271943721>",
+              `<@&${IDs.roles.Fan}>`,
               'Ottenibile mettendo il testo ".gg/viniliecaffe" o "discord.gg/viniliecaffe" nello status del tuo profilo Discord!',
               "Nello stato, non nella bio; se viene tolto o se sei offline, non ti verranno assegnati i vantaggi.",
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",

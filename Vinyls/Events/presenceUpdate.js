@@ -8,7 +8,7 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Intera
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
-const ROLE_ID = IDs.roles.Supporter;
+const ROLE_ID = IDs.roles.Fan;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const CHANNEL_ID = IDs.channels.supporters;
 const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
@@ -133,7 +133,7 @@ function getInviteState(presence, prevHas = false) {
   // spam di annunci / rimozioni ruolo.
   if (!getActivitiesArray(presence).length && prevHas) return null;
   // Aggiornamento Watching/Playing/Listening: spesso il payload non include il Custom Status
-  // per un evento; senza questo si toglieva e rimetteva il ruolo Supporter a ogni episodio.
+  // per un evento; senza questo si toglieva e rimetteva il ruolo Fan a ogni episodio.
   if (prevHas && hasRichPresenceWithoutCustom(presence)) return null;
   return false;
 }
@@ -262,7 +262,7 @@ async function addRoleIfPossible(member) {
 
   let role = member.guild.roles.cache.get(ROLE_ID) || await member.guild.roles.fetch(ROLE_ID).catch(() => null);
   if (!role) {
-    global.logger?.warn?.("[presenceUpdate] Supporter role not found:", ROLE_ID);
+    global.logger?.warn?.("[presenceUpdate] Fan role not found:", ROLE_ID);
     return false;
   }
   if (role.position >= me.roles.highest.position) {
@@ -317,7 +317,7 @@ async function removeRoleIfPossible(member) {
 
   let role = member.guild.roles.cache.get(ROLE_ID) || await member.guild.roles.fetch(ROLE_ID).catch(() => null);
   if (!role) {
-    global.logger?.warn?.("[presenceUpdate] Supporter role not found:", ROLE_ID);
+    global.logger?.warn?.("[presenceUpdate] Fan role not found:", ROLE_ID);
     return false;
   }
   if (role.position >= me.roles.highest.position) {
@@ -340,7 +340,7 @@ function recentlyOnline(info) {
   return Date.now() - info.lastSeenOnlineAt < LINK_WARMUP_MS;
 }
 
-async function hasSupporterRole(member) {
+async function hasFanRole(member) {
   if (member.roles?.cache?.has(ROLE_ID)) return true;
   const fresh = await getGuildMemberCached(member.guild, member.id, { preferFresh: true });
   return fresh?.roles?.cache?.has(ROLE_ID) || false;
@@ -474,17 +474,16 @@ function buildPendingEmbed(member) {
       name: accountUsername(member),
       iconURL: thumb || undefined,
     })
-    .setTitle("Nuovx sostenitore <a:VC_StarPink:1330194976440848500>")
+    .setTitle("Nuovx Fan <a:VC_StarPink:1330194976440848500>")
     .setThumbnail(thumb || null)
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,
         `<:VC_Reply:1482532158080942191> Il ruolo <@&${ROLE_ID}> ti verrà dato entro **3 minuti** dal bot!`,
-        "<a:VC_Coffe:1448695567244066827> - `x2` di multi in **vocale** e **testuale**",
         "<a:VC_Infinity:1448687797266288832> - Inviare **media** in __ogni chat__",
         "<a:VC_HeartWhite:1448673535253024860> - Mandare **adesivi** __esterni__ in **qualsiasi chat**",
         "",
-        "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status .",
+        "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status.",
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" })
@@ -769,7 +768,7 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
     return;
   }
 
-  if (newHas && (await hasSupporterRole(member))) {
+  if (newHas && (await hasFanRole(member))) {
     setCachedState(guildId, userId, {
       hasLink: true,
       lastAnnounced: prev?.lastAnnounced || 0,
@@ -792,7 +791,7 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
       return;
     }
 
-    if (await hasSupporterRole(member)) {
+    if (await hasFanRole(member)) {
       setCachedState(guildId, userId, {
         hasLink: true,
         lastAnnounced: prev?.lastAnnounced || 0,

@@ -41,6 +41,7 @@ const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/We
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
 const IDs = require("../Utils/Config/ids");
+const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const startupPanelsTrigger = require("../Triggers/embeds");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { syncAllMembersClanTags } = require("../Services/Community/clanTagRoleService");
@@ -211,6 +212,16 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "restore core startup state",
       enabled: true,
       run: () => restoreCoreStartupState(client),
+    },
+    {
+      label: "backfill boost announce slot counts from supporters history",
+      enabled: primaryScheduler,
+      run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
+    },
+    {
+      label: "correct misleading single boost embeds (double booster)",
+      enabled: primaryScheduler,
+      run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),
     },
     {
       label: "primary heavy tasks",

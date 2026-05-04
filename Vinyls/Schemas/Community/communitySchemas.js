@@ -381,6 +381,7 @@ const activityUserProfileSchema = new Schema(
         lastSentAt: { type: Date, default: null },
         hasLink: { type: Boolean, default: false },
       },
+      serverBoostAnnouncedSlotCount: { type: Number, default: null, min: 0 },
       afk: {
         message: { type: String, default: null },
         timestamp: { type: Date, default: null },

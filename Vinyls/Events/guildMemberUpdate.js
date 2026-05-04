@@ -17,7 +17,16 @@ const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnl
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
-const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, addAnnouncedBoostSlots, deleteAnnouncedBoostSlots } = require("../Utils/Community/boostSlotAnnounceTracker");
+const {
+  getAnnouncedBoostSlots,
+  setAnnouncedBoostSlots,
+  addAnnouncedBoostSlots,
+  deleteAnnouncedBoostSlots,
+  ensureBoostSlotsSynced,
+  persistAnnouncedBoostSlotsToDb,
+  clearAnnouncedBoostSlotsMemoryForGuild,
+} = require("../Utils/Community/boostSlotAnnounceTracker");
+const { isValidGuildUserId } = require("../Utils/DB/validateWriteIds");
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
@@ -25,6 +34,7 @@ const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketA
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community/donationPackageSupportersAnnounce");
+const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
 const {
   buildBoostEmbed,
   buildBoostEmbedSecond,
@@ -368,26 +378,6 @@ async function addPerkRoleIfPossible(member) {
   }
 }
 
-function buildGuildedEmbed(member) {
-  const avatarUrl = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
-  return new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setAuthor({ name: accountUsername(member), iconURL: avatarUrl || undefined })
-    .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
-    .setDescription(
-      [
-        `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${IDs.roles.Guilded}>!`,
-        "<a:VC_Coffe:1448695567244066827> - Accesso ai vantaggi esclusivi **Guilded**",
-        "",
-        "<a:VC_Arrow:1482706699365257397> Grazie per aver unito il tuo account!",
-      ].join("\n"),
-    )
-    .setThumbnail(avatarUrl || null)
-    .setFooter({ text: "Grazie per il tuo supporto!" })
-    .setImage(DIVIDER_URL);
-}
-
 async function removePlusColorsIfNotEligible(member) {
   const me = member.guild.members.me;
   if (!me) return;
@@ -437,7 +427,7 @@ async function trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guildI
 
   const add = Math.max(0, Number(times || 0));
   if (!add) return;
-  const next = addAnnouncedBoostSlots(guildId, member.id, add);
+  const next = await addAnnouncedBoostSlots(guildId, member.id, add);
   if (next < 2 || member.roles.cache.has(doubleId)) return;
   const ok = await member.roles.add(doubleId).then(() => true).catch(() => false);
   if (!ok) {
@@ -668,6 +658,7 @@ async function maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, gui
   const mainId = String(IDs.guilds.main || "");
   const doubleBoosterId = IDs?.roles?.DoubleBooster || null;
   if (!doubleBoosterId || mainId !== String(guildId) || !newMember?.roles?.cache) return;
+  await ensureBoostSlotsSynced(guildId, newMember.id);
   if (!newMember.roles.cache.has(doubleBoosterId)) return;
   const newBoostTs = newMember.premiumSinceTimestamp || 0;
   if (!newBoostTs) return;
@@ -686,6 +677,7 @@ async function maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, gui
   if (slots < 2) slots = 2;
   slots = Math.max(0, slots - d);
   setAnnouncedBoostSlots(guildId, newMember.id, slots);
+  await persistAnnouncedBoostSlotsToDb(guildId, newMember.id);
 
   if (slots < 2) {
     const me = newMember.guild.members.me;
@@ -698,7 +690,7 @@ async function maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, gui
       await newMember.roles.remove(doubleBoosterId).catch(() => { });
     }
   }
-  if (slots <= 0) deleteAnnouncedBoostSlots(guildId, newMember.id);
+  if (slots <= 0) await deleteAnnouncedBoostSlots(guildId, newMember.id);
 }
 
 function scheduleBoostFollowup(
@@ -719,6 +711,7 @@ function scheduleBoostFollowup(
       const missing = Math.max(0, latestCount - knownCount);
 
       if (missing > 0) {
+        await ensureBoostSlotsSynced(guildId, newMember.id);
         const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
         await sendBoostEmbeds(
           boostAnnounceChannel,
@@ -746,9 +739,14 @@ async function handleBoostUpdate(oldMember, newMember) {
   const boostAnnounceChannel = newMember.guild.channels.cache.get(boostChannelId) || (await getGuildChannelCached(newMember.guild, boostChannelId));
   if (!boostAnnounceChannel?.isTextBased?.()) return;
 
+  const guildId = newMember.guild.id;
+  const mainIdForBoost = String(IDs.guilds.main || "");
+  if (mainIdForBoost && String(guildId) === mainIdForBoost) {
+    await ensureBoostSlotsSynced(guildId, newMember.id);
+  }
+
   const oldBoostTs = oldMember.premiumSinceTimestamp || 0;
   const newBoostTs = newMember.premiumSinceTimestamp || 0;
-  const guildId = newMember.guild.id;
   const boostKey = `${guildId}:${newMember.id}`;
   const mainId = String(IDs.guilds.main || "");
   const doubleBoosterId = IDs?.roles?.DoubleBooster || null;
@@ -760,7 +758,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     !newBoostTs &&
     newMember.roles.cache.has(doubleBoosterId)
   ) {
-    deleteAnnouncedBoostSlots(guildId, newMember.id);
+    await deleteAnnouncedBoostSlots(guildId, newMember.id);
     const me = newMember.guild.members.me;
     const role = newMember.guild.roles.cache.get(doubleBoosterId);
     if (
@@ -1036,6 +1034,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     if (member && !Number(member.premiumSinceTimestamp || 0)) continue;
 
     if (member) await addPerkRoleIfPossible(member).catch(() => { });
+    await ensureBoostSlotsSynced(guild.id, targetId);
     const priorSlots = getAnnouncedBoostSlots(guild.id, targetId);
     await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, missing, currentCount, priorSlots).catch(() => { });
     if (member) await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guild.id, missing);
@@ -1065,6 +1064,182 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   } : undefined;
   if (debugEnabled) global.logger?.info?.("[BOOST RECOVERY DEBUG] done:", { recovered, debug });
   return { ok: true, recovered, debug };
+}
+
+function extractBoostAnnounceTargetUserId(content) {
+  const m = String(content || "").match(/<@!?(\d{17,20})>/);
+  return m ? m[1] : "";
+}
+
+function extractEmbedDescription(embed) {
+  if (!embed) return "";
+  const fromData = embed.data && typeof embed.data.description === "string" ? embed.data.description : "";
+  if (fromData) return fromData;
+  return typeof embed.description === "string" ? embed.description : "";
+}
+
+function parseBoostCountFromFooter(footerText) {
+  const m = String(footerText || "").match(/Ora siamo a\s*(\d+)\s*boost/i);
+  return m ? Math.max(0, Number(m[1]) || 0) : 0;
+}
+
+async function correctMisleadingSingleBoostEmbedsOnStartup(client) {
+  if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds.main || "");
+  if (!guildId) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+
+  const boostChannelId = IDs.channels.supporters;
+  if (!boostChannelId) return { ok: false, reason: "no_boost_channel" };
+  const channel = guild.channels.cache.get(boostChannelId) || (await getGuildChannelCached(guild, boostChannelId));
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+
+  const me = guild.members?.me;
+  const perms = me && channel.permissionsFor ? channel.permissionsFor(me) : null;
+  if (!perms?.has?.(PermissionsBitField.Flags.ReadMessageHistory) || !perms?.has?.(PermissionsBitField.Flags.ManageMessages)) {
+    return { ok: false, reason: "missing_perms_edit" };
+  }
+
+  const doubleBoosterId = IDs?.roles?.DoubleBooster;
+  if (!doubleBoosterId) return { ok: false, reason: "no_double_role_id" };
+
+  const batch = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+  if (!batch) return { ok: false, reason: "fetch_failed" };
+
+  const botUid = String(client.user?.id || "");
+  const sorted = [...batch.values()].sort((a, b) => Number(b?.createdTimestamp || 0) - Number(a?.createdTimestamp || 0));
+  const userIdsWithNewerDoubleEmbed = new Set();
+  for (const msg of sorted) {
+    if (String(msg.author?.id || "") !== botUid) continue;
+    const uidScan = extractBoostAnnounceTargetUserId(msg.content);
+    if (!uidScan) continue;
+    const descScan = extractEmbedDescription(msg.embeds?.[0]);
+    if (!descScan || !descScan.includes("GRAZIE")) continue;
+    if (descScan.includes("DOPPIO") && /boost/i.test(descScan)) userIdsWithNewerDoubleEmbed.add(uidScan);
+  }
+
+  const alreadyCorrectedUserIds = new Set();
+  let fixed = 0;
+
+  for (const msg of sorted) {
+    if (String(msg.author?.id || "") !== botUid) continue;
+    const uid = extractBoostAnnounceTargetUserId(msg.content);
+    if (!uid || alreadyCorrectedUserIds.has(uid)) continue;
+    const emb = msg.embeds?.[0];
+    const desc = extractEmbedDescription(emb);
+    if (!desc) continue;
+    if (desc.includes("DOPPIO")) continue;
+    if (!desc.includes("PER IL BOOST!")) continue;
+    if (userIdsWithNewerDoubleEmbed.has(uid)) continue;
+
+    const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
+    if (!member?.roles?.cache?.has(doubleBoosterId)) continue;
+
+    const footerText = emb?.footer?.text || (emb?.data?.footer && emb.data.footer.text) || "";
+    const fromFooter = parseBoostCountFromFooter(footerText);
+    const boostCount = fromFooter > 0 ? fromFooter : Number(guild.premiumSubscriptionCount || 0);
+
+    const newEmbed = buildBoostEmbedSecond(member, boostCount);
+    const edited = await msg
+      .edit({
+        content: buildBoostAnnounceContent(member.user),
+        embeds: [newEmbed],
+      })
+      .then(() => true)
+      .catch(() => false);
+    if (!edited) continue;
+
+    alreadyCorrectedUserIds.add(uid);
+    fixed += 1;
+    setAnnouncedBoostSlots(guild.id, uid, 2);
+    await persistAnnouncedBoostSlotsToDb(guild.id, uid);
+  }
+
+  return { ok: true, fixed };
+}
+
+async function backfillAnnouncedBoostSlotsFromSupportersHistory(client, opts = {}) {
+  if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds.main || "");
+  if (!guildId || !client?.user?.id) return { ok: false, reason: "no_main_guild" };
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+
+  const boostChannelId = IDs.channels.supporters;
+  if (!boostChannelId) return { ok: false, reason: "no_boost_channel" };
+  const channel = guild.channels.cache.get(boostChannelId) || (await getGuildChannelCached(guild, boostChannelId));
+  if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+
+  const me = guild.members?.me;
+  const perms = me && channel.permissionsFor ? channel.permissionsFor(me) : null;
+  if (!perms?.has?.(PermissionsBitField.Flags.ReadMessageHistory)) {
+    return { ok: false, reason: "missing_read_history" };
+  }
+
+  const fetchLimit = Math.max(50, Math.min(300, Number(opts.fetchLimit || 200)));
+  const batch = await channel.messages.fetch({ limit: fetchLimit }).catch(() => null);
+  if (!batch) return { ok: false, reason: "fetch_failed" };
+
+  const botUid = String(client.user.id);
+  const counts = new Map();
+  for (const m of batch.values()) {
+    if (String(m.author?.id || "") !== botUid) continue;
+    const uid = extractBoostAnnounceTargetUserId(m.content);
+    if (!uid || !isValidGuildUserId(guildId, uid)) continue;
+    const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+    const embedTexts = embeds.map((e) =>
+      [e?.title || "", e?.description || "", e?.footer?.text || ""].join("\n"),
+    );
+    const text = [m.content || "", ...embedTexts].join("\n");
+    const needle = `<@${String(uid)}>`;
+    if (!text.includes(needle)) continue;
+    const looksLikeBoost = (
+      /grazie\s+per\s+il\s+boost/i.test(text) ||
+      /per\s+il\s+doppio\s+boost/i.test(text) ||
+      /per\s+il\s+boost/i.test(text) ||
+      /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
+    );
+    if (!looksLikeBoost) continue;
+    counts.set(uid, Math.min(10, Number(counts.get(uid) || 0) + 1));
+  }
+
+  if (!counts.size) {
+    clearAnnouncedBoostSlotsMemoryForGuild(guildId);
+    return { ok: true, updated: 0, scannedUsers: 0 };
+  }
+
+  const userIds = [...counts.keys()];
+  const existing = await ActivityUserProfile.find({ guildId, userId: { $in: userIds } })
+    .select("userId profile.serverBoostAnnouncedSlotCount")
+    .lean()
+    .catch(() => []);
+
+  const prevByUser = new Map(
+    (existing || []).map((d) => [String(d.userId), Math.max(0, Math.floor(Number(d?.profile?.serverBoostAnnouncedSlotCount || 0)))]),
+  );
+
+  let updated = 0;
+  for (const [uid, chCount] of counts.entries()) {
+    const prev = Math.max(0, Number(prevByUser.get(uid) || 0));
+    const next = Math.min(10, Math.max(prev, chCount));
+    if (next <= 0 || next === prev) continue;
+    const ok = await ActivityUserProfile.findOneAndUpdate(
+      { guildId, userId: uid },
+      {
+        $set: {
+          guildId,
+          userId: uid,
+          "profile.serverBoostAnnouncedSlotCount": next,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    ).then(() => true).catch(() => false);
+    if (ok) updated += 1;
+  }
+
+  clearAnnouncedBoostSlotsMemoryForGuild(guildId);
+  return { ok: true, updated, scannedUsers: counts.size };
 }
 
 async function ensureCustomVocAccess(newMember) {
@@ -1176,6 +1351,9 @@ async function syncCustomRoleEligibilityWindow(newMember) {
 
 module.exports = {
   name: "guildMemberUpdate",
+  recoverRecentBoostEmbedsOnStartup,
+  correctMisleadingSingleBoostEmbedsOnStartup,
+  backfillAnnouncedBoostSlotsFromSupportersHistory,
   async execute(oldMember, newMember, client) {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;
@@ -1242,6 +1420,7 @@ module.exports = {
       }
 
       await removePlusColorsIfNotEligible(newMember);
+      await maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, newMember);
       await ensureCustomVocAccess(newMember);
       await syncCustomVocEligibilityWindow(newMember);
       await syncCustomRoleEligibilityWindow(newMember);

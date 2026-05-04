@@ -1,5 +1,6 @@
 const cron = require("node-cron");
 const IDs = require("../../Utils/Config/ids");
+const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore");
 const { applyAgeBracketRoleFromBirthday } = require("../../Utils/Community/ageBracketRoles");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -96,12 +97,93 @@ async function stripBirthdayFlairRoleFromAllGuilds(client) {
   }
 }
 
+async function deliverBirthdayAnnouncementsForGuild(guild, guildDocs, today) {
+  const channelId = IDs.channels.chat || null;
+  let channel =
+    (channelId ? (guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId))) : null) || null;
+  if (!channel?.isTextBased?.()) {
+    channel =
+      guild.channels.cache.find(
+        (c) => c?.isTextBased?.() && /chat|chatting/i.test(c.name),
+      ) || null;
+  }
+  if (!channel?.isTextBased?.()) {
+    global.logger?.warn?.(
+      "[BIRTHDAY] Nessun canale testuale per annuncio (config chat=",
+      channelId || "—",
+      ", fallback nome chat/chatting). Guild:",
+      guild.id,
+      "Utenti:",
+      guildDocs.map((d) => d.userId).join(","),
+    );
+    return;
+  }
+
+  const content = buildBirthdayAnnouncement(guildDocs, today.year);
+  let sendErr = null;
+  const sent = await channel.send({ content }).catch((e) => {
+    sendErr = e;
+    return null;
+  });
+  if (!sent) {
+    global.logger?.error?.(
+      "[BIRTHDAY] Invio messaggio fallito:",
+      guild.id,
+      "canale",
+      channel.id,
+      sendErr?.message || sendErr || "(sconosciuto)",
+      "— non marco lastCelebratedYear (retry al prossimo tick).",
+    );
+    return;
+  }
+
+  for (const reaction of BIRTHDAY_REACTIONS) {
+    await sent.react(reaction).catch(() => {});
+  }
+
+  for (const doc of guildDocs) {
+    const uid = String(doc.userId || "");
+    const b = doc?.profile?.birthday || doc;
+    await assignBirthdayRole(guild, uid);
+    await applyAgeBracketRoleFromBirthday(
+      guild,
+      uid,
+      Number(b.day),
+      Number(b.month),
+      Number(b.birthYear),
+    ).catch(() => {});
+  }
+
+  const ids = guildDocs.map((doc) => String(doc._id)).filter(Boolean);
+  if (ids.length) {
+    await markBirthdayCelebratedByIds(ids, today.year).catch(() => {});
+  }
+}
+
+async function tryCelebrateBirthdayAfterProfileSave(client, guildId, userId) {
+  if (!client || !guildId || !userId) return;
+  const today = getRomeDateParts(new Date());
+  const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+    .select("_id guildId userId profile.birthday")
+    .lean()
+    .catch(() => null);
+  if (!doc?._id) return;
+  const b = doc.profile?.birthday;
+  if (!b) return;
+  if (Number(b.day) !== today.day || Number(b.month) !== today.month) return;
+  if (Number(b.lastCelebratedYear) === today.year) return;
+
+  const guild = client.guilds.cache.get(String(guildId)) || (await client.guilds.fetch(String(guildId)).catch(() => null));
+  if (!guild) return;
+
+  const guildDocs = [{ _id: doc._id, guildId: doc.guildId, userId: doc.userId, ...b }];
+  await deliverBirthdayAnnouncementsForGuild(guild, guildDocs, today);
+}
+
 async function runBirthdayTick(client, opts = {}) {
   if (!client || birthdayTickRunning) return;
   birthdayTickRunning = true;
   try {
-    const channelId = IDs.channels.chat || null;
-
     if (opts.stripFlairFirst) {
       await stripBirthdayFlairRoleFromAllGuilds(client).catch((e) =>
         global.logger?.warn?.("[BIRTHDAY] strip flair failed:", e?.message || e),
@@ -135,65 +217,7 @@ async function runBirthdayTick(client, opts = {}) {
         continue;
       }
 
-      let channel =
-        (channelId ? (guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId))) : null) || null;
-      if (!channel?.isTextBased?.()) {
-        channel =
-          guild.channels.cache.find(
-            (c) => c?.isTextBased?.() && /chat|chatting/i.test(c.name),
-          ) || null;
-      }
-      if (!channel?.isTextBased?.()) {
-        global.logger?.warn?.(
-          "[BIRTHDAY] Nessun canale testuale per annuncio (config chat=",
-          channelId || "—",
-          ", fallback nome chat/chatting). Guild:",
-          guild.id,
-          "Utenti:",
-          guildDocs.map((d) => d.userId).join(","),
-        );
-        continue;
-      }
-
-      const content = buildBirthdayAnnouncement(guildDocs, today.year);
-      let sendErr = null;
-      const sent = await channel.send({ content }).catch((e) => {
-        sendErr = e;
-        return null;
-      });
-      if (!sent) {
-        global.logger?.error?.(
-          "[BIRTHDAY] Invio messaggio fallito:",
-          guild.id,
-          "canale",
-          channel.id,
-          sendErr?.message || sendErr || "(sconosciuto)",
-          "— non marco lastCelebratedYear (retry al prossimo tick).",
-        );
-        continue;
-      }
-
-      for (const reaction of BIRTHDAY_REACTIONS) {
-        await sent.react(reaction).catch(() => {});
-      }
-
-      for (const doc of guildDocs) {
-        const uid = String(doc.userId || "");
-        const b = doc?.profile?.birthday || doc;
-        await assignBirthdayRole(guild, uid);
-        await applyAgeBracketRoleFromBirthday(
-          guild,
-          uid,
-          Number(b.day),
-          Number(b.month),
-          Number(b.birthYear),
-        ).catch(() => {});
-      }
-
-      const ids = guildDocs.map((doc) => String(doc._id)).filter(Boolean);
-      if (ids.length) {
-        await markBirthdayCelebratedByIds(ids, today.year).catch(() => {});
-      }
+      await deliverBirthdayAnnouncementsForGuild(guild, guildDocs, today);
     }
   } catch (error) {
     global.logger?.error?.("[BIRTHDAY] Tick failed:", error);
@@ -242,4 +266,11 @@ function getBirthdayLoopStatus() {
   };
 }
 
-module.exports = { startBirthdayLoop, runBirthdayTick, getRomeDateParts, inferBirthYearFromAge, getBirthdayLoopStatus };
+module.exports = {
+  startBirthdayLoop,
+  runBirthdayTick,
+  getRomeDateParts,
+  inferBirthYearFromAge,
+  getBirthdayLoopStatus,
+  tryCelebrateBirthdayAfterProfileSave,
+};

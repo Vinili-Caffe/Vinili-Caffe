@@ -76,6 +76,29 @@ async function writeLastResocontoRun() {
   await setBotState(BOT_STATE_KEY_LAST_RESOCONTO, { lastRunAt: Date.now() });
 }
 
+const BOT_STATE_KEY_STAFF_RESOCONTO_POSTED_PREFIX = "staffResocontoPosted";
+
+function buildStaffResocontoPostedStateKey(guildId, resocontoWeekKey) {
+  return `${BOT_STATE_KEY_STAFF_RESOCONTO_POSTED_PREFIX}:${String(guildId || "")}:${String(resocontoWeekKey || "")}`;
+}
+
+async function loadStaffResocontoPostedIds(guildId, resocontoWeekKey) {
+  const key = buildStaffResocontoPostedStateKey(guildId, resocontoWeekKey);
+  const cur = await getBotState(key, { userIds: [] });
+  return new Set((Array.isArray(cur?.userIds) ? cur.userIds : []).map((x) => String(x || "").trim()).filter((id) => /^\d{17,20}$/.test(id)));
+}
+
+async function appendStaffResocontoPostedId(guildId, resocontoWeekKey, userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{17,20}$/.test(uid)) return;
+  const key = buildStaffResocontoPostedStateKey(guildId, resocontoWeekKey);
+  const cur = await getBotState(key, { userIds: [] });
+  const arr = Array.isArray(cur?.userIds) ? cur.userIds.map((x) => String(x || "").trim()).filter(Boolean) : [];
+  if (arr.includes(uid)) return;
+  arr.push(uid);
+  await setBotState(key, { userIds: arr });
+}
+
 function toSafeNumber(value) {
   const num = Number(value || 0);
   return Number.isFinite(num) ? num : 0;
@@ -876,6 +899,9 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
   const weekStart = getWeekStartDate(now);
   const weekEnd = now;
   const pexSkipWindow = getResocontoPexSkipWindowUtc(now);
+  const closingPartsForResocontoKey = getRomeDateParts(pexSkipWindow.windowEndExclusive);
+  const resocontoWeekKey = `${closingPartsForResocontoKey.year}-${String(closingPartsForResocontoKey.month).padStart(2, "0")}-${String(closingPartsForResocontoKey.day).padStart(2, "0")}`;
+  const staffResocontoPostedIds = await loadStaffResocontoPostedIds(guildId, resocontoWeekKey);
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
 
   const wantStaffForSegment =
@@ -950,7 +976,10 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
     const matchStaffSegment =
       wantStaffForSegment && staffRoleId && String(staffRoleId) === wantStaffForSegment;
 
-    if (matchStaffSegment && !shouldSkipStaffResoconto) {
+    const alreadyHadStaffResocontoThisCycle =
+      (segment === "mod" || segment === "admin") && staffResocontoPostedIds.has(userId);
+
+    if (matchStaffSegment && !shouldSkipStaffResoconto && !alreadyHadStaffResocontoThisCycle) {
       const overview = overviewMap.get(userId);
       const d7 = overview?.windows?.d7;
       const weeklyMessages = Math.max(0, Math.floor(toSafeNumber(d7?.text ?? 0)),);
@@ -1000,13 +1029,17 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
         ),
       ];
 
-      await channel
+      const staffMsg = await channel
         .send({
           content: contentLines.join("\n"),
           ...(staffComponents.length ? { components: staffComponents } : {}),
         })
-        .then((msg) => createResocontoThread(msg, userId, member.user?.username, staffDoc))
         .catch(() => null);
+      if (staffMsg) {
+        await createResocontoThread(staffMsg, userId, member.user?.username, staffDoc);
+        await appendStaffResocontoPostedId(guildId, resocontoWeekKey, userId);
+        staffResocontoPostedIds.add(userId);
+      }
     }
 
     if (

@@ -91,7 +91,7 @@ function memberHasPlusColorEligibility(member, numericLevel) {
     IDs.roles.Donator,
   ].filter(Boolean);
   if (gateRoles.some((rid) => member.roles.cache.has(rid))) return true;
-  const legacyLevelRoles = [IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Level100].filter(Boolean);
+  const legacyLevelRoles = [IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Level100, IDs.roles.Level120, IDs.roles.Level150, IDs.roles.Level200].filter(Boolean);
   if (legacyLevelRoles.some((rid) => member.roles.cache.has(rid))) return true;
   return false;
 }
@@ -239,6 +239,9 @@ function listRoleIdsForColorsEmbedMentions(guild) {
     IDs.roles.Level50,
     IDs.roles.Level70,
     IDs.roles.Level100,
+    IDs.roles.Level120,
+    IDs.roles.Level150,
+    IDs.roles.Level200,
   ];
   const uniq = [...new Set(raw.map((id) => String(id || "").trim()).filter(Boolean))];
   return uniq.filter((id) => guild?.roles?.cache?.has?.(id));
@@ -257,6 +260,9 @@ function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
     IDs.roles.Level50,
     IDs.roles.Level70,
     IDs.roles.Level100,
+    IDs.roles.Level120,
+    IDs.roles.Level150,
+    IDs.roles.Level200,
   ]);
   const plusUnlocked = listUnlockedPlusRoleIds(guild, canPickPlus);
   const plusBlock = canPickPlus

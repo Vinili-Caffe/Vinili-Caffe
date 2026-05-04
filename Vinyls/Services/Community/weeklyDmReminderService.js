@@ -112,7 +112,7 @@ const defaultPool = [
     description: `Se ti interessano le collaborazioni, tieni d'occhio ${channelMention(IDs.channels.partnerships, "canale partnerships")} e le regole dedicate.`,
   },
   {
-    title: "Supporter e badge",
+    title: "Fan e badge",
     description: `Molti badge e ruoli speciali hanno vantaggi concreti: scopri i requisiti e punta a sbloccarne almeno uno.`,
   },
   {

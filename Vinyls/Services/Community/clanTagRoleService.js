@@ -326,16 +326,10 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
       .setThumbnail(avatarUrl)
       .setDescription(
         [
-          `<a:VC_Arrow:1482706699365257397><@${member.id}>`,
-          "",
-          roleLine,
-          `Mettendo una delle nostre **Guild-TAGs**`,
-          "<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902><a:VC_Arrow:1482706699365257397> <https://discord.gg/E6vrm5zE6B>",
-          "<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434><a:VC_Arrow:1482706699365257397> <https://discord.gg/QnTN5P578g>",
-          "<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547><a:VC_Arrow:1482706699365257397> <https://discord.gg/WMuZ4EMAkc>",
-          "<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813><a:VC_Arrow:1482706699365257397> <https://discord.gg/uqUNS9f5m5>",
-          "<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592><a:VC_Arrow:1482706699365257397> <https://discord.gg/SzBwnxHXNv>",
-          "<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937><a:VC_Arrow:1482706699365257397> <https://discord.gg/z3EXtJwvQH>",
+          `<@${member.id}>, \`hai sbloccato:\``,
+          `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`,
+          "<a:VC_Infinity:1448687797266288832> - Inviare **media** in __ogni chat__",
+          "<a:VC_HeartWhite:1448673535253024860> - Mandare **adesivi** __esterni__ in **qualsiasi chat**",
           "",
           "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag!",
         ].join("\n"),
