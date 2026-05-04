@@ -3,6 +3,7 @@ const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClientGuildCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { shouldBlockDm } = require("../../Utils/noDmList");
+const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryGames].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
@@ -17,7 +18,7 @@ const PERKS_CHANNEL_ID = IDs.channels.info;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const LEVEL_ROLE_MAP = new Map([[10, IDs.roles.Level10], [20, IDs.roles.Level20], [30, IDs.roles.Level30], [50, IDs.roles.Level50], [70, IDs.roles.Level70], [100, IDs.roles.Level100], [120, IDs.roles.Level120], [150, IDs.roles.Level150], [200, IDs.roles.Level200],]);
 const PERK_NEAR_LEVEL_DISTANCE = 2;
-const ROLE_MULTIPLIERS = new Map([[IDs.roles.ServerBooster, 2], [IDs.roles.DoubleBooster, 3], [IDs.roles.Donator, 4], [IDs.roles.VIP, 5], [IDs.roles.VIPplus, 6], [IDs.roles.Level100, 1,25],]);
+const ROLE_MULTIPLIERS = new Map([[IDs.roles.ServerBooster, 2], [IDs.roles.MVP, 2], [IDs.roles.DoubleBooster, 3], [IDs.roles.Donator, 4], [IDs.roles.VIP, 5], [IDs.roles.VIPplus, 6], [IDs.roles.Level100, 1,25],]);
 function pad2(value) {
   return String(value).padStart(2, "0");
 }
@@ -467,7 +468,9 @@ async function sendLevelUpMessage(guild, member, level) {
 async function sendLevelUpAnnouncement(guild, member, level) {
   if (!guild || !member || !Number.isFinite(level) || level < 1) return;
   if (LEVEL_ROLE_MAP.has(level)) {
+    const roleId = LEVEL_ROLE_MAP.get(level);
     await sendPerksLevelMessage(guild, member, level);
+    await sendLevelMilestoneSupportersAnnouncement(guild, member, level, roleId).catch(() => null);
   } else {
     await sendLevelUpMessage(guild, member, level);
   }
@@ -603,6 +606,48 @@ async function sendLevelUpPayload(channel, member, payload) {
       ...payload,
     })
     .catch(() => { });
+}
+
+async function incrementMinigameWinCounters(guildId, userId, effectiveExp, newStreak, bestStreak) {
+  if (!isValidGuildUserId(guildId, userId)) return null;
+  const gid = String(guildId);
+  const uid = String(userId);
+  const eff = Math.max(0, Math.floor(Number(effectiveExp)));
+  if (!Number.isFinite(eff)) return null;
+  const weekKey = getIsoWeekKey(new Date());
+  const ns = Math.max(0, Math.floor(Number(newStreak)));
+  const bs = Math.max(0, Math.floor(Number(bestStreak)));
+  try {
+    const doc = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: gid, userId: uid },
+      [
+        {
+          $set: {
+            guildId: { $ifNull: ["$guildId", gid] },
+            userId: { $ifNull: ["$userId", uid] },
+            "profile.totals.exp.minigame.totalExp": {
+              $add: [{ $ifNull: ["$profile.totals.exp.minigame.totalExp", 0] }, eff],
+            },
+            "profile.totals.exp.minigame.weeklyKey": weekKey,
+            "profile.totals.exp.minigame.weeklyExp": {
+              $cond: [
+                { $eq: [{ $ifNull: ["$profile.totals.exp.minigame.weeklyKey", ""] }, weekKey] },
+                { $add: [{ $ifNull: ["$profile.totals.exp.minigame.weeklyExp", 0] }, eff] },
+                eff,
+              ],
+            },
+            "profile.totals.exp.minigame.currentStreak": ns,
+            "profile.totals.exp.minigame.bestStreak": bs,
+          },
+        },
+      ],
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    return doc;
+  } catch (err) {
+    global.logger?.warn?.("[expService] incrementMinigameWinCounters failed:", err?.message || err);
+    return null;
+  }
 }
 
 async function fetchGuildMember(guild, userId) {
@@ -1252,6 +1297,7 @@ module.exports = {
   getResolvedWeeklyExpMultiplier,
   getCurrentWeekKey,
   getIsoWeekKey,
+  incrementMinigameWinCounters,
   ROLE_MULTIPLIERS,
   scheduleEventLevelUpMessage,
   sendLevelUpMessage,

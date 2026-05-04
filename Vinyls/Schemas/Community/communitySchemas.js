@@ -371,6 +371,8 @@ const activityUserProfileSchema = new Schema(
           },
           minigame: {
             totalExp: { type: Number, default: 0 },
+            weeklyExp: { type: Number, default: 0 },
+            weeklyKey: { type: String, default: "" },
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
           },

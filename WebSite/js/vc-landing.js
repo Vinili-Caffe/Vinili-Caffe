@@ -1137,48 +1137,8 @@
 
   function wireNotifSheetSwipeGestures(dd) {
     if (!dd || dd.dataset.vcNotifSwipe === "1") return;
-    var panel = dd.querySelector(".vc-notif-panel");
-    if (!panel) return;
-    if (panel.querySelector(".vc-notif-sheet-handle")) {
-      dd.dataset.vcNotifSwipe = "1";
-      return;
-    }
+    if (!dd.querySelector(".vc-notif-panel")) return;
     dd.dataset.vcNotifSwipe = "1";
-    var handle = document.createElement("div");
-    handle.className = "vc-notif-sheet-handle";
-    handle.setAttribute("aria-hidden", "true");
-    panel.insertBefore(handle, panel.firstChild);
-    var hy0 = 0;
-    var hTrack = false;
-    handle.addEventListener(
-      "touchstart",
-      function (ev) {
-        if (!isMobileNotifViewport() || !dd.open) return;
-        if (ev.touches.length !== 1) return;
-        hy0 = ev.touches[0].clientY;
-        hTrack = true;
-      },
-      { passive: true },
-    );
-    handle.addEventListener(
-      "touchend",
-      function (ev) {
-        if (!hTrack) return;
-        hTrack = false;
-        if (!isMobileNotifViewport() || !dd.open) return;
-        var t = ev.changedTouches && ev.changedTouches[0];
-        if (!t) return;
-        applyNotifSheetSwipeDelta(t.clientY - hy0, dd);
-      },
-      { passive: true },
-    );
-    handle.addEventListener(
-      "touchcancel",
-      function () {
-        hTrack = false;
-      },
-      { passive: true },
-    );
   }
   function timeAgoIt(atMs) {
     var s = Math.floor((Date.now() - atMs) / 1000);

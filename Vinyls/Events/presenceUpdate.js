@@ -480,8 +480,8 @@ function buildPendingEmbed(member) {
       [
         `<@${member.id}>, \`hai sbloccato:\``,
         `<:VC_Reply:1482532158080942191> Il ruolo <@&${ROLE_ID}> ti verrà dato entro **3 minuti** dal bot!`,
-        "<a:VC_Infinity:1448687797266288832> - Inviare **media** in __ogni chat__",
-        "<a:VC_HeartWhite:1448673535253024860> - Mandare **adesivi** __esterni__ in **qualsiasi chat**",
+        "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
+        "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare nickname",
         "",
         "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nel tuo status.",
       ].join("\n"),

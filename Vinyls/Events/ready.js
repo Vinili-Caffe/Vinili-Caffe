@@ -219,6 +219,11 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
     },
     {
+      label: "recover missed boost embeds (audit vs ultimo embed bot)",
+      enabled: primaryScheduler,
+      run: () => guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client),
+    },
+    {
       label: "correct misleading single boost embeds (double booster)",
       enabled: primaryScheduler,
       run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),

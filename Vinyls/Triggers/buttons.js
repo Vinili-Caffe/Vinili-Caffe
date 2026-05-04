@@ -541,7 +541,7 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       const menuId = interaction.customId;
       const values = Array.isArray(interaction.values) ? interaction.values : [];
-      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: [IDs.roles.ReviveChat, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Forum,], personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus,], };
+      const categories = { personality_pronouns: ["1442568997848743997", "1442568999043989565", "1442569000063074498", "1442569001367769210",], personality_age: ["1442568993197265021", "1442568994581381170", "1442568995348807691", "1442568996774871194",], personality_region: ["1442569021861007443", "1442569023303974922", "1442569024486506498", "1442569025790939167",], personality_dm: ["1442569004215697438", "1442569005071077417", "1442569006543274126",], personality_relationship: ["1442569028173299732", "1442569029263818906",], personality_zodiac: ZODIAC_ROLE_IDS, personality_mentions: [IDs.roles.ReviveChat, IDs.roles.Events, IDs.roles.News, IDs.roles.Polls, IDs.roles.Bump, IDs.roles.Minigames, IDs.roles.Forum,], personality_colors_1: PERSONALITY_NORMAL_COLOR_ROLE_IDS_ALL, personality_colors_plus: [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus, IDs.roles.orangeBlackPlus, IDs.roles.greenBlackPlus, IDs.roles.aquaBlackPlus,], };
       const colorMenuIds = ["personality_colors_1", "personality_colors_plus"];
       const allColorRoleIds = colorMenuIds.flatMap((id) => categories[id] || []);
 
@@ -554,10 +554,21 @@ module.exports = {
       const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, rolesToRemove || [], `menu=${menuId} (config)`);
 
       if (menuId === "personality_colors_plus" && values.length && !values.includes("remove")) {
-        const { memberHasPlusColorFullEligibilityAsync } = require("../Utils/Community/personalityColorUnlocks");
-        const allowed = await memberHasPlusColorFullEligibilityAsync(member);
+        const unlocks = require("../Utils/Community/personalityColorUnlocks");
+        const allowed = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
         if (!allowed) {
           return interaction.reply({ content: ROLE_PLUS_FORBIDDEN, flags: PRIVATE_FLAG }).catch((err) => {
+            logButtonErr(err);
+            return null;
+          });
+        }
+        const level = await unlocks.fetchNumericProfileLevel(guild.id, member.id);
+        const bad = values.find((v) => v !== "remove" && !unlocks.isAllowedColorValue(v, member, level, allowed));
+        if (bad) {
+          return interaction.reply({
+            content: "<:vegax:1443934876440068179> Non hai i requisiti per quel colore Plus (livello o permessi).",
+            flags: PRIVATE_FLAG,
+          }).catch((err) => {
             logButtonErr(err);
             return null;
           });
@@ -1167,17 +1178,30 @@ module.exports = {
           },
           {
             name: "\`LIVELLO 120-149\`",
-            value: [`<@&${IDs.roles.Level120}>`, "Tutte le ricompense precedenti"].join("\n"),
+            value: [
+              `<@&${IDs.roles.Level120}>`,
+              "Tutte le ricompense precedenti",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+colors\` <@&${IDs.roles.orangeBlackPlus}>`,
+            ].join("\n"),
             inline: true,
           },
           {
             name: "\`LIVELLO 150-199\`",
-            value: [`<@&${IDs.roles.Level150}>`, "Tutte le ricompense precedenti"].join("\n"),
+            value: [
+              `<@&${IDs.roles.Level150}>`,
+              "Tutte le ricompense precedenti",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+colors\` <@&${IDs.roles.greenBlackPlus}>`,
+            ].join("\n"),
             inline: true,
           },
           {
             name: "\`LIVELLO 200+\`",
-            value: [`<@&${IDs.roles.Level200}>`, "Tutte le ricompense precedenti"].join("\n"),
+            value: [
+              `<@&${IDs.roles.Level200}>`,
+              "Tutte le ricompense precedenti",
+              "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+colors\` <@&${IDs.roles.aquaBlackPlus}>`,
+            ].join("\n"),
             inline: true,
           },
         )

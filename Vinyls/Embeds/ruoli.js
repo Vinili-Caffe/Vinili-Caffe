@@ -70,6 +70,9 @@ async function run(client) {
         `<:VC_8:1482706553281708092> <@&${IDs.roles.blackPlus}>`,
         `<:VC_9:1482706583438889051> <@&${IDs.roles.grayPlus}>`,
         `<:VC_10:1482706613663174707> <@&${IDs.roles.whitePlus}>`,
+        `<:VC_2:1482706376525611090> <@&${IDs.roles.orangeBlackPlus}> — livello **120**`,
+        `<:VC_4:1482706432347344916> <@&${IDs.roles.greenBlackPlus}> — livello **150**`,
+        `<:VC_5:1482706459765637272> <@&${IDs.roles.aquaBlackPlus}> — livello **200**`,
       ].join("\n"),
     )
   const pronouns = new ActionRowBuilder().addComponents(
@@ -217,6 +220,9 @@ async function run(client) {
         { label: "Black Gradient", value: IDs.roles.blackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         { label: "Gray Gradient", value: IDs.roles.grayPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
         { label: "White Gradient", value: IDs.roles.whitePlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Clicca qui per ottenere il ruolo" },
+        { label: "Orange & Black Plus", value: IDs.roles.orangeBlackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Da livello 120" },
+        { label: "Green & Black Plus", value: IDs.roles.greenBlackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Da livello 150" },
+        { label: "Aqua & Black Plus", value: IDs.roles.aquaBlackPlus, emoji: { id: "1482534921472835895", name: "VC_Vip" }, description: "Da livello 200" },
       ),
   );
 

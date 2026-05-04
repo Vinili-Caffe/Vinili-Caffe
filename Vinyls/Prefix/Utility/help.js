@@ -4,6 +4,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
+const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const PERMISSIONS_PATH = path.join(__dirname, "..", "..", "permissions.json");
 const MAX_HELP_COLLECTOR_MS = 24 * 60 * 60 * 1000;
@@ -395,8 +396,12 @@ function getSubcommandEntries(commandName, dataJson, permissionConfig, commandTy
   return entries;
 }
 
-/** Slash rimossi dal codice ma ancora visibili su Discord finché la purge REST non gira. */
-const OBSOLETE_SLASH_HELP_NAMES = new Set(["music"]);
+/** Slash rimossi dal codice: nascosti dall'help (stessi nomi della purge REST). */
+const OBSOLETE_SLASH_HELP_NAMES = new Set(
+  (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : [])
+    .map((s) => String(s || "").trim().toLowerCase())
+    .filter(Boolean),
+);
 
 function shouldIncludeSlashCommandInHelp(command) {
   if (!command || command.skipDeploy) return false;

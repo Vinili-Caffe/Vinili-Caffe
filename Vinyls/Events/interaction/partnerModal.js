@@ -479,8 +479,16 @@ function splitMessage(message, maxLength = 2000) {
 }
 
 function normalizeManagerLine(text, managerId) {
-  const content = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim().replace(/\n*Manager:\s*(<@!?\d+>)?\s*$/gi, "").replace(/\n*Partner effettuata con\s*\*\*<@!?\d+>\*\*\s*$/gi, "").trim();
-  return `${content}\n\n<:VC_Mention:1482526855289634997> Manager: <@${managerId}>`;
+  let content = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  content = content
+    .replace(/(?:\n*ping:\s*<@&\d+>\s*)+$/gi, "")
+    .replace(/\n*<:VC_Mention:\d+>\s*Manager:\s*<@!?\d+>\s*$/gi, "")
+    .replace(/\n*Manager:\s*(<@!?\d+>)?\s*$/gi, "")
+    .replace(/\n*Partner effettuata con\s*\*\*<@!?\d+>\*\*\s*$/gi, "")
+    .trim();
+  const partnershipRoleId = String(IDs.roles?.Partnership || "").trim();
+  const pingLine = partnershipRoleId ? `\n\nping: <@&${partnershipRoleId}>` : "";
+  return `${content}\n\n<:VC_Mention:1482526855289634997> Manager: <@${managerId}>${pingLine}`;
 }
 
 function stripOuterCodeBlock(text) {

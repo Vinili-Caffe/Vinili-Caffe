@@ -4465,10 +4465,34 @@ body.vc-body > footer {
 body.vc-body footer .mx-auto.max-w-6xl {
   max-width: none !important;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 body.vc-body .vc-footer-brand-row {
-  max-width: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  max-width: min(32rem, 100%);
+  margin-left: auto;
+  margin-right: auto;
+  column-gap: 0.75rem;
+  row-gap: 0.65rem;
+}
+
+body.vc-body > footer .vc-footer-brand-row > :nth-child(1) {
+  justify-self: end;
+}
+
+body.vc-body > footer .vc-footer-brand-row > :nth-child(2) {
+  justify-self: center;
+}
+
+body.vc-body > footer .vc-footer-brand-row > :nth-child(3) {
+  justify-self: start;
 }
 
 body.vc-body .vc-footer-social-ico {
@@ -4500,8 +4524,22 @@ body.vc-body > footer .vc-footer-brand-row > a:not(.vc-footer-social-ico):hover 
   background: rgba(255, 255, 255, 0.04) !important;
 }
 
+body.vc-body > footer nav[aria-label="Link legali"] {
+  width: 100%;
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  text-align: center;
+}
+
 body.vc-body > footer nav[aria-label="Link legali"] a {
   color: rgba(248, 242, 234, 0.9) !important;
+  text-align: center;
 }
 
 body.vc-body > footer nav[aria-label="Link legali"] a:hover {
@@ -4509,6 +4547,10 @@ body.vc-body > footer nav[aria-label="Link legali"] a:hover {
 }
 
 body.vc-body > footer p {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  max-width: min(36rem, 100%);
   color: rgba(248, 242, 234, 0.8) !important;
 }
 
@@ -6625,26 +6667,6 @@ a.vc-snav-item[href*="sponsor"] svg {
     background: rgba(24, 18, 14, 0.88);
     border-color: rgba(var(--vc-sand-rgb), 0.26);
     color: rgba(241, 245, 249, 0.94);
-  }
-
-  .vc-notif-dropdown[open] .vc-notif-sheet-handle {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    min-height: 1.85rem;
-    padding: 0.4rem 0 0.35rem;
-    touch-action: none;
-    cursor: grab;
-  }
-
-  .vc-notif-dropdown[open] .vc-notif-sheet-handle::after {
-    content: "";
-    display: block;
-    width: 2.6rem;
-    height: 0.3rem;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.22);
   }
 
   .vc-notif-dropdown[open] .vc-notif-list {
@@ -16370,14 +16392,13 @@ body.vc-body.vc-users-page .vc-rank-editor-tab.is-active {
     gap: 1rem;
   }
 
-  .vc-footer-brand-row {
-    row-gap: 0.65rem;
+  body.vc-body > footer .vc-footer-brand-row {
+    max-width: 100%;
+    column-gap: 0.5rem;
   }
 
   .vc-footer-brand-row a {
     max-width: 100%;
-    text-align: center;
-    justify-content: center;
   }
 }
 

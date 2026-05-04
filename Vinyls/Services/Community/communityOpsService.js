@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { ChannelType, PermissionsBitField } = require("discord.js");
 const { addRolesAndGetMember, getClientGuildCached, getGuildMemberCached, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../../Schemas/Community/communitySchemas");
@@ -10,10 +11,12 @@ const MAIN_GUILD_ID = IDs.guilds.main;
 const ROLE_STAGE_1 = IDs.roles.NuovoUtente;
 const ROLE_STAGE_2 = IDs.roles.Veterano;
 const ROLE_STAGE_3 = IDs.roles.OG;
+/** Tenure server principale: basta il ruolo Member (verifica join/captcha). I ruoli selfie Verified* non entrano qui. */
 const VERIFIED_ROLE_IDS = [IDs.roles.Member,].filter(Boolean);
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_TENURE_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SPONSOR_VERIFY_NICKNAME = ".gg/viniliecaffe";
+/** Da `max(join, verifiedAt)`: dopo STAGE_1_DAYS → Veterano (toglie NuovoUtente); dopo STAGE_2_DAYS → OG. */
 const STAGE_1_DAYS = 30;
 const STAGE_2_DAYS = 365;
 const SUPERSCRIPT_MAP = { 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹", };
@@ -91,6 +94,7 @@ function startVoteRoleCleanupLoop(client) {
 }
 
 async function upsertVerifiedMember(guildId, userId, verifiedAt = new Date()) {
+  if (mongoose.connection?.readyState !== 1) return null;
   await ActivityUserProfile.findOneAndUpdate(
     { guildId, userId },
     {
@@ -159,6 +163,7 @@ async function applySponsorGuildAutoVerificato(member) {
 
 async function applyTenureForMember(member, record) {
   if (!member || !record) return;
+  if (mongoose.connection?.readyState !== 1) return;
   const guildId = String(member.guild?.id || "");
   const hasVerifiedRole = VERIFIED_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
   const me = member.guild?.members?.me || (await member.guild?.members?.fetchMe?.().catch(() => null));

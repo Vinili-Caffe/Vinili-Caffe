@@ -35,6 +35,7 @@ const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifi
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
+const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
 const {
   buildBoostEmbed,
   buildBoostEmbedSecond,
@@ -48,10 +49,52 @@ const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
 const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus].filter(Boolean);
-const PLUS_COLOR_ROLE_IDS = [IDs.roles.redPlus, IDs.roles.orangePlus, IDs.roles.yellowPlus, IDs.roles.greenPlus, IDs.roles.bluePlus, IDs.roles.purplePlus, IDs.roles.pinkPlus, IDs.roles.blackPlus, IDs.roles.grayPlus, IDs.roles.whitePlus,].filter(Boolean);
+const PLUS_COLOR_ROLE_IDS = [
+  IDs.roles.redPlus,
+  IDs.roles.orangePlus,
+  IDs.roles.yellowPlus,
+  IDs.roles.greenPlus,
+  IDs.roles.bluePlus,
+  IDs.roles.purplePlus,
+  IDs.roles.pinkPlus,
+  IDs.roles.blackPlus,
+  IDs.roles.grayPlus,
+  IDs.roles.whitePlus,
+  IDs.roles.orangeBlackPlus,
+  IDs.roles.greenBlackPlus,
+  IDs.roles.aquaBlackPlus,
+].filter(Boolean);
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
+
+function normalizeBoostAnnounceEntry(raw) {
+  if (raw != null && typeof raw === "object" && !Array.isArray(raw) && typeof raw.count === "number") {
+    return {
+      count: raw.count,
+      premiumTs: raw.premiumTs != null ? Number(raw.premiumTs) : null,
+    };
+  }
+  if (typeof raw === "number") return { count: raw, premiumTs: null };
+  return null;
+}
+
+function rememberBoostAnnounce(boostKey, guildPremiumCount, premiumSinceTs) {
+  boostAnnounceCache.set(boostKey, {
+    count: Number(guildPremiumCount || 0),
+    premiumTs: premiumSinceTs != null ? Number(premiumSinceTs) : null,
+  });
+}
+
+function shouldSkipDuplicateBoostAnnounce(boostKey, countIncreased, currentCount, newBoostTs) {
+  if (!countIncreased) return false;
+  const meta = normalizeBoostAnnounceEntry(boostAnnounceCache.get(boostKey));
+  if (!meta || meta.count !== currentCount) return false;
+  const ts = Number(newBoostTs || 0);
+  if (meta.premiumTs != null && ts > 0) return meta.premiumTs === ts;
+  if (meta.premiumTs == null && ts > 0) return true;
+  return false;
+}
 
 function isPrimaryShard(client) {
   return !client?.shard || client.shard.ids?.[0] === 0;
@@ -383,13 +426,17 @@ async function removePlusColorsIfNotEligible(member) {
   if (!me) return;
   if (!hasManageRolesPermission(member)) return;
 
-  const { memberHasPlusColorFullEligibilityAsync } = require("../Utils/Community/personalityColorUnlocks");
-  if (await memberHasPlusColorFullEligibilityAsync(member)) return;
+  const unlocks = require("../Utils/Community/personalityColorUnlocks");
+  const canPickPlus = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
+  const level = await unlocks.fetchNumericProfileLevel(member.guild.id, member.id);
+  const allowedPlus = new Set(unlocks.listUnlockedPlusRoleIds(member.guild, canPickPlus, level));
 
-  const heldPlusRoles = PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId),);
-  if (!heldPlusRoles.length) return;
-
-  const removableRoleIds = heldPlusRoles.filter((roleId) => { const role = member.guild.roles.cache.get(roleId); return role && role.position < me.roles.highest.position; });
+  const heldPlusRoles = PLUS_COLOR_ROLE_IDS.filter((roleId) => member.roles.cache.has(roleId));
+  const removableRoleIds = heldPlusRoles.filter((roleId) => {
+    if (allowedPlus.has(roleId)) return false;
+    const role = member.guild.roles.cache.get(roleId);
+    return role && role.position < me.roles.highest.position;
+  });
   if (!removableRoleIds.length) return;
 
   const removed = await member.roles.remove(removableRoleIds).then(() => true).catch(() => false);
@@ -721,7 +768,7 @@ function scheduleBoostFollowup(
           priorSlots,
         );
         await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, missing);
-        boostAnnounceCache.set(boostKey, latestCount);
+        rememberBoostAnnounce(boostKey, latestCount, newMember.premiumSinceTimestamp);
         boostCountCache.set(guildId, latestCount);
       }
     } catch {
@@ -750,23 +797,22 @@ async function handleBoostUpdate(oldMember, newMember) {
   const boostKey = `${guildId}:${newMember.id}`;
   const mainId = String(IDs.guilds.main || "");
   const doubleBoosterId = IDs?.roles?.DoubleBooster || null;
-  if (
-    doubleBoosterId &&
-    mainId &&
-    String(guildId) === mainId &&
-    oldBoostTs > 0 &&
-    !newBoostTs &&
-    newMember.roles.cache.has(doubleBoosterId)
-  ) {
+  if (mainIdForBoost && String(guildId) === mainIdForBoost && oldBoostTs > 0 && !newBoostTs) {
+    boostAnnounceCache.delete(boostKey);
     await deleteAnnouncedBoostSlots(guildId, newMember.id);
-    const me = newMember.guild.members.me;
-    const role = newMember.guild.roles.cache.get(doubleBoosterId);
     if (
-      me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) &&
-      role &&
-      role.position < me.roles.highest.position
+      doubleBoosterId &&
+      newMember.roles.cache.has(doubleBoosterId)
     ) {
-      await newMember.roles.remove(doubleBoosterId).catch(() => { });
+      const me = newMember.guild.members.me;
+      const role = newMember.guild.roles.cache.get(doubleBoosterId);
+      if (
+        me?.permissions?.has(PermissionsBitField.Flags.ManageRoles) &&
+        role &&
+        role.position < me.roles.highest.position
+      ) {
+        await newMember.roles.remove(doubleBoosterId).catch(() => { });
+      }
     }
   }
 
@@ -825,7 +871,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     priorSlots,
   );
   await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
-  boostAnnounceCache.set(boostKey, currentCount);
+  rememberBoostAnnounce(boostKey, currentCount, newBoostTs);
 
   scheduleBoostFollowup(
     boostAnnounceChannel,
@@ -969,6 +1015,13 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     acc[id] = Number(acc[id] || 0) + 1;
     return acc;
   }, {});
+  const latestAuditByUser = {};
+  for (const c of candidates) {
+    const id = String(c?.targetId || "");
+    const t = Number(c?.createdMs || 0);
+    if (!id || !t) continue;
+    if (!latestAuditByUser[id] || t > latestAuditByUser[id]) latestAuditByUser[id] = t;
+  }
   const orderedUserIds = Object.entries(counts)
     .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
     .slice(0, limit)
@@ -994,28 +1047,48 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
 
   const recentMessages = await boostAnnounceChannel.messages.fetch({ limit: 80 }).catch(() => null);
   const recent = recentMessages ? Array.from(recentMessages.values()) : [];
+  const botIdForBoostRecovery = String(client.user?.id || "");
+  function boostAnnounceLooksLikeBoost(text) {
+    return (
+      /grazie\s+per\s+il\s+boost/i.test(text) ||
+      /per\s+il\s+doppio\s+boost/i.test(text) ||
+      /per\s+il\s+boost/i.test(text) ||
+      /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
+    );
+  }
   const countAlreadyAnnounced = (userId) => {
     const needle = `<@${String(userId)}>`;
     let n = 0;
     for (const m of recent) {
-      if (!m) return false;
-      if (String(m.author?.id || "") !== String(client.user?.id || "")) return false;
+      if (!m) continue;
+      if (String(m.author?.id || "") !== botIdForBoostRecovery) continue;
       const embeds = Array.isArray(m.embeds) ? m.embeds : [];
       const embedTexts = embeds.map((e) =>
         [e?.title || "", e?.description || "", e?.footer?.text || ""].join("\n"),
       );
       const text = [m.content || "", ...embedTexts].join("\n");
       if (!text.includes(needle)) continue;
-      const looksLikeBoost = (
-        /grazie\s+per\s+il\s+boost/i.test(text) ||
-        /per\s+il\s+doppio\s+boost/i.test(text) ||
-        /per\s+il\s+boost/i.test(text) ||
-        /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
-      );
-      if (looksLikeBoost) n += 1;
+      if (boostAnnounceLooksLikeBoost(text)) n += 1;
     }
     return n;
   };
+  function getLastBotBoostEmbedTimeMs(userId) {
+    const needle = `<@${String(userId)}>`;
+    let maxT = 0;
+    for (const m of recent) {
+      if (!m) continue;
+      if (String(m.author?.id || "") !== botIdForBoostRecovery) continue;
+      const embeds = Array.isArray(m.embeds) ? m.embeds : [];
+      const embedTexts = embeds.map((e) =>
+        [e?.title || "", e?.description || "", e?.footer?.text || ""].join("\n"),
+      );
+      const text = [m.content || "", ...embedTexts].join("\n");
+      if (!text.includes(needle)) continue;
+      if (!boostAnnounceLooksLikeBoost(text)) continue;
+      maxT = Math.max(maxT, Number(m.createdTimestamp || 0));
+    }
+    return maxT;
+  }
 
   const freshGuild = await guild.fetch().catch(() => null);
   const currentCount = Number(freshGuild?.premiumSubscriptionCount || guild.premiumSubscriptionCount || 0);
@@ -1025,22 +1098,36 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   for (const targetId of orderedUserIds) {
     const want = Math.max(1, Number(counts[String(targetId)] || 1));
     const already = countAlreadyAnnounced(targetId);
-    const missing = Math.max(0, want - already);
-    if (missing <= 0) continue;
+    let missing = Math.max(0, want - already);
 
     const member = await getGuildMemberCached(guild, targetId, { preferFresh: true }).catch(() => null);
     const user = member?.user || (await client.users.fetch(String(targetId)).catch(() => null));
     if (!user) continue;
     if (member && !Number(member.premiumSinceTimestamp || 0)) continue;
 
-    if (member) await addPerkRoleIfPossible(member).catch(() => { });
     await ensureBoostSlotsSynced(guild.id, targetId);
-    const priorSlots = getAnnouncedBoostSlots(guild.id, targetId);
+    const dbPrior = getAnnouncedBoostSlots(guild.id, targetId);
+    let priorSlots = Math.max(dbPrior, already);
+    const auditLatest = Number(latestAuditByUser[targetId] || 0);
+    const lastEmbedAt = getLastBotBoostEmbedTimeMs(targetId);
+    if (
+      missing === 0 &&
+      auditLatest > 0 &&
+      auditLatest > lastEmbedAt &&
+      member
+    ) {
+      missing = 1;
+      if (already >= 1) priorSlots = Math.max(priorSlots, 1);
+    }
+
+    if (missing <= 0) continue;
+
+    if (member) await addPerkRoleIfPossible(member).catch(() => { });
     await sendBoostEmbeds(boostAnnounceChannel, { user, guild }, missing, currentCount, priorSlots).catch(() => { });
     if (member) await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guild.id, missing);
 
     const boostKey = `${guild.id}:${String(targetId)}`;
-    boostAnnounceCache.set(boostKey, currentCount);
+    rememberBoostAnnounce(boostKey, currentCount, member?.premiumSinceTimestamp);
     recovered += missing;
 
     if (member) {
@@ -1358,6 +1445,24 @@ module.exports = {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;
       if (String(newMember.guild.id) === String(IDs.guilds?.main || "")) {
+        const memberRoleId = String(IDs.roles?.Member || "").trim();
+        if (
+          memberRoleId &&
+          !newMember.user?.bot &&
+          !oldMember.roles.cache.has(memberRoleId) &&
+          newMember.roles.cache.has(memberRoleId)
+        ) {
+          try {
+            const record = await upsertVerifiedMember(newMember.guild.id, newMember.id, new Date());
+            await applyTenureForMember(newMember, record);
+          } catch (err) {
+            global.logger?.warn?.(
+              "[guildMemberUpdate] verification tenure on Member add:",
+              newMember.id,
+              err?.message || err,
+            );
+          }
+        }
         const canAnnNow = await shouldSendPublicMemberAnnouncement(newMember);
         const couldAnnBefore = await shouldSendPublicMemberAnnouncement(oldMember);
         if (canAnnNow && !couldAnnBefore) {

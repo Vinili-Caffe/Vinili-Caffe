@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const cron = require("node-cron");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { VOICE_EXP_PER_MINUTE } = require("./expService");
+const { VOICE_EXP_PER_MINUTE, MESSAGE_EXP } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
 const { isChannelInTicketCategory } = require("../../Utils/Ticket/ticketCategoryUtils");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getUserCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -21,6 +21,8 @@ const INFO_CHANNEL_ID = IDs.channels.info;
 const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>"];
 const MESSAGE_WINNER_ROLE_ID = IDs.roles.TopWeeklyText;
 const VOICE_WINNER_ROLE_ID = IDs.roles.TopWeeklyVoc;
+const MINIGAME_WINNER_ROLE_ID = IDs.roles.MVP;
+const MONTHLY_MEMBER_ROLE_ID = IDs.roles.TopMonthlyMember;
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
   [
@@ -173,6 +175,56 @@ function buildLast7DaysHourKeys(endMs) {
     keys.push(`${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}`);
   }
   return keys;
+}
+
+function daysInCalendarMonthRome(year, month1to12) {
+  return new Date(year, month1to12, 0).getDate();
+}
+
+function buildCalendarMonthHourKeys(year, month1to12) {
+  const dim = daysInCalendarMonthRome(year, month1to12);
+  const keys = [];
+  for (let day = 1; day <= dim; day += 1) {
+    for (let hour = 0; hour < 24; hour += 1) {
+      keys.push(`${year}-${pad2(month1to12)}-${pad2(day)}T${pad2(hour)}`);
+    }
+  }
+  return keys;
+}
+
+function getPreviousRomeCalendarMonth(anchor = new Date()) {
+  const p = getRomeDateTimeParts(anchor);
+  let y = p.year;
+  let m = p.month;
+  if (m <= 1) {
+    y -= 1;
+    m = 12;
+  } else {
+    m -= 1;
+  }
+  return { year: y, month: m };
+}
+
+const IT_MONTH_NAMES = [
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
+];
+
+async function loadMonthlyRowsFromRomeCalendarMonth(guild, year, month1to12) {
+  const eligible = await getEligibleChannelSets(guild);
+  if (!eligible.text.size && !eligible.voice.size) return [];
+  const hourKeys = buildCalendarMonthHourKeys(year, month1to12);
+  return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
 }
 
 function buildLastHoursHourKeys(endMs, hours) {
@@ -427,21 +479,44 @@ function deduplicateTopTwoLists(topA, topB, sortedA, sortedB, targetSize = 3) {
   return { listA: resultA, listB: resultB };
 }
 
-async function updateWeeklyWinnerRoles(guild, topMessages, topVoice) {
+async function updateWeeklyWinnerRoles(guild, topMessages, topVoice, topMinigame) {
   const chosenUserIds = new Set();
   const messageWinner = pickFirstAvailable(topMessages, chosenUserIds);
   if (messageWinner) chosenUserIds.add(messageWinner.userId);
   const voiceWinner = pickFirstAvailable(topVoice, chosenUserIds);
   if (voiceWinner) chosenUserIds.add(voiceWinner.userId);
-  await Promise.all([
+  const minigameWinner =
+    topMinigame !== false &&
+    MINIGAME_WINNER_ROLE_ID &&
+    Array.isArray(topMinigame) &&
+    topMinigame.length
+      ? pickFirstAvailable(topMinigame, chosenUserIds)
+      : null;
+  const removals = [
     removeRoleFromAllMembers(guild, MESSAGE_WINNER_ROLE_ID, messageWinner?.userId),
     removeRoleFromAllMembers(guild, VOICE_WINNER_ROLE_ID, voiceWinner?.userId),
-  ]);
-  await Promise.all([
+  ];
+  if (MINIGAME_WINNER_ROLE_ID && topMinigame !== false) {
+    removals.push(removeRoleFromAllMembers(guild, MINIGAME_WINNER_ROLE_ID, minigameWinner?.userId));
+  }
+  await Promise.all(removals);
+  const assigns = [
     assignRoleToUser(guild, messageWinner?.userId, MESSAGE_WINNER_ROLE_ID),
     assignRoleToUser(guild, voiceWinner?.userId, VOICE_WINNER_ROLE_ID),
-  ]);
-  return { messageWinner, voiceWinner };
+  ];
+  if (MINIGAME_WINNER_ROLE_ID && topMinigame !== false) {
+    assigns.push(assignRoleToUser(guild, minigameWinner?.userId, MINIGAME_WINNER_ROLE_ID));
+  }
+  await Promise.all(assigns);
+  return { messageWinner, voiceWinner, minigameWinner };
+}
+
+async function updateMonthlyWinnerRoles(guild, topCombined) {
+  const first = Array.isArray(topCombined) && topCombined.length ? topCombined[0] : null;
+  if (!MONTHLY_MEMBER_ROLE_ID) return { topMonthlyWinner: first };
+  await removeRoleFromAllMembers(guild, MONTHLY_MEMBER_ROLE_ID);
+  await assignRoleToUser(guild, first?.userId, MONTHLY_MEMBER_ROLE_ID);
+  return { topMonthlyWinner: first };
 }
 
 function buildEmptyLine(kind) {
@@ -490,9 +565,11 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       : new Date();
   let displayTopMessages = [];
   let displayTopVoice = [];
+  let displayTopMinigame = [];
   let messageRows = [buildEmptyLine("messaggi")];
   let voiceRows = [buildEmptyLine("exp vocale")];
-  let awarded = { messageWinner: null, voiceWinner: null };
+  let minigameRows = [];
+  let awarded = { messageWinner: null, voiceWinner: null, minigameWinner: null };
   if (!skipNormalWeekly) {
     const rowsSource =
       mode === "daily"
@@ -511,35 +588,69 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     voiceRows = displayTopVoice.length
       ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"))
       : [buildEmptyLine("exp vocale")];
+    if (mode === "weekly") {
+      const minigameDocs = await ActivityUserProfile.find({
+        guildId: guild.id,
+        "profile.totals.exp.minigame.weeklyExp": { $gt: 0 },
+      })
+        .select("userId profile.totals.exp.minigame")
+        .sort({ "profile.totals.exp.minigame.weeklyExp": -1 })
+        .limit(200)
+        .lean()
+        .catch(() => []);
+      const topMinigame = await resolveTopThreeUsers(
+        client,
+        guild,
+        minigameDocs,
+        (doc) => Number(doc?.profile?.totals?.exp?.minigame?.weeklyExp || 0),
+        10,
+      );
+      displayTopMinigame = uniqueRankingByUserId(topMinigame, 3);
+      minigameRows = displayTopMinigame.length
+        ? displayTopMinigame.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "pt minigame"))
+        : [buildEmptyLine("minigames")];
+    }
     if (options.skipWeeklyRoles) {
       const chosenUserIds = new Set();
       const messageWinner = pickFirstAvailable(displayTopMessages, chosenUserIds);
       if (messageWinner) chosenUserIds.add(messageWinner.userId);
       const voiceWinner = pickFirstAvailable(displayTopVoice, chosenUserIds);
-      awarded = { messageWinner, voiceWinner };
+      if (voiceWinner) chosenUserIds.add(voiceWinner.userId);
+      const minigameWinner =
+        mode === "weekly" && displayTopMinigame.length ? pickFirstAvailable(displayTopMinigame, chosenUserIds) : null;
+      awarded = { messageWinner, voiceWinner, minigameWinner };
     } else {
-      awarded = await updateWeeklyWinnerRoles(guild, displayTopMessages, displayTopVoice);
+      awarded = await updateWeeklyWinnerRoles(
+        guild,
+        displayTopMessages,
+        displayTopVoice,
+        mode === "weekly" ? displayTopMinigame : false,
+      );
     }
   }
   if (skipNormalWeekly) return;
+  const embedDescLines = [
+    `<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    "",
+    `<a:VC_HeartsPink:1468685897389052008> • **Classifica testuale:**`,
+    ...messageRows,
+    "",
+    `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
+    ...voiceRows,
+  ];
+  if (mode === "weekly" && minigameRows.length) {
+    embedDescLines.push("", `<a:VC_Events:1482706144953897223> • **Classifica minigames:**`, ...minigameRows);
+  }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(
-      [
-        `<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono in "badge" nel canale <#${INFO_CHANNEL_ID}>`,
-        "",
-        `<a:VC_HeartsPink:1468685897389052008> • **Classifica testuale:**`,
-        ...messageRows,
-        "",
-        `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
-        ...voiceRows,
-      ].join("\n"),
-    )
+    .setDescription(embedDescLines.join("\n"))
     .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
   const messageWinnerTotal = Number(awarded?.messageWinner?.value || 0);
   const voiceWinnerTotal = Number(awarded?.voiceWinner?.value || 0);
+  const minigameWinnerTotal = Number(awarded?.minigameWinner?.value || 0);
   const messageWinnerMention = awarded?.messageWinner?.userId ? `<@${awarded.messageWinner.userId}>` : "Nessun vincitore";
   const voiceWinnerMention = awarded?.voiceWinner?.userId ? `<@${awarded.voiceWinner.userId}>` : "Nessun vincitore";
+  const minigameWinnerMention = awarded?.minigameWinner?.userId ? `<@${awarded.minigameWinner.userId}>` : "Nessun vincitore";
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("Chat")
@@ -558,18 +669,133 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       ? "<a:VC_Winner:1482535294757507255> Ciao a tutti! Ecco la Top 3 utenti più attivi di oggi."
       : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
     try {
+      const minigameLine =
+        mode === "weekly" && MINIGAME_WINNER_ROLE_ID
+          ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo <@&${MINIGAME_WINNER_ROLE_ID}>.`
+          : "";
       await channel.send({
         content: `<@&1442568949605597264>
 ${introLine}
 
 <a:VC_Arrow:1482706699365257397> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__**.
-<a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.
+<a:VC_Arrow:1482706699365257397> Con un totale di **${voiceWinnerTotal} exp**, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__**.${minigameLine}
 _ _`,
         embeds: [embed],
         components: [button],
       });
     } catch (error) {
       global.logger.error("[WEEKLY ACTIVITY] Failed to send winners message:", error);
+    }
+  }
+}
+
+async function publishMonthlyActivityWinners(client, options = {}) {
+  const mainGuildId = String(IDs.guilds?.main || "");
+  let guild =
+    mainGuildId &&
+    (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
+  const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+  if (!guild) {
+    const channel =
+      client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+    if (!channel?.guild) {
+      global.logger?.error?.("[MONTHLY ACTIVITY] Publish skipped: guild not found (main o canale top weekly).");
+      return;
+    }
+    guild = channel.guild;
+  }
+  const channel =
+    client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
+  if (!channel?.guild) {
+    global.logger?.error?.("[MONTHLY ACTIVITY] Publish skipped: canale top weekly non trovato.", channelIdToUse);
+    return;
+  }
+  const anchor =
+    options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime()) ? options.anchorDate : new Date();
+  let rankedYear;
+  let rankedMonth;
+  if (options.rankedYear != null && options.rankedMonth != null) {
+    rankedYear = Number(options.rankedYear);
+    rankedMonth = Number(options.rankedMonth);
+  } else {
+    const prev = getPreviousRomeCalendarMonth(anchor);
+    rankedYear = prev.year;
+    rankedMonth = prev.month;
+  }
+  if (!Number.isFinite(rankedYear) || !Number.isFinite(rankedMonth) || rankedMonth < 1 || rankedMonth > 12) {
+    global.logger?.error?.("[MONTHLY ACTIVITY] Publish skipped: mese non valido.", rankedYear, rankedMonth);
+    return;
+  }
+  const monthNameLabel = `${IT_MONTH_NAMES[rankedMonth - 1] || ""} ${rankedYear}`.trim();
+  const rows = await loadMonthlyRowsFromRomeCalendarMonth(guild, rankedYear, rankedMonth);
+  const augmented = rows.map((r) => {
+    const textExp = Math.max(0, Math.floor(Number(r.messageCount || 0) * MESSAGE_EXP));
+    const voiceExp = Math.max(0, Math.floor(Number(r.voiceExp || 0)));
+    return {
+      userId: r.userId,
+      textExp,
+      voiceExp,
+      totalExp: textExp + voiceExp,
+    };
+  });
+  const combinedDocs = augmented
+    .filter((row) => Number(row.totalExp || 0) > 0)
+    .sort((a, b) => Number(b.totalExp || 0) - Number(a.totalExp || 0))
+    .slice(0, 200);
+  const topCombined = await resolveTopThreeUsers(client, guild, combinedDocs, (doc) => Number(doc?.totalExp || 0), 10);
+  const displayTopCombined = uniqueRankingByUserId(topCombined, 3);
+  const combinedRows = displayTopCombined.length
+    ? displayTopCombined.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp totali"))
+    : [buildEmptyLine("EXP totali (chat + vocale)")];
+  let awarded = { topMonthlyWinner: null };
+  if (options.skipMonthlyRoles) {
+    awarded = { topMonthlyWinner: displayTopCombined[0] || null };
+  } else {
+    awarded = await updateMonthlyWinnerRoles(guild, displayTopCombined);
+  }
+  const embedDescLines = [
+    `<:VC_Leaderboard:1482534806314287387> // **${monthNameLabel}** — I vantaggi sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    "",
+    `<a:VC_HeartsPink:1468685897389052008> • **Classifica EXP totale (chat + vocale):**`,
+    ...combinedRows,
+  ];
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setDescription(embedDescLines.join("\n"))
+    .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
+  const winnerTotal = Number(awarded?.topMonthlyWinner?.value || 0);
+  const winnerMention = awarded?.topMonthlyWinner?.userId ? `<@${awarded.topMonthlyWinner.userId}>` : "Nessun vincitore";
+  const button = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel("Chat")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_FrogCute:1331620415185096746>")
+      .setURL("https://discord.com/channels/1329080093599076474/1442569130573303898"),
+    new ButtonBuilder()
+      .setLabel("Vocal")
+      .setStyle(ButtonStyle.Link)
+      .setEmoji("<:VC_FrogJuice:1331620486517358613>")
+      .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
+  );
+  if (!options.skipDiscordSends && channel) {
+    const roleMention = MONTHLY_MEMBER_ROLE_ID ? `<@&${MONTHLY_MEMBER_ROLE_ID}>` : "il ruolo Top Monthly";
+    const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo il vincitore del mese.`;
+    const roleLine =
+      awarded?.topMonthlyWinner?.userId && MONTHLY_MEMBER_ROLE_ID
+        ? `\n<a:VC_Arrow:1482706699365257397> Il primo in classifica riceve ${roleMention} e un **Nitro Boost** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`.`
+        : "";
+    try {
+      await channel.send({
+        content: `<@&1442568949605597264>
+${introLine}
+
+<a:VC_Arrow:1482706699365257397> Con un totale di **${winnerTotal} EXP**, ${winnerMention} ottiene il primo posto della **__classifica mensile__**.${roleLine}
+_ _`,
+        embeds: [embed],
+        components: [button],
+      });
+    } catch (error) {
+      global.logger.error("[MONTHLY ACTIVITY] Failed to send winners message:", error);
     }
   }
 }
@@ -582,9 +808,6 @@ async function resetWeeklyActivityCounters(client, options = {}) {
     return;
   }
   const now = new Date();
-  /* Deve coincidere con getWeekKey/getIsoWeekKey usati da activityService e expService su “ora”:
-     getNextWeekKey (lunedì) sulla domenica sera metteva una chiave avanti di una settimana ISO,
-     quindi mismatch → contatori settimanali sempre azzerati e sito a 0. */
   const nextWeekKey = options.nextWeekKey != null ? options.nextWeekKey : getWeekKey(now);
   await ActivityUserProfile.updateMany(
     { guildId },
@@ -596,6 +819,8 @@ async function resetWeeklyActivityCounters(client, options = {}) {
         "profile.totals.voiceWeeklyKey": nextWeekKey,
         "profile.totals.exp.weeklyExp": 0,
         "profile.totals.exp.weeklyKey": nextWeekKey,
+        "profile.totals.exp.minigame.weeklyExp": 0,
+        "profile.totals.exp.minigame.weeklyKey": nextWeekKey,
       },
     },
   );
@@ -613,6 +838,17 @@ function startWeeklyActivityWinnersLoop(client) {
         await resetWeeklyActivityCounters(client);
       } catch (error) {
         global.logger.error("[WEEKLY ACTIVITY] Scheduled execution failed:", error);
+      }
+    },
+    { timezone: TIME_ZONE },
+  );
+  cron.schedule(
+    "0 21 1 * *",
+    async () => {
+      try {
+        await publishMonthlyActivityWinners(client);
+      } catch (error) {
+        global.logger.error("[MONTHLY ACTIVITY] Scheduled execution failed:", error);
       }
     },
     { timezone: TIME_ZONE },
@@ -661,6 +897,9 @@ function startWeeklyActivityWinnersLoop(client) {
       global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error);
     }
   };
+  /* Nessuna recovery mensile al boot: con canale senza storico o testo intro diverso,
+   * scambiava per “mancato” il post e lanciava publishMonthlyActivityWinners subito al riavvio.
+   * Il cron `0 21 1 * *` basta; se serve un mese perso: publishMonthlyActivityWinners(client) a mano. */
   setTimeout(() => {
     runRecoveryIfNeeded().catch((err) => global.logger?.error?.("[WEEKLY ACTIVITY] Recovery on start failed:", err));
   }, 15_000);
@@ -669,6 +908,7 @@ function startWeeklyActivityWinnersLoop(client) {
 module.exports = {
   startWeeklyActivityWinnersLoop,
   publishWeeklyActivityWinners,
+  publishMonthlyActivityWinners,
   resetWeeklyActivityCounters,
   getLastCompletedWeekKey,
   getDateKeysForWeekKey,

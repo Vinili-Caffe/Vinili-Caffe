@@ -81,7 +81,7 @@ const {
   minigameRotationDeleteMany,
 } = require("../../Utils/BotState/domainStatesStore");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
-const { addExpWithLevel, shouldIgnoreExpForMember } = require("../Community/expService");
+const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require("../Community/expService");
 const IDs = require("../../Utils/Config/ids");
 const { getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const {
@@ -6300,15 +6300,7 @@ async function awardWinAndReply(message, rewardExp, game = null) {
   const streakBonus = Math.round(baseExp * streakBonusPercent / 100);
   const effectiveExp = baseExp + fastBonus + streakBonus;
   try {
-    doc = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: message.guild.id, userId: message.author.id },
-      {
-        $setOnInsert: { guildId: message.guild.id, userId: message.author.id },
-        $inc: { "profile.totals.exp.minigame.totalExp": effectiveExp },
-        $set: { "profile.totals.exp.minigame.currentStreak": newStreak, "profile.totals.exp.minigame.bestStreak": bestStreak },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    doc = await incrementMinigameWinCounters(message.guild.id, message.author.id, effectiveExp, newStreak, bestStreak);
   } catch (err) {
     warnMinigame(err);
   }
@@ -7222,15 +7214,7 @@ ${game.previewUrl}`,
   const streakBonus = Math.round(baseExp * streakBonusPercent / 100);
   const effectiveExp = baseExp + fastBonus + streakBonus;
   try {
-    doc = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: interaction.guild.id, userId: interaction.user.id },
-      {
-        $setOnInsert: { guildId: interaction.guild.id, userId: interaction.user.id },
-        $inc: { "profile.totals.exp.minigame.totalExp": effectiveExp },
-        $set: { "profile.totals.exp.minigame.currentStreak": newStreak, "profile.totals.exp.minigame.bestStreak": bestStreak },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    doc = await incrementMinigameWinCounters(interaction.guild.id, interaction.user.id, effectiveExp, newStreak, bestStreak);
   } catch (err) {
     warnMinigame(err);
   }
