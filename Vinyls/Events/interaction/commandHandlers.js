@@ -1,4 +1,5 @@
-const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, } = require("discord.js");
+const { EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags, } = require("discord.js");
+const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeReply: safeReplyHelper } = require("../../../shared/discord/replyRuntime");
 const{applyDefaultFooterToEmbeds,}=require("../../Utils/Embeds/defaultFooter");
 const { checkSlashPermission, getSlashRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, } = require("../../Utils/Moderation/commandPermissions");
@@ -13,6 +14,9 @@ const SLASH_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.Staff || null;
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const SLASH_EXECUTION_TIMEOUT_MS=Math.max(15_000,Number(process.env.SLASH_EXECUTION_TIMEOUT_MS||120_000),);
 const getCommandKey = (name, type) => `${name}:${type || 1}`;
+const OBSOLETE_SLASH_NAMES = new Set(
+  (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).map((s) => String(s || "").toLowerCase()).filter(Boolean),
+);
 
 function sanitizeEditPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
@@ -29,6 +33,9 @@ function hasAnyStaffBypassPermission(permissions) {
 }
 
 async function handleAutocomplete(interaction, client) {
+  if (OBSOLETE_SLASH_NAMES.has(String(interaction.commandName || "").toLowerCase())) {
+    return interaction.respond([]).catch(() => null);
+  }
   const cmd=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
   if (!cmd?.autocomplete) return;
   const isAntiNukeRecoveryCommand=["antinuke","security"].includes(String(cmd?.name||interaction.commandName||"").toLowerCase(),);
@@ -56,7 +63,18 @@ async function handleAutocomplete(interaction, client) {
 
 async function handleSlashCommand(interaction, client) {
   const command=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
-  if (!command) return;
+  if (!command) {
+    if (OBSOLETE_SLASH_NAMES.has(String(interaction.commandName || "").toLowerCase())) {
+      return interaction
+        .reply({
+          content:
+            "Questo comando slash **non è più disponibile**. Usa la musica con il **prefix** del bot (es. `+play`, `+queue`, `+skip`).",
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(() => null);
+    }
+    return;
+  }
   const isAntiNukeRecoveryCommand=["antinuke","security"].includes(String(command?.name||"").toLowerCase(),);
   const securityLockState = await getSecurityLockState(interaction.guild);
   if (

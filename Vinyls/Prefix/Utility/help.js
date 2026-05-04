@@ -395,8 +395,15 @@ function getSubcommandEntries(commandName, dataJson, permissionConfig, commandTy
   return entries;
 }
 
+/** Slash rimossi dal codice ma ancora visibili su Discord finché la purge REST non gira. */
+const OBSOLETE_SLASH_HELP_NAMES = new Set(["music"]);
+
 function shouldIncludeSlashCommandInHelp(command) {
-  return Boolean(command) && !command.skipDeploy;
+  if (!command || command.skipDeploy) return false;
+  const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+  const nm = String(dataJson?.name || command?.data?.name || "").trim().toLowerCase();
+  if (OBSOLETE_SLASH_HELP_NAMES.has(nm)) return false;
+  return true;
 }
 
 function buildEntries(client, permissions) {

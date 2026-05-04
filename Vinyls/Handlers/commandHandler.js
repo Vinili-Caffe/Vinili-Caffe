@@ -86,6 +86,16 @@ module.exports = (client) => {
     const forceDeploy = shouldForceSlashDeploy();
     const rest = new REST({ version: "10" }).setToken(token);
 
+    try {
+      const guildIds = [IDs?.guilds?.main, IDs?.guilds?.test].filter(Boolean).map(String);
+      const purgedEarly = await purgeObsoleteApplicationCommands(rest, clientId, guildIds);
+      if (purgedEarly > 0) {
+        global.logger?.info?.(`[COMMANDS] Purge anticipata: rimossi ${purgedEarly} comando/i slash obsoleti (es. /music).`);
+      }
+    } catch (e) {
+      global.logger?.warn?.("[COMMANDS] Purge anticipata comandi obsoleti:", e?.message || e);
+    }
+
     if (deployCheck.required || forceDeploy) {
       if (LOG_COMMANDS) global.logger.info(`[COMMANDS] Deploy slash richiesto. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""}`);
       try {

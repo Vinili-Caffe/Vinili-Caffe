@@ -105,6 +105,15 @@ module.exports = (client) => {
     if (!clientId) return;
 
     const allowedGuildIds = toArrayUnique([IDs?.guilds?.main, IDs?.guilds?.test]);
+    try {
+      const purgedEarly = await purgeObsoleteApplicationCommands(rest, clientId, allowedGuildIds);
+      if (purgedEarly > 0) {
+        global.logger?.info?.(`[COMMANDS] Purge anticipata: rimossi ${purgedEarly} comando/i slash obsoleti (es. /music).`);
+      }
+    } catch (e) {
+      global.logger?.warn?.("[COMMANDS] Purge anticipata comandi obsoleti:", e?.message || e);
+    }
+
     const forceDeployEmpty = client.commandArray.length === 0;
     if (forceDeployEmpty) {
       clearCommandDeployCache(BOT_DEPLOY_CACHE_KEY);
