@@ -103,8 +103,8 @@ function getPrefixSubcommandDescription(command, subcommandName) {
 
 function getPrefixBase(command, client) {
   void command;
-  const p = String(client?.config?.prefix ?? ",").trim();
-  return p || ",";
+  const p = String(client?.config?.prefix ?? "-").trim();
+  return p || "-";
 }
 
 function extractPrefixSubcommands(command) {

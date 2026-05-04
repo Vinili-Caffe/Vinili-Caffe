@@ -37,11 +37,11 @@ function buildDefaultGuideEmbed(command, prefix) {
     .setColor(GUIDE_COLOR)
     .setDescription(
       [
-        `**Command: ${prefix}${command?.name}**`,
+        `**Comando: ${prefix}${command?.name}**`,
         "",
-        `**Aliases:** ${aliases || `${prefix}undefined`}`,
-        `**Description:** ${description}`,
-        "**Usage:**",
+        `**Alias:** ${aliases || `${prefix}undefined`}`,
+        `**Descrizione:** ${description}`,
+        "**Uso:**",
         usage,
       ].join("\n"),
     );
@@ -54,10 +54,10 @@ function buildSubGuideEmbed(command, prefix, sub) {
     .setColor(GUIDE_COLOR)
     .setDescription(
       [
-        `**Command: ${prefix}${command?.name} ${sub}**`,
+        `**Comando: ${prefix}${command?.name} ${sub}**`,
         "",
-        `**Description:** ${description}`,
-        "**Usage:**",
+        `**Descrizione:** ${description}`,
+        "**Uso:**",
         usage,
       ].join("\n"),
     );
@@ -71,7 +71,7 @@ function buildSubcommandRow(command, ownerId, currentValue = "__default") {
 
   const menu = new StringSelectMenuBuilder()
     .setCustomId(`usage_guide:${command.name}:${ownerId}`)
-    .setPlaceholder(String("View Subcommands").slice(0, 150))
+    .setPlaceholder(String("Vedi sotto - comandi").slice(0, 150))
     .addOptions(
       ...filteredSubs.slice(0, 24).map((sub) => ({
         label: String(sub || "").slice(0, 100),

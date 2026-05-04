@@ -1,6 +1,6 @@
 const { Routes } = require("discord-api-types/v10");
 
-const DEFAULT_OBSOLETE_SLASH_NAMES = ["music"];
+const DEFAULT_OBSOLETE_SLASH_NAMES = ["music", "squalifica"];
 
 /**
  * Elimina dalla Discord API i comandi slash con nome ancora registrato ma rimossi dal codice.

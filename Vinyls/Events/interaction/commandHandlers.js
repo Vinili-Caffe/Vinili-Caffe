@@ -65,10 +65,14 @@ async function handleSlashCommand(interaction, client) {
   const command=client.commands.get(getCommandKey(interaction.commandName,interaction.commandType),);
   if (!command) {
     if (OBSOLETE_SLASH_NAMES.has(String(interaction.commandName || "").toLowerCase())) {
+      const obsoleteNm = String(interaction.commandName || "").toLowerCase();
+      const obsoleteContent =
+        obsoleteNm === "music"
+          ? "Questo comando slash **non è più disponibile**. Usa la musica con il **prefix** del bot (es. `+play`, `+queue`, `+skip`)."
+          : "Questo comando slash **non è più disponibile**.";
       return interaction
         .reply({
-          content:
-            "Questo comando slash **non è più disponibile**. Usa la musica con il **prefix** del bot (es. `+play`, `+queue`, `+skip`).",
+          content: obsoleteContent,
           flags: MessageFlags.Ephemeral,
         })
         .catch(() => null);

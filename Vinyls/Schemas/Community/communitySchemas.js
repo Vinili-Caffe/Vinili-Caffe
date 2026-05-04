@@ -528,6 +528,19 @@ const siteSuggestionCommentSchema = new Schema(
   { timestamps: true },
 );
 
+const inAppNotifItemSchema = new Schema(
+  {
+    guildId: { type: String, default: "" },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    body: { type: String, required: true, trim: true, maxlength: 500 },
+    notifKind: { type: String, default: "info", trim: true, maxlength: 24 },
+    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
+    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
+    readAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+
 const siteDocumentSchema = new Schema(
   {
     docType: {
@@ -538,6 +551,10 @@ const siteDocumentSchema = new Schema(
     },
     guildId: { type: String, default: "", index: true },
     userId: { type: String, default: "", index: true },
+
+    /** Un solo documento per userId: inbox notifiche in-app (array `inAppNotifItems`). */
+    inAppNotifAggregate: { type: Boolean, default: false, index: true },
+    inAppNotifItems: { type: [inAppNotifItemSchema], default: undefined },
 
     title: { type: String, trim: true, maxlength: 120 },
     body: { type: String, trim: true, maxlength: 500 },
@@ -593,6 +610,16 @@ const siteDocumentSchema = new Schema(
 const SITE_DOC = SITE_DOCUMENT_TYPE;
 siteDocumentSchema.index({ docType: 1, userId: 1, createdAt: -1 });
 siteDocumentSchema.index({ docType: 1, userId: 1, dedupeKey: 1, createdAt: -1 });
+siteDocumentSchema.index(
+  { docType: 1, userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      docType: SITE_DOC.IN_APP_NOTIFICATION,
+      inAppNotifAggregate: true,
+    },
+  },
+);
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, requesterId: 1, roleId: 1 },
   { unique: true, partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_COOLDOWN } },

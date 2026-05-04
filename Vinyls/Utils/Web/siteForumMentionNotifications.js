@@ -1,8 +1,15 @@
+const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+const { migrateLegacyInAppNotificationsForUser } = require("./siteInAppNotificationsService");
 
 const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;
+const MAX_INBOX_ITEMS = 150;
 const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
+
+function inboxQuery(userId) {
+  return { docType: NOTIF, userId, inAppNotifAggregate: true };
+}
 
 function resolveWebsiteForumChannelId(client) {
   return String(client?.config?.websiteForum?.channelId || IDs.channels?.forum || "").trim();
@@ -54,6 +61,10 @@ function extractMentionedHumanUserIds(message) {
   return out;
 }
 
+function escapeRegex(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function emitNotificationsChangedSafe() {
   try {
     broadcastSiteNotificationsChanged();
@@ -63,31 +74,60 @@ async function emitNotificationsChangedSafe() {
 async function upsertForumMentionNotification(message, targetUserId) {
   const userId = normalizeUserId(targetUserId);
   if (!userId) return false;
+  await migrateLegacyInAppNotificationsForUser(userId).catch(() => null);
   const guildId = String(message?.guildId || message?.guild?.id || "").trim() || "global";
   const dedupeKey = buildMentionDedupeKey(message?.id, userId);
-  const existing = await SiteDocument.findOne({ docType: NOTIF, userId, dedupeKey }).select("_id").lean().catch(() => null);
-  await SiteDocument.findOneAndUpdate(
-    { docType: NOTIF, userId, dedupeKey },
+  const inbox = await SiteDocument.findOne(inboxQuery(userId)).lean().catch(() => null);
+  const items = Array.isArray(inbox?.inAppNotifItems) ? inbox.inAppNotifItems : [];
+  const existing = items.find((it) => String(it.dedupeKey || "") === dedupeKey);
+  if (existing?._id) {
+    await SiteDocument.updateOne(
+      inboxQuery(userId),
+      {
+        $set: {
+          "inAppNotifItems.$[i].title": "Menzione nel forum",
+          "inAppNotifItems.$[i].body": buildMentionBody(message),
+          "inAppNotifItems.$[i].notifKind": "info",
+          "inAppNotifItems.$[i].openUrl": buildMentionOpenUrl(message),
+          "inAppNotifItems.$[i].guildId": guildId,
+        },
+      },
+      { arrayFilters: [{ "i._id": existing._id }] },
+    ).catch(() => null);
+    return false;
+  }
+  const newItem = {
+    _id: new mongoose.Types.ObjectId(),
+    guildId,
+    title: "Menzione nel forum",
+    body: buildMentionBody(message),
+    notifKind: "info",
+    openUrl: buildMentionOpenUrl(message),
+    dedupeKey,
+    readAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const res = await SiteDocument.findOneAndUpdate(
+    inboxQuery(userId),
     {
       $setOnInsert: {
         docType: NOTIF,
-        guildId,
         userId,
-        dedupeKey,
+        guildId: "",
+        inAppNotifAggregate: true,
       },
-      $set: {
-        title: "Menzione nel forum",
-        body: buildMentionBody(message),
-        notifKind: "info",
-        openUrl: buildMentionOpenUrl(message),
+      $push: {
+        inAppNotifItems: {
+          $each: [newItem],
+          $sort: { createdAt: -1 },
+          $slice: MAX_INBOX_ITEMS,
+        },
       },
     },
     { upsert: true, new: true },
-  )
-    .select("_id")
-    .lean()
-    .catch(() => null);
-  return !Boolean(existing?._id);
+  ).catch(() => null);
+  return Boolean(res);
 }
 
 async function syncForumMentionNotificationsForMessage(message, client) {
@@ -103,15 +143,28 @@ async function syncForumMentionNotificationsForMessage(message, client) {
     if (created) changed = true;
   }
 
-  const removeFilter = {
-    docType: NOTIF,
-    dedupeKey: { $regex: `^forum_mention:${messageId}:` },
-  };
+  const dedupeRx = new RegExp(`^forum_mention:${escapeRegex(messageId)}:`);
+  const itemMatch = { dedupeKey: dedupeRx };
+  const base = { docType: NOTIF, inAppNotifAggregate: true, inAppNotifItems: { $elemMatch: itemMatch } };
+  const pull = { inAppNotifItems: itemMatch };
+  let removeRes;
   if (mentionedIds.length > 0) {
-    removeFilter.userId = { $nin: mentionedIds };
+    removeRes = await SiteDocument.updateMany(
+      { ...base, userId: { $nin: mentionedIds } },
+      { $pull: pull },
+    ).catch(() => null);
+  } else {
+    removeRes = await SiteDocument.updateMany(base, { $pull: pull }).catch(() => null);
   }
-  const removeRes = await SiteDocument.deleteMany(removeFilter).catch(() => null);
-  if (Number(removeRes?.deletedCount || 0) > 0) changed = true;
+  const legacyRemove = await SiteDocument.deleteMany({
+    docType: NOTIF,
+    inAppNotifAggregate: { $ne: true },
+    dedupeKey: dedupeRx,
+    ...(mentionedIds.length > 0 ? { userId: { $nin: mentionedIds } } : {}),
+  }).catch(() => null);
+  if (Number(removeRes?.modifiedCount || 0) > 0 || Number(legacyRemove?.deletedCount || 0) > 0) {
+    changed = true;
+  }
 
   if (changed) await emitNotificationsChangedSafe();
 }
@@ -120,11 +173,20 @@ async function clearForumMentionNotificationsForMessage(messageOrIds, client) {
   const messageId = String(messageOrIds?.id || messageOrIds?.messageId || messageOrIds || "").trim();
   if (!/^\d{17,22}$/.test(messageId)) return;
   if (messageOrIds && typeof messageOrIds === "object" && !isForumThreadMessage(messageOrIds, client)) return;
-  const res = await SiteDocument.deleteMany({
+  const dedupeRx = new RegExp(`^forum_mention:${escapeRegex(messageId)}:`);
+  const itemMatch = { dedupeKey: dedupeRx };
+  const res = await SiteDocument.updateMany(
+    { docType: NOTIF, inAppNotifAggregate: true, inAppNotifItems: { $elemMatch: itemMatch } },
+    { $pull: { inAppNotifItems: itemMatch } },
+  ).catch(() => null);
+  const legacy = await SiteDocument.deleteMany({
     docType: NOTIF,
-    dedupeKey: { $regex: `^forum_mention:${messageId}:` },
+    inAppNotifAggregate: { $ne: true },
+    dedupeKey: dedupeRx,
   }).catch(() => null);
-  if (Number(res?.deletedCount || 0) > 0) await emitNotificationsChangedSafe();
+  if (Number(res?.modifiedCount || 0) > 0 || Number(legacy?.deletedCount || 0) > 0) {
+    await emitNotificationsChangedSafe();
+  }
 }
 
 module.exports = {

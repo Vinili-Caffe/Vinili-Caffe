@@ -1,0 +1,43 @@
+const { EmbedBuilder } = require("discord.js");
+
+function buildBaseErrorEmbed(title, description) {
+  return new EmbedBuilder().setColor("Red").setTitle(title).setDescription(description);
+}
+
+function buildCooldownErrorEmbed(remainingSeconds) {
+  const remaining = Math.max(1, Number(remainingSeconds || 1));
+  return buildBaseErrorEmbed(
+    "<:cancel:1461730653677551691> Cooldown attivo",
+    `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
+  );
+}
+
+function buildBusyCommandErrorEmbed() {
+  return buildBaseErrorEmbed(
+    "<:cancel:1461730653677551691> Comando in esecuzione",
+    "<:VC_Attention:1482534443632558151> Hai già un comando in esecuzione, attendi un attimo.",
+  );
+}
+
+function buildMissingArgumentsErrorEmbed() {
+  return buildBaseErrorEmbed(
+    "<:cancel:1461730653677551691> Argomenti mancanti",
+    "<:VC_Attention:1482534443632558151> Non hai aggiunto nessun argomento.",
+  );
+}
+
+function buildInternalCommandErrorEmbed(rawError) {
+  const raw = String(rawError || "Errore sconosciuto");
+  const compact = raw.length > 900 ? `${raw.slice(0, 900)}...` : raw;
+  return buildBaseErrorEmbed(
+    "<:cancel:1461730653677551691> Errore comando",
+    `<:VC_Attention:1482534443632558151> C'è stato un errore nell'esecuzione del comando.\n\`\`\`${compact}\`\`\``,
+  );
+}
+
+module.exports = {
+  buildCooldownErrorEmbed,
+  buildBusyCommandErrorEmbed,
+  buildMissingArgumentsErrorEmbed,
+  buildInternalCommandErrorEmbed,
+};

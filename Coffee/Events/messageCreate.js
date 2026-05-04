@@ -30,9 +30,12 @@ module.exports = {
     } catch (error) {
       global.logger?.error?.("[STANZA PANEL MESSAGE ERROR]", error);
     }
+    const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
     try {
-      const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
-      await handleTtsMessage(message, client, safePrefix);
+      if (!isEditedPrefixExecution) {
+        const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
+        await handleTtsMessage(message, client, safePrefix);
+      }
     } catch (error) {
       global.logger?.error?.("[TTS ERROR]", error);
     }

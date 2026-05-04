@@ -334,11 +334,20 @@ async function checkSlashPermission(interaction) {
   return hasAnyRoleWithLiveFallback(interaction, roles);
 }
 
-async function checkPrefixPermission(message, commandName, subcommandName = null) {
+async function checkPrefixPermission(message, commandName, subcommandName = null, options = {}) {
+  const returnDetails = Boolean(options && typeof options === "object" && options.returnDetails);
   const guildId = message?.guild?.id || null;
-  if (!guildId) return false;
+  if (!guildId) {
+    return returnDetails
+      ? { allowed: false, reason: "missing_guild", requiredRoles: null, channels: null }
+      : false;
+  }
 
-  if (!isTestMainScopeGuild(guildId)) return false;
+  if (!isTestMainScopeGuild(guildId)) {
+    return returnDetails
+      ? { allowed: false, reason: "scope", requiredRoles: null, channels: null }
+      : false;
+  }
 
   const data = loadPermissions();
   const safeCommand = String(commandName || "").toLowerCase();
@@ -350,12 +359,30 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
     const allowed = ch
       ? channelMatchesPolicyChannelList(ch, channelPolicy)
       : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
-    if (!allowed) return false;
+    if (!allowed) {
+      return returnDetails
+        ? { allowed: false, reason: "channel", requiredRoles: null, channels: channelPolicy }
+        : false;
+    }
   }
   const roles = resolvePrefixRoles(data, commandName, subcommandName);
-  if (!Array.isArray(roles)) return true;
-  if (!message.guild) return false;
-  return hasAnyRoleWithLiveFallback(message, roles);
+  if (!Array.isArray(roles)) {
+    return returnDetails
+      ? { allowed: true, reason: null, requiredRoles: null, channels: null }
+      : true;
+  }
+  if (!message.guild) {
+    return returnDetails
+      ? { allowed: false, reason: "missing_guild", requiredRoles: roles, channels: null }
+      : false;
+  }
+  const ok = await hasAnyRoleWithLiveFallback(message, roles);
+  if (returnDetails) {
+    return ok
+      ? { allowed: true, reason: null, requiredRoles: null, channels: null }
+      : { allowed: false, reason: "missing_role", requiredRoles: roles, channels: null };
+  }
+  return ok;
 }
 
 function evaluateComponentPolicy(interaction, policy) {
@@ -624,6 +651,27 @@ function buildGlobalPermissionDeniedEmbed(
   return embed;
 }
 
+function buildGlobalChannelDeniedEmbed(allowedChannelIds = [], entityLabel = "comando") {
+  const channels = Array.isArray(allowedChannelIds)
+    ? allowedChannelIds.filter(Boolean).map(String)
+    : [];
+  const channelsText = channels.length
+    ? channels.map((id) => `<#${id}>`).join(", ")
+    : "<:VC_Attention:1482534443632558151> Nessun canale configurato.";
+
+  const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("<:VC_Lock:1482526739044368476> **Non hai i permessi**")
+    .setDescription(`<:VC_Lock:1482526739044368476> Questo ${entityLabel} è disponibile solo in canali specifici.`);
+  if (channels.length > 0) {
+    embed.addFields({
+      name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
+      value: `<a:VC_Arrow:1482706699365257397> Usa il comando in uno dei seguenti canali: ${channelsText}`,
+    });
+  }
+  return embed;
+}
+
 function buildGlobalNotYourControlEmbed() {
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -640,6 +688,7 @@ module.exports = {
   getSlashRequiredRoles,
   getPrefixRequiredRoles,
   buildGlobalPermissionDeniedEmbed,
+  buildGlobalChannelDeniedEmbed,
   buildGlobalNotYourControlEmbed,
   hasAnyRole,
 };
