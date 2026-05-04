@@ -1,8 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType } = require("discord.js");
 const { MentionReaction } = require("../Schemas/Community/autoInteractionSchemas");
 const { ActivityUserProfile, CustomRole, AvatarPrivacy, BannerPrivacy, QuotePrivacy } = require("../Schemas/Community/communitySchemas");
-const { WeeklyContestBundle, WeeklyContestMeta } = require("../Schemas/Community/weeklyContestSchemas");
-const { EVENT_KEY, contestVoteRemainingSlots, IS_DISEGNI_CONTEST, disegniContestUiOutfit } = require("../Services/Community/weeklyContestService");
 const { getBirthdayProfile, setBirthdayProfile, clearBirthdayProfile } = require("../Services/Community/profileStore");
 const { applyZodiacRoleFromBirthday, stripAllZodiacRoles } = require("../Utils/Community/zodiacRoles");
 const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("../Utils/Community/ageBracketRoles");
@@ -24,7 +22,6 @@ const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
-const SECTION_EVENT_VOTES = "eventvotes";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
@@ -32,12 +29,6 @@ const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
 const CUSTOM_VOC_CREATE_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.DoubleBooster, IDs?.roles?.VIPplus, IDs?.roles?.["VIP+"], IDs?.roles?.Level50].filter(Boolean);
 const CUSTOM_VOC_MEMBER_ALLOW_FLAGS = [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak, PermissionsBitField.Flags.UseVAD, PermissionsBitField.Flags.Stream];
-const IS_OUTFIT_UI = IS_DISEGNI_CONTEST && disegniContestUiOutfit();
-const CONTEST_VOTES_LABEL = IS_OUTFIT_UI ? "outfit" : IS_DISEGNI_CONTEST ? "contest disegni" : "contest sfondi";
-const CONTEST_MENU_LABEL = IS_OUTFIT_UI ? "Contest Outfit" : IS_DISEGNI_CONTEST ? "Contest disegni" : "Contest Sfondi";
-const CONTEST_CHANNEL_MOBILE_ID = IS_DISEGNI_CONTEST ? String(IDs.channels?.contestDisegni || "").trim() : String(IDs.channels?.contestSfondiMobile || "").trim();
-const CONTEST_CHANNEL_PC_ID = IS_DISEGNI_CONTEST ? "" : String(IDs.channels?.contestSfondiPc || "").trim();
-
 function parseBirthdayDate(rawValue) {
   const value = String(rawValue || "").trim();
   const match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})$/);
@@ -211,123 +202,6 @@ async function consolidateOwnerCustomVoiceChannels(guild, ownerId, latestDoc, ke
   return { channel: keep, doc };
 }
 
-function sumPositiveCountsMap(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return 0;
-  let total = 0;
-  for (const value of Object.values(raw)) {
-    const n = Math.floor(Number(value || 0));
-    if (Number.isFinite(n) && n > 0) total += n;
-  }
-  return total;
-}
-
-function mapHasKeys(raw) {
-  return Boolean(raw && typeof raw === "object" && !Array.isArray(raw) && Object.keys(raw).length > 0);
-}
-
-function bumpVoteCount(map, messageId, amount = 1) {
-  const mid = String(messageId || "").trim();
-  const n = Math.max(0, Math.floor(Number(amount || 0)));
-  if (!/^\d{17,22}$/.test(mid) || !n) return;
-  map[mid] = (Number(map[mid]) || 0) + n;
-}
-
-function buildContestVoteMap(voterLeaf, category) {
-  const isMobile = category === "mobile";
-  const mapField = isMobile ? "votesMobileCounts" : "votesPcCounts";
-  const legacyA = isMobile ? "votesMobile" : "votesPc";
-  const legacyB = isMobile ? "votesMobileSparkle" : "votesPcSparkle";
-  const mapRaw =
-    voterLeaf?.[mapField] && typeof voterLeaf[mapField] === "object" && !Array.isArray(voterLeaf[mapField])
-      ? voterLeaf[mapField]
-      : {};
-  const out = {};
-  if (mapHasKeys(mapRaw)) {
-    for (const [messageId, rawValue] of Object.entries(mapRaw)) {
-      bumpVoteCount(out, messageId, rawValue);
-    }
-    return out;
-  }
-  for (const messageId of Array.isArray(voterLeaf?.[legacyA]) ? voterLeaf[legacyA] : []) {
-    bumpVoteCount(out, messageId, 1);
-  }
-  for (const messageId of Array.isArray(voterLeaf?.[legacyB]) ? voterLeaf[legacyB] : []) {
-    bumpVoteCount(out, messageId, 1);
-  }
-  return out;
-}
-
-function findContestSubmissionByMessageId(bundle, messageId) {
-  const mid = String(messageId || "").trim();
-  if (!mid) return null;
-  const idx = bundle?.submissionMessageIndex?.[mid];
-  if (idx?.userId && idx?.category) {
-    return { userId: String(idx.userId), category: String(idx.category), messageId: mid };
-  }
-  for (const category of ["mobile", "pc"]) {
-    const map =
-      bundle?.submissions?.[category] &&
-        typeof bundle.submissions[category] === "object" &&
-        !Array.isArray(bundle.submissions[category])
-        ? bundle.submissions[category]
-        : {};
-    for (const [userId, subMid] of Object.entries(map)) {
-      if (String(subMid) === mid) return { userId: String(userId), category, messageId: mid };
-    }
-  }
-  return null;
-}
-
-function buildContestVoteTargets(bundle, guildId, category, voteMap) {
-  const channelId = category === "mobile" ? CONTEST_CHANNEL_MOBILE_ID : CONTEST_CHANNEL_PC_ID;
-  return Object.entries(voteMap || {})
-    .map(([messageId, votes]) => {
-      const sub = findContestSubmissionByMessageId(bundle, messageId);
-      const authorId = String(sub?.userId || "").trim();
-      const voteCount = Math.max(0, Math.floor(Number(votes || 0)));
-      const jump =
-        channelId && /^\d{17,22}$/.test(String(messageId || ""))
-          ? `[messaggio](https://discord.com/channels/${guildId}/${channelId}/${messageId})`
-          : "messaggio non trovato";
-      return {
-        messageId: String(messageId || ""),
-        authorId,
-        votes: voteCount,
-        jump,
-      };
-    })
-    .filter((row) => row.votes > 0)
-    .sort((a, b) => b.votes - a.votes || a.messageId.localeCompare(b.messageId));
-}
-
-async function fetchContestVotesState(guildId, userId) {
-  const gid = String(guildId || "").trim();
-  const uid = String(userId || "").trim();
-  if (!gid || !uid) {
-    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [], voterLeaf: {} };
-  }
-  const bundle = await WeeklyContestBundle.findOne({ guildId: gid, eventKey: EVENT_KEY })
-    .select("submissions submissionMessageIndex voters")
-    .lean()
-    .catch(() => null);
-  if (!bundle) {
-    return { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [], voterLeaf: {} };
-  }
-  const voters =
-    bundle.voters && typeof bundle.voters === "object" && !Array.isArray(bundle.voters) ? bundle.voters : {};
-  const voterLeaf = voters[uid] && typeof voters[uid] === "object" ? voters[uid] : {};
-  const mobileMap = buildContestVoteMap(voterLeaf, "mobile");
-  const pcMap = buildContestVoteMap(voterLeaf, "pc");
-  return {
-    eventKey: String(EVENT_KEY || ""),
-    mobileUsed: sumPositiveCountsMap(mobileMap),
-    pcUsed: sumPositiveCountsMap(pcMap),
-    mobileTargets: buildContestVoteTargets(bundle, gid, "mobile", mobileMap),
-    pcTargets: buildContestVoteTargets(bundle, gid, "pc", pcMap),
-    voterLeaf,
-  };
-}
-
 function formatBirthday(profile) {
   const day = Number(profile?.day || 0);
   const month = Number(profile?.month || 0);
@@ -383,7 +257,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestVotes, contestPrizeLean, contestSecondMetaLean] = await Promise.all([
+  const [birthday, reactionDoc, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestPrizeLean] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
@@ -396,32 +270,18 @@ async function fetchProfilePanelState(guild, userId, client) {
     BannerPrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
-    fetchContestVotesState(guildId, userId),
     ActivityUserProfile.findOne({ guildId, userId })
       .select("profile.contestPrizes profile.totals.exp.event")
       .lean()
       .catch(() => null),
-    guildId
-      ? WeeklyContestMeta.findOne({
-        guildId: String(guildId),
-        finaleDisegniSecondPlaceUserId: String(userId || "").trim(),
-      })
-        .select("finaleDisegniSecondPlaceUserId eventKey")
-        .lean()
-        .catch(() => null)
-      : Promise.resolve(null),
   ]);
   const contestSecondUnlock =
     Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock) ||
-    Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock) ||
-    Boolean(contestSecondMetaLean?.finaleDisegniSecondPlaceUserId);
+    Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock);
   const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, contestSecondUnlock);
   const hasCustomVocAccess = memberCanCreateCustomVoc(member) || contestSecondUnlock;
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
   const customReactionMax = getCustomReactionMax(member);
-  const { voterLeaf, ...contestVotesRest } = contestVotes && typeof contestVotes === "object" ? contestVotes : {};
-  const contestBudget = contestVoteRemainingSlots(member, voterLeaf && typeof voterLeaf === "object" ? voterLeaf : {});
-  const contestVotesMerged = { ...contestVotesRest, ...contestBudget };
 
   let mergedCustomDoc = customState?.doc || customDocLean || null;
   const vocIdSync = String(mergedCustomDoc?.customVocChannelId || "").trim();
@@ -457,9 +317,6 @@ async function fetchProfilePanelState(guild, userId, client) {
       banner: Boolean(bannerPrivacy?.blocked),
       quotes: Boolean(quotePrivacy?.blocked),
     },
-    contestVotes:
-      contestVotesMerged
-      || { eventKey: String(EVENT_KEY || ""), mobileUsed: 0, pcUsed: 0, mobileTargets: [], pcTargets: [], remainingMobile: 0, remainingPc: 0, baseMax: 1, bonusTotal: 0 },
     featureAccess: {
       customRole: hasCustomRoleAccess,
       customVoc: hasCustomVocAccess,
@@ -543,10 +400,6 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
       : user && typeof user === "object"
         ? String(user.globalName || user.username || user.tag || "").trim() || "Utente"
         : "Utente";
-  const cv = state?.contestVotes || {};
-  const remM = Math.max(0, Math.floor(Number(cv.remainingMobile ?? 0)));
-  const remP = Math.max(0, Math.floor(Number(cv.remainingPc ?? 0)));
-
   if (section === SECTION_BIRTHDAY) {
     const ageNow = computeAgeNow(Number(birthday?.day || 0), Number(birthday?.month || 0), Number(birthday?.birthYear || 0));
     const showAgeLine = birthday?.showAge !== false;
@@ -658,57 +511,6 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
     ].join("\n"));
   }
 
-  if (section === SECTION_EVENT_VOTES) {
-    const votesState = state?.contestVotes || {};
-    const mobileTargets = Array.isArray(votesState.mobileTargets) ? votesState.mobileTargets : [];
-    const pcTargets = Array.isArray(votesState.pcTargets) ? votesState.pcTargets : [];
-    if (IS_DISEGNI_CONTEST) {
-      const lines = mobileTargets.length
-        ? mobileTargets
-          .slice(0, 12)
-          .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
-        : ["- Nessun voto registrato."];
-      return base.setDescription([
-        `<:VC_PinkQuestionMark:1471892611026391306> Stato voti del **${CONTEST_VOTES_LABEL}**.`,
-        "",
-        `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
-        `<:VC_Dot:1482532364222595303> Voti usati: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,
-        `<:VC_Dot:1482532364222595303> Voti ancora disponibili: **${remM}**`,
-        "",
-        "**Per chi hai votato**",
-        ...lines,
-        "",
-        "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina.",
-      ].join("\n"));
-    }
-    const mobileLines = mobileTargets.length
-      ? mobileTargets
-        .slice(0, 8)
-        .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
-      : ["- Nessun voto mobile registrato."];
-    const pcLines = pcTargets.length
-      ? pcTargets
-        .slice(0, 8)
-        .map((row) => `- <@${row.authorId || "0"}> · **${row.votes}** · ${row.jump}`)
-      : ["- Nessun voto PC registrato."];
-    return base.setDescription([
-      "<:VC_PinkQuestionMark:1471892611026391306> Stato voti del contest sfondi.",
-      "",
-      `<:VC_Dot:1482532364222595303> Evento: **${String(votesState.eventKey || EVENT_KEY || "n/d")}**`,
-      `<:VC_Dot:1482532364222595303> Voti usati mobile: **${Math.max(0, Number(votesState.mobileUsed || 0))}**`,
-      `<:VC_Dot:1482532364222595303> Voti usati PC: **${Math.max(0, Number(votesState.pcUsed || 0))}**`,
-      `<:VC_Dot:1482532364222595303> Voti ancora disponibili — Mobile: **${remM}** · PC: **${remP}**`,
-      "",
-      "**Per chi hai votato (Mobile)**",
-      ...mobileLines,
-      "",
-      "**Per chi hai votato (PC)**",
-      ...pcLines,
-      "",
-      "<:VC_Modifica:1478859646587633717> Usa il menu a tendina per cambiare pagina.",
-    ].join("\n"));
-  }
-
   const homeRoleLines = [`<:VC_Color:1482532543273238569> **Ruolo primario:** ${primaryRoleDisplay}`];
   if (hasSecondaryCustomRole) {
     homeRoleLines.push(`<:VC_Color:1482532543273238569> **Ruolo secondario:** ${secondaryRoleDisplay}`);
@@ -725,9 +527,6 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
       `<a:VC_Events:1482706144953897223> Birthday: **${homeBirthdaySummary}**`,
       `<a:VC_CheckDMs:1482724593448784123> Notifiche DM: **${noDmSummary}**`,
       `<:VC_Lock:1482526739044368476> Privacy: **${privacySummary}**`,
-      IS_DISEGNI_CONTEST
-        ? `<a:VC_Events:1482706144953897223> ${CONTEST_MENU_LABEL} — voti disponibili: **${remM}**`
-        : `<a:VC_Events:1482706144953897223> Contest sfondi — voti disponibili: **Mobile** ${remM} · **PC** ${remP}`,
       ...homeRoleLines,
       `<:VC_Modifica:1478859646587633717> Vocale Privata: ${customVocLinked}`,
       `<:VC_emoji:1485419161168511036> Custom Reactions: ${reactionsText}`,
@@ -751,12 +550,6 @@ function buildRows(ownerId, section, state = null) {
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
-    {
-      label: CONTEST_MENU_LABEL,
-      value: SECTION_EVENT_VOTES,
-      emoji: "<a:VC_Events:1482706144953897223>",
-      default: section === SECTION_EVENT_VOTES,
-    },
   ];
   if (canAccessCustomRole) {
     selectOptions.push(

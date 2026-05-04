@@ -4,7 +4,6 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
 const { cacheRoleIcon } = require("../Utils/Cache/roleIconCache");
-const { tryStripContestSubmissionReaction } = require("../Services/Community/weeklyContestService");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText");
 const SKULL_EMOJI = "\u{1F480}";
@@ -249,7 +248,6 @@ module.exports = {
     let inFlightSet = null;
     try {
       if (user?.bot) return;
-      if (await tryStripContestSubmissionReaction(reaction, user)) return;
       if (!isSkullReaction(reaction)) return;
 
       const message = await resolveReactionMessage(reaction);

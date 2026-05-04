@@ -4,6 +4,30 @@ const { Shoukaku, Connectors, LoadType, Constants, Utils } = require("shoukaku")
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
+/** Percentuale inviata a Lavalink v4 al join (0–100; Shoukaku default player `volume` = 100 = pieno). */
+const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
+
+/**
+ * Lavalink v4: il volume globale del player è in percentuale 0–100 (100 = 100%).
+ * La vecchia mappa `percentuale × 10` mandava 10% → 100 (già al massimo) e oltre clip/distorsione.
+ * @param {number} percent0to100
+ */
+function lavalinkGlobalVolumeFromUserPercent(percent0to100) {
+  const n = Math.round(Number(percent0to100));
+  if (!Number.isFinite(n)) return 100;
+  return Math.min(100, Math.max(0, n));
+}
+
+/**
+ * `MUSIC_DEFAULT_VOLUME`: percentuale 0–100. Valori >100 interpretati come legacy scala 0–1000 (es. 250 → 25).
+ */
+function resolveDefaultJoinGlobalVolume() {
+  const raw = Number(process.env.MUSIC_DEFAULT_VOLUME);
+  if (!Number.isFinite(raw) || raw < 0) return lavalinkGlobalVolumeFromUserPercent(MUSIC_DEFAULT_LAVALINK_VOLUME);
+  let v = Math.floor(raw);
+  if (v > 100) v = Math.min(100, Math.max(0, Math.round(v / 10)));
+  return lavalinkGlobalVolumeFromUserPercent(v);
+}
 const _musicIdleRawMs = Number(process.env.MUSIC_INACTIVITY_IDLE_MS || 180_000);
 const MUSIC_INACTIVITY_MS = Math.max(
   60_000,
@@ -1057,6 +1081,13 @@ function shouldDeferTtsLeaveForMusicEmptyVc(client, guildId) {
   return Boolean(client.shoukaku.connections.get(gid)?.channelId);
 }
 
+function isMusicSessionQueueIdle(guildId) {
+  const session = guildQueues.get(String(guildId || "").trim());
+  const np = String(session?.nowPlaying || "").trim();
+  const pending = Array.isArray(session?.tracks) ? session.tracks.length : 0;
+  return !np && pending === 0;
+}
+
 async function tickMusicInactivity(client) {
   const sh = client.shoukaku;
   if (!sh?.connections?.size) {
@@ -1078,7 +1109,8 @@ async function tickMusicInactivity(client) {
       if (!m.user?.bot) humans += 1;
     }
     const player = sh.players.get(gid);
-    const activelyPlaying = Boolean(player?.track) && !player.paused;
+    const queueIdle = isMusicSessionQueueIdle(gid);
+    const activelyPlaying = Boolean(player?.track) && !player.paused && !queueIdle;
     const unhealthy = !activelyPlaying || humans === 0;
     if (!unhealthy) {
       musicIdleSince.delete(gid);
@@ -1235,9 +1267,12 @@ function attachEndHandler(client, player, guildId) {
       const notifyChannelId = session.textChannelId || null;
       session.nowPlaying = null;
       clearSessionCurrentRequester(session);
-      await leaveMusicVoiceChannelMarked(client, guildId);
-      guildQueues.delete(guildId);
-      endListeners.delete(guildId);
+      session.tracks = [];
+      session.repeatOne = false;
+      session.repeatEncoded = null;
+      session.repeatQueue = false;
+      session.repeatQueueSnapshot = null;
+      musicIdleSince.set(guildId, Date.now());
       await sendMusicQueueEndedEmbed(client, notifyChannelId, guildId);
       return;
     }
@@ -1443,10 +1478,7 @@ async function playMusicRequest(ctx, query) {
       return { ok: false, message: musicJoinVoiceChannelErrorMessage(err) };
     }
     attachEndHandler(client, player, guildId);
-    const envVol = Number(process.env.MUSIC_DEFAULT_VOLUME);
-    const volume = Number.isFinite(envVol)
-      ? Math.min(1000, Math.max(0, envVol))
-      : 50;
+    const volume = resolveDefaultJoinGlobalVolume();
     await player.setGlobalVolume(volume);
   }
 
@@ -1587,7 +1619,7 @@ async function setGuildMusicVolume(client, guild, rawPercent, requesterUserId) {
     return { ok: false, message: "Indica un numero da 0 a 100." };
   }
   const userVol = Math.min(100, Math.max(0, Math.round(n)));
-  const lavalinkVol = Math.round((userVol / 100) * 1000);
+  const lavalinkVol = lavalinkGlobalVolumeFromUserPercent(userVol);
   try {
     await player.setGlobalVolume(lavalinkVol);
   } catch (err) {

@@ -1,5 +1,7 @@
 const IDs = require("../Config/ids");
-const { SiteInAppNotification } = require("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+
+const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;
 const { broadcastSiteNotificationsChanged } = require("./siteSuggestionsBroadcast");
 
 function resolveWebsiteForumChannelId(client) {
@@ -63,11 +65,12 @@ async function upsertForumMentionNotification(message, targetUserId) {
   if (!userId) return false;
   const guildId = String(message?.guildId || message?.guild?.id || "").trim() || "global";
   const dedupeKey = buildMentionDedupeKey(message?.id, userId);
-  const existing = await SiteInAppNotification.findOne({ userId, dedupeKey }).select("_id").lean().catch(() => null);
-  await SiteInAppNotification.findOneAndUpdate(
-    { userId, dedupeKey },
+  const existing = await SiteDocument.findOne({ docType: NOTIF, userId, dedupeKey }).select("_id").lean().catch(() => null);
+  await SiteDocument.findOneAndUpdate(
+    { docType: NOTIF, userId, dedupeKey },
     {
       $setOnInsert: {
+        docType: NOTIF,
         guildId,
         userId,
         dedupeKey,
@@ -75,7 +78,7 @@ async function upsertForumMentionNotification(message, targetUserId) {
       $set: {
         title: "Menzione nel forum",
         body: buildMentionBody(message),
-        kind: "info",
+        notifKind: "info",
         openUrl: buildMentionOpenUrl(message),
       },
     },
@@ -101,12 +104,13 @@ async function syncForumMentionNotificationsForMessage(message, client) {
   }
 
   const removeFilter = {
+    docType: NOTIF,
     dedupeKey: { $regex: `^forum_mention:${messageId}:` },
   };
   if (mentionedIds.length > 0) {
     removeFilter.userId = { $nin: mentionedIds };
   }
-  const removeRes = await SiteInAppNotification.deleteMany(removeFilter).catch(() => null);
+  const removeRes = await SiteDocument.deleteMany(removeFilter).catch(() => null);
   if (Number(removeRes?.deletedCount || 0) > 0) changed = true;
 
   if (changed) await emitNotificationsChangedSafe();
@@ -116,7 +120,8 @@ async function clearForumMentionNotificationsForMessage(messageOrIds, client) {
   const messageId = String(messageOrIds?.id || messageOrIds?.messageId || messageOrIds || "").trim();
   if (!/^\d{17,22}$/.test(messageId)) return;
   if (messageOrIds && typeof messageOrIds === "object" && !isForumThreadMessage(messageOrIds, client)) return;
-  const res = await SiteInAppNotification.deleteMany({
+  const res = await SiteDocument.deleteMany({
+    docType: NOTIF,
     dedupeKey: { $regex: `^forum_mention:${messageId}:` },
   }).catch(() => null);
   if (Number(res?.deletedCount || 0) > 0) await emitNotificationsChangedSafe();

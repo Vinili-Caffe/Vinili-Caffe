@@ -5,14 +5,6 @@
                 "roles.PartnerManager"
             ]
         },
-        "squalifica": {
-            "roles": [
-                "roles.HighStaff",
-                "roles.Staff",
-                "roles.Admin",
-                "roles.Founder"
-            ]
-        },
         "giveaway": {
             "roles": [
                 "roles.HighStaff"
@@ -1346,9 +1338,6 @@
         "error_unsolved": {
             "permissions": "Administrator"
         },
-        "evtSfondiLb:*": [
-            "roles.HighStaff"
-        ],
         "generalimoderazione": [
             "roles.Staff"
         ],

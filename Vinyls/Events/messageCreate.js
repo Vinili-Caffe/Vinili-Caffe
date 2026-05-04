@@ -5,7 +5,6 @@ const { recordMessageActivity } = require("../Services/Community/activityService
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handleMovieNightVoteMessage,handlePauseChannelMessage,handleSuggestionChannelMessage,handleThreadVoteMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
 const{handleAfk,handleCounting,handleMentionAutoReactions,handleWordReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
-const { handleWeeklyContestSubmissionMessage } = require("../Services/Community/weeklyContestService");
 const { handleAmbientOllamaMessage } = require("../Services/AI/ollamaChatRuntime");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const IDs = require("../Utils/Config/ids");
@@ -277,7 +276,6 @@ module.exports = {
         if (await handleMovieNightVoteMessage(message)) return;
         if (await handleThreadVoteMessage(message, resolvedClient)) return;
         if (await handlePauseChannelMessage(message)) return;
-        if (await handleWeeklyContestSubmissionMessage(message, resolvedClient)) return;
       }
     } catch (error) {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);

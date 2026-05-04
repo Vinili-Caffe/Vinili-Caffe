@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const IDs = require("../Config/ids");
-const { SiteSuggestion } = require("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+
+const SG = SITE_DOCUMENT_TYPE.SUGGESTION;
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
@@ -223,7 +225,7 @@ async function getSiteSuggestions(client, payload = {}) {
 
   const viewerId = viewer && viewer.id ? String(viewer.id) : "";
   const canModerate = Boolean(viewer && viewer.canModerateSuggestions);
-  const query = { guildId: guild.id };
+  const query = { docType: SG, guildId: guild.id };
   if (!canModerate) {
     if (viewerId) {
       query.$or = [{ status: { $ne: "rejected" } }, { userId: viewerId }];
@@ -232,7 +234,7 @@ async function getSiteSuggestions(client, payload = {}) {
     }
   }
 
-  const docs = await SiteSuggestion.find(query)
+  const docs = await SiteDocument.find(query)
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(LIST_LIMIT)
     .lean()
@@ -256,7 +258,8 @@ async function createSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
   }
 
-  const doc = await SiteSuggestion.create({
+  const doc = await SiteDocument.create({
+    docType: SG,
     guildId: resolved.guild.id,
     userId: resolved.userId,
     authorName: displayNameForMember(resolved.member),
@@ -295,7 +298,8 @@ async function addSiteSuggestionComment(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Il commento è troppo breve." };
   }
 
-  const existing = await SiteSuggestion.findOne({
+  const existing = await SiteDocument.findOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
   })
@@ -348,8 +352,8 @@ async function addSiteSuggestionComment(client, payload = {}) {
     ...(parentOid ? { parentCommentId: parentOid } : {}),
   };
 
-  const updated = await SiteSuggestion.findOneAndUpdate(
-    { _id: suggestionId, guildId: resolved.guild.id, status: "pending" },
+  const updated = await SiteDocument.findOneAndUpdate(
+    { docType: SG, _id: suggestionId, guildId: resolved.guild.id, status: "pending" },
     { $push: { comments: comment }, $set: { updatedAt: new Date() } },
     { new: true },
   )
@@ -414,7 +418,8 @@ async function setSiteSuggestionVote(client, payload = {}) {
     return { ok: false, status: 400, error: "invalid_direction", message: 'Indica "up" o "down".' };
   }
 
-  const fresh = await SiteSuggestion.findOne({
+  const fresh = await SiteDocument.findOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
     status: "pending",
@@ -450,8 +455,8 @@ async function setSiteSuggestionVote(client, payload = {}) {
     down.add(uid);
   }
 
-  const updated = await SiteSuggestion.findOneAndUpdate(
-    { _id: suggestionId, guildId: resolved.guild.id, status: "pending" },
+  const updated = await SiteDocument.findOneAndUpdate(
+    { docType: SG, _id: suggestionId, guildId: resolved.guild.id, status: "pending" },
     {
       $set: {
         upvoterUserIds: Array.from(up),
@@ -512,8 +517,9 @@ async function staffAcceptSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "reason_required", message: "Inserisci un motivo di almeno 3 caratteri." };
   }
 
-  const updated = await SiteSuggestion.findOneAndUpdate(
+  const updated = await SiteDocument.findOneAndUpdate(
     {
+      docType: SG,
       _id: suggestionId,
       guildId: resolved.guild.id,
       status: "pending",
@@ -582,8 +588,9 @@ async function staffRejectSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "reason_required", message: "Inserisci un motivo di almeno 3 caratteri." };
   }
 
-  const updated = await SiteSuggestion.findOneAndUpdate(
+  const updated = await SiteDocument.findOneAndUpdate(
     {
+      docType: SG,
       _id: suggestionId,
       guildId: resolved.guild.id,
       status: "pending",
@@ -647,7 +654,8 @@ async function staffDeleteSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
   }
 
-  const del = await SiteSuggestion.deleteOne({
+  const del = await SiteDocument.deleteOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
   }).catch(() => null);
@@ -677,8 +685,9 @@ async function updateOwnSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Scrivi almeno 12 caratteri." };
   }
 
-  const updated = await SiteSuggestion.findOneAndUpdate(
+  const updated = await SiteDocument.findOneAndUpdate(
     {
+      docType: SG,
       _id: suggestionId,
       guildId: resolved.guild.id,
       userId: resolved.userId,
@@ -718,7 +727,8 @@ async function deleteOwnSiteSuggestion(client, payload = {}) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID suggerimento non valido." };
   }
 
-  const del = await SiteSuggestion.deleteOne({
+  const del = await SiteDocument.deleteOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
     userId: resolved.userId,
@@ -756,7 +766,8 @@ async function updateSiteSuggestionComment(client, payload = {}) {
     return { ok: false, status: 400, error: "content_too_short", message: "Il commento è troppo breve." };
   }
 
-  const doc = await SiteSuggestion.findOne({
+  const doc = await SiteDocument.findOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
     status: "pending",
@@ -804,7 +815,8 @@ async function deleteSiteSuggestionComment(client, payload = {}) {
   }
 
   const canMod = memberCanModerateSuggestions(resolved.member);
-  const doc = await SiteSuggestion.findOne({
+  const doc = await SiteDocument.findOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
     status: "pending",
@@ -861,7 +873,8 @@ async function setSiteSuggestionCommentVote(client, payload = {}) {
     return { ok: false, status: 400, error: "invalid_direction", message: 'Indica "up" o "down".' };
   }
 
-  const doc = await SiteSuggestion.findOne({
+  const doc = await SiteDocument.findOne({
+    docType: SG,
     _id: suggestionId,
     guildId: resolved.guild.id,
     status: "pending",

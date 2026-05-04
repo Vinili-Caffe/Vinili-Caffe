@@ -14,7 +14,6 @@ function isGatewayMemberListRateLimit(err) {
   return (op === 8 || op === "8") && Number.isFinite(ra) && ra > 0;
 }
 
-/** `members.fetch()` su guild grandi usa il gateway (opcode 8) ed è rate-limited: ritenta dopo `retry_after`. */
 async function fetchAllGuildMembersResilient(guild) {
   for (let attempt = 0; attempt < MEMBER_FETCH_MAX_ATTEMPTS; attempt++) {
     try {
@@ -68,6 +67,7 @@ async function runRoleAllToMembers(interaction, role) {
 }
 
 module.exports = {
+  skipDeploy: true,
   name: "role",
   data: new SlashCommandBuilder()
     .setName("role")

@@ -1,6 +1,7 @@
-const { SiteInAppNotification } = require("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
 const mongoose = require("mongoose");
 
+const NOTIF = SITE_DOCUMENT_TYPE.IN_APP_NOTIFICATION;
 const MAX_PER_USER = 150;
 const DEDUPE_KEY_MAX = 120;
 
@@ -39,7 +40,8 @@ async function enqueueSiteInAppNotification(opts = {}) {
   const dedupeWindowMs = Number(opts.dedupeWindowMs) || 0;
   if (dedupeKeyRaw && dedupeWindowMs > 0) {
     const since = new Date(Date.now() - dedupeWindowMs);
-    const dup = await SiteInAppNotification.findOne({
+    const dup = await SiteDocument.findOne({
+      docType: NOTIF,
       userId,
       dedupeKey: dedupeKeyRaw,
       createdAt: { $gte: since },
@@ -49,12 +51,13 @@ async function enqueueSiteInAppNotification(opts = {}) {
       .catch(() => null);
     if (dup) return;
   }
-  const created = await SiteInAppNotification.create({
+  const created = await SiteDocument.create({
+    docType: NOTIF,
     guildId,
     userId,
     title,
     body,
-    kind,
+    notifKind: kind,
     openUrl: openUrl || undefined,
     dedupeKey: dedupeKeyRaw || undefined,
   }).catch(() => null);
@@ -70,22 +73,25 @@ async function enqueueSiteInAppNotification(opts = {}) {
 async function pruneSiteInAppNotificationsForUser(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return;
-  const count = await SiteInAppNotification.countDocuments({ userId: uid }).catch(() => 0);
+  const count = await SiteDocument.countDocuments({ docType: NOTIF, userId: uid }).catch(() => 0);
   if (count <= MAX_PER_USER) return;
   const drop = count - MAX_PER_USER;
-  const oldest = await SiteInAppNotification.find({ userId: uid })
+  const oldest = await SiteDocument.find({ docType: NOTIF, userId: uid })
     .sort({ createdAt: 1 })
     .limit(drop)
     .select("_id")
     .lean()
     .catch(() => []);
   const ids = (Array.isArray(oldest) ? oldest : []).map((d) => d._id).filter(Boolean);
-  if (ids.length) await SiteInAppNotification.deleteMany({ _id: { $in: ids } }).catch(() => null);
+  if (ids.length) await SiteDocument.deleteMany({ docType: NOTIF, _id: { $in: ids } }).catch(() => null);
 }
 
 async function deleteSiteInAppNotifications(filter = {}) {
   if (!filter || typeof filter !== "object" || Array.isArray(filter)) return 0;
-  const del = await SiteInAppNotification.deleteMany(filter).catch(() => null);
+  const { kind, ...rest } = filter;
+  const mongoFilter = { docType: NOTIF, ...rest };
+  if (kind != null && String(kind).trim() !== "") mongoFilter.notifKind = String(kind).trim();
+  const del = await SiteDocument.deleteMany(mongoFilter).catch(() => null);
   const count = Number(del?.deletedCount ?? del?.n ?? 0);
   if (count > 0) {
     try {
@@ -105,8 +111,8 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
   const uid = normalizeUserId(userId);
   const nid = String(notificationId || "").trim();
   if (!uid || !isValidNotificationId(nid)) return false;
-  const out = await SiteInAppNotification.updateOne(
-    { _id: nid, userId: uid, readAt: null },
+  const out = await SiteDocument.updateOne(
+    { docType: NOTIF, _id: nid, userId: uid, readAt: null },
     { $set: { readAt: new Date() } },
   ).catch(() => null);
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0) > 0;
@@ -122,8 +128,8 @@ async function markSiteInAppNotificationRead(userId, notificationId) {
 async function markAllSiteInAppNotificationsRead(userId) {
   const uid = normalizeUserId(userId);
   if (!uid) return 0;
-  const out = await SiteInAppNotification.updateMany(
-    { userId: uid, readAt: null },
+  const out = await SiteDocument.updateMany(
+    { docType: NOTIF, userId: uid, readAt: null },
     { $set: { readAt: new Date() } },
   ).catch(() => null);
   const modified = Number(out?.modifiedCount ?? out?.nModified ?? 0);
@@ -139,7 +145,7 @@ async function markAllSiteInAppNotificationsRead(userId) {
 async function listSiteInAppNotificationsForUser(userId, limit = 50) {
   const uid = normalizeUserId(userId);
   if (!uid) return [];
-  const rows = await SiteInAppNotification.find({ userId: uid })
+  const rows = await SiteDocument.find({ docType: NOTIF, userId: uid })
     .sort({ createdAt: -1 })
     .limit(Math.min(100, Math.max(1, Number(limit) || 50)))
     .lean()
@@ -148,7 +154,7 @@ async function listSiteInAppNotificationsForUser(userId, limit = 50) {
     id: String(doc._id),
     title: String(doc.title || ""),
     body: String(doc.body || ""),
-    kind: normalizeKind(doc.kind),
+    kind: normalizeKind(doc.notifKind || doc.kind),
     at: doc.createdAt ? new Date(doc.createdAt).getTime() : Date.now(),
     openUrl: String(doc.openUrl || "").trim(),
     read: Boolean(doc.readAt),

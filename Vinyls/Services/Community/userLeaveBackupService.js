@@ -1,4 +1,4 @@
-const { ActivityUserProfile, UserLeaveBackup, RejoinRoleMemory } = require("../../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, UserLeaveBackup } = require("../../Schemas/Community/communitySchemas");
 const { addRolesAndGetMember, getGuildRoleCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const IDs = require("../../Utils/Config/ids");
@@ -77,17 +77,16 @@ async function backupUserOnLeave(guildId, userId, member = null) {
   const restoreRoleIds = getRestorableRoleIdsFromMember(member);
   const trackedRoleIds = getTrackedRolesFromMember(member);
 
-  if (trackedRoleIds.length > 0) {
-    await RejoinRoleMemory.updateOne(
-      { guildId: gid, userId: uid },
-      { $set: { guildId: gid, userId: uid, roleIds: trackedRoleIds } },
-      { upsert: true },
-    ).catch(() => null);
-  } else {
-    await RejoinRoleMemory.deleteOne({ guildId: gid, userId: uid }).catch(() => null);
-  }
+  const shouldUpsertBackup =
+    Boolean(source) || restoreRoleIds.length > 0 || trackedRoleIds.length > 0;
 
-  if (!source && restoreRoleIds.length === 0) return false;
+  if (!shouldUpsertBackup) {
+    await UserLeaveBackup.updateOne(
+      { guildId: gid, userId: uid },
+      { $set: { rejoinTrackedRoleIds: [] } },
+    ).catch(() => null);
+    return false;
+  }
 
   await UserLeaveBackup.updateOne(
     { guildId: gid, userId: uid },
@@ -97,6 +96,7 @@ async function backupUserOnLeave(guildId, userId, member = null) {
         userId: uid,
         backupDoc: source || null,
         restoreRoleIds,
+        rejoinTrackedRoleIds: trackedRoleIds,
         leftAt: new Date(),
         expiresAt: resolveExpiryDate(),
       },
@@ -137,8 +137,7 @@ async function restoreUserOnJoin(guildId, userId, member = null) {
   if (!isValidGuildUserId(gid, uid)) return false;
 
   const backup = await UserLeaveBackup.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
-  const roleMemory = await RejoinRoleMemory.findOne({ guildId: gid, userId: uid }).lean().catch(() => null);
-  const roleIdsFromMemory = Array.isArray(roleMemory?.roleIds) ? roleMemory.roleIds : [];
+  const roleIdsFromMemory = Array.isArray(backup?.rejoinTrackedRoleIds) ? backup.rejoinTrackedRoleIds : [];
   const roleIdsFallback = Array.isArray(backup?.restoreRoleIds) ? backup.restoreRoleIds : [];
   const restoreRoleIds = filterRestoreRoleIdsExcludingStaffPm(
     [...roleIdsFromMemory, ...roleIdsFallback].map((id) => String(id || "").trim()).filter(Boolean),

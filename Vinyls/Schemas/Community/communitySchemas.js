@@ -186,6 +186,16 @@ const activityUserProfileLevelHistoryEntrySchema = new Schema(
   { _id: false },
 );
 
+const contestFinalePendingRoleRemovalEntrySchema = new Schema(
+  {
+    roleId: { type: String, required: true },
+    removeAt: { type: Date, required: true },
+    hadRoleBefore: { type: Boolean, default: false },
+    eventKey: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
 const staffRolesHistoryEntrySchema = new Schema(
   {
     oldRole: String,
@@ -415,6 +425,8 @@ const activityUserProfileSchema = new Schema(
         disegniSecondPlaceUnlock: { type: Boolean, default: false },
         disegniSecondPlaceEventKey: { type: String, default: null },
         disegniSecondPlaceAt: { type: Date, default: null },
+        /** VIP contest: rimozioni programmate (prima in `weeklycontestmetas.finalePrizeRoleRemovals`). */
+        finalePendingRoleRemovals: { type: [contestFinalePendingRoleRemovalEntrySchema], default: [] },
       },
       rankCard: {
         type: Schema.Types.Mixed,
@@ -466,6 +478,7 @@ activityUserProfileSchema.index({ guildId: 1, "moderation.modCases.caseId": 1 })
 activityUserProfileSchema.index({ guildId: 1, "staff.firstWarnStaffAt": 1 });
 activityUserProfileSchema.index({ guildId: 1, "staff.pauses.requestMessageId": 1 });
 activityUserProfileSchema.index({ guildId: 1, staffPendingPurgeAt: 1 }, { sparse: true });
+activityUserProfileSchema.index({ guildId: 1, "profile.contestPrizes.finalePendingRoleRemovals": 1 }, { sparse: true });
 
 const userLeaveBackupSchema = new Schema(
   {
@@ -473,6 +486,8 @@ const userLeaveBackupSchema = new Schema(
     userId: { type: String, required: true, index: true },
     backupDoc: { type: Schema.Types.Mixed, default: null },
     restoreRoleIds: { type: [String], default: [] },
+    /** Ruoli RESTORE_ON_REJOIN (stessa TTL del backup). */
+    rejoinTrackedRoleIds: { type: [String], default: [] },
     leftAt: { type: Date, default: Date.now },
     expiresAt: { type: Date, required: true },
   },
@@ -491,67 +506,14 @@ const activityGuildHourlySchema = new Schema(
 );
 activityGuildHourlySchema.index({ guildId: 1 }, { unique: true });
 
-const rejoinRoleMemorySchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    roleIds: { type: [String], default: [] },
-  },
-  { timestamps: true },
-);
-rejoinRoleMemorySchema.index({ guildId: 1, userId: 1 }, { unique: true });
-
-const siteRoleRequestCooldownSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    requesterId: { type: String, required: true, index: true },
-    roleId: { type: String, required: true, index: true },
-    ownerId: { type: String, default: null, index: true },
-    lastRequestedAt: { type: Date, default: Date.now, required: true },
-    cooldownUntil: { type: Date, default: Date.now, required: true, index: true },
-  },
-  { timestamps: true },
-);
-siteRoleRequestCooldownSchema.index({ guildId: 1, requesterId: 1, roleId: 1 }, { unique: true });
-
-const siteInAppNotificationSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    title: { type: String, required: true, trim: true, maxlength: 120 },
-    body: { type: String, required: true, trim: true, maxlength: 500 },
-    kind: { type: String, default: "info", trim: true, maxlength: 24 },
-    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
-    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
-    readAt: { type: Date, default: null, index: true },
-  },
-  { timestamps: true },
-);
-siteInAppNotificationSchema.index({ userId: 1, createdAt: -1 });
-siteInAppNotificationSchema.index({ userId: 1, dedupeKey: 1, createdAt: -1 });
-
-const siteReviewSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    kind: { type: String, required: true, enum: ["server", "staff"], index: true },
-    userId: { type: String, required: true, index: true },
-    staffUserId: { type: String, default: null, index: true },
-    rating: { type: Number, required: true, min: 1, max: 5 },
-    content: { type: String, required: true, trim: true, maxlength: 1200 },
-    authorName: { type: String, default: "" },
-    authorAvatarUrl: { type: String, default: "" },
-    staffName: { type: String, default: "" },
-    staffAvatarUrl: { type: String, default: "" },
-    likedUserIds: { type: [String], default: [] },
-    serverReplyContent: { type: String, default: "" },
-    serverReplyAt: { type: Date, default: null },
-    serverReplyAuthorId: { type: String, default: "" },
-  },
-  { timestamps: true },
-);
-siteReviewSchema.index({ guildId: 1, kind: 1, userId: 1, staffUserId: 1 }, { unique: true });
-siteReviewSchema.index({ guildId: 1, kind: 1, createdAt: -1 });
-siteReviewSchema.index({ guildId: 1, staffUserId: 1, createdAt: -1 });
+/** Unifica le vecchie collection site* (notifiche, cooldown ruoli, recensioni, suggerimenti, pagamenti). */
+const SITE_DOCUMENT_TYPE = Object.freeze({
+  IN_APP_NOTIFICATION: "in_app_notification",
+  ROLE_REQUEST_COOLDOWN: "role_request_cooldown",
+  REVIEW: "review",
+  SUGGESTION: "suggestion",
+  PAYMENT: "payment",
+});
 
 const siteSuggestionCommentSchema = new Schema(
   {
@@ -566,44 +528,59 @@ const siteSuggestionCommentSchema = new Schema(
   { timestamps: true },
 );
 
-const siteSuggestionSchema = new Schema(
+const siteDocumentSchema = new Schema(
   {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, required: true, index: true },
-    authorName: { type: String, default: "" },
-    authorAvatarUrl: { type: String, default: "" },
-    content: { type: String, required: true, trim: true, maxlength: 2000 },
-    status: {
+    docType: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
-      default: "pending",
+      required: true,
+      enum: Object.values(SITE_DOCUMENT_TYPE),
       index: true,
     },
-    staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
+    guildId: { type: String, default: "", index: true },
+    userId: { type: String, default: "", index: true },
+
+    title: { type: String, trim: true, maxlength: 120 },
+    body: { type: String, trim: true, maxlength: 500 },
+    notifKind: { type: String, default: "info", trim: true, maxlength: 24 },
+    openUrl: { type: String, default: "", trim: true, maxlength: 400 },
+    dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
+    readAt: { type: Date, default: null, index: true },
+
+    requesterId: { type: String, default: "", index: true },
+    roleId: { type: String, default: "", index: true },
+    ownerId: { type: String, default: null, index: true },
+    lastRequestedAt: { type: Date, default: null },
+    cooldownUntil: { type: Date, default: null, index: true },
+
+    reviewKind: { type: String, default: null, trim: true, maxlength: 16 },
     staffUserId: { type: String, default: null, index: true },
+    rating: { type: Number, min: 1, max: 5 },
+    content: { type: String, trim: true, maxlength: 2000 },
+    authorName: { type: String, default: "" },
+    authorAvatarUrl: { type: String, default: "" },
+    staffName: { type: String, default: "" },
+    staffAvatarUrl: { type: String, default: "" },
+    likedUserIds: { type: [String], default: [] },
+    serverReplyContent: { type: String, default: "" },
+    serverReplyAt: { type: Date, default: null },
+    serverReplyAuthorId: { type: String, default: "" },
+
+    status: { type: String, default: null, trim: true, maxlength: 24 },
+    staffReason: { type: String, default: "", trim: true, maxlength: 1000 },
     decidedAt: { type: Date, default: null },
     comments: { type: [siteSuggestionCommentSchema], default: [] },
     upvoterUserIds: { type: [String], default: [] },
     downvoterUserIds: { type: [String], default: [] },
-  },
-  { timestamps: true },
-);
-siteSuggestionSchema.index({ guildId: 1, createdAt: -1 });
-siteSuggestionSchema.index({ guildId: 1, status: 1, updatedAt: -1 });
 
-const sitePaymentSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    userId: { type: String, default: "", index: true },
-    provider: { type: String, required: true, default: "paypal", index: true },
+    provider: { type: String, default: "", trim: true, maxlength: 32, index: true },
     createdBy: { type: String, default: "site", trim: true, maxlength: 32 },
     planKey: { type: String, default: "", trim: true, maxlength: 80 },
     description: { type: String, default: "", trim: true, maxlength: 180 },
     amount: { type: String, default: "0.00", trim: true, maxlength: 24 },
     currency: { type: String, default: "EUR", trim: true, maxlength: 12 },
-    status: { type: String, default: "CREATED", trim: true, maxlength: 48, index: true },
-    orderId: { type: String, default: "", trim: true, maxlength: 128, index: true },
-    captureId: { type: String, default: "", trim: true, maxlength: 128, index: true },
+    paymentStatus: { type: String, default: "", trim: true, maxlength: 48, index: true },
+    orderId: { type: String, default: "", trim: true, maxlength: 128 },
+    captureId: { type: String, default: "", trim: true, maxlength: 128 },
     approveUrl: { type: String, default: "", trim: true, maxlength: 500 },
     webhookEventType: { type: String, default: "", trim: true, maxlength: 96 },
     webhookEventId: { type: String, default: "", trim: true, maxlength: 128 },
@@ -613,9 +590,42 @@ const sitePaymentSchema = new Schema(
   },
   { timestamps: true },
 );
-sitePaymentSchema.index({ provider: 1, orderId: 1 }, { unique: true, sparse: true });
-sitePaymentSchema.index({ provider: 1, captureId: 1 }, { unique: true, sparse: true });
-sitePaymentSchema.index({ guildId: 1, userId: 1, createdAt: -1 });
+const SITE_DOC = SITE_DOCUMENT_TYPE;
+siteDocumentSchema.index({ docType: 1, userId: 1, createdAt: -1 });
+siteDocumentSchema.index({ docType: 1, userId: 1, dedupeKey: 1, createdAt: -1 });
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, requesterId: 1, roleId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.ROLE_REQUEST_COOLDOWN } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, reviewKind: 1, userId: 1, staffUserId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.REVIEW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, reviewKind: 1, updatedAt: -1, createdAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.REVIEW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, staffUserId: 1, createdAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.REVIEW, reviewKind: "staff" } },
+);
+siteDocumentSchema.index({ docType: 1, guildId: 1, createdAt: -1 }, { partialFilterExpression: { docType: SITE_DOC.SUGGESTION } });
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, status: 1, updatedAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.SUGGESTION } },
+);
+siteDocumentSchema.index(
+  { docType: 1, provider: 1, orderId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.PAYMENT, orderId: { $type: "string", $gt: "" } } },
+);
+siteDocumentSchema.index(
+  { docType: 1, provider: 1, captureId: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.PAYMENT, captureId: { $type: "string", $gt: "" } } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, createdAt: -1 },
+  { partialFilterExpression: { docType: SITE_DOC.PAYMENT } },
+);
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";
 const MOD_CASE_STORAGE_MODE = String(process.env.MOD_CASE_STORAGE_MODE || "compact").trim().toLowerCase();
@@ -1083,13 +1093,7 @@ const QuotePrivacy = buildProfileSubdocModel({
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
-const RejoinRoleMemory = models.RejoinRoleMemory || model("RejoinRoleMemory", rejoinRoleMemorySchema, "rejoinrolememories");
-const SiteRoleRequestCooldown = models.SiteRoleRequestCooldown || model("SiteRoleRequestCooldown", siteRoleRequestCooldownSchema, "siterolerequestcooldowns");
-const SiteInAppNotification =
-  models.SiteInAppNotification || model("SiteInAppNotification", siteInAppNotificationSchema, "siteinappnotifications");
-const SiteReview = models.SiteReview || model("SiteReview", siteReviewSchema, "sitereviews");
-const SiteSuggestion = models.SiteSuggestion || model("SiteSuggestion", siteSuggestionSchema, "sitesuggestions");
-const SitePayment = models.SitePayment || model("SitePayment", sitePaymentSchema, "sitepayments");
+const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
 module.exports = {
@@ -1110,10 +1114,6 @@ module.exports = {
   BannerPrivacy,
   QuotePrivacy,
   UserLeaveBackup,
-  RejoinRoleMemory,
-  SiteRoleRequestCooldown,
-  SiteInAppNotification,
-  SiteReview,
-  SiteSuggestion,
-  SitePayment,
+  SiteDocument,
+  SITE_DOCUMENT_TYPE,
 };

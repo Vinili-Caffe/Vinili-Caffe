@@ -21,7 +21,6 @@ const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromCo
 const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
-const { removeContestSfondiSubmissionsOnMemberLeave } = require("../Services/Community/weeklyContestService");
 const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
@@ -535,11 +534,6 @@ module.exports = {
       }
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
-      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
-        await removeContestSfondiSubmissionsOnMemberLeave(activeClient, guild.id, member.id).catch((err) => {
-          global.logger?.warn?.("[guildMemberRemove] contest sfondi leave:", err?.message || err);
-        });
-      }
       await backupUserOnLeave(guild.id, member.id, member);
       await cleanupUserData(guild.id, member.id);
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {

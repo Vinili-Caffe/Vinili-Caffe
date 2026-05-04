@@ -1,5 +1,7 @@
 const IDs = require("../Config/ids");
-const { SitePayment } = require("../../Schemas/Community/communitySchemas");
+const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Schemas/Community/communitySchemas");
+
+const PAY = SITE_DOCUMENT_TYPE.PAYMENT;
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsService");
 
@@ -271,10 +273,11 @@ async function createSitePaymentOrder(client, payload = {}) {
     return { ok: false, status: 502, error: "paypal_missing_order_id", message: "PayPal non ha restituito un orderId valido." };
   }
 
-  await SitePayment.findOneAndUpdate(
-    { provider: "paypal", orderId },
+  await SiteDocument.findOneAndUpdate(
+    { docType: PAY, provider: "paypal", orderId },
     {
       $setOnInsert: {
+        docType: PAY,
         provider: "paypal",
         createdBy: "site",
         orderId,
@@ -286,7 +289,7 @@ async function createSitePaymentOrder(client, payload = {}) {
         description: plan.label,
         amount: plan.amount,
         currency: plan.currency,
-        status: String(created.data?.status || "CREATED"),
+        paymentStatus: String(created.data?.status || "CREATED"),
         approveUrl,
         rawOrder: created.data,
       },
@@ -353,15 +356,15 @@ async function captureSitePaymentOrder(client, payload = {}) {
   const finalGuildId = parsedCustom.guildId || resolved.guild.id || resolveGuildId(client);
   const finalPlanKey = parsedCustom.planKey || "";
   const status = String(cap.captureStatus || capture.data?.status || "").toUpperCase();
-  const updated = await SitePayment.findOneAndUpdate(
-    { provider: "paypal", orderId },
+  const updated = await SiteDocument.findOneAndUpdate(
+    { docType: PAY, provider: "paypal", orderId },
     {
-      $setOnInsert: { provider: "paypal", createdBy: "site", orderId },
+      $setOnInsert: { docType: PAY, provider: "paypal", createdBy: "site", orderId },
       $set: {
         guildId: finalGuildId,
         userId: finalUserId,
         planKey: finalPlanKey,
-        status,
+        paymentStatus: status,
         captureId: cap.captureId || undefined,
         amount: cap.amount,
         currency: cap.currency,
@@ -442,10 +445,13 @@ async function handleSitePayPalWebhook(client, req, res) {
 
     const finalGuildId = extracted.guildId || resolveGuildId(client) || "global";
     const finalStatus = extracted.status || "UNKNOWN";
-    const updated = await SitePayment.findOneAndUpdate(
-      extracted.orderId ? { provider: "paypal", orderId: extracted.orderId } : { provider: "paypal", captureId: extracted.captureId },
+    const updated = await SiteDocument.findOneAndUpdate(
+      extracted.orderId
+        ? { docType: PAY, provider: "paypal", orderId: extracted.orderId }
+        : { docType: PAY, provider: "paypal", captureId: extracted.captureId },
       {
         $setOnInsert: {
+          docType: PAY,
           provider: "paypal",
           createdBy: "paypal_webhook",
           ...(extracted.orderId ? { orderId: extracted.orderId } : {}),
@@ -457,7 +463,7 @@ async function handleSitePayPalWebhook(client, req, res) {
           captureId: extracted.captureId || undefined,
           amount: extracted.amount,
           currency: extracted.currency,
-          status: finalStatus,
+          paymentStatus: finalStatus,
           webhookEventType: extracted.eventType,
           webhookEventId: String(body?.id || "").trim() || undefined,
           rawWebhook: body,
