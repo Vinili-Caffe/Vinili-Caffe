@@ -1,3 +1,5 @@
+# Plugin JAR: blocco `lavalink.plugins` (sibling di `lavalink.server`), vedi Lavalink/README.md.
+# Se PM2 avvia `java -jar` con cwd fuori da questa cartella, usa `start-lavalink.sh` (passa spring.config.additional-location).
 server:
   port: 2333
   address: 0.0.0.0
@@ -5,6 +7,7 @@ server:
 logging:
   level:
     root: ERROR
+    lavalink: INFO
   request:
     enabled: false
 

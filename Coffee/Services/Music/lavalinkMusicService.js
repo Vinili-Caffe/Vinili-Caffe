@@ -69,6 +69,19 @@ function logMusic(...args) {
   global.logger?.info?.("[MUSIC]", ...args);
 }
 
+/**
+ * Sostituisce la traccia partendo da 0 ms: senza `position`, Lavalink può riusare il minutaggio del brano precedente (es. +previous).
+ * @param {import("shoukaku").Player} player
+ * @param {string} encoded
+ */
+async function playEncodedFromStart(player, encoded) {
+  const enc = String(encoded || "").trim();
+  if (!enc || typeof player?.playTrack !== "function") {
+    throw new Error("playEncodedFromStart: argomenti non validi");
+  }
+  await player.playTrack({ track: { encoded: enc }, position: 0 });
+}
+
 function parseLavalinkHost() {
   const raw = (process.env.LAVALINK_HOST || "127.0.0.1:2333").trim().replace(/^https?:\/\//i, "");
   const lastColon = raw.lastIndexOf(":");
@@ -128,20 +141,22 @@ function normalizeLavalinkLoadType(res) {
 function tracksFromResolve(res) {
   if (!res) return [];
   const lt = normalizeLavalinkLoadType(res);
-  if (lt === "track") return res.data ? [res.data] : [];
+  const d = res.data;
+  if (lt === "track") return d ? [d] : [];
   if (lt === "search") {
-    if (Array.isArray(res.data)) return res.data;
-    if (res.data && Array.isArray(res.data.tracks)) return res.data.tracks;
+    if (Array.isArray(d)) return d;
+    if (d && Array.isArray(d.tracks)) return d.tracks;
     return [];
   }
   if (lt === "playlist") {
-    const pl = res.data;
-    return Array.isArray(pl?.tracks) ? pl.tracks : [];
+    return Array.isArray(d?.tracks) ? d.tracks : [];
   }
   if (lt === "empty" || lt === "error") return [];
-  const d = res.data;
   if (Array.isArray(d) && d.length && d[0]?.encoded != null) return d;
   if (d && typeof d === "object" && d.encoded != null && d.info) return [d];
+  if (d && typeof d === "object" && Array.isArray(d.tracks) && d.tracks.length && d.tracks[0]?.encoded != null) {
+    return d.tracks;
+  }
   return [];
 }
 
@@ -165,6 +180,23 @@ function isPlainTextMusicQuery(q) {
   return true;
 }
 
+const OPEN_SPOTIFY_PATH_RE =
+  /^https?:\/\/open\.spotify\.com\/(?:intl-[a-z]{2,}(?:-[a-z]+)?\/)?(playlist|album|track)\/([a-zA-Z0-9]+)\/?(?:[?#].*)?$/i;
+
+function normalizeOpenSpotifyHttpUrl(raw) {
+  const s = String(raw || "").trim();
+  const m = s.match(OPEN_SPOTIFY_PATH_RE);
+  if (!m) return null;
+  return `https://open.spotify.com/${m[1].toLowerCase()}/${m[2]}`;
+}
+
+function openSpotifyHttpsToSpotifyUri(query) {
+  const canon = normalizeOpenSpotifyHttpUrl(query) || String(query || "").trim();
+  const m = canon.match(/^https:\/\/open\.spotify\.com\/(playlist|album|track)\/([a-zA-Z0-9]+)$/i);
+  if (!m) return null;
+  return `spotify:${m[1].toLowerCase()}:${m[2]}`;
+}
+
 /** Link Spotify musica: track / album / playlist. Esclusi show ed episode (podcast). */
 function isSpotifyPodcastOnlyInput(query) {
   const q = String(query || "").trim();
@@ -172,6 +204,16 @@ function isSpotifyPodcastOnlyInput(query) {
   if (/^spotify:(show|episode):/i.test(q)) return true;
   const lower = q.toLowerCase();
   return /open\.spotify\.com\/(?:intl-[a-z-]+\/)?(show|episode)\//i.test(lower);
+}
+
+/** Link musica Spotify (web o URI) che Lavalink risolve via LavaSrc, non come stream HTTP. */
+function isOpenSpotifyMusicUrlInput(query) {
+  const q = String(query || "").trim();
+  if (!q) return false;
+  if (/^spotify:(playlist|album|track):/i.test(q)) return true;
+  const lower = q.toLowerCase();
+  if (!lower.includes("open.spotify.com")) return false;
+  return /\/(?:intl-[a-z]{2,}(?:-[a-z]+)?\/)?(playlist|album|track)\//i.test(lower);
 }
 
 function isLikelySpotifyPodcastTrack(t) {
@@ -201,7 +243,9 @@ function buildResolveAttempts(userQuery) {
   const mode = getMusicSearchMode();
   const primary = normalizeLavalinkResolveQuery(raw);
   const attempts = [primary];
-  if (!isPlainTextMusicQuery(raw)) return attempts;
+  const spotifyUriAlt = openSpotifyHttpsToSpotifyUri(raw);
+  if (spotifyUriAlt && !attempts.includes(spotifyUriAlt)) attempts.push(spotifyUriAlt);
+  if (!isPlainTextMusicQuery(raw)) return [...new Set(attempts)];
   if (mode === "youtube") {
     const ytm = `ytmsearch:${raw}`;
     if (!attempts.includes(ytm)) attempts.push(ytm);
@@ -239,7 +283,11 @@ async function resolvePlayableTracks(node, userQuery) {
     }
     logMusic("resolve ok", { loadType: lastResolved?.loadType, identifier: identifier.slice(0, 80) });
     let tracks = tracksFromResolve(lastResolved);
-    if (normalizeLavalinkLoadType(lastResolved) === "search" && tracks.length > 1) {
+    if (
+      isPlainTextMusicQuery(userQuery) &&
+      normalizeLavalinkLoadType(lastResolved) === "search" &&
+      tracks.length > 1
+    ) {
       tracks = [tracks[0]];
     }
     if (tracks.length) {
@@ -1260,7 +1308,7 @@ function attachEndHandler(client, player, guildId) {
       const encoded = encodedFromEvTrack(ev?.track) || session.repeatEncoded;
       if (typeof encoded === "string" && encoded.length) {
         try {
-          await player.playTrack({ track: { encoded } });
+          await playEncodedFromStart(player, encoded);
           return;
         } catch (err) {
           logMusic("repeat replay:", err?.message || err);
@@ -1288,7 +1336,7 @@ function attachEndHandler(client, player, guildId) {
         session.nowPlaying = String(head.label || "").trim() || "Traccia sconosciuta";
         clearSessionCurrentRequester(session);
         try {
-          await player.playTrack({ track: { encoded: head.encoded } });
+          await playEncodedFromStart(player, head.encoded);
           return;
         } catch (err) {
           logMusic("repeat queue loop:", err?.message || err);
@@ -1319,7 +1367,7 @@ function attachEndHandler(client, player, guildId) {
       session.repeatEncoded = next.encoded;
     }
     try {
-      await player.playTrack({ track: { encoded: next.encoded } });
+      await playEncodedFromStart(player, next.encoded);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] play next failed:", err?.message || err);
       await leaveMusicVoiceChannelMarked(client, guildId);
@@ -1446,10 +1494,11 @@ async function playMusicRequest(ctx, query) {
     return { ok: false, message: "Nessun nodo Lavalink disponibile." };
   }
 
-  const trimmed = String(query || "").trim();
-  if (!trimmed) {
+  const trimmedInput = String(query || "").trim();
+  if (!trimmedInput) {
     return { ok: false, message: "Indica un titolo o un link." };
   }
+  const trimmed = normalizeOpenSpotifyHttpUrl(trimmedInput) || trimmedInput;
   if (isSpotifyPodcastOnlyInput(trimmed)) {
     return {
       ok: false,
@@ -1487,6 +1536,14 @@ async function playMusicRequest(ctx, query) {
       : "Nessun risultato per questa ricerca o URL.";
     if (!hint && isPlainTextMusicQuery(trimmed)) {
       msg += " Prova con **titolo e artista** o un link **open.spotify.com** / YouTube (se consentito dalla modalità).";
+    }
+    if (isOpenSpotifyMusicUrlInput(trimmed)) {
+      const needsLavasrcHint =
+        !hint || /unknown file format|file format/i.test(String(hint || ""));
+      if (needsLavasrcHint) {
+        msg +=
+          " Per **Spotify** il nodo **Lavalink** deve avere il plugin **LavaSrc** con **clientId** e **clientSecret** in `application.yml` (altrimenti spesso nei log compare `Unknown file format`: viene scaricata la pagina web al posto dei brani). Vedi `Lavalink/README.md` e riavvia Lavalink.";
+      }
     }
     return {
       ok: false,
@@ -1608,7 +1665,7 @@ async function playMusicRequest(ctx, query) {
   session.repeatQueueSnapshot = null;
   session.history = [];
   try {
-    await player.playTrack({ track: { encoded: first.encoded } });
+    await playEncodedFromStart(player, first.encoded);
   } catch (err) {
     global.logger?.warn?.("[MUSIC] playTrack:", err?.message || err);
     session.tracks.length = 0;
@@ -1997,7 +2054,7 @@ async function previousGuildTrack(interaction) {
   session.nowPlaying = String(prev.label || "").trim() || "Traccia sconosciuta";
   clearSessionCurrentRequester(session);
   try {
-    await player.playTrack({ track: { encoded: prev.encoded } });
+    await playEncodedFromStart(player, prev.encoded);
   } catch (err) {
     session.history.push(prev);
     if (currentEnc) session.tracks.shift();
@@ -2083,7 +2140,7 @@ async function rewindGuildTrack(interaction) {
     }
   }
   try {
-    await player.playTrack({ track: { encoded: enc } });
+    await playEncodedFromStart(player, enc);
   } catch (err) {
     return { ok: false, message: err?.message || "Riavvolgimento non riuscito." };
   }
@@ -2121,7 +2178,7 @@ async function restartQueueGuild(interaction) {
     session.repeatQueueSnapshot = snap.map((e) => ({ encoded: e.encoded, label: e.label }));
   }
   try {
-    await player.playTrack({ track: { encoded: snap[0].encoded } });
+    await playEncodedFromStart(player, snap[0].encoded);
   } catch (err) {
     return { ok: false, message: err?.message || "Restart coda non riuscito." };
   }

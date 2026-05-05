@@ -7,6 +7,7 @@ const { applyAgeBracketRoleFromBirthday, stripAllAgeBracketRoles } = require("..
 const { inferBirthYearFromAge, getRomeDateParts, tryCelebrateBirthdayAfterProfileSave } = require("../Services/Community/birthdayService");
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
+const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, getCustomReactionMax, parseReactionTokens, resolveStoredCustomEmojiFromClient, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
@@ -257,7 +258,7 @@ function parsePanelCustomId(customId) {
 
 async function fetchProfilePanelState(guild, userId, client) {
   const guildId = guild?.id;
-  const [birthday, reactionDoc, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestPrizeLean] = await Promise.all([
+  const [birthday, reactionDoc, customState, customDocLean, noDmPrefs, avatarPrivacy, bannerPrivacy, quotePrivacy, member, contestPrizeLean, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
     getBirthdayProfile(guildId, userId),
     MentionReaction.findOne({ guildId, userId }).lean().catch(() => null),
     resolveCustomRoleState({ guild, userId, client, cleanupExpired: false }),
@@ -274,12 +275,19 @@ async function fetchProfilePanelState(guild, userId, client) {
       .select("profile.contestPrizes profile.totals.exp.event")
       .lean()
       .catch(() => null),
+    guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false) : false,
+    guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false) : false,
   ]);
   const contestSecondUnlock =
     Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock) ||
     Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock);
-  const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, contestSecondUnlock);
-  const hasCustomVocAccess = memberCanCreateCustomVoc(member) || contestSecondUnlock;
+  const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, {
+    hasContestSecondPlaceUnlock: contestSecondUnlock,
+    hasEventWeek2Grant: Boolean(eventWeek2Grant),
+    hasEventWeek3Grant: Boolean(eventWeek3Grant),
+  });
+  const hasCustomVocAccess =
+    memberCanCreateCustomVoc(member) || contestSecondUnlock || Boolean(eventWeek2Grant) || Boolean(eventWeek3Grant);
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
   const customReactionMax = getCustomReactionMax(member);
 
@@ -775,8 +783,13 @@ async function ensureCustomRoleExists(interaction, ownerId, client, slot = "prim
   const member = interaction.member;
   if (!guild || !member) return { ok: false, reason: "server_missing" };
   const targetSlot = String(slot || "primary").toLowerCase() === "secondary" ? "secondary" : "primary";
-  const hasExtraUnlock = await hasExtraCustomPerksUnlock(guild.id, ownerId);
-  if (targetSlot === "primary" && getCustomRoleSlotCapWithContest(member, hasExtraUnlock) < 1) {
+  const [hasExtraUnlock, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
+    hasExtraCustomPerksUnlock(guild.id, ownerId),
+    hasEventWeekWinnerGrant(guild.id, ownerId, 2).catch(() => false),
+    hasEventWeekWinnerGrant(guild.id, ownerId, 3).catch(() => false),
+  ]);
+  const primarySlotUnlock = hasExtraUnlock || eventWeek2Grant || eventWeek3Grant;
+  if (targetSlot === "primary" && getCustomRoleSlotCapWithContest(member, primarySlotUnlock) < 1) {
     return { ok: false, reason: "missing_customrole_access" };
   }
   if (targetSlot === "secondary" && getCustomRoleSlotCapFromRoles(member) < 2) {

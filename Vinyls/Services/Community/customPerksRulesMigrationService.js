@@ -3,6 +3,7 @@ const { CustomRole, ActivityUserProfile } = require("../../Schemas/Community/com
 const { MentionReaction } = require("../../Schemas/Community/autoInteractionSchemas");
 const { getCustomReactionMax } = require("../../Utils/Community/mentionReactionPanelUtils");
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest } = require("../../Utils/Community/customRoleSlots");
+const { hasEventWeekWinnerGrant } = require("./weekWinnerGrantsService");
 const IDs = require("../../Utils/Config/ids");
 
 const CUSTOM_VOC_CREATE_ROLE_IDS = [
@@ -45,10 +46,13 @@ async function migrateGuildCustomPerks(guild, client) {
       .select("profile.contestPrizes profile.totals.exp.event")
       .lean()
       .catch(() => null);
-    const hasExtraUnlock = Boolean(
+    const contestUnlock = Boolean(
       profileRow?.profile?.contestPrizes?.disegniSecondPlaceUnlock ||
         profileRow?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock,
     );
+    const week2 = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
+    const week3 = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
+    const hasExtraUnlock = contestUnlock || week2 || week3;
     const canPrimary = getCustomRoleSlotCapWithContest(member, hasExtraUnlock) >= 1;
     const canSecondary = getCustomRoleSlotCapFromRoles(member) >= 2;
     const canVoc =

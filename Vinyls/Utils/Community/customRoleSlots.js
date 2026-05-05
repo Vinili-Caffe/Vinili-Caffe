@@ -33,14 +33,26 @@ function getCustomRoleSlotCapFromRoles(member) {
   return 0;
 }
 
-/** Unlock contest: al massimo +1 slot rispetto a zero (non si somma ad altri tier). */
-function getCustomRoleSlotCapWithContest(member, hasContestSecondPlaceUnlock) {
-  const fromRoles = getCustomRoleSlotCapFromRoles(member);
-  return Math.max(fromRoles, hasContestSecondPlaceUnlock ? 1 : 0);
+function normalizeCustomRoleExtraUnlocks(arg) {
+  if (arg && typeof arg === "object" && !Array.isArray(arg)) {
+    return Boolean(
+      arg.hasContestSecondPlaceUnlock ||
+        arg.contest ||
+        arg.hasEventWeek2Grant ||
+        arg.hasEventWeek3Grant,
+    );
+  }
+  return Boolean(arg);
 }
 
-function memberHasCustomRolePanelAccess(member, hasContestSecondPlaceUnlock) {
-  return getCustomRoleSlotCapWithContest(member, Boolean(hasContestSecondPlaceUnlock)) >= 1;
+/** Unlock contest / vincita settimana evento 2 o 3: al massimo +1 slot rispetto a zero (non si somma ad altri tier). */
+function getCustomRoleSlotCapWithContest(member, extraUnlocks) {
+  const fromRoles = getCustomRoleSlotCapFromRoles(member);
+  return Math.max(fromRoles, normalizeCustomRoleExtraUnlocks(extraUnlocks) ? 1 : 0);
+}
+
+function memberHasCustomRolePanelAccess(member, extraUnlocks) {
+  return getCustomRoleSlotCapWithContest(member, extraUnlocks) >= 1;
 }
 
 /** Il secondo slot esiste solo col tier premium (2 totali), mai da cumulo Level50+Booster ecc. */

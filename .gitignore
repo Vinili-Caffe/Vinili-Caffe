@@ -79,6 +79,7 @@ web_modules/
 .env.production.local
 .env.local
 deploy/.env.mongo
+Lavalink/.env.lavalink
 deploy/backups/
 deploy/atlas-dump/
 

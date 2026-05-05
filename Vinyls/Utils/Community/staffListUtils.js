@@ -303,7 +303,6 @@ async function fetchMembersForStaffList(guild) {
     const before = all.size;
     for (const [id, member] of chunk) all.set(id, member);
     if (all.size === before) {
-      global.logger?.warn?.("[STAFF LIST] fetch membri: pagina senza nuovi id (stop)", { guildId: gid, page, after: after ?? null });
       break;
     }
 

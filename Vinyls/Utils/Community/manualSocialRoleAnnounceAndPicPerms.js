@@ -15,6 +15,17 @@ const PIC_PERMS_BUNDLE_ROLE_IDS = [
   IDs.roles.Guilded,
 ].filter(Boolean);
 
+/** Uno qualsiasi di questi ruoli (anche manuale) deve comportare <@&PicPerms>. */
+const PIC_PERMS_AUTO_TRIGGER_ROLE_IDS = [
+  IDs.roles.Guilded,
+  IDs.roles.SocialSupporter,
+  IDs.roles.Fan,
+  IDs.roles.Follower,
+  IDs.roles.VerifiedNeo,
+  IDs.roles.Verificata,
+  IDs.roles.Verificato,
+].filter(Boolean);
+
 const AUDIT_FETCH_LIMIT = 40;
 const AUDIT_LOOKBACK_MS = 180 * 1000;
 const MEMBER_ROLE_AUDIT_TYPE = AuditLogEvent.MemberRoleUpdate ?? 25;
@@ -171,17 +182,29 @@ function hasManageRolesPermission(member) {
   return Boolean(me?.permissions?.has(PermissionsBitField.Flags.ManageRoles));
 }
 
-async function tryGrantPicPermsIfBundleComplete(member) {
+async function tryGrantPicPermsRoleIfMissing(member) {
   if (!member?.guild || !PIC_PERMS_ROLE_ID) return;
-  if (!PIC_PERMS_BUNDLE_ROLE_IDS.length) return;
-  const hasAll = PIC_PERMS_BUNDLE_ROLE_IDS.every((rid) => member.roles.cache.has(rid));
-  if (!hasAll) return;
   const me = member.guild.members.me;
   if (!me || !hasManageRolesPermission(member)) return;
   const role = member.guild.roles.cache.get(PIC_PERMS_ROLE_ID);
   if (!role || role.position >= me.roles.highest.position) return;
   if (member.roles.cache.has(PIC_PERMS_ROLE_ID)) return;
   await member.roles.add(PIC_PERMS_ROLE_ID).catch(() => null);
+}
+
+async function tryGrantPicPermsIfBundleComplete(member) {
+  if (!member?.guild || !PIC_PERMS_ROLE_ID) return;
+  if (!PIC_PERMS_BUNDLE_ROLE_IDS.length) return;
+  const hasAll = PIC_PERMS_BUNDLE_ROLE_IDS.every((rid) => member.roles.cache.has(rid));
+  if (!hasAll) return;
+  await tryGrantPicPermsRoleIfMissing(member);
+}
+
+async function tryGrantPicPermsIfAnyAutoTrigger(member) {
+  if (!member?.guild || !PIC_PERMS_ROLE_ID || !PIC_PERMS_AUTO_TRIGGER_ROLE_IDS.length) return;
+  const hasAny = PIC_PERMS_AUTO_TRIGGER_ROLE_IDS.some((rid) => rid && member.roles.cache.has(rid));
+  if (!hasAny) return;
+  await tryGrantPicPermsRoleIfMissing(member);
 }
 
 function buildSocialUnlockEmbed(member, { title, roleId }) {
@@ -276,6 +299,7 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
   }
 
   await tryGrantPicPermsIfBundleComplete(newMember);
+  await tryGrantPicPermsIfAnyAutoTrigger(newMember);
 }
 
 module.exports = { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle };

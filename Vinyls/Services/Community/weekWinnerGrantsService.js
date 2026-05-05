@@ -1,5 +1,16 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 
+function weekWinnersListIncludesWeek(list, week) {
+  if (!Array.isArray(list)) return false;
+  const w = Number(week);
+  if (!Number.isFinite(w)) return false;
+  for (const entry of list) {
+    const n = Number(entry);
+    if (Number.isFinite(n) && n === w) return true;
+  }
+  return false;
+}
+
 async function addEventWeekWinner(guildId, userId, week) {
   if (!guildId || !userId || (week !== 2 && week !== 3)) return null;
   const g = String(guildId);
@@ -17,7 +28,7 @@ async function hasEventWeekWinnerGrant(guildId, userId, week) {
   const g = String(guildId);
   const u = String(userId);
   const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select("profile.totals.exp.event.weekWinners").lean().catch(() => null);
-  return Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) && doc.profile.totals.exp.event.weekWinners.includes(week);
+  return weekWinnersListIncludesWeek(doc?.profile?.totals?.exp?.event?.weekWinners, week);
 }
 
 module.exports = { addEventWeekWinner, hasEventWeekWinnerGrant };

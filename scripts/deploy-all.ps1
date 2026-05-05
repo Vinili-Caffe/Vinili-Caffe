@@ -1,5 +1,7 @@
-# Backend: il tarball include wait-for-lavalink.js + ecosystem.config.cjs. Sul server, se esiste ecosystem.config.cjs,
-# PM2 usa quello (--only $Pm2AppName): l'app deve chiamarsi come in ecosystem (default "bots").
+# Backend: tarball con Vinyls/Coffee, wait-for-lavalink.js, ecosystem.config.cjs e cartella Lavalink (config + start-lavalink.sh).
+# Sul server: dopo l'estrazione — scarica Lavalink.jar se manca (4.2.2), crea plugins/, normalizza CRLF su start-lavalink.sh,
+# applica opzionale Lavalink/.env.lavalink caricato in /tmp prima dello script remoto (file locale non nel tarball).
+# PM2: reload ecosystem (lavalink = java -jar + spring.config.additional-location; vedi ecosystem.config.cjs).
 param(
   [string]$Server = "45.143.196.131",
   [string]$User = "root",
@@ -154,17 +156,36 @@ try {
     --exclude "node_modules" `
     --exclude ".cursor" `
     --exclude "WebSite/dist" `
+    --exclude "Lavalink/plugins" `
+    --exclude "Lavalink/Lavalink.jar" `
+    --exclude "Lavalink/.env.lavalink" `
     "Vinyls" "shared" "Coffee" "scripts" "package.json" "package-lock.json" `
-    "wait-for-lavalink.js" "loader.js" "ecosystem.config.cjs"
+    "wait-for-lavalink.js" "loader.js" "ecosystem.config.cjs" "Lavalink"
 
   Write-Host "Upload archivio backend su ${User}@${Server}:${remoteTgz}"
   Invoke-RemoteScp @($localTgz, "${User}@${Server}:${remoteTgz}")
+
+  $lavalinkEnvLocal = Join-Path $repoRoot "Lavalink\.env.lavalink"
+  $lavalinkEnvRemoteTmp = "/tmp/vc-deploy-lavalink.env"
+  if (-not (Test-Path $lavalinkEnvLocal)) {
+    Invoke-RemoteSsh "${User}@${Server}" "rm -f $lavalinkEnvRemoteTmp"
+  }
+  if (Test-Path $lavalinkEnvLocal) {
+    Write-Host "Upload Lavalink/.env.lavalink -> server (tmp, poi spostato in deploy remoto)..."
+    Invoke-RemoteScp @($lavalinkEnvLocal, "${User}@${Server}:${lavalinkEnvRemoteTmp}")
+  }
 
   $remoteCmd = @(
     "set -eu"
     "mkdir -p '$BotRemotePath'"
     "tar -xzf '$remoteTgz' -C '$BotRemotePath'"
     "rm -f '$remoteTgz'"
+    "LAVALINK_DIR='$BotRemotePath/Lavalink'"
+    'LAVALINK_JAR_URL=https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.jar'
+    'mkdir -p "$LAVALINK_DIR/plugins"'
+    'if [ -f /tmp/vc-deploy-lavalink.env ]; then mkdir -p "$LAVALINK_DIR"; cp /tmp/vc-deploy-lavalink.env "$LAVALINK_DIR/.env.lavalink"; chmod 600 "$LAVALINK_DIR/.env.lavalink"; rm -f /tmp/vc-deploy-lavalink.env; echo "[deploy] Lavalink/.env.lavalink da upload locale"; fi'
+    'if [ ! -f "$LAVALINK_DIR/Lavalink.jar" ]; then echo "[deploy] Scarico Lavalink.jar (4.2.2)..."; if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_JAR_URL" && mv -f "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_DIR/Lavalink.jar"; elif command -v wget >/dev/null 2>&1; then wget -q -O "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_JAR_URL" && mv -f "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_DIR/Lavalink.jar"; else echo "[deploy] ERRORE: serve curl o wget per scaricare Lavalink.jar" >&2; exit 1; fi; fi'
+    'if [ -f "$LAVALINK_DIR/start-lavalink.sh" ]; then chmod +x "$LAVALINK_DIR/start-lavalink.sh"; fi'
     'NEW_LOCK_HASH=""'
     "if [ -f '$BotRemotePath/package-lock.json' ]; then NEW_LOCK_HASH=`$(sha256sum '$BotRemotePath/package-lock.json' | awk '{print `$1}'); fi"
     ('APP_PID=$(pm2 pid ''{0}'' 2>/dev/null | head -n 1 | tr -d ''[:space:]'')' -f $Pm2AppName)
@@ -191,7 +212,7 @@ try {
     "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
   )
   if (-not $SkipBackendRestart) {
-    $reloadEcosystem = "if [ -f '$BotRemotePath/ecosystem.config.cjs' ]; then cd '$BotRemotePath' && (pm2 describe '$Pm2AppName' >/dev/null 2>&1 && pm2 reload ecosystem.config.cjs --only '$Pm2AppName' --update-env || pm2 start ecosystem.config.cjs --only '$Pm2AppName' --update-env); else pm2 restart '$Pm2AppName' --update-env; fi"
+    $reloadEcosystem = "cd '$BotRemotePath' && if [ -f ecosystem.config.cjs ]; then if pm2 describe lavalink >/dev/null 2>&1 || pm2 describe '$Pm2AppName' >/dev/null 2>&1; then pm2 reload ecosystem.config.cjs --update-env; else pm2 start ecosystem.config.cjs --update-env; fi; else pm2 restart '$Pm2AppName' --update-env || true; fi"
     $remoteCmd += $reloadEcosystem
     $remoteCmd += "pm2 list"
     $remoteCmd += "pm2 pid '$Pm2AppName'"
