@@ -4,11 +4,31 @@ const { PARTNER_MILESTONE_POINT_TIERS } = require("./partnerManagerMilestoneDm")
 
 const PARTNER_MANAGER_REDEEM_TIERS = [...PARTNER_MILESTONE_POINT_TIERS];
 
+const PARTNER_MANAGER_REDEEM_BUTTON_LABELS = Object.freeze({
+  50: "50 pt · scala punti",
+  100: "100 pt · scala punti",
+  150: "150 pt · scala punti",
+  200: "200 pt · scala punti",
+});
+
+function partnerManagerRedeemButtonLabel(tier) {
+  const n = Math.floor(Number(tier) || 0);
+  return PARTNER_MANAGER_REDEEM_BUTTON_LABELS[n] || `Riscatto ${n} pt`;
+}
+
 function partnerManagerRedeemTierFromAction(action) {
   const m = String(action || "").match(/^ppm_r(\d+)$/);
   if (!m) return null;
   const n = Number(m[1]);
   return PARTNER_MANAGER_REDEEM_TIERS.includes(n) ? n : null;
+}
+
+/** Applicazione premio 50/100 (solo bottone dedicato; non scala punti). */
+function partnerManagerApplyPerkTierFromAction(action) {
+  const m = String(action || "").match(/^ppm_a(\d+)$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n === 50 || n === 100 ? n : null;
 }
 
 function formatPartnerPointsChange(action, amount) {
@@ -110,7 +130,10 @@ async function redeemPartnerManagerPointsForDisplay(guildId, userId, amount) {
 
 module.exports = {
   PARTNER_MANAGER_REDEEM_TIERS,
+  PARTNER_MANAGER_REDEEM_BUTTON_LABELS,
+  partnerManagerRedeemButtonLabel,
   partnerManagerRedeemTierFromAction,
+  partnerManagerApplyPerkTierFromAction,
   addPartnerPoints,
   removePartnerPoints,
   redeemPartnerManagerPointsForDisplay,

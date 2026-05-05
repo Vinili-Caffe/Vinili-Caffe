@@ -3,8 +3,8 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { rewindGuildTrack } = require("../../Services/Music/lavalinkMusicService");
 
 module.exports = {
-  name: "rewind",
-  description: "Riporta la traccia in riproduzione all'inizio (seek 0).",
+  name: "rewind", 
+  description: "Riporta la traccia in riproduzione all'inizio.",
   usage: "+rewind",
   examples: ["+rewind"],
   async execute(message) {

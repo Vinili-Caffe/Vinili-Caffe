@@ -15,6 +15,7 @@ const { guildIconUrl } = require("../../Utils/Discord/guildDiscordIdentity");
 const TOP_LIMIT = 10;
 const LEADERBOARD_CHANNEL_ID = IDs.channels.commands;
 const CLASSIFICA_TOGGLE_PREFIX = "classifica_toggle:";
+const CLASSIFICA_CLOSE_PREFIX = "classifica_close:";
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
 const leaderboardCache = new Map();
@@ -550,28 +551,44 @@ async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUse
     );
 }
 
-function buildClassificaButtons(mode = "weekly") {
+function buildClassificaButtons(mode = "weekly", options = {}) {
   const active = mode === "alltime" ? "alltime" : "weekly";
+  const ownerId = String(options.ownerId || "").trim();
+  const sourceMessageId = String(options.sourceMessageId || "").trim();
+  const hasMeta = /^\d{16,20}$/.test(ownerId) && /^\d{16,20}$/.test(sourceMessageId);
+  const weeklyId = hasMeta
+    ? `${CLASSIFICA_TOGGLE_PREFIX}weekly:${ownerId}:${sourceMessageId}`
+    : `${CLASSIFICA_TOGGLE_PREFIX}weekly`;
+  const alltimeId = hasMeta
+    ? `${CLASSIFICA_TOGGLE_PREFIX}alltime:${ownerId}:${sourceMessageId}`
+    : `${CLASSIFICA_TOGGLE_PREFIX}alltime`;
+  const closeId = hasMeta
+    ? `${CLASSIFICA_CLOSE_PREFIX}${ownerId}:${sourceMessageId}`
+    : `${CLASSIFICA_CLOSE_PREFIX}0:0`;
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`${CLASSIFICA_TOGGLE_PREFIX}weekly`)
+        .setCustomId(weeklyId)
         .setStyle(active === "weekly" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
       new ButtonBuilder()
-        .setCustomId(`${CLASSIFICA_TOGGLE_PREFIX}alltime`)
+        .setCustomId(alltimeId)
         .setStyle(active === "alltime" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("<a:vegarightarrow:1443673039156936837>"),
+      new ButtonBuilder()
+        .setCustomId(closeId)
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("<:cancel:1461730653677551691>"),
     ),
   ];
 }
 
-async function buildClassificaPayload(guild, mode = "weekly") {
+async function buildClassificaPayload(guild, mode = "weekly", options = {}) {
   const safeMode = mode === "alltime" ? "alltime" : "weekly";
   const embed = safeMode === "weekly"
     ? await buildWeeklyEmbed(guild, false, false)
     : await buildAllTimeEmbed(guild, false, false);
-  return { embeds: [embed], components: buildClassificaButtons(safeMode) };
+  return { embeds: [embed], components: buildClassificaButtons(safeMode, options) };
 }
 
 module.exports = {
@@ -600,7 +617,10 @@ module.exports = {
       return;
     }
     const mode = "weekly";
-    const payload = await buildClassificaPayload(message.guild, mode);
+    const payload = await buildClassificaPayload(message.guild, mode, {
+      ownerId: message.author?.id,
+      sourceMessageId: message.id,
+    });
 
     const shouldRedirect = message.channel.id !== LEADERBOARD_CHANNEL_ID;
     if (!shouldRedirect) {
@@ -646,6 +666,7 @@ module.exports = {
     });
   },
   CLASSIFICA_TOGGLE_PREFIX,
+  CLASSIFICA_CLOSE_PREFIX,
   buildClassificaPayload,
   /** Stessa finestra domenica 21 → ora di +classifica weekly (hourly), usata anche dal sito /user */
   computeLeaderboardRows,

@@ -258,8 +258,12 @@ const staffEmbeddedSchema = new Schema(
     partnerRedeemSpend: { type: Number, default: 0 },
     managerId: { type: String },
     partnerActions: { type: [staffPartnerActionSchema] },
-    /** Soglie premio PM (50/75/150) per cui è già stato inviato il promemoria in DM. */
+    /** Soglie premio PM (50/100/150/200) per cui è già stato inviato il promemoria in DM. */
     partnerMilestoneDmSent: { type: [Number], default: [] },
+    /** Riscatto 50 pt PM: accesso Custom Role + Custom Voc fino a questa data. */
+    partnerManagerCustomPerksUntil: { type: Date, default: null },
+    /** Riscatto 100 pt PM: VIP fino a questa data (rimozione ruolo a scadenza). */
+    partnerManagerVipUntil: { type: Date, default: null },
     /** Anni (UTC) in cui vale +5 giorni pausa Staff del mese, anche dopo rimozione del ruolo. */
     bestStaffPauseBonusYears: { type: [Number], default: [] },
     pauses: { type: [staffPauseEntrySchema], default: [] },

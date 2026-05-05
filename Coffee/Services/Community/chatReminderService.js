@@ -56,7 +56,7 @@ const reminderPool = [
       .setDescription(
         [
           "<:VC_EXP:1482534670896730143> Con il tuo primo voto otterrai **250 EXP** mentre le volte successive un semplice boost di EXP che ti aiuteranno a scalare la classifica settimanale! Grazie per il tuo sostegno!",
-          "<:VC_Link:1482460590894088222> Vota [qui](https://viniliecaffe.it/vote) ogni giorno!",
+          "<:VC_Link:1482460590894088222> Vota [qui](https://www.viniliecaffe.it/vote) ogni giorno!",
         ].join("\n"),
       ),
   () =>

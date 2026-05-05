@@ -22,20 +22,20 @@ async function resolveReplyTarget(interaction, messageId, messageLink) {
     if (interaction.guild?.id !== linkData.guildId) {
       return {
         error:
-          "<:vegax:1443934876440068179> Il link non appartiene a questo server.",
+          "<a:VC_Cross:1482532424570376253> Il link non appartiene a questo server.",
       };
     }
 
     const targetChannel = await getGuildChannelCached(interaction.guild, linkData.channelId);
     if (!targetChannel || !targetChannel.isTextBased()) {
       return {
-        error: "<:vegax:1443934876440068179> Canale non valido per rispondere.",
+        error: "<a:VC_Cross:1482532424570376253> Canale non valido per rispondere.",
       };
     }
 
     const targetMessage = await targetChannel.messages.fetch(linkData.messageId).catch(() => null);
     if (!targetMessage) {
-      return { error: "<:vegax:1443934876440068179> Messaggio non trovato." };
+      return { error: "<a:VC_Cross:1482532424570376253> Messaggio non trovato." };
     }
 
     return { channel: targetChannel, replyTo: targetMessage };
@@ -46,7 +46,7 @@ async function resolveReplyTarget(interaction, messageId, messageLink) {
     if (!targetMessage) {
       return {
         error:
-          "<:vegax:1443934876440068179> Messaggio non trovato in questo canale.",
+          "<a:VC_Cross:1482532424570376253> Messaggio non trovato in questo canale.",
       };
     }
 
@@ -99,7 +99,7 @@ module.exports = {
       if (!messageText && !attachment) {
         return safeEditReply(interaction, {
           content:
-            "<:vegax:1443934876440068179> Indica almeno **messaggio** o **allegato**.",
+            "<a:VC_Cross:1482532424570376253> Indica almeno **messaggio** o **allegato**.",
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -133,7 +133,7 @@ module.exports = {
       global.logger.error(err);
       return safeEditReply(interaction, {
         content:
-          "<:vegax:1443934876440068179> Errore durante l'esecuzione del comando.",
+          "<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione del comando.",
         flags: EPHEMERAL_FLAG,
       });
     }

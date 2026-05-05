@@ -50,14 +50,14 @@ function buildMiniHelpNotFoundEmbed(query) {
     .setColor(ERROR_EMBED_COLOR)
     .setTitle("Mini Help")
     .setDescription(
-      String(`<:vegax:1443934876440068179> Nessun comando trovato per \`${query}\`.`).slice(0, 4096),
+      String(`<a:VC_Cross:1482532424570376253> Nessun comando trovato per \`${query}\`.`).slice(0, 4096),
     );
 }
 
 function buildNoAvailableCommandsEmbed() {
   return new EmbedBuilder()
     .setColor(ERROR_EMBED_COLOR)
-    .setDescription("<:vegax:1443934876440068179> Nessun comando disponibile.");
+    .setDescription("<a:VC_Cross:1482532424570376253> Nessun comando disponibile.");
 }
 
 function normalizeDescription(
@@ -361,7 +361,7 @@ function renderPageText(page) {
       "",
       sections.join("\n\n"),
     ].join("\n")
-    : "<:vegax:1443934876440068179> Nessun comando disponibile in questa pagina.";
+    : "<a:VC_Cross:1482532424570376253> Nessun comando disponibile in questa pagina.";
   return raw;
 }
 
@@ -437,6 +437,10 @@ function buildNavigationRow(state) {
       .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
+    new ButtonBuilder()
+      .setCustomId(state.closeId)
+      .setEmoji("<:cancel:1461730653677551691>")
+      .setStyle(ButtonStyle.Danger),
   );
 }
 
@@ -950,6 +954,7 @@ module.exports = {
     const uniqueToken = `${message.id}_${Date.now()}`;
     const navState={currentIndex:initialPageIndex,total:displayPages.length,prevId:`help_prev_${uniqueToken}`,
       nextId: `help_next_${uniqueToken}`,
+      closeId: `help_close_${uniqueToken}`,
     };
 
     const sent=await safeMessageReply(message,{components:[buildHelpV2Container(displayPages[navState.currentIndex],navState)],flags:MessageFlags.IsComponentsV2,allowedMentions:NO_REPLY_MENTIONS,});
@@ -962,7 +967,7 @@ module.exports = {
         await interaction
           .reply({
             content:
-              "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
+              "<a:VC_Cross:1482532424570376253> Puoi usare i bottoni solo sul tuo help.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => { });
@@ -970,10 +975,15 @@ module.exports = {
       }
 
       const prevIndex = navState.currentIndex;
-      if (
-        interaction.customId === navState.prevId &&
-        navState.currentIndex > 0
-      ) {
+      if (interaction.customId === navState.closeId) {
+        collector.stop("closed_by_user");
+        await interaction.message?.delete?.().catch(() => {});
+        if (message?.deletable) {
+          await message.delete().catch(() => {});
+        }
+        return;
+      }
+      if (interaction.customId === navState.prevId && navState.currentIndex > 0) {
         navState.currentIndex -= 1;
       } else if (
         interaction.customId === navState.nextId &&

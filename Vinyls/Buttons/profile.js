@@ -8,11 +8,13 @@ const { inferBirthYearFromAge, getRomeDateParts, tryCelebrateBirthdayAfterProfil
 const { resolveCustomRoleState, buildExpiryText } = require("../Utils/Community/customRoleState");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
+const colorUnlocks = require("../Utils/Community/personalityColorUnlocks");
 const { MAX_REACTIONS, memberHasCustomReactionRoleAccess, getCustomReactionMax, parseReactionTokens, resolveStoredCustomEmojiFromClient, toDisplay, buildCustomReactionPanelRows } = require("../Utils/Community/mentionReactionPanelUtils");
 const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, DM_CATEGORY_LABELS } = require("../Utils/noDmList");
 const IDs = require("../Utils/Config/ids");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
+const { partnerManagerPerkDateActive, fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../Utils/Staff/partnerManagerTimedPerks");
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils");
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
@@ -23,6 +25,9 @@ const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
+const SECTION_COLORS = "colors";
+const CMD_COLORS_SEG = "cmd_colors_seg:";
+const CMD_COLORS_BTN = "cmd_colors_btn:";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
@@ -83,6 +88,81 @@ function isDmCategoryOff(noDm, key) {
       : new Set(Array.isArray(noDm?.disabled) ? noDm.disabled : []);
   const isAll = Boolean(noDm?.blockAll || disabled.has(DM_CATEGORY_ALL));
   return isAll || disabled.has(key);
+}
+
+function buildProfileEligibleColorOptions(guild, numericLevel, canPickPlus) {
+  const plusIds = colorUnlocks.listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel);
+  const tierIds = colorUnlocks
+    .listUnlockedTierRoleIds(numericLevel)
+    .filter((id) => guild?.roles?.cache?.has?.(id));
+  const options = [];
+  for (const roleId of plusIds) {
+    options.push({
+      label: `Plus · ${colorUnlocks.roleLabel(guild, roleId)}`.slice(0, 100),
+      value: roleId,
+      emoji: "<:VC_Vip:1482534921472835895>",
+      description: "Gradiente Plus",
+    });
+  }
+  for (const roleId of tierIds) {
+    const tierDef = colorUnlocks.getTierExclusiveColorDefs().find((row) => row.roleId === roleId);
+    options.push({
+      label: `Lv${tierDef?.minLevel || "?"} · ${colorUnlocks.roleLabel(guild, roleId)}`.slice(0, 100),
+      value: roleId,
+      emoji: "<:VC_EXP:1482534670896730143>",
+      description: `Da livello ${tierDef?.minLevel || "?"}`,
+    });
+  }
+  return options.slice(0, 25);
+}
+
+function buildProfileColorsDescription(guild, numericLevel, canPickPlus, eligibleOptions) {
+  const level = Math.max(0, Number(numericLevel) || 0);
+  const plusIds = colorUnlocks.listUnlockedPlusRoleIds(guild, canPickPlus, level);
+  const lines = [
+    "### <:VC_Vip:1482534921472835895> Colori Plus",
+    canPickPlus
+      ? "Sbloccati per te."
+      : "Non sbloccati (servono requisiti Plus o livello adeguato).",
+  ];
+  if (canPickPlus) {
+    if (plusIds.length) {
+      lines.push(...plusIds.map((roleId) => `· **${colorUnlocks.roleLabel(guild, roleId)}**`));
+    } else {
+      lines.push("_Nessun colore Plus configurato sul server._");
+    }
+  }
+  lines.push(
+    "",
+    "### <:VC_EXP:1482534670896730143> Colori esclusivi di livello",
+    `Il tuo livello: **${level}**`,
+  );
+  const tierDefs = [
+    ...colorUnlocks
+      .getTierExclusiveColorDefs()
+      .map((row) => ({ ...row, needsPlus: false })),
+    ...colorUnlocks
+      .getLevelGatedPlusColorDefs()
+      .map((row) => ({ ...row, needsPlus: true })),
+  ].filter((row) => guild?.roles?.cache?.has?.(row.roleId));
+  if (tierDefs.length) {
+    lines.push(
+      ...tierDefs.map((row) => {
+        const unlocked = level >= row.minLevel && (!row.needsPlus || canPickPlus);
+        const roleName = colorUnlocks.roleLabel(guild, row.roleId);
+        return `· **${roleName}** — da livello **${row.minLevel}** ${unlocked ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`;
+      }),
+    );
+  } else {
+    lines.push("_Nessun colore esclusivo livello configurato._");
+  }
+  lines.push("", "୨୧ — · · · — ୨୧", "");
+  if (eligibleOptions.length) {
+    lines.push("Menu attivo: puoi scegliere uno dei colori sbloccati qui sotto.");
+  } else {
+    lines.push("Non hai ancora colori Plus/Esclusivi selezionabili.");
+  }
+  return lines.join("\n");
 }
 
 async function applyNoDmCategoryToggle(guildId, ownerId, category) {
@@ -272,7 +352,9 @@ async function fetchProfilePanelState(guild, userId, client) {
     QuotePrivacy.findOne({ guildId, userId }).lean().catch(() => null),
     guild?.members?.fetch?.(userId).catch(() => guild?.members?.cache?.get?.(userId) || null),
     ActivityUserProfile.findOne({ guildId, userId })
-      .select("profile.contestPrizes profile.totals.exp.event")
+      .select(
+        "profile.contestPrizes profile.totals.exp.event staff.partnerManagerCustomPerksUntil staff.partnerManagerVipUntil",
+      )
       .lean()
       .catch(() => null),
     guildId && userId ? hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false) : false,
@@ -281,15 +363,24 @@ async function fetchProfilePanelState(guild, userId, client) {
   const contestSecondUnlock =
     Boolean(contestPrizeLean?.profile?.contestPrizes?.disegniSecondPlaceUnlock) ||
     Boolean(contestPrizeLean?.profile?.totals?.exp?.event?.contestDisegniSecondPlaceUnlock);
+  const pmCustomBundleActive = partnerManagerPerkDateActive(contestPrizeLean?.staff?.partnerManagerCustomPerksUntil);
   const hasCustomRoleAccess = memberHasCustomRolePanelAccess(member, {
     hasContestSecondPlaceUnlock: contestSecondUnlock,
     hasEventWeek2Grant: Boolean(eventWeek2Grant),
     hasEventWeek3Grant: Boolean(eventWeek3Grant),
+    hasPartnerManagerCustomBundle: pmCustomBundleActive,
   });
   const hasCustomVocAccess =
-    memberCanCreateCustomVoc(member) || contestSecondUnlock || Boolean(eventWeek2Grant) || Boolean(eventWeek3Grant);
+    memberCanCreateCustomVoc(member) ||
+    contestSecondUnlock ||
+    Boolean(eventWeek2Grant) ||
+    Boolean(eventWeek3Grant) ||
+    pmCustomBundleActive;
   const hasCustomReactionAccess = memberHasCustomReactionRoleAccess(member);
   const customReactionMax = getCustomReactionMax(member);
+  const colorLevel = await colorUnlocks.fetchNumericProfileLevel(guildId, userId).catch(() => 0);
+  const colorCanPickPlus = await colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false);
+  const colorEligibleOptions = buildProfileEligibleColorOptions(guild, colorLevel, colorCanPickPlus);
 
   let mergedCustomDoc = customState?.doc || customDocLean || null;
   const vocIdSync = String(mergedCustomDoc?.customVocChannelId || "").trim();
@@ -331,6 +422,11 @@ async function fetchProfilePanelState(guild, userId, client) {
       customReaction: hasCustomReactionAccess,
       customReactionMax,
       secondaryCustomRole: memberHasCustomRoleSecondarySlot(member),
+    },
+    colors: {
+      level: colorLevel,
+      canPickPlus: colorCanPickPlus,
+      eligibleOptions: colorEligibleOptions,
     },
   };
 }
@@ -519,6 +615,14 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
     ].join("\n"));
   }
 
+  if (section === SECTION_COLORS) {
+    const level = Number(state?.colors?.level || 0);
+    const canPickPlus = Boolean(state?.colors?.canPickPlus);
+    const eligibleOptions = Array.isArray(state?.colors?.eligibleOptions) ? state.colors.eligibleOptions : [];
+    const desc = buildProfileColorsDescription(guild, level, canPickPlus, eligibleOptions);
+    return base.setDescription(desc);
+  }
+
   const homeRoleLines = [`<:VC_Color:1482532543273238569> **Ruolo primario:** ${primaryRoleDisplay}`];
   if (hasSecondaryCustomRole) {
     homeRoleLines.push(`<:VC_Color:1482532543273238569> **Ruolo secondario:** ${secondaryRoleDisplay}`);
@@ -544,6 +648,13 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
 }
 
 function buildRows(ownerId, section, state = null) {
+  const closeRow = () =>
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${PANEL_PREFIX}:action:${ownerId}:close`)
+        .setEmoji("<:cancel:1461730653677551691>")
+        .setStyle(ButtonStyle.Danger),
+    );
   const canAccessCustomRole = Boolean(state?.featureAccess?.customRole);
   const canAccessCustomVoc = Boolean(state?.featureAccess?.customVoc);
   const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
@@ -579,6 +690,11 @@ function buildRows(ownerId, section, state = null) {
       { label: "Mention Reactions", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
     );
   }
+  if (Boolean(state?.colors)) {
+    selectOptions.push(
+      { label: "Colori Chat", value: SECTION_COLORS, emoji: "<:VC_Color:1482532543273238569>", default: section === SECTION_COLORS },
+    );
+  }
   const select = new StringSelectMenuBuilder()
     .setCustomId(`${PANEL_PREFIX}:select:${ownerId}`)
     .setPlaceholder("Scegli una sezione")
@@ -598,7 +714,7 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_clear`).setLabel("Rimuovi profilo").setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:birthday_cancel`).setLabel("Chiudi").setStyle(ButtonStyle.Secondary),
     );
-    return [row1, row2, row3];
+    return [row1, row2, row3, closeRow()];
   } else if (section === SECTION_CUSTOMROLE) {
     row2.addComponents(
       new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${roleId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!roleId),
@@ -609,7 +725,7 @@ function buildRows(ownerId, section, state = null) {
       const row3 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
       );
-      return [row1, row2, row3];
+      return [row1, row2, row3, closeRow()];
     }
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${roleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!roleId),
@@ -617,7 +733,7 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${roleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger).setDisabled(!roleId),
     );
 
-    return [row1, row2, row3];
+    return [row1, row2, row3, closeRow()];
   } else if (section === SECTION_CUSTOMROLE_SECONDARY) {
     row2.addComponents(
       new ButtonBuilder().setCustomId(`customrole_name:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary).setDisabled(!secondaryRoleId),
@@ -628,20 +744,20 @@ function buildRows(ownerId, section, state = null) {
       const row3 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customrole_create_secondary`).setLabel("Crea Ruolo").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success).setDisabled(!canCreateSecondaryRole || !hasPrimaryCustomRole),
       );
-      return [row1, row2, row3];
+      return [row1, row2, row3, closeRow()];
     }
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`customrole_members:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Aggiungi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`customrole_members_remove:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Rimuovi Utenti").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId(`customrole_delete:${ownerId}:${secondaryRoleId || "0"}`).setLabel("Elimina Ruolo").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
     );
-    return [row1, row2, row3];
+    return [row1, row2, row3, closeRow()];
   } else if (section === SECTION_CUSTOMVOC) {
     if (!customVocChannelId) {
       row2.addComponents(
         new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_create`).setLabel("Crea Vocale").setEmoji("<:VC_addperson:1485419347068588073>").setStyle(ButtonStyle.Success),
       );
-      return [row1, row2];
+      return [row1, row2, closeRow()];
     }
     row2.addComponents(
       new ButtonBuilder().setCustomId(`customvoc_name:${ownerId}:${customVocChannelId}`).setLabel("Modifica Nome").setEmoji("<:VC_Modifica:1478859646587633717>").setStyle(ButtonStyle.Primary),
@@ -650,9 +766,9 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`customvoc_remove:${ownerId}:${customVocChannelId}`).setLabel("Rimuovi Utente").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:customvoc_delete`).setLabel("Elimina Vocale").setEmoji("<:VC_delete:1485421886589501511>").setStyle(ButtonStyle.Danger),
     );
-    return [row1, row2];
+    return [row1, row2, closeRow()];
   } else if (section === SECTION_CUSTOMREACTION) {
-    return [row1, ...buildCustomReactionPanelRows(ownerId)];
+    return [row1, ...buildCustomReactionPanelRows(ownerId), closeRow()];
   } else if (section === SECTION_DMFILTERS) {
     const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
     const isAll = Boolean(noDm?.blockAll || noDm?.disabled?.has?.(DM_CATEGORY_ALL));
@@ -673,7 +789,7 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_none`).setLabel("Attiva tutto").setStyle(!isAll && noDm?.disabled?.size === 0 ? ButtonStyle.Success : ButtonStyle.Secondary).setEmoji("<:success:1461731530333229226>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:dm_done`).setLabel("Fine").setStyle(ButtonStyle.Primary).setEmoji("<:vegacheckmark:1443666279058772028>"),
     );
-    return [row1, ...dmRows, rowLast];
+    return [row1, ...dmRows, rowLast, closeRow()];
   } else if (section === SECTION_PRIVACY) {
     const privacy = state?.privacy || { avatar: false, banner: false, quotes: false };
     const noDm = state?.noDm || { blockAll: false, disabled: new Set() };
@@ -703,12 +819,34 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_none`).setLabel("Sblocca tutto").setStyle(allVisible ? ButtonStyle.Success : ButtonStyle.Secondary).setEmoji("<:success:1461731530333229226>"),
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_done`).setLabel("Fine").setStyle(ButtonStyle.Primary).setEmoji("<:vegacheckmark:1443666279058772028>"),
     );
-    return [row1, row2, rowVoteDm, row3];
+    return [row1, row2, rowVoteDm, row3, closeRow()];
+  } else if (section === SECTION_COLORS) {
+    const eligibleOptions = Array.isArray(state?.colors?.eligibleOptions) ? state.colors.eligibleOptions : [];
+    const colorsButtonRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CMD_COLORS_BTN}${ownerId}:info`)
+        .setLabel("Come ottenere i colori")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("📋"),
+      new ButtonBuilder()
+        .setCustomId(`${CMD_COLORS_BTN}${ownerId}:remove`)
+        .setLabel("Rimuovi colore")
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("🧹"),
+    );
+    if (!eligibleOptions.length) return [row1, colorsButtonRow, closeRow()];
+    const colorsSelectRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`${CMD_COLORS_SEG}${ownerId}:all`)
+        .setPlaceholder("🎨 Colori Plus/Esclusivi sbloccati")
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(eligibleOptions),
+    );
+    return [row1, colorsButtonRow, colorsSelectRow, closeRow()];
   } else {
-    return [row1];
+    return [row1, closeRow()];
   }
-
-  return [row1, row2];
 }
 
 async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME) {
@@ -783,12 +921,14 @@ async function ensureCustomRoleExists(interaction, ownerId, client, slot = "prim
   const member = interaction.member;
   if (!guild || !member) return { ok: false, reason: "server_missing" };
   const targetSlot = String(slot || "primary").toLowerCase() === "secondary" ? "secondary" : "primary";
-  const [hasExtraUnlock, eventWeek2Grant, eventWeek3Grant] = await Promise.all([
+  const [hasExtraUnlock, eventWeek2Grant, eventWeek3Grant, pmPerkLean] = await Promise.all([
     hasExtraCustomPerksUnlock(guild.id, ownerId),
     hasEventWeekWinnerGrant(guild.id, ownerId, 2).catch(() => false),
     hasEventWeekWinnerGrant(guild.id, ownerId, 3).catch(() => false),
+    fetchPartnerManagerTimedPerkLean(guild.id, ownerId),
   ]);
-  const primarySlotUnlock = hasExtraUnlock || eventWeek2Grant || eventWeek3Grant;
+  const primarySlotUnlock =
+    hasExtraUnlock || eventWeek2Grant || eventWeek3Grant || partnerManagerCustomBundleActiveFromLean(pmPerkLean);
   if (targetSlot === "primary" && getCustomRoleSlotCapWithContest(member, primarySlotUnlock) < 1) {
     return { ok: false, reason: "missing_customrole_access" };
   }
@@ -873,8 +1013,12 @@ async function ensureCustomRoleExists(interaction, ownerId, client, slot = "prim
 async function ensureCustomVocExists(interaction, ownerId, client) {
   const guild = interaction.guild;
   const member = interaction.member || (guild && typeof guild.members?.fetch === "function" ? await guild.members.fetch(ownerId).catch(() => null) : null);
-  const hasExtraUnlock = await hasExtraCustomPerksUnlock(guild?.id, ownerId);
-  if (!memberCanCreateCustomVoc(member) && !hasExtraUnlock) return { ok: false, reason: "missing_customvoc_access" };
+  const [hasExtraUnlock, pmPerkLean] = await Promise.all([
+    hasExtraCustomPerksUnlock(guild?.id, ownerId),
+    fetchPartnerManagerTimedPerkLean(guild?.id, ownerId),
+  ]);
+  const pmBundle = partnerManagerCustomBundleActiveFromLean(pmPerkLean);
+  if (!memberCanCreateCustomVoc(member) && !hasExtraUnlock && !pmBundle) return { ok: false, reason: "missing_customvoc_access" };
   const me = guild?.members?.me || guild?.members?.cache?.get?.(client?.user?.id);
   if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels)) {
     return { ok: false, reason: "no_manage_channels" };
@@ -1093,6 +1237,20 @@ async function execute(interaction, client) {
 
   if (interaction.isButton() && kind === "action") {
     const action = String(rest?.[0] || "");
+    if (action === "close") {
+      const sourceMessageId = String(interaction.message?.reference?.messageId || "").trim();
+      await interaction.message?.delete?.().catch(() => {});
+      if (/^\d{16,20}$/.test(sourceMessageId) && interaction.channel?.messages?.fetch) {
+        const sourceMessage = await interaction.channel.messages.fetch(sourceMessageId).catch(() => null);
+        if (sourceMessage?.deletable) {
+          await sourceMessage.delete().catch(() => {});
+        }
+      }
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.deferUpdate().catch(() => {});
+      }
+      return true;
+    }
     if (action === "refresh") {
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_HOME);
       await safeUpdatePanelInteraction(interaction, payload);

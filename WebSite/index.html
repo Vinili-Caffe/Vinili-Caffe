@@ -204,22 +204,47 @@
     </div>
   </section>
 
-  <section id="intro" class="relative z-10 flex flex-col justify-start pb-6 pt-20 sm:pb-8 sm:pt-24">
-    <div class="relative z-10 mx-auto max-w-5xl px-4 pb-0 pt-1 text-center">
+  <section id="intro" class="relative z-10 flex flex-col justify-start pb-8 pt-20 sm:pb-10 sm:pt-24">
+    <div class="relative z-10 mx-auto max-w-6xl px-4 pb-0 pt-2 text-center">
       <div class="vc-support-intro-shell mx-auto max-w-full text-center">
-        <div class="vc-hero-head mx-auto max-w-full px-4 py-3 text-center sm:px-6 sm:py-4">
+        <div class="vc-hero-head vc-glass mx-auto max-w-full rounded-[2rem] border border-white/[0.08] px-4 py-5 text-center sm:px-7 sm:py-7">
           <p class="vc-hero-kicker">Benvenuto su</p>
           <h1
             class="vc-brand-glow mt-1 text-center text-5xl font-extrabold tracking-tight text-white md:text-7xl lg:text-8xl">
             <span class="text-emerald-300"><span class="vc-hero-brand-pre">Vinili &amp; </span><span class="vc-hero-brand-caffe">Caffè</span></span></h1>
           <p class="vc-hero-about">{{ABOUT_DESCRIPTION}}</p>
+          <div class="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <a class="vc-header-pill" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer">Entra su Discord</a>
+            <a class="vc-header-pill" href="{{USER_PAGE_URL}}">Esplora la Community</a>
+            <a class="vc-header-pill" href="{{PERKS_URL}}">Scopri i Perks</a>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <main class="relative z-10">
-    <section id="pillars" class="vc-home-panels-shell w-full scroll-mt-28 px-4 pb-6 pt-8">
+    <section class="vc-home-panels-shell w-full px-4 pb-8 pt-0">
+      <div class="vc-home-highlights">
+        <article class="vc-home-highlight-card">
+          <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
+          <h2 class="vc-home-highlight-title">In Crescita Costante</h2>
+          <p class="vc-home-highlight-desc">Espansione continua con pubblico italiano giovane e coinvolto</p>
+        </article>
+        <article class="vc-home-highlight-card">
+          <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-magic"></i></span>
+          <h2 class="vc-home-highlight-title">Eventi &amp; Giveaway</h2>
+          <p class="vc-home-highlight-desc">Eventi e giveaway frequenti per la nostra community</p>
+        </article>
+        <article class="vc-home-highlight-card">
+          <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
+          <h2 class="vc-home-highlight-title">Bot Personalizzati</h2>
+          <p class="vc-home-highlight-desc">Bot personalizzati, moderazione avanzata e funzioni esclusive</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="pillars" class="vc-home-panels-shell w-full scroll-mt-28 px-4 pb-8 pt-0">
       <div class="vc-home-linkgrid vc-home-linkgrid--three">
         <div class="vc-home-linkpanel">
           <div class="vc-home-linkpanel__head">
@@ -257,8 +282,7 @@
             </a>
             <a class="vc-home-linkitem" href="/forum">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-comments-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Forum</strong><small>Discussioni della
-                  community</small></span>
+              <span class="vc-home-linkitem__copy"><strong>Forum</strong><small>Discussioni della community</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -276,8 +300,7 @@
             </a>
             <a class="vc-home-linkitem" href="{{REVIEWS_PAGE_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-star-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Recensioni</strong><small>Leggi e lascia
-                  feedback</small></span>
+              <span class="vc-home-linkitem__copy"><strong>Recensioni</strong><small>Leggi e lascia feedback</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{DONATIONS_URL}}">
@@ -287,26 +310,6 @@
             </a>
           </div>
         </div>
-      </div>
-    </section>
-
-    <section class="vc-home-panels-shell w-full px-4 pb-10 pt-0">
-      <div class="vc-home-highlights">
-        <article class="vc-home-highlight-card">
-          <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-line-chart"></i></span>
-          <h2 class="vc-home-highlight-title">In Crescita Costante</h2>
-          <p class="vc-home-highlight-desc">Espansione continua con pubblico italiano giovane e coinvolto</p>
-        </article>
-        <article class="vc-home-highlight-card">
-          <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-magic"></i></span>
-          <h2 class="vc-home-highlight-title">Eventi &amp; Giveaway</h2>
-          <p class="vc-home-highlight-desc">Eventi e giveaway frequenti per la nostra community</p>
-        </article>
-        <article class="vc-home-highlight-card">
-          <span class="vc-home-highlight-ico" aria-hidden="true"><i class="fa fa-bolt"></i></span>
-          <h2 class="vc-home-highlight-title">Bot Personalizzati</h2>
-          <p class="vc-home-highlight-desc">Bot personalizzati, moderazione avanzata e funzioni esclusive</p>
-        </article>
       </div>
     </section>
 
@@ -348,14 +351,12 @@
             </a>
             <a class="vc-home-linkitem" href="{{RICHIESTE_CANDIDATURE_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-file-text-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Candidature</strong><small>Entra nel nostro
-                  staff</small></span>
+              <span class="vc-home-linkitem__copy"><strong>Candidature</strong><small>Entra nel nostro staff</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
             <a class="vc-home-linkitem" href="{{RICHIESTE_SUGGERIMENTI_URL}}">
               <span class="vc-home-linkitem__icon" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span>
-              <span class="vc-home-linkitem__copy"><strong>Suggerimenti</strong><small>Proponi idee per la
-                  community</small></span>
+              <span class="vc-home-linkitem__copy"><strong>Suggerimenti</strong><small>Proponi idee per la community</small></span>
               <i class="fa fa-angle-right vc-home-linkitem__arrow" aria-hidden="true"></i>
             </a>
           </div>
@@ -363,7 +364,7 @@
       </div>
     </section>
 
-    <section id="stats" class="mx-auto max-w-6xl scroll-mt-28 px-4 pb-20 pt-2">
+    <section id="stats" class="mx-auto max-w-6xl scroll-mt-28 px-4 pb-16 pt-0">
       <div class="vc-glass vc-stat-strip rounded-[2rem] border px-4 py-10 sm:px-8">
         <div class="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-4">
           <div class="vc-stat-cell text-center">
@@ -395,7 +396,7 @@
       </div>
     </section>
 
-    <section class="vc-home-panels-shell w-full px-4 pb-20 pt-0">
+    <section class="vc-home-panels-shell w-full px-4 pb-20 pt-2">
       <div class="vc-home-storygrid">
         <article class="vc-home-storycard">
           <div class="vc-home-storycard__head">

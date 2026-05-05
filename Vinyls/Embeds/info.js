@@ -15,8 +15,7 @@ async function run(client) {
     "<a:VC_HeartsBlue:1468686100045369404> Benvenuto/a su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
     "",
     "<a:VC_HeartBlue:1448673354751021190> **Personalizza il tuo profilo:**",
-    "<:VC_DoubleReply:1482532332509466797> Nel canale <id:customize> potrai selezionare i ruoli da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!",
-    "<:VC_Reply:1482532158080942191> Puoi cambiare il tuo colore con il comando `+colors`",
+    "<<:VC_Reply:1482532158080942191> Nel canale <id:customize> potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!",
     "",
     `Dubbi o problemi? <#${IDs.channels.ticket}> sarà la vostra bussola, lo staff vi risponderà il prima possibile!`,
   ].join("\n");

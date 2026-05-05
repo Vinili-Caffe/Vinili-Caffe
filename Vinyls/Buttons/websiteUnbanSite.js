@@ -24,6 +24,17 @@ function parseTargetUserId(customId) {
   return { accept, uid };
 }
 
+async function deleteUnbanStarterThread(message) {
+  if (!message?.id) return;
+  let thread = message.thread;
+  if (!thread) {
+    const full = await message.fetch({ force: true }).catch(() => null);
+    thread = full?.thread || null;
+  }
+  if (!thread) return;
+  await thread.delete("Richiesta unban — decisione staff.").catch(() => null);
+}
+
 async function execute(interaction) {
   const { accept, uid } = parseTargetUserId(interaction.customId);
   if (!/^\d{17,20}$/.test(uid)) {
@@ -98,6 +109,7 @@ async function execute(interaction) {
   if (msg?.editable) {
     await msg.edit({ components: [] }).catch(() => null);
   }
+  await deleteUnbanStarterThread(msg);
   if (accept && staffNote === "Unban eseguito su Discord.") {
     await interaction.followUp({ content: "<:success:1461731530333229226> Unban completato.", flags: EPHEMERAL }).catch(() => null);
   }

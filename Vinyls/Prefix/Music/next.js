@@ -26,7 +26,7 @@ module.exports = {
   subcommands: ["up"],
   allowEmptyArgs: true,
   subcommandUsages: { up: "+next up" },
-  description: "Mostra il prossimo brano in coda (durata, tempo stimato, copertina, richiedente).",
+  description: "Mostra il prossimo brano in coda.",
   usage: "+next [up]",
   examples: ["+next up", "+next"],
   async execute(message, args) {

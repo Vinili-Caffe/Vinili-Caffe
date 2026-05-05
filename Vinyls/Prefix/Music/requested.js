@@ -1,18 +1,9 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { fetchGuildRequestedSessionRows } = require("../../Services/Music/lavalinkMusicService");
-
 const PAGE_SIZE = 10;
-
-/** @type {Map<string, { pageBodies: string[], authorId: string, page: number }>} */
 const requestedUiSessions = new Map();
 
 function safeDiscordLinkLabel(s) {
@@ -77,22 +68,22 @@ function buildRequestedComponents(sessionKey, pageIdx, totalPages) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`vcreq:${sessionKey}:first`)
-        .setLabel("<<")
+        .setEmoji(`<:VC_page1:1482459684630958223>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcreq:${sessionKey}:prev`)
-        .setLabel("<")
+        .setEmoji(`<:VC_page5:1482459835042762752>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcreq:${sessionKey}:next`)
-        .setLabel(">")
+        .setEmoji(`<:VC_page4:1482459791975645226>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
       new ButtonBuilder()
         .setCustomId(`vcreq:${sessionKey}:last`)
-        .setLabel(">>")
+        .setEmoji(`<:VC_page3:1482459759268462613>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
     ),
@@ -115,7 +106,7 @@ function getRequestedSession(key) {
 module.exports = {
   name: "requested",
   description:
-    "Elenco delle tracce della sessione musica: già riprodotte (cronologia), in riproduzione e in coda, con pagine.",
+    "Elenco delle tracce della sessione musica.",
   usage: "+requested",
   examples: ["+requested"],
   async execute(message) {

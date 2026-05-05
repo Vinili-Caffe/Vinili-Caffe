@@ -740,12 +740,43 @@ async function maybeRevokeDoubleBoosterAfterSlotLoss({ oldMember, newMember, gui
   if (slots <= 0) await deleteAnnouncedBoostSlots(guildId, newMember.id);
 }
 
+function getBoostSystemMessageTypes() {
+  return new Set(
+    [
+      MessageType?.UserPremiumGuildSubscription,
+      MessageType?.UserPremiumGuildSubscriptionTier1,
+      MessageType?.UserPremiumGuildSubscriptionTier2,
+      MessageType?.UserPremiumGuildSubscriptionTier3,
+      8,
+    ].filter((x) => typeof x === "number"),
+  );
+}
+
+async function detectRecentNativeBoostEventsForUser(channel, userId, windowMs = 10 * 60 * 1000) {
+  if (!channel?.isTextBased?.() || !userId) return 0;
+  const recent = await channel.messages.fetch({ limit: 80 }).catch(() => null);
+  if (!recent) return 0;
+  const minTs = Date.now() - Math.max(60 * 1000, Number(windowMs || 0));
+  const boostTypes = getBoostSystemMessageTypes();
+  const boostTextRe =
+    /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i;
+  let count = 0;
+  for (const m of recent.values()) {
+    if (!m?.author?.id || String(m.author.id) !== String(userId)) continue;
+    const ts = Number(m.createdTimestamp || 0);
+    if (!ts || ts < minTs) continue;
+    const isBoostType = boostTypes.has(Number(m.type));
+    const isBoostText = boostTextRe.test(String(m.content || ""));
+    if (isBoostType || isBoostText) count += 1;
+  }
+  return Math.max(0, count);
+}
+
 function scheduleBoostFollowup(
   boostAnnounceChannel,
   newMember,
   guildId,
   boostKey,
-  currentCount,
 ) {
   if (boostFollowupLocks.get(boostKey)) return;
 
@@ -753,23 +784,38 @@ function scheduleBoostFollowup(
   const boostFollowupTimer = setTimeout(async () => {
     try {
       const freshGuild = await newMember.guild.fetch().catch(() => null);
-      const latestCount = Number(freshGuild?.premiumSubscriptionCount || newMember.guild.premiumSubscriptionCount || 0,);
-      const knownCount = Number(boostCountCache.get(guildId) || currentCount);
-      const missing = Math.max(0, latestCount - knownCount);
+      const latestCount = Number(
+        freshGuild?.premiumSubscriptionCount ?? newMember.guild.premiumSubscriptionCount ?? 0,
+      );
+      boostCountCache.set(guildId, latestCount);
 
-      if (missing > 0) {
+      const nativeBoostEvents = await detectRecentNativeBoostEventsForUser(
+        boostAnnounceChannel,
+        newMember.id,
+      );
+      if (nativeBoostEvents > 0) {
         await ensureBoostSlotsSynced(guildId, newMember.id);
-        const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
-        await sendBoostEmbeds(
-          boostAnnounceChannel,
-          newMember,
-          missing,
-          latestCount,
-          priorSlots,
-        );
-        await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, missing);
-        rememberBoostAnnounce(boostKey, latestCount, newMember.premiumSinceTimestamp);
-        boostCountCache.set(guildId, latestCount);
+        const announcedSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+        const extraMissing = Math.max(0, nativeBoostEvents - announcedSlots);
+        if (extraMissing > 0) {
+          await sendBoostEmbeds(
+            boostAnnounceChannel,
+            newMember,
+            extraMissing,
+            latestCount,
+            announcedSlots,
+          );
+          await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(
+            newMember,
+            guildId,
+            extraMissing,
+          );
+          rememberBoostAnnounce(
+            boostKey,
+            latestCount,
+            newMember.premiumSinceTimestamp,
+          );
+        }
       }
     } catch {
       global.logger?.error?.("[guildMemberUpdate] boost followup failed");
@@ -854,8 +900,7 @@ async function handleBoostUpdate(oldMember, newMember) {
     return;
   }
 
-  const lastAnnouncedCount = boostAnnounceCache.get(boostKey);
-  if (countIncreased && lastAnnouncedCount === currentCount) {
+  if (shouldSkipDuplicateBoostAnnounce(boostKey, countIncreased, currentCount, newBoostTs)) {
     boostCountCache.set(guildId, currentCount);
     return;
   }
@@ -878,7 +923,6 @@ async function handleBoostUpdate(oldMember, newMember) {
     newMember,
     guildId,
     boostKey,
-    currentCount,
   );
   boostCountCache.set(guildId, currentCount);
 }
@@ -1131,7 +1175,7 @@ async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
     recovered += missing;
 
     if (member) {
-      scheduleBoostFollowup(boostAnnounceChannel, member, guild.id, boostKey, currentCount);
+      scheduleBoostFollowup(boostAnnounceChannel, member, guild.id, boostKey);
     }
     await sleep(900);
   }
@@ -1329,6 +1373,57 @@ async function backfillAnnouncedBoostSlotsFromSupportersHistory(client, opts = {
   return { ok: true, updated, scannedUsers: counts.size };
 }
 
+async function reconcileDoubleBoosterRolesOnStartup(client, opts = {}) {
+  if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
+  const guildId = String(IDs.guilds.main || "");
+  if (!guildId) return { ok: false, reason: "no_main_guild" };
+  const guild =
+    client.guilds.cache.get(guildId) ||
+    (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, reason: "guild_not_found" };
+
+  const doubleBoosterId = String(IDs?.roles?.DoubleBooster || "").trim();
+  if (!doubleBoosterId) return { ok: false, reason: "no_double_role_id" };
+  const me = guild.members?.me;
+  if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles)) {
+    return { ok: false, reason: "missing_manage_roles" };
+  }
+  const role = guild.roles.cache.get(doubleBoosterId);
+  if (!role || role.position >= me.roles.highest.position) {
+    return { ok: false, reason: "role_not_manageable" };
+  }
+
+  const maxUsers = Math.max(10, Math.min(1000, Number(opts.maxUsers || 300)));
+  const rows = await ActivityUserProfile.find({
+    guildId,
+    "profile.serverBoostAnnouncedSlotCount": { $gte: 2 },
+  })
+    .select("userId profile.serverBoostAnnouncedSlotCount")
+    .limit(maxUsers)
+    .lean()
+    .catch(() => []);
+
+  let assigned = 0;
+  let scanned = 0;
+  for (const row of rows) {
+    const userId = String(row?.userId || "").trim();
+    if (!/^\d{17,20}$/.test(userId)) continue;
+    scanned += 1;
+
+    const member = await getGuildMemberCached(guild, userId, {
+      preferFresh: true,
+    }).catch(() => null);
+    if (!member || member.user?.bot) continue;
+    if (!member.premiumSinceTimestamp) continue;
+    if (member.roles.cache.has(doubleBoosterId)) continue;
+
+    const ok = await member.roles.add(doubleBoosterId).then(() => true).catch(() => false);
+    if (ok) assigned += 1;
+  }
+
+  return { ok: true, scanned, assigned };
+}
+
 async function ensureCustomVocAccess(newMember) {
   const guild = newMember?.guild;
   if (!guild || !newMember?.id) return;
@@ -1441,6 +1536,7 @@ module.exports = {
   recoverRecentBoostEmbedsOnStartup,
   correctMisleadingSingleBoostEmbedsOnStartup,
   backfillAnnouncedBoostSlotsFromSupportersHistory,
+  reconcileDoubleBoosterRolesOnStartup,
   async execute(oldMember, newMember, client) {
     try {
       if (!oldMember || !newMember?.guild || !newMember?.user) return;

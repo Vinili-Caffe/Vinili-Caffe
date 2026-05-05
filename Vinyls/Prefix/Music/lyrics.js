@@ -1,19 +1,8 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ComponentType,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
-const {
-  resolveGuildLyrics,
-  registerLyricsSession,
-  deleteLyricsSession,
-  getLyricsSession,
-} = require("../../Services/Music/lyricsService");
+const { resolveGuildLyrics, registerLyricsSession, deleteLyricsSession, getLyricsSession } = require("../../Services/Music/lyricsService");
 
 function buildLyricsEmbed(title, pageText, pageIdx, total) {
   const footer = `\n\n**Pagina ${pageIdx + 1}/${total}**`;
@@ -28,12 +17,12 @@ function buildRows(sessionKey, pageIdx, total) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`vcly:${sessionKey}:prev`)
-      .setLabel("◀")
+      .setEmoji("<a:vegaleftarrow:1462914743416131816>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(pageIdx <= 0),
     new ButtonBuilder()
       .setCustomId(`vcly:${sessionKey}:next`)
-      .setLabel("▶")
+      .setEmoji("<a:vegarightarrow:1443673039156936837>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(pageIdx >= total - 1),
   );
@@ -43,8 +32,8 @@ module.exports = {
   name: "lyrics",
   allowEmptyArgs: true,
   description:
-    "Mostra i testi del brano in riproduzione (senza argomenti) o di una ricerca LRCLIB, con pagine e pulsanti.",
-  usage: "+lyrics [ricerca]",
+    "Mostra i testi del brano in riproduzione o di un brano ricercato.",
+  usage: "+lyrics [brano]",
   examples: ["+lyrics", "+lyrics 16 marzo achille lauro"],
   async execute(message, args) {
     const query = Array.isArray(args) ? args.join(" ").trim() : "";

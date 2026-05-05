@@ -255,6 +255,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           })
           .catch(() => { });
 
+        const previousClaimedBy = String(ticketDoc.claimedBy || "").trim();
         if (ticketDoc.claimedBy) {
           const claimerMember = await getGuildMemberCached(message.guild, ticketDoc.claimedBy);
           if (!canClaimTicket(claimerMember, panelConfig.type, message.guild?.id)) {
@@ -336,6 +337,10 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               ReadMessageHistory: true,
               AddReactions: true,
             })
+            .catch(() => { });
+        } else if (previousClaimedBy) {
+          await targetChannel.permissionOverwrites
+            .delete(previousClaimedBy)
             .catch(() => { });
         }
 

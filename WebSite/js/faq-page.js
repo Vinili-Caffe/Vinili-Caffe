@@ -31,7 +31,7 @@
       tag: "Livelli",
       icon: "fa-level-up",
       bodyHtml:
-        "Ogni messaggio in chat e il tempo passato nelle vocali fanno salire l’EXP. In vocale l'esperienza guadagnata è il doppio. Su <a href=\"/perks/\">Perks</a> trovi cosa si sblocca coi vari livelli. Le classifiche sono in <a href=\"/user/\">Community</a>.",
+        "Ogni messaggio in chat e il tempo passato nelle vocali fanno salire l’EXP (in vocale l'esperienza guadagnata è il doppio). Su PERKS trovi cosa si sblocca con i vari livelli mentre le classifiche sono visibili in COMMUNITY.",
     },
     {
       category: "livelli",
@@ -39,7 +39,7 @@
       tag: "Livelli",
       icon: "fa-puzzle-piece",
       bodyHtml:
-        "Ogni 15 minuti dalle 8 di mattina fino alle 24 di notte ci sono minigames in chat col bot, non sono obbligatori e servono per passare il tempo in chill.",
+        "Ogni 15 minuti, dalle 8 di mattina fino alle 23:59, potrai divertiti con piccoli giochi in chat che il nostro bot invierà. Non sono obbligatori ma se vuoi divertirti in compagnia concorrendo con gli altri utenti e guadagnare EXP aggiuntiva, questo è quello che fa per te!",
     },
     {
       category: "voce",
@@ -47,7 +47,7 @@
       tag: "Voce",
       icon: "fa-headphones",
       bodyHtml:
-        "Sì. Nelle stanze vocali puoi stare in ascolto o condividere quello che ti piace, rispettando volume e regolamento (niente earrape, niente robe che disturbino).",
+        "Certamente! Nelle stanze vocali puoi stare in ascolto o condividere quello che ti piace, rispettando volume e regolamento (niente earrape, niente robe che disturbino), con tramite i nostri bot ufficiali! Se vuoi scoprire tutti i comandi, corri in WIKI.",
     },
     {
       category: "giochi",
@@ -63,7 +63,7 @@
       tag: "Eventi",
       icon: "fa-star",
       bodyHtml:
-        "In questo server ci sono eventi stagionali che durano dai 2 ai 3 mesi, ogniuno di questi eventi ha un tema principale insieme ad altri piccoli eventi durante la stagione.",
+        "Durante la tua permanenza nel server, potrai partecipare a delle vere e proprie SEASON dalla durata di circa 3 mesi. Ognuno di questi periodi propone un tema principale attorno al quale si terranno numerosi eventi, contest e sfide così belli da tenerti incollato allo schermo!",
     },
     {
       category: "eventi",
@@ -71,7 +71,7 @@
       tag: "Eventi",
       icon: "fa-star",
       bodyHtml:
-        "Segui alla lettera le istruzioni dell’evento (formato del messaggio, scadenza, canale giusto). Essere attivo e rispettoso aiuta perché molti contest escludono chi rompe o chi ha appena preso warn. A volte voto al server o boost danno piccoli bonus: guarda <a href=\"/vote/\">Vota</a> e <a href=\"/perks/\">Perks</a>. Non esiste una scorciatoia seria: i premi vanno a chi partecipa bene, non a chi spamma.",
+        "Segui alla lettera le istruzioni dell’evento perché sicuramente ci saranno scritti tutti i modi per poterti avvantaggiare. In linea generale, essere attivo in vocale e in testuale aiuta molto. Se vuoi dei bonus, solitamente votando il server e boostandolo riceverai i vantaggi elencati in VOTA e PERKS. Non esiste una scorciatoia unica: i premi vanno a chi partecipa con costanza ed entusiasmo!",
     },
     {
       category: "staff",
@@ -79,7 +79,7 @@
       tag: "Staff",
       icon: "fa-briefcase",
       bodyHtml:
-        "Ogni mese viene premiato il migliore tra tutto lo staff con un Nitro Boost, inoltre i Partner Manager vengono premiato con un Nitro Boost e premi in denaro.",
+        "Ogni mese verrà premiato il migliore tra tutto lo Staff a cui verrà regalato Nitro Boost per un mese. I Partner Manager, invece, vengono premiati con un Nitro Boost e premi in denaro in base al proprio operato.",
     },
     {
       category: "staff",
@@ -87,7 +87,7 @@
       tag: "Staff",
       icon: "fa-user-plus",
       bodyHtml:
-        "Sì, dopo aver letto bene regole e requisiti. Il modulo sta su <a href=\"/candidature/\">Candidature</a>: servono serietà, costanza sul server e un minimo di esperienza con la community. Non taggare lo staff e non aprire ticket per chiedere l'esito della tua candidatura.",
+        "Ovviamente! Siamo sempre alla ricerca di nuove figure da inserire nella nostra grande famiglia. Dopo aver letto bene regole, puoi inviare la tua candidatura tramite il modulo che trovi in questa pagina. Ricorda: serietà e costanza sono fondamentali! Se la tua candidatura è accompagnata da esperienza, non esitare a renderlo noto! Dopo l’invio è importante non taggare i membri dello staff o aprire ticket per chiedere l'esito della tua candidatura.",
     },
   ];
 

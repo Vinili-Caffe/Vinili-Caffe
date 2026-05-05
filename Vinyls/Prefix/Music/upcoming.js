@@ -1,18 +1,9 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { fetchGuildUpcomingQueueRows } = require("../../Services/Music/lavalinkMusicService");
-
 const PAGE_SIZE = 10;
-
-/** @type {Map<string, { pageBodies: string[], authorId: string, page: number }>} */
 const upcomingUiSessions = new Map();
 
 function safeDiscordLinkLabel(s) {
@@ -77,22 +68,22 @@ function buildUpcomingComponents(sessionKey, pageIdx, totalPages) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:first`)
-        .setLabel("<<")
+        .setEmoji(`<:VC_page1:1482459684630958223>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:prev`)
-        .setLabel("<")
+        .setEmoji(`<:VC_page5:1482459835042762752>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:next`)
-        .setLabel(">")
+        .setEmoji(`<:VC_page4:1482459791975645226>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:last`)
-        .setLabel(">>")
+        .setEmoji(`<:VC_page3:1482459759268462613>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
     ),
@@ -115,7 +106,7 @@ function getUpcomingSession(key) {
 module.exports = {
   name: "upcoming",
   description:
-    "Mostra i brani in coda (non quello in riproduzione) con tempo stimato prima dell'inizio, 10 per pagina.",
+    "Mostra i brani in coda con tempo stimato prima dell'inizio.",
   usage: "+upcoming",
   examples: ["+upcoming"],
   async execute(message) {

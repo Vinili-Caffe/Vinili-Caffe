@@ -17,7 +17,7 @@ function buildBoostEmbed(member, boostCount) {
       `<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server\n` +
       `<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server\n` +
       "<a:VC_Winner:1482535294757507255> Possibilità di creare un ruolo **custom** con colore **GRADIENTE** scelto da te\n" +
-      "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in `+colors`\n" +
+      "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in `+profile`\n" +
       "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)\n" +
       "<a:VC_Money:1482724694699278487> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi)\n" +
       "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`\n" +

@@ -5,7 +5,7 @@ const { previousGuildTrack } = require("../../Services/Music/lavalinkMusicServic
 
 module.exports = {
   name: "previous",
-  description: "Torna al brano riprodotto prima di quello attuale (se disponibile).",
+  description: "Torna al brano riprodotto prima di quello attuale.",
   usage: "+previous",
   examples: ["+previous"],
   async execute(message) {

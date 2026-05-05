@@ -4,7 +4,7 @@ const { clearGuildQueue } = require("../../Services/Music/lavalinkMusicService")
 
 module.exports = {
   name: "clear",
-  description: "Svuota la coda dei brani in attesa (non ferma quello in riproduzione).",
+  description: "Svuota la coda dei brani in attesa.",
   usage: "+clear",
   examples: ["+clear"],
   async execute(message) {

@@ -27,8 +27,8 @@ module.exports = {
   allowEmptyArgs: true,
   subcommandUsages: { playing: "+now playing" },
   description:
-    "Mostra il brano in riproduzione (titolo, avanzamento, durata, copertina, posizione in coda, richiedente).",
-  usage: "+now [playing]",
+    "Mostra il brano in riproduzione.",
+  usage: "+now playing",
   examples: ["+now playing", "+now"],
   async execute(message, args) {
     const raw = String(args[0] || "playing").trim().toLowerCase();

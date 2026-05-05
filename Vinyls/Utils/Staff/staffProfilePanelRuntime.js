@@ -8,7 +8,7 @@ const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
-const { PARTNER_MANAGER_REDEEM_TIERS } = require("./partnerPointsUtils");
+const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel } = require("./partnerPointsUtils");
 const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 function resolveStaffPartnerPointsDisplay(staffObj) {
@@ -26,7 +26,7 @@ function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOM
   const buttons = tiers.map((tier) =>
     new ButtonBuilder()
       .setCustomId(formatStaffHpButtonCustomId(`ppm_r${tier}`, v, t, sec, sourceMessageId))
-      .setLabel(`Riscatto ${tier} pt`)
+      .setLabel(partnerManagerRedeemButtonLabel(tier))
       .setStyle(ButtonStyle.Primary),
   );
   const rows = [];
@@ -34,6 +34,25 @@ function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOM
     rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
   }
   return rows;
+}
+
+/** Premi 50/100: applicazione permessi/ruolo (bottoni separati dal riscatto punti). */
+function buildPartnerManagerApplyPerkRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
+  const v = String(viewerId);
+  const t = String(targetId);
+  const sec = String(section || SECTION_HOME).toLowerCase();
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_a50", v, t, sec, sourceMessageId))
+        .setLabel("Premio 50 · CR+Voc 30g")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(formatStaffHpButtonCustomId("ppm_a100", v, t, sec, sourceMessageId))
+        .setLabel("Premio 100 · VIP 30g")
+        .setStyle(ButtonStyle.Success),
+    ),
+  ];
 }
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
@@ -89,6 +108,11 @@ function encodeStaffHpButtonAction(action) {
   if (m) {
     const n = Number(m[1]);
     if (PARTNER_MANAGER_REDEEM_TIERS.includes(n)) return `r${m[1]}`;
+  }
+  const ma = /^ppm_a(\d+)$/.exec(a);
+  if (ma) {
+    const n = Number(ma[1]);
+    if (n === 50 || n === 100) return `a${ma[1]}`;
   }
   return a;
 }
@@ -326,6 +350,10 @@ function formatStaffProfileCloseCustomId(viewerId, targetId, sourceMessageId = n
   return withSourceSuffix(`${PANEL_PREFIX}:close:${viewerId}:${targetId}`, sourceMessageId);
 }
 
+function formatStaffProfileNextCustomId(viewerId, targetId, sourceMessageId = null) {
+  return withSourceSuffix(`${PANEL_PREFIX}:next:${viewerId}:${targetId}`, sourceMessageId);
+}
+
 function parseStaffProfileSelectCustomId(customId) {
   const parts = String(customId || "").split(":");
   if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "select") return null;
@@ -338,6 +366,12 @@ function parseStaffProfileCloseCustomId(customId) {
   return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
 }
 
+function parseStaffProfileNextCustomId(customId) {
+  const parts = String(customId || "").split(":");
+  if (parts.length < 4 || parts[0] !== PANEL_PREFIX || parts[1] !== "next") return null;
+  return { viewerId: parts[2], targetId: parts[3], sourceMessageId: normalizeSourceMessageId(parts[4]) };
+}
+
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
   return /^\d{16,20}$/.test(id) ? id : null;
@@ -346,6 +380,77 @@ function normalizeSourceMessageId(raw) {
 function withSourceSuffix(baseCustomId, sourceMessageId) {
   const sid = normalizeSourceMessageId(sourceMessageId);
   return sid ? `${baseCustomId}:${sid}` : baseCustomId;
+}
+
+const STAFF_PANEL_NON_PM_ROLE_IDS = [
+  IDs.roles?.Founder,
+  IDs.roles?.Admin,
+  IDs.roles?.HighStaff,
+  IDs.roles?.Mod,
+  IDs.roles?.Helper,
+  IDs.roles?.Staff,
+].filter(Boolean).map((id) => String(id));
+
+const STAFF_PANEL_NAV_ROLE_PRIORITY = [
+  IDs.roles?.Founder,
+  IDs.roles?.Admin,
+  IDs.roles?.HighStaff,
+  IDs.roles?.Mod,
+  IDs.roles?.Helper,
+  IDs.roles?.Staff,
+].filter(Boolean).map((id) => String(id));
+
+function resolveStaffPanelRoleOrder(member) {
+  if (!member?.roles?.cache) return Number.MAX_SAFE_INTEGER;
+  for (let i = 0; i < STAFF_PANEL_NAV_ROLE_PRIORITY.length; i++) {
+    if (member.roles.cache.has(STAFF_PANEL_NAV_ROLE_PRIORITY[i])) return i;
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function listEligibleStaffPanelMemberIds(guild, options = {}) {
+  if (!guild?.members?.cache) return [];
+  const partnersChatPanel = options.partnersChatPanel === true;
+  const pmRoleId = String(IDs.roles?.PartnerManager || "");
+  const entries = [];
+  for (const member of guild.members.cache.values()) {
+    if (member.user?.bot) continue;
+    if (!member?.roles?.cache) continue;
+    if (partnersChatPanel) {
+      if (pmRoleId && member.roles.cache.has(pmRoleId)) {
+        entries.push({
+          id: String(member.id),
+          roleOrder: Number.MAX_SAFE_INTEGER,
+          name: String(member.displayName || member.user?.username || member.id).toLowerCase(),
+        });
+      }
+      continue;
+    }
+    const hasNonPmStaff = STAFF_PANEL_NON_PM_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId));
+    if (hasNonPmStaff) {
+      entries.push({
+        id: String(member.id),
+        roleOrder: resolveStaffPanelRoleOrder(member),
+        name: String(member.displayName || member.user?.username || member.id).toLowerCase(),
+      });
+    }
+  }
+  entries.sort((a, b) => {
+    if (a.roleOrder !== b.roleOrder) return a.roleOrder - b.roleOrder;
+    const byName = a.name.localeCompare(b.name, "it", { sensitivity: "base" });
+    if (byName !== 0) return byName;
+    return a.id.localeCompare(b.id);
+  });
+  return entries.map((row) => row.id);
+}
+
+function resolveNextStaffPanelTargetId(guild, currentTargetId, options = {}) {
+  const list = listEligibleStaffPanelMemberIds(guild, options);
+  if (list.length < 2) return null;
+  const current = String(currentTargetId || "");
+  const idx = list.indexOf(current);
+  if (idx < 0) return list[0] || null;
+  return list[(idx + 1) % list.length] || null;
 }
 
 function formatStaffHpButtonCustomId(action, viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
@@ -437,7 +542,7 @@ function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_HOME, sour
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex", v, t, sec, sourceMessageId))
+        .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec, sourceMessageId))
         .setLabel("Depex")
         .setEmoji("<a:VC_Cross:1482532424570376253>")
         .setStyle(ButtonStyle.Secondary),
@@ -487,8 +592,7 @@ function shouldAttachHighStaffActions(
 ) {
   if (suppressPexDepex) return false;
   const sec = String(section || "").toLowerCase();
-  const pmHome = profileKind === PROFILE_PM_ONLY && sec === SECTION_HOME;
-  if (profileKind !== PROFILE_FULL && !pmHome) return false;
+  if (profileKind !== PROFILE_FULL) return false;
   const self = String(viewerId) === String(targetUserId);
   if (self) {
     if (!viewerIsFounder(viewerMember)) return false;
@@ -513,17 +617,27 @@ function mergeProfileComponents(selectRow, highStaffRows, extraRows) {
   return base;
 }
 
-function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null) {
-  return new ActionRowBuilder().addComponents(
+function buildProfileCloseRow(viewerId, targetId, sourceMessageId = null, options = {}) {
+  const components = [];
+  if (options.enableNextTargetButton) {
+    components.push(
+      new ButtonBuilder()
+        .setCustomId(formatStaffProfileNextCustomId(String(viewerId), String(targetId), sourceMessageId))
+        .setEmoji("➡️")
+        .setStyle(ButtonStyle.Secondary),
+    );
+  }
+  components.push(
     new ButtonBuilder()
       .setCustomId(formatStaffProfileCloseCustomId(String(viewerId), String(targetId), sourceMessageId))
       .setEmoji("<:cancel:1461730653677551691>")
       .setStyle(ButtonStyle.Danger),
   );
+  return new ActionRowBuilder().addComponents(...components);
 }
 
-function withCloseProfileComponents(components, viewerId, targetId, sourceMessageId = null) {
-  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId)];
+function withCloseProfileComponents(components, viewerId, targetId, sourceMessageId = null, options = {}) {
+  return [...(Array.isArray(components) ? components : []), buildProfileCloseRow(viewerId, targetId, sourceMessageId, options)];
 }
 
 function limitExtraRowsForProfilePanel(extraRows = [], maxRows = 3) {
@@ -625,6 +739,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const hasPm = Boolean(pmRoleId && member?.roles?.cache?.has(pmRoleId));
   const partnersChatPanelMode = options?.partnersChatPanel === true;
   const usePartnersChatPmPanel = partnersChatPanelMode && hasPm;
+  const enableNextTargetButton = Boolean(resolveNextStaffPanelTargetId(guild, tid, { partnersChatPanel: partnersChatPanelMode }));
 
   if (partnersChatPanelMode && !hasPm) {
     return {
@@ -635,7 +750,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             "<:VC_Attention:1482534443632558151> In **#partners-chat** puoi consultare solo utenti con ruolo **Partner Manager**.",
           ),
       ],
-      components: withCloseProfileComponents([], viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents([], viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
@@ -659,7 +774,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           )
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(null, pexComps), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
@@ -720,7 +835,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   let partnerHomeRows = [];
   if (sec === SECTION_HOME && canHsPartnerPoints) {
     const vPts = String(viewerId);
-    if (usePartnersChatPmPanel) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
+    if (usePartnersChatPmPanel) {
+      partnerHomeRows = omitPexDepexHome
+        ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
+        : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
+    }
     else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
     else if (profileKind === PROFILE_PM_ONLY) {
       partnerHomeRows =
@@ -735,7 +854,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
       ? buildPartnerManagerRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId, partnerPtsForRedeem)
       : [];
-  const homeBottomRows = [...partnerHomeRows, ...pmStaffRedeemRows];
+  const pmStaffApplyRows =
+    sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
+      ? buildPartnerManagerApplyPerkRows(String(viewerId), tid, SECTION_HOME, sourceMessageId)
+      : [];
+  const homeBottomRows = [...partnerHomeRows, ...pmStaffRedeemRows, ...pmStaffApplyRows];
 
   const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {
@@ -796,7 +919,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setDescription(pmHomeDesc.slice(0, 4090))
           .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
@@ -829,7 +952,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         .setDescription(desc)
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     );
-    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId) };
+    return { embeds, components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }) };
   }
 
   if (sec === SECTION_PAUSE) {
@@ -851,7 +974,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
             .setColor("Red")
             .setDescription(listPayload.error || "Errore caricamento pause."),
         ],
-        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+        components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
       };
     }
     return {
@@ -861,6 +984,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
         viewerId,
         tid,
         sourceMessageId,
+        { enableNextTargetButton },
       ),
     };
   }
@@ -919,7 +1043,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
           .setFooter({ text: `ID: ${modId} • Oggi alle ${hh}` })
           .setTimestamp(),
       ],
-      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+      components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
     };
   }
 
@@ -963,11 +1087,11 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     embeds: [
       new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle(`<a:VC_Announce:1482534613568979007> Benvenuto ${viewerName}`)
+        .setTitle(`<a:VC_Announce:1482534613568979007> Profilo Staff ${name}`)
         .setDescription(homeDesc)
         .setThumbnail(userAvatarUrlDynamic(targetUser, { size: 128 }) || null),
     ],
-    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId),
+    components: withCloseProfileComponents(mergeProfileComponents(selectRow, hsRows, homeBottomRows), viewerId, tid, sourceMessageId, { enableNextTargetButton }),
   };
 }
 
@@ -984,6 +1108,8 @@ module.exports = {
   parseStaffProfileSelectCustomId,
   formatStaffProfileCloseCustomId,
   parseStaffProfileCloseCustomId,
+  formatStaffProfileNextCustomId,
+  parseStaffProfileNextCustomId,
   formatStaffHpButtonCustomId,
   encodeStaffHpButtonAction,
   decodeStaffHpButtonActionToken,
@@ -995,4 +1121,5 @@ module.exports = {
   viewerIsCoordinatorOrAbove,
   viewerIsFounder,
   shouldOmitPexDepexHomeRow,
+  resolveNextStaffPanelTargetId,
 };

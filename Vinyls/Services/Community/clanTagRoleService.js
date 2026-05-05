@@ -144,7 +144,7 @@ async function deleteGuildedAnnouncementForUser(member) {
     if (String(msg.author?.id || "") !== String(member.client?.user?.id || "")) continue;
     const embeds = Array.isArray(msg.embeds) ? msg.embeds : [];
     const hasGuildedTitle = embeds.some((e) =>
-      String(e?.title || e?.data?.title || "").toLowerCase().includes("nuovx guilded"),
+      String(e?.title || e?.data?.title || "").toLowerCase().includes("Nuovx guilded"),
     );
     const mentionsUser = String(msg.content || "").includes(`<@${uid}>`) || String(msg.content || "").includes(`<@!${uid}>`);
     if (!hasGuildedTitle && !mentionsUser) continue;
@@ -325,8 +325,8 @@ async function announceNewGuildedMember(member, tag, roleIdAssigned = null) {
         [
           `<@${member.id}>, \`hai sbloccato:\``,
           `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`,
-          "<a:VC_Infinity:1448687797266288832> - Inviare **media** in __ogni chat__",
-          "<a:VC_HeartWhite:1448673535253024860> - Mandare **adesivi** __esterni__ in **qualsiasi chat**",
+          "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
+          "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
           "",
           "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag! Scopri tutte le nostre tags [qui](https://viniliecaffe.it/perks)",
         ].join("\n"),

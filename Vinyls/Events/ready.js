@@ -51,6 +51,7 @@ const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDiges
 const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
+const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
 
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
@@ -221,7 +222,19 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "recover missed boost embeds (audit vs ultimo embed bot)",
       enabled: primaryScheduler,
-      run: () => guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client),
+      run: () =>
+        guildMemberUpdateExtras.recoverRecentBoostEmbedsOnStartup(client, {
+          limit: 20,
+          lookbackMs: 24 * 60 * 60 * 1000,
+        }),
+    },
+    {
+      label: "reconcile double booster roles from stored boost slots",
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.reconcileDoubleBoosterRolesOnStartup(client, {
+          maxUsers: 400,
+        }),
     },
     {
       label: "correct misleading single boost embeds (double booster)",
@@ -593,6 +606,16 @@ function startPrimaryLoops(client, engagementTick) {
       if (typeof timer.unref === "function") timer.unref();
       client._giveawayScheduledEndInterval = timer;
     }],
+    [
+      "[PARTNER MANAGER TIMED PERKS] Failed to start loop",
+      () => {
+        const tick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => {});
+        tick();
+        const timer = setInterval(tick, 5 * 60 * 1000);
+        if (typeof timer.unref === "function") timer.unref();
+        client._partnerManagerTimedPerksInterval = timer;
+      },
+    ],
     ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
     [
       "[BOT HTTP WEBHOOK] Failed to start",

@@ -18,6 +18,17 @@
     return document.getElementById(id);
   }
 
+  /** Header + CTA “Accedi con Discord”: più pulsanti sulla stessa pagina (es. accesso-richiesto). */
+  var DISCORD_LOGIN_BTN_SELECTOR = "#discord-login-btn, button[data-vc-discord-login]";
+
+  function queryDiscordLoginButtons() {
+    try {
+      return document.querySelectorAll(DISCORD_LOGIN_BTN_SELECTOR);
+    } catch (e) {
+      return [];
+    }
+  }
+
   function isBlockingSessionVerifyPage() {
     try {
       return Boolean(window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY);
@@ -414,9 +425,11 @@
       document.documentElement.classList.remove("vc-session-verify-pending");
     } catch (e) {}
     hideSessionVerifyOverlay();
-    var loginBtn = byId("discord-login-btn");
+    var loginBtns = queryDiscordLoginButtons();
+    for (var li = 0; li < loginBtns.length; li += 1) {
+      loginBtns[li].hidden = false;
+    }
     var state = byId("discord-login-state");
-    if (loginBtn) loginBtn.hidden = false;
     if (state) {
       state.hidden = true;
       state.innerHTML = "";
@@ -444,10 +457,12 @@
       }
       return;
     }
-    var loginBtn = byId("discord-login-btn");
+    var loginBtns = queryDiscordLoginButtons();
     var state = byId("discord-login-state");
     if (!state) return;
-    if (loginBtn) loginBtn.hidden = true;
+    for (var lj = 0; lj < loginBtns.length; lj += 1) {
+      loginBtns[lj].hidden = true;
+    }
     var name = String(user.username || "Utente").trim() || "Utente";
     var img = avatarUrl(user);
     var label = escAttr(name);
@@ -566,11 +581,13 @@
       }
     } catch (e2) {}
     var freshLogin = Boolean(parsed && parsed.freshLogin) || freshFromBounce;
-    var loginBtn = byId("discord-login-btn");
-    if (loginBtn) {
-      loginBtn.addEventListener("click", function () {
-        startDiscordOAuthFromUserGesture(loginBtn, authUrl());
-      });
+    var loginBtns = queryDiscordLoginButtons();
+    for (var lk = 0; lk < loginBtns.length; lk += 1) {
+      (function (btn) {
+        btn.addEventListener("click", function () {
+          startDiscordOAuthFromUserGesture(btn, authUrl());
+        });
+      })(loginBtns[lk]);
     }
     try {
       window.__vcDiscordStartOAuthRedirect = function (visualBtn) {

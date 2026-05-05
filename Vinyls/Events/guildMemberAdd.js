@@ -358,9 +358,8 @@ function buildWelcomeEmbed(member) {
       "<a:VC_HeartsPink:1468685897389052008> Benvenuto/a su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>",
     )
     .setDescription(
-      `__${uname}__ benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "<:VC_emoji:1485419161168511036> Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli\n" +
-      "<:VC_Color:1482532543273238569> Usa il comando \`+colors\` per **cambiare il tuo colore**\n" +
+      `__${uname}__  benvenuto/a nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
+      "<:VC_emoji:1485419161168511036> Passa su <id:customize> per **abbellire il tuo profilo** con i ruoli e i colori.\n" +
       "<:VC_addperson:1485419347068588073> Usa il comando \`+profile\` per **personalizzare il tuo profilo**\n",
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)

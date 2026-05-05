@@ -11,7 +11,7 @@ module.exports = {
     if (!voiceChannel) {
       const warn = await safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Devi essere in un canale vocale per usare il TTS.",
+        "<a:VC_Cross:1482532424570376253> Devi essere in un canale vocale per usare il TTS.",
       );
       if (warn?.delete) {
         const timer = setTimeout(() => warn.delete().catch(() => {}), 5000);
@@ -23,7 +23,7 @@ module.exports = {
     if (!voiceChannel.joinable) {
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Non ho i permessi per entrare in quel canale vocale.",
+        "<a:VC_Cross:1482532424570376253> Non ho i permessi per entrare in quel canale vocale.",
       );
     }
 
@@ -31,13 +31,13 @@ module.exports = {
     if (!result.ok && result.reason === "locked") {
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Il TTS è già in un altro canale. Usa leave poi join qui.",
+        "<a:VC_Cross:1482532424570376253> Il TTS è già in un altro canale. Usa leave poi join qui.",
       );
     }
 
     return safeMessageReply(
       message,
-      `<:vegacheckmark:1443666279058772028> TTS attivo in ${voiceChannel}.`,
+      `<a:VC_Verified:1482532479637127188> TTS attivo in ${voiceChannel}.`,
     );
   },
 };

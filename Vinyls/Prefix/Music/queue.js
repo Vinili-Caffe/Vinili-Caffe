@@ -1,18 +1,9 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { fetchGuildQueueEntryRows } = require("../../Services/Music/lavalinkMusicService");
-
 const PAGE_SIZE = 10;
-
-/** @type {Map<string, { pageBodies: string[], authorId: string, page: number }>} */
 const queueUiSessions = new Map();
 
 function safeDiscordLinkLabel(s) {
@@ -76,22 +67,22 @@ function buildQueueComponents(sessionKey, pageIdx, totalPages) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:first`)
-        .setLabel("<<")
+        .setEmoji(`<:VC_page1:1482459684630958223>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:prev`)
-        .setLabel("<")
+        .setEmoji(`<:VC_page5:1482459835042762752>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:next`)
-        .setLabel(">")
+        .setEmoji(`<:VC_page4:1482459791975645226>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:last`)
-        .setLabel(">>")
+        .setEmoji(`<:VC_page3:1482459759268462613>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
     ),
@@ -113,7 +104,7 @@ function getQueueSession(key) {
 
 module.exports = {
   name: "queue",
-  description: "Mostra la coda di riproduzione con pagine (10 brani per pagina) e pulsanti di navigazione.",
+  description: "Mostra la coda di riproduzione.",
   usage: "+queue",
   examples: ["+queue"],
   async execute(message) {

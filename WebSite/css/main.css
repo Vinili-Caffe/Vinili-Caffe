@@ -67,6 +67,8 @@ body {
 :root {
   --vc-accent: #5c9b8e;
   --vc-accent-dark: #3f7569;
+  --vc-focus-ring: rgba(212, 168, 136, 0.78);
+  --vc-focus-glow: rgba(32, 23, 18, 0.36);
 }
 body {
   background: rgba(31, 30, 30, 0.24);
@@ -94,6 +96,36 @@ a:focus,
 a:active {
   color: var(--vc-accent);
   outline: 0;
+}
+
+:where(
+  a[href],
+  button,
+  summary,
+  input:not([type="hidden"]),
+  select,
+  textarea,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--vc-focus-ring) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px var(--vc-focus-glow) !important;
+  border-radius: 10px;
+}
+
+:where(
+  a[href],
+  button,
+  summary,
+  input:not([type="hidden"]),
+  select,
+  textarea,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"])
+):focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /** 

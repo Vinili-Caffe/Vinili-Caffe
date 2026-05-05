@@ -8,7 +8,7 @@ module.exports = {
   subcommands: ["disable", "enable", "queue"],
   subcommandAliases: { off: "disable", on: "enable" },
   description:
-    "Ripetizione traccia (toggle / enable), ripetizione **coda** (**queue**), disattiva tutto con **disable**.",
+    "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
   usage: "+repeat [disable | enable | queue]",
   examples: ["+repeat", "+repeat disable", "+repeat enable", "+repeat queue"],
   async execute(message, args) {

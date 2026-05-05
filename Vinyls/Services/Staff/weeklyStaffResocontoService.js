@@ -49,8 +49,10 @@ const RESOCONTO_ROLE_RANK = new Map(
     .filter(Boolean)
     .map((roleId, index) => [String(roleId), index]),
 );
-/** Partner settimanali da PM: sotto questo numero (salvo eccezioni) non si va in “Nulla” sul resoconto. */
-const PM_WEEKLY_PARTNER_MIN_FOR_OK = 25;
+/** Partner settimanali da PM: da questo conteggio in su il resoconto PM va in “Nulla” (nessuna azione). */
+const PM_WEEKLY_PARTNER_MIN_FOR_OK = 30;
+/** Sotto questa soglia (partner nella settimana resoconto) l’azione proposta è “Depex”. */
+const PM_WEEKLY_DEPEX_BELOW_PARTNERS = 10;
 const ROLE_UP = {
   [String(IDs.roles.Member || "")]: String(IDs.roles.Helper),
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
@@ -691,11 +693,11 @@ function wasPromotedToRoleInLastDays(staffDoc, roleId, days, now = new Date()) {
   });
 }
 
-/** Soglie PM: ≤5 Depex, 6–(min−1) Richiamo, ≥min Nulla. */
+/** Soglie PM resoconto: <10 Depex; 10–29 Richiamo (fascia centrale evidenziata 15–25); ≥30 Nulla. */
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
   const partners = Math.max(0, Math.floor(toSafeNumber(weeklyPartners)));
-  if (partners <= 5) return "Depex";
+  if (partners < PM_WEEKLY_DEPEX_BELOW_PARTNERS) return "Depex";
   if (partners < PM_WEEKLY_PARTNER_MIN_FOR_OK) return "Richiamo";
   return "Nulla";
 }
@@ -1174,9 +1176,14 @@ async function runPreResocontoReminders(client) {
       const minPartners = PM_WEEKLY_PARTNER_MIN_FOR_OK;
       if (weeklyPartners >= minPartners) continue;
       const mancano = minPartners - weeklyPartners;
-      const depexHint = weeklyPartners < 5 ? " (sotto 5 rischi Depex)" : "";
+      const tierHint =
+        weeklyPartners < PM_WEEKLY_DEPEX_BELOW_PARTNERS
+          ? " (sotto 10: al resoconto **Depex**)"
+          : weeklyPartners < minPartners
+            ? " (resoconto: **10**–**29** → **Richiamo**, con attenzione alla fascia **15**–**25**; **≥30** → **Nulla**)"
+            : "";
       await member.send({
-        content: `<:VC_PartnerManager:1494286911286808576> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nCome Partner Manager ti mancano **${mancano}** partner per raggiungere il minimo di ${minPartners}${depexHint}. Attualmente ne hai **${weeklyPartners}**.`,
+        content: `<:VC_PartnerManager:1494286911286808576> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nCome Partner Manager ti mancano **${mancano}** partner per raggiungere il minimo di ${minPartners}${tierHint}. Attualmente ne hai **${weeklyPartners}**.`,
       }).catch(() => null);
     }
   }

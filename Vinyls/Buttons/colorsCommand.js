@@ -68,7 +68,7 @@ module.exports = {
       const action = parts[2];
       if (interaction.user?.id !== ownerId) {
         await interaction.reply({
-          content: "<:vegax:1443934876440068179> Questo pannello non è tuo. Usa `+colors`.",
+          content: "<:vegax:1443934876440068179> Questo pannello non è tuo. Usa `+profile`.",
           flags: PRIVATE_FLAG,
         }).catch((err) => logButtonErr(err));
         return true;
@@ -115,7 +115,7 @@ module.exports = {
     const segment = parts[2];
     if (interaction.user?.id !== ownerId) {
       await interaction.reply({
-        content: "<:vegax:1443934876440068179> Questo menu non è tuo. Usa `+colors`.",
+        content: "<:vegax:1443934876440068179> Questo menu non è tuo. Usa `+profile`.",
         flags: PRIVATE_FLAG,
       }).catch((err) => logButtonErr(err));
       return true;

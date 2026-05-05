@@ -111,9 +111,10 @@
     partnermanager:
       '<div class="rounded-[1.2rem] border border-amber-300/20 bg-amber-950/20 p-4 text-sm leading-relaxed text-amber-50/95">' +
       '<p class="m-0 font-semibold"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
-      '<p class="mt-2 mb-0">50 partner -> 2.50€ </p>' +
-      '<p class="mt-1 mb-0">75 partner -> 5€ o <strong>Nitro Basic</strong></p>' +
-      '<p class="mt-1 mb-0">150 partner -> <strong>Nitro Boost</strong></p>' +
+      '<p class="mt-2 mb-0">50 partner → Custom Role & Custom Voc per 30 giorni</p>' +
+      '<p class="mt-1 mb-0">100 partner → Ruolo <@&1442568950805430312> per 30 giorni</p>' +
+      '<p class="mt-1 mb-0">150 partner → <strong>Decorazione a scelta (max 15,99 €)</strong></p>' +
+      '<p class="mt-1 mb-0">200 partner -> <strong>Nitro Boost</strong></p>' +
       "</div>",
   };
 
@@ -323,14 +324,20 @@
     return Boolean(row && row.eligible === true);
   }
 
-  /** Tab ancora utilizzabile: candidatura possibile oppure messaggio cooldown su quel tipo. */
+  /** Tab selezionabile: invio possibile, oppure solo lettura (cooldown, già ruolo, blocco Helper con altri ruoli, ecc.). */
   function isKindInteractive(d, kind) {
     if (!d || d.ok !== true) return false;
     var row = kind === "partnermanager" ? d.partnermanager : d.helper;
     if (!row) return false;
     if (row.eligible === true) return true;
     var c = String(row.code || "").trim().toLowerCase();
-    return c === "cooldown";
+    return (
+      c === "cooldown" ||
+      c === "already_role" ||
+      c === "helper_blocked" ||
+      c === "no_moduli" ||
+      c === "no_member_role"
+    );
   }
 
   function candidatureRowCode(row) {
@@ -359,23 +366,15 @@
     return "Non puoi inviare candidature con questo account.";
   }
 
-  function syncTabDisabledState(d) {
+  function syncTabDisabledState() {
     var b1 = byId("vc-candidature-tab-helper");
     var b2 = byId("vc-candidature-tab-pm");
     if (!b1 || !b2) return;
-    if (!d || d.ok !== true) {
-      b1.disabled = false;
-      b2.disabled = false;
-      b1.removeAttribute("aria-disabled");
-      b2.removeAttribute("aria-disabled");
-      return;
-    }
-    var hOn = isKindInteractive(d, "helper");
-    var pOn = isKindInteractive(d, "partnermanager");
-    b1.disabled = !hOn;
-    b2.disabled = !pOn;
-    b1.setAttribute("aria-disabled", hOn ? "false" : "true");
-    b2.setAttribute("aria-disabled", pOn ? "false" : "true");
+    // Sempre entrambi i tab cliccabili: così si vedono i due moduli (anche già Helper/PM o con altri blocchi). L’invio resta disattivato dal bottone e dall’API.
+    b1.disabled = false;
+    b2.disabled = false;
+    b1.setAttribute("aria-disabled", "false");
+    b2.setAttribute("aria-disabled", "false");
   }
 
   function setFormInnerAndModuloTitleHidden(innerEl, hidden) {
@@ -431,7 +430,7 @@
     if (!currentUser) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -440,7 +439,7 @@
     if (!eligibilityApiUrl()) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -449,7 +448,7 @@
     if (eligibilityState.loading) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -459,7 +458,7 @@
     if (!d || d.ok !== true) {
       clearGate();
       setFormInnerAndModuloTitleHidden(inner, false);
-      syncTabDisabledState(null);
+      syncTabDisabledState();
       setFieldsDisabled(false);
       if (sub) sub.disabled = false;
       return;
@@ -470,8 +469,8 @@
         "amber",
         globalBlockMessage(d) || "Non puoi usare il modulo candidature con questo account.",
       );
-      setFormInnerAndModuloTitleHidden(inner, true);
-      syncTabDisabledState(d);
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
@@ -480,16 +479,17 @@
     var hInteractive = isKindInteractive(d, "helper");
     var pInteractive = isKindInteractive(d, "partnermanager");
     if (!hInteractive && !pInteractive) {
-      showGateMessage("amber", buildNoApplicableMessage(d));
-      setFormInnerAndModuloTitleHidden(inner, true);
-      syncTabDisabledState(d);
+      showGateMessage("slate", buildNoApplicableMessage(d));
+      setFormInnerAndModuloTitleHidden(inner, false);
+      syncTabDisabledState();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
+      renderFields();
       return;
     }
 
     setFormInnerAndModuloTitleHidden(inner, false);
-    syncTabDisabledState(d);
+    syncTabDisabledState();
     if (!isKindInteractive(d, activeKind)) {
       if (pInteractive) activeKind = "partnermanager";
       else if (hInteractive) activeKind = "helper";

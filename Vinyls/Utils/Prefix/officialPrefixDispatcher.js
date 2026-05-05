@@ -327,6 +327,7 @@ async function executePrefixCommandRuntime({
     }
 
     const feedback = buildInternalCommandErrorEmbed(error);
+    await execMessage.delete().catch(() => null);
     return sendTemporaryReply(execMessage, { embeds: [feedback] }, EPHEMERAL_TTL_SHORT_MS);
   } finally {
     commandFinished = true;

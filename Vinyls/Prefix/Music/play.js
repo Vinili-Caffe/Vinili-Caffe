@@ -7,12 +7,11 @@ module.exports = {
   name: "play",
   args: true,
   description:
-    "Riproduci musica da titolo, URL o Spotify (brano, album, playlist; no podcast). Env `MUSIC_SEARCH_MODE`: omesso/`youtube` (default), `spotify` (prima Spotify su testo, poi YouTube se serve; link YouTube bloccati), `spotify_first` (come spotify ma accetta anche link YouTube). Chi avvia la sessione controlla skip, stop, volume, ecc.",
+    "Riproduci musica da titolo o URL Spotify.",
   usage: "+play <URL o titolo>",
   examples: [
     "+play male necessario",
     "+play https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh",
-    "+play https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   ],
   async execute(message, args) {
     const query = Array.isArray(args) ? args.join(" ").trim() : "";

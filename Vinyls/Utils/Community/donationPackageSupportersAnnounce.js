@@ -42,7 +42,7 @@ function buildDonationPackageEmbed(tier, member) {
       `<:pinkstar:1470064804835229768> Permesso di mandare **sticker ed emoji** di altri server\n` +
       `<a:reddiamond:1443652837346377841> Bypass dei requisiti nei **giveaway**\n` +
       `<:moon:1470064812615667827> Permesso di cambiare il tuo **nickname**\n` +
-      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in \`+colors\`\n` +
+      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in \`+profile\`\n` +
       `<a:reddiamond:1443652837346377841> Sblocchi il comando \`+quote\`\n` +
       "<:exp:1470067108543987846> X4 EXP boost\n" +
       "\n" +

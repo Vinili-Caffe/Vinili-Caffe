@@ -51,7 +51,7 @@ const BASE_PLUS_COLOR_ROLE_IDS_ORDERED = [
 
 function getLevelGatedPlusColorDefs() {
   return [
-    { roleId: String(IDs.roles.orangeBlackPlus || "").trim(), minLevel: 120 },
+    { roleId: String(IDs.roles.orangeBlackPlus || "").trim(), minLevel: 125 },
     { roleId: String(IDs.roles.greenBlackPlus || "").trim(), minLevel: 150 },
     { roleId: String(IDs.roles.aquaBlackPlus || "").trim(), minLevel: 200 },
   ].filter((row) => row.roleId);
@@ -276,7 +276,6 @@ function listRoleIdsForColorsEmbedMentions(guild) {
 }
 
 function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
-  const sep = "୨୧ — · · · — ୨୧";
   const nat = listUnlockedNaturalRoleIds().filter((id) => guild?.roles?.cache?.has?.(id));
   const natLine = nat.length ? nat.map((id) => `· <@&${id}>`).join("\n") : "_Nessun ruolo colore classico sul server._";
   const plusReq = mentionRoles([
@@ -317,22 +316,17 @@ function buildColorsMainEmbedDescription(guild, numericLevel, canPickPlus) {
           })
           .join("\n");
   const lines = [
-    "### <:VC_Color:1482532543273238569> Classici",
-    natLine,
-    "",
     "### <:VC_Vip:1482534921472835895> Plus",
     plusBlock,
     "",
     "### <:VC_EXP:1482534670896730143> Esclusivi di livello",
     tierBlock,
     "",
-    sep,
-    "",
     "**Menu** · scegli un colore qui sotto. **Rimuovi** con il pulsante rosso.",
   ];
   let body = lines.join("\n");
   if (body.length > 4000) {
-    body = `${lines.slice(0, 8).join("\n")}\n\n… *Usa il menu per i classici.*\n\n${sep}`;
+    body = `${lines.slice(0, 8).join("\n")}\n\n… *Usa il menu per i classici.*`;
   }
   return body;
 }
@@ -345,22 +339,16 @@ function buildColorsHowToUnlockEmbedDescription() {
     IDs.roles.Donator,
   ]);
   const tiers = getTierExclusiveColorDefs();
+  const plusLevelGated = getLevelGatedPlusColorDefs();
   return [
-    "## <:VC_PinkQuestionMark:1471892611026391306> Come ottenere i colori",
-    "",
-    "### <:VC_Color:1482532543273238569> Classici",
-    "Disponibili per tutti i membri: nessun requisito. ",
-    "",
     "### <:VC_Vip:1482534921472835895> Plus",
-    "Serve almeno una di queste condizioni:",
-    `· **Livello 50+** sul server`,
-    `· Ruoli: ${plusReq || "VIP, Booster, Donator, Level50"}`,
+    "Serve almeno uno di questi ruoli:",
+    `${plusReq || "VIP, Booster, Donator, Level50"}`,
     "",
     "### <:VC_EXP:1482534670896730143> Esclusivi",
     "Solo in base al **livello** salvato sul profilo:",
     ...tiers.map((t) => `· <@&${t.roleId}> — da livello **${t.minLevel}**`),
-    "",
-    "୨୧ — · · · — ୨୧",
+    ...plusLevelGated.map((t) => `· <@&${t.roleId}> — da livello **${t.minLevel}**`),
   ]
     .filter(Boolean)
     .join("\n");

@@ -918,7 +918,7 @@ module.exports = {
           "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
           "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
           "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
-          "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
+          "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
           "<:VC_Dot:1482532364222595303> Sblocchi il comando `+quote`",
           "<:VC_Dot:1482532364222595303> X4 EXP boost",
       ].join("\n");
@@ -971,9 +971,11 @@ module.exports = {
         .setDescription(
           "<:partneredserverowner:1443651871125409812> **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n" +
           "> Per riscattare eventuali premi bisognerà aprire un <#1442569095068254219> **__`HIGH STAFF`__**\n\n" +
-          "<:VC_Dot:1482532364222595303> **__`50`__** partner <a:vegarightarrow:1443673039156936837> **__2.50__ euro** <:paypal:1329524292446191676>\n" +
-          "<:VC_Dot:1482532364222595303> **__`75`__** partner <a:vegarightarrow:1443673039156936837> **__5__ euro** <:paypal:1329524292446191676> / **Nitro __Basic__** <:sparkles_nitro_basic:1330196488336310383>\n" +
-          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Nitro __Boost__** <:VC_NitroBoost:1482532248967315627>\n\n" +
+          "<:VC_Dot:1482532364222595303> **__`50`__** partner <a:vegarightarrow:1443673039156936837> **Custom Role** + **Custom Voc** (30 giorni)\n" +
+          "<:VC_Dot:1482532364222595303> **__`100`__** partner <a:vegarightarrow:1443673039156936837> **Ruolo VIP** (30 giorni)\n" +
+          "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Decorazione** a scelta (max **15,99** €)\n" +
+          "<:VC_Dot:1482532364222595303> **__`200`__** partner <a:vegarightarrow:1443673039156936837> **Nitro Boost** <:VC_NitroBoost:1482532248967315627>\n\n" +
+          "> Dal pannello `+profile` (High Staff): i bottoni **scala punti** tolgono solo il saldo; per **50** e **100** lo staff usa poi i bottoni **Premio 50** / **Premio 100** per attivare CR+Voc o VIP (30 giorni). **150** e **200**: solo punti, premio a mano.\n\n" +
           `<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )
@@ -1061,7 +1063,7 @@ module.exports = {
           "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
           "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
           "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
-          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+colors\` <:VC_New:1471891729471770819>",
+          "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in \`+profile\` <:VC_New:1471891729471770819>",
           "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
           "<a:reddiamond:1443652837346377841> Sblocchi il comando `+quote`",
           "<:exp:1470067108543987846> X2 EXP Boost",
@@ -1083,7 +1085,7 @@ module.exports = {
         .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
         .setDescription([
           `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
-          `Usa \`+colors\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
+          `Usa \`+profile\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
           "Digita \`+help\` per la lista completa dei comandi.",
         ].join("\n"));
 
@@ -1116,7 +1118,7 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
               "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
               "<:VC_DoubleReply:1482532332509466797> Sblocchi il comando \`+quote\`",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv10}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv10}>`
             ].join("\n"),
             inline: true,
           },
@@ -1126,7 +1128,7 @@ module.exports = {
               `<@&${IDs.roles.Level20}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv20}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv20}>`
             ].join("\n"),
             inline: true,
           },
@@ -1137,7 +1139,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv30}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv30}>`
             ].join("\n"),
             inline: true,
           },
@@ -1148,7 +1150,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv50}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv50}>`
             ].join("\n"),
             inline: true,
           },
@@ -1159,7 +1161,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
               "<:VC_DoubleReply:1482532332509466797> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv70}>`
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv70}>`
             ].join("\n"),
             inline: true,
           },
@@ -1171,17 +1173,19 @@ module.exports = {
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
-              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+colors\`<@&${IDs.roles.colorUnlockLv100}>`
+              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +15%",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv100}>`
             ].join("\n"),
             inline: true,
           },
           {
-            name: "\`LIVELLO 120-149\`",
+            name: "\`LIVELLO 125-149\`",
             value: [
               `<@&${IDs.roles.Level120}>`,
               "Tutte le ricompense precedenti",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+colors\` <@&${IDs.roles.orangeBlackPlus}>`,
+              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +20%",
+              "<:VC_DoubleReply:1482532332509466797> Sblocchi il secondo custom role",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.orangeBlackPlus}>`,
             ].join("\n"),
             inline: true,
           },
@@ -1190,7 +1194,8 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level150}>`,
               "Tutte le ricompense precedenti",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+colors\` <@&${IDs.roles.greenBlackPlus}>`,
+              "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
             ].join("\n"),
             inline: true,
           },
@@ -1200,7 +1205,7 @@ module.exports = {
               `<@&${IDs.roles.Level200}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
-              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+colors\` <@&${IDs.roles.aquaBlackPlus}>`,
+              `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
             ].join("\n"),
             inline: true,
           },
@@ -1210,7 +1215,7 @@ module.exports = {
 
       const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
         `Usa \`+profile\` in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale e le reaction.`,
-        `Usa \`+colors\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
+        `Usa \`+profile\` in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 
@@ -1271,7 +1276,7 @@ module.exports = {
             name: "`VOTER`",
             value: [
               "<@&1468266342682722679>",
-              "Ottenibile votando il server su [Discadia](<https://discadia.com/vote/viniliecaffe/>) o [Top.gg](<https://top.gg/discord/servers/832911595289169920>)",
+              "Ottenibile votando il server dalla [pagina Voti](<https://www.viniliecaffe.it/vote>) del sito (Discadia e Top.gg).",
               "<:VC_DoubleReply:1482532332509466797> EXP casuale da 100 a 250.",
               "<:VC_Reply:1482532158080942191> Ruolo esclusivo per 12 o 24 ore.",
             ].join("\n"),

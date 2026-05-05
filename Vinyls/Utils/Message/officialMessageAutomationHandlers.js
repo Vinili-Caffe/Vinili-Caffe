@@ -457,11 +457,11 @@ async function handleVoteManagerMessage(message, client) {
   return true;
 }
 
-function resolveTopggVotePageUrl(client) {
-  const fromCfg = String(client?.config?.topgg?.votePageUrl || "").trim();
-  if (fromCfg) return fromCfg;
-  const bid = String(client?.user?.id || "").trim();
-  return bid ? `https://top.gg/bot/${bid}` : "https://top.gg/";
+function resolvePublicVoteHubUrl(client) {
+  const fromTopgg = String(client?.config?.topgg?.votePageUrl || "").trim();
+  const fromDiscadia = String(client?.config?.discadiaVoteReminder?.voteUrl || "").trim();
+  const fromIds = String(IDs.links?.vote || "").trim();
+  return fromTopgg || fromDiscadia || fromIds;
 }
 
 async function processDiscadiaVote(guild, user, client, options = {}) {
@@ -506,11 +506,10 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
   const voteRoleText = VOTE_ROLE_ID
     ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${VOTE_ROLE_ID}> per ${voteAgainHoursLabel}`
     : `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per ${voteAgainHoursLabel}`;
-  const topggVoteUrl = resolveTopggVotePageUrl(client);
   const thankLine =
     voteListing === "topgg"
-      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato il bot su [Top.gg](<${topggVoteUrl}>)!`
-      : `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su [Discadia](<https://discadia.com/server/viniliecaffe/>) il server!`;
+      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su **Top.gg**!`
+      : `<a:VC_ThankYou:1330186319673950401> Grazie ${user} per aver votato su **Discadia**!`;
   const descriptionLines = [
     thankLine,
     "",
@@ -528,7 +527,7 @@ async function processDiscadiaVote(guild, user, client, options = {}) {
     .setFooter({ text: "Ogni volta che voterai il valore dell'exp guadagnata varierà: a volte sarà più alto, altre volte più basso, mentre altre ancora uguale al precedente", }).setImage(dividerUrl);
 
   const components = [];
-  const linkVoteUrl = voteListing === "topgg" ? topggVoteUrl : VOTE_URL;
+  const linkVoteUrl = resolvePublicVoteHubUrl(client) || VOTE_URL;
   if (linkVoteUrl) {
     components.push(
       new ActionRowBuilder().addComponents(

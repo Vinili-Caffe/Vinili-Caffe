@@ -1479,10 +1479,36 @@ function getAllowedInviteCodes(message) {
   return codes;
 }
 
+function stripTrustedMediaUrlsFromText(content) {
+  const text = String(content || "");
+  if (!text) return "";
+  const urlMatches = text.match(/(?:https?:\/\/)?(?:www\.)?[^\s/$.?#]+\.[^\s]+/gi) || [];
+  if (!urlMatches.length) return text;
+
+  let out = text;
+  for (const rawUrl of urlMatches) {
+    const normalized = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+    let parsed = null;
+    try {
+      parsed = new URL(normalized);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || !isAutomodMediaEmbedUrl(parsed)) continue;
+    out = out.replace(rawUrl, " ");
+  }
+  return out;
+}
+
 function detectScam(content) {
-  const text = String(content || "").toLowerCase();
+  const text = stripTrustedMediaUrlsFromText(content).toLowerCase();
   if (!text) return false;
-  const patterns = [/(discord|steam|epic)[a-z0-9-]*\.(gift|nitro|airdrop|drop|claim|free)/, /(free|claim).{0,18}(nitro|steam|gift)/, /free\s*nitro/, /steam\s*gift/, /airdrop/, /@everyone.{0,40}(nitro|gift|claim)/, /(verify|login).{0,20}(discord|steam|epic).{0,20}(gift|nitro|reward)/,];
+  const patterns = [
+    /(discord|steam|epic)[a-z0-9-]*\.(gift|nitro|airdrop|drop|claim|free)\b/,
+    /(free|claim).{0,24}(nitro|steam\s*gift|gift(?:card)?|airdrop)\b/,
+    /@everyone.{0,40}(nitro|gift|claim|airdrop)/,
+    /(verify|login).{0,30}(discord|steam|epic).{0,30}(gift|nitro|reward|airdrop)/,
+  ];
   return patterns.some((re) => re.test(text));
 }
 

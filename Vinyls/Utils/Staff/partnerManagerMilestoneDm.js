@@ -4,17 +4,18 @@ const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 
 /** Stesse soglie di `PARTNER_MANAGER_REDEEM_TIERS` in `partnerPointsUtils.js`. */
-const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 75, 150]);
+const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 100, 150, 200]);
 
 /** Premi PM per soglia (stesso ordine di `PARTNER_MANAGER_REDEEM_TIERS`). */
 const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({
-  50: "2,50 €",
-  75: "5 €",
-  150: "Discord Nitro Basic oppure Nitro Boost",
+  50: "Custom Role e Custom Voc per 30 giorni (dal pannello `+profile` staff: scala punti, poi bottone **Premio 50**)",
+  100: "Ruolo VIP per 30 giorni (scala punti, poi bottone **Premio 100**)",
+  150: "Decorazione a scelta (max 15,99 €) — dopo riscatto punti, consegna manuale",
+  200: "Nitro Boost — dopo riscatto punti, consegna manuale",
 });
 
 /**
- * Invia in DM i promemoria riscatto premi quando i punti partner mostrati superano 50, 75 o 150.
+ * Invia in DM i promemoria riscatto premi quando i punti partner mostrati superano 50, 100, 150 o 200.
  * Usa `staff.partnerMilestoneDmSent` per non duplicare lo stesso avviso.
  */
 async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, beforePoints, afterPoints) {

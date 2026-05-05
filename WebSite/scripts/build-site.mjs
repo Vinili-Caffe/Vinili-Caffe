@@ -137,17 +137,14 @@ function absUrlForMetadata(siteUrl, pathOrUrl) {
   return `${base}/${p.replace(/^\//, "")}`;
 }
 
+/** Normalizza og:image senza riscrivere i GIF animati del CDN Discord (`a_*`): il .png omonimo non esiste → 404 e niente anteprima su Discord. */
 function forceStaticOgImageUrl(url) {
   const raw = String(url || "").trim();
   if (!raw) return "";
   try {
-    const u = new URL(raw);
-    if (/^\/banners\/\d+\/a_[^/]+\.(gif)$/i.test(u.pathname)) {
-      u.pathname = u.pathname.replace(/\.gif$/i, ".png");
-    }
-    return u.toString();
+    return new URL(raw).toString();
   } catch {
-    return raw.replace(/\.gif(\?[^#]*)?$/i, ".png$1");
+    return raw;
   }
 }
 
@@ -1228,7 +1225,6 @@ async function main() {
   const votePageUrl = defaultLegalPath("vote");
   const discadiaVoteUrlResolved =
     String(cfg.discadiaVoteUrl ?? "").trim() ||
-    String(cfg.voteUrl ?? "").trim() ||
     "https://discadia.com/vote/viniliecaffe/";
   const topggVoteUrlResolved =
     String(cfg.topggVoteUrl ?? "").trim() ||

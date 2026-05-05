@@ -271,6 +271,7 @@ async function executePrefixCommandRuntime({ payload, resolvedClient }) {
   } catch (error) {
     await logPrefixErrorToChannel(execMessage, resolvedClient, execCommand?.name || "unknown", error);
     const feedback = buildInternalCommandErrorEmbed(error);
+    await execMessage.delete().catch(() => null);
     await sendTemporaryReply(execMessage, { embeds: [feedback] }, EPHEMERAL_TTL_SHORT_MS);
   }
 }

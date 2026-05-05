@@ -47,7 +47,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(result.ok ? 0x6f4e37 : 0xe74c3c)
       .setDescription(
-        result.ok ? okDesc : `<:vegax:1443934876440068179> ${result.message}`,
+        result.ok ? okDesc : `<a:VC_Cross:1482532424570376253> ${result.message}`,
       );
     await safeMessageReply(
       message,

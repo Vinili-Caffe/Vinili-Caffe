@@ -3,8 +3,8 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { shuffleGuildQueue } = require("../../Services/Music/lavalinkMusicService");
 
 module.exports = {
-  name: "shuffle",
-  description: "Mescola l'ordine dei brani in coda (non la traccia in riproduzione).",
+  name: "shuffle",  
+  description: "Mescola l'ordine dei brani in coda.",
   usage: "+shuffle",
   examples: ["+shuffle"],
   async execute(message) {
@@ -12,7 +12,7 @@ module.exports = {
     if (result.ok) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setDescription("**La coda è stata mescolata**");
+        .setDescription("**La coda è stata mescolata** 🔀");
       await safeMessageReply(message, {
         embeds: [embed],
         allowedMentions: { repliedUser: false },

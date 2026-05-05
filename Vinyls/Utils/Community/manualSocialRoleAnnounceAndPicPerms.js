@@ -1,37 +1,20 @@
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent, AttachmentBuilder } = require("discord.js");
 const path = require("node:path");
 const fs = require("node:fs");
-const { DIVIDER_URL } = require("../../../shared/discord/constants");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
-
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
 const PIC_PERMS_ROLE_ID = IDs.roles.PicPerms;
-const PIC_PERMS_BUNDLE_ROLE_IDS = [
-  IDs.roles.Follower,
-  IDs.roles.SocialSupporter,
-  IDs.roles.Fan,
-  IDs.roles.Guilded,
-].filter(Boolean);
-
-/** Uno qualsiasi di questi ruoli (anche manuale) deve comportare <@&PicPerms>. */
-const PIC_PERMS_AUTO_TRIGGER_ROLE_IDS = [
-  IDs.roles.Guilded,
-  IDs.roles.SocialSupporter,
-  IDs.roles.Fan,
-  IDs.roles.Follower,
-  IDs.roles.VerifiedNeo,
-  IDs.roles.Verificata,
-  IDs.roles.Verificato,
-].filter(Boolean);
-
+const PIC_PERMS_BUNDLE_ROLE_IDS = [ IDs.roles.Follower, IDs.roles.SocialSupporter, IDs.roles.Fan, IDs.roles.Guilded ].filter(Boolean);
+const PIC_PERMS_AUTO_TRIGGER_ROLE_IDS = [ IDs.roles.Guilded, IDs.roles.SocialSupporter, IDs.roles.Fan, IDs.roles.Follower, IDs.roles.VerifiedNeo, IDs.roles.Verificata, IDs.roles.Verificato ].filter(Boolean);
 const AUDIT_FETCH_LIMIT = 40;
 const AUDIT_LOOKBACK_MS = 180 * 1000;
 const MEMBER_ROLE_AUDIT_TYPE = AuditLogEvent.MemberRoleUpdate ?? 25;
-
+const SOCIAL_ROLE_ANNOUNCE_DEDUPE_TTL_MS = 20_000;
+const socialRoleAnnounceDedupe = new Map();
 const SELFIE_VERIFIED_GUILDED_STYLE_SPECS = [
   {
     roleId: IDs.roles.Verificato,
@@ -51,6 +34,27 @@ const VERIFIED_SELFIE_IMAGE_PATH = path.join(__dirname, "../../Photos", VERIFIED
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function cleanupSocialRoleAnnounceDedupe(now = Date.now()) {
+  for (const [key, ts] of socialRoleAnnounceDedupe.entries()) {
+    if (now - Number(ts || 0) > SOCIAL_ROLE_ANNOUNCE_DEDUPE_TTL_MS) {
+      socialRoleAnnounceDedupe.delete(key);
+    }
+  }
+}
+
+function shouldSkipSocialRoleAnnounce(guildId, userId, roleId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  const rid = String(roleId || "").trim();
+  if (!gid || !uid || !rid) return false;
+  const now = Date.now();
+  cleanupSocialRoleAnnounceDedupe(now);
+  const key = `${gid}:${uid}:${rid}`;
+  const lastTs = Number(socialRoleAnnounceDedupe.get(key) || 0);
+  socialRoleAnnounceDedupe.set(key, now);
+  return now - lastTs <= SOCIAL_ROLE_ANNOUNCE_DEDUPE_TTL_MS;
 }
 
 function auditLogChangesArray(entry) {
@@ -217,25 +221,6 @@ async function tryGrantPicPermsIfAnyAutoTrigger(member) {
   await tryGrantPicPermsRoleIfMissing(member);
 }
 
-function buildSocialUnlockEmbed(member, { title, roleId }) {
-  const thumb = guildMemberDisplayAvatarUrlDynamic(member, { size: 256 });
-  const lines = [
-    `<@${member.id}>, \`hai sbloccato:\``,
-    `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${roleId}>!`,
-    "<a:VC_Coffe:1448695567244066827> - Grazie per il supporto a **Vinili & Caffè** sui social",
-    "",
-    `<a:VC_Arrow:1482706699365257397> Con **Follower**, **Supporter** (social), **Fan** (status) e **Guilded** ottieni anche <@&${IDs.roles.PicPerms}>.`,
-  ];
-  return new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setAuthor({ name: accountUsername(member), iconURL: thumb || undefined })
-    .setTitle(title)
-    .setThumbnail(thumb || null)
-    .setDescription(lines.join("\n"))
-    .setFooter({ text: "Grazie per il tuo supporto!" })
-    .setImage(DIVIDER_URL);
-}
-
 async function resolveSupportersChannel(guild) {
   if (!guild || !SUPPORTERS_CHANNEL_ID) return null;
   return guild.channels.cache.get(SUPPORTERS_CHANNEL_ID) || (await getGuildChannelCached(guild, SUPPORTERS_CHANNEL_ID));
@@ -248,22 +233,58 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
 
   const channel = await resolveSupportersChannel(newMember.guild);
   const allowPublic = await shouldSendPublicMemberAnnouncement(newMember).catch(() => false);
+  const socialRoleOrder = [IDs.roles.Follower, IDs.roles.SocialSupporter]
+    .filter(Boolean)
+    .map((id) => String(id));
+  const addedSocialRoleIds = socialRoleOrder.filter((roleId) => roleWasAdded(oldMember, newMember, roleId));
 
   const followerId = IDs.roles.Follower;
-  if (followerId && roleWasAdded(oldMember, newMember, followerId) && channel?.isTextBased?.() && allowPublic) {
-    const embed = buildSocialUnlockEmbed(newMember, {
-      title: "Nuovx Follower <a:VC_StarPink:1330194976440848500>",
-      roleId: followerId,
-    });
+  if (
+    followerId &&
+    addedSocialRoleIds.includes(String(followerId)) &&
+    channel?.isTextBased?.() &&
+    allowPublic &&
+    !shouldSkipSocialRoleAnnounce(newMember.guild.id, newMember.id, followerId)
+  ) {
+    const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setAuthor({ name: accountUsername(newMember), iconURL: guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || undefined })
+    .setTitle("Nuovx Follower <a:VC_StarPink:1330194976440848500>")
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || null)
+    .setDescription([
+      `<@${newMember.id}>, \`hai sbloccato:\``,
+      `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${followerId}>!`,
+      "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
+      "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
+      "",
+      "<a:VC_Arrow:1482706699365257397> Seguici su [Instagram](https://instagram.com/viniliecaffe) e su [TikTok](https://tiktok.com/@viniliecaffe).",
+    ].join("\n"))
+    .setFooter({ text: "Grazie per il tuo supporto!" })
     await channel.send({ content: `<@${newMember.id}>`, embeds: [embed] }).catch(() => null);
   }
 
   const socialSupId = IDs.roles.SocialSupporter;
-  if (socialSupId && roleWasAdded(oldMember, newMember, socialSupId) && channel?.isTextBased?.() && allowPublic) {
-    const embed = buildSocialUnlockEmbed(newMember, {
-      title: "Nuovx Supporter <a:VC_StarPink:1330194976440848500>",
-      roleId: socialSupId,
-    });
+  if (
+    socialSupId &&
+    addedSocialRoleIds.includes(String(socialSupId)) &&
+    channel?.isTextBased?.() &&
+    allowPublic &&
+    !shouldSkipSocialRoleAnnounce(newMember.guild.id, newMember.id, socialSupId)
+  ) {
+    const embed = new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setAuthor({ name: accountUsername(newMember), iconURL: guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || undefined })
+    .setTitle("Nuovx Supporter <a:VC_StarPink:1330194976440848500>")
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || null)
+    .setDescription([
+      `<@${newMember.id}>, \`hai sbloccato:\``,
+      `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${socialSupId}>!`,
+      "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
+      "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
+      "",
+      "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nella tua bio.",
+    ].join("\n"))
+    .setFooter({ text: "Grazie per il tuo supporto!" })
     await channel.send({ content: `<@${newMember.id}>`, embeds: [embed] }).catch(() => null);
   }
 

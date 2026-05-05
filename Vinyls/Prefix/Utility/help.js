@@ -16,28 +16,18 @@ const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, I
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
 const CATEGORY_ORDER = ["utility", "music", "tts", "level", "minigames", "stats", "staff", "moderation", "admin", "dev",];
-/** Comandi musica che in runtime richiedono di aver avviato la sessione (+play con coda ferma). */
-const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set([
-  "skip",
-  "stop",
-  "pause",
-  "resume",
-  "volume",
-  "shuffle",
-  "clear",
-  "repeat",
-  "previous",
-  "rewind",
-  "restart",
-]);
-const PREFIX_MUSIC_SESSION_OWNER_NOTE =
-  " *Solo chi ha avviato la riproduzione* (primo +play con coda ferma) *può usarlo.*";
+const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set(["skip", "stop", "pause", "resume", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart"]);
+const PREFIX_MUSIC_SESSION_OWNER_NOTE = " *Solo chi ha avviato la riproduzione può usarlo.*";
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
 const HELP_NEW_DAYS = 14;
-const HELP_NEW_INVOKES = new Set([]);
-const HELP_NEW_CATEGORIES = new Set(["minigames", "tts", "stats", "level", "utility"]);
+const HELP_NEW_CATEGORIES = new Set(["music"]);
+const HELP_NEW_INVOKES = new Set();
 const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
+const HELP_CHANNEL_PUBLIC_COMMANDS_ID = String(IDs.channels?.commands || "1442569138114662490");
+const HELP_CHANNEL_PM_ONLY_ID = "1495544523848286340";
+const HELP_CHANNEL_STAFF_COMMANDS_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
+const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
 const PREFIX_HELP_DESCRIPTIONS = {
   help: "Mostra tutti i comandi disponibili con il bot.",
   afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",
@@ -62,7 +52,6 @@ const PREFIX_HELP_DESCRIPTIONS = {
   rank: "Mostra livello, exp e posizione in classifica di un utente.",
   info: "Mostra una scheda completa di un utente: account, ruoli, permessi, strike e stato sicurezza.",
   desc: "Invia nel ticket la descrizione ufficiale del server.",
-  "no-dm-list": "Mostra la lista utenti con preferenze DM e cosa hanno disattivato.",
   purge: "Elimina messaggi da un canale.",
   ban: "Banna un utente.",
   unban: "Rimuove il ban di un utente.",
@@ -81,19 +70,31 @@ const PREFIX_HELP_DESCRIPTIONS = {
   lock: "Blocca un canale.",
   unlock: "Sblocca un canale.",
   blacklist: "Mostra la lista completa dei server blacklistati.",
-  recensione: "Premia una recensione assegnando livelli.",
   ticket: "Gestisce i ticket: partecipanti, claim, trasferimento, pannello, rinomina, chiusura e riapertura.",
-  verify: "Verifica manualmente un utente.",
   security: "Pannello sicurezza con menu: stato, statistiche, panic, abilita/disabilita moduli.",
   level: "Configura il sistema livelli: imposta o modifica livelli, blocca canali, moltiplicatori, ruoli ignorati.",
   quote: "Genera una quote da un messaggio.",
   staff: "Pannello staff e Partner Manager: menu e azioni visibili in base al ruolo.",
+  pause: "Mette in pausa la traccia in riproduzione.",
+  resume: "Riprende la traccia in pausa.",
+  skip: "Salta la traccia in riproduzione e passa alla successiva in coda.",
+  stop: "Ferma la musica, svuota la coda e fa uscire il bot dal canale vocale.",
+  volume: "Imposta il volume della musica.",
+  shuffle: "Mescola l'ordine dei brani in coda.",
+  clear: "Svuota la coda dei brani in attesa.",
+  repeat: "Ripetizione traccia, ripetizione della coda, disattiva tutto.",
+  previous: "Torna al brano riprodotto prima di quello attuale.",
 };
 
 const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
-  "evento.classifica": "Classifica del weekly contest.",
+  "now.playing": "Mostra il brano in riproduzione.",
+  "next.up": "Mostra il prossimo brano in coda.",
+  "repeat.disable": "Disattiva la ripetizione della traccia.",
+  "repeat.enable": "Attiva la ripetizione della traccia.",
+  "repeat.queue": "Attiva la ripetizione della coda.",
+  "repeat.all": "Disattiva tutto.",
 };
 const CONTEXT_HELP_DESCRIPTIONS = {};
 const CONTEXT_CATEGORY_OVERRIDES = {};
@@ -266,10 +267,14 @@ function prettifySubcommandName(name) {
 function getPrefixSubcommandDescription(command, subcommandName) {
   const commandName = String(command?.name || "").toLowerCase();
   const key = `${String(commandName || "").toLowerCase()}.${String(subcommandName || "").toLowerCase()}`;
+  const withOwnerNote = (text) =>
+    PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)
+      ? `${String(text || "").trim()}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`
+      : String(text || "").trim();
   if (PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]) {
-    return PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key];
+    return withOwnerNote(PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS[key]);
   }
-  return "Descrizione non disponibile.";
+  return withOwnerNote("Descrizione non disponibile.");
 }
 
 function getPrefixBase(command) {
@@ -591,6 +596,29 @@ function canMemberSeeEntry(entry, memberRoles) {
   return false;
 }
 
+function entryHasAnyRole(entry, roleIds) {
+  const roles = Array.isArray(entry?.roles) ? entry.roles : [];
+  if (!roles.length || !Array.isArray(roleIds) || !roleIds.length) return false;
+  return roles.some((roleId) => roleIds.includes(roleId));
+}
+
+function filterEntriesByHelpChannel(entries, channelId) {
+  const ch = String(channelId || "");
+  const list = Array.isArray(entries) ? entries : [];
+  if (!ch) return list;
+  if (ch === HELP_CHANNEL_STAFF_COMMANDS_ID) return list;
+  if (ch === HELP_CHANNEL_PUBLIC_COMMANDS_ID) {
+    return list.filter((entry) => !entryHasAnyRole(entry, HELP_PRIVILEGED_ROLE_IDS));
+  }
+  if (ch === HELP_CHANNEL_PM_ONLY_ID) {
+    return list.filter((entry) => {
+      if (!entryHasAnyRole(entry, HELP_PRIVILEGED_ROLE_IDS)) return true;
+      return entryHasAnyRole(entry, [IDs.roles.PartnerManager].filter(Boolean));
+    });
+  }
+  return list;
+}
+
 function chunkEntries(entries, size) {
   const chunks = [];
   for (let i = 0; i < entries.length; i += size) {
@@ -799,6 +827,10 @@ function buildNavigationRow(state) {
       .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
+    new ButtonBuilder()
+      .setCustomId(state.closeId)
+      .setEmoji("<:cancel:1461730653677551691>")
+      .setStyle(ButtonStyle.Danger),
   );
 }
 
@@ -1477,7 +1509,10 @@ module.exports = {
     ) {
       rolePages.push(IDs.roles.Staff);
     }
-    const visibleEntriesForQuery = dedupeAndSortEntries(allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles)),);
+    const channelId = String(message.channel?.id || "");
+    const memberVisibleEntries = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles));
+    const channelScopedEntries = filterEntriesByHelpChannel(memberVisibleEntries, channelId);
+    const visibleEntriesForQuery = dedupeAndSortEntries(channelScopedEntries);
 
     const query = Array.isArray(args) ? args.join(" ").trim() : "";
     if (query.length) {
@@ -1489,8 +1524,7 @@ module.exports = {
       return;
     }
 
-    const allVisibleEntries = allEntries.filter((entry) => canMemberSeeEntry(entry, memberRoles),);
-    const sortedVisible = dedupeAndSortEntries(allVisibleEntries);
+    const sortedVisible = dedupeAndSortEntries(channelScopedEntries);
     const chunks = mergeAdjacentHelpChunks(
       chunkEntriesByCategory(sortedVisible, HELP_PAGE_SIZE),
       HELP_PAGE_SIZE,
@@ -1511,6 +1545,7 @@ module.exports = {
     const navState = {
       currentIndex: initialPageIndex, total: displayPages.length, prevId: `help_prev_${uniqueToken}`,
       nextId: `help_next_${uniqueToken}`,
+      closeId: `help_close_${uniqueToken}`,
     };
 
     const sent = await safeMessageReply(message, { components: [buildHelpV2Container(displayPages[navState.currentIndex], navState)], flags: MessageFlags.IsComponentsV2, allowedMentions: NO_REPLY_MENTIONS, });
@@ -1531,10 +1566,15 @@ module.exports = {
       }
 
       const prevIndex = navState.currentIndex;
-      if (
-        interaction.customId === navState.prevId &&
-        navState.currentIndex > 0
-      ) {
+      if (interaction.customId === navState.closeId) {
+        collector.stop("closed_by_user");
+        await interaction.message?.delete?.().catch(() => {});
+        if (message?.deletable) {
+          await message.delete().catch(() => {});
+        }
+        return;
+      }
+      if (interaction.customId === navState.prevId && navState.currentIndex > 0) {
         navState.currentIndex -= 1;
       } else if (
         interaction.customId === navState.nextId &&

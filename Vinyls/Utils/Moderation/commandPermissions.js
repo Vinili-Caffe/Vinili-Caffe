@@ -3,6 +3,7 @@ const path = require("path");
 const { EmbedBuilder, PermissionsBitField, PermissionFlagsBits, } = require("discord.js");
 const IDs = require("../Config/ids");
 const { hasAdminsProfileCapability } = require("../../Services/Moderation/securityProfilesService");
+const { isPartnerPmDailyCommandsThread } = require("../Partner/partnersChatChannelUtils");
 const { buildPrefixLookupKeys, buildSlashLookupKeys } = require("./temporaryCommandPermissions");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { hasEventWeekWinnerGrant } = require("../../Services/Community/weekWinnerGrantsService");
@@ -13,6 +14,7 @@ let cache = { filePath: null, mtimeMs: 0, data: EMPTY_PERMISSIONS, expiresAt: 0 
 let idsFallbackCache = null;
 const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
+const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
 
 function getMainGuildIdFallback() {
   try {
@@ -807,7 +809,11 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
     const allowed = ch
       ? channelMatchesPolicyChannelList(ch, channelPolicy)
       : Boolean(message?.channelId) && channelPolicy.includes(String(message.channelId));
-    if (!allowed) {
+    const allowInPmThread =
+      !allowed &&
+      PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS.has(safeCommand) &&
+      (await isPartnerPmDailyCommandsThread(ch).catch(() => false));
+    if (!allowed && !allowInPmThread) {
       if (options.returnDetails) {
         return {
           allowed: false,

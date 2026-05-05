@@ -11,7 +11,7 @@
     "redirectUri": "https://www.viniliecaffe.it/"
   },
   "maintenance": {
-    "enabled": true,
+    "enabled": false,
     "allowedUserIds": [],
     "includeGuildStaffInMaintenanceBypass": true,
     "title": "Sito in manutenzione",

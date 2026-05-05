@@ -17,6 +17,7 @@ const CUSTOM_ROLE_DOUBLE_SLOT_ROLE_IDS = uniqDiscordRoleIds([
   IDs?.roles?.DoubleBooster,
   IDs?.roles?.VIPplus,
   IDs?.roles?.["VIP+"],
+  IDs?.roles?.Level120,
 ]);
 
 /** Tier base: max 1 custom role totale (anche se ne hai piu di uno tra Level 50 / Booster / VIP). */
@@ -39,7 +40,8 @@ function normalizeCustomRoleExtraUnlocks(arg) {
       arg.hasContestSecondPlaceUnlock ||
         arg.contest ||
         arg.hasEventWeek2Grant ||
-        arg.hasEventWeek3Grant,
+        arg.hasEventWeek3Grant ||
+        arg.hasPartnerManagerCustomBundle,
     );
   }
   return Boolean(arg);

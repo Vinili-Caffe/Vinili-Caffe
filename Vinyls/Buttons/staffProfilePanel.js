@@ -4,8 +4,10 @@ const {
   PANEL_PREFIX,
   parseStaffProfileSelectCustomId,
   parseStaffProfileCloseCustomId,
+  parseStaffProfileNextCustomId,
   buildStaffProfilePayload,
   SECTION_HOME,
+  resolveNextStaffPanelTargetId,
 } = require("../Utils/Staff/staffProfilePanelRuntime");
 
 const PRIVATE_FLAG = 1 << 6;
@@ -35,11 +37,46 @@ function match(interaction) {
   const id = String(interaction?.customId || "");
   if (interaction?.isStringSelectMenu?.() && id.startsWith(`${PANEL_PREFIX}:select:`)) return true;
   if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:close:`)) return true;
+  if (interaction?.isButton?.() && id.startsWith(`${PANEL_PREFIX}:next:`)) return true;
   return false;
 }
 
 async function execute(interaction) {
   if (interaction.isButton()) {
+    if (String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:next:`)) {
+      const nextParsed = parseStaffProfileNextCustomId(interaction.customId);
+      if (!nextParsed) return false;
+      if (String(interaction.user.id) !== String(nextParsed.viewerId)) {
+        await interaction
+          .reply({
+            content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può cambiarlo.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
+      const nextTargetId = resolveNextStaffPanelTargetId(interaction.guild, nextParsed.targetId, { partnersChatPanel });
+      if (!nextTargetId) {
+        await interaction
+          .reply({
+            content: "<:vegax:1443934876440068179> Nessun altro staffer disponibile in questo pannello.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const payload = await buildStaffProfilePayload(
+        interaction.guild,
+        nextTargetId,
+        nextParsed.viewerId,
+        interaction.client,
+        SECTION_HOME,
+        { sourceMessageId: nextParsed.sourceMessageId, partnersChatPanel },
+      );
+      await safeUpdatePanelInteraction(interaction, payload);
+      return true;
+    }
     if (!String(interaction.customId || "").startsWith(`${PANEL_PREFIX}:close:`)) return false;
     const close = parseStaffProfileCloseCustomId(interaction.customId);
     if (!close) return false;

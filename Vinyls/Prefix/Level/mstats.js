@@ -34,6 +34,7 @@ module.exports = {
     const targetUser = await resolveTargetUser(message, args);
 
     let totalExp = 0;
+    let weeklyExp = 0;
     let currentStreak = 0;
     let bestStreak = 0;
     const cacheKey = `${message.guild.id}:${targetUser.id}`;
@@ -41,6 +42,7 @@ module.exports = {
     const cached = mstatsCache.get(cacheKey);
     if (cached && now < (cached.expiresAt || 0)) {
       totalExp = Number(cached.doc?.profile?.totals?.exp?.minigame?.totalExp || 0);
+      weeklyExp = Number(cached.doc?.profile?.totals?.exp?.minigame?.weeklyExp || 0);
       currentStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
       bestStreak = Number(cached.doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
     } else {
@@ -49,6 +51,7 @@ module.exports = {
           .select("profile.totals.exp.minigame")
           .lean();
         totalExp = Number(doc?.profile?.totals?.exp?.minigame?.totalExp || 0);
+        weeklyExp = Number(doc?.profile?.totals?.exp?.minigame?.weeklyExp || 0);
         currentStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
         bestStreak = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
         mstatsCache.set(cacheKey, { doc: doc || {}, expiresAt: now + MSTATS_CACHE_TTL_MS });
@@ -62,6 +65,7 @@ module.exports = {
 
     const descLines = [
       `<a:VC_Arrow:1482706699365257397> Hai un totale di \`${totalExp}\` punti (exp) <a:VC_FlowerPink:1468688049725636903>`,
+      `<a:VC_Arrow:1482706699365257397> Score settimanale minigames: \`${weeklyExp}\` punti`,
       "",
       "🎲 .ᐟ Ruoli sbloccati:",
       unlockedText,

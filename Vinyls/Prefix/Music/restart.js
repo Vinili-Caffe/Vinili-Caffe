@@ -5,7 +5,7 @@ const { restartQueueGuild } = require("../../Services/Music/lavalinkMusicService
 module.exports = {
   name: "restart",
   description:
-    "Ricomincia dall'inizio la sequenza brano in corso + coda (stesso ordine; se la ripetizione coda è attiva, aggiorna il ciclo).",
+    "Ricomincia dall'inizio la sequenza brano in corso + coda.",
   usage: "+restart",
   examples: ["+restart"],
   async execute(message) {
