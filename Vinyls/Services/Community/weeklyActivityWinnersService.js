@@ -36,6 +36,11 @@ const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
     .filter(Boolean)
     .map((id) => String(id)),
 );
+const MINIGAME_MVP_EXCLUDED_ROLE_IDS = new Set(
+  [IDs.roles.Founder]
+    .filter(Boolean)
+    .map((id) => String(id)),
+);
 
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, timeZoneName: "shortOffset", hour: "2-digit" });
@@ -351,8 +356,12 @@ function extractMapEntries(raw) {
   return [];
 }
 
-async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3) {
+async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3, excludedRoleIds = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
   const cap = Math.max(1, Math.min(25, Number(limit) || 3));
+  const excludedSet =
+    excludedRoleIds instanceof Set
+      ? excludedRoleIds
+      : new Set((Array.isArray(excludedRoleIds) ? excludedRoleIds : []).map((id) => String(id)).filter(Boolean));
   const out = [];
   for (const doc of docs) {
     if (out.length >= cap) break;
@@ -364,7 +373,7 @@ async function resolveTopThreeUsers(client, guild, docs, valueGetter, limit = 3)
     const member = guild.members.cache.get(userId) || (await guild.members.fetch(userId).catch(() => null));
     if (!member) continue;
     if (REQUIRED_MEMBER_ROLE_ID && !member.roles.cache.has(REQUIRED_MEMBER_ROLE_ID)) continue;
-    const hasExcludedRole = Array.from(WEEKLY_WINNERS_EXCLUDED_ROLE_IDS).some((roleId) => member.roles.cache.has(roleId));
+    const hasExcludedRole = Array.from(excludedSet).some((roleId) => member.roles.cache.has(roleId));
     if (hasExcludedRole) continue;
     const value = Math.max(0, Math.floor(Number(valueGetter(doc) || 0)));
     if (value <= 0) continue;
@@ -604,6 +613,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
         minigameDocs,
         (doc) => Number(doc?.profile?.totals?.exp?.minigame?.weeklyExp || 0),
         10,
+        MINIGAME_MVP_EXCLUDED_ROLE_IDS,
       );
       displayTopMinigame = uniqueRankingByUserId(topMinigame, 3);
       minigameRows = displayTopMinigame.length

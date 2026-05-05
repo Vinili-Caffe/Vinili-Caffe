@@ -1,4 +1,6 @@
-const { EmbedBuilder, PermissionsBitField, AuditLogEvent } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField, AuditLogEvent, AttachmentBuilder } = require("discord.js");
+const path = require("node:path");
+const fs = require("node:fs");
 const { DIVIDER_URL } = require("../../../shared/discord/constants");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached } = require("../Interaction/interactionEntityCache");
@@ -44,6 +46,8 @@ const SELFIE_VERIFIED_GUILDED_STYLE_SPECS = [
     title: "Nuovx Verified ⁿ^ᐟꜝ <a:VC_StarPink:1330194976440848500>",
   },
 ].filter((s) => s.roleId);
+const VERIFIED_SELFIE_IMAGE_FILENAME = "verificaselfie.png";
+const VERIFIED_SELFIE_IMAGE_PATH = path.join(__dirname, "../../Photos", VERIFIED_SELFIE_IMAGE_FILENAME);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -157,7 +161,13 @@ function buildSelfieVerifiedGuildedStyleEmbed(member, roleId, title) {
         "<a:VC_Arrow:1482706699365257397> Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).",
       ].join("\n"),
     )
-    .setFooter({ text: "Grazie per il tuo supporto!" });
+    .setFooter({ text: "Grazie per il tuo supporto!" })
+    .setImage(`attachment://${VERIFIED_SELFIE_IMAGE_FILENAME}`);
+}
+
+function buildVerifiedSelfieImageAttachment() {
+  if (!fs.existsSync(VERIFIED_SELFIE_IMAGE_PATH)) return null;
+  return new AttachmentBuilder(VERIFIED_SELFIE_IMAGE_PATH, { name: VERIFIED_SELFIE_IMAGE_FILENAME });
 }
 
 function rolesCacheChanged(oldMember, newMember) {
@@ -243,17 +253,6 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
   if (followerId && roleWasAdded(oldMember, newMember, followerId) && channel?.isTextBased?.() && allowPublic) {
     const embed = buildSocialUnlockEmbed(newMember, {
       title: "Nuovx Follower <a:VC_StarPink:1330194976440848500>",
-      description: [
-        [
-          `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${followerId}>!`,
-        "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-        "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare nickname",
-        "",
-        "<a:VC_Arrow:1482706699365257397> Seguici su [Instagram](https://instagram.com/viniliecaffe) e [TikTok](https://tiktok.com/@viniliecaffe)!",
-        ].join("\n"),
-      ],
-      footer: "Grazie per il tuo supporto!",
       roleId: followerId,
     });
     await channel.send({ content: `<@${newMember.id}>`, embeds: [embed] }).catch(() => null);
@@ -263,17 +262,6 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
   if (socialSupId && roleWasAdded(oldMember, newMember, socialSupId) && channel?.isTextBased?.() && allowPublic) {
     const embed = buildSocialUnlockEmbed(newMember, {
       title: "Nuovx Supporter <a:VC_StarPink:1330194976440848500>",
-      description: [
-        [
-          `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${socialSupId}>!`,
-        "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-        "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare nickname",
-        "",
-        "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe` o `discord.gg/viniliecaffe` nella tua bio."
-        ].join("\n"),
-      ],
-      footer: "Grazie per il tuo supporto!",
       roleId: socialSupId,
     });
     await channel.send({ content: `<@${newMember.id}>`, embeds: [embed] }).catch(() => null);
@@ -293,7 +281,10 @@ async function maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, n
       for (const spec of SELFIE_VERIFIED_GUILDED_STYLE_SPECS) {
         if (!roleWasAdded(oldMember, newMember, spec.roleId)) continue;
         const embed = buildSelfieVerifiedGuildedStyleEmbed(newMember, spec.roleId, spec.title);
-        await channel.send({ content: `<@${newMember.id}>`, embeds: [embed] }).catch(() => null);
+        const verifiedSelfieImage = buildVerifiedSelfieImageAttachment();
+        const payload = { content: `<@${newMember.id}>`, embeds: [embed] };
+        if (verifiedSelfieImage) payload.files = [verifiedSelfieImage];
+        await channel.send(payload).catch(() => null);
       }
     }
   }
