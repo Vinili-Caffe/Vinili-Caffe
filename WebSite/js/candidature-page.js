@@ -112,7 +112,7 @@
       '<div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">' +
       '<p class="m-0 font-semibold text-[#e8c9a8]"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
       '<p class="mt-2 mb-0">50 partner → Custom Role & Custom Voc per 30 giorni</p>' +
-      '<p class="mt-1 mb-0">100 partner → Ruolo <@&1442568950805430312> per 30 giorni</p>' +
+      '<p class="mt-1 mb-0">100 partner → Ruolo <span class="vc-sponsor-mention">༄ VIP</span> per 30 giorni</p>' +
       '<p class="mt-1 mb-0">150 partner → <strong>Decorazione a scelta (max 15,99 €)</strong></p>' +
       '<p class="mt-1 mb-0">200 partner -> <strong>Nitro Boost</strong></p>' +
       "</div>",
