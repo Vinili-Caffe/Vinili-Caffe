@@ -15,7 +15,7 @@ const NO_REPLY_MENTIONS = { repliedUser: false, parse: [] };
 const PAGE_ROLE_IDS = [IDs.roles.Member, IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Founder,].filter(Boolean);
 const PAGE_TITLES = { [IDs.roles.Member]: "Comandi Utente", [IDs.roles.Staff]: "Comandi Staff", [IDs.roles.HighStaff]: "Comandi High Staff", [IDs.roles.Founder]: "Comandi Dev", all: "Comandi Disponibili", };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level: "Level", minigames: "Minigames", stats: "Stats", moderation: "Moderation", admin: "Admin", staff: "Staff", vip: "VIP", dev: "Dev", };
-const CATEGORY_ORDER = ["utility", "music", "tts", "level", "minigames", "stats", "staff", "moderation", "admin", "dev",];
+const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "music", "staff", "moderation", "admin", "dev",];
 const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set(["skip", "stop", "pause", "resume", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart"]);
 const PREFIX_MUSIC_SESSION_OWNER_NOTE = " *Solo chi ha avviato la riproduzione può usarlo.*";
 const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
@@ -406,6 +406,9 @@ const OBSOLETE_SLASH_HELP_NAMES = new Set(
     .filter(Boolean),
 );
 
+/** Prefix rimossi dal progetto: non elencati in +help (copre deploy parziali o file residui). */
+const OBSOLETE_PREFIX_HELP_NAMES = new Set(["staff", "colors"]);
+
 function shouldIncludeSlashCommandInHelp(command) {
   if (!command || command.skipDeploy) return false;
   const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
@@ -419,6 +422,7 @@ function buildEntries(client, permissions) {
 
   for (const command of client.pcommands.values()) {
     if (!command?.name) continue;
+    if (OBSOLETE_PREFIX_HELP_NAMES.has(String(command.name).trim().toLowerCase())) continue;
 
     const perm = permissions.prefix?.[command.name];
     const commandRoles = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;
