@@ -29,6 +29,16 @@
     }
   }
 
+  function restoreDiscordLoginButtonVisual(btn) {
+    if (!btn) return;
+    try {
+      btn.classList.remove("discord-login-btn--loading");
+      btn.removeAttribute("aria-busy");
+      var def = btn.getAttribute("data-vc-login-default-html");
+      if (def != null) btn.innerHTML = def;
+    } catch (e) {}
+  }
+
   function isBlockingSessionVerifyPage() {
     try {
       return Boolean(window.__VC_REQUIRE_BLOCKING_SESSION_VERIFY);
@@ -293,6 +303,9 @@
       sessionStorage.setItem(OAUTH_PENDING_RETURN_KEY, currentPathPlusQuery() || "/");
     } catch (e0) {}
     if (visualBtn) {
+      if (visualBtn.getAttribute("data-vc-login-default-html") == null) {
+        visualBtn.setAttribute("data-vc-login-default-html", visualBtn.innerHTML);
+      }
       visualBtn.classList.add("discord-login-btn--loading");
       visualBtn.setAttribute("aria-busy", "true");
       visualBtn.innerHTML =
@@ -304,12 +317,18 @@
         window.vcShowPageTransition("login");
       }
     } catch (e) {}
+    var navigated = false;
     try {
       window.location.assign(u);
+      navigated = true;
     } catch (e2) {
       try {
         window.location.href = u;
+        navigated = true;
       } catch (e3) {}
+    }
+    if (!navigated && visualBtn) {
+      restoreDiscordLoginButtonVisual(visualBtn);
     }
   }
 
@@ -589,6 +608,19 @@
         });
       })(loginBtns[lk]);
     }
+    window.addEventListener(
+      "pageshow",
+      function (ev) {
+        if (!ev.persisted) return;
+        try {
+          var nodes = queryDiscordLoginButtons();
+          for (var pr = 0; pr < nodes.length; pr += 1) {
+            restoreDiscordLoginButtonVisual(nodes[pr]);
+          }
+        } catch (ePs) {}
+      },
+      false,
+    );
     try {
       window.__vcDiscordStartOAuthRedirect = function (visualBtn) {
         startDiscordOAuthFromUserGesture(visualBtn || null, "");

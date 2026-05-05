@@ -67,6 +67,8 @@ const PLUS_COLOR_ROLE_IDS = [
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
+/** Evita due invii ravvicinati se Discord emette più `guildMemberUpdate` per lo stesso boost. */
+const boostAnnounceSendLocks = new Set();
 
 function normalizeBoostAnnounceEntry(raw) {
   if (raw != null && typeof raw === "object" && !Array.isArray(raw) && typeof raw.count === "number") {
@@ -464,17 +466,18 @@ async function sendBoostEmbeds(channel, member, times, boostCount, priorAnnounce
 
 async function trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, guildId, times) {
   const mainId = String(IDs.guilds.main || "");
+  if (!mainId || String(member?.guild?.id || "") !== mainId) return;
+  if (member.user?.bot) return;
+  const add = Math.max(0, Number(times || 0));
+  if (!add) return;
+  const next = await addAnnouncedBoostSlots(guildId, member.id, add);
+
   const doubleId = IDs?.roles?.DoubleBooster;
-  if (!mainId || String(member?.guild?.id || "") !== mainId || !doubleId) return;
-  if (!member?.roles?.add || member.user?.bot) return;
+  if (!doubleId || !member?.roles?.add) return;
   const me = member.guild.members.me;
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageRoles)) return;
   const role = member.guild.roles.cache.get(doubleId);
   if (!role || role.position >= me.roles.highest.position) return;
-
-  const add = Math.max(0, Number(times || 0));
-  if (!add) return;
-  const next = await addAnnouncedBoostSlots(guildId, member.id, add);
   if (next < 2 || member.roles.cache.has(doubleId)) return;
   const ok = await member.roles.add(doubleId).then(() => true).catch(() => false);
   if (!ok) {
@@ -905,26 +908,35 @@ async function handleBoostUpdate(oldMember, newMember) {
     return;
   }
 
-  await addPerkRoleIfPossible(newMember);
-  const sendTimes = countIncreased ? boostDelta : 1;
-  const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
-  await sendBoostEmbeds(
-    boostAnnounceChannel,
-    newMember,
-    sendTimes,
-    currentCount,
-    priorSlots,
-  );
-  await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
-  rememberBoostAnnounce(boostKey, currentCount, newBoostTs);
+  if (boostAnnounceSendLocks.has(boostKey)) {
+    boostCountCache.set(guildId, currentCount);
+    return;
+  }
+  boostAnnounceSendLocks.add(boostKey);
+  try {
+    await addPerkRoleIfPossible(newMember);
+    const sendTimes = countIncreased ? boostDelta : 1;
+    const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+    await sendBoostEmbeds(
+      boostAnnounceChannel,
+      newMember,
+      sendTimes,
+      currentCount,
+      priorSlots,
+    );
+    await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
+    rememberBoostAnnounce(boostKey, currentCount, newBoostTs);
 
-  scheduleBoostFollowup(
-    boostAnnounceChannel,
-    newMember,
-    guildId,
-    boostKey,
-  );
-  boostCountCache.set(guildId, currentCount);
+    scheduleBoostFollowup(
+      boostAnnounceChannel,
+      newMember,
+      guildId,
+      boostKey,
+    );
+    boostCountCache.set(guildId, currentCount);
+  } finally {
+    boostAnnounceSendLocks.delete(boostKey);
+  }
 }
 
 async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {

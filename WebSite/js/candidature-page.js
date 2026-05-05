@@ -104,13 +104,13 @@
   var ACCESS_REQUIRED_PATH = "/candidature/accesso-richiesto/";
   var ROLE_INTRO = {
     helper:
-      '<div class="rounded-[1.2rem] border border-emerald-300/20 bg-emerald-950/20 p-4 text-sm leading-relaxed text-emerald-50/90">' +
+      '<div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">' +
       '<p class="mt-0 mb-0">È vietato essere staffer in altri server.</p>' +
-      '<p class="mt-2 mb-0 font-semibold text-emerald-100">Ogni mese viene premiato uno staffer con un Nitro Boost.</p>' +
+      '<p class="mt-2 mb-0 font-semibold text-[#e8c9a8]">Ogni mese viene premiato uno staffer con un Nitro Boost.</p>' +
       "</div>",
     partnermanager:
-      '<div class="rounded-[1.2rem] border border-amber-300/20 bg-amber-950/20 p-4 text-sm leading-relaxed text-amber-50/95">' +
-      '<p class="m-0 font-semibold"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
+      '<div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">' +
+      '<p class="m-0 font-semibold text-[#e8c9a8]"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
       '<p class="mt-2 mb-0">50 partner → Custom Role & Custom Voc per 30 giorni</p>' +
       '<p class="mt-1 mb-0">100 partner → Ruolo <@&1442568950805430312> per 30 giorni</p>' +
       '<p class="mt-1 mb-0">150 partner → <strong>Decorazione a scelta (max 15,99 €)</strong></p>' +
@@ -160,10 +160,22 @@
   }
 
   function getToken() {
-    var t = localStorage.getItem(ACCESS_TOKEN_KEY);
-    var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
-    if (!t || !exp || Date.now() >= exp) return "";
-    return t;
+    try {
+      var t = localStorage.getItem(ACCESS_TOKEN_KEY);
+      var exp = Number(localStorage.getItem(ACCESS_EXPIRES_KEY) || "0");
+      if (!t || !exp || Date.now() >= exp) return "";
+      return t;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function oauthHashPending() {
+    try {
+      return String(window.location.hash || "").indexOf("access_token=") !== -1;
+    } catch (e2) {
+      return false;
+    }
   }
 
   function fetchMe(token) {
@@ -193,8 +205,13 @@
     } catch (e) {
       path = "";
     }
-    if (path.indexOf(ACCESS_REQUIRED_PATH) !== -1) return;
-    window.location.href = accessRequiredUrl();
+    if (path.indexOf("/candidature/accesso-richiesto") !== -1) return;
+    var dest = accessRequiredUrl();
+    try {
+      window.location.replace(dest);
+    } catch (e2) {
+      window.location.href = dest;
+    }
   }
 
   var currentUser = null;
@@ -331,13 +348,18 @@
     if (!row) return false;
     if (row.eligible === true) return true;
     var c = String(row.code || "").trim().toLowerCase();
-    return (
+    if (
       c === "cooldown" ||
       c === "already_role" ||
       c === "helper_blocked" ||
       c === "no_moduli" ||
       c === "no_member_role"
-    );
+    ) {
+      return true;
+    }
+    /* Code sconosciuto ma messaggio da API: mostra comunque tab + campi (sola lettura + avviso). */
+    if (String((row && row.message) || "").trim()) return true;
+    return false;
   }
 
   function candidatureRowCode(row) {
@@ -511,6 +533,7 @@
           "Per il ruolo selezionato non puoi inviare una candidatura con questo account.",
         );
       }
+      renderFields();
       setFieldsDisabled(true);
       if (sub) sub.disabled = true;
       return;
@@ -584,11 +607,11 @@
   function renderFields() {
     var root = byId("vc-candidature-fields");
     if (!root) return;
+    var cfg = APPLICATIONS[activeKind];
+    if (!cfg || !currentUser) return;
     root.innerHTML = "";
     var intro = byId("vc-candidature-role-intro");
     if (intro) intro.innerHTML = "";
-    var cfg = APPLICATIONS[activeKind];
-    if (!cfg || !currentUser) return;
     if (intro && ROLE_INTRO[activeKind]) intro.innerHTML = ROLE_INTRO[activeKind];
     var uid = String(currentUser.id || "");
     cfg.questions.forEach(function (q) {
@@ -916,6 +939,10 @@
       var u = ev.detail && ev.detail.user;
       applyUser(u || null);
     });
+
+    if (oauthHashPending()) {
+      return;
+    }
 
     var t = getToken();
     if (t) {

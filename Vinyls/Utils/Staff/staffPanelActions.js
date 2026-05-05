@@ -264,7 +264,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+staff`).",
+        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo staff/PM. Usa **Pex** dal pannello completo (`+profile`).",
     };
   }
   const roleAfter = String(targetRoleId || "");
@@ -420,7 +420,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa il pannello High Staff (`+staff`).",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa il pannello High Staff (`+profile`).",
     };
   }
   const roleAfter = getNextLadderRoleId(roleBefore);
@@ -555,7 +555,7 @@ async function runProfileStaffDepex(guild, client, targetUser, actorUser, reason
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa il pannello High Staff (`+staff`).",
+        "<:VC_Attention:1482534443632558151> Nessun ruolo staff rilevato per il depex. Per depex manuale sui ruoli usa il pannello High Staff (`+profile`).",
     };
   }
 

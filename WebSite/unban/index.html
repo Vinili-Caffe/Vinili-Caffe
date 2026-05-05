@@ -8,6 +8,21 @@
     <meta name="author" content="{{SITE_NAME}}" />
     <meta name="robots" content="index, follow" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <script>
+      (function () {
+        try {
+          if (String(location.hash || "").indexOf("access_token=") !== -1) return;
+          var p = String(location.pathname || "").replace(/\/+$/, "") || "/";
+          if (p !== "/unban" && p !== "/unban/index.html") return;
+          var t = localStorage.getItem("vc_discord_access_token");
+          var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
+          if (t && exp && Date.now() < exp) return;
+          var u = new URL("/unban/accesso-richiesto/", location.origin);
+          u.searchParams.set("from", String(location.pathname || "") + String(location.search || ""));
+          location.replace(u.href);
+        } catch (e) {}
+      })();
+    </script>
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{{SITE_NAME}} | Richiesta unban" />
     <meta property="og:description" content="Invia una richiesta unban allo staff di {{SITE_NAME}}." />

@@ -975,7 +975,7 @@ module.exports = {
           "<:VC_Dot:1482532364222595303> **__`100`__** partner <a:vegarightarrow:1443673039156936837> **Ruolo VIP** (30 giorni)\n" +
           "<:VC_Dot:1482532364222595303> **__`150`__** partner <a:vegarightarrow:1443673039156936837> **Decorazione** a scelta (max **15,99** €)\n" +
           "<:VC_Dot:1482532364222595303> **__`200`__** partner <a:vegarightarrow:1443673039156936837> **Nitro Boost** <:VC_NitroBoost:1482532248967315627>\n\n" +
-          "> Dal pannello `+profile` (High Staff): i bottoni **scala punti** tolgono solo il saldo; per **50** e **100** lo staff usa poi i bottoni **Premio 50** / **Premio 100** per attivare CR+Voc o VIP (30 giorni). **150** e **200**: solo punti, premio a mano.\n\n" +
+          "> Dal pannello `+profile` (High Staff): le voci **scala punti** nel menu Partner tolgono solo il saldo; per **50** e **100** lo staff sceglie poi **Premio 50** / **Premio 100** per attivare CR+Voc o VIP (30 giorni). **150** e **200**: solo punti, premio a mano.\n\n" +
           `<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
           "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
         )

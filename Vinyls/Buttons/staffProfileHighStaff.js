@@ -247,7 +247,7 @@ function parseStaffHpSelect(customId) {
   const viewerId = String(parts[2] || "");
   const targetId = String(parts[3] || "");
   if (!/^\d{16,20}$/.test(viewerId) || !/^\d{16,20}$/.test(targetId)) return null;
-  if (action !== "prospect_pex") return null;
+  if (action !== "prospect_pex" && action !== "pm_hub") return null;
   const section = parseStaffHpButtonSectionToken(parts.length >= 5 ? parts[4] : "");
   const { sourceMessageId, panelMessageId } = parseTrailingStaffHpIds(parts);
   return { action, viewerId, targetId, section, sourceMessageId, panelMessageId };
@@ -294,7 +294,8 @@ function extractSourceFromStaffPanelMessage(message) {
       const sid =
         parseStaffProfileCloseCustomId(id)?.sourceMessageId ||
         parseStaffProfileSelectCustomId(id)?.sourceMessageId ||
-        parseStaffHpButton(id)?.sourceMessageId;
+        parseStaffHpButton(id)?.sourceMessageId ||
+        parseStaffHpSelect(id)?.sourceMessageId;
       if (sid) return sid;
     }
   }
@@ -401,6 +402,207 @@ async function ensureDepexFullViewer(interaction) {
 function shouldAutoDepexStaffForViewer(member) {
   if (!member?.roles?.cache) return true;
   if (Boolean(IDs.roles.Admin) && member.roles.cache.has(IDs.roles.Admin)) return false;
+  return true;
+}
+
+const STAFF_HP_PM_HUB_ACTIONS = new Set([
+  "depex_pm_only",
+  "ppm_add",
+  "ppm_remove",
+  "ppm_r50",
+  "ppm_r100",
+  "ppm_r150",
+  "ppm_r200",
+  "ppm_a50",
+  "ppm_a100",
+]);
+
+async function handlePartnerApplyPerkStaffHp(interaction, parsed) {
+  const applyTier = partnerManagerApplyPerkTierFromAction(parsed.action);
+  if (applyTier == null) return false;
+  if (String(parsed.viewerId) === String(parsed.targetId)) {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> I **premi PM** li applica **High Staff / Founder** dal tuo profilo: chiedi a qualcuno con quel ruolo.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  }
+  if (!viewerCanUsePartnerPointsPanel(interaction.member)) {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono applicare i **premi** sul profilo di un Partner Manager.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  }
+  const guildApply = interaction.guild;
+  if (!guildApply) {
+    await interaction
+      .reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG })
+      .catch(() => {});
+    return true;
+  }
+  const targetMemberApply = await guildApply.members.fetch(parsed.targetId).catch(() => null);
+  const pmRoleApply = IDs.roles.PartnerManager;
+  if (!pmRoleApply || !targetMemberApply?.roles?.cache?.has(pmRoleApply)) {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> L’applicazione premi è riservata al ruolo **Partner Manager**.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  }
+  await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
+  let applySummary = "";
+  if (applyTier === 50) {
+    const gr = await applyPartnerManagerRedeem50(guildApply.id, parsed.targetId);
+    if (gr.ok && gr.until) {
+      const ts = Math.floor(gr.until.getTime() / 1000);
+      applySummary = `**Custom Role + Custom Voc** attivi **30 giorni** (fino <t:${ts}:F>).`;
+    } else {
+      applySummary = "Applicazione **CR/Voc** non riuscita (verifica DB).";
+    }
+  } else {
+    const gr = await applyPartnerManagerRedeem100(guildApply, parsed.targetId);
+    if (!gr.ok) {
+      applySummary = "Applicazione **VIP** non riuscita (verifica DB).";
+    } else if (gr.until) {
+      const ts = Math.floor(gr.until.getTime() / 1000);
+      if (gr.vipApplied === false) {
+        applySummary = `VIP registrato fino <t:${ts}:F> — **membro assente dal server**: assegna il ruolo VIP a mano.`;
+      } else {
+        applySummary = `**Ruolo VIP** assegnato **30 giorni** (fino <t:${ts}:F>).`;
+      }
+    }
+  }
+  const logChApply = guildApply.channels.cache.get(IDs.channels?.puntiTolti);
+  const actorApply = interaction.user;
+  const targetPmUserApply = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
+  const pmMentionApply = targetPmUserApply ? String(targetPmUserApply) : `<@${parsed.targetId}>`;
+  if (logChApply) {
+    await logChApply
+      .send({
+        content:
+          `<:VC_PartnerManager:1494286911286808576> PM: ${pmMentionApply}\n` +
+          `<:VC_Staff:1494286904089247754> Operatore: ${actorApply}\n` +
+          `<:VC_reason:1478517122929004544> **Applicazione premio PM** (menu Partner **Premio ${applyTier}**, senza scalatura punti).\n` +
+          applySummary,
+      })
+      .catch(() => null);
+  }
+  await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
+  await interaction
+    .editReply({
+      content: `<:vegacheckmark:1443666279058772028> Premio **${applyTier}** applicato a ${pmMentionApply}.\n${applySummary}`,
+    })
+    .catch(() => {});
+  return true;
+}
+
+async function handlePartnerRedeemStaffHp(interaction, parsed) {
+  const redeemTier = partnerManagerRedeemTierFromAction(parsed.action);
+  if (redeemTier == null) return false;
+  if (String(parsed.viewerId) === String(parsed.targetId)) {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> Il **riscatto premi** lo usa **High Staff / Founder** sul profilo del PM: chiedi a qualcuno con quel ruolo di aprire il tuo profilo con `+profile` menzionandoti.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  }
+  if (!viewerCanUsePartnerPointsPanel(interaction.member)) {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono usare il **riscatto premi** sul profilo di un Partner Manager.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  }
+  const guild = interaction.guild;
+  if (!guild) {
+    await interaction
+      .reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG })
+      .catch(() => {});
+    return true;
+  }
+  const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
+  const pmRoleId = IDs.roles.PartnerManager;
+  if (!pmRoleId || !targetMember?.roles?.cache?.has(pmRoleId)) {
+    await interaction
+      .reply({
+        content:
+          "<:vegax:1443934876440068179> Il riscatto è riservato al ruolo **Partner Manager**.",
+        flags: PRIVATE_FLAG,
+      })
+      .catch(() => {});
+    return true;
+  }
+  await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
+  const redeemRes = await redeemPartnerManagerPointsForDisplay(guild.id, parsed.targetId, redeemTier);
+  if (!redeemRes.ok) {
+    if (redeemRes.code === "insufficient") {
+      await interaction
+        .editReply({
+          content: `<:vegax:1443934876440068179> Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${redeemTier}\`.`,
+        })
+        .catch(() => {});
+      return true;
+    }
+    await interaction
+      .editReply({
+        content: "<:vegax:1443934876440068179> Impossibile aggiornare i punti. Riprova.",
+      })
+      .catch(() => {});
+    return true;
+  }
+  const ptsBefore = redeemRes.before;
+  const ptsAfter = redeemRes.after;
+  let postRedeemNote = "";
+  if (redeemTier === 50) {
+    postRedeemNote =
+      " Per **attivare** Custom Role + Custom Voc 30g scegli **Premio 50** nel menu Partner (nessuna ulteriore scalatura punti).";
+  } else if (redeemTier === 100) {
+    postRedeemNote = " Per **assegnare** il VIP 30g scegli **Premio 100** nel menu Partner.";
+  } else if (redeemTier === 150) {
+    postRedeemNote = " Premio **decorazione** (max 15,99 €): consegna manuale.";
+  } else if (redeemTier === 200) {
+    postRedeemNote = " Premio **Nitro Boost**: consegna manuale.";
+  }
+  const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
+  const actor = interaction.user;
+  const targetPmUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
+  const pmMention = targetPmUser ? String(targetPmUser) : `<@${parsed.targetId}>`;
+  if (removedPointsChannel) {
+    await removedPointsChannel
+      .send({
+        content:
+          `<:VC_PartnerManager:1494286911286808576> PM: ${pmMention}\n` +
+          `<:VC_Staff:1494286904089247754> Operatore: ${actor}\n` +
+          `<:VC_reason:1478517122929004544> **Riscatto premio staff pagato** (\`${redeemTier}\` punti).\n` +
+          `<:VC_Partner:1482527213780729896> Saldo PM: \`${ptsBefore}\` → \`${ptsAfter}\`` +
+          (postRedeemNote ? `\n${postRedeemNote.trim()}` : ""),
+      })
+      .catch(() => null);
+  }
+  await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
+  await interaction
+    .editReply({
+      content:
+        `<:vegacheckmark:1443666279058772028> Riscattati **${redeemTier}** punti a ${pmMention}. Nuovo saldo: \`${ptsAfter}\`.` +
+        (postRedeemNote ? `\n${postRedeemNote.trim()}` : ""),
+    })
+    .catch(() => {});
   return true;
 }
 
@@ -578,9 +780,9 @@ function match(interaction) {
 
 async function execute(interaction) {
   if (interaction.isStringSelectMenu()) {
-    const parsed = parseStaffHpSelect(interaction.customId);
-    if (!parsed) return false;
-    if (String(interaction.user.id) !== parsed.viewerId) {
+    const parsedSel = parseStaffHpSelect(interaction.customId);
+    if (!parsedSel) return false;
+    if (String(interaction.user.id) !== parsedSel.viewerId) {
       await interaction
         .reply({
           content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare questi controlli.",
@@ -589,7 +791,40 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
-    if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
+    if (parsedSel.action === "pm_hub") {
+      const chosenTok = String(interaction.values?.[0] || "");
+      const subAction = decodeStaffHpButtonActionToken(chosenTok);
+      if (!STAFF_HP_PM_HUB_ACTIONS.has(subAction)) {
+        await interaction
+          .reply({
+            content: "<:vegax:1443934876440068179> Selezione non valida.",
+            flags: PRIVATE_FLAG,
+          })
+          .catch(() => {});
+        return true;
+      }
+      const parsedHub = {
+        ...parsedSel,
+        action: subAction,
+        panelMessageId: parsedSel.panelMessageId || interaction.message?.id || null,
+      };
+      if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsedHub))) return true;
+      if (subAction === "depex_pm_only" || subAction === "ppm_add" || subAction === "ppm_remove") {
+        return await openStaffHpReasonModalFromButton(interaction, parsedHub);
+      }
+      const applyTierSel = partnerManagerApplyPerkTierFromAction(subAction);
+      if (applyTierSel != null) return await handlePartnerApplyPerkStaffHp(interaction, parsedHub);
+      const redeemTierSel = partnerManagerRedeemTierFromAction(subAction);
+      if (redeemTierSel != null) return await handlePartnerRedeemStaffHp(interaction, parsedHub);
+      await interaction
+        .reply({
+          content: "<:vegax:1443934876440068179> Azione non supportata.",
+          flags: PRIVATE_FLAG,
+        })
+        .catch(() => {});
+      return true;
+    }
+    if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsedSel))) return true;
     if (!viewerIsFounder(interaction.member)) {
       await interaction
         .reply({
@@ -611,13 +846,13 @@ async function execute(interaction) {
         .catch(() => {});
       return true;
     }
-    const panelForModal = parsed.panelMessageId || interaction.message?.id || "";
+    const panelForModal = parsedSel.panelMessageId || interaction.message?.id || "";
     const modalId = buildStaffHpModalCustomId(
       chosenAction,
-      parsed.viewerId,
-      parsed.targetId,
-      parsed.section,
-      parsed.sourceMessageId,
+      parsedSel.viewerId,
+      parsedSel.targetId,
+      parsedSel.section,
+      parsedSel.sourceMessageId,
       panelForModal,
     );
     const title = TITLE_BY_ACTION[chosenAction] || "Azione staff";
@@ -639,191 +874,10 @@ async function execute(interaction) {
       return true;
     }
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
-    const applyTier = partnerManagerApplyPerkTierFromAction(parsed.action);
-    if (applyTier != null) {
-      if (String(parsed.viewerId) === String(parsed.targetId)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> I **premi PM** li applica **High Staff / Founder** dal tuo profilo: chiedi a qualcuno con quel ruolo.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      if (!viewerCanUsePartnerPointsPanel(interaction.member)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono applicare i **premi** sul profilo di un Partner Manager.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      const guildApply = interaction.guild;
-      if (!guildApply) {
-        await interaction
-          .reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG })
-          .catch(() => {});
-        return true;
-      }
-      const targetMemberApply = await guildApply.members.fetch(parsed.targetId).catch(() => null);
-      const pmRoleApply = IDs.roles.PartnerManager;
-      if (!pmRoleApply || !targetMemberApply?.roles?.cache?.has(pmRoleApply)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> L’applicazione premi è riservata al ruolo **Partner Manager**.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
-      let applySummary = "";
-      if (applyTier === 50) {
-        const gr = await applyPartnerManagerRedeem50(guildApply.id, parsed.targetId);
-        if (gr.ok && gr.until) {
-          const ts = Math.floor(gr.until.getTime() / 1000);
-          applySummary = `**Custom Role + Custom Voc** attivi **30 giorni** (fino <t:${ts}:F>).`;
-        } else {
-          applySummary = "Applicazione **CR/Voc** non riuscita (verifica DB).";
-        }
-      } else {
-        const gr = await applyPartnerManagerRedeem100(guildApply, parsed.targetId);
-        if (!gr.ok) {
-          applySummary = "Applicazione **VIP** non riuscita (verifica DB).";
-        } else if (gr.until) {
-          const ts = Math.floor(gr.until.getTime() / 1000);
-          if (gr.vipApplied === false) {
-            applySummary = `VIP registrato fino <t:${ts}:F> — **membro assente dal server**: assegna il ruolo VIP a mano.`;
-          } else {
-            applySummary = `**Ruolo VIP** assegnato **30 giorni** (fino <t:${ts}:F>).`;
-          }
-        }
-      }
-      const logChApply = guildApply.channels.cache.get(IDs.channels?.puntiTolti);
-      const actorApply = interaction.user;
-      const targetPmUserApply = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
-      const pmMentionApply = targetPmUserApply ? String(targetPmUserApply) : `<@${parsed.targetId}>`;
-      if (logChApply) {
-        await logChApply
-          .send({
-            content:
-              `<:VC_PartnerManager:1494286911286808576> PM: ${pmMentionApply}\n` +
-              `<:VC_Staff:1494286904089247754> Operatore: ${actorApply}\n` +
-              `<:VC_reason:1478517122929004544> **Applicazione premio PM** (bottone **Premio ${applyTier}**, senza scalatura punti).\n` +
-              applySummary,
-          })
-          .catch(() => null);
-      }
-      await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-      await interaction
-        .editReply({
-          content: `<:vegacheckmark:1443666279058772028> Premio **${applyTier}** applicato a ${pmMentionApply}.\n${applySummary}`,
-        })
-        .catch(() => {});
-      return true;
-    }
-    const redeemTier = partnerManagerRedeemTierFromAction(parsed.action);
-    if (redeemTier != null) {
-      if (String(parsed.viewerId) === String(parsed.targetId)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> Il **riscatto premi** lo usa **High Staff / Founder** sul profilo del PM: chiedi a qualcuno con quel ruolo di fare `+staff` menzionandoti.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      if (!viewerCanUsePartnerPointsPanel(interaction.member)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono usare il **riscatto premi** sul profilo di un Partner Manager.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      const guild = interaction.guild;
-      if (!guild) {
-        await interaction
-          .reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG })
-          .catch(() => {});
-        return true;
-      }
-      const targetMember = await guild.members.fetch(parsed.targetId).catch(() => null);
-      const pmRoleId = IDs.roles.PartnerManager;
-      if (!pmRoleId || !targetMember?.roles?.cache?.has(pmRoleId)) {
-        await interaction
-          .reply({
-            content:
-              "<:vegax:1443934876440068179> Il riscatto è riservato al ruolo **Partner Manager**.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
-        return true;
-      }
-      await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
-      const redeemRes = await redeemPartnerManagerPointsForDisplay(guild.id, parsed.targetId, redeemTier);
-      if (!redeemRes.ok) {
-        if (redeemRes.code === "insufficient") {
-          await interaction
-            .editReply({
-              content: `<:vegax:1443934876440068179> Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${redeemTier}\`.`,
-            })
-            .catch(() => {});
-          return true;
-        }
-        await interaction
-          .editReply({
-            content: "<:vegax:1443934876440068179> Impossibile aggiornare i punti. Riprova.",
-          })
-          .catch(() => {});
-        return true;
-      }
-      const ptsBefore = redeemRes.before;
-      const ptsAfter = redeemRes.after;
-      let postRedeemNote = "";
-      if (redeemTier === 50) {
-        postRedeemNote =
-          " Per **attivare** Custom Role + Custom Voc 30g usa il bottone **Premio 50** (nessuna ulteriore scalatura punti).";
-      } else if (redeemTier === 100) {
-        postRedeemNote = " Per **assegnare** il VIP 30g usa il bottone **Premio 100**.";
-      } else if (redeemTier === 150) {
-        postRedeemNote = " Premio **decorazione** (max 15,99 €): consegna manuale.";
-      } else if (redeemTier === 200) {
-        postRedeemNote = " Premio **Nitro Boost**: consegna manuale.";
-      }
-      const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
-      const actor = interaction.user;
-      const targetPmUser = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
-      const pmMention = targetPmUser ? String(targetPmUser) : `<@${parsed.targetId}>`;
-      if (removedPointsChannel) {
-        await removedPointsChannel
-          .send({
-            content:
-              `<:VC_PartnerManager:1494286911286808576> PM: ${pmMention}\n` +
-              `<:VC_Staff:1494286904089247754> Operatore: ${actor}\n` +
-              `<:VC_reason:1478517122929004544> **Riscatto premio staff pagato** (\`${redeemTier}\` punti).\n` +
-              `<:VC_Partner:1482527213780729896> Saldo PM: \`${ptsBefore}\` → \`${ptsAfter}\`` +
-              (postRedeemNote ? `\n${postRedeemNote.trim()}` : ""),
-          })
-          .catch(() => null);
-      }
-      await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-      await interaction
-        .editReply({
-          content:
-            `<:vegacheckmark:1443666279058772028> Riscattati **${redeemTier}** punti a ${pmMention}. Nuovo saldo: \`${ptsAfter}\`.` +
-            (postRedeemNote ? `\n${postRedeemNote.trim()}` : ""),
-        })
-        .catch(() => {});
-      return true;
-    }
+    const applyTierBtn = partnerManagerApplyPerkTierFromAction(parsed.action);
+    if (applyTierBtn != null) return handlePartnerApplyPerkStaffHp(interaction, parsed);
+    const redeemTierBtn = partnerManagerRedeemTierFromAction(parsed.action);
+    if (redeemTierBtn != null) return handlePartnerRedeemStaffHp(interaction, parsed);
     if (parsed.action === "pex_menu" || parsed.action === "depex_menu") {
       const targetMember = await interaction.guild?.members?.fetch?.(parsed.targetId).catch(() => null);
       if (shouldOmitPexDepexHomeRow(parsed.viewerId, parsed.targetId, targetMember)) {

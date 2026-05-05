@@ -145,7 +145,7 @@ async function execute(interaction) {
   if (interaction.isModalSubmit?.()) {
     const parsed = parseModalId(interaction.customId);
     if (!parsed) return false;
-    const { action, ownerId } = parsed;
+    const { action, ownerId, panelMessageId } = parsed;
     if (!(await ensureOwnerAndRole(interaction, ownerId, "manage"))) return true;
 
     const gid = normalizeGuildId(interaction.fields.getTextInputValue("guild_id"));

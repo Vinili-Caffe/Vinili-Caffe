@@ -1,4 +1,11 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
@@ -8,51 +15,36 @@ const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
-const { PARTNER_MANAGER_REDEEM_TIERS, partnerManagerRedeemButtonLabel } = require("./partnerPointsUtils");
+const {
+  PARTNER_MANAGER_REDEEM_TIERS,
+  partnerManagerRedeemButtonLabel,
+} = require("./partnerPointsUtils");
 const { accountUsername, userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 function resolveStaffPartnerPointsDisplay(staffObj) {
   return resolvePartnerPointsShown(staffObj);
 }
 
-/** Riscatto premi PM: solo chi apre il pannello (High Staff / Founder) sul profilo **di un altro** PM. Mostra solo tier con saldo ≥ soglia. */
-function buildPartnerManagerRedeemRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, partnerPointsShown = 0) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  const pts = Math.max(0, Math.floor(Number(partnerPointsShown || 0)));
-  const tiers = PARTNER_MANAGER_REDEEM_TIERS.filter((n) => pts >= n);
-  if (!tiers.length) return [];
-  const buttons = tiers.map((tier) =>
-    new ButtonBuilder()
-      .setCustomId(formatStaffHpButtonCustomId(`ppm_r${tier}`, v, t, sec, sourceMessageId))
-      .setLabel(partnerManagerRedeemButtonLabel(tier))
-      .setStyle(ButtonStyle.Primary),
-  );
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(new ActionRowBuilder().addComponents(...buttons.slice(i, i + 5)));
+/** Un solo menu a tendina al posto di molte righe di bottoni PM (Depex / punti / riscatti / premi). */
+function buildPartnerManagerHubSelectRow(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null, hubOptions = []) {
+  const opts = (Array.isArray(hubOptions) ? hubOptions : []).slice(0, 25);
+  if (!opts.length) return null;
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(formatStaffHpSelectCustomId("pm_hub", viewerId, targetId, section, sourceMessageId))
+    .setPlaceholder("Azioni Partner Manager…")
+    .setMinValues(1)
+    .setMaxValues(1);
+  for (let i = 0; i < opts.length; i += 1) {
+    const o = opts[i];
+    const act = String(o.action || "");
+    const val = encodeStaffHpButtonAction(act);
+    const ob = new StringSelectMenuOptionBuilder()
+      .setLabel(String(o.label || act).slice(0, 100))
+      .setValue(String(val || act).slice(0, 100));
+    if (o.description) ob.setDescription(String(o.description).slice(0, 100));
+    menu.addOptions(ob);
   }
-  return rows;
-}
-
-/** Premi 50/100: applicazione permessi/ruolo (bottoni separati dal riscatto punti). */
-function buildPartnerManagerApplyPerkRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_a50", v, t, sec, sourceMessageId))
-        .setLabel("Premio 50 · CR+Voc 30g")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_a100", v, t, sec, sourceMessageId))
-        .setLabel("Premio 100 · VIP 30g")
-        .setStyle(ButtonStyle.Success),
-    ),
-  ];
+  return new ActionRowBuilder().addComponents(menu);
 }
 const PANEL_PREFIX = "staff_profile_panel";
 const STAFF_HP_PREFIX = "staff_hp";
@@ -535,49 +527,46 @@ function buildHighStaffActionRows(
   return [];
 }
 
-function buildPmOnlyPartnerRows(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("depex_pm_only", v, t, sec, sourceMessageId))
-        .setLabel("Depex")
-        .setEmoji("<a:VC_Cross:1482532424570376253>")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, sourceMessageId))
-        .setLabel("Aggiungi punti")
-        .setEmoji("<:thumbsup:1471292172145004768>")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
-        .setLabel("Rimuovi punti")
-        .setEmoji("<:thumbsdown:1471292163957457013>")
-        .setStyle(ButtonStyle.Danger),
-    ),
-  ];
-}
-
-function buildPartnerPointsOnlyRow(viewerId, targetId, section = SECTION_HOME, sourceMessageId = null) {
-  const v = String(viewerId);
-  const t = String(targetId);
-  const sec = String(section || SECTION_HOME).toLowerCase();
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_add", v, t, sec, sourceMessageId))
-        .setLabel("Aggiungi punti")
-        .setEmoji("<:thumbsup:1471292172145004768>")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId(formatStaffHpButtonCustomId("ppm_remove", v, t, sec, sourceMessageId))
-        .setLabel("Rimuovi punti")
-        .setEmoji("<:thumbsdown:1471292163957457013>")
-        .setStyle(ButtonStyle.Danger),
-    ),
-  ];
+function buildPartnerManagerHubOptions({
+  sec,
+  canHsPartnerPoints,
+  usePartnersChatPmPanel,
+  omitPexDepexHome,
+  showHsPexDepexOnHome,
+  profileKind,
+  hasPm,
+  viewerId,
+  targetId,
+  viewerCanPartnerPointsPanel,
+  partnerPtsForRedeem,
+}) {
+  const hubOpts = [];
+  const tid = String(targetId || "");
+  const vid = String(viewerId || "");
+  if (sec === SECTION_HOME && canHsPartnerPoints) {
+    if (usePartnersChatPmPanel) {
+      if (!omitPexDepexHome) hubOpts.push({ action: "depex_pm_only", label: "Depex" });
+      hubOpts.push({ action: "ppm_add", label: "Aggiungi punti" }, { action: "ppm_remove", label: "Rimuovi punti" });
+    } else if (profileKind === PROFILE_FULL && hasPm) {
+      hubOpts.push({ action: "ppm_add", label: "Aggiungi punti" }, { action: "ppm_remove", label: "Rimuovi punti" });
+    } else if (profileKind === PROFILE_PM_ONLY) {
+      if (!(omitPexDepexHome || showHsPexDepexOnHome)) hubOpts.push({ action: "depex_pm_only", label: "Depex" });
+      hubOpts.push({ action: "ppm_add", label: "Aggiungi punti" }, { action: "ppm_remove", label: "Rimuovi punti" });
+    }
+  }
+  const pmStaffEconomy =
+    sec === SECTION_HOME && hasPm && vid !== tid && viewerCanPartnerPointsPanel;
+  if (pmStaffEconomy) {
+    const pts = Math.max(0, Math.floor(Number(partnerPtsForRedeem || 0)));
+    for (const tier of PARTNER_MANAGER_REDEEM_TIERS.filter((n) => pts >= n)) {
+      hubOpts.push({ action: `ppm_r${tier}`, label: partnerManagerRedeemButtonLabel(tier) });
+    }
+    hubOpts.push(
+      { action: "ppm_a50", label: "Premio 50 · CR+Voc 30g" },
+      { action: "ppm_a100", label: "Premio 100 · VIP 30g" },
+    );
+  }
+  return hubOpts;
 }
 
 function shouldAttachHighStaffActions(
@@ -832,33 +821,25 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
       member,
     ) &&
     !omitPexDepexHome;
-  let partnerHomeRows = [];
-  if (sec === SECTION_HOME && canHsPartnerPoints) {
-    const vPts = String(viewerId);
-    if (usePartnersChatPmPanel) {
-      partnerHomeRows = omitPexDepexHome
-        ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
-        : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
-    }
-    else if (profileKind === PROFILE_FULL && hasPm) partnerHomeRows = buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId);
-    else if (profileKind === PROFILE_PM_ONLY) {
-      partnerHomeRows =
-        omitPexDepexHome || showHsPexDepexOnHome
-          ? buildPartnerPointsOnlyRow(vPts, tid, SECTION_HOME, sourceMessageId)
-          : buildPmOnlyPartnerRows(vPts, tid, SECTION_HOME, sourceMessageId);
-    }
-  }
-
   const partnerPtsForRedeem = resolveStaffPartnerPointsDisplay(s);
-  const pmStaffRedeemRows =
-    sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
-      ? buildPartnerManagerRedeemRows(String(viewerId), tid, SECTION_HOME, sourceMessageId, partnerPtsForRedeem)
-      : [];
-  const pmStaffApplyRows =
-    sec === SECTION_HOME && hasPm && String(viewerId) !== tid && viewerCanPartnerPointsPanel
-      ? buildPartnerManagerApplyPerkRows(String(viewerId), tid, SECTION_HOME, sourceMessageId)
-      : [];
-  const homeBottomRows = [...partnerHomeRows, ...pmStaffRedeemRows, ...pmStaffApplyRows];
+  const partnerHubOpts = buildPartnerManagerHubOptions({
+    sec,
+    canHsPartnerPoints,
+    usePartnersChatPmPanel,
+    omitPexDepexHome,
+    showHsPexDepexOnHome,
+    profileKind,
+    hasPm,
+    viewerId,
+    targetId: tid,
+    viewerCanPartnerPointsPanel,
+    partnerPtsForRedeem,
+  });
+  const partnerHubRow =
+    partnerHubOpts.length > 0
+      ? buildPartnerManagerHubSelectRow(String(viewerId), tid, SECTION_HOME, sourceMessageId, partnerHubOpts)
+      : null;
+  const homeBottomRows = partnerHubRow ? [partnerHubRow] : [];
 
   const profileKindForSelect = usePartnersChatPmPanel ? PROFILE_PM_ONLY : profileKind;
   const selectRow = buildProfileSelectRow(String(viewerId), tid, sec, profileKindForSelect, sourceMessageId, {

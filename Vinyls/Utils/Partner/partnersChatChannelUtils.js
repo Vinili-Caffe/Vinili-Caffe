@@ -50,7 +50,7 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel, options = {
   const safe = tid && /^\d{16,22}$/.test(String(tid).trim()) ? String(tid).trim() : "";
   const hint = safe ? ` Spostati in <#${safe}>.` : " Apri il thread **Comandi PM** (sotto #partners-chat).";
   return (
-    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e `+staff` in vista PM vanno usati solo nel **thread Comandi PM**, non qui." +
+    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Comandi PM**, non qui." +
     hint
   );
 }

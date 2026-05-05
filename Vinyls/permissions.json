@@ -96,15 +96,6 @@
                 "channels.staffCmds"
             ]
         },
-        "colors": {
-            "roles": [
-                "roles.Member"
-            ],
-            "channels": [
-                "channels.commands",
-                "channels.staffCmds"
-            ]
-        },
         "evento": {
             "roles": [
                 "roles.Staff",
@@ -641,16 +632,6 @@
                 "channels.vocaleSquad1",
                 "channels.vocaleSquad2",
                 "channels.vocaleSquad3",
-                "channels.staffCmds"
-            ]
-        },
-        "staff": {
-            "roles": [
-                "roles.Staff",
-                "roles.PartnerManager"
-            ],
-            "channels": [
-                "channels.partnersChat",
                 "channels.staffCmds"
             ]
         },
