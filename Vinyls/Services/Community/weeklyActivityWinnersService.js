@@ -29,6 +29,10 @@ const MONTHLY_VOTER_ROLE_RANK_2 = IDs.roles.VIP;
 const MONTHLY_VOTER_ROLE_RANK_3 = IDs.roles.Donator;
 const MONTHLY_VOTER_REWARD_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const MONTHLY_VOTER_REWARD_PATH = "profile.totals.exp.monthlyVoteTopReward";
+const MONTHLY_TOP_REWARD_ROLE_RANK_2 = IDs.roles.VIPplus || IDs.roles["VIP+"];
+const MONTHLY_TOP_REWARD_ROLE_RANK_3 = IDs.roles.VIP;
+const MONTHLY_TOP_REWARD_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+const MONTHLY_TOP_REWARD_PATH = "profile.totals.exp.monthlyTopReward";
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
   [
@@ -528,10 +532,12 @@ async function updateWeeklyWinnerRoles(guild, topMessages, topVoice, topMinigame
 
 async function updateMonthlyWinnerRoles(guild, topCombined) {
   const first = Array.isArray(topCombined) && topCombined.length ? topCombined[0] : null;
-  if (!MONTHLY_MEMBER_ROLE_ID) return { topMonthlyWinner: first };
+  const second = Array.isArray(topCombined) && topCombined.length > 1 ? topCombined[1] : null;
+  const third = Array.isArray(topCombined) && topCombined.length > 2 ? topCombined[2] : null;
+  if (!MONTHLY_MEMBER_ROLE_ID) return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
   await removeRoleFromAllMembers(guild, MONTHLY_MEMBER_ROLE_ID);
   await assignRoleToUser(guild, first?.userId, MONTHLY_MEMBER_ROLE_ID);
-  return { topMonthlyWinner: first };
+  return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
 }
 
 function buildEmptyLine(kind) {
@@ -763,9 +769,13 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   const combinedRows = displayTopCombined.length
     ? displayTopCombined.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp totali"))
     : [buildEmptyLine("EXP totali (chat + vocale)")];
-  let awarded = { topMonthlyWinner: null, monthlyVotersTop: [] };
+  let awarded = { topMonthlyWinner: null, monthlyTopSecond: null, monthlyTopThird: null, monthlyVotersTop: [] };
   if (options.skipMonthlyRoles) {
-    awarded = { topMonthlyWinner: displayTopCombined[0] || null };
+    awarded = {
+      topMonthlyWinner: displayTopCombined[0] || null,
+      monthlyTopSecond: displayTopCombined[1] || null,
+      monthlyTopThird: displayTopCombined[2] || null,
+    };
   } else {
     awarded = await updateMonthlyWinnerRoles(guild, displayTopCombined);
   }
@@ -773,7 +783,9 @@ async function publishMonthlyActivityWinners(client, options = {}) {
   awarded.monthlyVotersTop = monthlyVotersTop;
   if (!options.skipMonthlyRoles) {
     await cleanupExpiredMonthlyVoterRewards(guild).catch(() => null);
+    await cleanupExpiredMonthlyTopRewards(guild).catch(() => null);
     await assignMonthlyVoterRewards(guild, monthlyVotersTop).catch(() => null);
+    await assignMonthlyTopRewards(guild, displayTopCombined).catch(() => null);
   }
   const voterRows = monthlyVotersTop.length
     ? monthlyVotersTop.map((item, index) => {
@@ -785,13 +797,27 @@ async function publishMonthlyActivityWinners(client, options = {}) {
       return `${TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.value}** *voti* · \`${rewardLabel}\``;
     })
     : [buildEmptyLine("voti del mese scorso")];
+  const monthlyRewardRows = [
+    displayTopCombined[0]?.userId
+      ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${displayTopCombined[0].userId}> <a:VC_Arrow:1482706699365257397> <@&${MONTHLY_MEMBER_ROLE_ID}> + **Nitro Boost**`
+      : `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} Nessun vincitore`,
+    displayTopCombined[1]?.userId
+      ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${displayTopCombined[1].userId}> <a:VC_Arrow:1482706699365257397> **VIP+ (30 giorni) + Decorazione a scolta (max 15,99€)**`
+      : `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} Nessun vincitore`,
+    displayTopCombined[2]?.userId
+      ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${displayTopCombined[2].userId}> <a:VC_Arrow:1482706699365257397> **VIP (30 giorni) + Nitro Basic**`
+      : `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} Nessun vincitore`,
+  ];
   const embedDescLines = [
-    `<:VC_Leaderboard:1482534806314287387> // **${monthNameLabel}** — I vantaggi sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    `<:VC_Leaderboard:1482534806314287387> // **${monthNameLabel}** — I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
     "",
-    `<a:VC_HeartsPink:1468685897389052008> • **Classifica EXP totale:**`,
+    `<a:VC_HeartsPink:1468685897389052008> • **Classifica mensile EXP totale:**`,
     ...combinedRows,
     "",
-    `<a:VC_HeartsPink:1468685897389052008> • **Top 3 voters:**`,
+    `<a:VC_Winner:1482535294757507255> • **Premi Top Monthly:**`,
+    ...monthlyRewardRows,
+    "",
+    `<a:VC_HeartsBlue:1468686100045369404> • **Top Voters:**`,
     ...voterRows,
   ];
   const embed = new EmbedBuilder()
@@ -800,6 +826,10 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     .setThumbnail(guildIconUrl(guild, { size: 256 }) || null);
   const winnerTotal = Number(awarded?.topMonthlyWinner?.value || 0);
   const winnerMention = awarded?.topMonthlyWinner?.userId ? `<@${awarded.topMonthlyWinner.userId}>` : "Nessun vincitore";
+  const secondTotal = Number(awarded?.monthlyTopSecond?.value || 0);
+  const secondMention = awarded?.monthlyTopSecond?.userId ? `<@${awarded.monthlyTopSecond.userId}>` : null;
+  const thirdTotal = Number(awarded?.monthlyTopThird?.value || 0);
+  const thirdMention = awarded?.monthlyTopThird?.userId ? `<@${awarded.monthlyTopThird.userId}>` : null;
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("Chat")
@@ -821,21 +851,42 @@ async function publishMonthlyActivityWinners(client, options = {}) {
     const roleMention = MONTHLY_MEMBER_ROLE_ID ? `<@&${MONTHLY_MEMBER_ROLE_ID}>` : "il ruolo Top Monthly";
     const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
     const votersRoleTextByIndex = ["VIP+", "VIP", "Donator"];
+    const voter1 = monthlyVotersTop[0];
+    const voter2 = monthlyVotersTop[1];
+    const voter3 = monthlyVotersTop[2];
     const votersTextLine = monthlyVotersTop.length
-      ? `\n<a:VC_Arrow:1482706699365257397> Top voters: ${monthlyVotersTop
-        .map((row, idx) => `${TROPHY_LABELS[idx] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${row.userId}> (**${row.value} voti**, ${votersRoleTextByIndex[idx] || "reward"} 30 giorni)`)
-        .join(" • ")}.`
+      ? [
+        "\n<a:VC_Arrow:1482706699365257397> **Top Voters:**",
+        voter1
+          ? `<a:VC_Arrow:1482706699365257397> ${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> · **${voter1.value} voti** · ${votersRoleTextByIndex[0]} 30 giorni`
+          : null,
+        voter2
+          ? `<a:VC_Arrow:1482706699365257397> ${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> · **${voter2.value} voti** · ${votersRoleTextByIndex[1]} 30 giorni`
+          : null,
+        voter3
+          ? `<a:VC_Arrow:1482706699365257397> ${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> · **${voter3.value} voti** · ${votersRoleTextByIndex[2]} 30 giorni`
+          : null,
+      ].filter(Boolean).join("\n")
       : "";
     const roleLine =
       awarded?.topMonthlyWinner?.userId && MONTHLY_MEMBER_ROLE_ID
         ? `\n<a:VC_Arrow:1482706699365257397> Il primo in classifica riceve ${roleMention} e un **Nitro Boost** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`.`
         : "";
+    const secondLine = secondMention
+      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **Decorazione a scolta (max 15,99€)** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`..`
+      : "";
+    const thirdLine = thirdMention
+      ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite <#1442569095068254219> \`HIGH STAFF\`..`
+      : "";
     try {
       await channel.send({
         content: `<@&1442568949605597264>
 ${introLine}
 
-<a:VC_Arrow:1482706699365257397> Con un totale di **${winnerTotal} EXP**, ${winnerMention} ottiene il primo posto della **__classifica mensile__**.${roleLine}
+<a:VC_Arrow:1482706699365257397> Con un totale di **${winnerTotal} EXP**, ${winnerMention} ottiene il primo posto della **__classifica mensile__**.
+${roleLine}
+${secondLine}
+${thirdLine}
 ${votersTextLine}
 _ _`,
         embeds: [embed],
@@ -893,11 +944,12 @@ function monthlyVoterRewardRoleByRank(rankIndex) {
 
 async function cleanupExpiredMonthlyVoterRewards(guild) {
   const now = new Date();
+  const nowMs = Date.now();
   const rows = await ActivityUserProfile.find({
     guildId: guild.id,
     [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: { $lte: now },
   })
-    .select(`userId ${MONTHLY_VOTER_REWARD_PATH}`)
+    .select(`userId ${MONTHLY_VOTER_REWARD_PATH} ${MONTHLY_TOP_REWARD_PATH}`)
     .lean()
     .catch(() => []);
   for (const row of rows) {
@@ -905,7 +957,8 @@ async function cleanupExpiredMonthlyVoterRewards(guild) {
     const reward = row?.profile?.totals?.exp?.monthlyVoteTopReward || null;
     const roleId = String(reward?.roleId || "");
     const hadRoleBefore = Boolean(reward?.hadRoleBefore);
-    if (userId && roleId && !hadRoleBefore) {
+    const keepByTopReward = hasActiveMonthlyTopRewardOnRole(row, roleId, nowMs);
+    if (userId && roleId && !hadRoleBefore && !keepByTopReward) {
       const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
       if (member?.roles?.cache?.has(roleId)) {
         await member.roles.remove(roleId).catch(() => null);
@@ -951,6 +1004,105 @@ async function assignMonthlyVoterRewards(guild, ranking) {
           [`${MONTHLY_VOTER_REWARD_PATH}.expiresAt`]: new Date(now + MONTHLY_VOTER_REWARD_DURATION_MS),
           [`${MONTHLY_VOTER_REWARD_PATH}.hadRoleBefore`]: hadRoleBefore,
           [`${MONTHLY_VOTER_REWARD_PATH}.monthKey`]: voteCountMonthKeyRome(new Date(now)),
+        },
+      },
+    ).catch(() => null);
+  }
+}
+
+function monthlyTopRewardRoleByRank(rankIndex) {
+  if (rankIndex === 1) return MONTHLY_TOP_REWARD_ROLE_RANK_2;
+  if (rankIndex === 2) return MONTHLY_TOP_REWARD_ROLE_RANK_3;
+  return null;
+}
+
+function hasActiveMonthlyTopRewardOnRole(profile, roleId, now = Date.now()) {
+  const role = String(roleId || "");
+  if (!role) return false;
+  const reward = profile?.profile?.totals?.exp?.monthlyTopReward || null;
+  if (String(reward?.roleId || "") !== role) return false;
+  const expiresAt = Number(new Date(reward?.expiresAt || 0).getTime() || 0);
+  return expiresAt > now;
+}
+
+function hasActiveMonthlyVoterRewardOnRole(profile, roleId, now = Date.now()) {
+  const role = String(roleId || "");
+  if (!role) return false;
+  const reward = profile?.profile?.totals?.exp?.monthlyVoteTopReward || null;
+  if (String(reward?.roleId || "") !== role) return false;
+  const expiresAt = Number(new Date(reward?.expiresAt || 0).getTime() || 0);
+  return expiresAt > now;
+}
+
+async function cleanupExpiredMonthlyTopRewards(guild) {
+  const now = new Date();
+  const nowMs = Date.now();
+  const rows = await ActivityUserProfile.find({
+    guildId: guild.id,
+    [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: { $lte: now },
+  })
+    .select(`userId ${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+    .lean()
+    .catch(() => []);
+  for (const row of rows) {
+    const userId = String(row?.userId || "");
+    const reward = row?.profile?.totals?.exp?.monthlyTopReward || null;
+    const roleId = String(reward?.roleId || "");
+    const hadRoleBefore = Boolean(reward?.hadRoleBefore);
+    const keepByVoterReward = hasActiveMonthlyVoterRewardOnRole(row, roleId, nowMs);
+    if (userId && roleId && !hadRoleBefore && !keepByVoterReward) {
+      const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+      if (member?.roles?.cache?.has(roleId)) {
+        await member.roles.remove(roleId).catch(() => null);
+      }
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId },
+      { $unset: { [MONTHLY_TOP_REWARD_PATH]: "" } },
+    ).catch(() => null);
+  }
+}
+
+async function assignMonthlyTopRewards(guild, ranking) {
+  const now = Date.now();
+  for (let i = 1; i <= 2; i += 1) {
+    const row = Array.isArray(ranking) ? ranking[i] : null;
+    const userId = String(row?.userId || "");
+    const roleId = String(monthlyTopRewardRoleByRank(i) || "");
+    if (!userId || !roleId) continue;
+    const member = await getGuildMemberCached(guild, userId, { preferFresh: true }).catch(() => null);
+    if (!member) continue;
+    const existing = await ActivityUserProfile.findOne({ guildId: guild.id, userId })
+      .select(`${MONTHLY_TOP_REWARD_PATH} ${MONTHLY_VOTER_REWARD_PATH}`)
+      .lean()
+      .catch(() => null);
+    const existingReward = existing?.profile?.totals?.exp?.monthlyTopReward || null;
+    const existingRoleId = String(existingReward?.roleId || "");
+    const existingHadRoleBefore = Boolean(existingReward?.hadRoleBefore);
+    const keepByVoterReward = hasActiveMonthlyVoterRewardOnRole(existing, existingRoleId, now);
+    if (
+      existingRoleId &&
+      existingRoleId !== roleId &&
+      !existingHadRoleBefore &&
+      !keepByVoterReward &&
+      member.roles.cache.has(existingRoleId)
+    ) {
+      await member.roles.remove(existingRoleId).catch(() => null);
+    }
+    const hadRoleBefore = member.roles.cache.has(roleId);
+    if (!hadRoleBefore) {
+      await member.roles.add(roleId).catch(() => null);
+    }
+    await ActivityUserProfile.updateOne(
+      { guildId: guild.id, userId },
+      {
+        $set: {
+          [`${MONTHLY_TOP_REWARD_PATH}.rank`]: i + 1,
+          [`${MONTHLY_TOP_REWARD_PATH}.roleId`]: roleId,
+          [`${MONTHLY_TOP_REWARD_PATH}.awardedAt`]: new Date(now),
+          [`${MONTHLY_TOP_REWARD_PATH}.expiresAt`]: new Date(now + MONTHLY_TOP_REWARD_DURATION_MS),
+          [`${MONTHLY_TOP_REWARD_PATH}.hadRoleBefore`]: hadRoleBefore,
+          [`${MONTHLY_TOP_REWARD_PATH}.monthKey`]: voteCountMonthKeyRome(new Date(now)),
         },
       },
     ).catch(() => null);
@@ -1020,8 +1172,9 @@ function startWeeklyActivityWinnersLoop(client) {
           null;
         if (!guild) return;
         await cleanupExpiredMonthlyVoterRewards(guild);
+        await cleanupExpiredMonthlyTopRewards(guild);
       } catch (error) {
-        global.logger.error("[MONTHLY VOTERS] Daily expiry cleanup failed:", error);
+        global.logger.error("[MONTHLY REWARDS] Daily expiry cleanup failed:", error);
       }
     },
     { timezone: TIME_ZONE },
@@ -1084,8 +1237,9 @@ function startWeeklyActivityWinnersLoop(client) {
         null;
       if (!guild) return;
       await cleanupExpiredMonthlyVoterRewards(guild);
+      await cleanupExpiredMonthlyTopRewards(guild);
     } catch (err) {
-      global.logger?.error?.("[MONTHLY VOTERS] Startup expiry cleanup failed:", err);
+      global.logger?.error?.("[MONTHLY REWARDS] Startup expiry cleanup failed:", err);
     }
   }, 20_000);
 }
