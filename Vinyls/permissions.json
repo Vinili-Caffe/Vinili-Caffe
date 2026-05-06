@@ -34,16 +34,6 @@
                 ]
             }
         },
-        "role": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "subcommands": {
-                "all": [
-                    "roles.HighStaff"
-                ]
-            }
-        },
         "say": {
             "roles": [
                 "roles.Founder"
@@ -168,8 +158,7 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.staffCmds",
-                "channels.chat"
+                "channels.staffCmds"
             ]
         },
         "ping": {

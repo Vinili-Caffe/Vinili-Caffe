@@ -1,7 +1,7 @@
 const config = require("../config.json");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
-const { startStaffListPeriodicRefreshLoop } = require("../Utils/Community/staffListUtils");
+const { scheduleStaffListRefresh } = require("../Utils/Community/staffListUtils");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const {
   shouldRunDiscadiaVoteMonthRepairOnStartup,
@@ -740,9 +740,9 @@ module.exports = {
       }
     }
     try {
-      startStaffListPeriodicRefreshLoop(client);
+      scheduleStaffListRefresh(client, IDs.guilds.main, 2000, { force: false });
     } catch (err) {
-      global.logger?.error?.("[STAFF LIST] periodic loop start failed:", err?.message || err);
+      global.logger?.error?.("[STAFF LIST] startup refresh schedule failed:", err?.message || err);
     }
     if (primaryScheduler) {
       try {

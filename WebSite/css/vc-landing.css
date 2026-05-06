@@ -1,3 +1,15 @@
+.vc-reviews-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 14px 0 12px;
+}
+
+.vc-reviews-pager__meta {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
 :root {
   --vc-sand: #d4a888;
   --vc-mocha: #6f4e37;

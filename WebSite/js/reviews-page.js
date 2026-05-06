@@ -8,6 +8,11 @@
     deepLinkAppliedId: "",
     reviewsWs: null,
     reviewsWsReconnectTimer: null,
+    reviewsPager: {
+      page: 1,
+      perPage: 8,
+      totalPages: 1,
+    },
     draft: {
       server: { rating: 5, content: "" },
     },
@@ -71,8 +76,12 @@
     state.payload = null;
     state.replyOpenId = null;
     state.editModalOpen = false;
+    state.reviewsPager.page = 1;
+    state.reviewsPager.totalPages = 1;
     var serverWrap = byId("vc-reviews-server-list");
     if (serverWrap) serverWrap.innerHTML = "";
+    var pager = byId("vc-reviews-pager");
+    if (pager) pager.innerHTML = "";
     closeEditModalDom();
   }
 
@@ -347,6 +356,93 @@
     return out;
   }
 
+  function reviewTs(review) {
+    if (!review || typeof review !== "object") return 0;
+    var upd = new Date(review.updatedAt || 0).getTime();
+    if (Number.isFinite(upd) && upd > 0) return upd;
+    var created = new Date(review.createdAt || 0).getTime();
+    if (Number.isFinite(created) && created > 0) return created;
+    return 0;
+  }
+
+  function sortedReviewsNewestFirst(reviews) {
+    var list = Array.isArray(reviews) ? reviews.slice() : [];
+    list.sort(function (a, b) {
+      var dt = reviewTs(b) - reviewTs(a);
+      if (dt !== 0) return dt;
+      return String(b && b.id ? b.id : "").localeCompare(String(a && a.id ? a.id : ""));
+    });
+    return list;
+  }
+
+  function extractDeepLinkReviewId() {
+    try {
+      var h = String(window.location.hash || "").trim();
+      if (!h || h.indexOf("#vc-review-") !== 0) return "";
+      var raw = h.slice("#vc-review-".length).trim();
+      return /^[a-f0-9]{24}$/i.test(raw) ? raw : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function ensurePageIncludesDeepLink(sortedReviews) {
+    var reviewId = extractDeepLinkReviewId();
+    if (!reviewId) return;
+    var idx = -1;
+    for (var i = 0; i < sortedReviews.length; i += 1) {
+      if (String(sortedReviews[i] && sortedReviews[i].id || "") === reviewId) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return;
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    state.reviewsPager.page = Math.floor(idx / perPage) + 1;
+  }
+
+  function getPagedReviews(sortedReviews) {
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    var total = sortedReviews.length;
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var currentPage = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
+    state.reviewsPager.page = currentPage;
+    state.reviewsPager.totalPages = totalPages;
+    var start = (currentPage - 1) * perPage;
+    var end = start + perPage;
+    return sortedReviews.slice(start, end);
+  }
+
+  function renderReviewsPager(totalItems) {
+    var host = byId("vc-reviews-status");
+    if (!host || !host.parentNode) return;
+    var pager = byId("vc-reviews-pager");
+    if (!pager) {
+      pager = document.createElement("div");
+      pager.id = "vc-reviews-pager";
+      pager.className = "vc-reviews-pager";
+      host.parentNode.insertBefore(pager, host);
+    }
+    var totalPages = Math.max(1, Number(state.reviewsPager.totalPages || 1));
+    var page = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
+    if (Number(totalItems || 0) <= Number(state.reviewsPager.perPage || 8)) {
+      pager.innerHTML = "";
+      return;
+    }
+    pager.innerHTML =
+      '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-prev' +
+      (page <= 1 ? " disabled" : "") +
+      ">Precedente</button>" +
+      '<span class="vc-reviews-pager__meta">Pagina ' +
+      esc(String(page)) +
+      " / " +
+      esc(String(totalPages)) +
+      "</span>" +
+      '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-next' +
+      (page >= totalPages ? " disabled" : "") +
+      ">Successiva</button>";
+  }
+
   function emptyMarkup(icon, title, text) {
     return (
       '<article class="vc-reviews-empty">' +
@@ -532,9 +628,13 @@
     if (!serverWrap) return;
 
     var serverReviews = Array.isArray(payload.reviews && payload.reviews.server) ? payload.reviews.server : [];
-    serverWrap.innerHTML = serverReviews.length
-      ? serverReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
+    var orderedReviews = sortedReviewsNewestFirst(serverReviews);
+    ensurePageIncludesDeepLink(orderedReviews);
+    var pageReviews = getPagedReviews(orderedReviews);
+    serverWrap.innerHTML = orderedReviews.length
+      ? pageReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
       : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
+    renderReviewsPager(orderedReviews.length);
     syncReviewFormModal();
     syncReviewHeadButton();
     bind();
@@ -544,6 +644,21 @@
   }
 
   function bind() {
+    var prevBtn = document.querySelector("[data-reviews-page-prev]");
+    if (prevBtn) {
+      prevBtn.addEventListener("click", function () {
+        state.reviewsPager.page = Math.max(1, Number(state.reviewsPager.page || 1) - 1);
+        render();
+      });
+    }
+    var nextBtn = document.querySelector("[data-reviews-page-next]");
+    if (nextBtn) {
+      nextBtn.addEventListener("click", function () {
+        state.reviewsPager.page = Math.max(1, Number(state.reviewsPager.page || 1) + 1);
+        render();
+      });
+    }
+
     var taModal = byId("vc-review-modal-content");
     if (taModal) {
       taModal.addEventListener("input", function () {

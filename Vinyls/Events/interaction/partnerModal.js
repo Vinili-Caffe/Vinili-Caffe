@@ -6,22 +6,20 @@ const IDs = require("../../Utils/Config/ids");
 const { isPartnershipGuildBlacklisted } = require("../../Services/Partner/partnershipBlacklistService");
 const { getGuildMemberCached, getGuildChannelCached, getClientChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername, guildIconUrl, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-const {
-  partnersChatPartnerCommandDeniedReplyContent,
-  schedulePartnersDeniedDeleteReply,
-} = require("../../Utils/Partner/partnersChatChannelUtils");
+const { partnersChatPartnerCommandDeniedReplyContent } = require("../../Utils/Partner/partnersChatChannelUtils");
 const { resolvePartnerPointsShown } = require("../../Utils/Staff/partnerPointsDisplayUtils");
 const { maybeSendPartnerManagerRewardMilestoneDms } = require("../../Utils/Staff/partnerManagerMilestoneDm");
 const { runImmediatePartnerAuditForUser } = require("../../Services/Partner/partnerAuditService");
 const { checkSamePartnerTargetCooldown } = require("../../Utils/Partner/partnerSameTargetCooldown");
 
-const EPHEMERAL_FLAG = 1 << 6;
-
 async function partnerModalReply(interaction, payload) {
-  if (interaction.deferred || interaction.replied) {
+  if (interaction.deferred && !interaction.replied) {
     return interaction.editReply(payload).catch(() => null);
   }
-  return interaction.reply({ ...payload, flags: (payload.flags ?? 0) | EPHEMERAL_FLAG }).catch(() => null);
+  if (interaction.replied) {
+    return interaction.followUp(payload).catch(() => null);
+  }
+  return interaction.reply(payload).catch(() => null);
 }
 
 function extractInviteCode(text) {
@@ -101,10 +99,9 @@ async function handlePartnerModal(interaction) {
       content: deniedChannel,
       flags: 1 << 6,
     }).catch(() => {});
-    schedulePartnersDeniedDeleteReply(interaction);
     return true;
   }
-  await interaction.deferReply({ flags: EPHEMERAL_FLAG }).catch(() => {});
+  await interaction.deferReply().catch(() => {});
   if (!interaction.member.roles.cache.has(IDs.roles.PartnerManager)) {
     await partnerModalReply(interaction, {
       embeds: [
@@ -385,7 +382,7 @@ async function handlePartnerModal(interaction) {
       .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
       .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
     <:mariolevelup:1443679595084910634> Ora sei a **\`${shownPartnerPoints}\`** partner!
-    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** in <#1442569232507473951>`,)
+    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** tramite <#1442569095068254219> \`HIGH STAFF\`..`,)
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("#6f4e37")
       .setTimestamp()
