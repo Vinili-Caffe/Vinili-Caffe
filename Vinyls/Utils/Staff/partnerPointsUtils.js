@@ -5,8 +5,8 @@ const { PARTNER_MILESTONE_POINT_TIERS } = require("./partnerManagerMilestoneDm")
 const PARTNER_MANAGER_REDEEM_TIERS = [...PARTNER_MILESTONE_POINT_TIERS];
 
 const PARTNER_MANAGER_REDEEM_BUTTON_LABELS = Object.freeze({
-  50: "50 pt · scala punti",
-  100: "100 pt · scala punti",
+  50: "50 pt · scala + CR+Voc 30g",
+  100: "100 pt · scala + VIP 30g",
   150: "150 pt · scala punti",
   200: "200 pt · scala punti",
 });

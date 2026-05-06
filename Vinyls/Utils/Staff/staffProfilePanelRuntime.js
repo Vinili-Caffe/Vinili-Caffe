@@ -561,10 +561,6 @@ function buildPartnerManagerHubOptions({
     for (const tier of PARTNER_MANAGER_REDEEM_TIERS.filter((n) => pts >= n)) {
       hubOpts.push({ action: `ppm_r${tier}`, label: partnerManagerRedeemButtonLabel(tier) });
     }
-    hubOpts.push(
-      { action: "ppm_a50", label: "Premio 50 · CR+Voc 30g" },
-      { action: "ppm_a100", label: "Premio 100 · VIP 30g" },
-    );
   }
   return hubOpts;
 }

@@ -8,8 +8,8 @@ const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 100, 150, 200]);
 
 /** Premi PM per soglia (stesso ordine di `PARTNER_MANAGER_REDEEM_TIERS`). */
 const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({
-  50: "Custom Role e Custom Voc per 30 giorni (dal pannello `+profile` staff: scala punti, poi bottone **Premio 50**)",
-  100: "Ruolo VIP per 30 giorni (scala punti, poi bottone **Premio 100**)",
+  50: "Custom Role e Custom Voc per 30 giorni (dal pannello `+profile` staff: riscatto unico con scala punti + premio)",
+  100: "Ruolo VIP per 30 giorni (riscatto unico con scala punti + premio)",
   150: "Decorazione a scelta (max 15,99 €) — dopo riscatto punti, consegna manuale",
   200: "Nitro Boost — dopo riscatto punti, consegna manuale",
 });

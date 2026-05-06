@@ -342,8 +342,8 @@ async function getSiteReviews(client, payload = {}) {
   const staff = await cleanupOrphanStaffReviews(client, guild);
   const staffMap = new Map(staff.list.map((entry) => [entry.id, entry]));
   const [serverDocs, staffDocs] = await Promise.all([
-    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "server" }).sort({ updatedAt: -1, createdAt: -1 }).limit(80).lean().catch(() => []),
-    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "staff" }).sort({ updatedAt: -1, createdAt: -1 }).limit(80).lean().catch(() => []),
+    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "server" }).sort({ createdAt: -1, _id: -1 }).limit(80).lean().catch(() => []),
+    SiteDocument.find({ docType: RV, guildId: guild.id, reviewKind: "staff" }).sort({ createdAt: -1, _id: -1 }).limit(80).lean().catch(() => []),
   ]);
 
   let viewer = null;

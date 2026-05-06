@@ -1,5 +1,6 @@
 .vc-reviews-pager {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -9,6 +10,11 @@
 .vc-reviews-pager__meta {
   font-size: 0.9rem;
   opacity: 0.9;
+}
+
+.vc-reviews-pager__meta--full {
+  flex-basis: 100%;
+  text-align: center;
 }
 :root {
   --vc-sand: #d4a888;

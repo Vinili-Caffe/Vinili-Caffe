@@ -81,7 +81,10 @@
     var serverWrap = byId("vc-reviews-server-list");
     if (serverWrap) serverWrap.innerHTML = "";
     var pager = byId("vc-reviews-pager");
-    if (pager) pager.innerHTML = "";
+    if (pager) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+    }
     closeEditModalDom();
   }
 
@@ -287,7 +290,7 @@
       esc(review.authorName || "Utente") +
       "</strong>" +
       '<span>' +
-      esc(formatDateIt(review.updatedAt || review.createdAt)) +
+      esc(formatDateIt(review.createdAt || review.updatedAt)) +
       "</span></div></div>" +
       '<div class="vc-reviews-card__head-meta">' +
       '<span class="vc-reviews-card__stars">' +
@@ -414,26 +417,46 @@
   }
 
   function renderReviewsPager(totalItems) {
-    var host = byId("vc-reviews-status");
-    if (!host || !host.parentNode) return;
     var pager = byId("vc-reviews-pager");
-    if (!pager) {
-      pager = document.createElement("div");
-      pager.id = "vc-reviews-pager";
-      pager.className = "vc-reviews-pager";
-      host.parentNode.insertBefore(pager, host);
-    }
-    var totalPages = Math.max(1, Number(state.reviewsPager.totalPages || 1));
+    if (!pager) return;
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    var total = Math.max(0, Number(totalItems || 0));
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
     var page = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
-    if (Number(totalItems || 0) <= Number(state.reviewsPager.perPage || 8)) {
+    state.reviewsPager.page = page;
+    state.reviewsPager.totalPages = totalPages;
+    if (!total) {
       pager.innerHTML = "";
+      pager.hidden = true;
       return;
     }
+    var orderNote =
+      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--full">Dalla più recente alla più vecchia</span>';
+    if (total <= perPage) {
+      pager.innerHTML =
+        orderNote +
+        '<span class="vc-reviews-pager__meta">' +
+        esc(String(total)) +
+        (total === 1 ? " recensione" : " recensioni") +
+        "</span>";
+      pager.hidden = false;
+      return;
+    }
+    var start = (page - 1) * perPage + 1;
+    var end = Math.min(total, page * perPage);
+    pager.hidden = false;
     pager.innerHTML =
+      orderNote +
       '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-prev' +
       (page <= 1 ? " disabled" : "") +
       ">Precedente</button>" +
-      '<span class="vc-reviews-pager__meta">Pagina ' +
+      '<span class="vc-reviews-pager__meta">Mostrando ' +
+      esc(String(start)) +
+      "–" +
+      esc(String(end)) +
+      " di " +
+      esc(String(total)) +
+      " · Pagina " +
       esc(String(page)) +
       " / " +
       esc(String(totalPages)) +

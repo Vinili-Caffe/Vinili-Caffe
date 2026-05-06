@@ -29,7 +29,6 @@ const {
   removePartnerPoints,
   formatPartnerPointsChange,
   partnerManagerRedeemTierFromAction,
-  partnerManagerApplyPerkTierFromAction,
   redeemPartnerManagerPointsForDisplay,
 } = require("../Utils/Staff/partnerPointsUtils");
 const { applyPartnerManagerRedeem50, applyPartnerManagerRedeem100 } = require("../Utils/Staff/partnerManagerTimedPerks");
@@ -224,8 +223,6 @@ function parseStaffHpButton(customId) {
     "ppm_r100",
     "ppm_r150",
     "ppm_r200",
-    "ppm_a50",
-    "ppm_a100",
   ]);
   if (!allowed.has(action)) return null;
   const section = parseStaffHpButtonSectionToken(parts.length >= 5 ? parts[4] : "");
@@ -413,98 +410,7 @@ const STAFF_HP_PM_HUB_ACTIONS = new Set([
   "ppm_r100",
   "ppm_r150",
   "ppm_r200",
-  "ppm_a50",
-  "ppm_a100",
 ]);
-
-async function handlePartnerApplyPerkStaffHp(interaction, parsed) {
-  const applyTier = partnerManagerApplyPerkTierFromAction(parsed.action);
-  if (applyTier == null) return false;
-  if (String(parsed.viewerId) === String(parsed.targetId)) {
-    await interaction
-      .reply({
-        content:
-          "<:vegax:1443934876440068179> I **premi PM** li applica **High Staff / Founder** dal tuo profilo: chiedi a qualcuno con quel ruolo.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
-    return true;
-  }
-  if (!viewerCanUsePartnerPointsPanel(interaction.member)) {
-    await interaction
-      .reply({
-        content:
-          "<:vegax:1443934876440068179> Solo **High Staff** o **Founder** possono applicare i **premi** sul profilo di un Partner Manager.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
-    return true;
-  }
-  const guildApply = interaction.guild;
-  if (!guildApply) {
-    await interaction
-      .reply({ content: "<:vegax:1443934876440068179> Solo nel server.", flags: PRIVATE_FLAG })
-      .catch(() => {});
-    return true;
-  }
-  const targetMemberApply = await guildApply.members.fetch(parsed.targetId).catch(() => null);
-  const pmRoleApply = IDs.roles.PartnerManager;
-  if (!pmRoleApply || !targetMemberApply?.roles?.cache?.has(pmRoleApply)) {
-    await interaction
-      .reply({
-        content:
-          "<:vegax:1443934876440068179> L’applicazione premi è riservata al ruolo **Partner Manager**.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
-    return true;
-  }
-  await interaction.deferReply({ flags: PRIVATE_FLAG }).catch(() => {});
-  let applySummary = "";
-  if (applyTier === 50) {
-    const gr = await applyPartnerManagerRedeem50(guildApply.id, parsed.targetId);
-    if (gr.ok && gr.until) {
-      const ts = Math.floor(gr.until.getTime() / 1000);
-      applySummary = `**Custom Role + Custom Voc** attivi **30 giorni** (fino <t:${ts}:F>).`;
-    } else {
-      applySummary = "Applicazione **CR/Voc** non riuscita (verifica DB).";
-    }
-  } else {
-    const gr = await applyPartnerManagerRedeem100(guildApply, parsed.targetId);
-    if (!gr.ok) {
-      applySummary = "Applicazione **VIP** non riuscita (verifica DB).";
-    } else if (gr.until) {
-      const ts = Math.floor(gr.until.getTime() / 1000);
-      if (gr.vipApplied === false) {
-        applySummary = `VIP registrato fino <t:${ts}:F> — **membro assente dal server**: assegna il ruolo VIP a mano.`;
-      } else {
-        applySummary = `**Ruolo VIP** assegnato **30 giorni** (fino <t:${ts}:F>).`;
-      }
-    }
-  }
-  const logChApply = guildApply.channels.cache.get(IDs.channels?.puntiTolti);
-  const actorApply = interaction.user;
-  const targetPmUserApply = await interaction.client.users.fetch(parsed.targetId).catch(() => null);
-  const pmMentionApply = targetPmUserApply ? String(targetPmUserApply) : `<@${parsed.targetId}>`;
-  if (logChApply) {
-    await logChApply
-      .send({
-        content:
-          `<:VC_PartnerManager:1494286911286808576> PM: ${pmMentionApply}\n` +
-          `<:VC_Staff:1494286904089247754> Operatore: ${actorApply}\n` +
-          `<:VC_reason:1478517122929004544> **Applicazione premio PM** (menu Partner **Premio ${applyTier}**, senza scalatura punti).\n` +
-          applySummary,
-      })
-      .catch(() => null);
-  }
-  await tryRefreshStaffPanelMessage(interaction, parsed, interaction.client);
-  await interaction
-    .editReply({
-      content: `<:vegacheckmark:1443666279058772028> Premio **${applyTier}** applicato a ${pmMentionApply}.\n${applySummary}`,
-    })
-    .catch(() => {});
-  return true;
-}
 
 async function handlePartnerRedeemStaffHp(interaction, parsed) {
   const redeemTier = partnerManagerRedeemTierFromAction(parsed.action);
@@ -569,11 +475,27 @@ async function handlePartnerRedeemStaffHp(interaction, parsed) {
   const ptsBefore = redeemRes.before;
   const ptsAfter = redeemRes.after;
   let postRedeemNote = "";
+  let autoApplySummary = "";
   if (redeemTier === 50) {
-    postRedeemNote =
-      " Per **attivare** Custom Role + Custom Voc 30g scegli **Premio 50** nel menu Partner (nessuna ulteriore scalatura punti).";
+    postRedeemNote = " Premio incluso: **CR+Voc 30g**.";
+    const gr = await applyPartnerManagerRedeem50(guild.id, parsed.targetId);
+    if (!gr.ok) {
+      autoApplySummary = "Applicazione **CR+Voc 30g** non riuscita (verifica DB).";
+    } else if (gr.until) {
+      const ts = Math.floor(gr.until.getTime() / 1000);
+      autoApplySummary = `Permessi **CR+Voc** attivi **30 giorni** (fino <t:${ts}:F>).`;
+    }
   } else if (redeemTier === 100) {
-    postRedeemNote = " Per **assegnare** il VIP 30g scegli **Premio 100** nel menu Partner.";
+    postRedeemNote = " Premio incluso: **VIP 30g**.";
+    const gr = await applyPartnerManagerRedeem100(guild, parsed.targetId);
+    if (!gr.ok) {
+      autoApplySummary = "Applicazione **VIP 30g** non riuscita (verifica DB).";
+    } else if (gr.until) {
+      const ts = Math.floor(gr.until.getTime() / 1000);
+      autoApplySummary = gr.vipApplied === false
+        ? `VIP registrato fino <t:${ts}:F> — **membro assente dal server**: assegna il ruolo VIP a mano.`
+        : `**Ruolo VIP** assegnato **30 giorni** (fino <t:${ts}:F>).`;
+    }
   } else if (redeemTier === 150) {
     postRedeemNote = " Premio **decorazione** (max 15,99 €): consegna manuale.";
   } else if (redeemTier === 200) {
@@ -589,9 +511,10 @@ async function handlePartnerRedeemStaffHp(interaction, parsed) {
         content:
           `<:VC_PartnerManager:1494286911286808576> PM: ${pmMention}\n` +
           `<:VC_Staff:1494286904089247754> Operatore: ${actor}\n` +
-          `<:VC_reason:1478517122929004544> **Riscatto premio staff pagato** (\`${redeemTier}\` punti).\n` +
+          `<:VC_reason:1478517122929004544> **Riscatto premio staff** (\`${redeemTier}\` punti, scalatura inclusa).\n` +
           `<:VC_Partner:1482527213780729896> Saldo PM: \`${ptsBefore}\` → \`${ptsAfter}\`` +
-          (postRedeemNote ? `\n${postRedeemNote.trim()}` : ""),
+          (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
+          (autoApplySummary ? `\n${autoApplySummary}` : ""),
       })
       .catch(() => null);
   }
@@ -600,7 +523,8 @@ async function handlePartnerRedeemStaffHp(interaction, parsed) {
     .editReply({
       content:
         `<:vegacheckmark:1443666279058772028> Riscattati **${redeemTier}** punti a ${pmMention}. Nuovo saldo: \`${ptsAfter}\`.` +
-        (postRedeemNote ? `\n${postRedeemNote.trim()}` : ""),
+        (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
+        (autoApplySummary ? `\n${autoApplySummary}` : ""),
     })
     .catch(() => {});
   return true;
@@ -812,8 +736,6 @@ async function execute(interaction) {
       if (subAction === "depex_pm_only" || subAction === "ppm_add" || subAction === "ppm_remove") {
         return await openStaffHpReasonModalFromButton(interaction, parsedHub);
       }
-      const applyTierSel = partnerManagerApplyPerkTierFromAction(subAction);
-      if (applyTierSel != null) return await handlePartnerApplyPerkStaffHp(interaction, parsedHub);
       const redeemTierSel = partnerManagerRedeemTierFromAction(subAction);
       if (redeemTierSel != null) return await handlePartnerRedeemStaffHp(interaction, parsedHub);
       await interaction
@@ -874,8 +796,6 @@ async function execute(interaction) {
       return true;
     }
     if (!(await ensureNoUnauthorizedSelfStaffHp(interaction, parsed))) return true;
-    const applyTierBtn = partnerManagerApplyPerkTierFromAction(parsed.action);
-    if (applyTierBtn != null) return handlePartnerApplyPerkStaffHp(interaction, parsed);
     const redeemTierBtn = partnerManagerRedeemTierFromAction(parsed.action);
     if (redeemTierBtn != null) return handlePartnerRedeemStaffHp(interaction, parsed);
     if (parsed.action === "pex_menu" || parsed.action === "depex_menu") {
