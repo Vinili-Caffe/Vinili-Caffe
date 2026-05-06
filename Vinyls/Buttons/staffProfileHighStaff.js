@@ -497,9 +497,9 @@ async function handlePartnerRedeemStaffHp(interaction, parsed) {
         : `**Ruolo VIP** assegnato **30 giorni** (fino <t:${ts}:F>).`;
     }
   } else if (redeemTier === 150) {
-    postRedeemNote = " Premio **decorazione** (max 15,99 €): consegna manuale.";
+    postRedeemNote = " Premio **decorazione a scelta** (max 15,99 €): consegnato manualmente.";
   } else if (redeemTier === 200) {
-    postRedeemNote = " Premio **Nitro Boost**: consegna manuale.";
+    postRedeemNote = " Premio **Nitro Boost**: consegnato manualmente.";
   }
   const removedPointsChannel = guild.channels.cache.get(IDs.channels?.puntiTolti);
   const actor = interaction.user;
@@ -511,7 +511,7 @@ async function handlePartnerRedeemStaffHp(interaction, parsed) {
         content:
           `<:VC_PartnerManager:1494286911286808576> PM: ${pmMention}\n` +
           `<:VC_Staff:1494286904089247754> Operatore: ${actor}\n` +
-          `<:VC_reason:1478517122929004544> **Riscatto premio staff** (\`${redeemTier}\` punti, scalatura inclusa).\n` +
+          `<:VC_reason:1478517122929004544> **Riscatto premio staff** (\`${redeemTier}\` punti).\n` +
           `<:VC_Partner:1482527213780729896> Saldo PM: \`${ptsBefore}\` → \`${ptsAfter}\`` +
           (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
           (autoApplySummary ? `\n${autoApplySummary}` : ""),

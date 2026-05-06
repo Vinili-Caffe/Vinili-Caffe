@@ -359,19 +359,36 @@
     return out;
   }
 
-  function reviewTs(review) {
+  function mongoObjectIdToTimeMs(id) {
+    var s = String(id || "").trim();
+    if (!/^[a-f0-9]{24}$/i.test(s)) return 0;
+    return parseInt(s.slice(0, 8), 16) * 1000;
+  }
+
+  /** Solo creazione: modificare il testo non deve far “saltare” la card in cima. */
+  function dateValueMs(value) {
+    if (value == null || value === "") return 0;
+    if (typeof value === "number" && Number.isFinite(value)) return value > 100000000000 ? value : value * 1000;
+    var ms = new Date(value).getTime();
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
+  }
+
+  function reviewCreatedTs(review) {
     if (!review || typeof review !== "object") return 0;
-    var upd = new Date(review.updatedAt || 0).getTime();
-    if (Number.isFinite(upd) && upd > 0) return upd;
-    var created = new Date(review.createdAt || 0).getTime();
-    if (Number.isFinite(created) && created > 0) return created;
-    return 0;
+    var created =
+      dateValueMs(review.createdAt) ||
+      dateValueMs(review.created_at) ||
+      dateValueMs(review.creationDate) ||
+      dateValueMs(review.submittedAt) ||
+      dateValueMs(review.createdTimestamp);
+    if (created > 0) return created;
+    return mongoObjectIdToTimeMs(review.id);
   }
 
   function sortedReviewsNewestFirst(reviews) {
     var list = Array.isArray(reviews) ? reviews.slice() : [];
     list.sort(function (a, b) {
-      var dt = reviewTs(b) - reviewTs(a);
+      var dt = reviewCreatedTs(b) - reviewCreatedTs(a);
       if (dt !== 0) return dt;
       return String(b && b.id ? b.id : "").localeCompare(String(a && a.id ? a.id : ""));
     });
@@ -430,15 +447,13 @@
       pager.hidden = true;
       return;
     }
-    var orderNote =
-      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--full">Dalla più recente alla più vecchia</span>';
     if (total <= perPage) {
       pager.innerHTML =
-        orderNote +
+        '<div class="vc-reviews-pager__bar vc-reviews-pager__bar--simple">' +
         '<span class="vc-reviews-pager__meta">' +
         esc(String(total)) +
         (total === 1 ? " recensione" : " recensioni") +
-        "</span>";
+        "</span></div>";
       pager.hidden = false;
       return;
     }
@@ -446,24 +461,25 @@
     var end = Math.min(total, page * perPage);
     pager.hidden = false;
     pager.innerHTML =
-      orderNote +
-      '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-prev' +
+      '<div class="vc-reviews-pager__bar" role="navigation" aria-label="Paginazione recensioni">' +
+      '<button type="button" class="vc-reviews-pager__btn vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-prev' +
       (page <= 1 ? " disabled" : "") +
       ">Precedente</button>" +
-      '<span class="vc-reviews-pager__meta">Mostrando ' +
+      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--stats" aria-live="polite">' +
       esc(String(start)) +
       "–" +
       esc(String(end)) +
       " di " +
       esc(String(total)) +
-      " · Pagina " +
+      " · " +
       esc(String(page)) +
-      " / " +
+      "/" +
       esc(String(totalPages)) +
       "</span>" +
-      '<button type="button" class="vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-next' +
+      '<button type="button" class="vc-reviews-pager__btn vc-reviews-submit vc-suggestions-btn-muted" data-reviews-page-next' +
       (page >= totalPages ? " disabled" : "") +
-      ">Successiva</button>";
+      ">Successiva</button>" +
+      "</div>";
   }
 
   function emptyMarkup(icon, title, text) {

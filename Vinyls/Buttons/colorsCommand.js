@@ -132,14 +132,25 @@ module.exports = {
       }).catch((err) => logButtonErr(err));
       return true;
     }
-    const allTracked = unlocks.getAllPersonalityChatColorRoleIds();
-    const trackedSet = new Set(allTracked);
-    const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, allTracked);
+    const pool =
+      segment === "tier"
+        ? unlocks.getTierExclusiveRoleIds()
+        : segment === "plus"
+          ? unlocks.getPlusColorRoleIds()
+          : unlocks.getAllPersonalityChatColorRoleIds();
+    const trackedSet = new Set(pool);
+    const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, pool, `menu=cmd_colors:${segment}`);
 
     const beforeMember = await guild.members.fetch({ user: ownerId, force: true }).catch(() => member);
     const beforeRoleSet = new Set(beforeMember?.roles?.cache?.keys?.() || []);
     const isRemove = value === "remove" || !value;
-    if (!isRemove && value && unlocks.isAllowedColorValue(value, member, level, canPickPlus)) {
+    let canDupCheck = false;
+    if (!isRemove && value) {
+      if (segment === "tier") canDupCheck = unlocks.listUnlockedTierRoleIds(level).includes(value);
+      else if (segment === "plus") canDupCheck = unlocks.listUnlockedPlusRoleIds(guild, canPickPlus, level).includes(value);
+      else canDupCheck = unlocks.isAllowedColorValue(value, member, level, canPickPlus);
+    }
+    if (!isRemove && value && canDupCheck) {
       const held = [...trackedSet].filter((rid) => beforeRoleSet.has(rid));
       if (held.length === 1 && held[0] === value) {
         await interaction.reply({

@@ -1,10 +1,9 @@
 .vc-reviews-pager {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 14px 0 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  margin: 18px 0 14px;
 }
 
 .vc-reviews-pager__meta {
@@ -12,9 +11,68 @@
   opacity: 0.9;
 }
 
-.vc-reviews-pager__meta--full {
-  flex-basis: 100%;
+.vc-reviews-pager__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(12, 10, 8, 0.55);
+  box-sizing: border-box;
+}
+
+.vc-reviews-pager__bar--simple {
+  justify-content: center;
+}
+
+.vc-reviews-pager__meta--stats {
+  flex: 1 1 12rem;
   text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(226, 232, 240, 0.92);
+  opacity: 1;
+  min-width: 0;
+}
+
+.vc-reviews-pager__btn {
+  flex: 0 0 auto;
+  min-width: 7.25rem;
+}
+
+@media (max-width: 28rem) {
+  .vc-reviews-pager__bar:not(.vc-reviews-pager__bar--simple) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "stats stats"
+      "prev next";
+    gap: 10px 12px;
+    justify-items: stretch;
+  }
+
+  .vc-reviews-pager__meta--stats {
+    grid-area: stats;
+    flex: none;
+  }
+
+  .vc-reviews-pager__btn[data-reviews-page-prev] {
+    grid-area: prev;
+  }
+
+  .vc-reviews-pager__btn[data-reviews-page-next] {
+    grid-area: next;
+  }
+
+  .vc-reviews-pager__btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 :root {
   --vc-sand: #d4a888;
@@ -14538,6 +14596,11 @@ body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Griglia “palette”: tessere allineate in alto (testi di lunghezze diverse). */
+.vc-reviews-grid.vc-reviews-palette {
+  align-items: start;
+}
+
 .vc-reviews-formgrid {
   grid-template-columns: minmax(0, 31rem);
 }
@@ -18298,14 +18361,27 @@ body.vc-body .vc-vote-page ol li > span.rounded-full {
 body.vc-body.vc-reviews-page .vc-reviews-section:not(.vc-reviews-section--split),
 body.vc-body.vc-reviews-page .vc-reviews-card {
   border-radius: 1rem !important;
-  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.22) !important;
-  background: linear-gradient(135deg, rgba(18, 34, 48, 0.55), rgba(20, 62, 54, 0.22)) !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.24) !important;
+  background:
+    radial-gradient(120% 92% at 12% 0%, rgba(247, 236, 223, 0.08), transparent 58%),
+    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.5), rgba(18, 12, 9, 0.62)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 12px 28px rgba(0, 0, 0, 0.22),
-    0 0 16px rgba(var(--vc-reviews-emerald-rgb), 0.1) !important;
+    0 0 18px rgba(var(--vc-sand-rgb), 0.1) !important;
   backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
   -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
+}
+
+body.vc-body.vc-reviews-page .vc-reviews-card:hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.36) !important;
+  background:
+    radial-gradient(120% 92% at 12% 0%, rgba(247, 236, 223, 0.1), transparent 58%),
+    linear-gradient(145deg, rgba(var(--vc-mocha-rgb), 0.58), rgba(22, 15, 11, 0.68)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 36px rgba(0, 0, 0, 0.28),
+    0 0 22px rgba(var(--vc-sand-rgb), 0.13) !important;
 }
 
 body.vc-body.vc-reviews-page .vc-reviews-card__icon-btn,
@@ -18333,7 +18409,17 @@ body.vc-body.vc-reviews-page .vc-reviews-card__avatar--fallback {
   height: 2.5rem;
 }
 
+body.vc-body.vc-reviews-page .vc-reviews-card__author span,
+body.vc-body.vc-reviews-page .vc-reviews-card__reply-meta {
+  color: rgba(234, 214, 187, 0.68) !important;
+}
+
+body.vc-body.vc-reviews-page .vc-reviews-card__stars {
+  color: rgba(255, 214, 128, 0.98) !important;
+}
+
 body.vc-body.vc-reviews-page .vc-reviews-card__text {
+  color: rgba(247, 236, 223, 0.9);
   font-size: 0.92rem;
   line-height: 1.5;
   display: -webkit-box;

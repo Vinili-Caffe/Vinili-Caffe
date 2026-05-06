@@ -16,6 +16,12 @@ const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, accountUsernam
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
 const { partnerManagerPerkDateActive, fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../Utils/Staff/partnerManagerTimedPerks");
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils");
+const {
+  ROLE_PANEL_DEFAULT_CATEGORY,
+  buildRuoliColoriPersonalityMenuRow,
+  buildRolePanelCategoryPickerRow,
+  normalizeRolePanelCategory,
+} = require("../Utils/Community/ruoliColoriPanelComponents");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 const PANEL_PREFIX = "profile_panel";
@@ -27,9 +33,9 @@ const SECTION_CUSTOMVOC = "customvoc";
 const SECTION_CUSTOMREACTION = "customreaction";
 const SECTION_DMFILTERS = "dmfilters";
 const SECTION_PRIVACY = "privacy";
+const SECTION_ROLE_PANEL = "rolepanel";
 const SECTION_COLORS = "colors";
 const CMD_COLORS_SEG = "cmd_colors_seg:";
-const CMD_COLORS_BTN = "cmd_colors_btn:";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
 const BIRTHDAY_DRAFTS_SNAPSHOT_PATH = path.join(__dirname, "..", "Data", "birthdayDraftsSnapshot.json");
@@ -145,81 +151,6 @@ function isDmCategoryOff(noDm, key) {
       : new Set(Array.isArray(noDm?.disabled) ? noDm.disabled : []);
   const isAll = Boolean(noDm?.blockAll || disabled.has(DM_CATEGORY_ALL));
   return isAll || disabled.has(key);
-}
-
-function buildProfileEligibleColorOptions(guild, numericLevel, canPickPlus) {
-  const plusIds = colorUnlocks.listUnlockedPlusRoleIds(guild, canPickPlus, numericLevel);
-  const tierIds = colorUnlocks
-    .listUnlockedTierRoleIds(numericLevel)
-    .filter((id) => guild?.roles?.cache?.has?.(id));
-  const options = [];
-  for (const roleId of plusIds) {
-    options.push({
-      label: `Plus · ${colorUnlocks.roleLabel(guild, roleId)}`.slice(0, 100),
-      value: roleId,
-      emoji: "<:VC_Vip:1482534921472835895>",
-      description: "Gradiente Plus",
-    });
-  }
-  for (const roleId of tierIds) {
-    const tierDef = colorUnlocks.getTierExclusiveColorDefs().find((row) => row.roleId === roleId);
-    options.push({
-      label: `Lv${tierDef?.minLevel || "?"} · ${colorUnlocks.roleLabel(guild, roleId)}`.slice(0, 100),
-      value: roleId,
-      emoji: "<:VC_EXP:1482534670896730143>",
-      description: `Da livello ${tierDef?.minLevel || "?"}`,
-    });
-  }
-  return options.slice(0, 25);
-}
-
-function buildProfileColorsDescription(guild, numericLevel, canPickPlus, eligibleOptions) {
-  const level = Math.max(0, Number(numericLevel) || 0);
-  const plusIds = colorUnlocks.listUnlockedPlusRoleIds(guild, canPickPlus, level);
-  const lines = [
-    "### <:VC_Vip:1482534921472835895> Colori Plus",
-    canPickPlus
-      ? "Sbloccati per te."
-      : "Non sbloccati (servono requisiti Plus o livello adeguato).",
-  ];
-  if (canPickPlus) {
-    if (plusIds.length) {
-      lines.push(...plusIds.map((roleId) => `· **${colorUnlocks.roleLabel(guild, roleId)}**`));
-    } else {
-      lines.push("_Nessun colore Plus configurato sul server._");
-    }
-  }
-  lines.push(
-    "",
-    "### <:VC_EXP:1482534670896730143> Colori esclusivi di livello",
-    `Il tuo livello: **${level}**`,
-  );
-  const tierDefs = [
-    ...colorUnlocks
-      .getTierExclusiveColorDefs()
-      .map((row) => ({ ...row, needsPlus: false })),
-    ...colorUnlocks
-      .getLevelGatedPlusColorDefs()
-      .map((row) => ({ ...row, needsPlus: true })),
-  ].filter((row) => guild?.roles?.cache?.has?.(row.roleId));
-  if (tierDefs.length) {
-    lines.push(
-      ...tierDefs.map((row) => {
-        const unlocked = level >= row.minLevel && (!row.needsPlus || canPickPlus);
-        const roleName = colorUnlocks.roleLabel(guild, row.roleId);
-        return `· **${roleName}** — da livello **${row.minLevel}** ${unlocked ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`;
-      }),
-    );
-  } else {
-    lines.push("_Nessun colore esclusivo livello configurato._");
-  }
-  lines.push("", "୨୧ — · · · — ୨୧", "");
-  if (eligibleOptions.length) {
-    lines.push("Menu attivo: puoi scegliere uno dei colori sbloccati qui sotto.");
-  } else {
-    lines.push("Non hai ancora colori Plus/Esclusivi selezionabili.");
-  }
-  return lines.join("\n");
 }
 
 async function applyNoDmCategoryToggle(guildId, ownerId, category) {
@@ -437,7 +368,6 @@ async function fetchProfilePanelState(guild, userId, client) {
   const customReactionMax = getCustomReactionMax(member);
   const colorLevel = await colorUnlocks.fetchNumericProfileLevel(guildId, userId).catch(() => 0);
   const colorCanPickPlus = await colorUnlocks.memberHasPlusColorFullEligibilityAsync(member).catch(() => false);
-  const colorEligibleOptions = buildProfileEligibleColorOptions(guild, colorLevel, colorCanPickPlus);
 
   let mergedCustomDoc = customState?.doc || customDocLean || null;
   const vocIdSync = String(mergedCustomDoc?.customVocChannelId || "").trim();
@@ -483,7 +413,6 @@ async function fetchProfilePanelState(guild, userId, client) {
     colors: {
       level: colorLevel,
       canPickPlus: colorCanPickPlus,
-      eligibleOptions: colorEligibleOptions,
     },
   };
 }
@@ -672,12 +601,14 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
     ].join("\n"));
   }
 
-  if (section === SECTION_COLORS) {
-    const level = Number(state?.colors?.level || 0);
-    const canPickPlus = Boolean(state?.colors?.canPickPlus);
-    const eligibleOptions = Array.isArray(state?.colors?.eligibleOptions) ? state.colors.eligibleOptions : [];
-    const desc = buildProfileColorsDescription(guild, level, canPickPlus, eligibleOptions);
-    return base.setDescription(desc);
+  if (section === SECTION_ROLE_PANEL) {
+    return base.setDescription(
+      [
+        "<:VC_Info:1482526956703580372> **Ruoli cosmetici**",
+        "",
+        "Scegli il **pannello** dal menu sotto, poi il menu dei ruoli.",
+      ].join("\n"),
+    );
   }
 
   const homeRoleLines = [`<:VC_Color:1482532543273238569> **Ruolo primario:** ${primaryRoleDisplay}`];
@@ -704,7 +635,7 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
     ].join("\n"))
 }
 
-function buildRows(ownerId, section, state = null) {
+function buildRows(guild, ownerId, section, state = null, rolePanelCategory = null) {
   const closeRow = () =>
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -726,6 +657,7 @@ function buildRows(ownerId, section, state = null) {
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
+    { label: "Ruoli cosmetici", value: SECTION_ROLE_PANEL, emoji: "🎭", default: section === SECTION_ROLE_PANEL },
   ];
   if (canAccessCustomRole) {
     selectOptions.push(
@@ -745,11 +677,6 @@ function buildRows(ownerId, section, state = null) {
   if (canAccessCustomReaction) {
     selectOptions.push(
       { label: "Mention Reactions", value: SECTION_CUSTOMREACTION, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMREACTION },
-    );
-  }
-  if (Boolean(state?.colors)) {
-    selectOptions.push(
-      { label: "Colori Chat", value: SECTION_COLORS, emoji: "<:VC_Color:1482532543273238569>", default: section === SECTION_COLORS },
     );
   }
   const select = new StringSelectMenuBuilder()
@@ -877,42 +804,55 @@ function buildRows(ownerId, section, state = null) {
       new ButtonBuilder().setCustomId(`${PANEL_PREFIX}:action:${ownerId}:privacy_done`).setLabel("Fine").setStyle(ButtonStyle.Primary).setEmoji("<:vegacheckmark:1443666279058772028>"),
     );
     return [row1, row2, rowVoteDm, row3, closeRow()];
-  } else if (section === SECTION_COLORS) {
-    const eligibleOptions = Array.isArray(state?.colors?.eligibleOptions) ? state.colors.eligibleOptions : [];
-    const colorsButtonRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${CMD_COLORS_BTN}${ownerId}:info`)
-        .setLabel("Come ottenere i colori")
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji("📋"),
-      new ButtonBuilder()
-        .setCustomId(`${CMD_COLORS_BTN}${ownerId}:remove`)
-        .setLabel("Rimuovi colore")
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji("🧹"),
-    );
-    if (!eligibleOptions.length) return [row1, colorsButtonRow, closeRow()];
-    const colorsSelectRow = new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(`${CMD_COLORS_SEG}${ownerId}:all`)
-        .setPlaceholder("🎨 Colori Plus/Esclusivi sbloccati")
-        .setMinValues(1)
-        .setMaxValues(1)
-        .addOptions(eligibleOptions),
-    );
-    return [row1, colorsButtonRow, colorsSelectRow, closeRow()];
+  } else if (section === SECTION_ROLE_PANEL) {
+    const cat = normalizeRolePanelCategory(rolePanelCategory);
+    const pickerRow = buildRolePanelCategoryPickerRow(ownerId, cat);
+    if (cat === "colors_level") {
+      const level = Number(state?.colors?.level || 0);
+      const tierOpts = colorUnlocks.buildProfileTierColorSelectOptionsWithRemove(guild, level);
+      const selectRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`${CMD_COLORS_SEG}${ownerId}:tier`)
+          .setPlaceholder("Livelli · colori esclusivi")
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addOptions(tierOpts),
+      );
+      return [row1, pickerRow, selectRow, closeRow()];
+    }
+    if (cat === "colors_plus") {
+      const level = Number(state?.colors?.level || 0);
+      const canPickPlus = Boolean(state?.colors?.canPickPlus);
+      const plusOpts = colorUnlocks.buildProfilePlusColorSelectOptionsWithRemove(guild, level, canPickPlus);
+      const selectRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`${CMD_COLORS_SEG}${ownerId}:plus`)
+          .setPlaceholder("Plus · gradienti sbloccati")
+          .setMinValues(1)
+          .setMaxValues(1)
+          .addOptions(plusOpts),
+      );
+      return [row1, pickerRow, selectRow, closeRow()];
+    }
+    const roleMenuRow = buildRuoliColoriPersonalityMenuRow(cat);
+    return [row1, pickerRow, roleMenuRow, closeRow()];
   } else {
     return [row1, closeRow()];
   }
 }
 
-async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME) {
+async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME, rolePanelCategory = null) {
   const state = await fetchProfilePanelState(guild, ownerId, client);
   const canAccessCustomRole = Boolean(state?.featureAccess?.customRole);
   const canAccessSecondaryCustomRole = Boolean(state?.featureAccess?.secondaryCustomRole);
   const canAccessCustomVoc = Boolean(state?.featureAccess?.customVoc);
   const canAccessCustomReaction = Boolean(state?.featureAccess?.customReaction);
-  const requestedSection = String(section || SECTION_HOME);
+  let requestedSection = String(section || SECTION_HOME);
+  let roleCatIn = rolePanelCategory;
+  if (requestedSection === SECTION_COLORS) {
+    requestedSection = SECTION_ROLE_PANEL;
+    if (roleCatIn == null || roleCatIn === "") roleCatIn = "colors_level";
+  }
   const isDeniedCustomRole =
     !canAccessCustomRole && requestedSection === SECTION_CUSTOMROLE;
   const isDeniedSecondaryCustomRole =
@@ -942,9 +882,15 @@ async function buildPanelPayload(guild, ownerId, client, section = SECTION_HOME)
   const panelMember = state.panelMember || null;
   if (!panelUser && panelMember) panelUser = panelMember.user ?? null;
   const panelIdentity = panelMember || panelUser;
+  const rolePanelCatNormalized =
+    safeSection === SECTION_ROLE_PANEL
+      ? normalizeRolePanelCategory(
+          roleCatIn != null && String(roleCatIn).trim() !== "" ? roleCatIn : ROLE_PANEL_DEFAULT_CATEGORY,
+        )
+      : null;
   return {
     embeds: [buildSectionEmbed(safeSection, state, panelIdentity, guild)],
-    components: buildRows(ownerId, safeSection, state),
+    components: buildRows(guild, ownerId, safeSection, state, rolePanelCatNormalized),
   };
 }
 
@@ -1282,6 +1228,14 @@ async function execute(interaction, client) {
   const parsed = parsePanelCustomId(interaction.customId);
   if (!parsed) return false;
   const { kind, ownerId, rest } = parsed;
+
+  if (interaction.isStringSelectMenu() && kind === "rsub") {
+    if (!(await ensureOwner(interaction, ownerId))) return true;
+    const cat = normalizeRolePanelCategory(interaction.values?.[0]);
+    const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_ROLE_PANEL, cat);
+    await safeUpdatePanelInteraction(interaction, payload);
+    return true;
+  }
 
   if (interaction.isStringSelectMenu() && kind === "select") {
     const section = String(interaction.values?.[0] || SECTION_HOME);

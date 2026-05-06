@@ -187,6 +187,14 @@ function serializeReview(doc, staffMap) {
   const raw = doc && typeof doc === "object" ? doc : {};
   const rk = String(raw.reviewKind || raw.kind || "server");
   const target = rk === "staff" ? staffMap.get(String(raw.staffUserId || "")) || null : null;
+  const createdAt = raw.createdAt ? new Date(raw.createdAt) : null;
+  const updatedAt = raw.updatedAt ? new Date(raw.updatedAt) : null;
+  let objectCreatedMs = 0;
+  if (mongoose.isValidObjectId(raw._id)) {
+    const objectId = typeof raw._id?.getTimestamp === "function" ? raw._id : new mongoose.Types.ObjectId(String(raw._id));
+    objectCreatedMs = Number(objectId.getTimestamp?.().getTime?.() || 0);
+  }
+  const createdAtMs = createdAt && Number.isFinite(createdAt.getTime()) ? createdAt.getTime() : objectCreatedMs;
   return {
     id: String(raw._id || ""),
     kind: rk,
@@ -198,9 +206,19 @@ function serializeReview(doc, staffMap) {
     authorAvatarUrl: String(raw.authorAvatarUrl || ""),
     staffName: target?.name || String(raw.staffName || ""),
     staffAvatarUrl: target?.avatarUrl || String(raw.staffAvatarUrl || ""),
-    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : null,
-    updatedAt: raw.updatedAt ? new Date(raw.updatedAt).toISOString() : null,
+    createdAt: createdAt && Number.isFinite(createdAt.getTime()) ? createdAt.toISOString() : (createdAtMs ? new Date(createdAtMs).toISOString() : null),
+    createdAtMs,
+    updatedAt: updatedAt && Number.isFinite(updatedAt.getTime()) ? updatedAt.toISOString() : null,
   };
+}
+
+function sortSerializedReviewsNewestFirst(list) {
+  return (Array.isArray(list) ? list.slice() : []).sort((a, b) => {
+    const ta = Number(a?.createdAtMs || 0);
+    const tb = Number(b?.createdAtMs || 0);
+    if (tb !== ta) return tb - ta;
+    return String(b?.id || "").localeCompare(String(a?.id || ""));
+  });
 }
 
 function enrichServerReviewDoc(doc, staffMap, viewerUserId) {
@@ -397,8 +415,8 @@ async function getSiteReviews(client, payload = {}) {
     externalReviewsUrl: String(client?.config?.disboardReviews?.reviewUrl || client?.config?.reviewsUrl || "").trim(),
     staffers: staff.list,
     reviews: {
-      server: serverDocs.map((doc) => enrichServerReview(doc)),
-      staff: staffDocs.map((doc) => serializeReview(doc, staffMap)),
+      server: sortSerializedReviewsNewestFirst(serverDocs.map((doc) => enrichServerReview(doc))),
+      staff: sortSerializedReviewsNewestFirst(staffDocs.map((doc) => serializeReview(doc, staffMap))),
     },
     viewer,
   };

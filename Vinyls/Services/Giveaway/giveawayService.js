@@ -14,21 +14,10 @@ function parseDuration(input) {
   return value * (multipliers[unit] || 0);
 }
 
-function formatTimeRemaining(endAt) {
-  const now = Date.now();
-  const end = new Date(endAt).getTime();
-  const ms = Math.max(0, end - now);
-  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-  const seconds = Math.floor((ms % (60 * 1000)) / 1000);
-  const parts = [];
-  if (days > 0) parts.push(`${days} ${days === 1 ? "giorno" : "giorni"}`);
-  if (hours > 0) parts.push(`${hours} ${hours === 1 ? "ora" : "ore"}`);
-  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? "minuto" : "minuti"}`);
-  if (seconds > 0 && parts.length === 0) parts.push(`${seconds} ${seconds === 1 ? "secondo" : "secondi"}`);
-  if (parts.length === 0) parts.push("meno di 1 minuto");
-  return parts.join(" ");
+function discordRelativeEndTimestamp(endAt) {
+  const sec = Math.floor(new Date(endAt).getTime() / 1000);
+  if (!Number.isFinite(sec)) return "—";
+  return `<t:${sec}:R>`;
 }
 
 function buildGiveawayEmbed(giveaway, options = {}) {
@@ -43,7 +32,7 @@ function buildGiveawayEmbed(giveaway, options = {}) {
     .addFields(
       {
         name: "<a:VC_Calendar:1482706208149475358> Tempo rimanente",
-        value: ended ? "Terminato" : `tra ${formatTimeRemaining(endAt)}`,
+        value: ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
         inline: true,
       },
       {
@@ -321,4 +310,4 @@ async function runScheduledEnds(client) {
   }
 }
 
-module.exports = { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_REROLL_PREFIX, formatTimeRemaining, parseDuration, buildGiveawayEmbed, buildEnterButton, buildRerollButton, createGiveaway, setGiveawayMessageId, getGiveawayByMessageId, getGiveawayById, enterGiveaway, endGiveaway, rerollGiveaway, rerollGiveawayByMessageId, runScheduledEnds };
+module.exports = { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_REROLL_PREFIX, parseDuration, buildGiveawayEmbed, buildEnterButton, buildRerollButton, createGiveaway, setGiveawayMessageId, getGiveawayByMessageId, getGiveawayById, enterGiveaway, endGiveaway, rerollGiveaway, rerollGiveawayByMessageId, runScheduledEnds };

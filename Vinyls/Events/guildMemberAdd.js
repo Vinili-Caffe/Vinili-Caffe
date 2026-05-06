@@ -29,6 +29,7 @@ const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils
 const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
+const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -1563,6 +1564,10 @@ module.exports = {
           const kickResult = await kickForJoinGate(member, joinGateMatch.reason, joinGateMatch.extraLines || [], joinGateMatch.action,);
           if (kickResult?.blocked) return;
         }
+      }
+
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        void ghostPingNewMemberOnJoin(member.client, member).catch(() => {});
       }
 
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);

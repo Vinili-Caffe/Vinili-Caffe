@@ -9,7 +9,7 @@ const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../share
 
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
 /** Percentuale inviata a Lavalink v4 al join (0–100; Shoukaku default player `volume` = 100 = pieno). */
-const MUSIC_DEFAULT_LAVALINK_VOLUME = 100;
+const MUSIC_DEFAULT_LAVALINK_VOLUME = 20;
 
 /**
  * Lavalink v4: il volume globale del player è in percentuale 0–100 (100 = 100%).
@@ -41,7 +41,7 @@ const MUSIC_INACTIVITY_MS = Math.max(
 /**
  * `youtube` (default): testo → ytsearch + ytmsearch.
  * `spotify`: testo = prima spsearch, poi fallback yt/ytm se Spotify non restituisce nulla; **link** YouTube ancora rifiutati.
- * `spotify_first`: stesso ordine di ricerca testo di `spotify`; consente anche **link** YouTube.
+ * `spotify_first`: stesso ordine di ricerca testo di `spotify`; consente anche **link** YouTube (modalità meno restrittiva).
  * L’audio effettivo dipende dai `providers` Lavalink (lavasrc).
  */
 function getMusicSearchMode() {
@@ -119,14 +119,18 @@ function serializeSessionSnapshot(session) {
     repeatQueue: Boolean(session?.repeatQueue),
     repeatQueueSnapshot,
     history,
+    voiceChannelId: session?.voiceChannelId ? String(session.voiceChannelId) : null,
+    playingEncoded: session?.playingEncoded ? String(session.playingEncoded) : null,
   };
+  const hasResumeHint = Boolean(out.playingEncoded && out.voiceChannelId);
   if (
     !out.tracks.length &&
     !out.nowPlaying &&
     !out.repeatQueue &&
     !out.repeatOne &&
     !out.history.length &&
-    !out.repeatQueueSnapshot.length
+    !out.repeatQueueSnapshot.length &&
+    !hasResumeHint
   ) {
     return null;
   }
@@ -164,23 +168,41 @@ function restoreSessionSnapshotRow(row) {
     repeatQueue: Boolean(row?.repeatQueue),
     repeatQueueSnapshot: repeatQueueSnapshot.length ? repeatQueueSnapshot : null,
     history,
+    voiceChannelId: row?.voiceChannelId ? String(row.voiceChannelId) : null,
+    playingEncoded: row?.playingEncoded ? String(row.playingEncoded) : null,
   };
 }
 
-function persistMusicQueueSnapshotNow() {
+function mergeSessionSnapshotFromLivePlayer(client, guildId, session) {
+  const gid = String(guildId || "").trim();
+  const base = session && typeof session === "object" ? { ...session } : {};
+  if (!client?.shoukaku || !gid) return base;
+  const player = client.shoukaku.players?.get(gid);
+  const conn = client.shoukaku.connections?.get(gid);
+  if (typeof player?.track === "string" && player.track.length) {
+    base.playingEncoded = player.track;
+  }
+  if (conn?.channelId) {
+    base.voiceChannelId = String(conn.channelId);
+  }
+  return base;
+}
+
+function persistMusicQueueSnapshotNow(client) {
   try {
     const sessions = {};
     for (const [guildId, session] of guildQueues.entries()) {
       const gid = String(guildId || "").trim();
       if (!gid) continue;
-      const serialized = serializeSessionSnapshot(session);
+      const merged = mergeSessionSnapshotFromLivePlayer(client, gid, session);
+      const serialized = serializeSessionSnapshot(merged);
       if (!serialized) continue;
       sessions[gid] = serialized;
     }
     writeSnapshotWithMeta({
       filePath: MUSIC_QUEUE_SNAPSHOT_PATH,
       walPath: `${MUSIC_QUEUE_SNAPSHOT_PATH}.wal`,
-      key: "coffee_music_queue",
+      key: "vinyls_music_queue",
       version: 1,
       payload: { sessions },
     });
@@ -189,12 +211,87 @@ function persistMusicQueueSnapshotNow() {
   }
 }
 
+function scheduleMusicPlaybackResume(client) {
+  if (!client || client._musicPlaybackResumeScheduled) return;
+  client._musicPlaybackResumeScheduled = true;
+  const run = async () => {
+    let tries = 0;
+    while (tries < 45 && !isLavalinkUsable(client)) {
+      await new Promise((r) => setTimeout(r, 1000));
+      tries += 1;
+    }
+    if (!isLavalinkUsable(client)) {
+      global.logger?.warn?.("[MUSIC] playback resume skipped: Lavalink node not ready");
+      return;
+    }
+    await resumeRestoredMusicSessions(client).catch((err) => {
+      global.logger?.warn?.("[MUSIC] playback resume failed:", err?.message || err);
+    });
+  };
+  setImmediate(() => void run());
+}
+
+async function resumeRestoredMusicSessions(client) {
+  const sh = client?.shoukaku;
+  if (!sh) return;
+  for (const [guildId, session] of [...guildQueues.entries()]) {
+    const gid = String(guildId || "").trim();
+    if (!gid || !session) continue;
+    const encoded = String(session.playingEncoded || "").trim();
+    const vcId = String(session.voiceChannelId || "").trim();
+    if (!encoded || !vcId || !/^\d{17,22}$/.test(vcId)) continue;
+    if (sh.players?.get(gid)?.track) continue;
+    if (sh.connections?.get(gid)?.channelId) continue;
+
+    const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
+    if (!guild) continue;
+
+    const voiceChannel =
+      guild.channels.cache.get(vcId) || (await guild.channels.fetch(vcId).catch(() => null));
+    if (!voiceChannel?.isVoiceBased?.()) {
+      session.voiceChannelId = null;
+      session.playingEncoded = null;
+      persistMusicQueueSnapshotNow(client);
+      continue;
+    }
+
+    const me = guild.members.me;
+    if (!voiceChannel.permissionsFor?.(me)?.has?.(["Connect", "Speak", "ViewChannel"])) {
+      global.logger?.warn?.("[MUSIC] resume: missing voice permissions", gid);
+      continue;
+    }
+    if (guildHasBlockingNativeVoiceConnection(gid)) {
+      global.logger?.warn?.("[MUSIC] resume: blocked by native voice session", gid);
+      continue;
+    }
+
+    try {
+      let player = sh.players.get(gid);
+      if (!player) {
+        player = await sh.joinVoiceChannel({
+          guildId: gid,
+          shardId: getShardIdForGuild(guild),
+          channelId: voiceChannel.id,
+          deaf: true,
+        });
+      }
+      attachEndHandler(client, player, gid);
+      await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
+      await playEncodedFromStart(player, encoded);
+      persistMusicQueueSnapshotNow(client);
+      global.logger?.info?.(`[MUSIC] resumed session in guild ${gid}`);
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] resume join/play failed", gid, err?.message || err);
+    }
+  }
+}
+
 function restoreMusicQueueSnapshot() {
   try {
     const raw = readSnapshotWithMeta({
       filePath: MUSIC_QUEUE_SNAPSHOT_PATH,
       walPath: `${MUSIC_QUEUE_SNAPSHOT_PATH}.wal`,
-      key: "coffee_music_queue",
+      key: "vinyls_music_queue",
       version: 1,
       fallback: { sessions: {} },
     });
@@ -216,10 +313,10 @@ function startMusicQueueSnapshotLoop(client) {
   armShutdownCheckpoint();
   if (!client._musicQueueSnapshotFlushRegistered) {
     client._musicQueueSnapshotFlushRegistered = true;
-    registerShutdownFlush("coffee_music_queue", () => persistMusicQueueSnapshotNow());
+    registerShutdownFlush("vinyls_music_queue", () => persistMusicQueueSnapshotNow(client));
   }
   client._musicQueueSnapshotTimer = setInterval(() => {
-    persistMusicQueueSnapshotNow();
+    persistMusicQueueSnapshotNow(client);
   }, MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS);
   client._musicQueueSnapshotTimer.unref?.();
 }
@@ -1162,6 +1259,8 @@ function getSession(guildId) {
       tracks: [],
       textChannelId: null,
       nowPlaying: null,
+      voiceChannelId: null,
+      playingEncoded: null,
       musicSessionOwnerId: null,
       currentRequesterUserId: null,
       currentRequesterUserTag: null,
@@ -1182,11 +1281,13 @@ function getSession(guildId) {
   if (s.currentRequesterUserId === undefined) s.currentRequesterUserId = null;
   if (s.currentRequesterUserTag === undefined) s.currentRequesterUserTag = null;
   if (s.musicSessionOwnerId === undefined) s.musicSessionOwnerId = null;
+  if (s.voiceChannelId === undefined) s.voiceChannelId = null;
+  if (s.playingEncoded === undefined) s.playingEncoded = null;
   return s;
 }
 
 /**
- * Comandi “DJ”: solo chi ha avviato l’ultima riproduzione (primo play con coda ferma) può usarli.
+ * Comandi “DJ”: chi ha avviato la sessione (`musicSessionOwnerId`) o ha richiesto il brano attuale (`currentRequesterUserId`).
  * Se `musicSessionOwnerId` è assente (sessioni legacy), non bloccare.
  * @param {string} guildId
  * @param {string | null | undefined} requesterUserId
@@ -1195,13 +1296,18 @@ function assertMusicSessionOwnerOrAllowLegacy(guildId, requesterUserId) {
   const session = guildQueues.get(guildId);
   const ownerRaw = session?.musicSessionOwnerId;
   const owner = ownerRaw != null && String(ownerRaw).trim() ? String(ownerRaw).trim() : "";
-  if (!owner) return { ok: true };
   const uid = String(requesterUserId || "").trim();
   if (!uid) return { ok: false, message: "Utente non disponibile." };
+  if (!owner) return { ok: true };
   if (uid === owner) return { ok: true };
+  const curReqRaw = session?.currentRequesterUserId;
+  const curReq =
+    curReqRaw != null && String(curReqRaw).trim() ? String(curReqRaw).trim() : "";
+  if (curReq && uid === curReq) return { ok: true };
   return {
     ok: false,
-    message: "Solo chi ha avviato la riproduzione può usare questo comando.",
+    message:
+      "Solo chi ha avviato la sessione musica o richiesto il **brano in riproduzione** può usare questo comando.",
   };
 }
 
@@ -1464,6 +1570,7 @@ function attachEndHandler(client, player, guildId) {
       if (typeof encoded === "string" && encoded.length) {
         try {
           await playEncodedFromStart(player, encoded);
+          session.playingEncoded = encoded;
           return;
         } catch (err) {
           logMusic("repeat replay:", err?.message || err);
@@ -1492,6 +1599,7 @@ function attachEndHandler(client, player, guildId) {
         clearSessionCurrentRequester(session);
         try {
           await playEncodedFromStart(player, head.encoded);
+          session.playingEncoded = head.encoded;
           return;
         } catch (err) {
           logMusic("repeat queue loop:", err?.message || err);
@@ -1501,6 +1609,7 @@ function attachEndHandler(client, player, guildId) {
       }
       const notifyChannelId = session.textChannelId || null;
       session.nowPlaying = null;
+      session.playingEncoded = null;
       clearSessionCurrentRequester(session);
       session.tracks = [];
       session.repeatOne = false;
@@ -1508,6 +1617,7 @@ function attachEndHandler(client, player, guildId) {
       session.repeatQueue = false;
       session.repeatQueueSnapshot = null;
       musicIdleSince.set(guildId, Date.now());
+      persistMusicQueueSnapshotNow(client);
       await sendMusicQueueEndedEmbed(client, notifyChannelId, guildId);
       return;
     }
@@ -1523,6 +1633,7 @@ function attachEndHandler(client, player, guildId) {
     }
     try {
       await playEncodedFromStart(player, next.encoded);
+      session.playingEncoded = next.encoded;
     } catch (err) {
       global.logger?.warn?.("[MUSIC] play next failed:", err?.message || err);
       await leaveMusicVoiceChannelMarked(client, guildId);
@@ -1583,6 +1694,7 @@ function initLavalinkMusicIfEnabled(client) {
     });
     startMusicInactivityWatcher(client);
     startMusicQueueSnapshotLoop(client);
+    scheduleMusicPlaybackResume(client);
   } catch (err) {
     global.logger?.error?.("[MUSIC] Inizializzazione Shoukaku fallita:", err?.message || err, err?.stack);
   }
@@ -1630,7 +1742,7 @@ async function playMusicRequest(ctx, query) {
     return {
       ok: false,
       message:
-        "Il bot ha già una sessione **TTS** (lettura messaggi) in vocale: la musica non può avviarsi insieme. Fai uscire il TTS con il comando **leave** del modulo TTS (es. `+tts leave`), poi riprova `+play`.",
+        "Il bot ha già una sessione **TTS** in vocale: la musica non può avviarsi insieme. Fai uscire il TTS con il comando **leave** del modulo TTS, poi riprova `+play`.",
     };
   }
 
@@ -1711,6 +1823,7 @@ async function playMusicRequest(ctx, query) {
 
   const session = getSession(guildId);
   session.textChannelId = textChannelId;
+  session.voiceChannelId = voiceChannel.id;
 
   let player = shoukaku.players.get(guildId);
   if (!player) {
@@ -1830,6 +1943,8 @@ async function playMusicRequest(ctx, query) {
     await leaveMusicVoiceChannelMarked(client, guildId);
     return { ok: false, message: `Riproduzione fallita: ${err?.message || "errore"}` };
   }
+  session.playingEncoded = first.encoded;
+  persistMusicQueueSnapshotNow(client);
   session.musicSessionOwnerId = requesterUser?.id ? String(requesterUser.id) : null;
   const label = describeTrack(first);
   const spotifyUrl = await resolveSpotifyWebUrl(node, first);
@@ -2297,7 +2412,7 @@ async function rewindGuildTrack(interaction) {
     }
   }
   try {
-    await playEncodedFromStart(player, enc);
+    await player.playTrack({ track: { encoded: enc } });
   } catch (err) {
     return { ok: false, message: err?.message || "Riavvolgimento non riuscito." };
   }
@@ -2371,6 +2486,7 @@ async function clearGuildQueue(interaction) {
 module.exports = {
   initLavalinkMusicIfEnabled,
   isLavalinkUsable,
+  markMusicVoiceLeaveIntentional,
   fetchGuildQueueEntryRows,
   fetchGuildUpcomingQueueRows,
   fetchGuildRequestedSessionRows,
