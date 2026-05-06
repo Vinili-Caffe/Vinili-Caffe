@@ -10,7 +10,7 @@
     reviewsWsReconnectTimer: null,
     reviewsPager: {
       page: 1,
-      perPage: 8,
+      perPage: 9,
       totalPages: 1,
     },
     draft: {

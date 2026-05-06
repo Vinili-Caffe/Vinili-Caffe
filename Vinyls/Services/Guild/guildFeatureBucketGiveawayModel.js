@@ -243,7 +243,7 @@ const Giveaway = {
     if (!guildId) throw new Error("Giveaway.create: guildId required");
     const bucket = await ensureGuildFeatureBucket(guildId);
     const { guildId: _g, ...rest } = payload;
-    bucket.giveaways.push(rest);
+    bucket.giveaways.push({ ...rest, guildId });
     await bucket.save();
     return bucket.giveaways[bucket.giveaways.length - 1];
   },

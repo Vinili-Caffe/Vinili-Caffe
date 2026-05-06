@@ -14431,6 +14431,24 @@ html.vc-reviews-modal-open body {
   grid-template-columns: 1fr;
 }
 
+/* /recensioni: griglia come .vc-user-profile-grid3 su /user (override regola split sopra) */
+body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 40rem) {
+  body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 40.01rem) and (max-width: 64rem) {
+  body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .vc-reviews-section__head {
   display: flex;
   align-items: end;
@@ -17089,14 +17107,14 @@ body.vc-body .vc-live-event-inline__btn {
   box-shadow: 0 8px 22px rgba(var(--vc-sand-rgb), 0.2) !important;
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-section--split {
+body.vc-body.vc-reviews-page .vc-reviews-section--split {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-head-cta {
+body.vc-body.vc-reviews-page .vc-reviews-head-cta {
   animation: vc-reviews-cta-attention 4.6s ease-in-out infinite;
 }
 
@@ -17802,7 +17820,7 @@ body.vc-body .vc-reviews-rating__btn.is-active {
   box-shadow: 0 0 14px rgba(var(--vc-sand-rgb), 0.14) !important;
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-submit,
+body.vc-body.vc-reviews-page .vc-reviews-submit,
 body.vc-body .vc-reviews-modal .vc-reviews-submit {
   border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
   background:
@@ -17815,7 +17833,7 @@ body.vc-body .vc-reviews-modal .vc-reviews-submit {
     0 0 16px rgba(var(--vc-sand-rgb), 0.12) !important;
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-submit:hover:not([disabled]),
+body.vc-body.vc-reviews-page .vc-reviews-submit:hover:not([disabled]),
 body.vc-body .vc-reviews-modal .vc-reviews-submit:hover:not([disabled]) {
   border-color: rgba(var(--vc-sand-rgb), 0.52) !important;
   box-shadow:
@@ -18277,31 +18295,58 @@ body.vc-body .vc-vote-page ol li > span.rounded-full {
     0 0 12px rgba(var(--vc-sand-rgb), 0.12) !important;
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-section:not(.vc-reviews-section--split),
-body.vc-body .vc-reviews-page .vc-reviews-card {
-  border-color: rgba(var(--vc-sand-rgb), 0.26) !important;
-  background:
-    radial-gradient(ellipse 115% 85% at 15% 0%, rgba(236, 205, 176, 0.12), transparent 54%),
-    linear-gradient(145deg, rgba(28, 20, 15, 0.62), rgba(14, 10, 8, 0.56)) !important;
+body.vc-body.vc-reviews-page .vc-reviews-section:not(.vc-reviews-section--split),
+body.vc-body.vc-reviews-page .vc-reviews-card {
+  border-radius: 1rem !important;
+  border-color: rgba(var(--vc-reviews-emerald-rgb), 0.22) !important;
+  background: linear-gradient(135deg, rgba(18, 34, 48, 0.55), rgba(20, 62, 54, 0.22)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 14px 34px rgba(0, 0, 0, 0.24),
-    0 0 18px rgba(var(--vc-sand-rgb), 0.08) !important;
+    0 12px 28px rgba(0, 0, 0, 0.22),
+    0 0 16px rgba(var(--vc-reviews-emerald-rgb), 0.1) !important;
+  backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
+  -webkit-backdrop-filter: blur(var(--vc-glass-blur)) saturate(155%);
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-card__icon-btn,
-body.vc-body .vc-reviews-page .vc-reviews-card__icon-btn--danger {
+body.vc-body.vc-reviews-page .vc-reviews-card__icon-btn,
+body.vc-body.vc-reviews-page .vc-reviews-card__icon-btn--danger {
   border-color: rgba(var(--vc-sand-rgb), 0.28) !important;
   background: rgba(var(--vc-mocha-rgb), 0.4) !important;
   color: rgba(247, 236, 223, 0.94) !important;
 }
 
-body.vc-body .vc-reviews-page .vc-reviews-card__icon-btn:hover,
-body.vc-body .vc-reviews-page .vc-reviews-card__icon-btn--danger:hover {
+body.vc-body.vc-reviews-page .vc-reviews-card__icon-btn:hover,
+body.vc-body.vc-reviews-page .vc-reviews-card__icon-btn--danger:hover {
   border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
   background: rgba(var(--vc-mocha-rgb), 0.56) !important;
   color: rgba(255, 247, 236, 0.99) !important;
   box-shadow: 0 0 16px rgba(var(--vc-sand-rgb), 0.14) !important;
+}
+
+body.vc-body.vc-reviews-page .vc-reviews-card {
+  padding: 1rem 0.95rem !important;
+}
+
+body.vc-body.vc-reviews-page .vc-reviews-card__avatar,
+body.vc-body.vc-reviews-page .vc-reviews-card__avatar--fallback {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+body.vc-body.vc-reviews-page .vc-reviews-card__text {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+body.vc-body.vc-reviews-page .vc-reviews-card__reply-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 body.vc-body.vc-donazioni-page .vc-support-hero-pillars__panel {
