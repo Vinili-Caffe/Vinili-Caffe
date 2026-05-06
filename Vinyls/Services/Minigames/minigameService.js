@@ -66,8 +66,25 @@ async function waitIfSportsDb429() {
   const ms = sportsDb429Until - now;
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
-const canvasModule = require("canvas");
-const { createCanvas, loadImage } = canvasModule;
+let canvasModule = null;
+let createCanvas = null;
+let loadImage = null;
+try {
+  canvasModule = require("canvas");
+  createCanvas = canvasModule.createCanvas;
+  loadImage = canvasModule.loadImage;
+} catch (error) {
+  global.logger?.warn?.(
+    "[minigameService] canvas non disponibile: modalità immagini disattivata",
+    error?.message || error,
+  );
+  createCanvas = () => {
+    throw new Error("canvas_non_disponibile");
+  };
+  loadImage = async () => {
+    throw new Error("canvas_non_disponibile");
+  };
+}
 const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Utils/Render/canvasFonts");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, AttachmentBuilder, } = require("discord.js");
 const {

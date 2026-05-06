@@ -2,6 +2,10 @@ const { EmbedBuilder } = require("discord.js");
 const { getVoiceConnection, VoiceConnectionStatus } = require("@discordjs/voice");
 const { Shoukaku, Connectors, LoadType, Constants, Utils } = require("shoukaku");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
+const fs = require("fs");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 
 const MUSIC_LOGS = String(process.env.MUSIC_LOGS || "0").trim() === "1";
 /** Percentuale inviata a Lavalink v4 al join (0–100; Shoukaku default player `volume` = 100 = pieno). */
@@ -63,10 +67,161 @@ const guildQueues = new Map();
 const endListeners = new Set();
 /** @type {Map<string, number>} guildId -> timestamp (ms) inizio stato “inattivo” */
 const musicIdleSince = new Map();
+const MUSIC_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "musicQueueSnapshot.json");
+const MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS = 15000;
 
 function logMusic(...args) {
   if (!MUSIC_LOGS) return;
   global.logger?.info?.("[MUSIC]", ...args);
+}
+
+function serializeQueueTrack(track) {
+  if (!track) return null;
+  const encoded = typeof track?.encoded === "string" ? track.encoded : null;
+  if (!encoded) return null;
+  const vcRequestedByUserId = track?.vcRequestedByUserId ? String(track.vcRequestedByUserId) : null;
+  const vcRequestedByUserTag = track?.vcRequestedByUserTag ? String(track.vcRequestedByUserTag) : null;
+  return {
+    encoded,
+    ...(vcRequestedByUserId ? { vcRequestedByUserId } : {}),
+    ...(vcRequestedByUserTag ? { vcRequestedByUserTag } : {}),
+  };
+}
+
+function serializeEncodedLabelRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const encoded = typeof row?.encoded === "string" ? row.encoded : null;
+      if (!encoded) return null;
+      const label = row?.label ? String(row.label) : "Traccia";
+      return { encoded, label };
+    })
+    .filter(Boolean);
+}
+
+function serializeSessionSnapshot(session) {
+  if (!session || typeof session !== "object") return null;
+  const tracks = Array.isArray(session.tracks) ? session.tracks.map(serializeQueueTrack).filter(Boolean) : [];
+  const history = serializeEncodedLabelRows(Array.isArray(session.history) ? session.history : []);
+  const repeatQueueSnapshot = serializeEncodedLabelRows(
+    Array.isArray(session.repeatQueueSnapshot) ? session.repeatQueueSnapshot : [],
+  );
+  const out = {
+    tracks,
+    textChannelId: session?.textChannelId ? String(session.textChannelId) : null,
+    nowPlaying: session?.nowPlaying ? String(session.nowPlaying) : null,
+    musicSessionOwnerId: session?.musicSessionOwnerId ? String(session.musicSessionOwnerId) : null,
+    currentRequesterUserId: session?.currentRequesterUserId ? String(session.currentRequesterUserId) : null,
+    currentRequesterUserTag: session?.currentRequesterUserTag ? String(session.currentRequesterUserTag) : null,
+    repeatOne: Boolean(session?.repeatOne),
+    repeatEncoded: session?.repeatEncoded ? String(session.repeatEncoded) : null,
+    repeatQueue: Boolean(session?.repeatQueue),
+    repeatQueueSnapshot,
+    history,
+  };
+  if (
+    !out.tracks.length &&
+    !out.nowPlaying &&
+    !out.repeatQueue &&
+    !out.repeatOne &&
+    !out.history.length &&
+    !out.repeatQueueSnapshot.length
+  ) {
+    return null;
+  }
+  return out;
+}
+
+function restoreSessionSnapshotRow(row) {
+  if (!row || typeof row !== "object") return null;
+  const tracks = Array.isArray(row.tracks)
+    ? row.tracks
+        .map((t) => {
+          const encoded = typeof t?.encoded === "string" ? t.encoded : null;
+          if (!encoded) return null;
+          return {
+            encoded,
+            ...(t?.vcRequestedByUserId ? { vcRequestedByUserId: String(t.vcRequestedByUserId) } : {}),
+            ...(t?.vcRequestedByUserTag ? { vcRequestedByUserTag: String(t.vcRequestedByUserTag) } : {}),
+          };
+        })
+        .filter(Boolean)
+    : [];
+  const history = serializeEncodedLabelRows(Array.isArray(row.history) ? row.history : []);
+  const repeatQueueSnapshot = serializeEncodedLabelRows(
+    Array.isArray(row.repeatQueueSnapshot) ? row.repeatQueueSnapshot : [],
+  );
+  return {
+    tracks,
+    textChannelId: row?.textChannelId ? String(row.textChannelId) : null,
+    nowPlaying: row?.nowPlaying ? String(row.nowPlaying) : null,
+    musicSessionOwnerId: row?.musicSessionOwnerId ? String(row.musicSessionOwnerId) : null,
+    currentRequesterUserId: row?.currentRequesterUserId ? String(row.currentRequesterUserId) : null,
+    currentRequesterUserTag: row?.currentRequesterUserTag ? String(row.currentRequesterUserTag) : null,
+    repeatOne: Boolean(row?.repeatOne),
+    repeatEncoded: row?.repeatEncoded ? String(row.repeatEncoded) : null,
+    repeatQueue: Boolean(row?.repeatQueue),
+    repeatQueueSnapshot: repeatQueueSnapshot.length ? repeatQueueSnapshot : null,
+    history,
+  };
+}
+
+function persistMusicQueueSnapshotNow() {
+  try {
+    const sessions = {};
+    for (const [guildId, session] of guildQueues.entries()) {
+      const gid = String(guildId || "").trim();
+      if (!gid) continue;
+      const serialized = serializeSessionSnapshot(session);
+      if (!serialized) continue;
+      sessions[gid] = serialized;
+    }
+    writeSnapshotWithMeta({
+      filePath: MUSIC_QUEUE_SNAPSHOT_PATH,
+      walPath: `${MUSIC_QUEUE_SNAPSHOT_PATH}.wal`,
+      key: "coffee_music_queue",
+      version: 1,
+      payload: { sessions },
+    });
+  } catch (err) {
+    global.logger?.warn?.("[MUSIC] queue snapshot persist failed:", err?.message || err);
+  }
+}
+
+function restoreMusicQueueSnapshot() {
+  try {
+    const raw = readSnapshotWithMeta({
+      filePath: MUSIC_QUEUE_SNAPSHOT_PATH,
+      walPath: `${MUSIC_QUEUE_SNAPSHOT_PATH}.wal`,
+      key: "coffee_music_queue",
+      version: 1,
+      fallback: { sessions: {} },
+    });
+    const sessions = raw?.sessions && typeof raw.sessions === "object" ? raw.sessions : {};
+    for (const [guildId, row] of Object.entries(sessions)) {
+      const gid = String(guildId || "").trim();
+      if (!gid) continue;
+      const restored = restoreSessionSnapshotRow(row);
+      if (!restored) continue;
+      guildQueues.set(gid, restored);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[MUSIC] queue snapshot restore failed:", err?.message || err);
+  }
+}
+
+function startMusicQueueSnapshotLoop(client) {
+  if (client._musicQueueSnapshotTimer) return;
+  armShutdownCheckpoint();
+  if (!client._musicQueueSnapshotFlushRegistered) {
+    client._musicQueueSnapshotFlushRegistered = true;
+    registerShutdownFlush("coffee_music_queue", () => persistMusicQueueSnapshotNow());
+  }
+  client._musicQueueSnapshotTimer = setInterval(() => {
+    persistMusicQueueSnapshotNow();
+  }, MUSIC_QUEUE_SNAPSHOT_INTERVAL_MS);
+  client._musicQueueSnapshotTimer.unref?.();
 }
 
 /**
@@ -1419,6 +1574,7 @@ function initLavalinkMusicIfEnabled(client) {
     }
     client.shoukaku = shoukaku;
     client._shoukakuInitDone = true;
+    restoreMusicQueueSnapshot();
     shoukaku.on("error", (name, err) => {
       global.logger?.warn?.(`[MUSIC] Shoukaku node ${name}:`, err?.message || err);
     });
@@ -1426,6 +1582,7 @@ function initLavalinkMusicIfEnabled(client) {
       global.logger?.info?.(`[MUSIC] Lavalink collegato (nodo ${name})`);
     });
     startMusicInactivityWatcher(client);
+    startMusicQueueSnapshotLoop(client);
   } catch (err) {
     global.logger?.error?.("[MUSIC] Inizializzazione Shoukaku fallita:", err?.message || err, err?.stack);
   }

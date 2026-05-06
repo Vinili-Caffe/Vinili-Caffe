@@ -4,6 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const axios = require("axios");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const {
   voiceFindOneAndUpdate,
   voiceDeleteOne,
@@ -19,9 +21,85 @@ const MAX_TTS_QUEUE = 10000;
 const ttsStates = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
+const TTS_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "ttsQueueSnapshot.json");
+const TTS_QUEUE_SNAPSHOT_INTERVAL_MS = 15000;
+const TTS_QUEUE_MAX_PERSISTED_ITEMS = 300;
 let emojiNameMap = null;
 let nodeEmoji = null;
 const userLangs = new Map();
+
+function serializeTtsQueueItem(item) {
+  const text = String(item?.text || "").trim();
+  if (!text) return null;
+  const lang = String(item?.lang || "it").trim() || "it";
+  return { text, lang };
+}
+
+function persistTtsQueueSnapshotNow() {
+  try {
+    const queues = {};
+    for (const [channelId, state] of ttsStates.entries()) {
+      const gid = String(state?.guildId || "").trim();
+      const cid = String(channelId || "").trim();
+      if (!gid || !cid) continue;
+      const queue = Array.isArray(state?.queue) ? state.queue.map(serializeTtsQueueItem).filter(Boolean) : [];
+      if (!queue.length) continue;
+      queues[gid] = { channelId: cid, queue: queue.slice(0, TTS_QUEUE_MAX_PERSISTED_ITEMS) };
+    }
+    writeSnapshotWithMeta({
+      filePath: TTS_QUEUE_SNAPSHOT_PATH,
+      walPath: `${TTS_QUEUE_SNAPSHOT_PATH}.wal`,
+      key: "coffee_tts_queue",
+      version: 1,
+      payload: { queues },
+    });
+  } catch (err) {
+    global.logger?.warn?.("[TTS] queue snapshot persist failed:", err?.message || err);
+  }
+}
+
+function readTtsQueueSnapshotRaw() {
+  const raw = readSnapshotWithMeta({
+    filePath: TTS_QUEUE_SNAPSHOT_PATH,
+    walPath: `${TTS_QUEUE_SNAPSHOT_PATH}.wal`,
+    key: "coffee_tts_queue",
+    version: 1,
+    fallback: { queues: {} },
+  });
+  return raw?.queues && typeof raw.queues === "object" ? raw.queues : {};
+}
+
+function restoreTtsQueueForChannel(voiceChannel) {
+  const guildId = String(voiceChannel?.guild?.id || "").trim();
+  const channelId = String(voiceChannel?.id || "").trim();
+  if (!guildId || !channelId) return;
+  const queues = readTtsQueueSnapshotRaw();
+  const row = queues[guildId];
+  if (!row || String(row?.channelId || "") !== channelId) return;
+  const state = getState(voiceChannel);
+  if (Array.isArray(state.queue) && state.queue.length > 0) return;
+  const pending = Array.isArray(row?.queue) ? row.queue : [];
+  for (const item of pending) {
+    const text = String(item?.text || "").trim();
+    if (!text) continue;
+    const lang = String(item?.lang || "it").trim() || "it";
+    state.queue.push({ voiceChannel, text, lang });
+  }
+  if (!state.playing && state.queue.length) playNext(state);
+}
+
+function startTtsQueueSnapshotLoop(client) {
+  if (client._ttsQueueSnapshotTimer) return;
+  armShutdownCheckpoint();
+  if (!client._ttsQueueSnapshotFlushRegistered) {
+    client._ttsQueueSnapshotFlushRegistered = true;
+    registerShutdownFlush("coffee_tts_queue", () => persistTtsQueueSnapshotNow());
+  }
+  client._ttsQueueSnapshotTimer = setInterval(() => {
+    persistTtsQueueSnapshotNow();
+  }, TTS_QUEUE_SNAPSHOT_INTERVAL_MS);
+  client._ttsQueueSnapshotTimer.unref?.();
+}
 try {
   emojiNameMap = require("emoji-name-map");
 } catch (error) {
@@ -58,6 +136,7 @@ function shouldHandleMessage(message, config, prefix) {
   const rawContent = String(message.content ?? "");
   if (prefix && rawContent.startsWith(prefix)) return false;
   if (rawContent.startsWith("-")) return false;
+  if (rawContent.startsWith("+")) return false;
   const isVoiceChannel = message.channel.isVoiceBased?.() && !message.channel.isThread?.();
   const isVoiceChannelThread = message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.();
   const extraTextIds = [IDs.channels.noMic].filter(Boolean).map((id) => String(id));
@@ -745,9 +824,11 @@ async function ensureConnection(state, voiceChannel) {
 async function playNext(state) {
   if (state.queue.length === 0) {
     state.playing = false;
+    persistTtsQueueSnapshotNow();
     return;
   }
   const item = state.queue.shift();
+  persistTtsQueueSnapshotNow();
   state.playing = true;
   const tmpPath = path.resolve(os.tmpdir(), `tts_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`,);
   state.currentTtsFile = null;
@@ -775,6 +856,7 @@ async function playNext(state) {
 function enqueue(state, item) {
   if (state.queue.length >= MAX_TTS_QUEUE) return;
   state.queue.push(item);
+  persistTtsQueueSnapshotNow();
   if (!state.playing) {
     playNext(state);
   }
@@ -880,6 +962,7 @@ function cleanupAllTtsStateForGuild(guildId) {
     ttsStates.delete(channelId);
   }
   guildLocks.delete(gid);
+  persistTtsQueueSnapshotNow();
 }
 
 async function leaveTtsGuild(guildId, client) {
@@ -932,6 +1015,7 @@ async function leaveTtsGuild(guildId, client) {
     cleanupAllTtsStateForGuild(guildId);
   }
   await clearVoiceState(guildId);
+  persistTtsQueueSnapshotNow();
   return { ok: true };
 }
 
@@ -942,7 +1026,7 @@ async function saveVoiceState(guildId, channelId) {
   try {
     await voiceFindOneAndUpdate(
       { guildId },
-      { $set: { guildId, channelId, updatedAt: new Date() } },
+      { $set: { guildId, channelId, lockedChannelId: channelId, updatedAt: new Date() } },
       { upsert: true, new: true },
     );
   } catch (error) {
@@ -962,6 +1046,7 @@ async function clearVoiceState(guildId) {
 
 async function restoreTtsConnections(client) {
   try {
+    startTtsQueueSnapshotLoop(client);
     await warmUserTtsLangsFromDb();
     const autojoinEnabled = booleanFromConfig(client?.config?.tts?.autojoin, false,);
     if (!autojoinEnabled) {
@@ -978,6 +1063,7 @@ async function restoreTtsConnections(client) {
       await joinTtsChannel(channel).catch((e) =>
         global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
       );
+      restoreTtsQueueForChannel(channel);
       await sleep(1200);
     }
   } catch (error) {

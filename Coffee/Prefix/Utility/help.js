@@ -1,5 +1,6 @@
 const IDs = require("../../Utils/Config/ids");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js");
+const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../../shared/discord/purgeObsoleteApplicationCommands");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../Utils/Interaction/entityCache");
 const { loadPermissions } = require("../../Utils/Moderation/permissionsStore");
@@ -16,6 +17,22 @@ const PAGE_TITLES = {
 };
 const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", dev: "Dev" };
 const CATEGORY_ORDER = ["utility", "music", "tts", "dev"];
+function normalizeCategoryKey(raw) {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return "utility";
+  if (value.includes("music")) return "music";
+  if (value.includes("tts") || value.includes("voice")) return "tts";
+  if (
+    value.includes("dev") ||
+    value.includes("admin") ||
+    value.includes("owner") ||
+    value.includes("staff")
+  ) {
+    return "dev";
+  }
+  if (value in CATEGORY_LABELS) return value;
+  return "utility";
+}
 const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set([
   "skip",
   "stop",
@@ -44,6 +61,13 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
   "set.autojoin": "Attiva o disattiva autojoin TTS.",
   "set.voice": "Imposta la lingua TTS personale.",
 };
+const CONTEXT_HELP_DESCRIPTIONS = {};
+const CONTEXT_CATEGORY_OVERRIDES = {};
+const OBSOLETE_SLASH_HELP_NAMES = new Set(
+  (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : [])
+    .map((s) => String(s || "").trim().toLowerCase())
+    .filter(Boolean),
+);
 
 function buildMiniHelpNotFoundEmbed(query) {
   return new EmbedBuilder()
@@ -156,6 +180,22 @@ function getSlashTopLevelDescription(dataJson) {
   return normalizeDescription(dataJson?.description, "Comando slash.");
 }
 
+function resolveContextCategory(command, dataJson) {
+  const contextName = String(dataJson?.name || "").trim().toLowerCase();
+  if (contextName && CONTEXT_CATEGORY_OVERRIDES[contextName]) {
+    return normalizeCategoryKey(CONTEXT_CATEGORY_OVERRIDES[contextName]);
+  }
+  return normalizeCategoryKey(command?.category || "utility");
+}
+
+function shouldIncludeSlashCommandInHelp(command) {
+  if (!command || command.skipDeploy) return false;
+  const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+  const nm = String(dataJson?.name || command?.data?.name || "").trim().toLowerCase();
+  if (OBSOLETE_SLASH_HELP_NAMES.has(nm)) return false;
+  return true;
+}
+
 function getCommandPermissionNode(permissionRoot, commandName) {
   if (!permissionRoot || typeof permissionRoot !== "object") return null;
   const exact = permissionRoot[commandName];
@@ -196,7 +236,7 @@ function getSubcommandEntries(
     const roleList = normalizePermissionRoles(allowedRoles);
 
     entries.push({
-      invoke: `/${groupName?`${commandName}${groupName}${subName}` : `${commandName}${subName}`}`,type:"slash",description:normalizeDescription(subOption.description,topDesc),category:normalizeCategoryKey(category),roles:roleList,});};for(const option of options){ if (option?.type === 1) {
+      invoke: groupName ? `/${commandName} ${groupName} ${subName}` : `/${commandName} ${subName}`,type:"slash",description:normalizeDescription(subOption.description,topDesc),category:normalizeCategoryKey(category),roles:roleList,});};for(const option of options){ if (option?.type === 1) {
       parseSubOption(option);
       continue;
     }
@@ -242,6 +282,73 @@ function buildEntries(client, permissions) {
         invoke: `${prefixBase}${command.name}`,
       });
     }
+  }
+
+  const seenSlash = new Set();
+  for (const command of client.commands.values()) {
+    if (!shouldIncludeSlashCommandInHelp(command)) continue;
+    const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+    if (!dataJson?.name) continue;
+    const commandType = dataJson.type || ApplicationCommandType.ChatInput;
+    if (commandType !== ApplicationCommandType.ChatInput) continue;
+    const uniqueKey = `${dataJson.name}:${commandType}`;
+    if (seenSlash.has(uniqueKey)) continue;
+    seenSlash.add(uniqueKey);
+
+    const perm = getCommandPermissionNode(permissions.slash, dataJson.name);
+    const category = normalizeCategoryKey(command?.category || "utility");
+    const hasSubcommands =
+      Array.isArray(dataJson.options) &&
+      dataJson.options.some((opt) => opt?.type === 1 || opt?.type === 2);
+    const roles = normalizePermissionRoles(perm);
+
+    if (hasSubcommands) {
+      entries.push(
+        ...getSubcommandEntries(
+          dataJson.name,
+          dataJson,
+          perm,
+          commandType,
+          category,
+        ),
+      );
+      continue;
+    }
+
+    entries.push({
+      invoke: `/${dataJson.name}`,
+      type: "slash",
+      description: getSlashTopLevelDescription(dataJson),
+      category,
+      roles,
+    });
+  }
+
+  for (const command of client.commands.values()) {
+    if (!shouldIncludeSlashCommandInHelp(command)) continue;
+    const dataJson = command?._helpDataJson || command?.data?.toJSON?.();
+    if (!dataJson?.name) continue;
+    const commandType = dataJson.type || ApplicationCommandType.ChatInput;
+    if (
+      commandType !== ApplicationCommandType.User &&
+      commandType !== ApplicationCommandType.Message
+    ) {
+      continue;
+    }
+    const perm = getCommandPermissionNode(permissions.slash, dataJson.name);
+    const roles = normalizePermissionRoles(perm);
+    entries.push({
+      invoke: `${dataJson.name}`,
+      type: "context",
+      description: normalizeDescription(
+        command?.helpDescription ||
+        command?.description ||
+        CONTEXT_HELP_DESCRIPTIONS[dataJson.name] ||
+        `Comando context (${commandType === ApplicationCommandType.User ? "utente" : "messaggio"}).`,
+      ),
+      category: resolveContextCategory(command, dataJson),
+      roles,
+    });
   }
 
   const dedupe = new Map();
@@ -439,7 +546,7 @@ function buildNavigationRow(state) {
       .setDisabled(state.currentIndex >= state.total - 1),
     new ButtonBuilder()
       .setCustomId(state.closeId)
-      .setEmoji("<:cancel:1461730653677551691>")
+      .setEmoji("<a:VC_Cross:1482532424570376253>")
       .setStyle(ButtonStyle.Danger),
   );
 }
@@ -454,6 +561,14 @@ function buildHelpV2Container(page, navState) {
     accentColor: 0x6f4e37,
     components,
   };
+}
+
+function buildHelpFallbackEmbed(page) {
+  const body = String(page?.renderedText || renderPageText(page) || "").trim();
+  return new EmbedBuilder()
+    .setColor(HELP_EMBED_COLOR)
+    .setTitle("Comandi")
+    .setDescription((body || "Nessun comando.").slice(0, 4096));
 }
 
 function normalizeInvokeLookup(value) {
@@ -782,10 +897,74 @@ function buildSlashExampleLine(
 }
 
 function buildSlashDetailedHelpEmbed(query, entries, context = {}) {
-  void query;
-  void entries;
-  void context;
-  return null;
+  const normalized = normalizeInvokeLookup(query);
+  const tokens = normalized.split(" ").filter(Boolean);
+  const queryToken = tokens[0] || "";
+  if (!queryToken) return null;
+  const seen = new Set();
+  const slashCommands = [];
+  for (const cmd of Array.from(context?.client?.commands?.values?.() || [])) {
+    if (!shouldIncludeSlashCommandInHelp(cmd)) continue;
+    const dataJson = cmd?._helpDataJson || cmd?.data?.toJSON?.();
+    if (!dataJson?.name) continue;
+    const type = dataJson.type || ApplicationCommandType.ChatInput;
+    if (type !== ApplicationCommandType.ChatInput) continue;
+    const key = `${dataJson.name}:${type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    slashCommands.push({ dataJson });
+  }
+  if (!slashCommands.length) return null;
+  const hit = slashCommands.find(({ dataJson }) => String(dataJson.name || "").trim().toLowerCase() === queryToken);
+  if (!hit) return null;
+  const commandName = String(hit.dataJson.name || "").trim().toLowerCase();
+  const visibleForCommand = entries.filter((entry) => entry.type === "slash" && normalizeInvokeLookup(entry.invoke).split(" ")[0] === commandName);
+  if (!visibleForCommand.length) return null;
+  const options = Array.isArray(hit.dataJson.options) ? hit.dataJson.options : [];
+  const hasSub = options.some((opt) => opt?.type === 1 || opt?.type === 2);
+  const requestedSub = tokens[1] || null;
+  const syntaxLines = [];
+  const optionLines = [];
+  const exampleLines = [];
+  if (!hasSub) {
+    const placeholders = options.filter((opt) => opt?.type >= 3 && opt?.type <= 11).map((opt) => formatSlashOptionPlaceholder(opt)).filter(Boolean);
+    syntaxLines.push(`\`/${commandName}${placeholders.length ? ` ${placeholders.join(" ")}` : ""}\``);
+    exampleLines.push(buildSlashExampleLine(commandName, null, null, options));
+  } else {
+    for (const opt of options) {
+      if (opt?.type === 1) {
+        const subName = String(opt.name || "").trim().toLowerCase();
+        if (requestedSub && requestedSub !== subName) continue;
+        const subPlaceholders = (Array.isArray(opt.options) ? opt.options : []).filter((child) => child?.type >= 3 && child?.type <= 11).map((child) => formatSlashOptionPlaceholder(child)).filter(Boolean);
+        syntaxLines.push(`\`/${commandName} ${subName}${subPlaceholders.length ? ` ${subPlaceholders.join(" ")}` : ""}\``);
+        exampleLines.push(buildSlashExampleLine(commandName, null, subName, Array.isArray(opt.options) ? opt.options : []));
+        optionLines.push(`- \`${subName}\` - ${normalizeDescription(opt.description, "Nessuna descrizione.")}`);
+      }
+      if (opt?.type === 2 && Array.isArray(opt.options)) {
+        const groupName = String(opt.name || "").trim().toLowerCase();
+        for (const sub of opt.options) {
+          if (sub?.type !== 1 || !sub?.name) continue;
+          const subName = String(sub.name || "").trim().toLowerCase();
+          if (requestedSub && requestedSub !== groupName && requestedSub !== subName) continue;
+          const subPlaceholders = (Array.isArray(sub.options) ? sub.options : []).filter((child) => child?.type >= 3 && child?.type <= 11).map((child) => formatSlashOptionPlaceholder(child)).filter(Boolean);
+          syntaxLines.push(`\`/${commandName} ${groupName} ${subName}${subPlaceholders.length ? ` ${subPlaceholders.join(" ")}` : ""}\``);
+          exampleLines.push(buildSlashExampleLine(commandName, groupName, subName, Array.isArray(sub.options) ? sub.options : []));
+          optionLines.push(`- \`${groupName} ${subName}\` - ${normalizeDescription(sub.description, "Nessuna descrizione.")}`);
+        }
+      }
+    }
+  }
+  const perm = context?.permissions?.slash?.[commandName];
+  const roleIds = Array.isArray(perm) ? perm : Array.isArray(perm?.roles) ? perm.roles : null;
+  const effectiveSyntax = syntaxLines.length ? syntaxLines : [`\`/${commandName}\``];
+  const embed = new EmbedBuilder().setColor("#6f4e37").setTitle(String(`Guida comando: /${commandName}`).slice(0, 256)).setDescription(String(normalizeDescription(hit.dataJson.description, "Comando slash.")).slice(0, 4096));
+  const fields = [];
+  pushChunkedField(fields, "Sintassi", effectiveSyntax);
+  pushChunkedField(fields, "Permessi", [`Ruoli richiesti: ${formatRoleMentions(roleIds)}`]);
+  if (optionLines.length) pushChunkedField(fields, "Opzioni", optionLines);
+  pushChunkedField(fields, "Esempi di uso", exampleLines.length ? exampleLines : [`- \`/${commandName}\``]);
+  if (fields.length) embed.addFields(fields.slice(0, 25));
+  return embed;
 }
 
 function buildDetailedHelpEmbed(query, entries, context = {}) {
@@ -842,7 +1021,7 @@ function buildSubcommandFallbackEmbed(query, visibleEntries, context = {}) {
     const prefixBase = getPrefixBase(prefixCommand, context?.client);
     const subcommands=listPrefixSubcommandsForCommand(prefixCommand,commandName,permissions,);
     if (subcommands.length) {
-      const lines=subcommands.map((sub) => {const invoke=`${prefixBase}${commandName}${sub}`;
+      const lines=subcommands.map((sub) => {const invoke=`${prefixBase}${commandName} ${sub}`;
         const isVisible = visibleInvokeSet.has(normalizeInvokeLookup(invoke));
         const lock = isVisible ? "" : " *(non accessibile con i tuoi ruoli)*";
         const subAliases = extractDirectAliasesForSubcommand(prefixCommand, sub);
@@ -895,7 +1074,22 @@ module.exports = {
   name: "help",
   allowEmptyArgs: true,
   async execute(message, args, client) {
-    if (!message.guild || !message.member) return;
+    if (!message.guild) return;
+    if (!message.member && message.guild.members?.fetch) {
+      message.member =
+        (await getGuildMemberCached(message.guild, message.author.id, {
+          ttlMs: 20_000,
+          preferFresh: true,
+        }).catch(() => null)) || null;
+    }
+    if (!message.member) {
+      await safeMessageReply(message, {
+        content:
+          "<a:VC_Cross:1482532424570376253> Non riesco a leggere i tuoi ruoli in questo server. Riprova o rientra nel server.",
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+      return;
+    }
     await message.channel.sendTyping().catch(() => { });
 
     const permissions = loadPermissions();
@@ -957,7 +1151,20 @@ module.exports = {
       closeId: `help_close_${uniqueToken}`,
     };
 
-    const sent=await safeMessageReply(message,{components:[buildHelpV2Container(displayPages[navState.currentIndex],navState)],flags:MessageFlags.IsComponentsV2,allowedMentions:NO_REPLY_MENTIONS,});
+    let helpUsesComponentsV2 = true;
+    let sent = await safeMessageReply(message, {
+      components: [buildHelpV2Container(displayPages[navState.currentIndex], navState)],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: NO_REPLY_MENTIONS,
+    });
+    if (!sent) {
+      helpUsesComponentsV2 = false;
+      sent = await safeMessageReply(message, {
+        embeds: [buildHelpFallbackEmbed(displayPages[navState.currentIndex])],
+        components: navState.total > 1 ? [buildNavigationRow(navState)] : [],
+        allowedMentions: NO_REPLY_MENTIONS,
+      });
+    }
     if (!sent) return;
 
     const collector=sent.createMessageComponentCollector({time:MAX_HELP_COLLECTOR_MS,idle:MAX_HELP_COLLECTOR_MS,});
@@ -993,7 +1200,21 @@ module.exports = {
       }
 
       const page = displayPages[navState.currentIndex];
-      const updated=await interaction.update({components:[buildHelpV2Container(page,navState)],}).then(() => true).catch(() => false);
+      let updated = false;
+      if (helpUsesComponentsV2) {
+        updated = await interaction
+          .update({ components: [buildHelpV2Container(page, navState)] })
+          .then(() => true)
+          .catch(() => false);
+      } else {
+        updated = await interaction
+          .update({
+            embeds: [buildHelpFallbackEmbed(page)],
+            components: navState.total > 1 ? [buildNavigationRow(navState)] : [],
+          })
+          .then(() => true)
+          .catch(() => false);
+      }
       if (!updated) {
         navState.currentIndex = prevIndex;
       }

@@ -1,15 +1,21 @@
 "use strict";
 
+const path = require("path");
 const IDs = require("../../Utils/Config/ids");
 const { getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { isUserInMainGuild } = require("../../Utils/Interaction/verifyUtils");
 const { ensureSponsorVerificatoForMember } = require("./communityOpsService");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 
 const KICK_DELAY_MS = 24 * 60 * 60 * 1000;
 /** Solo questo nome ruolo sul server TAG sponsor attiva il bypass (non altri ruoli booster). */
 const SERVER_BOOSTER_ROLE_NAME = "༄ Server Booster";
 /** @type {Map<string, { timeoutId: ReturnType<typeof setTimeout> }>} */
 const pending = new Map();
+const SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "sponsorVerifiedPendingKickSnapshot.json");
+let pendingLoaded = false;
+let pendingFlushRegistered = false;
 
 function scheduleKey(sponsorGuildId, userId) {
   return `${String(sponsorGuildId)}:${String(userId)}`;
@@ -50,6 +56,7 @@ function clearPending(sponsorGuildId, userId) {
   const row = pending.get(key);
   if (row?.timeoutId) clearTimeout(row.timeoutId);
   pending.delete(key);
+  persistPendingNow();
 }
 
 function clearAllPendingForUser(userId) {
@@ -89,6 +96,7 @@ async function sendMustJoinMainDm(user) {
 async function runScheduledKick(client, sponsorGuildId, userId) {
   const key = scheduleKey(sponsorGuildId, userId);
   pending.delete(key);
+  persistPendingNow();
 
   if (!client || !sponsorGuildId || !userId) return;
   if (await isUserInMainGuild(client, userId)) return;
@@ -117,6 +125,52 @@ async function runScheduledKick(client, sponsorGuildId, userId) {
     });
 }
 
+function persistPendingNow() {
+  const now = Date.now();
+  const payload = {};
+  for (const [key, row] of pending.entries()) {
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!key || !Number.isFinite(expiresAt) || expiresAt <= now) continue;
+    payload[key] = { expiresAt };
+  }
+  writeSnapshotWithMeta({
+    filePath: SNAPSHOT_PATH,
+    walPath: `${SNAPSHOT_PATH}.wal`,
+    key: "vinyls_sponsor_pending_kick",
+    version: 1,
+    payload,
+  });
+}
+
+function ensurePendingLoaded(client) {
+  if (pendingLoaded) return;
+  pendingLoaded = true;
+  const raw = readSnapshotWithMeta({
+    filePath: SNAPSHOT_PATH,
+    walPath: `${SNAPSHOT_PATH}.wal`,
+    key: "vinyls_sponsor_pending_kick",
+    version: 1,
+    fallback: {},
+  });
+  const now = Date.now();
+  for (const [key, row] of Object.entries(raw || {})) {
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!key || !Number.isFinite(expiresAt) || expiresAt <= now) continue;
+    const [guildId, userId] = String(key).split(":");
+    if (!guildId || !userId) continue;
+    const timeoutId = setTimeout(() => {
+      runScheduledKick(client, guildId, userId).catch(() => null);
+    }, Math.max(1_000, expiresAt - now));
+    timeoutId.unref?.();
+    pending.set(key, { timeoutId, expiresAt });
+  }
+  armShutdownCheckpoint();
+  if (!pendingFlushRegistered) {
+    pendingFlushRegistered = true;
+    registerShutdownFlush("vinyls_sponsor_pending_kick", () => persistPendingNow());
+  }
+}
+
 /**
  * @param {import("discord.js").GuildMember} member
  * @param {import("discord.js").Client} [client]
@@ -127,6 +181,7 @@ async function maybeScheduleEnforcement(member, client) {
 
   const resolvedClient = client || member.client;
   if (!resolvedClient) return;
+  ensurePendingLoaded(resolvedClient);
 
   const uid = String(member.id || "");
   if (!uid) return;
@@ -167,7 +222,8 @@ async function maybeScheduleEnforcement(member, client) {
     );
   }, KICK_DELAY_MS);
   timeoutId.unref?.();
-  pending.set(key, { timeoutId });
+  pending.set(key, { timeoutId, expiresAt: Date.now() + KICK_DELAY_MS });
+  persistPendingNow();
 }
 
 /**

@@ -27,6 +27,8 @@ const {
 } = require("../Utils/Discord/guildDiscordIdentity");
 const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils/Interaction/verifyUtils");
 const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -124,6 +126,39 @@ const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const SUSPICIOUS_JOIN_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const recentJoinSignalsByGuild = new Map();
+const JOIN_SIGNALS_SNAPSHOT_PATH = path.join(__dirname, "..", "Data", "joinSignalsSnapshot.json");
+let joinSignalsLoaded = false;
+
+function persistJoinSignalsNow() {
+  const payload = {};
+  for (const [guildId, rows] of recentJoinSignalsByGuild.entries()) {
+    if (!guildId || !Array.isArray(rows) || !rows.length) continue;
+    payload[guildId] = rows.slice(-120);
+  }
+  writeSnapshotWithMeta({
+    filePath: JOIN_SIGNALS_SNAPSHOT_PATH,
+    walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_join_signals",
+    version: 1,
+    payload,
+  });
+}
+
+function ensureJoinSignalsLoaded() {
+  if (joinSignalsLoaded) return;
+  joinSignalsLoaded = true;
+  const raw = readSnapshotWithMeta({
+    filePath: JOIN_SIGNALS_SNAPSHOT_PATH,
+    walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_join_signals",
+    version: 1,
+    fallback: {},
+  });
+  for (const [guildId, rows] of Object.entries(raw || {})) {
+    if (!guildId || !Array.isArray(rows)) continue;
+    recentJoinSignalsByGuild.set(guildId, rows.slice(-120));
+  }
+}
 
 function formatActor(actor) {
   if (!actor) return "sconosciuto";
@@ -698,6 +733,7 @@ function trackRecentJoinSignal(member) {
   const avatarHash = String(member?.user?.avatar || "");
   const nameSkeleton = toAccountNameSkeleton(`${member?.user?.username || ""}${member?.user?.globalName || ""}`.trim(),
   );
+  ensureJoinSignalsLoaded();
   const existing = pruneJoinSignals(recentJoinSignalsByGuild.get(guildId) || []);
   existing.push({
     userId,
@@ -709,6 +745,7 @@ function trackRecentJoinSignal(member) {
     existing.splice(0, existing.length - 2500);
   }
   recentJoinSignalsByGuild.set(guildId, existing);
+  persistJoinSignalsNow();
 }
 
 function getJoinSignalStats(member) {
@@ -719,8 +756,10 @@ function getJoinSignalStats(member) {
     return { reusedAvatarCount: 0, similarNameCount: 0 };
   }
 
+  ensureJoinSignalsLoaded();
   const records = pruneJoinSignals(recentJoinSignalsByGuild.get(guildId) || []);
   recentJoinSignalsByGuild.set(guildId, records);
+  persistJoinSignalsNow();
   const normalizedName = toAccountNameSkeleton(`${member?.user?.username || ""}${member?.user?.globalName || ""}`.trim(),
   );
 

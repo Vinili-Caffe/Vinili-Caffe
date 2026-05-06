@@ -1,5 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const { randomInt } = require("crypto");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { chatReminderRotationFindOneLean, chatReminderRotationFindOneAndUpdate, chatReminderScheduleCreate, chatReminderScheduleUpdateOne, chatReminderScheduleDeleteOne, chatReminderScheduleFindLatestFuture, chatReminderScheduleFindDueLean, chatReminderScheduleDeleteManyFuture } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const { getClientChannelCached } = require("../../Utils/Interaction/entityCache");
 const IDs = require("../../Utils/Config/ids");
@@ -21,8 +24,43 @@ let lastSentAt = null;
 let currentCycleStartKey = "";
 const reminderActivity = new Map();
 let hourlyLoopHandle = null;
+const REMINDER_RUNTIME_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "chatReminderRuntimeSnapshot.json");
+let reminderRuntimeLoaded = false;
+
+function persistReminderRuntimeNow() {
+  const payload = {
+    scheduledHours: Object.fromEntries(scheduledHours.entries()),
+  };
+  writeSnapshotWithMeta({
+    filePath: REMINDER_RUNTIME_SNAPSHOT_PATH,
+    walPath: `${REMINDER_RUNTIME_SNAPSHOT_PATH}.wal`,
+    key: "coffee_chat_reminder_runtime",
+    version: 1,
+    payload,
+  });
+}
+
+function ensureReminderRuntimeLoaded() {
+  if (reminderRuntimeLoaded) return;
+  reminderRuntimeLoaded = true;
+  const raw = readSnapshotWithMeta({
+    filePath: REMINDER_RUNTIME_SNAPSHOT_PATH,
+    walPath: `${REMINDER_RUNTIME_SNAPSHOT_PATH}.wal`,
+    key: "coffee_chat_reminder_runtime",
+    version: 1,
+    fallback: { scheduledHours: {} },
+  });
+  for (const [k, v] of Object.entries(raw?.scheduledHours || {})) {
+    const at = Number(v || 0);
+    if (!k || !Number.isFinite(at) || at <= 0) continue;
+    scheduledHours.set(String(k), at);
+  }
+  armShutdownCheckpoint();
+  registerShutdownFlush("coffee_chat_reminder_runtime", () => persistReminderRuntimeNow());
+}
 
 function cleanupScheduledHourKeys() {
+  ensureReminderRuntimeLoaded();
   const now = Date.now();
   const maxAgeMs = 6 * 60 * 60 * 1000;
   for (const [key, createdAt] of scheduledHours.entries()) {
@@ -30,6 +68,7 @@ function cleanupScheduledHourKeys() {
       scheduledHours.delete(key);
     }
   }
+  persistReminderRuntimeNow();
 }
 
 function attachScheduleTimeout(scheduleId, timeout) {
@@ -528,6 +567,7 @@ async function scheduleForHour(client, parts, guildId) {
     }));
   if (!fireTimes.length) return;
   scheduledHours.set(key, Date.now());
+  persistReminderRuntimeNow();
   for (const item of fireTimes) {
     const fireAt = item.fireAt;
     const adjusted = baseLast
@@ -572,6 +612,7 @@ async function restoreSchedules(client) {
 }
 
 function startHourlyReminderLoop(client) {
+  ensureReminderRuntimeLoaded();
   if (!getReminderChannelId(client)) return null;
   if (hourlyLoopHandle) return hourlyLoopHandle;
   const tick = async () => {

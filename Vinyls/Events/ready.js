@@ -18,6 +18,7 @@ const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmRe
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
+const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
 const { startDailyPartnerAuditLoop, } = require("../Services/Partner/partnerAuditService");
@@ -40,6 +41,7 @@ const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
+const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const startupPanelsTrigger = require("../Triggers/embeds");
@@ -509,6 +511,10 @@ async function restoreCoreStartupState(client) {
     global.logger?.error?.("[JOIN RAID RESTORE ERROR]", joinRaidRestore.reason);
 
   await restoreTtsConnections(client);
+  for (const guild of client.guilds.cache.values()) {
+    rehydrateAntiNukePanicForGuild(guild);
+  }
+  printRecoveryHealthOnce("VINYLS_RECOVERY_HEALTH");
 }
 
 async function runStartupPanels(client, label = "immediate") {

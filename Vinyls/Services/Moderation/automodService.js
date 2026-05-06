@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const axios = require("axios");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const IDs = require("../../Utils/Config/ids");
 const { isSecurityProfileImmune, hasAdminsProfileCapability, hasModeratorsProfileCapability, getSecurityStaticsSnapshot, isExtraOwner, } = require("./securityProfilesService");
 const { isJoinGateSuspiciousAccount, } = require("./joinGateSuspiciousService");
@@ -74,6 +76,10 @@ const AUTOMOD_IMAGE_ONLY_HEAT_MULTIPLIER = 0.45;
 const TEXT_RULES = { regularMessage: { enabled: true, heat: 15, timeoutMs: 15 * 60_000, }, suspiciousAccount: { enabled: true, heat: 7, timeoutMs: 15 * 60_000, }, similarMessage: { enabled: true, heat: 22, ratio: 0.8, timeoutMs: 15 * 60_000, }, emojis: { enabled: true, heat: 9, minCount: 8, timeoutMs: 15 * 60_000, }, newLines: { enabled: true, heat: 5, minCount: 6, timeoutMs: 15 * 60_000, }, zalgo: { enabled: true, heat: 1.5, minCount: 6, timeoutMs: 15 * 60_000, }, characters: { enabled: true, lowercaseHeat: 0.08, uppercaseHeat: 0.12, minChars: 40, timeoutMs: 15 * 60_000, }, inviteLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, maliciousLinks: { enabled: true, heat: 100, timeoutMs: 60 * 60_000, }, nsfwLinks: { enabled: true, crawlShorteners: true, heat: 100, timeoutMs: 30 * 60_000, }, wordBlacklist: { enabled: true, useProfaneList: false, useVulgarList: false, useRacistList: true, heat: 100, timeoutMs: 45 * 60_000, }, linkBlacklist: { enabled: true, heat: 100, timeoutMs: 45 * 60_000, domains: ["dsc.gg"], }, };
 const AUTOMOD_CONFIG_PATH = path.resolve(__dirname, "../../Utils/Config/automodConfig.json",);
 const AUTOMOD_METRICS_PATH = path.resolve(__dirname, "../../Utils/Config/automodMetrics.json",);
+const AUTOMOD_HOT_SNAPSHOT_PATH = path.resolve(__dirname, "..", "..", "Data", "automodHotSnapshot.json");
+const AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS = 2000;
+let automodHotSnapshotLoaded = false;
+let automodHotSnapshotTimer = null;
 const SHORTENER_HOSTS = new Set(["bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rebrand.ly", "tiny.cc", "shorturl.at", "goo.gl", "ow.ly", "buff.ly",]);
 const DEFAULT_AUTOMOD_RUNTIME = { status: { enabled: true, antiSpamEnabled: true, monitorUnwhitelistedWebhooks: true, }, thresholds: { warn: 35, delete: 65, timeout: 100, }, heatSystem: { maxHeat: 100, decayPerSec: 2, resetOnPunishment: true, }, autoTimeouts: { enabled: true, regularStrikeDurationMs: 60_000, capStrikeDurationMs: 11 * 60_000, capStrike: 3, multiplierEnabled: true, multiplierPercent: 200, profileResetMs: 6 * 60 * 60_000, }, autoLockdown: { enabled: true, mentionTrigger: 50, mentionWindowMs: 3_000, mentionHourCap: 20, }, heatFilters: { regularMessage: true, suspiciousAccount: true, similarMessage: true, emojis: true, newLines: true, zalgo: true, characters: true, inviteLinks: true, maliciousLinks: true, nsfwLinks: true, wordBlacklist: true, linkBlacklist: true, mentions: true, attachments: true, webhookMessages: true, }, heatFactors: { regularMessage: 1, suspiciousAccount: 1, similarMessage: 1, emojis: 1, newLines: 1, zalgo: 1, characters: 1, inviteLinks: 1, maliciousLinks: 1, nsfwLinks: 1, wordBlacklist: 1, linkBlacklist: 1, mentions: 1, attachments: 1, }, heatCaps: { maxPerMessage: 85, charactersMax: 40, textClusterMax: 35, attachmentClusterMax: 45, mentionClusterMax: 70, }, panic: { enabled: true, considerActivityHistory: true, useGlobalBadUsersDb: true, triggerCount: 3, triggerWindowMs: 10 * 60_000, durationMs: 10 * 60_000, raidWindowMs: 120_000, raidUserThreshold: 6, raidYoungThreshold: 4, lockCommands: false, }, shorteners: { crawl: true, timeoutMs: 2200, maxHops: 3, }, profiles: { default: { exempt: false, heatMultiplier: 1, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, media: { exempt: false, heatMultiplier: 0.85, mentionsEnabled: true, attachmentsEnabled: true, inviteLinksEnabled: true, }, ticket: { exempt: true, heatMultiplier: 0.6, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, staff: { exempt: true, heatMultiplier: 0.25, mentionsEnabled: false, attachmentsEnabled: false, inviteLinksEnabled: false, }, }, };
 
@@ -113,6 +119,66 @@ function writeJsonSafe(filePath, value) {
     return true;
   } catch {
     return false;
+  }
+}
+
+function readAutomodHotSnapshotRaw() {
+  return readSnapshotWithMeta({
+    filePath: AUTOMOD_HOT_SNAPSHOT_PATH,
+    walPath: `${AUTOMOD_HOT_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_automod_hot",
+    version: 1,
+    fallback: {},
+  });
+}
+
+function flushAutomodHotSnapshotNow() {
+  try {
+    const actionCooldown = {};
+    for (const [key, ts] of ACTION_COOLDOWN.entries()) {
+      if (!key) continue;
+      const at = Number(ts || 0);
+      if (!Number.isFinite(at) || at <= 0) continue;
+      actionCooldown[String(key)] = at;
+    }
+    writeSnapshotWithMeta({
+      filePath: AUTOMOD_HOT_SNAPSHOT_PATH,
+      walPath: `${AUTOMOD_HOT_SNAPSHOT_PATH}.wal`,
+      key: "vinyls_automod_hot",
+      version: 1,
+      payload: { actionCooldown },
+    });
+  } catch { }
+}
+
+function scheduleAutomodHotSnapshotPersist() {
+  if (automodHotSnapshotTimer) return;
+  automodHotSnapshotTimer = setTimeout(() => {
+    automodHotSnapshotTimer = null;
+    flushAutomodHotSnapshotNow();
+  }, AUTOMOD_HOT_SNAPSHOT_DEBOUNCE_MS);
+  automodHotSnapshotTimer.unref?.();
+}
+
+function ensureAutomodHotSnapshotLoaded() {
+  if (automodHotSnapshotLoaded) return;
+  armShutdownCheckpoint();
+  automodHotSnapshotLoaded = true;
+  const raw = readAutomodHotSnapshotRaw();
+  const rows = raw?.actionCooldown && typeof raw.actionCooldown === "object"
+    ? raw.actionCooldown
+    : {};
+  const now = nowMs();
+  const maxAge = ACTION_COOLDOWN_MS * 4;
+  for (const [key, ts] of Object.entries(rows)) {
+    const at = Number(ts || 0);
+    if (!key || !Number.isFinite(at) || at <= 0) continue;
+    if (now - at > maxAge) continue;
+    ACTION_COOLDOWN.set(String(key), at);
+  }
+  if (!global.__vinylsAutomodHotFlushRegistered) {
+    global.__vinylsAutomodHotFlushRegistered = true;
+    registerShutdownFlush("vinyls_automod_hot", () => flushAutomodHotSnapshotNow());
   }
 }
 
@@ -2354,6 +2420,7 @@ function isAutomodPublicNoticeCooldownClear(message) {
 
 function touchAutomodPublicNoticeCooldown(message) {
   ACTION_COOLDOWN.set(getCooldownKey(message), nowMs());
+  scheduleAutomodHotSnapshotPersist();
 }
 
 async function resolveLogChannel(guild) {
@@ -2834,6 +2901,7 @@ function resolveInstantTimeoutOverrideMs(violations = []) {
 }
 
 async function runAutoModMessage(message) {
+  ensureAutomodHotSnapshotLoaded();
   const now = nowMs();
   if (now - Number(lastRuntimeCleanupAt || 0) >= RUNTIME_CLEANUP_INTERVAL_MS) {
     cleanupRuntimeMaps(now);

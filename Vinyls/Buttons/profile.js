@@ -16,6 +16,8 @@ const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic, accountUsernam
 const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest, memberHasCustomRolePanelAccess, memberHasCustomRoleSecondarySlot } = require("../Utils/Community/customRoleSlots");
 const { partnerManagerPerkDateActive, fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../Utils/Staff/partnerManagerTimedPerks");
 const { findCustomVoiceByRole } = require("../Utils/Interaction/customRoleUtils");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 const PANEL_PREFIX = "profile_panel";
 const SECTION_HOME = "home";
 const SECTION_BIRTHDAY = "birthday";
@@ -30,6 +32,9 @@ const CMD_COLORS_SEG = "cmd_colors_seg:";
 const CMD_COLORS_BTN = "cmd_colors_btn:";
 const PRIVATE_FLAG = 1 << 6;
 const birthdayDrafts = new Map();
+const BIRTHDAY_DRAFTS_SNAPSHOT_PATH = path.join(__dirname, "..", "Data", "birthdayDraftsSnapshot.json");
+const BIRTHDAY_DRAFT_TTL_MS = 3 * 60 * 60 * 1000;
+let birthdayDraftsLoaded = false;
 const ANCHOR_ROLE_ID = IDs?.roles?.separatore4 || "1469452890761596981";
 const CUSTOM_VOICE_CATEGORY_ID = IDs?.categories?.categoryPrivate || "1442569078379118755";
 const MEMBER_ROLE_ID = IDs?.roles?.Member || null;
@@ -69,16 +74,68 @@ function getDraftKey(guildId, userId) {
 }
 
 function getBirthdayDraft(guildId, userId) {
+  ensureBirthdayDraftsLoaded();
   return birthdayDrafts.get(getDraftKey(guildId, userId)) || null;
 }
 
 function setBirthdayDraft(guildId, userId, patch) {
+  ensureBirthdayDraftsLoaded();
   const key = getDraftKey(guildId, userId);
-  birthdayDrafts.set(key, { ...(birthdayDrafts.get(key) || {}), ...(patch || {}) });
+  birthdayDrafts.set(key, { ...(birthdayDrafts.get(key) || {}), ...(patch || {}), updatedAt: Date.now() });
+  persistBirthdayDraftsNow();
 }
 
 function clearBirthdayDraft(guildId, userId) {
+  ensureBirthdayDraftsLoaded();
   birthdayDrafts.delete(getDraftKey(guildId, userId));
+  persistBirthdayDraftsNow();
+}
+
+function ensureBirthdayDraftsLoaded() {
+  if (birthdayDraftsLoaded) return;
+  birthdayDraftsLoaded = true;
+  const raw = readSnapshotWithMeta({
+    filePath: BIRTHDAY_DRAFTS_SNAPSHOT_PATH,
+    walPath: `${BIRTHDAY_DRAFTS_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_birthday_drafts",
+    version: 1,
+    fallback: {},
+  });
+  const now = Date.now();
+  for (const [key, row] of Object.entries(raw || {})) {
+    const updatedAt = Number(row?.updatedAt || 0);
+    if (!key || !updatedAt || now - updatedAt > BIRTHDAY_DRAFT_TTL_MS) continue;
+    birthdayDrafts.set(String(key), {
+      day: Number(row?.day || 0) || undefined,
+      month: Number(row?.month || 0) || undefined,
+      birthYear: Number(row?.birthYear || 0) || undefined,
+      showAge: typeof row?.showAge === "boolean" ? row.showAge : undefined,
+      updatedAt,
+    });
+  }
+}
+
+function persistBirthdayDraftsNow() {
+  const now = Date.now();
+  const payload = {};
+  for (const [key, row] of birthdayDrafts.entries()) {
+    const updatedAt = Number(row?.updatedAt || 0);
+    if (!key || !updatedAt || now - updatedAt > BIRTHDAY_DRAFT_TTL_MS) continue;
+    payload[key] = {
+      day: Number(row?.day || 0) || undefined,
+      month: Number(row?.month || 0) || undefined,
+      birthYear: Number(row?.birthYear || 0) || undefined,
+      showAge: typeof row?.showAge === "boolean" ? row.showAge : undefined,
+      updatedAt,
+    };
+  }
+  writeSnapshotWithMeta({
+    filePath: BIRTHDAY_DRAFTS_SNAPSHOT_PATH,
+    walPath: `${BIRTHDAY_DRAFTS_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_birthday_drafts",
+    version: 1,
+    payload,
+  });
 }
 
 function isDmCategoryOff(noDm, key) {
@@ -1103,7 +1160,7 @@ async function ensureCustomVocExists(interaction, ownerId, client) {
     afterDedupe?.doc ||
     doc;
 
-  return { ok: true, channel: finalChannel, role, doc: finalDoc };
+  return { ok: true, channel: finalChannel, doc: finalDoc };
 }
 
 async function handleBirthdaySetModal(interaction, ownerId) {
@@ -1559,7 +1616,7 @@ async function execute(interaction, client) {
       }
       await CustomRole.updateOne(
         { guildId: interaction.guild.id, userId: ownerId },
-        { $unset: { customVocChannelId: 1 } },
+        { $set: { customVocChannelId: null, customVocEligibilityLostAt: null } },
       ).catch(() => { });
       const payload = await buildPanelPayload(interaction.guild, ownerId, client, SECTION_CUSTOMVOC);
       const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);

@@ -159,6 +159,24 @@ async function readTicketByRef(bucketId, ticketId) {
   return fresh.tickets.id(ticketId) || null;
 }
 
+async function execTicketFindAllBuckets(query) {
+  const all = await GuildFeatureBucket.find({}).catch(() => []);
+  const rows = [];
+  for (const bucket of all) {
+    for (const t of bucket.tickets || []) {
+      if (!ticketMatchesFilter(t, query.filter)) continue;
+      if (query._lean) {
+        const o = t.toObject ? t.toObject() : { ...t };
+        rows.push(projectTicketFields(o, query.projection));
+      } else {
+        rows.push(t);
+      }
+      if (query._limit != null && rows.length >= query._limit) return rows;
+    }
+  }
+  return rows;
+}
+
 class TicketFindQuery {
   constructor(filter, projection) {
     this.filter = filter;
@@ -178,21 +196,36 @@ class TicketFindQuery {
   }
 
   async exec() {
-    const all = await GuildFeatureBucket.find({}).catch(() => []);
-    const rows = [];
-    for (const bucket of all) {
-      for (const t of bucket.tickets || []) {
-        if (!ticketMatchesFilter(t, this.filter)) continue;
+    const f = this.filter || {};
+    if (f && typeof f === "object" && Array.isArray(f.$or) && f.$or.length) {
+      return execTicketFindAllBuckets(this);
+    }
+    const gid = f.guildId != null ? String(f.guildId) : "";
+    if (gid) {
+      const bucket = await GuildFeatureBucket.findOne({ guildId: gid }).catch(() => null);
+      const rows = [];
+      for (const t of bucket?.tickets || []) {
+        if (!ticketMatchesFilter(t, f)) continue;
         if (this._lean) {
           const o = t.toObject ? t.toObject() : { ...t };
           rows.push(projectTicketFields(o, this.projection));
         } else {
           rows.push(t);
         }
-        if (this._limit != null && rows.length >= this._limit) return rows;
       }
+      if (Object.prototype.hasOwnProperty.call(f, "open") && f.open === false && rows.length > 1) {
+        rows.sort((a, b) => {
+          const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return tb - ta;
+        });
+      }
+      if (this._limit != null && rows.length > this._limit) {
+        return rows.slice(0, this._limit);
+      }
+      return rows;
     }
-    return rows;
+    return execTicketFindAllBuckets(this);
   }
 
   then(onFulfilled, onRejected) {

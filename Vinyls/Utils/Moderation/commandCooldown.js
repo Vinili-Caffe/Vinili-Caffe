@@ -1,4 +1,8 @@
 const mongoose = require("mongoose");
+const fs = require("fs");
+const path = require("path");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const ROLE_COOLDOWN_BYPASS = IDs.roles.Staff;
@@ -9,9 +13,73 @@ const ROLE_LEVEL_50 = IDs.roles.Level50;
 const ROLE_LEVEL_100 = IDs.roles.Level100;
 const ROLE_VIP = IDs.roles.VIP;
 const ROLE_VIP_PLUS = IDs.roles.VIPplus;
+const COOLDOWN_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "commandCooldownSnapshot.json");
+const COOLDOWN_SNAPSHOT_DEBOUNCE_MS = 2000;
 
 function isDbReady() {
   return mongoose.connection?.readyState === 1;
+}
+
+function readCooldownSnapshotFile() {
+  return readSnapshotWithMeta({
+    filePath: COOLDOWN_SNAPSHOT_PATH,
+    walPath: `${COOLDOWN_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_command_cooldown",
+    version: 1,
+    fallback: {},
+  });
+}
+
+function writeCooldownSnapshotFile(rows) {
+  writeSnapshotWithMeta({
+    filePath: COOLDOWN_SNAPSHOT_PATH,
+    walPath: `${COOLDOWN_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_command_cooldown",
+    version: 1,
+    payload: rows || {},
+  });
+}
+
+function ensureCooldownBucketLoaded(client) {
+  if (client._commandCooldownLoaded) return;
+  armShutdownCheckpoint();
+  client._commandCooldownLoaded = true;
+  const now = Date.now();
+  const bucket = getBucket(client);
+  const rows = readCooldownSnapshotFile();
+  for (const [keyRaw, endsAtRaw] of Object.entries(rows)) {
+    const key = String(keyRaw || "").trim();
+    const endsAt = Number(endsAtRaw || 0);
+    if (!key || !Number.isFinite(endsAt) || endsAt <= now) continue;
+    bucket.set(key, endsAt);
+  }
+  if (!client._commandCooldownSnapshotFlushRegistered) {
+    client._commandCooldownSnapshotFlushRegistered = true;
+    registerShutdownFlush("vinyls_command_cooldown", () => flushCooldownBucketSnapshot(client));
+  }
+}
+
+function flushCooldownBucketSnapshot(client) {
+  const bucket = getBucket(client);
+  const now = Date.now();
+  const out = {};
+  for (const [keyRaw, endsAtRaw] of bucket.entries()) {
+    const key = String(keyRaw || "").trim();
+    const endsAt = Number(endsAtRaw || 0);
+    if (!key || !Number.isFinite(endsAt) || endsAt <= now) continue;
+    out[key] = endsAt;
+  }
+  writeCooldownSnapshotFile(out);
+}
+
+function scheduleCooldownSnapshotPersist(client) {
+  if (client._commandCooldownPersistTimer) return;
+  const timer = setTimeout(() => {
+    client._commandCooldownPersistTimer = null;
+    flushCooldownBucketSnapshot(client);
+  }, COOLDOWN_SNAPSHOT_DEBOUNCE_MS);
+  timer.unref?.();
+  client._commandCooldownPersistTimer = timer;
 }
 
 function getBucket(client) {
@@ -78,6 +146,7 @@ async function getUserCommandCooldownSeconds({ guildId, userId, member }) {
 
 function consumeUserCooldown({ client, guildId, userId, cooldownSeconds }) {
   const seconds = Number(cooldownSeconds || 30);
+  ensureCooldownBucketLoaded(client);
   if (seconds <= 0) {
     return { ok: true, remainingMs: 0 };
   }
@@ -88,6 +157,7 @@ function consumeUserCooldown({ client, guildId, userId, cooldownSeconds }) {
   const endsAt = bucket.get(key) || 0;
 
   if (endsAt > now) {
+    scheduleCooldownSnapshotPersist(client);
     return {
       ok: false,
       remainingMs: endsAt - now,
@@ -95,6 +165,7 @@ function consumeUserCooldown({ client, guildId, userId, cooldownSeconds }) {
   }
 
   bucket.set(key, now + seconds * 1000);
+  scheduleCooldownSnapshotPersist(client);
   return { ok: true, remainingMs: 0 };
 }
 

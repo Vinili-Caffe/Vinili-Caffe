@@ -6,6 +6,8 @@ const os = require("os");
 const axios = require("axios");
 const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
+const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const {
   voiceFindOneAndUpdate,
   voiceDeleteOne,
@@ -15,6 +17,7 @@ const {
   ttsUserLangUpsert,
 } = require("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
+const { isCoffeePrefixCommandToken } = require("../../../shared/discord/coffeePrefixCommandTokens");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
@@ -28,9 +31,85 @@ const ttsLastJoinAtByGuild = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
 const ttsJoinWarnCache = new Map();
+const TTS_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "ttsQueueSnapshot.json");
+const TTS_QUEUE_SNAPSHOT_INTERVAL_MS = 15000;
+const TTS_QUEUE_MAX_PERSISTED_ITEMS = 300;
 let emojiNameMap = null;
 let nodeEmoji = null;
 const userLangs = new Map();
+
+function serializeTtsQueueItem(item) {
+  const text = String(item?.text || "").trim();
+  if (!text) return null;
+  const lang = String(item?.lang || "it").trim() || "it";
+  return { text, lang };
+}
+
+function persistTtsQueueSnapshotNow() {
+  try {
+    const queues = {};
+    for (const [channelId, state] of ttsStates.entries()) {
+      const gid = String(state?.guildId || "").trim();
+      const cid = String(channelId || "").trim();
+      if (!gid || !cid) continue;
+      const queue = Array.isArray(state?.queue) ? state.queue.map(serializeTtsQueueItem).filter(Boolean) : [];
+      if (!queue.length) continue;
+      queues[gid] = { channelId: cid, queue: queue.slice(0, TTS_QUEUE_MAX_PERSISTED_ITEMS) };
+    }
+    writeSnapshotWithMeta({
+      filePath: TTS_QUEUE_SNAPSHOT_PATH,
+      walPath: `${TTS_QUEUE_SNAPSHOT_PATH}.wal`,
+      key: "vinyls_tts_queue",
+      version: 1,
+      payload: { queues },
+    });
+  } catch (err) {
+    global.logger?.warn?.("[TTS] queue snapshot persist failed:", err?.message || err);
+  }
+}
+
+function readTtsQueueSnapshotRaw() {
+  const raw = readSnapshotWithMeta({
+    filePath: TTS_QUEUE_SNAPSHOT_PATH,
+    walPath: `${TTS_QUEUE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_tts_queue",
+    version: 1,
+    fallback: { queues: {} },
+  });
+  return raw?.queues && typeof raw.queues === "object" ? raw.queues : {};
+}
+
+function restoreTtsQueueForChannel(voiceChannel) {
+  const guildId = String(voiceChannel?.guild?.id || "").trim();
+  const channelId = String(voiceChannel?.id || "").trim();
+  if (!guildId || !channelId) return;
+  const queues = readTtsQueueSnapshotRaw();
+  const row = queues[guildId];
+  if (!row || String(row?.channelId || "") !== channelId) return;
+  const state = getState(voiceChannel);
+  if (Array.isArray(state.queue) && state.queue.length > 0) return;
+  const pending = Array.isArray(row?.queue) ? row.queue : [];
+  for (const item of pending) {
+    const text = String(item?.text || "").trim();
+    if (!text) continue;
+    const lang = String(item?.lang || "it").trim() || "it";
+    state.queue.push({ voiceChannel, text, lang });
+  }
+  if (!state.playing && state.queue.length) playNext(state);
+}
+
+function startTtsQueueSnapshotLoop(client) {
+  if (client._ttsQueueSnapshotTimer) return;
+  armShutdownCheckpoint();
+  if (!client._ttsQueueSnapshotFlushRegistered) {
+    client._ttsQueueSnapshotFlushRegistered = true;
+    registerShutdownFlush("vinyls_tts_queue", () => persistTtsQueueSnapshotNow());
+  }
+  client._ttsQueueSnapshotTimer = setInterval(() => {
+    persistTtsQueueSnapshotNow();
+  }, TTS_QUEUE_SNAPSHOT_INTERVAL_MS);
+  client._ttsQueueSnapshotTimer.unref?.();
+}
 
 try {
   emojiNameMap = require("emoji-name-map");
@@ -68,6 +147,8 @@ function shouldHandleMessage(message, config, prefix) {
   const rawContent = String(message.content ?? "");
   if (prefix && rawContent.startsWith(prefix)) return false;
   if (rawContent.startsWith("-")) return false;
+  const coffeeCmd = rawContent.trim().match(/^,\s*([a-z0-9][\w-]*)/i);
+  if (coffeeCmd && isCoffeePrefixCommandToken(coffeeCmd[1])) return false;
   const isVoiceChannel = message.channel.isVoiceBased?.() && !message.channel.isThread?.();
   const isVoiceChannelThread = message.channel.isThread?.() && message.channel.parent?.isVoiceBased?.();
   const extraTextIds = [IDs.channels.noMic].filter(Boolean).map((id) => String(id));
@@ -852,9 +933,11 @@ async function ensureConnection(state, voiceChannel) {
 async function playNext(state) {
   if (state.queue.length === 0) {
     state.playing = false;
+    persistTtsQueueSnapshotNow();
     return;
   }
   const item = state.queue.shift();
+  persistTtsQueueSnapshotNow();
   state.playing = true;
   const tmpPath = path.resolve(os.tmpdir(), `tts_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`,
   );
@@ -885,6 +968,7 @@ async function playNext(state) {
 function enqueue(state, item) {
   if (state.queue.length >= MAX_TTS_QUEUE) return;
   state.queue.push(item);
+  persistTtsQueueSnapshotNow();
   if (!state.playing) {
     playNext(state);
   }
@@ -893,7 +977,6 @@ async function handleTtsMessage(message, client, prefix) {
   const config = client?.config;
   if (message?.author?.bot) return;
   const guildId = message.guild?.id;
-  const botVc = message.guild?.members?.me?.voice?.channel;
   if (!shouldHandleMessage(message, config, prefix)) return;
   if (!message.member && message.guild?.members?.fetch) {
     try {
@@ -916,23 +999,26 @@ async function handleTtsMessage(message, client, prefix) {
   } else {
     voiceChannel = message.member?.voice?.channel;
   }
+  const lockedChannelId = guildId ? getLockedChannelId(guildId) : null;
+  const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
+  const ttsSessionActive = Boolean(autojoin || lockedChannelId);
   if (!voiceChannel) {
+    if (!ttsSessionActive) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere in un canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
   const authorVoiceId = message.member?.voice?.channelId ?? null;
   if (!authorVoiceId || String(authorVoiceId) !== String(voiceChannel.id)) {
+    if (!ttsSessionActive) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere nel canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
   if (!voiceChannel.joinable) return;
-  const lockedChannelId = getLockedChannelId(voiceChannel.guild.id);
   if (lockedChannelId && lockedChannelId !== voiceChannel.id) {
     return;
   }
-  const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
   if (!autojoin && !lockedChannelId) {
     return;
   }
@@ -1005,6 +1091,7 @@ function cleanupAllTtsStateForGuild(guildId) {
   }
   guildLocks.delete(gid);
   clearTtsPostJoinVoiceGrace(gid);
+  persistTtsQueueSnapshotNow();
 }
 
 async function leaveTtsGuild(guildId, client) {
@@ -1058,6 +1145,7 @@ async function leaveTtsGuild(guildId, client) {
     cleanupAllTtsStateForGuild(guildId);
   }
   await clearVoiceState(guildId);
+  persistTtsQueueSnapshotNow();
   return { ok: true };
 }
 
@@ -1068,7 +1156,7 @@ async function saveVoiceState(guildId, channelId) {
   try {
     await voiceFindOneAndUpdate(
       { guildId },
-      { $set: { guildId, channelId, updatedAt: new Date() } },
+      { $set: { guildId, channelId, lockedChannelId: channelId, updatedAt: new Date() } },
       { upsert: true, new: true },
     );
   } catch (error) {
@@ -1099,6 +1187,7 @@ async function saveTtsLastMessageProgress(guildId, channelId, messageId, created
         $set: {
           guildId: gid,
           channelId: cid,
+          lockedChannelId: cid,
           lastTtsMessageId: mid,
           lastTtsProcessedAt: ts,
           updatedAt: new Date(),
@@ -1166,6 +1255,7 @@ async function catchupTtsMessagesForChannel(
 
 async function restoreTtsConnections(client) {
   try {
+    startTtsQueueSnapshotLoop(client);
     await warmUserTtsLangsFromDb();
     const prefix = String(client?.config?.prefix || "+");
     const states = await voiceFindManyLean().catch(() => []);
@@ -1187,6 +1277,7 @@ async function restoreTtsConnections(client) {
             entry?.lastTtsMessageId,
             prefix,
           );
+          restoreTtsQueueForChannel(channel);
         }),
       );
     }

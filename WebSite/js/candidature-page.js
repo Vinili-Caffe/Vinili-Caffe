@@ -102,24 +102,22 @@
   var ACCESS_TOKEN_KEY = "vc_discord_access_token";
   var ACCESS_EXPIRES_KEY = "vc_discord_expires_at";
   var ACCESS_REQUIRED_PATH = "/candidature/accesso-richiesto/";
-  var ROLE_INTRO = {
-    helper:
-      '<div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">' +
-      '<p class="mt-0 mb-0">È vietato essere staffer in altri server.</p>' +
-      '<p class="mt-2 mb-0 font-semibold text-[#e8c9a8]">Ogni mese viene premiato uno staffer con un Nitro Boost.</p>' +
-      "</div>",
-    partnermanager:
-      '<div class="rounded-[1.2rem] border border-[#d4a888]/22 bg-[#1a120d]/78 p-4 text-sm leading-relaxed text-slate-100">' +
-      '<p class="m-0 font-semibold text-[#e8c9a8]"><i class="fa fa-money mr-1" aria-hidden="true"></i> STAFF PAGATO</p>' +
-      '<p class="mt-2 mb-0">50 partner → Custom Role & Custom Voc per 30 giorni</p>' +
-      '<p class="mt-1 mb-0">100 partner → Ruolo <span class="vc-sponsor-mention">༄ VIP</span> per 30 giorni</p>' +
-      '<p class="mt-1 mb-0">150 partner → <strong>Decorazione a scelta (max 15,99 €)</strong></p>' +
-      '<p class="mt-1 mb-0">200 partner -> <strong>Nitro Boost</strong></p>' +
-      "</div>",
-  };
-
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  /** Contenuto markup in <template> in candidature/index.html (evita HTML in stringhe JS). */
+  function setRoleIntroFromTemplate(kind) {
+    var intro = byId("vc-candidature-role-intro");
+    if (!intro) return;
+    intro.replaceChildren();
+    var tid =
+      kind === "partnermanager"
+        ? "vc-candidature-role-intro-partnermanager"
+        : "vc-candidature-role-intro-helper";
+    var tpl = byId(tid);
+    if (!tpl || !tpl.content) return;
+    intro.appendChild(document.importNode(tpl.content, true));
   }
 
   function setShuffleText(el, finalText) {
@@ -610,9 +608,7 @@
     var cfg = APPLICATIONS[activeKind];
     if (!cfg || !currentUser) return;
     root.innerHTML = "";
-    var intro = byId("vc-candidature-role-intro");
-    if (intro) intro.innerHTML = "";
-    if (intro && ROLE_INTRO[activeKind]) intro.innerHTML = ROLE_INTRO[activeKind];
+    setRoleIntroFromTemplate(activeKind);
     var uid = String(currentUser.id || "");
     cfg.questions.forEach(function (q) {
       var wrap = document.createElement("div");

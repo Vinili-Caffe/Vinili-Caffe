@@ -2,7 +2,28 @@ const Ticket = require("../../Schemas/Ticket/ticketSchema");
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const CHANNEL_WARM_TTL_MS = 5 * 60_000;
 const guildChannelWarmCache = new Map();
-const HANDLED_TICKET_BUTTONS = new Set(["ticket_partnership","ticket_highstaff","ticket_supporto","claim_ticket","close_ticket","close_ticket_motivo","accetta","rifiuta","ticket_autoclose_accept","ticket_autoclose_reject","unclaim","ticket_panel_nav_add","ticket_panel_nav_remove","ticket_panel_nav_switch","ticket_panel_nav_rename","ticket_panel_nav_closerequest","ticket_panel_nav_transfer",]);
+const HANDLED_TICKET_BUTTONS = new Set([
+  "ticket_partnership",
+  "ticket_highstaff",
+  "ticket_supporto",
+  "claim_ticket",
+  "close_ticket",
+  "close_ticket_motivo",
+  "accetta",
+  "rifiuta",
+  "ticket_autoclose_accept",
+  "ticket_autoclose_reject",
+  "unclaim",
+  "ticket_panel_nav_add",
+  "ticket_panel_nav_remove",
+  "ticket_panel_nav_switch",
+  "ticket_panel_nav_rename",
+  "ticket_panel_nav_closerequest",
+  "ticket_panel_nav_transfer",
+  "ticket_panel_reopen_search",
+  "ticket_panel_reopen_prev",
+  "ticket_panel_reopen_next",
+]);
 const TICKET_PANEL_ADD_MEMBER_PREFIX = "ticket_panel_add_member";
 const TICKET_PANEL_TRANSFER_USER_PREFIX = "ticket_panel_transfer_user";
 const TICKET_PANEL_REMOVE_MEMBER_PREFIX = "ticket_panel_remove_member";
@@ -243,7 +264,8 @@ function isHandledTicketModalId(id) {
     s === "modal_close_ticket" ||
     s.startsWith("modal_close_ticket:") ||
     s === "modal_ticket_panel_rename" ||
-    s === "modal_ticket_panel_closerequest"
+    s === "modal_ticket_panel_closerequest" ||
+    s === "modal_ticket_panel_reopen_search"
   );
 }
 
@@ -256,8 +278,11 @@ function getSelectedTicketAction(interaction) {
 }
 
 function isHandledTicketInteraction(interaction) {
-  const isTicketButton = interaction.isButton && interaction.isButton()&&(HANDLED_TICKET_BUTTONS.has(interaction.customId)|| isTicketRatingButton(interaction.customId)|| isTicketTranscriptButton(interaction.customId));
   const cid = String(interaction.customId || "");
+  const isTicketButton =
+    interaction.isButton &&
+    interaction.isButton() &&
+    (HANDLED_TICKET_BUTTONS.has(cid) || isTicketRatingButton(cid) || isTicketTranscriptButton(cid));
   const isTicketSelect =
     interaction.isStringSelectMenu &&
     interaction.isStringSelectMenu() &&

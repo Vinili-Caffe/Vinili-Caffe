@@ -12,13 +12,18 @@ const {
 } = require("../../Utils/Community/mentionReactionPanelUtils");
 const axios = require("axios");
 const crypto = require("crypto");
+const path = require("path");
 const { resolveCustomRoleState, buildExpiryText, } = require("../../Utils/Community/customRoleState");
 const { getClientGuildCached, getGuildMemberCached, getGuildRoleCached, getGuildChannelCached, getUserCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName } = require("../../Utils/Interaction/customRoleUtils");
 const { buildPanelPayload } = require("../../Buttons/profile");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const pendingRoleGrants = new Map();
 const pendingSiteRoleRequests = new Map();
+const PENDING_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "customRolePendingRequestsSnapshot.json");
+const PENDING_TTL_MS = 2 * 60 * 60 * 1000;
+let pendingLoaded = false;
 const PRIVATE_FLAG = 1 << 6;
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
 const IDs = require("../../Utils/Config/ids");
@@ -31,6 +36,51 @@ const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [
 ].filter(Boolean);
 const GRADIENT_HOLO_DENIED_MSG =
   "<:VC_Attention:1482534443632558151> **Gradiente** e **olografico** sono riservati a chi ha ruolo **VIP**, **Server Booster**, **Double Booster** o **VIP+**. Gli altri possono usare solo il **colore solido** (stesso menu → Solido).";
+
+function persistPendingNow() {
+  const now = Date.now();
+  const payload = { roleGrants: {}, siteRoleRequests: {} };
+  for (const [token, row] of pendingRoleGrants.entries()) {
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!token || !expiresAt || expiresAt <= now) continue;
+    payload.roleGrants[token] = { ...row };
+  }
+  for (const [token, row] of pendingSiteRoleRequests.entries()) {
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!token || !expiresAt || expiresAt <= now) continue;
+    payload.siteRoleRequests[token] = { ...row };
+  }
+  writeSnapshotWithMeta({
+    filePath: PENDING_SNAPSHOT_PATH,
+    walPath: `${PENDING_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_custom_role_pending",
+    version: 1,
+    payload,
+  });
+}
+
+function ensurePendingLoaded() {
+  if (pendingLoaded) return;
+  pendingLoaded = true;
+  const raw = readSnapshotWithMeta({
+    filePath: PENDING_SNAPSHOT_PATH,
+    walPath: `${PENDING_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_custom_role_pending",
+    version: 1,
+    fallback: { roleGrants: {}, siteRoleRequests: {} },
+  });
+  const now = Date.now();
+  for (const [token, row] of Object.entries(raw?.roleGrants || {})) {
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!token || !expiresAt || expiresAt <= now) continue;
+    pendingRoleGrants.set(token, row);
+  }
+  for (const [token, row] of Object.entries(raw?.siteRoleRequests || {})) {
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!token || !expiresAt || expiresAt <= now) continue;
+    pendingSiteRoleRequests.set(token, row);
+  }
+}
 
 async function getGuildMemberForOwner(interaction, ownerId) {
   if (interaction.member && String(interaction.member.id) === String(ownerId)) return interaction.member;
@@ -249,6 +299,7 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
     return { ok: false };
   }
 
+  ensurePendingLoaded();
   pendingRoleGrants.set(token, {
     guildId,
     channelId,
@@ -260,12 +311,15 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
     dmMessageId: dmSent.id,
     expiresAt: Date.now() + Math.max(15_000, Number(timeoutMs || 60_000)),
   });
+  persistPendingNow();
 
   const expiryTimer = setTimeout(
     async () => {
+      ensurePendingLoaded();
       const req = pendingRoleGrants.get(token);
       if (!req) return;
       pendingRoleGrants.delete(token);
+      persistPendingNow();
       const g = await getClientGuildCached(client, req.guildId);
       const ch = await fetchGuildChannel(g, req.channelId);
       const msg = ch?.messages?.cache?.get(req.promptMessageId) || (await ch?.messages?.fetch(req.promptMessageId).catch(() => null));
@@ -344,7 +398,9 @@ async function createSiteRoleJoinRequest({
   for (const [token, request] of pendingSiteRoleRequests.entries()) {
     if (!request) continue;
     if (Number(request.expiresAt || 0) <= now) {
+      ensurePendingLoaded();
       pendingSiteRoleRequests.delete(token);
+      persistPendingNow();
       continue;
     }
     if (
@@ -389,6 +445,7 @@ async function createSiteRoleJoinRequest({
     return { ok: false, error: "dm_closed" };
   }
 
+  ensurePendingLoaded();
   pendingSiteRoleRequests.set(token, {
     guildId,
     requesterId,
@@ -399,11 +456,14 @@ async function createSiteRoleJoinRequest({
     dmMessageId: dmSent.id,
     expiresAt: now + Math.max(15_000, Number(timeoutMs || 0)),
   });
+  persistPendingNow();
 
   const expiryTimer = setTimeout(async () => {
+    ensurePendingLoaded();
     const request = pendingSiteRoleRequests.get(token);
     if (!request) return;
     pendingSiteRoleRequests.delete(token);
+    persistPendingNow();
     const owner = await getUserCached(client, request.ownerId);
     const dmChannel = owner?.dmChannel || (await owner?.createDM().catch(() => null));
     const dmMsg =
@@ -1883,6 +1943,7 @@ async function handleGrantButtons(interaction) {
       .catch(() => { });
     return true;
   }
+  ensurePendingLoaded();
   const request = pendingRoleGrants.get(token);
   if (!request) {
     await interaction
@@ -1912,6 +1973,7 @@ async function handleGrantButtons(interaction) {
   }
   if (Date.now() > request.expiresAt) {
     pendingRoleGrants.delete(token);
+    persistPendingNow();
     await interaction
       .reply({ content: "<:VC_Refresh:1473359252276904203> Richiesta scaduta.", flags: 1 << 6 })
       .catch(() => { });
@@ -1948,6 +2010,7 @@ async function handleGrantButtons(interaction) {
 
   if (action === "no") {
     pendingRoleGrants.delete(token);
+    persistPendingNow();
     if (promptMsg) {
       await promptMsg
         .edit({
@@ -1990,6 +2053,7 @@ async function handleGrantButtons(interaction) {
 
   if (!guild || !channel || !role || !targetMember || !requester) {
     pendingRoleGrants.delete(token);
+    persistPendingNow();
     await updateGrantMessage({
       content:
         "<:vegax:1443934876440068179> Errore: dati richiesta non validi.",
@@ -2004,6 +2068,7 @@ async function handleGrantButtons(interaction) {
     role.position >= me.roles.highest.position
   ) {
     pendingRoleGrants.delete(token);
+    persistPendingNow();
     if (promptMsg) {
       await promptMsg
         .edit({
@@ -2035,6 +2100,7 @@ async function handleGrantButtons(interaction) {
     .then(() => true)
     .catch(() => false);
   pendingRoleGrants.delete(token);
+  persistPendingNow();
   const refreshedTargetMember = grantApplied
     ? await fetchGuildMember(guild, request.targetId).catch(() => null)
     : null;
@@ -2113,6 +2179,7 @@ async function handleSiteRoleRequestButtons(interaction) {
   const parts = String(interaction.customId || "").split(":");
   const token = String(parts[1] || "").trim();
   const action = String(parts[2] || "").trim().toLowerCase();
+  ensurePendingLoaded();
   const request = pendingSiteRoleRequests.get(token);
   if (!request) {
     await interaction
@@ -2143,6 +2210,7 @@ async function handleSiteRoleRequestButtons(interaction) {
 
   if (Date.now() > Number(request.expiresAt || 0)) {
     pendingSiteRoleRequests.delete(token);
+    persistPendingNow();
     await updateMessage({
       embeds: [
         new EmbedBuilder()
@@ -2165,6 +2233,7 @@ async function handleSiteRoleRequestButtons(interaction) {
 
   if (action === "reject") {
     pendingSiteRoleRequests.delete(token);
+    persistPendingNow();
     await updateMessage({
       embeds: [
         new EmbedBuilder()
@@ -2193,6 +2262,7 @@ async function handleSiteRoleRequestButtons(interaction) {
 
   if (!guild || !role || !requesterMember || !ownerMember) {
     pendingSiteRoleRequests.delete(token);
+    persistPendingNow();
     await updateMessage({
       embeds: [
         new EmbedBuilder()
@@ -2207,6 +2277,7 @@ async function handleSiteRoleRequestButtons(interaction) {
 
   if (requesterMember.roles.cache.has(role.id)) {
     pendingSiteRoleRequests.delete(token);
+    persistPendingNow();
     await updateMessage({
       embeds: [
         new EmbedBuilder()
@@ -2225,6 +2296,7 @@ async function handleSiteRoleRequestButtons(interaction) {
     role.position >= me.roles.highest.position
   ) {
     pendingSiteRoleRequests.delete(token);
+    persistPendingNow();
     await updateMessage({
       embeds: [
         new EmbedBuilder()
@@ -2242,6 +2314,7 @@ async function handleSiteRoleRequestButtons(interaction) {
     .then(() => true)
     .catch(() => false);
   pendingSiteRoleRequests.delete(token);
+  persistPendingNow();
 
   if (!granted) {
     await updateMessage({
@@ -2295,6 +2368,7 @@ async function handleCustomRoleInteraction(interaction) {
 
 function getPendingRoleGrantByToken(token) {
   if (!token) return null;
+  ensurePendingLoaded();
   return pendingRoleGrants.get(String(token)) || null;
 }
 

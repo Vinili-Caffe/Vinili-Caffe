@@ -5,15 +5,6 @@ const { buildStaffProfilePayload, SECTION_HOME } = require("../../Utils/Staff/st
 
 const PROFILE_STAFF_PM_ONLY_CHANNEL_ID = "1495544523848286340";
 const PROFILE_STAFF_OR_PM_CHANNEL_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
-const STAFF_NON_PM_ROLE_IDS = [
-  IDs.roles?.Founder,
-  IDs.roles?.Admin,
-  IDs.roles?.HighStaff,
-  IDs.roles?.Mod,
-  IDs.roles?.Helper,
-  IDs.roles?.Staff,
-  IDs.roles?.CommunityManager,
-].filter(Boolean).map((id) => String(id));
 
 async function resolveTargetUser(message, args = []) {
   const mentioned = message?.mentions?.users?.first?.();
@@ -70,7 +61,6 @@ module.exports = {
     const channelId = String(message.channel?.id || "");
     const targetMember = await message.guild.members.fetch(targetUser.id).catch(() => null);
     const targetHasPm = Boolean(IDs.roles?.PartnerManager && targetMember?.roles?.cache?.has(IDs.roles.PartnerManager));
-    const targetHasNonPmStaff = STAFF_NON_PM_ROLE_IDS.some((roleId) => targetMember?.roles?.cache?.has?.(roleId));
 
     if (channelId === PROFILE_STAFF_PM_ONLY_CHANNEL_ID) {
       if (!targetHasPm) {
@@ -92,12 +82,6 @@ module.exports = {
     }
 
     if (channelId === PROFILE_STAFF_OR_PM_CHANNEL_ID) {
-      if (!targetHasNonPmStaff) {
-        await upsertProfileReply(message, {
-          content: "<:VC_Attention:1482534443632558151> Qui `+profile` mostra solo **Staff** o **Staff + Partner Manager**.",
-        });
-        return;
-      }
       const staffPayload = await buildStaffProfilePayload(
         message.guild,
         targetUser.id,

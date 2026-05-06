@@ -72,7 +72,35 @@ function channelMatchesPolicyChannelList(channel, policyIds) {
   return false;
 }
 
-const VERIFY_OR_TICKET_IDS = new Set(["verify_start", "verify_enter", "ticket_partnership", "ticket_highstaff", "ticket_supporto", "claim_ticket", "unclaim", "close_ticket", "close_ticket_motivo", "ticket_open_menu","ticket_panel_add_member","ticket_panel_remove_member","ticket_panel_transfer_user","ticket_panel_switch_category","ticket_panel_nav_add","ticket_panel_nav_remove","ticket_panel_nav_switch","ticket_panel_nav_rename","ticket_panel_nav_closerequest","ticket_panel_nav_transfer","ticket_panel_reopen_pick","modal_ticket_panel_rename","modal_ticket_panel_closerequest",]);
+const VERIFY_OR_TICKET_IDS = new Set([
+  "verify_start",
+  "verify_enter",
+  "ticket_partnership",
+  "ticket_highstaff",
+  "ticket_supporto",
+  "claim_ticket",
+  "unclaim",
+  "close_ticket",
+  "close_ticket_motivo",
+  "ticket_open_menu",
+  "ticket_panel_add_member",
+  "ticket_panel_remove_member",
+  "ticket_panel_transfer_user",
+  "ticket_panel_switch_category",
+  "ticket_panel_nav_add",
+  "ticket_panel_nav_remove",
+  "ticket_panel_nav_switch",
+  "ticket_panel_nav_rename",
+  "ticket_panel_nav_closerequest",
+  "ticket_panel_nav_transfer",
+  "ticket_panel_reopen_pick",
+  "ticket_panel_reopen_search",
+  "ticket_panel_reopen_prev",
+  "ticket_panel_reopen_next",
+  "modal_ticket_panel_rename",
+  "modal_ticket_panel_closerequest",
+  "modal_ticket_panel_reopen_search",
+]);
 function isBackupInteraction(customId) {
   const id = String(customId || "").trim();
   if (!id) return false;

@@ -651,6 +651,9 @@ async function restoreTempBans(guild, options = {}) {
   if (beforeTempBans !== state.tempBans.length || expiredRows.length) {
     scheduleStateSave(guild.id);
   }
+  if (Number(state.raidUntil || 0) > at) {
+    scheduleJoinRaidReport(guild);
+  }
   if (!state.tempBans.length) return;
 
   for (const row of state.tempBans) {

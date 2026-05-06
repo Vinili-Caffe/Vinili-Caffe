@@ -178,6 +178,20 @@ module.exports = {
       ALLOWED_GUILD_IDS.size &&
       !ALLOWED_GUILD_IDS.has(String(interaction.guildId))
     ) {
+      const isComponentFlow =
+        interaction.isButton?.() ||
+        interaction.isStringSelectMenu?.() ||
+        interaction.isModalSubmit?.();
+      if (isComponentFlow) {
+        if (
+          (interaction.isButton?.() || interaction.isStringSelectMenu?.()) &&
+          !interaction.replied &&
+          !interaction.deferred
+        ) {
+          await interaction.deferUpdate().catch(() => { });
+        }
+        return;
+      }
       if (interaction.isRepliable?.() && !interaction.replied && !interaction.deferred) {
         await interaction
           .reply({

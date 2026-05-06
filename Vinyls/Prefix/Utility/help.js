@@ -407,7 +407,13 @@ const OBSOLETE_SLASH_HELP_NAMES = new Set(
 );
 
 /** Prefix rimossi dal progetto: non elencati in +help (copre deploy parziali o file residui). */
-const OBSOLETE_PREFIX_HELP_NAMES = new Set(["staff", "colors"]);
+const OBSOLETE_PREFIX_HELP_NAMES = new Set([
+  "staff",
+  "colors",
+  "evento",
+  "no-dm-list",
+  "recensione",
+]);
 
 function shouldIncludeSlashCommandInHelp(command) {
   if (!command || command.skipDeploy) return false;

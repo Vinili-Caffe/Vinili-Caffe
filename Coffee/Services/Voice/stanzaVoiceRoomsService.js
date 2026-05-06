@@ -18,6 +18,11 @@ const { StanzaUserVoiceTotal } = require("../../Schemas/stanzaUserVoiceTotal");
 const { CustomRole } = require("../../../Vinyls/Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
+const STANZA_ALLOWED_GUILD_IDS = new Set(
+  [IDs.guilds?.main, IDs.guilds?.test]
+    .map((id) => String(id || "").trim())
+    .filter((id) => /^\d{5,30}$/.test(id)),
+);
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
 /** Fallback pannello/prompt per stanze legacy (snapshot senza chat dedicata). */
 const STANZA_PANEL_CHANNEL_ID = String(IDs.channels?.commands || "").trim();
@@ -39,6 +44,13 @@ const STANZA_DISCOVERY_EXCLUDE_PARENT_IDS = new Set(
 
 function getStanzaMemberRoleId() {
   return STANZA_MEMBER_ROLE_ID || "";
+}
+
+function isStanzaGuildAllowed(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return false;
+  if (STANZA_ALLOWED_GUILD_IDS.size > 0) return STANZA_ALLOWED_GUILD_IDS.has(gid);
+  return gid === MAIN_GUILD_ID;
 }
 
 /** @type {Map<string, { ownerId: string, viceUserId?: string | null, panelMessageId: string, textChannelId?: string | null, guildId: string, startedAt: number }>} */
@@ -381,9 +393,8 @@ async function notifyStanzaVisitorJoin(member, voiceChannel, meta) {
 }
 
 async function finalizeStanzaVisitorVoiceSessionIfLeft(oldState, newState) {
-  if (!MAIN_GUILD_ID) return;
   const guild = oldState.guild;
-  if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+  if (!guild || !isStanzaGuildAllowed(guild.id)) return;
   const oldId = String(oldState.channelId || "");
   const newId = String(newState.channelId || "");
   if (!oldId || oldId === newId) return;
@@ -423,16 +434,20 @@ function clearStanzaRenamePending(guildId, userId) {
   const old = stanzaRenamePending.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   stanzaRenamePending.delete(key);
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaRenamePendingByVoiceChannel(voiceChannelId) {
   const vid = String(voiceChannelId || "");
+  let changed = false;
   for (const [key, v] of stanzaRenamePending) {
     if (String(v?.voiceChannelId || "") === vid) {
       if (v?.timerId) clearTimeout(v.timerId);
       stanzaRenamePending.delete(key);
+      changed = true;
     }
   }
+  if (changed) persistStanzaSnapshotNow();
 }
 
 function pendingEmojiKey(guildId, userId) {
@@ -444,16 +459,20 @@ function clearStanzaEmojiPending(guildId, userId) {
   const old = stanzaEmojiPending.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   stanzaEmojiPending.delete(key);
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaEmojiPendingByVoiceChannel(voiceChannelId) {
   const vid = String(voiceChannelId || "");
+  let changed = false;
   for (const [key, v] of stanzaEmojiPending) {
     if (String(v?.voiceChannelId || "") === vid) {
       if (v?.timerId) clearTimeout(v.timerId);
       stanzaEmojiPending.delete(key);
+      changed = true;
     }
   }
+  if (changed) persistStanzaSnapshotNow();
 }
 
 function registerStanzaEmojiPending(guildId, userId, voiceChannelId) {
@@ -467,6 +486,7 @@ function registerStanzaEmojiPending(guildId, userId, voiceChannelId) {
   const expiresAt = Date.now() + STANZA_RENAME_PROMPT_MS;
   const timerId = setTimeout(() => {
     stanzaEmojiPending.delete(key);
+    persistStanzaSnapshotNow();
   }, STANZA_RENAME_PROMPT_MS);
   timerId.unref?.();
   stanzaEmojiPending.set(key, {
@@ -474,6 +494,7 @@ function registerStanzaEmojiPending(guildId, userId, voiceChannelId) {
     expiresAt,
     timerId,
   });
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaVicePending(guildId, userId) {
@@ -481,16 +502,20 @@ function clearStanzaVicePending(guildId, userId) {
   const old = stanzaVicePending.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   stanzaVicePending.delete(key);
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaVicePendingByVoiceChannel(voiceChannelId) {
   const vid = String(voiceChannelId || "");
+  let changed = false;
   for (const [key, v] of stanzaVicePending) {
     if (String(v?.voiceChannelId || "") === vid) {
       if (v?.timerId) clearTimeout(v.timerId);
       stanzaVicePending.delete(key);
+      changed = true;
     }
   }
+  if (changed) persistStanzaSnapshotNow();
 }
 
 function clearStanzaUsersMemberPending(guildId, userId) {
@@ -498,16 +523,20 @@ function clearStanzaUsersMemberPending(guildId, userId) {
   const old = stanzaUsersMemberPending.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   stanzaUsersMemberPending.delete(key);
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaUsersMemberPendingByVoiceChannel(voiceChannelId) {
   const vid = String(voiceChannelId || "");
+  let changed = false;
   for (const [key, v] of stanzaUsersMemberPending) {
     if (String(v?.voiceChannelId || "") === vid) {
       if (v?.timerId) clearTimeout(v.timerId);
       stanzaUsersMemberPending.delete(key);
+      changed = true;
     }
   }
+  if (changed) persistStanzaSnapshotNow();
 }
 
 function registerStanzaUsersMemberPending(guildId, userId, voiceChannelId, action, interaction = null) {
@@ -521,6 +550,7 @@ function registerStanzaUsersMemberPending(guildId, userId, voiceChannelId, actio
   const expiresAt = Date.now() + STANZA_RENAME_PROMPT_MS;
   const timerId = setTimeout(() => {
     stanzaUsersMemberPending.delete(key);
+    persistStanzaSnapshotNow();
   }, STANZA_RENAME_PROMPT_MS);
   timerId.unref?.();
   const interactionApplicationId = interaction?.applicationId ? String(interaction.applicationId) : "";
@@ -534,6 +564,7 @@ function registerStanzaUsersMemberPending(guildId, userId, voiceChannelId, actio
       ? { interactionApplicationId, interactionToken }
       : {}),
   });
+  persistStanzaSnapshotNow();
 }
 
 async function editStanzaUsersMemberFollowup(client, pending, options) {
@@ -555,6 +586,7 @@ function registerStanzaVicePending(guildId, userId, voiceChannelId) {
   const expiresAt = Date.now() + STANZA_RENAME_PROMPT_MS;
   const timerId = setTimeout(() => {
     stanzaVicePending.delete(key);
+    persistStanzaSnapshotNow();
   }, STANZA_RENAME_PROMPT_MS);
   timerId.unref?.();
   stanzaVicePending.set(key, {
@@ -562,6 +594,7 @@ function registerStanzaVicePending(guildId, userId, voiceChannelId) {
     expiresAt,
     timerId,
   });
+  persistStanzaSnapshotNow();
 }
 
 function registerStanzaRenamePending(guildId, userId, voiceChannelId) {
@@ -575,6 +608,7 @@ function registerStanzaRenamePending(guildId, userId, voiceChannelId) {
   const expiresAt = Date.now() + STANZA_RENAME_PROMPT_MS;
   const timerId = setTimeout(() => {
     stanzaRenamePending.delete(key);
+    persistStanzaSnapshotNow();
   }, STANZA_RENAME_PROMPT_MS);
   timerId.unref?.();
   stanzaRenamePending.set(key, {
@@ -582,6 +616,7 @@ function registerStanzaRenamePending(guildId, userId, voiceChannelId) {
     expiresAt,
     timerId,
   });
+  persistStanzaSnapshotNow();
 }
 
 function pendingLimitKey(guildId, userId) {
@@ -593,16 +628,20 @@ function clearStanzaLimitPending(guildId, userId) {
   const old = stanzaLimitPending.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   stanzaLimitPending.delete(key);
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaLimitPendingByVoiceChannel(voiceChannelId) {
   const vid = String(voiceChannelId || "");
+  let changed = false;
   for (const [key, v] of stanzaLimitPending) {
     if (String(v?.voiceChannelId || "") === vid) {
       if (v?.timerId) clearTimeout(v.timerId);
       stanzaLimitPending.delete(key);
+      changed = true;
     }
   }
+  if (changed) persistStanzaSnapshotNow();
 }
 
 function registerStanzaLimitPending(guildId, userId, voiceChannelId) {
@@ -615,6 +654,7 @@ function registerStanzaLimitPending(guildId, userId, voiceChannelId) {
   const expiresAt = Date.now() + STANZA_RENAME_PROMPT_MS;
   const timerId = setTimeout(() => {
     stanzaLimitPending.delete(key);
+    persistStanzaSnapshotNow();
   }, STANZA_RENAME_PROMPT_MS);
   timerId.unref?.();
   stanzaLimitPending.set(key, {
@@ -622,6 +662,7 @@ function registerStanzaLimitPending(guildId, userId, voiceChannelId) {
     expiresAt,
     timerId,
   });
+  persistStanzaSnapshotNow();
 }
 
 function pendingDescKey(guildId, userId) {
@@ -633,16 +674,20 @@ function clearStanzaDescPending(guildId, userId) {
   const old = stanzaDescPending.get(key);
   if (old?.timerId) clearTimeout(old.timerId);
   stanzaDescPending.delete(key);
+  persistStanzaSnapshotNow();
 }
 
 function clearStanzaDescPendingByVoiceChannel(voiceChannelId) {
   const vid = String(voiceChannelId || "");
+  let changed = false;
   for (const [key, v] of stanzaDescPending) {
     if (String(v?.voiceChannelId || "") === vid) {
       if (v?.timerId) clearTimeout(v.timerId);
       stanzaDescPending.delete(key);
+      changed = true;
     }
   }
+  if (changed) persistStanzaSnapshotNow();
 }
 
 function registerStanzaDescPending(guildId, userId, voiceChannelId) {
@@ -656,6 +701,7 @@ function registerStanzaDescPending(guildId, userId, voiceChannelId) {
   const expiresAt = Date.now() + STANZA_RENAME_PROMPT_MS;
   const timerId = setTimeout(() => {
     stanzaDescPending.delete(key);
+    persistStanzaSnapshotNow();
   }, STANZA_RENAME_PROMPT_MS);
   timerId.unref?.();
   stanzaDescPending.set(key, {
@@ -663,6 +709,7 @@ function registerStanzaDescPending(guildId, userId, voiceChannelId) {
     expiresAt,
     timerId,
   });
+  persistStanzaSnapshotNow();
 }
 
 function buildStanzaChannelName(member) {
@@ -1441,9 +1488,9 @@ async function teardownStanza(guild, channelId, opts = {}) {
 }
 
 async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
-  if (!MAIN_GUILD_ID || !STANZA_LOBBY_VOICE_ID) return;
+  if (!STANZA_LOBBY_VOICE_ID) return;
   const guild = newState.guild;
-  if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+  if (!guild || !isStanzaGuildAllowed(guild.id)) return;
   const member = newState.member;
   if (!member || member.user?.bot) return;
   const joinedId = String(newState.channelId || "");
@@ -1587,9 +1634,8 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
 }
 
 async function handleStanzaVoiceEmpty(oldState, newState) {
-  if (!MAIN_GUILD_ID) return;
   const guild = oldState.guild;
-  if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+  if (!guild || !isStanzaGuildAllowed(guild.id)) return;
   const prevId = String(oldState.channelId || "");
   if (!prevId || prevId === STANZA_LOBBY_VOICE_ID) return;
   if (!stanzaChannelMeta.has(prevId)) {
@@ -1618,9 +1664,8 @@ async function handleStanzaVoiceEmpty(oldState, newState) {
 }
 
 async function handleStanzaVoiceOccupied(oldState, newState) {
-  if (!MAIN_GUILD_ID) return;
   const guild = newState.guild;
-  if (!guild || String(guild.id) !== MAIN_GUILD_ID) return;
+  if (!guild || !isStanzaGuildAllowed(guild.id)) return;
   const joinedId = String(newState.channelId || "");
   if (!joinedId || joinedId === STANZA_LOBBY_VOICE_ID) return;
   const meta = await getStanzaMetaOrRehydrate(guild, joinedId);
@@ -1770,6 +1815,14 @@ function persistStanzaSnapshotNow() {
   if (!MAIN_GUILD_ID) return;
   try {
     const rooms = {};
+    const pending = {
+      rename: {},
+      emoji: {},
+      limit: {},
+      desc: {},
+      vice: {},
+      usersMember: {},
+    };
     for (const [channelId, meta] of stanzaChannelMeta) {
       sanitizeStanzaMetaViceUserId(meta);
       rooms[channelId] = {
@@ -1781,9 +1834,48 @@ function persistStanzaSnapshotNow() {
         startedAt: meta.startedAt,
       };
     }
+    for (const [key, row] of stanzaRenamePending.entries()) {
+      pending.rename[key] = {
+        voiceChannelId: String(row?.voiceChannelId || ""),
+        expiresAt: Number(row?.expiresAt || 0),
+      };
+    }
+    for (const [key, row] of stanzaEmojiPending.entries()) {
+      pending.emoji[key] = {
+        voiceChannelId: String(row?.voiceChannelId || ""),
+        expiresAt: Number(row?.expiresAt || 0),
+      };
+    }
+    for (const [key, row] of stanzaLimitPending.entries()) {
+      pending.limit[key] = {
+        voiceChannelId: String(row?.voiceChannelId || ""),
+        expiresAt: Number(row?.expiresAt || 0),
+      };
+    }
+    for (const [key, row] of stanzaDescPending.entries()) {
+      pending.desc[key] = {
+        voiceChannelId: String(row?.voiceChannelId || ""),
+        expiresAt: Number(row?.expiresAt || 0),
+      };
+    }
+    for (const [key, row] of stanzaVicePending.entries()) {
+      pending.vice[key] = {
+        voiceChannelId: String(row?.voiceChannelId || ""),
+        expiresAt: Number(row?.expiresAt || 0),
+      };
+    }
+    for (const [key, row] of stanzaUsersMemberPending.entries()) {
+      pending.usersMember[key] = {
+        voiceChannelId: String(row?.voiceChannelId || ""),
+        action: String(row?.action || ""),
+        expiresAt: Number(row?.expiresAt || 0),
+        interactionApplicationId: row?.interactionApplicationId ? String(row.interactionApplicationId) : "",
+        interactionToken: row?.interactionToken ? String(row.interactionToken) : "",
+      };
+    }
     const dir = path.dirname(STANZA_SNAPSHOT_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const payload = JSON.stringify({ version: STANZA_SNAPSHOT_VERSION, rooms });
+    const payload = JSON.stringify({ version: STANZA_SNAPSHOT_VERSION, rooms, pending });
     const tmp = `${STANZA_SNAPSHOT_PATH}.tmp`;
     fs.writeFileSync(tmp, payload);
     fs.renameSync(tmp, STANZA_SNAPSHOT_PATH);
@@ -1792,15 +1884,70 @@ function persistStanzaSnapshotNow() {
   }
 }
 
-function readStanzaSnapshotRoomsRaw() {
+function readStanzaSnapshotRaw() {
   try {
     if (!fs.existsSync(STANZA_SNAPSHOT_PATH)) return null;
     const j = JSON.parse(fs.readFileSync(STANZA_SNAPSHOT_PATH, "utf8"));
     if (!j || j.version !== STANZA_SNAPSHOT_VERSION || !j.rooms || typeof j.rooms !== "object") return null;
-    return j.rooms;
+    return j;
   } catch {
     return null;
   }
+}
+
+function readStanzaSnapshotRoomsRaw() {
+  const j = readStanzaSnapshotRaw();
+  return j?.rooms || null;
+}
+
+function restoreStanzaPendingMapFromSnapshot(targetMap, rows, sanitizeRow) {
+  if (!rows || typeof rows !== "object") return;
+  const now = Date.now();
+  for (const [keyRaw, rowRaw] of Object.entries(rows)) {
+    const key = String(keyRaw || "").trim();
+    if (!key) continue;
+    const row = sanitizeRow(rowRaw);
+    if (!row) continue;
+    const remainingMs = Number(row.expiresAt || 0) - now;
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) continue;
+    const timerId = setTimeout(() => {
+      targetMap.delete(key);
+      persistStanzaSnapshotNow();
+    }, remainingMs);
+    timerId.unref?.();
+    targetMap.set(key, { ...row, timerId });
+  }
+}
+
+function restoreStanzaPendingFromSnapshot() {
+  const raw = readStanzaSnapshotRaw();
+  const pending = raw?.pending && typeof raw.pending === "object" ? raw.pending : {};
+  const sanitizeBase = (row) => {
+    const voiceChannelId = String(row?.voiceChannelId || "").trim();
+    const expiresAt = Number(row?.expiresAt || 0);
+    if (!voiceChannelId || !Number.isFinite(expiresAt) || expiresAt <= 0) return null;
+    return { voiceChannelId, expiresAt };
+  };
+  restoreStanzaPendingMapFromSnapshot(stanzaRenamePending, pending.rename, sanitizeBase);
+  restoreStanzaPendingMapFromSnapshot(stanzaEmojiPending, pending.emoji, sanitizeBase);
+  restoreStanzaPendingMapFromSnapshot(stanzaLimitPending, pending.limit, sanitizeBase);
+  restoreStanzaPendingMapFromSnapshot(stanzaDescPending, pending.desc, sanitizeBase);
+  restoreStanzaPendingMapFromSnapshot(stanzaVicePending, pending.vice, sanitizeBase);
+  restoreStanzaPendingMapFromSnapshot(stanzaUsersMemberPending, pending.usersMember, (row) => {
+    const base = sanitizeBase(row);
+    if (!base) return null;
+    const action = String(row?.action || "").trim();
+    if (!action) return null;
+    const interactionApplicationId = row?.interactionApplicationId ? String(row.interactionApplicationId) : "";
+    const interactionToken = row?.interactionToken ? String(row.interactionToken) : "";
+    return {
+      ...base,
+      action,
+      ...(interactionApplicationId && interactionToken
+        ? { interactionApplicationId, interactionToken }
+        : {}),
+    };
+  });
 }
 
 function normalizeStanzaRecordFromSnapshot(rec, guildId) {
@@ -2056,16 +2203,21 @@ async function isStanzaButtonActorAllowed(interaction) {
 }
 
 async function restoreStanzaRoomsFromSnapshot(client) {
-  if (!MAIN_GUILD_ID) return;
-  const guild =
-    client.guilds.cache.get(MAIN_GUILD_ID) || (await client.guilds.fetch(MAIN_GUILD_ID).catch(() => null));
-  if (!guild) return;
+  restoreStanzaPendingFromSnapshot();
   const rooms = readStanzaSnapshotRoomsRaw();
   if (!rooms) return;
+  const allowedGuildIds = STANZA_ALLOWED_GUILD_IDS.size
+    ? [...STANZA_ALLOWED_GUILD_IDS]
+    : [MAIN_GUILD_ID].filter(Boolean);
   let restored = 0;
-  for (const [channelId, rec] of Object.entries(rooms)) {
-    if (String(rec?.guildId || "") !== String(guild.id)) continue;
-    if (await tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec)) restored += 1;
+  for (const guildId of allowedGuildIds) {
+    const guild =
+      client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+    if (!guild) continue;
+    for (const [channelId, rec] of Object.entries(rooms)) {
+      if (String(rec?.guildId || "") !== String(guild.id)) continue;
+      if (await tryRehydrateStanzaRoomFromSnapshotRecord(guild, channelId, rec)) restored += 1;
+    }
   }
   persistStanzaSnapshotNow();
   if (restored > 0) {

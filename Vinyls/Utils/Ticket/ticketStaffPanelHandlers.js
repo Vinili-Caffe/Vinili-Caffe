@@ -4,7 +4,16 @@ const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { getTicketPanelConfig } = require("./ticketPanelConfig");
 const { resolveTicketRenamePrefix, sanitizeTicketChannelTail } = require("./ticketNamingRuntime");
-const { hasStaffTicketRole, buildRemoveMemberOptions } = require("./ticketStaffPanelBuild");
+const {
+  hasStaffTicketRole,
+  buildRemoveMemberOptions,
+  buildTicketReopenOutsidePanelPayload,
+  fetchClosedTicketsOrdered,
+} = require("./ticketStaffPanelBuild");
+const {
+  readTicketReopenOutsideSession,
+  updateTicketReopenOutsideSession,
+} = require("./ticketReopenOutsideSession");
 const ticketModule = require("../../Prefix/Staff/ticket");
 const {
   parseTicketPanelMessageIdFromCustomId,
@@ -63,7 +72,14 @@ function messageIsPlusTicketStaffPanel(message) {
   for (const row of message.components) {
     for (const c of row.components || []) {
       const id = String(c.customId || "");
-      if (id.startsWith("ticket_panel_nav_") || id === "ticket_panel_reopen_pick") return true;
+      if (
+        id.startsWith("ticket_panel_nav_") ||
+        id === "ticket_panel_reopen_pick" ||
+        id === "ticket_panel_reopen_search" ||
+        id === "ticket_panel_reopen_prev" ||
+        id === "ticket_panel_reopen_next"
+      )
+        return true;
     }
   }
   return false;
@@ -97,6 +113,61 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
   const isPanel =
     cid.startsWith("ticket_panel_") || cid.startsWith("modal_ticket_panel");
   if (!isPanel) return false;
+
+  if (interaction.isButton?.() && (cid === "ticket_panel_reopen_search" || cid === "ticket_panel_reopen_prev" || cid === "ticket_panel_reopen_next")) {
+    const isHigh = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
+    if (!isHigh) {
+      await safeReply(interaction, {
+        embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Solo l’**High Staff** può usare questo pannello.")],
+        flags: MessageFlags.Ephemeral,
+      });
+      return true;
+    }
+    const mid = interaction.message?.id;
+    const session = readTicketReopenOutsideSession(interaction.client, mid);
+    if (!session || String(session.authorId) !== String(interaction.user.id)) {
+      await safeReply(interaction, {
+        embeds: [
+          makeErrorEmbed(
+            "<a:VC_Alert:1482706673176150077> Errore",
+            "<:vegax:1443934876440068179> Questo pannello non è tuo o è scaduto. Rilancia **`+ticket`** fuori da un ticket.",
+          ),
+        ],
+        flags: MessageFlags.Ephemeral,
+      });
+      return true;
+    }
+    if (cid === "ticket_panel_reopen_search") {
+      const modal = new ModalBuilder()
+        .setCustomId("modal_ticket_panel_reopen_search")
+        .setTitle("Cerca tra i ticket chiusi")
+        .addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+              .setCustomId("reopen_search_q")
+              .setLabel("Numero (#42), ID, menzione o parte del nome")
+              .setStyle(TextInputStyle.Short)
+              .setRequired(false)
+              .setMaxLength(100),
+          ),
+        );
+      await interaction.showModal(modal).catch(() => null);
+      return true;
+    }
+    const delta = cid === "ticket_panel_reopen_prev" ? -1 : 1;
+    const nextPage = Math.max(0, Number(session.page) + delta);
+    updateTicketReopenOutsideSession(interaction.client, mid, { page: nextPage });
+    const merged = readTicketReopenOutsideSession(interaction.client, mid);
+    if (!merged) return true;
+    const allDocs = await fetchClosedTicketsOrdered(merged.guildId);
+    const panel = await buildTicketReopenOutsidePanelPayload(interaction.guild, allDocs, {
+      page: merged.page,
+      filterQuery: merged.filterQuery,
+    });
+    updateTicketReopenOutsideSession(interaction.client, mid, { page: panel.meta?.page ?? merged.page });
+    await interaction.update({ embeds: [panel.embed], components: panel.components }).catch(() => null);
+    return true;
+  }
 
   if (interaction.isButton?.() && cid === "ticket_panel_nav_add") {
     if (!hasStaffTicketRole(interaction.member)) {
@@ -668,6 +739,43 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         flags: 1 << 6,
       });
       await deletePlusTicketCommandAndPanelMessages(interaction);
+      return true;
+    }
+
+    if (cid === "modal_ticket_panel_reopen_search") {
+      if (!HIGHSTAFF_ROLE_ID || !interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID)) {
+        await safeReply(interaction, {
+          embeds: [makeErrorEmbed("<a:VC_Alert:1482706673176150077> Errore", "<:vegax:1443934876440068179> Permesso negato.")],
+          flags: MessageFlags.Ephemeral,
+        });
+        return true;
+      }
+      const mid = interaction.message?.id;
+      const session = readTicketReopenOutsideSession(interaction.client, mid);
+      if (!session || String(session.authorId) !== String(interaction.user.id)) {
+        await safeReply(interaction, {
+          embeds: [
+            makeErrorEmbed(
+              "<a:VC_Alert:1482706673176150077> Errore",
+              "<:vegax:1443934876440068179> Questo pannello non è tuo o è scaduto. Rilancia **`+ticket`** fuori da un ticket.",
+            ),
+          ],
+          flags: MessageFlags.Ephemeral,
+        });
+        return true;
+      }
+      const q = String(interaction.fields.getTextInputValue("reopen_search_q") || "").trim();
+      updateTicketReopenOutsideSession(interaction.client, mid, { filterQuery: q, page: 0 });
+      const merged = readTicketReopenOutsideSession(interaction.client, mid);
+      if (!merged) return true;
+      const allDocs = await fetchClosedTicketsOrdered(merged.guildId);
+      const panel = await buildTicketReopenOutsidePanelPayload(interaction.guild, allDocs, {
+        page: 0,
+        filterQuery: merged.filterQuery,
+      });
+      updateTicketReopenOutsideSession(interaction.client, mid, { page: panel.meta?.page ?? 0 });
+      await interaction.deferUpdate().catch(() => null);
+      await interaction.message?.edit?.({ embeds: [panel.embed], components: panel.components }).catch(() => null);
       return true;
     }
   }

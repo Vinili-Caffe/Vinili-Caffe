@@ -96,20 +96,6 @@
                 "channels.staffCmds"
             ]
         },
-        "evento": {
-            "roles": [
-                "roles.Staff",
-                "roles.HighStaff",
-                "roles.Founder"
-            ],
-            "subcommands": {
-                "classifica": [
-                    "roles.Staff",
-                    "roles.HighStaff",
-                    "roles.Founder"
-                ]
-            }
-        },
         "desc": [
             "roles.PartnerManager"
         ],
@@ -184,14 +170,6 @@
                 "channels.commands",
                 "channels.staffCmds",
                 "channels.chat"
-            ]
-        },
-        "no-dm-list": {
-            "roles": [
-                "roles.HighStaff"
-            ],
-            "channels": [
-                "channels.staffCmds"
             ]
         },
         "ping": {
@@ -671,11 +649,6 @@
             "channels": [
                 "channels.commands",
                 "channels.staffCmds"
-            ]
-        },
-        "recensione": {
-            "roles": [
-                "roles.HighStaff"
             ]
         },
         "blacklist": {

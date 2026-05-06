@@ -3,6 +3,7 @@ const { logBotReady } = require("../../shared/discord/readyLog");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService");
 const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService");
+const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 
 const PRESENCE_STATE = "☕📀 discord.gg/viniliecaffe";
 const PRESENCE_TYPE_CUSTOM = 4;
@@ -77,5 +78,6 @@ module.exports = {
     } catch (err) {
       global.logger?.warn?.("[MUSIC] init:", err?.message || err);
     }
+    printRecoveryHealthOnce("COFFEE_RECOVERY_HEALTH");
   },
 };

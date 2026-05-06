@@ -597,32 +597,29 @@ module.exports = {
       const canReopenOutside =
         HIGHSTAFF_ROLE_ID && message.member.roles.cache.has(HIGHSTAFF_ROLE_ID);
       if (canReopenOutside) {
-        const closedRaw = await Ticket.find(
-          { guildId: message.guild.id, open: false },
-          { ticketNumber: 1, userId: 1, closedAt: 1, updatedAt: 1 },
-        )
-          .limit(300)
-          .lean()
-          .catch(() => []);
-        const list = Array.isArray(closedRaw) ? closedRaw : [];
-        const sorted = list.sort((a, b) => {
-          const ta = a.closedAt ? new Date(a.closedAt).getTime() : a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-          const tb = b.closedAt ? new Date(b.closedAt).getTime() : b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-          return tb - ta;
+        const {
+          buildTicketReopenOutsidePanelPayload,
+          fetchClosedTicketsOrdered,
+        } = require("../../Utils/Ticket/ticketStaffPanelBuild");
+        const { rememberTicketReopenOutsideSession } = require("../../Utils/Ticket/ticketReopenOutsideSession");
+        const closedRaw = await fetchClosedTicketsOrdered(message.guild.id);
+        const panel = await buildTicketReopenOutsidePanelPayload(message.guild, closedRaw, {
+          page: 0,
+          filterQuery: "",
         });
-        const reopenable = [];
-        for (const t of sorted) {
-          if (reopenable.length >= 25) break;
-          if (message.guild.members.cache.has(t.userId)) reopenable.push(t);
-        }
-        const { buildTicketReopenOutsidePanelPayload } = require("../../Utils/Ticket/ticketStaffPanelBuild");
-        const panel = buildTicketReopenOutsidePanelPayload(message.guild, reopenable);
-        if (panel) {
-          await safeMessageReply(message, {
-            embeds: [panel.embed],
-            components: panel.components,
+        const sent = await safeMessageReply(message, {
+          embeds: [panel.embed],
+          components: panel.components,
           allowedMentions: { repliedUser: false },
         });
+        if (sent?.id) {
+          rememberTicketReopenOutsideSession(message.client, sent.id, {
+            authorId: message.author.id,
+            guildId: message.guild.id,
+            filterQuery: "",
+            page: 0,
+          });
+        }
         return;
       }
       await safeMessageReply(message, {
@@ -630,23 +627,11 @@ module.exports = {
           new EmbedBuilder()
             .setColor("#6f4e37")
             .setDescription(
-                "<:VC_Attention:1482534443632558151> Nessun ticket chiuso **riapribile** in lista (serve che l’apertore sia ancora nel server).",
+              "<:VC_Attention:1482534443632558151> Usa `+ticket` **dentro un ticket aperto** per il pannello. Solo **High Staff** può usare `+ticket` fuori dal ticket per il menu di riapertura.",
             ),
         ],
         allowedMentions: { repliedUser: false },
       });
-      return;
-    }
-    await safeMessageReply(message, {
-      embeds: [
-        new EmbedBuilder()
-          .setColor("Red")
-          .setDescription(
-              "<:vegax:1443934876440068179> Usa `+ticket` **dentro un ticket aperto** per il pannello. Se sei **High Staff**, puoi usare `+ticket` **fuori** dal ticket per il menu di riapertura.",
-          ),
-      ],
-      allowedMentions: { repliedUser: false },
-    });
       return;
     }
     const ticketDocFull = await Ticket.findOne(

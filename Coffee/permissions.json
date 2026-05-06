@@ -47,7 +47,14 @@
             ],
             "channels": [
                 "channels.commands",
-                "channels.chat"
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic",
+                "channels.stanzaLobbyVoice"
             ]
         },
         "clear": {

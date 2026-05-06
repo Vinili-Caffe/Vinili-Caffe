@@ -1,5 +1,7 @@
 const fs = require("node:fs");
+const path = require("node:path");
 const Ticket = require("../Guild/guildFeatureBucketTicketModel");
+const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const {
   normalizeTranscriptViewTokenParam,
   timingSafeHexEq,
@@ -14,6 +16,48 @@ const {
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 120;
 const ipRate = new Map();
+const RATE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "ticketTranscriptRateSnapshot.json");
+let rateLoaded = false;
+
+function ensureRateLoaded() {
+  if (rateLoaded) return;
+  rateLoaded = true;
+  const raw = readSnapshotWithMeta({
+    filePath: RATE_SNAPSHOT_PATH,
+    walPath: `${RATE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_ticket_transcript_rate",
+    version: 1,
+    fallback: {},
+  });
+  const now = Date.now();
+  for (const [ip, row] of Object.entries(raw || {})) {
+    const resetAt = Number(row?.resetAt || 0);
+    if (!ip || resetAt <= now) continue;
+    ipRate.set(ip, {
+      count: Math.max(0, Number(row?.count || 0)),
+      resetAt,
+    });
+  }
+}
+
+function persistRateNow() {
+  const now = Date.now();
+  const payload = {};
+  for (const [ip, row] of ipRate.entries()) {
+    if (!ip || Number(row?.resetAt || 0) <= now) continue;
+    payload[ip] = {
+      count: Math.max(0, Number(row?.count || 0)),
+      resetAt: Number(row?.resetAt || now + RATE_WINDOW_MS),
+    };
+  }
+  writeSnapshotWithMeta({
+    filePath: RATE_SNAPSHOT_PATH,
+    walPath: `${RATE_SNAPSHOT_PATH}.wal`,
+    key: "vinyls_ticket_transcript_rate",
+    version: 1,
+    payload,
+  });
+}
 
 const ACCESS_TOKEN_KEY = "vc_discord_access_token";
 const EXPIRES_AT_KEY = "vc_discord_expires_at";
@@ -25,6 +69,7 @@ function transcriptClientIp(req) {
 }
 
 function allowTranscriptRate(ip) {
+  ensureRateLoaded();
   const now = Date.now();
   let row = ipRate.get(ip);
   if (!row || row.resetAt <= now) {
@@ -34,6 +79,7 @@ function allowTranscriptRate(ip) {
   row.count += 1;
   if (row.count > RATE_MAX) return false;
   if (ipRate.size > 50_000) ipRate.clear();
+  persistRateNow();
   return true;
 }
 
