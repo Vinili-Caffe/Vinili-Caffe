@@ -939,6 +939,46 @@ async function handleBoostUpdate(oldMember, newMember) {
   }
 }
 
+async function recoverMissingBoostEmbedsForUser(guild, userId) {
+  const gid = String(guild?.id || "");
+  const uid = String(userId || "");
+  if (!gid || !uid) return { ok: false, reason: "invalid_input" };
+  const boostChannelId = IDs.channels.supporters;
+  if (!boostChannelId) return { ok: false, reason: "no_boost_channel" };
+  const boostAnnounceChannel =
+    guild.channels.cache.get(boostChannelId) ||
+    (await getGuildChannelCached(guild, boostChannelId).catch(() => null));
+  if (!boostAnnounceChannel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
+  const member =
+    guild.members.cache.get(uid) ||
+    (await getGuildMemberCached(guild, uid, { ttlMs: 30_000, preferFresh: true }).catch(() => null));
+  if (!member || member.user?.bot) return { ok: false, reason: "member_not_found" };
+  const mainId = String(IDs.guilds.main || "");
+  if (mainId && gid === mainId) {
+    await ensureBoostSlotsSynced(gid, uid).catch(() => null);
+  }
+  const freshGuild = await guild.fetch().catch(() => null);
+  const latestCount = Number(
+    freshGuild?.premiumSubscriptionCount ?? guild.premiumSubscriptionCount ?? 0,
+  );
+  boostCountCache.set(gid, latestCount);
+  const nativeBoostEvents = await detectRecentNativeBoostEventsForUser(boostAnnounceChannel, uid);
+  if (nativeBoostEvents <= 0) return { ok: true, sent: 0 };
+  const announcedSlots = getAnnouncedBoostSlots(gid, uid);
+  const extraMissing = Math.max(0, nativeBoostEvents - announcedSlots);
+  if (extraMissing <= 0) return { ok: true, sent: 0 };
+  await sendBoostEmbeds(
+    boostAnnounceChannel,
+    member,
+    extraMissing,
+    latestCount,
+    announcedSlots,
+  );
+  await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(member, gid, extraMissing);
+  rememberBoostAnnounce(`${gid}:${uid}`, latestCount, member.premiumSinceTimestamp);
+  return { ok: true, sent: extraMissing };
+}
+
 async function recoverRecentBoostEmbedsOnStartup(client, opts = {}) {
   if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
   const guildId = String(IDs.guilds.main || "");
@@ -1545,6 +1585,7 @@ async function syncCustomRoleEligibilityWindow(newMember) {
 
 module.exports = {
   name: "guildMemberUpdate",
+  recoverMissingBoostEmbedsForUser,
   recoverRecentBoostEmbedsOnStartup,
   correctMisleadingSingleBoostEmbedsOnStartup,
   backfillAnnouncedBoostSlotsFromSupportersHistory,

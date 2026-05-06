@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { EmbedBuilder, PermissionFlagsBits, MessageType } = require("discord.js");
 const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService");
 const { recordMessageActivity } = require("../Services/Community/activityService");
@@ -12,6 +12,7 @@ const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../Utils/Co
 const { isCoffeePrefixCommandToken } = require("../../shared/discord/coffeePrefixCommandTokens");
 const { broadcastSiteRealtime } = require("../Utils/Web/siteSuggestionsBroadcast");
 const { syncForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
+const guildMemberUpdateExtras = require("./guildMemberUpdate");
 const STAFF_BYPASS_PERMISSIONS=[PermissionFlagsBits.Administrator,PermissionFlagsBits.ManageGuild,PermissionFlagsBits.ManageChannels,PermissionFlagsBits.ManageRoles,PermissionFlagsBits.ManageMessages,PermissionFlagsBits.KickMembers,PermissionFlagsBits.BanMembers,PermissionFlagsBits.ModerateMembers,];
 const FORCE_DELETE_CHANNEL_IDS = new Set(
   [IDs.channels.messagesAutoDelete].filter(Boolean).map((id) => String(id)),
@@ -37,6 +38,22 @@ const automationRecheckJobs = new Map();
 
 function resolveWebsiteForumChannelId(client) {
   return String(client?.config?.websiteForum?.channelId || IDs.channels?.forum || "").trim();
+}
+
+function isNativeBoostSystemMessage(message) {
+  const t = Number(message?.type);
+  const boostTypes = new Set(
+    [
+      MessageType?.UserPremiumGuildSubscription,
+      MessageType?.UserPremiumGuildSubscriptionTier1,
+      MessageType?.UserPremiumGuildSubscriptionTier2,
+      MessageType?.UserPremiumGuildSubscriptionTier3,
+      8,
+    ].filter((x) => typeof x === "number"),
+  );
+  if (boostTypes.has(t)) return true;
+  const txt = String(message?.content || "");
+  return /(ha\s+appena\s+potenziato\s+il\s+server|just\s+boosted\s+the\s+server)/i.test(txt);
 }
 
 function isForumThreadMessageForRealtime(message, client) {
@@ -175,6 +192,15 @@ module.exports = {
 
     if (!isEditedPrefixExecution && message?.guild) {
       try {
+        if (
+          isNativeBoostSystemMessage(message) &&
+          String(message.channelId || "") === String(IDs.channels?.supporters || "") &&
+          message.author?.id
+        ) {
+          await guildMemberUpdateExtras
+            .recoverMissingBoostEmbedsForUser(message.guild, message.author.id)
+            .catch(() => null);
+        }
         if (message.author?.bot || message.webhookId || message.applicationId) {
           if (await handleDisboardBump(message, resolvedClient)) return;
           if (await handleDiscadiaBump(message, resolvedClient)) return;
