@@ -15,6 +15,7 @@ const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
+const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
 const {
@@ -544,14 +545,15 @@ function matchUsernameFilters(candidate, rules) {
   return null;
 }
 
-async function sendJoinGatePostJoinDm(member, reason, extraLines = []) {
+async function sendJoinGatePostJoinDm(member, reason, extraLines = [], action = "") {
   const embed = new EmbedBuilder().setColor("#ED4245").setTitle("Join Gate").setDescription([`${ARROW} **Azione applicata dopo il join**`,
   `${ARROW} **Motivo:** ${reason}`,
   ...extraLines.filter(Boolean),
   ].join("\n"),
   );
   try {
-    await member.send({ embeds: [embed] });
+    const components = String(action || "").toLowerCase() === "ban" ? [buildUnbanRequestRow()] : [];
+    await member.send({ embeds: [embed], components });
     return true;
   } catch {
     return false;
@@ -620,7 +622,7 @@ async function enforceJoinGatePostJoinUsername(oldMember, newMember) {
       `${ARROW} **Match Type:** ${match.type}`,
       `${ARROW} **Match:** ${match.value}`,
       `${ARROW} **Name:** ${newCandidate || "N/A"}`,
-    ]);
+    ], appliedAction);
   }
 
   if (punished && appliedAction !== "log" && newMember.guild?.client) {
@@ -915,8 +917,8 @@ async function handleBoostUpdate(oldMember, newMember) {
   boostAnnounceSendLocks.add(boostKey);
   try {
     await addPerkRoleIfPossible(newMember);
-    const sendTimes = countIncreased ? boostDelta : 1;
-    const priorSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+    const sendTimes = startedBoostingNow ? 1 : (countIncreased ? boostDelta : 1);
+    const priorSlots = startedBoostingNow ? 0 : getAnnouncedBoostSlots(guildId, newMember.id);
     await sendBoostEmbeds(
       boostAnnounceChannel,
       newMember,

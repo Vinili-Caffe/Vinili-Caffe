@@ -178,6 +178,7 @@ try {
   $remoteCmd = @(
     "set -eu"
     "mkdir -p '$BotRemotePath'"
+    "OLD_LAVALINK_CONFIG_HASH=`$(if [ -d '$BotRemotePath/Lavalink' ]; then find '$BotRemotePath/Lavalink' -maxdepth 1 -type f \( -name 'application.yml' -o -name 'start-lavalink.sh' -o -name '.env.lavalink' \) -print0 | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print `$1}'; fi)"
     "tar -xzf '$remoteTgz' -C '$BotRemotePath'"
     "rm -f '$remoteTgz'"
     "LAVALINK_DIR='$BotRemotePath/Lavalink'"
@@ -186,6 +187,9 @@ try {
     'if [ -f /tmp/vc-deploy-lavalink.env ]; then mkdir -p "$LAVALINK_DIR"; cp /tmp/vc-deploy-lavalink.env "$LAVALINK_DIR/.env.lavalink"; chmod 600 "$LAVALINK_DIR/.env.lavalink"; rm -f /tmp/vc-deploy-lavalink.env; echo "[deploy] Lavalink/.env.lavalink da upload locale"; fi'
     'if [ ! -f "$LAVALINK_DIR/Lavalink.jar" ]; then echo "[deploy] Scarico Lavalink.jar (4.2.2)..."; if command -v curl >/dev/null 2>&1; then curl -fsSL -o "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_JAR_URL" && mv -f "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_DIR/Lavalink.jar"; elif command -v wget >/dev/null 2>&1; then wget -q -O "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_JAR_URL" && mv -f "$LAVALINK_DIR/Lavalink.jar.part" "$LAVALINK_DIR/Lavalink.jar"; else echo "[deploy] ERRORE: serve curl o wget per scaricare Lavalink.jar" >&2; exit 1; fi; fi'
     'if [ -f "$LAVALINK_DIR/start-lavalink.sh" ]; then chmod +x "$LAVALINK_DIR/start-lavalink.sh"; fi'
+    "NEW_LAVALINK_CONFIG_HASH=`$(find '$BotRemotePath/Lavalink' -maxdepth 1 -type f \( -name 'application.yml' -o -name 'start-lavalink.sh' -o -name '.env.lavalink' \) -print0 | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print `$1}')"
+    'if [ "$OLD_LAVALINK_CONFIG_HASH" != "$NEW_LAVALINK_CONFIG_HASH" ]; then LAVALINK_CONFIG_CHANGED=1; echo "[deploy] Lavalink config cambiata: reload lavalink richiesto."; else LAVALINK_CONFIG_CHANGED=0; echo "[deploy] Lavalink config invariata: reload lavalink saltato."; fi'
+    'if [ "$LAVALINK_CONFIG_CHANGED" = "1" ]; then rm -f "$LAVALINK_DIR"/plugins/youtube-plugin-*.jar "$LAVALINK_DIR"/plugins/lavasrc-plugin-*.jar; fi'
     'NEW_LOCK_HASH=""'
     "if [ -f '$BotRemotePath/package-lock.json' ]; then NEW_LOCK_HASH=`$(sha256sum '$BotRemotePath/package-lock.json' | awk '{print `$1}'); fi"
     ('APP_PID=$(pm2 pid ''{0}'' 2>/dev/null | head -n 1 | tr -d ''[:space:]'')' -f $Pm2AppName)
@@ -212,7 +216,7 @@ try {
     "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
   )
   if (-not $SkipBackendRestart) {
-    $reloadEcosystem = "cd '$BotRemotePath' && if [ -f ecosystem.config.cjs ]; then if pm2 describe lavalink >/dev/null 2>&1 || pm2 describe '$Pm2AppName' >/dev/null 2>&1; then pm2 reload ecosystem.config.cjs --update-env; else pm2 start ecosystem.config.cjs --update-env; fi; else pm2 restart '$Pm2AppName' --update-env || true; fi"
+    $reloadEcosystem = "cd '$BotRemotePath' && if [ -f ecosystem.config.cjs ]; then if ! pm2 describe lavalink >/dev/null 2>&1 || ! pm2 describe '$Pm2AppName' >/dev/null 2>&1; then pm2 start ecosystem.config.cjs --update-env; elif [ ""`$LAVALINK_CONFIG_CHANGED"" = ""1"" ]; then pm2 reload ecosystem.config.cjs --update-env; else pm2 reload '$Pm2AppName' --update-env; fi; else pm2 restart '$Pm2AppName' --update-env || true; fi"
     $remoteCmd += $reloadEcosystem
     $remoteCmd += "pm2 list"
     $remoteCmd += "pm2 pid '$Pm2AppName'"

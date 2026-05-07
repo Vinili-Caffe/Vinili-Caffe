@@ -16,6 +16,7 @@ const { resolveTarget } = require("./prefixModeration");
 const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../Logging/modAuditLogUtils");
 const { sendDm } = require("../noDmList");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
+const { buildUnbanRequestRow } = require("./unbanRequestButton");
 
 function embed(client, title, description, color = null) {
   return new EmbedBuilder()
@@ -154,7 +155,9 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
 
   const embed = new EmbedBuilder().setColor("#ED4245").setDescription(baseText);
   let components = undefined;
-  if (actionKey === "unban") {
+  if (actionKey === "ban") {
+    components = [buildUnbanRequestRow()];
+  } else if (actionKey === "unban") {
     const rawInvite = String(IDs?.links?.invite || "").trim();
     const inviteUrl = /^https?:\/\//i.test(rawInvite) ? rawInvite : rawInvite ? `https://${rawInvite.replace(/^\/+/, "")}` : "";
     if (inviteUrl) {

@@ -244,6 +244,8 @@
         day: "2-digit",
         month: "short",
         year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch (e) {
       return date.toISOString().slice(0, 10);
@@ -442,19 +444,9 @@
     var page = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
     state.reviewsPager.page = page;
     state.reviewsPager.totalPages = totalPages;
-    if (!total) {
+    if (!total || total <= perPage) {
       pager.innerHTML = "";
       pager.hidden = true;
-      return;
-    }
-    if (total <= perPage) {
-      pager.innerHTML =
-        '<div class="vc-reviews-pager__bar vc-reviews-pager__bar--simple">' +
-        '<span class="vc-reviews-pager__meta">' +
-        esc(String(total)) +
-        (total === 1 ? " recensione" : " recensioni") +
-        "</span></div>";
-      pager.hidden = false;
       return;
     }
     var start = (page - 1) * perPage + 1;
@@ -480,6 +472,36 @@
       (page >= totalPages ? " disabled" : "") +
       ">Successiva</button>" +
       "</div>";
+  }
+
+  function renderReviewsPagerUserStyle(totalItems) {
+    var pager = byId("vc-reviews-pager");
+    if (!pager) return;
+    var perPage = Math.max(1, Number(state.reviewsPager.perPage || 8));
+    var total = Math.max(0, Number(totalItems || 0));
+    var totalPages = Math.max(1, Math.ceil(total / perPage));
+    var page = Math.max(1, Math.min(totalPages, Number(state.reviewsPager.page || 1)));
+    state.reviewsPager.page = page;
+    state.reviewsPager.totalPages = totalPages;
+    if (!total || total <= perPage) {
+      pager.innerHTML = "";
+      pager.hidden = true;
+      return;
+    }
+    pager.hidden = false;
+    pager.innerHTML =
+      '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-reviews-page-prev' +
+      (page <= 1 ? " disabled" : "") +
+      ">Precedente</button>" +
+      '<span class="vc-reviews-pager__meta vc-reviews-pager__meta--stats vc-notify-filter-btn vc-notify-filter-btn--on" aria-live="polite">' +
+      "Pagina " +
+      esc(String(page)) +
+      " di " +
+      esc(String(totalPages)) +
+      "</span>" +
+      '<button type="button" class="vc-reviews-pager__btn vc-notify-home-btn" data-reviews-page-next' +
+      (page >= totalPages ? " disabled" : "") +
+      ">Successiva</button>";
   }
 
   function emptyMarkup(icon, title, text) {
@@ -673,7 +695,7 @@
     serverWrap.innerHTML = orderedReviews.length
       ? pageReviews.map(function (review) { return reviewCardMarkup(review); }).join("")
       : emptyMarkup("fa-commenting-o", "Ancora nessuna recensione", "Sarai tu a inaugurare questa sezione.");
-    renderReviewsPager(orderedReviews.length);
+    renderReviewsPagerUserStyle(orderedReviews.length);
     syncReviewFormModal();
     syncReviewHeadButton();
     bind();

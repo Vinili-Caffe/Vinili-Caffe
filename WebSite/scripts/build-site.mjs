@@ -1543,6 +1543,7 @@ async function main() {
     ABOUT_DESCRIPTION: escHtml(aboutPlain),
     SITE_NAME: siteName,
     SITE_URL: escAttr(siteUrlTrim),
+    BUILD_ASSET_VERSION: String(Date.now()),
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),

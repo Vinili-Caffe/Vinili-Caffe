@@ -392,9 +392,20 @@ async function fetchProfilePanelState(guild, userId, client) {
     ? { ...customState, doc: mergedCustomDoc || null }
     : { status: "none", doc: mergedCustomDoc || null, role: null, secondaryRole: null };
 
+  const cappedReactionList = Array.isArray(reactionDoc?.reactions)
+    ? reactionDoc.reactions.slice(0, customReactionMax)
+    : [];
+  if (reactionDoc?.reactions?.length > cappedReactionList.length) {
+    await MentionReaction.findOneAndUpdate(
+      { guildId, userId },
+      { $set: { reactions: cappedReactionList } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).catch(() => { });
+  }
+
   return {
     birthday: birthday || null,
-    reactions: Array.isArray(reactionDoc?.reactions) ? reactionDoc.reactions : [],
+    reactions: cappedReactionList,
     custom: mergedCustomState,
     panelMember: member && member.guild ? member : null,
     noDm: noDmPrefs || { blockAll: false, disabled: new Set() },

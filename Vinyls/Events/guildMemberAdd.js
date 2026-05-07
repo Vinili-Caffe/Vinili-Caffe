@@ -12,6 +12,7 @@ const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/membe
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
 const { markJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation/moderation");
+const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { markJoinGateSuspiciousAccount, } = require("../Services/Moderation/joinGateSuspiciousService");
 const { hasEventWeekWinnerGrant } = require("../Services/Community/weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../Utils/Community/customPerksUnlock");
@@ -927,7 +928,7 @@ async function isAuthorizedBotAdder(guild, executorId) {
   );
 }
 
-async function sendJoinGatePunishDm(member, reason, extraLines = []) {
+async function sendJoinGatePunishDm(member, reason, extraLines = [], action = "") {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(`JoinGate action in ${member.guild.name}`)
@@ -941,7 +942,8 @@ async function sendJoinGatePunishDm(member, reason, extraLines = []) {
   try {
     const dmChannel = member.user.dmChannel || (await member.user.createDM().catch(() => null));
     if (!dmChannel) return false;
-    await dmChannel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+    const components = String(action || "").toLowerCase() === "ban" ? [buildUnbanRequestRow()] : [];
+    await dmChannel.send({ embeds: [embed], components, allowedMentions: { parse: [] } });
     return true;
   } catch {
     return false;
@@ -971,7 +973,7 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
   const dmPunishedMembers = typeof joinGateCfg?.dmPunishedMembers === "boolean" ? joinGateCfg.dmPunishedMembers : true;
   let dmSent = false;
   if (normalizedAction !== "log" && dmPunishedMembers) {
-    dmSent = await sendJoinGatePunishDm(member, reason, extraLines);
+    dmSent = await sendJoinGatePunishDm(member, reason, extraLines, normalizedAction);
   }
 
   let punished = false;

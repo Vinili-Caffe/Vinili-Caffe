@@ -1533,7 +1533,7 @@ async function handleCustomReactionButton(interaction) {
       }
 
       const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
-      let current = Array.isArray(doc?.reactions) ? doc.reactions : [];
+      let current = Array.isArray(doc?.reactions) ? doc.reactions.slice(0, maxReactions) : [];
       let next;
 
       if (isAdd) {
@@ -1626,7 +1626,7 @@ async function handleCustomReactionModal(interaction) {
   }
 
   const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
-  const current = Array.isArray(doc?.reactions) ? doc.reactions : [];
+  const current = Array.isArray(doc?.reactions) ? doc.reactions.slice(0, maxReactions) : [];
   const next = Array.from(new Set([...current, ...tokens])).slice(0, maxReactions);
 
   if (!next.length) {
@@ -1684,7 +1684,7 @@ async function handleCustomReactionSelect(interaction) {
   if (!guildId) return true;
 
   const doc = await MentionReaction.findOne({ guildId, userId: ownerId }).catch(() => null);
-  const list = Array.isArray(doc?.reactions) ? [...doc.reactions] : [];
+  const list = Array.isArray(doc?.reactions) ? doc.reactions.slice(0, maxReactions) : [];
   const next = list.filter((t) => String(t) !== String(token));
 
   if (!next.length) {

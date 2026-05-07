@@ -10,6 +10,7 @@ const {
 const { inspect } = require("node:util");
 const { getCountingConfigFromBucket } = require("../Global/globalSettingsBucket");
 const { getAfk, clearAfk, listMentionReactions } = require("../../Services/Community/profileStore");
+const { getCustomReactionMax } = require("../Community/mentionReactionPanelUtils");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const IDs = require("../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
@@ -321,7 +322,11 @@ async function handleMentionAutoReactions(message) {
 
     const uniqueTokens = new Set();
     for (const doc of docs) {
-      const list = Array.isArray(doc?.reactions) ? doc.reactions : [];
+      const member =
+        message.guild.members.cache.get(String(doc?.userId || "")) ||
+        (await message.guild.members.fetch(String(doc?.userId || "")).catch(() => null));
+      const maxReactions = getCustomReactionMax(member);
+      const list = Array.isArray(doc?.reactions) ? doc.reactions.slice(0, maxReactions) : [];
       for (const token of list) {
         if (token) uniqueTokens.add(String(token));
         if (uniqueTokens.size >= 10) break;

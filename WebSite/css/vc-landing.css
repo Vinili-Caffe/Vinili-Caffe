@@ -14598,7 +14598,7 @@ body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
 
 /* Griglia “palette”: tessere allineate in alto (testi di lunghezze diverse). */
 .vc-reviews-grid.vc-reviews-palette {
-  align-items: start;
+  align-items: stretch;
 }
 
 .vc-reviews-formgrid {
@@ -14609,6 +14609,13 @@ body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
 .vc-reviews-formcard,
 .vc-reviews-empty {
   padding: 1.2rem;
+}
+
+.vc-reviews-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 .vc-reviews-formcard {
@@ -14733,7 +14740,8 @@ body.vc-body.vc-reviews-page .vc-reviews-section--split .vc-reviews-grid {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 1rem;
+  margin-top: auto;
+  padding-top: 1rem;
 }
 
 .vc-reviews-like {
@@ -18719,4 +18727,220 @@ html body.vc-body header .discord-account-popover::before {
 html body.vc-body :is(div:not(.vc-nav-shell), section, article, nav, aside, header, footer, main, details, form)[class*="bg-"][class*="/"] {
   backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(145%) !important;
   -webkit-backdrop-filter: blur(var(--vc-transparency-auto-blur)) saturate(145%) !important;
+}
+
+/* Recensioni: blocco finale palette moka/sabbia, senza residui blu-verdi sulle card. */
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette > .vc-reviews-card {
+  border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
+  background:
+    radial-gradient(120% 92% at 16% 0%, rgba(247, 236, 223, 0.13), transparent 58%),
+    linear-gradient(145deg, rgba(66, 45, 31, 0.9), rgba(29, 19, 13, 0.96)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 16px 38px rgba(0, 0, 0, 0.32),
+    0 0 22px rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette > .vc-reviews-card:hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.46) !important;
+  background:
+    radial-gradient(120% 92% at 16% 0%, rgba(247, 236, 223, 0.16), transparent 58%),
+    linear-gradient(145deg, rgba(80, 55, 38, 0.94), rgba(34, 22, 15, 0.98)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 44px rgba(0, 0, 0, 0.36),
+    0 0 28px rgba(var(--vc-sand-rgb), 0.16) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__author strong,
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__text,
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__reply-text {
+  color: rgba(255, 247, 236, 0.94) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__author span,
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__reply-meta {
+  color: rgba(234, 214, 187, 0.78) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__reply {
+  border-color: rgba(var(--vc-sand-rgb), 0.4) !important;
+  background:
+    radial-gradient(120% 92% at 18% 0%, rgba(247, 236, 223, 0.12), transparent 58%),
+    linear-gradient(145deg, rgba(82, 58, 40, 0.7), rgba(38, 26, 18, 0.76)) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager,
+html body.vc-body.vc-reviews-page .vc-reviews-pager__bar {
+  color: rgba(247, 236, 223, 0.9) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__bar {
+  border-color: rgba(var(--vc-sand-rgb), 0.26) !important;
+  background:
+    radial-gradient(120% 92% at 50% 0%, rgba(247, 236, 223, 0.08), transparent 58%),
+    linear-gradient(145deg, rgba(54, 36, 25, 0.42), rgba(21, 14, 10, 0.36)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 28px rgba(0, 0, 0, 0.2) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__meta {
+  color: rgba(247, 236, 223, 0.88) !important;
+  opacity: 1 !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__meta--stats,
+html body.vc-body.vc-reviews-page .vc-reviews-pager > .vc-reviews-pager__meta {
+  color: rgba(234, 214, 187, 0.9) !important;
+  font-weight: 800 !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__btn,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-submit,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-suggestions-btn-muted {
+  border-color: rgba(var(--vc-sand-rgb), 0.42) !important;
+  background:
+    radial-gradient(120% 92% at 16% 0%, rgba(247, 236, 223, 0.14), transparent 58%),
+    linear-gradient(145deg, rgba(96, 66, 45, 0.88), rgba(62, 42, 29, 0.9)) !important;
+  color: rgba(255, 247, 236, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.24),
+    0 0 18px rgba(var(--vc-sand-rgb), 0.12) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__btn:not(:disabled):hover,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-submit:not(:disabled):hover,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-suggestions-btn-muted:not(:disabled):hover {
+  border-color: rgba(var(--vc-sand-rgb), 0.58) !important;
+  background:
+    radial-gradient(120% 92% at 16% 0%, rgba(247, 236, 223, 0.18), transparent 58%),
+    linear-gradient(145deg, rgba(112, 78, 54, 0.94), rgba(74, 50, 34, 0.96)) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__btn:disabled,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-submit:disabled,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-suggestions-btn-muted:disabled {
+  border-color: rgba(var(--vc-sand-rgb), 0.22) !important;
+  background:
+    linear-gradient(145deg, rgba(66, 45, 31, 0.42), rgba(31, 21, 15, 0.48)) !important;
+  color: rgba(234, 214, 187, 0.45) !important;
+  box-shadow: none !important;
+}
+
+/* Recensioni: card tutte alte uguali, con azioni allineate in basso. */
+@media (min-width: 40.01rem) {
+  html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette {
+    align-items: stretch !important;
+    grid-auto-rows: 1fr !important;
+  }
+
+  html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette > .vc-reviews-card {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__foot {
+    margin-top: auto !important;
+    padding-top: 1rem !important;
+  }
+
+  html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__reply {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    min-height: 0 !important;
+  }
+
+  html body.vc-body.vc-reviews-page .vc-reviews-grid.vc-reviews-palette .vc-reviews-card__reply-text {
+    flex: 1 1 auto !important;
+  }
+}
+
+/* Recensioni: paginazione compatta come /user. */
+html body.vc-body.vc-reviews-page .vc-reviews-pager {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.75rem !important;
+  width: auto !important;
+  margin: 2.25rem auto 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager[hidden] {
+  display: none !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager__bar {
+  display: contents !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__btn.vc-notify-home-btn {
+  min-width: 8.75rem !important;
+  min-height: 2.55rem !important;
+  border-radius: 0.65rem !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.3) !important;
+  background: rgba(48, 34, 24, 0.52) !important;
+  color: rgba(247, 236, 223, 0.96) !important;
+  box-shadow: none !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__btn.vc-notify-home-btn:not(:disabled):hover,
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__btn.vc-notify-home-btn:not(:disabled):focus-visible {
+  border-color: rgba(var(--vc-sand-rgb), 0.44) !important;
+  background: rgba(62, 43, 30, 0.72) !important;
+  color: rgba(255, 245, 231, 0.98) !important;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    0 0 14px rgba(var(--vc-sand-rgb), 0.2) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__btn.vc-notify-home-btn:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.42 !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.18) !important;
+  background: rgba(48, 34, 24, 0.28) !important;
+  color: rgba(234, 214, 187, 0.5) !important;
+}
+
+html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__meta.vc-notify-filter-btn {
+  min-height: 2.55rem !important;
+  padding: 0 1.1rem !important;
+  cursor: default !important;
+  border-color: rgba(var(--vc-sand-rgb), 0.34) !important;
+  background:
+    radial-gradient(110% 90% at 18% 0%, rgba(247, 236, 223, 0.12), transparent 58%),
+    linear-gradient(145deg, rgba(75, 52, 36, 0.72), rgba(40, 27, 19, 0.72)) !important;
+  color: rgba(255, 247, 236, 0.98) !important;
+  font-weight: 800 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+@media (max-width: 34rem) {
+  html body.vc-body.vc-reviews-page .vc-reviews-pager {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__meta {
+    grid-column: 1 / -1 !important;
+    order: -1 !important;
+  }
+
+  html body.vc-body.vc-reviews-page .vc-reviews-pager .vc-reviews-pager__btn {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
 }

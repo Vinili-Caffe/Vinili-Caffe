@@ -524,20 +524,10 @@ async function refreshStaffList(client, guildId = IDs.guilds.main, { force = fal
   }
 }
 
-const STAFF_LIST_PERIODIC_REFRESH_MS = 15 * 60 * 1000;
-
 function startStaffListPeriodicRefreshLoop(client) {
   if (!client || client._staffListPeriodicRefreshStarted) return;
-  const gid = String(IDs.guilds.main || "").trim();
-  if (!gid) return;
+  // Staff list is event-driven: startup render plus pex/depex role mutations only.
   client._staffListPeriodicRefreshStarted = true;
-  const tick = () => {
-    refreshStaffList(client, gid, { force: true }).catch((err) => {
-      global.logger?.warn?.("[STAFF LIST] periodic refresh failed:", err?.message || err);
-    });
-  };
-  client._staffListPeriodicInterval = setInterval(tick, STAFF_LIST_PERIODIC_REFRESH_MS);
-  tick();
 }
 
 function scheduleStaffListRefresh(client, guildId = IDs.guilds.main, delayMs = 500, { force = false } = {}) {
@@ -564,12 +554,6 @@ function queueStaffListRefreshAfterRoleMutation(client, guildId = IDs.guilds.mai
   const mainGid = String(IDs.guilds?.main || "").trim();
   if (mainGid && gid !== mainGid) return;
   scheduleStaffListRefresh(client, gid, 750);
-  const t = setTimeout(() => {
-    refreshStaffList(client, gid, { force: true }).catch((err) => {
-      global.logger?.warn?.("[STAFF LIST] forced refresh (post-role mutation):", err?.message || err);
-    });
-  }, 2400);
-  t.unref?.();
 }
 
 module.exports = {
