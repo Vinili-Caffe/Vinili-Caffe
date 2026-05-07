@@ -35,7 +35,7 @@ function buildPerkBlockLines(level) {
   } else if (L === 50) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      "<a:VC_Winner:1482535294757507255> **Ruolo custom** e **vocale privata custom** permanenti (`+profile`)",
+      "<a:VC_Winner:1482535294757507255> Possibilità di creare un ruolo custom e un canale vocale privato custom tramite `+profile`",
       "<a:VC_Money:1482724694699278487> Cooldown comandi del bot **30s → 5s**",
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv50}>`,
     );
@@ -50,7 +50,6 @@ function buildPerkBlockLines(level) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<a:VC_Money:1482724694699278487> Cooldown comandi del bot **30s → 1s**",
-      "<a:VC_Winner:1482535294757507255> **Bypass requisiti** dei giveaway",
       "<:blueflash:1470064803157643468> **Bypass requisiti** delle candidature",
       "<:exp:1470067108543987846> Bonus **EXP permanente +15%**",
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.colorUnlockLv100}>`,
@@ -58,24 +57,23 @@ function buildPerkBlockLines(level) {
   } else if (L === 125) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      "<:exp:1470067108543987846> Ruolo milestone **༄ Funk¹²⁵⁺**",
+      "<a:VC_Winner:1482535294757507255> **Bypass requisiti** dei giveaway",
       "<:exp:1470067108543987846> Bonus **EXP permanente +20%**",
-      "<a:VC_Winner:1482535294757507255> Sblocchi il **secondo custom role**",
-      `<:VC_Color:1482532543273238569> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.orangeBlackPlus}>`,
+      "<a:VC_Winner:1482535294757507255> Possibilità di creare un secondo ruolo custom tramite il comando `+profile`",
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.orangeBlackPlus}>`,
     );
   } else if (L === 150) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      "<:exp:1470067108543987846> Ruolo milestone **༄ Blues¹⁵⁰⁺**",
       "<:exp:1470067108543987846> Bonus **EXP permanente +25%**",
-      `<:VC_Color:1482532543273238569> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
+      `<a:VC_Winner:1482535294757507255> **Decorazione a scelta** riscattabile tramite <#${IDS.channels.tickets}> \`HIGH STAFF\``,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
     );
   } else if (L === 200) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      "<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite ticket **HIGH STAFF**",
-      "<:exp:1470067108543987846> Ruolo milestone **༄ Indie²⁰⁰⁺**",
-      `<:VC_Color:1482532543273238569> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
+      `<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite <#${IDS.channels.tickets}> \`HIGH STAFF\``,
+      `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
     );
   }
   return lines;

@@ -1171,7 +1171,6 @@ module.exports = {
               `<@&${IDs.roles.Level100}>`,
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).",
-              "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +15%",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con \`+profile\`<@&${IDs.roles.colorUnlockLv100}>`
@@ -1183,6 +1182,7 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level120}>`,
               "Tutte le ricompense precedenti",
+              "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +20%",
               "<:VC_DoubleReply:1482532332509466797> Sblocchi il secondo custom role",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.orangeBlackPlus}>`,
@@ -1196,6 +1196,7 @@ module.exports = {
               "Tutte le ricompense precedenti",
               "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
+              "<:VC_DoubleReply:1482532332509466797> Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**",
             ].join("\n"),
             inline: true,
           },
@@ -1204,8 +1205,8 @@ module.exports = {
             value: [
               `<@&${IDs.roles.Level200}>`,
               "Tutte le ricompense precedenti",
-              "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
               `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
+              "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
             ].join("\n"),
             inline: true,
           },
