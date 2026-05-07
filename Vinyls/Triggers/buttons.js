@@ -294,8 +294,7 @@ async function handleStaffButtons(interaction) {
 ${staffSanctionRuleIntro("1.1")}                <:VC_Reply:1482532158080942191> Sanzione: **Ban**
 
                 <:rules:1443307208543703131> **__Regola \`1.2\`__**
-${staffSanctionRuleIntro("1.2")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**
-                <:VC_Reply:1482532158080942191> 2° Sanzione: **Mute __2h__**
+${staffSanctionRuleIntro("1.2")}                <:VC_Reply:1482532158080942191> Sanzione: **Mute __2h__**
 
                 <:rules:1443307208543703131> **__Regola \`1.3\`__**
 ${staffSanctionRuleIntro("1.3")}                <:VC_DoubleReply:1482532332509466797> 1° Sanzione: **Richiamo verbale**

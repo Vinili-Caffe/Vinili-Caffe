@@ -13,6 +13,7 @@ const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles.Staff;
 const PREFIX_PRECHECK_TIMEOUT_MS = 4000;
 const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000),);
+const REMOVED_PREFIX_COMMANDS = new Set(["colors"]);
 
 function hasSendablePayload(data) {
   if (typeof data === "string") return data.trim().length > 0;
@@ -436,6 +437,17 @@ async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPre
   const rawCmd = overrideCommand ? overrideCommand.name : args.shift();
   const cmd = normalizePrefixCommandToken(rawCmd);
   if (!cmd) return;
+  if (REMOVED_PREFIX_COMMANDS.has(cmd)) {
+    await deleteCommandMessage();
+    await sendTemporaryMessage(
+      message.channel,
+      {
+        content: "<:vegax:1443934876440068179> Il comando `+colors` non esiste piu. Usa `+profile`.",
+      },
+      EPHEMERAL_TTL_SHORT_MS,
+    );
+    return;
+  }
 
   const command = overrideCommand || resolvedClient.pcommands.get(cmd) || resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd));
   if (!command) {

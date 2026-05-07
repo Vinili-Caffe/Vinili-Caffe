@@ -1,13 +1,8 @@
-/**
- * Testo regolamento e mapping AutoMod: mute = timeout Discord; ban = ban dal server.
- */
-
 const DISCORD_TIMEOUT_MAX_MS = 28 * 24 * 60 * 60_000;
 
-/** Allineato a info_rules / embed staff sanzioni */
 const MOD_RULE_DETAIL = {
   "1.1": "**Rispettare** i [__ToS__](https://discord.com/terms) e le [__Linee Guida__](https://discord.com/guidelines) di Discord.",
-  "1.2": "**Non discriminare nessuno**, non accettiamo nessuna forma di razzismo, fascismo, omofobia. È __vietato__ **scrivere** o **dire** la `f-word` e la `n-word`.",
+  "1.2": "**Non discriminare nessuno**, non accettiamo nessuna forma di razzismo, fascismo/nazismo, omofobia. È __vietato__ **scrivere** o **dire** la `f-word` e la `n-word`.",
   "1.3": "**Rispettare** gli __utenti__ e lo __staff__ del server.",
   "1.4": "È __vietato__ **auto - promuoversi**.",
   "1.5": "È __vietato__ **uscire** e **rientrare** continuamente dal server.",
@@ -25,7 +20,6 @@ const MOD_RULE_DETAIL = {
   "3.7": "È __vietato__ **uscire** e **rientrare** continuamente dalle vocali.",
 };
 
-/** Priorità: prima regole più gravi / più specifiche (solo articoli mappati sull’AutoMod). */
 const BUCKET_PRIORITY = ["2_3", "2_1", "1_2", "1_4", "2_4"];
 
 const BUCKET_VIOLATION_KEYS = {
