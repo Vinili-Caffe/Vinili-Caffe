@@ -153,7 +153,7 @@ async function handlePartnerModal(interaction) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Questo utente non è verificato, fagli effettuare prima la verifica e poi riprova!",
+            "<a:VC_Alert:1482706673176150077> Questo utente non ha compleato l'inserimento, fagli effettuare prima la verifica e poi riprova!",
           ),
       ],
     });
@@ -382,7 +382,7 @@ async function handlePartnerModal(interaction) {
       .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`,)
       .setDescription(`<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`${interaction.guild.name}\`
     <:mariolevelup:1443679595084910634> Ora sei a **\`${shownPartnerPoints}\`** partner!
-    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** tramite <#1442569095068254219> \`HIGH STAFF\`..`,)
+    <:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi** tramite <#1442569095068254219> \`HIGH STAFF\`.`,)
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("#6f4e37")
       .setTimestamp()

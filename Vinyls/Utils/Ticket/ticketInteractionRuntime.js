@@ -23,6 +23,7 @@ const HANDLED_TICKET_BUTTONS = new Set([
   "ticket_panel_reopen_search",
   "ticket_panel_reopen_prev",
   "ticket_panel_reopen_next",
+  "ticket_panel_reopen_close",
 ]);
 const TICKET_PANEL_ADD_MEMBER_PREFIX = "ticket_panel_add_member";
 const TICKET_PANEL_TRANSFER_USER_PREFIX = "ticket_panel_transfer_user";

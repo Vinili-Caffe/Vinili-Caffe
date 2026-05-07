@@ -216,6 +216,20 @@ const staffPartnerActionSchema = new Schema(
     partnershipChannelId: String,
     partnerMessageIds: { type: [String], default: [] },
     auditPenaltyDates: { type: [String], default: [] },
+    auditPenaltyLogs: {
+      type: [
+        new Schema(
+          {
+            dateKey: String,
+            reason: String,
+            channelId: String,
+            messageId: String,
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     date: { type: Date, default: Date.now },
   },
   { _id: true },

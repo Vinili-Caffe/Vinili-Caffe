@@ -616,6 +616,7 @@ module.exports = {
           rememberTicketReopenOutsideSession(message.client, sent.id, {
             authorId: message.author.id,
             guildId: message.guild.id,
+            commandMessageId: message.id,
             filterQuery: "",
             page: 0,
           });

@@ -97,6 +97,7 @@ const VERIFY_OR_TICKET_IDS = new Set([
   "ticket_panel_reopen_search",
   "ticket_panel_reopen_prev",
   "ticket_panel_reopen_next",
+  "ticket_panel_reopen_close",
   "modal_ticket_panel_rename",
   "modal_ticket_panel_closerequest",
   "modal_ticket_panel_reopen_search",

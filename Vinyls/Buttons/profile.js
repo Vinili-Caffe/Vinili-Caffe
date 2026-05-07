@@ -615,9 +615,12 @@ function buildSectionEmbed(section, state, userOrMember, guild = null) {
   if (section === SECTION_ROLE_PANEL) {
     return base.setDescription(
       [
-        "<:VC_Info:1482526956703580372> **Ruoli cosmetici**",
+        "<:VC_Info:1482526956703580372> **Ruoli Profilo**",
         "",
         "Scegli il **pannello** dal menu sotto, poi il menu dei ruoli.",
+        "",
+        "Per mantenere l'età aggiornata e prendere il tuo segno zodiacale, imposta la tua data di nascita nella sezione **Birthday**.",
+        "Per aggiornare il tuo colore del nome, vai in <id:customize>"
       ].join("\n"),
     );
   }
@@ -665,11 +668,11 @@ function buildRows(guild, ownerId, section, state = null, rolePanelCategory = nu
   const hasPrimaryCustomRole = Boolean(roleId || primaryRoleStored);
   const selectOptions = [
     { label: "Home", value: SECTION_HOME, emoji: "<:VC_addperson:1485419347068588073>", default: section === SECTION_HOME },
+    { label: "Ruoli", value: SECTION_ROLE_PANEL, emoji: "<a:VC_Diamon:1482706116873031680>", default: section === SECTION_ROLE_PANEL },
     { label: "Birthday", value: SECTION_BIRTHDAY, emoji: "<a:VC_Events:1482706144953897223>", default: section === SECTION_BIRTHDAY },
     { label: "Notifiche DM", value: SECTION_DMFILTERS, emoji: "<a:VC_Ping:1482694298687246377>", default: section === SECTION_DMFILTERS },
     { label: "Privacy", value: SECTION_PRIVACY, emoji: "<:VC_Lock:1482526739044368476>", default: section === SECTION_PRIVACY },
-    { label: "Ruoli cosmetici", value: SECTION_ROLE_PANEL, emoji: "🎭", default: section === SECTION_ROLE_PANEL },
-  ];
+    ];
   if (canAccessCustomRole) {
     selectOptions.push(
       { label: "Ruolo Primario", value: SECTION_CUSTOMROLE, emoji: "<:VC_Vip:1482534921472835895>", default: section === SECTION_CUSTOMROLE },

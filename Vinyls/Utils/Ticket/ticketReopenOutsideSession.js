@@ -31,11 +31,12 @@ function writeSnapshotFile(rows) {
 function sanitizeSessionRow(row = {}) {
   const authorId = String(row?.authorId || "").trim();
   const guildId = String(row?.guildId || "").trim();
+  const commandMessageId = String(row?.commandMessageId || "").trim();
   const filterQuery = row?.filterQuery != null ? String(row.filterQuery).trim() : "";
   const page = Math.max(0, Number(row?.page) || 0);
   const expiresAt = Number(row?.expiresAt || 0);
   if (!authorId || !guildId || !Number.isFinite(expiresAt) || expiresAt <= 0) return null;
-  return { authorId, guildId, filterQuery, page, expiresAt };
+  return { authorId, guildId, commandMessageId, filterQuery, page, expiresAt };
 }
 
 function ensureLoaded(client) {
@@ -89,6 +90,7 @@ function rememberTicketReopenOutsideSession(client, messageId, payload) {
   b.set(mid, {
     authorId: String(payload?.authorId || ""),
     guildId: String(payload?.guildId || ""),
+    commandMessageId: String(payload?.commandMessageId || ""),
     filterQuery: payload?.filterQuery != null ? String(payload.filterQuery).trim() : "",
     page: Math.max(0, Number(payload?.page) || 0),
     expiresAt: Date.now() + SESSION_TTL_MS,
@@ -125,8 +127,17 @@ function updateTicketReopenOutsideSession(client, messageId, patch = {}) {
   return next;
 }
 
+function forgetTicketReopenOutsideSession(client, messageId) {
+  const mid = String(messageId || "");
+  if (!mid || !client) return;
+  ensureLoaded(client);
+  bucket(client).delete(mid);
+  persistBucket(client);
+}
+
 module.exports = {
   rememberTicketReopenOutsideSession,
   readTicketReopenOutsideSession,
   updateTicketReopenOutsideSession,
+  forgetTicketReopenOutsideSession,
 };

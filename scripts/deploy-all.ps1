@@ -67,15 +67,25 @@ function Invoke-SiteDeploy {
   $env:VC_SITE_URL = "https://www.viniliecaffe.it/"
   $env:VC_CANDIDATURE_SUBMIT_API_URL = "https://www.viniliecaffe.it/webhooks/site-candidature"
   $env:VC_CANDIDATURE_SUBMIT_API_URL_LOCAL = ""
+  $previousBuildQuiet = $env:VC_BUILD_QUIET
+  $env:VC_BUILD_QUIET = "1"
 
-  if (-not $SkipBuild) {
-    if (Test-Path ".\dist") { Remove-Item -Recurse -Force ".\dist" }
-    npm run build
-  } else {
-    if (-not (Test-Path ".\dist\index.html")) {
-      Write-Error "dist/ non pronto (manca index.html). Esegui la build senza -SkipBuild oppure crea dist prima."
+  try {
+    if (-not $SkipBuild) {
+      if (Test-Path ".\dist") { Remove-Item -Recurse -Force ".\dist" }
+      npm run build
+    } else {
+      if (-not (Test-Path ".\dist\index.html")) {
+        Write-Error "dist/ non pronto (manca index.html). Esegui la build senza -SkipBuild oppure crea dist prima."
+      }
+      Write-Host "Saltata la build (-SkipBuild): uso dist/ esistente."
     }
-    Write-Host "Saltata la build (-SkipBuild): uso dist/ esistente."
+  } finally {
+    if ($null -eq $previousBuildQuiet) {
+      Remove-Item Env:VC_BUILD_QUIET -ErrorAction SilentlyContinue
+    } else {
+      $env:VC_BUILD_QUIET = $previousBuildQuiet
+    }
   }
 
   $hits = Get-ChildItem -Recurse -File ".\dist" | Select-String -Pattern "http://localhost:3000"

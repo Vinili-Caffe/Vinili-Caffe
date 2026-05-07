@@ -13,6 +13,7 @@ const {
 const {
   readTicketReopenOutsideSession,
   updateTicketReopenOutsideSession,
+  forgetTicketReopenOutsideSession,
 } = require("./ticketReopenOutsideSession");
 const ticketModule = require("../../Prefix/Staff/ticket");
 const {
@@ -77,7 +78,8 @@ function messageIsPlusTicketStaffPanel(message) {
         id === "ticket_panel_reopen_pick" ||
         id === "ticket_panel_reopen_search" ||
         id === "ticket_panel_reopen_prev" ||
-        id === "ticket_panel_reopen_next"
+        id === "ticket_panel_reopen_next" ||
+        id === "ticket_panel_reopen_close"
       )
         return true;
     }
@@ -90,8 +92,10 @@ async function deletePlusTicketCommandAndPanelMessages(interaction) {
   if (!panelMsg?.channel?.messages?.fetch) return;
   if (!messageIsPlusTicketStaffPanel(panelMsg)) return;
   const channel = panelMsg.channel;
-  const refId = panelMsg.reference?.messageId;
+  const session = readTicketReopenOutsideSession(interaction.client, panelMsg.id);
+  const refId = session?.commandMessageId || panelMsg.reference?.messageId;
   await panelMsg.delete().catch(() => {});
+  forgetTicketReopenOutsideSession(interaction.client, panelMsg.id);
   if (!refId) return;
   const cmdMsg = await channel.messages.fetch(refId).catch(() => null);
   if (cmdMsg && !cmdMsg.author?.bot) await cmdMsg.delete().catch(() => {});
@@ -114,7 +118,7 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
     cid.startsWith("ticket_panel_") || cid.startsWith("modal_ticket_panel");
   if (!isPanel) return false;
 
-  if (interaction.isButton?.() && (cid === "ticket_panel_reopen_search" || cid === "ticket_panel_reopen_prev" || cid === "ticket_panel_reopen_next")) {
+  if (interaction.isButton?.() && (cid === "ticket_panel_reopen_search" || cid === "ticket_panel_reopen_prev" || cid === "ticket_panel_reopen_next" || cid === "ticket_panel_reopen_close")) {
     const isHigh = HIGHSTAFF_ROLE_ID && interaction.member?.roles?.cache?.has(HIGHSTAFF_ROLE_ID);
     if (!isHigh) {
       await safeReply(interaction, {
@@ -135,6 +139,11 @@ async function handleTicketStaffPanelInteraction(interaction, { safeReply, makeE
         ],
         flags: MessageFlags.Ephemeral,
       });
+      return true;
+    }
+    if (cid === "ticket_panel_reopen_close") {
+      await interaction.deferUpdate().catch(() => null);
+      await deletePlusTicketCommandAndPanelMessages(interaction);
       return true;
     }
     if (cid === "ticket_panel_reopen_search") {

@@ -86,7 +86,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId("ticket_panel_nav_switch")
-        .setLabel("Switch Panel")
+        .setLabel("Cambia Categoria")
         .setStyle(ButtonStyle.Primary)
         .setEmoji("<:VC_id:1478517313618575419>"),
       new ButtonBuilder()
@@ -132,7 +132,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
   }
   if (isHighStaff) {
     desc.push(
-      "**Switch Panel** - Cambia il panel del ticket.",
+      "**Cambia Categoria** - Cambia la categoria del ticket.",
       "**Rinomina** - Rinomina il ticket.");
   }
   if (showCloseReq) {
@@ -147,7 +147,7 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
   }
   if (desc.length <= 2) {
     desc.push("Qui non compaiono azioni per i tuoi permessi: usa i bottoni sopra se applicabili.",
-      "Se hai bisogno di aiuto, contatta un staff membro.");
+      "Se hai bisogno di aiuto, contatta uno staffer.");
   }
 
   const thumbnailUrl = getBotAvatarUrl(channel);
@@ -162,6 +162,10 @@ function buildTicketStaffPanelPayload(member, channel, ticketDoc) {
 
 const REOPEN_LIST_LINES = 22;
 const REOPEN_SELECT_MAX = 25;
+const TICKET_PANEL_REOPEN_CLOSE_ID = "ticket_panel_reopen_close";
+const LTR_EMBEDDING = "\u202A";
+const POP_DIRECTIONAL_FORMATTING = "\u202C";
+const LTR_MARK = "\u200E";
 
 function formatTicketClosedWhen(t) {
   const raw = t?.closedAt || t?.updatedAt;
@@ -299,9 +303,9 @@ async function fetchClosedTicketsOrdered(guildId) {
     if (!prev || ts(row) > ts(prev)) bestByKey.set(k, row);
   }
   return Array.from(bestByKey.values()).sort((a, b) => {
-    const dt = ts(b) - ts(a);
-    if (dt !== 0) return dt;
-    return Number(b?.ticketNumber || 0) - Number(a?.ticketNumber || 0);
+    const numDiff = Number(b?.ticketNumber || 0) - Number(a?.ticketNumber || 0);
+    if (numDiff !== 0) return numDiff;
+    return ts(b) - ts(a);
   });
 }
 
@@ -317,7 +321,6 @@ async function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs, opt
   if (!docs.length) {
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<:VC_Ticket:1482535175283019888> Riapri ticket (High Staff)")
       .setDescription(
         filterQuery
           ? `<:VC_Attention:1482534443632558151> Nessun ticket chiuso corrisponde a **${filterQuery.slice(0, 80)}**.\n\nUsa **Cerca** con numero (\`#42\`), menzione utente o parte del nome.`
@@ -328,6 +331,7 @@ async function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs, opt
       new ButtonBuilder().setCustomId("ticket_panel_reopen_prev").setLabel("◀").setStyle(ButtonStyle.Secondary).setDisabled(true),
       new ButtonBuilder().setCustomId("ticket_panel_reopen_search").setLabel("Cerca").setStyle(ButtonStyle.Primary).setEmoji("🔎"),
       new ButtonBuilder().setCustomId("ticket_panel_reopen_next").setLabel("▶").setStyle(ButtonStyle.Secondary).setDisabled(true),
+      new ButtonBuilder().setCustomId(TICKET_PANEL_REOPEN_CLOSE_ID).setLabel("Chiudi").setStyle(ButtonStyle.Danger).setEmoji("✖"),
     );
     return { embed, components: [nav], meta: { page: 0 } };
   }
@@ -341,28 +345,27 @@ async function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs, opt
     const ty = String(t.ticketType || "?").slice(0, 14);
     const when = formatTicketClosedWhen(t);
     const numOk = Number.isInteger(n) && n > 0;
-    return `• ${numOk ? `**#${n}**` : "**#?**"} · <@${uid}> · \`${ty}\` · ${when}`;
+    const sep = `${LTR_MARK} · ${LTR_MARK}`;
+    const mention = uid ? `${LTR_MARK}<@${uid}>${LTR_MARK}` : "sconosciuto";
+    return `${LTR_EMBEDDING}${LTR_MARK}• ${LTR_MARK}${numOk ? `**#${n}**` : "**#?**"}${sep}${mention}${sep}\`${ty}\`${sep}${when}${LTR_MARK}${POP_DIRECTIONAL_FORMATTING}`;
   });
   const listBody = lines.join("\n").slice(0, 3900);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Ticket:1482535175283019888> Ticket chiusi — riapertura")
     .setDescription(
       [
-        `<:VC_id:1478517313618575419> **Totale:** ${docs.length} · **Pagina** ${safePage + 1}/${maxPage + 1}`,
-        filterQuery ? `**Filtro:** \`${filterQuery.slice(0, 120)}\`` : "",
+        "**<:VC_Ticket:1482535175283019888> Lista Ticket Chiusi**",
         "",
-        "**Lista (dal più recente)**",
-        "_Il numero `#` è l’ID del ticket (non è l’ordine 1…N in pagina): la lista segue la **data di chiusura**._",
-        listBody || "—",
+        listBody || "<:VC_Dot:1482532364222595303>",
         "",
-        "Scegli un ticket dal **menu** (solo se l’apertore è ancora nel server) oppure usa **Cerca** per numero / nome.",
+        "",
+        "Scegli un ticket dal **menu** oppure usa **Cerca** per numero/nome.",
       ]
         .filter(Boolean)
         .join("\n"),
     )
     .setFooter({
-      text: `Ordine: chiusura più recente prima · ${REOPEN_LIST_LINES} righe/pagina · menu max ${REOPEN_SELECT_MAX} (solo apertori ancora nel server)`,
+      text: `Totale: ${docs.length} · Pagina ${safePage + 1}/${maxPage + 1}`,
     })
     .setThumbnail(thumbnailUrl || undefined);
   const optionsSelect = [];
@@ -385,7 +388,7 @@ async function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs, opt
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId("ticket_panel_reopen_pick")
-          .setPlaceholder("🔄 Seleziona un ticket da riaprire (questa pagina)…")
+          .setPlaceholder("🔄 Seleziona un ticket da riaprire…")
           .setMinValues(1)
           .setMaxValues(1)
           .addOptions(optionsSelect),
@@ -396,15 +399,23 @@ async function buildTicketReopenOutsidePanelPayload(guild, closedTicketDocs, opt
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("ticket_panel_reopen_prev")
-        .setLabel("◀ Pagina")
+        .setEmoji(`<a:vegaleftarrow:1462914743416131816>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(safePage <= 0),
-      new ButtonBuilder().setCustomId("ticket_panel_reopen_search").setLabel("Cerca").setStyle(ButtonStyle.Primary).setEmoji("🔎"),
+      new ButtonBuilder()
+        .setCustomId("ticket_panel_reopen_search")
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("<:VC_page2:1482459724657201387>"),
       new ButtonBuilder()
         .setCustomId("ticket_panel_reopen_next")
-        .setLabel("Pagina ▶")
+        .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(safePage >= maxPage),
+      new ButtonBuilder()
+        .setCustomId(TICKET_PANEL_REOPEN_CLOSE_ID)
+        .setLabel("Chiudi")
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("✖"),
     ),
   );
   return { embed, components: rows, meta: { page: safePage, maxPage } };
@@ -418,4 +429,4 @@ module.exports = {
   canSeeTransferPanel,
   canSeeCloseRequestPanel,
   buildRemoveMemberOptions,
-};  
+};

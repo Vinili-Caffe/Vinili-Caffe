@@ -411,16 +411,15 @@ function buildDmWelcomeEmbed(member) {
   const dmFooterIcon = guildIconUrl(member.guild, { size: 64 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_RightWing:1448672889845973214> Welcome to Vinili & Caffè!")
+    .setTitle("<a:VC_RightWing:1448672889845973214> Benvento in Vinili & Caffè!")
     .setDescription(
       [
-        `Ei **${accountUsername(member)}** welcome, glad to have you here!`,
+        `Ciao **${accountUsername(member)}**, grazie per esserti unito a noi!`,
         "",
-        "Joining the server you automatically accept the rules.",
         "Entrando nel server accetti automaticamente le nostre regole.",
         "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102236527853661>",
         "------------------------------",
-        "<:VC_Dot:1482532364222595303> Check out our GUILD TAGS",
+        "<:VC_Dot:1482532364222595303> Controlla le nostre GUILD TAGS",
         "<a:VC_Moon:1482724651430838406>[⭑.ᐟ](<https://discord.gg/E6vrm5zE6B>)<:VC_Luna1:1482497618289496117><:VC_Luna2:1482497653387427902> & <a:VC_Money:1482724694699278487>[⭑.ᐟ](<https://discord.gg/QnTN5P578g>)<:VC_Cash1:1482460724302184450><:VC_Cash2:1482460763346960434>",
         "<:VC_Firework:1470796227913322658>[⭑.ᐟ](<https://discord.gg/WMuZ4EMAkc>)<:VC_Porn1:1482497744513011944><:VC_Porn2:1482497774892089547> & <a:VC_PepeEggPlant:1331622686014570588>[⭑.ᐟ](<https://discord.gg/uqUNS9f5m5>)<:VC_SixNine1:1482497833578922065><:VC_SixNine2:1482497868328865813>",
         "<a:VC_PepeSmoke:1331590685673132103>[⭑.ᐟ](<https://discord.gg/SzBwnxHXNv>)<:VC_Weed1:1482497951686201534><:VC_Weed2:1482497986910097592> & <a:VC_PepeExcited:1331621719093284956>[⭑.ᐟ](<https://discord.gg/z3EXtJwvQH>)<:VC_Figa1:1482495980275499169><:VC_Figa2:1482496046222544937>",
@@ -1572,6 +1571,8 @@ module.exports = {
         void ghostPingNewMemberOnJoin(member.client, member).catch(() => {});
       }
 
+      await sendDmWelcome(member).catch(() => {});
+
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
 
       await applySponsorGuildAutoVerificato(member).catch((err) => {
@@ -1665,9 +1666,6 @@ module.exports = {
       setImmediate(() => {
         (async () => {
           try {
-            if (!member.user?.bot) {
-              await sendDmWelcome(member).catch(() => {});
-            }
             await restoreDiscadiaVoteRoleOnRejoin(member).catch(() => {});
             await restoreCustomRoleOnRejoin(member).catch(() => {});
             if (canAnnounce) {

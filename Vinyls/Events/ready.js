@@ -41,6 +41,7 @@ const { startVoteQueueLoop } = require("../Services/Web/discadiaVoteQueueService
 const { startWebhookServer, shouldStartBotHttpServer } = require("../Services/Web/webhookService");
 const { checkAndInstallPackages } = require("../Utils/Moderation/checkPackages");
 const { startAutoPollLoop } = require("../Services/Community/autoPollService");
+const { startNoRoleKickLoop } = require("../Services/Community/noRoleKickService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
 const IDs = require("../Utils/Config/ids");
 const guildMemberUpdateExtras = require("./guildMemberUpdate");
@@ -579,6 +580,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
     ["[CATEGORY NUMBERING] Failed to start loop", () => startCategoryNumberingLoop(client)],
     ["[SPONSOR 24H KICK] Failed to start loop", () => startSponsorKickLoop(client)],
+    ["[NO ROLE 24H KICK] Failed to start loop", () => startNoRoleKickLoop(client)],
     ["[SPONSOR NICK SWEEP] Failed to start loop", () => startSponsorGuildNicknameSweepLoop(client)],
     ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
