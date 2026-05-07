@@ -464,6 +464,88 @@ async function runImmediatePartnerAuditForUser(client, userId) {
   }
 }
 
+async function restoreManagerLeftServerPartnerPointsOnRejoin(client, managerUserId) {
+  const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
+  const managerId = String(managerUserId || "").trim();
+  if (!guildId || !/^\d{17,20}$/.test(managerId)) {
+    return { restored: 0, logsDeleted: 0 };
+  }
+
+  const guild = await getClientGuildCached(client, guildId);
+  if (!guild) return { restored: 0, logsDeleted: 0 };
+
+  const docs = await ActivityUserProfile.find({
+    guildId: guild.id,
+    "staff.partnerActions": {
+      $elemMatch: {
+        managerId,
+        auditPenaltyDates: { $exists: true, $ne: [] },
+      },
+    },
+  }).catch(() => []);
+
+  let restored = 0;
+  let logsDeleted = 0;
+  const logsToDelete = [];
+
+  for (const doc of docs) {
+    if (!doc.staff) continue;
+    const actions = Array.isArray(doc.staff.partnerActions) ? doc.staff.partnerActions : [];
+    let restoredForDoc = 0;
+    const logsToDeleteForDoc = [];
+
+    for (const action of actions) {
+      if (String(action?.managerId || "") !== managerId) continue;
+
+      const penaltyLogs = Array.isArray(action.auditPenaltyLogs) ? action.auditPenaltyLogs : [];
+      const restorableLogs = penaltyLogs.filter((entry) => {
+        const reason = String(entry?.reason || "").trim();
+        return reason === MANAGER_LEFT_SERVER_REASON;
+      });
+      if (!restorableLogs.length) continue;
+
+      const restorableDateKeys = new Set(
+        restorableLogs.map((entry) => String(entry?.dateKey || "").trim()).filter(Boolean),
+      );
+      if (!restorableDateKeys.size) continue;
+
+      action.auditPenaltyDates = (Array.isArray(action.auditPenaltyDates) ? action.auditPenaltyDates : [])
+        .filter((dateKey) => !restorableDateKeys.has(String(dateKey || "").trim()));
+      action.auditPenaltyLogs = penaltyLogs.filter((entry) => {
+        const reason = String(entry?.reason || "").trim();
+        const dateKey = String(entry?.dateKey || "").trim();
+        return reason !== MANAGER_LEFT_SERVER_REASON || !restorableDateKeys.has(dateKey);
+      });
+
+      restoredForDoc += restorableDateKeys.size;
+      logsToDeleteForDoc.push(...restorableLogs);
+    }
+
+    if (restoredForDoc > 0) {
+      doc.staff.partnerCount = Math.max(0, Number(doc.staff.partnerCount || 0)) + restoredForDoc;
+      doc.markModified("staff");
+      try {
+        await doc.save();
+        restored += restoredForDoc;
+        logsToDelete.push(...logsToDeleteForDoc);
+      } catch (saveErr) {
+        global.logger?.error?.(`[PARTNER AUDIT] Restore failed for PM ${doc.userId}: ${saveErr?.message || saveErr}`);
+      }
+    }
+  }
+
+  for (const penaltyLog of logsToDelete) {
+    const deleted = await deletePointRemovalLog(guild, penaltyLog);
+    if (deleted) logsDeleted += 1;
+  }
+
+  if (restored > 0) {
+    global.logger?.info?.(`[PARTNER AUDIT] manager=${managerId} rejoined: restored=${restored} deletedLogs=${logsDeleted}`);
+  }
+
+  return { restored, logsDeleted };
+}
+
 async function runDailyPartnerAudit(client, opts = {}) {
   const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
   if (!guildId) return;
@@ -550,4 +632,5 @@ module.exports = {
   startDailyPartnerAuditLoop,
   runDailyPartnerAudit,
   runImmediatePartnerAuditForUser,
+  restoreManagerLeftServerPartnerPointsOnRejoin,
 };

@@ -20,6 +20,7 @@ const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGu
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
+const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const {
   guildIconUrl,
@@ -1572,6 +1573,12 @@ module.exports = {
       }
 
       await sendDmWelcome(member).catch(() => {});
+
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        await restoreManagerLeftServerPartnerPointsOnRejoin(member.client, member.id).catch((err) => {
+          global.logger?.warn?.("[guildMemberAdd] restoreManagerLeftServerPartnerPointsOnRejoin:", err?.message || err);
+        });
+      }
 
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
 

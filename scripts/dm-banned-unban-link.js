@@ -1,10 +1,7 @@
 const path = require("path");
+const mongoose = require("mongoose");
 const {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   Client,
-  EmbedBuilder,
   GatewayIntentBits,
 } = require("discord.js");
 
@@ -18,9 +15,11 @@ loadEnvFiles(BOT_ROOT);
 
 const IDs = require(path.join(BOT_ROOT, "Utils", "Config", "ids"));
 const config = require(path.join(BOT_ROOT, "config.json"));
-
-const DEFAULT_DELAY_MS = 1500;
-const DEFAULT_LIMIT = 0;
+const {
+  DEFAULT_DELAY_MS,
+  resolveUnbanUrl,
+  sendBannedUnbanLinkDms,
+} = require(path.join(BOT_ROOT, "Services", "Moderation", "bannedUnbanDmService"));
 
 function parseArgs(argv) {
   const rawArgs = argv.slice(2);
@@ -31,68 +30,37 @@ function parseArgs(argv) {
   };
   return {
     dryRun: !flags.has("--send"),
+    force: flags.has("--force"),
+    once: !flags.has("--no-once"),
     guildId: valueOf("--guild-id") || String(IDs.guilds?.main || ""),
-    limit: Math.max(0, Number(valueOf("--limit") || DEFAULT_LIMIT) || 0),
+    limit: Math.max(0, Number(valueOf("--limit") || 0) || 0),
     delayMs: Math.max(0, Number(valueOf("--delay-ms") || DEFAULT_DELAY_MS) || DEFAULT_DELAY_MS),
     token: valueOf("--token") || getToken(config, "DISCORD_TOKEN_OFFICIAL"),
     unbanUrl: resolveUnbanUrl(valueOf("--url")),
   };
 }
 
-function resolveUnbanUrl(overrideUrl) {
-  if (overrideUrl) return overrideUrl;
-  const rawBase =
-    String(process.env.WEBSITE_PUBLIC_URL || "").trim() ||
-    String(process.env.VC_SITE_URL || "").trim() ||
-    "https://www.viniliecaffe.it";
-  const base = rawBase.replace(/\/+$/, "");
-  return `${base}/unban`;
-}
-
-function wait(ms) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    timer.unref?.();
-  });
-}
-
-function buildDmPayload(unbanUrl) {
-  const embed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setTitle("Richiesta unban disponibile")
-    .setDescription(
-      [
-        "Ciao, ti scriviamo da **Vinili & Caffe**.",
-        "",
-        "Se vuoi richiedere la revisione del tuo ban, puoi compilare il modulo unban sul nostro sito.",
-        "Lo staff valutera la richiesta e riceverai aggiornamenti appena possibile.",
-      ].join("\n"),
-    )
-    .setTimestamp();
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Link)
-      .setLabel("Apri richiesta unban")
-      .setURL(unbanUrl),
+function resolveMongoUrl() {
+  return (
+    process.env.MONGO_URL_LOCAL ||
+    process.env.MONGODB_URI_LOCAL ||
+    process.env.MONGO_URL ||
+    process.env.MONGODB_URI ||
+    config.mongoURL
   );
-
-  return { embeds: [embed], components: [row] };
 }
 
-async function fetchAllBans(guild) {
-  const out = [];
-  let after = undefined;
-  while (true) {
-    const batch = await guild.bans.fetch({ limit: 1000, after });
-    if (!batch.size) break;
-    const values = [...batch.values()];
-    out.push(...values);
-    if (batch.size < 1000) break;
-    after = values[values.length - 1]?.user?.id;
-    if (!after) break;
+async function connectMongoIfNeeded(args) {
+  if (!args.once || args.dryRun) return false;
+  const mongoUrl = resolveMongoUrl();
+  if (!mongoUrl) {
+    throw new Error("Mongo URL mancante: serve per ricordare che lo script e stato gia eseguito. Usa --no-once solo se vuoi ignorare la guardia.");
   }
-  return out;
+  if (mongoose.connection.readyState === 1) return true;
+  mongoose.set("strictQuery", false);
+  mongoose.set("bufferCommands", false);
+  await mongoose.connect(mongoUrl);
+  return true;
 }
 
 async function main() {
@@ -104,51 +72,32 @@ async function main() {
     throw new Error("Guild ID mancante. Usa --guild-id=...");
   }
 
+  const mongoConnected = await connectMongoIfNeeded(args);
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
   await client.login(args.token);
   try {
-    const guild = await client.guilds.fetch(args.guildId);
-    if (!guild) throw new Error(`Guild non trovata: ${args.guildId}`);
-
-    const bans = await fetchAllBans(guild);
-    const rows = args.limit > 0 ? bans.slice(0, args.limit) : bans;
-    const payload = buildDmPayload(args.unbanUrl);
-
+    const result = await sendBannedUnbanLinkDms(client, args);
     console.log(
-      `[dm-banned-unban] Guild=${guild.name} (${guild.id}) ban=${bans.length} target=${rows.length} dryRun=${args.dryRun} url=${args.unbanUrl}`,
+      `[dm-banned-unban] result=${JSON.stringify(result)} once=${args.once} force=${args.force}`,
     );
-
-    let sent = 0;
-    let failed = 0;
-    for (let i = 0; i < rows.length; i += 1) {
-      const user = rows[i]?.user;
-      if (!user?.id || user.bot) continue;
-      const label = `${user.tag || user.username || "unknown"} (${user.id})`;
-      if (args.dryRun) {
-        console.log(`[dry-run] ${i + 1}/${rows.length} DM -> ${label}`);
-        continue;
-      }
-      try {
-        await user.send(payload);
-        sent += 1;
-        console.log(`[sent] ${i + 1}/${rows.length} ${label}`);
-      } catch (err) {
-        failed += 1;
-        console.warn(`[failed] ${i + 1}/${rows.length} ${label}: ${err?.message || err}`);
-      }
-      if (args.delayMs > 0 && i < rows.length - 1) await wait(args.delayMs);
-    }
-
-    console.log(`[dm-banned-unban] completato. sent=${sent} failed=${failed} dryRun=${args.dryRun}`);
     if (args.dryRun) {
       console.log("[dm-banned-unban] Per inviare davvero: node scripts/dm-banned-unban-link.js --send");
+    } else if (result?.skipped && ["already_completed", "already_started"].includes(result?.reason)) {
+      console.log("[dm-banned-unban] Gia avviato/completato: usa --force per rilanciarlo volontariamente.");
     }
   } finally {
     client.destroy();
+    if (mongoConnected) await mongoose.disconnect().catch(() => {});
   }
 }
 
-main().catch((err) => {
-  console.error("[dm-banned-unban] errore:", err?.stack || err?.message || err);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("[dm-banned-unban] errore:", err?.stack || err?.message || err);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  parseArgs,
+};

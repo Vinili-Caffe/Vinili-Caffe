@@ -18,6 +18,7 @@ const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmRe
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
+const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
 const { syncLiveVoiceSessionsFromGateway, startLiveVoiceExpLoop, } = require("../Services/Community/activityService");
 const { runExpiredCustomRolesSweep, startCustomRoleExpiryLoop, } = require("../Services/Community/customRoleExpiryService");
@@ -216,6 +217,20 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "restore core startup state",
       enabled: true,
       run: () => restoreCoreStartupState(client),
+    },
+    {
+      label: "DM banned users unban link (run once)",
+      enabled: primaryScheduler && shouldRunBannedUnbanDmOnStartup(client),
+      run: async () => {
+        const result = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
+        if (result?.skipped) {
+          global.logger?.info?.(`[dm-banned-unban] skipped: ${result.reason || "unknown"}`);
+        } else {
+          global.logger?.info?.(
+            `[dm-banned-unban] completed: sent=${result.sent} failed=${result.failed} target=${result.target}`,
+          );
+        }
+      },
     },
     {
       label: "backfill boost announce slot counts from supporters history",
