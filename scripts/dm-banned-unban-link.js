@@ -1,9 +1,6 @@
 const path = require("path");
 const mongoose = require("mongoose");
-const {
-  Client,
-  GatewayIntentBits,
-} = require("discord.js");
+const { Client, GatewayIntentBits } = require("discord.js");
 
 const WORKSPACE_ROOT = path.resolve(__dirname, "..");
 const BOT_ROOT = path.join(WORKSPACE_ROOT, "Vinyls");
