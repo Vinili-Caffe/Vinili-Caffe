@@ -214,13 +214,17 @@ try {
     '"$NODE_BIN" -v'
     '"$NODE_BIN" "$NPM_CLI" -v'
     "cd '$BotRemotePath'"
+    'NODE_ABI=$("$NODE_BIN" -p "process.versions.modules")'
+    'echo "Using Node ABI: $NODE_ABI"'
     'NEED_INSTALL=0'
     'if [ ! -d node_modules ]; then NEED_INSTALL=1'
     'elif [ -z "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1'
     'elif [ ! -f node_modules/.vc-installed-lock.sha256 ]; then NEED_INSTALL=1'
     'elif [ "$(cat node_modules/.vc-installed-lock.sha256)" != "$NEW_LOCK_HASH" ]; then NEED_INSTALL=1'
+    'elif [ ! -f node_modules/.vc-installed-node-abi ]; then NEED_INSTALL=1'
+    'elif [ "$(cat node_modules/.vc-installed-node-abi)" != "$NODE_ABI" ]; then echo "Node ABI changed: $(cat node_modules/.vc-installed-node-abi) -> $NODE_ABI"; NEED_INSTALL=1'
     'fi'
-    'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; printf %s "$NEW_LOCK_HASH" > node_modules/.vc-installed-lock.sha256; else echo "Dependencies unchanged, skipping npm install."; fi'
+    'if [ "$NEED_INSTALL" = "1" ]; then echo "Dependency install required."; rm -rf node_modules/canvas Vinyls/node_modules/canvas Coffee/node_modules/canvas; "$NODE_BIN" "$NPM_CLI" ci --omit=dev --no-audit --no-fund --loglevel=error || "$NODE_BIN" "$NPM_CLI" install --omit=dev --no-audit --no-fund --loglevel=error; printf %s "$NEW_LOCK_HASH" > node_modules/.vc-installed-lock.sha256; printf %s "$NODE_ABI" > node_modules/.vc-installed-node-abi; else echo "Dependencies unchanged, skipping npm install."; fi'
     "cd '$BotRemotePath/Vinyls'"
     "if `"`$NODE_BIN`" -e 'require(`"canvas`")' >/dev/null 2>&1; then echo `"Canvas already OK.`"; else echo `"Canvas rebuild required.`"; rm -rf ../node_modules/canvas node_modules/canvas; `"`$NODE_BIN`" `"`$NPM_CLI`" install canvas@2.11.2 --omit=dev --foreground-scripts --no-audit --no-fund --loglevel=error; fi"
     "`"`$NODE_BIN`" -e 'require(`"canvas`"); console.log(`"canvas-ok`")'"
