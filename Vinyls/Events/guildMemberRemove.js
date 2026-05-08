@@ -28,6 +28,7 @@ const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Service
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { findOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketGuildUserQueries");
+const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const STAFF_TRACKED_ROLE_IDS = new Set([
@@ -35,7 +36,9 @@ const STAFF_TRACKED_ROLE_IDS = new Set([
   IDs.roles.Staff,
   IDs.roles.Helper,
   IDs.roles.Mod,
+  IDs.roles.SeniorModerator,
   IDs.roles.HighStaff,
+  IDs.roles.Director,
   IDs.roles.Admin,
   IDs.roles.Founder,
 ]);
@@ -480,6 +483,9 @@ module.exports = {
   async execute(member, client) {
     try {
       if (!member?.guild || !member?.user) return;
+      await trackMemberLeave(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] daily member stats:", err?.message || err);
+      });
       if (member?.user && !member.user.bot) {
         sponsorVerifiedRequiresMain.handleGuildMemberRemoveFromSponsor(member);
       }

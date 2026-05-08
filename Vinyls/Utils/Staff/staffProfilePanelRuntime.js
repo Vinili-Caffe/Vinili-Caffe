@@ -73,6 +73,8 @@ const STAFF_HP_BUTTON_ACTION_FULL_TO_SHORT = {
   pex: "pex",
   pex_helper: "phl",
   pex_mod: "pmo",
+  pex_senior_moderator: "psm",
+  pex_director: "pdr",
   pex_admin: "pxa",
   pex_founder: "pfn",
   pex_pm: "ppm",
@@ -136,11 +138,19 @@ const LEGACY_PARTNER_LB_SECTION = "partner_lb";
 const PROFILE_FULL = "full";
 const PROFILE_PM_ONLY = "pm_only";
 const PROFILE_PROSPECT = "prospect";
-const STAFF_ROLE_PRIORITY = [String(IDs.roles.Mod), String(IDs.roles.Helper), String(IDs.roles.Staff)].filter(Boolean);
+const STAFF_ROLE_PRIORITY = [
+  String(IDs.roles.Director),
+  String(IDs.roles.SeniorModerator),
+  String(IDs.roles.Mod),
+  String(IDs.roles.Helper),
+  String(IDs.roles.Staff),
+].filter(Boolean);
 const STAFF_PROFILE_DISPLAY_ROLE_PRIORITY = [
   IDs.roles.Founder,
   IDs.roles.Admin,
+  IDs.roles.Director,
   IDs.roles.HighStaff,
+  IDs.roles.SeniorModerator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.PartnerManager,
@@ -198,6 +208,7 @@ function viewerCanUsePartnerPointsPanel(member) {
   const c = member.roles.cache;
   return Boolean(
     (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)) ||
+      (IDs.roles.Director && c.has(IDs.roles.Director)) ||
       (IDs.roles.Founder && c.has(IDs.roles.Founder)),
   );
 }
@@ -220,6 +231,7 @@ function viewerIsCoordinatorOrAbove(member) {
   const c = member.roles.cache;
   return Boolean(
     (IDs.roles.Admin && c.has(IDs.roles.Admin)) ||
+      (IDs.roles.Director && c.has(IDs.roles.Director)) ||
       (IDs.roles.Founder && c.has(IDs.roles.Founder)) ||
       (IDs.roles.HighStaff && c.has(IDs.roles.HighStaff)),
   );
@@ -239,6 +251,8 @@ function resolveStaffProfileKind(member) {
 const STAFF_LADDER_ROLE_IDS_FOR_PANEL = [
   IDs.roles.Helper,
   IDs.roles.Mod,
+  IDs.roles.SeniorModerator,
+  IDs.roles.Director,
   IDs.roles.Admin,
   IDs.roles.Founder,
 ].filter(Boolean);
@@ -281,6 +295,8 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includ
           .setPlaceholder("Promuovi a ruolo staff avanzato (solo Founder)")
           .addOptions(
             { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
+            { label: "Member → Senior Moderator", value: "pex_senior_moderator", emoji: "<:VC_Staff:1494286904089247754>" },
+            { label: "Member → Director", value: "pex_director", emoji: "<:VC_Staff:1494286904089247754>" },
             { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
           ),
       ),
@@ -377,7 +393,9 @@ function withSourceSuffix(baseCustomId, sourceMessageId) {
 const STAFF_PANEL_NON_PM_ROLE_IDS = [
   IDs.roles?.Founder,
   IDs.roles?.Admin,
+  IDs.roles?.Director,
   IDs.roles?.HighStaff,
+  IDs.roles?.SeniorModerator,
   IDs.roles?.Mod,
   IDs.roles?.Helper,
   IDs.roles?.Staff,
@@ -386,7 +404,9 @@ const STAFF_PANEL_NON_PM_ROLE_IDS = [
 const STAFF_PANEL_NAV_ROLE_PRIORITY = [
   IDs.roles?.Founder,
   IDs.roles?.Admin,
+  IDs.roles?.Director,
   IDs.roles?.HighStaff,
+  IDs.roles?.SeniorModerator,
   IDs.roles?.Mod,
   IDs.roles?.Helper,
   IDs.roles?.Staff,
@@ -715,7 +735,10 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   const viewerMemForPanel =
     (await getGuildMemberCached(guild, String(viewerId), { preferFresh: true }).catch(() => null)) ||
     (await guild.members.fetch({ user: String(viewerId), force: true }).catch(() => null));
-  const viewerIsHighStaff = Boolean(viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff));
+  const viewerIsHighStaff = Boolean(
+    viewerMemForPanel?.roles?.cache?.has(IDs.roles.HighStaff) ||
+      viewerMemForPanel?.roles?.cache?.has(IDs.roles.Director),
+  );
   const viewerCanFullDepex = viewerIsCoordinatorOrAbove(viewerMemForPanel);
   const viewerCanPartnerPointsPanel = viewerCanUsePartnerPointsPanel(viewerMemForPanel);
   const profileKind = resolveStaffProfileKind(member);

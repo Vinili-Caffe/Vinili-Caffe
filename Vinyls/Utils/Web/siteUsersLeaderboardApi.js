@@ -6,7 +6,7 @@ const {
   computeLeaderboardRows,
   getRomeDayKey,
 } = require("../../Prefix/Level/classifica");
-const { findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
+const { findCustomVoiceByOwner, findCustomVoiceByRole } = require("../Interaction/customRoleUtils");
 const { getRankCardThemeFromDoc, resolveRankCardWallpaper } = require("../Render/rankCardTheme");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
@@ -174,12 +174,21 @@ async function buildCustomProfileData(guild, userId) {
       ? guild.roles.cache.get(String(doc.secondaryRoleId)) || (await guild.roles.fetch(String(doc.secondaryRoleId)).catch(() => null))
       : null;
   const channelId = String(doc.customVocChannelId || "").trim();
+  const storedVoice = channelId
+    ? guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null))
+    : null;
   const voice =
-    channelId
-      ? guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null))
-      : role
-        ? findCustomVoiceByRole(guild, role.id)
-        : null;
+    storedVoice ||
+    findCustomVoiceByOwner(guild, userId) ||
+    (role ? findCustomVoiceByRole(guild, role.id) : null) ||
+    (secondaryRole ? findCustomVoiceByRole(guild, secondaryRole.id) : null);
+
+  if (voice?.id && String(doc.customVocChannelId || "") !== String(voice.id)) {
+    await CustomRole.updateOne(
+      { guildId: guild.id, userId: String(userId) },
+      { $set: { customVocChannelId: String(voice.id) } },
+    ).catch(() => null);
+  }
 
   let roleMembers = role?.members ? Array.from(role.members.values()).filter((m) => !m.user?.bot) : [];
   if (role && roleMembers.length === 0) {

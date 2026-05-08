@@ -3,7 +3,7 @@ const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const { DIVIDER_URL } = require("../../shared/discord/constants");
-const SHOW_SANZIONI_IN_GUIDA_STAFF = false;
+const SHOW_SANZIONI_IN_GUIDA_STAFF = true;
 
 async function resolveBestStaffChannel(client) {
   const channelId = String(IDs.channels?.bestStaff || "").trim();
@@ -32,7 +32,7 @@ async function run(client) {
     .setColor("#6f4e37")
     .setDescription(
       [
-        "<:VC_Leaderboard:1482534806314287387> Ogni mese viene scelto **un solo** staffer da premiare tra **Helper, Mod e Admin**.",
+        "<:VC_Leaderboard:1482534806314287387> Ogni mese viene scelto **un solo** staffer da premiare, escluso l'<@&1442568894349840435>.",
         "",
         "<:VC_PinkQuestionMark:1471892611026391306> **Come si decide?**",
         "La scelta tiene conto di **attività nel server**, **presenza** e **contributo** allo staff.",
@@ -52,13 +52,14 @@ async function run(client) {
       .setDescription(
         `<:discordstaff:1443651872258003005> La **__guida staff__** di __Vinili & Caffè__ serve per portare **ordine** tra lo __staff__, infatti sono presenti delle **__regole__** che __tutti__ dovranno **rispettare**; in __caso__ vengano \`trasgredite\`, potreste andare **incontro** a **__sanzioni__**, come **__\`valutazioni negative\`__** o in casi estremi il **__\`depex\`__**.
 
-> La __guida staff__ si divide in **__\`6\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
+> La __guida staff__ si divide in **__\`7\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
 <:VC_1:1482706338021642333> **Regolamento**
 <:VC_2:1482706376525611090> **Limiti Settimanali**
 <:VC_3:1482706404773990460> **Pause**
 <:VC_4:1482706432347344916> **Valutazioni**
 <:VC_5:1482706459765637272> **Moderazione**
-<:VC_6:1482706490769801327> **Warn Staff**`,
+<:VC_6:1482706490769801327> **Sanzioni**
+<:VC_7:1482706523330183218> **Warn Staff**`,
       )
       .setImage(DIVIDER_URL),
     new EmbedBuilder()

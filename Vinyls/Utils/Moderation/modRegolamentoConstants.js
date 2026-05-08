@@ -46,8 +46,13 @@ const BUCKET_VIOLATION_KEYS = {
  * 2.4: warn/delete prima tramite heat; poi mute 6 h → 18 h ai timeout su questa famiglia.
  */
 const AUTOMOD_REGOLA_STEPS = {
-  "1_2": [{ type: "timeout", ms: 2 * 60 * 60_000 }],
-  "1_4": [{ type: "timeout", ms: 12 * 60 * 60_000 }, { type: "ban" }],
+  "1_2": [
+    { type: "timeout", ms: 2 * 60 * 60_000 },
+    { type: "timeout", ms: 6 * 60 * 60_000 },
+    { type: "timeout", ms: 12 * 60 * 60_000 },
+    { type: "timeout", ms: 24 * 60 * 60_000 },
+  ],
+  "1_4": [{ type: "ban" }],
   "2_1": [{ type: "timeout", ms: 18 * 60 * 60_000 }, { type: "ban" }],
   "2_3": [{ type: "ban" }],
   "2_4": [{ type: "timeout", ms: 6 * 60 * 60_000 }, { type: "timeout", ms: 18 * 60 * 60_000 }],

@@ -4,6 +4,12 @@ const JOIN_GHOST_PING_CHANNEL_IDS = [IDs.channels?.news, IDs.channels?.eventAnno
   .filter(Boolean)
   .map((id) => String(id));
 
+function isGhostPingParentChannelId(channelId) {
+  const cid = String(channelId || "").trim();
+  if (!cid) return false;
+  return JOIN_GHOST_PING_CHANNEL_IDS.includes(cid);
+}
+
 async function sendGhostUserPing(channel, userId) {
   if (!channel?.isTextBased?.()) return;
   const uid = String(userId || "").trim();
@@ -33,4 +39,5 @@ async function ghostPingNewMemberOnJoin(client, member) {
 module.exports = {
   JOIN_GHOST_PING_CHANNEL_IDS,
   ghostPingNewMemberOnJoin,
+  isGhostPingParentChannelId,
 };

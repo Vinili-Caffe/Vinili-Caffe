@@ -205,6 +205,7 @@ function isTopggWebhookAuthorized(req, topggSecret) {
 }
 
 async function startWebhookServer(client) {
+  if (client._botHttpWebhookServer?.listening) return;
   if (client._discadiaVoteHttpServerStarted) return;
   if (!shouldStartBotHttpServer(client)) return;
 
@@ -1274,7 +1275,26 @@ async function startWebhookServer(client) {
     global.logger?.warn?.("[WEBHOOK] WebSocket suggerimenti (init):", err?.message || err);
   }
 
-  server.listen(port, "0.0.0.0", () => {});
+  client._botHttpWebhookServer = server;
+
+  server.once("error", (err) => {
+    client._discadiaVoteHttpServerStarted = false;
+    if (client._botHttpWebhookServer === server) client._botHttpWebhookServer = null;
+
+    if (err?.code === "EADDRINUSE") {
+      global.logger?.error?.(
+        `[WEBHOOK] porta ${port} gia in uso: il server HTTP del bot non e stato avviato. ` +
+          "Chiudi l'altro processo sulla stessa porta oppure cambia `discadia.webhookPort`.",
+      );
+      return;
+    }
+
+    global.logger?.error?.("[WEBHOOK] listen failed:", err);
+  });
+
+  server.listen(port, "0.0.0.0", () => {
+    global.logger?.info?.(`[WEBHOOK] HTTP server online on 0.0.0.0:${port}`);
+  });
 }
 
 module.exports = {

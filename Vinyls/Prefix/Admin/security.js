@@ -12,7 +12,9 @@ const { sendSecurityAuditLog } = require("../../Utils/Logging/securityAuditLog")
 const STAFF_ROLE_IDS = [
   IDs.roles.Founder,
   IDs.roles.Admin,
+  IDs.roles.Director,
   IDs.roles.HighStaff,
+  IDs.roles.SeniorModerator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.Staff,

@@ -27,7 +27,7 @@ const MAX_HELP_TEXT_LENGTH = 3900;
 const HELP_CHANNEL_PUBLIC_COMMANDS_ID = String(IDs.channels?.commands || "1442569138114662490");
 const HELP_CHANNEL_PM_ONLY_ID = "1495544523848286340";
 const HELP_CHANNEL_STAFF_COMMANDS_ID = String(IDs.channels?.staffCmds || "1442569262689554444");
-const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
+const HELP_PRIVILEGED_ROLE_IDS = [ IDs.roles.Founder, IDs.roles.HighStaff, IDs.roles.Admin, IDs.roles.Director, IDs.roles.SeniorModerator, IDs.roles.Mod, IDs.roles.Helper, IDs.roles.Staff, IDs.roles.PartnerManager].filter(Boolean);
 const PREFIX_HELP_DESCRIPTIONS = {
   help: "Mostra tutti i comandi disponibili con il bot.",
   afk: "Imposta il tuo stato AFK con un messaggio personalizzato.",

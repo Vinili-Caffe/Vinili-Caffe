@@ -16,6 +16,8 @@ const ROLE_STAFF = IDs.roles.Staff;
 const ROLE_HIGH_STAFF = IDs.roles.HighStaff;
 const ROLE_HELPER = IDs.roles.Helper;
 const ROLE_MODERATOR = IDs.roles.Mod;
+const ROLE_SENIOR_MODERATOR = IDs.roles.SeniorModerator;
+const ROLE_DIRECTOR = IDs.roles.Director;
 const ROLE_ADMIN = IDs.roles.Admin;
 const ROLE_CO_OWNER = "";
 const ROLE_OWNER = IDs.roles.Founder;
@@ -124,8 +126,16 @@ __Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:149428690408924775
   }).catch(() => null);
 }
 
-const STAFF_LADDER_ROLES = [ROLE_HELPER, ROLE_MODERATOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
-const ROLES_REQUIRING_HIGH_STAFF = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER];
+const STAFF_LADDER_ROLES = [
+  ROLE_HELPER,
+  ROLE_MODERATOR,
+  ROLE_SENIOR_MODERATOR,
+  ROLE_DIRECTOR,
+  ROLE_ADMIN,
+  ROLE_CO_OWNER,
+  ROLE_OWNER,
+].filter(Boolean);
+const ROLES_REQUIRING_HIGH_STAFF = [ROLE_DIRECTOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
 
 async function applyPexSideEffects(
   member,
@@ -164,11 +174,29 @@ async function applyPexSideEffects(
     member = verification.member;
   }
 
-  if (roleId === ROLE_ADMIN) {
+  if (roleId === ROLE_SENIOR_MODERATOR) {
     await member.roles.remove(ROLE_MODERATOR);
+    const verification = await ensureRoleState(member, ROLE_MODERATOR, false);
+    if (!verification.ok) throw new Error("Pex side effect failed: moderator role still present after senior moderator promotion.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_DIRECTOR) {
+    await member.roles.remove(ROLE_SENIOR_MODERATOR);
     await member.roles.add(ROLE_HIGH_STAFF);
     const verification = await ensureMultipleRoleStates(member, [
-      { roleId: ROLE_MODERATOR, shouldHaveRole: false },
+      { roleId: ROLE_SENIOR_MODERATOR, shouldHaveRole: false },
+      { roleId: ROLE_HIGH_STAFF, shouldHaveRole: true },
+    ]);
+    if (!verification.ok) throw new Error("Pex side effect failed: director side effects not applied.");
+    member = verification.member;
+  }
+
+  if (roleId === ROLE_ADMIN) {
+    await member.roles.remove(ROLE_DIRECTOR || ROLE_MODERATOR);
+    await member.roles.add(ROLE_HIGH_STAFF);
+    const verification = await ensureMultipleRoleStates(member, [
+      { roleId: ROLE_DIRECTOR || ROLE_MODERATOR, shouldHaveRole: false },
       { roleId: ROLE_HIGH_STAFF, shouldHaveRole: true },
     ]);
     if (!verification.ok) throw new Error("Pex side effect failed: admin side effects not applied.");
@@ -210,7 +238,7 @@ async function applyDepexSideEffects(member, roleId) {
     member = verification.member;
   }
 
-  if (roleId === ROLE_MODERATOR) {
+  if (roleId === ROLE_MODERATOR || roleId === ROLE_SENIOR_MODERATOR) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
     const verification = await ensureMultipleRoleStates(member, [{ roleId, shouldHaveRole: false }, { roleId: ROLE_STAFF, shouldHaveRole: false }]);
@@ -218,7 +246,7 @@ async function applyDepexSideEffects(member, roleId) {
     member = verification.member;
   }
 
-  if (roleId === ROLE_ADMIN) {
+  if (roleId === ROLE_ADMIN || roleId === ROLE_DIRECTOR) {
     await member.roles.remove(roleId);
     await member.roles.remove(ROLE_STAFF);
     await member.roles.remove(ROLE_HIGH_STAFF);
@@ -664,6 +692,7 @@ function actorIsHighStaffOrAbove(member) {
   if (!cache) return false;
   const allowRoles = [
     IDs.roles.Admin,
+    IDs.roles.Director,
     IDs.roles.Founder,
     IDs.roles.HighStaff,
   ].filter(Boolean);
@@ -683,7 +712,7 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  const completeDepexRoleChain = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
+  const completeDepexRoleChain = [ROLE_DIRECTOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
   let roleToRemove = null;
   for (let i = completeDepexRoleChain.length - 1; i >= 0; i--) {
     const roleId = completeDepexRoleChain[i];
@@ -693,9 +722,9 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     }
   }
   if (!roleToRemove) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Admin** in su da depexare." };
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Director** in su da depexare." };
   }
-  const isAdminOrAbove = [ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
+  const isAdminOrAbove = [ROLE_DIRECTOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
   const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);
   await member.roles.remove(roleIdsToRemove).catch(() => null);
   const verification = await ensureMultipleRoleStates(

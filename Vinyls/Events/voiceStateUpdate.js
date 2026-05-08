@@ -2,6 +2,7 @@ const { EmbedBuilder, AuditLogEvent, PermissionsBitField, } = require("discord.j
 const { handleMusicBotVoiceDisconnect } = require("../Services/Music/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
 const{handleVoiceActivity,}=require("../Services/Community/activityService");
+const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService");
 const IDs = require("../Utils/Config/ids");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -318,6 +319,11 @@ module.exports = {
       } else {
         global.logger?.error?.("[ACTIVITY VOICE ERROR]", error);
       }
+    }
+    try {
+      await trackVoiceEngagement(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[DAILY ENGAGEMENT VOICE ERROR]", error);
     }
 
     if (!client?.user?.id) return;

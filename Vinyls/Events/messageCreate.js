@@ -2,6 +2,9 @@ const { EmbedBuilder, PermissionFlagsBits, MessageType } = require("discord.js")
 const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { handleMinigameMessage } = require("../Services/Minigames/minigameService");
 const { recordMessageActivity } = require("../Services/Community/activityService");
+const { trackMessageEngagement } = require("../Services/Community/dailyEngagementStatsService");
+const { trackChannelMessage } = require("../Services/Community/dailyChannelMessageStatsService");
+const { handleIdeaBugMessage } = require("../Services/Community/ideaBugThreadService");
 const { handleOfficialPrefixMessage } = require("../Utils/Prefix/officialPrefixDispatcher");
 const{channelAllowsMedia,getCachedOrFetchMember,handleDisboardBump,handleDiscadiaBump,handleMovieNightVoteMessage,handlePauseChannelMessage,handleSuggestionChannelMessage,handleThreadVoteMessage,handleVoteManagerMessage,hasMediaPermission,isDiscordInviteLinkMessage,isMediaMessage,}=require("../Utils/Message/officialMessageAutomationHandlers");
 const{handleAfk,handleCounting,handleMentionAutoReactions,handleWordReactions,logEventError,}=require("../Utils/Message/officialMessageCommunityHandlers");
@@ -325,6 +328,22 @@ module.exports = {
       return;
     }
 
+    if (message.guild) {
+      setImmediate(() => {
+        handleIdeaBugMessage(message).catch((err) =>
+          logEventError(resolvedClient, "IDEA BUG THREAD ERROR", err),
+        );
+      });
+    }
+
+    if (message.guild) {
+      setImmediate(() => {
+        trackChannelMessage(message).catch((err) =>
+          logEventError(resolvedClient, "DAILY CHANNEL MESSAGE STATS ERROR", err),
+        );
+      });
+    }
+
     if (!message.guild) {
       if (String(message.content || "").startsWith(defaultPrefix)) {
         try {
@@ -348,6 +367,9 @@ module.exports = {
       setImmediate(() => {
         recordMessageActivity(message).catch((err) =>
           logEventError(resolvedClient, "ACTIVITY MESSAGE ERROR", err),
+        );
+        trackMessageEngagement(message).catch((err) =>
+          logEventError(resolvedClient, "DAILY ENGAGEMENT MESSAGE ERROR", err),
         );
       });
 

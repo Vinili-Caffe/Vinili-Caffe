@@ -40,6 +40,8 @@ const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
     IDs.roles.HighStaff,
     IDs.roles.Helper,
     IDs.roles.Mod,
+    IDs.roles.SeniorModerator,
+    IDs.roles.Director,
     IDs.roles.Admin,
     IDs.roles.Founder,
   ]

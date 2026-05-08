@@ -77,7 +77,9 @@ function staffBadgeRoleOrder(ids) {
   return [
     R.Founder,
     R.Admin,
+    R.Director,
     R.HighStaff,
+    R.SeniorModerator,
     R.Mod,
     R.Helper,
     R.PartnerManager,

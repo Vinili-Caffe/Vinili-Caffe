@@ -19,6 +19,8 @@ const STAFF_ROLE_IDS = [
   IDs.roles.PartnerManager,
   IDs.roles.HighStaff,
   IDs.roles.Admin,
+  IDs.roles.Director,
+  IDs.roles.SeniorModerator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.Founder,

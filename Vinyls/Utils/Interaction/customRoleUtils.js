@@ -66,6 +66,26 @@ function findCustomVoiceByRole(guild, roleId) {
   );
 }
 
+function findCustomVoiceByOwner(guild, ownerId) {
+  const uid = String(ownerId || "").trim();
+  if (!guild || !uid) return null;
+  return (
+    guild.channels.cache.find((ch) => {
+      if (ch.type !== ChannelType.GuildVoice) return false;
+      if (CUSTOM_VOICE_CATEGORY_ID && ch.parentId !== CUSTOM_VOICE_CATEGORY_ID)
+        return false;
+      const overwrite = ch.permissionOverwrites.cache.get(uid);
+      if (!overwrite) return false;
+      return (
+        overwrite.allow.has(PermissionsBitField.Flags.ViewChannel) &&
+        overwrite.allow.has(PermissionsBitField.Flags.Connect) &&
+        overwrite.allow.has(PermissionsBitField.Flags.Speak) &&
+        overwrite.allow.has(PermissionsBitField.Flags.ManageChannels)
+      );
+    }) || null
+  );
+}
+
 function canManageRole(interaction, role) {
   const me =
     interaction.guild?.members?.me ||
@@ -132,4 +152,4 @@ function buildCustomVocName(emoji, baseName) {
   return `${prefix}${safeBase.slice(0, maxBaseLength)}`;
 }
 
-module.exports = { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName };
+module.exports = { fetchGuildChannel, fetchGuildMember, fetchGuildRole, replyEphemeral, parseRoleActionId, parseVoiceActionId, findCustomVoiceByRole, findCustomVoiceByOwner, canManageRole, refreshEmbedRoleLine, sanitizeVoiceBaseName, parseCustomVocName, buildCustomVocName };

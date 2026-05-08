@@ -85,15 +85,17 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
     IDs?.roles?.Staff,
     IDs?.roles?.Helper,
     IDs?.roles?.Mod,
+    IDs?.roles?.SeniorModerator,
     IDs?.roles?.HighStaff,
+    IDs?.roles?.Director,
     IDs?.roles?.Admin,
     IDs?.roles?.Founder,
   ]
     .map((id) => String(id || "").trim())
     .filter(Boolean);
-  const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => message.member?.roles?.cache?.has(roleId));
+  const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => message.member?.roles?.cache?.has(roleId));
   const targetHasStaffRole = String(IDs?.roles?.Staff || "").trim() && targetMember.roles?.cache?.has(String(IDs?.roles?.Staff || "").trim());
-  const targetHasCoreProtectedRole = [IDs?.roles?.HighStaff, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => targetMember.roles?.cache?.has(roleId));
+  const targetHasCoreProtectedRole = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => targetMember.roles?.cache?.has(roleId));
 
   if (
     actorHighStaffBypass &&

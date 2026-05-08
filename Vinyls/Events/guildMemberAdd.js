@@ -32,6 +32,7 @@ const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerific
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter");
+const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService");
 
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
@@ -1449,6 +1450,9 @@ module.exports = {
   async execute(member) {
     try {
       if (!member?.guild || !member?.user) return;
+      await trackMemberJoin(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
+      });
       const joinGateConfig = getJoinGateConfigSnapshot();
       const isCoreExempt = await resolveJoinGateConfiguredExempt(member?.guild, member?.id, member);
       const sponsorNoJoinGate = isSponsorJoinGateGuildId(member.guild.id);

@@ -18,7 +18,9 @@ const NO_AUTO_RESTORE_STAFF_PM_ROLE_IDS = new Set(
     IDs.roles?.Staff,
     IDs.roles?.Helper,
     IDs.roles?.Mod,
+    IDs.roles?.SeniorModerator,
     IDs.roles?.HighStaff,
+    IDs.roles?.Director,
     IDs.roles?.Admin,
     IDs.roles?.Founder,
   ]

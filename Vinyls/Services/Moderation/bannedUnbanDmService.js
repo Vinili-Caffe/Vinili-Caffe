@@ -71,7 +71,7 @@ function shouldRunBannedUnbanDmOnStartup(client) {
   const envValue = String(process.env.DM_BANNED_UNBAN_ON_STARTUP || "").trim().toLowerCase();
   if (["0", "false", "no", "off"].includes(envValue)) return false;
   if (["1", "true", "yes", "on"].includes(envValue)) return true;
-  return client?.config?.dmBannedUnbanOnStartup !== false;
+  return client?.config?.dmBannedUnbanOnStartup === true;
 }
 
 async function sendBannedUnbanLinkDms(client, opts = {}) {

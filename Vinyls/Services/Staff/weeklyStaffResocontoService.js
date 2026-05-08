@@ -17,21 +17,32 @@ const RESOCONTO_CRON_SEGMENTS = [
   { segment: "pm", expression: "0 15 * * 0" },
   { segment: "helper", expression: "0 16 * * 0" },
   { segment: "mod", expression: "0 17 * * 0" },
+  { segment: "senior_moderator", expression: "30 17 * * 0" },
+  { segment: "director", expression: "45 17 * * 0" },
   { segment: "admin", expression: "0 18 * * 0" },
 ];
 const STAFF_ACTIVITY_LIMITS = {
-  [String(IDs.roles.Helper)]: { messages: 350, hours: 3.5 },
-  [String(IDs.roles.Mod)]: { messages: 450, hours: 4.5 },
-  /** Admin in resoconto: soglie allineate al ruolo (≥ Mod). */
+  [String(IDs.roles.Helper)]: { messages: 400, hours: 4 },
+  [String(IDs.roles.Mod)]: { messages: 500, hours: 5 },
+  [String(IDs.roles.SeniorModerator)]: { messages: 600, hours: 6 },
+  [String(IDs.roles.Director)]: { messages: 550, hours: 5.5 },
   [String(IDs.roles.Admin)]: { messages: 500, hours: 5 },
 };
 const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Mod)]: 1,
-  [String(IDs.roles.Admin)]: 4,
+  [String(IDs.roles.SeniorModerator)]: 2,
+  [String(IDs.roles.Director)]: 1,
+  [String(IDs.roles.Admin)]: 1,
 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
-/** Ruoli con resoconto attività/sanzioni: Admin, Mod, Helper (High Staff è escluso). */
-const STAFF_ROLE_PRIORITY = [String(IDs.roles.Admin), String(IDs.roles.Mod), String(IDs.roles.Helper)];
+/** Ruoli con resoconto attività/sanzioni: Admin, Director, Senior Moderator, Mod, Helper (High Staff è escluso). */
+const STAFF_ROLE_PRIORITY = [
+  String(IDs.roles.Admin),
+  String(IDs.roles.Director),
+  String(IDs.roles.SeniorModerator),
+  String(IDs.roles.Mod),
+  String(IDs.roles.Helper),
+];
 const RESOCONTO_PM_EXCLUDED_USER_IDS = new Set(
   (Array.isArray(IDs.resocontoExcludePmUserIds) ? IDs.resocontoExcludePmUserIds : [])
     .map((id) => String(id || "").trim())
@@ -42,6 +53,8 @@ const RESOCONTO_ROLE_RANK = new Map(
     IDs.roles.Member,
     IDs.roles.Helper,
     IDs.roles.Mod,
+    IDs.roles.SeniorModerator,
+    IDs.roles.Director,
     IDs.roles.Admin,
     IDs.roles.Founder,
     IDs.roles.PartnerManager,
@@ -51,12 +64,14 @@ const RESOCONTO_ROLE_RANK = new Map(
 );
 /** Partner settimanali da PM: da questo conteggio in su il resoconto PM va in “Nulla” (nessuna azione). */
 const PM_WEEKLY_PARTNER_MIN_FOR_OK = 30;
-/** Sotto questa soglia (partner nella settimana resoconto) l’azione proposta è “Depex”. */
-const PM_WEEKLY_DEPEX_BELOW_PARTNERS = 10;
+/** Fino a questa soglia (partner nella settimana resoconto) l’azione proposta è “Depex”. */
+const PM_WEEKLY_DEPEX_MAX_PARTNERS = 15;
 const ROLE_UP = {
   [String(IDs.roles.Member || "")]: String(IDs.roles.Helper),
   [String(IDs.roles.Helper)]: String(IDs.roles.Mod),
-  [String(IDs.roles.Mod)]: String(IDs.roles.Admin),
+  [String(IDs.roles.Mod)]: String(IDs.roles.SeniorModerator),
+  [String(IDs.roles.SeniorModerator)]: String(IDs.roles.Director),
+  [String(IDs.roles.Director)]: String(IDs.roles.Admin),
 };
 
 let weeklyStaffResocontoTasks = [];
@@ -488,13 +503,17 @@ function collectResocontoDiscordMemberIdsForSegment(guild, segment) {
     }
     return out;
   }
-  if (segment === "helper" || segment === "mod" || segment === "admin") {
+  if (segment === "helper" || segment === "mod" || segment === "senior_moderator" || segment === "director" || segment === "admin") {
     const want =
       segment === "helper"
         ? String(IDs.roles.Helper || "").trim()
         : segment === "mod"
           ? String(IDs.roles.Mod || "").trim()
-          : String(IDs.roles.Admin || "").trim();
+          : segment === "senior_moderator"
+            ? String(IDs.roles.SeniorModerator || "").trim()
+            : segment === "director"
+              ? String(IDs.roles.Director || "").trim()
+              : String(IDs.roles.Admin || "").trim();
     return collectMemberIdsMatchingResocontoStaffSegment(guild, want);
   }
   return [];
@@ -693,11 +712,11 @@ function wasPromotedToRoleInLastDays(staffDoc, roleId, days, now = new Date()) {
   });
 }
 
-/** Soglie PM resoconto: <10 Depex; 10–29 Richiamo (fascia centrale evidenziata 15–25); ≥30 Nulla. */
+/** Soglie PM resoconto: 0–15 Depex; 16–29 Richiamo; ≥30 Nulla. */
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
   const partners = Math.max(0, Math.floor(toSafeNumber(weeklyPartners)));
-  if (partners < PM_WEEKLY_DEPEX_BELOW_PARTNERS) return "Depex";
+  if (partners <= PM_WEEKLY_DEPEX_MAX_PARTNERS) return "Depex";
   if (partners < PM_WEEKLY_PARTNER_MIN_FOR_OK) return "Richiamo";
   return "Nulla";
 }
@@ -907,13 +926,17 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
   const staffDocs = await ActivityUserProfile.find({ guildId, staff: { $exists: true } }, { userId: 1, staff: 1 }).lean().catch(() => []);
 
   const wantStaffForSegment =
-    segment === "helper" || segment === "mod" || segment === "admin"
+    segment === "helper" || segment === "mod" || segment === "senior_moderator" || segment === "director" || segment === "admin"
       ? String(
           segment === "helper"
             ? IDs.roles.Helper
             : segment === "mod"
               ? IDs.roles.Mod
-              : IDs.roles.Admin,
+              : segment === "senior_moderator"
+                ? IDs.roles.SeniorModerator
+                : segment === "director"
+                  ? IDs.roles.Director
+                  : IDs.roles.Admin,
         )
       : null;
 
@@ -991,6 +1014,9 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
       const behaviorGrade = computeBehaviorGrade(staffDoc?.positiveCount, staffDoc?.negativeCount,);
       const pexedInWeek = wasPexedInWeek(staffDoc, weekStart);
       const endedPauseDuringWeek = didPauseEndDuringWeek(staffDoc, weekStart, weekEnd, "Staff");
+      const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
+      const weeklySanctions = sanctionLimit != null ? sanctionCountByModId.get(userId) || 0 : 0;
+      const metWeeklySanctionLimit = sanctionLimit != null && weeklySanctions >= sanctionLimit;
       const baseAction = endedPauseDuringWeek
         ? "Nulla"
         : computeStaffAction(
@@ -1000,10 +1026,9 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
             staffDoc?.positiveCount,
             staffDoc?.negativeCount,
           );
-      const action = graceNewStaffRole ? "Nulla" : baseAction;
+      const action = graceNewStaffRole ? "Nulla" : metWeeklySanctionLimit ? "Valutazione Positiva" : baseAction;
       const staffNewBadge = action === "Nulla" && graceNewStaffRole ? ` ${STAFF_NEW_EMOJI}` : "";
 
-      const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
       const staffRoleEmoji = getStaffRoleEmojiByRoleId(staffRoleId);
       const contentLines = [
         `${staffRoleEmoji} **Staffer:** __**<@${userId}>**__${staffNewBadge}`,
@@ -1015,7 +1040,6 @@ async function runWeeklyStaffResocontoSegment(client, segment) {
         `<:VC_Eye:1331619214410383381> **Condotta:** __${behaviorGrade}__`,
       ];
       if (sanctionLimit != null) {
-        const weeklySanctions = sanctionCountByModId.get(userId) || 0;
         contentLines.push(`<:VC_Dot:1443660294596329582> **Sanzioni nella settimana:** __${weeklySanctions}__ (minimo __${sanctionLimit}__)`);
       }
       contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
@@ -1137,7 +1161,7 @@ async function runPreResocontoReminders(client) {
   );
   const overviewByUserId = new Map(staffOnlyIds.map((id, i) => [String(id), overviewResults[i] || null]));
   const resocontoTime =
-    "**domenica (ora italiana):** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Admin **18:00**";
+    "**domenica (ora italiana):** Partner Manager **15:00**, Helper **16:00**, Mod **17:00**, Senior Moderator **17:30**, Director **17:45**, Admin **18:00**";
   const reminderWindow = getPmResocontoWindow(new Date());
   const skipDmUserIds = new Set(getDevIds(client).map((id) => String(id)).filter((id) => /^\d{16,20}$/.test(id)));
 
@@ -1177,10 +1201,10 @@ async function runPreResocontoReminders(client) {
       if (weeklyPartners >= minPartners) continue;
       const mancano = minPartners - weeklyPartners;
       const tierHint =
-        weeklyPartners < PM_WEEKLY_DEPEX_BELOW_PARTNERS
-          ? " (sotto 10: al resoconto **Depex**)"
+        weeklyPartners <= PM_WEEKLY_DEPEX_MAX_PARTNERS
+          ? " (0–15: al resoconto **Depex**)"
           : weeklyPartners < minPartners
-            ? " (resoconto: **10**–**29** → **Richiamo**, con attenzione alla fascia **15**–**25**; **≥30** → **Nulla**)"
+            ? " (resoconto: **16**–**29** → **Richiamo**; **≥30** → **Nulla**)"
             : "";
       await member.send({
         content: `<:VC_PartnerManager:1494286911286808576> **Promemoria resoconto**\n\nIl resoconto staff è ${resocontoTime}.\n\nCome Partner Manager ti mancano **${mancano}** partner per raggiungere il minimo di ${minPartners}${tierHint}. Attualmente ne hai **${weeklyPartners}**.`,

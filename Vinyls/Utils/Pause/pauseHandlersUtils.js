@@ -9,7 +9,9 @@ const PAUSE_FESTIVI_TIMEZONE = "Europe/Rome";
 const STAFF_ROLE_PRIORITY = [
   IDs.roles.Founder,
   IDs.roles.Admin,
+  IDs.roles.Director,
   IDs.roles.HighStaff,
+  IDs.roles.SeniorModerator,
   IDs.roles.Mod,
   IDs.roles.Helper,
   IDs.roles.Staff,
@@ -85,10 +87,13 @@ function countFestiviInRange(start, end) {
 }
 
 const PAUSE_ROLE_LIMITS = {
-  Helper: null,
-  Mod: 3,
+  Helper: 2,
+  Mod: 2,
+  "Senior Moderator": 2,
+  SeniorModerator: 2,
+  Director: 1,
   HighStaff: 1,
-  Admin: 2,
+  Admin: 1,
   Founder: 1,
   Staff: null,
   PartnerManager: null,

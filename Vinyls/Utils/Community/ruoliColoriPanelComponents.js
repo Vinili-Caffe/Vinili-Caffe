@@ -225,14 +225,14 @@ function buildRolePanelCategoryPickerRow(ownerId, selectedKey) {
       .setMinValues(1)
       .setMaxValues(1)
       .addOptions(
-        //{ label: "Pronomi", value: "pronouns", emoji: "⭐", default: sel === "pronouns" },
-        //{ label: "Età", value: "age", emoji: "🎂", default: sel === "age" },
-        //{ label: "Segno zodiacale", value: "zodiac", emoji: "💫", default: sel === "zodiac" },
+        { label: "Pronomi", value: "pronouns", emoji: "⭐", default: sel === "pronouns" },
+        { label: "Età", value: "age", emoji: "🎂", default: sel === "age" },
+        { label: "Segno zodiacale", value: "zodiac", emoji: "💫", default: sel === "zodiac" },
         { label: "Provenienza", value: "region", emoji: "🌍", default: sel === "region" },
         { label: "Stato DM", value: "dm", emoji: "💬", default: sel === "dm" },
         { label: "Stato sentimentale", value: "relationship", emoji: "💘", default: sel === "relationship" },
         { label: "Ping", value: "mentions", emoji: "🔔", default: sel === "mentions" },
-        //{ label: "Colori Base", value: "colors1", emoji: "🎨", default: sel === "colors1" },
+        { label: "Colori Base", value: "colors1", emoji: "🎨", default: sel === "colors1" },
         { label: "Colori Livelli", value: "colors_level", emoji: "<:VC_EXP:1482534670896730143>", default: sel === "colors_level" },
         { label: "Colori Plus", value: "colors_plus", emoji: "<:VC_Vip:1482534921472835895>", default: sel === "colors_plus" },
       ),

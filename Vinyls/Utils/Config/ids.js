@@ -195,6 +195,8 @@ const ids = {
     Perms2: "1442568890075971724",
     StafferDelMese: "1442568895251611924",
     Admin: "1442568893435478097",
+    Director: "1502322782602530977",
+    SeniorModerator: "1502321956236824677",
     HighStaff: "1442568894349840435",
     Mod: "1442568901887000618",
     Helper: "1442568904311570555",
@@ -572,6 +574,8 @@ ids.aliasEntries = {
 ids.websiteMaintenanceBypassRoleIds = [
   ids.roles.Founder,
   ids.roles.Admin,
+  ids.roles.Director,
+  ids.roles.SeniorModerator,
   ids.roles.HighStaff,
   ids.roles.Mod,
   ids.roles.Helper,

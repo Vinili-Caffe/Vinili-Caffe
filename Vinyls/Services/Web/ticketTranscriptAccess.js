@@ -29,7 +29,13 @@ async function fetchDiscordUserIdFromUserAccessToken(accessToken) {
 
 function memberHasTicketStaffRoles(member) {
   if (!member?.roles?.cache) return false;
-  const staffIds = [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.PartnerManager].filter(Boolean);
+  const staffIds = [
+    IDs.roles.Staff,
+    IDs.roles.SeniorModerator,
+    IDs.roles.Director,
+    IDs.roles.HighStaff,
+    IDs.roles.PartnerManager,
+  ].filter(Boolean);
   return staffIds.some((rid) => member.roles.cache.has(rid));
 }
 

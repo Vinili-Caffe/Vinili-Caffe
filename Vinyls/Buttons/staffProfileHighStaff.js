@@ -353,7 +353,11 @@ async function tryRefreshStaffPanelMessage(interaction, parsed, client) {
 
 async function ensureHighStaffViewer(interaction) {
   const roleId = IDs.roles?.HighStaff;
-  const has = Boolean(roleId && interaction.member?.roles?.cache?.has(roleId));
+  const directorId = IDs.roles?.Director;
+  const has = Boolean(
+    (roleId && interaction.member?.roles?.cache?.has(roleId)) ||
+      (directorId && interaction.member?.roles?.cache?.has(directorId)),
+  );
   if (has) return true;
   await interaction
     .reply({
@@ -380,6 +384,7 @@ function viewerMayRunDepexFull(member) {
   if (!member?.roles?.cache) return false;
   if (viewerIsCoordinatorOrAbove(member)) return true;
   if (Boolean(IDs.roles.Helper) && member.roles.cache.has(IDs.roles.Helper)) return true;
+  if (Boolean(IDs.roles.SeniorModerator) && member.roles.cache.has(IDs.roles.SeniorModerator)) return true;
   return Boolean(IDs.roles.Mod && member.roles.cache.has(IDs.roles.Mod));
 }
 
@@ -395,9 +400,10 @@ async function ensureDepexFullViewer(interaction) {
   return false;
 }
 
-/** Il menu scelta tipo depex resta disponibile solo agli Admin. */
+/** Il menu scelta tipo depex resta disponibile solo ai Director/Admin+. */
 function shouldAutoDepexStaffForViewer(member) {
   if (!member?.roles?.cache) return true;
+  if (Boolean(IDs.roles.Director) && member.roles.cache.has(IDs.roles.Director)) return false;
   if (Boolean(IDs.roles.Admin) && member.roles.cache.has(IDs.roles.Admin)) return false;
   return true;
 }
@@ -1086,6 +1092,8 @@ async function execute(interaction) {
           const roleByAction = {
             pex_helper: IDs.roles.Helper,
             pex_mod: IDs.roles.Mod,
+            pex_senior_moderator: IDs.roles.SeniorModerator,
+            pex_director: IDs.roles.Director,
             pex_admin: IDs.roles.Admin,
             pex_founder: IDs.roles.Founder,
           };

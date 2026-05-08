@@ -17,6 +17,10 @@ const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigame
 const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmReminderService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
+const { startDailyMemberStatsLoop } = require("../Services/Community/dailyMemberStatsService");
+const { startDailyEngagementStatsLoop } = require("../Services/Community/dailyEngagementStatsService");
+const { startDailyChannelMessageStatsLoop } = require("../Services/Community/dailyChannelMessageStatsService");
+const { migrateLegacyDailyStatsCollections } = require("../Services/Community/dailyStatsStore");
 const { restoreTempBans } = require("../Services/Moderation/joinRaidService");
 const { sendBannedUnbanLinkDms, shouldRunBannedUnbanDmOnStartup } = require("../Services/Moderation/bannedUnbanDmService");
 const { rehydrateAntiNukePanicForGuild } = require("../Services/Moderation/antiNukeService");
@@ -32,7 +36,7 @@ const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaff
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
-const { runScheduledEnds } = require("../Services/Giveaway/giveawayService");
+const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
 const { runCustomPerksRulesMigration } = require("../Services/Community/customPerksRulesMigrationService");
@@ -598,6 +602,9 @@ function startPrimaryLoops(client, engagementTick) {
     ["[NO ROLE 24H KICK] Failed to start loop", () => startNoRoleKickLoop(client)],
     ["[SPONSOR NICK SWEEP] Failed to start loop", () => startSponsorGuildNicknameSweepLoop(client)],
     ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
+    ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
+    ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
+    ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
     ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
     ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
     ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
@@ -623,6 +630,15 @@ function startPrimaryLoops(client, engagementTick) {
         runScheduledEnds(client).catch((e) => {
           const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
           global.logger?.warn?.("[GIVEAWAY] runScheduledEnds", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
+        });
+      syncActiveGiveawayButtons(client)
+        .then((result) => {
+          if (!result?.scanned) return;
+          global.logger?.info?.(`[GIVEAWAY] active button sync: scanned=${result.scanned} updated=${result.updated} failed=${result.failed}`);
+        })
+        .catch((e) => {
+          const isMongoNetwork = e?.name === "MongoNetworkTimeoutError" || e?.name === "MongoServerSelectionError";
+          global.logger?.warn?.("[GIVEAWAY] syncActiveGiveawayButtons", isMongoNetwork ? "MongoDB timeout, will retry next run." : (e?.message || e));
         });
       tick();
       const timer = setInterval(tick, 60 * 1000);
@@ -747,8 +763,16 @@ module.exports = {
     require("events").EventEmitter.defaultMaxListeners = maxListeners;
 
     await connectMongo(client);
-
     const primaryScheduler = isPrimaryScheduler(client);
+    if (primaryScheduler) {
+      try {
+        const result = await migrateLegacyDailyStatsCollections();
+        if (!result?.skipped) global.logger?.info?.("[DAILY STATS MIGRATION] completed into dailystats.");
+      } catch (err) {
+        global.logger?.warn?.("[DAILY STATS MIGRATION] failed:", err?.message || err);
+      }
+    }
+
     if (primaryScheduler) {
       try {
         startBumpDueReminderSweepLoop(client);

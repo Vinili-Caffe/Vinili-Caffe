@@ -14162,6 +14162,13 @@ html.vc-notif-overlay-active .vc-live-event-reopen:not([hidden]) {
   align-items: start;
 }
 
+body.vc-body.vc-reviews-page > main.vc-reviews-page {
+  width: 100%;
+  max-width: none;
+  padding-right: clamp(1rem, 4vw, 4.5rem);
+  padding-left: clamp(1rem, 4vw, 4.5rem);
+}
+
 /* Recensioni: palette e card allineate alla pagina Donazioni */
 .vc-reviews-page .vc-reviews-section--lead {
   margin-top: 0;
@@ -18430,17 +18437,13 @@ body.vc-body.vc-reviews-page .vc-reviews-card__text {
   color: rgba(247, 236, 223, 0.9);
   font-size: 0.92rem;
   line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
+  overflow: visible;
 }
 
 body.vc-body.vc-reviews-page .vc-reviews-card__reply-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
+  overflow: visible;
 }
 
 body.vc-body.vc-donazioni-page .vc-support-hero-pillars__panel {

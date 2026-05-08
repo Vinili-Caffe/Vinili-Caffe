@@ -46,7 +46,7 @@ module.exports = {
       "**⊹  | ** `🛠️` **__Candidature STAFF aperte!__** ୧",
       "　💼 Ogni mese il __miglior__ staffer viene **ricompensato** con un **Nitro Boost**!",
       "**⊹  | ** `🤝` **__Candidature PARTNER MANAGER aperte!__** ୧",
-      "　💎 Ricompensiamo i nostri **Partner Manager** con **Nitro Boost** e **soldi**!",
+      "　💎 Ricompensiamo i nostri **Partner Manager** con **Nitro Boost** e **ricompense**!",
     ].join("\n");
     if (!message.inGuild?.() || !message.guild || !message.member) return;
 
