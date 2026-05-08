@@ -5,7 +5,7 @@ const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity"
 
 function getStandardPrefixes(client) {
   const configured = String(client?.config?.prefix || ",").trim() || ",";
-  return Array.from(new Set([configured, "+"]));
+  return Array.from(new Set([configured]));
 }
 
 function resolveCommandFromContent(message, client) {
@@ -19,7 +19,6 @@ function resolveCommandFromContent(message, client) {
   const raw = content.slice(matchedPrefix.length).trim();
   const commandToken = String(raw.split(/\s+/)[0] || "").toLowerCase();
   if (!commandToken) return null;
-  if (matchedPrefix === "+" && commandToken !== "ping") return null;
 
   const resolved =
     client?.pcommands?.get?.(commandToken) ||

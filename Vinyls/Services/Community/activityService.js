@@ -1350,7 +1350,20 @@ async function getServerActivityStats(guildId, days = 7) {
 async function getServerOverviewStats(guildId, lookbackDays = 14, topLimit = 3) {
   const safeTopLimit = Math.max(1, Math.min(500, Number(topLimit || 3)));
   const safeLookback = [1, 7, 14, 21, 30].includes(Number(lookbackDays)) ? Number(lookbackDays) : 14;
-  await ensureHourlyBackfillForGuild(guildId);
+  if (HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS > 0) {
+    let timer;
+    try {
+      const timeoutP = new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), HOURLY_BACKFILL_PREFIX_MAX_WAIT_MS);
+        timer.unref?.();
+      });
+      await Promise.race([ensureHourlyBackfillForGuild(guildId), timeoutP]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } else {
+    await ensureHourlyBackfillForGuild(guildId);
+  }
   const hourKeys1 = getLastNHourKeys(24);
   const hourKeys7 = getLastNHourKeys(24 * 7);
   const hourKeys14 = getLastNHourKeys(24 * 14);

@@ -97,8 +97,31 @@ const PREFIX_SUBCOMMAND_HELP_DESCRIPTIONS = {
 const CONTEXT_HELP_DESCRIPTIONS = {};
 const CONTEXT_CATEGORY_OVERRIDES = {};
 const PERMISSIONS_CACHE_TTL_MS = 30_000;
+const HELP_STATE_TIMEOUT_MS = Math.max(500, Math.min(10_000, Number(process.env.HELP_STATE_TIMEOUT_MS ?? 2_500)));
+const HELP_MEMBER_TIMEOUT_MS = Math.max(500, Math.min(10_000, Number(process.env.HELP_MEMBER_TIMEOUT_MS ?? 3_000)));
 let permissionsCache = null;
 let permissionsCacheAt = 0;
+
+async function withHelpTimeout(promise, fallbackValue, label, timeoutMs) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise((resolve) => {
+        timer = setTimeout(() => {
+          global.logger?.warn?.(`[help] ${label} timed out after ${timeoutMs}ms`);
+          resolve(fallbackValue);
+        }, timeoutMs);
+        timer.unref?.();
+      }),
+    ]);
+  } catch (err) {
+    global.logger?.warn?.(`[help] ${label}:`, err?.message || err);
+    return fallbackValue;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function getHelpNewEntryKey(entry) {
   const type = String(entry?.type || "").toLowerCase();
@@ -109,13 +132,15 @@ function getHelpNewEntryKey(entry) {
 async function loadHelpNewUntilMap() {
   const now = Date.now();
   try {
-    const data = await getBotState("helpNewUntil", null);
+    const data = await withHelpTimeout(getBotState("helpNewUntil", null), null, "loadHelpNewUntilMap", HELP_STATE_TIMEOUT_MS);
     if (!data || typeof data !== "object") return {};
     const filtered = {};
     for (const [k, v] of Object.entries(data)) {
       if (typeof v === "number" && v > now) filtered[k] = v;
     }
-    if (Object.keys(filtered).length !== Object.keys(data).length) await saveHelpNewUntilMap(filtered);
+    if (Object.keys(filtered).length !== Object.keys(data).length) {
+      void saveHelpNewUntilMap(filtered);
+    }
     return filtered;
   } catch (_) {
     return {};
@@ -124,7 +149,7 @@ async function loadHelpNewUntilMap() {
 
 async function saveHelpNewUntilMap(data) {
   try {
-    await setBotState("helpNewUntil", data);
+    await withHelpTimeout(setBotState("helpNewUntil", data), null, "saveHelpNewUntilMap", HELP_STATE_TIMEOUT_MS);
   } catch (err) {
     global.logger?.warn?.("[help] saveHelpNewUntilMap:", err?.message || err);
   }
@@ -142,7 +167,7 @@ async function ensureHelpNewUntilForEntries(entries, newUntilMap) {
       dirty = true;
     }
   }
-  if (dirty) await saveHelpNewUntilMap(newUntilMap);
+  if (dirty) void saveHelpNewUntilMap(newUntilMap);
   return newUntilMap;
 }
 
@@ -1504,7 +1529,12 @@ module.exports = {
     const permissions = loadPermissions();
     const allEntries = buildEntries(client, permissions);
     const newUntilMap = await ensureHelpNewUntilForEntries(allEntries, await loadHelpNewUntilMap());
-    const freshMember = await getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000, preferFresh: true, });
+    const freshMember = await withHelpTimeout(
+      getGuildMemberCached(message.guild, message.author.id, { ttlMs: 20_000, preferFresh: true, }),
+      null,
+      "getGuildMemberCached",
+      HELP_MEMBER_TIMEOUT_MS,
+    );
     const resolvedMember = freshMember || message.member;
     const memberRoles = resolvedMember?.roles?.cache || new Map();
     const rolePages = PAGE_ROLE_IDS.filter((roleId) => memberRoles?.has(roleId),);

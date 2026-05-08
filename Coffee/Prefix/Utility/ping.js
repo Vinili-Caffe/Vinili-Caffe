@@ -29,7 +29,6 @@ async function pingDbLatencyMs() {
 
 module.exports = {
   name: "ping",
-  aliases: ["pong"],
   allowEmptyArgs: true,
   description: "Mostra latenza bot, database e uptime.",
   async execute(message) {
