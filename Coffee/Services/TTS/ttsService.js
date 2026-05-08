@@ -781,7 +781,8 @@ async function ensureConnection(state, voiceChannel) {
     const msg = String(err?.message || "").toLowerCase();
     return msg.includes("ip discovery") || msg.includes("socket closed") || msg.includes("aborted") || msg.includes("signalling");
   };
-  const maxAttempts = 5;
+  const maxAttempts = Math.max(1, Number(process.env.TTS_VOICE_JOIN_MAX_ATTEMPTS || 2));
+  const readyTimeoutMs = Math.max(5_000, Number(process.env.TTS_VOICE_JOIN_READY_TIMEOUT_MS || 10_000));
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let connection = null;
     try {
@@ -795,7 +796,7 @@ async function ensureConnection(state, voiceChannel) {
       state.guildId = voiceChannel.guild.id;
       state.channelId = voiceChannel.id;
       connection.subscribe(state.player);
-      await entersState(connection, VoiceConnectionStatus.Ready, 25_000);
+      await entersState(connection, VoiceConnectionStatus.Ready, readyTimeoutMs);
       setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
       await saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
       return connection;
@@ -919,9 +920,16 @@ async function handleTtsMessage(message, client, prefix) {
 async function joinTtsChannel(voiceChannel) {
   if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
   if (!voiceChannel.joinable) return { ok: false, reason: "not_joinable" };
+  const lockedChannelId = getLockedChannelId(voiceChannel.guild.id);
+  if (lockedChannelId && String(lockedChannelId) !== String(voiceChannel.id)) {
+    return { ok: false, reason: "locked" };
+  }
   const state = getState(voiceChannel);
-  const connection = await ensureConnection(state, voiceChannel);
-  if (!connection) return { ok: false, reason: "locked" };
+  const connection = await ensureConnection(state, voiceChannel).catch((err) => {
+    global.logger?.warn?.("[TTS] joinTtsChannel failed:", err?.message || err);
+    return null;
+  });
+  if (!connection) return { ok: false, reason: "join_failed" };
   return { ok: true };
 }
 function findLockedChannelIdByGuild(guildId) {

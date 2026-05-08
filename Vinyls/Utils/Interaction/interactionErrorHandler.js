@@ -6,6 +6,10 @@ const PRIVATE_FLAG = 1 << 6;
 
 async function logInteractionError(interaction, client, err) {
   try {
+    global.logger?.error?.(
+      `[INTERACTION ERROR] context=${String(interaction?.commandName || interaction?.customId || "unknown")} guild=${String(interaction?.guildId || "dm")} user=${String(interaction?.user?.id || "unknown")}`,
+      err?.stack || err?.message || err,
+    );
     const resolvedClient = client || interaction?.client || null;
     const errorChannelId = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
     const errorChannel = errorChannelId && resolvedClient ? await getCentralChannel(resolvedClient, errorChannelId) : null;

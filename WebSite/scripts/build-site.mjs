@@ -85,12 +85,118 @@ function escHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function buildPremiumFooterTemplate() {
+  return `
+  <footer class="vc-premium-footer" aria-label="Footer">
+    <div class="vc-premium-footer__card">
+      <div class="vc-premium-footer__outer">
+        <div class="vc-premium-footer__inner">
+          <div class="vc-premium-footer__grid">
+            <section class="vc-premium-footer__brand" aria-label="{{SITE_NAME}}">
+              <a class="vc-premium-footer__logo-row" href="{{SITE_URL}}" aria-label="Vai alla homepage">
+                <span class="vc-premium-footer__logo" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 20C4 20 4 14 10 10C16 6 20 4 20 4C20 4 18 8 14 14C10 20 4 20 4 20Z" fill="white" />
+                    <path d="M4 20L10 14" stroke="white" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="vc-premium-footer__wordmark">{{SITE_NAME}}</span>
+              </a>
+              <p class="vc-premium-footer__desc">Community italiana Discord curata nei dettagli: musica, socialità, ruoli personalizzati, eventi e strumenti sviluppati su misura.</p>
+              <div class="vc-premium-footer__socials" aria-label="Social">
+                <a class="vc-premium-footer__social" href="{{INSTAGRAM_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.8" cy="7.2" r="1.1" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{DISCORD_INVITE_URL}}" target="_blank" rel="noopener noreferrer" aria-label="Discord">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 5.4A17 17 0 0 0 15.2 4l-.2.4a13 13 0 0 1 3.2 1.6 10.8 10.8 0 0 0-4-1.2 11.2 11.2 0 0 0-4.4.2A10.8 10.8 0 0 0 5.8 6a13 13 0 0 1 3.3-1.6L8.9 4a17 17 0 0 0-4.4 1.4C1.8 9.4 1 13.3 1.4 17.2A17 17 0 0 0 6.6 20l1.1-1.5c-.6-.2-1.2-.5-1.8-.9l.4-.3c3.4 1.6 7.2 1.6 10.6 0l.4.3c-.6.4-1.2.7-1.8.9l1.1 1.5a17 17 0 0 0 5.2-2.8c.5-4.5-.8-8.4-2.3-11.8ZM8.8 15.1c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.4 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z" fill="currentColor"/></svg>
+                </a>
+                <a class="vc-premium-footer__social" href="{{TIKTOK_URL}}" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4v9.1a4.4 4.4 0 1 1-4.4-4.4c.35 0 .7.04 1.03.12v2.55a1.9 1.9 0 1 0 1.03 1.68V4h2.34Zm0 0c.4 2.15 1.74 3.43 3.7 3.84v2.42c-1.52-.08-2.8-.56-3.7-1.36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+              </div>
+            </section>
+            <nav class="vc-premium-footer__col" aria-label="Community">
+              <h4>Community</h4>
+              <ul>
+                <li><a href="{{SITE_URL}}">Home</a></li>
+                <li><a href="{{USER_PAGE_URL}}">Users</a></li>
+                <li><a href="{{RUOLI_PAGE_URL}}">Ruoli</a></li>
+                <li><a href="{{FORUM_URL}}">Forum</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Scopri">
+              <h4>Scopri</h4>
+              <ul>
+                <li><a href="{{WIKI_URL}}">Wiki</a></li>
+                <li><a href="{{COMMUNITY_RULES_URL}}">Regole</a></li>
+                <li><a href="{{FAQ_URL}}">FAQ</a></li>
+                <li><a href="{{SPONSOR_URL}}">Sponsor</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Supporta">
+              <h4>Supporta</h4>
+              <ul>
+                <li><a href="{{PERKS_URL}}">Perks</a></li>
+                <li><a href="{{VOTE_URL}}">Vota</a></li>
+                <li><a href="{{REVIEWS_PAGE_URL}}">Recensioni</a></li>
+                <li><a href="{{DONATIONS_URL}}">Donazioni</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Richieste">
+              <h4>Richieste</h4>
+              <ul>
+                <li><a href="{{RICHIESTE_CANDIDATURE_URL}}">Candidature</a></li>
+                <li><a href="{{RICHIESTE_UNBAN_URL}}">Unban</a></li>
+                <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}">Suggerimenti</a></li>
+              </ul>
+            </nav>
+            <nav class="vc-premium-footer__col" aria-label="Account">
+              <h4>Account</h4>
+              <ul>
+                <li><a href="{{NOTIFICATIONS_URL}}">Notifiche</a></li>
+                <li><a href="{{USER_PERSONALIZZA_URL}}">Personalizza</a></li>
+                <li><a href="{{VERIFY_URL}}">Verifica</a></li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+        <div class="vc-premium-footer__legal">
+          <p>© {{YEAR}} {{SITE_NAME}}. All rights reserved.</p>
+          <nav aria-label="Link legali">
+            <a href="{{TERMS_URL}}">Termini di Servizio</a>
+            <span aria-hidden="true"></span>
+            <a href="{{PRIVACY_URL}}">Privacy Policy</a>
+            <span aria-hidden="true"></span>
+            <a href="{{COOKIE_POLICY_URL}}">Cookie Policy</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </footer>`;
+}
+
+function replaceLegacyFooter(html) {
+  if (!html.includes("vc-footer-brand-row")) return html;
+  return html.replace(
+    /<footer\b(?=[\s\S]*?vc-footer-brand-row)[\s\S]*?<\/footer>/g,
+    buildPremiumFooterTemplate(),
+  );
+}
+
 function applyPlaceholderMap(html, map) {
+  html = replaceLegacyFooter(html);
   for (const [key, value] of Object.entries(map)) {
     const ph = `{{${key}}}`;
     if (html.includes(ph)) {
       html = html.split(ph).join(String(value ?? ""));
     }
+  }
+  const assetVersion = encodeURIComponent(String(map.BUILD_ASSET_VERSION || ""));
+  if (assetVersion) {
+    html = html.replace(
+      /href=(["'])([^"']*\/?css\/(?:tw-build|vc-landing)\.css)(?![?])\1/g,
+      `href=$1$2?v=${assetVersion}$1`,
+    );
   }
   return html;
 }
@@ -1547,6 +1653,10 @@ async function main() {
     TERMS_URL: escAttr(termsUrlResolved),
     PRIVACY_URL: escAttr(privacyUrlResolved),
     COOKIE_POLICY_URL: escAttr(cookiePolicyUrlResolved),
+    FORUM_URL: escAttr(defaultLegalPath("forum")),
+    NOTIFICATIONS_URL: escAttr(defaultLegalPath("notifications")),
+    USER_PERSONALIZZA_URL: escAttr(defaultLegalPath("user/personalizza")),
+    VERIFY_URL: escAttr(defaultLegalPath("verify")),
     LEGAL_TERMS_UPDATED: escHtml(legalTermsDate),
     LEGAL_PRIVACY_UPDATED: escHtml(legalPrivacyDate),
     LEGAL_COOKIE_UPDATED: escHtml(legalCookieDate),
@@ -1690,6 +1800,8 @@ async function main() {
     INSTAGRAM_LI_FOOTER: "",
     FOOTER_SOCIAL_LEFT: footerSocialLeft,
     FOOTER_SOCIAL_RIGHT: footerSocialRight,
+    INSTAGRAM_URL: escAttr(instagramUrlResolved || "#"),
+    TIKTOK_URL: escAttr(tiktokUrlResolved || "#"),
     WIKI_PAGE_TITLE: `${siteName} Wiki`,
     WIKI_META_DESCRIPTION: escAttr(
       `Documentazione, comandi e guide del server ${siteName} su Discord.`,

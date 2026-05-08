@@ -41,6 +41,14 @@ module.exports = {
       if (w) scheduleMessageDeletion(w, EPHEMERAL_TTL_SHORT_MS);
       return;
     }
+    if (!ttsResult.ok) {
+      const failedEmbed = new EmbedBuilder()
+        .setColor("#ED4245")
+        .setDescription("Non riesco a connettermi al canale vocale in questo momento. Riprova tra qualche secondo.");
+      const w = await safeMessageReply(message, { embeds: [failedEmbed] });
+      if (w) scheduleMessageDeletion(w, EPHEMERAL_TTL_SHORT_MS);
+      return;
+    }
     setVoiceSession(message.guild?.id, {
       mode: "tts",
       channelId: voiceChannel.id,

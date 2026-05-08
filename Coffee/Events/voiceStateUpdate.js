@@ -1,4 +1,3 @@
-const IDs = require("../Utils/Config/ids");
 const {
   handleMusicBotVoiceDisconnect,
   shouldDeferTtsLeaveForMusicEmptyVc,
@@ -11,16 +10,11 @@ const {
   handleStanzaVoiceEmpty,
 } = require("../Services/Voice/stanzaVoiceRoomsService");
 
-const ALLOWED_GUILD_IDS = new Set([IDs.guilds ?. main,IDs.guilds ?. test].filter(Boolean).map((id)=>String(id)),);
-
 module.exports = {
   name: "voiceStateUpdate",
   async execute(oldState, newState, client) {
     const guild = newState?.guild || oldState?.guild;
     if (!guild) return;
-    if (ALLOWED_GUILD_IDS.size && !ALLOWED_GUILD_IDS.has(String(guild.id || ""))) {
-      return;
-    }
     if (!client?.user?.id) return;
 
     try {

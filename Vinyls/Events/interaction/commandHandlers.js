@@ -18,6 +18,16 @@ const OBSOLETE_SLASH_NAMES = new Set(
   (Array.isArray(DEFAULT_OBSOLETE_SLASH_NAMES) ? DEFAULT_OBSOLETE_SLASH_NAMES : []).map((s) => String(s || "").toLowerCase()).filter(Boolean),
 );
 
+function logCommandRuntimeError(interaction, error) {
+  const commandName = String(interaction?.commandName || "unknown");
+  const userId = String(interaction?.user?.id || "unknown");
+  const guildId = String(interaction?.guildId || "dm");
+  global.logger?.error?.(
+    `[SLASH COMMAND ERROR] command=${commandName} guild=${guildId} user=${userId}`,
+    error?.stack || error?.message || error,
+  );
+}
+
 function sanitizeEditPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
     return payload;
@@ -265,6 +275,7 @@ async function handleSlashCommand(interaction, client) {
     ]);
   } catch (error) {
     commandFailed = true;
+    logCommandRuntimeError(interaction, error);
     const errorChannelId=IDs.channels.errorLogChannel||IDs.channels.serverBotLogs;
     const errorChannel=errorChannelId?await getCentralChannel(client,errorChannelId):null;
     const staffEmbed=buildErrorLogEmbed({contextLabel:"Comando",contextValue:interaction.commandName||"unknown",userTag:interaction.user?.tag||interaction.user?.id||"-",error,serverName:interaction.guild?`${interaction.guild.name}[${interaction.guild.id}]`

@@ -4,15 +4,11 @@ const { handleOfficialPrefixMessage } = require("./officialPrefixDispatcher");
 const { getGuildMemberCached } = require("../Interaction/entityCache");
 
 const BOT_MENTION_REGEX = /<@!?\d+>/;
-const OFFICIAL_MAIN_GUILD_ID = IDs.guilds?.main || null;
-const TEST_GUILD_ID = IDs.guilds?.test || null;
-const ALLOWED_GUILD_IDS = new Set(
-  [OFFICIAL_MAIN_GUILD_ID, TEST_GUILD_ID].filter(Boolean).map((id) => String(id)),
-);
 const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set(
   [IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map((id) => String(id)),
 );
 const TEMPORARY_NOTICE_LIFETIME_MS = 8000;
+const EXTRA_PLUS_PREFIX_COMMANDS = new Set(["ping"]);
 
 const STAFF_BYPASS_PERMISSIONS = [
   PermissionFlagsBits.Administrator,
@@ -124,22 +120,23 @@ async function maybeSendWrongPrefixHint(message, client, validPrefix = "-") {
 
 async function dispatchPrefixMessage(message, client) {
   if (!message?.guild || message.author?.bot) return false;
-  if (
-    ALLOWED_GUILD_IDS.size &&
-    !ALLOWED_GUILD_IDS.has(String(message.guild.id || ""))
-  ) {
-    return false;
-  }
 
   const content = (message.content || "").trim();
   if (!content) return false;
   const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
+  const plusCommand = content.match(/^\+([a-z0-9][\w-]*)\b/i);
+  const isAllowedPlusCommand = plusCommand && EXTRA_PLUS_PREFIX_COMMANDS.has(String(plusCommand[1] || "").toLowerCase());
 
-  const startsWithPrefix = content.startsWith(safePrefix);
+  let startsWithPrefix = content.startsWith(safePrefix);
   const isMention =
     client.user &&
     BOT_MENTION_REGEX.test(content) &&
     content.replace(BOT_MENTION_REGEX, "").trim().length > 0;
+
+  if (!startsWithPrefix && isAllowedPlusCommand) {
+    message.content = safePrefix + content.slice(1);
+    startsWithPrefix = true;
+  }
 
   if (!startsWithPrefix && !isMention) {
     await maybeSendWrongPrefixHint(message, client, safePrefix);

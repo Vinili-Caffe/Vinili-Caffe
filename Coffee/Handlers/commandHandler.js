@@ -131,6 +131,33 @@ module.exports = (client) => {
         }
       }
     }
+
+    const globalDeployCheck = isCommandDeployRequired(
+      BOT_DEPLOY_CACHE_KEY,
+      { clientId, guildId: "global" },
+      client.commandArray,
+    );
+    const forceGlobalDeploy = shouldForceSlashDeploy();
+    if (globalDeployCheck.required || forceGlobalDeploy) {
+      try {
+        await rest.put(Routes.applicationCommands(clientId), {
+          body: client.commandArray,
+        });
+        markCommandDeployComplete(
+          BOT_DEPLOY_CACHE_KEY,
+          { clientId, guildId: "global" },
+          globalDeployCheck.hash,
+        );
+        if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Comandi slash globali Coffee deployati. scope=${globalDeployCheck.scopeKey} hash=${globalDeployCheck.hash}${forceGlobalDeploy ? " force=true" : ""}`);
+      } catch (error) {
+        if (Number(error?.code) === 50001 || Number(error?.status) === 403) {
+          if (LOG_COMMANDS) global.logger?.warn?.("[COMMANDS] Skip deploy slash globale: Missing Access.");
+        } else {
+          global.logger?.error?.("[COMMANDS] Failed to deploy global slash commands:", error);
+        }
+      }
+    }
+
     for (const guildId of allowedGuildIds) {
       const deployCheck = isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY,{clientId,guildId},client.commandArray,);
       const forceDeploy = shouldForceSlashDeploy() || forceDeployEmpty;

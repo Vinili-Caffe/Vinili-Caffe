@@ -34,6 +34,12 @@ module.exports = {
         "<a:VC_Cross:1482532424570376253> Il TTS è già in un altro canale. Usa leave poi join qui.",
       );
     }
+    if (!result.ok) {
+      return safeMessageReply(
+        message,
+        "<a:VC_Cross:1482532424570376253> Non riesco a connettermi al canale vocale in questo momento. Riprova tra qualche secondo.",
+      );
+    }
 
     return safeMessageReply(
       message,

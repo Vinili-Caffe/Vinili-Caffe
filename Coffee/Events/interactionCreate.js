@@ -4,7 +4,7 @@ const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed");
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../Utils/Moderation/commandPermissions");
 const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { safeReply } = require("../../shared/discord/replyRuntime");
-const { getClientChannelCached } = require("../Utils/Interaction/entityCache");
+const { getCentralChannel } = require("../Utils/Logging/commandUsageLogger");
 const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
@@ -12,7 +12,6 @@ const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzat
 const STANZA_BUTTON_DENIED =
   "<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
 const INTERACTION_DEDUPE_TTL_MS = 30 * 1000;
-const ALLOWED_GUILD_IDS = new Set([IDs.guilds?.main, IDs.guilds?.test].filter(Boolean).map((id) => String(id)),);
 
 function markInteractionSeen(client, interactionId) {
   if (!interactionId) return false;
@@ -137,8 +136,12 @@ async function runPermissionGate(interaction) {
 
 async function logInteractionError(interaction, client, err) {
   try {
+    global.logger?.error?.(
+      `[INTERACTION ERROR] context=${String(interaction?.commandName || interaction?.customId || "unknown")} guild=${String(interaction?.guildId || "dm")} user=${String(interaction?.user?.id || "unknown")}`,
+      err?.stack || err?.message || err,
+    );
     const errorChannelId = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
-    const errorChannel = errorChannelId ? await getClientChannelCached(client, errorChannelId, { ttlMs: 30_000 }) : null;
+    const errorChannel = errorChannelId ? await getCentralChannel(client, errorChannelId) : null;
 
     if (errorChannel?.isTextBased?.()) {
       const contextValue = interaction?.commandName || interaction?.customId || "unknown";
@@ -173,11 +176,7 @@ module.exports = {
     if (!interaction || interaction.replied || interaction.deferred) return;
     if (markInteractionSeen(client, interaction.id)) return;
 
-    if (
-      interaction.guildId &&
-      ALLOWED_GUILD_IDS.size &&
-      !ALLOWED_GUILD_IDS.has(String(interaction.guildId))
-    ) {
+    if (false) {
       const isComponentFlow =
         interaction.isButton?.() ||
         interaction.isStringSelectMenu?.() ||
@@ -269,7 +268,7 @@ module.exports = {
         if (await handleButtonInteraction(interaction, client)) return;
       }
     } catch (err) {
-      global.logger.error("[interactionCreate] error", err);
+      global.logger.error("[interactionCreate] error", err?.stack || err?.message || err);
       await logInteractionError(interaction, client, err);
     } finally {
       if (typeof releaseButtonGuard === "function") releaseButtonGuard();

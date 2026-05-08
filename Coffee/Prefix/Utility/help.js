@@ -52,6 +52,7 @@ const HELP_PAGE_SIZE = 18;
 const MAX_HELP_TEXT_LENGTH = 3900;
 const PREFIX_HELP_DESCRIPTIONS = {
   help: "Mostra tutti i comandi disponibili con il bot.",
+  ping: "Mostra latenza bot, database e informazioni di uptime.",
   join: "Fa entrare il bot nel tuo canale vocale.",
   leave: "Fa uscire il bot dal canale vocale.",
   voices: "Mostra le voci TTS disponibili.",

@@ -17,6 +17,10 @@ function isOfficialMainGuild(guildId) {
   return OFFICIAL_MAIN_GUILD_ID != null && String(guildId || "") === String(OFFICIAL_MAIN_GUILD_ID);
 }
 
+function isExternalGuild(guildId) {
+  return guildId != null && !isTestMainScopeGuild(guildId);
+}
+
 function resolveRoleReference(value) {
   if (value == null) return null;
   const raw = String(value).trim();
@@ -306,7 +310,13 @@ async function checkSlashPermission(interaction) {
   const userId = interaction?.user?.id || null;
   if (!guildId) return false;
 
-  if (!isTestMainScopeGuild(guildId)) return false;
+  if (isExternalGuild(guildId)) {
+    if (interaction.commandName === "dmbroadcast") {
+      const devIds = getDevIds(interaction?.client);
+      return devIds.includes(String(userId || ""));
+    }
+    return true;
+  }
 
   if (
     String(guildId) === String(TEST_MAIN_GUILD_ID || "") ||
@@ -343,10 +353,10 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
       : false;
   }
 
-  if (!isTestMainScopeGuild(guildId)) {
+  if (isExternalGuild(guildId)) {
     return returnDetails
-      ? { allowed: false, reason: "scope", requiredRoles: null, channels: null }
-      : false;
+      ? { allowed: true, reason: null, requiredRoles: null, channels: null }
+      : true;
   }
 
   const data = loadPermissions();
@@ -422,6 +432,15 @@ async function checkButtonPermission(interaction) {
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const data = loadPermissions();
   const rawPolicy = resolveComponentPolicy(data?.buttons, customId);
+
+  if (isExternalGuild(guildId)) {
+    return {
+      allowed: true,
+      reason: null,
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
 
   if (guildId && isOfficialMainGuild(guildId)) {
     if (!rawPolicy) {
@@ -502,6 +521,15 @@ async function checkStringSelectPermission(interaction) {
   const rawPolicy =
     resolveComponentPolicy(data?.selectMenus, customId) || resolveComponentPolicy(data?.buttons, customId);
 
+  if (isExternalGuild(guildId)) {
+    return {
+      allowed: true,
+      reason: null,
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
+
   if (guildId && isOfficialMainGuild(guildId)) {
     if (!rawPolicy) {
       return {
@@ -557,6 +585,15 @@ async function checkModalPermission(interaction) {
   const data = loadPermissions();
   const rawPolicy =
     resolveComponentPolicy(data?.modals, customId) || resolveComponentPolicy(data?.buttons, customId);
+
+  if (isExternalGuild(guildId)) {
+    return {
+      allowed: true,
+      reason: null,
+      requiredRoles: null,
+      ownerId: null,
+    };
+  }
 
   if (guildId && isOfficialMainGuild(guildId)) {
     if (!rawPolicy) {

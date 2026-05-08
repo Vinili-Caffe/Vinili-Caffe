@@ -277,6 +277,10 @@ async function executePrefixCommandRuntime({
       }),
     ]);
   } catch (error) {
+    global.logger?.error?.(
+      `[PREFIX COMMAND ERROR] command=${String(execCommand?.name || "unknown")} guild=${String(execMessage?.guild?.id || "dm")} user=${String(execMessage?.author?.id || "unknown")}`,
+      error?.stack || error?.message || error,
+    );
     const channelID = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
     const errorChannel = channelID ? await getCentralChannel(resolvedClient, channelID) : null;
     const errorEmbed = buildErrorLogEmbed({

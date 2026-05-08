@@ -19,6 +19,7 @@ const {
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed");
 const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide");
 const IDs = require("../Config/ids");
+const { getCentralChannel } = require("../Logging/commandUsageLogger");
 const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
 
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.HighStaff || IDs.roles?.Founder || null;
@@ -274,9 +275,7 @@ async function logPrefixErrorToChannel(message, client, commandName, error) {
   try {
     const channelId = IDs.channels.errorLogChannel || IDs.channels.serverBotLogs;
     if (!channelId) return;
-    const errorChannel =
-      client.channels?.cache?.get(channelId) ||
-      (await client.channels?.fetch?.(channelId).catch(() => null));
+    const errorChannel = await getCentralChannel(client, channelId);
     if (!errorChannel?.isTextBased?.()) return;
     const embed = buildErrorLogEmbed({
       contextLabel: "Comando",
@@ -355,6 +354,10 @@ async function executePrefixCommandRuntime({ payload, resolvedClient }) {
       }),
     ]);
   } catch (error) {
+    global.logger?.error?.(
+      `[PREFIX COMMAND ERROR] command=${String(execCommand?.name || "unknown")} guild=${String(execMessage?.guild?.id || "dm")} user=${String(execMessage?.author?.id || "unknown")}`,
+      error?.stack || error?.message || error,
+    );
     await logPrefixErrorToChannel(execMessage, resolvedClient, execCommand?.name || "unknown", error);
     const feedback = buildInternalCommandErrorEmbed(error);
     await execMessage.delete().catch(() => null);

@@ -23,7 +23,19 @@ module.exports = {
           }
         }
       } catch (error) {
-        global.logger?.error?.(`[BUTTON_HANDLERS] ${handler.name} execute error:`, error);
+        global.logger?.error?.(
+          `[BUTTON_HANDLERS] ${handler.name} execute error customId=${String(interaction?.customId || "")} guild=${String(interaction?.guildId || "dm")} user=${String(interaction?.user?.id || "unknown")}:`,
+          error?.stack || error?.message || error,
+        );
+        if (!interaction?.replied && !interaction?.deferred) {
+          await interaction
+            .reply({
+              content: "<a:VC_Alert:1482706673176150077> C'e stato un errore nell'esecuzione del pulsante.",
+              flags: 1 << 6,
+            })
+            .catch(() => null);
+        }
+        return true;
       }
     }
     return false;

@@ -57,6 +57,22 @@
                 "channels.stanzaLobbyVoice"
             ]
         },
+        "ping": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic",
+                "channels.stanzaLobbyVoice"
+            ]
+        },
         "clear": {
             "roles": ["roles.Member"],
             "channels": [
