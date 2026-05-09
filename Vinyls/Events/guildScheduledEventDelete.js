@@ -1,7 +1,6 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-const { finishSerataFilmSession } = require("../Services/Staff/staffAutoValutazioniService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -85,9 +84,6 @@ module.exports = {
   name: "guildScheduledEventDelete",
   async execute(scheduledEvent) {
     try {
-      await finishSerataFilmSession(scheduledEvent).catch((err) => {
-        global.logger?.warn?.("[guildScheduledEventDelete] serata film auto:", err?.message || err);
-      });
       const guild = scheduledEvent?.guild;
       const eventId = String(scheduledEvent?.id || "");
       if (!guild || !eventId) return;

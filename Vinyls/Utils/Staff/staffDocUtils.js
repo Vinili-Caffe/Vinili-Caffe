@@ -8,6 +8,13 @@ function ensureStaff(profileDoc) {
   if (!profileDoc.staff) {
     profileDoc.staff = {};
   }
+  if (Array.isArray(profileDoc.staff.autoValutazioni)) {
+    profileDoc.staff.autoValutazioni = profileDoc.staff.autoValutazioni.filter((entry) => {
+      const key = String(entry?.key || "").trim();
+      const type = String(entry?.type || "").trim();
+      return key && (type === "positive" || type === "negative");
+    });
+  }
   return profileDoc.staff;
 }
 

@@ -11,8 +11,11 @@ const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
 const AUTO_SYNC_CRON = "*/30 * * * *";
 const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
+const STAFF_BOOST_AUTO_KEY = "staff_boost_server";
+const BOOST_NATURAL_EXPIRY_MIN_AGE_MS = 27 * 24 * 60 * 60 * 1000;
 const autoWeeklyLoops = new WeakSet();
 const serataFilmSessions = new Map();
+let autoValutazioniCleanupStarted = false;
 
 function autoActor(guild) {
   return { user: guild?.client?.user || { username: "Automazione Staff" }, member: null };
@@ -62,6 +65,51 @@ function hasVanitySupporterOrClanTag(member) {
   const hasSupporter = member.roles?.cache?.has(String(IDs.roles?.SocialSupporter));
   const hasClanTag = hasAnyRole(member, getGuildedRoleIds(member.client));
   return Boolean(hasVanity || hasSupporter || hasClanTag);
+}
+
+function memberHasActiveServerBoost(member) {
+  return Boolean(
+    Number(member?.premiumSinceTimestamp || 0) > 0 ||
+    member?.roles?.cache?.has?.(String(IDs.roles?.ServerBooster || "")) ||
+    member?.roles?.cache?.has?.(String(IDs.roles?.DoubleBooster || "")),
+  );
+}
+
+async function syncStaffBoostAutoValutazione(member, options = {}) {
+  if (!member?.guild || member.user?.bot) return;
+  if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
+  if (!isStaffMember(member)) return;
+
+  if (memberHasActiveServerBoost(member)) {
+    await ensureAutoValutazione(member.guild, member, STAFF_BOOST_AUTO_KEY, "positive", "Supporta il server con un boost.");
+    return;
+  }
+
+  if (options.removeBecauseTransferred === true) {
+    await removeAutoValutazione(member.guild, member.id, STAFF_BOOST_AUTO_KEY);
+  }
+}
+
+function isLikelyBoostTransferAway(oldMember, newMember) {
+  const oldBoostTs = Number(oldMember?.premiumSinceTimestamp || 0);
+  const newBoostTs = Number(newMember?.premiumSinceTimestamp || 0);
+  if (!(oldBoostTs > 0 && !newBoostTs)) return false;
+
+  const currentCount = Number(newMember?.guild?.premiumSubscriptionCount || 0);
+  const previousCount = Number(oldMember?.guild?.premiumSubscriptionCount || 0);
+  if (!(currentCount < previousCount)) return false;
+
+  const oldBoostAgeMs = Date.now() - oldBoostTs;
+  return Number.isFinite(oldBoostAgeMs) && oldBoostAgeMs >= 0 && oldBoostAgeMs < BOOST_NATURAL_EXPIRY_MIN_AGE_MS;
+}
+
+async function handleStaffBoostAutoValutazioneMemberUpdate(oldMember, newMember) {
+  if (!newMember?.guild || newMember.user?.bot) return;
+  if (MAIN_GUILD_ID && String(newMember.guild.id) !== MAIN_GUILD_ID) return;
+  if (!isStaffMember(newMember) && !isStaffMember(oldMember)) return;
+  await syncStaffBoostAutoValutazione(newMember, {
+    removeBecauseTransferred: isLikelyBoostTransferAway(oldMember, newMember),
+  });
 }
 
 function weekKeyFromDate(date) {
@@ -168,11 +216,40 @@ async function removeAutoValutazione(guild, userId, key) {
   return { ok: true };
 }
 
-async function hasFourStarServerReview(guildId, userId) {
+async function cleanupMalformedAutoValutazioni() {
+  return ActivityUserProfile.updateMany(
+    { "staff.autoValutazioni": { $exists: true } },
+    [
+      {
+        $set: {
+          "staff.autoValutazioni": {
+            $filter: {
+              input: { $ifNull: ["$staff.autoValutazioni", []] },
+              as: "entry",
+              cond: {
+                $and: [
+                  { $ne: [{ $ifNull: ["$$entry.key", ""] }, ""] },
+                  { $in: ["$$entry.type", ["positive", "negative"]] },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ],
+  ).catch((err) => {
+    global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] cleanup malformed entries failed:", err?.message || err);
+    return null;
+  });
+}
+
+async function hasFourStarSiteReview(guildId, userId) {
   const doc = await SiteDocument.findOne({
     docType: "review",
     guildId: String(guildId),
     reviewKind: "server",
+    createdBy: "site",
+    provider: { $in: ["", null] },
     userId: String(userId),
     rating: { $gte: 4 },
   }).select("_id").lean().catch(() => null);
@@ -225,11 +302,13 @@ async function syncPersistentAutoValutazioniForMember(member) {
   }
 
   const reviewKey = "recensione_sito_4_stelle";
-  if (await hasFourStarServerReview(member.guild.id, member.id)) {
+  if (await hasFourStarSiteReview(member.guild.id, member.id)) {
     await ensureAutoValutazione(member.guild, member, reviewKey, "positive", "Mette una recensione sul nostro sito.");
   } else {
     await removeAutoValutazione(member.guild, member.id, reviewKey);
   }
+
+  await syncStaffBoostAutoValutazione(member);
 }
 
 async function syncWeeklyAutoValutazioniForMember(member, now = new Date()) {
@@ -297,6 +376,10 @@ async function syncAllStaffAutoValutazioni(client) {
 function startStaffAutoValutazioniLoop(client) {
   if (!client || autoWeeklyLoops.has(client)) return;
   autoWeeklyLoops.add(client);
+  if (!autoValutazioniCleanupStarted) {
+    autoValutazioniCleanupStarted = true;
+    cleanupMalformedAutoValutazioni().catch(() => null);
+  }
   const task = cron.schedule(AUTO_SYNC_CRON, () => {
     syncAllStaffAutoValutazioni(client).catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] loop failed:", err?.message || err);
@@ -359,11 +442,26 @@ async function finishSerataFilmSession(event) {
   }
 }
 
+async function finishSerataFilmSessionsForChannel(guild, channelId) {
+  if (!guild || String(channelId || "") !== SERATA_FILM_CHANNEL_ID) return;
+  const sessions = [...serataFilmSessions.values()]
+    .filter((session) => String(session.guildId || "") === String(guild.id || ""));
+  for (const session of sessions) {
+    await finishSerataFilmSession({
+      id: session.eventId,
+      guildId: session.guildId,
+      guild,
+      client: guild.client,
+      name: "SERATA FILM",
+      channelId: SERATA_FILM_CHANNEL_ID,
+    });
+  }
+}
+
 async function handleSerataFilmScheduledEventUpdate(oldEvent, newEvent) {
   const oldStatus = Number(oldEvent?.status || 0);
   const newStatus = Number(newEvent?.status || 0);
   if (newStatus === 2 && oldStatus !== 2) await startSerataFilmSession(newEvent);
-  if (oldStatus === 2 && (newStatus === 3 || newStatus === 4)) await finishSerataFilmSession(newEvent);
 }
 
 async function handleSerataFilmVoiceState(oldState, newState) {
@@ -395,12 +493,16 @@ async function restoreActiveSerataFilmSessions(client) {
 module.exports = {
   ensureAutoValutazione,
   removeAutoValutazione,
+  cleanupMalformedAutoValutazioni,
   syncPersistentAutoValutazioniForMember,
+  syncStaffBoostAutoValutazione,
+  handleStaffBoostAutoValutazioneMemberUpdate,
   syncWeeklyAutoValutazioniForMember,
   syncAllStaffAutoValutazioni,
   startStaffAutoValutazioniLoop,
   startSerataFilmSession,
   finishSerataFilmSession,
+  finishSerataFilmSessionsForChannel,
   handleSerataFilmScheduledEventUpdate,
   handleSerataFilmVoiceState,
   restoreActiveSerataFilmSessions,

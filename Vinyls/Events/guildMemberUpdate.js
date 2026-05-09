@@ -18,7 +18,7 @@ const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation
 const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
-const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
+const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate } = require("../Services/Staff/staffAutoValutazioniService");
 const {
   getAnnouncedBoostSlots,
   setAnnouncedBoostSlots,
@@ -1687,6 +1687,9 @@ module.exports = {
       await syncCustomVocEligibilityWindow(newMember);
       await syncCustomRoleEligibilityWindow(newMember);
       await handleBoostUpdate(oldMember, newMember);
+      await handleStaffBoostAutoValutazioneMemberUpdate(oldMember, newMember).catch((err) => {
+        global.logger?.warn?.("[guildMemberUpdate] staff boost auto valutazione:", newMember.id, err?.message || err);
+      });
       await maybeAnnounceDonationPackageInSupporters(oldMember, newMember);
     } catch (error) {
       global.logger?.error?.("[guildMemberUpdate] failed:", error);

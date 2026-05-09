@@ -154,14 +154,14 @@ async function handleStaffButtons(interaction) {
     return true;
   }
 
-  if (interaction.customId == "sanzioni") {
+  /*if (interaction.customId == "sanzioni") {
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setDescription([
       "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.",
       "",
       "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**",
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
@@ -170,7 +170,7 @@ async function handleStaffButtons(interaction) {
     ].join("\n"));
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
-  }
+  }*/
 
   if (interaction.customId == "moderazione_staff") {
     const embed = new EmbedBuilder()
@@ -237,20 +237,20 @@ async function handleStaffButtons(interaction) {
       "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n\n" +
       "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni positive** aumentano la possibilità di essere **pexati** e si possono **ottenere** generando un'__attività__ **superiore** a quella richiesta nei _limiti settimanali_ o facendo qualcosa per dare un **vantaggio** al __server__.\n\n" +
       "> Le **valutazioni positive** si possono **__scambiare__** per dei giorni in più di **pausa**.\n\n" +
-      "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n\m" +
+      "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n\n" +
       "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
       "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
       "<a:VC_NewsExclamation:1471891662786527253> **__VALUTAZIONI AUTOMATICHE__**\n\n" +
-      "Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n\n" +
+      "> Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n" +
       "<:VC_1:1482706338021642333> **Completamento dei limiti settimanali superandoli __almeno del doppio__**\n" +
       "<:VC_2:1482706376525611090> **Completamento dei compiti extra o settimanali**\n" +
       "<:VC_3:1482706404773990460> **Completamento dei limiti sanzioni**\n\n" +
-      "Inoltre si possono ottenere delle valutazioni extra in base a alcuni ruoli:\n\n" +
+      "> Inoltre si possono ottenere delle valutazioni extra in base a alcuni ruoli:\n" +
       "<:VC_1:1482706338021642333> **Mettendo il link vanity nello status o nella bio, o mettendo una nostra GUILD TAGS**\n" +
       "<:VC_2:1482706376525611090> **Seguendo le pagina social**\n" +
-      "<:VC_3:1482706404773990460> **Mettendo una recensionione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
-      "<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà solo il doppio boost, se viene tolto un boost, verrà rimossa anche la valutazione.__ Solo per il ruolo Supporter e Follower bisognerà aprire un ticket \`HIGH STAFF\`)**\n\n" +
-      "L'<@&" + IDs.roles.HighStaff + "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community."
+      "<:VC_3:1482706404773990460> **Mettendo una recensione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
+      "<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per il ruolo Supporter e Follower bisognerà aprire un ticket \`HIGH STAFF\`)**\n\n" +
+      "> L'<@&" + IDs.roles.HighStaff + "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -301,7 +301,15 @@ async function handleStaffButtons(interaction) {
       "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Admin + ">\n" +
       "<:VC_DoubleReply:1482532332509466797> **__500__** messaggi\n" +
       "<:VC_Reply:1482532158080942191> **__5h__** in vocale\n\n" +
-      "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no."
+      "> <:VC_Attention:1482534443632558151> Verrà **valutato** anche il **modo** in cui questi __limiti__ vengono raggiunti, ovvero se lo **staffer** è stato costante o no." +
+      "<:reportmessage:1443670575376765130> Ogni staffer per sanzionare dovrà __seguire__ la <#1442569237142044773>.\n\n" +
+      "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
+      "",
+      "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;

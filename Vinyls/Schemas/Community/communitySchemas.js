@@ -256,8 +256,8 @@ const staffPauseEntrySchema = new Schema(
 );
 const staffAutoValutazioneSchema = new Schema(
   {
-    key: { type: String, required: true },
-    type: { type: String, enum: ["positive", "negative"], required: true },
+    key: { type: String, default: "" },
+    type: { type: String, enum: ["positive", "negative", ""], default: "" },
     reason: { type: String, default: "" },
     channelId: { type: String, default: null },
     messageId: { type: String, default: null },

@@ -36,7 +36,7 @@ const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaff
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
-const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions } = require("../Services/Staff/staffAutoValutazioniService");
+const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions, cleanupMalformedAutoValutazioni } = require("../Services/Staff/staffAutoValutazioniService");
 const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
@@ -277,7 +277,10 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
     {
       label: "startup sync staff auto valutazioni",
       enabled: primaryScheduler,
-      run: () => syncAllStaffAutoValutazioni(client),
+      run: async () => {
+        await cleanupMalformedAutoValutazioni();
+        await syncAllStaffAutoValutazioni(client);
+      },
     },
     {
       label: "restore active Serata Film staff tracking",

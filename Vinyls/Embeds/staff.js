@@ -52,15 +52,15 @@ async function run(client) {
       .setDescription(
         `<:discordstaff:1443651872258003005> La **__guida staff__** di __Vinili & Caffè__ serve per portare **ordine** tra lo __staff__, infatti sono presenti delle **__regole__** che __tutti__ dovranno **rispettare**; in __caso__ vengano \`trasgredite\`, potreste andare **incontro** a **__sanzioni__**, come **__\`valutazioni negative\`__** o in casi estremi il **__\`depex\`__**.
 
-> La __guida staff__ si divide in **__\`8\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
+> La __guida staff__ si divide in **__\`7\` sezioni__** che sono __accessibili__ **schiacciando** i \`bottoni\` sottostanti:
 <:VC_1:1482706338021642333> **Regolamento**
 <:VC_2:1482706376525611090> **Limiti Settimanali**
 <:VC_3:1482706404773990460> **Pause**
 <:VC_4:1482706432347344916> **Valutazioni**
 <:VC_5:1482706459765637272> **Moderazione**
-<:VC_6:1482706490769801327> **Sanzioni**
-<:VC_7:1482706523330183218> **Warn Staff**
-<:VC_8:1482706553281708092> **Guida Pex**`,
+<:VC_6:1482706490769801327> **Warn Staff**
+<:VC_7:1482706523330183218> **Guida Pex**
+`,
       ),
     new EmbedBuilder()
       .setColor("#6f4e37")
@@ -89,9 +89,11 @@ async function run(client) {
     new ButtonBuilder().setCustomId("moderazione_staff").setLabel("︲MODERAZIONE").setEmoji("<:discordstaff:1443651872258003005>").setStyle(ButtonStyle.Secondary),
   );
   const cleanRowGuideSecondary = new ActionRowBuilder().addComponents(
+    /*
     ...(SHOW_SANZIONI_IN_GUIDA_STAFF
       ? [new ButtonBuilder().setCustomId("sanzioni").setLabel("︲SANZIONI").setEmoji("<a:VC_Alarm:1482706641618079816>").setStyle(ButtonStyle.Secondary)]
       : []),
+    */
     new ButtonBuilder().setCustomId("warnstaff").setLabel("︲WARN STAFF").setEmoji("<:banhammer:1443651875441217639>").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("pex").setLabel("︲PEX").setEmoji("<a:VC_LevelUp:1482527020641419415>").setStyle(ButtonStyle.Secondary),
   );

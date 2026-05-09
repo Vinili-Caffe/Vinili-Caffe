@@ -5,6 +5,7 @@ const { markDeletedChannelSnapshot, } = require("../Utils/Community/channelSnaps
 const { ARROW, toDiscordTimestamp, channelTypeLabel, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleChannelDeletionAction: antiNukeHandleChannelDeletionAction } = require("../Services/Moderation/antiNukeService");
 const { clearGameForChannel } = require("../Services/Minigames/minigameService");
+const { finishSerataFilmSessionsForChannel } = require("../Services/Staff/staffAutoValutazioniService");
 
 const CHANNEL_DELETE_ACTION = AuditLogEvent?.ChannelDelete ?? 12;
 const AUDIT_RETRY_ATTEMPTS = 3;
@@ -42,6 +43,9 @@ module.exports = {
     if (!guild) return;
 
     clearGameForChannel(channel.id, client, channel.guildId);
+    await finishSerataFilmSessionsForChannel(guild, channel.id).catch((err) => {
+      global.logger?.warn?.("[channelDelete] serata film staff auto:", err?.message || err);
+    });
 
     let executorId = "";
     try {
