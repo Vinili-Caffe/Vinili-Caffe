@@ -20,7 +20,7 @@ module.exports = {
       if (ownerInBotChannel) {
         const denied = new EmbedBuilder()
           .setColor("#ED4245")
-          .setDescription(`Solo chi ha avviato la sessione può usare \`+leave\` finché è in vocale: <@${ownerId}>.`);
+          .setDescription(`Solo chi ha avviato la sessione può usare \`,leave\` finché è in vocale: <@${ownerId}>.`);
         return safeMessageReply(message, { embeds: [denied], allowedMentions: { users: [] } });
       }
     }

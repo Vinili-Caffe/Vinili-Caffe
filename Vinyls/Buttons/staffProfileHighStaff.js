@@ -158,7 +158,7 @@ function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
 }
 const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_helper: "Motivo pex Helper",
-  pex_mod: "Motivo pex Mod",
+  pex_mod: "Motivo pex Moderator",
   pex_senior_moderator: "Motivo pex Senior Moderator",
   pex_director: "Motivo pex Director",
   pex_admin: "Motivo pex Admin",
@@ -166,8 +166,8 @@ const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_pm: "Motivo pex Partner Manager",
   depex: "Motivo depex",
   depex_full: "Motivo depex completo",
-  depex_staff: "Motivo depex (scala staff)",
-  depex_pm_only: "Motivo depex (Partner Manager)",
+  depex_staff: "Motivo depex",
+  depex_pm_only: "Motivo depex",
   valpos: "Motivo valutazione positiva",
   valneg: "Motivo valutazione negativa",
   warn: "Motivo warn staff",
@@ -412,12 +412,12 @@ async function ensureDepexFullViewer(interaction) {
   return false;
 }
 
-/** Il menu scelta tipo depex resta disponibile solo ai Director/Admin+. */
-function shouldAutoDepexStaffForViewer(member) {
+function targetShouldChooseDepexMode(member) {
   if (!member?.roles?.cache) return true;
-  if (Boolean(IDs.roles.Director) && member.roles.cache.has(IDs.roles.Director)) return false;
-  if (Boolean(IDs.roles.Admin) && member.roles.cache.has(IDs.roles.Admin)) return false;
-  return true;
+  if (Boolean(IDs.roles.SeniorModerator) && member.roles.cache.has(IDs.roles.SeniorModerator)) return true;
+  if (Boolean(IDs.roles.Director) && member.roles.cache.has(IDs.roles.Director)) return true;
+  if (Boolean(IDs.roles.Admin) && member.roles.cache.has(IDs.roles.Admin)) return true;
+  return false;
 }
 
 const STAFF_HP_PM_HUB_ACTIONS = new Set([
@@ -850,17 +850,17 @@ async function execute(interaction) {
         }).catch(() => {});
         return true;
       }
-      if (shouldAutoDepexStaffForViewer(interaction.member)) {
-        return await openStaffHpReasonModalFromButton(interaction, { ...parsed, action: "depex_staff" });
+      if (!targetShouldChooseDepexMode(targetMember)) {
+        return await openStaffHpReasonModalFromButton(interaction, { ...parsed, action: "depex_full" });
       }
       const depexRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_staff")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-          .setLabel("Depex")
+          .setLabel("Depex in scala")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId(`${STAFF_HP_PREFIX}:${encodeStaffHpButtonAction("depex_full")}:${parsed.viewerId}:${parsed.targetId}:${secTok}${trail}`)
-          .setLabel("Depex Completo")
+          .setLabel("Depex completo")
           .setStyle(ButtonStyle.Secondary),
       );
       if (hasPartnerManager) {

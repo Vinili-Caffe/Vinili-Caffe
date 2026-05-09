@@ -712,7 +712,15 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
   if (!member) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
   }
-  const completeDepexRoleChain = [ROLE_DIRECTOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean);
+  const completeDepexRoleChain = [
+    ROLE_HELPER,
+    ROLE_MODERATOR,
+    ROLE_SENIOR_MODERATOR,
+    ROLE_DIRECTOR,
+    ROLE_ADMIN,
+    ROLE_CO_OWNER,
+    ROLE_OWNER,
+  ].filter(Boolean);
   let roleToRemove = null;
   for (let i = completeDepexRoleChain.length - 1; i >= 0; i--) {
     const roleId = completeDepexRoleChain[i];
@@ -722,14 +730,18 @@ async function runProfileStaffCompleteDepex(guild, client, targetUser, actorMemb
     }
   }
   if (!roleToRemove) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo da **Director** in su da depexare." };
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente non ha un ruolo staff da depexare." };
   }
   const isAdminOrAbove = [ROLE_DIRECTOR, ROLE_ADMIN, ROLE_CO_OWNER, ROLE_OWNER].filter(Boolean).includes(roleToRemove);
   const roleIdsToRemove = [ROLE_STAFF, roleToRemove, ...(isAdminOrAbove ? [ROLE_HIGH_STAFF] : [])].filter(Boolean);
   await member.roles.remove(roleIdsToRemove).catch(() => null);
+  if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
   const verification = await ensureMultipleRoleStates(
     member,
-    roleIdsToRemove.map((roleId) => ({ roleId, shouldHaveRole: false })),
+    [
+      ...roleIdsToRemove.map((roleId) => ({ roleId, shouldHaveRole: false })),
+      ...(ROLE_MEMBER ? [{ roleId: ROLE_MEMBER, shouldHaveRole: true }] : []),
+    ],
   );
   if (!verification.ok) {
     return { ok: false, message: "<:vegax:1443934876440068179> Depex completo non applicato correttamente." };

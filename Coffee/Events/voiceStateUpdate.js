@@ -2,7 +2,11 @@ const {
   handleMusicBotVoiceDisconnect,
   shouldDeferTtsLeaveForMusicEmptyVc,
 } = require("../Services/Music/lavalinkMusicService");
-const { leaveTtsGuild } = require("../Services/TTS/ttsService");
+const {
+  leaveTtsGuild,
+  handleTtsBotVoiceMove,
+  isTtsPostJoinVoiceGraceActive,
+} = require("../Services/TTS/ttsService");
 const {
   finalizeStanzaVisitorVoiceSessionIfLeft,
   handleStanzaVoiceLobbyJoin,
@@ -43,6 +47,29 @@ module.exports = {
     if (
       oldState.id === client.user.id &&
       oldState.channelId &&
+      newState.channelId &&
+      String(oldState.channelId) !== String(newState.channelId)
+    ) {
+      const newChannelId = String(newState.channelId);
+      const channel =
+        guild.channels?.cache?.get(newChannelId) ||
+        (await guild.channels?.fetch?.(newChannelId).catch(() => null));
+      if (channel?.isVoiceBased?.()) {
+        await handleTtsBotVoiceMove({
+          voiceChannel: channel,
+          oldChannelId: oldState.channelId,
+        }).catch((err) => {
+          global.logger?.warn?.(
+            "[voiceStateUpdate] handleTtsBotVoiceMove failed:",
+            err?.message || err,
+          );
+        });
+      }
+    }
+
+    if (
+      oldState.id === client.user.id &&
+      oldState.channelId &&
       !newState.channelId
     ) {
       await handleMusicBotVoiceDisconnect(client, guild).catch((err) => {
@@ -63,6 +90,7 @@ module.exports = {
     const botMember = guild.members.me || guild.members.cache.get(client.user.id);
     const botChannel = botMember?.voice?.channel;
     if (!botChannel) return;
+    if (isTtsPostJoinVoiceGraceActive(guild.id)) return;
 
     const humans = botChannel.members.filter((m) => !m.user.bot);
     if (humans.size === 0) {
