@@ -20,7 +20,7 @@ const CUSTOM_ROLE_DOUBLE_SLOT_ROLE_IDS = uniqDiscordRoleIds([
   IDs?.roles?.Level120,
 ]);
 
-/** Tier base: max 1 custom role totale (anche se ne hai piu di uno tra Level 50 / Booster / VIP). */
+/** Tier base: max 1 custom role totale (anche se ne hai più di uno tra Level 50 / Booster / VIP). */
 const CUSTOM_ROLE_SINGLE_SLOT_ROLE_IDS = uniqDiscordRoleIds([
   IDs?.roles?.VIP,
   IDs?.roles?.ServerBooster,

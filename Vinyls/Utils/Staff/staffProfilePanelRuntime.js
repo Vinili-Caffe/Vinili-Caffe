@@ -14,6 +14,7 @@ const { countModActionsByMod } = require("../Moderation/modCaseStore");
 const { buildPauseListPayload } = require("../Pause/pauseListRuntime");
 const { roleChoiceAppliesTo, PAUSE_ROLE_PM } = require("../Pause/pauseHandlersUtils");
 const { memberHasStaffRole } = require("../Community/staffListUtils");
+const { getStaffRoleEmojiByRoleId } = require("../Community/staffRoleEmoji");
 const { resolvePartnerPointsShown } = require("./partnerPointsDisplayUtils");
 const {
   PARTNER_MANAGER_REDEEM_TIERS,
@@ -280,10 +281,12 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includ
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_helper", v, t, SECTION_HOME, sourceMessageId))
         .setLabel("Member → Helper")
+        .setEmoji("<:VC_Helper:1502328751638450426>")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(formatStaffHpButtonCustomId("pex_pm", v, t, SECTION_HOME, sourceMessageId))
         .setLabel("Member → Partner Manager")
+        .setEmoji("<:VC_PartnerManager:1494286911286808576>")
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -294,10 +297,10 @@ function buildProspectPexRows(viewerId, targetId, sourceMessageId = null, includ
           .setCustomId(formatStaffHpSelectCustomId("prospect_pex", v, t, SECTION_HOME, sourceMessageId))
           .setPlaceholder("Promuovi a ruolo staff avanzato (solo Founder)")
           .addOptions(
-            { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Staff:1494286904089247754>" },
-            { label: "Member → Senior Moderator", value: "pex_senior_moderator", emoji: "<:VC_Staff:1494286904089247754>" },
-            { label: "Member → Director", value: "pex_director", emoji: "<:VC_Staff:1494286904089247754>" },
-            { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Staff:1494286904089247754>" },
+            { label: "Member → Mod", value: "pex_mod", emoji: "<:VC_Mod:1494287597952958514>" },
+            { label: "Member → Senior Moderator", value: "pex_senior_moderator", emoji: "<:VC_SeniorModerator:1494286913744539648>" },
+            { label: "Member → Director", value: "pex_director", emoji: "<:VC_Director:1494286915778641941>" },
+            { label: "Member → Admin", value: "pex_admin", emoji: "<:VC_Admin:1494286848686686209>" },
           ),
       ),
     );
@@ -787,6 +790,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
   }
 
   const displayRoleId = member ? resolveStaffProfileDisplayRoleId(member) : null;
+  const displayRoleEmoji = getStaffRoleEmojiByRoleId(usePartnersChatPmPanel ? pmRoleId : displayRoleId);
   let roleLabel = "—";
   if (usePartnersChatPmPanel) {
     roleLabel = pmRoleId ? guild.roles.cache.get(pmRoleId)?.name || "Partner Manager" : "Partner Manager";
@@ -902,7 +906,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
     const pauseShort = getStaffPauseLine(s, { pmOnly: true });
     const punti = partnerPtsForRedeem;
     const pmHomeDesc = [
-      `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
+      `${displayRoleEmoji} **Ruolo:** ${roleLabel}`,
       "",
       `<a:VC_Calendar:1482706208149475358> **Pause:** ${pauseShort}`,
       "",
@@ -1063,7 +1067,7 @@ async function buildStaffProfilePayload(guild, targetUserId, viewerId, client, s
 
   const puntiPartner = resolveStaffPartnerPointsDisplay(s);
   const homeDescParts = [
-    `<:VC_Staff:1494286904089247754> **Ruolo:** ${roleLabel}`,
+    `${displayRoleEmoji} **Ruolo:** ${roleLabel}`,
     "",
     `<a:VC_Calendar:1482706208149475358> **Pause:**`,
     `${pauseShort}`,

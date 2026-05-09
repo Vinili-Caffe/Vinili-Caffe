@@ -43,6 +43,12 @@ const IN_PPM_LINK = "staff_hp_ppm_link";
 const PRIVATE_FLAG = 1 << 6;
 const MAX_PPM_AMOUNT = 10000;
 const STAFF_HP_SECTIONS = new Set([SECTION_HOME, SECTION_VALUTAZIONI, SECTION_WARN, SECTION_PAUSE, SECTION_MODSTATS]);
+const FOUNDER_ONLY_PROSPECT_PEX_ACTIONS = new Set([
+  "pex_mod",
+  "pex_senior_moderator",
+  "pex_director",
+  "pex_admin",
+]);
 
 function normalizeSourceMessageId(raw) {
   const id = String(raw || "").trim();
@@ -72,6 +78,8 @@ const STAFF_HP_MODAL_ACTION_CODE = {
   pex: "pex",
   pex_helper: "phl",
   pex_mod: "pmo",
+  pex_senior_moderator: "psm",
+  pex_director: "pdr",
   pex_admin: "pxa",
   pex_founder: "pfn",
   pex_pm: "ppm",
@@ -151,6 +159,8 @@ function getModalTextInputTrimmed(interaction, customId, maxLen = null) {
 const TITLE_BY_ACTION = { pex: "Motivo pex",
   pex_helper: "Motivo pex Helper",
   pex_mod: "Motivo pex Mod",
+  pex_senior_moderator: "Motivo pex Senior Moderator",
+  pex_director: "Motivo pex Director",
   pex_admin: "Motivo pex Admin",
   pex_founder: "Motivo pex Founder",
   pex_pm: "Motivo pex Partner Manager",
@@ -204,6 +214,8 @@ function parseStaffHpButton(customId) {
     "pex",
     "pex_helper",
     "pex_mod",
+    "pex_senior_moderator",
+    "pex_director",
     "pex_admin",
     "pex_founder",
     "pex_pm",
@@ -565,12 +577,12 @@ async function openStaffHpReasonModalFromButton(interaction, parsed) {
       })
       .catch(() => {});
     return true;
-  } else if (!selfHp && (parsed.action === "pex_mod" || parsed.action === "pex_admin")) {
+  } else if (!selfHp && FOUNDER_ONLY_PROSPECT_PEX_ACTIONS.has(parsed.action)) {
     if (!viewerIsFounder(interaction.member)) {
       await interaction
         .reply({
           content:
-            "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod** e **Member → Admin**.",
+            "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod/Senior Moderator/Director/Admin**.",
           flags: PRIVATE_FLAG,
         })
         .catch(() => {});
@@ -757,14 +769,14 @@ async function execute(interaction) {
       await interaction
         .reply({
           content:
-            "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod** e **Member → Admin** da questo menu.",
+            "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod/Senior Moderator/Director/Admin** da questo menu.",
           flags: PRIVATE_FLAG,
         })
         .catch(() => {});
       return true;
     }
     const chosenAction = String(interaction.values?.[0] || "");
-    const allowed = new Set(["pex_mod", "pex_admin"]);
+    const allowed = FOUNDER_ONLY_PROSPECT_PEX_ACTIONS;
     if (!allowed.has(chosenAction)) {
       await interaction
         .reply({
@@ -951,12 +963,12 @@ async function execute(interaction) {
         })
         .catch(() => {});
       return true;
-    } else if (!selfHp && (parsed.action === "pex_mod" || parsed.action === "pex_admin")) {
+    } else if (!selfHp && FOUNDER_ONLY_PROSPECT_PEX_ACTIONS.has(parsed.action)) {
       if (!viewerIsFounder(interaction.member)) {
         await interaction
           .reply({
             content:
-              "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod** e **Member → Admin**.",
+              "<:vegax:1443934876440068179> Solo i **Founder** possono usare **Member → Mod/Senior Moderator/Director/Admin**.",
             flags: PRIVATE_FLAG,
           })
           .catch(() => {});

@@ -1283,7 +1283,7 @@ async function startWebhookServer(client) {
 
     if (err?.code === "EADDRINUSE") {
       global.logger?.error?.(
-        `[WEBHOOK] porta ${port} gia in uso: il server HTTP del bot non e stato avviato. ` +
+        `[WEBHOOK] porta ${port} già in uso: il server HTTP del bot non e stato avviato. ` +
           "Chiudi l'altro processo sulla stessa porta oppure cambia `discadia.webhookPort`.",
       );
       return;

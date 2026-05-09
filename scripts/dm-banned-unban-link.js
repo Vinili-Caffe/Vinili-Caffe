@@ -51,7 +51,7 @@ async function connectMongoIfNeeded(args) {
   if (!args.once || args.dryRun) return false;
   const mongoUrl = resolveMongoUrl();
   if (!mongoUrl) {
-    throw new Error("Mongo URL mancante: serve per ricordare che lo script e stato gia eseguito. Usa --no-once solo se vuoi ignorare la guardia.");
+    throw new Error("Mongo URL mancante: serve per ricordare che lo script e stato già eseguito. Usa --no-once solo se vuoi ignorare la guardia.");
   }
   if (mongoose.connection.readyState === 1) return true;
   mongoose.set("strictQuery", false);
@@ -80,7 +80,7 @@ async function main() {
     if (args.dryRun) {
       console.log("[dm-banned-unban] Per inviare davvero: node scripts/dm-banned-unban-link.js --send");
     } else if (result?.skipped && ["already_completed", "already_started"].includes(result?.reason)) {
-      console.log("[dm-banned-unban] Gia avviato/completato: usa --force per rilanciarlo volontariamente.");
+      console.log("[dm-banned-unban] già avviato/completato: usa --force per rilanciarlo volontariamente.");
     }
   } finally {
     client.destroy();

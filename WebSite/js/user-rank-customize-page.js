@@ -1061,7 +1061,7 @@
       .catch(function (err) {
         var status = Number(err && err.status);
         if (status === 413) {
-          setStatus("File troppo grande per il salvataggio. Usa una GIF piu leggera.", true);
+          setStatus("File troppo grande per il salvataggio. Usa una GIF più leggera.", true);
           return;
         }
         if (status > 0) {
