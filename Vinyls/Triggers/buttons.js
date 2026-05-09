@@ -217,7 +217,7 @@ async function handleStaffButtons(interaction) {
       .setColor("#6f4e37")
       .setDescription(
         "<a:VC_LevelUp:1482527020641419415> **__GUIDA PEX__**\n\n" +
-        "> Ogni ruolo per essere assegnato richiedere un certo tempo per essere ottenuto, ma non è detto che al raggiungimento di questo tempo venga assegnato il ruolo.\n" +
+        "> <:VC_Clock:1473359204189474886> Ogni ruolo per essere assegnato richiedere un certo tempo per essere ottenuto, ma non è detto che al raggiungimento di questo tempo venga assegnato il ruolo.\n" +
         "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Helper + "> è un ruolo di prova, **con un periodo variabile di 1-2 settimane**.\n" +
         "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Mod + "> **richiede un periodo variabile di 1-2 mesi**.\n" +
         "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.SeniorModerator + "> **richiede un periodo variabile di 2-3 mesi**.\n" +
@@ -234,11 +234,11 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "valutazioni") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n" +
+      "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n\n" +
       "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni positive** aumentano la possibilità di essere **pexati** e si possono **ottenere** generando un'__attività__ **superiore** a quella richiesta nei _limiti settimanali_ o facendo qualcosa per dare un **vantaggio** al __server__.\n\n" +
       "> Le **valutazioni positive** si possono **__scambiare__** per dei giorni in più di **pausa**.\n\n" +
-      "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n" +
-      "> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
+      "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n\m" +
+      "<a:questionexclaimanimated:1443660299994533960> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
       "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
       "<a:VC_NewsExclamation:1471891662786527253> **__VALUTAZIONI AUTOMATICHE__**\n\n" +
       "Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n\n" +
@@ -284,7 +284,7 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "limiti") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      "<:infoglowingdot:1443660296823767110> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
+      "<:VC_Info:1482526956703580372> I **`limiti settimanali`** sono dei **messaggi** e delle **ore vocali** che entro una __settimana__ si devono __raggiungere__.\n\n" +
       "> <:VC_Attention:1482534443632558151> **Superare** i limiti di __poco__ potrebbe comportare un **depex**, mentre **superarli** di __tanto__ **__non garantisce__** un **pex**.\n\n" +
       "<a:VC_Arrow:1482706699365257397> <@&" + IDs.roles.Helper + ">\n" +
       "<:VC_DoubleReply:1482532332509466797> **__400__** messaggi\n" +
@@ -309,15 +309,16 @@ async function handleStaffButtons(interaction) {
 
   if (interaction.customId == "regolamento") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
-      `<:VC_1:1482706338021642333> **Rispettare** le regole del server.\n\n` +
-      `<:VC_2:1482706376525611090> __Non__ **chiedere** pex _continuamente_.\n\n` +
-      `<:VC_3:1482706404773990460> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**.\n\n` +
-      `<:VC_4:1482706432347344916> __Non__ **abusare** di potere, ad esempio **sanzionando** un __utente__ \`senza un vero motivo\`.\n\n` +
-      `<:VC_5:1482706459765637272> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>.\n\n` +
-      `<:VC_6:1482706490769801327> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**.\n\n` +
-      `<:VC_7:1482706523330183218> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__.\n\n` +
-      `<:VC_8:1482706553281708092> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__.\n\n` +
-      `<a:VC_Alert:1482706673176150077> La violazione di una di queste regole può comportare una **sanzione** da parte dello staff, quindi è importante __conoscerle__ e __rispettarle__.`);
+      "<:rules:1443307208543703131> **__REGOLAMENTO STAFF__**\n\n" +
+      `<:VC_1:1482706338021642333> **Rispettare** le regole del server.\n` +
+      `<:VC_2:1482706376525611090> __Non__ **chiedere** pex _continuamente_.\n` +
+      `<:VC_3:1482706404773990460> __Non__ **istigare** o creare **flame** tra lo **\`staff\`** e gli **\`utenti\`**.\n` +
+      `<:VC_4:1482706432347344916> __Non__ **abusare** di potere, ad esempio **sanzionando** un __utente__ \`senza un vero motivo\`.\n` +
+      `<:VC_5:1482706459765637272> Se si è in una **vocale pubblica** da __mutati__ siete **obbligati** a scrivere in <#1442569130573303898>.\n` +
+      `<:VC_6:1482706490769801327> __Non__ **floodare**, **spammare** e **usare bot** per completare i **\`limiti settimanali testuali\`**.\n` +
+      `<:VC_7:1482706523330183218> __Non__ passare la maggior parte del **tempo** nei **canali vocali privati**, poiché non vengono **conteggiati** al fine dei __limiti settimanali__.\n` +
+      `<:VC_8:1482706553281708092> __Non__ **stare da soli** in una __vocale pubblica__ se in un'altra vi è già un altro **staffer** da solo. Inoltre, almeno uno dei due **deve** essere __smutato__.\n` +
+      `> <a:VC_Alert:1482706673176150077> La violazione di una di queste regole può comportare una **sanzione** da parte dello staff, quindi è importante __conoscerle__ e __rispettarle__.`);
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
   }

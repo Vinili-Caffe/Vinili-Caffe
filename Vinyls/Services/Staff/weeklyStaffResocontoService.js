@@ -11,15 +11,14 @@ const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const TIME_ZONE = "Europe/Rome";
-/** Chiusura settimana resoconti (Europe/Rome): ultimo invio = Admin domenica. */
 const RESOCONTO_CLOSE_HOUR_ROME = 18;
 const RESOCONTO_CRON_SEGMENTS = [
   { segment: "pm", expression: "0 15 * * 0" },
   { segment: "helper", expression: "0 16 * * 0" },
   { segment: "mod", expression: "0 17 * * 0" },
-  { segment: "senior_moderator", expression: "30 17 * * 0" },
-  { segment: "director", expression: "45 17 * * 0" },
-  { segment: "admin", expression: "0 18 * * 0" },
+  { segment: "senior_moderator", expression: "00 18 * * 0" },
+  { segment: "director", expression: "00 19 * * 0" },
+  { segment: "admin", expression: "00 20 * * 0" },
 ];
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 400, hours: 4 },
@@ -35,7 +34,6 @@ const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Admin)]: 1,
 };
 const SANCTION_ACTIONS = new Set(["WARN", "MUTE", "KICK", "BAN"]);
-/** Ruoli con resoconto attività/sanzioni: Admin, Director, Senior Moderator, Mod, Helper (High Staff è escluso). */
 const STAFF_ROLE_PRIORITY = [
   String(IDs.roles.Admin),
   String(IDs.roles.Director),
@@ -62,9 +60,7 @@ const RESOCONTO_ROLE_RANK = new Map(
     .filter(Boolean)
     .map((roleId, index) => [String(roleId), index]),
 );
-/** Partner settimanali da PM: da questo conteggio in su il resoconto PM va in “Nulla” (nessuna azione). */
 const PM_WEEKLY_PARTNER_MIN_FOR_OK = 30;
-/** Fino a questa soglia (partner nella settimana resoconto) l’azione proposta è “Depex”. */
 const PM_WEEKLY_DEPEX_MAX_PARTNERS = 15;
 const ROLE_UP = {
   [String(IDs.roles.Member || "")]: String(IDs.roles.Helper),
@@ -127,7 +123,6 @@ function formatHoursFromSeconds(seconds) {
   return `${hours.toFixed(2)}h`;
 }
 
-/** Canali vocali (e stage) con parent = categoria: il tempo non conta per i resoconti staff. */
 function collectVoiceChannelIdsUnderCategory(guild, categoryId) {
   const out = new Set();
   const cat = String(categoryId || "");
@@ -247,7 +242,6 @@ function addDaysToRomeYmd(year, month, day, deltaDays) {
   return getRomeDateParts(new Date(mid.getTime() + deltaDays * 86400000));
 }
 
-/** Domenica all'ora di chiusura resoconti (Europe/Rome) che delimita il ciclo rispetto a `referenceNow`. */
 function getResocontoClosingSundayUtc(referenceNow = new Date()) {
   const r = parseRomeWallClock(referenceNow);
   const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
@@ -279,9 +273,6 @@ function getResocontoClosingSundayUtc(referenceNow = new Date()) {
   return createUtcFromRomeLocal(sunY, sunM, sunD, H, 0, 0);
 }
 
-/**
- * Finestra classifica partner “settimanale”: [chiusura resoconti domenica, stessa ora dopo 7 giorni) in Europe/Rome.
- */
 function getPartnerLeaderboardWeekBoundsUtc(now = new Date()) {
   const weekStart = getResocontoClosingSundayUtc(now);
   const sunParts = getRomeDateParts(weekStart);
@@ -297,7 +288,6 @@ function getPartnerLeaderboardWeekBoundsUtc(now = new Date()) {
   return { weekStart, weekEndExclusive };
 }
 
-/** Lunedì 00:00 → domenica chiusura resoconti (escluso) Roma per la settimana chiusa da quel ciclo. */
 function getResocontoPexSkipWindowUtc(referenceNow = new Date()) {
   const closingSunday = getResocontoClosingSundayUtc(referenceNow);
   const sunParts = getRomeDateParts(closingSunday);
@@ -366,7 +356,6 @@ function buildCostanzaLines(overview) {
   ];
 }
 
-/** Data calendario `dd/mm/yyyy` come inizio del giorno in **Europe/Rome** (non UTC). */
 function parseItalianDate(value) {
   if (!value || typeof value !== "string") return null;
   const m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -450,7 +439,6 @@ function didPauseEndDuringWeek(staffDoc, weekStart, weekEnd, sectionRole = null)
   return false;
 }
 
-/** Pausa rilevante per il blocco resoconto PM: ruolo PM/Entrambi, oppure pausa “staff” se l’utente è comunque Partner Manager (stesso periodo di assenza). */
 function wasPartnerManagerInPauseForResocontoWeek(staffDoc, weekStart, weekEnd, member) {
   if (wasInPauseDuringWeek(staffDoc, weekStart, weekEnd, "PartnerManager")) return true;
   const pmId = String(IDs.roles?.PartnerManager || "");
@@ -478,7 +466,6 @@ function resolveStaffRole(member) {
   return null;
 }
 
-/** Utenti in cache il cui ruolo staff per resoconto coincide col tier (stesso criterio di `resolveStaffRole`). Copre chi non ha ancora `staff` su Mongo. */
 function collectMemberIdsMatchingResocontoStaffSegment(guild, wantStaffRoleId) {
   const want = String(wantStaffRoleId || "").trim();
   if (!want || !guild?.members?.cache) return [];
@@ -491,7 +478,6 @@ function collectMemberIdsMatchingResocontoStaffSegment(guild, wantStaffRoleId) {
   return ids;
 }
 
-/** ID membri da includere per questo segmento cron (helper / mod / admin / pm), dalla cache guild. */
 function collectResocontoDiscordMemberIdsForSegment(guild, segment) {
   if (segment === "pm") {
     const pmId = String(IDs.roles.PartnerManager || "").trim();
@@ -519,7 +505,6 @@ function collectResocontoDiscordMemberIdsForSegment(guild, segment) {
   return [];
 }
 
-/** Tutti gli ID staff (scala helper→admin) o PM presenti in guild — per promemoria e liste oltre al solo DB `staff`. */
 function collectAllResocontoRelevantMemberIdsFromGuild(guild) {
   if (!guild?.members?.cache) return [];
   const ids = new Set();
@@ -712,7 +697,6 @@ function wasPromotedToRoleInLastDays(staffDoc, roleId, days, now = new Date()) {
   });
 }
 
-/** Soglie PM resoconto: 0–15 Depex; 16–29 Richiamo; ≥30 Nulla. */
 function computePmAction(weeklyPartners, pmPexedInWeek) {
   if (pmPexedInWeek) return "Nulla";
   const partners = Math.max(0, Math.floor(toSafeNumber(weeklyPartners)));
