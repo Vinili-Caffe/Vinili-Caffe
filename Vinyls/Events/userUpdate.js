@@ -10,6 +10,7 @@ const {
   getJoinGateNameCandidate,
 } = require("./guildMemberAdd");
 const { syncClanTagRolesForUserEverywhere } = require("../Services/Community/clanTagRoleService");
+const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 
 const ARROW = "<:VC_right_arrow:1482459908245815296>";
@@ -100,6 +101,15 @@ module.exports = {
         const clanChanged = clanTagChanged || clanGuildChanged || clanPresenceChanged;
         if (!usernameChanged && !globalNameChanged && !clanChanged) {
           await maybeThrottledClanTagSyncFromUserUpdate(newUser, resolvedClient);
+          const guild = resolvedClient.guilds.cache.get(String(IDs.guilds?.main || ""));
+          const member = guild
+            ? guild.members.cache.get(newUser.id) || (await getGuildMemberCached(guild, newUser.id))
+            : null;
+          if (member) {
+            await syncPersistentAutoValutazioniForMember(member).catch((err) => {
+              global.logger?.warn?.("[userUpdate] staff auto valutazioni sync:", newUser.id, err?.message || err);
+            });
+          }
           return;
         }
 
@@ -108,6 +118,15 @@ module.exports = {
             userForClan: newUser,
             previousUserForClan: oldUser,
           });
+          const guild = resolvedClient.guilds.cache.get(String(IDs.guilds?.main || ""));
+          const member = guild
+            ? guild.members.cache.get(newUser.id) || (await getGuildMemberCached(guild, newUser.id))
+            : null;
+          if (member) {
+            await syncPersistentAutoValutazioniForMember(member).catch((err) => {
+              global.logger?.warn?.("[userUpdate] staff auto valutazioni sync:", newUser.id, err?.message || err);
+            });
+          }
         }
 
         const cfg = getJoinGateConfigSnapshot();

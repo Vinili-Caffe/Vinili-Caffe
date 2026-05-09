@@ -3,6 +3,7 @@ const { handleMusicBotVoiceDisconnect } = require("../Services/Music/lavalinkMus
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
 const{handleVoiceActivity,}=require("../Services/Community/activityService");
 const { trackVoiceEngagement } = require("../Services/Community/dailyEngagementStatsService");
+const { handleSerataFilmVoiceState } = require("../Services/Staff/staffAutoValutazioniService");
 const IDs = require("../Utils/Config/ids");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -309,6 +310,12 @@ module.exports = {
       await sendMemberJoinLog(oldState, newState);
     } catch (error) {
       global.logger?.error?.("[voiceStateUpdate] join log failed:", error);
+    }
+
+    try {
+      await handleSerataFilmVoiceState(oldState, newState);
+    } catch (error) {
+      global.logger?.error?.("[SERATA FILM STAFF AUTO ERROR]", error);
     }
 
     try {

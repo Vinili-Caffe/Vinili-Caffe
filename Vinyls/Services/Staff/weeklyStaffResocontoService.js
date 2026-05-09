@@ -1269,4 +1269,10 @@ module.exports = {
   startWeeklyStaffResocontoLoop,
   runWeeklyStaffResoconti,
   getPartnerLeaderboardWeekBoundsUtc,
+  buildResocontoActivityScope,
+  getWeekStartDate,
+  getWeeklySanctionCountByMod,
+  resolveStaffRole,
+  STAFF_ACTIVITY_LIMITS,
+  STAFF_SANCTION_LIMITS,
 };

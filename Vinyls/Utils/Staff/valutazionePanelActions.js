@@ -103,8 +103,8 @@ function makeRemovalEmbed(actor, user, title, description, reason, updatedLabel,
 }
 
 async function sendChannelEmbed(channel, payload) {
-  if (!channel) return;
-  await channel.send(payload).catch(() => null);
+  if (!channel) return null;
+  return channel.send(payload).catch(() => null);
 }
 
 async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, channel) {
@@ -116,7 +116,8 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
   profileDoc.markModified("staff");
   await profileDoc.save();
   const embed = makeLogEmbed(actor, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount, "#6f4e37", channel.guild);
-  await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
+  const message = await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
+  return { message };
 }
 
 async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
@@ -155,7 +156,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   profileDoc.markModified("staff");
   await profileDoc.save();
   const embed = makeLogEmbed(actor, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount, "#6f4e37", guild);
-  await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
+  const message = await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
@@ -198,6 +199,7 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
       }
     }
   }
+  return { message, warnResult };
 }
 
 async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, reason, actor, channel) {
@@ -320,6 +322,10 @@ async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUse
 
 module.exports = {
   buildAutoStaffWarnFromNegativesEmbed,
+  ensureStaffProfileDoc,
+  getStaffDoc,
+  valutazionePositiveAddCore,
+  valutazioneNegativeAddCore,
   runValutazionePositiveAddForPanel,
   runValutazioneNegativeAddForPanel,
   runValutazionePositiveRemoveForPanel,

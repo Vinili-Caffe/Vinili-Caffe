@@ -36,6 +36,7 @@ const { startWeeklyStaffResocontoLoop } = require("../Services/Staff/weeklyStaff
 const { startWeeklyActivityWinnersLoop } = require("../Services/Community/weeklyActivityWinnersService");
 const { startContestPrizeMaintenanceCron } = require("../Services/Community/contestPrizeMaintenanceService");
 const { startStaffWarnResetLoop } = require("../Services/Staff/staffWarnService");
+const { startStaffAutoValutazioniLoop, syncAllStaffAutoValutazioni, restoreActiveSerataFilmSessions } = require("../Services/Staff/staffAutoValutazioniService");
 const { runScheduledEnds, syncActiveGiveawayButtons } = require("../Services/Giveaway/giveawayService");
 const { retroSyncGuildLevels } = require("../Services/Community/expService");
 const { runFullCleanupUsersNotInServer } = require("../Services/Community/cleanupUsersNotInServerService");
@@ -272,6 +273,16 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "startup sync clan tag roles",
       enabled: primaryScheduler,
       run: () => syncAllMembersClanTags(client),
+    },
+    {
+      label: "startup sync staff auto valutazioni",
+      enabled: primaryScheduler,
+      run: () => syncAllStaffAutoValutazioni(client),
+    },
+    {
+      label: "restore active Serata Film staff tracking",
+      enabled: primaryScheduler,
+      run: () => restoreActiveSerataFilmSessions(client),
     },
     {
       label: "startup sync zodiac roles from birthday profiles",
@@ -613,6 +624,7 @@ function startPrimaryLoops(client, engagementTick) {
     ["[CONTEST PRIZE] Failed to start cron", () => startContestPrizeMaintenanceCron(client)],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
     ["[STAFF WARN RESET 6M] Failed to start loop", () => startStaffWarnResetLoop(client)],
+    ["[STAFF AUTO VALUTAZIONI] Failed to start loop", () => startStaffAutoValutazioniLoop(client)],
     ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
     ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {

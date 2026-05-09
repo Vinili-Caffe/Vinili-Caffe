@@ -6,6 +6,7 @@ const IDs = require("../Utils/Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
+const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
 
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Fan;
@@ -905,9 +906,13 @@ module.exports = {
       }
 
       await applyOnlineState(member, userId, prev, prevHas, newPresence);
+      await syncPersistentAutoValutazioniForMember(member).catch((err) => {
+        global.logger?.warn?.("[presenceUpdate] staff auto valutazioni sync:", member.id, err?.message || err);
+      });
     } catch (error) {
       global.logger?.error?.("[presenceUpdate] failed:", error);
     }
   },
   bootstrapSupporter,
+  resolveInviteState,
 };

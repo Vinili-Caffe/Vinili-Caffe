@@ -150,14 +150,6 @@ function buildPremiumFooterTemplate() {
                 <li><a href="{{RICHIESTE_SUGGERIMENTI_URL}}">Suggerimenti</a></li>
               </ul>
             </nav>
-            <nav class="vc-premium-footer__col" aria-label="Account">
-              <h4>Account</h4>
-              <ul>
-                <li><a href="{{NOTIFICATIONS_URL}}">Notifiche</a></li>
-                <li><a href="{{USER_PERSONALIZZA_URL}}">Personalizza</a></li>
-                <li><a href="{{VERIFY_URL}}">Verifica</a></li>
-              </ul>
-            </nav>
           </div>
         </div>
         <div class="vc-premium-footer__legal">

@@ -706,13 +706,9 @@
                 "channels.staffCmds"
             ]
         },
-        "verify": {
-            "roles": [
-                "roles.HighStaff"
-            ]
-        },
         "ban": {
             "roles": [
+                "roles.Director",
                 "roles.Admin",
                 "roles.Founder"
             ],
@@ -750,6 +746,7 @@
         },
         "duration": {
             "roles": [
+                "roles.Director",
                 "roles.HighStaff"
             ],
             "channels": [
@@ -759,8 +756,8 @@
         },
         "kick": {
             "roles": [
-                "roles.Admin",
-                "roles.Founder"
+                "roles.Director",
+                "roles.HighStaff"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -797,9 +794,9 @@
         "mute": {
             "roles": [
                 "roles.Mod",
-                "roles.HighStaff",
-                "roles.Admin",
-                "roles.Founder"
+                "roles.SeniorModerator",
+                "roles.Director",
+                "roles.HighStaff"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -808,6 +805,7 @@
         },
         "reason": {
             "roles": [
+                "roles.Director",
                 "roles.HighStaff"
             ],
             "channels": [
@@ -817,6 +815,7 @@
         },
         "unban": {
             "roles": [
+                "roles.Director",
                 "roles.HighStaff"
             ],
             "channels": [
@@ -835,7 +834,8 @@
         },
         "unmute": {
             "roles": [
-                "roles.HighStaff"
+                "roles.HighStaff",
+                "roles.Director"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -844,11 +844,7 @@
         },
         "warn": {
             "roles": [
-                "roles.Helper",
-                "roles.Mod",
-                "roles.HighStaff",
-                "roles.Admin",
-                "roles.Founder"
+                "roles.Staff"
             ],
             "channels": [
                 "channels.staffCmds",
@@ -1374,6 +1370,9 @@
         ],
         "plb_*": [
             "roles.Member"
+        ],
+        "pex": [
+            "roles.Staff"
         ],
         "prev": [
             "roles.PartnerManager",

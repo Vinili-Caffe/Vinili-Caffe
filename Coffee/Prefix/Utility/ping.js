@@ -43,10 +43,10 @@ module.exports = {
       .setColor("#6f4e37")
       .setDescription(`<:VC_Status_5:1472011474909008017> Ping: **\`${gatewayPing}ms\`**`)
       .addFields(
-        { name: `<:Clock:1330530065133338685> **Uptime:** \`${uptimeString}\``, value: empty, inline: true },
+        { name: `<:clock:1502622515825217756> **Uptime:** \`${uptimeString}\``, value: empty, inline: true },
         { name: `<a:VC_Loading:1482526772862914776> **API:** \`...\``, value: empty, inline: true },
         { name: empty, value: empty, inline: true },
-        { name: `<:DatabaseCheck:1330543470259212329> **Database:** ${databaseLabel}`, value: empty, inline: true },
+        { name: `<:DatabaseCheck:1502622781236449500> **Database:** ${databaseLabel}`, value: empty, inline: true },
         { name: `<a:VC_Calendar:1482706208149475358> **Shard:** \`${shardLabel}\``, value: empty, inline: true },
         { name: empty, value: empty, inline: true },
       );

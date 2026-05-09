@@ -18,6 +18,7 @@ const { createModCase, getModConfig, logModCase } = require("../Utils/Moderation
 const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
+const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
 const {
   getAnnouncedBoostSlots,
   setAnnouncedBoostSlots,
@@ -929,12 +930,14 @@ async function handleBoostUpdate(oldMember, newMember) {
     await trackBoostSlotsAnnouncedAndMaybeGrantDoubleBooster(newMember, guildId, sendTimes);
     rememberBoostAnnounce(boostKey, currentCount, newBoostTs);
 
-    scheduleBoostFollowup(
-      boostAnnounceChannel,
-      newMember,
-      guildId,
-      boostKey,
-    );
+    if (!startedBoostingNow) {
+      scheduleBoostFollowup(
+        boostAnnounceChannel,
+        newMember,
+        guildId,
+        boostKey,
+      );
+    }
     boostCountCache.set(guildId, currentCount);
   } finally {
     boostAnnounceSendLocks.delete(boostKey);
@@ -1677,6 +1680,9 @@ module.exports = {
 
       await removePlusColorsIfNotEligible(newMember);
       await maybeAnnounceManualSocialRolesAndGrantPicPermsBundle(oldMember, newMember);
+      await syncPersistentAutoValutazioniForMember(newMember).catch((err) => {
+        global.logger?.warn?.("[guildMemberUpdate] staff auto valutazioni sync:", newMember.id, err?.message || err);
+      });
       await ensureCustomVocAccess(newMember);
       await syncCustomVocEligibilityWindow(newMember);
       await syncCustomRoleEligibilityWindow(newMember);

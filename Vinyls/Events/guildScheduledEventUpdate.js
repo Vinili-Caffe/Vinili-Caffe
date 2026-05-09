@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { handleSerataFilmScheduledEventUpdate } = require("../Services/Staff/staffAutoValutazioniService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -151,6 +152,9 @@ module.exports = {
   name: "guildScheduledEventUpdate",
   async execute(oldEvent, newEvent) {
     try {
+      await handleSerataFilmScheduledEventUpdate(oldEvent, newEvent).catch((err) => {
+        global.logger?.warn?.("[guildScheduledEventUpdate] serata film auto:", err?.message || err);
+      });
       const guild = newEvent?.guild || oldEvent?.guild;
       const eventId = String(newEvent?.id || oldEvent?.id || "");
       if (!guild || !eventId) return;

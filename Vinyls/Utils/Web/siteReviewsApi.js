@@ -8,6 +8,7 @@ const { enqueueSiteInAppNotification } = require("./siteInAppNotificationsServic
 const { broadcastSiteReviewsChanged } = require("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi");
 const { getLevelInfo, getTotalExpForLevel, addExpWithLevel } = require("../../Services/Community/expService");
+const { syncPersistentAutoValutazioniForMember } = require("../../Services/Staff/staffAutoValutazioniService");
 const { userAvatarUrlDynamic, guildMemberDisplayAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
 
 const STAFF_ROLE_ID = String(IDs?.roles?.Staff || "").trim();
@@ -494,6 +495,11 @@ async function submitSiteReview(client, payload = {}) {
     const rewardInfo = await awardServerReviewLevels(client, resolved.guild, resolved.member);
     await announceServerReview(client, resolved.guild, resolved.member, nextDoc, rewardInfo);
   }
+  if (reviewKind === "server") {
+    await syncPersistentAutoValutazioniForMember(resolved.member).catch((err) => {
+      global.logger?.warn?.("[siteReviewsApi] staff auto valutazioni sync:", resolved.userId, err?.message || err);
+    });
+  }
   if (!existing) {
     await notifyHighStaffNewReview(resolved.guild, nextDoc, displayNameForMember(resolved.member));
   }
@@ -501,6 +507,10 @@ async function submitSiteReview(client, payload = {}) {
   try {
     broadcastSiteReviewsChanged();
   } catch (_) {}
+
+  await syncPersistentAutoValutazioniForMember(resolved.member).catch((err) => {
+    global.logger?.warn?.("[siteReviewsApi] staff auto valutazioni delete sync:", resolved.userId, err?.message || err);
+  });
 
   return {
     ok: true,

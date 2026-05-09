@@ -6,10 +6,6 @@ const IDs = require("../Utils/Config/ids");
 
 const REMINDER_CHANNEL_ID = IDs.channels?.chat || null;
 
-function isExtraPlusPrefixCommand(message) {
-  return /^\+ping\b/i.test(String(message?.content || "").trim());
-}
-
 module.exports = {
   name: "messageCreate",
   async execute(message, client) {
@@ -29,9 +25,7 @@ module.exports = {
     try {
       if (!isEditedPrefixExecution) {
         const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
-        if (!isExtraPlusPrefixCommand(message)) {
-          await handleTtsMessage(message, client, safePrefix);
-        }
+        await handleTtsMessage(message, client, safePrefix);
       }
     } catch (error) {
       global.logger?.error?.("[TTS ERROR]", error);

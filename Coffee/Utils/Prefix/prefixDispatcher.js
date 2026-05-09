@@ -8,7 +8,6 @@ const WRONG_PREFIX_HINT_CHANNEL_IDS = new Set(
   [IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map((id) => String(id)),
 );
 const TEMPORARY_NOTICE_LIFETIME_MS = 8000;
-const EXTRA_PLUS_PREFIX_COMMANDS = new Set(["ping"]);
 
 const STAFF_BYPASS_PERMISSIONS = [
   PermissionFlagsBits.Administrator,
@@ -124,19 +123,12 @@ async function dispatchPrefixMessage(message, client) {
   const content = (message.content || "").trim();
   if (!content) return false;
   const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
-  const plusCommand = content.match(/^\+([a-z0-9][\w-]*)\b/i);
-  const isAllowedPlusCommand = plusCommand && EXTRA_PLUS_PREFIX_COMMANDS.has(String(plusCommand[1] || "").toLowerCase());
 
   let startsWithPrefix = content.startsWith(safePrefix);
   const isMention =
     client.user &&
     BOT_MENTION_REGEX.test(content) &&
     content.replace(BOT_MENTION_REGEX, "").trim().length > 0;
-
-  if (!startsWithPrefix && isAllowedPlusCommand) {
-    message.content = safePrefix + content.slice(1);
-    startsWithPrefix = true;
-  }
 
   if (!startsWithPrefix && !isMention) {
     await maybeSendWrongPrefixHint(message, client, safePrefix);

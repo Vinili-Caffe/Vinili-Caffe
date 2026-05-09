@@ -79,7 +79,6 @@ function onlyExistingRoleIds(guild, roleIds) {
   return roleIds.filter((id) => id && guild.roles.cache.has(id));
 }
 
-/** Restituisce { existing, missing }. Se missing.length > 0, logga quali ID ruolo non sono più sul server. */
 function partitionRoleIdsByExisting(guild, roleIds, context) {
   if (!guild?.roles?.cache || !Array.isArray(roleIds)) return { existing: [], missing: [] };
   const existing = roleIds.filter((id) => id && guild.roles.cache.has(id));
@@ -100,7 +99,6 @@ async function removeMemberRolesSequential(member, roleIds) {
   }
 }
 
-/** Una sola chiamata API: rimuove roleIdsToRemove e aggiunge roleIdsToAdd. */
 async function setMemberRolesBulk(member, roleIdsToRemove, roleIdsToAdd = []) {
   if (!member?.guild || !Array.isArray(roleIdsToRemove)) return;
   const m = await member.guild.members.fetch(member.id).catch((err) => { logButtonErr(err, { warn: true }); return member; });
@@ -181,10 +179,15 @@ async function handleStaffButtons(interaction) {
         `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito e **consultare** le procedure disponibili __cliccando__ sui **bottoni** alla fine del messaggio.
 
 <:VC_1:1482706338021642333> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** allegare le **prove** (screen, video, link di messaggi).
+
 <:VC_2:1482706376525611090> <a:VC_Arrow:1482706699365257397> Il __numero__ della **sanzione** si basa su quante volte l'**utente** è stato **sanzionato __specificatamente__ per quella regola**.
+
 <:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
+
 <:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato** usate il comando +modlogs **__\`ID\`__**
+
 <:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
+
 <:VC_6:1482706490769801327> <a:VC_Arrow:1482706699365257397> Ogni volta che si __oltrepassa__ il numero di **sanzioni ottenibili** si **ricomincia** il __ciclo__ di sanzioni per quella **specifica __regola__**.`,
       );
     const rowModeration = new ActionRowBuilder().addComponents(
@@ -209,6 +212,26 @@ async function handleStaffButtons(interaction) {
     return true;
   }
 
+  if (interaction.customId == "pex") {
+    const embed = new EmbedBuilder()
+      .setColor("#6f4e37")
+      .setDescription(
+        "<a:VC_LevelUp:1482527020641419415> **__GUIDA PEX__**\n\n" +
+        "> Ogni ruolo per essere assegnato richiedere un certo tempo per essere ottenuto, ma non è detto che al raggiungimento di questo tempo venga assegnato il ruolo.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Helper + "> è un ruolo di prova, **con un periodo variabile di 1-2 settimane**.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Mod + "> **richiede un periodo variabile di 1-2 mesi**.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.SeniorModerator + "> **richiede un periodo variabile di 2-3 mesi**.\n" +
+        "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Director + "> **richiede un periodo variabile di 3-4 mesi**, essendo esso un ruolo di prova per entrare a tutti gli effetti nell'<@&" + IDs.roles.HighStaff + ">.\n\n" +
+        "> <:VC_Attention:1482534443632558151> Il **pex** viene assegnato quando uno staffer dimostra __costanza__, **qualità** nel lavoro e un comportamento utile alla community.\n" +
+        "<:VC_1:1482706338021642333> **Limiti settimanali** completati con continuità.\n" +
+        "<:VC_2:1482706376525611090> **Presenza vocale** reale e utile, soprattutto nelle vocali pubbliche.\n" +
+        "<:VC_3:1482706404773990460> **Moderazione corretta**, con prove, articoli giusti e buon criterio.\n" +
+        "<:VC_4:1482706432347344916> **Valutazioni positive** e contributi extra al server.\n" +
+        "<:VC_5:1482706459765637272> **Comportamento maturo**, nessun abuso di potere e rispetto della guida staff.\n\n");
+    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+    return true;
+  }
+
   if (interaction.customId == "valutazioni") {
     const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(
       "<a:1370everythingisstable:1444006799643508778> **__VALUTAZIONI POSITIVE__**\n" +
@@ -216,7 +239,18 @@ async function handleStaffButtons(interaction) {
       "> Le **valutazioni positive** si possono **__scambiare__** per dei giorni in più di **pausa**.\n\n" +
       "<a:laydowntorest:1444006796661358673> **__VALUTAZIONI NEGATIVE__**\n" +
       "> Le **valutazioni negative** diminuiscono la possibilità di essere **pexati** e si ottengono **non completando** i _limiti settimanali_ o facendo qualcosa di _nocivo_ per il **server**.\n\n" +
-      "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione."
+      "> Le **valutazioni negative** possono essere **__rimosse__** completando compiti extra assegnati dall'<@&1442568894349840435> o rinunciando ad almeno `3 o più valutazioni positive` in base al motivo per cui è stata assegnata la valutazione.\n\n" +
+      "<a:VC_NewsExclamation:1471891662786527253> **__VALUTAZIONI AUTOMATICHE__**\n\n" +
+      "Ogni settimana si possono ottenere delle **valutazioni automatiche** in base a tre fattori:\n\n" +
+      "<:VC_1:1482706338021642333> **Completamento dei limiti settimanali superandoli __almeno del doppio__**\n" +
+      "<:VC_2:1482706376525611090> **Completamento dei compiti extra o settimanali**\n" +
+      "<:VC_3:1482706404773990460> **Completamento dei limiti sanzioni**\n\n" +
+      "Inoltre si possono ottenere delle valutazioni extra in base a alcuni ruoli:\n\n" +
+      "<:VC_1:1482706338021642333> **Mettendo il link vanity nello status o nella bio, o mettendo una nostra GUILD TAGS**\n" +
+      "<:VC_2:1482706376525611090> **Seguendo le pagina social**\n" +
+      "<:VC_3:1482706404773990460> **Mettendo una recensionione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
+      "<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà solo il doppio boost, se viene tolto un boost, verrà rimossa anche la valutazione.__ Solo per il ruolo Supporter e Follower bisognerà aprire un ticket \`HIGH STAFF\`)**\n\n" +
+      "L'<@&" + IDs.roles.HighStaff + "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community."
     );
     await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     return true;
@@ -235,7 +269,6 @@ async function handleStaffButtons(interaction) {
       "<:VC_Dot:1482532364222595303> **25** __Aprile__\n" +
       "<:VC_Dot:1482532364222595303> **1** __Maggio__\n" +
       "<:VC_Dot:1482532364222595303> **2** __Giugno__\n\n" +
-
       "> Naturalmente per **garantire** al meglio l'attività del server ci sono dei __limiti__ di staffer che possono essere in pausa nello __stesso periodo__\n" +
       "<:VC_Dot:1482532364222595303> <@&1442568904311570555> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +
       "<:VC_Dot:1482532364222595303> <@&" + IDs.roles.Mod + "> <a:VC_Arrow:1482706699365257397> __2__ **staffer**\n" +

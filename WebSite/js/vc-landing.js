@@ -618,6 +618,16 @@
         urlText: "tiktok.com/" + (cleanPath || ""),
       };
     }
+    if (host === "discord.gg" || host.indexOf("discord.com") !== -1) {
+      var invitePath = cleanPath.replace(/^invite\//i, "");
+      return {
+        iconClass: "fa fa-discord",
+        icoExtraClass: "vc-social-preview__ico--discord",
+        title: "Discord",
+        subtitle: invitePath ? "Server " + invitePath : "Server community",
+        urlText: host + "/" + (cleanPath || ""),
+      };
+    }
     return null;
   }
 
@@ -693,7 +703,9 @@
   }
 
   function initSocialPreviews() {
-    var links = document.querySelectorAll('a[href*="instagram.com"], a[href*="tiktok.com"]');
+    var links = document.querySelectorAll(
+      'a[href*="instagram.com"], a[href*="tiktok.com"], a[href*="discord.gg"], a[href*="discord.com/invite"]',
+    );
     for (var i = 0; i < links.length; i += 1) {
       bindSocialPreview(links[i]);
     }

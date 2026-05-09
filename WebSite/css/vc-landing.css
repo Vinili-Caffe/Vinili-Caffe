@@ -4916,7 +4916,7 @@ body.vc-body > footer p {
 
 @media (min-width: 1024px) {
   .vc-premium-footer__grid {
-    grid-template-columns: minmax(18rem, 1.35fr) repeat(5, minmax(6.5rem, 0.55fr));
+    grid-template-columns: minmax(18rem, 1.35fr) repeat(4, minmax(6.5rem, 0.55fr));
     gap: 2rem;
   }
 
@@ -5053,6 +5053,11 @@ body.vc-body > footer p {
   display: block;
   width: 1.05rem;
   height: 1.05rem;
+}
+
+.vc-social-preview__ico--discord {
+  background: rgba(88, 101, 242, 0.18);
+  color: #eef0ff;
 }
 
 .vc-sponsor-page .vc-sponsor-hero-layout {
@@ -19384,8 +19389,23 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal {
   flex-direction: row !important;
   justify-content: space-between !important;
   align-items: center !important;
+  width: 100% !important;
+  padding-left: clamp(1rem, 2vw, 1.5rem) !important;
+  padding-right: clamp(1rem, 2vw, 1.5rem) !important;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)) !important;
+}
+
+html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal p {
+  flex: 1 1 auto !important;
+  margin-right: auto !important;
+  text-align: left !important;
+}
+
+html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal nav {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  justify-content: flex-end !important;
 }
 
 html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal p,
@@ -19407,7 +19427,7 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
 
 @media (min-width: 1024px) {
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
-    grid-template-columns: minmax(18rem, 1.35fr) repeat(5, minmax(6.5rem, 0.55fr)) !important;
+    grid-template-columns: minmax(18rem, 1.35fr) repeat(4, minmax(6.5rem, 0.55fr)) !important;
     gap: 2rem !important;
   }
 
@@ -19418,7 +19438,7 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
 
 @media (max-width: 520px) {
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 2rem 1rem !important;
     padding: 1.5rem !important;
   }
@@ -19465,6 +19485,7 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
   }
 
   html body.vc-body > footer.vc-premium-footer .vc-premium-footer__legal nav {
+    margin-left: 0 !important;
     justify-content: flex-start !important;
   }
 }

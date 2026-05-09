@@ -254,6 +254,18 @@ const staffPauseEntrySchema = new Schema(
   },
   { _id: true },
 );
+const staffAutoValutazioneSchema = new Schema(
+  {
+    key: { type: String, required: true },
+    type: { type: String, enum: ["positive", "negative"], required: true },
+    reason: { type: String, default: "" },
+    channelId: { type: String, default: null },
+    messageId: { type: String, default: null },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
 /** Ex-dedicated `Staff` collection: dati staff/PM/pause/event incastonati nel profilo activity. */
 const staffEmbeddedSchema = new Schema(
   {
@@ -267,6 +279,7 @@ const staffEmbeddedSchema = new Schema(
     positiveReasons: { type: [String], default: [] },
     negativeReasons: { type: [String], default: [] },
     valutazioniCount: { type: Number, default: 0 },
+    autoValutazioni: { type: [staffAutoValutazioneSchema], default: [] },
     partnerCount: { type: Number },
     /** Somma punti tolti con riscatto premi PM (non modifica lo storico partnership). */
     partnerRedeemSpend: { type: Number, default: 0 },
