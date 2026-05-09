@@ -9,7 +9,7 @@ const { getUserOverviewStats } = require("../Community/activityService");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
-const AUTO_SYNC_CRON = "*/30 * * * *";
+const AUTO_SYNC_CRON = "*/5 * * * *";
 const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
 const STAFF_BOOST_AUTO_KEY = "staff_boost_server";
 const BOOST_NATURAL_EXPIRY_MIN_AGE_MS = 27 * 24 * 60 * 60 * 1000;
@@ -107,9 +107,35 @@ async function handleStaffBoostAutoValutazioneMemberUpdate(oldMember, newMember)
   if (!newMember?.guild || newMember.user?.bot) return;
   if (MAIN_GUILD_ID && String(newMember.guild.id) !== MAIN_GUILD_ID) return;
   if (!isStaffMember(newMember) && !isStaffMember(oldMember)) return;
-  await syncStaffBoostAutoValutazione(newMember, {
+
+  const freshMember = await newMember.guild.members
+    .fetch({ user: newMember.id, force: true })
+    .catch(() => newMember);
+
+  await syncStaffBoostAutoValutazione(freshMember, {
     removeBecauseTransferred: isLikelyBoostTransferAway(oldMember, newMember),
   });
+
+  const oldBoostTs = Number(oldMember?.premiumSinceTimestamp || 0);
+  const newBoostTs = Number(newMember?.premiumSinceTimestamp || 0);
+  const boosterRoleId = String(IDs.roles?.ServerBooster || "");
+  const boostProbablyStarted = Boolean(
+    (!oldBoostTs && newBoostTs) ||
+    (boosterRoleId && !oldMember?.roles?.cache?.has?.(boosterRoleId) && newMember?.roles?.cache?.has?.(boosterRoleId)),
+  );
+  if (!boostProbablyStarted || memberHasActiveServerBoost(freshMember)) return;
+
+  const retry = setTimeout(async () => {
+    const retryMember = await newMember.guild.members
+      .fetch({ user: newMember.id, force: true })
+      .catch(() => null);
+    if (retryMember) {
+      await syncStaffBoostAutoValutazione(retryMember).catch((err) => {
+        global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] boost retry failed:", retryMember.id, err?.message || err);
+      });
+    }
+  }, 12_000);
+  retry.unref?.();
 }
 
 function weekKeyFromDate(date) {
@@ -380,6 +406,12 @@ function startStaffAutoValutazioniLoop(client) {
     autoValutazioniCleanupStarted = true;
     cleanupMalformedAutoValutazioni().catch(() => null);
   }
+  const firstSync = setTimeout(() => {
+    syncAllStaffAutoValutazioni(client).catch((err) => {
+      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] first sync failed:", err?.message || err);
+    });
+  }, 15_000);
+  firstSync.unref?.();
   const task = cron.schedule(AUTO_SYNC_CRON, () => {
     syncAllStaffAutoValutazioni(client).catch((err) => {
       global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] loop failed:", err?.message || err);
