@@ -900,5 +900,12 @@ module.exports = {
       if (iv?.unref) iv.unref();
     }
 
+    setTimeout(() => {
+      const { sweepAccessGuild } = require("../Services/Staff/staffAccessMirrorService");
+      sweepAccessGuild(client).catch((err) => {
+        global.logger?.warn?.("[STAFF ACCESS MIRROR] startup sweep failed:", err?.message || err);
+      });
+    }, 30_000).unref?.();
+
   },
 };

@@ -22,6 +22,7 @@ const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCom
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
 const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
+const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService");
 const {
   guildIconUrl,
   guildMemberDisplayAvatarUrlDynamic,
@@ -1450,6 +1451,12 @@ module.exports = {
   async execute(member) {
     try {
       if (!member?.guild || !member?.user) return;
+      if (await handleAccessGuildMemberAdd(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberAdd] staff access mirror:", member.guild?.id, member.id, err?.message || err);
+        return false;
+      })) {
+        return;
+      }
       await trackMemberJoin(member).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] daily member stats:", err?.message || err);
       });

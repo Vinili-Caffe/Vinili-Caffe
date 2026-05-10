@@ -1,13 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
-const Ticket = require("../Schemas/Ticket/ticketSchema");
-const { createTranscript, createTranscriptHtml, } = require("../Utils/Ticket/transcriptUtils");
-const {
-  buildTicketTranscriptViewUrl,
-  prepareTicketTranscriptSecureFields,
-  buildTicketTranscriptActionRow,
-} = require("../Utils/Ticket/ticketTranscriptSecure");
-const { buildTicketClosedEmbed, sendTranscriptWithBrowserLink } = require("../Utils/Ticket/ticketCloseRuntime");
-const { getNextTicketId } = require("../Utils/Ticket/ticketIdUtils");
+const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
 const {
   ActivityUserProfile,
   ACTIVITY_MAIN_GUILD_ID,
@@ -27,8 +19,8 @@ const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils"
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
 const { consumeRecentJoinGateKick } = require("../Utils/Moderation/joinGateKickCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
-const { findOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketGuildUserQueries");
 const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsService");
+const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const STAFF_TRACKED_ROLE_IDS = new Set([
@@ -157,92 +149,11 @@ async function markInviteInactive(member) {
 }
 
 async function closeOpenTicketsForMember(member, closeReason = "Utente uscito dal server") {
-  const guild = member.guild;
-  const client = member.client;
-  const openTickets = await findOpenTicketsForGuildUser(guild.id, member.id).catch(() => []);
-  if (!openTickets.length) return;
-
-  const centralTicketLogChannelId = IDs.channels.ticketLogs || "1442569290682208296";
-  let logChannel = client.channels.cache.get(centralTicketLogChannelId) ||
-    (await getClientChannelCached(client, centralTicketLogChannelId)) ||
-    (await client.channels.fetch(centralTicketLogChannelId).catch(() => null));
-  if (!logChannel?.isTextBased?.()) logChannel = null;
-
-  for (const ticket of openTickets) {
-    const ticketGid = String(ticket.guildId || "").trim();
-    const ticketGuild =
-      !ticketGid || ticketGid === String(guild.id)
-        ? guild
-        : await client.guilds.fetch(ticketGid).catch(() => null);
-    let channel = ticketGuild ? ticketGuild.channels.cache.get(ticket.channelId) || (await ticketGuild.channels.fetch(ticket.channelId).catch(() => null)) : null;
-    if (!channel) channel = client.channels.cache.get(ticket.channelId) || (await client.channels.fetch(ticket.channelId).catch(() => null));
-
-    let transcriptTXT = "";
-    let transcriptHtmlPath = null;
-    let transcriptViewToken = null;
-    let transcriptHtmlInline = null;
-    let transcriptViewExpiresAt = null;
-    if (channel) {
-      transcriptTXT = await createTranscript(channel).catch(() => "");
-      const transcriptHTML = await createTranscriptHtml(channel).catch(() => "");
-      const secureT = await prepareTicketTranscriptSecureFields(channel, transcriptHTML).catch(() => ({}));
-      transcriptHtmlPath = secureT.transcriptHtmlPath || null;
-      transcriptViewToken = secureT.transcriptViewToken || null;
-      transcriptHtmlInline = secureT.transcriptHtmlInline || null;
-      transcriptViewExpiresAt = secureT.transcriptViewExpiresAt || null;
-    }
-
-    let ticketNumber = Number(ticket.ticketNumber || 0);
-    if (!ticketNumber) ticketNumber = await getNextTicketId();
-
-    await Ticket.updateOne(
-      { _id: ticket._id },
-      {
-        $set: {
-          open: false,
-          ticketNumber,
-          transcript: transcriptTXT,
-          transcriptHtmlPath: transcriptHtmlPath || null,
-          transcriptViewToken: transcriptViewToken || null,
-          transcriptHtmlInline: transcriptHtmlInline || null,
-          transcriptViewExpiresAt: transcriptViewExpiresAt || null,
-          closeReason,
-          closedAt: new Date(),
-          closedBy: member.client.user?.id || null,
-        },
-      },
-    ).catch(() => { });
-
-    const ticketAfterRaw = await Ticket.findById(ticket._id).catch(() => null);
-    const ticketAfter = ticketAfterRaw?.toObject?.() || ticketAfterRaw || null;
-    if (logChannel?.isTextBased?.()) {
-      const closeEmbedData = {
-        ...(ticketAfter || ticket.toObject?.() || {}),
-        ticketNumber,
-        closeReason,
-        closedBy: member.client.user?.id || null,
-        closedAt: new Date(),
-        guildName: ticketGuild?.name || guild?.name || "Ticket System",
-        guildIconURL: ticketGuild?.iconURL?.({ size: 128 }) || guild?.iconURL?.({ size: 128 }) || null,
-      };
-      const closeEmbed = buildTicketClosedEmbed(closeEmbedData);
-      const transcriptViewUrl = buildTicketTranscriptViewUrl(transcriptViewToken);
-      const transcriptRow = buildTicketTranscriptActionRow(ticket._id, transcriptViewUrl);
-      const transcriptRows = transcriptHtmlPath || transcriptHtmlInline ? (transcriptRow ? [transcriptRow] : []) : [];
-      const logSentMessage = await sendTranscriptWithBrowserLink(logChannel, { embeds: [closeEmbed] }, false, transcriptRows).catch(() => null);
-      if (logSentMessage?.id && logChannel?.id) {
-        await Ticket.updateOne(
-          { _id: ticket._id },
-          { $set: { closeLogChannelId: logChannel.id, closeLogMessageId: logSentMessage.id } },
-        ).catch(() => { });
-      }
-    }
-
-    if (channel) {
-      const channelDeleteTimer = setTimeout(() => channel.delete().catch(() => { }), 1500);
-      channelDeleteTimer.unref?.();
-    }
-  }
+  await closeOpenTicketsForGuildUser(member.guild, member.id, {
+    closeReason,
+    closedBy: member.client.user?.id || null,
+    deleteReason: `Ticket auto-chiuso: ${closeReason} (${member.id})`,
+  });
 }
 
 const PARTNER_MANAGER_ROLE_ID = String(IDs.roles?.PartnerManager || "").trim();
@@ -483,6 +394,9 @@ module.exports = {
   async execute(member, client) {
     try {
       if (!member?.guild || !member?.user) return;
+      await handleMainGuildMemberRemove(member).catch((err) => {
+        global.logger?.warn?.("[guildMemberRemove] staff access mirror:", member.id, err?.message || err);
+      });
       await trackMemberLeave(member).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] daily member stats:", err?.message || err);
       });

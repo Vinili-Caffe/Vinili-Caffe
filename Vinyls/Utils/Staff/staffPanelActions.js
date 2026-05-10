@@ -6,7 +6,7 @@ const IDs = require("../../Utils/Config/ids");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
 const { getClientChannelCached, getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-const { memberHasStaffRole } = require("../../Utils/Community/staffListUtils");
+const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../../Utils/Community/staffListUtils");
 const { applyDepexOneLevel } = require("../../Services/Staff/staffWarnService");
 const { applyDepexSideEffects: applyResocontoStaffDepexSideEffects } = require("../../Events/interaction/resocontoHandlers");
 const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeaveBackupService");
@@ -347,6 +347,7 @@ async function runProspectStaffPex(guild, client, targetUser, actorUser, reason,
   profileDoc.markModified("staff");
   await profileDoc.save();
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -421,6 +422,7 @@ async function runProspectStaffPexToPartnerManager(guild, client, targetUser, ac
   profileDoc.markModified("staff");
   await profileDoc.save();
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = roleBeforeForHistory ? guild.roles.cache.get(roleBeforeForHistory) : null;
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
@@ -495,6 +497,7 @@ async function runProfileStaffPex(guild, client, targetUser, actorUser, reason) 
   profileDoc.markModified("staff");
   await profileDoc.save();
   await clearStaffPendingPurgeAt(guild.id, targetUser.id);
+  queueStaffListRefreshAfterRoleMutation(client || guild.client, guild.id);
   const rb = guild.roles.cache.get(roleBefore);
   const ra = guild.roles.cache.get(roleAfter);
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);

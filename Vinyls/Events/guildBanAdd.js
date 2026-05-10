@@ -2,9 +2,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
-const Ticket = require("../Schemas/Ticket/ticketSchema");
-const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-const { findOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketGuildUserQueries");
+const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -30,39 +28,11 @@ function normalizeReason(value) {
 }
 
 async function closeOpenTicketsForBannedUser(guild, userId, reason = null) {
-  if (!guild || !userId) return { closed: 0 };
-  const openTickets = await findOpenTicketsForGuildUser(guild.id, userId).catch(() => []);
-  if (!Array.isArray(openTickets) || openTickets.length === 0) return { closed: 0 };
-
-  let closed = 0;
-  for (const ticket of openTickets.slice(0, 30)) {
-    try {
-      const channelId = String(ticket?.channelId || "");
-      const channel = channelId
-        ? (guild.channels.cache.get(channelId) || (await getClientChannelCached(guild.client, channelId)))
-        : null;
-
-      await Ticket.updateOne(
-        { _id: ticket._id, open: true },
-        {
-          $set: {
-            open: false,
-            closedAt: new Date(),
-            closeReason: reason || "Ticket chiuso automaticamente: utente bannato.",
-            closedBy: "system:ban",
-            guildId: String(guild.id),
-          },
-        },
-      ).catch(() => ({ modifiedCount: 0 }));
-
-      if (channel?.deletable) {
-        await channel.delete(`Ticket auto-chiuso: utente bannato (${userId})`).catch(() => { });
-      }
-      closed += 1;
-    } catch {
-    }
-  }
-  return { closed };
+  return closeOpenTicketsForGuildUser(guild, userId, {
+    closeReason: reason || "Ticket chiuso automaticamente: utente bannato.",
+    closedBy: "system:ban",
+    deleteReason: `Ticket auto-chiuso: utente bannato (${userId})`,
+  });
 }
 
 module.exports = {

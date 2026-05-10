@@ -4,7 +4,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { scheduleStaffListRefresh, didStaffMembershipChange, didStaffRolesChange, memberHasStaffRole } = require("../Utils/Community/staffListUtils");
 const { memberHasPartnerManagerRole, memberHasAnyStaffPresenceForDepexSync, buildStaffPartnerManagerIdUnsetUpdate } = require("../Utils/Staff/staffPmUtils");
-const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, } = require("../Utils/Staff/staffDocUtils");
+const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, ensureStaff, } = require("../Utils/Staff/staffDocUtils");
 const { ActivityUserProfile, CustomRole } = require("../Schemas/Community/communitySchemas");
 const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
 const { getJoinGateConfigSnapshot, } = require("../Services/Moderation/joinGateService");
@@ -19,15 +19,8 @@ const { buildUnbanRequestRow } = require("../Utils/Moderation/unbanRequestButton
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncClanTagRolesForUserEverywhereAfterMemberEvent } = require("../Services/Community/clanTagRoleService");
 const { syncPersistentAutoValutazioniForMember, handleStaffBoostAutoValutazioneMemberUpdate } = require("../Services/Staff/staffAutoValutazioniService");
-const {
-  getAnnouncedBoostSlots,
-  setAnnouncedBoostSlots,
-  addAnnouncedBoostSlots,
-  deleteAnnouncedBoostSlots,
-  ensureBoostSlotsSynced,
-  persistAnnouncedBoostSlotsToDb,
-  clearAnnouncedBoostSlotsMemoryForGuild,
-} = require("../Utils/Community/boostSlotAnnounceTracker");
+const { handleMainGuildMemberUpdate } = require("../Services/Staff/staffAccessMirrorService");
+const { getAnnouncedBoostSlots, setAnnouncedBoostSlots, addAnnouncedBoostSlots, deleteAnnouncedBoostSlots, ensureBoostSlotsSynced, persistAnnouncedBoostSlotsToDb, clearAnnouncedBoostSlotsMemoryForGuild } = require("../Utils/Community/boostSlotAnnounceTracker");
 const { isValidGuildUserId } = require("../Utils/DB/validateWriteIds");
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../Utils/Community/memberPublicAnnouncementGate");
 const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
@@ -38,11 +31,7 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Util
 const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
 const { upsertVerifiedMember, applyTenureForMember } = require("../Services/Community/communityOpsService");
-const {
-  buildBoostEmbed,
-  buildBoostEmbedSecond,
-  buildBoostAnnounceContent,
-} = require("../Utils/Community/boostAnnounceEmbeds");
+const { buildBoostEmbed, buildBoostEmbedSecond, buildBoostAnnounceContent } = require("../Utils/Community/boostAnnounceEmbeds");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -51,6 +40,14 @@ const ROLE_UPDATE_LOG_DEDUPE_TTL_MS = 5_000;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const BOOST_FOLLOWUP_DELAY_MS = 5000;
 const CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS = [IDs.roles.VIP, IDs.roles.DoubleBooster, IDs.roles.Level50, IDs.roles.Level70, IDs.roles.Donator, IDs.roles.vip, IDs.roles.VIPplus].filter(Boolean);
+const STAFF_HISTORY_ROLES = [
+  IDs.roles.PartnerManager,
+  IDs.roles.Admin,
+  IDs.roles.Director,
+  IDs.roles.SeniorModerator,
+  IDs.roles.Mod,
+  IDs.roles.Helper,
+].map((id) => String(id || "").trim()).filter(Boolean);
 const PLUS_COLOR_ROLE_IDS = [
   IDs.roles.redPlus,
   IDs.roles.orangePlus,
@@ -69,8 +66,53 @@ const PLUS_COLOR_ROLE_IDS = [
 const boostCountCache = new Map();
 const boostAnnounceCache = new Map();
 const boostFollowupLocks = new Map();
-/** Evita due invii ravvicinati se Discord emette più `guildMemberUpdate` per lo stesso boost. */
 const boostAnnounceSendLocks = new Set();
+
+function highestTrackedStaffRole(member) {
+  if (!member?.roles?.cache) return "";
+  for (const roleId of STAFF_HISTORY_ROLES) {
+    if (member.roles.cache.has(roleId)) return roleId;
+  }
+  return "";
+}
+
+async function recordManualStaffRoleHistoryIfNeeded(oldMember, newMember) {
+  const guildId = String(newMember?.guild?.id || "").trim();
+  if (!guildId || guildId !== String(IDs.guilds?.main || "")) return;
+  if (newMember?.user?.bot) return;
+  const addedRoleId = highestTrackedStaffRole(newMember);
+  if (!addedRoleId || oldMember?.roles?.cache?.has?.(addedRoleId)) return;
+
+  const beforeRoleId = highestTrackedStaffRole(oldMember) || String(IDs.roles?.Member || "").trim();
+  const now = new Date();
+  const profileDoc = await ActivityUserProfile.findOneAndUpdate(
+    { guildId, userId: String(newMember.id) },
+    { $setOnInsert: { guildId, userId: String(newMember.id) } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  const staff = ensureStaff(profileDoc);
+  if (!profileDoc || !staff) return;
+  if (!Array.isArray(staff.rolesHistory)) staff.rolesHistory = [];
+
+  const hasRecentSameRole = staff.rolesHistory.some((row) => {
+    if (String(row?.newRole || "") !== String(addedRoleId)) return false;
+    const when = row?.date ? new Date(row.date) : null;
+    if (!when || Number.isNaN(when.getTime())) return false;
+    return Math.abs(now.getTime() - when.getTime()) <= 5 * 60 * 1000;
+  });
+  if (hasRecentSameRole) return;
+
+  staff.rolesHistory.push({
+    oldRole: beforeRoleId,
+    newRole: addedRoleId,
+    reason: "Ruolo staff aggiunto manualmente.",
+    date: now,
+  });
+  profileDoc.markModified("staff");
+  await profileDoc.save().catch((err) => {
+    global.logger?.warn?.("[guildMemberUpdate] manual staff rolesHistory save:", newMember.id, err?.message || err);
+  });
+}
 
 function normalizeBoostAnnounceEntry(raw) {
   if (raw != null && typeof raw === "object" && !Array.isArray(raw) && typeof raw.count === "number") {
@@ -1641,6 +1683,9 @@ module.exports = {
 
       const botClient = client || newMember.client;
       if (newMember?.guild?.id === IDs.guilds.main && botClient) {
+        await handleMainGuildMemberUpdate(oldMember, newMember).catch((err) => {
+          global.logger?.warn?.("[guildMemberUpdate] staff access mirror:", newMember.id, err?.message || err);
+        });
         const stafferDelMeseId = String(IDs.roles?.StafferDelMese || "").trim();
         if (
           stafferDelMeseId &&
@@ -1652,6 +1697,9 @@ module.exports = {
           });
         }
         if (didStaffMembershipChange(oldMember, newMember) || didStaffRolesChange(oldMember, newMember)) {
+          await recordManualStaffRoleHistoryIfNeeded(oldMember, newMember).catch((err) => {
+            global.logger?.warn?.("[guildMemberUpdate] manual staff rolesHistory:", newMember.id, err?.message || err);
+          });
           scheduleStaffListRefresh(botClient, newMember.guild.id);
           if (!memberHasStaffRole(oldMember) && memberHasStaffRole(newMember)) {
             setWelcomeContextActive(newMember.guild.id, client);

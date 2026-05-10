@@ -107,6 +107,48 @@ async function sendChannelEmbed(channel, payload) {
   return channel.send(payload).catch(() => null);
 }
 
+function getValutazioneEntry(staff, kind, index, reason) {
+  const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
+  const list = Array.isArray(staff?.[listName]) ? staff[listName] : [];
+  const byIndex = list[index] || null;
+  if (byIndex?.messageId && byIndex?.channelId) return byIndex;
+  const auto = Array.isArray(staff?.autoValutazioni) ? staff.autoValutazioni : [];
+  return auto.find((entry) =>
+    String(entry?.type || "") === kind &&
+    String(entry?.reason || "") === String(reason || "") &&
+    String(entry?.messageId || "") &&
+    String(entry?.channelId || "")
+  ) || null;
+}
+
+function pushValutazioneEntry(staff, kind, reason, message) {
+  const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
+  if (!Array.isArray(staff[listName])) staff[listName] = [];
+  staff[listName].push({
+    reason: String(reason || ""),
+    channelId: message?.channelId ? String(message.channelId) : null,
+    messageId: message?.id ? String(message.id) : null,
+    createdAt: new Date(),
+  });
+}
+
+function removeValutazioneEntry(staff, kind, index) {
+  const listName = kind === "negative" ? "negativeValutazioni" : "positiveValutazioni";
+  if (!Array.isArray(staff?.[listName])) return;
+  if (index >= 0 && index < staff[listName].length) staff[listName].splice(index, 1);
+}
+
+async function editOriginalValutazioneMessage(guild, entry, embed) {
+  const channelId = String(entry?.channelId || "").trim();
+  const messageId = String(entry?.messageId || "").trim();
+  if (!guild || !channelId || !messageId) return false;
+  const channel = guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId));
+  if (!channel?.messages?.fetch) return false;
+  const message = await channel.messages.fetch(messageId).catch(() => null);
+  if (!message?.edit) return false;
+  return message.edit({ content: "", embeds: [embed], components: [] }).then(() => true).catch(() => false);
+}
+
 async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, channel) {
   const s = ensureStaff(profileDoc);
   s.valutazioniCount += 1;
@@ -117,6 +159,9 @@ async function valutazionePositiveAddCore(profileDoc, staffUser, reason, actor, 
   await profileDoc.save();
   const embed = makeLogEmbed(actor, staffUser, `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${s.positiveCount}`, reason, s.valutazioniCount, "#6f4e37", channel.guild);
   const message = await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
+  pushValutazioneEntry(s, "positive", reason, message);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
   return { message };
 }
 
@@ -129,7 +174,11 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
   ) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> ID non valido" };
   }
+  const index = removeId - 1;
+  const removedReason = s.positiveReasons[index];
+  const originalEntry = getValutazioneEntry(s, "positive", index, removedReason);
   s.positiveReasons.splice(removeId - 1, 1);
+  removeValutazioneEntry(s, "positive", index);
   s.positiveCount = Math.max(0, s.positiveCount - 1);
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
@@ -143,7 +192,8 @@ async function valutazionePositiveRemoveCore(profileDoc, staffUser, removeId, re
     "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`,
   );
-  await sendChannelEmbed(channel, { embeds: [embed] });
+  const edited = await editOriginalValutazioneMessage(channel.guild, originalEntry, embed);
+  if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
 }
 
@@ -157,6 +207,9 @@ async function valutazioneNegativeAddCore(guild, profileDoc, staffUser, reason, 
   await profileDoc.save();
   const embed = makeLogEmbed(actor, staffUser, `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${s.negativeCount}`, reason, s.valutazioniCount, "#6f4e37", guild);
   const message = await sendChannelEmbed(channel, { content: `${staffUser}`, embeds: [embed] });
+  pushValutazioneEntry(s, "negative", reason, message);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
   const warnResult = await addStaffWarnFromNegatives(guild.id, staffUser.id, s.negativeCount, reason);
   const warnChannel = guild.channels.cache.get(IDs.channels?.warnStaff) || (await getGuildChannelCached(guild, IDs.channels?.warnStaff));
   if (warnResult.added && warnChannel?.isTextBased?.()) {
@@ -211,7 +264,11 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
   ) {
     return { ok: false, message: "<:VC_Attention:1482534443632558151> ID non valido" };
   }
+  const index = removeId - 1;
+  const removedReason = s.negativeReasons[index];
+  const originalEntry = getValutazioneEntry(s, "negative", index, removedReason);
   s.negativeReasons.splice(removeId - 1, 1);
+  removeValutazioneEntry(s, "negative", index);
   s.negativeCount = Math.max(0, s.negativeCount - 1);
   s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
   profileDoc.markModified("staff");
@@ -225,7 +282,8 @@ async function valutazioneNegativeRemoveCore(profileDoc, staffUser, removeId, re
     "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
     `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`,
   );
-  await sendChannelEmbed(channel, { embeds: [embed] });
+  const edited = await editOriginalValutazioneMessage(channel.guild, originalEntry, embed);
+  if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
   return { ok: true };
 }
 

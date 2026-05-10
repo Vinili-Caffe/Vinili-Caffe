@@ -4,8 +4,7 @@ const { ActivityUserProfile, SiteDocument } = require("../../Schemas/Community/c
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { ensureStaff } = require("../../Utils/Staff/staffDocUtils");
 const { ensureStaffProfileDoc, getStaffDoc, valutazionePositiveAddCore, valutazioneNegativeAddCore, } = require("../../Utils/Staff/valutazionePanelActions");
-const { buildResocontoActivityScope, getWeeklySanctionCountByMod, resolveStaffRole, STAFF_ACTIVITY_LIMITS, STAFF_SANCTION_LIMITS } = require("./weeklyStaffResocontoService");
-const { getUserOverviewStats } = require("../Community/activityService");
+const { getWeeklySanctionCountByMod, resolveStaffRole, STAFF_SANCTION_LIMITS } = require("./weeklyStaffResocontoService");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SERATA_FILM_CHANNEL_ID = "1497535199813042306";
 const SERATA_FILM_MIN_MS = 30 * 60 * 1000;
@@ -16,6 +15,7 @@ const BOOST_NATURAL_EXPIRY_MIN_AGE_MS = 27 * 24 * 60 * 60 * 1000;
 const autoWeeklyLoops = new WeakSet();
 const serataFilmSessions = new Map();
 let autoValutazioniCleanupStarted = false;
+let autoValutazioniSyncRunning = false;
 
 function autoActor(guild) {
   return { user: guild?.client?.user || { username: "Automazione Staff" }, member: null };
@@ -345,27 +345,8 @@ async function syncWeeklyAutoValutazioniForMember(member, now = new Date()) {
   const weekStart = getCurrentWeekStartRome(now);
   const weekEnd = now;
   const weekKey = weekKeyFromDate(weekStart);
-  const activityKey = `weekly_activity:${weekKey}`;
   const sanctionKey = `weekly_sanzioni:${weekKey}`;
   const canEvaluateForRole = shouldEvaluateWeeklyForStaffRole(staffRoleId, now);
-  const limits = STAFF_ACTIVITY_LIMITS[String(staffRoleId)];
-  if (limits) {
-    const scope = buildResocontoActivityScope(member.guild);
-    const overview = await getUserOverviewStats(member.guild.id, member.id, 7, null, scope);
-    const d7 = overview?.windows?.d7 || {};
-    const messages = Math.max(0, Math.floor(Number(d7.text || 0)));
-    const hours = Math.max(0, Number(d7.voiceSeconds || 0) / 3600);
-    const reachedBase = messages >= Number(limits.messages || 0) && hours >= Number(limits.hours || 0);
-    const reachedDouble = messages >= Number(limits.messages || 0) * 2 && hours >= Number(limits.hours || 0) * 2;
-
-    if (reachedDouble && canEvaluateForRole) {
-      await ensureAutoValutazione(member.guild, member, activityKey, "positive", `Limiti settimanali completati del doppio.`);
-    } else if (!reachedBase && canEvaluateForRole) {
-      await ensureAutoValutazione(member.guild, member, activityKey, "negative", `Limiti settimanali non raggiunti.`);
-    } else if (reachedBase) {
-      await removeAutoValutazione(member.guild, member.id, activityKey);
-    }
-  }
 
   const sanctionLimit = STAFF_SANCTION_LIMITS[String(staffRoleId)];
   if (sanctionLimit != null) {
@@ -399,6 +380,26 @@ async function syncAllStaffAutoValutazioni(client) {
   }
 }
 
+async function runStaffAutoValutazioniSyncLocked(client, source = "loop") {
+  if (autoValutazioniSyncRunning) {
+    global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} skipped: previous sync still running.`);
+    return;
+  }
+  autoValutazioniSyncRunning = true;
+  const startedAt = Date.now();
+  try {
+    await syncAllStaffAutoValutazioni(client);
+  } catch (err) {
+    global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} failed:`, err?.message || err);
+  } finally {
+    const elapsedMs = Date.now() - startedAt;
+    autoValutazioniSyncRunning = false;
+    if (elapsedMs > 60_000) {
+      global.logger?.warn?.(`[STAFF AUTO VALUTAZIONI] ${source} slow sync: ${elapsedMs}ms.`);
+    }
+  }
+}
+
 function startStaffAutoValutazioniLoop(client) {
   if (!client || autoWeeklyLoops.has(client)) return;
   autoWeeklyLoops.add(client);
@@ -407,15 +408,11 @@ function startStaffAutoValutazioniLoop(client) {
     cleanupMalformedAutoValutazioni().catch(() => null);
   }
   const firstSync = setTimeout(() => {
-    syncAllStaffAutoValutazioni(client).catch((err) => {
-      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] first sync failed:", err?.message || err);
-    });
+    runStaffAutoValutazioniSyncLocked(client, "first_sync");
   }, 15_000);
   firstSync.unref?.();
   const task = cron.schedule(AUTO_SYNC_CRON, () => {
-    syncAllStaffAutoValutazioni(client).catch((err) => {
-      global.logger?.warn?.("[STAFF AUTO VALUTAZIONI] loop failed:", err?.message || err);
-    });
+    runStaffAutoValutazioniSyncLocked(client, "loop");
   }, { timezone: "Europe/Rome" });
   task.start();
 }
