@@ -163,8 +163,8 @@ async function handleStaffButtons(interaction) {
       "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**",
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**",
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzioni`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzione`**",
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzione`**",
       "",
       "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
     ].join("\n"));
@@ -184,7 +184,7 @@ async function handleStaffButtons(interaction) {
 
 <:VC_3:1482706404773990460> <a:VC_Arrow:1482706699365257397> Quando **sanzionate**, usate sempre l'**__articolo__** del **regolamento** infranto.
 
-<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato** usate il comando +modlogs **__\`ID\`__**
+<:VC_4:1482706432347344916> <a:VC_Arrow:1482706699365257397> Per visualizzare **quante** volte un __utente__ è stato **sanzionato**, usate il comando +modlogs **__\`ID\`__**.
 
 <:VC_5:1482706459765637272> <a:VC_Arrow:1482706699365257397> Bisogna **__sempre__** sanzionare nel canale <#1442569245878648924> usando i comandi di <@1329118940110127204>
 
@@ -217,7 +217,7 @@ async function handleStaffButtons(interaction) {
       .setColor("#6f4e37")
       .setDescription(
         "<a:VC_LevelUp:1482527020641419415> **__GUIDA PEX__**\n\n" +
-        "> <:VC_Clock:1473359204189474886> Ogni ruolo per essere assegnato richiedere un certo tempo per essere ottenuto, ma non è detto che al raggiungimento di questo tempo venga assegnato il ruolo.\n" +
+        "> <:VC_Clock:1473359204189474886> Ogni ruolo, per essere assegnato, richiede un certo tempo per essere ottenuto, ma non è detto che al raggiungimento di questo tempo venga assegnato il ruolo.\n" +
         "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Helper + "> è un ruolo di prova, **con un periodo variabile di 1-2 settimane**.\n" +
         "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.Mod + "> **richiede un periodo variabile di 1-2 mesi**.\n" +
         "<:VC_Dot:1482532364222595303> Il ruolo <@&" + IDs.roles.SeniorModerator + "> **richiede un periodo variabile di 2-3 mesi**.\n" +
@@ -247,7 +247,7 @@ async function handleStaffButtons(interaction) {
       "<:VC_3:1482706404773990460> **Completamento dei limiti sanzioni**\n\n" +
       "> Inoltre si possono ottenere delle valutazioni extra in base a alcuni ruoli:\n" +
       "<:VC_1:1482706338021642333> **Mettendo il link vanity nello status o nella bio, o mettendo una nostra GUILD TAGS**\n" +
-      "<:VC_2:1482706376525611090> **Seguendo le pagina social**\n" +
+      "<:VC_2:1482706376525611090> **Seguendo le pagine social**\n" +
       "<:VC_3:1482706404773990460> **Mettendo una recensione sul [nostro sito](https://www.viniliecaffe.it/recensioni)**\n" +
       "<:VC_4:1482706432347344916> **Boostando il server o comprando un ruolo come Donator, VIP o VIP+ \n(<:VC_Attention:1482534443632558151> __Attenzione: per i boost varrà anche solo con un boost, se viene trasferito verrà rimossa anche la valutazione.__ Solo per il ruolo Supporter e Follower bisognerà aprire un ticket \`HIGH STAFF\`)**\n\n" +
       "> L'<@&" + IDs.roles.HighStaff + "> può inoltre decidere di assegnare valutazioni extra a discrezione in base a comportamenti particolarmente virtuosi o dannosi per la community."
@@ -306,8 +306,8 @@ async function handleStaffButtons(interaction) {
       "> <a:VC_Arrow:1482706699365257397> **__LIMITI SETTIMANALI SULLE SANZIONI__**\n" +
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Mod + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
       "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.SeniorModerator + "> dovrà __eseguire__ almeno: **`2 sanzioni`**\n" +
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
-      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzioni`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Director + "> dovrà __eseguire__ almeno: **`1 sanzione`**\n" +
+      "<:VC_Dot:1482532364222595303> Ogni <@&" + IDs.roles.Admin + "> dovrà __eseguire__ almeno: **`1 sanzione`**\n" +
       "",
       "> Chi __rispetterà__ questi limiti riceverà **una valutazione positiva**.",
     );

@@ -327,7 +327,7 @@ async function rerollGiveaway(interaction, client) {
     }).catch(() => { });
   } else {
     await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il re - roll.",
+      content: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il reroll.",
       flags: 1 << 6,
     }).catch(() => { });
   }
@@ -373,7 +373,7 @@ async function rerollGiveawayByMessageId(messageId, client) {
   }
 
   if (newWinnerId) return { ok: true, newWinnerId };
-  return { ok: false, error: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il re - roll." };
+  return { ok: false, error: "<a:VC_Alert:1482706673176150077> Nessun altro partecipante disponibile per il reroll." };
 }
 
 async function runScheduledEnds(client) {

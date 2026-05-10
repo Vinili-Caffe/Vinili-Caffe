@@ -85,7 +85,7 @@ module.exports = {
         });
       }
       return safeEditReply(interaction, {
-        content: `<a:VC_Alert:1482706673176150077> ${result.error || "Errore durante il re - roll."}`,
+        content: `<a:VC_Alert:1482706673176150077> ${result.error || "Errore durante il reroll."}`,
         flags: EPHEMERAL_FLAG,
       });
     }

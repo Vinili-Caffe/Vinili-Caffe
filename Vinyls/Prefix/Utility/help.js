@@ -46,7 +46,7 @@ const PREFIX_HELP_DESCRIPTIONS = {
   me: "Mostra le tue statistiche attività.",
   user: "Mostra le statistiche attività di un utente.",
   server: "Mostra statistiche attività del server.",
-  channel: "Mostra le statistiche attività di un canale",
+  channel: "Mostra le statistiche attività di un canale.",
   top: "Mostra la top completa utenti/canali.",
   rank: "Mostra livello, exp e posizione in classifica di un utente.",
   info: "Mostra una scheda completa di un utente: account, ruoli, permessi, strike e stato sicurezza.",

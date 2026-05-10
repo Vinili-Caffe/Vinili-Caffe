@@ -134,7 +134,7 @@ function makeOwnerEmbed() {
     .setColor("Red")
     .setTitle("<:cancel:1461730653677551691> Operazione non riuscita!")
     .setDescription(
-      "<:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Sei il proprietario, perché un owner dovrebbe provare a verificarsi?",
+      "<:VC_Space:1482459974667075685> <:rightSort:1461726104422453298> Sei il proprietario del server: perché dovresti provare a verificarti?",
     );
 }
 

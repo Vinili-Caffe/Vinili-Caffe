@@ -33,7 +33,7 @@ function buildNoRoleKickDm(guild) {
         .setColor("#6f4e37")
         .setTitle(`Inserimento non completato su ${guild?.name || "Vinili & Caffe"}`)
         .setDescription(
-          "Sei stato rimosso dal server perchè dopo 24 ore non avevi ancora completato l'inserimento e non avevi alcun ruolo.\n\n" +
+          "Sei stato rimosso dal server perché dopo 24 ore non avevi ancora completato l'inserimento e non avevi alcun ruolo.\n\n" +
             "Per restare nel server devi completare la verifica/introduzione e ottenere i ruoli richiesti." +
             inviteLine,
         )

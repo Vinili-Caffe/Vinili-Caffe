@@ -315,7 +315,7 @@ async function addSiteSuggestionComment(client, payload = {}) {
       ok: false,
       status: 400,
       error: "thread_closed",
-      message: "Questo suggerimento è stato già gestito: non è possibile aggiungere commenti.",
+      message: "Questo suggerimento è già stato gestito: non è possibile aggiungere commenti.",
     };
   }
   const n = Array.isArray(existing.comments) ? existing.comments.length : 0;

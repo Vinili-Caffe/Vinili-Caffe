@@ -5,8 +5,9 @@ const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = requ
 const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
 const CHECK_INTERVAL_MS = 60 * 1000;
 let expiryLoopHandle = null;
-const CUSTOM_VOC_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
-const CUSTOM_ROLE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
+const CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS = 7;
+const CUSTOM_VOC_GRACE_MS = CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS * 24 * 60 * 60 * 1000;
+const CUSTOM_ROLE_GRACE_MS = CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
 async function execLean(queryOrValue, fallback = null) {
   if (queryOrValue && typeof queryOrValue.lean === "function") {
@@ -164,7 +165,7 @@ async function runExpiredCustomRolesSweep(client) {
       }
       const voiceChannel = await resolveVoiceChannel(guild, doc);
       if (voiceChannel && (await canManageChannels(guild))) {
-        await voiceChannel.delete(`Custom private voice removed after 14d without eligibility for user ${doc.userId}`).catch(() => {});
+        await voiceChannel.delete(`Custom private voice removed after ${CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS}d without eligibility for user ${doc.userId}`).catch(() => {});
       }
       await CustomRole.updateOne(
         { guildId: doc.guildId, userId: doc.userId },
