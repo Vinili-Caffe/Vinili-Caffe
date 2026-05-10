@@ -1075,11 +1075,11 @@ async function runNamed(name, message, args, client) {
 
 async function executeDynoModerationCommand(commandName, message, args, client) {
   if (message?.__fromMessageUpdatePrefix) {
-    await updateCaseFromEditedModerationCommand(commandName, message, args).catch((err) => {
+    const updated = await updateCaseFromEditedModerationCommand(commandName, message, args).catch((err) => {
       global.logger?.error?.("[dynoModerationCommands] edited command case update failed:", err);
       return false;
     });
-    return null;
+    if (updated) return null;
   }
   if (message?.guild) {
     sendModCommandUsageToModLogs(message.guild, message, commandName).catch(() => null);

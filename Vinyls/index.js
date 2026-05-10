@@ -153,8 +153,6 @@ initializeCommandCollections(client, { includeSnipes: true });
       client.logBootTables();
     }
 
-    // HTTP vote webhook Discadia: si avvia da Events/ready.js (dopo login) se discadia.httpVoteWebhookEnabled o DISCADIA_VOTE_HTTP_WEBHOOK=1
-
     client.login(client.config.token).catch((error) => {
       global.logger.error(
         "[LOGIN] Error while logging in. Check if your token is correct or double check your also using the correct intents.",

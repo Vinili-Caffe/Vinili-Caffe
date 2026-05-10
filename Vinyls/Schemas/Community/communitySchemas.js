@@ -404,6 +404,9 @@ const activityUserProfileSchema = new Schema(
             totalExp: { type: Number, default: 0 },
             weeklyExp: { type: Number, default: 0 },
             weeklyKey: { type: String, default: "" },
+            /** Copia alla domenica 21 (reset): punteggio della settimana appena chiusa, per embed/refresh dopo azzeramento. */
+            prevWeekExp: { type: Number, default: 0 },
+            prevWeekKey: { type: String, default: "" },
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
           },

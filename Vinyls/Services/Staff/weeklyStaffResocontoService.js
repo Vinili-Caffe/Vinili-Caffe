@@ -8,6 +8,7 @@ const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Event
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
 const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../Utils/Discord/gatewayMemberFetch");
+const { addAllRoleMembersToThread } = require("../../Utils/Discord/threadRoleMembers");
 const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
@@ -24,8 +25,6 @@ const RESOCONTO_CRON_SEGMENTS = [
   { segment: "admin", expression: "0 18 * * 0" },
 ];
 const STAFF_RESOCONTO_SEGMENTS = ["helper", "mod", "senior_moderator", "director", "admin"];
-const STAFF_RESOCONTO_MIN_ROLE_SIZE_BEFORE_CHAIN = 3;
-const STAFF_RESOCONTO_MIN_CHAIN_SENT = 5;
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 400, hours: 4 },
   [String(IDs.roles.Mod)]: { messages: 500, hours: 5 },
@@ -922,6 +921,12 @@ async function createResocontoThread(message, userId, userLabel = null, staffDoc
     .catch(() => null);
   if (!thread?.isTextBased?.()) return;
 
+  const guild = message?.guild;
+  const highStaffRoleId = String(IDs.roles.HighStaff || "").trim();
+  if (guild && highStaffRoleId) {
+    await addAllRoleMembersToThread(thread, guild, highStaffRoleId, { logTag: "[WEEKLY STAFF RESOCONTO thread]" });
+  }
+
   const mentionMsg = await thread.send({ content: `<@&${IDs.roles.HighStaff}>` })
     .catch(() => null);
   if (mentionMsg) {
@@ -1345,14 +1350,6 @@ async function runWeeklyStaffResocontoChain(client, segment, opts = {}) {
     results.push(result);
     totalSent += Number(result?.sent || 0);
     totalCompleted += Number(result?.completed || 0);
-
-    const eligible = Number(result?.eligible || 0);
-    if (
-      eligible >= STAFF_RESOCONTO_MIN_ROLE_SIZE_BEFORE_CHAIN &&
-      totalCompleted >= STAFF_RESOCONTO_MIN_CHAIN_SENT
-    ) {
-      break;
-    }
   }
   return { sent: totalSent, completed: totalCompleted, results };
 }

@@ -2,6 +2,7 @@ const { AuditLogEvent, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilde
 const IDs = require("../Utils/Config/ids");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleThreadCreationAction: antiNukeHandleThreadCreationAction } = require("../Services/Moderation/antiNukeService");
+const { addAllRoleMembersToThread } = require("../Utils/Discord/threadRoleMembers");
 
 const THREAD_CREATE_ACTION = AuditLogEvent?.ThreadCreate ?? 110;
 
@@ -41,7 +42,11 @@ async function resolveForumParent(thread) {
 }
 
 async function pingForumRoleInNewThread(thread, forumRoleId) {
+  const guild = thread.guild;
   await thread.join().catch(() => {});
+  if (guild) {
+    await addAllRoleMembersToThread(thread, guild, forumRoleId, { logTag: "[threadCreate forum]" });
+  }
   await thread
     .send({
       content: `<@&${forumRoleId}>`,

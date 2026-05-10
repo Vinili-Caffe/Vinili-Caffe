@@ -3,6 +3,7 @@ const { getOrCreateStaffDoc } = require("../Staff/staffDocUtils");
 const IDs = require("../Config/ids");
 const { getOnePausePerMonthWarning, getOneWeekBetweenWarning, normalizePauseRoleChoice, PAUSE_ROLE_STAFF } = require("./pauseHandlersUtils");
 const { getGuildChannelCached, getClientChannelCached } = require("../Interaction/interactionEntityCache");
+const { hydrateGuildMembersForRolePings } = require("../Discord/threadRoleMembers");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
 const PAUSE_REQUEST_ROLE_IDS = [
@@ -228,8 +229,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   await thread.members.add(uid).catch(() => null);
   const highStaffRoleId = String(IDs.roles.HighStaff || "");
   if (highStaffRoleId) {
+    await hydrateGuildMembersForRolePings(guild, "[pause thread HighStaff]");
     const membersWithHighStaff = guild.members.cache.filter((m) => m.roles.cache.has(highStaffRoleId));
     for (const m of membersWithHighStaff.values()) {
+      if (m.user?.bot) continue;
       await thread.members.add(m.id).catch(() => null);
     }
   }

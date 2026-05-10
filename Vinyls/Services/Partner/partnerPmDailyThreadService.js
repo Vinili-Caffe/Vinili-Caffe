@@ -2,6 +2,7 @@ const { ThreadAutoArchiveDuration, ChannelType, MessageType } = require("discord
 const IDs = require("../../Utils/Config/ids");
 const { getGuildChannelCached } = require("../../Utils/Interaction/interactionEntityCache");
 const { getPartnerPmDailyThreadId, setPartnerPmDailyThreadId } = require("../../Utils/Global/globalSettingsBucket");
+const { addAllRoleMembersToThread } = require("../../Utils/Discord/threadRoleMembers");
 
 const TIME_ZONE = "Europe/Rome";
 
@@ -42,14 +43,7 @@ async function notifyPartnerManagersInNewThread(thread, guild) {
 
   await deleteThreadOpeningMessage(thread);
 
-  const role =
-    guild.roles.cache.get(pmRoleId) || (await guild.roles.fetch(pmRoleId).catch(() => null));
-  if (role?.members?.size) {
-    for (const m of role.members.values()) {
-      if (m.user?.bot) continue;
-      await thread.members.add(m.id).catch(() => {});
-    }
-  }
+  await addAllRoleMembersToThread(thread, guild, pmRoleId, { logTag: "[PARTNER PM THREAD]" });
 
   const line =
     `<@&${pmRoleId}> **Thread comandi PM** (${formatDateTitleRome(new Date())}).\n` +
