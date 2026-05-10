@@ -7,6 +7,7 @@ const { aggregateSanctionsByModInWeek } = require("../../Utils/Moderation/modCas
 const { RESOCONTO_APPLY_PREFIX, RESOCONTO_REJECT_PREFIX } = require("../../Events/interaction/resocontoHandlers");
 const { getUserOverviewStats } = require("../Community/activityService");
 const { getClientGuildCached, getClientChannelCached, getGuildMemberCached, } = require("../../Utils/Interaction/interactionEntityCache");
+const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../Utils/Discord/gatewayMemberFetch");
 const { getDevIds } = require("../../Utils/Moderation/commandPermissions");
 const { STAFF_NEW_EMOJI } = require("../../Utils/Community/staffListUtils");
 const { getStaffRoleEmojiByRoleId } = require("../../Utils/Community/staffRoleEmoji");
@@ -1010,33 +1011,19 @@ async function hydrateGuildMembersForResoconto(guild, segment) {
     return state.promise;
   }
 
-  const promise = guild.members.fetch()
+  const promise = fetchGuildMembersRespectingGatewayRateLimit(guild, {
+    maxAttempts: 12,
+    onRateLimit: (waitMs, attempt, maxAttempts) => {
+      global.logger?.info?.(
+        `[WEEKLY STAFF RESOCONTO] Member fetch rate-limited (${segment || "unknown"}), retry ${attempt}/${maxAttempts} in ~${Math.round(waitMs / 1000)}s.`,
+      );
+    },
+  })
     .then(() => {
       resocontoMemberHydrationStateByGuild.set(guildId, { lastOkAt: Date.now(), promise: null });
       return true;
     })
-    .catch(async (err) => {
-      const retryAfterSeconds = Number(String(err?.message || "").match(/Retry after ([\d.]+) seconds/i)?.[1] || 0);
-      if (retryAfterSeconds > 0) {
-        const waitMs = Math.min(30_000, Math.ceil(retryAfterSeconds * 1000) + 500);
-        global.logger?.info?.(
-          `[WEEKLY STAFF RESOCONTO] Member fetch rate-limited (${segment || "unknown"}), retry in ${Math.round(waitMs / 1000)}s.`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        return guild.members.fetch()
-          .then(() => {
-            resocontoMemberHydrationStateByGuild.set(guildId, { lastOkAt: Date.now(), promise: null });
-            return true;
-          })
-          .catch((retryErr) => {
-            global.logger?.warn?.(
-              `[WEEKLY STAFF RESOCONTO] Member fetch retry failed (${segment || "unknown"}):`,
-              retryErr?.message || retryErr,
-            );
-            resocontoMemberHydrationStateByGuild.set(guildId, { lastOkAt: 0, promise: null });
-            return false;
-          });
-      }
+    .catch((err) => {
       global.logger?.warn?.(
         `[WEEKLY STAFF RESOCONTO] Member fetch failed (${segment || "unknown"}):`,
         err?.message || err,

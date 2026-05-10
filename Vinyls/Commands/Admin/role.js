@@ -1,36 +1,22 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const { safeEditReply } = require("../../../shared/discord/replyRuntime");
 
+const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../Utils/Discord/gatewayMemberFetch");
+
 const EPHEMERAL_FLAG = 1 << 6;
 const CHUNK_SIZE = 5;
 const CHUNK_DELAY_MS = 900;
 const MEMBER_FETCH_MAX_ATTEMPTS = 30;
 
-function isGatewayMemberListRateLimit(err) {
-  if (!err) return false;
-  if (err.name === "GatewayRateLimitError") return true;
-  const op = err?.data?.opcode;
-  const ra = Number(err?.data?.retry_after);
-  return (op === 8 || op === "8") && Number.isFinite(ra) && ra > 0;
-}
-
 async function fetchAllGuildMembersResilient(guild) {
-  for (let attempt = 0; attempt < MEMBER_FETCH_MAX_ATTEMPTS; attempt++) {
-    try {
-      return await guild.members.fetch();
-    } catch (err) {
-      if (!isGatewayMemberListRateLimit(err) || attempt >= MEMBER_FETCH_MAX_ATTEMPTS - 1) {
-        throw err;
-      }
-      const retryAfterSec = Number(err?.data?.retry_after) || 12;
-      const waitMs = Math.ceil(retryAfterSec * 1000) + 250 + Math.floor(Math.random() * 400);
+  return fetchGuildMembersRespectingGatewayRateLimit(guild, {
+    maxAttempts: MEMBER_FETCH_MAX_ATTEMPTS,
+    onRateLimit: (waitMs, attempt, maxAttempts) => {
       global.logger?.warn?.(
-        `[role all] Richiesta membri (gateway) rate-limited, nuovo tentativo tra ~${Math.round(waitMs / 1000)}s (${attempt + 1}/${MEMBER_FETCH_MAX_ATTEMPTS})`,
+        `[role all] Richiesta membri (gateway) rate-limited, nuovo tentativo tra ~${Math.round(waitMs / 1000)}s (${attempt}/${maxAttempts})`,
       );
-      await new Promise((r) => setTimeout(r, waitMs));
-    }
-  }
-  throw new Error("fetch membri: tentativi esauriti");
+    },
+  });
 }
 
 async function runRoleAllToMembers(interaction, role) {

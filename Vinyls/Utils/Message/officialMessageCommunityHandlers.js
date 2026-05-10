@@ -244,8 +244,8 @@ async function handleAfk(message) {
     const safeName = escapeMarkdown(mentionedUser.username);
     const safeReason = escapeMarkdown(reason);
     const line = reason
-      ? `**${safeName}** è AFK: ${safeReason} - ${ago}`
-      : `**${safeName}** è AFK - ${ago}`;
+      ? `\`${safeName}\` è AFK: ${safeReason} - ${ago}`
+      : `\`${safeName}\` è AFK - ${ago}`;
     const msg = await safeMessageReply(message, line);
     if (msg) scheduleMessageDeletion(msg, EPHEMERAL_TTL_NORMAL_MS);
   }

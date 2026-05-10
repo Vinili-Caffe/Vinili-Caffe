@@ -51,7 +51,7 @@ module.exports = {
       await member.setNickname(afkNickname).catch(() => {});
       safeMessageReply(
         message,
-        `Ho impostato il tuo AFK: ${escapeMarkdown(afkMessage)}`,
+        `<@${userId}> ho impostato il tuo AFK: ${escapeMarkdown(afkMessage)}`,
       );
     } catch (error) {
       global.logger.error(error);
