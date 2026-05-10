@@ -13,6 +13,22 @@ const {
 const STATS_GAP = 22;
 const ROME_TIME_ZONE = "Europe/Rome";
 
+/** GIF attività (+me / +server / channel): `VC_ACTIVITY_CANVAS_GIF=0` → solo PNG (più rapido). */
+const ACTIVITY_CANVAS_GIF = String(process.env.VC_ACTIVITY_CANVAS_GIF ?? "1").trim() !== "0";
+const ACTIVITY_CANVAS_ANIM_FRAMES = Math.max(
+  2,
+  Math.min(30, Math.floor(Number(process.env.VC_ACTIVITY_CANVAS_ANIM_FRAMES ?? 12))),
+);
+/** Un solo frame “fermo” in coda con delay lungo (prima: 20 frame identici ridisegnati). */
+const ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS = Math.max(
+  100,
+  Math.min(20000, Math.floor(Number(process.env.VC_ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS ?? 2800))),
+);
+const ACTIVITY_CHANNEL_ANIM_FRAMES = Math.max(
+  2,
+  Math.min(30, Math.floor(Number(process.env.VC_ACTIVITY_CHANNEL_ANIM_FRAMES ?? 12))),
+);
+
 const STATS_TITLE = "#e8edf2";
 const STATS_BODY = "#c5d0db";
 const STATS_MUTED = "#97a6b6";
@@ -1212,22 +1228,22 @@ async function renderChannelActivityCanvas(props) {
     GIFEncoder = null;
   }
 
-  if (!GIFEncoder) {
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
     await paintChannelActivityCanvas(ctx, props, 0, channelIconResolved);
     return canvas.toBuffer("image/png");
   }
 
-  const frameCount = 20;
+  const frameCount = ACTIVITY_CHANNEL_ANIM_FRAMES;
   const encoder = new GIFEncoder(width, height);
   encoder.start();
   encoder.setRepeat(0);
   encoder.setDelay(72);
   encoder.setQuality(12);
+  const canvas = getCanvasModule().createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
   for (let f = 0; f < frameCount; f += 1) {
-    const canvas = getCanvasModule().createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
     await paintChannelActivityCanvas(ctx, props, frameCount > 1 ? f / (frameCount - 1) : 1, channelIconResolved);
     encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
   }
@@ -1518,34 +1534,29 @@ async function renderUserActivityCanvas(props) {
     GIFEncoder = null;
   }
 
-  if (!GIFEncoder) {
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
     await paintUserActivityCanvas(ctx, props, 0, avatarResolved);
     return canvas.toBuffer("image/png");
   }
 
-  const animFrames = 22;
-  const staticFrames = 20;
+  const animFrames = ACTIVITY_CANVAS_ANIM_FRAMES;
   const encoder = new GIFEncoder(width, height);
   encoder.start();
   encoder.setRepeat(0);
   encoder.setDelay(72);
   encoder.setQuality(12);
+  const canvas = getCanvasModule().createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
   for (let f = 0; f < animFrames; f += 1) {
-    const canvas = getCanvasModule().createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
     const phase = animFrames > 1 ? f / (animFrames - 1) : 1;
     await paintUserActivityCanvas(ctx, props, phase, avatarResolved);
     encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
   }
-  encoder.setDelay(140);
-  for (let s = 0; s < staticFrames; s += 1) {
-    const canvas = getCanvasModule().createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
-    await paintUserActivityCanvas(ctx, props, 1, avatarResolved);
-    encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
-  }
+  encoder.setDelay(ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS);
+  await paintUserActivityCanvas(ctx, props, 1, avatarResolved);
+  encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
   encoder.finish();
   return Buffer.from(encoder.out.getData());
 }
@@ -1762,34 +1773,29 @@ async function renderServerActivityCanvas(props) {
     GIFEncoder = null;
   }
 
-  if (!GIFEncoder) {
+  if (!GIFEncoder || !ACTIVITY_CANVAS_GIF) {
     const canvas = getCanvasModule().createCanvas(width, height);
     const ctx = canvas.getContext("2d");
     await paintServerActivityCanvas(ctx, props, 0, guildIconResolved);
     return canvas.toBuffer("image/png");
   }
 
-  const animFrames = 22;
-  const staticFrames = 20;
+  const animFrames = ACTIVITY_CANVAS_ANIM_FRAMES;
   const encoder = new GIFEncoder(width, height);
   encoder.start();
   encoder.setRepeat(0);
   encoder.setDelay(72);
   encoder.setQuality(12);
+  const canvas = getCanvasModule().createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
   for (let f = 0; f < animFrames; f += 1) {
-    const canvas = getCanvasModule().createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
     const phase = animFrames > 1 ? f / (animFrames - 1) : 1;
     await paintServerActivityCanvas(ctx, props, phase, guildIconResolved);
     encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
   }
-  encoder.setDelay(140);
-  for (let s = 0; s < staticFrames; s += 1) {
-    const canvas = getCanvasModule().createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
-    await paintServerActivityCanvas(ctx, props, 1, guildIconResolved);
-    encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
-  }
+  encoder.setDelay(ACTIVITY_CANVAS_STATIC_TAIL_DELAY_MS);
+  await paintServerActivityCanvas(ctx, props, 1, guildIconResolved);
+  encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
   encoder.finish();
   return Buffer.from(encoder.out.getData());
 }

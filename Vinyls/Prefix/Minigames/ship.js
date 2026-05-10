@@ -134,8 +134,8 @@ module.exports = {
         (await getGuildMemberCached(guild, right.id).catch(() => null));
       const percent = randomShipPercent(message.id);
       const { buffer, format } = await renderShipCanvas({
-        leftAvatarUrl: guildMemberDisplayAvatarUrlDynamic(leftMem || left, { size: 512 }) || "",
-        rightAvatarUrl: guildMemberDisplayAvatarUrlDynamic(rightMem || right, { size: 512 }) || "",
+        leftAvatarUrl: guildMemberDisplayAvatarUrlDynamic(leftMem || left, { size: 256 }) || "",
+        rightAvatarUrl: guildMemberDisplayAvatarUrlDynamic(rightMem || right, { size: 256 }) || "",
         leftName: trimName(left.username),
         rightName: trimName(right.username),
         leftId: left.id,

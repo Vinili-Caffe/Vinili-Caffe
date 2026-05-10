@@ -8,6 +8,9 @@ const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts");
 const { safeLoadImage, fetchHttpImageBuffer } = require("./safeLoadImage");
 
+/** `VC_SHIP_CANVAS_PNG=1` → niente GIF/ffmpeg (molto più veloce). */
+const SHIP_CANVAS_USE_PNG = String(process.env.VC_SHIP_CANVAS_PNG ?? "0").trim() === "1";
+
 function hashSeed(source) {
   let h = 2166136261;
   const text = String(source || "");
@@ -173,8 +176,8 @@ function runFfmpeg(args) {
   return Number(out?.status) === 0;
 }
 
-const SHIP_AVATAR_GIF_DECODE_FPS = 12;
-const SHIP_AVATAR_GIF_MAX_FRAMES = 36;
+const SHIP_AVATAR_GIF_DECODE_FPS = Math.max(4, Math.min(16, Math.floor(Number(process.env.VC_SHIP_AVATAR_GIF_FPS ?? 8))));
+const SHIP_AVATAR_GIF_MAX_FRAMES = Math.max(8, Math.min(48, Math.floor(Number(process.env.VC_SHIP_AVATAR_GIF_MAX_FRAMES ?? 20))));
 
 function isGifImageBuffer(buf) {
   if (!buf || buf.length < 6) return false;
@@ -593,8 +596,8 @@ async function renderSinglePngBuffer(params) {
     rightId,
     percent: finalPercent,
     topText,
-    frameIndex: 17,
-    totalFrames: 18,
+    frameIndex: 99,
+    totalFrames: 100,
   });
   return canvas.toBuffer("image/png");
 }
@@ -605,6 +608,11 @@ async function renderSinglePngBuffer(params) {
 module.exports = async function renderShipCanvas(params) {
   if (!canvasModule) throw new Error("Canvas module not available");
   registerCanvasFonts(canvasModule);
+
+  if (SHIP_CANVAS_USE_PNG) {
+    const buf = await renderSinglePngBuffer(params);
+    return { buffer: buf, format: "png" };
+  }
 
   const {
     leftAvatarUrl,
@@ -636,8 +644,8 @@ module.exports = async function renderShipCanvas(params) {
     return { buffer: buf, format: "png" };
   }
 
-  const FRAME_COUNT = 18;
-  const FRAMERATE = 12;
+  const FRAME_COUNT = Math.max(8, Math.min(24, Math.floor(Number(process.env.VC_SHIP_GIF_FRAMES ?? 12))));
+  const FRAMERATE = Math.max(6, Math.min(16, Math.floor(Number(process.env.VC_SHIP_GIF_FPS ?? 10))));
   let tmpDir = "";
   try {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vc-ship-gif-"));
