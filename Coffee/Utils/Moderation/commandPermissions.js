@@ -1,8 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/entityCache");
-const { EMPTY_PERMISSIONS, loadPermissions } = require("./permissionsStore");
-
+const { loadPermissions } = require("./permissionsStore");
 const TEST_MAIN_GUILD_ID = IDs?.guilds?.test || null;
 const OFFICIAL_MAIN_GUILD_ID = IDs?.guilds?.main || null;
 const TEST_SCOPE_GUILD_IDS = new Set(
@@ -293,28 +292,12 @@ function extractOwnerIdFromMessageMention(message) {
   return null;
 }
 
-function getDevIds(client) {
-  const fromConfig = client?.config?.developers;
-  if (Array.isArray(fromConfig)) return fromConfig.map(String);
-  if (typeof fromConfig === "string") {
-    return fromConfig
-      .split(",")
-      .map((id) => String(id).trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
 async function checkSlashPermission(interaction) {
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const userId = interaction?.user?.id || null;
   if (!guildId) return false;
 
   if (isExternalGuild(guildId)) {
-    if (interaction.commandName === "dmbroadcast") {
-      const devIds = getDevIds(interaction?.client);
-      return devIds.includes(String(userId || ""));
-    }
     return true;
   }
 
@@ -323,11 +306,6 @@ async function checkSlashPermission(interaction) {
     isOfficialMainGuild(guildId)
   ) {
     return hasAdminPermissionWithFallback(interaction);
-  }
-
-  if (interaction.commandName === "dmbroadcast") {
-    const devIds = getDevIds(interaction?.client);
-    return devIds.includes(String(userId || ""));
   }
 
   const data = loadPermissions();
@@ -656,12 +634,7 @@ function getPrefixRequiredRoles(commandName, subcommandName = null) {
   return resolvePrefixRoles(data, commandName, subcommandName);
 }
 
-function buildGlobalPermissionDeniedEmbed(
-  requiredRoleIds = [],
-  entityLabel = "comando",
-  customDescription = null,
-  guild = null,
-) {
+function buildGlobalPermissionDeniedEmbed(requiredRoleIds = [], entityLabel = "comando", customDescription = null, guild = null) {
   let roles = Array.isArray(requiredRoleIds) ? requiredRoleIds.filter(Boolean) : [];
   if (guild?.roles?.cache) {
     roles = roles.filter((id) => guild.roles.cache.has(id));
@@ -716,16 +689,4 @@ function buildGlobalNotYourControlEmbed() {
     .setDescription("<:VC_Attention:1482534443632558151> Questo controllo non è associato al tuo comando.");
 }
 
-module.exports = {
-  checkSlashPermission,
-  checkPrefixPermission,
-  checkButtonPermission,
-  checkStringSelectPermission,
-  checkModalPermission,
-  getSlashRequiredRoles,
-  getPrefixRequiredRoles,
-  buildGlobalPermissionDeniedEmbed,
-  buildGlobalChannelDeniedEmbed,
-  buildGlobalNotYourControlEmbed,
-  hasAnyRole,
-};
+module.exports = { checkSlashPermission, checkPrefixPermission, checkButtonPermission, checkStringSelectPermission, checkModalPermission, getSlashRequiredRoles, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, hasAnyRole };

@@ -1,6 +1,5 @@
 const path = require("path");
 const { listJsFilesRecursive } = require("../../shared/runtime/fsRuntime");
-
 const IDS_SUBFOLDER = path.sep + "ids" + path.sep;
 
 function isNonHandlerFile(relativeKey) {

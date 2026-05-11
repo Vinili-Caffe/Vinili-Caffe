@@ -5,7 +5,6 @@ const { getClientChannelCached } = require("../Utils/Interaction/interactionEnti
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
 const CANDIDATURE_MEDIA_NAME = "candidature.gif";
 const CANDIDATURE_MEDIA_PATH = path.join(__dirname, "..", "Photos", CANDIDATURE_MEDIA_NAME);
-const { DIVIDER_URL } = require("../../shared/discord/constants");
 
 async function run(client) {
   const candidatureChannel = client.channels.cache.get(IDs.channels.candidatureStaff) || (await getClientChannelCached(client, IDs.channels.candidatureStaff));

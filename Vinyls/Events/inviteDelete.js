@@ -1,16 +1,9 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
-
 const INVITE_DELETE_ACTION = AuditLogEvent?.InviteDelete ?? 42;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
-
-function toDiscordTimestamp(value = new Date(), style = "F") {
-  const ms = new Date(value).getTime();
-  if (!Number.isFinite(ms)) return "<t:0:F>";
-  return `<t:${Math.floor(ms / 1000)}:${style}>`;
-}
 
 function formatAuditActor(actor) {
   if (!actor) return "sconosciuto";
@@ -22,17 +15,13 @@ function formatAuditActor(actor) {
 
 function formatMaxAge(seconds) {
   const safe = Math.max(0, Number(seconds || 0));
-  if (!safe) return "Never";
+  if (!safe) return "Mai";
   const days = safe / 86400;
-  if (Number.isInteger(days)) return `${days} day${days === 1 ? "" : "s"}`;
+  if (Number.isInteger(days)) return `${days} giorno${days === 1 ? "" : "i"}`;
   const hours = safe / 3600;
-  if (Number.isInteger(hours)) return `${hours} hour${hours === 1 ? "" : "s"}`;
+  if (Number.isInteger(hours)) return `${hours} ora${hours === 1 ? "" : "e"}`;
   const mins = Math.floor(safe / 60);
-  return `${mins} minute${mins === 1 ? "" : "s"}`;
-}
-
-function yesNo(value) {
-  return value ? "Yes" : "No";
+  return `${mins} minut${mins === 1 ? "o" : "i"}`;
 }
 
 function normalizeCount(value, fallback = 0) {
@@ -98,18 +87,17 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("Invite Delete")
-        .setDescription([`<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-            `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        .setTitle("<a:VC_Verified:1482532479637127188> Invito eliminato")
+        .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+            `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
             "",
-            "**Previous Settings**",
-            `<:VC_right_arrow:1482459908245815296> **Code:** ${code}`,
-            inviteUrl ? `<:VC_right_arrow:1482459908245815296> **URL:** ${inviteUrl}` : null,
-            `<:VC_right_arrow:1482459908245815296> **Channel:** ${channelText}`,
-            `<:VC_right_arrow:1482459908245815296> **Uses:** ${normalizeCount(invite.uses, 0)}`,
-            `<:VC_right_arrow:1482459908245815296> **Max Uses:** ${normalizeCount(invite.maxUses, 0)}`,
-            `<:VC_right_arrow:1482459908245815296> **Max Age:** ${formatMaxAge(invite.maxAge)}`,
-            `<:VC_right_arrow:1482459908245815296> **Temporary:** ${yesNo(Boolean(invite.temporary))}`,
+            "**Impostazioni precedenti**",
+            `<:VC_Modifica:1478859646587633717> **Codice:** ${code}`,
+            inviteUrl ? `<:VC_Modifica:1478859646587633717> **URL:** ${inviteUrl}` : null,
+            `<:VC_Modifica:1478859646587633717> **Canale:** ${channelText}`,
+            `<:VC_Modifica:1478859646587633717> **Utilizzi:** ${normalizeCount(invite.maxUses, 0)}`,
+            `<:VC_Modifica:1478859646587633717> **Scadenza:** ${formatMaxAge(invite.maxAge)}`,
+            `<:VC_Modifica:1478859646587633717> **Temporaneo:** ${Boolean(invite.temporary) ? "Si" : "No"}`,
           ]
             .filter(Boolean)
             .join("\n"));

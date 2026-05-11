@@ -2,7 +2,6 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleRoleDeletionAction: antiNukeHandleRoleDeletionAction } = require("../Services/Moderation/antiNukeService");
-
 const ROLE_DELETE_ACTION = AuditLogEvent?.RoleDelete ?? 32;
 
 function sleep(ms) {
@@ -37,42 +36,28 @@ module.exports = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit.executor);
 
-        const lines=[`${ARROW} **Responsible:** ${responsible}`,
-          `${ARROW} ${toDiscordTimestamp(new Date(),"F")}`,
+        const lines=[`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(),"F")}`,
         ];
-        if (audit.reason) lines.push(`${ARROW} **Reason:** ${audit.reason}`);
+        if (audit.reason) lines.push(`<:VC_Modifica:1478859646587633717> **Motivo:** ${audit.reason}`);
         lines.push(
           "",
-          "**Previous Settings**",
-          `${ARROW} **Name:** ${role.name || "sconosciuto"}`,
-          `${ARROW} **Color:** ${role.hexColor || "#000000"}`,
-          `${ARROW} **Hoist:** ${yesNo(Boolean(role.hoist))}`,
-          `${ARROW} **Mentionable:** ${yesNo(Boolean(role.mentionable))}`,
+          "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
+          `<:VC_Modifica:1478859646587633717> **Nome:** ${role.name || "sconosciuto"}`,
+          `<a:VC_Color:1482532543273238569> **Color:** ${role.hexColor || "#000000"}`,
+          `<a:VC_Role:1482532543273238569> **Hoist:** ${yesNo(Boolean(role.hoist))}`,
+          `<a:VC_Mention:1482526855289634997> **Menzionabile:** ${yesNo(Boolean(role.mentionable))}`,
         );
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "color", "hoist", "mentionable"]));
 
         const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("Role Delete")
+        .setTitle("<a:VC_Role:1482532543273238569> Ruolo Eliminato")
         .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});
       }
-      await antiNukeHandleRoleDeletionAction({
-        guild,
-        executorId,
-        roleName: String(role.name || ""),
-        roleId: String(role.id || ""),
-        roleSnapshot: {
-          id: String(role.id || ""),
-          name: String(role.name || "restored-role"),
-          color: Number(role.color || 0),
-          hoist: Boolean(role.hoist),
-          mentionable: Boolean(role.mentionable),
-          permissions: String(BigInt(role.permissions?.bitfield || 0n)),
-          position: Number(role.position || 0),
-        },
-      });
+      await antiNukeHandleRoleDeletionAction({ guild, executorId, roleName: String(role.name || ""), roleId: String(role.id || "") });
     } catch (error) {
       global.logger?.error?.("[roleDelete] failed:", error);
     }

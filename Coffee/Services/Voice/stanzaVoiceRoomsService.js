@@ -1,15 +1,4 @@
-const {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ChannelType,
-  EmbedBuilder,
-  InteractionWebhook,
-  OverwriteType,
-  PermissionsBitField,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
-} = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, EmbedBuilder, InteractionWebhook, OverwriteType, PermissionsBitField, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 const IDs = require("../../Utils/Config/ids");
@@ -18,29 +7,13 @@ const { StanzaUserVoiceTotal } = require("../../Schemas/stanzaUserVoiceTotal");
 const { CustomRole } = require("../../../Vinyls/Schemas/Community/communitySchemas");
 const { isValidGuildUserId } = require("../../Utils/DB/validateWriteIds");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
-const STANZA_ALLOWED_GUILD_IDS = new Set(
-  [IDs.guilds?.main, IDs.guilds?.test]
-    .map((id) => String(id || "").trim())
-    .filter((id) => /^\d{5,30}$/.test(id)),
-);
+const STANZA_ALLOWED_GUILD_IDS = new Set([IDs.guilds?.main, IDs.guilds?.test].map((id) => String(id || "").trim()).filter((id) => /^\d{5,30}$/.test(id)));
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
-/** Fallback pannello/prompt per stanze legacy (snapshot senza chat dedicata). */
 const STANZA_PANEL_CHANNEL_ID = String(IDs.channels?.commands || "").trim();
 const STANZA_MEMBER_ROLE_ID = String(IDs.roles?.Member || "").trim();
-/** Vocali in cui spostare gli occupanti alla chiusura stanza (solo queste, in ordine di priorità per il sorteggio). */
-const STANZA_TEARDOWN_MOVE_TARGET_VOICE_IDS = [
-  IDs.channels?.vocaleLounge1,
-  IDs.channels?.vocaleLounge2,
-  IDs.channels?.vocaleLounge3,
-]
-  .map((id) => String(id || "").trim())
-  .filter((id) => /^\d{5,30}$/.test(id));
+const STANZA_TEARDOWN_MOVE_TARGET_VOICE_IDS = [IDs.channels?.vocaleLounge1, IDs.channels?.vocaleLounge2, IDs.channels?.vocaleLounge3].map((id) => String(id || "").trim()).filter((id) => /^\d{5,30}$/.test(id));
 const STANZA_SUPPORT_CHANNEL_ID = String(IDs.channels?.ticket || "").trim();
-const STANZA_DISCOVERY_EXCLUDE_PARENT_IDS = new Set(
-  (Array.isArray(IDs.stanzaDiscoveryExcludeParentIds) ? IDs.stanzaDiscoveryExcludeParentIds : [])
-    .map((x) => String(x || "").trim())
-    .filter((x) => /^\d{5,30}$/.test(x)),
-);
+const STANZA_DISCOVERY_EXCLUDE_PARENT_IDS = new Set((Array.isArray(IDs.stanzaDiscoveryExcludeParentIds) ? IDs.stanzaDiscoveryExcludeParentIds : []).map((x) => String(x || "").trim()).filter((x) => /^\d{5,30}$/.test(x)));
 
 function getStanzaMemberRoleId() {
   return STANZA_MEMBER_ROLE_ID || "";
@@ -53,12 +26,9 @@ function isStanzaGuildAllowed(guildId) {
   return gid === MAIN_GUILD_ID;
 }
 
-/** @type {Map<string, { ownerId: string, viceUserId?: string | null, panelMessageId: string, textChannelId?: string | null, guildId: string, startedAt: number }>} */
 const stanzaChannelMeta = new Map();
-/** @type {Map<string, string>} ownerKey -> channelId */
 const stanzaOwnerToChannel = new Map();
 const stanzaCreateLocks = new Set();
-/** userId (solo guild main) -> vocale in creazione: secondo ingresso lobby viene spostato lì. */
 const stanzaPendingOwnerVoiceId = new Map();
 
 /** @type {Map<string, { voiceChannelId: string, expiresAt: number, timerId: ReturnType<typeof setTimeout> | null }>} */
@@ -78,7 +48,6 @@ const STANZA_NAME_LEAD = "༄";
 const STANZA_DEFAULT_EMOJI = "🏠";
 const STANZA_ANCHOR = "︲Stanza di ";
 const STANZA_CONNECTOR = STANZA_ANCHOR.charAt(0);
-const STANZA_NAME_PREFIX = `${STANZA_NAME_LEAD}${STANZA_DEFAULT_EMOJI}${STANZA_ANCHOR}`;
 const STANZA_VC_NAME_MAX = 100;
 const STANZA_VC_VOICE_STATUS_MAX = 500;
 const STANZA_RENAME_PROMPT_MS = 90_000;
@@ -96,7 +65,6 @@ function ownerKey(guildId, userId) {
   return `${String(guildId || "")}:${String(userId || "")}`;
 }
 
-/** Canale vocale registrato su CustomRole (+profile): non è una stanza temporanea. */
 async function channelIdIsLinkedCustomRolePrivateVoc(guildId, channelId) {
   const gid = String(guildId || "").trim();
   const cid = String(channelId || "").trim();
@@ -199,14 +167,12 @@ function isVoiceChannelProbablyStanza(voiceChannel) {
   return Boolean(parseStanzaVoiceName(String(voiceChannel?.name || "")));
 }
 
-/** Passaggio discovery per nome: stanza creata dal bot (contiene "︲Stanza di "). */
 function isVoiceChannelDiscoveryStanzaCandidate(voiceChannel) {
   const n = String(voiceChannel?.name || "");
   if (!n.startsWith(STANZA_NAME_LEAD)) return false;
   return n.includes(STANZA_ANCHOR);
 }
 
-/** Nome tipo stanza ma senza anchor (es. rinomina): serve verifica pannello bot legato a questa vocale. */
 function isVoiceChannelDiscoveryRenamedStanzaCandidate(voiceChannel) {
   if (!isVoiceChannelProbablyStanza(voiceChannel)) return false;
   if (isVoiceChannelDiscoveryStanzaCandidate(voiceChannel)) return false;
@@ -370,14 +336,7 @@ async function notifyStanzaVisitorJoin(member, voiceChannel, meta) {
   const statusText = await fetchVoiceChannelStatusText(member.client, voiceChannel.id);
   const totalSec = await getStanzaVisitorVoiceTotalSeconds(member.guild.id, member.id);
   const totalFormatted = formatStanzaPersonalVoiceDuration(totalSec);
-  const embed = buildStanzaJoinVisitorDmEmbed(
-    member,
-    voiceChannel,
-    String(voiceChannel.name || "Stanza"),
-    ownerId,
-    statusText,
-    totalFormatted,
-  );
+  const embed = buildStanzaJoinVisitorDmEmbed(member, voiceChannel, String(voiceChannel.name || "Stanza"), ownerId, statusText, totalFormatted);
   const tid = String(meta?.textChannelId || "").trim();
   const tch =
     tid && /^\d{5,30}$/.test(tid) ? await fetchStanzaTextChannel(member.guild, tid) : null;
@@ -745,71 +704,13 @@ function isStanzaMemberRoleConnectBlocked(voiceChannel, guild) {
   return Boolean(ow?.deny?.has(PermissionsBitField.Flags.Connect));
 }
 
-const STANZA_VOICE_MEMBER_ROLE_PUBLIC = {
-  ViewChannel: true,
-  Connect: true,
-  Speak: true,
-  UseVAD: true,
-  Stream: true,
-};
-
-const STANZA_VOICE_MEMBER_ROLE_LOCKED = {
-  ViewChannel: false,
-  Connect: false,
-};
-
-const STANZA_VOICE_OWNER_OVERWRITE = {
-  ViewChannel: true,
-  Connect: true,
-  Speak: true,
-  UseVAD: true,
-  Stream: true,
-  MoveMembers: true,
-  MuteMembers: true,
-  DeafenMembers: true,
-  ManageChannels: true,
-};
-
-const STANZA_VOICE_BOT_OVERWRITE = {
-  ViewChannel: true,
-  Connect: true,
-  Speak: true,
-  ManageChannels: true,
-  MoveMembers: true,
-};
-
-/** Permessi chat integrata nella vocale (pannello e messaggi nella stessa stanza). */
-const STANZA_VOICE_MEMBER_WITH_PANEL_CHAT = {
-  ViewChannel: true,
-  Connect: true,
-  Speak: true,
-  UseVAD: true,
-  Stream: true,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-};
-
-const STANZA_VOICE_OWNER_WITH_PANEL_CHAT = {
-  ...STANZA_VOICE_OWNER_OVERWRITE,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-  ManageMessages: true,
-};
-
-const STANZA_VOICE_BOT_WITH_PANEL_CHAT = {
-  ...STANZA_VOICE_BOT_OVERWRITE,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  ManageMessages: true,
-};
+const STANZA_VOICE_MEMBER_ROLE_PUBLIC = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true };
+const STANZA_VOICE_MEMBER_ROLE_LOCKED = { ViewChannel: false, Connect: false };
+const STANZA_VOICE_OWNER_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true, ManageChannels: true };
+const STANZA_VOICE_BOT_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, ManageChannels: true, MoveMembers: true };
+const STANZA_VOICE_MEMBER_WITH_PANEL_CHAT = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
+const STANZA_VOICE_OWNER_WITH_PANEL_CHAT = { ...STANZA_VOICE_OWNER_OVERWRITE, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true, ManageMessages: true };
+const STANZA_VOICE_BOT_WITH_PANEL_CHAT = { ...STANZA_VOICE_BOT_OVERWRITE, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, ManageMessages: true };
 
 function stanzaPermissionAllowArrayFromObject(obj) {
   const P = PermissionsBitField.Flags;
@@ -822,84 +723,16 @@ function stanzaPermissionAllowArrayFromObject(obj) {
   return out;
 }
 
-const STANZA_VOICE_MEMBER_ALLOW = {
-  ViewChannel: true,
-  Connect: true,
-  Speak: true,
-  UseVAD: true,
-  Stream: true,
-};
-
-const STANZA_VOICE_MEMBER_EXCLUDE = {
-  ViewChannel: false,
-  Connect: false,
-};
-
-const STANZA_VOICE_MEMBER_SILENCE = {
-  ViewChannel: true,
-  Connect: true,
-  Speak: false,
-  Stream: false,
-  UseVAD: false,
-};
-
-const STANZA_TEXT_MEMBER_ROLE_PUBLIC = {
-  ViewChannel: true,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-};
-
-const STANZA_TEXT_MEMBER_ROLE_LOCKED = {
-  ViewChannel: false,
-  SendMessages: false,
-};
-
-const STANZA_TEXT_OWNER_OVERWRITE = {
-  ViewChannel: true,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-  ManageChannels: true,
-  ManageMessages: true,
-};
-
-const STANZA_TEXT_BOT_OVERWRITE = {
-  ViewChannel: true,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  ManageMessages: true,
-  ManageChannels: true,
-};
-
-const STANZA_TEXT_MEMBER_ALLOW = {
-  ViewChannel: true,
-  SendMessages: true,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-};
-
-const STANZA_TEXT_MEMBER_EXCLUDE = {
-  ViewChannel: false,
-  SendMessages: false,
-};
-
-const STANZA_TEXT_MEMBER_SILENCE = {
-  ViewChannel: true,
-  SendMessages: false,
-  ReadMessageHistory: true,
-  EmbedLinks: true,
-  AttachFiles: true,
-  AddReactions: true,
-};
+const STANZA_VOICE_MEMBER_ALLOW = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true };
+const STANZA_VOICE_MEMBER_EXCLUDE = { ViewChannel: false, Connect: false };
+const STANZA_VOICE_MEMBER_SILENCE = { ViewChannel: true, Connect: true, Speak: false, Stream: false, UseVAD: false };
+const STANZA_TEXT_MEMBER_ROLE_PUBLIC = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
+const STANZA_TEXT_MEMBER_ROLE_LOCKED = { ViewChannel: false, SendMessages: false };
+const STANZA_TEXT_OWNER_OVERWRITE = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true, ManageChannels: true, ManageMessages: true };
+const STANZA_TEXT_BOT_OVERWRITE = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, ManageMessages: true, ManageChannels: true };
+const STANZA_TEXT_MEMBER_ALLOW = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
+const STANZA_TEXT_MEMBER_EXCLUDE = { ViewChannel: false, SendMessages: false };
+const STANZA_TEXT_MEMBER_SILENCE = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
 
 function stanzaPanelTargetChannelId(meta) {
   const fromMeta = String(meta?.textChannelId || "").trim();
@@ -978,28 +811,18 @@ async function ensureStanzaViceOverwriteIfAny(voiceChannel, ownerId) {
   return setStanzaPrivilegedUserVoiceOverwrite(
     voiceChannel,
     viceId,
-    "Stanza: accesso vice (stessi permessi del creatore)",
+    "Stanza: accesso vice",
   );
 }
 
 async function ensureStanzaEveryoneNoAccess(voiceChannel, guild) {
   const everyoneId = guild.roles.everyone.id;
-  const payload = {
-    ViewChannel: false,
-    Connect: false,
-    Speak: false,
-    UseVAD: false,
-    Stream: false,
-  };
+  const payload = { ViewChannel: false, Connect: false, Speak: false, UseVAD: false, Stream: false };
   try {
     if (voiceChannel.permissionOverwrites.cache.has(everyoneId)) {
-      await voiceChannel.permissionOverwrites.edit(everyoneId, payload, {
-        reason: "Stanza: @everyone senza accesso al canale",
-      });
+      await voiceChannel.permissionOverwrites.edit(everyoneId, payload, { reason: "Stanza: @everyone senza accesso al canale" });
     } else {
-      await voiceChannel.permissionOverwrites.create(everyoneId, payload, {
-        reason: "Stanza: @everyone senza accesso al canale",
-      });
+      await voiceChannel.permissionOverwrites.create(everyoneId, payload, { reason: "Stanza: @everyone senza accesso al canale" });
     }
     return true;
   } catch {
@@ -1029,11 +852,7 @@ async function applyStanzaMemberRoleAccessLocked(voiceChannel, guild, ownerId) {
   if (!(await ensureStanzaBotVoiceOverwrite(voiceChannel, botId))) return false;
   if (!(await ensureStanzaViceOverwriteIfAny(voiceChannel, ownerId))) return false;
   if (!(await ensureStanzaEveryoneNoAccess(voiceChannel, guild))) return false;
-  const ok = await setStanzaMemberRoleChannelOverwrite(
-    voiceChannel,
-    STANZA_VOICE_MEMBER_ROLE_LOCKED,
-    "Stanza: blocca accesso (ruolo Member)",
-  );
+  const ok = await setStanzaMemberRoleChannelOverwrite(voiceChannel, STANZA_VOICE_MEMBER_ROLE_LOCKED, "Stanza: blocca accesso");
   if (!ok) return false;
   mirrorStanzaLockedToCompanionText(guild, voiceChannel, ownerId).catch(() => {});
   return true;
@@ -1042,11 +861,7 @@ async function applyStanzaMemberRoleAccessLocked(voiceChannel, guild, ownerId) {
 async function applyStanzaMemberRoleAccessPublic(voiceChannel, guild) {
   if (!getStanzaMemberRoleId()) return false;
   if (!(await ensureStanzaEveryoneNoAccess(voiceChannel, guild))) return false;
-  const ok = await setStanzaMemberRoleChannelOverwrite(
-    voiceChannel,
-    STANZA_VOICE_MEMBER_ROLE_PUBLIC,
-    "Stanza: sblocca accesso (ruolo Member)",
-  );
+  const ok = await setStanzaMemberRoleChannelOverwrite(voiceChannel, STANZA_VOICE_MEMBER_ROLE_PUBLIC, "Stanza: sblocca accesso");
   if (!ok) return false;
   mirrorStanzaPublicToCompanionText(guild, voiceChannel).catch(() => {});
   return true;
@@ -1059,11 +874,7 @@ async function applyStanzaMemberRoleViewHidden(voiceChannel, guild, ownerId) {
   if (!(await ensureStanzaBotVoiceOverwrite(voiceChannel, botId))) return false;
   if (!(await ensureStanzaViceOverwriteIfAny(voiceChannel, ownerId))) return false;
   if (!(await ensureStanzaEveryoneNoAccess(voiceChannel, guild))) return false;
-  const ok = await setStanzaMemberRoleChannelOverwrite(
-    voiceChannel,
-    { ViewChannel: false },
-    "Stanza: nascondi canale (ruolo Member)",
-  );
+  const ok = await setStanzaMemberRoleChannelOverwrite(voiceChannel, { ViewChannel: false }, "Stanza: nascondi canale");
   if (!ok) return false;
   mirrorStanzaViewHiddenToCompanionText(guild, voiceChannel).catch(() => {});
   return true;
@@ -1072,11 +883,7 @@ async function applyStanzaMemberRoleViewHidden(voiceChannel, guild, ownerId) {
 async function applyStanzaMemberRoleViewVisible(voiceChannel, guild) {
   if (!getStanzaMemberRoleId()) return false;
   if (!(await ensureStanzaEveryoneNoAccess(voiceChannel, guild))) return false;
-  const ok = await setStanzaMemberRoleChannelOverwrite(
-    voiceChannel,
-    { ViewChannel: true },
-    "Stanza: mostra canale (ruolo Member)",
-  );
+  const ok = await setStanzaMemberRoleChannelOverwrite(voiceChannel, { ViewChannel: true }, "Stanza: mostra canale");
   if (!ok) return false;
   mirrorStanzaViewVisibleToCompanionText(guild, voiceChannel).catch(() => {});
   return true;
@@ -1163,13 +970,9 @@ async function ensureStanzaEveryoneNoAccessText(textChannel, guild) {
   const payload = { ViewChannel: false, SendMessages: false };
   try {
     if (textChannel.permissionOverwrites.cache.has(everyoneId)) {
-      await textChannel.permissionOverwrites.edit(everyoneId, payload, {
-        reason: "Stanza: @everyone senza accesso alla chat",
-      });
+      await textChannel.permissionOverwrites.edit(everyoneId, payload, { reason: "Stanza: @everyone senza accesso alla chat" });
     } else {
-      await textChannel.permissionOverwrites.create(everyoneId, payload, {
-        reason: "Stanza: @everyone senza accesso alla chat",
-      });
+      await textChannel.permissionOverwrites.create(everyoneId, payload, { reason: "Stanza: @everyone senza accesso alla chat" });
     }
     return true;
   } catch {
@@ -1181,11 +984,7 @@ async function ensureStanzaViceTextOverwriteIfAny(textChannel, voiceChannelId, o
   const viceId = normalizeStanzaDiscordUserId(stanzaChannelMeta.get(String(voiceChannelId || ""))?.viceUserId);
   const oid = String(ownerId || "");
   if (!viceId || viceId === oid) return true;
-  return setStanzaPrivilegedUserTextOverwrite(
-    textChannel,
-    viceId,
-    "Stanza: accesso vice (chat)",
-  );
+  return setStanzaPrivilegedUserTextOverwrite(textChannel, viceId, "Stanza: accesso vice");
 }
 
 async function fetchStanzaTextChannel(guild, channelId) {
@@ -1209,38 +1008,26 @@ async function mirrorStanzaLockedToCompanionText(guild, voiceChannel, ownerId) {
   await ensureStanzaBotTextOverwrite(tch, botId);
   await ensureStanzaViceTextOverwriteIfAny(tch, voiceChannel.id, ownerId);
   await ensureStanzaEveryoneNoAccessText(tch, guild);
-  await setStanzaMemberRoleTextChannelOverwrite(
-    tch,
-    STANZA_TEXT_MEMBER_ROLE_LOCKED,
-    "Stanza: blocca accesso (ruolo Member) chat",
-  );
+  await setStanzaMemberRoleTextChannelOverwrite(tch, STANZA_TEXT_MEMBER_ROLE_LOCKED, "Stanza: blocca accesso chat");
 }
 
 async function mirrorStanzaPublicToCompanionText(guild, voiceChannel) {
   const tch = await stanzaCompanionTextChannel(guild, voiceChannel.id);
   if (!tch) return;
   await ensureStanzaEveryoneNoAccessText(tch, guild);
-  await setStanzaMemberRoleTextChannelOverwrite(
-    tch,
-    STANZA_TEXT_MEMBER_ROLE_PUBLIC,
-    "Stanza: sblocca accesso (ruolo Member) chat",
-  );
+  await setStanzaMemberRoleTextChannelOverwrite(tch, STANZA_TEXT_MEMBER_ROLE_PUBLIC, "Stanza: sblocca accesso chat");
 }
 
 async function mirrorStanzaViewHiddenToCompanionText(guild, voiceChannel) {
   const tch = await stanzaCompanionTextChannel(guild, voiceChannel.id);
   if (!tch) return;
-  await setStanzaMemberRoleTextChannelOverwrite(tch, { ViewChannel: false }, "Stanza: nascondi chat (ruolo Member)");
+  await setStanzaMemberRoleTextChannelOverwrite(tch, { ViewChannel: false }, "Stanza: nascondi chat");
 }
 
 async function mirrorStanzaViewVisibleToCompanionText(guild, voiceChannel) {
   const tch = await stanzaCompanionTextChannel(guild, voiceChannel.id);
   if (!tch) return;
-  await setStanzaMemberRoleTextChannelOverwrite(
-    tch,
-    STANZA_TEXT_MEMBER_ROLE_PUBLIC,
-    "Stanza: mostra chat (ruolo Member)",
-  );
+  await setStanzaMemberRoleTextChannelOverwrite(tch, STANZA_TEXT_MEMBER_ROLE_PUBLIC, "Stanza: mostra chat");
 }
 
 async function syncStanzaCompanionTextName(guild, voiceChannelId, name) {
@@ -1271,18 +1058,17 @@ function buildStanzaHomePanelEmbed(ownerMember, voiceChannel, startedAt, meta = 
     .setColor("#6f4e37")
     .setTitle("🏠 · Pannello Gestione Stanza")
     .setDescription(
-      `Benvenuto nella stanza, <@${ownerId}>!\n` +
-        "Usa i menu qui sotto per personalizzare la tua stanza.\n\n" +
-        "*Le stanze sono spazi temporanei gestiti dagli utenti: chi le crea ne definisce le regole e l'accesso.*\n\n" +
-        `**Canale:** <#${voiceChannel?.id || "0"}>\n` +
+      `👋Benvenuto nella stanza, <@${ownerId}>!\n` +
+        "🔧 Usa i menu qui sotto per personalizzare la tua stanza.\n\n" +
+        "💡 Le stanze sono spazi temporanei gestiti dagli utenti: chi le crea ne definisce le regole e l'accesso.\n\n" +
+        `🎤 **Canale:** <#${voiceChannel?.id || "0"}>\n` +
         chatLine +
-        `**Limite:** ${limit}\n` +
-        `**Privacy:** ${privacy}\n` +
-        `**Visibilità:** ${visibility}\n` +
-        `**Vice:** ${viceLine}\n` +
-        `**⏱️ Tempo stanza:** ${m}m ${s}s`,
+        `🔊 **Limite:** ${limit}\n` +
+        `🔒 **Privacy:** ${privacy}\n` +
+        `👁️ **Visibilità:** ${visibility}\n` +
+        `🌙 **Vice:** ${viceLine}\n` +
+        `⏱️ **Tempo stanza:** ${m}m ${s}s`,
     )
-    .setFooter({ text: "🏠 Stanze • discord.gg/viniliecaffe" });
 }
 
 function buildStanzaManageSettingsEmbed(voiceChannel, meta = null) {
@@ -1295,21 +1081,20 @@ function buildStanzaManageSettingsEmbed(voiceChannel, meta = null) {
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("🎛️ · Impostazioni Stanza")
-    .setDescription("Visualizza e modifica le impostazioni principali della tua stanza.")
+    .setDescription("🔍 Visualizza e modifica le impostazioni principali della tua stanza.")
     .addFields(
       {
         name: "📋 · Info generali",
-        value: [`**Nome:** ${chName}`, `**Emoji:** ${emoji}`, `**Limite:** ${limit}`].join("\n"),
+        value: [`🔤 **Nome:** ${chName}`, `🌀 **Emoji:** ${emoji}`, `🔊 **Limite:** ${limit}`].join("\n"),
         inline: true,
       },
       {
         name: "⚙️ · Impostazioni",
-        value: [`**Privacy:** ${privacy}`, `**Visibilità:** ${visibility}`].join("\n"),
+        value: [`🔒 **Privacy:** ${privacy}`, `👁️ **Visibilità:** ${visibility}`].join("\n"),
         inline: true,
       },
-      { name: "🌙 · Vice", value: viceVal, inline: false },
+      { name: "🌙 · Vice", value: `👥 ${viceVal}`, inline: false },
     )
-    .setFooter({ text: "🏠 Stanze • discord.gg/viniliecaffe" });
 }
 
 function buildStanzaHomeRows(channelId) {
@@ -1367,14 +1152,8 @@ function buildStanzaManageRows(voiceChannel) {
         .setLabel("Blocca")
         .setEmoji("🔒")
         .setStyle(ButtonStyle.Danger);
-  const row2 = new ActionRowBuilder().addComponents(
-    vistaBtn,
-    lockToggleBtn,
-    new ButtonBuilder().setCustomId(`stanza_vice:${cid}`).setLabel("Nomina Vice").setEmoji("🌙").setStyle(ButtonStyle.Primary),
-  );
-  const row3 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`stanza_back:${cid}`).setLabel("Indietro").setEmoji("↩️").setStyle(ButtonStyle.Secondary),
-  );
+  const row2 = new ActionRowBuilder().addComponents(vistaBtn, lockToggleBtn, new ButtonBuilder().setCustomId(`stanza_vice:${cid}`).setLabel("Nomina Vice").setEmoji("🌙").setStyle(ButtonStyle.Primary));
+  const row3 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`stanza_back:${cid}`).setLabel("Indietro").setEmoji("↩️").setStyle(ButtonStyle.Secondary));
   return [row1, row2, row3];
 }
 
@@ -1384,9 +1163,8 @@ function buildStanzaUsersManageEmbed(voiceChannel) {
     .setColor("#6f4e37")
     .setTitle("👥 · Gestione Membri Stanza")
     .setDescription(
-      `Scegli un'azione per gestire chi può entrare o parlare.\n\n**Canale:** ${chLabel}`,
+      `🔍 Scegli un'azione per gestire chi può entrare o parlare.\n\n🎤 **Canale:** ${chLabel}`,
     )
-    .setFooter({ text: "🏠 Stanze • discord.gg/viniliecaffe" });
 }
 
 function buildStanzaUsersManageRows(channelId) {
@@ -1480,7 +1258,7 @@ async function teardownStanza(guild, channelId, opts = {}) {
     const panelId = String(meta.panelMessageId || "").trim();
     if (panelId && /^\d{5,30}$/.test(panelId) && ch?.messages) {
       const pm = await ch.messages.fetch(panelId).catch(() => null);
-      if (pm?.deletable) await pm.delete("Rimozione pannello stanza (vocale profilo)").catch(() => {});
+      if (pm?.deletable) await pm.delete("Stanza: rimozione pannello").catch(() => {});
     }
   }
   persistStanzaSnapshotNow();
@@ -1502,7 +1280,7 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
 
   const me = guild.members.me;
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels | PermissionsBitField.Flags.MoveMembers)) {
-    global.logger?.warn?.("[stanza] bot missing ManageChannels/MoveMembers");
+    global.logger?.warn?.("[stanza] bot missing ManageChannels/MoveMembers permission");
     return;
   }
 
@@ -1562,14 +1340,7 @@ async function handleStanzaVoiceLobbyJoin(oldState, newState, client) {
         permissionOverwrites: [
           {
             id: guild.roles.everyone.id,
-            deny: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.Connect,
-              PermissionsBitField.Flags.Speak,
-              PermissionsBitField.Flags.UseVAD,
-              PermissionsBitField.Flags.Stream,
-              PermissionsBitField.Flags.SendMessages,
-            ],
+            deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak, PermissionsBitField.Flags.UseVAD, PermissionsBitField.Flags.Stream, PermissionsBitField.Flags.SendMessages],
           },
           {
             id: memberRoleId,
@@ -1742,19 +1513,18 @@ function buildStanzaPermissionsListEmbed(voiceChannel, meta) {
   const ownerId = String(meta?.ownerId || "");
   const viceId = normalizeStanzaDiscordUserId(meta?.viceUserId);
   const lists = collectStanzaPermissionMemberLists(voiceChannel, meta);
-  const staffLines = [`👑 <@${ownerId}> **(Owner)**`];
-  if (viceId) staffLines.push(`⭐ <@${viceId}> **(Vice)**`);
-  const staffBlock = `🛡️ **Staff**\n${staffLines.join("\n")}`;
+  const staffLines = [`👑 <@${ownerId}>`];
+  if (viceId) staffLines.push(`⭐ <@${viceId}>`);
+  const staffBlock = `🛡️ ${staffLines.join("\n")}`;
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("📜 · Lista Permessi Stanza")
+    .setTitle("📜 · Lista Permessi")
     .setDescription(staffBlock)
     .addFields(
       { name: "✅ Inclusi", value: formatStanzaPermListLines(lists.included), inline: true },
       { name: "⛔ Esclusi", value: formatStanzaPermListLines(lists.excluded), inline: true },
       { name: "🔇 Silenziati", value: formatStanzaPermListLines(lists.silenced), inline: true },
     )
-    .setFooter({ text: "🏠 Stanze • discord.gg/viniliecaffe" });
 }
 
 async function fetchOwnerMember(guild, ownerId) {
@@ -1771,7 +1541,6 @@ async function fetchStanzaVoiceChannel(guild, channelId) {
   return ch;
 }
 
-/** Su molte guild solo Member ha Connect sulle lounge: @everyone darebbe zero candidati. */
 async function resolveStanzaTeardownPermissionProbe(guild) {
   const rid = getStanzaMemberRoleId();
   if (!rid || !/^\d{5,30}$/.test(rid)) return guild.roles.everyone;
@@ -2220,9 +1989,6 @@ async function restoreStanzaRoomsFromSnapshot(client) {
     }
   }
   persistStanzaSnapshotNow();
-  if (restored > 0) {
-    global.logger?.info?.(`[stanza] restored ${restored} room(s) from snapshot`);
-  }
 }
 
 async function handleStanzaButton(interaction) {
@@ -2231,17 +1997,17 @@ async function handleStanzaButton(interaction) {
   if (!parsed) return false;
   const guild = interaction.guild;
   if (!guild) {
-    await interaction.reply({ content: "Questa azione è disponibile solo nel server.", flags: 64 }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Questa azione è disponibile solo nel server.", flags: 64 }).catch(() => {});
     return true;
   }
   const meta = await getStanzaMetaOrRehydrate(guild, parsed.channelId);
   if (!meta) {
-    await interaction.reply({ content: "Questa stanza non è più attiva.", flags: 64 }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Questa stanza non è più attiva.", flags: 64 }).catch(() => {});
     return true;
   }
   if (!isStanzaRoomController(meta, interaction.user?.id)) {
     await interaction
-      .reply({ content: "Solo il creatore della stanza e il vice possono usare questi pulsanti.", flags: 64 })
+      .reply({ content: "<a:VC_Cross:1482532424570376253> Solo il creatore della stanza e il vice possono usare questi pulsanti.", flags: 64 })
       .catch(() => {});
     return true;
   }
@@ -2268,8 +2034,8 @@ async function handleStanzaButton(interaction) {
     await interaction
       .editReply({
         content: profileVoc
-          ? "🔧 Rimuovo il pannello stanza dalla vocale privata…"
-          : "💥 Eliminazione stanza e spostamento...",
+          ? "<a:VC_Loading:1482532424570376253> Rimuovo il pannello stanza dalla vocale privata…"
+          : "<a:VC_Loading:1482532424570376253> Eliminazione stanza e spostamento...",
       })
       .catch(() => {});
     const me = guild.members.me;
@@ -2284,26 +2050,25 @@ async function handleStanzaButton(interaction) {
     }
     const preservedProfileVoc = await teardownStanza(guild, vid);
     let doneText = preservedProfileVoc
-      ? "✅ Pannello stanza rimosso. La vocale è il **canale privato del profilo**: non è stata eliminata."
-      : "✅ Stanza eliminata.";
+      ? "<a:VC_Verified:1482532479637127188> Pannello rimosso."
+      : "<a:VC_Verified:1482532479637127188> Stanza eliminata.";
     if (
       !preservedProfileVoc &&
       voiceCh &&
       !canMove
     ) {
-      doneText =
-        "✅ Stanza eliminata. Non ho potuto spostare gli utenti: al bot manca **Sposta membri**.";
+      doneText = "<a:VC_Verified:1482532479637127188> Stanza eliminata.";
     } else if (!preservedProfileVoc && voiceCh && canMove && !moveTarget) {
       doneText =
-        "✅ Stanza eliminata. Le vocali di destinazione sono **piene**, **non trovate** o il ruolo **Member** non ha **Visualizza / Connetti** su quelle vocali: chi era in stanza non è stato spostato.";
+        "<a:VC_Verified:1482532479637127188> Stanza eliminata.";
     } else if (!preservedProfileVoc && voiceCh && moveTarget && moveStats.attempted > 0 && moveStats.moved === 0) {
       doneText =
-        "✅ Stanza eliminata. C'era una vocale di destinazione libera, ma **nessuno** è stato spostato (permessi Discord sul canale o sul bot).";
+        "<a:VC_Verified:1482532479637127188> Stanza eliminata.";
     } else if (!preservedProfileVoc && voiceCh && moveStats.moved > 0) {
       doneText =
         moveStats.moved === moveStats.attempted
-          ? "✅ Stanza eliminata. Gli utenti in stanza sono stati spostati in una delle vocali di destinazione."
-          : `✅ Stanza eliminata. Spostati **${moveStats.moved}/${moveStats.attempted}** utenti in una vocale di destinazione.`;
+          ? "<a:VC_Verified:1482532479637127188> Stanza eliminata."
+          : `<a:VC_Verified:1482532479637127188> Stanza eliminata.`;
     }
     await interaction.editReply({ content: doneText }).catch(() => {});
     return true;
@@ -2314,7 +2079,7 @@ async function handleStanzaButton(interaction) {
     await interaction
       .reply({
         content:
-          "✏️ Il nome resta sempre **`༄` + emoji + `︲`**; scrivi solo il **testo dopo `︲`** (es. `Stanza di …` o altro). L'emoji non cambia da qui.\n\n_Scrivi nella **chat testuale** della stanza (accanto alla vocale)._",
+          "✏️ Scrivi il nuovo nome della stanza.",
         flags: 64,
       })
       .catch(() => {});
@@ -2325,8 +2090,8 @@ async function handleStanzaButton(interaction) {
     registerStanzaEmojiPending(guild.id, interaction.user.id, parsed.channelId);
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("Cambia Emoji")
-      .setDescription("Invia un'emoji Unicode (es: 🫧, 🔥).\n\n_Scrivi nella **chat testuale** della stanza._");
+      .setTitle("🌀 · Cambia Emoji")
+      .setDescription("Invia un'emoji Unicode (es: 🫧, 🔥).");
     await interaction.reply({ embeds: [embed], flags: 64 }).catch(() => {});
     return true;
   }
@@ -2335,7 +2100,7 @@ async function handleStanzaButton(interaction) {
     registerStanzaLimitPending(guild.id, interaction.user.id, parsed.channelId);
     await interaction
       .reply({
-        content: "🔢 Scrivi il limite (0-99).\n\n_Scrivi nella **chat testuale** della stanza._",
+        content: "🔢 · Scrivi il limite (0-99).",
         flags: 64,
       })
       .catch(() => {});
@@ -2347,7 +2112,7 @@ async function handleStanzaButton(interaction) {
     await interaction
       .reply({
         content:
-          "📝 Scrivi lo **stato del canale vocale** (testo sotto il nome, max 500 caratteri). Lascia vuoto per cancellarlo.\n\n_Scrivi nella **chat testuale** della stanza._",
+          "📝 · Scrivi lo stato del canale vocale. Lascia vuoto per cancellarlo.",
         flags: 64,
       })
       .catch(() => {});
@@ -2356,13 +2121,13 @@ async function handleStanzaButton(interaction) {
 
   const voiceCh = await fetchStanzaVoiceChannel(guild, parsed.channelId);
   if (!voiceCh) {
-    await interaction.reply({ content: "Canale vocale non trovato.", flags: 64 }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Canale vocale non trovato.", flags: 64 }).catch(() => {});
     return true;
   }
 
   const ownerMember = await fetchOwnerMember(guild, meta.ownerId);
   if (!ownerMember) {
-    await interaction.reply({ content: "Impossibile caricare il creatore della stanza.", flags: 64 }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Impossibile caricare il creatore della stanza.", flags: 64 }).catch(() => {});
     return true;
   }
 
@@ -2373,7 +2138,7 @@ async function handleStanzaButton(interaction) {
         components: buildStanzaManageRows(voiceCh),
       })
       .catch(async () => {
-        await interaction.reply({ content: "Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
       });
     return true;
   }
@@ -2386,7 +2151,7 @@ async function handleStanzaButton(interaction) {
         components: buildStanzaUsersManageRows(parsed.channelId),
       })
       .catch(async () => {
-        await interaction.reply({ content: "Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
       });
     return true;
   }
@@ -2401,7 +2166,7 @@ async function handleStanzaButton(interaction) {
         components: buildStanzaHomeRows(parsed.channelId),
       })
       .catch(async () => {
-        await interaction.reply({ content: "Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
       });
     return true;
   }
@@ -2416,7 +2181,7 @@ async function handleStanzaButton(interaction) {
         components: buildStanzaHomeRows(parsed.channelId),
       })
       .catch(async () => {
-        await interaction.reply({ content: "Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare il pannello.", flags: 64 }).catch(() => {});
       });
     return true;
   }
@@ -2432,7 +2197,7 @@ async function handleStanzaButton(interaction) {
       await interaction
         .reply({
           content:
-            "Non è stato possibile aggiornare i permessi del canale. Verifica che il bot abbia **Gestisci canali**.",
+            "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare i permessi del canale.",
           flags: 64,
         })
         .catch(() => {});
@@ -2447,8 +2212,8 @@ async function handleStanzaButton(interaction) {
         await interaction
           .reply({
             content: hide
-              ? "👻 Canale nascosto per il ruolo **Member**."
-              : "👁️ Visibilità ripristinata per il ruolo **Member**.",
+              ? "👻 Canale nascosto per tutti."
+              : "👁️ Visibilità ripristinata per tutti.",
             flags: 64,
           })
           .catch(() => {});
@@ -2467,7 +2232,7 @@ async function handleStanzaButton(interaction) {
       await interaction
         .reply({
           content:
-            "Non è stato possibile aggiornare i permessi del canale. Verifica che il bot abbia **Gestisci canali**.",
+            "<a:VC_Cross:1482532424570376253> Non è stato possibile aggiornare i permessi del canale.",
           flags: 64,
         })
         .catch(() => {});
@@ -2482,8 +2247,8 @@ async function handleStanzaButton(interaction) {
         await interaction
           .reply({
             content: lock
-              ? "🔒 Accesso bloccato per il ruolo **Member**."
-              : "🌟 Accesso al ruolo **Member** ripristinato.",
+              ? "🔒 Accesso bloccato per tutti."
+              : "🌟 Accesso ripristinato per tutti.",
             flags: 64,
           })
           .catch(() => {});
@@ -2494,7 +2259,7 @@ async function handleStanzaButton(interaction) {
   if (parsed.head === "stanza_vice") {
     if (String(interaction.user?.id || "") !== String(meta.ownerId || "")) {
       await interaction
-        .reply({ content: "Solo il creatore della stanza può nominare o revocare il vice.", flags: 64 })
+        .reply({ content: "<a:VC_Cross:1482532424570376253> Solo il creatore della stanza può nominare o revocare il vice.", flags: 64 })
         .catch(() => {});
       return true;
     }
@@ -2502,10 +2267,9 @@ async function handleStanzaButton(interaction) {
     await interaction
       .reply({
         content:
-          "🌙 Menziona l'utente da nominare **Vice**.\n" +
+          "🌙 Menziona l'utente da nominare Vice.\n" +
           "Scrivi `nessuno` o menziona il vice attuale per rimuoverlo.\n\n" +
-          "*Il vice ottiene sul canale gli stessi permessi del creatore (solo per questa stanza).*\n\n" +
-          "_Scrivi nella **chat testuale** della stanza._",
+          "Il vice ottiene sul canale gli stessi permessi del creatore (solo per questa stanza).",
         flags: 64,
       })
       .catch(() => {});
@@ -2516,7 +2280,7 @@ async function handleStanzaButton(interaction) {
     registerStanzaUsersMemberPending(guild.id, interaction.user.id, parsed.channelId, "include", interaction);
     await interaction
       .reply({
-        content: "✏️ *Menziona l'utente da includere.*\n\n_Scrivi nella **chat testuale** della stanza._",
+        content: "✏️ Menziona l'utente da includere.",
         flags: 64,
       })
       .catch(() => {});
@@ -2527,7 +2291,7 @@ async function handleStanzaButton(interaction) {
     registerStanzaUsersMemberPending(guild.id, interaction.user.id, parsed.channelId, "exclude", interaction);
     await interaction
       .reply({
-        content: "✏️ *Menziona l'utente da escludere.*\n\n_Scrivi nella **chat testuale** della stanza._",
+        content: "✏️ Menziona l'utente da escludere.",
         flags: 64,
       })
       .catch(() => {});
@@ -2539,7 +2303,7 @@ async function handleStanzaButton(interaction) {
     await interaction
       .reply({
         content:
-          "🛡️ *Menziona l'utente da silenziare o smutare.*\n\n_Scrivi nella **chat testuale** della stanza._",
+          "🛡️ Menziona l'utente da silenziare o smutare.",
         flags: 64,
       })
       .catch(() => {});
@@ -2553,7 +2317,7 @@ async function handleStanzaButton(interaction) {
     return true;
   }
 
-  await interaction.reply({ content: "Azione non disponibile.", flags: 64 }).catch(() => {});
+  await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Azione non disponibile.", flags: 64 }).catch(() => {});
   return true;
 }
 
@@ -2783,12 +2547,7 @@ async function handleStanzaDescMessageCreate(message) {
   }
 
   const statusText = sanitizeStanzaVoiceStatus(message.content);
-  await setStanzaVoiceChannelStatus(
-    message.client,
-    voiceCh.id,
-    statusText,
-    "Stanza: stato canale vocale",
-  ).catch(() => {});
+  await setStanzaVoiceChannelStatus(message.client, voiceCh.id, statusText, "Stanza: stato canale vocale").catch(() => {});
   await message.delete().catch(() => {});
   clearStanzaDescPending(message.guild.id, message.author.id);
   await refreshStanzaPanelEmbedsIfPossible(message.guild, vid);
@@ -2814,7 +2573,7 @@ async function handleStanzaUsersMemberMessageCreate(message) {
   const vid = pending.voiceChannelId;
   let meta = await getStanzaMetaOrRehydrate(message.guild, vid);
   if (!meta) {
-    await editStanzaUsersMemberFollowup(message.client, pending, { content: "Questa stanza non è più attiva." });
+    await editStanzaUsersMemberFollowup(message.client, pending, { content: "<a:VC_Cross:1482532424570376253> Questa stanza non è più attiva." });
     await message.delete().catch(() => {});
     clearStanzaUsersMemberPending(message.guild.id, message.author.id);
     return true;
@@ -2824,7 +2583,7 @@ async function handleStanzaUsersMemberMessageCreate(message) {
 
   const voiceCh = await fetchStanzaVoiceChannel(message.guild, vid);
   if (!voiceCh) {
-    await editStanzaUsersMemberFollowup(message.client, pending, { content: "Canale vocale non trovato." });
+    await editStanzaUsersMemberFollowup(message.client, pending, { content: "<a:VC_Cross:1482532424570376253> Canale vocale non trovato." });
     await message.delete().catch(() => {});
     clearStanzaUsersMemberPending(message.guild.id, message.author.id);
     return true;
@@ -2832,7 +2591,7 @@ async function handleStanzaUsersMemberMessageCreate(message) {
 
   if (!isStanzaRoomController(meta, message.author.id)) {
     await editStanzaUsersMemberFollowup(message.client, pending, {
-      content: "Solo il creatore della stanza e il vice possono usare questa azione.",
+      content: "<a:VC_Cross:1482532424570376253> Solo il creatore della stanza e il vice possono usare questa azione.",
     });
     await message.delete().catch(() => {});
     clearStanzaUsersMemberPending(message.guild.id, message.author.id);
@@ -2846,11 +2605,11 @@ async function handleStanzaUsersMemberMessageCreate(message) {
   const botId = String(message.client.user.id);
   const viceId = normalizeStanzaDiscordUserId(meta.viceUserId);
   const failPerm =
-    "❌ Non sono riuscito ad aggiornare i permessi sul canale. Verifica che il bot abbia **Gestisci canali**.";
+    "<a:VC_Cross:1482532424570376253> Non sono riuscito ad aggiornare i permessi sul canale.";
 
   if (targetId === botId || targetId === String(meta.ownerId) || (viceId && targetId === viceId)) {
     await editStanzaUsersMemberFollowup(message.client, pending, {
-      content: "❌ Non puoi usare questa azione su bot, creatore o vice.",
+      content: "<a:VC_Cross:1482532424570376253> Non puoi usare questa azione su bot, creatore o vice.",
     });
     await message.delete().catch(() => {});
     clearStanzaUsersMemberPending(message.guild.id, message.author.id);
@@ -2860,7 +2619,7 @@ async function handleStanzaUsersMemberMessageCreate(message) {
 
   const targetMember = await message.guild.members.fetch(targetId).catch(() => null);
   if (!targetMember || targetMember.user?.bot) {
-    await editStanzaUsersMemberFollowup(message.client, pending, { content: "❌ Utente non valido." });
+    await editStanzaUsersMemberFollowup(message.client, pending, { content: "<a:VC_Cross:1482532424570376253> Utente non valido." });
     await message.delete().catch(() => {});
     clearStanzaUsersMemberPending(message.guild.id, message.author.id);
     await refreshStanzaPanelEmbedsIfPossible(message.guild, vid);
@@ -2875,25 +2634,20 @@ async function handleStanzaUsersMemberMessageCreate(message) {
   const tchUsers = await stanzaCompanionTextChannel(message.guild, vid);
 
   if (action === "include") {
-    ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: includi utente");
+    ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: includi utente").catch(() => {});
     if (ok && tchUsers) {
-      await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_ALLOW, "Stanza: includi utente (chat)");
+      await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_ALLOW, "Stanza: includi utente").catch(() => {});
     }
-    doneLine = ok ? `✅ *${targetMember} è stato **incluso**.*` : failPerm;
+    doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato incluso.` : failPerm;
   } else if (action === "exclude") {
-    ok = await applyStanzaMemberVoicePerms(
-      voiceCh,
-      targetId,
-      STANZA_VOICE_MEMBER_EXCLUDE,
-      "Stanza: escludi utente",
-    );
+    ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_EXCLUDE, "Stanza: escludi utente").catch(() => {});
     if (ok && tchUsers) {
-      await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_EXCLUDE, "Stanza: escludi utente (chat)");
+      await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_EXCLUDE, "Stanza: escludi utente").catch(() => {});
     }
     if (ok && targetMember.voice?.channelId === voiceCh.id) {
-      await targetMember.voice.disconnect("Escluso dalla stanza").catch(() => {});
+      await targetMember.voice.disconnect("Stanza: escluso dalla stanza").catch(() => {});
     }
-    doneLine = ok ? `⛔ *${targetMember} è stato **escluso**.*` : failPerm;
+    doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato escluso.` : failPerm;
   } else if (action === "silenzia") {
     const ow = voiceCh.permissionOverwrites.cache.get(targetId);
     const muted =
@@ -2902,22 +2656,17 @@ async function handleStanzaUsersMemberMessageCreate(message) {
       !ow.deny.has(P.ViewChannel) &&
       !ow.deny.has(P.Connect);
     if (muted) {
-      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: smuta utente");
+      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_ALLOW, "Stanza: smuta utente").catch(() => {});
       if (ok && tchUsers) {
-        await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_ALLOW, "Stanza: smuta utente (chat)");
+        await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_ALLOW, "Stanza: smuta utente").catch(() => {});
       }
-      doneLine = ok ? `🔊 *${targetMember} è stato **smutato**.*` : failPerm;
+      doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato smutato.` : failPerm;
     } else {
-      ok = await applyStanzaMemberVoicePerms(
-        voiceCh,
-        targetId,
-        STANZA_VOICE_MEMBER_SILENCE,
-        "Stanza: silenzia utente (canale)",
-      );
+      ok = await applyStanzaMemberVoicePerms(voiceCh, targetId, STANZA_VOICE_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
       if (ok && tchUsers) {
-        await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_SILENCE, "Stanza: silenzia utente (chat)");
+        await applyStanzaMemberTextPerms(tchUsers, targetId, STANZA_TEXT_MEMBER_SILENCE, "Stanza: silenzia utente").catch(() => {});
       }
-      doneLine = ok ? `🔇 *${targetMember} è stato **silenziato**.*` : failPerm;
+      doneLine = ok ? `<a:VC_Verified:1482532479637127188> ${targetMember} è stato silenziato.` : failPerm;
     }
   }
 
@@ -3010,24 +2759,12 @@ async function handleStanzaViceMessageCreate(message) {
     if (tchVice) await removeStanzaMemberTextOverwrite(tchVice, prevVice);
   }
 
-  const ok = await setStanzaPrivilegedUserVoiceOverwrite(
-    voiceCh,
-    targetId,
-    "Stanza: accesso vice (stessi permessi del creatore)",
-  );
+  const ok = await setStanzaPrivilegedUserVoiceOverwrite(voiceCh, targetId, "Stanza: accesso vice").catch(() => {});
   if (!ok) {
     if (prevVice) {
-      await setStanzaPrivilegedUserVoiceOverwrite(
-        voiceCh,
-        prevVice,
-        "Stanza: accesso vice (stessi permessi del creatore)",
-      );
+      await setStanzaPrivilegedUserVoiceOverwrite(voiceCh, prevVice, "Stanza: accesso vice").catch(() => {});
       if (tchVice) {
-        await setStanzaPrivilegedUserTextOverwrite(
-          tchVice,
-          prevVice,
-          "Stanza: accesso vice (stessi permessi del creatore) chat",
-        );
+        await setStanzaPrivilegedUserTextOverwrite(tchVice, prevVice, "Stanza: accesso vice").catch(() => {});
       }
     }
     meta.viceUserId = prevVice || null;
@@ -3038,11 +2775,7 @@ async function handleStanzaViceMessageCreate(message) {
     return true;
   }
   if (tchVice) {
-    await setStanzaPrivilegedUserTextOverwrite(
-      tchVice,
-      targetId,
-      "Stanza: accesso vice (stessi permessi del creatore) chat",
-    );
+    await setStanzaPrivilegedUserTextOverwrite(tchVice, targetId, "Stanza: accesso vice").catch(() => {});
   }
   meta.viceUserId = normalizeStanzaDiscordUserId(targetId) || null;
   await message.delete().catch(() => {});
@@ -3062,19 +2795,4 @@ async function handleStanzaPanelPromptMessageCreate(message) {
   return false;
 }
 
-module.exports = {
-  isStanzaButtonActorAllowed,
-  restoreStanzaRoomsFromSnapshot,
-  finalizeStanzaVisitorVoiceSessionIfLeft,
-  handleStanzaVoiceLobbyJoin,
-  handleStanzaVoiceOccupied,
-  handleStanzaVoiceEmpty,
-  handleStanzaButton,
-  handleStanzaRenameMessageCreate,
-  handleStanzaEmojiMessageCreate,
-  handleStanzaLimitMessageCreate,
-  handleStanzaDescMessageCreate,
-  handleStanzaViceMessageCreate,
-  handleStanzaPanelPromptMessageCreate,
-  buildStanzaChannelName,
-};
+module.exports = { isStanzaButtonActorAllowed, restoreStanzaRoomsFromSnapshot, finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaButton, handleStanzaRenameMessageCreate, handleStanzaEmojiMessageCreate, handleStanzaLimitMessageCreate, handleStanzaDescMessageCreate, handleStanzaViceMessageCreate, handleStanzaPanelPromptMessageCreate, buildStanzaChannelName };

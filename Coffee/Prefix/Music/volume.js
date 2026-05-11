@@ -5,7 +5,7 @@ const { setGuildMusicVolume } = require("../../Services/Music/lavalinkMusicServi
 module.exports = {
   name: "volume",
   args: true,
-  description: "Imposta il volume della musica (0–100).",
+  description: "Imposta il volume della musica.",
   usage: ",volume <0-100>",
   examples: [",volume 35", ",volume 75"],
   async execute(message, args) {
@@ -14,19 +14,13 @@ module.exports = {
     if (result.ok) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setDescription(`Il volume è stato impostato a **${result.volumePercent}**`);
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      }).catch(() => null);
+        .setDescription(`🔊 Il volume è stato impostato a **${result.volumePercent}**`);
+      await safeMessageReply(message, { embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => null);
       return;
     }
     const err = new EmbedBuilder()
       .setColor(0xff0000)
-      .setDescription(`**${result.message}**`);
-    await safeMessageReply(message, {
-      embeds: [err],
-      allowedMentions: { repliedUser: false },
-    }).catch(() => null);
+      .setDescription(`<a:VC_Cross:1482532424570376253> ${result.message}`);
+    await safeMessageReply(message, { embeds: [err], allowedMentions: { repliedUser: false } }).catch(() => null);
   },
 };

@@ -2,8 +2,6 @@ const { InteractionType } = require("discord.js");
 const{handleAutocomplete,handleSlashCommand,}=require("./interaction/commandHandlers");
 const { handleButtonInteraction } = require("./interaction/buttonHandlers");
 const { handlePartnerModal } = require("./interaction/partnerModal");
-const { handleDmBroadcastModal } = require("./interaction/dmBroadcastModal");
-const { handleVerifyInteraction } = require("./interaction/verifyHandlers");
 const { handleCustomRoleInteraction } = require("./interaction/customRoleHandlers");
 const{acquireButtonSpamGuard,runPermissionGate,}=require("../Utils/Interaction/interactionRuntimeGuards");
 const{logInteractionError,}=require("../Utils/Interaction/interactionErrorHandler");
@@ -74,9 +72,6 @@ module.exports = {
         }
         return;
       }
-
-      if (await handleVerifyInteraction(interaction)) return;
-      if (await handleDmBroadcastModal(interaction, resolvedClient)) return;
 
       if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
         await handleAutocomplete(interaction, resolvedClient);

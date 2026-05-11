@@ -5,11 +5,9 @@ const { EmbedBuilder, AttachmentBuilder } = require("discord.js");
 const { buildTicketOpenSelectRows } = require("../Utils/Ticket/ticketOpenMenuComponents");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-
 const TICKET_CHANNEL_ID = IDs.channels.ticket;
 const TICKET_MEDIA_NAME = "ticket.gif";
 const TICKET_MEDIA_PATH = path.join(__dirname, "..", "Photos", TICKET_MEDIA_NAME);
-const { DIVIDER_URL } = require("../../shared/discord/constants");
 const { guildIconUrl } = require("../Utils/Discord/guildDiscordIdentity");
 
 async function run(client) {
@@ -18,23 +16,9 @@ async function run(client) {
   const guildId = channel.guild?.id;
   if (!guildId) return;
   const attachment = new AttachmentBuilder(TICKET_MEDIA_PATH, { name: TICKET_MEDIA_NAME });
-  const ticketInfoEmbed = new EmbedBuilder()
-    .setColor("#6f4e37")
-    .setDescription(
-      `<:reportmessage:1443670575376765130> Benvenuto nella **sezione** dedicata all'__assistenza__! Apri un **ticket** in base alle tue _esigenze_ e ricorda di **rispettare** il regolamento.
-
-<:VC_Dot:1482532364222595303> Massimo **__\`1\`__** ticket alla volta;
-<:VC_Dot:1482532364222595303> Scegli **sempre** la giusta sezione;
-<:VC_Dot:1482532364222595303> Non **abusare** dei __ticket__;
-<:VC_Dot:1482532364222595303> Non aprire ticket __inutili__;`,
-    )
-
   const ticketPanelEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setAuthor({
-      name: "Contatta lo Staff & chiedi supporto:",
-      iconURL: guildIconUrl(channel.guild, { size: 128 }) || undefined,
-    })
+    .setAuthor({name: "Contatta lo Staff & chiedi supporto:", iconURL: guildIconUrl(channel.guild, { size: 128 }) || undefined})
     .setDescription(
       `I ticket equivalgono a un sistema di supporto che permette di parlare direttamente con lo staff, al fine di chiedere chiarimenti, rivolgere domande sul server, segnalare un accaduto all'interno di quest'ultimo o per altre richieste.
 
@@ -62,19 +46,10 @@ async function run(client) {
     global.logger?.warn?.("[embeds] ", err?.message || err);
   }
 
-  const infoMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketInfoMessageId || null, files: [attachment], embeds: [ticketInfoEmbed], components: [], attachmentName: TICKET_MEDIA_NAME });
-  const panelMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketPanelMessageId || null, embeds: [ticketPanelEmbed], components: ticketSelectRows });
+  const panelMessage = await upsertPanelMessage(channel, client, { messageId: panelDoc?.ticketInfoMessageId || null, files: [attachment], embeds: [ticketPanelEmbed], components: ticketSelectRows, attachmentName: TICKET_MEDIA_NAME });
 
-  if (infoMessage?.id || panelMessage?.id) {
-    await personalityPanelUpdateOne(
-      { guildId, channelId: TICKET_CHANNEL_ID },
-      {
-        $set: {
-          ticketInfoMessageId: infoMessage?.id || panelDoc?.ticketInfoMessageId || null,
-          ticketPanelMessageId: panelMessage?.id || panelDoc?.ticketPanelMessageId || null,
-        },
-      },
-    ).catch(() => {});
+  if (panelMessage?.id) {
+    await personalityPanelUpdateOne({ guildId, channelId: TICKET_CHANNEL_ID }, { $set: { ticketInfoMessageId: panelMessage?.id || panelDoc?.ticketInfoMessageId || null } }).catch(() => {});
   }
 }
 

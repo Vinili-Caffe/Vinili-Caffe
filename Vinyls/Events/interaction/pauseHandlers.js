@@ -39,41 +39,18 @@ function formatPauseRoleLabelForMessage(guild, roleChoice, member) {
   return staffFallback;
 }
 
-function buildAcceptedPauseLogContent({
-  roleLabel,
-  effectiveUserId,
-  pauseTimingText,
-  dataRichiesta,
-  dataRitorno,
-  giorniUsati,
-  maxGiorni,
-  giorniRimanenti,
-  sameRoleActiveCount,
-  roleLimitWarning,
-}) {
+function buildAcceptedPauseLogContent({ roleLabel, effectiveUserId, pauseTimingText, dataRichiesta, dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount, roleLimitWarning }) {
   return `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:VC_Staff:1494286904089247754> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning}`;
 }
 
 async function handlePauseButton(interaction) {
   if (!interaction.isButton()) return false;
-  if (
-    !interaction.customId.startsWith("pause_accept:") &&
-    !interaction.customId.startsWith("pause_reject:") &&
-    !interaction.customId.startsWith("pause_cancel:") &&
-    !interaction.customId.startsWith("pause_list:") &&
-    !interaction.customId.startsWith("pause_list_month:")
-  )
-    return false;
+  if (!interaction.customId.startsWith("pause_accept:") && !interaction.customId.startsWith("pause_reject:") && !interaction.customId.startsWith("pause_cancel:") && !interaction.customId.startsWith("pause_list:") && !interaction.customId.startsWith("pause_list_month:")) return false;
 
   const parts = interaction.customId.split(":");
   const [action, userId, pauseId] = parts;
   if (!userId) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> ID pausa non valido.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   if (
@@ -82,12 +59,7 @@ async function handlePauseButton(interaction) {
       action === "pause_cancel") &&
     parts.length !== 3
   ) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> ID pausa non valido.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -99,13 +71,7 @@ async function handlePauseButton(interaction) {
       action === "pause_cancel") &&
     !isHighStaff
   ) {
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Solo High Staff può usare questi pulsanti.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Solo High Staff può usare questi pulsanti.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -121,12 +87,7 @@ async function handlePauseButton(interaction) {
     }
   }
   if (!stafferRecord) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Record pausa non trovato.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Pausa non trovata.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   if (
@@ -135,12 +96,7 @@ async function handlePauseButton(interaction) {
     !isStaff &&
     interaction.user.id !== effectiveUserId
   ) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Puoi vedere solo le tue pause.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Puoi vedere solo le tue pause.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -203,38 +159,20 @@ async function handlePauseButton(interaction) {
       return true;
     }
     const prfMonth = String(parts[4] || "").toLowerCase();
-    const pauseRoleFilterForList =
-      prfMonth === "pm" || prfMonth === "staff" ? prfMonth : undefined;
+    const pauseRoleFilterForList = prfMonth === "pm" || prfMonth === "staff" ? prfMonth : undefined;
     const memberLabel = pauseListMemberLabel(interaction.guild, interaction.client, effectiveUserId);
     const targetUser = { id: effectiveUserId, username: memberLabel };
-    const listPayload = await buildPauseListPayload({
-      guildId: interaction.guildId,
-      requesterId: interaction.user.id,
-      targetUser,
-      isHighStaff,
-      client: interaction.client,
-      filterMonth: Number(month),
-      pauseRoleFilter: pauseRoleFilterForList,
-    });
+    const listPayload = await buildPauseListPayload({ guildId: interaction.guildId, requesterId: interaction.user.id, targetUser, isHighStaff, client: interaction.client, filterMonth: Number(month), pauseRoleFilter: pauseRoleFilterForList });
     if (!listPayload.ok) {
       await interaction.reply({ content: listPayload.error || "<a:VC_Alert:1482706673176150077> Errore.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
-    await interaction.reply({
-      embeds: listPayload.embeds,
-      components: listPayload.components || [],
-      flags: 1 << 6,
-    }).catch(() => {});
+    await interaction.reply({ embeds: listPayload.embeds, components: listPayload.components || [], flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   if (!pauseId) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Dati pausa non validi.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> ID pausa non valido.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -256,13 +194,7 @@ async function handlePauseButton(interaction) {
 
   const lockKey = `${String(interaction.guildId || "dm")}:${String(effectiveUserId)}:${String(effectivePauseId)}`;
   if (pauseActionLocks.has(lockKey)) {
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Questa richiesta pausa è già in elaborazione.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta pausa è già in elaborazione.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   pauseActionLocks.add(lockKey);
@@ -270,79 +202,43 @@ async function handlePauseButton(interaction) {
   try {
 
   if (!targetPause) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Richiesta pausa non trovata.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Richiesta pausa non trovata.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   if (action === "pause_reject") {
     if (targetPause.status !== "pending") {
-      await interaction
-        .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
     await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "rejected" });
     targetPause.status = "rejected";
     await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
-    await interaction.deferUpdate().catch(() => {});
+    await interaction.deferUpdate();
     const currentContent = interaction.message?.content || "";
     const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${effectiveUserId}>.`;
     const updatedContent = currentContent + rejectedSuffix;
-    await interaction.message?.edit({
-      content: updatedContent,
-      components: [],
-    }).catch(() => {});
+    await interaction.message?.edit({ content: updatedContent, components: [] });
     return true;
   }
 
   if (action === "pause_cancel") {
     if (targetPause.status !== "accepted") {
-      await interaction
-        .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa pausa non è annullabile.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
     const end = parseItalianDate(targetPause.dataRitorno);
     const todayForExpiry = getTodayUtc();
     if (end && todayForExpiry > end) {
-      await interaction
-        .update({
-          components: [],
-        })
-        .catch(() => {});
-      await interaction
-        .followUp({
-          content:
-            "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+      await interaction.update({ components: [] });
+      await interaction.followUp({ content: "<a:VC_Alert:1482706673176150077> La pausa è scaduta: il pulsante annulla non è più disponibile.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
     const member = await getGuildMemberCached(interaction.guild, effectiveUserId);
     if (!member) {
-      await interaction
-        .reply({
-          content:
-            "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.",
-          flags: 1 << 6,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
 
@@ -360,11 +256,7 @@ async function handlePauseButton(interaction) {
         );
     }
 
-    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, {
-      status: "cancelled",
-      giorniUsati: consumedForCancelledPause,
-      cancelledAt: new Date(),
-    });
+    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "cancelled", giorniUsati: consumedForCancelledPause, cancelledAt: new Date() });
     targetPause.status = "cancelled";
     targetPause.giorniUsati = consumedForCancelledPause;
     targetPause.cancelledAt = new Date();
@@ -380,14 +272,7 @@ async function handlePauseButton(interaction) {
     const annullataTag = "<:cancel:1461730653677551691> **__\`ANNULLATA\`__**";
     const updatedContent=currentContent.includes(annullataTag)?currentContent:`${currentContent}\n\n${annullataTag}`;
 
-    await interaction
-      .update({
-        content: updatedContent,
-        components: [
-          buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true }),
-        ],
-      })
-      .catch(() => {});
+    await interaction.update({ content: updatedContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })] });
 
     const pmSiblingId = String(targetPause.requestMessageIdPm || "").trim();
     if (pmSiblingId && interaction.channel?.messages?.fetch) {
@@ -399,44 +284,24 @@ async function handlePauseButton(interaction) {
       }
     }
 
-    await interaction.channel
-      ?.send({
-        content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
-      })
-      .catch(() => {});
+    await interaction.channel?.send({ content: `<:cancel:1461730653677551691> Pausa annullata per <@${effectiveUserId}>. <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).` });
     return true;
   }
 
   if (targetPause.status !== "pending") {
-    await interaction
-      .reply({
-        content:
-          "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   const member = await getGuildMemberCached(interaction.guild, effectiveUserId);
   if (!member) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Staffer non trovato nel server.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
   const giorniRichiesti=getPauseDaysBetween(targetPause.dataRichiesta,targetPause.dataRitorno,);
   if (!giorniRichiesti) {
-    await interaction
-      .reply({
-        content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.",
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Date pausa non valide.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -448,12 +313,7 @@ async function handlePauseButton(interaction) {
   const giorniUsati = usedBefore + giorniRichiesti;
   const giorniRimanenti = maxGiorni - giorniUsati;
   if (giorniRimanenti < 0) {
-    await interaction
-      .reply({
-        content: `<a:VC_Alert:1482706673176150077> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`,
-        flags: 1 << 6,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: `<a:VC_Alert:1482706673176150077> Limite pause superato: disponibili \`${Math.max(0, maxGiorni - usedBefore)}\` su \`${maxGiorni}\`.`, flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -479,10 +339,7 @@ async function handlePauseButton(interaction) {
     stafferInPausa: sameRoleActiveCount,
   });
   if (!updateResult.ok) {
-    await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Impossibile salvare l'accettazione della pausa nel database. Riprova.",
-      flags: 1 << 6,
-    }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Impossibile salvare l'accettazione della pausa nel database. Riprova.", flags: 1 << 6 }).catch(() => {});
     return true;
   }
   targetPause.status = "accepted";
@@ -492,7 +349,7 @@ async function handlePauseButton(interaction) {
   targetPause.stafferInPausa = sameRoleActiveCount;
 
   if (bonusBestStaff >= 5) {
-    await grantBestStaffPauseBonusYear(guildId, effectiveUserId).catch(() => {});
+    await grantBestStaffPauseBonusYear(guildId, effectiveUserId);
   }
 
   const roleLimit = roleChoice === PAUSE_ROLE_BOTH ? null : getPauseRoleLimit(roleChoice);
@@ -517,40 +374,15 @@ async function handlePauseButton(interaction) {
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
 
   await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
-  await interaction.deferUpdate().catch(() => {});
+  await interaction.deferUpdate();
 
   if (roleChoice === PAUSE_ROLE_BOTH) {
     const pmRole = interaction.guild?.roles?.cache?.get(String(IDs.roles?.PartnerManager || ""));
     const pmLabel = pmRole?.name || "Partner Manager";
     const staffLabel = getMemberRoleLabel(member);
-    const acceptanceStaff = buildAcceptedPauseLogContent({
-      roleLabel: staffLabel,
-      effectiveUserId,
-      pauseTimingText,
-      dataRichiesta: targetPause.dataRichiesta,
-      dataRitorno: targetPause.dataRitorno,
-      giorniUsati,
-      maxGiorni,
-      giorniRimanenti,
-      sameRoleActiveCount: sameRoleActiveCountStaff,
-      roleLimitWarning: roleLimitWarningStaff,
-    });
-    const acceptancePm = buildAcceptedPauseLogContent({
-      roleLabel: pmLabel,
-      effectiveUserId,
-      pauseTimingText,
-      dataRichiesta: targetPause.dataRichiesta,
-      dataRitorno: targetPause.dataRitorno,
-      giorniUsati,
-      maxGiorni,
-      giorniRimanenti,
-      sameRoleActiveCount: sameRoleActiveCountPm,
-      roleLimitWarning: roleLimitWarningPm,
-    });
-    await interaction.message?.edit({
-      content: acceptanceStaff,
-      components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
-    }).catch(() => {});
+    const acceptanceStaff = buildAcceptedPauseLogContent({ roleLabel: staffLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount: sameRoleActiveCountStaff, roleLimitWarning: roleLimitWarningStaff });
+    const acceptancePm = buildAcceptedPauseLogContent({ roleLabel: pmLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount: sameRoleActiveCountPm, roleLimitWarning: roleLimitWarningPm });
+    await interaction.message?.edit({ content: acceptanceStaff, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })] });
     let pmMessageId = null;
     const sentPm = await interaction.channel?.send({ content: acceptancePm }).catch(() => null);
     if (sentPm?.id) {
@@ -558,52 +390,15 @@ async function handlePauseButton(interaction) {
       await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { requestMessageIdPm: pmMessageId });
       targetPause.requestMessageIdPm = pmMessageId;
     }
-    if (pauseEnd && interaction.message?.id && interaction.channel?.id) {
-      schedulePauseButtonsRemoval(
-        interaction.guild,
-        interaction.channel.id,
-        interaction.message.id,
-        targetPause.dataRichiesta,
-        targetPause.dataRitorno,
-        effectiveUserId,
-        effectivePauseId,
-        pmMessageId,
-      );
-    }
+    if (pauseEnd && interaction.message?.id && interaction.channel?.id) { schedulePauseButtonsRemoval(interaction.guild, interaction.channel.id, interaction.message.id, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId, effectivePauseId, pmMessageId) }
   } else {
     const pauseRoleLabel = formatPauseRoleLabelForMessage(interaction.guild, targetPause.ruolo, member);
-    const acceptanceContent = buildAcceptedPauseLogContent({
-      roleLabel: pauseRoleLabel,
-      effectiveUserId,
-      pauseTimingText,
-      dataRichiesta: targetPause.dataRichiesta,
-      dataRitorno: targetPause.dataRitorno,
-      giorniUsati,
-      maxGiorni,
-      giorniRimanenti,
-      sameRoleActiveCount,
-      roleLimitWarning,
-    });
-    await interaction.message?.edit({
-      content: acceptanceContent,
-      components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
-    }).catch(() => {});
-    if (pauseEnd && interaction.message?.id && interaction.channel?.id) {
-      schedulePauseButtonsRemoval(
-        interaction.guild,
-        interaction.channel.id,
-        interaction.message.id,
-        targetPause.dataRichiesta,
-        targetPause.dataRitorno,
-        effectiveUserId,
-        effectivePauseId,
-      );
-    }
+    const acceptanceContent = buildAcceptedPauseLogContent({ roleLabel: pauseRoleLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount, roleLimitWarning });
+    await interaction.message?.edit({ content: acceptanceContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })] });
+    if (pauseEnd && interaction.message?.id && interaction.channel?.id) { schedulePauseButtonsRemoval(interaction.guild, interaction.channel.id, interaction.message.id, targetPause.dataRichiesta, targetPause.dataRitorno, effectiveUserId, effectivePauseId) }
   }
   return true;
-  } finally {
-    pauseActionLocks.delete(lockKey);
+  } finally { pauseActionLocks.delete(lockKey) }
   }
-}
 
 module.exports = { handlePauseButton };

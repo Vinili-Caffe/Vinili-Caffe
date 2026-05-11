@@ -96,7 +96,7 @@ async function execute(interaction) {
       return true;
     } catch (err) {
       global.logger?.error?.("[Buttons/backupList] select", err);
-      await interaction.reply({ content: "<:vegax:1443934876440068179> Errore durante la selezione.", flags: EPHEMERAL }).catch(() => {});
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Errore durante la selezione.", flags: EPHEMERAL }).catch(() => {});
       return true;
     }
   }
@@ -126,7 +126,7 @@ async function execute(interaction) {
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/backupList] execute", err);
-    await interaction.reply({ content: "<:vegax:1443934876440068179> Errore durante l'aggiornamento della lista.", flags: EPHEMERAL }).catch(() => {});
+    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Errore durante l'aggiornamento della lista.", flags: EPHEMERAL }).catch(() => {});
     return true;
   }
 }

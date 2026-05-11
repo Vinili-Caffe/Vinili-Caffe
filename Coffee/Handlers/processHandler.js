@@ -2,29 +2,25 @@ module.exports = function installProcessHandlers() {
   if (process.__viniliTestProcessHandlersInstalled) return;
   process.__viniliTestProcessHandlersInstalled = true;
 
-  const logs = require("../Utils/Moderation/logs");
-
-  const error =(msg)=>{try{logs.error(`[ERROR] ${msg}`);}catch(err){global.logger?.warn?.("[processHandler] logs.error:",err?.message||err);}};
-
   process.on("SIGINT", () => {
-    error("SIGINT: Exiting...");
+    global.logger?.error?.("[PROCESS] SIGINT: Exiting...");
     process.exit();
   });
 
   process.on("uncaughtException", (err) => {
-    error("UNCAUGHT EXCEPTION: " + (err?.stack || err));
+    global.logger?.error?.("[PROCESS] UNCAUGHT EXCEPTION: " + (err?.stack || err));
   });
 
   process.on("SIGTERM", () => {
-    error("SIGTERM: Exiting...");
+    global.logger?.error?.("[PROCESS] SIGTERM: Exiting...");
     process.exit();
   });
 
   process.on("unhandledRejection", (err) => {
-    error("UNHANDLED REJECTION: " + (err?.stack || err));
+    global.logger?.error?.("[PROCESS] UNHANDLED REJECTION: " + (err?.stack || err));
   });
 
   process.on("warning", () => {});
 
-  logs.success("[PROCESS] Process handlers loaded.");
+  global.logger?.info?.("[PROCESS] Process handlers loaded.");
 };

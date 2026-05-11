@@ -2,7 +2,6 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleRoleCreationAction: antiNukeHandleRoleCreationAction } = require("../Services/Moderation/antiNukeService");
-
 const ROLE_CREATE_ACTION = AuditLogEvent?.RoleCreate ?? 30;
 
 function sleep(ms) {
@@ -38,27 +37,24 @@ module.exports = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit.executor);
 
-        const lines=[`${ARROW} **Responsible:** ${responsible}`,
-          `${ARROW} **Target:** ${role} \`${role.id}\``,`${ARROW} ${toDiscordTimestamp(new Date(),"F")}`,
+        const lines=[`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+          `<:VC_User:1482527453586002103> **Utente:** ${role} \`${role.id}\``,
+          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(),"F")}`,
           "",
-          "**Settings**",
-          `${ARROW} **Name:** ${role.name||"sconosciuto"}`,
-          `${ARROW} **Color:** ${role.hexColor||"#000000"}`,
-          `${ARROW} **Hoist:** ${yesNo(Boolean(role.hoist))}`,
-          `${ARROW} **Mentionable:** ${yesNo(Boolean(role.mentionable))}`,
+          "**<:VC_tools:1478862265305272364> Impostazioni**",
+          `<:VC_Modifica:1478859646587633717> **Nome:** ${role.name||"sconosciuto"}`,
+          `<a:VC_Color:1482532543273238569> **Color:** ${role.hexColor||"#000000"}`,
+          `<a:VC_Role:1482532543273238569> **Hoist:** ${yesNo(Boolean(role.hoist))}`,
+          `<a:VC_Mention:1482526855289634997> **Menzionabile:** ${yesNo(Boolean(role.mentionable))}`,
         ];
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "color", "hoist", "mentionable"]));
 
-        const embed=new EmbedBuilder().setColor("#57F287").setTitle("Role Create").setDescription(lines.join("\n"));
+        const embed=new EmbedBuilder().setColor("#57F287").setTitle("<a:VC_Role:1482532543273238569> Ruolo Creato").setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});
       }
 
-      await antiNukeHandleRoleCreationAction({
-        guild,
-        executorId,
-        roleId: String(role.id || ""),
-      });
+      await antiNukeHandleRoleCreationAction({ guild, executorId, roleId: String(role.id || "") });
     } catch (error) {
       global.logger?.error?.("[roleCreate] failed:", error);
     }

@@ -1,15 +1,6 @@
 const IDs = require("../Utils/Config/ids");
 const { isPartnerPmDailyCommandsThread } = require("../Utils/Partner/partnersChatChannelUtils");
-const {
-  PANEL_PREFIX,
-  parseStaffProfileSelectCustomId,
-  parseStaffProfileCloseCustomId,
-  parseStaffProfileNextCustomId,
-  buildStaffProfilePayload,
-  SECTION_HOME,
-  resolveNextStaffPanelTargetId,
-} = require("../Utils/Staff/staffProfilePanelRuntime");
-
+const { PANEL_PREFIX, parseStaffProfileSelectCustomId, parseStaffProfileCloseCustomId, parseStaffProfileNextCustomId, buildStaffProfilePayload, SECTION_HOME, resolveNextStaffPanelTargetId } = require("../Utils/Staff/staffProfilePanelRuntime");
 const PRIVATE_FLAG = 1 << 6;
 
 async function safeUpdatePanelInteraction(interaction, payload) {
@@ -47,33 +38,16 @@ async function execute(interaction) {
       const nextParsed = parseStaffProfileNextCustomId(interaction.customId);
       if (!nextParsed) return false;
       if (String(interaction.user.id) !== String(nextParsed.viewerId)) {
-        await interaction
-          .reply({
-            content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può cambiarlo.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può cambiarlo.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
       const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
       const nextTargetId = resolveNextStaffPanelTargetId(interaction.guild, nextParsed.targetId, { partnersChatPanel });
       if (!nextTargetId) {
-        await interaction
-          .reply({
-            content: "<:vegax:1443934876440068179> Nessun altro staffer disponibile in questo pannello.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Nessun altro staffer disponibile in questo pannello.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
-      const payload = await buildStaffProfilePayload(
-        interaction.guild,
-        nextTargetId,
-        nextParsed.viewerId,
-        interaction.client,
-        SECTION_HOME,
-        { sourceMessageId: nextParsed.sourceMessageId, partnersChatPanel },
-      );
+      const payload = await buildStaffProfilePayload( interaction.guild, nextTargetId, nextParsed.viewerId, interaction.client, SECTION_HOME, { sourceMessageId: nextParsed.sourceMessageId, partnersChatPanel });
       await safeUpdatePanelInteraction(interaction, payload);
       return true;
     }
@@ -81,12 +55,7 @@ async function execute(interaction) {
     const close = parseStaffProfileCloseCustomId(interaction.customId);
     if (!close) return false;
     if (String(interaction.user.id) !== String(close.viewerId)) {
-      await interaction
-        .reply({
-          content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.",
-          flags: PRIVATE_FLAG,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può chiuderlo.", flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
     await interaction.deferUpdate().catch(() => {});
@@ -101,25 +70,13 @@ async function execute(interaction) {
   const parsed = parseStaffProfileSelectCustomId(interaction.customId);
   if (!parsed) return false;
   if (String(interaction.user.id) !== String(parsed.viewerId)) {
-    await interaction
-      .reply({
-        content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare il menu.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare il menu.", flags: PRIVATE_FLAG }).catch(() => {});
     return true;
   }
   const section = String(interaction.values?.[0] || SECTION_HOME);
   const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
   const partnersChatPanel = await isPartnerPmDailyCommandsThread(interaction.channel);
-  const payload = await buildStaffProfilePayload(
-    interaction.guild,
-    parsed.targetId,
-    parsed.viewerId,
-    interaction.client,
-    section,
-    { sourceMessageId: parsed.sourceMessageId, partnersChatPanel },
-  );
+  const payload = await buildStaffProfilePayload( interaction.guild, parsed.targetId, parsed.viewerId, interaction.client, section, { sourceMessageId: parsed.sourceMessageId, partnersChatPanel });
   if (deferred && interaction.message) {
     await interaction.message.edit(payload).catch(() => {});
   } else {

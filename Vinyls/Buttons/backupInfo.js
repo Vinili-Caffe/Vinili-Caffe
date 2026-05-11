@@ -23,7 +23,7 @@ async function execute(interaction) {
     const parts = customId.slice(PREFIX_LOAD.length).split(":");
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non autorizzato.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     try {
@@ -53,7 +53,7 @@ async function execute(interaction) {
     const parts = customId.slice(PREFIX_DELETE.length).split(":");
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non autorizzato.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     await safeEditReply(interaction, {
@@ -69,7 +69,7 @@ async function execute(interaction) {
     const parts = rest.split(":");
     const [backupId, userId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non autorizzato.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     await safeEditReply(interaction, {
@@ -84,11 +84,11 @@ async function execute(interaction) {
     const parts = rest.split(":");
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non autorizzato.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     if (!interaction.memberPermissions?.has?.(PermissionFlagsBits.ManageGuild)) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Ti serve il permesso **Gestisci Server**.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non hai il permesso di gestire questo server.", flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     try {

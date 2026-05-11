@@ -2,7 +2,6 @@ const { Events } = require("discord.js");
 const { logCommandUsage } = require("../Utils/Logging/commandUsageLogger");
 const IDs = require("../Utils/Config/ids");
 const { userAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
-
 const COMMAND_LOG_CHANNEL_ID = IDs.channels.commandLogChannel;
 
 function isCommandInteraction(interaction) {

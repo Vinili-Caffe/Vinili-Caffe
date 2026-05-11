@@ -1239,9 +1239,6 @@
                 "roles.Founder"
             ]
         },
-        "downv": [
-            "roles.Member"
-        ],
         "eb:author:*": {
             "ownerFromMessageMention": true
         },
@@ -1323,9 +1320,6 @@
         "info_strike_prev:*": {
             "ownerFromMessageMention": true
         },
-        "info_verifica": [
-            "roles.Member"
-        ],
         "limiti": [
             "roles.Staff"
         ],
@@ -1465,12 +1459,6 @@
                 "roles.Founder"
             ]
         },
-        "suggestion_staff_accept": [
-            "roles.HighStaff"
-        ],
-        "suggestion_staff_reject": [
-            "roles.HighStaff"
-        ],
         "testualimoderazione": [
             "roles.Staff"
         ],
@@ -1529,15 +1517,9 @@
         "ticket_panel_nav_closerequest": null,
         "ticket_panel_nav_transfer": null,
         "ticket_panel_reopen_pick": null,
-        "upv": [
-            "roles.Member"
-        ],
         "valutazioni": [
             "roles.Staff"
         ],
-        "verify_enter": {
-            "verifyStartRequired": true
-        },
         "apply_helper": [
             "roles.Member"
         ],
@@ -1685,7 +1667,6 @@
                 "roles.Member"
             ]
         },
-        "verify_start": null,
         "vocalimoderazione": [
             "roles.Staff"
         ],
@@ -1888,9 +1869,6 @@
                 "roles.Founder"
             ]
         },
-        "dm_broadcast:*": {
-            "ownerSegment": 1
-        },
         "ebm:*": {
             "ownerSegment": 2
         },
@@ -1919,9 +1897,6 @@
         "stats_top_channel_page_modal:*": {
             "ownerSegment": 1
         },
-        "suggestion_staff_modal:*": [
-            "roles.HighStaff"
-        ],
         "apply_form:*": {
             "ownerSegment": 2
         },
@@ -1933,9 +1908,6 @@
         },
         "resoconto_reason:*": [
             "roles.HighStaff"
-        ],
-        "verify_code:*": {
-            "ownerSegment": 1
-        }
+        ]
     }
 }

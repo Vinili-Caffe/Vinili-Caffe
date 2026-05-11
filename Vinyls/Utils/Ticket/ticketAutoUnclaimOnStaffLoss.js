@@ -12,6 +12,15 @@ function buildTicketPanelUnclaimedButtonRow() {
   );
 }
 
+const TICKET_ROLE_UNCLAIMED_SPECTATE = {
+  ViewChannel: true,
+  SendMessages: false,
+  ReadMessageHistory: true,
+  EmbedLinks: true,
+  AttachFiles: true,
+  AddReactions: true,
+};
+
 async function applyChannelPermissionOverwritesAfterUnclaim(channel, ticketType) {
   const ROLE_STAFF = IDs.roles.Staff;
   const ROLE_HIGHSTAFF = IDs.roles.HighStaff;
@@ -19,47 +28,27 @@ async function applyChannelPermissionOverwritesAfterUnclaim(channel, ticketType)
   if (!channel?.permissionOverwrites) return;
   if (ticketType === "supporto") {
     if (ROLE_STAFF) {
-      await channel.permissionOverwrites.edit(ROLE_STAFF, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      }).catch(() => {});
+      await channel.permissionOverwrites.edit(ROLE_STAFF, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
     }
     if (ROLE_HIGHSTAFF) {
-      await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      }).catch(() => {});
+      await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
     }
     if (ROLE_PARTNERMANAGER) {
       await channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, { ViewChannel: false }).catch(() => {});
     }
   } else if (ticketType === "partnership") {
     if (ROLE_PARTNERMANAGER) {
-      await channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      }).catch(() => {});
+      await channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
     }
     if (ROLE_HIGHSTAFF) {
-      await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      }).catch(() => {});
+      await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
     }
     if (ROLE_STAFF) {
       await channel.permissionOverwrites.edit(ROLE_STAFF, { ViewChannel: false }).catch(() => {});
     }
   } else if (ticketType === "high") {
     if (ROLE_HIGHSTAFF) {
-      await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      }).catch(() => {});
+      await channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_UNCLAIMED_SPECTATE).catch(() => {});
     }
     if (ROLE_STAFF) {
       await channel.permissionOverwrites.edit(ROLE_STAFF, { ViewChannel: false }).catch(() => {});
@@ -151,4 +140,5 @@ async function autoUnclaimOpenTicketsClaimedByUser(guild, formerClaimantUserId) 
 
 module.exports = {
   autoUnclaimOpenTicketsClaimedByUser,
+  applyChannelPermissionOverwritesAfterUnclaim,
 };

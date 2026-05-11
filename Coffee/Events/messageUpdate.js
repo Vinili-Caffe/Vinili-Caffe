@@ -21,7 +21,7 @@ module.exports = {
     const afterNorm = afterRaw.replace(dash, "-");
     if (!afterNorm.trim() || beforeNorm === afterNorm) return;
 
-    const safePrefix = String(client?.config?.prefix || "-").trim() || "-";
+    const safePrefix = String(client?.config?.prefix || ",").trim() || ",";
     if (!afterNorm.startsWith(safePrefix)) return;
 
     if (afterNorm !== afterRaw) {

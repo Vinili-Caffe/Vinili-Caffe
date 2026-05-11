@@ -30,7 +30,7 @@ module.exports = {
         if (!interaction?.replied && !interaction?.deferred) {
           await interaction
             .reply({
-              content: "<a:VC_Alert:1482706673176150077> C'e stato un errore nell'esecuzione del pulsante.",
+              content: "<a:VC_Alert:1482706673176150077> C'è stato un errore nell'esecuzione del pulsante.",
               flags: 1 << 6,
             })
             .catch(() => null);

@@ -52,7 +52,6 @@ async function resolveCreateAuditWithRetry(guild, channelId) {
       await wait(AUDIT_RETRY_DELAY_MS);
     }
   }
-
   return { executor: null, reason: null, entry: null };
 }
 
@@ -60,10 +59,9 @@ module.exports = {
   name: "channelCreate",
   async execute(channel, client) {
     if (!channel?.guildId) return;
-
     await forceQuarantineOverwrite(channel).catch(() => {});
-
     let executorId = "";
+    
     try {
       const audit = await resolveCreateAuditWithRetry(channel.guild, channel.id);
       executorId = String(audit?.executor?.id || "");
@@ -72,15 +70,15 @@ module.exports = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit?.executor || null);
         const lines = [
-          `${ARROW} **Responsible:** ${responsible}`,
-          `${ARROW} **Target:** ${channelDisplay(channel)} \`${channel.id}\``,
-          `${ARROW} ${toDiscordTimestamp(new Date(), "F")}`,
+          `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+          `<:VC_User:1482527453586002103> **Utente:** ${channelDisplay(channel)} \`${channel.id}\``,
+          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
           "",
-          "**Settings**",
-          `${ARROW} **Name:** ${channel.name || "sconosciuto"}`,
-          `${ARROW} **Type:** ${channelTypeLabel(channel)}`,
-          `${ARROW} **Nsfw:** ${yesNo(Boolean(channel.nsfw))}`,
-          `${ARROW} **Rate Limit Per User:** ${Number(channel.rateLimitPerUser || 0) || "Nessuno"}`,
+          "**<:VC_tools:1478862265305272364> Impostazioni**",
+          `<:VC_Modifica:1478859646587633717> **Nome:** ${channel.name || "sconosciuto"}`,
+          `<a:VC_Channel:1482534583944871996> **Tipo:** ${channelTypeLabel(channel)}`,
+          `<a:VC_PepeEggPlant:1331622686014570588> **NSFW:** ${yesNo(Boolean(channel.nsfw))}`,
+          `<:VC_Info:1482526956703580372> **RPM utente:** ${Number(channel.rateLimitPerUser || 0) || "Nessuno"}`,
         ];
         lines.push(
           ...buildAuditExtraLines(audit?.entry, [
@@ -93,7 +91,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
           .setColor("#57F287")
-          .setTitle("Channel Create")
+          .setTitle("<a:VC_Channel:1482534583944871996> Channel Create")
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});
@@ -102,13 +100,7 @@ module.exports = {
       global.logger?.error?.("[channelCreate] log failed:", error);
     }
 
-    await antiNukeHandleChannelCreationAction({
-      guild: channel.guild,
-      executorId,
-      channelId: String(channel.id || ""),
-      channel,
-    }).catch(() => {});
-
+    await antiNukeHandleChannelCreationAction({ guild: channel.guild, executorId, channelId: String(channel.id || ""), channel }).catch(() => {});
     await upsertChannelSnapshot(channel).catch(() => {});
     if (client) {
       queueCategoryRenumber(client, channel.guildId);

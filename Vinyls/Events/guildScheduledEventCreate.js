@@ -111,31 +111,31 @@ module.exports = {
       const endTime=toEventTimeLabel(scheduledEvent.scheduledEndAt||scheduledEvent.scheduledEndTimestamp,);
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
         "",
-        "**Settings**",
-        `<:VC_right_arrow:1482459908245815296> **Name:** ${scheduledEvent.name || "sconosciuto"}`,
-        `<:VC_right_arrow:1482459908245815296> **Privacy Level:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
-        `<:VC_right_arrow:1482459908245815296> **Status:** ${statusLabel(scheduledEvent.status)}`,
-        `<:VC_right_arrow:1482459908245815296> **Entity Type:** ${entityTypeLabel(scheduledEvent.entityType)}`,
-        startTime ? `<:VC_right_arrow:1482459908245815296> **Start Time:** ${startTime}` : null,
-        endTime ? `<:VC_right_arrow:1482459908245815296> **End Time:** ${endTime}` : null,
+        "**Impostazioni**",
+        `<:VC_Modifica:1478859646587633717> **Nome:** ${scheduledEvent.name || "sconosciuto"}`,
+        `<:VC_Modifica:1478859646587633717> **Livello privacy:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
+        `<:VC_Modifica:1478859646587633717> **Stato:** ${statusLabel(scheduledEvent.status)}`,
+        `<:VC_Modifica:1478859646587633717> **Tipo entità:** ${entityTypeLabel(scheduledEvent.entityType)}`,
+        startTime ? `<:VC_Modifica:1478859646587633717> **Ora inizio:** ${startTime}` : null,
+        endTime ? `<:VC_Modifica:1478859646587633717> **Ora fine:** ${endTime}` : null,
       ];
 
       if (scheduledEvent.entityMetadata?.location) {
         lines.push(
-          `<:VC_right_arrow:1482459908245815296> **Location:** ${scheduledEvent.entityMetadata.location}`,
+          `<:VC_Modifica:1478859646587633717> **Località:** ${scheduledEvent.entityMetadata.location}`,
         );
       } else if (scheduledEvent.channelId) {
         lines.push(
-          `<:VC_right_arrow:1482459908245815296> **Channel:** <#${scheduledEvent.channelId}>`,
+          `<:VC_Modifica:1478859646587633717> **Canale:** <#${scheduledEvent.channelId}>`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#57F287")
-        .setTitle("Guild Scheduled Event Create")
+        .setTitle("<a:VC_Verified:1482532479637127188> Evento programmato creato")
         .setDescription(lines.join("\n"));
 
       const cover = scheduledEvent.coverImageURL?.({ size: 1024 });
@@ -147,7 +147,7 @@ module.exports = {
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setStyle(ButtonStyle.Link)
-              .setLabel("Go to Event")
+              .setLabel("Vai all'evento")
               .setURL(eventUrl),
           ),
         ];

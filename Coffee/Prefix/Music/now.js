@@ -26,8 +26,7 @@ module.exports = {
   subcommands: ["playing"],
   allowEmptyArgs: true,
   subcommandUsages: { playing: ",now playing" },
-  description:
-    "Mostra il brano in riproduzione (titolo, avanzamento, durata, copertina, posizione in coda, richiedente).",
+  description: "Mostra il brano in riproduzione.",
   usage: ",now [playing]",
   examples: [",now playing", ",now"],
   async execute(message, args) {
@@ -35,7 +34,7 @@ module.exports = {
     if (raw !== "playing") {
       const err = new EmbedBuilder()
         .setColor(0xff0000)
-        .setDescription("**Usa** `,now` **oppure** `,now playing`.");
+        .setDescription("<a:VC_Attention:1482534443632558151> Usa **,now playing**.");
       await safeMessageReply(
         message,
         applyDefaultFooterToEmbeds(
@@ -59,17 +58,17 @@ module.exports = {
       ).catch(() => null);
       return;
     }
-    const progressLines = `${data.progressBar}\n\`${data.positionClock}\` / \`${data.lengthClock}\``;
+    const progressLines = `${data.progressBar}\n<t:${Math.floor(Date.now() / 1000)}:R> / ${data.lengthClock}`;
     const embed = new EmbedBuilder()
       .setColor(0x6f4e37)
-      .setAuthor({ name: "In riproduzione ♪" })
+      .setTitle("In riproduzione 🎵")
       .addFields(
         { name: "Brano", value: data.trackFieldValue, inline: false },
-        { name: "Avanzamento", value: progressLines.slice(0, 1024), inline: false },
-        { name: "Posizione in coda", value: String(data.positionInQueue), inline: true },
+        { name: "Tempo trascorso", value: progressLines.slice(0, 1024), inline: false },
+        { name: "Posizione nella coda", value: String(data.positionInQueue), inline: true },
       )
       .setTimestamp(Date.now());
-    if (data.paused) embed.setDescription("*In pausa*");
+    if (data.paused) embed.setDescription("⏸️ In pausa");
     if (data.thumbnailUrl) embed.setThumbnail(data.thumbnailUrl);
     const footer = await buildRequesterFooter(message.guild, data);
     if (footer) embed.setFooter(footer);

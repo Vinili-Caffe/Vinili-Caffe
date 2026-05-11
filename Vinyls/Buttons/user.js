@@ -45,21 +45,13 @@ async function execute(interaction, client) {
   try {
     await interaction.deferUpdate().catch(() => {});
     const payload = await buildUserOverviewPayload(guild, targetUserId, lookbackDays, view, client);
-    const payloadWithComponents = {
-      ...payload,
-      components: buildUserComponents(parsed.ownerId || interaction.user?.id, targetUserId, lookbackDays, view),
-    };
+    const payloadWithComponents = {...payload, components: buildUserComponents(parsed.ownerId || interaction.user?.id, targetUserId, lookbackDays, view)};
     const msg = interaction.message;
     if (!msg?.edit) {
       await sendControlErrorFallback(interaction);
       return true;
     }
-    await msg.edit({
-      files: payloadWithComponents.files || [],
-      components: payloadWithComponents.components || [],
-      embeds: Array.isArray(payloadWithComponents.embeds) ? payloadWithComponents.embeds : [],
-      content: typeof payloadWithComponents.content === "string" ? payloadWithComponents.content : null,
-    });
+    await msg.edit({ files: payloadWithComponents.files || [], components: payloadWithComponents.components || [], embeds: Array.isArray(payloadWithComponents.embeds) ? payloadWithComponents.embeds : [], content: typeof payloadWithComponents.content === "string" ? payloadWithComponents.content : null });
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/user] execute", err);
@@ -81,8 +73,7 @@ async function buildUserOverviewPayload(guild, targetId, lookbackDays, view, cli
   }
   const displayName = accountUsername(member || user);
   const userTag = user?.tag ?? user?.username ?? "User";
-  const avatarUrl =
-    guildMemberDisplayAvatarUrlStatic(member || user, { size: 512 }) || userAvatarUrlStatic(user, { size: 512 });
+  const avatarUrl = guildMemberDisplayAvatarUrlStatic(member || user, { size: 512 }) || userAvatarUrlStatic(user, { size: 512 });
   const createdOn = user?.createdAt ?? new Date(0);
   const joinedOn = (member?.joinedAt && member.joinedAt instanceof Date) ? member.joinedAt : (member?.joinedTimestamp ? new Date(member.joinedTimestamp) : createdOn);
   const emptySnapshot = new Map();
@@ -91,8 +82,7 @@ async function buildUserOverviewPayload(guild, targetId, lookbackDays, view, cli
     resolveTopChannelEntries(guild, stats.topChannelsVoice || [], emptySnapshot),
   ]);
   const buffer = await renderUserActivityCanvas({ guildName: guild.name || "Server", userTag, displayName, avatarUrl, createdOn, joinedOn, lookbackDays: safeLookback, windows: stats.windows, ranks: stats.ranks, topChannelsText, topChannelsVoice, chart: stats.chart });
-  const activityExt =
-    buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
+  const activityExt = buffer.length >= 6 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 ? "gif" : "png";
   const file = new AttachmentBuilder(buffer, { name: `user-activity.${activityExt}` });
   return { files: [file], components: [] };
 }
@@ -102,25 +92,12 @@ function buildUserComponents(ownerId, targetUserId, lookbackDays, view) {
   const o = ownerId || "";
   const base = `${USER_REFRESH_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${safeLookback}:embed`;
   const periodOpen = `${USER_PERIOD_OPEN_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${safeLookback}:embed`;
-
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Refresh:1473359252276904203> "),
-    new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Clock:1473359204189474886>")
-  );
+  const row1 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Refresh:1473359252276904203> "), new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Clock:1473359204189474886>"));
 
   if (view === "period") {
     const periodBack = `${USER_PERIOD_BACK_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${safeLookback}:embed`;
-    const rowPeriod1 = new ActionRowBuilder().addComponents(
-      ...ALLOWED_LOOKBACK.map((d) =>
-        new ButtonBuilder()
-          .setCustomId(`${USER_PERIOD_SET_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${d}:embed`)
-          .setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary)
-          .setLabel(`${d}d`)
-      )
-    );
-    const rowPeriod2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(periodBack).setStyle(ButtonStyle.Secondary).setLabel("Indietro")
-    );
+    const rowPeriod1 = new ActionRowBuilder().addComponents(...ALLOWED_LOOKBACK.map((d) => new ButtonBuilder().setCustomId(`${USER_PERIOD_SET_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${d}:embed`).setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary).setLabel(`${d}d`)));
+    const rowPeriod2 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(periodBack).setStyle(ButtonStyle.Secondary).setLabel("Indietro"));
     return [row1, rowPeriod1, rowPeriod2];
   }
   return [row1];

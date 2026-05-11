@@ -1,12 +1,12 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
-const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
+const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleVanityGuard: antiNukeHandleVanityGuard } = require("../Services/Moderation/antiNukeService");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 
 function notificationsLabel(value) {
   const n = Number(value);
   if (n === 0) return "Tutti i messaggi";
-  if (n === 1) return "Only Mentions";
+  if (n === 1) return "Solo menzioni";
   return String(n);
 }
 
@@ -24,41 +24,22 @@ module.exports = {
 
       const changes = [];
       if (oldGuild?.name !== newGuild?.name) {
-        changes.push(["Name", oldGuild?.name || "N/A", newGuild?.name || "N/A"]);
+        changes.push(["Nome", `${oldGuild?.name || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.name || "N/A"}`]);
       }
       if ((oldGuild?.description || "") !== (newGuild?.description || "")) {
-        changes.push([
-          "Description",
-          oldGuild?.description || "N/A",
-          newGuild?.description || "N/A",
-        ]);
+        changes.push(["Descrizione", `${oldGuild?.description || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.description || "N/A"}`]);
       }
       if (normalizeComparable(oldGuild?.icon) !== normalizeComparable(newGuild?.icon)) {
-        changes.push(["Icon Hash", oldGuild?.icon || "N/A", newGuild?.icon || "N/A"]);
+        changes.push(["Icona", `${oldGuild?.icon || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.icon || "N/A"}`]);
       }
       if (normalizeComparable(oldGuild?.banner) !== normalizeComparable(newGuild?.banner)) {
-        changes.push([
-          "Banner Hash",
-          oldGuild?.banner || "N/A",
-          newGuild?.banner || "N/A",
-        ]);
+        changes.push(["Banner", `${oldGuild?.banner || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.banner || "N/A"}`]);
       }
-      if (
-        Number(oldGuild?.defaultMessageNotifications) !==
-        Number(newGuild?.defaultMessageNotifications)
-      ) {
-        changes.push([
-          "Default Message Notifications",
-          notificationsLabel(oldGuild?.defaultMessageNotifications),
-          notificationsLabel(newGuild?.defaultMessageNotifications),
-        ]);
+      if (Number(oldGuild?.defaultMessageNotifications) !== Number(newGuild?.defaultMessageNotifications)) {
+        changes.push(["Notifiche messaggi predefinite", `${notificationsLabel(oldGuild?.defaultMessageNotifications)} <a:VC_Arrow:1482706699365257397> ${notificationsLabel(newGuild?.defaultMessageNotifications)}`]);
       }
       if ((oldGuild?.vanityURLCode || "") !== (newGuild?.vanityURLCode || "")) {
-        changes.push([
-          "Vanity URL Code",
-          oldGuild?.vanityURLCode || "N/A",
-          newGuild?.vanityURLCode || "N/A",
-        ]);
+        changes.push(["Invito Vanity", `${oldGuild?.vanityURLCode || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.vanityURLCode || "N/A"}`]);
       }
       if (!changes.length) return;
       const vanityChanged=(oldGuild?.vanityURLCode||"")!==(newGuild?.vanityURLCode||"");
@@ -73,15 +54,15 @@ module.exports = {
 
       const responsible = formatResponsible(executor);
       const lines = [
-        `${ARROW} **Responsible:** ${responsible}`,
-        `${ARROW} ${nowDiscordTs()}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
         "",
-        "**Changes**",
+        "**Modifiche**",
       ];
 
       for (const [label, oldValue, newValue] of changes) {
-        lines.push(`${ARROW} **${label}**`);
-        lines.push(`  ${oldValue} ${ARROW} ${newValue}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **${label}**`);
+        lines.push(`${oldValue} <a:VC_Arrow:1482706699365257397> ${newValue}`);
       }
       lines.push(
         ...buildAuditExtraLines(auditEntry, [
@@ -97,18 +78,14 @@ module.exports = {
       if (canLog) {
         const embed = new EmbedBuilder()
           .setColor("#F59E0B")
-          .setTitle("Guild Update")
+          .setTitle("<a:VC_Verified:1482532479637127188> Server aggiornato")
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => null);
       }
 
       if (vanityChanged) {
-        await antiNukeHandleVanityGuard({
-          oldGuild,
-          newGuild,
-          executorId,
-        });
+        await antiNukeHandleVanityGuard({ oldGuild, newGuild, executorId });
       }
     } catch (error) {
       global.logger?.error?.("[guildUpdate] failed:", error);

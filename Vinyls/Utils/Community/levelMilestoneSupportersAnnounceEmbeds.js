@@ -66,13 +66,13 @@ function buildPerkBlockLines(level) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
       "<:exp:1470067108543987846> Bonus **EXP permanente +25%**",
-      `<a:VC_Winner:1482535294757507255> **Decorazione a scelta** riscattabile tramite <#${IDS.channels.tickets}> \`HIGH STAFF\``,
+      `<a:VC_Winner:1482535294757507255> **Decorazione a scelta** riscattabile tramite <#${IDs.channels.tickets}> \`HIGH STAFF\``,
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.greenBlackPlus}>`,
     );
   } else if (L === 200) {
     lines.push(
       "<:sparkle:1470064801811140866> Tutte le ricompense dei livelli precedenti",
-      `<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite <#${IDS.channels.tickets}> \`HIGH STAFF\``,
+      `<a:VC_NewsExclamation:1471891662786527253> **Nitro Boost mensile** riscattabile tramite <#${IDs.channels.tickets}> \`HIGH STAFF\``,
       `<:VC_Color:1482532543273238569> Nuovo **colore gradiente** con \`+profile\` <@&${IDs.roles.aquaBlackPlus}>`,
     );
   }

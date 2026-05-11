@@ -14,7 +14,7 @@ module.exports = {
     if (!voiceChannel) {
       const warnEmbed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setDescription("Devi essere in un canale vocale.");
+        .setDescription("<a:VC_Cross:1482532424570376253> Devi essere in un canale vocale.");
       const warn = await safeMessageReply(message, { embeds: [warnEmbed] });
       if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
       return;
@@ -23,7 +23,7 @@ module.exports = {
     if (!voiceChannel.joinable) {
       const noPermEmbed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setDescription("Non ho i permessi per entrare in quel canale vocale.");
+        .setDescription("<a:VC_Cross:1482532424570376253> Non ho i permessi per entrare in quel canale vocale.");
       return safeMessageReply(message, { embeds: [noPermEmbed] });
     }
 
@@ -32,7 +32,7 @@ module.exports = {
       const lockedEmbed = new EmbedBuilder()
         .setColor("#ED4245")
         .setDescription(
-          "Il TTS è già attivo in un altro canale vocale. Usa `,leave` lì o nel canale attuale, poi `,join` qui.",
+          "<a:VC_Cross:1482532424570376253> Il TTS è già attivo in un altro canale vocale. Usa `,leave` lì o nel canale attuale, poi `,join` qui.",
         );
       const warn = await safeMessageReply(message, { embeds: [lockedEmbed] });
       if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
@@ -42,7 +42,7 @@ module.exports = {
     if (!ttsResult.ok) {
       const failedEmbed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setDescription("Non riesco a connettermi al canale vocale in questo momento. Riprova tra qualche secondo.");
+        .setDescription("<a:VC_Cross:1482532424570376253> Non riesco a connettermi al canale vocale in questo momento. Riprova tra qualche secondo.");
       const warn = await safeMessageReply(message, { embeds: [failedEmbed] });
       if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
       return;
@@ -56,7 +56,7 @@ module.exports = {
 
     const okEmbed = new EmbedBuilder()
       .setColor("#57F287")
-      .setDescription("Connesso al canale vocale.");
+      .setDescription("🔊 Connesso al canale vocale.");
     return safeMessageReply(message, { embeds: [okEmbed] });
   },
 };

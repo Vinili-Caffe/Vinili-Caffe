@@ -4,8 +4,6 @@ const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
 const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzati.";
 const TICKET_OPEN_CONTROLS = new Set(["ticket_partnership", "ticket_highstaff", "ticket_supporto", "ticket_open_menu",]);
-/** Pulsanti verifica: non applicare cooldown/inFlight per evitare di bloccare il primo click o click dopo altro bottone. */
-const VERIFY_CONTROLS = new Set(["verify_start", "verify_enter"]);
 /**
  * Ticket interactions already have their own per-channel action locks.
  * Exclude them from the generic anti-spam guard to avoid silent deferred updates.
@@ -79,7 +77,7 @@ function acquireButtonSpamGuard(interaction, client) {
   const customId = String(interaction?.customId || "");
   const bypassTicketGuard = TICKET_GUARD_BYPASS_EXACT.has(customId) ||
     TICKET_GUARD_BYPASS_PREFIXES.some((prefix) => customId.startsWith(prefix));
-  if (VERIFY_CONTROLS.has(customId) || bypassTicketGuard) {
+  if (bypassTicketGuard) {
     return {
       blocked: false,
       release: () => { },
@@ -120,14 +118,6 @@ function acquireButtonSpamGuard(interaction, client) {
 function buildDeniedEmbed(gate, controlLabel) {
   if (gate.reason === "not_owner") {
     return buildGlobalNotYourControlEmbed();
-  }
-
-  if (gate.reason === "verify_session_required") {
-    return buildGlobalPermissionDeniedEmbed(
-      [],
-      controlLabel,
-      "<a:VC_Alert:1482706673176150077> Devi prima premere `Inizia Verifica`, poi inserire il codice.",
-    );
   }
 
   if (gate.reason === "candidature_blacklist") {

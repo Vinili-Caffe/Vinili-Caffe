@@ -38,6 +38,17 @@ function getHighestStaffRoleId(member) {
   return null;
 }
 
+async function bumpCandidatureCooldownAfterDepexOneLevel(userId) {
+  const id = String(userId || "").trim();
+  if (!/^\d{16,20}$/.test(id)) return;
+  try {
+    const { bumpApplicationCooldownAfterStaffDepex } = require("../../Events/interaction/candidatureApplicationHandlers");
+    if (typeof bumpApplicationCooldownAfterStaffDepex === "function") {
+      await bumpApplicationCooldownAfterStaffDepex(id);
+    }
+  } catch (_) {}
+}
+
 function resetStaffWarnsIfSixMonths(profileDoc) {
   const s = ensureStaff(profileDoc);
   if (!s) return false;
@@ -90,14 +101,13 @@ async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
     await member.roles.add(ROLE_ADMIN).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
     await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_ADMIN };
   }
   if (roleId === ROLE_ADMIN) {
-    await member.roles.remove(ROLE_ADMIN).catch(() => null);
-    await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
-    await member.roles.add(ROLE_DIRECTOR).catch(() => null);
-    await member.roles.add(ROLE_STAFF).catch(() => null);
-    await member.roles.add(ROLE_HIGH_STAFF).catch(() => null);
+    await member.roles.remove([ROLE_ADMIN, ROLE_HIGH_STAFF].filter(Boolean)).catch(() => null);
+    await member.roles.add([ROLE_DIRECTOR, ROLE_STAFF].filter(Boolean)).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_DIRECTOR };
   }
   if (roleId === ROLE_DIRECTOR) {
@@ -105,18 +115,23 @@ async function applyDepexOneLevel(guild, member, forcedLadderRoleId = null) {
     await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
     await member.roles.add(ROLE_SENIOR_MODERATOR).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_SENIOR_MODERATOR };
   }
   if (roleId === ROLE_SENIOR_MODERATOR) {
     await member.roles.remove(ROLE_SENIOR_MODERATOR).catch(() => null);
+    await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
     await member.roles.add(ROLE_MODERATOR).catch(() => null);
     await member.roles.add(ROLE_STAFF).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, newRole: ROLE_MODERATOR };
   }
   if (roleId === ROLE_MODERATOR || roleId === ROLE_HELPER) {
     await member.roles.remove(roleId).catch(() => null);
     await member.roles.remove(ROLE_STAFF).catch(() => null);
+    await member.roles.remove(ROLE_HIGH_STAFF).catch(() => null);
     if (ROLE_MEMBER) await member.roles.add(ROLE_MEMBER).catch(() => null);
+    await bumpCandidatureCooldownAfterDepexOneLevel(member.id);
     return { ok: true, roleRemoved: roleId, fullDepex: true, newRole: ROLE_MEMBER || "" };
   }
   return { ok: false, reason: "Ruolo non gestito per depex un livello." };

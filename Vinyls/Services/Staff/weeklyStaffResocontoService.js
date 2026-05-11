@@ -80,18 +80,6 @@ const resocontoMemberHydrationStateByGuild = new Map();
 const RESOCONTO_MEMBER_HYDRATE_TTL_MS = 2 * 60 * 1000;
 const BOT_STATE_KEY_LAST_RESOCONTO = "lastResocontoRun";
 
-function getLastSundayResocontoCloseRomeUtc(now = new Date()) {
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const romeParts = getRomeDateParts(yesterday);
-  return createUtcFromRomeLocal(romeParts.year, romeParts.month, romeParts.day, RESOCONTO_CLOSE_HOUR_ROME, 0, 0);
-}
-
-async function readLastResocontoRun() {
-  const data = await getBotState(BOT_STATE_KEY_LAST_RESOCONTO, null);
-  const ts = data?.lastRunAt;
-  return Number.isFinite(ts) ? ts : null;
-}
-
 async function writeLastResocontoRun() {
   await setBotState(BOT_STATE_KEY_LAST_RESOCONTO, { lastRunAt: Date.now() });
 }
@@ -1006,6 +994,7 @@ async function sendResocontoMessageWithRetry(channel, payload, context = {}) {
 
 async function hydrateGuildMembersForResoconto(guild, segment) {
   if (!guild?.members?.fetch) return false;
+  const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const guildId = String(guild.id || "");
   const now = Date.now();
   const state = resocontoMemberHydrationStateByGuild.get(guildId);
@@ -1019,9 +1008,8 @@ async function hydrateGuildMembersForResoconto(guild, segment) {
   const promise = fetchGuildMembersRespectingGatewayRateLimit(guild, {
     maxAttempts: 12,
     onRateLimit: (waitMs, attempt, maxAttempts) => {
-      global.logger?.info?.(
-        `[WEEKLY STAFF RESOCONTO] Member fetch rate-limited (${segment || "unknown"}), retry ${attempt}/${maxAttempts} in ~${Math.round(waitMs / 1000)}s.`,
-      );
+      if (!jobsDebug) return;
+      global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Member fetch rate-limited (${segment || "unknown"}), retry ${attempt}/${maxAttempts} in ~${Math.round(waitMs / 1000)}s.`);
     },
   })
     .then(() => {
@@ -1044,6 +1032,7 @@ async function hydrateGuildMembersForResoconto(guild, segment) {
 async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
   const allowed = new Set(["pm", "helper", "mod", "senior_moderator", "director", "admin"]);
   if (!allowed.has(segment)) return { sent: 0, eligible: 0, segment };
+  const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const targetUserId = String(opts.userId || opts.targetUserId || "").trim();
   const forceTarget = Boolean(opts.force && /^\d{16,20}$/.test(targetUserId));
 
@@ -1174,9 +1163,9 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
     if (matchStaffSegment && !shouldSkipStaffResoconto && !alreadyHadStaffResocontoThisCycle) {
       const overview = overviewMap.get(userId);
       if (overviewLooksLikeEmptyFallback(overview)) {
-        global.logger?.warn?.(
-          `[WEEKLY STAFF RESOCONTO] Staff skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) segment=${segment} reason=activity_stats_unavailable`,
-        );
+        if (jobsDebug) {
+          global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Staff skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) segment=${segment} reason=activity_stats_unavailable`);
+        }
         continue;
       }
       const d7 = overview?.windows?.d7;
@@ -1278,9 +1267,9 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
         : shouldSkipStaffResoconto
           ? "staff_pex_skip_window"
           : "unknown";
-      global.logger?.info?.(
-        `[WEEKLY STAFF RESOCONTO] Staff skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) segment=${segment} reason=${reason}`,
-      );
+      if (jobsDebug) {
+        global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] Staff skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) segment=${segment} reason=${reason}`);
+      }
     }
 
     if (
@@ -1321,9 +1310,9 @@ async function runWeeklyStaffResocontoSegment(client, segment, opts = {}) {
         : shouldSkipPmResoconto
           ? "pm_promotion_skip_window"
           : "unknown";
-      global.logger?.info?.(
-        `[WEEKLY STAFF RESOCONTO] PM skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) reason=${reason}`,
-      );
+      if (jobsDebug) {
+        global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] PM skipped: ${userId} (${member.user?.tag || member.user?.username || "unknown"}) reason=${reason}`);
+      }
     }
   }
   if (segment === "admin") {
@@ -1471,11 +1460,6 @@ async function runPreResocontoReminders(client) {
   }
 }
 
-function getRomeWeekdayShort(now = new Date()) {
-  const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" });
-  return formatter.format(now);
-}
-
 function getStaffRoleIdForResocontoSegment(segment) {
   if (segment === "helper") return String(IDs.roles.Helper || "").trim();
   if (segment === "mod") return String(IDs.roles.Mod || "").trim();
@@ -1569,15 +1553,15 @@ async function runWeeklyLimitAutoValutazioniCatchupSegment(client, segment, now 
     if (graceNewStaffRole || skipForStaffPexInWindow) continue;
     const hasResoconto = await recentStaffResocontoMessageExists(channel, userId, staffRoleId, resocontoMessageSince);
     if (!hasResoconto) {
-      global.logger?.info?.(
-        `[WEEKLY STAFF RESOCONTO] same-day catchup skipped: ${userId} reason=no_resoconto_message`,
-      );
+      if (String(process.env.DEBUG_JOBS || "").trim() === "1") {
+        global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] same-day catchup skipped: ${userId} reason=no_resoconto_message`);
+      }
       continue;
     }
     if (overviewLooksLikeEmptyFallback(overviewResults[i])) {
-      global.logger?.warn?.(
-        `[WEEKLY STAFF RESOCONTO] same-day catchup skipped: ${userId} reason=activity_stats_unavailable`,
-      );
+      if (String(process.env.DEBUG_JOBS || "").trim() === "1") {
+        global.logger?.info?.(`[WEEKLY STAFF RESOCONTO] same-day catchup skipped: ${userId} reason=activity_stats_unavailable`);
+      }
       continue;
     }
 
@@ -1656,23 +1640,6 @@ function startWeeklyStaffResocontoLoop(client) {
       global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Same-day recovery failed:", err);
     });
   }, 60_000).unref?.();
-
-  setImmediate(async () => {
-    const wd = getRomeWeekdayShort(new Date());
-    if (wd !== "Mon") return;
-    const lastRunAt = await readLastResocontoRun();
-    const lastSundayClose = getLastSundayResocontoCloseRomeUtc(new Date());
-    const twoHoursMs = 2 * 60 * 60 * 1000;
-    if (lastRunAt != null && lastRunAt >= lastSundayClose.getTime() - twoHoursMs) {
-      return;
-    }
-    global.logger?.info?.(
-      "[WEEKLY STAFF RESOCONTO] Recovery: running missed resoconto segments (bot was likely offline Sunday).",
-    );
-    runWeeklyStaffResoconti(client, { segment: "all" }).catch((err) =>
-      global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Recovery failed:", err),
-    );
-  });
 
   return weeklyStaffResocontoTasks[0];
 }

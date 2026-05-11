@@ -72,9 +72,7 @@ function channelMatchesPolicyChannelList(channel, policyIds) {
   return false;
 }
 
-const VERIFY_OR_TICKET_IDS = new Set([
-  "verify_start",
-  "verify_enter",
+const TICKET_INTERACTION_IDS = new Set([
   "ticket_partnership",
   "ticket_highstaff",
   "ticket_supporto",
@@ -111,14 +109,11 @@ function isBackupInteraction(customId) {
     id.startsWith("backup_list_")
   );
 }
-function isVerifyOrTicketInteraction(customId) {
+function isTicketInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
-  if (VERIFY_OR_TICKET_IDS.has(id)) return true;
-  if (
-    id.startsWith("verify_code:") ||
-    id.startsWith("modal_close_ticket")
-  )
+  if (TICKET_INTERACTION_IDS.has(id)) return true;
+  if (id.startsWith("modal_close_ticket"))
     return true;
   if (
     id.startsWith("ticket_panel_add_member:") ||
@@ -632,7 +627,6 @@ function normalizeButtonPolicy(policy) {
     const ownerFromMessageMention = Boolean(policy.ownerFromMessageMention);
     const ownerOrRole = Boolean(policy.ownerOrRole);
     const grantRecipientOnly = Boolean(policy.grantRecipientOnly);
-    const verifyStartRequired = Boolean(policy.verifyStartRequired);
     let channelPolicy = null;
     if (Array.isArray(policy.channels)) {
       channelPolicy = normalizeChannelList(policy.channels);
@@ -646,7 +640,6 @@ function normalizeButtonPolicy(policy) {
       ownerFromMessageMention,
       ownerOrRole,
       grantRecipientOnly,
-      verifyStartRequired,
       channels: channelPolicy,
     };
   }
@@ -661,16 +654,6 @@ function getPendingCustomRoleGrant(token) {
     return mod.getPendingRoleGrantByToken(token);
   } catch {
     return null;
-  }
-}
-
-function hasActiveVerifySession(userId, guildId = null) {
-  try {
-    const mod = require("../../Events/interaction/verifyHandlers");
-    if (typeof mod?.hasActiveVerifySession !== "function") return false;
-    return Boolean(mod.hasActiveVerifySession(userId, guildId));
-  } catch {
-    return false;
   }
 }
 
@@ -712,21 +695,6 @@ async function checkSlashPermission(interaction, options = {}) {
   const userId = interaction?.user?.id || null;
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const onMainGuild = isMainGuild(guildId);
-
-  if (interaction.commandName === "dmbroadcast" && onMainGuild) {
-    const client = interaction.client;
-    const devIds = getDevIds(client);
-    const allowed = devIds.length > 0 && devIds.includes(userId);
-    if (options.returnDetails) {
-      return {
-        allowed,
-        reason: allowed ? null : "missing_role",
-        requiredRoles: null,
-        channels: null,
-      };
-    }
-    return allowed;
-  }
 
   if (guildId && !onMainGuild) {
     const allowed = await hasAllPermissionsWithLiveFallback(interaction, [PermissionFlagsBits.Administrator,]);
@@ -802,17 +770,6 @@ async function checkPrefixPermission(message, commandName, subcommandName = null
   const userId = message?.author?.id || null;
   const safeCommand = String(commandName || "").toLowerCase();
   const onMainGuild = isMainGuild(guildId);
-
-  if (
-    safeCommand === "verify" &&
-    message?.member &&
-    hasAdminsProfileCapability(message.member, "verifyCommand")
-  ) {
-    if (options.returnDetails) {
-      return { allowed: true, reason: null, requiredRoles: null, channels: null };
-    }
-    return true;
-  }
 
   if (guildId && !onMainGuild) {
     const playOnSponsor = safeCommand === "play" && isAllowedGuildUfficiale(guildId);
@@ -903,7 +860,7 @@ async function checkButtonPermission(interaction) {
     };
   }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -937,18 +894,6 @@ async function checkButtonPermission(interaction) {
   const policy = normalizeButtonPolicy(rawPolicy);
   if (!policy) {
     return { allowed: true, reason: null, requiredRoles: null, ownerId: null };
-  }
-
-  if (policy.verifyStartRequired) {
-    const hasSession = hasActiveVerifySession(interaction?.user?.id || null, interaction?.guildId || null);
-    if (!hasSession) {
-      return {
-        allowed: false,
-        reason: "verify_session_required",
-        requiredRoles: policy.roles || null,
-        ownerId: interaction?.user?.id || null,
-      };
-    }
   }
 
   let grantRecipientMatched = false;
@@ -1117,7 +1062,7 @@ async function checkStringSelectPermission(interaction) {
     };
   }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1284,7 +1229,7 @@ async function checkModalPermission(interaction) {
     };
   }
   if (guildId && !isAllowedGuildForComponents(guildId)) {
-    if (isVerifyOrTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
+    if (isTicketInteraction(customId) || isProfilePanelInteraction(customId)) {
       return {
         allowed: true,
         reason: null,
@@ -1448,9 +1393,6 @@ async function checkModalPermission(interaction) {
 }
 
 function getSlashRequiredRoles(interaction) {
-  if (interaction.commandName === "dmbroadcast") {
-    return [];
-  }
   const data = loadPermissions();
   const group = interaction.options?.getSubcommandGroup?.(false) || null;
   const sub = interaction.options?.getSubcommand?.(false) || null;

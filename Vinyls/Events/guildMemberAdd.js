@@ -23,18 +23,13 @@ const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupServ
 const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService");
-const {
-  guildIconUrl,
-  guildMemberDisplayAvatarUrlDynamic,
-  accountUsername,
-} = require("../Utils/Discord/guildDiscordIdentity");
+const { guildIconUrl, guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Utils/Discord/guildDiscordIdentity");
 const { isAlreadyVerifiedInThisGuild, isSponsorGuildVerify } = require("../Utils/Interaction/verifyUtils");
 const { upsertVerifiedMember, applyTenureForMember, applySponsorGuildAutoVerificato } = require("../Services/Community/communityOpsService");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../shared/recovery/snapshotStore");
 const { ghostPingNewMemberOnJoin } = require("../Utils/Message/ghostPingOnChannelEnter");
 const { trackMemberJoin } = require("../Services/Community/dailyMemberStatsService");
-
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
@@ -42,11 +37,7 @@ const VOTE_ROLE_ID = IDs.roles.Voter;
 const DISCADIA_VOTE_ROOT = "profile.totals.exp.bumpVoteRewards.discadia_vote";
 const VOTE_ROLE_EXPIRES_AT_PATH = `${DISCADIA_VOTE_ROOT}.voteRole.expiresAt`;
 const VOTE_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
-const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [
-  IDs.roles.VIP,
-  IDs.roles.DoubleBooster,
-  IDs.roles.Level50,
-].filter(Boolean);
+const CUSTOM_ROLE_REQUIRED_ROLE_IDS = [IDs.roles.VIP, IDs.roles.ServerBooster, IDs.roles.DoubleBooster, IDs.roles.Level50].filter(Boolean);
 const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1468938195348754515",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
 const INVITE_MILESTONE_EMBED_COLOR = 0x9b59b6;
 
@@ -125,7 +116,6 @@ function buildInviteMilestoneEmbeds(inviterMember, totalInvites, tierChunks) {
   });
 }
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder].filter(Boolean).map(String),);
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -140,25 +130,13 @@ function persistJoinSignalsNow() {
     if (!guildId || !Array.isArray(rows) || !rows.length) continue;
     payload[guildId] = rows.slice(-120);
   }
-  writeSnapshotWithMeta({
-    filePath: JOIN_SIGNALS_SNAPSHOT_PATH,
-    walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`,
-    key: "vinyls_join_signals",
-    version: 1,
-    payload,
-  });
+  writeSnapshotWithMeta({ filePath: JOIN_SIGNALS_SNAPSHOT_PATH, walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`, key: "vinyls_join_signals", version: 1, payload });
 }
 
 function ensureJoinSignalsLoaded() {
   if (joinSignalsLoaded) return;
   joinSignalsLoaded = true;
-  const raw = readSnapshotWithMeta({
-    filePath: JOIN_SIGNALS_SNAPSHOT_PATH,
-    walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`,
-    key: "vinyls_join_signals",
-    version: 1,
-    fallback: {},
-  });
+  const raw = readSnapshotWithMeta({ filePath: JOIN_SIGNALS_SNAPSHOT_PATH, walPath: `${JOIN_SIGNALS_SNAPSHOT_PATH}.wal`, key: "vinyls_join_signals", version: 1, fallback: {} });
   for (const [guildId, rows] of Object.entries(raw || {})) {
     if (!guildId || !Array.isArray(rows)) continue;
     recentJoinSignalsByGuild.set(guildId, rows.slice(-120));
@@ -474,17 +452,17 @@ async function sendBotAddLog(member) {
 
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("Bot Add")
+    .setTitle("<:VC_User:1482527453586002103> Bot Add")
     .setDescription(
       [
-        `${ARROW} **Responsible:** ${responsible}`,
-        `${ARROW} **Target:** ${member.user} \`${member.user.id}\``,
-        `${ARROW} <t:${nowTs}:F>`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_User:1482527453586002103> **Target:** ${member.user} \`${member.user.id}\``,
+        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
         "",
-        "**Additional Information**",
-        `${ARROW} **Id:** \`${member.user.id}\``,
-        `${ARROW} **Username:** ${member.user.username}`,
-        `${ARROW} **Creation:** <t:${createdTs}:R>`,
+        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+        `<:VC_Id:1482527453586002103> **Id:** \`${member.user.id}\``,
+        `<:VC_Modifica:1478859646587633717> **Username:** ${member.user.username}`,
+        `<:VC_Clock:1473359204189474886> **Creation:** <t:${createdTs}:R>`,
       ].join("\n"),
     );
 
@@ -525,14 +503,10 @@ async function handleBotJoin(member, joinGateConfig) {
       : "sconosciuto";
   const verifiedBot = await isVerifiedBot(member.user);
 
-  if (
-    joinGateConfig?.enabled &&
-    joinGateConfig?.unverifiedBotAdditions?.enabled &&
-    !verifiedBot
-  ) {
-    const result = await kickForJoinGate(member, "Unverified bot addition.", [
-      `${ARROW} **Rule:** Unverified Bot Additions`,
-      `${ARROW} **Responsible:** ${executorText}`,
+  if ( joinGateConfig?.enabled && joinGateConfig?.unverifiedBotAdditions?.enabled && !verifiedBot) {
+    const result = await kickForJoinGate(member, "Aggiunta di bot non verificato.", [
+      `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot non verificato`,
+      `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
     ], joinGateConfig?.unverifiedBotAdditions?.action || "kick");
     if (result?.blocked) return;
   }
@@ -540,18 +514,18 @@ async function handleBotJoin(member, joinGateConfig) {
   if (joinGateConfig?.enabled && joinGateConfig?.botAdditions?.enabled) {
     if (noAuditPerm) {
       global.logger?.warn?.(
-        `[JoinGate] botAdditions skipped (no ViewAuditLog) target=${member.user?.id || "unknown"}`,
+        `[JoinGate] botAdditions skipped (no ViewAuditLog) target=${member.user?.id || "sconosciuto"}`,
       );
     } else if (!executorId && auditNotFound) {
       global.logger?.warn?.(
-        `[JoinGate] botAdditions: no BotAdd row after retries — fail-closed kick target=${member.user?.id || "unknown"}`,
+        `[JoinGate] botAdditions: no BotAdd row after retries — kick fallito target=${member.user?.id || "sconosciuto"}`,
       );
       const result = await kickForJoinGate(
         member,
-        "Bot added by unauthorized member (no audit match — fail-closed).",
+        "Aggiunta di bot da membro non autorizzato (no audit match — kick fallito).",
         [
-          `${ARROW} **Rule:** Bot Additions`,
-          `${ARROW} **Responsible:** unknown`,
+          `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
+          `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
         ],
         joinGateConfig?.botAdditions?.action || "kick",
       );
@@ -559,9 +533,9 @@ async function handleBotJoin(member, joinGateConfig) {
     } else if (executorId) {
       const authorized = await isAuthorizedBotAdder(member.guild, executorId);
       if (!authorized) {
-        const result = await kickForJoinGate(member, "Bot added by unauthorized member.", [
-          `${ARROW} **Rule:** Bot Additions`,
-          `${ARROW} **Responsible:** ${executorText}`,
+        const result = await kickForJoinGate(member, "Aggiunta di bot da membro non autorizzato.", [
+          `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
+          `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
         ], joinGateConfig?.botAdditions?.action || "kick");
         if (result?.blocked) return;
       }
@@ -621,13 +595,7 @@ function hasNoAvatar(member) {
 }
 
 function getJoinGateNameCandidate(member) {
-  return String(
-    member?.user?.globalName ||
-    member?.displayName ||
-    member?.nickname ||
-    member?.user?.username ||
-    "",
-  );
+  return String(member?.user?.globalName || member?.displayName || member?.nickname || member?.user?.username || "");
 }
 
 function normalizeText(value) {
@@ -933,11 +901,11 @@ async function isAuthorizedBotAdder(guild, executorId) {
 async function sendJoinGatePunishDm(member, reason, extraLines = [], action = "") {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`JoinGate action in ${member.guild.name}`)
+    .setTitle(`Azione JoinGate in ${member.guild.name}`)
     .setDescription(
       [
-        `${ARROW} **Member:** ${member.user} [\`${member.user.id}\`]`,
-        `${ARROW} **Reason:** ${reason}`,
+        `<:VC_User:1482527453586002103> **Membro:** ${member.user} [\`${member.user.id}\`]`,
+        `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
         ...extraLines.filter(Boolean),
       ].join("\n"),
     );
@@ -955,11 +923,11 @@ async function sendJoinGatePunishDm(member, reason, extraLines = [], action = ""
 function buildJoinGateTriggeredEmbed(member, reason) {
   return new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle(`${member.user.username} has triggered the joingate!`)
+    .setTitle(`${member.user.username} ha attivato il join gate!`)
     .setDescription(
       [
-        `${ARROW} **Member:** ${member.user.username} [\`${member.user.id}\`]`,
-        `${ARROW} **Reason:** ${reason}`,
+        `<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+        `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
       ].join("\n"),
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined);
@@ -1071,16 +1039,16 @@ async function kickForJoinGate(member, reason, extraLines = [], action = "kick")
     const embed = punished
       ? new EmbedBuilder()
         .setColor("#A97142")
-        .setTitle(`${member.user.username} has been ${actionLabel}!!`)
+        .setTitle(`${member.user.username} è stato ${actionLabel}!!`)
         .setDescription(
           [
-            `${ARROW} **Member:** ${member.user.username} [\`${member.user.id}\`]`,
-            `${ARROW} **Reason:** ${reason}`,
+            `<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+            `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
             ...extraLines.filter(Boolean),
             "",
-            "**More Details:**",
-            `${ARROW} **Member Direct Messaged?** ${dmSent ? "✅" : "❌"}`,
-            `${ARROW} **Member Punished?** ${punished ? "✅" : "❌"}`,
+            "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+            `<:VC_Info:1482526956703580372> **Membro messaggio diretto?** ${dmSent ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
+            `<:VC_Info:1482526956703580372> **Membro punito?** ${punished ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
           ].join("\n"),
         )
         .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })
@@ -1135,10 +1103,10 @@ async function handleTooYoungAccount(member, joinGateConfig = null) {
   const createdTs = toUnix(member.user.createdAt);
   const cfg = joinGateConfig || getJoinGateConfigSnapshot();
   const minAgeDays = Number(cfg?.newAccounts?.minAgeDays || 3);
-  await kickForJoinGate(member, "Account is too young to be allowed.", [
-    `${ARROW} **Rule:** Minimum Account Age`,
-    `${ARROW} **Account Age:** <t:${createdTs}:R>`,
-    `${ARROW} **Minimum Age:** ${minAgeDays} days`,
+  await kickForJoinGate(member, "Account troppo giovane per essere permesso.", [
+    `<:VC_Rules:1482527309868040393> **Regola:** Account troppo giovane`,
+    `<:VC_Clock:1473359204189474886> **Età account:** <t:${createdTs}:R>`,
+    `<:VC_Info:1482526956703580372> **Età minima:** ${minAgeDays} giorni`,
   ], cfg?.newAccounts?.action || "kick");
 }
 
@@ -1149,12 +1117,15 @@ async function sendJoinLog(member) {
   const accountAge = formatAccountAge(member.user.createdAt);
   const joinLogEmbed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("Member Joined")
+    .setTitle("<:VC_User:1482527453586002103> Membro Entrato")
     .setDescription(
       [
-        `${member.user} ${member.user.tag}.`,
+        `<:VC_User:1482527453586002103> **Membro:** ${member.user} ${member.user.tag}.`,
         "",
-        "**Account Age**",
+        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+        `<:VC_Id:1482527453586002103> **Id:** \`${member.user.id}\``,
+        `<:VC_Modifica:1478859646587633717> **Username:** ${member.user.username}`,
+        `<:VC_Clock:1473359204189474886> **Creation:** <t:${createdTs}:R>`,
         accountAge,
       ].join("\n"),
     )
@@ -1429,7 +1400,6 @@ async function runDeferredJoinAnnouncements(member) {
   }
 }
 
-/** Nessun ruolo verify in join: solo DB + ruoli tenure se il membro ha già Member (o verificato sponsor). */
 async function maybeApplyVerificationTenureOnJoin(member) {
   if (!member?.guild || member.user?.bot) return;
   const guild = member.guild;
@@ -1442,12 +1412,7 @@ async function maybeApplyVerificationTenureOnJoin(member) {
   }
 }
 
-module.exports = {
-  name: "guildMemberAdd",
-  kickForJoinGate,
-  runDeferredJoinAnnouncements,
-  matchUsernameFilters,
-  getJoinGateNameCandidate,
+module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnouncements, matchUsernameFilters, getJoinGateNameCandidate,
   async execute(member) {
     try {
       if (!member?.guild || !member?.user) return;
@@ -1470,8 +1435,8 @@ module.exports = {
             member,
             "Ingresso bloccato: lockdown di sicurezza attivo.",
             [
-              `${ARROW} **Rule:** Security Join Lock`,
-              `${ARROW} **Sources:** ${lockState.sources.join(", ")}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Blocco di sicurezza di ingresso`,
+              `<:VC_Info:1482526956703580372> **Fonti:** ${lockState.sources.join(", ")}`,
             ],
             "kick",
           );
@@ -1505,8 +1470,10 @@ module.exports = {
         if (!joinGateMatch && joinGateConfig?.enabled && joinGateConfig?.noAvatar?.enabled && hasNoAvatar(member)) {
           joinGateMatch = {
             rule: "noAvatar",
-            reason: "Account has no avatar.",
-            extraLines: [`${ARROW} **Rule:** No Avatar`],
+            reason: "Account senza avatar.",
+            extraLines: [
+              `<:VC_Rules:1482527309868040393> **Regola:** Account senza avatar`,
+            ],
             action: joinGateConfig?.noAvatar?.action || "log",
           };
         }
@@ -1519,10 +1486,10 @@ module.exports = {
         ) {
           joinGateMatch = {
             rule: "advertising",
-            reason: "Advertising invite link in username.",
+            reason: "Nome pubblicitario nel username.",
             extraLines: [
-              `${ARROW} **Rule:** Advertising Name`,
-              `${ARROW} **Name:** ${nameCandidate || "N/A"}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Nome pubblicitario`,
+              `<:VC_Modifica:1478859646587633717> **Nome:** ${nameCandidate || "N/A"}`,
             ],
             action: joinGateConfig?.advertisingName?.action || "kick",
           };
@@ -1531,12 +1498,12 @@ module.exports = {
         if (!joinGateMatch && usernameMatch) {
           joinGateMatch = {
             rule: "usernameFilter",
-            reason: "Username matches blocked pattern.",
+            reason: "Username corrisponde al pattern bloccato.",
             extraLines: [
-              `${ARROW} **Rule:** Username Filter`,
-              `${ARROW} **Match Type:** ${usernameMatch.type}`,
-              `${ARROW} **Match:** ${usernameMatch.value}`,
-              `${ARROW} **Name:** ${nameCandidate || "N/A"}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Filtro username`,
+              `<:VC_Info:1482526956703580372> **Tipo di match:** ${usernameMatch.type}`,
+              `<:VC_Modifica:1478859646587633717> **Match:** ${usernameMatch.value}`,
+              `<:VC_Modifica:1478859646587633717> **Nome:** ${nameCandidate || "N/A"}`,
             ],
             action: joinGateConfig?.usernameFilter?.action || "kick",
           };
@@ -1551,10 +1518,10 @@ module.exports = {
         if (!joinGateMatch && suspiciousReason) {
           joinGateMatch = {
             rule: "suspicious",
-            reason: `Suspicious account: ${suspiciousReason}`,
+            reason: `Account sospetto: ${suspiciousReason}`,
             extraLines: [
-              `${ARROW} **Rule:** Suspicious Account`,
-              `${ARROW} **Reason:** ${suspiciousReason}`,
+              `<:VC_Rules:1482527309868040393> **Regola:** Account sospetto`,
+              `<:VC_Reason:1478517122929004544> **Motivo:** ${suspiciousReason}`,
             ],
             action: joinGateConfig?.suspiciousAccount?.action || "log",
           };

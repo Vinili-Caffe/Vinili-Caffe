@@ -8,14 +8,7 @@ const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-const {
-  voiceFindOneAndUpdate,
-  voiceDeleteOne,
-  voiceFindManyLean,
-  ttsUserLangFindManyLean,
-  ttsUserLangFindOneLean,
-  ttsUserLangUpsert,
-} = require("../../../Vinyls/Utils/BotState/domainStatesStore");
+const { voiceFindOneAndUpdate, voiceDeleteOne, voiceFindManyLean, ttsUserLangFindManyLean, ttsUserLangFindOneLean, ttsUserLangUpsert } = require("../../../Vinyls/Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { isCoffeePrefixCommandToken } = require("../../../shared/discord/coffeePrefixCommandTokens");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/entityCache");
@@ -23,7 +16,7 @@ const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
-const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000; // Ridotto a 30 secondi per evitare di leggere messaggi vecchi al riavvio
+const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000;
 const TTS_RESTORE_CONCURRENCY = 3;
 const TTS_POST_JOIN_EMPTY_LEAVE_GRACE_MS = 6000;
 const ttsStates = new Map();
@@ -146,8 +139,9 @@ function shouldHandleMessage(message, config, prefix) {
   if (!message?.channel) return false;
   const rawContent = String(message.content ?? "");
   if (prefix && rawContent.startsWith(prefix)) return false;
-  if (rawContent.startsWith("-")) return false;
+  if (rawContent.startsWith(",")) return false;
   if (rawContent.startsWith("+")) return false;
+  if (rawContent.startsWith("-")) return false;
   const coffeeCmd = rawContent.trim().match(/^,\s*([a-z0-9][\w-]*)/i);
   if (coffeeCmd && isCoffeePrefixCommandToken(coffeeCmd[1])) return false;
   const isVoiceChannel = message.channel.isVoiceBased?.() && !message.channel.isThread?.();
@@ -194,143 +188,9 @@ function normalizeCaseForTts(text) {
   return text;
 }
 
-const TTS_ABBREVIATIONS_IT = {
-  tvb: "ti voglio bene",
-  nn: "non",
-  xk: "perché",
-  xke: "perché",
-  xché: "perché",
-  xò: "però",
-  xo: "però",
-  cmq: "comunque",
-  qnd: "quando",
-  cn: "con",
-  sn: "sono",
-  pk: "perché",
-  cm: "come",
-  ke: "che",
-  tt: "tutto",
-  gg: "gg",
-  wp: "well played",
-  dv: "dove",
-  qlk: "qualcosa",
-  qlc: "qualcosa",
-  cvd: "come volevasi dimostrare",
-  gl: "buona fortuna",
-  hf: "divertiti",
-  msg: "messaggio",
-  bday: "compleanno",
-  gn: "buonanotte",
-  gm: "buongiorno",
-  cya: "ci vediamo",
-  brb: "torno subito",
-  gtg: "devo andare",
-  g2g: "devo andare",
-  atm: "al momento",
-  rn: "adesso",
-  irl: "nella vita reale",
-  idc: "non mi interessa",
-  prob: "probabilmente",
-  def: "decisamente",
-  tmi: "troppe informazioni",
-  jk: "scherzo",
-  mb: "colpa mia",
-  dunno: "non so",
-  lemme: "lasciami",
-  gimme: "dammi",
-  gotcha: "capito",
-  wyd: "cosa fai",
-  wbu: "e tu",
-  hbu: "e tu",
-  nbd: "niente di grave",
-  diy: "fai da te",
-  til: "oggi ho imparato",
-  tba: "da annunciare",
-  tbd: "da decidere",
-  etc: "e così via",
-  vs: "contro",
-  approx: "circa",
-  vc: "canale vocale",
-  ggwp: "bella partita ben giocata",
-  ggez: "bella partita facile",
-  nt: "bel tentativo",
-  ns: "bel colpo",
-  glhf: "buona fortuna divertiti",
-  f2p: "free to play",
-  p2w: "pay to win",
-  loot: "bottino"
-};
-const TTS_ABBREVIATIONS_EN = {
-  tbh: "to be honest", btw: "by the way", imo: "in my opinion", idk: "I don't know",
-  ik: "I know", omw: "on my way", np: "no problem", nvm: "never mind", ty: "thank you",
-  thx: "thanks", pls: "please", ur: "your", bc: "because", ppl: "people",
-  gg: "good game", wp: "well played", brb: "be right back", gtg: "got to go",
-  g2g: "got to go", atm: "at the moment", rn: "right now", irl: "in real life",
-  idc: "I don't care", smh: "shaking my head", imho: "in my humble opinion",
-  tbf: "to be fair", afaik: "as far as I know", fyi: "for your information",
-  lmao: "laughing my ass off", omg: "oh my god", ez: "easy",
-  gl: "good luck", hf: "have fun", bbl: "be back later", bbs: "be back soon",
-  cya: "see you", gn: "good night", gm: "good morning", tc: "take care",
-  bday: "birthday", msg: "message", pic: "picture", vid: "video",
-  asap: "as soon as possible", fr: "for real",
-  rofl: "rolling on the floor laughing", roflmao: "rolling on the floor laughing my ass off",
-  lmfao: "laughing my freaking ass off",
-  omfg: "oh my god", ngl: "not gonna lie", lowkey: "kind of", highkey: "really",
-  bet: "bet", slay: "slay", bussin: "really good",
-  yeet: "yeet", vibe: "vibe", vibes: "vibes", sus: "suspicious", based: "based",
-  cringe: "cringe", stan: "stalker fan", simp: "simp", drip: "style", flex: "flex",
-  salty: "salty", tilted: "tilted", af: "as heck", asf: "as heck", istg: "I swear to god",
-  tmi: "too much information", jk: "just kidding", jks: "just kidding", sry: "sorry",
-  soz: "sorry", mb: "my bad", fwiw: "for what it's worth", tldr: "too long didn't read",
-  imao: "in my arrogant opinion", iirc: "if I remember correctly", amirite: "am I right",
-  tfw: "that feeling when", mfw: "my face when", mrw: "my reaction when",
-  op: "original poster", oc: "original content", obv: "obviously", obvs: "obviously",
-  prob: "probably", probs: "probably", def: "definitely", legit: "legitimately",
-  totes: "totally", srsly: "seriously", rly: "really", kinda: "kind of", sorta: "sort of",
-  coulda: "could have", woulda: "would have", shoulda: "should have", gotta: "got to",
-  wanna: "want to", gonna: "going to", dunno: "don't know", lemme: "let me", gimme: "give me",
-  outta: "out of", lotta: "lot of", lotsa: "lots of", whatcha: "what are you", gotcha: "got you",
-  betcha: "bet you", sup: "what's up", wyd: "what you doing", wbu: "what about you",
-  hbu: "how about you", nbd: "no big deal", tgif: "thank god it's friday", diy: "do it yourself",
-  faq: "frequently asked questions", ama: "ask me anything", eli5: "explain like I'm five",
-  til: "today I learned", nah: "no", ikr: "I know right", eta: "estimated time of arrival",
-  psa: "public service announcement", tba: "to be announced", tbd: "to be determined",
-  nsfw: "not safe for work", sfw: "safe for work", iykyk: "if you know you know",
-  icymi: "in case you missed it", ftr: "for the record", jic: "just in case",
-  wdym: "what do you mean", wym: "what you mean", idgaf: "I don't give a heck",
-  stfu: "be quiet", ig: "I guess", hmu: "hit me up", lmk: "let me know", ttyl: "talk to you later",
-  ttys: "talk to you soon", ttfn: "ta ta for now", bfn: "bye for now", otw: "on the way",
-  brt: "be right there", etc: "et cetera", vs: "versus", approx: "approximately",
-  vc: "voice chat", ggwp: "good game well played",
-  ggez: "good game easy", nt: "nice try", ns: "nice shot", glhf: "good luck have fun",
-  oof: "oof", yolo: "you only live once", fomo: "fear of missing out",
-  bae: "babe", bestie: "bestie", poggers: "poggers", kek: "kek",
-  rekt: "wrecked", pwnd: "owned", noob: "newbie", newb: "newbie",
-  op: "overpowered", nerf: "nerf", buff: "buff", f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random",
-  dps: "damage per second", main: "main", alt: "alt", smurf: "smurf", carry: "carry",
-  tilt: "tilt", tilted: "tilted", toxic: "toxic", ff: "forfeit", inv: "invite",
-  dc: "disconnect", ratio: "ratio", copium: "copium", periodt: "period",
-  slay: "slay", tea: "tea", hc: "headcanon", fic: "fanfiction", fanfic: "fanfiction",
-  collab: "collaboration", colab: "collaboration", promo: "promotion", hmu: "hit me up",
-  o7: "salute", re: "regarding", fwd: "forward", cc: "carbon copy", nm: "never mind",
-  qt: "cutie", bby: "baby", bruh: "bruh", fam: "family", homie: "homie", dawg: "dawg",
-  peeps: "people", squad: "squad", crew: "crew", lit: "lit", fire: "fire", slaps: "slaps",
-  banger: "banger", vibing: "vibing", chill: "chill", chilling: "chilling", deadass: "dead serious",
-  ong: "on god", "no-cap": "no cap", capping: "lying", period: "period", facts: "facts",
-  iconic: "iconic", legend: "legend", legendary: "legendary", king: "king", queen: "queen",
-  ship: "ship", shipping: "shipping", otp: "one true pairing", au: "alternate universe",
-  cosplay: "cosplay", merch: "merchandise", sponsored: "sponsored",
-  wfh: "work from home", f2f: "face to face", ping: "ping",
-  rpg: "role playing game", mmo: "massively multiplayer online", pvp: "player versus player",
-  mob: "mob", boss: "boss", tryhard: "tryhard", sweat: "sweat", sweaty: "sweaty", patch: "patch", update: "update",
-  ea: "early access", farm: "farm", farming: "farming", drop: "drop", crit: "critical",
-  tank: "tank", healer: "healer", support: "support", boost: "boost", fed: "fed",
-  report: "report", int: "intentional", surrender: "surrender", remake: "remake",
-  queue: "queue", mute: "mute", block: "block", ban: "ban", banned: "banned",
-  hack: "hack", hacker: "hacker", bug: "bug", glitch: "glitch", exploit: "exploit",
-  meme: "meme", wholesome: "wholesome", cursed: "cursed", savage: "savage", roast: "roast",
-  fandom: "fandom", ratioed: "ratioed",
-};
+const TTS_ABBREVIATIONS_IT = { tvb: "ti voglio bene", nn: "non", xk: "perché", xke: "perché", xché: "perché", xò: "però", xo: "però", cmq: "comunque", qnd: "quando", cn: "con", sn: "sono", pk: "perché", cm: "come", ke: "che", tt: "tutto", gg: "gg", wp: "well played", dv: "dove", qlk: "qualcosa", qlc: "qualcosa", cvd: "come volevasi dimostrare", gl: "buona fortuna", hf: "divertiti", msg: "messaggio", bday: "compleanno", gn: "buonanotte", gm: "buongiorno", cya: "ci vediamo", brb: "torno subito", gtg: "devo andare", g2g: "devo andare", atm: "al momento", rn: "adesso", irl: "nella vita reale", idc: "non mi interessa", prob: "probabilmente", def: "decisamente", tmi: "troppe informazioni", jk: "scherzo", mb: "colpa mia", dunno: "non so", lemme: "lasciami", gimme: "dammi", gotcha: "capito", wyd: "cosa fai", wbu: "e tu", hbu: "e tu", nbd: "niente di grave", diy: "fai da te", til: "oggi ho imparato", tba: "da annunciare", tbd: "da decidere", etc: "e così via", vs: "contro", approx: "circa", vc: "canale vocale", ggwp: "bella partita ben giocata", ggez: "bella partita facile", nt: "bel tentativo", ns: "bel colpo", glhf: "buona fortuna divertiti", f2p: "free to play", p2w: "pay to win", loot: "bottino" };
+const TTS_ABBREVIATIONS_EN = { tbh: "to be honest", btw: "by the way", imo: "in my opinion", idk: "I don't know", ik: "I know", omw: "on my way", np: "no problem", nvm: "never mind", ty: "thank you", thx: "thanks", pls: "please", ur: "your", bc: "because", ppl: "people", gg: "good game", wp: "well played", brb: "be right back", gtg: "got to go", g2g: "got to go", atm: "at the moment", rn: "right now", irl: "in real life", idc: "I don't care", smh: "shaking my head", imho: "in my humble opinion", tbf: "to be fair", afaik: "as far as I know", fyi: "for your information", lmao: "laughing my ass off", omg: "oh my god", ez: "easy", gl: "good luck", hf: "have fun", bbl: "be back later", bbs: "be back soon", cya: "see you", gn: "good night", gm: "good morning", tc: "take care", bday: "birthday", msg: "message", pic: "picture", vid: "video", asap: "as soon as possible", fr: "for real", rofl: "rolling on the floor laughing", roflmao: "rolling on the floor laughing my ass off", lmfao: "laughing my freaking ass off", omfg: "oh my god", ngl: "not gonna lie", lowkey: "kind of", highkey: "really", bet: "bet", slay: "slay", bussin: "really good", yeet: "yeet", vibe: "vibe", vibes: "vibes", sus: "suspicious", based: "based", cringe: "cringe", stan: "stalker fan", simp: "simp", drip: "style", flex: "flex", salty: "salty", tilted: "tilted", af: "as heck", asf: "as heck", istg: "I swear to god", tmi: "too much information", jk: "just kidding", jks: "just kidding", sry: "sorry", soz: "sorry", mb: "my bad", fwiw: "for what it's worth", tldr: "too long didn't read", imao: "in my arrogant opinion", iirc: "if I remember correctly", amirite: "am I right", tfw: "that feeling when", mfw: "my face when", mrw: "my reaction when", op: "overpowered", oc: "original content", obv: "obviously", obvs: "obviously", prob: "probably", probs: "probably", def: "definitely", legit: "legitimately", totes: "totally", srsly: "seriously", rly: "really", kinda: "kind of", sorta: "sort of", coulda: "could have", woulda: "would have", shoulda: "should have", gotta: "got to", wanna: "want to", gonna: "going to", dunno: "don't know", lemme: "let me", gimme: "give me", outta: "out of", lotta: "lot of", lotsa: "lots of", whatcha: "what are you", gotcha: "got you", betcha: "bet you", sup: "what's up", wyd: "what you doing", wbu: "what about you", hbu: "how about you", nbd: "no big deal", tgif: "thank god it's friday", diy: "do it yourself", faq: "frequently asked questions", ama: "ask me anything", eli5: "explain like I'm five", til: "today I learned", nah: "no", ikr: "I know right", eta: "estimated time of arrival", psa: "public service announcement", tba: "to be announced", tbd: "to be determined", nsfw: "not safe for work", sfw: "safe for work", iykyk: "if you know you know", icymi: "in case you missed it", ftr: "for the record", jic: "just in case", wdym: "what do you mean", wym: "what you mean", idgaf: "I don't give a heck", stfu: "be quiet", ig: "I guess", hmu: "hit me up", lmk: "let me know", ttyl: "talk to you later", ttys: "talk to you soon", ttfn: "ta ta for now", bfn: "bye for now", otw: "on the way", brt: "be right there", etc: "et cetera", vs: "versus", approx: "approximately", vc: "voice chat", ggwp: "good game well played", ggez: "good game easy", nt: "nice try", ns: "nice shot", glhf: "good luck have fun", oof: "oof", yolo: "you only live once", fomo: "fear of missing out", bae: "babe", bestie: "bestie", poggers: "poggers", kek: "kek", rekt: "wrecked", pwnd: "owned", noob: "newbie", newb: "newbie", nerf: "nerf", buff: "buff", f2p: "free to play", p2w: "pay to win", grind: "grind", loot: "loot", rng: "random", dps: "damage per second", main: "main", alt: "alt", smurf: "smurf", carry: "carry", tilt: "tilt", tilted: "tilted", toxic: "toxic", ff: "forfeit", inv: "invite", dc: "disconnect", ratio: "ratio", copium: "copium", periodt: "period", tea: "tea", hc: "headcanon", fic: "fanfiction", fanfic: "fanfiction", collab: "collaboration", colab: "collaboration", promo: "promotion", o7: "salute", re: "regarding", fwd: "forward", cc: "carbon copy", nm: "never mind", qt: "cutie", bby: "baby", bruh: "bruh", fam: "family", homie: "homie", dawg: "dawg", peeps: "people", squad: "squad", crew: "crew", lit: "lit", fire: "fire", slaps: "slaps", banger: "banger", vibing: "vibing", chill: "chill", chilling: "chilling", deadass: "dead serious", ong: "on god", "no-cap": "no cap", capping: "lying", period: "period", facts: "facts", iconic: "iconic", legend: "legend", legendary: "legendary", king: "king", queen: "queen", ship: "ship", shipping: "shipping", otp: "one true pairing", au: "alternate universe", cosplay: "cosplay", merch: "merchandise", sponsored: "sponsored", wfh: "work from home", f2f: "face to face", ping: "ping", rpg: "role playing game", mmo: "massively multiplayer online", pvp: "player versus player", mob: "mob", boss: "boss", tryhard: "tryhard", sweat: "sweat", sweaty: "sweaty", patch: "patch", update: "update", ea: "early access", farm: "farm", farming: "farming", drop: "drop", crit: "critical", tank: "tank", healer: "healer", support: "support", boost: "boost", fed: "fed", report: "report", int: "intentional", surrender: "surrender", remake: "remake", queue: "queue", mute: "mute", block: "block", ban: "ban", banned: "banned", hack: "hack", hacker: "hacker", bug: "bug", glitch: "glitch", exploit: "exploit", meme: "meme", wholesome: "wholesome", cursed: "cursed", savage: "savage", roast: "roast", fandom: "fandom", ratioed: "ratioed" };
+
 function expandAbbreviationsForTts(text, lang) {
   if (!text || typeof text !== "string") return text;
   const langBase = String(lang || "it").split("-")[0].toLowerCase();
@@ -357,6 +217,7 @@ function normalizePausesForTts(text) {
 
 const NUMBERS_IT_0_19 = "zero uno due tre quattro cinque sei sette otto nove dieci undici dodici tredici quattordici quindici sedici diciassette diciotto diciannove".split(" ");
 const NUMBERS_IT_TENS = "zero dieci venti trenta quaranta cinquanta sessanta settanta ottanta novanta".split(" ");
+
 function numberToWordsItalian(n) {
   const num = Math.floor(Number(n));
   if (!Number.isFinite(num) || num < 0 || num > 999999) return String(n);
@@ -448,12 +309,7 @@ function getUnicodeEmojiName(emoji) {
   return null;
 }
 
-function buildGoogleTtsUrl(
-  text,
-  lang,
-  baseHost = "https://translate.google.com",
-  client = "tw-ob",
-) {
+function buildGoogleTtsUrl(text, lang, baseHost = "https://translate.google.com", client = "tw-ob") {
   const q = encodeURIComponent(String(text || ""));
   const tl = encodeURIComponent(String(lang || "it"));
   const c = encodeURIComponent(String(client || "tw-ob"));
@@ -461,20 +317,10 @@ function buildGoogleTtsUrl(
 }
 
 const TTS_HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.8", Referer: "https://translate.google.com/", };
-
-/** Più valori client: Google spesso risponde 400 se ne accetta solo uno. */
 const GOOGLE_TTS_GET_CLIENTS = ["tw-ob", "gtx"];
-
-/** Stesso RPC usato da gTTS (POST batchexecute) quando il GET non restituisce più MP3. */
 const GOOGLE_TTS_RPC = "jQ1olc";
 const GOOGLE_TTS_BATCH_CHUNK = 100;
-const GOOGLE_TTS_BATCH_HEADERS = {
-  "User-Agent": TTS_HEADERS["User-Agent"],
-  Accept: "*/*",
-  Referer: "https://translate.google.com/",
-  Origin: "https://translate.google.com",
-  "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
-};
+const GOOGLE_TTS_BATCH_HEADERS = { "User-Agent": TTS_HEADERS["User-Agent"], Accept: "*/*", Referer: "https://translate.google.com/", Origin: "https://translate.google.com", "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" };
 
 function looksLikeMpegAudio(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 4) return false;
@@ -1004,15 +850,17 @@ async function handleTtsMessage(message, client, prefix) {
   const lockedChannelId = guildId ? getLockedChannelId(guildId) : null;
   const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
   const ttsSessionActive = Boolean(autojoin || lockedChannelId);
+  const activeConnectedChannelId = guildId ? findLockedChannelIdByGuild(guildId) : null;
+  const canWarnMissingVoice = Boolean(activeConnectedChannelId || (guildId && isTtsPostJoinVoiceGraceActive(guildId)));
   if (!voiceChannel) {
-    if (!ttsSessionActive) return;
+    if (!ttsSessionActive || !canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere in un canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
   const authorVoiceId = message.member?.voice?.channelId ?? null;
   if (!authorVoiceId || String(authorVoiceId) !== String(voiceChannel.id)) {
-    if (!ttsSessionActive) return;
+    if (!ttsSessionActive || !canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere nel canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
@@ -1229,13 +1077,7 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
 }
 
-async function catchupTtsMessagesForChannel(
-  client,
-  voiceChannel,
-  lastProcessedAt,
-  lastProcessedMessageId,
-  prefix,
-) {
+async function catchupTtsMessagesForChannel(client, voiceChannel, lastProcessedAt, lastProcessedMessageId, prefix) {
   if (!voiceChannel?.messages?.fetch) return;
   const nowMs = Date.now();
   const baseCutoffMs = lastProcessedAt ? new Date(lastProcessedAt).getTime() : nowMs - TTS_CATCHUP_DEFAULT_LOOKBACK_MS;
@@ -1279,13 +1121,7 @@ async function restoreTtsConnections(client) {
           await joinTtsChannel(channel).catch((e) =>
             global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
           );
-          await catchupTtsMessagesForChannel(
-            client,
-            channel,
-            entry?.lastTtsProcessedAt,
-            entry?.lastTtsMessageId,
-            prefix,
-          );
+          await catchupTtsMessagesForChannel(client, channel, entry?.lastTtsProcessedAt, entry?.lastTtsMessageId, prefix);
           restoreTtsQueueForChannel(channel);
         }),
       );
@@ -1304,17 +1140,4 @@ function clearGuildTtsLock(guildId) {
   guildLocks.delete(String(guildId));
 }
 
-module.exports = {
-  handleTtsMessage,
-  armTtsChannel,
-  joinTtsChannel,
-  leaveTtsGuild,
-  setTtsLockedChannel,
-  clearGuildTtsLock,
-  setUserTtsLang,
-  getUserTtsLang,
-  hydrateUserTtsLangForUser,
-  restoreTtsConnections,
-  handleTtsBotVoiceMove,
-  isTtsPostJoinVoiceGraceActive,
-};
+module.exports = { handleTtsMessage, armTtsChannel, joinTtsChannel, leaveTtsGuild, setTtsLockedChannel, clearGuildTtsLock, setUserTtsLang, getUserTtsLang, hydrateUserTtsLangForUser, restoreTtsConnections, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive };

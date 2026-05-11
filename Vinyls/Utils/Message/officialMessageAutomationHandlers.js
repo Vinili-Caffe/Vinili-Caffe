@@ -5,9 +5,7 @@ const { upsertVoteRole } = require("../../Services/Community/communityOpsService
 const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
-const { accountUsername } = require("../Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
-const SuggestionCount = require("../../Schemas/Suggestion/suggestionSchema");
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const COMMANDS_CHANNEL_ID = IDs.channels.commands;
 const PAUSE_CHANNEL_ID = IDs.channels.pause;
@@ -840,94 +838,6 @@ async function handleDiscadiaBump(message, client) {
   return true;
 }
 
-async function handleSuggestionChannelMessage(message) {
-  if (!message?.guild) return false;
-  if (message.author?.bot || message.webhookId || message.system) return false;
-
-  const suggestionsChannelId = String(IDs.channels.suggestions || "1442569147559973094",);
-  if (String(message.channelId) !== suggestionsChannelId) return false;
-
-  const suggestionText = String(message.content || "").trim();
-  if (!suggestionText) return false;
-
-  const counterFilter = { GuildID: message.guild.id, ChannelID: "__counter__", Msg: "__counter__", AuthorID: "__system__", };
-  const counter = await SuggestionCount.findOneAndUpdate(counterFilter, { $inc: { count: 1 }, $setOnInsert: { Upmembers: [], Downmembers: [], upvotes: 0, downvotes: 0, sID: "__counter__", }, }, { new: true, upsert: true, setDefaultsOnInsert: true },);
-  const suggestionId = String(counter?.count || 1);
-
-  const suggestionEmbed =
-    new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(`**<:VC_Mention:1482526855289634997> Mandato da:**\n${accountUsername(message.member || message.author)}
-    
-    **<:VC_PinkQuestionMark:1471892611026391306> Suggerimento:**
-    ${suggestionText}
-    
-    **<a:VC_Vote:1482535223001485473> Numero voti:**\n\n`,
-      )
-      .setFields(
-        { name: "<:thumbsup:1471292172145004768>", value: "0", inline: true },
-        { name: "<:thumbsdown:1471292163957457013>", value: "0", inline: true },
-      )
-      .setTimestamp()
-      .setFooter({
-        text: `User ID: ${message.author.id} · sID: ${suggestionId}`,
-      });
-
-  const voteRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("upv").setEmoji("<:thumbsup:1471292172145004768>").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("downv").setEmoji("<:thumbsdown:1471292163957457013>").setStyle(ButtonStyle.Secondary),);
-  const staffRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("suggestion_staff_accept").setLabel("Accetta").setEmoji("<:success:1461731530333229226>").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("suggestion_staff_reject").setLabel("Rifiuta").setEmoji("<:cancel:1461730653677551691>").setStyle(ButtonStyle.Danger),);
-
-  const posted = await message.channel
-    .send({
-      content: "<@&1442568894349840435>",
-      embeds: [suggestionEmbed],
-      components: [voteRow, staffRow],
-    })
-    .catch(() => null);
-  if (!posted) {
-    await SuggestionCount.findOneAndUpdate(counterFilter, {
-      $inc: { count: -1 },
-    }).catch(() => { });
-    return false;
-  }
-
-  try {
-    await SuggestionCount.create({
-      GuildID: message.guild.id,
-      ChannelID: message.channel.id,
-      Msg: posted.id,
-      AuthorID: message.author.id,
-      upvotes: 0,
-      downvotes: 0,
-      Upmembers: [],
-      Downmembers: [],
-      sID: suggestionId,
-    });
-  } catch (err) {
-    global.logger?.error?.("[suggestion] create doc failed:", err?.message || err);
-    await posted.delete().catch(() => { });
-    await SuggestionCount.findOneAndUpdate(counterFilter, {
-      $inc: { count: -1 },
-    }).catch(() => { });
-    return false;
-  }
-
-  const thread = await posted.startThread({
-    name: `Thread per il suggerimento ${suggestionId}`,
-    autoArchiveDuration: 10080,
-  })
-    .catch(() => null);
-  if (thread) {
-    await thread
-      .send(
-        `Ho creato questo thread per discutere del suggerimento di <@${message.author.id}>`,
-      )
-      .catch(() => { });
-  }
-
-  await message.delete().catch(() => { });
-  return true;
-}
-
 async function handlePauseChannelMessage(message) {
   if (!message?.guild) return false;
   if (message.author?.bot || message.webhookId || message.system) return false;
@@ -1100,4 +1010,4 @@ async function processAllRecentAutomationMessages(client) {
   await processRecentPauseChannelMessages(client);
 }
 
-module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSuggestionChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+module.exports = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleThreadVoteMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processRecentPauseChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };

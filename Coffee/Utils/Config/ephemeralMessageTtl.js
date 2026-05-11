@@ -9,10 +9,4 @@ function scheduleMessageDeletion(message, ttlMs) {
   if (typeof timer.unref === "function") timer.unref();
 }
 
-module.exports = {
-  EPHEMERAL_TTL_SHORT_MS,
-  EPHEMERAL_TTL_NORMAL_MS,
-  EPHEMERAL_TTL_LONG_MS,
-  EPHEMERAL_TTL_PING_ONLY_MS,
-  scheduleMessageDeletion,
-};
+module.exports = { EPHEMERAL_TTL_SHORT_MS, EPHEMERAL_TTL_NORMAL_MS, EPHEMERAL_TTL_LONG_MS, EPHEMERAL_TTL_PING_ONLY_MS, scheduleMessageDeletion };

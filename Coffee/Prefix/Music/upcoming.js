@@ -1,25 +1,16 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { fetchGuildUpcomingQueueRows } = require("../../Services/Music/lavalinkMusicService");
-
 const PAGE_SIZE = 10;
-
-/** @type {Map<string, { pageBodies: string[], authorId: string, page: number }>} */
 const upcomingUiSessions = new Map();
 
 function safeDiscordLinkLabel(s) {
   let t = String(s || "").trim();
   t = t.replace(/\*\*/g, "");
   t = t.replace(/[\[\]()]/g, "");
-  return t.trim() || "Traccia";
+  return t.trim() || "Brano";
 }
 
 function embedSafe(s) {
@@ -35,7 +26,7 @@ function upcomingLine(row) {
   const titlePart = row.url
     ? `[**${titleLbl}**](${row.url})`
     : `**${embedSafe(row.title).slice(0, 180)}**`;
-  return `${row.upcomingIndex}. \`[${row.etaClock}]\` ${titlePart} by ${authorPlain}`;
+  return `${row.upcomingIndex}. <t:${Math.floor(Date.now() / 1000)}:R> ${titlePart} by ${authorPlain}`;
 }
 
 function chunkRowsToPageBodies(rows) {
@@ -47,11 +38,11 @@ function chunkRowsToPageBodies(rows) {
 }
 
 function buildUpcomingEmbed(pageIdx, totalPages, pageBody) {
-  const head = `**Pagina ${pageIdx + 1}/${totalPages}**`;
-  const sub = "_Tra parentesi: minuti prima dell'inizio stimato._";
-  const hint = "\n\n`<<` · `<` · `>` · `>>` · menu";
+  const head = `**Pagina ${pageIdx + 1} di ${totalPages}**`;
+  const sub = "**Tra parentesi:** minuti prima dell'inizio stimato.";
+  const hint = "\n\n<:VC_page5:1482459835042762752> · <:VC_page4:1482459791975645226> · <:VC_page3:1482459759268462613> · <:VC_page2:1482459708998637659> · <:VC_page1:1482459671062403102> · menu";
   const desc = `${head}\n${sub}\n\n${pageBody}${totalPages > 1 ? hint : ""}`.slice(0, 4096);
-  return new EmbedBuilder().setColor(0x6f4e37).setTitle("In arrivo").setDescription(desc);
+  return new EmbedBuilder().setColor(0x6f4e37).setTitle("In arrivo 🎵").setDescription(desc);
 }
 
 function buildUpcomingComponents(sessionKey, pageIdx, totalPages) {
@@ -62,10 +53,10 @@ function buildUpcomingComponents(sessionKey, pageIdx, totalPages) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`vcup:${sessionKey}:jump`)
-          .setPlaceholder(`Vai alla pagina (${pageIdx + 1}/${totalPages})`)
+          .setPlaceholder(`Vai alla pagina (Pagina ${pageIdx + 1} di ${totalPages})`)
           .addOptions(
             Array.from({ length: totalPages }, (_, i) => ({
-              label: `Pagina ${i + 1} / ${totalPages}`,
+              label: `Pagina ${i + 1} di ${totalPages}`,
               value: String(i),
               default: i === pageIdx,
             })),
@@ -77,22 +68,22 @@ function buildUpcomingComponents(sessionKey, pageIdx, totalPages) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:first`)
-        .setLabel("<<")
+        .setEmoji("<:VC_page1:1482459684630958223>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:prev`)
-        .setLabel("<")
+        .setEmoji("<:VC_page5:1482459835042762752>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:next`)
-        .setLabel(">")
+        .setEmoji("<:VC_page4:1482459791975645226>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
       new ButtonBuilder()
         .setCustomId(`vcup:${sessionKey}:last`)
-        .setLabel(">>")
+        .setEmoji("<:VC_page3:1482459759268462613>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
     ),
@@ -114,8 +105,7 @@ function getUpcomingSession(key) {
 
 module.exports = {
   name: "upcoming",
-  description:
-    "Mostra i brani in coda (non quello in riproduzione) con tempo stimato prima dell'inizio, 10 per pagina.",
+  description: "Mostra i brani in coda con tempo stimato prima dell'inizio.",
   usage: ",upcoming",
   examples: [",upcoming"],
   async execute(message) {
@@ -123,7 +113,7 @@ module.exports = {
     if (!result.ok) {
       const err = new EmbedBuilder()
         .setColor(0xff0000)
-        .setDescription(`**${result.message}**`);
+        .setDescription(`<a:VC_Cross:1482532424570376253> ${result.message}`);
       await safeMessageReply(
         message,
         applyDefaultFooterToEmbeds(
@@ -170,7 +160,7 @@ module.exports = {
         return;
       }
       if (i.user.id !== st.authorId) {
-        await i.reply({ content: "Solo chi ha usato il comando può navigare.", ephemeral: true }).catch(() => null);
+        await i.reply({ content: "<a:VC_Attention:1482534443632558151> Solo chi ha usato il comando può navigare.", ephemeral: true }).catch(() => null);
         return;
       }
       const last = st.pageBodies.length - 1;

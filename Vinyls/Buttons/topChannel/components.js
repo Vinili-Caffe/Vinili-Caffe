@@ -12,17 +12,7 @@ const TOP_CHANNEL_PAGE_LAST_CUSTOM_ID_PREFIX = "top_channel_page_last";
 const TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX = "top_page_modal";
 const TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID = "top_page_input";
 const ALLOWED_LOOKBACK = [1, 7, 14, 21, 30];
-const ALLOWED_VIEWS = [
-  { value: "overview", label: "Overview" },
-  { value: "message_users", label: "Top messaggi utenti" },
-  { value: "voice_users", label: "Top vocale utenti" },
-  { value: "message_channels", label: "Top canali messaggi" },
-  { value: "voice_channels", label: "Top canali vocali" },
-  { value: "invites_users", label: "Inviti utenti" },
-  { value: "votes_users", label: "Top voti" },
-  { value: "exp_users", label: "Top EXP" },
-  { value: "level_users", label: "Top livelli" },
-];
+const ALLOWED_VIEWS = [ { value: "overview", label: "Overview" }, { value: "message_users", label: "Top messaggi utenti" }, { value: "voice_users", label: "Top vocale utenti" }, { value: "message_channels", label: "Top canali messaggi" }, { value: "voice_channels", label: "Top canali vocali" }, { value: "invites_users", label: "Inviti utenti" }, { value: "votes_users", label: "Top voti" }, { value: "exp_users", label: "Top EXP" }, { value: "level_users", label: "Top livelli" }];
 
 function normalizeLookbackDays(x) {
   if (x == null || x === "") return 14;
@@ -72,26 +62,14 @@ function buildTopChannelComponents(ownerId, lookbackDays, controlsView, selected
 
   const periodSetId = (days) => (ownerId ? `${TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${ownerId}:${days}:${safeView}:${safePage}` : `${TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${days}:${safeView}:${safePage}`);
   const periodBackId = ownerId ? `${TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX}:${ownerId}:${safeLookback}:${safeView}:${safePage}` : `${TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX}:${safeLookback}:${safeView}:${safePage}`;
-  const rowPeriod1 = new ActionRowBuilder().addComponents(
-    ...ALLOWED_LOOKBACK.map((d) =>
-      new ButtonBuilder().setCustomId(periodSetId(d)).setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary).setLabel(`${d}d`)
-    )
-  );
-  const rowPeriod2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(periodBackId).setStyle(ButtonStyle.Secondary).setLabel("Indietro")
-  );
+  const rowPeriod1 = new ActionRowBuilder().addComponents( ...ALLOWED_LOOKBACK.map((d) => new ButtonBuilder().setCustomId(periodSetId(d)).setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary).setLabel(`${d}d`)));
+  const rowPeriod2 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId(periodBackId).setStyle(ButtonStyle.Secondary).setEmoji("<a:vegaleftarrow:1462914743416131816>"));
 
   const rowViewSelect = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(viewSelectId)
-      .setPlaceholder("📊 Overview")
-      .addOptions(
-        ALLOWED_VIEWS.map((o) => ({
-          label: o.label,
-          value: o.value,
-          default: o.value === safeView,
-        }))
-      )
+      .setPlaceholder("<:VC_Stats:1482527532682055780> Overview")
+      .addOptions(ALLOWED_VIEWS.map((o) => ({ value: o.value, label: o.label, default: o.value === safeView })))
   );
 
   const firstId = `${TOP_CHANNEL_PAGE_FIRST_CUSTOM_ID_PREFIX}:${suffix}`;

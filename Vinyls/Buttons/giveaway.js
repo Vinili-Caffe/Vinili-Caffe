@@ -1,13 +1,4 @@
-const {
-  GIVEAWAY_ENTER_PREFIX,
-  GIVEAWAY_LEAVE_PREFIX,
-  GIVEAWAY_COUNT_PREFIX,
-  GIVEAWAY_REROLL_PREFIX,
-  enterGiveaway,
-  leaveGiveaway,
-  showGiveawayJoinCount,
-  rerollGiveaway,
-} = require("../Services/Giveaway/giveawayService");
+const { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_LEAVE_PREFIX, GIVEAWAY_COUNT_PREFIX, GIVEAWAY_REROLL_PREFIX, enterGiveaway, leaveGiveaway, showGiveawayJoinCount, rerollGiveaway } = require("../Services/Giveaway/giveawayService");
 
 function match(interaction) {
   if (!interaction?.isButton?.()) return false;

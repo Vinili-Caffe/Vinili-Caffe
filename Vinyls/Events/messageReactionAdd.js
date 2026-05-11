@@ -8,7 +8,7 @@ const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../Util
 const { resolveCanvasDiscordMarkup } = require("../Utils/Discord/resolveCanvasDiscordText");
 const SKULL_EMOJI = "\u{1F480}";
 const SKULLBOARD_CHANNEL_ID = IDs.channels.quotes;
-const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set(["1442569130573303898","1442569136067575809","1442569138114662490","1442569141717438495",]);
+const SKULL_SOURCE_WHITELIST_CHANNEL_IDS=new Set([IDs.channels.chat,IDs.channels.media,IDs.channels.commands,IDs.channels.forum,IDs.channels.selfieVerificati].filter(Boolean).map((id) => String(id)));
 
 function isSkullboardSourceChannel(channel) {
   if (!channel) return false;
@@ -216,12 +216,12 @@ function buildSkullEmbed(user, message, postImageName) {
       iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 64 }) || undefined,
     })
     .setDescription(
-      `Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard`,
+      `<:VC_Skully:1331591939094614057> **Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard**`,
     )
     .addFields(
-      { name: "Autore", value: message.author.toString(), inline: true },
-      { name: "Canale", value: `<#${message.channel.id}>`, inline: true },
-      { name: "Messaggio", value: `[Cliccami](${messageLink})`, inline: true },
+      { name: "<:VC_User:1494287244156049448> Autore", value: message.author.toString(), inline: true },
+      { name: "<:VC_Channel:1494287251091494963> Canale", value: `<#${message.channel.id}>`, inline: true },
+      { name: "<:VC_Chat:1482532573002465413> Messaggio", value: `[Cliccami](${messageLink})`, inline: true },
     )
     .setImage(`attachment://${postImageName}`)
     .setFooter({ text: formattedDate })
@@ -291,17 +291,9 @@ module.exports = {
 
       let canvasBuffer;
       try {
-        canvasBuffer = await renderSkullCanvas(
-          message,
-          member,
-          content,
-          replyData,
-          mediaUrl,
-          hasMedia,
-          hasEmbedOnly,
-        );
+        canvasBuffer = await renderSkullCanvas(message, member, content, replyData, mediaUrl, hasMedia, hasEmbedOnly);
       } catch (error) {
-        global.logger?.error?.("[SKULLBOARD] Canvas render failed:", error);
+        global.logger?.error?.("[Skullboard] Canvas render failed:", error);
         return;
       }
 
@@ -323,19 +315,13 @@ module.exports = {
 
       await skullboardUpsert(message.guild.id, message.id, postMessage.id).catch(() => null);
 
-      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`Il messaggio è stato pubblicato nel canale <#${SKULLBOARD_CHANNEL_ID}>.`,
-        );
+      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Skully:1331591939094614057> Il messaggio è stato pubblicato nel canale <#${SKULLBOARD_CHANNEL_ID}>.`);
 
       const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);
 
-      await message.channel
-        .send({
-          embeds: [confirmEmbed],
-          components: [row],
-        })
-        .catch(() => {});
+      await message.channel.send({ embeds: [confirmEmbed], components: [row] }).catch(() => {});
     } catch (err) {
-      global.logger?.error?.("[SKULLBOARD] Error:", err);
+      global.logger?.error?.("[Skullboard] Error:", err);
     } finally {
       if (inFlightSet && inFlightKey) inFlightSet.delete(inFlightKey);
     }

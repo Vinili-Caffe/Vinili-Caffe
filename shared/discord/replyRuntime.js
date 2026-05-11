@@ -52,11 +52,18 @@ function normalizeLower(value) {
   return String(value || "").toLowerCase();
 }
 
+function textMatchesErrorHint(text, hint) {
+  if (hint === "warn") {
+    return /\bwarn(s)?\b(?!\s*points?\b)/i.test(text);
+  }
+  return text.includes(hint);
+}
+
 function textLooksLikeError(value) {
   const text = normalizeLower(value);
   if (!text.trim()) return false;
   if (text.includes("vegax")) return true;
-  return ERROR_HINTS.some((hint) => text.includes(hint));
+  return ERROR_HINTS.some((h) => textMatchesErrorHint(text, h));
 }
 
 function payloadLooksLikeError(payload) {

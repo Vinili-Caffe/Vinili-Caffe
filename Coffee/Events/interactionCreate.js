@@ -9,8 +9,7 @@ const PRIVATE_FLAG = 1 << 6;
 const BUTTON_SPAM_COOLDOWN_MS = 1200;
 const BUTTON_INFLIGHT_TTL_MS = 15000;
 const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzati.";
-const STANZA_BUTTON_DENIED =
-  "<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
+const STANZA_BUTTON_DENIED ="<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
 const INTERACTION_DEDUPE_TTL_MS = 30 * 1000;
 
 function markInteractionSeen(client, interactionId) {
@@ -160,7 +159,7 @@ async function logInteractionError(interaction, client, err) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<:vegax:1472992044140990526> Errore durante l'esecuzione dell'interazione.",
+            "<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione dell'interazione.",
           ),
       ],
       flags: PRIVATE_FLAG,

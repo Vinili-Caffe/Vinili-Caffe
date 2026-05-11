@@ -4,7 +4,6 @@ const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntit
 const { handleSerataFilmScheduledEventUpdate } = require("../Services/Staff/staffAutoValutazioniService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
-
 const CHANGE_LABELS=new Map([["name","Name"],["description","Description"],["scheduled_start_time","Start Time"],["scheduled_end_time","End Time"],["privacy_level","Privacy Level"],["status","Status"],["entity_type","Entity Type"],["channel_id","Channel"],["location","Location"],["entity_metadata.location","Location"],]);
 
 function toDiscordTimestamp(value = new Date(), style = "F") {
@@ -175,24 +174,24 @@ module.exports = {
       if (!tracked.length) return;
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
         "",
-        "**Changes**",
+        "**Modifiche**",
       ];
 
       for (const change of tracked) {
         const key = String(change?.key || "");
         const label = CHANGE_LABELS.get(key) || key;
-        lines.push(`<:VC_right_arrow:1482459908245815296> **${label}**`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **${label}**`);
         lines.push(
-          `  ${formatValue(key, change?.old)} <:VC_right_arrow:1482459908245815296> ${formatValue(key, change?.new)}`,
+          `  ${formatValue(key, change?.old)} <:VC_Modifica:1478859646587633717> ${formatValue(key, change?.new)}`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("Guild Scheduled Event Update")
+        .setTitle("<a:VC_Verified:1482532479637127188> Evento programmato modificato")
         .setDescription(lines.join("\n"));
 
       const payload = { embeds: [embed] };
@@ -201,7 +200,7 @@ module.exports = {
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setStyle(ButtonStyle.Link)
-              .setLabel("Go to Event")
+              .setLabel("Vai all'evento")
               .setURL(eventUrl),
           ),
         ];

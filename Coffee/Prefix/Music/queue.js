@@ -1,11 +1,5 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { fetchGuildQueueEntryRows } = require("../../Services/Music/lavalinkMusicService");
@@ -19,7 +13,7 @@ function safeDiscordLinkLabel(s) {
   let t = String(s || "").trim();
   t = t.replace(/\*\*/g, "");
   t = t.replace(/[\[\]()]/g, "");
-  return t.trim() || "Traccia";
+  return t.trim() || "Brano";
 }
 
 function embedSafe(s) {
@@ -35,7 +29,7 @@ function queueLine(row) {
   const titlePart = row.url
     ? `[**${titleLbl}**](${row.url})`
     : `**${embedSafe(row.title).slice(0, 180)}**`;
-  return `${row.queueIndex}. \`[${row.dur}]\` ${titlePart} by ${authorPlain}`;
+  return `${row.queueIndex}. <t:${Math.floor(Date.now() / 1000)}:R> ${titlePart} by ${authorPlain}`;
 }
 
 function chunkRowsToPageBodies(rows) {
@@ -48,9 +42,9 @@ function chunkRowsToPageBodies(rows) {
 
 function buildQueueEmbed(pageIdx, totalPages, pageBody) {
   const head = `**Pagina ${pageIdx + 1}/${totalPages}**`;
-  const hint = "\n\n`<<` · `<` · `>` · `>>` · menu";
+  const hint = "\n\n<:VC_page5:1482459835042762752> · <:VC_page4:1482459791975645226> · <:VC_page3:1482459759268462613> · <:VC_page2:1482459708998637659> · <:VC_page1:1482459671062403102> · menu";
   const desc = `${head}\n\n${pageBody}${totalPages > 1 ? hint : ""}`.slice(0, 4096);
-  return new EmbedBuilder().setColor(0x6f4e37).setTitle("Coda").setDescription(desc);
+  return new EmbedBuilder().setColor(0x6f4e37).setTitle("Coda 🎵").setDescription(desc);
 }
 
 function buildQueueComponents(sessionKey, pageIdx, totalPages) {
@@ -61,10 +55,10 @@ function buildQueueComponents(sessionKey, pageIdx, totalPages) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId(`vcqu:${sessionKey}:jump`)
-          .setPlaceholder(`Vai alla pagina (${pageIdx + 1}/${totalPages})`)
+          .setPlaceholder(`Vai alla pagina (Pagina ${pageIdx + 1}/${totalPages})`)
           .addOptions(
             Array.from({ length: totalPages }, (_, i) => ({
-              label: `Pagina ${i + 1} / ${totalPages}`,
+              label: `Pagina ${i + 1} di ${totalPages}`,
               value: String(i),
               default: i === pageIdx,
             })),
@@ -76,22 +70,22 @@ function buildQueueComponents(sessionKey, pageIdx, totalPages) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:first`)
-        .setLabel("<<")
+        .setEmoji("<:VC_page1:1482459684630958223>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:prev`)
-        .setLabel("<")
+        .setEmoji("<:VC_page5:1482459835042762752>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0),
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:next`)
-        .setLabel(">")
+        .setEmoji("<:VC_page4:1482459791975645226>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
       new ButtonBuilder()
         .setCustomId(`vcqu:${sessionKey}:last`)
-        .setLabel(">>")
+        .setEmoji("<:VC_page3:1482459759268462613>")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= totalPages - 1),
     ),
@@ -113,7 +107,7 @@ function getQueueSession(key) {
 
 module.exports = {
   name: "queue",
-  description: "Mostra la coda di riproduzione con pagine (10 brani per pagina) e pulsanti di navigazione.",
+  description: "Mostra la coda di riproduzione.",
   usage: ",queue",
   examples: [",queue"],
   async execute(message) {
@@ -121,7 +115,7 @@ module.exports = {
     if (!result.ok) {
       const err = new EmbedBuilder()
         .setColor(0xff0000)
-        .setDescription(`**${result.message}**`);
+        .setDescription(`<a:VC_Cross:1482532424570376253> ${result.message}`);
       await safeMessageReply(
         message,
         applyDefaultFooterToEmbeds(
@@ -168,7 +162,7 @@ module.exports = {
         return;
       }
       if (i.user.id !== st.authorId) {
-        await i.reply({ content: "Solo chi ha usato il comando può navigare la coda.", ephemeral: true }).catch(
+        await i.reply({ content: "<a:VC_Attention:1482534443632558151> Solo chi ha usato il comando può navigare la coda.", ephemeral: true }).catch(
           () => null,
         );
         return;

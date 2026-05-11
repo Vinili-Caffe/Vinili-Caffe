@@ -1,6 +1,5 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
-const { ARROW, toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
-
+const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const THREAD_UPDATE_ACTION = AuditLogEvent?.ThreadUpdate ?? 111;
 
 function sleep(ms) {
@@ -52,36 +51,36 @@ module.exports = {
       const responsible = formatAuditActor(audit.executor);
 
       const lines = [
-        `${ARROW} **Responsible:** ${responsible}`,
-        `${ARROW} **Target:** ${newThread || oldThread || "thread"} \`${threadId}\``,
-        `${ARROW} ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<:VC_User:1482527453586002103> **Utente:** ${newThread || oldThread || "thread"} \`${threadId}\``,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**Changes**",
+        "**<:VC_tools:1478862265305272364> Cambiamenti**",
       ];
 
       if (nameChanged) {
-        lines.push(`${ARROW} **Name:** ${oldThread.name || "sconosciuto"} ${ARROW} ${newThread.name || "sconosciuto"}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${oldThread.name || "sconosciuto"} <a:VC_Arrow:1482706699365257397> ${newThread.name || "sconosciuto"}`);
       }
       if (archivedChanged) {
         lines.push(
-          `${ARROW} **Archived:** ${yesNo(Boolean(oldThread.archived))} ${ARROW} ${yesNo(Boolean(newThread.archived))}`,
+          `<:VC_Modifica:1478859646587633717> **Archivio:** ${yesNo(Boolean(oldThread.archived))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newThread.archived))}`,
         );
       }
       if (lockedChanged) {
         lines.push(
-          `${ARROW} **Bloccato:** ${yesNo(Boolean(oldThread.locked))} ${ARROW} ${yesNo(Boolean(newThread.locked))}`,
+          `<:VC_Modifica:1478859646587633717> **Bloccato:** ${yesNo(Boolean(oldThread.locked))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newThread.locked))}`,
         );
       }
       if (tagsChanged) {
         lines.push(
-          `${ARROW} **Tag applicati:** \`${oldTags.join(", ") || "nessuno"}\` ${ARROW} \`${newTags.join(", ") || "nessuno"}\``,
+          `<:VC_Modifica:1478859646587633717> **Tag applicati:** \`${oldTags.join(", ") || "nessuno"}\` <a:VC_Arrow:1482706699365257397> \`${newTags.join(", ") || "nessuno"}\``,
         );
       }
       lines.push(...buildAuditExtraLines(audit.entry, ["name", "archived", "locked", "applied_tags"]));
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("Aggiornamento thread")
+        .setTitle("<:VC_threads:1478515497569095760> Thread Aggiornato")
         .setDescription(lines.join("\n"));
 
       const payload = { embeds: [embed] };
@@ -90,12 +89,12 @@ module.exports = {
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setStyle(ButtonStyle.Link)
-              .setLabel("Vai al thread")
+              .setLabel("Vai al Thread")
+              .setEmoji("<:VC_threads:1478515497569095760>")
               .setURL(newThread.url),
           ),
         ];
       }
-
       await logChannel.send(payload).catch(() => null);
     } catch (error) {
       global.logger?.error?.("[threadUpdate] failed:", error);

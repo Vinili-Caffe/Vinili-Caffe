@@ -2,21 +2,15 @@ const { EmbedBuilder, AttachmentBuilder, AuditLogEvent, PermissionsBitField, Mes
 const IDs = require("../Utils/Config/ids");
 const { maybePunishCountingOnBulkDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { clearForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
-const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map(String),);
+const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)));
 const AUDIT_LOOKBACK_MS = 120 * 1000;
-
-function toDiscordTimestamp(value = new Date(), style = "F") {
-  const ms = new Date(value).getTime();
-  if (!Number.isFinite(ms)) return "<t:0:F>";
-  return `<t:${Math.floor(ms / 1000)}:${style}>`;
-}
 
 function formatAuditActor(actor) {
   if (!actor) return "sconosciuto";
   const flags = [];
   if (actor?.bot) flags.push("BOT");
   const suffix = flags.length ? ` [${flags.join("/")}]` : "";
-  return `${actor}${suffix} \`${actor.id}\``;
+  return `${actor}${suffix} \`${actor?.id||"sconosciuto"}\``;
 }
 
 function sleep(ms) {
@@ -74,7 +68,7 @@ function buildPurgeLogText(messages, channelId) {
   const rows = [];
   const ordered=Array.from(messages?.values?.()||[]).sort((a,b) => {const at=Number(a?.createdTimestamp||0);const bt=Number(b?.createdTimestamp||0);return at-bt;});
 
-  rows.push(`------ ${channelId || "unknown"}`);
+  rows.push(`------ ${channelId || "#sconosciuto"}`);
   rows.push("");
 
   for (const msg of ordered) {
@@ -83,13 +77,13 @@ function buildPurgeLogText(messages, channelId) {
     if (msg?.author?.bot) flags.push("BOT");
     if (msg?.webhookId) flags.push("WEBHOOK");
     const suffix = flags.length ? ` [${flags.join("/")}]` : "";
-    const content = sanitizeText(msg?.content || "(vuoto)");
+    const content = sanitizeText(msg?.content || "Nessun contenuto.");
     rows.push(`[${authorId}]${suffix} ${content}`);
 
     const attachments = msg?.attachments ? Array.from(msg.attachments.values()) : [];
     if (attachments.length) {
       const list=attachments.map((a) => String(a?.url||a?.name||"")).filter(Boolean).join(", ");
-      if (list) rows.push(`attachments: ${list}`);
+      if (list) rows.push(`attachment: ${list}`);
     }
     rows.push("");
   }
@@ -101,7 +95,7 @@ function buildPurgeLogText(messages, channelId) {
 
 function splitTextToChunks(text, maxBytes = 1_800_000) {
   const input = String(text || "");
-  if (!input) return ["(vuoto)"];
+  if (!input) return ["Nessun contenuto."];
   const lines = input.split("\n");
   const chunks = [];
   let current = "";
@@ -130,7 +124,7 @@ function splitTextToChunks(text, maxBytes = 1_800_000) {
     current = remaining;
   }
   if (current) chunks.push(current);
-  return chunks.length ? chunks : ["(vuoto)"];
+  return chunks.length ? chunks : ["Nessun contenuto."];
 }
 
 async function resolveActivityLogChannel(guild) {
@@ -229,15 +223,15 @@ module.exports = {
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("Messaggi eliminati")
+        .setTitle("<a:VC_Verified:1482532479637127188> Messaggi eliminati")
         .setDescription(
           [
-            `<:VC_right_arrow:1482459908245815296> **Responsible:** ${formatAuditActor(responsible)}`,
-            `<:VC_right_arrow:1482459908245815296> **Target:** ${channelText} \`${channelId}\``,
-            `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+            `<:VC_Staff:1494286904089247754> **Responsabile:** ${formatAuditActor(responsible)}`,
+            `<:VC_Modifica:1478859646587633717> **Target:** ${channelText} \`${channelId}\``,
+            `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
             "",
-            "**Additional Information**",
-            `<:VC_right_arrow:1482459908245815296> **Count:** ${count}`,
+            "**Informazioni aggiuntive**",
+            `<:VC_Modifica:1478859646587633717> **Conteggio:** ${count}`,
           ].join("\n"),
         );
 
@@ -253,7 +247,7 @@ module.exports = {
       if (chunks.length > 10) {
         embed.addFields({
           name: "Note",
-          value: `Dump diviso in più parti: inviate le prime 10/${chunks.length}.`,
+          value: `Dump diviso in più parti: inviate le prime 10 di ${chunks.length}.`,
         });
       }
 

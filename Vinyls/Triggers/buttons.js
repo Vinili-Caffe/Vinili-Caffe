@@ -1,6 +1,4 @@
 const { EmbedBuilder, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, AttachmentBuilder, } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
 const { decrementQuoteCount } = require("../Utils/Quote/quoteCounter");
 const { ROLE_MULTIPLIERS } = require("../Services/Community/expService");
 const { AvatarPrivacy, BannerPrivacy, ActivityUserProfile, } = require("../Schemas/Community/communitySchemas");
@@ -19,23 +17,6 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Util
 const PRIVATE_FLAG = 1 << 6;
 const MONO_GUILD_DENIED_TEXT = "Questo bot è utilizzabile solo sul server principale di Vinili & Caffè.";
 const { MOD_RULE_DETAIL } = require("../Utils/Moderation/modRegolamentoConstants");
-const VERIFY_OAUTH_IMAGE_NAME = "image0.jpg";
-const VERIFY_OAUTH_IMAGE_PATH = path.join(__dirname, "..", "Photos", VERIFY_OAUTH_IMAGE_NAME);
-const VERIFY_FALLBACK_IMAGE_NAME = "verifica.gif";
-const VERIFY_FALLBACK_IMAGE_PATH = path.join(__dirname, "..", "Photos", VERIFY_FALLBACK_IMAGE_NAME);
-
-function buildVerifyImageAttachmentOrNull() {
-  try {
-    if (fs.existsSync(VERIFY_OAUTH_IMAGE_PATH)) {
-      return new AttachmentBuilder(VERIFY_OAUTH_IMAGE_PATH, { name: VERIFY_OAUTH_IMAGE_NAME });
-    }
-    if (fs.existsSync(VERIFY_FALLBACK_IMAGE_PATH)) {
-      return new AttachmentBuilder(VERIFY_FALLBACK_IMAGE_PATH, { name: VERIFY_FALLBACK_IMAGE_NAME });
-    }
-  } catch (_) { }
-  return null;
-}
-
 function staffSanctionRuleIntro(ruleKey) {
   const body = MOD_RULE_DETAIL[ruleKey];
   if (!body) return "";
@@ -1037,28 +1018,6 @@ module.exports = {
         logButtonErr(err);
       });
     };
-    if (interaction.customId == "info_verifica") {
-      const verifyEmbed = new EmbedBuilder()
-        .setColor("#6f4e37")
-        .setDescription(
-          [
-            "<a:VC_Verified:1482532479637127188> **__Verificati per ottenere vantaggi unici__**",
-            "",
-            `Per verificare il tuo profilo dovrai andare in <#${IDs.channels.ticket}> e selezionare la HIGH STAFF`,
-            "<:VC_Reply:1482532158080942191> successivamente, dovrete mandare una vostra foto in cui si vede bene il viso:",
-            "con il vostro nickname scritto su un foglio cartaceo o altrimenti con il cellulare nella schermata del vostro profilo Discord",
-            "",
-            "<:sparkledred:1470064814502973591> Ruolo <@&1469040179799920801>, <@&1469040190730408018> o <@&1495449189390356521> con badge speciale",
-            "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
-            "<:pinkstar:1470064804835229768> Permesso di scrivere in <#1470029899740873029>",
-          ].join("\n"),
-        );
-      await interaction.reply({
-        embeds: [verifyEmbed],
-        flags: PRIVATE_FLAG,
-      }).catch((err) => { logButtonErr(err); return null; });
-    }
-
     if (interaction.customId === "info_buttons_test") {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("info_buttons_test_ok").setLabel("Funziona").setStyle(ButtonStyle.Success),
@@ -1073,11 +1032,11 @@ module.exports = {
     }
 
     if (interaction.customId === "info_buttons_test_ok") {
-      await interaction.reply({ content: "Perfetto: i bottoni standard stanno funzionando ✅", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ content: "Perfetto: i bottoni standard stanno funzionando <a:VC_Verified:1482532479637127188>", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId === "info_buttons_test_no") {
-      await interaction.reply({ content: "Ricevuto ❌: i bottoni standard non stanno rispondendo come previsto.", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
+      await interaction.reply({ content: "Ricevuto <a:VC_Cross:1482532424570376253>: i bottoni standard non stanno rispondendo come previsto.", flags: PRIVATE_FLAG }).catch((err) => { logButtonErr(err); return null; });
     }
 
     if (interaction.customId === "info_buttons_test_ping") {

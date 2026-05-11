@@ -4,8 +4,7 @@ const { restartQueueGuild } = require("../../Services/Music/lavalinkMusicService
 
 module.exports = {
   name: "restart",
-  description:
-    "Ricomincia dall'inizio la sequenza brano in corso + coda (stesso ordine; se la ripetizione coda è attiva, aggiorna il ciclo).",
+  description:"Ricomincia dall'inizio la sequenza del brano in riproduzione + della coda.",
   usage: ",restart",
   examples: [",restart"],
   async execute(message) {
@@ -13,19 +12,13 @@ module.exports = {
     if (result.ok) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setDescription("**Si ricomincia da capo** 🔄");
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      }).catch(() => null);
+        .setDescription("**La sequenza del brano in riproduzione e della coda è stata ricominciata** 🔄");
+      await safeMessageReply(message, { embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => null);
       return;
     }
     const err = new EmbedBuilder()
       .setColor(0xff0000)
-      .setDescription(`**${result.message}**`);
-    await safeMessageReply(message, {
-      embeds: [err],
-      allowedMentions: { repliedUser: false },
-    }).catch(() => null);
+      .setDescription(`<a:VC_Cross:1482532424570376253> ${result.message}`);
+    await safeMessageReply(message, { embeds: [err], allowedMentions: { repliedUser: false } }).catch(() => null);
   },
 };

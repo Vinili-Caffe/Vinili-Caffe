@@ -1,12 +1,10 @@
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-
 const sessions = new Map();
 const SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "voiceSessionSnapshot.json");
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const SNAPSHOT_KEY = "coffee_voice_sessions";
-
 let loaded = false;
 let flushRegistered = false;
 
@@ -57,13 +55,7 @@ function persistNow() {
       updatedAt: Number(row.updatedAt || now),
     };
   }
-  writeSnapshotWithMeta({
-    filePath: SNAPSHOT_PATH,
-    walPath: `${SNAPSHOT_PATH}.wal`,
-    key: SNAPSHOT_KEY,
-    version: 1,
-    payload,
-  });
+  writeSnapshotWithMeta({ filePath: SNAPSHOT_PATH, walPath: `${SNAPSHOT_PATH}.wal`, key: SNAPSHOT_KEY, version: 1, payload });
 }
 
 function getVoiceSession(guildId) {
@@ -103,9 +95,4 @@ function isDifferentVoiceSession(guildId, channelId) {
   return String(current.channelId) !== String(channelId || "");
 }
 
-module.exports = {
-  getVoiceSession,
-  setVoiceSession,
-  clearVoiceSession,
-  isDifferentVoiceSession,
-};
+module.exports = { getVoiceSession, setVoiceSession, clearVoiceSession, isDifferentVoiceSession };

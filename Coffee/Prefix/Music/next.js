@@ -26,7 +26,7 @@ module.exports = {
   subcommands: ["up"],
   allowEmptyArgs: true,
   subcommandUsages: { up: ",next up" },
-  description: "Mostra il prossimo brano in coda (durata, tempo stimato, copertina, richiedente).",
+  description: "Mostra il prossimo brano in coda.",
   usage: ",next [up]",
   examples: [",next up", ",next"],
   async execute(message, args) {
@@ -34,7 +34,7 @@ module.exports = {
     if (raw !== "up") {
       const err = new EmbedBuilder()
         .setColor(0xff0000)
-        .setDescription("**Usa** `,next` **oppure** `,next up`.");
+        .setDescription("<a:VC_Attention:1482534443632558151> Usa **,next up**.");
       await safeMessageReply(
         message,
         applyDefaultFooterToEmbeds(
@@ -62,14 +62,14 @@ module.exports = {
       .setColor(0x6f4e37)
       .setTitle("Prossimo in coda 🎵")
       .addFields(
-        { name: "Traccia", value: data.trackFieldValue, inline: false },
+        { name: "Brano", value: data.trackFieldValue, inline: false },
         {
-          name: "Tempo stimato alla riproduzione",
+          name: "Tempo stimato prima della riproduzione",
           value: data.estimatedUntil,
           inline: true,
         },
-        { name: "Durata", value: data.length, inline: true },
-        { name: "Posizione in coda", value: String(data.positionInQueue), inline: false },
+        { name: "Durata del brano", value: data.length, inline: true },
+        { name: "Posizione nella coda", value: String(data.positionInQueue), inline: false },
       )
       .setTimestamp(Date.now());
     if (data.thumbnailUrl) embed.setThumbnail(data.thumbnailUrl);

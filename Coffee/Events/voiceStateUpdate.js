@@ -1,18 +1,6 @@
-const {
-  handleMusicBotVoiceDisconnect,
-  shouldDeferTtsLeaveForMusicEmptyVc,
-} = require("../Services/Music/lavalinkMusicService");
-const {
-  leaveTtsGuild,
-  handleTtsBotVoiceMove,
-  isTtsPostJoinVoiceGraceActive,
-} = require("../Services/TTS/ttsService");
-const {
-  finalizeStanzaVisitorVoiceSessionIfLeft,
-  handleStanzaVoiceLobbyJoin,
-  handleStanzaVoiceOccupied,
-  handleStanzaVoiceEmpty,
-} = require("../Services/Voice/stanzaVoiceRoomsService");
+const { handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc } = require("../Services/Music/lavalinkMusicService");
+const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../Services/TTS/ttsService");
+const { finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty } = require("../Services/Voice/stanzaVoiceRoomsService");
 
 module.exports = {
   name: "voiceStateUpdate",
@@ -95,7 +83,6 @@ module.exports = {
     const humans = botChannel.members.filter((m) => !m.user.bot);
     if (humans.size === 0) {
       if (shouldDeferTtsLeaveForMusicEmptyVc(client, guild.id)) {
-        /* Musica: uscita TTS dopo timer in lavalinkMusicService. */
       } else {
         await leaveTtsGuild(guild.id, client).catch((err) => {
           global.logger?.warn?.(

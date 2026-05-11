@@ -49,6 +49,12 @@ const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set(
     .map((id) => String(id)),
 );
 const WEEKLY_WINNERS_PUBLISH_INTRO_MARK = "Annunciamo i vincitori di questa settimana";
+/** Rimuovi dopo la pubblicazione settimanale successiva: nasconde classifica + annuncio minigame per queste ISO week keys. */
+const TEMP_SUPPRESS_MINIGAME_WEEK_KEYS = new Set(
+  ["2026-W19"]
+    .map((k) => String(k || "").trim())
+    .filter(Boolean),
+);
 
 function getRomeOffsetMs(utcDate) {
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, timeZoneName: "shortOffset", hour: "2-digit" });
@@ -112,8 +118,8 @@ function getLastSunday21BoundaryMsAtOrBefore(date = new Date()) {
   return createUtcFromRomeLocal(p.year, p.month, p.day - p.weekday, 21, 0, 0).getTime();
 }
 
-/** True se il membro risulta aver avuto un ruolo staff (stesso set delle esclusioni top weekly) in qualunque momento nella finestra attività settimanale (tra due boundary domenica 21:00 Roma), da `staff.rolesHistory`. */
-function wasStaffDuringWeeklyActivityWindow(staff, weekPeriodStartMs, weekPeriodEndMs, trackedStaffRoleIds) {
+/** True se il membro risulta aver avuto un ruolo staff (stesso set delle esclusioni top weekly) in qualunque momento nella finestra attività settimanale (tra due boundary domenica 21:00 Roma), da `staff.rolesHistory` + `staffRolesHistoryRetention` (dopo depex `staff` è unset). */
+function wasStaffDuringWeeklyActivityWindow(staff, weekPeriodStartMs, weekPeriodEndMs, trackedStaffRoleIds, staffRolesHistoryRetention) {
   const set =
     trackedStaffRoleIds instanceof Set
       ? trackedStaffRoleIds
@@ -125,8 +131,9 @@ function wasStaffDuringWeeklyActivityWindow(staff, weekPeriodStartMs, weekPeriod
     const id = String(roleId || "").trim();
     return Boolean(id && set.has(id));
   };
-  const history = Array.isArray(staff?.rolesHistory) ? [...staff.rolesHistory] : [];
-  history.sort((a, b) => new Date(a?.date || 0).getTime() - new Date(b?.date || 0).getTime());
+  const fromStaff = Array.isArray(staff?.rolesHistory) ? staff.rolesHistory : [];
+  const fromRetention = Array.isArray(staffRolesHistoryRetention) ? staffRolesHistoryRetention : [];
+  const history = [...fromStaff, ...fromRetention].sort((a, b) => new Date(a?.date || 0).getTime() - new Date(b?.date || 0).getTime());
   let roleAtPeriodStart = null;
   for (const row of history) {
     const t = new Date(row?.date || 0).getTime();
@@ -199,6 +206,13 @@ function getLastCompletedWeekKey(date = new Date()) {
   const daysToLastSunday = wd === "Sun" ? 0 : { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
   const lastSundayDate = new Date(date.getTime() - daysToLastSunday * 24 * 60 * 60 * 1000);
   return getWeekKey(lastSundayDate);
+}
+
+/** ISO week key allineata al periodo minigame chiuso al boundary domenica 21:00 e a `prevWeekKey` dopo reset (evita mismatch con getLastCompletedWeekKey). */
+function getMinigameRankWeekKeyForPublish(now = new Date()) {
+  const boundaryEnd = getLastSunday21BoundaryMsAtOrBefore(now);
+  const anchor = new Date(boundaryEnd - 2 * 60 * 60 * 1000);
+  return getWeekKey(anchor);
 }
 
 function getDateKeysForWeekKey(weekKey) {
@@ -660,6 +674,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
   let minigameRows = [];
   let awarded = { messageWinner: null, voiceWinner: null, minigameWinner: null };
   let minigameRankWeekKey = "";
+  let suppressMinigameThisWeek = false;
   if (!skipNormalWeekly) {
     const rowsSource =
       mode === "daily"
@@ -678,20 +693,23 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       const staffByUserId = new Map();
       if (mvIds.length) {
         const profs = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: mvIds } })
-          .select("userId staff.rolesHistory")
+          .select("userId staff.rolesHistory staffRolesHistoryRetention")
           .lean()
           .catch(() => []);
         for (const p of profs) {
-          staffByUserId.set(String(p.userId), p.staff);
+          staffByUserId.set(String(p.userId), { staff: p.staff, staffRolesHistoryRetention: p.staffRolesHistoryRetention });
         }
       }
-      const notStaffThatWeek = (uid) =>
-        !wasStaffDuringWeeklyActivityWindow(
-          staffByUserId.get(String(uid)),
+      const notStaffThatWeek = (uid) => {
+        const row = staffByUserId.get(String(uid)) || {};
+        return !wasStaffDuringWeeklyActivityWindow(
+          row.staff,
           weekPeriodStartMs,
           weekPeriodEndMs,
           WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+          row.staffRolesHistoryRetention,
         );
+      };
       messageDocs = messageDocs.filter((row) => notStaffThatWeek(row.userId));
       voiceDocs = voiceDocs.filter((row) => notStaffThatWeek(row.userId));
     }
@@ -707,46 +725,85 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       ? displayTopVoice.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "exp"))
       : [buildEmptyLine("exp vocale")];
     if (mode === "weekly") {
-      const weekPeriodEndMs = getLastSunday21BoundaryMsAtOrBefore(now);
-      const weekPeriodStartMs = weekPeriodEndMs - 7 * 24 * 60 * 60 * 1000;
-      minigameRankWeekKey = String(options.weekKey || getLastCompletedWeekKey(now) || "").trim();
-      const minigameDocsRaw = await ActivityUserProfile.find({
-        guildId: guild.id,
-        $or: [
-          {
-            "profile.totals.exp.minigame.weeklyKey": minigameRankWeekKey,
-            "profile.totals.exp.minigame.weeklyExp": { $gt: 0 },
-          },
-          {
-            "profile.totals.exp.minigame.prevWeekKey": minigameRankWeekKey,
+      const rankKeyForSuppress = String(options.weekKey || getMinigameRankWeekKeyForPublish(now) || "").trim();
+      suppressMinigameThisWeek = TEMP_SUPPRESS_MINIGAME_WEEK_KEYS.has(rankKeyForSuppress);
+      if (suppressMinigameThisWeek) {
+        minigameRankWeekKey = rankKeyForSuppress;
+        displayTopMinigame = [];
+        minigameRows = [];
+      } else {
+        const weekPeriodEndMs = getLastSunday21BoundaryMsAtOrBefore(now);
+        const weekPeriodStartMs = weekPeriodEndMs - 7 * 24 * 60 * 60 * 1000;
+        const fetchMinigameDocsByRankKey = async (weekKey) => {
+          const k = String(weekKey || "").trim();
+          if (!k) return [];
+          return ActivityUserProfile.find({
+            guildId: guild.id,
+            $or: [
+              {
+                "profile.totals.exp.minigame.weeklyKey": k,
+                "profile.totals.exp.minigame.weeklyExp": { $gt: 0 },
+              },
+              {
+                "profile.totals.exp.minigame.prevWeekKey": k,
+                "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 },
+              },
+            ],
+          })
+            .select("userId profile.totals.exp.minigame staff.rolesHistory staffRolesHistoryRetention")
+            .limit(800)
+            .lean()
+            .catch(() => []);
+        };
+        minigameRankWeekKey = String(options.weekKey || getMinigameRankWeekKeyForPublish(now) || "").trim();
+        let minigameDocsRaw = await fetchMinigameDocsByRankKey(minigameRankWeekKey);
+        const hasPositiveMinigameScore = (docs, key) =>
+          (Array.isArray(docs) ? docs : []).some((d) => effectiveMinigameWeeklyScoreForRankWeek(d, key) > 0);
+        if (!hasPositiveMinigameScore(minigameDocsRaw, minigameRankWeekKey)) {
+          const hint = await ActivityUserProfile.findOne({
+            guildId: guild.id,
             "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 },
-          },
-        ],
-      })
-        .select("userId profile.totals.exp.minigame staff.rolesHistory")
-        .limit(800)
-        .lean()
-        .catch(() => []);
-      minigameDocsRaw.sort(
-        (a, b) => effectiveMinigameWeeklyScoreForRankWeek(b, minigameRankWeekKey) - effectiveMinigameWeeklyScoreForRankWeek(a, minigameRankWeekKey),
-      );
-      const minigameDocs = minigameDocsRaw
-        .slice(0, 450)
-        .filter(
-          (d) =>
-            !wasStaffDuringWeeklyActivityWindow(d?.staff, weekPeriodStartMs, weekPeriodEndMs, WEEKLY_WINNERS_EXCLUDED_ROLE_IDS),
+          })
+            .sort({ "profile.totals.exp.minigame.prevWeekExp": -1 })
+            .select("profile.totals.exp.minigame.prevWeekKey")
+            .lean()
+            .catch(() => null);
+          const alt = String(hint?.profile?.totals?.exp?.minigame?.prevWeekKey || "").trim();
+          if (alt) {
+            const altDocs = await fetchMinigameDocsByRankKey(alt);
+            if (hasPositiveMinigameScore(altDocs, alt)) {
+              minigameRankWeekKey = alt;
+              minigameDocsRaw = altDocs;
+            }
+          }
+        }
+        minigameDocsRaw.sort(
+          (a, b) => effectiveMinigameWeeklyScoreForRankWeek(b, minigameRankWeekKey) - effectiveMinigameWeeklyScoreForRankWeek(a, minigameRankWeekKey),
         );
-      const mgScore = (doc) => effectiveMinigameWeeklyScoreForRankWeek(doc, minigameRankWeekKey);
-      const topMinigame = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 10);
-      displayTopMinigame = uniqueRankingByUserId(topMinigame, 3);
-      const rawPool = minigameDocsRaw.slice(0, 450);
-      if (!displayTopMinigame.length && rawPool.some((d) => mgScore(d) > 0)) {
-        const forced = await resolveMinigameTopForced(client, guild, rawPool, mgScore, 10);
-        displayTopMinigame = uniqueRankingByUserId(forced, 3);
+        const minigameDocs = minigameDocsRaw
+          .slice(0, 450)
+          .filter(
+            (d) =>
+              !wasStaffDuringWeeklyActivityWindow(
+                d?.staff,
+                weekPeriodStartMs,
+                weekPeriodEndMs,
+                WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+                d?.staffRolesHistoryRetention,
+              ),
+          );
+        const mgScore = (doc) => effectiveMinigameWeeklyScoreForRankWeek(doc, minigameRankWeekKey);
+        const topMinigame = await resolveTopThreeUsers(client, guild, minigameDocs, mgScore, 10);
+        displayTopMinigame = uniqueRankingByUserId(topMinigame, 3);
+        const rawPool = minigameDocsRaw.slice(0, 450);
+        if (!displayTopMinigame.length && rawPool.some((d) => mgScore(d) > 0)) {
+          const forced = await resolveMinigameTopForced(client, guild, rawPool, mgScore, 10);
+          displayTopMinigame = uniqueRankingByUserId(forced, 3);
+        }
+        minigameRows = displayTopMinigame.length
+          ? displayTopMinigame.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "pt minigame"))
+          : [buildEmptyLine("minigames")];
       }
-      minigameRows = displayTopMinigame.length
-        ? displayTopMinigame.map((item, index) => formatRankLine(index, `<@${item.userId}>`, item.value, "pt minigame"))
-        : [buildEmptyLine("minigames")];
     }
     if (options.skipWeeklyRoles) {
       const chosenUserIds = new Set();
@@ -755,14 +812,16 @@ async function publishWeeklyActivityWinners(client, options = {}) {
       const voiceWinner = pickFirstAvailable(displayTopVoice, chosenUserIds);
       if (voiceWinner) chosenUserIds.add(voiceWinner.userId);
       const minigameWinner =
-        mode === "weekly" && displayTopMinigame.length ? pickFirstAvailable(displayTopMinigame, chosenUserIds) : null;
+        mode === "weekly" && !suppressMinigameThisWeek && displayTopMinigame.length
+          ? pickFirstAvailable(displayTopMinigame, chosenUserIds)
+          : null;
       awarded = { messageWinner, voiceWinner, minigameWinner };
     } else {
       awarded = await updateWeeklyWinnerRoles(
         guild,
         displayTopMessages,
         displayTopVoice,
-        mode === "weekly" ? displayTopMinigame : false,
+        mode === "weekly" ? (suppressMinigameThisWeek ? false : displayTopMinigame) : false,
       );
     }
   }
@@ -776,7 +835,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
     ...voiceRows,
   ];
-  if (mode === "weekly" && minigameRows.length) {
+  if (mode === "weekly" && !suppressMinigameThisWeek && minigameRows.length) {
     embedDescLines.push("", `<a:VC_Events:1482706144953897223> • **Classifica minigames:**`, ...minigameRows);
   }
   const embed = new EmbedBuilder()
@@ -806,7 +865,7 @@ async function publishWeeklyActivityWinners(client, options = {}) {
     ? "<a:VC_Winner:1482535294757507255> Ciao a tutti! Ecco la Top 3 utenti più attivi di oggi."
     : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
   const minigameAnnounceLine =
-    mode === "weekly" && MINIGAME_WINNER_ROLE_ID
+    mode === "weekly" && MINIGAME_WINNER_ROLE_ID && !suppressMinigameThisWeek
       ? `\n<a:VC_Arrow:1482706699365257397> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo <@&${MINIGAME_WINNER_ROLE_ID}>.`
       : "";
   const payload = {
@@ -825,6 +884,7 @@ _ _`,
         mode,
         guildId: guild?.id || null,
         minigameRankWeekKey: minigameRankWeekKey || null,
+        suppressMinigameThisWeek,
         skipDiscordSends: Boolean(options.skipDiscordSends),
         skipWeeklyRoles: Boolean(options.skipWeeklyRoles),
         awarded,
@@ -1286,37 +1346,6 @@ async function resetWeeklyActivityCounters(client, options = {}) {
   );
 }
 
-async function refreshLatestWeeklyWinnersPostForCurrentWeek(client) {
-  if (!client?.user?.id) return;
-  const channel =
-    client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
-  if (!channel?.messages?.fetch) return;
-  const boundaryMs = getLastSunday21BoundaryMsAtOrBefore(new Date());
-  const fetched = await channel.messages.fetch({ limit: 40 }).catch(() => null);
-  if (!fetched?.size) return;
-  const botId = String(client.user.id);
-  const candidates = [];
-  for (const msg of fetched.values()) {
-    if (Number(msg?.createdTimestamp || 0) < boundaryMs) continue;
-    if (String(msg?.author?.id || "") !== botId) continue;
-    if (!String(msg?.content || "").includes(WEEKLY_WINNERS_PUBLISH_INTRO_MARK)) continue;
-    candidates.push(msg);
-  }
-  if (!candidates.length) return;
-  candidates.sort((a, b) => Number(b.createdTimestamp || 0) - Number(a.createdTimestamp || 0));
-  const target = candidates[0];
-  try {
-    await publishWeeklyActivityWinners(client, {
-      editMessage: target,
-      skipWeeklyRoles: true,
-      mode: "weekly",
-    });
-    global.logger?.info?.("[WEEKLY ACTIVITY] Post top weekly aggiornato (classifiche coerenti con le regole attuali).");
-  } catch (err) {
-    global.logger?.error?.("[WEEKLY ACTIVITY] Aggiornamento post top weekly fallito:", err);
-  }
-}
-
 let weeklyActivityWinnersLoopStarted = false;
 function startWeeklyActivityWinnersLoop(client) {
   if (weeklyActivityWinnersLoopStarted) return;
@@ -1361,62 +1390,6 @@ function startWeeklyActivityWinnersLoop(client) {
     },
     { timezone: TIME_ZONE },
   );
-  const wasWeeklyPostAlreadyPublishedAfterBoundary = async (channel, boundaryMs) => {
-    if (!channel?.messages?.fetch || !client?.user?.id || !Number.isFinite(boundaryMs)) return false;
-    const fetched = await channel.messages.fetch({ limit: 50 }).catch(() => null);
-    if (!fetched?.size) return false;
-    for (const msg of fetched.values()) {
-      if (Number(msg?.createdTimestamp || 0) < boundaryMs) continue;
-      if (String(msg?.author?.id || "") !== String(client.user.id)) continue;
-      const content = String(msg?.content || "");
-      if (!content.includes(WEEKLY_WINNERS_PUBLISH_INTRO_MARK)) continue;
-      return true;
-    }
-    return false;
-  };
-  const runRecoveryIfNeeded = async () => {
-    const now = new Date();
-    const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
-    const gid = channel?.guild?.id;
-    if (!gid) {
-      global.logger?.warn?.(
-        "[WEEKLY ACTIVITY] Recovery skipped: canale top weekly non risolto al boot.",
-        String(TARGET_CHANNEL_ID || ""),
-      );
-      return;
-    }
-    const lastSunday21BoundaryMs = getLastSunday21BoundaryMsAtOrBefore(now);
-    const alreadyPublished = await wasWeeklyPostAlreadyPublishedAfterBoundary(channel, lastSunday21BoundaryMs);
-    if (alreadyPublished) return;
-    const currentWeekKey = getWeekKey(now);
-    const previousWeekKey = getLastCompletedWeekKey(now);
-    try {
-      global.logger.info("[WEEKLY ACTIVITY] Recovery: running missed weekly winners (bot was likely offline Sunday 21:00).");
-      /* Di domenica ISO `previousWeekKey` coincide con `currentWeekKey` (ultima domenica = “oggi”):
-       * il vecchio `return` bloccava per sempre la recovery dopo il 21:00 domenica mancato. */
-      if (previousWeekKey !== currentWeekKey) {
-        await publishWeeklyActivityWinners(client, { weekKey: previousWeekKey });
-        await resetWeeklyActivityCounters(client, { nextWeekKey: currentWeekKey });
-      } else {
-        await publishWeeklyActivityWinners(client);
-        await resetWeeklyActivityCounters(client);
-      }
-    } catch (error) {
-      global.logger.error("[WEEKLY ACTIVITY] Recovery run failed:", error);
-    }
-  };
-  /* Nessuna recovery mensile al boot: con canale senza storico o testo intro diverso,
-   * scambiava per “mancato” il post e lanciava publishMonthlyActivityWinners subito al riavvio.
-   * Il cron `0 21 1 * *` basta; se serve un mese perso: publishMonthlyActivityWinners(client) a mano. */
-  setTimeout(() => {
-    runRecoveryIfNeeded()
-      .catch((err) => global.logger?.error?.("[WEEKLY ACTIVITY] Recovery on start failed:", err))
-      .finally(() => {
-        refreshLatestWeeklyWinnersPostForCurrentWeek(client).catch((err) =>
-          global.logger?.error?.("[WEEKLY ACTIVITY] Weekly post refresh on start failed:", err),
-        );
-      });
-  }, 15_000);
   setTimeout(async () => {
     try {
       const mainGuildId = String(IDs.guilds?.main || "");
@@ -1437,7 +1410,6 @@ module.exports = {
   publishWeeklyActivityWinners,
   publishMonthlyActivityWinners,
   resetWeeklyActivityCounters,
-  refreshLatestWeeklyWinnersPostForCurrentWeek,
   getLastCompletedWeekKey,
   getDateKeysForWeekKey,
   getWeekKey,

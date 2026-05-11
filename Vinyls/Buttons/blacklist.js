@@ -1,19 +1,9 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } = require("discord.js");
-const {
-  normalizeGuildId,
-  addPartnershipBlacklistGuild,
-  removePartnershipBlacklistGuild,
-  listPartnershipBlacklistGuilds,
-} = require("../Services/Partner/partnershipBlacklistService");
+const { normalizeGuildId, addPartnershipBlacklistGuild, removePartnershipBlacklistGuild, listPartnershipBlacklistGuilds } = require("../Services/Partner/partnershipBlacklistService");
 const blacklistCommand = require("../Prefix/Staff/blacklist");
-const {
-  partnersChatPartnerCommandDeniedReplyContent,
-  schedulePartnersDeniedDeleteReply,
-} = require("../Utils/Partner/partnersChatChannelUtils");
-
+const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../Utils/Partner/partnersChatChannelUtils");
 const PREFIX = "blacklist_ui";
 const MODAL_PREFIX = "blacklist_ui_modal";
-const PRIVATE_FLAG = 1 << 6;
 
 function parseCustomId(customId) {
   const parts = String(customId || "").split(":");
@@ -52,8 +42,8 @@ async function refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId
 async function ensureOwnerAndRole(interaction, ownerId, mode = "view") {
   if (String(interaction.user?.id || "") !== String(ownerId)) {
     await interaction.reply({
-      content: "<:vegax:1443934876440068179> Questo pannello non è tuo.",
-      flags: PRIVATE_FLAG,
+      content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo.",
+      flags: 1 << 6,
     }).catch(() => {});
     return false;
   }
@@ -63,8 +53,8 @@ async function ensureOwnerAndRole(interaction, ownerId, mode = "view") {
       : blacklistCommand.hasBlacklistViewRole(interaction.member);
   if (!allowed) {
     await interaction.reply({
-      content: "<:vegax:1443934876440068179> Non hai i ruoli necessari.",
-      flags: PRIVATE_FLAG,
+      content: "<a:VC_Alert:1482706673176150077> Non hai i ruoli necessari.",
+      flags: 1 << 6,
     }).catch(() => {});
     return false;
   }
@@ -74,13 +64,13 @@ async function ensureOwnerAndRole(interaction, ownerId, mode = "view") {
 function buildListEmbed(rows) {
   if (!rows.length) {
     return new EmbedBuilder()
-      .setColor("#57f287")
-      .setDescription("Nessun server in blacklist partnership.");
+      .setColor("#3498db")
+      .setDescription("<a:VC_Cross:1482532424570376253> Nessun server in blacklist partnership.");
   }
   const lines = rows.map((r) => `\`${r.guildId}\`${r.note ? ` — ${String(r.note).slice(0, 80)}` : ""}`);
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("Server in blacklist partnership")
+    .setTitle("<a:VC_Verified:1482532479637127188> Server in blacklist partnership")
     .setDescription(lines.join("\n").slice(0, 3900));
 }
 
@@ -123,15 +113,15 @@ async function execute(interaction) {
         .setTitle(action === "add" ? "Aggiungi blacklist" : "Rimuovi blacklist");
       const idInput = new TextInputBuilder()
         .setCustomId("guild_id")
-        .setLabel("Guild ID (17-20 cifre)")
+        .setLabel("Guild ID")
         .setPlaceholder("1329080093599076474")
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
       const noteInput = new TextInputBuilder()
         .setCustomId("note")
-        .setLabel("Nota (opzionale)")
+        .setLabel("Nota")
         .setPlaceholder("Motivo blacklist...")
-        .setRequired(false)
+        .setRequired(true)
         .setStyle(TextInputStyle.Short);
       modal.addComponents(
         new ActionRowBuilder().addComponents(idInput),
@@ -151,7 +141,7 @@ async function execute(interaction) {
     const gid = normalizeGuildId(interaction.fields.getTextInputValue("guild_id"));
     if (!gid) {
       await interaction.reply({
-        content: "<:vegax:1443934876440068179> Guild ID non valido.",
+        content: "<a:VC_Alert:1482706673176150077> Guild ID non valido.",
         flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
@@ -162,14 +152,14 @@ async function execute(interaction) {
       const r = await addPartnershipBlacklistGuild(gid, interaction.user.id, note).catch(() => ({ ok: false, reason: "db_error" }));
       if (!r.ok) {
         await interaction.reply({
-          content: `<:vegax:1443934876440068179> Errore: ${r.reason || "sconosciuto"}`,
+          content: `<a:VC_Alert:1482706673176150077> Errore: ${r.reason || "sconosciuto"}`,
           flags: PRIVATE_FLAG,
         }).catch(() => {});
         return true;
       }
       await refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId);
       await interaction.reply({
-        content: `<:success:1461731530333229226> Server \`${gid}\` aggiunto alla blacklist partnership.`,
+        content: `<a:VC_Verified:1482532479637127188> Server \`${gid}\` aggiunto alla blacklist partnership.`,
         flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
@@ -178,14 +168,13 @@ async function execute(interaction) {
     if (action === "remove") {
       const r = await removePartnershipBlacklistGuild(gid).catch(() => ({ deleted: false }));
       const content = r.deleted
-        ? `<:success:1461731530333229226> Server \`${gid}\` rimosso dalla blacklist.`
-        : `Nessuna entry per \`${gid}\` (già assente o ID errato).`;
+        ? `<a:VC_Verified:1482532479637127188> Server \`${gid}\` rimosso dalla blacklist.`
+        : `<a:VC_Cross:1482532424570376253> Nessun server trovato per \`${gid}\`.`;
       if (r.deleted) await refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId);
       await interaction.reply({ content, flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
   }
-
   return false;
 }
 

@@ -3,7 +3,6 @@ const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { TTS_LANGUAGE_OPTIONS } = require("../../Services/TTS/ttsLanguages");
 const { getUserTtsLang, hydrateUserTtsLangForUser } = require("../../Services/TTS/ttsService");
 const { userAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
-
 const DISPLAY_LANGUAGE_CODES=["af","am","ar","az","be","bg","bn","bs","ca","ceb","co","cs","cy","da","de","el","en","en-gb","eo","es","es-mx","et","eu","fa","fi","fil","fr-ca","ga","gd","gl","gu","haw","he","hi","hr","hu","hy","id","ig","is","it","ja","jw","ka","kk","km","kn","ko","ku","ky","la","lb","lo","lt","lv","mg","mk","ml","mn","mr","ms","mt","my","ne","nl","no","pa","pl","ps","pt","pt-br","ro","ru","sd","si","sk","sl","sm","sn","so","sq","sr","st","su","sv","sw","ta","te","tg","th","tr","uk","ur","uz","vi","xh","yo","zh","zh-tw","zu",];
 
 module.exports = {
@@ -26,9 +25,9 @@ module.exports = {
         name: message.author?.username || "Utente",
         iconURL: userAvatarUrlDynamic(message.author) || undefined,
       })
-      .setTitle("TTS Bot Voices | Mode: `gTTS`")
+      .setTitle("Voices TTS 🎤")
       .setDescription(
-        ["**Currently supported voices**", chunks.join("\n"), "", "**Current voice used**", `\`${current}\``].join("\n"),
+        ["**Voci supportate**", chunks.join("\n"), "", "**Voce attualmente in uso**", `\`${current}\``].join("\n"),
       );
 
     await safeMessageReply(message, { embeds: [embed] });

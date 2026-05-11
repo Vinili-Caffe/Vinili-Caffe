@@ -3,20 +3,9 @@ const fs = require("fs");
 const { EmbedBuilder, AttachmentBuilder } = require("discord.js");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const IDs = require("../Utils/Config/ids");
-const {
-  buildPronounsRow,
-  buildAgeRow,
-  buildRegionRow,
-  buildZodiacRow,
-  buildRelationshipRow,
-  buildDmRow,
-  buildMentionsRow,
-  buildColors1Row,
-  buildColorsPlusRow,
-} = require("../Utils/Community/ruoliColoriPanelComponents");
+const { buildPronounsRow, buildAgeRow, buildRegionRow, buildZodiacRow, buildRelationshipRow, buildDmRow, buildMentionsRow, buildColors1Row, buildColorsPlusRow } = require("../Utils/Community/ruoliColoriPanelComponents");
 const { getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { upsertPanelMessage } = require("../../shared/discord/panelUpsertRuntime");
-
 const CHANNEL_ID = IDs.channels.ruoliColori;
 const IMAGE_NAME = "personalità.gif";
 const IMAGE_PATH = path.join(__dirname, "..", "Photos", IMAGE_NAME);

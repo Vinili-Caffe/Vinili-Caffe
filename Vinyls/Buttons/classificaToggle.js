@@ -1,8 +1,4 @@
-const {
-  CLASSIFICA_TOGGLE_PREFIX,
-  CLASSIFICA_CLOSE_PREFIX,
-  buildClassificaPayload,
-} = require("../Prefix/Level/classifica");
+const { CLASSIFICA_TOGGLE_PREFIX, CLASSIFICA_CLOSE_PREFIX, buildClassificaPayload } = require("../Prefix/Level/classifica");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -39,7 +35,7 @@ async function execute(interaction) {
     const parsedClose = parseCloseCustomId(id);
     if (parsedClose?.ownerId && String(interaction.user.id) !== String(parsedClose.ownerId)) {
       await interaction.reply({
-        content: "<:vegax:1443934876440068179> Solo chi ha aperto la classifica può chiuderla.",
+        content: "<a:VC_Alert:1482706673176150077> Solo chi ha aperto la classifica può chiuderla.",
         flags: 1 << 6,
       }).catch(() => {});
       return true;
@@ -67,9 +63,7 @@ async function execute(interaction) {
   if (interaction.deferred || interaction.replied) {
     await interaction.editReply(payload).catch(() => interaction.followUp(payload).catch(() => { }));
   } else {
-    await interaction.update(payload).catch(async () => {
-      await interaction.reply(payload).catch(() => { });
-    });
+    await interaction.update(payload).catch(() => interaction.reply(payload).catch(() => { }));
   }
   return true;
 }

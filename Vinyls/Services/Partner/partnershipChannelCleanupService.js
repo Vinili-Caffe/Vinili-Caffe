@@ -30,7 +30,7 @@ function getRomeMidnightTodayUtc() {
 
 /**
  * A mezzanotte si devono eliminare i messaggi del bot *prima* di quella mezzanotte (giorno appena finito e precedenti).
- * La versione precedente teneva solo msg >= dayStartMs → subito dopo le 00:00 non c'era quasi nulla da cancellare.
+ * La versione precedente teneva solo msg >= dayStartMs → subito dopo le 00:00 non C'èra quasi nulla da cancellare.
  */
 async function runPartnershipChannelCleanup(client) {
   const channelId = IDs.channels?.partnersChat;

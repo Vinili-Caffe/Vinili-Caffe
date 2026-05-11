@@ -1,10 +1,9 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
-const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
+const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handlePruneAction: antiNukeHandlePruneAction } = require("../Services/Moderation/antiNukeService");
 const { resolveModLogChannel, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 const IDs = require("../Utils/Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../Utils/Pause/pauseHandlersUtils");
-
 const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
 
 function auditEntryChangeAddsRoleId(entry, roleId) {
@@ -53,31 +52,27 @@ module.exports = {
       const membersRemoved = Number.isFinite(rawMembersRemoved) ? Math.max(0, rawMembersRemoved) : 0;
       const deleteDays = Number.isFinite(rawDeleteDays) ? Math.max(0, rawDeleteDays) : 0;
       const extraLines = buildAuditExtraLines(entry, ["removed", "members_removed", "delete_member_days", "days"]);
-      const cleanedExtraLines=extraLines.filter((line,index) => !(index===0&&line==="")&&line!=="**Additional Information**",);
+      const cleanedExtraLines=extraLines.filter((line,index) => !(index===0&&line==="")&&line!=="**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",);
 
       if (logChannel?.isTextBased?.()) {
         const embed = new EmbedBuilder()
             .setColor("#ED4245")
-            .setTitle("Member Prune")
-            .setDescription([`${ARROW} **Responsible:** ${responsible}`,
-              `${ARROW} ${nowDiscordTs()}`,
-              entry.reason ? `${ARROW} **Reason:** ${entry.reason}` : null,
+            .setTitle("<:VC_User:1482527453586002103> Member Prune")
+            .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+              `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
+              entry.reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${entry.reason}` : null,
               "",
-              "**Additional Information**",
-              `${ARROW} **Count:** ${membersRemoved}`,
-              `${ARROW} **Days:** ${deleteDays}`,
-              ...(cleanedExtraLines.length ? ["", "**Audit Details**", ...cleanedExtraLines] : []),
+              "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+              `<:VC_Info:1482526956703580372> **Conteggio:** ${membersRemoved}`,
+              `<:VC_Info:1482526956703580372> **Giorni:** ${deleteDays}`,
+              ...(cleanedExtraLines.length ? ["", "**<:VC_tools:1478862265305272364> Dettagli audit**", ...cleanedExtraLines] : []),
             ]
               .filter(Boolean)
               .join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => null);
       }
-      await antiNukeHandlePruneAction({
-        guild,
-        executorId: String(entry?.executor?.id || ""),
-        removedCount: membersRemoved,
-      });
+      await antiNukeHandlePruneAction({ guild: guild, executorId: String(entry?.executor?.id || ""), removedCount: membersRemoved });
     } catch (error) {
       global.logger?.error?.("[guildAuditLogEntryCreate] failed:", error);
     }

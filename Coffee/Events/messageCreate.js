@@ -3,7 +3,6 @@ const { handleTtsMessage } = require("../Services/TTS/ttsService");
 const { recordReminderActivity } = require("../Services/Community/chatReminderService");
 const { handleStanzaPanelPromptMessageCreate } = require("../Services/Voice/stanzaVoiceRoomsService");
 const IDs = require("../Utils/Config/ids");
-
 const REMINDER_CHANNEL_ID = IDs.channels?.chat || null;
 
 module.exports = {

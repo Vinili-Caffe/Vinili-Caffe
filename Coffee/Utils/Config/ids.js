@@ -1,12 +1,7 @@
 const path = require("path");
 const configPath = path.join(__dirname, "..", "..", "config.json");
 let config = {};
-try {
-  config = require(configPath);
-} catch (err) {
-  global.logger?.warn?.("[ids] config load:", err?.message || err);
-}
-
+try { config = require(configPath); } catch (err) { global.logger?.warn?.("[ids] config load:", err?.message || err); }
 const MAIN_GUILD_ID = config.mainGuildId || process.env.MAIN_GUILD_ID || "1329080093599076474";
 const GUILD_TEST_ID = "1462458562507964584";
 const ch = config.channels || {};
@@ -57,7 +52,6 @@ const IDs = {
     HighStaff: (config.roles && config.roles.HighStaff) || "1442568894349840435",
     Founder: (config.roles && config.roles.Founder) || "1442568886988963923",
   },
-  /** Categorie (ID) in cui non cercare stanze (es. vocali private custom). Vedi `stanzaDiscoveryExcludeParentIds` in config.json */
   stanzaDiscoveryExcludeParentIds,
 };
 

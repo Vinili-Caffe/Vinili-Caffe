@@ -35,9 +35,4 @@ function buildInternalCommandErrorEmbed(rawError) {
   );
 }
 
-module.exports = {
-  buildCooldownErrorEmbed,
-  buildBusyCommandErrorEmbed,
-  buildMissingArgumentsErrorEmbed,
-  buildInternalCommandErrorEmbed,
-};
+module.exports = { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed };

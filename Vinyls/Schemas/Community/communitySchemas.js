@@ -498,6 +498,8 @@ const activityUserProfileSchema = new Schema(
       },
     },
     staff: { type: staffEmbeddedSchema },
+    /** Append-only: `staff.rolesHistory` viene fuso qui prima di `$unset staff` al depex, per regole (es. top weekly) che devono vedere lo storico ruoli. */
+    staffRolesHistoryRetention: { type: [staffRolesHistoryEntrySchema], default: [] },
     /** Dopo leave con ruolo staff/PM: fino a questa data `staff` resta nel DB; poi purge automatico se non rippexato. */
     staffPendingPurgeAt: { type: Date, default: null },
   },

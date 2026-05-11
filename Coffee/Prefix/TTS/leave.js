@@ -20,7 +20,7 @@ module.exports = {
       if (ownerInBotChannel) {
         const denied = new EmbedBuilder()
           .setColor("#ED4245")
-          .setDescription(`Solo chi ha avviato la sessione può usare \`,leave\` finché è in vocale: <@${ownerId}>.`);
+          .setDescription(`<a:VC_Attention:1482534443632558151> Solo chi ha avviato la sessione può usare \`,leave\` finché è in vocale: <@${ownerId}>.`);
         return safeMessageReply(message, { embeds: [denied], allowedMentions: { users: [] } });
       }
     }
@@ -43,13 +43,13 @@ module.exports = {
     if (!ttsResult.ok && ttsResult.reason === "not_connected" && !wasInVoice) {
       const notConnectedEmbed = new EmbedBuilder()
       .setColor("#ED4245")
-      .setDescription("Il bot non è connesso a nessun canale vocale.");
+      .setDescription("<a:VC_Cross:1482532424570376253> Il bot non è connesso a nessun canale vocale.");
       return safeMessageReply(message, { embeds: [notConnectedEmbed] });
     }
 
     const okEmbed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setDescription("Grazie per aver usato il servizio.");
+    .setDescription("👋 Grazie per aver usato il servizio.");
     return safeMessageReply(message, { embeds: [okEmbed] });
   },
 };

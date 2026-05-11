@@ -484,7 +484,7 @@ function normalizeManagerLine(text, managerId) {
     .replace(/\n*Partner effettuata con\s*\*\*<@!?\d+>\*\*\s*$/gi, "")
     .trim();
   const partnershipRoleId = String(IDs.roles?.Partnership || "").trim();
-  const pingLine = partnershipRoleId ? `\n\nping: <@&${partnershipRoleId}>` : "";
+  const pingLine = partnershipRoleId ? `\n\nPing: <@&${partnershipRoleId}>` : "";
   return `${content}\n\n<:VC_Mention:1482526855289634997> Manager: <@${managerId}>${pingLine}`;
 }
 

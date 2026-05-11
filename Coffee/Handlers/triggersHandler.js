@@ -20,7 +20,7 @@ module.exports = (client) => {
         delete require.cache[require.resolve(triggerPath)];
         const trigger = require(triggerPath);
         if (!trigger?.name || typeof trigger.execute !== "function") {
-          statusMap.set(rel, "Skipped (not trigger)");
+          statusMap.set(rel, "Skipped.");
           continue;
         }
 
@@ -30,7 +30,7 @@ module.exports = (client) => {
         if (trigger.once) {
           if (eventName === READY_EVENT_ALIAS && client.isReady()) {
             Promise.resolve(handler(client)).catch((err) => {
-              global.logger.error(`[TRIGGERS] Failed to run ${rel} on hot-reload:`, err);
+              global.logger.error(`[TRIGGERS] Failed to run ${rel} on hot-reload.`, err);
             });
           } else {
             client.once(eventName, handler);
@@ -40,10 +40,10 @@ module.exports = (client) => {
         }
 
         trackBoundHandler(client, "_triggerHandlers", eventName, handler);
-        statusMap.set(rel, eventName === trigger.name ? "Loaded" : `Loaded as ${eventName}`);
+        statusMap.set(rel, eventName === trigger.name ? "Loaded." : `Loaded as ${eventName}.`);
         loaded += 1;
       } catch (err) {
-        statusMap.set(rel, "Error loading");
+        statusMap.set(rel, "Error loading.");
         global.logger.error(`[TRIGGERS] Failed to load ${rel}:`, err);
       }
     }

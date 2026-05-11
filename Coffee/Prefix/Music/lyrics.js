@@ -1,19 +1,8 @@
 const crypto = require("crypto");
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ComponentType,
-} = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime");
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
-const {
-  resolveGuildLyrics,
-  registerLyricsSession,
-  deleteLyricsSession,
-  getLyricsSession,
-} = require("../../Services/Music/lyricsService");
+const { resolveGuildLyrics, registerLyricsSession, deleteLyricsSession, getLyricsSession } = require("../../Services/Music/lyricsService");
 
 function buildLyricsEmbed(title, pageText, pageIdx, total) {
   const footer = `\n\n**Pagina ${pageIdx + 1}/${total}**`;
@@ -28,12 +17,12 @@ function buildRows(sessionKey, pageIdx, total) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`vcly:${sessionKey}:prev`)
-      .setLabel("◀")
+      .setEmoji("<:VC_page5:1482459835042762752>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(pageIdx <= 0),
     new ButtonBuilder()
       .setCustomId(`vcly:${sessionKey}:next`)
-      .setLabel("▶")
+      .setEmoji("<:VC_page4:1482459791975645226>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(pageIdx >= total - 1),
   );
@@ -42,8 +31,7 @@ function buildRows(sessionKey, pageIdx, total) {
 module.exports = {
   name: "lyrics",
   allowEmptyArgs: true,
-  description:
-    "Mostra i testi del brano in riproduzione (senza argomenti) o di una ricerca LRCLIB, con pagine e pulsanti.",
+  description: "Mostra i testi del brano in riproduzione o di un brano ricercato.",
   usage: ",lyrics [ricerca]",
   examples: [",lyrics", ",lyrics 16 marzo achille lauro"],
   async execute(message, args) {
@@ -66,7 +54,7 @@ module.exports = {
     if (!Array.isArray(pages) || !pages.length) {
       const err = new EmbedBuilder()
         .setColor(0xff0000)
-        .setDescription("**Nessun testo da mostrare.**");
+        .setDescription("<a:VC_Cross:1482532424570376253> Nessun testo da mostrare.");
       await safeMessageReply(
         message,
         applyDefaultFooterToEmbeds(
@@ -113,7 +101,7 @@ module.exports = {
         return;
       }
       if (i.user.id !== st.authorId) {
-        await i.reply({ content: "Solo chi ha usato il comando può cambiare pagina.", ephemeral: true }).catch(
+        await i.reply({ content: "<a:VC_Attention:1482534443632558151> Solo chi ha usato il comando può cambiare pagina.", ephemeral: true }).catch(
           () => null,
         );
         return;

@@ -23,14 +23,7 @@ function setCachedValue(cacheKey, value, ttlMs = DEFAULT_TTL_MS, promise = null)
   return value || null;
 }
 
-async function getOrFetchEntity({
-  kind,
-  parentId,
-  entityId,
-  resolveFromCache,
-  fetchEntity,
-  ttlMs = DEFAULT_TTL_MS,
-}) {
+async function getOrFetchEntity({ kind, parentId, entityId, resolveFromCache, fetchEntity, ttlMs = DEFAULT_TTL_MS }) {
   if (!entityId) return null;
   const warm = resolveFromCache?.();
   if (warm) return warm;
@@ -47,57 +40,23 @@ async function getOrFetchEntity({
 
 async function getClientChannelCached(client, channelId, options = {}) {
   if (!client || !channelId) return null;
-  return getOrFetchEntity({
-    kind: "channel",
-    parentId: client.user?.id || "client",
-    entityId: channelId,
-    ttlMs: options.ttlMs,
-    resolveFromCache: () => client.channels?.cache?.get(String(channelId)) || null,
-    fetchEntity: () => client.channels.fetch(String(channelId)),
-  });
+  return getOrFetchEntity({ kind: "channel", parentId: client.user?.id || "client", entityId: channelId, ttlMs: options.ttlMs, resolveFromCache: () => client.channels?.cache?.get(String(channelId)) || null, fetchEntity: () => client.channels.fetch(String(channelId)) });
 }
 
 async function getClientGuildCached(client, guildId, options = {}) {
   if (!client || !guildId) return null;
-  return getOrFetchEntity({
-    kind: "guild",
-    parentId: client.user?.id || "client",
-    entityId: guildId,
-    ttlMs: options.ttlMs,
-    resolveFromCache: () => client.guilds?.cache?.get(String(guildId)) || null,
-    fetchEntity: () => client.guilds.fetch(String(guildId)),
-  });
+  return getOrFetchEntity({ kind: "guild", parentId: client.user?.id || "client", entityId: guildId, ttlMs: options.ttlMs, resolveFromCache: () => client.guilds?.cache?.get(String(guildId)) || null, fetchEntity: () => client.guilds.fetch(String(guildId)) });
 }
 
 async function getGuildChannelCached(guild, channelId, options = {}) {
   if (!guild || !channelId) return null;
-  return getOrFetchEntity({
-    kind: "channel",
-    parentId: guild.id,
-    entityId: channelId,
-    ttlMs: options.ttlMs,
-    resolveFromCache: () => guild.channels?.cache?.get(String(channelId)) || null,
-    fetchEntity: () => guild.channels.fetch(String(channelId)),
-  });
+  return getOrFetchEntity({ kind: "channel", parentId: guild.id, entityId: channelId, ttlMs: options.ttlMs, resolveFromCache: () => guild.channels?.cache?.get(String(channelId)) || null, fetchEntity: () => guild.channels.fetch(String(channelId)) });
 }
 
 async function getGuildMemberCached(guild, userId, options = {}) {
   if (!guild || !userId) return null;
   const preferFresh = Boolean(options.preferFresh);
-  return getOrFetchEntity({
-    kind: "member",
-    parentId: guild.id,
-    entityId: userId,
-    ttlMs: options.ttlMs,
-    resolveFromCache: () =>
-      preferFresh ? null : guild.members?.cache?.get(String(userId)) || null,
-    fetchEntity: () => guild.members.fetch(String(userId)),
-  });
+  return getOrFetchEntity({ kind: "member", parentId: guild.id, entityId: userId, ttlMs: options.ttlMs, resolveFromCache: () => preferFresh ? null : guild.members?.cache?.get(String(userId)) || null, fetchEntity: () => guild.members.fetch(String(userId)) });
 }
 
-module.exports = {
-  getClientChannelCached,
-  getClientGuildCached,
-  getGuildChannelCached,
-  getGuildMemberCached,
-};
+module.exports = { getClientChannelCached, getClientGuildCached, getGuildChannelCached, getGuildMemberCached };

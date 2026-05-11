@@ -45,11 +45,4 @@ function formatTtsLanguageLine(item) {
   return `${item.name} - \`${item.code}\` (\`${item.locale}\`)`;
 }
 
-module.exports = {
-  TTS_LANGUAGE_MAP,
-  TTS_LANGUAGE_CODES,
-  TTS_LANGUAGE_LOCALES,
-  TTS_LANGUAGE_OPTIONS,
-  normalizeTtsLanguageInput,
-  formatTtsLanguageLine,
-};
+module.exports = { TTS_LANGUAGE_MAP, TTS_LANGUAGE_CODES, TTS_LANGUAGE_LOCALES, TTS_LANGUAGE_OPTIONS, normalizeTtsLanguageInput, formatTtsLanguageLine };

@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PERMISSIONS_CANDIDATES=[path.resolve(__dirname,"../permissions.json"),path.join(process.cwd(),"permissions.json"),];
-const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff"]);
+const REMOVED_PREFIX_COMMANDS = new Set(["colors", "staff", "verify"]);
 let prefixPermissionsCache = { filePath: null, mtimeMs: 0, data: {} };
 
 function loadPrefixPermissions() {
@@ -158,11 +158,9 @@ module.exports = (client) => {
             continue;
           }
           if (REMOVED_PREFIX_COMMANDS.has(String(command.name || "").trim().toLowerCase())) {
-            statusMap.set(key, "Removed");
             continue;
           }
           if (command.skipLoad || command.skipPrefix) {
-            statusMap.set(key, "Skipped");
             continue;
           }
           command.folder = command.folder || folder;

@@ -180,7 +180,7 @@ async function buildStatusEmbeds(guild) {
 
   const raidWarnedRoleIds=Array.isArray(raid?.config?.warnedRoleIds)?raid.config.warnedRoleIds.filter(Boolean):[];
   const raidWarnedRoles=raidWarnedRoleIds.length?raidWarnedRoleIds.map((id) => `<@&${id}>`).join(", ")
-    : "❌";
+    : "<a:VC_Cross:1482532424570376253>";
   const idFlag = raid?.config?.idFlag || {};
   const ageFlag = raid?.config?.ageFlag || {};
   const noPfpFlag = raid?.config?.noPfpFlag || {};

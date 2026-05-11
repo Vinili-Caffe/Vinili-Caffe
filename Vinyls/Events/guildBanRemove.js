@@ -1,5 +1,5 @@
 const { AuditLogEvent, EmbedBuilder } = require("discord.js");
-const { ARROW, buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
+const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../Utils/Logging/modAuditLogUtils");
 
 function sleep(ms) {
@@ -48,11 +48,11 @@ module.exports = {
       const targetLabel = ban.user ? `${ban.user}` : "sconosciuto";
       const embed = new EmbedBuilder()
       .setColor("#57F287")
-      .setTitle("Ban Removed")
-      .setDescription([`${ARROW} **Ban for** ${targetLabel} **has been removed**`,
-            `${ARROW} **Responsible:** ${responsible}`,
-            `${ARROW} ${nowDiscordTs()}`,
-            reason ? `${ARROW} **Reason:** ${reason}` : null,
+      .setTitle("<:VC_User:1482527453586002103> Ban Removed")
+      .setDescription([`<:VC_User:1482527453586002103> **Ban per** ${targetLabel} **è stato rimosso**`,
+            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+            `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
+            reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${reason}` : null,
             ...buildAuditExtraLines(auditEntry, ["reason"]),
           ]
             .filter(Boolean)

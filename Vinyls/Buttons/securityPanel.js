@@ -1,15 +1,6 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  MessageFlags,
-} = require("discord.js");
-
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } = require("discord.js");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 const STATICS_LAST = 2;
-
 const MODULE_OPTIONS = [
   { label: "AntiNuke", value: "antinuke", description: "Panic manuale e modulo" },
   { label: "AutoMod", value: "automod", description: "Panic heat / moduli" },
@@ -26,10 +17,7 @@ function match(interaction) {
 }
 
 function notYourPanelReply() {
-  return {
-    content: "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usarlo.",
-    flags: PRIVATE_FLAG,
-  };
+  return { content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usarlo.", flags: PRIVATE_FLAG };
 }
 
 function buildPagerRow(kind, ownerId, page, lastIdx) {
@@ -39,25 +27,25 @@ function buildPagerRow(kind, ownerId, page, lastIdx) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:first`)
-      .setLabel("<<")
+      .setEmoji("<:VC_page1:1482459684630958223>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:prev`)
-      .setLabel("<")
+      .setEmoji("<:VC_page5:1482459835042762752>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:next`)
-      .setLabel(">")
+      .setEmoji("<:VC_page4:1482459791975645226>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:last`)
-      .setLabel(">>")
+      .setEmoji("<:VC_page3:1482459759268462613>")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
-    new ButtonBuilder().setCustomId(back).setLabel("Menu").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(back).setEmoji("<:VC_page2:1482459717640056913>").setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -71,7 +59,7 @@ function buildPickRows(ownerId, action) {
   const rowBack = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`security_panel:back:${ownerId}`)
-      .setLabel("Menu")
+      .setEmoji("<:VC_page2:1482459717640056913>")
       .setStyle(ButtonStyle.Secondary),
   );
   return [rowPick, rowBack];
@@ -83,12 +71,7 @@ async function execute(interaction) {
   const member = interaction.member;
   if (!guild || !member) return false;
   if (!sec.hasStaffAccess(member, guild)) {
-    await interaction
-      .reply({
-        content: "<:vegax:1443934876440068179> Non hai i permessi.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Non hai i permessi.", flags: PRIVATE_FLAG }).catch(() => {});
     return true;
   }
 
@@ -143,12 +126,7 @@ async function execute(interaction) {
     }
     if (v === "pick_enable" || v === "pick_disable") {
       if (!sec.hasPanicControlAccess(member, guild)) {
-        await interaction
-          .reply({
-            content: "<:vegax:1443934876440068179> Solo Founder può abilitare o disabilitare i moduli.",
-            flags: PRIVATE_FLAG,
-          })
-          .catch(() => {});
+        await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo Founder può abilitare o disabilitare i moduli.", flags: PRIVATE_FLAG }).catch(() => {});
         return true;
       }
       const action = v === "pick_enable" ? "enable" : "disable";
@@ -159,12 +137,7 @@ async function execute(interaction) {
       await tryUpdate({ embeds: [embed], components: buildPickRows(ownerId, action) });
       return true;
     }
-    await interaction
-      .reply({
-        content: "<:vegax:1443934876440068179> Selezione non valida.",
-        flags: PRIVATE_FLAG,
-      })
-      .catch(() => {});
+    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Selezione non valida.", flags: PRIVATE_FLAG }).catch(() => {});
     return true;
   }
 
@@ -172,22 +145,12 @@ async function execute(interaction) {
     const action = String(parts[3] || "").toLowerCase();
     if (!["enable", "disable"].includes(action)) return false;
     if (!sec.hasPanicControlAccess(member, guild)) {
-      await interaction
-        .reply({
-          content: "<:vegax:1443934876440068179> Solo Founder può abilitare o disabilitare i moduli.",
-          flags: PRIVATE_FLAG,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Solo Founder può abilitare o disabilitare i moduli.", flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
     const target = sec.parsePanicTarget(interaction.values?.[0]);
     if (!target) {
-      await interaction
-        .reply({
-          content: "<:vegax:1443934876440068179> Target non valido.",
-          flags: PRIVATE_FLAG,
-        })
-        .catch(() => {});
+      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Target non valido.", flags: PRIVATE_FLAG }).catch(() => {});
       return true;
     }
     const results = await sec.runSecurityAction(action, target, guild, interaction.user.id);
@@ -204,7 +167,7 @@ async function execute(interaction) {
         action: action === "enable" ? "security.enable" : "security.disable",
         details: [
           `Target: \`${target}\``,
-          `Results: ${okCount}/${results.length} ok, changed ${changedCount}`,
+          `Risultati: ${okCount}/${results.length} ok, modificati ${changedCount}`,
         ],
         color: okCount === results.length ? "#57F287" : "#FEE75C",
       })
@@ -212,12 +175,12 @@ async function execute(interaction) {
 
     const resultEmbed = new EmbedBuilder()
       .setColor(okCount === results.length ? "#57F287" : "#FEE75C")
-      .setTitle(action === "enable" ? "Security Enable" : "Security Disable")
+      .setTitle(action === "enable" ? "Sicurezza Abilitata" : "Sicurezza Disabilitata")
       .setDescription(
         [
           `Target: **${target}**`,
-          `Success: **${okCount}/${results.length}**`,
-          `Changed: **${changedCount}**`,
+          `Risultati: **${okCount}/${results.length}**`,
+          `Modificati: **${changedCount}**`,
           "",
           ...lines,
         ].join("\n"),
@@ -225,7 +188,7 @@ async function execute(interaction) {
     const rowBack = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`security_panel:back:${ownerId}`)
-        .setLabel("Menu")
+        .setEmoji("<:VC_page2:1482459717640056913>")
         .setStyle(ButtonStyle.Primary),
     );
     await tryUpdate({ embeds: [resultEmbed], components: [rowBack] });

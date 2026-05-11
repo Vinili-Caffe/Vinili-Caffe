@@ -20,7 +20,6 @@ let rotationDate = null;
 let rotationQueue = [];
 let rotationGuildId = null;
 let lastSentAt = null;
-/** Permutazione iniziale del ciclo corrente (indici separati da virgola), per evitare di ripetere la stessa sequenza al giro successivo. */
 let currentCycleStartKey = "";
 const reminderActivity = new Map();
 let hourlyLoopHandle = null;
@@ -395,11 +394,7 @@ function getRecentReminderCount(channelId, windowMs = 60 * 60 * 1000) {
   return trimmed.length;
 }
 
-async function getRecentChannelMessageCount(
-  client,
-  channelId,
-  windowMs = 60 * 60 * 1000,
-) {
+async function getRecentChannelMessageCount(client, channelId, windowMs = 60 * 60 * 1000) {
   if (!client || !channelId) return 0;
   const channel = await getClientChannelCached(client, channelId);
   if (!channel?.isTextBased?.()) return 0;
@@ -418,11 +413,7 @@ async function getRecentChannelMessageCount(
 async function hasMinimumChatActivity45m(client) {
   const channelId = getReminderChannelId(client);
   if (!channelId) return false;
-  const count45m = await getRecentChannelMessageCount(
-    client,
-    channelId,
-    CHAT_ACTIVITY_WINDOW_45M_MS,
-  );
+  const count45m = await getRecentChannelMessageCount(client, channelId, CHAT_ACTIVITY_WINDOW_45M_MS);
   return count45m >= MIN_CHAT_MESSAGES_45M;
 }
 
@@ -431,16 +422,8 @@ async function getActivityCounts(client) {
   if (!channelId) return { count30m: 0, count60m: 0 };
   const mem30 = getRecentReminderCount(channelId, 30 * 60 * 1000);
   const mem60 = getRecentReminderCount(channelId, 60 * 60 * 1000);
-  const hist30 = await getRecentChannelMessageCount(
-    client,
-    channelId,
-    30 * 60 * 1000,
-  );
-  const hist60 = await getRecentChannelMessageCount(
-    client,
-    channelId,
-    60 * 60 * 1000,
-  );
+  const hist30 = await getRecentChannelMessageCount(client, channelId, 30 * 60 * 1000);
+  const hist60 = await getRecentChannelMessageCount(client, channelId, 60 * 60 * 1000);
   return {
     count30m: Math.max(mem30, hist30),
     count60m: Math.max(mem60, hist60),

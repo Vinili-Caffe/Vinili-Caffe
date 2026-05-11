@@ -3,7 +3,6 @@ const fs = require("fs");
 const IDs = require("../Utils/Config/ids");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../Utils/Global/globalSettingsGuildStores");
 const { getGuildChannelCached, getGuildRoleCached } = require("../Utils/Interaction/interactionEntityCache");
-
 const SPONSOR_PANEL_COLOR = "#6f4e37";
 const SPONSOR_BATCH_SIZE = 6;
 

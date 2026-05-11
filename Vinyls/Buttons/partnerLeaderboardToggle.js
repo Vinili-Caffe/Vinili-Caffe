@@ -1,10 +1,5 @@
 const { PLB_MODE_PREFIX, PLB_NAV_PREFIX, buildPartnerLeaderboardPayload } = require("../Utils/Partner/partnerLeaderboardRuntime");
-const {
-  partnersChatPartnerCommandDeniedReplyContent,
-  schedulePartnersDeniedDeleteReply,
-} = require("../Utils/Partner/partnersChatChannelUtils");
-
-const EPHEMERAL = 1 << 6;
+const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../Utils/Partner/partnersChatChannelUtils");
 
 function match(interaction) {
   const id = String(interaction?.customId || "");
@@ -18,9 +13,9 @@ async function execute(interaction) {
   const denied = await partnersChatPartnerCommandDeniedReplyContent(interaction.channel);
   if (denied) {
     if (interaction.deferred || interaction.replied) {
-      await interaction.followUp({ content: denied, flags: EPHEMERAL }).catch(() => {});
+      await interaction.followUp({ content: denied, flags: 1 << 6 }).catch(() => {});
     } else {
-      await interaction.reply({ content: denied, flags: EPHEMERAL }).catch(() => {});
+      await interaction.reply({ content: denied, flags: 1 << 6 }).catch(() => {});
       schedulePartnersDeniedDeleteReply(interaction);
     }
     return true;
@@ -37,11 +32,9 @@ async function execute(interaction) {
   }
   const payload = await buildPartnerLeaderboardPayload(interaction.client, guild, mode, 1);
   if (interaction.deferred || interaction.replied) {
-    await interaction.editReply(payload).catch(() => interaction.followUp({ ...payload, ephemeral: true }).catch(() => {}));
+    await interaction.editReply(payload).catch(() => interaction.followUp({ ...payload, flags: 1 << 6 }).catch(() => {}));
   } else {
-    await interaction.update(payload).catch(async () => {
-      await interaction.reply(payload).catch(() => {});
-    });
+    await interaction.update(payload).catch(async () => await interaction.reply(payload).catch(() => {}));
   }
   return true;
 }

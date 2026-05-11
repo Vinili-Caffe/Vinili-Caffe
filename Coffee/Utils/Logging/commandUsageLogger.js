@@ -2,7 +2,6 @@ const { EmbedBuilder } = require("discord.js");
 const IDs = require("../Config/ids");
 const { getClientChannelCached, getClientGuildCached, getGuildChannelCached } = require("../Interaction/entityCache");
 const { userAvatarUrlDynamic } = require("../Discord/guildDiscordIdentity");
-
 const RESOLUTION_CACHE_TTL_MS = 30_000;
 const resolutionCache = new Map();
 
@@ -63,7 +62,7 @@ async function logCommandUsage(client, { channelId, serverName, user, userId, co
     .addFields(
       { name: "<a:VC_Channel:1482534583944871996> Server:", value: `${serverName}` },
       { name: "<:VC_Bot:1482526555174604964> Comando:", value: `\`\`\`${content}\`\`\`` },
-      { name: "<:member_role_icon:1330530086792728618> Utente:", value: `${user} · \`${userId}\`` },
+      { name: "<:VC_User:1482527453586002103> Utente:", value: `${user} · \`${userId}\`` },
     )
     .setTimestamp();
   await channel.send({ embeds: [embed] }).catch((err) => {

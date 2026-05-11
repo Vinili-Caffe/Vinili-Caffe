@@ -3,15 +3,8 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { maybePunishCountingOnDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { clearForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
-
 const MAX_CONTENT_LOG_LENGTH = 1800;
-const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map(String),);
-
-function toDiscordTimestamp(value = new Date(), style = "F") {
-  const ms = new Date(value).getTime();
-  if (!Number.isFinite(ms)) return "<t:0:F>";
-  return `<t:${Math.floor(ms / 1000)}:${style}>`;
-}
+const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)));
 
 async function resolveMessage(message) {
   if (!message?.partial) return message;
@@ -75,7 +68,7 @@ function isTransientInteractionMessage(message) {
 
 function buildDeletedDiff(value) {
   const text = normalizeText(value);
-  const raw = text ? `- ${text}` : "- (vuoto)";
+  const raw = text ? `- ${text}` : "- Nessun contenuto.";
   if (raw.length <= MAX_CONTENT_LOG_LENGTH) return raw;
   return `${raw.slice(0, MAX_CONTENT_LOG_LENGTH - 3)}...`;
 }
@@ -161,28 +154,26 @@ async function sendDeleteLog(message) {
   const hasContent = normalizeText(content).length > 0;
   const hasAttachments = attachmentNames.length > 0;
 
-  const lines=[`<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(),"F")}`,
+  const lines=[`<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
     "",
-    "**Previous Settings**",
-    `<:VC_right_arrow:1482459908245815296> **Channel:** ${message.channel||"#sconosciuto"}`,
-    `<:VC_right_arrow:1482459908245815296> **Id:** \`${message.id||"sconosciuto"}\``,];
+    "**Impostazioni precedenti**",
+    `<:VC_Modifica:1478859646587633717> **Canale:** ${message.channel||"#sconosciuto"}`,
+    `<:VC_Modifica:1478859646587633717> **Id:** \`${message.id||"sconosciuto"}\``,];
 
-  lines.push("<:VC_right_arrow:1482459908245815296> **Content:**");
+  lines.push("<:VC_Modifica:1478859646587633717> **Contenuto:**");
   lines.push("```diff");
-  lines.push(buildDeletedDiff(hasContent ? content : "(vuoto)"));
+  lines.push(buildDeletedDiff(hasContent ? content : "Nessun contenuto."));
   lines.push("```");
   lines.push(
-    `<:VC_right_arrow:1482459908245815296> **Attachments:** ${hasAttachments ? `[ ${attachmentNames.join(", ")} ]` : "[ nessuno ]"}`,
+    `<:VC_Modifica:1478859646587633717> **Attachment:** ${hasAttachments ? `[ ${attachmentNames.join(", ")} ]` : "[ nessuno ]"}`,
   );
   if (message?.author) {
-    lines.push(
-      `<:VC_right_arrow:1482459908245815296> **Author:** ${buildAuthorLabel(message)}`,
-    );
+    lines.push(`<:VC_Modifica:1478859646587633717> **Autore:** ${buildAuthorLabel(message)}`);
   }
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("Message Deleted")
+    .setTitle("<a:VC_Verified:1482532479637127188> Messaggio eliminato")
     .setDescription(lines.join("\n"));
 
   const preview = firstImageAttachment(message);
@@ -196,11 +187,12 @@ async function sendDeleteLog(message) {
 module.exports = {
   name: "messageDelete",
   async execute(message, client) {
+    let resolved = null;
     try {
       if (!message) return;
       const resolvedClient = client || message.client;
 
-      const resolved = await resolveMessage(message);
+      resolved = await resolveMessage(message);
       if (!resolved?.guild) return;
       await clearForumMentionNotificationsForMessage(resolved, resolvedClient);
       await maybePunishCountingOnDelete(resolved, resolvedClient);

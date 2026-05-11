@@ -1,6 +1,5 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
-
 const STICKER_UPDATE_ACTION = AuditLogEvent?.StickerUpdate ?? 91;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -77,24 +76,24 @@ module.exports = {
       if (!nameChange && !tagsChange && !fallbackNameChanged && !fallbackTagsChanged) return;
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**Changes**",
+        "**<:VC_tools:1478862265305272364> Cambiamenti**",
       ];
 
       if (nameChange || fallbackNameChanged) {
-        lines.push(`<:VC_right_arrow:1482459908245815296> **Name**`);
-        lines.push(`  ${String(nameChange?.old ?? oldSticker?.name ?? "sconosciuto")} <:VC_right_arrow:1482459908245815296> ${String(nameChange?.new ?? newSticker?.name ?? "sconosciuto")}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
+        lines.push(`  ${String(nameChange?.old ?? oldSticker?.name ?? "sconosciuto")} <a:VC_Arrow:1482706699365257397> ${String(nameChange?.new ?? newSticker?.name ?? "sconosciuto")}`);
       }
       if (tagsChange || fallbackTagsChanged) {
-        lines.push(`<:VC_right_arrow:1482459908245815296> **Tags**`);
-        lines.push(`  ${String(tagsChange?.old ?? oldSticker?.tags ?? "-")} <:VC_right_arrow:1482459908245815296> ${String(tagsChange?.new ?? newSticker?.tags ?? "-")}`);
+        lines.push(`<:VC_Modifica:1478859646587633717> **Tags**`);
+        lines.push(`  ${String(tagsChange?.old ?? oldSticker?.tags ?? "-")} <a:VC_Arrow:1482706699365257397> ${String(tagsChange?.new ?? newSticker?.tags ?? "-")}`);
       }
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("Sticker Update")
+        .setTitle("<:VC_Color:1482532543273238569> Sticker Aggiornato")
         .setDescription(lines.join("\n"));
 
       if (newSticker?.url) embed.setThumbnail(newSticker.url);

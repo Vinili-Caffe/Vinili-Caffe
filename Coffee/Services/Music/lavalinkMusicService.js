@@ -1675,8 +1675,6 @@ function initLavalinkMusicIfEnabled(client) {
       restTimeout: 120,
       voiceConnectionTimeout: getShoukakuVoiceConnectionTimeoutSeconds(),
     });
-    /* Il connector DiscordJS registra `once("clientReady")`. Se init gira già dentro ready/clientReady,
-     * l'evento è passato: i nodi non si aggiungono mai (nodes.size 0). Stessa logica di Connector#ready. */
     if (typeof client.isReady === "function" && client.isReady() && client.user?.id && shoukaku.nodes.size === 0) {
       shoukaku.id = client.user.id;
       for (const nodeOpt of nodes) {
@@ -1690,7 +1688,7 @@ function initLavalinkMusicIfEnabled(client) {
       global.logger?.warn?.(`[MUSIC] Shoukaku node ${name}:`, err?.message || err);
     });
     shoukaku.on("ready", (name) => {
-      global.logger?.info?.(`[MUSIC] Lavalink collegato (nodo ${name})`);
+      global.logger?.info?.(`[MUSIC] Lavalink collegato`);
     });
     startMusicInactivityWatcher(client);
     startMusicQueueSnapshotLoop(client);
@@ -1711,7 +1709,7 @@ async function playMusicRequest(ctx, query) {
   const textChannelId = ctx.textChannelId ?? null;
   const requesterUser = ctx.requesterUser ?? null;
   if (!guild || !member) {
-    return { ok: false, message: "Usa questo comando in un server." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Usa questo comando in un server." };
   }
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
@@ -1729,12 +1727,12 @@ async function playMusicRequest(ctx, query) {
     return {
       ok: false,
       message:
-        "Musica non disponibile: il bot non ha il **WebSocket** verso Lavalink (non basta che la porta risponda). Riavvia **dopo** che Lavalink è su, oppure usa `wait-for-lavalink.js` che ora avvia i bot solo dopo il primo check OK. Controlla `LAVALINK_HOST`, `LAVALINK_PASSWORD` (= `application.yml`) e `LAVALINK_SECURE` se usi TLS.",
+        "<a:VC_Cross:1482532424570376253> Musica non disponibile.",
     };
   }
   const voiceChannel = member.voice?.channel;
   if (!voiceChannel || voiceChannel.isVoiceBased?.() === false) {
-    return { ok: false, message: "Entra in un canale vocale per riprodurre musica." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Entra in un canale vocale per riprodurre musica." };
   }
 
   const guildId = guild.id;
@@ -1742,7 +1740,7 @@ async function playMusicRequest(ctx, query) {
     return {
       ok: false,
       message:
-        "Il bot ha già una sessione **TTS** in vocale: la musica non può avviarsi insieme. Fai uscire il TTS con il comando **leave** del modulo TTS, poi riprova `+play`.",
+        "<a:VC_Cross:1482532424570376253> Il bot ha già una sessione **TTS** in vocale: la musica non può avviarsi insieme. Fai uscire il TTS con il comando **,leave**",
     };
   }
 
@@ -1760,26 +1758,26 @@ async function playMusicRequest(ctx, query) {
     shoukaku.getIdealNode() ||
     shoukaku.nodes.values().next().value;
   if (!node?.rest) {
-    return { ok: false, message: "Nessun nodo Lavalink disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun nodo Lavalink disponibile." };
   }
 
   const trimmedInput = String(query || "").trim();
   if (!trimmedInput) {
-    return { ok: false, message: "Indica un titolo o un link." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Indica un titolo o un link." };
   }
   const trimmed = normalizeOpenSpotifyHttpUrl(trimmedInput) || trimmedInput;
   if (isSpotifyPodcastOnlyInput(trimmed)) {
     return {
       ok: false,
       message:
-        "Su Spotify sono supportati **brani**, **album** e **playlist**; i **podcast** (link *show* / *episode*) no.",
+        "<a:VC_Cross:1482532424570376253> Sono supportati solo brani, album e playlist.",
     };
   }
   if (getMusicSearchMode() === "spotify" && isYoutubeLikeUrl(trimmed)) {
     return {
       ok: false,
       message:
-        "È attiva la modalità **solo Spotify** (`MUSIC_SEARCH_MODE=spotify`): i link YouTube non sono accettati. Usa link **open.spotify.com** / **spotify:** oppure cerca per titolo.",
+        "<a:VC_Cross:1482532424570376253> YouTube non è disponibile per via dei ToS di Discord.",
     };
   }
 
@@ -1791,7 +1789,7 @@ async function playMusicRequest(ctx, query) {
     global.logger?.warn?.("[MUSIC] resolve:", err?.message || err);
     return {
       ok: false,
-      message: `Ricerca fallita: ${err?.message || "errore Lavalink"}`,
+      message: `<a:VC_Cross:1482532424570376253> Ricerca fallita.`,
     };
   }
 
@@ -1799,20 +1797,17 @@ async function playMusicRequest(ctx, query) {
     const hint = lavalinkErrorHint(resolved);
     const noResultsEmbed = new EmbedBuilder()
       .setColor(0xff0000)
-      .setDescription("**Nessun risultato** ⛔");
+      .setDescription("<a:VC_Cross:1482532424570376253> **Nessun risultato**");
     let msg = hint
-      ? `Nessun risultato. (${hint})`
-      : "Nessun risultato per questa ricerca o URL.";
+      ? `<a:VC_Cross:1482532424570376253> Nessun risultato. (${hint})`
+      : "<a:VC_Cross:1482532424570376253> Nessun risultato per questa ricerca o URL.";
     if (!hint && isPlainTextMusicQuery(trimmed)) {
-      msg += " Prova con **titolo e artista** o un link **open.spotify.com** / YouTube (se consentito dalla modalità).";
+      msg += "<a:VC_Cross:1482532424570376253> Prova con **titolo e artista** o un link Spotify.";
     }
     if (isOpenSpotifyMusicUrlInput(trimmed)) {
       const needsLavasrcHint =
         !hint || /unknown file format|file format/i.test(String(hint || ""));
-      if (needsLavasrcHint) {
-        msg +=
-          " Per **Spotify** il nodo **Lavalink** deve avere il plugin **LavaSrc** con **clientId** e **clientSecret** in `application.yml` (altrimenti spesso nei log compare `Unknown file format`: viene scaricata la pagina web al posto dei brani). Vedi `Lavalink/README.md` e riavvia Lavalink.";
-      }
+      if (needsLavasrcHint) {}
     }
     return {
       ok: false,
@@ -1890,24 +1885,24 @@ async function playMusicRequest(ctx, query) {
 
     const embed = new EmbedBuilder()
       .setColor(0x6f4e37)
-      .setTitle("Brano aggiunto")
+      .setTitle("<a:VC_Verified:1482532479637127188> Brano aggiunto")
       .addFields(
-        { name: "Traccia", value: trackFieldValue, inline: false },
+        { name: "Brano 🎵", value: trackFieldValue, inline: false },
         {
-          name: "Tempo stimato alla riproduzione",
+          name: "Tempo stimato prima della riproduzione",
           value: formatEstimatedUntilPlayMs(estimatedMs),
           inline: true,
         },
-        { name: "Durata della traccia", value: formatTrackDurationMs(t0?.info?.length), inline: true },
+        { name: "Durata del brano", value: formatTrackDurationMs(t0?.info?.length), inline: true },
         { name: "Tra i prossimi brani", value: upcomingLabel, inline: true },
-        { name: "Posizione in coda", value: posInQueue, inline: true },
+        { name: "Posizione nella coda", value: posInQueue, inline: true },
       );
 
     const art = String(t0?.info?.artworkUrl || "").trim();
     if (art.startsWith("http://") || art.startsWith("https://")) embed.setThumbnail(art);
 
     if (tracks.length > 1) {
-      embed.setDescription(`*+ ${tracks.length - 1} altre tracce in coda.*`);
+      embed.setDescription(`*+ ${tracks.length - 1} altre tracce nella coda.*`);
     }
 
     if (requesterUser && typeof requesterUser.displayAvatarURL === "function") {
@@ -1920,7 +1915,7 @@ async function playMusicRequest(ctx, query) {
 
     return {
       ok: true,
-      message: `Aggiunte **${tracks.length}** traccia/e in coda — ${label0}`,
+      message: `Aggiunte **${tracks.length}** traccia/e nella coda — ${label0}`,
       embeds: [embed],
     };
   }
@@ -1941,7 +1936,7 @@ async function playMusicRequest(ctx, query) {
     session.tracks.length = 0;
     session.musicSessionOwnerId = null;
     await leaveMusicVoiceChannelMarked(client, guildId);
-    return { ok: false, message: `Riproduzione fallita: ${err?.message || "errore"}` };
+    return { ok: false, message: `<a:VC_Cross:1482532424570376253> Riproduzione fallita.` };
   }
   session.playingEncoded = first.encoded;
   persistMusicQueueSnapshotNow(client);
@@ -1950,10 +1945,10 @@ async function playMusicRequest(ctx, query) {
   const spotifyUrl = await resolveSpotifyWebUrl(node, first);
   const linkMd = formatTrackTitleMarkdownLink(label, spotifyUrl);
   const tail = rest.length ? ` (+${rest.length} in coda)` : "";
-  const embedBody = `In riproduzione: ${linkMd}${tail}`;
+  const embedBody = `<a:VC_Verified:1482532479637127188> In riproduzione: ${linkMd}${tail}`;
   return {
     ok: true,
-    message: `In riproduzione: **${label}**${tail}`,
+    message: `<a:VC_Verified:1482532479637127188> In riproduzione: **${label}**${tail}`,
     embedBody,
   };
 }
@@ -1966,27 +1961,27 @@ async function playMusicRequest(ctx, query) {
  */
 async function setGuildMusicVolume(client, guild, rawPercent, requesterUserId) {
   const guildId = guild?.id;
-  if (!guildId) return { ok: false, message: "Solo in server." };
+  if (!guildId) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const player = client.shoukaku?.players?.get(guildId);
   if (!player) {
-    return { ok: false, message: "Nessun player musica attivo in questo server." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun player musicale attivo in questo server." };
   }
   const volGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requesterUserId);
   if (!volGate.ok) return volGate;
   const n = Number(String(rawPercent ?? "").trim().replace(",", "."));
   if (!Number.isFinite(n)) {
-    return { ok: false, message: "Indica un numero da 0 a 100." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Indica un numero da 0 a 100." };
   }
   const userVol = Math.min(100, Math.max(0, Math.round(n)));
   const lavalinkVol = lavalinkGlobalVolumeFromUserPercent(userVol);
   try {
     await player.setGlobalVolume(lavalinkVol);
   } catch (err) {
-    return { ok: false, message: err?.message || "Impostazione volume fallita." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Impostazione volume fallita." };
   }
   return { ok: true, volumePercent: userVol };
 }
@@ -1995,16 +1990,16 @@ async function skipGuild(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
   const requester = interaction.user || interaction.author;
-  if (!guild) return { ok: false, message: "Solo in server." };
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const guildId = guild.id;
   const player = client.shoukaku?.players?.get(guildId);
   if (!player?.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const gate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
   if (!gate.ok) return gate;
@@ -2028,21 +2023,21 @@ async function skipGuild(interaction) {
   try {
     await player.stopTrack();
   } catch (err) {
-    return { ok: false, message: err?.message || "Skip fallito." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Skip fallito." };
   }
   return {
     ok: true,
-    message: "Traccia saltata.",
-    embedDescription: `**${trackDisplay}** è stata saltata da <@${requester.id}>`,
+    message: `<a:VC_Verified:1482532479637127188> Traccia saltata.`,
+    embedDescription: `<a:VC_Verified:1482532479637127188> **${trackDisplay}** è stata saltata da <@${requester.id}>`,
   };
 }
 
 async function stopGuild(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   const guildId = guild.id;
   initLavalinkMusicIfEnabled(client);
   await destroyGhostMusicStateIfBotNotInVoice(client, guild);
@@ -2056,12 +2051,12 @@ async function stopGuild(interaction) {
     Boolean(session?.tracks?.length) ||
     Boolean(session?.nowPlaying);
   if (!active) {
-    return { ok: false, message: "Non c'è musica attiva in questo server." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è musica attiva in questo server." };
   }
   if (!guild.members?.me?.voice?.channel?.id) {
     return {
       ok: false,
-      message: "Il bot non è in un canale vocale: non c'è una sessione musica da fermare.",
+      message: "<a:VC_Cross:1482532424570376253> Il bot non è in un canale vocale: non c'è una sessione musica da fermare.",
     };
   }
   const stopGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
@@ -2074,21 +2069,21 @@ async function stopGuild(interaction) {
     } catch (_) {}
   }
   await leaveMusicVoiceChannelMarked(client, guildId);
-  return { ok: true, message: "Musica fermata e coda svuotata." };
+  return { ok: true, message: "<a:VC_Verified:1482532479637127188> Musica fermata e coda svuotata." };
 }
 
 function formatQueue(interaction) {
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const player = interaction.client.shoukaku?.players?.get(guild.id);
   const session = guildQueues.get(guild.id);
   const lines = [];
   if (player?.track && session?.nowPlaying) {
-    lines.push(`**In riproduzione:** ${session.nowPlaying}`);
+    lines.push(`<a:VC_Verified:1482532479637127188> **In riproduzione:** ${session.nowPlaying}`);
   } else if (player?.track) {
-    lines.push("**In riproduzione** (dettagli non disponibili)");
+    lines.push("<a:VC_Verified:1482532479637127188> **In riproduzione** (dettagli non disponibili)");
   } else {
-    lines.push("Nessuna traccia attiva.");
+    lines.push("<a:VC_Cross:1482532424570376253> Nessuna traccia attiva.");
   }
   if (session?.tracks?.length) {
     session.tracks.slice(0, 15).forEach((t, i) => {
@@ -2098,67 +2093,67 @@ function formatQueue(interaction) {
       lines.push(`… e altre ${session.tracks.length - 15}.`);
     }
   } else {
-    lines.push("Coda vuota.");
+    lines.push("<a:VC_Cross:1482532424570376253> Coda vuota.");
   }
   return { ok: true, message: lines.join("\n") };
 }
 
 function nowPlayingStatus(interaction) {
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const player = interaction.client.shoukaku?.players?.get(guild.id);
   const session = guildQueues.get(guild.id);
   if (!player?.track || !session?.nowPlaying) {
-    return { ok: true, message: "Non in riproduzione." };
+    return { ok: true, message: "<a:VC_Cross:1482532424570376253> Non in riproduzione." };
   }
-  return { ok: true, message: `**In riproduzione:** ${session.nowPlaying}` };
+  return { ok: true, message: `<a:VC_Verified:1482532479637127188> **In riproduzione:** ${session.nowPlaying}` };
 }
 
 async function pauseToggle(interaction, pause) {
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   const player = interaction.client.shoukaku?.players?.get(guild.id);
-  if (!player) return { ok: false, message: "Il bot non è in un canale vocale." };
+  if (!player) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Il bot non è in un canale vocale." };
   const ptGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
   if (!ptGate.ok) return ptGate;
   try {
     await player.setPaused(pause);
   } catch (err) {
-    return { ok: false, message: err?.message || "Errore pausa." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Errore pausa." };
   }
-  return { ok: true, message: pause ? "In pausa." : "Ripresa." };
+  return { ok: true, message: pause ? "<a:VC_Verified:1482532479637127188> In pausa." : "<a:VC_Verified:1482532479637127188> Ripresa." };
 }
 
 async function pauseGuildTrack(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const player = client.shoukaku?.players?.get(guild.id);
   if (!player) {
-    return { ok: false, message: "Il bot non è in un canale vocale." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Il bot non è in un canale vocale." };
   }
   if (!player.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const pauGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
   if (!pauGate.ok) return pauGate;
   if (player.paused) {
-    return { ok: false, message: "La traccia è già in pausa." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> La traccia è già in pausa." };
   }
   const posMs = Number(player.position) || 0;
   const at = formatPlaybackPositionClock(posMs);
   try {
     await player.setPaused(true);
   } catch (err) {
-    return { ok: false, message: err?.message || "Errore pausa." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Errore pausa." };
   }
   return { ok: true, positionLabel: at };
 }
@@ -2166,29 +2161,29 @@ async function pauseGuildTrack(interaction) {
 async function resumeGuildTrack(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const player = client.shoukaku?.players?.get(guild.id);
   if (!player) {
-    return { ok: false, message: "Il bot non è in un canale vocale." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Il bot non è in un canale vocale." };
   }
   if (!player.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const resGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
   if (!resGate.ok) return resGate;
   if (!player.paused) {
-    return { ok: false, message: "La traccia non è in pausa." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> La traccia non è in pausa." };
   }
   try {
     await player.setPaused(false);
   } catch (err) {
-    return { ok: false, message: err?.message || "Errore ripresa." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Errore ripresa." };
   }
   return { ok: true };
 }
@@ -2210,16 +2205,16 @@ function shuffleInPlace(arr) {
 async function toggleRepeatOneGuild(interaction, keyword) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const player = client.shoukaku?.players?.get(guild.id);
   if (!player?.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const repGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
   if (!repGate.ok) return repGate;
@@ -2241,7 +2236,7 @@ async function toggleRepeatOneGuild(interaction, keyword) {
     if (!session.repeatQueueSnapshot.length) {
       session.repeatQueue = false;
       session.repeatQueueSnapshot = null;
-      return { ok: false, message: "Impossibile attivare la ripetizione coda per questa traccia." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile attivare la ripetizione coda per questa traccia." };
     }
     return { ok: true, mode: "queue" };
   }
@@ -2253,7 +2248,7 @@ async function toggleRepeatOneGuild(interaction, keyword) {
     }
     const enc = encodedFromPlayerTrack(player.track);
     if (!enc) {
-      return { ok: false, message: "Impossibile attivare la ripetizione per questa traccia." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile attivare la ripetizione per questa traccia." };
     }
     session.repeatOne = true;
     session.repeatEncoded = enc;
@@ -2263,7 +2258,7 @@ async function toggleRepeatOneGuild(interaction, keyword) {
     return {
       ok: false,
       message:
-        "Usa **disable**, **enable**, **queue**, oppure nessun argomento (toggle ripetizione traccia).",
+        "<a:VC_Cross:1482532424570376253> Usa `disable`, `enable`, `queue`.",
     };
   }
   if (session.repeatQueue) {
@@ -2278,7 +2273,7 @@ async function toggleRepeatOneGuild(interaction, keyword) {
   }
   const enc = encodedFromPlayerTrack(player.track);
   if (!enc) {
-    return { ok: false, message: "Impossibile attivare la ripetizione per questa traccia." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile attivare la ripetizione per questa traccia." };
   }
   session.repeatOne = true;
   session.repeatEncoded = enc;
@@ -2288,27 +2283,27 @@ async function toggleRepeatOneGuild(interaction, keyword) {
 async function previousGuildTrack(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const guildId = guild.id;
   const player = client.shoukaku?.players?.get(guildId);
   if (!player?.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const session = getSession(guildId);
   if (!Array.isArray(session.history) || !session.history.length) {
-    return { ok: false, message: "Non c'è un brano precedente." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è un brano precedente." };
   }
   const prevGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
   if (!prevGate.ok) return prevGate;
   const prev = session.history.pop();
   if (!prev?.encoded) {
-    return { ok: false, message: "Non c'è un brano precedente." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è un brano precedente." };
   }
   const node =
     client.shoukaku?.nodes?.get(process.env.LAVALINK_NODE_NAME || "main") ||
@@ -2323,7 +2318,7 @@ async function previousGuildTrack(interaction) {
   session.repeatEncoded = null;
   session.repeatQueue = false;
   session.repeatQueueSnapshot = null;
-  session.nowPlaying = String(prev.label || "").trim() || "Traccia sconosciuta";
+  session.nowPlaying = String(prev.label || "").trim() || "<a:VC_Cross:1482532424570376253> Traccia sconosciuta";
   clearSessionCurrentRequester(session);
   try {
     await playEncodedFromStart(player, prev.encoded);
@@ -2331,39 +2326,39 @@ async function previousGuildTrack(interaction) {
     session.history.push(prev);
     if (currentEnc) session.tracks.shift();
     session.nowPlaying = oldNowLabel;
-    return { ok: false, message: err?.message || "Impossibile tornare al brano precedente." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Impossibile tornare al brano precedente." };
   }
-  let embedBody = `In riproduzione: **${safeDiscordLinkLabel(session.nowPlaying)}**`;
+  let embedBody = `<a:VC_Verified:1482532479637127188> In riproduzione: **${safeDiscordLinkLabel(session.nowPlaying)}**`;
   if (node?.rest?.decode) {
     try {
       const t = await node.rest.decode(prev.encoded);
       const label = describeTrack(t);
       session.nowPlaying = label;
       const url = await resolveSpotifyWebUrl(node, t);
-      embedBody = `In riproduzione: ${formatTrackTitleMarkdownLink(label, url)}`;
+      embedBody = `<a:VC_Verified:1482532479637127188> In riproduzione: ${formatTrackTitleMarkdownLink(label, url)}`;
     } catch (_) {}
   }
-  return { ok: true, message: `In riproduzione: ${session.nowPlaying}`, embedBody };
+  return { ok: true, message: `<a:VC_Verified:1482532479637127188> In riproduzione: ${session.nowPlaying}`, embedBody };
 }
 
 async function shuffleGuildQueue(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const guildId = guild.id;
   const session = guildQueues.get(guildId);
   const tracks = session?.tracks;
   if (!Array.isArray(tracks) || tracks.length === 0) {
-    return { ok: false, message: "La coda è vuota: niente da mescolare." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> La coda è vuota: niente da mescolare." };
   }
   if (tracks.length < 2) {
-    return { ok: false, message: "Servono almeno due brani in coda per mescolare." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Servono almeno due brani in coda per mescolare." };
   }
   const shufGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
   if (!shufGate.ok) return shufGate;
@@ -2375,22 +2370,22 @@ async function shuffleGuildQueue(interaction) {
 async function rewindGuildTrack(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const player = client.shoukaku?.players?.get(guild.id);
   if (!player?.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const rewGate = assertMusicSessionOwnerOrAllowLegacy(guild.id, requester.id);
   if (!rewGate.ok) return rewGate;
   const enc = encodedFromPlayerTrack(player.track);
   if (!enc) {
-    return { ok: false, message: "Impossibile riavvolgere questa traccia." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile riavvolgere questa traccia." };
   }
   let seekable = true;
   const node =
@@ -2414,7 +2409,7 @@ async function rewindGuildTrack(interaction) {
   try {
     await player.playTrack({ track: { encoded: enc } });
   } catch (err) {
-    return { ok: false, message: err?.message || "Riavvolgimento non riuscito." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Riavvolgimento non riuscito." };
   }
   return { ok: true };
 }
@@ -2422,29 +2417,29 @@ async function rewindGuildTrack(interaction) {
 async function restartQueueGuild(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const guildId = guild.id;
   const player = client.shoukaku?.players?.get(guildId);
   if (!player?.track) {
-    return { ok: false, message: "Non c'è nulla in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione." };
   }
   const session = getSession(guildId);
   const snap = buildRepeatQueueSnapshot(session, player);
   if (!snap.length) {
-    return { ok: false, message: "Impossibile ricominciare la coda." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile ricominciare la coda." };
   }
   const rstGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
   if (!rstGate.ok) return rstGate;
   session.repeatOne = false;
   session.repeatEncoded = null;
   session.tracks = snap.slice(1).map((e) => ({ encoded: e.encoded }));
-  session.nowPlaying = String(snap[0].label || "").trim() || "Traccia sconosciuta";
+  session.nowPlaying = String(snap[0].label || "").trim() || "<a:VC_Cross:1482532424570376253> Traccia sconosciuta";
   clearSessionCurrentRequester(session);
   if (session.repeatQueue) {
     session.repeatQueueSnapshot = snap.map((e) => ({ encoded: e.encoded, label: e.label }));
@@ -2452,7 +2447,7 @@ async function restartQueueGuild(interaction) {
   try {
     await playEncodedFromStart(player, snap[0].encoded);
   } catch (err) {
-    return { ok: false, message: err?.message || "Restart coda non riuscito." };
+    return { ok: false, message: err?.message || "<a:VC_Cross:1482532424570376253> Restart coda non riuscito." };
   }
   return { ok: true };
 }
@@ -2460,19 +2455,19 @@ async function restartQueueGuild(interaction) {
 async function clearGuildQueue(interaction) {
   const client = interaction.client;
   const guild = interaction.guild;
-  if (!guild) return { ok: false, message: "Solo in server." };
+  if (!guild) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const requester = interaction.user || interaction.author;
-  if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
+  if (!requester?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const guildId = guild.id;
   const player = client.shoukaku?.players?.get(guildId);
   const session = getSession(guildId);
   const hadPending = Array.isArray(session.tracks) && session.tracks.length > 0;
   if (!hadPending) {
-    return { ok: false, message: "La coda è già vuota." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> La coda è già vuota." };
   }
   const clrGate = assertMusicSessionOwnerOrAllowLegacy(guildId, requester.id);
   if (!clrGate.ok) return clrGate;
@@ -2483,30 +2478,4 @@ async function clearGuildQueue(interaction) {
   return { ok: true };
 }
 
-module.exports = {
-  initLavalinkMusicIfEnabled,
-  isLavalinkUsable,
-  markMusicVoiceLeaveIntentional,
-  fetchGuildQueueEntryRows,
-  fetchGuildUpcomingQueueRows,
-  fetchGuildRequestedSessionRows,
-  fetchGuildNextUpDetails,
-  fetchGuildNowPlayingDetails,
-  playMusicRequest,
-  setGuildMusicVolume,
-  skipGuild,
-  stopGuild,
-  formatQueue,
-  clearGuildQueue,
-  shuffleGuildQueue,
-  toggleRepeatOneGuild,
-  previousGuildTrack,
-  pauseToggle,
-  pauseGuildTrack,
-  resumeGuildTrack,
-  rewindGuildTrack,
-  restartQueueGuild,
-  nowPlayingStatus,
-  handleMusicBotVoiceDisconnect,
-  shouldDeferTtsLeaveForMusicEmptyVc,
-};
+module.exports = { initLavalinkMusicIfEnabled, isLavalinkUsable, markMusicVoiceLeaveIntentional, fetchGuildQueueEntryRows, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails, playMusicRequest, setGuildMusicVolume, skipGuild, stopGuild, formatQueue, clearGuildQueue, shuffleGuildQueue, toggleRepeatOneGuild, previousGuildTrack, pauseToggle, pauseGuildTrack, resumeGuildTrack, rewindGuildTrack, restartQueueGuild, nowPlayingStatus, handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc };

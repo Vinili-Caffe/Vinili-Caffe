@@ -97,31 +97,31 @@ module.exports = {
       const endTime=toEventTimeLabel(scheduledEvent.scheduledEndAt||scheduledEvent.scheduledEndTimestamp,);
 
       const lines = [
-        `<:VC_right_arrow:1482459908245815296> **Responsible:** ${responsibleText}`,
-        `<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
+        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
         "",
-        "**Previous Settings**",
-        `<:VC_right_arrow:1482459908245815296> **Name:** ${scheduledEvent.name || "sconosciuto"}`,
-        `<:VC_right_arrow:1482459908245815296> **Privacy Level:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
-        `<:VC_right_arrow:1482459908245815296> **Status:** ${statusLabel(scheduledEvent.status)}`,
-        `<:VC_right_arrow:1482459908245815296> **Entity Type:** ${entityTypeLabel(scheduledEvent.entityType)}`,
-        startTime ? `<:VC_right_arrow:1482459908245815296> **Start Time:** ${startTime}` : null,
-        endTime ? `<:VC_right_arrow:1482459908245815296> **End Time:** ${endTime}` : null,
+        "**Impostazioni precedenti**",
+        `<:VC_Modifica:1478859646587633717> **Nome:** ${scheduledEvent.name || "sconosciuto"}`,
+        `<:VC_Modifica:1478859646587633717> **Livello privacy:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
+        `<:VC_Modifica:1478859646587633717> **Stato:** ${statusLabel(scheduledEvent.status)}`,
+        `<:VC_Modifica:1478859646587633717> **Tipo entità:** ${entityTypeLabel(scheduledEvent.entityType)}`,
+        startTime ? `<:VC_Modifica:1478859646587633717> **Ora inizio:** ${startTime}` : null,
+        endTime ? `<:VC_Modifica:1478859646587633717> **Ora fine:** ${endTime}` : null,
       ];
 
       if (scheduledEvent.channelId) {
         lines.push(
-          `<:VC_right_arrow:1482459908245815296> **Channel:** <#${scheduledEvent.channelId}>`,
+          `<:VC_Modifica:1478859646587633717> **Canale:** <#${scheduledEvent.channelId}>`,
         );
       } else if (scheduledEvent.entityMetadata?.location) {
         lines.push(
-          `<:VC_right_arrow:1482459908245815296> **Location:** ${scheduledEvent.entityMetadata.location}`,
+          `<:VC_Modifica:1478859646587633717> **Località:** ${scheduledEvent.entityMetadata.location}`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("Guild Scheduled Event Delete")
+        .setTitle("<a:VC_Cross:1482532424570376253> Evento programmato eliminato")
         .setDescription(lines.filter(Boolean).join("\n"));
 
       await logChannel.send({ embeds: [embed] }).catch(() => null);

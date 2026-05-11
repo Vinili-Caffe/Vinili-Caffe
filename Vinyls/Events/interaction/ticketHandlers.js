@@ -13,6 +13,7 @@ const { createTicketDocWithGlobalId } = require("../../Utils/Ticket/ticketIdUtil
 const { handleTicketStaffPanelInteraction } = require("../../Utils/Ticket/ticketStaffPanelHandlers");
 const { resetTicketOpenPanelAfterInteraction } = require("../../Utils/Ticket/ticketOpenMenuComponents");
 const { buildTicketTranscriptViewUrl, transcriptViewExpired, } = require("../../Utils/Ticket/ticketTranscriptSecure");
+const { applyChannelPermissionOverwritesAfterUnclaim } = require("../../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 
 async function handleTicketInteraction(interaction) {
   const selectedTicketAction = runtimeGetSelectedTicketAction(interaction);
@@ -36,6 +37,14 @@ async function handleTicketInteraction(interaction) {
     interaction.client.ticketActionLocks = new Set();
   }
   const TICKET_PERMISSIONS = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions,];
+  const TICKET_ROLE_SPECTATE = {
+    ViewChannel: true,
+    SendMessages: false,
+    ReadMessageHistory: true,
+    EmbedLinks: true,
+    AttachFiles: true,
+    AddReactions: true,
+  };
 
   async function safeReply(target, payload) {
     return safeReplyHelper(target, payload);
@@ -73,9 +82,7 @@ async function handleTicketInteraction(interaction) {
       if (channelId) {
         const t = await Ticket.findOne({ channelId, open: true }, { claimedBy: 1 }).lean().catch(() => null);
         const cid = t?.claimedBy != null ? String(t.claimedBy).trim() : "";
-        if (cid) {
-          suffix = `\n\n<:VC_claim:1478517202016669887> **In carico a:** <@${cid}>`;
-        }
+        if (cid) { suffix = `\n\n<:VC_claim:1478517202016669887> **Claimato da** <@${cid}>`; }
       }
       await safeReply(interaction, {
         embeds: [
@@ -159,7 +166,7 @@ async function handleTicketInteraction(interaction) {
           embeds: [
             makeErrorEmbed(
               "<a:VC_Alert:1482706673176150077> Errore",
-              "<:vegax:1443934876440068179> Interazione non valida (fuori dal server).",
+              "<:vegax:1443934876440068179> Interazione non valida.",
             ),
           ],
           flags: 1 << 6,
@@ -175,9 +182,7 @@ async function handleTicketInteraction(interaction) {
           embeds: [
             new EmbedBuilder()
               .setColor("#6f4e37")
-              .setDescription(
-                `<a:VC_Alert:1482706673176150077> Non puoi usare questo bottone poiché sei blacklistato dalle partner.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`HIGH STAFF\``,
-              ),
+              .setDescription( `<a:VC_Alert:1482706673176150077> Non puoi usare questo bottone poiché sei blacklistato dalle partner. Se pensi sia un errore apri un <#1442569095068254219> \`HIGH STAFF\``),
           ],
           flags: 1 << 6,
         });
@@ -193,9 +198,7 @@ async function handleTicketInteraction(interaction) {
           embeds: [
             new EmbedBuilder()
               .setColor("#6f4e37")
-              .setDescription(
-                `<:vegax:1443934876440068179> Non puoi usare questo bottone poiché sei blacklistato dai ticket.\n<:VC_Ticket:1482535175283019888> Se pensi sia un errore apri un <#1442569095068254219> \`HIGH STAFF\``,
-              ),
+              .setDescription( `<:vegax:1443934876440068179> Non puoi usare questo bottone poiché sei blacklistato dai ticket. Se pensi sia un errore apri un <#1442569095068254219> \`HIGH STAFF\``),
           ],
           flags: 1 << 6,
         });
@@ -209,7 +212,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
-                "<:vegax:1443934876440068179> Ruolo verifica (Member) non configurato. Contatta lo staff.",
+                "<:vegax:1443934876440068179> Ruolo Member non configurato. Contatta lo staff.",
               ),
             ],
             flags: 1 << 6,
@@ -233,7 +236,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
-                "<:vegax:1443934876440068179> Devi aver completato la **verifica** per aprire un ticket.",
+                "<:vegax:1443934876440068179> Devi avere il ruolo Member per aprire un ticket.",
               ),
             ],
             flags: 1 << 6,
@@ -242,11 +245,7 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
       }
-      const panelByAction = {
-        ticket_supporto: "supporto",
-        ticket_partnership: "partnership",
-        ticket_highstaff: "highstaff",
-      };
+      const panelByAction = { ticket_supporto: "supporto", ticket_partnership: "partnership", ticket_highstaff: "highstaff" };
       const panelKey = panelByAction[ticketActionId] || "";
       const panelConfig = panelKey ? getTicketPanelConfig(panelKey) : null;
       const config = panelConfig
@@ -263,16 +262,7 @@ async function handleTicketInteraction(interaction) {
         : null;
       if (
         !config &&
-        ![
-          "claim_ticket",
-          "close_ticket",
-          "close_ticket_motivo",
-          "accetta",
-          "rifiuta",
-          "ticket_autoclose_accept",
-          "ticket_autoclose_reject",
-          "unclaim",
-        ].includes(interaction.customId) &&
+        !["claim_ticket", "close_ticket", "close_ticket_motivo", "accetta", "rifiuta", "ticket_autoclose_accept", "ticket_autoclose_reject", "unclaim"].includes(interaction.customId) &&
         !runtimeIsTicketTranscriptButton(interaction.customId) &&
         !runtimeIsTicketRatingButton(interaction.customId)
       ) {
@@ -280,7 +270,7 @@ async function handleTicketInteraction(interaction) {
           embeds: [
             makeErrorEmbed(
               "<a:VC_Alert:1482706673176150077> Errore",
-                "<:vegax:1443934876440068179> Categoria ticket non valida. Riprova dal pannello.",
+              "<:vegax:1443934876440068179> Categoria non valida. Riprova dal pannello.",
             ),
           ],
           flags: 1 << 6,
@@ -298,7 +288,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Loading:1482526818278969578> Attendi",
-                "<:VC_Attention:1482534443632558151> Sto già aprendo un ticket per te, aspetta un attimo.",
+                "<:VC_Attention:1482534443632558151> Sto già aprendo un ticket.",
               ),
             ],
             flags: 1 << 6,
@@ -316,28 +306,14 @@ async function handleTicketInteraction(interaction) {
             }
           }
           let memOpen = interaction.member;
-          if (
-            interaction.guild &&
-            memOpen &&
-            (!memOpen.roles?.cache?.size || memOpen.partial)
-          ) {
-            memOpen =
-              (await interaction.guild.members
-                .fetch(interaction.user.id)
-                .catch(() => null)) || memOpen;
-          }
-          if (
-            [
-              "ticket_partnership",
-              "ticket_highstaff",
-            ].includes(ticketActionId)
-          ) {
+          if (interaction.guild && memOpen && (!memOpen.roles?.cache?.size || memOpen.partial)) { memOpen = (await interaction.guild.members.fetch(interaction.user.id).catch(() => null)) || memOpen; }
+          if (["ticket_partnership", "ticket_highstaff"].includes(ticketActionId)) {
             if (!ROLE_USER || !memOpen?.roles?.cache?.has(ROLE_USER)) {
               await safeReply(interaction, {
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
-                    "<:vegax:1443934876440068179> Devi aver completato la **verifica** per aprire questo ticket.",
+                    "<:vegax:1443934876440068179> Devi avere il ruolo Member per aprire questo ticket.",
                   ),
                 ],
                 flags: 1 << 6,
@@ -347,15 +323,13 @@ async function handleTicketInteraction(interaction) {
             }
           }
           if (config.requiredRoles?.length > 0) {
-            const hasRole = config.requiredRoles.some((r) =>
-              memOpen?.roles?.cache?.has(r),
-            );
+            const hasRole = config.requiredRoles.some((r) => memOpen?.roles?.cache?.has(r));
             if (!hasRole) {
               await safeReply(interaction, {
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
-                    "<:vegax:1443934876440068179> Non hai i requisiti per aprire questo ticket",
+                    "<:vegax:1443934876440068179> Non hai i requisiti per aprire questo ticket.",
                   ),
                 ],
                 flags: 1 << 6,
@@ -375,7 +349,7 @@ async function handleTicketInteraction(interaction) {
                 new EmbedBuilder()
                   .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
                   .setDescription(
-                    `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existing.channelId}>`,
+                    `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existing.channelId}>.`
                   )
                   .setColor("#6f4e37"),
               ],
@@ -390,7 +364,7 @@ async function handleTicketInteraction(interaction) {
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
-                  "<:vegax:1443934876440068179> Impossibile creare o trovare la categoria ticket",
+                  "<:vegax:1443934876440068179> Impossibile creare o trovare la categoria.",
                 ),
               ],
               flags: 1 << 6,
@@ -398,19 +372,13 @@ async function handleTicketInteraction(interaction) {
             await refreshTicketOpenPanelSelect();
             return true;
           }
-          const existingAgain = await runtimeFindOpenTicketByUser(
-            interaction.guild.id,
-            interaction.user.id,
-            interaction.guild,
-          );
+          const existingAgain = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id, interaction.guild);
           if (existingAgain) {
             await safeReply(interaction, {
               embeds: [
                 new EmbedBuilder()
                   .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
-                  .setDescription(
-                    `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existingAgain.channelId}>`,
-                  )
+                  .setDescription( `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto: <#${existingAgain.channelId}>.`)
                   .setColor("#6f4e37"),
               ],
               flags: 1 << 6,
@@ -418,13 +386,45 @@ async function handleTicketInteraction(interaction) {
             await refreshTicketOpenPanelSelect();
             return true;
           }
-          const channel = await interaction.guild.channels.create({ name: buildTicketChannelName(config, interaction.user?.username, interaction.user?.id || "utente"), type: 0, parent: ticketsCategory.id, permissionOverwrites: [{ id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel], }, { id: interaction.user.id, allow: TICKET_PERMISSIONS, }, ...(config.type === "supporto" ? [{ id: ROLE_STAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_HIGHSTAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel], },] : []), ...(config.type === "partnership" ? [{ id: ROLE_PARTNERMANAGER, allow: TICKET_PERMISSIONS, }, { id: ROLE_HIGHSTAFF, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory,], deny: [], }, { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel], },] : []), ...(config.type === "high" ? [{ id: ROLE_HIGHSTAFF, allow: TICKET_PERMISSIONS, }, { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel], }, { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel], },] : []),], }).catch((err) => { global.logger.error(err); return null; });
+          const channel = await interaction.guild.channels.create({
+            name: buildTicketChannelName(config, interaction.user?.username, interaction.user?.id || "utente"),
+            type: 0,
+            parent: ticketsCategory.id,
+            permissionOverwrites: [
+              { id: interaction.guild.roles.everyone, deny: [PermissionFlagsBits.ViewChannel] },
+              { id: interaction.user.id, allow: TICKET_PERMISSIONS },
+              ...(config.type === "supporto"
+                ? [
+                    { id: ROLE_STAFF, ...TICKET_ROLE_SPECTATE },
+                    { id: ROLE_HIGHSTAFF, ...TICKET_ROLE_SPECTATE },
+                    { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
+                  ]
+                : []),
+              ...(config.type === "partnership"
+                ? [
+                    { id: ROLE_PARTNERMANAGER, ...TICKET_ROLE_SPECTATE },
+                    { id: ROLE_HIGHSTAFF, ...TICKET_ROLE_SPECTATE },
+                    { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
+                  ]
+                : []),
+              ...(config.type === "high"
+                ? [
+                    { id: ROLE_HIGHSTAFF, ...TICKET_ROLE_SPECTATE },
+                    { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
+                  ]
+                : []),
+            ],
+          }).catch((err) => {
+            global.logger.error(err);
+            return null;
+          });
           if (!channel) {
             await safeReply(interaction, {
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
-                  "<:vegax:1443934876440068179> Impossibile creare il canale ticket",
+                  "<:vegax:1443934876440068179> Impossibile creare il canale.",
                 ),
               ],
               flags: 1 << 6,
@@ -454,18 +454,12 @@ async function handleTicketInteraction(interaction) {
             const isDuplicate = err?.code === 11000 || (err?.message && String(err.message).includes("E11000"));
             if (isDuplicate) {
               await channel.delete().catch(() => { });
-              const other = await runtimeFindOpenTicketByUser(
-                interaction.guild.id,
-                interaction.user.id,
-                interaction.guild,
-              );
+              const other = await runtimeFindOpenTicketByUser(interaction.guild.id, interaction.user.id, interaction.guild);
               await safeEditReply(interaction, {
                 embeds: [
                   new EmbedBuilder()
                     .setTitle("<:VC_open:1478517277279129712> • **__TICKET APERTO__**")
-                    .setDescription(
-                      `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto ${other?.channelId ? ": <#" + other.channelId + ">" : "."}`,
-                    )
+                    .setDescription( `<a:VC_Alert:1482706673176150077> Hai già un ticket aperto ${other?.channelId ? ": <#" + other.channelId + ">" : "."}`)
                     .setColor("#6f4e37"),
                 ],
                 flags: 1 << 6,
@@ -489,9 +483,8 @@ async function handleTicketInteraction(interaction) {
             await refreshTicketOpenPanelSelect();
             return true;
           }
-          let tagRole =
-            config.type === "partnership" ? ROLE_PARTNERMANAGER : config.role;
-          const mentionMsg = await channel.send(`<@${interaction.user.id}>${tagRole ? `<@&${tagRole}>` : ""}`,).catch(() => null);
+          let tagRole = config.type === "partnership" ? ROLE_PARTNERMANAGER : config.role;
+          const mentionMsg = await channel.send(`<@${interaction.user.id}>${tagRole ? `<@&${tagRole}>` : ""}`).catch(() => null);
           if (mentionMsg) {
             const mentionCleanupTimer = setTimeout(() => {
               mentionMsg.delete().catch(() => { });
@@ -502,16 +495,14 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               new EmbedBuilder()
                 .setTitle("<:success:1461731530333229226> • **__TICKET CREATO__**")
-                .setDescription(`<:VC_Ticket:1482535175283019888> Aperto un nuovo ticket: ${channel}`)
+                .setDescription(`<:VC_Ticket:1482535175283019888> Aperto un nuovo ticket: ${channel}.`)
                 .setColor("#6f4e37"),
             ],
             flags: 1 << 6,
           });
           await refreshTicketOpenPanelSelect();
           return true;
-        } finally {
-          interaction.client.ticketOpenLocks.delete(ticketLockKey);
-        }
+        } finally { interaction.client.ticketOpenLocks.delete(ticketLockKey) }
       }
       if (runtimeIsTicketRatingButton(interaction.customId)) {
         const clearRatingButtonsFromMessage = async (ticketDbIdForButtons) => {
@@ -519,11 +510,7 @@ async function handleTicketInteraction(interaction) {
           if (!sourceMessage?.edit || !Array.isArray(sourceMessage.components)) return;
           const keepRows = sourceMessage.components.filter((row) => {
             const items = Array.isArray(row?.components) ? row.components : [];
-            return !items.some((component) =>
-              String(component?.customId || "").startsWith(
-                `ticket_rate:${ticketDbIdForButtons}:`,
-              ),
-            );
+            return !items.some((component) => String(component?.customId || "").startsWith(`ticket_rate:${ticketDbIdForButtons}:`));
           });
           await sourceMessage.edit({ components: keepRows }).catch(() => {});
         };
@@ -559,7 +546,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
-                "<:vegax:1443934876440068179> Solo chi ha aperto il ticket può votare.",
+                "<:vegax:1443934876440068179> Solo chi ha aperto il ticket può valutarlo.",
               ),
             ],
             flags: 1 << 6,
@@ -651,11 +638,9 @@ async function handleTicketInteraction(interaction) {
           !transcriptViewExpired(ticketDoc) ? buildTicketTranscriptViewUrl(ticketDoc.transcriptViewToken) : "";
         if (viewUrl) {
           const transcriptEmbed = new EmbedBuilder()
-            .setTitle("<:VC_file:1478515880722698300> • **__TRANSCRIPT DEL TICKET__**")
-            .setDescription(
-              `<:VC_Ticket:1482535175283019888> Transcript ticket **#${ticketDoc.ticketNumber || ticketDoc._id}** — apri nel browser:\n${viewUrl}\n\n<:VC_Attention:1482534443632558151> Il link richiede login Discord: possono leggerlo solo tu (autore del ticket) o lo staff.`,
-            )
-            .setColor("#6f4e37");
+          .setTitle("<:VC_file:1478515880722698300> • **__TRANSCRIPT DEL TICKET__**")
+          .setDescription(`<:VC_Ticket:1482535175283019888> In allegato il file HTML del transcript del ticket **#${ticketDoc.ticketNumber || ticketDoc._id}**.\n\n<:VC_open:1478517277279129712> Apri il file nel browser per visualizzare la conversazione.`,)
+          .setColor("#6f4e37");
           await safeReply(interaction, { embeds: [transcriptEmbed], flags: 1 << 6 });
           return true;
         }
@@ -672,9 +657,7 @@ async function handleTicketInteraction(interaction) {
 
         const transcriptEmbed = new EmbedBuilder()
           .setTitle("<:VC_file:1478515880722698300> • **__TRANSCRIPT DEL TICKET__**")
-          .setDescription(
-            `<:VC_Ticket:1482535175283019888> In allegato il file HTML del transcript del ticket **#${ticketDoc.ticketNumber || ticketDoc._id}**.\n\n<:VC_open:1478517277279129712> Apri il file nel browser per visualizzare la conversazione.`,
-          )
+          .setDescription(`<:VC_Ticket:1482535175283019888> In allegato il file HTML del transcript del ticket **#${ticketDoc.ticketNumber || ticketDoc._id}**.\n\n<:VC_open:1478517277279129712> Apri il file nel browser per visualizzare la conversazione.`,)
           .setColor("#6f4e37");
         const files = transcriptHtmlPath && fs.existsSync(transcriptHtmlPath)
           ? [{ attachment: transcriptHtmlPath, name: `transcript_ticket_${ticketDoc.ticketNumber || ticketDoc._id}.html` }]
@@ -791,7 +774,7 @@ async function handleTicketInteraction(interaction) {
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
-                    "<:vegax:1443934876440068179> Ticket non disponibile o già gestito.",
+                    "<:vegax:1443934876440068179> Ticket non disponibile o già claimato.",
                   ),
                 ],
               });
@@ -803,7 +786,7 @@ async function handleTicketInteraction(interaction) {
                 embeds: [
                   makeErrorEmbed(
                     "<a:VC_Alert:1482706673176150077> Errore",
-                    `<:vegax:1443934876440068179> **Ticket già claimato** da <@${nowClaimed}>.`,
+                    `<:vegax:1443934876440068179> Ticket già claimato da <@${nowClaimed}>.`,
                   ),
                 ],
               });
@@ -813,88 +796,26 @@ async function handleTicketInteraction(interaction) {
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
-                  "<:vegax:1443934876440068179> Impossibile claimare il ticket ora. Riprova tra un attimo.",
+                  "<:vegax:1443934876440068179> Impossibile claimare il ticket ora. Riprova.",
                 ),
               ],
             });
             return true;
           }
-          if (interaction.channel) {
-            try {
-              if (ticket.userId) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ticket.userId,
-                  {
-                    ViewChannel: true,
-                    SendMessages: true,
-                    EmbedLinks: true,
-                    AttachFiles: true,
-                    ReadMessageHistory: true,
-                    AddReactions: true,
-                  },
-                );
-              }
-              await interaction.channel.permissionOverwrites.edit(
-                interaction.user.id,
-                {
-                  ViewChannel: true,
-                  SendMessages: true,
-                  EmbedLinks: true,
-                  AttachFiles: true,
-                  ReadMessageHistory: true,
-                  AddReactions: true,
-                },
-              );
+          if (interaction.channel) { try { if (ticket.userId) { await interaction.channel.permissionOverwrites.edit(ticket.userId, { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true }); }
+              await interaction.channel.permissionOverwrites.edit(interaction.user.id, { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true });
               if (ticket.ticketType === "supporto") {
                 for (const r of STAFF_ROLES) {
-                  if (r) {
-                    await interaction.channel.permissionOverwrites.edit(r, {
-                      ViewChannel: true,
-                      SendMessages: false,
-                      ReadMessageHistory: true,
-                    });
-                  }
+                  if (r) await interaction.channel.permissionOverwrites.edit(r, TICKET_ROLE_SPECTATE).catch(() => {});
                 }
               }
               if (ticket.ticketType === "partnership") {
-                if (ROLE_PARTNERMANAGER) {
-                  await interaction.channel.permissionOverwrites.edit(
-                    ROLE_PARTNERMANAGER,
-                    {
-                      ViewChannel: true,
-                      SendMessages: false,
-                      ReadMessageHistory: true,
-                    },
-                  );
-                }
-                if (ROLE_HIGHSTAFF) {
-                  await interaction.channel.permissionOverwrites.edit(
-                    ROLE_HIGHSTAFF,
-                    {
-                      ViewChannel: true,
-                      SendMessages: false,
-                      ReadMessageHistory: true,
-                    },
-                  );
-                }
+                if (ROLE_PARTNERMANAGER) await interaction.channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, TICKET_ROLE_SPECTATE).catch(() => {});
+                if (ROLE_HIGHSTAFF) await interaction.channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE).catch(() => {});
               } else if (ticket.ticketType === "high") {
-                if (ROLE_HIGHSTAFF) {
-                  await interaction.channel.permissionOverwrites.edit(
-                    ROLE_HIGHSTAFF,
-                    {
-                      ViewChannel: true,
-                      SendMessages: false,
-                      ReadMessageHistory: true,
-                    },
-                  );
-                }
+                if (ROLE_HIGHSTAFF) await interaction.channel.permissionOverwrites.edit(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE).catch(() => {});
               } else if (ROLE_PARTNERMANAGER) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_PARTNERMANAGER,
-                  {
-                    ViewChannel: false,
-                  },
-                );
+                await interaction.channel.permissionOverwrites.edit(ROLE_PARTNERMANAGER, { ViewChannel: false }).catch(() => {});
               }
             } catch (err) {
               global.logger.error(err);
@@ -1031,64 +952,7 @@ async function handleTicketInteraction(interaction) {
                 global.logger?.error?.(err);
               });
             }
-            if (unclaimedTicket.ticketType === "supporto") {
-              if (ROLE_STAFF) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_STAFF,
-                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
-                ).catch(() => {});
-              }
-              if (ROLE_HIGHSTAFF) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_HIGHSTAFF,
-                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
-                ).catch(() => {});
-              }
-              if (ROLE_PARTNERMANAGER) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_PARTNERMANAGER,
-                  { ViewChannel: false },
-                ).catch(() => {});
-              }
-            } else if (unclaimedTicket.ticketType === "partnership") {
-              if (ROLE_PARTNERMANAGER) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_PARTNERMANAGER,
-                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
-                ).catch(() => {});
-              }
-              if (ROLE_HIGHSTAFF) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_HIGHSTAFF,
-                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
-                ).catch(() => {});
-              }
-              if (ROLE_STAFF) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_STAFF,
-                  { ViewChannel: false },
-                ).catch(() => {});
-              }
-            } else if (unclaimedTicket.ticketType === "high") {
-              if (ROLE_HIGHSTAFF) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_HIGHSTAFF,
-                  { ViewChannel: true, SendMessages: true, ReadMessageHistory: true },
-                ).catch(() => {});
-              }
-              if (ROLE_STAFF) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_STAFF,
-                  { ViewChannel: false },
-                ).catch(() => {});
-              }
-              if (ROLE_PARTNERMANAGER) {
-                await interaction.channel.permissionOverwrites.edit(
-                  ROLE_PARTNERMANAGER,
-                  { ViewChannel: false },
-                ).catch(() => {});
-              }
-            }
+            await applyChannelPermissionOverwritesAfterUnclaim(interaction.channel, unclaimedTicket.ticketType);
           }
           try {
             if (interaction.channel) {
@@ -1205,12 +1069,7 @@ async function handleTicketInteraction(interaction) {
         } catch (err) {
           global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
         }
-        await runtimeCloseTicket(interaction, null, {
-          safeReply,
-          safeEditReply,
-          makeErrorEmbed,
-          LOG_CHANNEL,
-        });
+        await runtimeCloseTicket(interaction, null, { safeReply, safeEditReply, makeErrorEmbed, LOG_CHANNEL });
         return true;
       }
       if (interaction.customId === "accetta") {
@@ -1234,7 +1093,7 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
-                "<:vegax:1443934876440068179> Solo opener o claimer possono gestire questa richiesta.",
+                "<:vegax:1443934876440068179> Solo chi ha aperto o claimato il ticket può gestire questa richiesta.",
               ),
             ],
             flags: 1 << 6,
@@ -1242,21 +1101,12 @@ async function handleTicketInteraction(interaction) {
           return true;
         }
         try {
-          await interaction
-            .deferReply({ flags: 1 << 6 })
-            .catch(() => { })
-            .catch(() => { });
+          await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
         } catch (err) {
           global.logger?.warn?.("[ticketHandlers] ", err?.message || err);
         }
         const motivo = ticketDoc.closeReason || "Nessun motivo inserito";
-        await runtimeCloseTicket(interaction, motivo, {
-          safeReply,
-          safeEditReply,
-          makeErrorEmbed,
-          LOG_CHANNEL,
-          closedById: ticketDoc.closeRequestedBy || interaction.user.id,
-        });
+        await runtimeCloseTicket(interaction, motivo, { safeReply, safeEditReply, makeErrorEmbed, LOG_CHANNEL, closedById: ticketDoc.closeRequestedBy || interaction.user.id });
         return true;
       }
       if (interaction.customId === "rifiuta") {
@@ -1280,17 +1130,14 @@ async function handleTicketInteraction(interaction) {
             embeds: [
               makeErrorEmbed(
                 "<a:VC_Alert:1482706673176150077> Errore",
-                "<:vegax:1443934876440068179> Solo opener o claimer possono gestire questa richiesta.",
+                "<:vegax:1443934876440068179> Solo chi ha aperto o claimato il ticket può gestire questa richiesta.",
               ),
             ],
             flags: 1 << 6,
           });
           return true;
         }
-        await acknowledgeRejectClosePrompt(
-          interaction,
-          `<:vegax:1443934876440068179> <@${interaction.user.id}> ha rifiutato la richiesta di chiusura`,
-        );
+        await acknowledgeRejectClosePrompt( interaction, `<:vegax:1443934876440068179> <@${interaction.user.id}> ha rifiutato la richiesta di chiusura.`);
         await Ticket.updateOne(
           { _id: ticketDoc._id },
           {
@@ -1330,7 +1177,7 @@ async function handleTicketInteraction(interaction) {
               embeds: [
                 makeErrorEmbed(
                   "<a:VC_Alert:1482706673176150077> Errore",
-                  "<:vegax:1443934876440068179> Solo opener o claimer possono gestire questa richiesta automatica.",
+                  "<:vegax:1443934876440068179> Solo chi ha aperto o claimato il ticket può gestire questa richiesta automatica.",
                 ),
               ],
               flags: 1 << 6,
@@ -1402,12 +1249,7 @@ async function handleTicketInteraction(interaction) {
         const first = interaction.fields.fields.first();
         if (first?.value) motivo = String(first.value).trim() || null;
       }
-      await runtimeCloseTicket(interaction, motivo, {
-        safeReply,
-        safeEditReply,
-        makeErrorEmbed,
-        LOG_CHANNEL,
-      });
+      await runtimeCloseTicket(interaction, motivo, { safeReply, safeEditReply, makeErrorEmbed, LOG_CHANNEL });
       return true;
     }
   } catch (err) {

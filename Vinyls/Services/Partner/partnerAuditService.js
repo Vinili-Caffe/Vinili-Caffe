@@ -547,6 +547,7 @@ async function restoreManagerLeftServerPartnerPointsOnRejoin(client, managerUser
 }
 
 async function runDailyPartnerAudit(client, opts = {}) {
+  const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const guildId = IDs.guilds.main || client.guilds.cache.first()?.id;
   if (!guildId) return;
   const guild = await getClientGuildCached(client, guildId);
@@ -573,10 +574,8 @@ async function runDailyPartnerAudit(client, opts = {}) {
     totalRemovalLogsSent += logsSent;
   }
 
-  if (!quiet || totalRemoved > 0 || totalRemovalLogsSent > 0) {
-    global.logger?.info?.(
-      `[PARTNER AUDIT] date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}${quiet ? " intraday" : ""}`,
-    );
+  if (jobsDebug && (!quiet || totalRemoved > 0 || totalRemovalLogsSent > 0)) {
+    global.logger?.info?.(`[PARTNER AUDIT] date=${targetDateKey} checked=${totalChecked} removed=${totalRemoved} logsSent=${totalRemovalLogsSent}${quiet ? " intraday" : ""}`);
   }
 }
 
@@ -622,7 +621,9 @@ function startDailyPartnerAuditLoop(client) {
       void runIntradayPartnerAuditTick(client);
     }, ms);
     if (typeof intradayPartnerAuditTimer.unref === "function") intradayPartnerAuditTimer.unref();
-    global.logger?.info?.(`[PARTNER AUDIT] Intraday loop ogni ${intradayMin} min (giorno corrente Europe/Rome)`);
+    if (String(process.env.DEBUG_JOBS || "").trim() === "1") {
+      global.logger?.info?.(`[PARTNER AUDIT] Intraday loop ogni ${intradayMin} min (giorno corrente Europe/Rome)`);
+    }
   }
 
   return dailyPartnerAuditTask;

@@ -4,7 +4,7 @@ const { rewindGuildTrack } = require("../../Services/Music/lavalinkMusicService"
 
 module.exports = {
   name: "rewind",
-  description: "Riporta la traccia in riproduzione all'inizio (seek 0).",
+  description: "Riporta il brano in riproduzione all'inizio.",
   usage: ",rewind",
   examples: [",rewind"],
   async execute(message) {
@@ -12,19 +12,13 @@ module.exports = {
     if (result.ok) {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setDescription("**La traccia è stata riavvolta** 🔂");
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      }).catch(() => null);
+        .setDescription("**Il brano in riproduzione è stato riavvolto** 🔂");
+      await safeMessageReply(message, { embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => null);
       return;
     }
     const err = new EmbedBuilder()
       .setColor(0xff0000)
-      .setDescription(`**${result.message}**`);
-    await safeMessageReply(message, {
-      embeds: [err],
-      allowedMentions: { repliedUser: false },
-    }).catch(() => null);
+      .setDescription(`<a:VC_Cross:1482532424570376253> ${result.message}`);
+    await safeMessageReply(message, { embeds: [err], allowedMentions: { repliedUser: false } }).catch(() => null);
   },
 };

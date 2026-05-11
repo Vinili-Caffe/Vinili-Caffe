@@ -64,15 +64,11 @@ function buildServerFallbackPayload({ guild, safeLookback, authorId, stats = nul
       { name: "Utenti", value: String(Number(selected.contributors || 0)), inline: true },
     );
   }
-  if (reason) {
-    fields.push({ name: "Nota", value: "Il canvas/statistiche complete sono lente, quindi ho mandato il riepilogo leggero.", inline: false });
-  }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`Statistiche server - ${guild?.name || "Server"}`)
+    .setTitle(`Statistiche Server`)
     .setDescription(`Periodo: ultimi ${safeLookback} giorni`)
-    .addFields(fields.length ? fields : [{ name: "Stato", value: "Statistiche temporaneamente lente. Riprova tra poco.", inline: false }]);
-  return { embeds: [embed], files: [], components: [buildRefreshRow(authorId, safeLookback)] };
+    return { embeds: [embed], files: [], components: [buildRefreshRow(authorId, safeLookback)] };
 }
 
 async function execute(interaction) {

@@ -3,8 +3,6 @@ const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const unlocks = require("../Utils/Community/personalityColorUnlocks");
 const { getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { ROLE_TRY_AGAIN } = require("../Utils/Text/replyMessages");
-
-const PRIVATE_FLAG = 1 << 6;
 const CMD_COLORS_SEG = "cmd_colors_seg:";
 const CMD_COLORS_BTN = "cmd_colors_btn:";
 
@@ -37,9 +35,9 @@ async function setMemberRolesBulk(member, roleIdsToRemove, roleIdsToAdd = []) {
 }
 
 function formatRemoveSuccess(count) {
-  if (count <= 0) return "❌ **Non hai nessun colore da rimuovere!**";
-  if (count === 1) return "✅ **Rimosso 1 colore!**";
-  return `✅ **Rimossi ${count} colori!**`;
+  if (count <= 0) return "<a:VC_Cross:1482532424570376253> **Non hai nessun colore da rimuovere!**";
+  if (count === 1) return "<a:VC_Verified:1482532479637127188> **Rimosso 1 colore!**";
+  return `<a:VC_Verified:1482532479637127188> **Rimossi ${count} colori!**`;
 }
 
 module.exports = {
@@ -67,10 +65,7 @@ module.exports = {
       const ownerId = parts[1];
       const action = parts[2];
       if (interaction.user?.id !== ownerId) {
-        await interaction.reply({
-          content: "<:vegax:1443934876440068179> Questo pannello non è tuo. Usa `+profile`.",
-          flags: PRIVATE_FLAG,
-        }).catch((err) => logButtonErr(err));
+        await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo. Usa `+profile`.", flags: 1 << 6 }).catch((err) => logButtonErr(err));
         return true;
       }
       const member = await getGuildMemberCached(guild, ownerId, { preferFresh: true }).catch(() => interaction.member);
@@ -78,11 +73,7 @@ module.exports = {
         let desc = unlocks.buildColorsHowToUnlockEmbedDescription();
         if (desc.length > 4090) desc = `${desc.slice(0, 4087)}…`;
         const embed = new EmbedBuilder().setColor("#6f4e37").setDescription(desc);
-        await interaction.reply({
-          embeds: [embed],
-          flags: PRIVATE_FLAG,
-          allowedMentions: { roles: unlocks.listRoleIdsForColorsEmbedMentions(guild) },
-        }).catch((err) => logButtonErr(err));
+        await interaction.reply({ embeds: [embed], flags: 1 << 6, allowedMentions: { roles: unlocks.listRoleIdsForColorsEmbedMentions(guild) } }).catch((err) => logButtonErr(err));
         return true;
       }
       if (action === "remove") {
@@ -91,16 +82,13 @@ module.exports = {
         const beforeMember = await guild.members.fetch({ user: ownerId, force: true }).catch(() => member);
         const onMember = rolesToRemoveExisting.filter((rid) => beforeMember?.roles?.cache?.has(rid));
         if (!onMember.length) {
-          await interaction.reply({
-            content: "❌ **Non hai nessun colore da rimuovere!**",
-            flags: PRIVATE_FLAG,
-          }).catch((err) => logButtonErr(err));
+          await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> **Non hai nessun colore da rimuovere!**", flags: 1 << 6 }).catch((err) => logButtonErr(err));
           return true;
         }
         await setMemberRolesBulk(member, rolesToRemoveExisting, []);
         await interaction.reply({
           content: formatRemoveSuccess(onMember.length),
-          flags: PRIVATE_FLAG,
+          flags: 1 << 6,
         }).catch((err) => logButtonErr(err));
         return true;
       }
@@ -114,10 +102,7 @@ module.exports = {
     const ownerId = parts[1];
     const segment = parts[2];
     if (interaction.user?.id !== ownerId) {
-      await interaction.reply({
-        content: "<:vegax:1443934876440068179> Questo menu non è tuo. Usa `+profile`.",
-        flags: PRIVATE_FLAG,
-      }).catch((err) => logButtonErr(err));
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo menu non è tuo. Usa `+profile`.", flags: 1 << 6 }).catch((err) => logButtonErr(err));
       return true;
     }
     const values = Array.isArray(interaction.values) ? interaction.values : [];
@@ -126,20 +111,14 @@ module.exports = {
     const level = await unlocks.fetchNumericProfileLevel(guild.id, ownerId);
     const canPickPlus = await unlocks.memberHasPlusColorFullEligibilityAsync(member);
     if (!unlocks.isValueAllowedForCmdColors(segment, value, member, level, canPickPlus)) {
-      await interaction.reply({
-        content: "<:vegax:1443934876440068179> Non puoi applicare quel colore.",
-        flags: PRIVATE_FLAG,
-      }).catch((err) => logButtonErr(err));
+      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non puoi applicare quel colore.", flags: 1 << 6 }).catch((err) => logButtonErr(err));
       return true;
     }
-    const pool =
-      segment === "tier"
-        ? unlocks.getTierExclusiveRoleIds()
-        : segment === "plus"
-          ? unlocks.getPlusColorRoleIds()
-          : unlocks.getAllPersonalityChatColorRoleIds();
+    const pool = segment === "tier" ? unlocks.getTierExclusiveRoleIds() : segment === "plus"
+      ? unlocks.getPlusColorRoleIds()
+      : unlocks.getAllPersonalityChatColorRoleIds();
     const trackedSet = new Set(pool);
-    const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, pool, `menu=cmd_colors:${segment}`);
+    const { existing: rolesToRemoveExisting } = partitionRoleIdsByExisting(guild, pool);
 
     const beforeMember = await guild.members.fetch({ user: ownerId, force: true }).catch(() => member);
     const beforeRoleSet = new Set(beforeMember?.roles?.cache?.keys?.() || []);
@@ -153,25 +132,21 @@ module.exports = {
     if (!isRemove && value && canDupCheck) {
       const held = [...trackedSet].filter((rid) => beforeRoleSet.has(rid));
       if (held.length === 1 && held[0] === value) {
-        await interaction.reply({
-          content: `✅ **Hai già questo colore.** <@&${value}>`,
-          flags: PRIVATE_FLAG,
-          allowedMentions: { roles: [value] },
-        }).catch((err) => logButtonErr(err));
+        await interaction.reply({ content: `<a:VC_Verified:1482532479637127188> **Hai già questo colore.** <@&${value}>`, flags: 1 << 6, allowedMentions: { roles: [value] } }).catch((err) => logButtonErr(err));
         return true;
       }
     }
 
     await interaction.deferUpdate().catch((err) => logButtonErr(err));
     if (!interaction.deferred) {
-      await interaction.reply({ content: ROLE_TRY_AGAIN, flags: PRIVATE_FLAG }).catch((err) => logButtonErr(err));
+      await interaction.reply({ content: ROLE_TRY_AGAIN, flags: 1 << 6 }).catch((err) => logButtonErr(err));
       return true;
     }
     try {
       const beforeRoleSet2 = new Set(beforeMember?.roles?.cache?.keys?.() || []);
       const valuesExisting = isRemove ? [] : partitionRoleIdsByExisting(guild, [value]).existing;
       if (isRemove) {
-        await setMemberRolesBulk(member, rolesToRemoveExisting, []);
+ await setMemberRolesBulk(member, rolesToRemoveExisting, []);
       } else {
         await setMemberRolesBulk(member, rolesToRemoveExisting, valuesExisting);
       }
@@ -183,23 +158,16 @@ module.exports = {
       if (isRemove) {
         content = formatRemoveSuccess(removedRoleIds.length);
       } else if (addedRoleIds.length) {
-        content = `✅ **Assegnato** <@&${addedRoleIds[0]}>`;
+        content = `<a:VC_Verified:1482532479637127188> **Assegnato** <@&${addedRoleIds[0]}>`;
       } else if (!valuesExisting.length && value && value !== "remove") {
-        content = "<:vegax:1443934876440068179> Ruolo colore non trovato sul server.";
+        content = "<a:VC_Alert:1482706673176150077> Ruolo colore non trovato sul server.";
       } else {
-        content = "<:vegax:1443934876440068179> Non è stato possibile applicare il colore. Controlla permessi del bot e gerarchia ruoli.";
+        content = "<a:VC_Alert:1482706673176150077> Non è stato possibile applicare il colore. Controlla permessi del bot e gerarchia ruoli.";
       }
-      await interaction.followUp({
-        content,
-        flags: PRIVATE_FLAG,
-        allowedMentions: addedRoleIds.length ? { roles: [addedRoleIds[0]] } : {},
-      }).catch((err) => logButtonErr(err));
+      await interaction.followUp({ content, flags: 1 << 6, allowedMentions: addedRoleIds.length ? { roles: [addedRoleIds[0]] } : {} }).catch((err) => logButtonErr(err));
     } catch (err) {
       logButtonErr(err);
-      await interaction.followUp({
-        content: "<:vegax:1443934876440068179> Errore durante l’aggiornamento del colore.",
-        flags: PRIVATE_FLAG,
-      }).catch((e) => logButtonErr(e));
+      await interaction.followUp({ content: "<a:VC_Alert:1482706673176150077> Errore durante l’aggiornamento del colore.", flags: 1 << 6 }).catch((e) => logButtonErr(e));
     }
     return true;
   },

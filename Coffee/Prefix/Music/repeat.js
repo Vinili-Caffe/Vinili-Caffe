@@ -7,8 +7,7 @@ module.exports = {
   allowEmptyArgs: true,
   subcommands: ["disable", "enable", "queue"],
   subcommandAliases: { off: "disable", on: "enable" },
-  description:
-    "Ripetizione traccia (toggle / enable), ripetizione **coda** (**queue**), disattiva tutto con **disable**.",
+  description: "Attiva o disattiva la ripetizione del brano in riproduzione o della coda.",
   usage: ",repeat [disable | enable | queue]",
   examples: [",repeat", ",repeat disable", ",repeat enable", ",repeat queue"],
   async execute(message, args) {
@@ -17,7 +16,7 @@ module.exports = {
     if (result.ok && result.mode === "queue") {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setDescription("**Ripeterò tutta la coda** 🔄");
+        .setDescription("**La ripetizione della coda è stata attivata** 🔄");
       await safeMessageReply(message, {
         embeds: [embed],
         allowedMentions: { repliedUser: false },
@@ -27,32 +26,23 @@ module.exports = {
     if (result.ok && result.mode === "on") {
       const embed = new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setDescription("**Ripeterò la traccia in corso** 🔂");
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      }).catch(() => null);
+        .setDescription("**La ripetizione del brano in riproduzione è stata attivata** 🔂");
+      await safeMessageReply(message, { embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => null);
       return;
     }
     if (result.ok && result.mode === "off") {
       const offText = result.explicit
-        ? "**Ripetizione disattivata**"
+        ? "**La ripetizione del brano in riproduzione è stata disattivata**"
         : result.queueOff
           ? "**La ripetizione della coda è stata disattivata**"
-          : "**La ripetizione singola è stata disattivata**";
+          : "**La ripetizione del brano in riproduzione è stata disattivata**";
       const embed = new EmbedBuilder().setColor(0x2ecc71).setDescription(offText);
-      await safeMessageReply(message, {
-        embeds: [embed],
-        allowedMentions: { repliedUser: false },
-      }).catch(() => null);
+      await safeMessageReply(message, { embeds: [embed], allowedMentions: { repliedUser: false } }).catch(() => null);
       return;
     }
     const err = new EmbedBuilder()
       .setColor(0xff0000)
       .setDescription(`**${result.message}**`);
-    await safeMessageReply(message, {
-      embeds: [err],
-      allowedMentions: { repliedUser: false },
-    }).catch(() => null);
+    await safeMessageReply(message, { embeds: [err], allowedMentions: { repliedUser: false } }).catch(() => null);
   },
 };

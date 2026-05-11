@@ -1,9 +1,6 @@
 const { initLavalinkMusicIfEnabled, isLavalinkUsable } = require("./lavalinkMusicService");
-
 const LRCLIB_BASE = "https://lrclib.net/api";
 const LYRICS_PAGE_MAX = 3800;
-
-/** @type {Map<string, { pages: string[], title: string, authorId: string }>} */
 const lyricsUiSessions = new Map();
 
 function lrclibHeaders() {
@@ -97,7 +94,7 @@ function resolveNode(client) {
  * @param {string} query vuoto = brano in riproduzione
  */
 async function resolveGuildLyrics(client, guild, query) {
-  if (!guild?.id) return { ok: false, message: "Solo in server." };
+  if (!guild?.id) return { ok: false, message: "<a:VC_Cross:1482532424570376253> Solo in server." };
   const guildId = guild.id;
   const trimmed = String(query || "").trim();
 
@@ -107,18 +104,18 @@ async function resolveGuildLyrics(client, guild, query) {
       arr = await lrclibSearch(trimmed);
     } catch (err) {
       global.logger?.warn?.("[LYRICS] search:", err?.message || err);
-      return { ok: false, message: "Impossibile contattare il servizio testi." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile contattare il servizio testi." };
     }
     if (!Array.isArray(arr) || !arr.length) {
-      return { ok: false, message: "Nessun testo trovato per questa ricerca." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun testo trovato per questa ricerca." };
     }
     const hit = pickBestLyricsRecord(arr);
     const body = normalizeLyricsBody(hit);
     if (hit?.instrumental && !body) {
-      return { ok: false, message: "Brano strumentale (nessun testo)." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Brano strumentale, nessun testo." };
     }
     if (!body) {
-      return { ok: false, message: "Nessun testo trovato per questa ricerca." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun testo trovato per questa ricerca." };
     }
     const title = `${hit.trackName} — ${hit.artistName}`;
     return { ok: true, title, pages: chunkLyrics(body) };
@@ -126,19 +123,19 @@ async function resolveGuildLyrics(client, guild, query) {
 
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Musica non disponibile." };
   }
   const player = client.shoukaku?.players?.get(guildId);
   if (!player?.track) {
     return {
       ok: false,
-      message: "Non c'è nulla in riproduzione. Usa `+lyrics <titolo o artista>`.",
+      message: "<a:VC_Cross:1482532424570376253> Non c'è nulla in riproduzione. Usa `+lyrics <titolo o artista>`.",
     };
   }
   const node = resolveNode(client);
   const enc = encodedFromPlayerTrack(player.track);
   if (!node?.rest?.decode || !enc) {
-    return { ok: false, message: "Impossibile leggere il brano in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile leggere il brano in riproduzione." };
   }
   let trackName = "";
   let artistName = "";
@@ -152,10 +149,10 @@ async function resolveGuildLyrics(client, guild, query) {
     durationSec = Math.max(0, Math.round(Number(t?.info?.length || 0) / 1000));
   } catch (err) {
     global.logger?.warn?.("[LYRICS] decode:", err?.message || err);
-    return { ok: false, message: "Impossibile leggere il brano in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile leggere il brano in riproduzione." };
   }
   if (!trackName) {
-    return { ok: false, message: "Titolo non disponibile per i testi." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Titolo non disponibile per i testi." };
   }
 
   let hit = null;
@@ -170,19 +167,19 @@ async function resolveGuildLyrics(client, guild, query) {
       arr = await lrclibSearch(`${trackName} ${artistName}`.trim());
     } catch (err) {
       global.logger?.warn?.("[LYRICS] search2:", err?.message || err);
-      return { ok: false, message: "Impossibile contattare il servizio testi." };
+      return { ok: false, message: "<a:VC_Cross:1482532424570376253> Impossibile contattare il servizio testi." };
     }
     hit = arr?.length ? pickBestLyricsRecord(arr) : null;
   }
   if (!hit) {
-    return { ok: false, message: "Nessun testo trovato per il brano in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun testo trovato per il brano in riproduzione." };
   }
   const body = normalizeLyricsBody(hit);
   if (hit.instrumental && !body) {
-    return { ok: false, message: "Brano strumentale (nessun testo)." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Brano strumentale, nessun testo." };
   }
   if (!body) {
-    return { ok: false, message: "Nessun testo trovato per il brano in riproduzione." };
+    return { ok: false, message: "<a:VC_Cross:1482532424570376253> Nessun testo trovato per il brano in riproduzione." };
   }
   const title = `${hit.trackName} — ${hit.artistName}`;
   return { ok: true, title, pages: chunkLyrics(body) };
@@ -200,10 +197,4 @@ function getLyricsSession(sessionKey) {
   return lyricsUiSessions.get(sessionKey) || null;
 }
 
-module.exports = {
-  resolveGuildLyrics,
-  registerLyricsSession,
-  deleteLyricsSession,
-  getLyricsSession,
-  LYRICS_PAGE_MAX,
-};
+module.exports = { resolveGuildLyrics, registerLyricsSession, deleteLyricsSession, getLyricsSession, LYRICS_PAGE_MAX };

@@ -2,56 +2,15 @@ const { Collection } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { executeDynoModerationCommand } = require("../Utils/Moderation/dynoModerationCommands");
 const { checkPrefixPermission } = require("../Utils/Moderation/commandPermissions");
-const {
-  PANEL_PREFIX,
-  parseNavCustomId,
-  parseHomeCustomId,
-  parseGoCustomId,
-  parseCloseCustomId,
-  parseModalCustomId,
-  buildModerationPanelPayload,
-  buildModalForAction,
-  SECTION_HOME,
-  FIELD_REASON,
-  FIELD_DURATION,
-  FIELD_CASE,
-  FIELD_EXTRA,
-} = require("../Utils/Moderation/moderationPanelRuntime");
-
+const { PANEL_PREFIX, parseNavCustomId, parseHomeCustomId, parseGoCustomId, parseCloseCustomId, parseModalCustomId, buildModerationPanelPayload, buildModalForAction, SECTION_HOME, FIELD_REASON, FIELD_DURATION, FIELD_CASE, FIELD_EXTRA } = require("../Utils/Moderation/moderationPanelRuntime");
 const PRIVATE_FLAG = 1 << 6;
-
 const GO_IMMEDIATE = new Set(["warnings", "moderations", "clearwarn"]);
-
-const SANCTIONS_OUTPUT_TO_SANZIONI = new Set([
-  "warn",
-  "kick",
-  "mute",
-  "ban",
-  "unmute",
-  "unban",
-  "delwarn",
-  "clearwarn",
-]);
+const SANCTIONS_OUTPUT_TO_SANZIONI = new Set(["warn", "kick", "mute", "ban", "unmute", "unban", "delwarn", "clearwarn"]);
 
 function createProxyMessage(interaction, outputChannel = null, guild = null, member = null) {
   const ch = outputChannel || interaction.channel;
   const g = guild || interaction.guild;
-  return {
-    id: interaction.id,
-    channel: ch,
-    channelId: ch?.id,
-    invokeChannel: interaction.channel,
-    invokeChannelId: interaction.channelId,
-    guild: g,
-    author: interaction.user,
-    member: member ?? interaction.member,
-    client: interaction.client,
-    mentions: {
-      users: new Collection(),
-      channels: new Collection(),
-      roles: new Collection(),
-    },
-  };
+  return { id: interaction.id, channel: ch, channelId: ch?.id, invokeChannel: interaction.channel, invokeChannelId: interaction.channelId, guild: g, author: interaction.user, member: member ?? interaction.member, client: interaction.client, mentions: { users: new Collection(), channels: new Collection(), roles: new Collection() } };
 }
 
 function resolveGuildFromInteraction(interaction, parsed) {
@@ -187,18 +146,18 @@ function buildImmediateArgs(action, targetId) {
 async function runDynoFromInteraction(interaction, client, cmd, args, guild) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non trovo il tuo membro nel server.");
+    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non trovo il tuo membro nel server.");
     return;
   }
   const permCh = resolvePermChannel(interaction, guild);
   const permProxy = createProxyMessage(interaction, permCh, guild, member);
   const allowed = await checkPrefixPermission(permProxy, cmd);
   if (!allowed) {
-    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non hai permesso per questa azione in questo canale.");
+    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non hai permesso per questa azione in questo canale.");
     return;
   }
   if (!Array.isArray(args) || !args.length) {
-    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Argomenti non validi.");
+    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Argomenti non validi.");
     return;
   }
   const outCh = await resolveSanctionOutputChannel(guild, interaction, cmd);
@@ -210,14 +169,12 @@ async function runDynoFromInteraction(interaction, client, cmd, args, guild) {
   try {
     await executeDynoModerationCommand(cmd, execProxy, args, client);
     const doneMsg = usedSanzioni
-      ? "<:vegacheckmark:1443666279058772028> Eseguito. L’esito è stato inviato nel canale sanzioni."
-      : "<:vegacheckmark:1443666279058772028> Eseguito. Controlla il canale per output e conferme.";
+      ? "<a:VC_Verified:1482532479637127188> Eseguito. L’esito è stato inviato nel canale sanzioni."
+      : "<a:VC_Verified:1482532479637127188> Eseguito. Controlla il canale per output e conferme.";
     await interaction.editReply({ content: doneMsg }).catch(() => {});
   } catch (err) {
     global.logger?.error?.("[moderationPanel]", err);
-    await interaction
-      .editReply({ content: `<:vegax:1443934876440068179> ${String(err?.message || err).slice(0, 500)}` })
-      .catch(() => {});
+    await interaction.editReply({ content: `<a:VC_Cross:1482532424570376253> ${String(err?.message || err).slice(0, 500)}` }).catch(() => {});
   }
 }
 
@@ -236,14 +193,14 @@ async function dispatchGoStyleAction(interaction, client, guild, ctx, action) {
   if (!modal) return false;
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non trovo il tuo membro nel server.");
+    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non trovo il tuo membro nel server.");
     return true;
   }
   const permCh = resolvePermChannel(interaction, guild);
   const proxy = createProxyMessage(interaction, permCh, guild, member);
   const allowed = await checkPrefixPermission(proxy, a);
   if (!allowed) {
-    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Non hai permesso per questa azione in questo canale.");
+    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non hai permesso per questa azione in questo canale.");
     return true;
   }
   await interaction.showModal(modal).catch(() => null);
@@ -269,40 +226,33 @@ async function execute(interaction, client) {
       const parsed = parseHomeCustomId(id);
       if (!parsed) return false;
       if (String(interaction.user.id) !== String(parsed.viewerId)) {
-        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare il menu.");
+        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare il menu.");
         return true;
       }
       const guild = resolveGuildFromInteraction(interaction, parsed);
       if (!guild) {
-        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
         return true;
       }
       const action = String(interaction.values?.[0] || "").toLowerCase();
       const ctx = { ...parsed, guildId: parsed.guildId || guild.id };
       const ok = await dispatchGoStyleAction(interaction, client, guild, ctx, action);
-      if (!ok) await replyEphemeral(interaction, "<:vegax:1443934876440068179> Azione non valida.");
+      if (!ok) await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione non valida.");
       return true;
     }
     const parsed = parseNavCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare il menu.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare il menu.");
       return true;
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
       return true;
     }
     const section = String(interaction.values?.[0] || SECTION_HOME);
-    const payload = await buildModerationPanelPayload(
-      guild,
-      parsed.viewerId,
-      parsed.targetId,
-      interaction.client,
-      section,
-      { sourceMessageId: parsed.sourceMessageId },
-    );
+    const payload = await buildModerationPanelPayload(guild, parsed.viewerId, parsed.targetId, interaction.client, section, { sourceMessageId: parsed.sourceMessageId });
     await safeUpdatePanelInteraction(interaction, payload);
     return true;
   }
@@ -312,7 +262,7 @@ async function execute(interaction, client) {
       const parsedClose = parseCloseCustomId(id);
       if (!parsedClose) return false;
       if (String(interaction.user.id) !== String(parsedClose.viewerId)) {
-        await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può chiuderlo.");
+        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può chiuderlo.");
         return true;
       }
       await interaction.deferUpdate().catch(() => {});
@@ -325,12 +275,12 @@ async function execute(interaction, client) {
     const parsed = parseGoCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può usare i pulsanti.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare i pulsanti.");
       return true;
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
@@ -342,18 +292,18 @@ async function execute(interaction, client) {
     const parsed = parseModalCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha aperto il pannello può inviare questo modulo.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può inviare questo modulo.");
       return true;
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
     const args = buildArgsFromModal(action, parsed.targetId, interaction.fields);
     if (!args) {
-      await replyEphemeral(interaction, "<:vegax:1443934876440068179> Modulo non valido.");
+      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Modulo non valido.");
       return true;
     }
     await runDynoFromInteraction(interaction, client, action, args, guild);

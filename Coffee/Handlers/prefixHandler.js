@@ -51,7 +51,7 @@ function ensurePrefixSubcommandMetadata(command) {
   }
 }
 
-function ensurePrefixUsageMetadata(command, prefix = "-") {
+function ensurePrefixUsageMetadata(command, prefix = ",") {
   const name = String(command ?. name || "").trim().toLowerCase();
   if (!name) return;
 
@@ -80,7 +80,7 @@ function ensurePrefixUsageMetadata(command, prefix = "-") {
 module.exports = (client) => {
   client.prefixCommands = async (folders = [], basePath) => {
     const prefixBase = basePath || path.resolve(__dirname, "..", "Prefix");
-    const runtimePrefix = String(client?.config?.prefix || "-");
+    const runtimePrefix = String(client?.config?.prefix || ",");
     const newPcommands = new client.pcommands.constructor();
     const newAliases = new client.aliases.constructor();
     const statusMap = new Map();
@@ -96,11 +96,10 @@ module.exports = (client) => {
           delete require.cache[require.resolve(fullPath)];
           const command = require(fullPath);
           if (!command || !command.name) {
-            statusMap.set(key, "Missing name");
+            statusMap.set(key, "Missing name.");
             continue;
           }
           if (command.skipLoad || command.skipPrefix) {
-            statusMap.set(key, "Skipped");
             continue;
           }
           command.folder = command.folder || folder;
@@ -108,13 +107,13 @@ module.exports = (client) => {
           ensurePrefixUsageMetadata(command, runtimePrefix);
 
           newPcommands.set(command.name, command);
-          statusMap.set(key, "Loaded");
+          statusMap.set(key, "Loaded.");
 
           if (Array.isArray(command.aliases)) {
             for (const alias of command.aliases) newAliases.set(alias, command.name);
           }
         } catch (err) {
-          statusMap.set(key, "Error loading");
+          statusMap.set(key, "Error loading.");
           global.logger?.error?.(`[PREFIX] Failed to load ${key}:`, err);
         }
       }

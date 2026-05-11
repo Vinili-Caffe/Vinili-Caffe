@@ -19,6 +19,9 @@
 
   function hasCookieConsent() {
     try {
+      if (window.sessionStorage && window.sessionStorage.getItem(CONSENT_KEY) === "accepted") return true;
+    } catch (e) {}
+    try {
       if (window.localStorage && window.localStorage.getItem(CONSENT_KEY) === "accepted") return true;
     } catch (e) {}
     try {
@@ -30,14 +33,29 @@
     }
   }
 
+  function cookieDomainSuffixForConsent() {
+    try {
+      var h = String(window.location.hostname || "").toLowerCase();
+      if (!h || h === "localhost" || h === "127.0.0.1" || h === "[::1]") return "";
+      if (h.endsWith(".localhost")) return "";
+      if (h === "viniliecaffe.it" || h.endsWith(".viniliecaffe.it")) return "; Domain=.viniliecaffe.it";
+    } catch (e) {}
+    return "";
+  }
+
   function rememberCookieConsent() {
     try {
       if (window.localStorage) window.localStorage.setItem(CONSENT_KEY, "accepted");
     } catch (e) {}
     try {
+      if (window.sessionStorage) window.sessionStorage.setItem(CONSENT_KEY, "accepted");
+    } catch (e) {}
+    try {
       var maxAge = 60 * 60 * 24 * 180;
       var secure = String(window.location.protocol || "").toLowerCase() === "https:" ? "; Secure" : "";
-      document.cookie = CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure;
+      var domain = cookieDomainSuffixForConsent();
+      document.cookie =
+        CONSENT_COOKIE + "=accepted; Max-Age=" + maxAge + "; Path=/; SameSite=Lax" + secure + domain;
     } catch (e) {}
   }
 

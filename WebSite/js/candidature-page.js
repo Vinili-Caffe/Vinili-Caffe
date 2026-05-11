@@ -773,7 +773,7 @@
     var untilText = formatCooldownUntil(untilMs);
     var msg = untilText
       ? "Hai già inviato una candidatura di questo tipo: attendi fino al " + untilText + "."
-      : "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown.";
+      : "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown di 15 giorni.";
     var base =
       eligibilityState && eligibilityState.data && eligibilityState.data.ok === true
         ? eligibilityState.data

@@ -1,9 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AuditLogEvent, PermissionsBitField, } = require("discord.js");
 const { closeOpenTicketsForGuildUser } = require("../Utils/Ticket/ticketCloseRuntime");
-const {
-  ActivityUserProfile,
-  ACTIVITY_MAIN_GUILD_ID,
-} = require("../Schemas/Community/communitySchemas");
+const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../Schemas/Community/communitySchemas");
 const { sponsorMainLeave } = require("../Utils/Community/activityUserProfilePaths");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientGuildCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
@@ -23,19 +20,8 @@ const { trackMemberLeave } = require("../Services/Community/dailyMemberStatsServ
 const { handleMainGuildMemberRemove } = require("../Services/Staff/staffAccessMirrorService");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
-const STAFF_TRACKED_ROLE_IDS = new Set([
-  IDs.roles.PartnerManager,
-  IDs.roles.Staff,
-  IDs.roles.Helper,
-  IDs.roles.Mod,
-  IDs.roles.SeniorModerator,
-  IDs.roles.HighStaff,
-  IDs.roles.Director,
-  IDs.roles.Admin,
-  IDs.roles.Founder,
-]);
+const STAFF_TRACKED_ROLE_IDS = new Set([IDs.roles.PartnerManager, IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder,]);
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
 const MAIN_GUILD_ID = IDs.guilds?.main || "1329080093599076474";
 const SPONSOR_GUILD_IDS = IDs.guilds?.sponsorGuildIds || [];
 const OFFICIAL_INVITE_URL = "https://discord.gg/viniliecaffe";
@@ -121,8 +107,8 @@ async function sendLeaveLog(member) {
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("Member Left")
-    .setDescription([`${member.user} ${member.user.tag}.`, ""].join("\n"))
+    .setTitle("<:VC_User:1482527453586002103> Membro Uscito")
+    .setDescription([`<:VC_User:1482527453586002103> **Membro:** ${member.user} ${member.user.tag}.`, ""].join("\n"))
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
@@ -152,7 +138,7 @@ async function closeOpenTicketsForMember(member, closeReason = "Utente uscito da
   await closeOpenTicketsForGuildUser(member.guild, member.id, {
     closeReason,
     closedBy: member.client.user?.id || null,
-    deleteReason: `Ticket auto-chiuso: ${closeReason} (${member.id})`,
+    deleteReason: `Ticket chiuso automaticamente: ${closeReason} (${member.id})`,
   });
 }
 
@@ -167,7 +153,7 @@ function getHighestStaffTrackedRoleExcludingPm(member) {
     .first();
 }
 
-const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = "<:member_role_icon:1330530086792728618>";
+const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = "<:VC_Staff:1494286904089247754>";
 
 function formatStaffRoleLeadingEmoji(role) {
   return getStaffRoleEmojiByRoleId(role?.id, STAFF_LEAVE_FALLBACK_ROLE_EMOJI);
@@ -177,7 +163,7 @@ function buildStaffLeaveResignationContent(member, staffRole, userRoleLabel) {
   const label = String(staffRole?.name || "Staff/PM").trim() || "Staff/PM";
   const dest = String(userRoleLabel || "User").trim() || "User";
   const lead = formatStaffRoleLeadingEmoji(staffRole);
-  return `**<:cancel:1461730653677551691> DEPEX** ${member.user}
+  return `**<a:VC_Cross:1482532424570376253> DEPEX** ${member.user}
 ${lead}\`${label}\` <a:VC_Arrow:1482706699365257397> \`${dest}\`
 <:VC_reason:1478517122929004544> __Dimissioni (Esce dal server)__`;
 }
@@ -238,7 +224,6 @@ async function sendRejoinDm(member) {
 
 async function handlePartnershipOnLeave(member, client) {
   const mainGuildId = IDs.guilds.main;
-  // In Vinyls la collezione Staff dedicata è stata rimossa: i dati PM/partnership stanno dentro `ActivityUserProfile.staff`.
   const partnerships = await ActivityUserProfile.find({
     guildId: mainGuildId,
     $or: [
@@ -306,17 +291,19 @@ async function sendMemberKickLog(member) {
   const nowTs = Math.floor(Date.now() / 1000);
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("Member Kick")
-    .setDescription([`${ARROW} **Responsible:** ${responsible}`,
-    `${ARROW} **Target:** ${member.user}\`${member.user.id}\``,
-    `${ARROW} <t:${nowTs}:F>`,
-    entry.reason ? `${ARROW} **Reason:** ${entry.reason}` : null,
+    .setTitle("<:VC_User:1482527453586002103> Membro Kickato")
+    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+    `<:VC_User:1482527453586002103> **Utente:** ${member.user}\`${member.user.id}\``,
+    `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+    entry.reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${entry.reason}` : null,
     ...buildAuditExtraLines(entry, ["reason"]),
     ]
       .filter(Boolean)
       .join("\n"));
 
-  await logChannel.send({ embeds: [embed] }).catch(() => { });
+  await logChannel.send({ embeds: [embed] }).catch((err) => {
+    global.logger.error("[guildMemberRemove] Failed to send kick log:", err);
+  });
   await antiNukeHandleKickBanAction({
     guild,
     executorId,
@@ -326,11 +313,6 @@ async function sendMemberKickLog(member) {
   return true;
 }
 
-/**
- * In uscita dal server: se esiste `moderation` (non null) e/o `profile.totals.exp.event.weekWinners` con almeno una
- * settimana, il documento viene sostituito con uno minimale che conserva solo quei campi
- * (+ guildId/userId/timestamp), incluso `moderation.modCases` (storico case). Altrimenti il documento viene eliminato.
- */
 async function cleanupActivityUserProfileOnGuildLeave(guildId, userId) {
   const gid = String(guildId);
   const uid = String(userId);

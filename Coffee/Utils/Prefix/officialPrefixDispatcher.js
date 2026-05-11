@@ -1,51 +1,25 @@
-const { EmbedBuilder } = require("discord.js");
-const fs = require("fs");
 const path = require("path");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
 const { applyDefaultFooterToEmbeds } = require("../Embeds/defaultFooter");
-const {
-  checkPrefixPermission,
-  getPrefixRequiredRoles,
-  buildGlobalPermissionDeniedEmbed,
-  buildGlobalChannelDeniedEmbed,
-} = require("../Moderation/commandPermissions");
-const {
-  buildCooldownErrorEmbed,
-  buildBusyCommandErrorEmbed,
-  buildMissingArgumentsErrorEmbed,
-  buildInternalCommandErrorEmbed,
-} = require("../Moderation/commandErrorEmbeds");
+const { checkPrefixPermission, getPrefixRequiredRoles, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed } = require("../Moderation/commandPermissions");
+const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildMissingArgumentsErrorEmbed, buildInternalCommandErrorEmbed } = require("../Moderation/commandErrorEmbeds");
 const { buildErrorLogEmbed } = require("../../../shared/discord/errorLogEmbed");
 const { showPrefixUsageGuide } = require("../Moderation/prefixUsageGuide");
 const IDs = require("../Config/ids");
 const { getCentralChannel } = require("../Logging/commandUsageLogger");
 const { EPHEMERAL_TTL_SHORT_MS } = require("../Config/ephemeralMessageTtl");
-
 const PREFIX_COOLDOWN_BYPASS_ROLE_ID = IDs.roles?.HighStaff || IDs.roles?.Founder || null;
 const PREFIX_PRECHECK_TIMEOUT_MS = 4000;
-const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(
-  15_000,
-  Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000),
-);
-const COFFEE_PREFIX_COOLDOWN_MS = Math.max(
-  0,
-  Number(process.env.COFFEE_PREFIX_COOLDOWN_MS || 0),
-);
-
+const PREFIX_EXECUTION_TIMEOUT_MS = Math.max(15_000, Number(process.env.PREFIX_EXECUTION_TIMEOUT_MS || 120_000));
+const COFFEE_PREFIX_COOLDOWN_MS = Math.max(0, Number(process.env.COFFEE_PREFIX_COOLDOWN_MS || 0));
 const prefixCooldownHitAt = new Map();
 const PREFIX_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "prefixQueueSnapshot.json");
 const PREFIX_QUEUE_MAX_ITEMS_PER_LOCK = 100;
 const PREFIX_QUEUE_MAX_AGE_MS = 20 * 60 * 1000;
 
 function readPrefixQueueSnapshotRaw() {
-  const raw = readSnapshotWithMeta({
-    filePath: PREFIX_QUEUE_SNAPSHOT_PATH,
-    walPath: `${PREFIX_QUEUE_SNAPSHOT_PATH}.wal`,
-    key: "coffee_prefix_queue",
-    version: 1,
-    fallback: { queues: {} },
-  });
+  const raw = readSnapshotWithMeta({ filePath: PREFIX_QUEUE_SNAPSHOT_PATH, walPath: `${PREFIX_QUEUE_SNAPSHOT_PATH}.wal`, key: "coffee_prefix_queue", version: 1, fallback: { queues: {} } });
   return raw?.queues && typeof raw.queues === "object" ? raw.queues : {};
 }
 
@@ -445,15 +419,7 @@ function consumeCoffeePrefixCooldown(guildId, userId) {
   return { ok: true, remainingMs: 0 };
 }
 
-async function handleOfficialPrefixMessage({
-  message,
-  resolvedClient,
-  defaultPrefix,
-  overrideCommand = null,
-  maybeSendWrongPrefixHint,
-  getCachedOrFetchMember,
-  hasAnyStaffBypassPermission,
-}) {
+async function handleOfficialPrefixMessage({ message, resolvedClient, defaultPrefix, overrideCommand = null, maybeSendWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission }) {
   const isEditedPrefixExecution = Boolean(message?.__fromMessageUpdatePrefix);
   const startsWithDefault = String(message.content || "").startsWith(defaultPrefix);
   const deleteCommandMessage = async () => {
@@ -471,32 +437,18 @@ async function handleOfficialPrefixMessage({
   const cmd = normalizePrefixCommandToken(rawCmd);
   if (!cmd) return;
 
-  const command =
-    overrideCommand ||
-    resolvedClient.pcommands.get(cmd) ||
-    resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd));
+  const command = overrideCommand || resolvedClient.pcommands.get(cmd) || resolvedClient.pcommands.get(resolvedClient.aliases.get(cmd)) || null;
   if (!command) {
     const channelId = String(message?.channelId || "");
-    const hintChannels = new Set(
-      [IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map(String),
-    );
+    const hintChannels = new Set([IDs.channels?.commands, IDs.channels?.staffCmds].filter(Boolean).map(String));
     if (hintChannels.size && !hintChannels.has(channelId)) {
       return;
     }
     if (/^-?\d+$/.test(cmd) || (args[0] != null && /^-\d+$/.test(String(args[0]).trim()))) {
       return;
     }
-    const availableCommands = Array.from(resolvedClient.pcommands.keys())
-      .sort((a, b) => a.localeCompare(b))
-      .map((name) => `\`${usedPrefix}${name}\``)
-      .join(", ");
-    const embed = new EmbedBuilder()
-      .setColor("#6f4e37")
-      .setDescription(
-        "**Bot Test** – i comandi principali sono sul **bot ufficiale**.\n" +
-          (availableCommands ? `Comandi disponibili qui: ${availableCommands}` : ""),
-      );
-    await sendTemporaryReply(message, { embeds: [embed] }, EPHEMERAL_TTL_SHORT_MS);
+
+    await sendTemporaryReply(message, { content: "<a:VC_Attention:1482534443632558151> Comando non trovato." }, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
 

@@ -6,6 +6,64 @@ const MAIN_GUILD_ID = String(IDs.guilds?.main || "").trim();
 const NO_ROLE_GRACE_MS = 24 * 60 * 60 * 1000;
 const NO_ROLE_SWEEP_INTERVAL_MS = Number(process.env.NO_ROLE_KICK_SWEEP_INTERVAL_MS) || 30 * 60 * 1000;
 const NO_ROLE_KICK_REASON = "Membro senza ruoli dopo 24h dall'ingresso.";
+const NO_ROLE_FETCH_PAGE_LIMIT = Math.max(10, Math.min(1000, Number(process.env.NO_ROLE_KICK_FETCH_PAGE_LIMIT || 1000)));
+const NO_ROLE_FETCH_PAGE_DELAY_MS = Math.max(150, Math.min(5000, Number(process.env.NO_ROLE_KICK_FETCH_PAGE_DELAY_MS || 700)));
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, Math.max(0, Number(ms || 0)));
+    t.unref?.();
+  });
+}
+
+function extractRateLimitWaitMs(err) {
+  if (!err) return 0;
+  const retryAfter = Number(err?.retryAfter ?? err?.retry_after ?? err?.data?.retry_after ?? err?.rawError?.retry_after);
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return retryAfter > 1000 ? retryAfter : Math.ceil(retryAfter * 1000);
+  }
+  const msg = String(err?.message || err || "");
+  const m = msg.match(/retry\s+after\s+([0-9.]+)\s*second/i);
+  if (m) {
+    const sec = Number(m[1]);
+    if (Number.isFinite(sec) && sec > 0) return Math.ceil(sec * 1000);
+  }
+  return 0;
+}
+
+async function fetchMembersPagedRest(guild, onMember) {
+  if (typeof guild?.members?.list !== "function") return { ok: false, scanned: 0, pages: 0 };
+  let after;
+  let scanned = 0;
+  let pages = 0;
+  while (true) {
+    let batch;
+    try {
+      const opts = { limit: NO_ROLE_FETCH_PAGE_LIMIT, cache: true };
+      if (after) opts.after = after;
+      batch = await guild.members.list(opts);
+    } catch (err) {
+      const waitMs = extractRateLimitWaitMs(err);
+      if (waitMs > 0) {
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+    pages += 1;
+    if (!batch?.size) break;
+    for (const member of batch.values()) {
+      scanned += 1;
+      await onMember(member);
+    }
+    const last = batch.last();
+    if (!last?.id) break;
+    after = String(last.id);
+    if (batch.size < NO_ROLE_FETCH_PAGE_LIMIT) break;
+    await sleep(NO_ROLE_FETCH_PAGE_DELAY_MS);
+  }
+  return { ok: true, scanned, pages };
+}
 
 function memberHasAnyAssignedRole(member) {
   if (!member?.roles?.cache) return true;
@@ -62,26 +120,29 @@ async function kickNoRoleMember(member) {
 
 async function runNoRoleKickSweep(client) {
   if (!client || !MAIN_GUILD_ID) return { scanned: 0, kicked: 0 };
+  const jobsDebug = String(process.env.DEBUG_JOBS || "").trim() === "1";
   const guild = client.guilds.cache.get(MAIN_GUILD_ID) || (await getClientGuildCached(client, MAIN_GUILD_ID));
   if (!guild) return { scanned: 0, kicked: 0 };
 
-  const members = await guild.members.fetch().catch((err) => {
-    global.logger?.warn?.("[NO ROLE KICK] Fetch members failed:", err?.message || err);
-    return guild.members.cache;
-  });
-
   let scanned = 0;
   let kicked = 0;
-  for (const member of members.values()) {
-    scanned += 1;
-    if (!isNoRoleKickCandidate(member)) continue;
-    const ok = await kickNoRoleMember(member).catch((err) => {
-      global.logger?.warn?.("[NO ROLE KICK] Kick failed:", member.guild.id, member.id, err?.message || err);
-      return false;
+  try {
+    const res = await fetchMembersPagedRest(guild, async (member) => {
+      if (!member) return;
+      scanned += 1;
+      if (!isNoRoleKickCandidate(member)) return;
+      const ok = await kickNoRoleMember(member).catch((err) => {
+        global.logger?.warn?.("[NO ROLE KICK] Kick failed:", member.guild.id, member.id, err?.message || err);
+        return false;
+      });
+      if (ok) kicked += 1;
     });
-    if (ok) kicked += 1;
+    if (jobsDebug) global.logger?.info?.("[NO ROLE KICK] Member list scan done", { guildId: guild.id, scanned: res.scanned, pages: res.pages, kicked });
+  } catch (err) {
+    const msg = String(err?.message || err || "");
+    global.logger?.warn?.("[NO ROLE KICK] Fetch members failed:", msg || err);
   }
-  if (kicked > 0) {
+  if (jobsDebug && kicked > 0) {
     global.logger?.info?.("[NO ROLE KICK] Sweep completed", { guildId: guild.id, scanned, kicked });
   }
   return { scanned, kicked };

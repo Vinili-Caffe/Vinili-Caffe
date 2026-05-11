@@ -3,21 +3,13 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { runAutoModMessage } = require("../Services/Moderation/automodService");
 const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = require("../Utils/Message/officialMessageAutomationHandlers");
-const {
-  handleMentionAutoReactions,
-  handleWordReactions,
-  maybePunishCountingOnEdit,
-} = require("../Utils/Message/officialMessageCommunityHandlers");
+const { handleMentionAutoReactions, handleWordReactions, maybePunishCountingOnEdit } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { syncForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
-
+const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const MAX_EMBED_DIFF_LENGTH = 900;
-const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe].filter(Boolean).map(String),);
-
-function toDiscordTimestamp(value = new Date(), style = "F") {
-  const ms = new Date(value).getTime();
-  if (!Number.isFinite(ms)) return "<t:0:F>";
-  return `<t:${Math.floor(ms / 1000)}:${style}>`;
-}
+const VERIFICATION_EXCLUDED_CHANNEL_IDS = new Set(
+  [IDs.channels.verify, IDs.channels.clickMe, IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)),
+);
 
 function normalizeText(value) {
   return String(value || "").replace(/\r\n/g, "\n").trim();
@@ -39,8 +31,8 @@ function buildSimpleDiff(before, after) {
   const next = normalizeText(after);
   if (!prev && !next) return "";
   return [
-    prev ? `- ${prev}` : "- (vuoto)",
-    next ? `+ ${next}` : "+ (vuoto)",
+    prev ? `- ${prev}` : "- Nessun contenuto.",
+    next ? `+ ${next}` : "+ Nessun contenuto.",
   ].join("\n");
 }
 
@@ -54,35 +46,36 @@ function attachmentsChanged(beforeNames, afterNames) {
 
 function formatAttachmentsChange(beforeNames, afterNames) {
   const oldLabel=beforeNames.length?`[ ${beforeNames.join(", ")}]`
-    : "[ nessuno ]";
+    : "[ Nessuno ]";
   const newLabel=afterNames.length?`[ ${afterNames.join(", ")}]`
-    : "[ nessuno ]";
+    : "[ Nessuno ]";
   return `${oldLabel} -> ${newLabel}`;
 }
 
 function buildEditLogText(previous, updated, beforeNames, afterNames) {
+  const nowTs = Math.floor((Number(updated?.editedTimestamp) || Date.now()) / 1000);
   const oldContent = String(previous?.content || "");
   const newContent = String(updated?.content || "");
-  const oldAttachments=beforeNames.length?beforeNames.join(", "):"nessuno";
-  const newAttachments=afterNames.length?afterNames.join(", "):"nessuno";
+  const oldAttachments=beforeNames.length?beforeNames.join(", "):"Nessuno";
+  const newAttachments=afterNames.length?afterNames.join(", "):"Nessuno";
 
   return [
-    "------ MESSAGE EDIT LOG ------",
-    `Guild: ${updated?.guild?.name || "sconosciuto"} (${updated?.guild?.id || "-"})`,
-    `Channel: #${updated?.channel?.name || "sconosciuto"} (${updated?.channelId || "-"})`,
-    `Message ID: ${updated?.id || "-"}`,
-    `Author: ${updated?.author?.tag || "sconosciuto"} (${updated?.author?.id || "-"})`,
-    `Edited At: ${toDiscordTimestamp(new Date(), "F")}`,
+    "------ LOG MODIFICA MESSAGGIO ------",
+    `<:VC_Server:1494287244156049448> Server: ${updated?.guild?.name || "sconosciuto"} (${updated?.guild?.id || "-"})`,
+    `<:VC_Channel:1494287251091494963> Canale: ${updated?.channel?.name || "sconosciuto"} (${updated?.channelId || "-"})`,
+    `<:VC_id:1478517313618575419> ID Messaggio: ${updated?.id || "-"}`,
+    `<:VC_User:1494287244156049448> Autore: ${updated?.author?.tag || "sconosciuto"} (${updated?.author?.id || "-"})`,
+    `<:VC_Clock:1473359204189474886> Data Modifica: <t:${nowTs}:F>`,
     "",
-    "[OLD CONTENT]",
-    oldContent || "(vuoto)",
+    "<:VC_Modifica:1478859646587633717> **Contenuto precedente:**",
+    oldContent || "Nessun contenuto.",
     "",
-    "[NEW CONTENT]",
-    newContent || "(vuoto)",
+    "<:VC_Modifica:1478859646587633717> **Contenuto nuovo:**",
+    newContent || "Nessun contenuto.",
     "",
-    "[ATTACHMENTS]",
-    `OLD: ${oldAttachments}`,
-    `NEW: ${newAttachments}`,
+    "<:VC_Modifica:1478859646587633717> **Attachment:**",
+    `<:VC_Modifica:1478859646587633717> **Attachment precedente:** ${oldAttachments}`,
+    `<:VC_Modifica:1478859646587633717> **Attachment nuovo:** ${newAttachments}`,
     "",
   ].join("\n");
 }
@@ -154,19 +147,19 @@ async function sendMessageEditLog(previous, updated) {
 
   const lines=[`<:VC_right_arrow:1482459908245815296> **Autore:** ${updated.author}${actorSuffix}\`${updated.author.id}\``,`<:VC_right_arrow:1482459908245815296> **Target:** ${updated.channel||"#sconosciuto"}•\`${updated.id}\``,`<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(),"F")}`,
     "",
-    "**Changes**",
+    "**Modifiche**",
   ];
 
   const files = [];
   if (contentChanged) {
     const fullDiff = buildSimpleDiff(beforeContent, afterContent);
     if (fullDiff.length <= MAX_EMBED_DIFF_LENGTH) {
-      lines.push("<:VC_right_arrow:1482459908245815296> **Content:**");
+      lines.push("<:VC_Modifica:1478859646587633717> **Contenuto:**");
       lines.push("```diff");
       lines.push(fullDiff);
       lines.push("```");
     } else {
-      lines.push("<:VC_right_arrow:1482459908245815296> **Content:** diff troppo lungo, vedi allegato `.txt`.");
+      lines.push("<:VC_Modifica:1478859646587633717> **Contenuto:** diff troppo lungo, vedi allegato `.txt`.");
       const text = buildEditLogText(previous, updated, beforeNames, afterNames);
       const name = `${updated.channelId || "channel"}_${updated.id || Date.now()}.txt`;
       files.push(new AttachmentBuilder(Buffer.from(text, "utf8"), { name }));
@@ -174,13 +167,13 @@ async function sendMessageEditLog(previous, updated) {
   }
 
   if (filesChanged) {
-    lines.push("<:VC_right_arrow:1482459908245815296> **Attachments:**");
+    lines.push("<:VC_Modifica:1478859646587633717> **Attachment:**");
     lines.push(formatAttachmentsChange(beforeNames, afterNames));
   }
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("Message Edited")
+    .setTitle("<a:VC_Verified:1482532479637127188> Messaggio modificato")
     .setDescription(lines.join("\n"));
 
   const preview = firstImageAttachment(updated);
@@ -191,7 +184,7 @@ async function sendMessageEditLog(previous, updated) {
   const payload = { embeds: [embed], files };
   if (isHttpUrl(updated.url)) {
     const row = new ActionRowBuilder()
-    .addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Go to Message").setURL(updated.url),);
+    .addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Messaggio").setURL(updated.url),);
     payload.components = [row];
   }
 
@@ -222,24 +215,18 @@ module.exports = {
       const after = String(updated?.content || "");
       const contentChanged = before !== after;
 
-      if (
-        contentChanged &&
-        after &&
-        !updated.author.bot &&
-        !updated.system &&
-        !updated.webhookId
-      ) {
+      if (contentChanged && after && !updated.author.bot && !updated.system && !updated.webhookId) {
         try {
           const automodResult = await runAutoModMessage(updated);
           if (automodResult?.blocked) return;
         } catch (error) {
-          global.logger?.error?.("[messageUpdate] automod failed:", error);
+          global.logger?.error?.("[messageUpdate] automodazione failed:", error);
         }
         try {
           const { maybeBlockDiscordHeadingMarkdown } = require("../Services/Moderation/discordHeadingMarkdownBlock");
           if (await maybeBlockDiscordHeadingMarkdown(updated)) return;
         } catch (error) {
-          global.logger?.error?.("[messageUpdate] heading markdown block failed:", error);
+          global.logger?.error?.("[messageUpdate] blocco markdown discord failed:", error);
         }
       }
 
@@ -252,7 +239,7 @@ module.exports = {
           if (await handleDiscadiaBump(updated, resolvedClient)) return;
           await handleVoteManagerMessage(updated, resolvedClient);
         } catch (error) {
-          global.logger?.error?.("[messageUpdate] automation handlers failed:", error);
+          global.logger?.error?.("[messageUpdate] gestori automazione failed:", error);
         }
         return;
       }
@@ -263,10 +250,10 @@ module.exports = {
         handleWordReactions(updated),
       ]);
       if (mentionsResult.status === "rejected") {
-        global.logger?.error?.("[messageUpdate] mention auto reactions failed:", mentionsResult.reason);
+        global.logger?.error?.("[messageUpdate] reazioni menzione auto failed:", mentionsResult.reason);
       }
       if (wordResult.status === "rejected") {
-        global.logger?.error?.("[messageUpdate] word reactions failed:", wordResult.reason);
+        global.logger?.error?.("[messageUpdate] reazioni parola failed:", wordResult.reason);
       }
 
       const looksLikePrefix = after.startsWith("+");
@@ -275,7 +262,7 @@ module.exports = {
       updated.__fromMessageUpdatePrefix = true;
       resolvedClient?.emit?.("messageCreate", updated);
     } catch (error) {
-      global.logger?.error?.("[messageUpdate] failed:", error);
+      global.logger?.error?.("[messageUpdate] errore:", error);
     }
   },
 };

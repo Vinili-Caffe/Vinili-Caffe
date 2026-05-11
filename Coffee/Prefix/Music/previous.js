@@ -5,7 +5,7 @@ const { previousGuildTrack } = require("../../Services/Music/lavalinkMusicServic
 
 module.exports = {
   name: "previous",
-  description: "Torna al brano riprodotto prima di quello attuale (se disponibile).",
+  description: "Torna al brano riprodotto prima di quello attuale.",
   usage: ",previous",
   examples: [",previous"],
   async execute(message) {
@@ -20,7 +20,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(result.ok ? 0x6f4e37 : 0xff0000)
       .setDescription(
-        result.ok ? okDesc : `**${result.message}**`,
+        result.ok ? okDesc : `<a:VC_Cross:1482532424570376253> ${result.message}`,
       );
     await safeMessageReply(
       message,

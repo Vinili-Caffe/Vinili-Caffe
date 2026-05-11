@@ -8,14 +8,7 @@ const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-const {
-  voiceFindOneAndUpdate,
-  voiceDeleteOne,
-  voiceFindManyLean,
-  ttsUserLangFindManyLean,
-  ttsUserLangFindOneLean,
-  ttsUserLangUpsert,
-} = require("../../Utils/BotState/domainStatesStore");
+const { voiceFindOneAndUpdate, voiceDeleteOne, voiceFindManyLean, ttsUserLangFindManyLean, ttsUserLangFindOneLean, ttsUserLangUpsert } = require("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { isCoffeePrefixCommandToken } = require("../../../shared/discord/coffeePrefixCommandTokens");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -23,7 +16,7 @@ const { accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../Utils/Config/ephemeralMessageTtl");
 const MAX_TTS_QUEUE = 10000;
 const TTS_CATCHUP_FETCH_LIMIT = 100;
-const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000; // Ridotto a 30 secondi per evitare di leggere messaggi vecchi al riavvio
+const TTS_CATCHUP_DEFAULT_LOOKBACK_MS = 30 * 1000;
 const TTS_RESTORE_CONCURRENCY = 3;
 const TTS_POST_JOIN_EMPTY_LEAVE_GRACE_MS = 6000;
 const ttsStates = new Map();
@@ -1003,15 +996,17 @@ async function handleTtsMessage(message, client, prefix) {
   const lockedChannelId = guildId ? getLockedChannelId(guildId) : null;
   const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
   const ttsSessionActive = Boolean(autojoin || lockedChannelId);
+  const activeConnectedChannelId = guildId ? findLockedChannelIdByGuild(guildId) : null;
+  const canWarnMissingVoice = Boolean(activeConnectedChannelId || (guildId && isTtsPostJoinVoiceGraceActive(guildId)));
   if (!voiceChannel) {
-    if (!ttsSessionActive) return;
+    if (!ttsSessionActive || !canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere in un canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;
   }
   const authorVoiceId = message.member?.voice?.channelId ?? null;
   if (!authorVoiceId || String(authorVoiceId) !== String(voiceChannel.id)) {
-    if (!ttsSessionActive) return;
+    if (!ttsSessionActive || !canWarnMissingVoice) return;
     const warn = await message.reply("<a:VC_Alert:1482706673176150077> Devi essere nel canale vocale per usare il TTS.",);
     if (warn) scheduleMessageDeletion(warn, EPHEMERAL_TTL_SHORT_MS);
     return;

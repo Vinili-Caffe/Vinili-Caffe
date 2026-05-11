@@ -237,24 +237,42 @@ async function applyPexSideEffects(guild, member, roleId) {
   return true;
 }
 
+async function bumpCandidatureCooldownAfterStaffRemoval(userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d{16,20}$/.test(uid)) return;
+  try {
+    const { bumpApplicationCooldownAfterStaffDepex } = require("./candidatureApplicationHandlers");
+    if (typeof bumpApplicationCooldownAfterStaffDepex === "function") {
+      await bumpApplicationCooldownAfterStaffDepex(uid);
+    }
+  } catch (_) {}
+}
+
 async function applyDepexSideEffects(guild, member, roleId) {
   if (roleId === ROLE_PARTNER_MANAGER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && memberAdded;
+    const ok = roleRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
   if (roleId === ROLE_HELPER || roleId === ROLE_MODERATOR || roleId === ROLE_SENIOR_MODERATOR) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
+    const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && staffRemoved && memberAdded;
+    const ok = roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
   if (roleId === ROLE_DIRECTOR || roleId === ROLE_ADMIN || roleId === ROLE_CO_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, roleId);
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    const ok = roleRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
   if (roleId === ROLE_OWNER) {
     const roleRemoved = await ensureRoleRemoved(guild, member, ROLE_OWNER);
@@ -262,7 +280,9 @@ async function applyDepexSideEffects(guild, member, roleId) {
     const staffRemoved = await ensureRoleRemoved(guild, member, ROLE_STAFF);
     const highStaffRemoved = await ensureRoleRemoved(guild, member, ROLE_HIGH_STAFF);
     const memberAdded = ROLE_MEMBER ? await ensureRoleAdded(guild, member, ROLE_MEMBER) : true;
-    return roleRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    const ok = roleRemoved && coOwnerRemoved && staffRemoved && highStaffRemoved && memberAdded;
+    if (ok && member?.id) await bumpCandidatureCooldownAfterStaffRemoval(member.id);
+    return ok;
   }
   return true;
 }
@@ -491,6 +511,7 @@ async function applyPmAction(guild, payload, reasonOverride = null) {
     ROLE_MEMBER || "",
     String(reasonOverride || "").trim() || "Limiti settimanali non raggiunti",
   );
+  await bumpCandidatureCooldownAfterStaffRemoval(payload.userId);
   return "<:success:1461731530333229226> Depex PM applicato e dati partner rimossi.";
 }
 

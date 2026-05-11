@@ -11,6 +11,14 @@ const HIGHSTAFF_ROLE_ID = IDs.roles.HighStaff;
 const PARTNERMANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const STAFF_ROLE_IDS = [STAFF_ROLE_ID, HIGHSTAFF_ROLE_ID].filter(Boolean);
 const NO_REPLY_MENTIONS = { repliedUser: false };
+const TICKET_SPECTATE_STAFF_ALLOW = [
+  PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.EmbedLinks,
+  PermissionFlagsBits.AttachFiles,
+  PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.AddReactions,
+];
+const TICKET_SPECTATE_STAFF_DENY = [PermissionFlagsBits.SendMessages];
 
 function hasAnyRole(member, roleIds = []) {
   return roleIds.some((roleId) => member?.roles?.cache?.has(roleId));
@@ -58,25 +66,13 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
     base.push(
       {
         id: STAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: HIGHSTAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: PARTNERMANAGER_ROLE_ID,
@@ -87,22 +83,13 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
     base.push(
       {
         id: PARTNERMANAGER_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: HIGHSTAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: STAFF_ROLE_ID,
@@ -113,14 +100,8 @@ function getTicketChannelPermissionOverwrites(guild, userId, ticketType) {
     base.push(
       {
         id: HIGHSTAFF_ROLE_ID,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.EmbedLinks,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AddReactions,
-        ],
+        allow: TICKET_SPECTATE_STAFF_ALLOW,
+        deny: TICKET_SPECTATE_STAFF_DENY,
       },
       {
         id: STAFF_ROLE_ID,
@@ -263,7 +244,14 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           }
         }
 
-        const applyReadOnly = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, };
+        const applyReadOnly = {
+          ViewChannel: true,
+          SendMessages: false,
+          ReadMessageHistory: true,
+          EmbedLinks: true,
+          AttachFiles: true,
+          AddReactions: true,
+        };
         const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
         const denyView = { ViewChannel: false };
 
@@ -277,10 +265,10 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           } else {
             await targetChannel.permissionOverwrites
-              .edit(STAFF_ROLE_ID, applyFull)
+              .edit(STAFF_ROLE_ID, applyReadOnly)
               .catch(() => { });
             await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyFull)
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites
@@ -298,7 +286,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           } else {
             await targetChannel.permissionOverwrites
-              .edit(PARTNERMANAGER_ROLE_ID, applyFull)
+              .edit(PARTNERMANAGER_ROLE_ID, applyReadOnly)
               .catch(() => { });
             await targetChannel.permissionOverwrites
               .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
@@ -316,7 +304,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           } else {
             await targetChannel.permissionOverwrites
-              .edit(HIGHSTAFF_ROLE_ID, applyFull)
+              .edit(HIGHSTAFF_ROLE_ID, applyReadOnly)
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites

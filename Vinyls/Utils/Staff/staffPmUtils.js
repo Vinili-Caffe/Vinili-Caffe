@@ -1,4 +1,5 @@
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
+const { archiveStaffRolesHistoryThenUnsetStaff } = require("./staffDocUtils");
 const IDs = require("../Config/ids");
 const { memberHasStaffRole, queueStaffListRefreshAfterRoleMutation } = require("../Community/staffListUtils");
 const { deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels } = require("./staffDocUtils");
@@ -60,10 +61,7 @@ async function applyStaffDatabaseAfterDepex(guildId, userId, member) {
       ).catch(() => null);
     }
   } else {
-    await ActivityUserProfile.updateOne(
-      { guildId: gid, userId: uid, staff: { $exists: true } },
-      { $unset: { staff: "" } },
-    ).catch(() => null);
+    await archiveStaffRolesHistoryThenUnsetStaff(gid, uid);
   }
 }
 

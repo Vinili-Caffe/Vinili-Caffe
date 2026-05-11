@@ -1,10 +1,9 @@
 const { AuditLogEvent, EmbedBuilder, OverwriteType } = require("discord.js");
-const{queueCategoryRenumber,}=require("../Services/Community/communityOpsService");
+const { queueCategoryRenumber, } = require("../Services/Community/communityOpsService");
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
-const{upsertChannelSnapshot,}=require("../Utils/Community/channelSnapshotUtils");
+const { upsertChannelSnapshot, } = require("../Utils/Community/channelSnapshotUtils");
 const { ARROW, toDiscordTimestamp, channelDisplay, channelTypeLabel, formatAuditActor, permissionList, permissionDiff, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleChannelOverwrite: antiNukeHandleChannelOverwrite } = require("../Services/Moderation/antiNukeService");
-
 const CHANNEL_UPDATE_ACTION = AuditLogEvent?.ChannelUpdate ?? 11;
 const OVERWRITE_CREATE_ACTION = AuditLogEvent?.ChannelOverwriteCreate ?? 13;
 const OVERWRITE_UPDATE_ACTION = AuditLogEvent?.ChannelOverwriteUpdate ?? 14;
@@ -81,43 +80,43 @@ async function sendChannelUpdateLog(oldChannel, newChannel) {
   const nameChanged = oldChannel?.name !== newChannel?.name;
   const typeChanged = Number(oldChannel?.type) !== Number(newChannel?.type);
   const parentChanged = oldChannel?.parentId !== newChannel?.parentId;
-  const rateLimitChanged=Number(oldChannel?.rateLimitPerUser||0)!==Number(newChannel?.rateLimitPerUser||0);
+  const rateLimitChanged = Number(oldChannel?.rateLimitPerUser || 0) !== Number(newChannel?.rateLimitPerUser || 0);
 
   if (!nameChanged && !typeChanged && !parentChanged && !rateLimitChanged) return;
 
   const logChannel = await resolveChannelRolesLogChannel(guild);
   if (!logChannel?.isTextBased?.()) return;
 
-  const audit=await resolveAuditWithRetry(guild,CHANNEL_UPDATE_ACTION,(entry) => String(entry?.target?.id||"")===String(newChannel?.id||""),);
+  const audit = await resolveAuditWithRetry(guild, CHANNEL_UPDATE_ACTION, (entry) => String(entry?.target?.id || "") === String(newChannel?.id || ""),);
   const responsible = formatAuditActor(audit?.executor || null);
 
   const lines = [
-    `${ARROW} **Responsible:** ${responsible}`,
-    `${ARROW} **Target:** ${channelDisplay(newChannel)} \`${newChannel.id}\``,
-    `${ARROW} ${toDiscordTimestamp(new Date(), "F")}`,
+    `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+    `<:VC_User:1482527453586002103> **Utente:** ${channelDisplay(newChannel)} \`${newChannel.id}\``,
+    `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
     "",
-    "**Changes**",
+    "**<:VC_Info:1482526956703580372> Cambiamenti**",
   ];
 
   if (nameChanged) {
     lines.push(
-      `${ARROW} **Name:** ${oldChannel?.name || "sconosciuto"} ${ARROW} ${newChannel?.name || "sconosciuto"}`,
+      `<:VC_Modifica:1478859646587633717> **Nome:** ${oldChannel?.name || "sconosciuto"} <a:VC_Arrow:1482706699365257397> ${newChannel?.name || "sconosciuto"}`,
     );
   }
   if (typeChanged) {
     lines.push(
-      `${ARROW} **Type:** ${channelTypeLabel(oldChannel)} ${ARROW} ${channelTypeLabel(newChannel)}`,
+      `<a:VC_Channel:1482534583944871996> **Type:** ${channelTypeLabel(oldChannel)} <a:VC_Arrow:1482706699365257397> ${channelTypeLabel(newChannel)}`,
     );
   }
   if (parentChanged) {
     const oldParent = oldChannel?.parent ? `${oldChannel.parent}` : "Nessuna";
     const newParent = newChannel?.parent ? `${newChannel.parent}` : "Nessuna";
-    lines.push(`${ARROW} **Parent:** ${oldParent} ${ARROW} ${newParent}`);
+    lines.push(`<:VC_Info:1482526956703580372> **Parent:** ${oldParent} <a:VC_Arrow:1482706699365257397> ${newParent}`);
   }
   if (rateLimitChanged) {
     const oldRate = Number(oldChannel?.rateLimitPerUser || 0) || "Nessuno";
     const newRate = Number(newChannel?.rateLimitPerUser || 0) || "Nessuno";
-    lines.push(`${ARROW} **Rate Limit Per User:** ${oldRate} ${ARROW} ${newRate}`);
+    lines.push(`<:VC_Info:1482526956703580372> **RPM utente:** ${oldRate} <a:VC_Arrow:1482706699365257397> ${newRate}`);
   }
   lines.push(
     ...buildAuditExtraLines(audit?.entry, [
@@ -130,10 +129,10 @@ async function sendChannelUpdateLog(oldChannel, newChannel) {
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("Channel Update")
+    .setTitle("<a:VC_Channel:1482534583944871996> Channel Update")
     .setDescription(lines.join("\n"));
 
-  await logChannel.send({ embeds: [embed] }).catch(() => {});
+  await logChannel.send({ embeds: [embed] }).catch(() => { });
 }
 
 async function sendOverwriteLogs(oldChannel, newChannel) {
@@ -149,52 +148,52 @@ async function sendOverwriteLogs(oldChannel, newChannel) {
   for (const diff of diffs) {
     try {
       const kind = diff.kind;
-      const actionType=kind==="create"?OVERWRITE_CREATE_ACTION:kind==="delete"?OVERWRITE_DELETE_ACTION:OVERWRITE_UPDATE_ACTION;
+      const actionType = kind === "create" ? OVERWRITE_CREATE_ACTION : kind === "delete" ? OVERWRITE_DELETE_ACTION : OVERWRITE_UPDATE_ACTION;
       const source = diff.after || diff.before;
       if (!source) continue;
 
-      const audit=await resolveAuditWithRetry(guild,actionType,(entry) => {const sameChannel=String(entry?.extra?.channel?.id||"")===String(newChannel?.id||"");const sameTarget=String(entry?.target?.id||"")===String(source?.id||"");return sameChannel||sameTarget;});const responsible = formatAuditActor(audit?.executor || null);
+      const audit = await resolveAuditWithRetry(guild, actionType, (entry) => { const sameChannel = String(entry?.extra?.channel?.id || "") === String(newChannel?.id || ""); const sameTarget = String(entry?.target?.id || "") === String(source?.id || ""); return sameChannel || sameTarget; }); const responsible = formatAuditActor(audit?.executor || null);
       const executorId = String(audit?.executor?.id || "");
 
       const lines = [
-        `${ARROW} **Responsible:** ${responsible}`,
-        `${ARROW} **Channel:** ${channelDisplay(newChannel)} \`${newChannel.id}\``,
-        `${ARROW} **Target:** ${targetName(guild, source)} \`${source?.id || "sconosciuto"}\``,
-        `${ARROW} ${toDiscordTimestamp(new Date(), "F")}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
+        `<a:VC_Channel:1482534583944871996> **Canale:** ${channelDisplay(newChannel)} \`${newChannel.id}\``,
+        `<:VC_User:1482527453586002103> **Utente:** ${targetName(guild, source)} \`${source?.id || "sconosciuto"}\``,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
       ];
 
       if (kind === "create") {
         lines.push(
-          "**Settings**",
-          `${ARROW} **Id:** \`${source.id}\``,
-          `${ARROW} **Type:** ${overwriteTypeLabel(source)}`,
-          `${ARROW} **Allowed:** ${permissionList(source.allow.bitfield)}`,
-          `${ARROW} **Denied:** ${permissionList(source.deny.bitfield)}`,
+          "**<:VC_tools:1478862265305272364> Impostazioni**",
+          `<:VC_id:1478517313618575419> **ID:** \`${source.id}\``,
+          `<a:VC_Channel:1482534583944871996> **Tipo:** ${overwriteTypeLabel(source)}`,
+          `<:VC_Info:1482526956703580372> **Permessi concessi:** ${permissionList(source.allow.bitfield)}`,
+          `<:VC_Info:1482526956703580372> **Permessi negati:** ${permissionList(source.deny.bitfield)}`,
         );
         lines.push(...buildAuditExtraLines(audit?.entry, ["allow", "deny", "type", "id"]));
       } else if (kind === "delete") {
         lines.push(
-          "**Additional Information**",
-          `${ARROW} **Id:** \`${source.id}\``,
-          `${ARROW} **Type:** ${overwriteTypeLabel(source)}`,
+          "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+          `<:VC_id:1478517313618575419> **ID:** \`${source.id}\``,
+          `<a:VC_Channel:1482534583944871996> **Tipo:** ${overwriteTypeLabel(source)}`,
         );
         lines.push(...buildAuditExtraLines(audit?.entry, ["type", "id"]));
       } else {
-        const deniedDiff=permissionDiff(diff.before.deny.bitfield,diff.after.deny.bitfield,);
-        const grantedDiff=permissionDiff(diff.before.allow.bitfield,diff.after.allow.bitfield,);
+        const deniedDiff = permissionDiff(diff.before.deny.bitfield, diff.after.deny.bitfield,);
+        const grantedDiff = permissionDiff(diff.before.allow.bitfield, diff.after.allow.bitfield,);
         lines.push(
-          "**Changes**",
-          `${ARROW} **Denied:**`,
-          `  ${ARROW} **Removals:** ${deniedDiff.removals}`,
-          `  ${ARROW} **Additions:** ${deniedDiff.additions}`,
-          `${ARROW} **Granted:**`,
-          `  ${ARROW} **Removals:** ${grantedDiff.removals}`,
-          `  ${ARROW} **Additions:** ${grantedDiff.additions}`,
+          "**<:VC_tools:1478862265305272364> Cambiamenti**",
+          `<a:VC_Cross:1482532424570376253> **Permessi negati:**`,
+          `  <:VC_Info:1482526956703580372> **Rimozioni:** ${deniedDiff.removals}`,
+          `  <:VC_Info:1482526956703580372> **Aggiunte:** ${deniedDiff.additions}`,
+          `<a:VC_Verified:1482532479637127188> **Permessi concessi:**`,
+          `  <:VC_Info:1482526956703580372> **Rimozioni:** ${grantedDiff.removals}`,
+          `  <:VC_Info:1482526956703580372> **Aggiunte:** ${grantedDiff.additions}`,
           "",
-          "**Additional Information**",
-          `${ARROW} **Id:** \`${source.id}\``,
-          `${ARROW} **Type:** ${overwriteTypeLabel(source)}`,
+          "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+          `<:VC_id:1478517313618575419> **ID:** \`${source.id}\``,
+          `<a:VC_Channel:1482534583944871996> **Tipo:** ${overwriteTypeLabel(source)}`,
         );
         lines.push(...buildAuditExtraLines(audit?.entry, ["allow", "deny", "type", "id"]));
       }
@@ -202,22 +201,15 @@ async function sendOverwriteLogs(oldChannel, newChannel) {
       if (canSendLogs) {
         const embed = new EmbedBuilder()
           .setColor(kind === "create" ? "#57F287" : kind === "delete" ? "#ED4245" : "#F59E0B")
-          .setTitle(kind === "create" ? "Channel Overwrite Create" : kind === "delete" ? "Channel Overwrite Delete" : "Channel Overwrite Update")
+          .setTitle(kind === "create" ? "<a:VC_Channel:1482534583944871996> Channel Overwrite Create" : kind === "delete" ? "<a:VC_Channel:1482534583944871996> Channel Overwrite Delete" : "<a:VC_Channel:1482534583944871996> Channel Overwrite Update")
           .setDescription(lines.join("\n"));
 
-        await logChannel.send({ embeds: [embed] }).catch(() => {});
+        await logChannel.send({ embeds: [embed] }).catch(() => { });
       }
 
-      const beforeAllow=kind==="create"?0n:BigInt(diff.before?.allow?.bitfield||0n);
-      const afterAllow=kind==="delete"?0n:BigInt(diff.after?.allow?.bitfield||0n);
-      await antiNukeHandleChannelOverwrite({
-        guild,
-        channel: newChannel,
-        overwrite: source,
-        beforeAllow,
-        afterAllow,
-        executorId,
-      }).catch(() => {});
+      const beforeAllow = kind === "create" ? 0n : BigInt(diff.before?.allow?.bitfield || 0n);
+      const afterAllow = kind === "delete" ? 0n : BigInt(diff.after?.allow?.bitfield || 0n);
+      await antiNukeHandleChannelOverwrite({ guild: guild, channel: newChannel, overwrite: source, beforeAllow, afterAllow, executorId })
     } catch (error) {
       global.logger?.error?.("[channelUpdate] overwrite log failed:", error);
     }
@@ -246,7 +238,7 @@ module.exports = {
     const nameChanged = oldChannel?.name !== newChannel?.name;
     if (!parentChanged && !positionChanged && !nameChanged) return;
 
-    await upsertChannelSnapshot(newChannel || oldChannel).catch(() => {});
+    await upsertChannelSnapshot(newChannel || oldChannel).catch(() => { });
     if (client) {
       queueCategoryRenumber(client, guildId);
       queueIdsCatalogSync(client, guildId, "channelUpdate");

@@ -64,19 +64,19 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName("messaggio")
-        .setDescription("Testo del messaggio (opzionale se allegi un file)")
+        .setDescription("Testo del messaggio")
         .setRequired(false),
     )
     .addAttachmentOption((option) =>
       option
         .setName("allegato")
-        .setDescription("File audio o altro allegato (opzionale se scrivi un messaggio)")
+        .setDescription("File audio o altro allegato")
         .setRequired(false),
     )
     .addStringOption((option) =>
       option
         .setName("message_id")
-        .setDescription("ID del messaggio a cui rispondere (stesso canale)")
+        .setDescription("ID del messaggio a cui rispondere")
         .setRequired(false),
     )
     .addStringOption((option) =>
@@ -113,7 +113,7 @@ module.exports = {
       }
 
       await safeEditReply(interaction, {
-        content: "<:success:1461731530333229226> Messaggio inviato",
+        content: "<a:VC_Verified:1482532479637127188> Messaggio inviato",
         flags: EPHEMERAL_FLAG,
       });
 

@@ -1,5 +1,4 @@
 const { EmbedBuilder, PermissionsBitField, ActivityType } = require("discord.js");
-const { DIVIDER_URL } = require("../../shared/discord/constants");
 const mongoose = require("mongoose");
 const { ActivityUserProfile } = require("../Schemas/Community/communitySchemas");
 const IDs = require("../Utils/Config/ids");
@@ -7,24 +6,20 @@ const { shouldSendPublicMemberAnnouncement } = require("../Utils/Community/membe
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { syncPersistentAutoValutazioniForMember } = require("../Services/Staff/staffAutoValutazioniService");
-
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const ROLE_ID = IDs.roles.Fan;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const CHANNEL_ID = IDs.channels.supporters;
 const INVITE_REGEX = /(?:discord\.gg|dsc\.gg|\.gg|discord\.com\/invite|discord\.me)\s*(?:\/|\\)?\s*viniliecaff[eèé]/i;
-
 const statusCache = new Map();
 const pendingChecks = new Map();
 const removalChecks = new Map();
 const bootstrappedUsers = new Set();
-
 const PENDING_MS = 3 * 60 * 1000;
 const CLEANUP_MS = 60 * 1000;
 const LINK_WARMUP_MS = 2 * 60 * 1000;
 const REMOVE_CONFIRM_MS = 5 * 60 * 1000;
 const ANNOUNCE_COOLDOWN_MS = 30 * 60 * 1000;
-/** Assenza del link nello status deve restare stabile così a lungo prima di considerarla reale (payload presenza spesso parziale). */
 const STABLE_NO_INVITE_MS = 75 * 1000;
 
 let bootstrapRan = false;
@@ -52,13 +47,7 @@ function getActivitiesArray(presence) {
   return Array.isArray(list) ? list : [];
 }
 
-/** Playing / Streaming / Listening / Watching: gli aggiornamento episodio possono arrivare senza il Custom Status nel payload. */
-const RICH_PRESENCE_TYPES = new Set([
-  ActivityType.Playing,
-  ActivityType.Streaming,
-  ActivityType.Listening,
-  ActivityType.Watching,
-]);
+const RICH_PRESENCE_TYPES = new Set([ActivityType.Playing, ActivityType.Streaming, ActivityType.Listening, ActivityType.Watching]);
 
 function hasRichPresenceWithoutCustom(presence) {
   const list = getActivitiesArray(presence);
@@ -129,12 +118,7 @@ function getInviteState(presence, prevHas = false) {
   if (!presence) return null;
   if (isOfflinePresence(presence)) return null;
   if (hasInvite(presence)) return true;
-  // Cambio client (es. desktop ↔ mobile): Discord può mandare presenza online con
-  // activities vuote per un attimo; non trattare come "nessun link" per evitare
-  // spam di annunci / rimozioni ruolo.
   if (!getActivitiesArray(presence).length && prevHas) return null;
-  // Aggiornamento Watching/Playing/Listening: spesso il payload non include il Custom Status
-  // per un evento; senza questo si toglieva e rimetteva il ruolo Fan a ogni episodio.
   if (prevHas && hasRichPresenceWithoutCustom(presence)) return null;
   return false;
 }
@@ -353,7 +337,7 @@ async function clearPending(guildId, userId, channel) {
 
   if (pending.timeout) clearTimeout(pending.timeout);
   if (pending.messageId && channel?.isTextBased?.()) {
-    await channel.messages.delete(pending.messageId).catch(() => {});
+    await channel.messages.delete(pending.messageId).catch(() => { });
   }
   deletePendingState(guildId, userId);
 }
@@ -393,7 +377,7 @@ function scheduleRemovalConfirm(member, channel) {
     }
     const info = getCachedState(guildId, userId);
     if (info?.lastMessageId && liveChannel?.isTextBased?.()) {
-      await liveChannel.messages.delete(info.lastMessageId).catch(() => {});
+      await liveChannel.messages.delete(info.lastMessageId).catch(() => { });
     }
     setCachedState(guildId, userId, {
       hasLink: false,
@@ -531,16 +515,8 @@ async function scheduleSupporterRoleGrantWithoutChannelEmbed(member) {
   }, PENDING_MS);
   timeout.unref?.();
 
-  setPendingState(guildId, userId, {
-    timeout,
-    messageId: null,
-    inFlight: false,
-  });
-
-  await persistStatus(guildId, userId, {
-    hasLink: true,
-    lastMessageId: null,
-  });
+  setPendingState(guildId, userId, { timeout, messageId: null, inFlight: false });
+  await persistStatus(guildId, userId, { hasLink: true, lastMessageId: null });
 }
 
 async function startPendingFlow(member, channel) {
@@ -558,15 +534,11 @@ async function startPendingFlow(member, channel) {
       if (fetched && String(fetched.author?.id) === String(botId)) {
         sent = fetched;
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   if (!sent) {
-    setPendingState(guildId, userId, {
-      timeout: null,
-      messageId: null,
-      inFlight: true,
-    });
+    setPendingState(guildId, userId, { timeout: null, messageId: null, inFlight: true });
 
     sent = await channel
       .send({
@@ -580,12 +552,8 @@ async function startPendingFlow(member, channel) {
         content: `<@${userId}>`,
         embeds: [buildPendingEmbed(member)],
       })
-      .catch(() => {});
-    setPendingState(guildId, userId, {
-      timeout: null,
-      messageId: sent.id,
-      inFlight: true,
-    });
+      .catch(() => { });
+    setPendingState(guildId, userId, { timeout: null, messageId: sent.id, inFlight: true });
   }
 
   if (sent) {
@@ -599,7 +567,7 @@ async function startPendingFlow(member, channel) {
       const cached = getCachedState(guildId, userId);
       const stillHasInvite = computeSupporterLinkState(cached || { hasLink: true }, freshMember.presence).newHas;
       if (!stillHasInvite) {
-        if (liveChannel?.isTextBased?.()) await liveChannel.messages.delete(sent.id).catch(() => {});
+        if (liveChannel?.isTextBased?.()) await liveChannel.messages.delete(sent.id).catch(() => { });
         deletePendingState(guildId, userId);
         const current = getCachedState(guildId, userId);
         setCachedState(guildId, userId, {
@@ -615,29 +583,14 @@ async function startPendingFlow(member, channel) {
       deletePendingState(guildId, userId);
     }, PENDING_MS);
     timeout.unref?.();
-
-    setPendingState(guildId, userId, {
-      timeout,
-      messageId: sent.id,
-      inFlight: false,
-    });
+    setPendingState(guildId, userId, { timeout, messageId: sent.id, inFlight: false });
   } else {
     deletePendingState(guildId, userId);
   }
 
   const current = getCachedState(guildId, userId);
-  setCachedState(guildId, userId, {
-    hasLink: true,
-    lastAnnounced: Date.now(),
-    lastMessageId: sent?.id || null,
-    lastSeenOnlineAt: current?.lastSeenOnlineAt || Date.now(),
-    inviteMissSince: null,
-  });
-  await persistStatus(guildId, userId, {
-    hasLink: true,
-    lastMessageId: sent?.id || null,
-    lastSentAt: new Date(),
-  });
+  setCachedState(guildId, userId, { hasLink: true, lastAnnounced: Date.now(), lastMessageId: sent?.id || null, lastSeenOnlineAt: current?.lastSeenOnlineAt || Date.now(), inviteMissSince: null });
+  await persistStatus(guildId, userId, { hasLink: true, lastMessageId: sent?.id || null, lastSentAt: new Date() });
 }
 
 async function bootstrapSupporter(client) {
@@ -672,12 +625,7 @@ async function bootstrapSupporter(client) {
     if (!doc?.userId) continue;
     const userId = String(doc.userId);
     bootstrappedUsers.add(getBootstrapKey(guildId, userId));
-    setCachedState(guildId, userId, {
-      hasLink: Boolean(doc?.profile?.supporterStatus?.hasLink),
-      lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : 0,
-      lastMessageId: doc?.profile?.supporterStatus?.lastMessageId || null,
-      lastSeenOnlineAt: 0,
-    });
+    setCachedState(guildId, userId, { hasLink: Boolean(doc?.profile?.supporterStatus?.hasLink), lastAnnounced: doc?.profile?.supporterStatus?.lastSentAt ? new Date(doc.profile.supporterStatus.lastSentAt).getTime() : 0, lastMessageId: doc?.profile?.supporterStatus?.lastMessageId || null, lastSeenOnlineAt: 0 });
   }
 
   await guild.members.fetch({ withPresences: true }).catch(() => null);
@@ -685,8 +633,7 @@ async function bootstrapSupporter(client) {
     if (member.user?.bot) continue;
     const freshMember = await getGuildMemberCached(guild, member.id, { preferFresh: true }).catch(() => member);
     if (!freshMember || freshMember.user?.bot) continue;
-    
-    // Safety check: only proceed if they are actually online and have the invite link
+
     if (isOfflinePresence(freshMember.presence) || !hasInvite(freshMember.presence)) continue;
 
     if (freshMember.roles.cache.has(ROLE_ID)) continue;
@@ -724,13 +671,7 @@ function startCleanupClock(client, guildId) {
 
       const { newHas, inviteMissSince: nextMiss } = computeSupporterLinkState(info, member.presence);
       if (nextMiss !== info?.inviteMissSince) {
-        setCachedState(guildId, userId, {
-          hasLink: info.hasLink,
-          lastAnnounced: info.lastAnnounced || 0,
-          lastMessageId: info.lastMessageId || null,
-          lastSeenOnlineAt: info.lastSeenOnlineAt || 0,
-          inviteMissSince: nextMiss,
-        });
+        setCachedState(guildId, userId, { hasLink: info.hasLink, lastAnnounced: info.lastAnnounced || 0, lastMessageId: info.lastMessageId || null, lastSeenOnlineAt: info.lastSeenOnlineAt || 0, inviteMissSince: nextMiss });
       }
       if (!info?.hasLink || newHas || recentlyOnline(info)) continue;
       await clearPending(guildId, userId, channel);
@@ -754,33 +695,15 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
   }
 
   if (newHas && member.roles.cache.has(ROLE_ID)) {
-    setCachedState(guildId, userId, {
-      hasLink: true,
-      lastAnnounced: prev?.lastAnnounced || 0,
-      lastMessageId: prev?.lastMessageId || null,
-      lastSeenOnlineAt,
-      inviteMissSince: null,
-    });
-    await persistStatus(guildId, userId, {
-      hasLink: true,
-      lastMessageId: prev?.lastMessageId || null,
-    });
+    setCachedState(guildId, userId, { hasLink: true, lastAnnounced: prev?.lastAnnounced || 0, lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: null });
+    await persistStatus(guildId, userId, { hasLink: true, lastMessageId: prev?.lastMessageId || null });
     await addPerkRoleIfPossible(member);
     return;
   }
 
   if (newHas && (await hasFanRole(member))) {
-    setCachedState(guildId, userId, {
-      hasLink: true,
-      lastAnnounced: prev?.lastAnnounced || 0,
-      lastMessageId: prev?.lastMessageId || null,
-      lastSeenOnlineAt,
-      inviteMissSince: null,
-    });
-    await persistStatus(guildId, userId, {
-      hasLink: true,
-      lastMessageId: prev?.lastMessageId || null,
-    });
+    setCachedState(guildId, userId, { hasLink: true, lastAnnounced: prev?.lastAnnounced || 0, lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: null });
+    await persistStatus(guildId, userId, { hasLink: true, lastMessageId: prev?.lastMessageId || null });
     await addPerkRoleIfPossible(member);
     return;
   }
@@ -793,28 +716,13 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
     }
 
     if (await hasFanRole(member)) {
-      setCachedState(guildId, userId, {
-        hasLink: true,
-        lastAnnounced: prev?.lastAnnounced || 0,
-        lastMessageId: prev?.lastMessageId || null,
-        lastSeenOnlineAt,
-        inviteMissSince: null,
-      });
-      await persistStatus(guildId, userId, {
-        hasLink: true,
-        lastMessageId: prev?.lastMessageId || null,
-      });
+      setCachedState(guildId, userId, { hasLink: true, lastAnnounced: prev?.lastAnnounced || 0, lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: null });
+      await persistStatus(guildId, userId, { hasLink: true, lastMessageId: prev?.lastMessageId || null });
       await addPerkRoleIfPossible(member);
       return;
     }
 
-    setCachedState(guildId, userId, {
-      hasLink: true,
-      lastAnnounced: Date.now(),
-      lastMessageId: prev?.lastMessageId || null,
-      lastSeenOnlineAt,
-      inviteMissSince: null,
-    });
+    setCachedState(guildId, userId, { hasLink: true, lastAnnounced: Date.now(), lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: null });
 
     const channel = await resolveSupportersChannel(member.guild);
     if (!channel) return;
@@ -831,32 +739,14 @@ async function applyOnlineState(member, userId, prev, prevHas, presenceFresh) {
     const channel = await resolveSupportersChannel(member.guild);
     await clearPending(guildId, userId, channel);
 
-    setCachedState(guildId, userId, {
-      hasLink: false,
-      lastAnnounced: prev?.lastAnnounced || 0,
-      lastMessageId: prev?.lastMessageId || null,
-      lastSeenOnlineAt,
-      inviteMissSince: null,
-    });
-    await persistStatus(guildId, userId, {
-      hasLink: false,
-      lastMessageId: prev?.lastMessageId || null,
-    });
+    setCachedState(guildId, userId, { hasLink: false, lastAnnounced: prev?.lastAnnounced || 0, lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: null });
+    await persistStatus(guildId, userId, { hasLink: false, lastMessageId: prev?.lastMessageId || null });
     scheduleRemovalConfirm(member, channel);
     return;
   }
 
-  setCachedState(guildId, userId, {
-    hasLink: newHas,
-    lastAnnounced: prev?.lastAnnounced || 0,
-    lastMessageId: prev?.lastMessageId || null,
-    lastSeenOnlineAt,
-    inviteMissSince: inviteMissSince != null ? inviteMissSince : null,
-  });
-  await persistStatus(guildId, userId, {
-    hasLink: newHas,
-    lastMessageId: prev?.lastMessageId || null,
-  });
+  setCachedState(guildId, userId, { hasLink: newHas, lastAnnounced: prev?.lastAnnounced || 0, lastMessageId: prev?.lastMessageId || null, lastSeenOnlineAt, inviteMissSince: inviteMissSince != null ? inviteMissSince : null });
+  await persistStatus(guildId, userId, { hasLink: newHas, lastMessageId: prev?.lastMessageId || null });
 }
 
 module.exports = {
@@ -888,7 +778,7 @@ module.exports = {
         }
       }
 
-      const prevHas=typeof prev?.hasLink==="boolean"?prev.hasLink:resolveInviteState(oldPresence,false);
+      const prevHas = typeof prev?.hasLink === "boolean" ? prev.hasLink : resolveInviteState(oldPresence, false);
 
       if (isOfflinePresence(newPresence)) {
         if (!getCachedState(guildId, userId)) {

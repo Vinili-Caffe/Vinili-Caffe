@@ -8,7 +8,7 @@ module.exports = {
   usage: ",set <voice | autojoin> <valore>",
   subcommands: ["voice", "autojoin"],
   subcommandDescriptions: {
-    voice: "Imposta la lingua/voce TTS personale (o resetta).",
+    voice: "Imposta la lingua/voce TTS personale.",
     autojoin: "Attiva o disattiva l'autojoin TTS del bot.",
   },
   subcommandUsages: {
@@ -20,7 +20,7 @@ module.exports = {
     if (!sub || !["voice", "autojoin"].includes(sub)) {
       return safeMessageReply(
         message,
-        "<a:VC_Cross:1482532424570376253> Uso: `,set voice <codice | reset>` oppure `,set autojoin <on | off>`.",
+        "<a:VC_Cross:1482532424570376253> Uso: `,set voice <codice | reset>` o `,set autojoin <on | off>`.",
       );
     }
 
@@ -29,7 +29,7 @@ module.exports = {
       if (!raw) {
         return safeMessageReply(
           message,
-          "<a:VC_Cross:1482532424570376253> Specifica `on` oppure `off`.",
+          "<a:VC_Cross:1482532424570376253> Specifica `on` o `off`.",
         );
       }
       const onValues = new Set(["on", "true", "1", "yes", "si", "enable", "enabled"]);
@@ -37,7 +37,7 @@ module.exports = {
       if (!onValues.has(raw) && !offValues.has(raw)) {
         return safeMessageReply(
           message,
-          "<a:VC_Cross:1482532424570376253> Valore non valido. Usa `on` oppure `off`.",
+          "<a:VC_Cross:1482532424570376253> Valore non valido. Usa `on` o `off`.",
         );
       }
       message.client.config = message.client.config || {};
@@ -53,14 +53,14 @@ module.exports = {
     if (!input) {
       return safeMessageReply(
         message,
-        "<a:VC_Cross:1482532424570376253> Specifica una lingua (es: `it`) oppure `reset`.",
+        "<a:VC_Cross:1482532424570376253> Specifica una lingua (es: `it`) o `reset`.",
       );
     }
     if (["reset", "default", "off", "none"].includes(input.toLowerCase())) {
       setUserTtsLang(message.author.id, null);
       return safeMessageReply(
         message,
-        "<a:VC_Verified:1482532479637127188> Voce TTS personale resettata.",
+        "<a:VC_Verified:1482532479637127188> La voce TTS personale è stata resettata.",
       );
     }
 
@@ -68,14 +68,14 @@ module.exports = {
     if (!language) {
       return safeMessageReply(
         message,
-        "<a:VC_Cross:1482532424570376253> Voce non valida. Usa `,voices`.",
+        "<a:VC_Cross:1482532424570376253> La voce non è valida. Usa `,voices`.",
       );
     }
 
     setUserTtsLang(message.author.id, language);
     return safeMessageReply(
       message,
-      `<a:VC_Verified:1482532479637127188> Voce TTS impostata su \`${language}\`.`,
+      `<a:VC_Verified:1482532479637127188> La voce TTS è stata impostata su \`${language}\`.`,
     );
   },
 };

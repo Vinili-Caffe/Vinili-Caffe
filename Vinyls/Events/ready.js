@@ -3,11 +3,7 @@ const mongoose = require("mongoose");
 const cron = require("node-cron");
 const { scheduleStaffListRefresh } = require("../Utils/Community/staffListUtils");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
-const {
-  shouldRunDiscadiaVoteMonthRepairOnStartup,
-  repairDiscadiaVoteMonthRowsForMainGuild,
-  startDiscadiaVoteMonthRolloverCron,
-} = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
+const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
 const { processAllRecentAutomationMessages } = require("../Utils/Message/officialMessageAutomationHandlers");
 const { processPendingCountingMessages } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { bootstrapSupporter } = require("./presenceUpdate");
@@ -61,17 +57,11 @@ const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersU
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
-
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 90 * 1000;
-const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => {
-  const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS;
-  if (v === undefined || v === "") return 24 * 60 * 60 * 1000;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;
-})();
+const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => { const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS; if (v === undefined || v === "") return 24 * 60 * 60 * 1000; const n = Number(v); return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;})();
 
 function shouldRunVerificationTenureBackfill(client) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();
@@ -364,15 +354,7 @@ async function processPendingPrefixCommands(client) {
         else if (fallbackEmojiId) await message.react(fallbackEmojiId).catch(() => { });
         else await message.react("\u23F3").catch(() => { });
       } catch (_) { }
-      await handleOfficialPrefixMessage({
-        message,
-        resolvedClient: client,
-        defaultPrefix: prefix,
-        overrideCommand: null,
-        maybeSendWrongPrefixHint: noopWrongPrefixHint,
-        getCachedOrFetchMember,
-        hasAnyStaffBypassPermission,
-      });
+      await handleOfficialPrefixMessage({ message, resolvedClient: client, defaultPrefix: prefix, overrideCommand: null, maybeSendWrongPrefixHint: noopWrongPrefixHint, getCachedOrFetchMember, hasAnyStaffBypassPermission });
     } catch (err) {
       global.logger?.warn?.("[READY] pending command execution failed:", message?.id, err?.message || err);
     }
@@ -380,13 +362,7 @@ async function processPendingPrefixCommands(client) {
 }
 
 function buildMongoUrl(client) {
-  return (
-    process.env.MONGO_URL_LOCAL ||
-    process.env.MONGODB_URI_LOCAL ||
-    process.env.MONGO_URL ||
-    process.env.MONGODB_URI ||
-    client.config.mongoURL
-  );
+  return process.env.MONGO_URL_LOCAL || process.env.MONGODB_URI_LOCAL || process.env.MONGO_URL || process.env.MONGODB_URI || client.config.mongoURL;
 }
 
 function getMongoUrlSource() {
@@ -397,7 +373,6 @@ function getMongoUrlSource() {
   return "client.config.mongoURL";
 }
 
-/** Ritorna URL con host sostituito da 127.0.0.1 solo per mongodb:// (non srv). Null se già 127.0.0.1 o srv. */
 function mongoUrlWith127(url) {
   if (!url || typeof url !== "string" || url.startsWith("mongodb+srv://")) return null;
   try {
@@ -411,15 +386,7 @@ function mongoUrlWith127(url) {
   }
 }
 
-const MONGO_CONNECT_OPTIONS = {
-  serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 5000,
-  socketTimeoutMS: 20000,
-  maxPoolSize: 25,
-  minPoolSize: 2,
-  maxIdleTimeMS: 60_000,
-};
-
+const MONGO_CONNECT_OPTIONS = { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 5000, socketTimeoutMS: 20000, maxPoolSize: 25, minPoolSize: 2, maxIdleTimeMS: 60_000 };
 const MONGO_RETRY_ATTEMPTS = 4;
 const MONGO_RETRY_DELAY_MS = 3000;
 
@@ -440,14 +407,11 @@ function maskMongoUrlForLog(url) {
 async function connectMongo(client) {
   const mongoUrl = buildMongoUrl(client);
   if (!mongoUrl) {
-    logError(
-      client,
-      "[DATABASE] No MongoDB URL. Set MONGO_URL or MONGO_URL_LOCAL (or MONGODB_URI) in .env.",
-    );
+    logError(client, "[DATABASE] No MongoDB URL. Set MONGO_URL or MONGO_URL_LOCAL (or MONGODB_URI) in .env.");
     return false;
   }
 
-  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl) + " (source: " + getMongoUrlSource() + ")");
+  logAlways(client, "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl));
 
   mongoose.set("strictQuery", false);
   mongoose.set("bufferCommands", false);
@@ -470,14 +434,11 @@ async function connectMongo(client) {
       } catch (err) {
         const isLast = attempt === MONGO_RETRY_ATTEMPTS && url === urlsToTry[urlsToTry.length - 1];
         if (isLast) {
-          logError(
-            client,
-            `[DATABASE] Error connecting to the database (continuo comunque il bootstrap): ${err}`,
-          );
+          logError(client, `[DATABASE] Error connecting to the database (${err?.message || err})`);
           return false;
         }
         if (attempt === 1 && url === mongoUrl) {
-          logInfo(client, `[DATABASE] First connection failed, retrying up to ${MONGO_RETRY_ATTEMPTS - 1} times (${err?.message || err}).`);
+          logInfo(client, `[DATABASE] First connection failed, retrying up to ${MONGO_RETRY_ATTEMPTS - 1} times (${err?.message || err})`);
         }
       }
     }
@@ -486,10 +447,7 @@ async function connectMongo(client) {
     }
   }
 
-  logError(
-    client,
-    "[DATABASE] All connection attempts failed (continuo comunque il bootstrap).",
-  );
+  logError(client, "[DATABASE] All connection attempts failed.");
   return false;
 }
 
@@ -663,7 +621,7 @@ function startPrimaryLoops(client, engagementTick) {
     [
       "[PARTNER MANAGER TIMED PERKS] Failed to start loop",
       () => {
-        const tick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => {});
+        const tick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => { });
         tick();
         const timer = setInterval(tick, 5 * 60 * 1000);
         if (typeof timer.unref === "function") timer.unref();
@@ -740,18 +698,14 @@ function setClientPresence(client) {
       status: client.config?.status || "idle",
       activities: [
         {
-          type: 4,
-          name: "irrelevant",
-          state: "☕📀 discord.gg/viniliecaffe",
-        },
+          type: ActivityType.Streaming,
+          name: "Vinili & Caffè",
+          url: "https://www.viniliecaffe.it",
+        },    
       ],
     });
   } catch (err) {
-    logError(
-      client,
-      "[STATUS] Errore impostazione presence:",
-      err?.message || err,
-    );
+    logError(client, "[STATUS] Errore impostazione presence:", err?.message || err);
   }
 }
 
@@ -759,7 +713,7 @@ function maybeCheckPackagesOnReady(client) {
   if (typeof checkAndInstallPackages !== "function") return;
   if (String(process.env.CHECK_PACKAGES_ON_READY || "").trim() !== "1") return;
   Promise.resolve(checkAndInstallPackages(client)).catch((err) => {
-    logError(client, "[PACKAGES] Check failed:", err?.stack || err?.message || err);
+    logError(client, "[PACKAGES] Check failed:", err?.message || err);
   });
 }
 
@@ -839,7 +793,7 @@ module.exports = {
       try {
         startDiscadiaVoteMonthRolloverCron(client);
       } catch (err) {
-        logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err?.message || err);
+        logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err);
       }
     }
     setClientPresence(client);
@@ -847,7 +801,7 @@ module.exports = {
     try {
       startAutoPollLoop(client);
     } catch (error) {
-      logError(client, "[STATUS] Error while loading bot status (auto poll):", error?.stack || error?.message || error);
+      logError(client, "[STATUS] Error while loading bot status (auto poll):", error);
     }
 
     logBotReady(client, readyStartedAt);
@@ -871,13 +825,13 @@ module.exports = {
     }
     if (primaryScheduler) {
       void restorePauseMessageStatusSync(client).catch((err) => {
-        global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err?.message || err);
+        global.logger?.warn?.("[PAUSE] restore pause message status sync failed:", err);
       });
     }
     if (primaryScheduler) {
-      void runStartupPanels(client, "ready").catch(() => {});
+      void runStartupPanels(client, "ready").catch(() => { });
       const retryPanels = setTimeout(() => {
-        void runStartupPanels(client, "ready-retry").catch(() => {});
+        void runStartupPanels(client, "ready-retry").catch(() => { });
       }, STARTUP_PANELS_RETRY_MS);
       retryPanels.unref?.();
     }
@@ -886,7 +840,7 @@ module.exports = {
     if (!cleanupDisabled) {
       const t = setTimeout(() => {
         runFullCleanupUsersNotInServer(client).catch((err) => {
-          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err?.message || err);
+          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Startup cleanup failed:", err);
         });
       }, CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS);
       if (t?.unref) t.unref();
@@ -894,7 +848,7 @@ module.exports = {
     if (CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS > 0) {
       const iv = setInterval(() => {
         runFullCleanupUsersNotInServer(client).catch((err) => {
-          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Periodic cleanup failed:", err?.message || err);
+          global.logger?.warn?.("[CLEANUP USERS NOT IN SERVER] Periodic cleanup failed:", err);
         });
       }, CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS);
       if (iv?.unref) iv.unref();
@@ -903,9 +857,8 @@ module.exports = {
     setTimeout(() => {
       const { sweepAccessGuild } = require("../Services/Staff/staffAccessMirrorService");
       sweepAccessGuild(client).catch((err) => {
-        global.logger?.warn?.("[STAFF ACCESS MIRROR] startup sweep failed:", err?.message || err);
+        global.logger?.warn?.("[STAFF ACCESS MIRROR] startup sweep failed:", err);
       });
     }, 30_000).unref?.();
-
   },
 };

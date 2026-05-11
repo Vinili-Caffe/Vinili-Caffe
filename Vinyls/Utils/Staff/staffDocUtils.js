@@ -125,6 +125,32 @@ async function deleteUserRelatedMessagesInChannel(guild, channelId, userId) {
   return deleted;
 }
 
+const STAFF_ROLES_HISTORY_RETENTION_CAP = 400;
+
+/** Prima di rimuovere `staff` dal profilo (depex), salva `rolesHistory` in `staffRolesHistoryRetention` per audit / top weekly. */
+async function archiveStaffRolesHistoryThenUnsetStaff(guildId, userId) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid || !isValidGuildUserId(gid, uid)) return;
+  const prev = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
+    .select("staff.rolesHistory staffRolesHistoryRetention")
+    .lean()
+    .catch(() => null);
+  if (!prev) return;
+  const hasStaff = prev.staff != null && typeof prev.staff === "object";
+  if (!hasStaff) {
+    await ActivityUserProfile.updateOne({ guildId: gid, userId: uid }, { $unset: { staff: "" } }).catch(() => null);
+    return;
+  }
+  const incoming = Array.isArray(prev.staff?.rolesHistory) ? prev.staff.rolesHistory : [];
+  const existing = Array.isArray(prev.staffRolesHistoryRetention) ? prev.staffRolesHistoryRetention : [];
+  const merged = [...existing, ...incoming].slice(-STAFF_ROLES_HISTORY_RETENTION_CAP);
+  await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid, staff: { $exists: true } },
+    { $set: { staffRolesHistoryRetention: merged }, $unset: { staff: "" } },
+  ).catch(() => null);
+}
+
 async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId) {
   const uid = String(userId || "").trim();
   if (!guild || !uid) return { deleted: 0 };
@@ -143,4 +169,11 @@ async function deleteStaffRelatedMessagesFromConfiguredChannels(guild, userId) {
   return { deleted };
 }
 
-module.exports = { getOrCreateStaffDoc, deleteThreadForMessage, deleteStaffPauseRequestChannelMessages, deleteStaffRelatedMessagesFromConfiguredChannels, ensureStaff };
+module.exports = {
+  getOrCreateStaffDoc,
+  deleteThreadForMessage,
+  deleteStaffPauseRequestChannelMessages,
+  deleteStaffRelatedMessagesFromConfiguredChannels,
+  ensureStaff,
+  archiveStaffRolesHistoryThenUnsetStaff,
+};
