@@ -2,6 +2,10 @@
   "prefix": "+",
   "mainGuildId": "1329080093599076474",
   "status": "idle",
+  "presence": {
+    "activityName": "Vinili & Caffè",
+    "streamUrl": ""
+  },
   "logLevel": "debug",
   "eventListeners": 50,
   "developers": [

@@ -56,6 +56,7 @@ const { postTopggStatsDigestIfConfigured } = require("../Services/Web/topggDiges
 const { restorePauseMessageStatusSync } = require("../Utils/Pause/pauseHandlersUtils");
 const { formatDurationMs, runTaskGroup, runTaskSequence, } = require("../Utils/Startup/readyStartupRuntime");
 const { logBotReady } = require("../../shared/discord/readyLog");
+const { buildBotPresenceActivities } = require("../../shared/discord/botPresenceActivity");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../Utils/Staff/partnerManagerTimedPerks");
 const STARTUP_PANELS_RETRY_MS = 15000;
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
@@ -696,13 +697,7 @@ function setClientPresence(client) {
   try {
     client.user?.setPresence?.({
       status: client.config?.status || "idle",
-      activities: [
-        {
-          type: ActivityType.Streaming,
-          name: "Vinili & Caffè",
-          url: "https://www.viniliecaffe.it",
-        },    
-      ],
+      activities: buildBotPresenceActivities(client),
     });
   } catch (err) {
     logError(client, "[STATUS] Errore impostazione presence:", err?.message || err);

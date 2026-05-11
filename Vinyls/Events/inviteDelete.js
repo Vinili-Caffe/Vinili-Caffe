@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached } = require("../Utils/Interaction/interactionEntityCache");
+const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const INVITE_DELETE_ACTION = AuditLogEvent?.InviteDelete ?? 42;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -89,7 +90,7 @@ module.exports = {
         .setColor("#ED4245")
         .setTitle("<a:VC_Verified:1482532479637127188> Invito eliminato")
         .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-            `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
             "",
             "**Impostazioni precedenti**",
             `<:VC_Modifica:1478859646587633717> **Codice:** ${code}`,

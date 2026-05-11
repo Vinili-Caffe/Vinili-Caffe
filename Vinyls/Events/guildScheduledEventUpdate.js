@@ -175,7 +175,7 @@ module.exports = {
 
       const lines = [
         `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
         "",
         "**Modifiche**",
       ];

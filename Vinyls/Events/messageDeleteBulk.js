@@ -2,6 +2,7 @@ const { EmbedBuilder, AttachmentBuilder, AuditLogEvent, PermissionsBitField, Mes
 const IDs = require("../Utils/Config/ids");
 const { maybePunishCountingOnBulkDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { clearForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
+const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)));
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -228,7 +229,7 @@ module.exports = {
           [
             `<:VC_Staff:1494286904089247754> **Responsabile:** ${formatAuditActor(responsible)}`,
             `<:VC_Modifica:1478859646587633717> **Target:** ${channelText} \`${channelId}\``,
-            `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
             "",
             "**Informazioni aggiuntive**",
             `<:VC_Modifica:1478859646587633717> **Conteggio:** ${count}`,

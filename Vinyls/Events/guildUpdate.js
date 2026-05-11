@@ -55,7 +55,7 @@ module.exports = {
       const responsible = formatResponsible(executor);
       const lines = [
         `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+        `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
         "",
         "**Modifiche**",
       ];

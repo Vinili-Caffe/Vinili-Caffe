@@ -23,6 +23,10 @@
     "secondReminderMinMessages30m": 20
   },
   "status": "idle",
+  "presence": {
+    "activityName": "Vinili & Caffè",
+    "streamUrl": ""
+  },
   "tts": {
     "enabled": true,
     "lang": "it",

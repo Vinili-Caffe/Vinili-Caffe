@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js
 const IDs = require("../Utils/Config/ids");
 const { handleInviteCreationAction: antiNukeHandleInviteCreationAction, isAntiNukePanicActive, isWhitelistedExecutorAsync, } = require("../Services/Moderation/antiNukeService");
 const { getSecurityLockState } = require("../Services/Moderation/securityOrchestratorService");
+const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const INVITE_CREATE_ACTION = AuditLogEvent?.InviteCreate ?? 40;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -117,7 +118,7 @@ module.exports = {
             .setColor("#57F287")
             .setTitle("<a:VC_Verified:1482532479637127188> Invito creato")
             .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-              `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+              `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
               "",
               "**Impostazioni**",
               `<:VC_Modifica:1478859646587633717> **Codice:** ${code}`,

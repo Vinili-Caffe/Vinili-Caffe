@@ -3,6 +3,7 @@ const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getClientChannelCached } = require("../Utils/Interaction/interactionEntityCache");
 const { maybePunishCountingOnDelete } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { clearForumMentionNotificationsForMessage } = require("../Utils/Web/siteForumMentionNotifications");
+const { toDiscordTimestamp } = require("../Utils/Logging/channelRolesLogUtils");
 const MAX_CONTENT_LOG_LENGTH = 1800;
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id) => String(id)));
 
@@ -154,7 +155,7 @@ async function sendDeleteLog(message) {
   const hasContent = normalizeText(content).length > 0;
   const hasAttachments = attachmentNames.length > 0;
 
-  const lines=[`<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+  const lines=[`<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
     "",
     "**Impostazioni precedenti**",
     `<:VC_Modifica:1478859646587633717> **Canale:** ${message.channel||"#sconosciuto"}`,

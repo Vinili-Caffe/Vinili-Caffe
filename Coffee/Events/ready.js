@@ -4,19 +4,13 @@ const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { startHourlyReminderLoop } = require("../Services/Community/chatReminderService");
 const { restoreStanzaRoomsFromSnapshot } = require("../Services/Voice/stanzaVoiceRoomsService");
 const { printRecoveryHealthOnce } = require("../../shared/recovery/recoveryHealth");
-const { ActivityType } = require("discord.js");
+const { buildBotPresenceActivities } = require("../../shared/discord/botPresenceActivity");
 
 async function setPresence(client) {
   try {
     client.user.setPresence({
       status: client.config?.status || "idle",
-      activities: [
-        {
-          type: ActivityType.Streaming,
-          name: "Vinili & Caffè",
-          url: "https://www.viniliecaffe.it",
-        }, 
-      ],
+      activities: buildBotPresenceActivities(client),
     });
   } catch (err) {
     global.logger?.error?.("[STATUS] Errore impostazione presenza:", err?.message || err);
