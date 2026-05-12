@@ -211,8 +211,37 @@ function persistMusicQueueSnapshotNow(client) {
   }
 }
 
+function musicRestoreVoiceOnRestartEnabled(client) {
+  const v = client?.config?.music?.restoreVoiceOnRestart;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  const raw = String(v ?? "").trim().toLowerCase();
+  if (["true", "1", "on", "yes", "si", "enabled", "attivo"].includes(raw)) return true;
+  if (["false", "0", "off", "no", "disabled", "disattivo"].includes(raw)) return false;
+  return true;
+}
+
+function resolveMusicResumeMaxSnapshotAgeMs(client) {
+  const envRaw = Number(process.env.COFFEE_MUSIC_RESUME_MAX_SNAPSHOT_AGE_MS);
+  const cfgRaw = Number(client?.config?.music?.restoreVoiceMaxSnapshotAgeMs);
+  const raw = Number.isFinite(cfgRaw) && cfgRaw > 0 ? cfgRaw : Number.isFinite(envRaw) && envRaw > 0 ? envRaw : 24 * 60 * 60 * 1000;
+  return Math.max(60_000, raw);
+}
+
+function getMusicQueueSnapshotFileMtimeMs() {
+  try {
+    return Number(fs.statSync(MUSIC_QUEUE_SNAPSHOT_PATH).mtimeMs) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 function scheduleMusicPlaybackResume(client) {
   if (!client || client._musicPlaybackResumeScheduled) return;
+  if (!musicRestoreVoiceOnRestartEnabled(client)) {
+    client._musicPlaybackResumeScheduled = true;
+    return;
+  }
   client._musicPlaybackResumeScheduled = true;
   const run = async () => {
     let tries = 0;
@@ -232,8 +261,21 @@ function scheduleMusicPlaybackResume(client) {
 }
 
 async function resumeRestoredMusicSessions(client) {
+  if (!musicRestoreVoiceOnRestartEnabled(client)) return;
   const sh = client?.shoukaku;
   if (!sh) return;
+  const maxAgeMs = resolveMusicResumeMaxSnapshotAgeMs(client);
+  const snapMtime = getMusicQueueSnapshotFileMtimeMs();
+  if (snapMtime > 0 && Date.now() - snapMtime > maxAgeMs) {
+    global.logger?.info?.("[MUSIC] voice resume skipped: snapshot file older than restore max age");
+    for (const [, session] of guildQueues.entries()) {
+      if (!session || typeof session !== "object") continue;
+      session.voiceChannelId = null;
+      session.playingEncoded = null;
+    }
+    persistMusicQueueSnapshotNow(client);
+    return;
+  }
   for (const [guildId, session] of [...guildQueues.entries()]) {
     const gid = String(guildId || "").trim();
     if (!gid || !session) continue;
@@ -1683,7 +1725,7 @@ function initLavalinkMusicIfEnabled(client) {
     }
     client.shoukaku = shoukaku;
     client._shoukakuInitDone = true;
-    restoreMusicQueueSnapshot();
+    if (musicRestoreVoiceOnRestartEnabled(client)) restoreMusicQueueSnapshot();
     shoukaku.on("error", (name, err) => {
       global.logger?.warn?.(`[MUSIC] Shoukaku node ${name}:`, err?.message || err);
     });
@@ -1692,7 +1734,7 @@ function initLavalinkMusicIfEnabled(client) {
     });
     startMusicInactivityWatcher(client);
     startMusicQueueSnapshotLoop(client);
-    scheduleMusicPlaybackResume(client);
+    if (musicRestoreVoiceOnRestartEnabled(client)) scheduleMusicPlaybackResume(client);
   } catch (err) {
     global.logger?.error?.("[MUSIC] Inizializzazione Shoukaku fallita:", err?.message || err, err?.stack);
   }

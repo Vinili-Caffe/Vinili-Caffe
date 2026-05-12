@@ -6242,6 +6242,19 @@ async function maybeStartRandomGame(client, force = false) {
   }
 }
 
+async function bootstrapMinigameScheduler(client) {
+  try {
+    await restoreActiveGames(client);
+  } catch (err) {
+    global.logger?.error?.("[MINIGAMES] restoreActiveGames failed:", err?.message || err);
+  }
+  try {
+    startMinigameLoop(client);
+  } catch (err) {
+    global.logger?.error?.("[MINIGAMES] startMinigameLoop failed:", err?.message || err);
+  }
+}
+
 function startMinigameLoop(client) {
   if (loopState.has(client)) return;
   loopState.add(client);
@@ -6253,14 +6266,17 @@ function startMinigameLoop(client) {
     if (!isMinigameFixedSlot(rome)) return;
     const slotKey = minigameSlotKeyFromRome(rome);
     if (slotKey === lastMinigameSlotKey) return;
-    lastMinigameSlotKey = slotKey;
     logMinigameDebug("slot tick", { slotKey, hour: rome.hour, minute: rome.minute });
-    if (!pendingGames.has(cfg.channelId)) {
-      const type = await getNextGameType(client, cfg);
-      if (!type) return;
-      pendingGames.set(cfg.channelId, { type, createdAt: Date.now() });
+    try {
+      if (!pendingGames.has(cfg.channelId)) {
+        const type = await getNextGameType(client, cfg);
+        if (!type) return;
+        pendingGames.set(cfg.channelId, { type, createdAt: Date.now() });
+      }
+      await maybeStartRandomGame(client, false);
+    } finally {
+      lastMinigameSlotKey = slotKey;
     }
-    await maybeStartRandomGame(client, false);
   };
 
   const scheduleNext = () => {
@@ -8144,4 +8160,4 @@ function isMinigameFloodExemptChannel(message) {
   return false;
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, handleMinigameMessage, handleMinigameButton, clearGameForChannel, isMinigameFloodExemptChannel };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, clearGameForChannel, isMinigameFloodExemptChannel };

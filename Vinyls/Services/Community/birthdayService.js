@@ -231,7 +231,7 @@ function startBirthdayLoop(client) {
   birthdayCronMain = cron.schedule(
     "0 0 * * *",
     () => {
-      runBirthdayTick(client, { stripFlairFirst: true }).catch((error) =>
+      void runBirthdayTick(client, { stripFlairFirst: true }).catch((error) =>
         global.logger?.error?.("[BIRTHDAY] Scheduled tick failed:", error),
       );
     },
@@ -241,7 +241,7 @@ function startBirthdayLoop(client) {
   birthdayCronBackup = cron.schedule(
     "15 0 * * *",
     () => {
-      runBirthdayTick(client, { stripFlairFirst: false }).catch((error) =>
+      void runBirthdayTick(client, { stripFlairFirst: false }).catch((error) =>
         global.logger?.error?.("[BIRTHDAY] Backup tick (00:15) failed:", error),
       );
     },

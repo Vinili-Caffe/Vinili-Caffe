@@ -1,17 +1,6 @@
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../Config/ids");
-const {
-  resolveCaseByGuildCaseId,
-  resolveCaseByContextMessageId,
-  appendCaseEditStore,
-  setCaseReasonStore,
-  setCaseDurationStore,
-  findActiveModerations,
-  countModLogsForUser,
-  findModLogsPage,
-  findOpenCases,
-  findActiveWarns,
-} = require("./modCaseStore");
+const { resolveCaseByGuildCaseId, resolveCaseByContextMessageId, appendCaseEditStore, setCaseReasonStore, setCaseDurationStore, findActiveModerations, countModLogsForUser, findModLogsPage, findOpenCases, findActiveWarns } = require("./modCaseStore");
 const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, logModCase, parseDuration, formatDuration } = require("./moderation");
 const { resolveTarget } = require("./prefixModeration");
 const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../Logging/modAuditLogUtils");
@@ -82,30 +71,14 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
       };
     }
   }
-  const protectedRoleIds = [
-    IDs?.roles?.Staff,
-    IDs?.roles?.Helper,
-    IDs?.roles?.Mod,
-    IDs?.roles?.SeniorModerator,
-    IDs?.roles?.HighStaff,
-    IDs?.roles?.Director,
-    IDs?.roles?.Admin,
-    IDs?.roles?.Founder,
-  ]
-    .map((id) => String(id || "").trim())
-    .filter(Boolean);
+  const protectedRoleIds = [ IDs?.roles?.Staff, IDs?.roles?.Helper, IDs?.roles?.Mod, IDs?.roles?.SeniorModerator, IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean);
   const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => message.member?.roles?.cache?.has(roleId));
   const targetHasStaffRole = String(IDs?.roles?.Staff || "").trim() && targetMember.roles?.cache?.has(String(IDs?.roles?.Staff || "").trim());
   const targetHasCoreProtectedRole = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => targetMember.roles?.cache?.has(roleId));
 
-  if (
-    actorHighStaffBypass &&
-    targetHasStaffRole &&
-    !targetHasCoreProtectedRole
-  ) {
+  if (actorHighStaffBypass && targetHasStaffRole && !targetHasCoreProtectedRole) {
     return { ok: true };
   }
-
   if (protectedRoleIds.some((roleId) => targetMember.roles?.cache?.has(roleId))) {
     return {
       ok: false,
@@ -136,22 +109,22 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
   const withReason = safeReason ? ` | ${safeReason}` : "";
   let baseText = "";
   if (actionKey === "warn") {
-    baseText = `<:VC_Alert:1468544520673007626> Hai ricevuto un avviso in ${guildName}.${withReason}`;
+    baseText = `<:VC_Alert:1468544520673007626> Sei stato warnato in ${guildName}.${withReason}`;
   } else if (actionKey === "ban") {
     baseText = `<:VC_Alert:1468544520673007626> Sei stato bannato da ${guildName}.${withReason}`;
   } else if (actionKey === "kick") {
-    baseText = `<:VC_Alert:1468544520673007626> Sei stato espulso da ${guildName}.${withReason}`;
+    baseText = `<:VC_Alert:1468544520673007626> Sei stato kickato da ${guildName}.${withReason}`;
   } else if (actionKey === "mute") {
     const durationPart = safeDuration ? ` per ${safeDuration}` : "";
-    baseText = `<:VC_Alert:1468544520673007626> Sei stato silenziato in ${guildName}${durationPart}.${withReason}`;
+    baseText = `<:VC_Alert:1468544520673007626> Sei stato mutato in ${guildName}${durationPart}.${withReason}`;
   } else if (actionKey === "unban") {
     baseText = `<:VC_Alert:1468544520673007626> Il tuo ban in ${guildName} è stato revocato.${withReason}`;
   } else if (actionKey === "unmute") {
     baseText = `<:VC_Alert:1468544520673007626> Il tuo mute in ${guildName} è stato revocato.${withReason}`;
   } else if (actionKey === "delwarn") {
-    baseText = `<:VC_Alert:1468544520673007626> Un avviso ti è stato rimosso in ${guildName}.${withReason}`;
+    baseText = `<:VC_Alert:1468544520673007626> Un warn ti è stato rimosso in ${guildName}.${withReason}`;
   } else if (actionKey === "clearwarn") {
-    baseText = `<:VC_Alert:1468544520673007626> Tutti i tuoi avvisi sono stati rimossi in ${guildName}.${withReason}`;
+    baseText = `<:VC_Alert:1468544520673007626> Tutti i tuoi warn sono stati rimossi in ${guildName}.${withReason}`;
   } else {
     return false;
   }
@@ -182,16 +155,7 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
 async function makeCase(client, message, action, userId, reason, durationMs = null) {
   const config = await getModConfig(message.guild.id);
   const contextChannelId = message.invokeChannel?.id || message.channel?.id;
-  const { doc, created } = await createModCase({
-    guildId: message.guild.id,
-    action,
-    userId: String(userId),
-    modId: message.author.id,
-    reason,
-    durationMs,
-    context: { channelId: contextChannelId, messageId: message.id },
-    dedupe: { enabled: true, byMessageId: true, matchReason: false },
-  });
+  const { doc, created } = await createModCase({ guildId: message.guild.id, action, userId: String(userId), modId: message.author.id, reason, durationMs, context: { channelId: contextChannelId, messageId: message.id }, dedupe: { enabled: true, byMessageId: true, matchReason: false }, });
   if (created && doc) {
     await logModCase({ client, guild: message.guild, modCase: doc, config });
   }
@@ -679,11 +643,11 @@ async function runNamed(name, message, args, client) {
     if (modLogChannel?.isTextBased?.()) {
       const targetLabel = targetUser ? `${targetUser}` : `\`${target.userId}\``;
       const responsibleLabel = message.author?.bot ? `${message.author} [BOT] \`${message.author.id}\`` : `${message.author} \`${message.author.id}\``;
-      const warnRemovedEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warning Removed").setDescription([
-        `<:VC_BanHammer:1482534474502897795> **Warning for** ${targetLabel} **has been removed**`,
-        `<:VC_Staff:1494286904089247754> **Responsible:** ${responsibleLabel}`,
+      const warnRemovedEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warn Rimosso").setDescription([
+        `<:VC_BanHammer:1482534474502897795> **Warn per** ${targetLabel} **è stato rimosso**`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleLabel}`,
         `<:VC_Clock:1473359204189474886> <t:${Math.floor(Date.now() / 1000)}:F>`,
-        `<:VC_reason:1478517122929004544> **Warning text:** ${(warningText || "").slice(0, 200)}${(warningText || "").length > 200 ? "…" : ""}`,
+        `<:VC_reason:1478517122929004544> **Motivo:** ${(warningText || "").slice(0, 200)}${(warningText || "").length > 200 ? "…" : ""}`,
       ].join("\n"),
       )
         .setFooter({ text: `ID: ${target.userId}` })
@@ -693,7 +657,7 @@ async function runNamed(name, message, args, client) {
     return successReply(
       message,
       formatTargetLabel(targetUser || { id: target.userId }),
-      "had 1 warning removed",
+      "ha 1 warn rimosso",
       warningText,
     );
   }
@@ -704,7 +668,7 @@ async function runNamed(name, message, args, client) {
       const helpEmbed = new EmbedBuilder()
         .setColor("#3498DB")
         .setDescription(
-          ["**Comando: +clearwarn**", "", "**Descrizione:** Rimuove tutti i warning attivi da un utente.", "**Uso:**", "+clearwarn [utente]", "**Esempio:**", "+clearwarn @utente"].join("\n"),
+          ["**Comando: +clearwarn**", "", "**Descrizione:** Rimuove tutti i warn attivi da un utente.", "**Uso:**", "+clearwarn [utente]", "**Esempio:**", "+clearwarn @utente"].join("\n"),
         );
       return message.channel.send({ embeds: [helpEmbed] }).catch(() => null);
     }
@@ -717,12 +681,12 @@ async function runNamed(name, message, args, client) {
           embeds: [
             new EmbedBuilder()
               .setColor("#ED4245")
-              .setDescription("<:cancel:1461730653677551691> Nessun warning attivo trovato per questo utente."),
+              .setDescription("<:cancel:1461730653677551691> Nessun warn attivo trovato per questo utente."),
           ],
         })
         .catch(() => null);
     }
-    const closeReason = `Warning azzerati da ${message.author.id}`;
+    const closeReason = `Warn azzerati da ${message.author.id}`;
     for (const row of rows) {
       await closeCasePersist(row, closeReason);
     }
@@ -739,7 +703,7 @@ async function runNamed(name, message, args, client) {
       const targetLabel = targetUser ? `${targetUser}` : `\`${target.userId}\``;
       const responsibleLabel = message.author?.bot ? `${message.author} [BOT] \`${message.author.id}\`` : `${message.author} \`${message.author.id}\``;
       const clearWarnEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warning Cleared").setDescription([
-        `<a:VC_Alert:1482706673176150077> **Tutti i warning per** ${targetLabel} **sono stati rimossi** (${rows.length} ${rows.length === 1 ? "avviso" : "avvisi"})`,
+        `<a:VC_Alert:1482706673176150077> **Tutti i warn per** ${targetLabel} **sono stati rimossi** (${rows.length} ${rows.length === 1 ? "avviso" : "avvisi"})`,
         `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleLabel}`,
         `<:VC_Clock:1473359204189474886> <t:${Math.floor(Date.now() / 1000)}:F>`,
       ].join("\n"),
@@ -826,7 +790,7 @@ async function runNamed(name, message, args, client) {
         moderatorId: message.author.id,
         reasonOverride: nextReason,
       }).catch(() => null);
-      return successReply(message, `case #${caseId}`, "reason was updated");
+      return successReply(message, `case #${caseId}`, "motivo aggiornato");
     }
     if (!String(args[1] || "").trim()) {
       const helpEmbed = new EmbedBuilder()
@@ -862,30 +826,16 @@ async function runNamed(name, message, args, client) {
         .catch(() => null);
     }
     const expiresAt = new Date(Date.now() + duration);
-    await appendCaseEditStore(
-      refGuildId,
-      refUserId,
-      caseId,
-      "durationMs",
-      row.durationMs == null ? "" : row.durationMs,
-      duration,
-      message.author.id,
-    );
+    await appendCaseEditStore(refGuildId, refUserId, caseId, "durationMs", row.durationMs == null ? "" : row.durationMs, duration, message.author.id);
     await setCaseDurationStore(refGuildId, refUserId, caseId, duration, expiresAt);
-    appendCaseEdit(
-      row,
-      "durationMs",
-      row.durationMs == null ? "" : row.durationMs,
-      duration,
-      message.author.id,
-    );
+    appendCaseEdit(row, "durationMs", row.durationMs == null ? "" : row.durationMs, duration, message.author.id);
     row.durationMs = duration;
     row.expiresAt = expiresAt;
     row.active = true;
     await sendStaffActionToModLogs(message.guild, row, {
-      actionLabel: "Duration Updated",
+      actionLabel: "Durata Aggiornata",
       moderatorId: message.author.id,
-      extraFields: [{ name: "New duration", value: formatDuration(row.durationMs), inline: true }],
+      extraFields: [{ name: "Nuova durata", value: formatDuration(row.durationMs), inline: true }],
     }).catch(() => null);
     if (String(row.action || "").toUpperCase() === "MUTE") {
       const member = await message.guild.members.fetch(String(row.userId || "")).catch(() => null);
@@ -893,7 +843,7 @@ async function runNamed(name, message, args, client) {
         await member.timeout(duration, `Caso #${caseId} aggiornato`).catch(() => null);
       }
     }
-    return successReply(message, `case #${caseId}`, "duration was updated");
+    return successReply(message, `case #${caseId}`, "durata aggiornata");
   }
 
   if (cmd === "modlogs" || cmd === "moderations") {
@@ -902,7 +852,7 @@ async function runNamed(name, message, args, client) {
       const limit = target.userId ? 10 : 25;
       const rows = await findActiveModerations(message.guild.id, target.userId || null, limit);
       if (!rows.length) {
-        const msg = target.userId ? "<:cancel:1461730653677551691> Non ci sono moderazioni attive per questo utente." : "<:cancel:1461730653677551691> Non ci sono moderazioni attive al momento.";
+        const msg = target.userId ? "<:cancel:1461730653677551691> Non ci sono mute/ban attivi per questo utente." : "<:cancel:1461730653677551691> Non ci sono mute/ban attive al momento.";
         return message.channel
           .send({
             embeds: [
@@ -919,7 +869,7 @@ async function runNamed(name, message, args, client) {
       const lines = [];
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i];
-        const type = String(row.action || "").toUpperCase() === "MUTE" ? "Mute" : "Ban";
+        const type = String(row.action || "").toUpperCase() === "MUTE" ? "Mutato" : "Ban";
         const expiresAt = new Date(row.expiresAt || Date.now()).getTime();
         const remaining = formatRemainingWords(expiresAt - now);
         let username = singleUsername;
@@ -985,8 +935,8 @@ async function runNamed(name, message, args, client) {
       const blockLines = [
         `<:VC_id:1478517313618575419> **Case ${row.caseId}**`,
         `<:VC_InactiveStatus:1482526984234860574> **Tipo:** ${type}`,
-        `<:member_role_icon:1330530086792728618> **Utente:** \`${target.userId}\` · ${targetUser?.username || "Sconosciuto"}`,
-        `<:VC_Staff:1494286904089247754> **Moderatore:** ${modUser?.username || row.modId || "Sconosciuto"}`,
+        `<:VC_User:1482527453586002103> **Utente:** \`${target.userId}\` · ${targetUser?.username || "Sconosciuto"}`,
+        `<:VC_Staff:1494286904089247754> **Responsabile:** ${modUser?.username || row.modId || "Sconosciuto"}`,
       ];
       if (length) blockLines.push(`<:VC_Clock:1473359204189474886> **Durata:** ${length}`);
       blockLines.push(`<:VC_reason:1478517122929004544> **Motivo:** ${row.reason || "Nessun motivo fornito."} - ${createdAt}`);
@@ -1055,7 +1005,7 @@ async function runNamed(name, message, args, client) {
             .edit(
               message.guild.roles.everyone,
               { SendMessages: null, SendMessagesInThreads: null },
-              { reason: "<a:VC_Unlock:1482532082466029608> Sblocco automatico (timer scaduto)." },
+              { reason: "<a:VC_Unlock:1482532082466029608> Sbloccato automaticamente." },
             )
             .catch(() => null);
         }, duration);
@@ -1066,7 +1016,7 @@ async function runNamed(name, message, args, client) {
     return successReply(
       message,
       `<#${channel.id}>`,
-      cmd === "lock" ? "was locked" : "was unlocked",
+      cmd === "lock" ? "è stato bloccato" : "è stato sbloccato",
     );
   }
 

@@ -1611,27 +1611,27 @@ function startWeeklyStaffResocontoLoop(client) {
   for (const { segment, expression } of RESOCONTO_CRON_SEGMENTS) {
     const task = cron.schedule(
       expression,
-      async () => {
+      () => {
         const runner = STAFF_RESOCONTO_SEGMENTS.includes(segment)
           ? runWeeklyStaffResocontoChain
           : runWeeklyStaffResocontoSegment;
-        await runner(client, segment).catch((err) => {
+        void runner(client, segment).catch((err) => {
           global.logger?.error?.(`[WEEKLY STAFF RESOCONTO] Execution failed (${segment})`, err);
         });
       },
-      { timezone: TIME_ZONE },
+      { timezone: TIME_ZONE, noOverlap: true },
     );
     weeklyStaffResocontoTasks.push(task);
   }
 
   const preResocontoTask = cron.schedule(
     "0 18 * * 5",
-    async () => {
-      await runPreResocontoReminders(client).catch((err) => {
+    () => {
+      void runPreResocontoReminders(client).catch((err) => {
         global.logger?.error?.("[WEEKLY STAFF RESOCONTO] Pre-reminder failed", err);
       });
     },
-    { timezone: TIME_ZONE },
+    { timezone: TIME_ZONE, noOverlap: true },
   );
   if (typeof preResocontoTask?.ref === "function") preResocontoTask.ref();
 

@@ -24,7 +24,7 @@
   },
   "status": "idle",
   "presence": {
-    "activityName": "Vinili & Caffè",
+    "activityName": "www.viniliecaffe.it | discord.gg/viniliecaffe | ,help",
     "streamUrl": ""
   },
   "tts": {
@@ -33,6 +33,11 @@
     "maxChars": 1000,
     "autojoin": false,
     "includeUsername": false,
-    "stayConnected": false
+    "stayConnected": false,
+    "restoreVoiceOnRestart": true
+  },
+  "music": {
+    "restoreVoiceOnRestart": true,
+    "restoreVoiceMaxSnapshotAgeMs": 86400000
   }
 }

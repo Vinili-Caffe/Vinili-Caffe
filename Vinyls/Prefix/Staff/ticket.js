@@ -126,7 +126,16 @@ async function ensureTicketsCategory(guild) {
     return exact || categories.first();
   }
 
-  const created = await guild.channels.create({ name: TICKETS_CATEGORY_NAME, type: 4, permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages], },], }).catch(() => null);
+  const created = await guild.channels.create({
+    name: TICKETS_CATEGORY_NAME,
+    type: 4,
+    permissionOverwrites: [
+      {
+        id: guild.roles.everyone.id,
+        deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+      },
+    ],
+  }).catch(() => null);
 
   if (created) {
     await created.setPosition(0).catch(() => { });
@@ -223,9 +232,6 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
         }
 
         await targetChannel.permissionOverwrites
-          .edit(message.guild.roles.everyone.id, { ViewChannel: false })
-          .catch(() => { });
-        await targetChannel.permissionOverwrites
           .edit(ticketDoc.userId, {
             ViewChannel: true,
             SendMessages: true,
@@ -253,7 +259,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
           AddReactions: true,
         };
         const applyFull = { ViewChannel: true, SendMessages: true, EmbedLinks: true, AttachFiles: true, ReadMessageHistory: true, AddReactions: true, };
-        const denyView = { ViewChannel: false };
+        const roleHideFromTicket = { ViewChannel: false };
 
         if (panelConfig.type === "supporto") {
           if (ticketDoc.claimedBy) {
@@ -272,7 +278,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites
-            .edit(PARTNERMANAGER_ROLE_ID, denyView)
+            .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
         }
 
@@ -293,7 +299,7 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites
-            .edit(STAFF_ROLE_ID, denyView)
+            .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
         }
 
@@ -308,10 +314,10 @@ async function ticketSwitchPanelExecute(message, categoryToken) {
               .catch(() => { });
           }
           await targetChannel.permissionOverwrites
-            .edit(STAFF_ROLE_ID, denyView)
+            .edit(STAFF_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
           await targetChannel.permissionOverwrites
-            .edit(PARTNERMANAGER_ROLE_ID, denyView)
+            .edit(PARTNERMANAGER_ROLE_ID, roleHideFromTicket)
             .catch(() => { });
         }
 

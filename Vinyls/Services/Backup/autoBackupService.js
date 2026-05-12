@@ -105,7 +105,7 @@ function startAutoBackupLoop(client) {
   client._autoBackupCron = cron.schedule(
     "0 0 * * *",
     () => {
-      runTick().catch(() => { });
+      void runTick().catch(() => { });
     },
     {
       timezone: AUTO_BACKUP_TIMEZONE,

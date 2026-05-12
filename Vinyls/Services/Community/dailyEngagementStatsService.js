@@ -289,7 +289,7 @@ function startDailyEngagementStatsLoop(client) {
     "0 0 * * *",
     () => {
       const yesterdayKey = addDaysToRomeKey(getRomeDateKey(new Date()), -1);
-      sendDailyEngagementReport(client, yesterdayKey).catch((err) => {
+      void sendDailyEngagementReport(client, yesterdayKey).catch((err) => {
         global.logger?.error?.("[DAILY ENGAGEMENT] scheduled report failed:", err);
       });
     },

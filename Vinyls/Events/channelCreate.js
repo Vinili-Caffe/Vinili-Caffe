@@ -5,6 +5,7 @@ const{upsertChannelSnapshot,}=require("../Utils/Community/channelSnapshotUtils")
 const { ARROW, toDiscordTimestamp, channelDisplay, channelTypeLabel, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../Utils/Logging/channelRolesLogUtils");
 const{handleChannelCreationAction:antiNukeHandleChannelCreationAction,}=require("../Services/Moderation/antiNukeService");
 const IDs = require("../Utils/Config/ids");
+const { isChannelInTicketCategory } = require("../Utils/Ticket/ticketCategoryUtils");
 const CHANNEL_CREATE_ACTION = AuditLogEvent?.ChannelCreate ?? 10;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -13,6 +14,7 @@ const QUARANTINE_ROLE_ID=String(IDs.roles?.Muted||"1442568884833095832",);
 async function forceQuarantineOverwrite(channel) {
   if (!channel?.guild || !QUARANTINE_ROLE_ID) return;
   if (channel?.isThread?.()) return;
+  if (isChannelInTicketCategory(channel)) return;
 
   const me = channel.guild.members?.me;
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) return;

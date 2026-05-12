@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const axios = require("axios");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../../Utils/Config/ids");
@@ -597,14 +598,8 @@ function startDailyPartnerAuditLoop(client) {
 
   dailyPartnerAuditTask = cron.schedule(
     "0 0 * * *",
-    async () => {
-      try {
-        await runDailyPartnerAudit(client);
-      } catch (err) {
-        global.logger?.error?.(`[PARTNER AUDIT] Daily audit failed ${err?.message || err}`);
-      }
-    },
-    { timezone: "Europe/Rome" },
+    runCronDetached("[PARTNER AUDIT] Daily", () => runDailyPartnerAudit(client)),
+    { timezone: "Europe/Rome", noOverlap: true },
   );
 
   setImmediate(() => {

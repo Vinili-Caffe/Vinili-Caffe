@@ -156,7 +156,7 @@ function startDailyChannelMessageStatsLoop(client) {
     "0 0 * * *",
     () => {
       const yesterdayKey = addDaysToRomeKey(getRomeDateKey(new Date()), -1);
-      sendDailyChannelMessageReport(client, yesterdayKey).catch((err) => {
+      void sendDailyChannelMessageReport(client, yesterdayKey).catch((err) => {
         global.logger?.error?.("[DAILY CHANNEL MESSAGE STATS] scheduled report failed:", err);
       });
     },

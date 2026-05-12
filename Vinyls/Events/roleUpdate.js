@@ -35,12 +35,12 @@ module.exports = {
           }
           if (colorChanged) {
             lines.push(
-              `<a:VC_Color:1482532543273238569> **Color:** ${oldRole.hexColor || "#000000"} <a:VC_Arrow:1482706699365257397> ${newRole.hexColor || "#000000"}`,
+              `<:VC_Color:1482532543273238569> **Color:** ${oldRole.hexColor || "#000000"} <a:VC_Arrow:1482706699365257397> ${newRole.hexColor || "#000000"}`,
             );
           }
           if (hoistChanged) {
             lines.push(
-              `<a:VC_Role:1482532543273238569> **Hoist:** ${oldRole.hoist ? "Si" : "No"} <a:VC_Arrow:1482706699365257397> ${newRole.hoist ? "Si" : "No"}`,
+              `<:VC_Color:1482532543273238569> **Hoist:** ${oldRole.hoist ? "Si" : "No"} <a:VC_Arrow:1482706699365257397> ${newRole.hoist ? "Si" : "No"}`,
             );
           }
           if (permsChanged) {
@@ -55,7 +55,7 @@ module.exports = {
           }
           lines.push(...buildAuditExtraLines(audit.entry, ["name", "color", "hoist", "permissions"]));
 
-          const embed=new EmbedBuilder().setColor("#F59E0B").setTitle("<a:VC_Role:1482532543273238569> Ruolo Aggiornato").setDescription(lines.join("\n"));
+          const embed=new EmbedBuilder().setColor("#F59E0B").setTitle("<:VC_Color:1482532543273238569> Ruolo Aggiornato").setDescription(lines.join("\n"));
 
           await logChannel.send({ embeds: [embed] }).catch(() => {});
         }

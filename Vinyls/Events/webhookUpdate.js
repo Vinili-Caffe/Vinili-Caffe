@@ -180,13 +180,13 @@ module.exports = {
         const avatarChange = changes.find((c) => String(c?.key || "") === "avatar_hash");
         if (nameChange) {
           lines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
-          lines.push(`  ${String(nameChange?.old ?? "sconosciuto")} <:VC_Arrow:1482706699365257397> ${String(nameChange?.new ?? targetName)}`);
+          lines.push(`  ${String(nameChange?.old ?? "sconosciuto")} <a:VC_Arrow:1482706699365257397> ${String(nameChange?.new ?? targetName)}`);
         } else {
           lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${targetName}`);
         }
         if (channelChange) {
           lines.push(`<:VC_Modifica:1478859646587633717> **Canale:**`);
-          lines.push(`  ${channelChange?.old ? `<#${channelChange.old}>` : "none"} <:VC_Arrow:1482706699365257397> ${channelChange?.new ? `<#${channelChange.new}>` : "none"}`);
+          lines.push(`  ${channelChange?.old ? `<#${channelChange.old}>` : "none"} <a:VC_Arrow:1482706699365257397> ${channelChange?.new ? `<#${channelChange.new}>` : "none"}`);
         }
         if (avatarChange) {
           lines.push(`<:VC_Modifica:1478859646587633717> **Avatar aggiornato:** Sì`);

@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const cron = require("node-cron");
+const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const { VOICE_EXP_PER_MINUTE, MESSAGE_EXP } = require("./expService");
 const IDs = require("../../Utils/Config/ids");
@@ -1352,43 +1353,31 @@ function startWeeklyActivityWinnersLoop(client) {
   weeklyActivityWinnersLoopStarted = true;
   cron.schedule(
     "0 21 * * 0",
-    async () => {
-      try {
-        await publishWeeklyActivityWinners(client);
-        await resetWeeklyActivityCounters(client);
-      } catch (error) {
-        global.logger.error("[WEEKLY ACTIVITY] Scheduled execution failed:", error);
-      }
-    },
-    { timezone: TIME_ZONE },
+    runCronDetached("[WEEKLY ACTIVITY]", async () => {
+      await publishWeeklyActivityWinners(client);
+      await resetWeeklyActivityCounters(client);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
   );
   cron.schedule(
     "0 21 1 * *",
-    async () => {
-      try {
-        await publishMonthlyActivityWinners(client);
-      } catch (error) {
-        global.logger.error("[MONTHLY ACTIVITY] Scheduled execution failed:", error);
-      }
-    },
-    { timezone: TIME_ZONE },
+    runCronDetached("[MONTHLY ACTIVITY]", async () => {
+      await publishMonthlyActivityWinners(client);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
   );
   cron.schedule(
     "5 0 * * *",
-    async () => {
-      try {
-        const mainGuildId = String(IDs.guilds?.main || "");
-        const guild =
-          (mainGuildId && (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)))) ||
-          null;
-        if (!guild) return;
-        await cleanupExpiredMonthlyVoterRewards(guild);
-        await cleanupExpiredMonthlyTopRewards(guild);
-      } catch (error) {
-        global.logger.error("[MONTHLY REWARDS] Daily expiry cleanup failed:", error);
-      }
-    },
-    { timezone: TIME_ZONE },
+    runCronDetached("[MONTHLY REWARDS]", async () => {
+      const mainGuildId = String(IDs.guilds?.main || "");
+      const guild =
+        (mainGuildId && (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)))) ||
+        null;
+      if (!guild) return;
+      await cleanupExpiredMonthlyVoterRewards(guild);
+      await cleanupExpiredMonthlyTopRewards(guild);
+    }),
+    { timezone: TIME_ZONE, noOverlap: true },
   );
   setTimeout(async () => {
     try {

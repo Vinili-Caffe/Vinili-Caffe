@@ -98,7 +98,7 @@ async function logModCase({ client, guild, modCase, config }) {
   const isUserId = /^\d{17,20}$/.test(String(modCase.userId));
   const userLabel = isUserId ? `<@${modCase.userId}>(\`${modCase.userId}\`)` : String(modCase.userId);
   const embed = new EmbedBuilder().setColor(client?.config?.embedModLight || "#6f4e37").setTitle(`Case #${modCase.caseId}-${modCase.action}`);
-  const fields = [{ name: "<:member_role_icon:1330530086792728618> Utente", value: userLabel, inline: true }, { name: "<:VC_Staff:1494286904089247754> Moderatore", value: `<@${modCase.modId}>`, inline: true },
+  const fields = [{ name: "<:VC_User:1482527453586002103> Utente", value: userLabel, inline: true }, { name: "<:VC_Staff:1494286904089247754> Responsabile", value: `<@${modCase.modId}>`, inline: true },
   ];
   if (duration) {
     fields.push({ name: "<:VC_Clock:1473359204189474886> Durata", value: duration, inline: true });
@@ -109,7 +109,7 @@ async function logModCase({ client, guild, modCase, config }) {
   embed.addFields(...fields.slice(0, 25)).setTimestamp();
   if (modCase.context?.channelId) {
     embed.addFields({
-      name: "<:channeltext:1443247596922470551> Canale",
+      name: "<:VC_Channel:1482532543273238569> Canale",
       value: `<#${modCase.context.channelId}>`,
       inline: true,
     });

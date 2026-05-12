@@ -169,7 +169,7 @@ function startContestPrizeMaintenanceCron(client) {
   contestPrizeCronTask = cron.schedule(
     "0 * * * *",
     () => {
-      processContestFinalePrizeRoleRemovals(client).catch((err) =>
+      void processContestFinalePrizeRoleRemovals(client).catch((err) =>
         global.logger?.error?.("[CONTEST_PRIZE] cron rimozioni premio:", err),
       );
     },

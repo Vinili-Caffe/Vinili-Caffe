@@ -125,10 +125,7 @@ module.exports = (client) => {
 
     try {
       const guildIds = [IDs?.guilds?.main, IDs?.guilds?.test].filter(Boolean).map(String);
-      const n = await purgeObsoleteApplicationCommands(rest, clientId, guildIds);
-      if (n > 0) {
-        global.logger?.info?.(`[COMMANDS] Rimossi ${n} comando/i slash obsoleti (es. /music) dall'API Discord.`);
-      }
+      await purgeObsoleteApplicationCommands(rest, clientId, guildIds);
     } catch (e) {
       global.logger?.warn?.("[COMMANDS] Purge comandi slash obsoleti:", e?.message || e);
     }

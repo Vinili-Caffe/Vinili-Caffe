@@ -24,6 +24,7 @@ const ttsLastJoinAtByGuild = new Map();
 const guildLocks = new Map();
 const lastSavedChannels = new Map();
 const ttsJoinWarnCache = new Map();
+const ttsVoiceDisconnectSuppress = new Map();
 const TTS_QUEUE_SNAPSHOT_PATH = path.join(__dirname, "..", "..", "Data", "ttsQueueSnapshot.json");
 const TTS_QUEUE_SNAPSHOT_INTERVAL_MS = 15000;
 const TTS_QUEUE_MAX_PERSISTED_ITEMS = 300;
@@ -634,6 +635,41 @@ function clearTtsPostJoinVoiceGrace(guildId) {
   ttsLastJoinAtByGuild.delete(String(guildId));
 }
 
+function markTtsVoiceDisconnectSuppress(guildId, ttlMs = 2800) {
+  if (guildId == null) return;
+  ttsVoiceDisconnectSuppress.set(String(guildId), Date.now() + ttlMs);
+}
+
+function shouldIgnoreTtsVoiceDisconnectFinalize(guildId) {
+  const until = ttsVoiceDisconnectSuppress.get(String(guildId));
+  return typeof until === "number" && Date.now() < until;
+}
+
+function attachTtsVoiceConnectionDisconnectHandler(connection, voiceChannel) {
+  const guildId = String(voiceChannel?.guild?.id || "");
+  if (!guildId || !connection || connection.__vcTtsDisconnectHook) return;
+  connection.__vcTtsDisconnectHook = true;
+  connection.on("stateChange", (_oldState, newState) => {
+    if (newState.status !== VoiceConnectionStatus.Disconnected) return;
+    const delayMs = 1000;
+    setTimeout(() => {
+      void (async () => {
+        try {
+          if (shouldIgnoreTtsVoiceDisconnectFinalize(guildId)) return;
+          if (!getLockedChannelId(guildId) && !findLockedChannelIdByGuild(guildId)) return;
+          const client = voiceChannel.client;
+          const guild = await getClientGuildCached(client, guildId).catch(() => null);
+          if (!guild || !client?.user?.id) return;
+          await guild.members.fetch({ user: client.user.id, force: true }).catch(() => null);
+          const me = guild.members.me;
+          if (me?.voice?.channelId) return;
+          await leaveTtsGuild(guildId, client);
+        } catch (_) {}
+      })();
+    }, delayMs);
+  });
+}
+
 async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
   if (!voiceChannel?.guild?.id || !voiceChannel?.id || !oldChannelId) return { ok: false, reason: "invalid" };
   const guildId = String(voiceChannel.guild.id);
@@ -651,6 +687,7 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
   const newState = ttsStates.get(newId) || null;
 
   if (newState && newState !== oldState) {
+    markTtsVoiceDisconnectSuppress(guildId);
     try { if (newState.connection) newState.connection.destroy(); } catch (_) { }
     ttsStates.delete(newId);
   }
@@ -677,6 +714,8 @@ function sleep(ms) {
 
 function destroyVoiceConnectionSafe(connection, logPrefix = "[TTS] connection destroy:") {
   if (!connection) return false;
+  const suppressGid = connection.joinConfig?.guildId;
+  if (suppressGid) markTtsVoiceDisconnectSuppress(suppressGid);
   const status = String(connection?.state?.status || "");
   if (status === String(VoiceConnectionStatus.Destroyed)) return false;
   try {
@@ -701,6 +740,7 @@ function shouldLogTtsJoinWarning(guildId, channelId, errMessage, ttlMs = 30000) 
 async function destroyGuildVoiceConnection(guildId) {
   const gid = String(guildId || "");
   if (!gid) return;
+  markTtsVoiceDisconnectSuppress(gid);
   const existing = getVoiceConnection(gid);
   if (existing) destroyVoiceConnectionSafe(existing, "[TTS] destroy existing voice connection:");
   await sleep(600);
@@ -713,6 +753,7 @@ async function ensureConnection(state, voiceChannel) {
   if (state.connection?.joinConfig?.channelId === voiceChannel.id) {
     try {
       await entersState(state.connection, VoiceConnectionStatus.Ready, 5_000);
+      attachTtsVoiceConnectionDisconnectHandler(state.connection, voiceChannel);
       return state.connection;
     } catch {
       destroyVoiceConnectionSafe(state.connection);
@@ -723,6 +764,7 @@ async function ensureConnection(state, voiceChannel) {
     destroyVoiceConnectionSafe(state.connection);
     state.connection = null;
   }
+  markTtsVoiceDisconnectSuppress(voiceChannel.guild.id);
   await destroyGuildVoiceConnection(voiceChannel.guild.id);
   const isIpDiscoveryError = (err) => {
     const msg = String(err?.message || "").toLowerCase();
@@ -747,6 +789,7 @@ async function ensureConnection(state, voiceChannel) {
       setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
       await saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
       markTtsVoiceJoinGrace(voiceChannel.guild.id);
+      attachTtsVoiceConnectionDisconnectHandler(connection, voiceChannel);
       return connection;
     } catch (err) {
       if (connection) {
@@ -952,6 +995,7 @@ function cleanupAllTtsStateForGuild(guildId) {
 }
 
 async function leaveTtsGuild(guildId, client) {
+  markTtsVoiceDisconnectSuppress(guildId);
   clearTtsPostJoinVoiceGrace(guildId);
   let lockedChannelId = getLockedChannelId(guildId);
   if (!lockedChannelId) {
@@ -977,7 +1021,11 @@ async function leaveTtsGuild(guildId, client) {
     await clearVoiceState(guildId);
     return { ok: true };
   }
-  if (!lockedChannelId) return { ok: false, reason: "not_connected" };
+  if (!lockedChannelId) {
+    await clearVoiceState(guildId);
+    persistTtsQueueSnapshotNow();
+    return { ok: false, reason: "not_connected" };
+  }
   const state = ttsStates.get(lockedChannelId);
   if (state) {
     state.queue = [];
@@ -1108,6 +1156,9 @@ async function restoreTtsConnections(client) {
   try {
     startTtsQueueSnapshotLoop(client);
     await warmUserTtsLangsFromDb();
+    if (!booleanFromConfig(client?.config?.tts?.restoreVoiceOnRestart, true)) {
+      return;
+    }
     const prefix = String(client?.config?.prefix || ",");
     const states = await voiceFindManyLean().catch(() => []);
 

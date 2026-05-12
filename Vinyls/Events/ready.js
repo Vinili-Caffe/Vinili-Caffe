@@ -1,6 +1,7 @@
 const config = require("../config.json");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
+const { runCronDetached } = require("../../shared/scheduling/cronDetached");
 const { scheduleStaffListRefresh } = require("../Utils/Community/staffListUtils");
 const { restorePendingVoteReminders, restorePendingDiscadiaReminders, restorePendingReminders, startBumpDueReminderSweepLoop, startDiscadiaVoteReminderLoop, } = require("../Services/Bump/bumpService");
 const { shouldRunDiscadiaVoteMonthRepairOnStartup, repairDiscadiaVoteMonthRowsForMainGuild, startDiscadiaVoteMonthRolloverCron } = require("../Services/Bump/discadiaVoteMonthRepairOnStartupService");
@@ -9,7 +10,7 @@ const { processPendingCountingMessages } = require("../Utils/Message/officialMes
 const { bootstrapSupporter } = require("./presenceUpdate");
 const { restoreTtsConnections } = require("../Services/TTS/ttsService");
 const { runDueOneTimeReminders, } = require("../Services/Reminders/oneTimeReminderService");
-const { startMinigameLoop, restoreActiveGames, } = require("../Services/Minigames/minigameService");
+const { bootstrapMinigameScheduler } = require("../Services/Minigames/minigameService");
 const { startWeeklyDmReminderLoop, } = require("../Services/Community/weeklyDmReminderService");
 const { startVerificationTenureLoop, backfillVerificationTenure, startVoteRoleCleanupLoop, runAllGuilds: renumberAllCategories, startCategoryNumberingLoop, startSponsorKickLoop, startSponsorGuildNicknameSweepLoop, } = require("../Services/Community/communityOpsService");
 const { startBirthdayLoop } = require("../Services/Community/birthdayService");
@@ -232,6 +233,15 @@ function buildDeferredStartupTasks(client, primaryScheduler, engagementTick) {
       label: "backfill boost announce slot counts from supporters history",
       enabled: primaryScheduler,
       run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
+    },
+    {
+      label: "recover last 2 native boost system messages (multi-channel scan)",
+      enabled: primaryScheduler,
+      run: () =>
+        guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
+          messageLimit: 2,
+          lookbackMs: 7 * 24 * 60 * 60 * 1000,
+        }),
     },
     {
       label: "recover missed boost embeds (audit vs ultimo embed bot)",
@@ -566,7 +576,7 @@ function startPrimaryLoops(client, engagementTick) {
 
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
-    ["[MINIGAMES] Failed to start loop", () => restoreActiveGames(client).then(() => startMinigameLoop(client), () => startMinigameLoop(client))],
+    ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
     ["[VOTE ROLE] Failed to start cleanup loop", () => startVoteRoleCleanupLoop(client)],
     ["[WEEKLY DM REMINDER] Failed to start loop", () => startWeeklyDmReminderLoop(client)],
     ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
@@ -662,31 +672,23 @@ function scheduleMonthlyGif(client) {
     if (client._monthlyGifTask) return;
     client._monthlyGifTask = cron.schedule(
       "0 0 1 * *",
-      async () => {
+      runCronDetached("[MONTHLY GIF]", async () => {
         const channelId = IDs.channels.chat;
         const channel = await getChannelSafe(client, channelId);
         if (!channel?.isTextBased?.()) return;
 
-        await channel
-          .send({
-            content: "@everyone",
-            allowedMentions: { parse: ["everyone"] },
-            files: [
-              {
-                attachment:
-                  "https://media.tenor.com/crZirRXKLuQAAAAC/manhdz2k9.gif",
-                name: "monthly.gif",
-              },
-            ],
-          })
-          .catch((err) => {
-            global.logger?.error?.(
-              "[MONTHLY GIF] Invio fallito:",
-              err?.message || err,
-            );
-          });
-      },
-      { timezone: "Europe/Rome" },
+        await channel.send({
+          content: "@everyone",
+          allowedMentions: { parse: ["everyone"] },
+          files: [
+            {
+              attachment: "https://media.tenor.com/crZirRXKLuQAAAAC/manhdz2k9.gif",
+              name: "monthly.gif",
+            },
+          ],
+        });
+      }),
+      { timezone: "Europe/Rome", noOverlap: true },
     );
   } catch (err) {
     global.logger?.error?.("[MONTHLY GIF] Failed to schedule", err);

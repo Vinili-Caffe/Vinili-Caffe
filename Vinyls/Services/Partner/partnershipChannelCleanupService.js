@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const IDs = require("../../Utils/Config/ids");
 const TIME_ZONE = "Europe/Rome";
 const BULK_DELETE_LIMIT = 100;
@@ -116,14 +117,8 @@ function startPartnershipChannelCleanupLoop(client) {
 
   cleanupTask = cron.schedule(
     "0 0 * * *",
-    async () => {
-      try {
-        await runPartnershipChannelCleanup(client);
-      } catch (err) {
-        global.logger?.error?.("[PARTNERSHIP CLEANUP] Esecuzione schedulata fallita:", err);
-      }
-    },
-    { timezone: "Europe/Rome" },
+    runCronDetached("[PARTNERSHIP CLEANUP]", () => runPartnershipChannelCleanup(client)),
+    { timezone: "Europe/Rome", noOverlap: true },
   );
 
   setImmediate(() => {

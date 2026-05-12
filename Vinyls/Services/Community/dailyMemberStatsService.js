@@ -176,7 +176,7 @@ function startDailyMemberStatsLoop(client) {
     "0 0 * * *",
     () => {
       const yesterdayKey = addDaysToRomeKey(getRomeDateKey(new Date()), -1);
-      sendDailyMemberStatsReport(client, yesterdayKey).catch((err) => {
+      void sendDailyMemberStatsReport(client, yesterdayKey).catch((err) => {
         global.logger?.error?.("[DAILY MEMBER STATS] scheduled report failed:", err);
       });
     },

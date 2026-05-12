@@ -174,7 +174,7 @@ module.exports = {
       try {
         if (
           isNativeBoostSystemMessage(message) &&
-          String(message.channelId || "") === String(IDs.channels?.supporters || "") &&
+          guildMemberUpdateExtras.channelIdIsBoostNativeRecoveryTarget(message.guild, message.channelId) &&
           message.author?.id
         ) {
           await guildMemberUpdateExtras

@@ -180,10 +180,7 @@ module.exports = (client) => {
     }
 
     try {
-      const n = await purgeObsoleteApplicationCommands(rest, clientId, allowedGuildIds);
-      if (n > 0) {
-        global.logger?.info?.(`[COMMANDS] Removed ${n} obsolete slash commands from Discord API.`);
-      }
+      await purgeObsoleteApplicationCommands(rest, clientId, allowedGuildIds);
     } catch (e) {
       global.logger?.warn?.("[COMMANDS] Purge obsolete slash commands:", e?.message || e);
     }

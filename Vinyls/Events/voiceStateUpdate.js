@@ -223,7 +223,7 @@ async function sendMemberMoveLog(oldState, newState) {
     .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
     `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
       "",
-      "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
+    "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
     `<:VC_Modifica:1478859646587633717> **Canale:** ${destination}\`${newChannelId}\``,
     `<:VC_Modifica:1478859646587633717> **Conteggio:** ${Math.max(1, Number(audit.count || 1))}`,
     ].join("\n"));
@@ -265,19 +265,19 @@ async function sendMemberVoiceFlagsUpdateLog(oldState, newState) {
 
   if (muteChanged) {
     lines.push("<:VC_Modifica:1478859646587633717> **Mute**");
-    lines.push(`${yesNo(Boolean(oldState?.serverMute))} <:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverMute))}`);
+    lines.push(`${yesNo(Boolean(oldState?.serverMute))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverMute))}`);
   }
   if (deafChanged) {
     lines.push("<:VC_Modifica:1478859646587633717> **Deaf**");
-    lines.push(`${yesNo(Boolean(oldState?.serverDeaf))} <:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverDeaf))}`);
+    lines.push(`${yesNo(Boolean(oldState?.serverDeaf))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverDeaf))}`);
   }
   if (selfMuteChanged) {
     lines.push("<:VC_Modifica:1478859646587633717> **Self Mute**");
-    lines.push(`${yesNo(Boolean(oldState?.selfMute))} <:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfMute))}`);
+    lines.push(`${yesNo(Boolean(oldState?.selfMute))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfMute))}`);
   }
   if (selfDeafChanged) {
     lines.push("<:VC_Modifica:1478859646587633717> **Self Deaf**");
-    lines.push(`${yesNo(Boolean(oldState?.selfDeaf))} <:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfDeaf))}`);
+    lines.push(`${yesNo(Boolean(oldState?.selfDeaf))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfDeaf))}`);
   }
 
   const embed = new EmbedBuilder()
@@ -362,6 +362,7 @@ module.exports = {
       await handleMusicBotVoiceDisconnect(client, guild).catch((err) => {
         global.logger?.warn?.("[voiceStateUpdate] handleMusicBotVoiceDisconnect failed:", err?.message || err);
       });
+      await guild.members.fetch({ user: client.user.id, force: true }).catch(() => null);
       await leaveTtsGuild(guild.id, client).catch((err) => {
         global.logger?.warn?.("[voiceStateUpdate] leaveTtsGuild failed:", err?.message || err);
       });

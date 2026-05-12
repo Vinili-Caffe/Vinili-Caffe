@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile, SiteDocument } = require("../../Schemas/Community/communitySchemas");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -411,10 +412,11 @@ function startStaffAutoValutazioniLoop(client) {
     runStaffAutoValutazioniSyncLocked(client, "first_sync");
   }, 15_000);
   firstSync.unref?.();
-  const task = cron.schedule(AUTO_SYNC_CRON, () => {
-    runStaffAutoValutazioniSyncLocked(client, "loop");
-  }, { timezone: "Europe/Rome" });
-  task.start();
+  cron.schedule(
+    AUTO_SYNC_CRON,
+    runCronDetached("[STAFF AUTO VALUTAZIONI] cron", () => runStaffAutoValutazioniSyncLocked(client, "loop")),
+    { timezone: "Europe/Rome", noOverlap: true },
+  );
 }
 
 function isSerataFilmEvent(event) {

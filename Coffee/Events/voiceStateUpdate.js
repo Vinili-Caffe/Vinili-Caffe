@@ -66,6 +66,7 @@ module.exports = {
           err?.message || err,
         );
       });
+      await guild.members.fetch({ user: client.user.id, force: true }).catch(() => null);
       await leaveTtsGuild(guild.id, client).catch((err) => {
         global.logger?.warn?.(
           "[voiceStateUpdate] leaveTtsGuild failed:",

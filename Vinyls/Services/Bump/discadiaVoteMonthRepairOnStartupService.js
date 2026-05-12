@@ -1,4 +1,5 @@
 const cron = require("node-cron");
+const { runCronDetached } = require("../../../shared/scheduling/cronDetached");
 const mongoose = require("mongoose");
 const IDs = require("../../Utils/Config/ids");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
@@ -72,15 +73,11 @@ function startDiscadiaVoteMonthRolloverCron(client) {
   if (!shouldRunDiscadiaVoteMonthRolloverCron(client)) return;
   client._discadiaVoteMonthRolloverCron = cron.schedule(
     "0 0 1 * *",
-    async () => {
+    runCronDetached("[DISCADIA_VOTE_MONTH_CRON]", async () => {
       if (mongoose.connection?.readyState !== 1) return;
-      try {
-        await repairDiscadiaVoteMonthRowsForMainGuild(client, "cron");
-      } catch (err) {
-        global.logger?.warn?.("[DISCADIA_VOTE_MONTH_CRON] run failed:", err?.message || err);
-      }
-    },
-    { timezone: "Europe/Rome" },
+      await repairDiscadiaVoteMonthRowsForMainGuild(client, "cron");
+    }),
+    { timezone: "Europe/Rome", noOverlap: true },
   );
 }
 

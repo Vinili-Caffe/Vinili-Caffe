@@ -43,13 +43,13 @@ module.exports = {
           "",
           "**<:VC_tools:1478862265305272364> Impostazioni**",
           `<:VC_Modifica:1478859646587633717> **Nome:** ${role.name||"sconosciuto"}`,
-          `<a:VC_Color:1482532543273238569> **Color:** ${role.hexColor||"#000000"}`,
-          `<a:VC_Role:1482532543273238569> **Hoist:** ${yesNo(Boolean(role.hoist))}`,
+          `<:VC_Color:1482532543273238569> **Colore:** ${role.hexColor||"#000000"}`,
+          `<:VC_Color:1482532543273238569> **Hoist:** ${yesNo(Boolean(role.hoist))}`,
           `<a:VC_Mention:1482526855289634997> **Menzionabile:** ${yesNo(Boolean(role.mentionable))}`,
         ];
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "color", "hoist", "mentionable"]));
 
-        const embed=new EmbedBuilder().setColor("#57F287").setTitle("<a:VC_Role:1482532543273238569> Ruolo Creato").setDescription(lines.join("\n"));
+        const embed=new EmbedBuilder().setColor("#57F287").setTitle("<:VC_Color:1482532543273238569> Ruolo Creato").setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});
       }

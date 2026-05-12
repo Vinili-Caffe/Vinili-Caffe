@@ -777,7 +777,7 @@ function startAutoPollLoop(client) {
     buildAutoPollCronExpression(scheduleCfg),
     () => {
       clearAutoPollRetryTimer(client);
-      runAutoPollAndMaybeScheduleRetry(client, { catchUp: false }).catch((error) => {
+      void runAutoPollAndMaybeScheduleRetry(client, { catchUp: false }).catch((error) => {
         global.logger?.error?.("[poll.auto] run failed:", error);
       });
     },
