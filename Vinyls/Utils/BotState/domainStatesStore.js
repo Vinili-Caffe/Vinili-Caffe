@@ -192,10 +192,17 @@ async function minigameRotationDeleteMany(filter) {
 
 async function voiceFindOneAndUpdate(filter, update) {
   const guildId = String(filter.guildId || "");
-  const $set = update.$set || {};
+  const botUserId = String(filter.botUserId || "").trim();
+  if (!guildId || !botUserId) return;
+  const $set = { ...(update.$set || {}), guildId, botUserId };
   const doc = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
   const arr = [...(doc?.domains?.voiceStates || [])];
-  const idx = arr.findIndex((x) => String(x.guildId) === guildId);
+  let idx = arr.findIndex(
+    (x) => String(x.guildId) === guildId && String(x.botUserId || "").trim() === botUserId,
+  );
+  if (idx < 0 && filter.claimLegacyVoiceRow) {
+    idx = arr.findIndex((x) => String(x.guildId) === guildId && !String(x.botUserId || "").trim());
+  }
   const row = idx >= 0 ? { ...arr[idx], ...$set } : { ...$set };
   if (idx >= 0) arr[idx] = row;
   else arr.push(row);
@@ -211,9 +218,11 @@ async function voiceFindOneAndUpdate(filter, update) {
 
 async function voiceDeleteOne(filter) {
   const guildId = String(filter.guildId || "");
+  const botUserId = String(filter.botUserId || "").trim();
+  if (!guildId || !botUserId) return;
   const doc = await BotState.findOne({ key: COMPACT_BOTSTATE_KEY }).lean();
   const arr = [...(doc?.domains?.voiceStates || [])].filter(
-    (x) => String(x.guildId) !== guildId,
+    (x) => !(String(x.guildId) === guildId && String(x.botUserId || "").trim() === botUserId),
   );
   await BotState.findOneAndUpdate(
     { key: COMPACT_BOTSTATE_KEY },
@@ -240,6 +249,25 @@ async function voiceDeleteManyInGuildIds(guildIds) {
     },
     { upsert: true },
   );
+}
+
+async function voiceFindManyLeanForBot(botUserId, options = {}) {
+  const id = String(botUserId || "").trim();
+  if (!id) return [];
+  const includeLegacy = Boolean(options.includeLegacyWithoutBot);
+  const domains = await getDomainsLean();
+  const arr = Array.isArray(domains.voiceStates) ? domains.voiceStates : [];
+  function hasAnyExplicitBotForGuild(gid) {
+    return arr.some((x) => String(x.guildId) === gid && String(x.botUserId || "").trim() !== "");
+  }
+  return arr.filter((x) => {
+    const gid = String(x.guildId || "");
+    const b = String(x.botUserId || "").trim();
+    if (!gid) return false;
+    if (b === id) return true;
+    if (includeLegacy && !b && !hasAnyExplicitBotForGuild(gid)) return true;
+    return false;
+  });
 }
 
 async function voiceFindManyLean() {
@@ -419,6 +447,7 @@ module.exports = {
   voiceFindOneAndUpdate,
   voiceDeleteOne,
   voiceDeleteManyInGuildIds,
+  voiceFindManyLeanForBot,
   voiceFindManyLean,
   ttsUserLangFindManyLean,
   ttsUserLangFindOneLean,

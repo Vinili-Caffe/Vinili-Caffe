@@ -67,6 +67,9 @@ const ticketEntrySchema = new Schema(
     ratingScore: { type: Number, default: null },
     ratingBy: { type: String, default: null },
     ratingAt: { type: Date, default: null },
+    partnerManagerShopRedeemTier: { type: Number, default: null },
+    partnerManagerShopRedeemAckResult: { type: String, default: null },
+    partnerManagerShopRedeemAckAt: { type: Date, default: null },
   },
 );
 

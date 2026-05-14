@@ -7,6 +7,8 @@
   var OAUTH_STATE_NONCE_KEY = "vc_oauth_state_nonce_v1";
   /** Backup percorso ritorno se `state` non torna nel fragment OAuth. */
   var OAUTH_PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
+  /** Profilo `@me` in sessione: evita round-trip Discord a ogni navigazione. */
+  var ME_CACHE_KEY = "vc_discord_me_cache_v1";
 
   function cfg() {
     return (typeof window !== "undefined" && window.__VC_AUTH) || {};
@@ -223,6 +225,9 @@
   function clearToken() {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(EXPIRES_AT_KEY);
+    try {
+      sessionStorage.removeItem(ME_CACHE_KEY);
+    } catch (eCt) {}
   }
 
   function authUrl() {
@@ -557,13 +562,74 @@
     emitProfile(user);
   }
 
-  function fetchMe(token) {
+  function discordSessionFingerprint(token) {
+    var exp = "";
+    try {
+      exp = String(localStorage.getItem(EXPIRES_AT_KEY) || "");
+    } catch (eFp) {}
+    return exp + "|" + String(token || "").slice(0, 32);
+  }
+
+  function readCachedDiscordMe(token) {
+    var fp = discordSessionFingerprint(token);
+    if (!String(token || "").trim() || fp.length < 3) return null;
+    try {
+      var raw = sessionStorage.getItem(ME_CACHE_KEY);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (!o || o.v !== 1 || !o.user || String(o.fp || "") !== fp) return null;
+      var age = Date.now() - Number(o.at || 0);
+      if (!isFinite(age) || age < 0 || age > 180000) return null;
+      return o.user;
+    } catch (eR) {
+      return null;
+    }
+  }
+
+  function writeCachedDiscordMe(token, user) {
+    var fp = discordSessionFingerprint(token);
+    try {
+      sessionStorage.setItem(
+        ME_CACHE_KEY,
+        JSON.stringify({ v: 1, fp: fp, at: Date.now(), user: user }),
+      );
+    } catch (eW) {}
+  }
+
+  function fetchMe(token, timeoutMs) {
+    var ms = Math.max(3000, Number(timeoutMs) || 12000);
+    var ac = new AbortController();
+    var tid = setTimeout(function () {
+      try {
+        ac.abort();
+      } catch (eAb) {}
+    }, ms);
     return fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: "Bearer " + token },
-    }).then(function (r) {
-      if (!r.ok) throw new Error(String(r.status));
-      return r.json();
-    });
+      headers: { Authorization: "Bearer " + String(token || "") },
+      signal: ac.signal,
+    })
+      .then(function (r) {
+        try {
+          clearTimeout(tid);
+        } catch (eCl) {}
+        if (!r.ok) {
+          var err = new Error(String(r.status));
+          err.status = r.status;
+          throw err;
+        }
+        return r.json();
+      })
+      .catch(function (e) {
+        try {
+          clearTimeout(tid);
+        } catch (eCl2) {}
+        if (e && e.name === "AbortError") {
+          var te = new Error("timeout");
+          te.name = "AbortError";
+          throw te;
+        }
+        throw e;
+      });
   }
 
   function main() {
@@ -634,9 +700,38 @@
       renderLoggedOut();
       return;
     }
+    var cached = readCachedDiscordMe(t);
+    if (cached) {
+      hideSessionVerifyOverlay();
+      renderLoggedIn(cached);
+      fetchMe(t)
+        .then(function (user) {
+          writeCachedDiscordMe(t, user);
+          if (freshLogin) queueLoginWelcomeNotification(user);
+          try {
+            var curId = String((window.__VC_DISCORD_PROFILE && window.__VC_DISCORD_PROFILE.id) || "");
+            if (!curId || curId !== String(user.id || "")) {
+              renderLoggedIn(user);
+            } else {
+              emitProfile(user);
+            }
+          } catch (eBg) {
+            renderLoggedIn(user);
+          }
+        })
+        .catch(function (err) {
+          var st = err && err.status;
+          if (st === 401) {
+            clearToken();
+            renderLoggedOut();
+          }
+        });
+      return;
+    }
     showSessionVerifyOverlay();
     fetchMe(t)
       .then(function (user) {
+        writeCachedDiscordMe(t, user);
         renderLoggedIn(user);
         if (freshLogin) queueLoginWelcomeNotification(user);
       })

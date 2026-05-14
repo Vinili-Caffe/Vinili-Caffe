@@ -56,6 +56,9 @@ function textMatchesErrorHint(text, hint) {
   if (hint === "warn") {
     return /\bwarn(s)?\b(?!\s*points?\b)/i.test(text);
   }
+  if (hint === "permission") {
+    return /\bpermission\b/i.test(text);
+  }
   return text.includes(hint);
 }
 

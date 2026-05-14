@@ -1866,7 +1866,24 @@
     var uid = normalizeUserId(currentUserId);
     if (!token || !uid) return;
     var url = resolvedSiteNotificationsUrl();
-    fetch(url, { headers: { Authorization: "Bearer " + token }, credentials: "omit" })
+    var ctrl = null;
+    var tid = null;
+    try {
+      ctrl = new AbortController();
+      tid = setTimeout(function () {
+        try {
+          ctrl.abort();
+        } catch (eAb) {}
+      }, 12000);
+    } catch (e0) {
+      ctrl = null;
+    }
+    var opts = {
+      headers: { Authorization: "Bearer " + token },
+      credentials: "omit",
+    };
+    if (ctrl) opts.signal = ctrl.signal;
+    fetch(url, opts)
       .then(function (r) {
         return r.json();
       })
@@ -1882,11 +1899,19 @@
           });
         }
       })
-      .catch(function () {});
+      .catch(function () {})
+      .finally(function () {
+        try {
+          if (tid) clearTimeout(tid);
+        } catch (e1) {}
+      });
   }
   function scheduleSiteNotificationsPolling() {
     stopSiteNotifsPoll();
     disconnectSiteRealtimeWs();
+    try {
+      if (!document.getElementById("vc-notif-dropdown")) return;
+    } catch (eDd) {}
     if (!normalizeUserId(currentUserId) || !getDiscordAccessToken()) return;
     syncSiteNotificationsFromServer();
     var rs = siteRealtimeWs ? siteRealtimeWs.readyState : 3;

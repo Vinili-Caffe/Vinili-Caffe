@@ -2,7 +2,7 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("
 const { recordDiscadiaBump, recordDiscadiaVote, recordBump, awardBumpVoteExp, getVoteCooldownMs } = require("../../Services/Bump/bumpService");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Services/Community/expService");
 const { upsertVoteRole } = require("../../Services/Community/communityOpsService");
-const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent } = require("../Pause/pauseRequestRuntime");
+const { PAUSE_REQUEST_ROLE_IDS, createPauseRequest, parsePauseChannelMessageContent, formatRuoloPausaRichiestoInMessage } = require("../Pause/pauseRequestRuntime");
 const IDs = require("../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Interaction/interactionEntityCache");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../Config/ephemeralMessageTtl");
@@ -902,7 +902,8 @@ async function handlePauseChannelMessage(message) {
     else if (picked.customId === PAUSE_ROLE_PICK_BOTH) requestedRole = "Entrambi";
     else requestedRole = "Staff";
     await picked.deferUpdate().catch(() => { });
-    await prompt.edit({ content: `${message.author} ruolo pausa selezionato: \`${requestedRole}\``, components: [] }).catch(() => { });
+    const ruoloSelLabel = formatRuoloPausaRichiestoInMessage(message.guild, requestedRole);
+    await prompt.edit({ content: `${message.author} ruolo pausa selezionato: **${ruoloSelLabel}**`, components: [] }).catch(() => { });
     scheduleMessageDeletion(prompt, EPHEMERAL_TTL_NORMAL_MS);
   } else if (hasPm && !hasStaff) {
     requestedRole = "PartnerManager";

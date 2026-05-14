@@ -89,9 +89,7 @@ function buildDonationPackageEmbed(tier, member) {
     .setAuthor({ name: accountUsername(member), iconURL: avatarUrl || undefined })
     .setDescription(perkBlock)
     .setColor("#6f4e37")
-    .setFooter({ text: `Dettagli e aggiornamenti: ${DONATIONS_INFO_URL}` })
     .setThumbnail(avatarUrl || null)
-    .setImage(DIVIDER_URL);
 }
 
 async function maybeAnnounceDonationPackageInSupporters(oldMember, newMember) {

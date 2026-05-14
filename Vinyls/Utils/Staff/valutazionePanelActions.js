@@ -378,6 +378,121 @@ async function runValutazioneNegativeRemoveForPanel(guild, actorMember, staffUse
   }
 }
 
+const SELF_NEG_TRADE_REASON = "Compensazione volontaria: 3 valutazioni positive scambiate per rimuovere 1 negativa";
+
+/**
+ * Rimuove le **3 positive più vecchie** e **1 negativa** scelta (indice 1-based come in elenco −1, −2, …).
+ * Solo per uso da pannello profilo staff (autorichiesta).
+ */
+async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc, staffUser, negativeRemoveId1Based, actor, channel, guild) {
+  const s = ensureStaff(profileDoc);
+  const guildRef = guild || channel?.guild;
+  if (!guildRef) return { ok: false, message: "<:VC_Attention:1482534443632558151> Server non valido." };
+  if (!Number.isInteger(negativeRemoveId1Based) || negativeRemoveId1Based < 1) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> **Numero negativa non valido.** Usa l’indice della lista (es. **1** per −1)." };
+  }
+  if (!Array.isArray(s.positiveReasons) || s.positiveReasons.length < 3) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Ti servono **almeno 3 valutazioni positive** per questa opzione." };
+  }
+  if (!Array.isArray(s.negativeReasons) || !s.negativeReasons[negativeRemoveId1Based - 1]) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> **Numero negativa non valido.** Controlla la lista ( −1, −2, … )." };
+  }
+  const posEdits = [];
+  for (let i = 0; i < 3; i += 1) {
+    const removedReason = s.positiveReasons[0];
+    const originalEntry = getValutazioneEntry(s, "positive", 0, removedReason);
+    s.positiveReasons.splice(0, 1);
+    removeValutazioneEntry(s, "positive", 0);
+    s.positiveCount = Math.max(0, s.positiveCount - 1);
+    s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+    posEdits.push({ entry: originalEntry });
+  }
+  const negIdx = negativeRemoveId1Based - 1;
+  const removedNegReason = s.negativeReasons[negIdx];
+  const negEntry = getValutazioneEntry(s, "negative", negIdx, removedNegReason);
+  s.negativeReasons.splice(negIdx, 1);
+  removeValutazioneEntry(s, "negative", negIdx);
+  s.negativeCount = Math.max(0, s.negativeCount - 1);
+  s.valutazioniCount = Math.max(0, s.valutazioniCount - 1);
+  profileDoc.markModified("staff");
+  await profileDoc.save();
+  const actorLike = actor.member || actor.user;
+  const finalPos = s.positiveCount;
+  const finalNeg = s.negativeCount;
+  for (const row of posEdits) {
+    const embed = makeRemovalEmbed(
+      actor,
+      staffUser,
+      "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__** (compenso)",
+      `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva_ (scambio volontario).`,
+      SELF_NEG_TRADE_REASON,
+      "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
+      `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${finalPos}\` valutazioni positive!`,
+    );
+    const edited = await editOriginalValutazioneMessage(guildRef, row.entry, embed);
+    if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
+  }
+  const negEmbed = makeRemovalEmbed(
+    actor,
+    staffUser,
+    "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__** (compenso)",
+    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
+    SELF_NEG_TRADE_REASON,
+    "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
+    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${finalNeg}\` valutazioni negative!`,
+  );
+  const negEdited = await editOriginalValutazioneMessage(guildRef, negEntry, negEmbed);
+  if (!negEdited) await sendChannelEmbed(channel, { embeds: [negEmbed] });
+  const summary = new EmbedBuilder()
+    .setAuthor({
+      name: `Compensazione valutazioni — ${accountUsername(actorLike)}`,
+      iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
+    })
+    .setTitle("<:thumbsup:1471292172145004768><:thumbsdown:1471292163957457013> **Scambio volontario 3 positive → 1 negativa**")
+    .setThumbnail(guildMemberDisplayAvatarUrlDynamic((await getGuildMemberCached(guildRef, staffUser.id).catch(() => null)) || staffUser) || undefined)
+    .setDescription(
+      [
+        `<:VC_Staff:1494286904089247754> ${staffUser}`,
+        "",
+        `**Rimossa negativa n°** \`${negativeRemoveId1Based}\` — _${String(removedNegReason || "—").slice(0, 400)}_`,
+        "",
+        "**Rimosse le 3 positive più vecchie** (FIFO) come contropartita.",
+        "",
+        `**Conteggi attuali:** <:thumbsup:1471292172145004768> \`${finalPos}\` · <:thumbsdown:1471292163957457013> \`${finalNeg}\``,
+      ].join("\n"),
+    )
+    .setColor("#6f4e37");
+  await sendChannelEmbed(channel, { embeds: [summary] });
+  return { ok: true };
+}
+
+async function runValutazioneSelfNegTradeForPanel(guild, actorMember, staffUser, negativeRemoveId1Based) {
+  if (String(actorMember?.user?.id || "") !== String(staffUser?.id || "")) {
+    return { ok: false, message: "<:VC_Attention:1482534443632558151> Questa azione è solo sul **tuo** profilo." };
+  }
+  try {
+    const channel =
+      guild.channels.cache.get(IDs.channels?.valutazioniStaff) ||
+      (await getGuildChannelCached(guild, IDs.channels?.valutazioniStaff));
+    const profileDoc = await ensureStaffProfileDoc(
+      await getStaffDoc(guild.id, staffUser.id),
+      guild.id,
+      staffUser.id,
+    );
+    return await valutazioneSelfNegTradeThreePosOneNegCore(
+      profileDoc,
+      staffUser,
+      negativeRemoveId1Based,
+      actorFromMember(actorMember),
+      channel,
+      guild,
+    );
+  } catch (err) {
+    global.logger.error(err);
+    return { ok: false, message: "<:vegax:1443934876440068179> Errore durante la compensazione delle valutazioni." };
+  }
+}
+
 module.exports = {
   buildAutoStaffWarnFromNegativesEmbed,
   ensureStaffProfileDoc,
@@ -388,4 +503,5 @@ module.exports = {
   runValutazioneNegativeAddForPanel,
   runValutazionePositiveRemoveForPanel,
   runValutazioneNegativeRemoveForPanel,
+  runValutazioneSelfNegTradeForPanel,
 };

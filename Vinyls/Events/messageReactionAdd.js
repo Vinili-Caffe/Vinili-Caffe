@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, ChannelType, } = require("discord.js");
 const { skullboardFindOneLean, skullboardUpsert } = require("../Utils/Global/globalSettingsGuildStores");
+const { handleMinigameReaction } = require("../Services/Minigames/minigameService");
 const IDs = require("../Utils/Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../Utils/Interaction/interactionEntityCache");
 const renderSkullboardCanvas = require("../Utils/Render/skullboardCanvas");
@@ -219,8 +220,8 @@ function buildSkullEmbed(user, message, postImageName) {
       `<:VC_Skully:1331591939094614057> **Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard**`,
     )
     .addFields(
-      { name: "<:VC_User:1494287244156049448> Autore", value: message.author.toString(), inline: true },
-      { name: "<:VC_Channel:1494287251091494963> Canale", value: `<#${message.channel.id}>`, inline: true },
+      { name: "<:VC_User:1482527453586002103> Autore", value: message.author.toString(), inline: true },
+      { name: "<a:VC_Channel:1482534583944871996> Canale", value: `<#${message.channel.id}>`, inline: true },
       { name: "<:VC_Chat:1482532573002465413> Messaggio", value: `[Cliccami](${messageLink})`, inline: true },
     )
     .setImage(`attachment://${postImageName}`)
@@ -248,6 +249,13 @@ module.exports = {
     let inFlightSet = null;
     try {
       if (user?.bot) return;
+      try {
+        const client = reaction.client || reaction.message?.client || user?.client;
+        const handled = await handleMinigameReaction(client, reaction, user);
+        if (handled) return;
+      } catch (mgErr) {
+        global.logger?.error?.("[Minigame:treasureHunt] reaction handler:", mgErr?.message || mgErr);
+      }
       if (!isSkullReaction(reaction)) return;
 
       const message = await resolveReactionMessage(reaction);

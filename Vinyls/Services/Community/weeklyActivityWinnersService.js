@@ -337,10 +337,17 @@ async function getEligibleChannelSets(guild) {
       .filter(Boolean)
       .map((id) => String(id)),
   );
+  const excludedCategoryIds = new Set(
+    [IDs.categories?.categoryPrivate]
+      .filter(Boolean)
+      .map((id) => String(id)),
+  );
   const text = new Set();
   const voice = new Set();
   for (const channel of guild.channels.cache.values()) {
     if (excludedChannelIds.has(String(channel?.id || ""))) continue;
+    if (excludedCategoryIds.has(String(channel?.id || ""))) continue;
+    if (excludedCategoryIds.has(String(channel?.parentId || ""))) continue;
     if (isChannelInTicketCategory(channel)) continue;
     const perms = channel?.permissionsFor?.(role);
     if (!perms?.has("ViewChannel")) continue;
@@ -1360,7 +1367,7 @@ function startWeeklyActivityWinnersLoop(client) {
     { timezone: TIME_ZONE, noOverlap: true },
   );
   cron.schedule(
-    "0 21 1 * *",
+    "0 10 1 * *",
     runCronDetached("[MONTHLY ACTIVITY]", async () => {
       await publishMonthlyActivityWinners(client);
     }),

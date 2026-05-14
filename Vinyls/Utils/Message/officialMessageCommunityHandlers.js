@@ -551,6 +551,10 @@ async function revokeCountingChannelSend(guild, channel, userId, client, reason)
     );
     return false;
   }
+  const member =
+    guild.members?.cache?.get(String(userId)) ||
+    (await guild.members?.fetch(String(userId)).catch(() => null));
+  if (!member) return false;
   try {
     await channel.permissionOverwrites.edit(userId, {
       SendMessages: false,
@@ -560,6 +564,7 @@ async function revokeCountingChannelSend(guild, channel, userId, client, reason)
     }, { type: OverwriteType.Member, reason: String(reason || "Counting").slice(0, 450) });
     return true;
   } catch (err) {
+    if (err?.code === 10009 || err?.code === 10013 || err?.code === 10026) return false;
     logEventError(client, "COUNTING WRITE-BAN", err);
     return false;
   }

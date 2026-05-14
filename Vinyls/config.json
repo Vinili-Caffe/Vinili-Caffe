@@ -377,7 +377,7 @@
     "hangman": {
       "durationMs": 240000,
       "rewardExp": 200,
-      "maxMisses": 7
+      "maxMisses": 10
     },
     "italianGK": {
       "durationMs": 180000,
@@ -387,7 +387,8 @@
     },
     "drivingQuiz": {
       "durationMs": 180000,
-      "rewardExp": 150
+      "rewardExp": 150,
+      "userAnswerCooldownMs": 5000
     },
     "mathExpression": {
       "durationMs": 180000,
@@ -427,6 +428,15 @@
     "guessCity": {
       "durationMs": 180000,
       "rewardExp": 150
+    },
+    "treasureHunt": {
+      "buckets": [
+        { "weight": 1, "minMessages": 20, "maxMessages": 30, "minDurationMs": 60000,  "maxDurationMs": 120000, "rewardExp": 100 },
+        { "weight": 1, "minMessages": 30, "maxMessages": 50, "minDurationMs": 90000,  "maxDurationMs": 180000, "rewardExp": 150 },
+        { "weight": 1, "minMessages": 40, "maxMessages": 70, "minDurationMs": 120000, "maxDurationMs": 240000, "rewardExp": 200 }
+      ],
+      "minRequiredMessages": 15,
+      "reactionDelayMs": 260
     }
   },
   "categoryNumbering": {

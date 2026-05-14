@@ -640,8 +640,9 @@ async function syncSingleAcceptedPauseMessage(guild, userId, pause) {
   const channel = await getGuildChannelCached(guild, channelId);
   if (!channel?.isTextBased?.()) return;
   await applyAcceptedPausePhaseToDiscordMessage(channel, messageId, userId, pauseId, phase, true);
-  if (messageIdPm)
-    await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, false);
+  if (messageIdPm) {
+    await applyAcceptedPausePhaseToDiscordMessage(channel, messageIdPm, userId, pauseId, phase, true);
+  }
 }
 
 function schedulePauseStatusRefresh(guild, userId, pause) {

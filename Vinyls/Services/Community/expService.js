@@ -5,7 +5,7 @@ const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached, getClie
 const { shouldBlockDm } = require("../../Utils/noDmList");
 const { sendLevelMilestoneSupportersAnnouncement } = require("../../Utils/Community/levelMilestoneSupportersAnnounceEmbeds");
 const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../Utils/Discord/guildDiscordIdentity");
-const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryGames].filter(Boolean).map((id) => String(id)),);
+const EXP_EXCLUDED_CATEGORY_IDS = new Set([IDs.categories.categoryStanze, IDs.categories.categoryPrivate].filter(Boolean).map((id) => String(id)),);
 const TIME_ZONE = "Europe/Rome";
 const MESSAGE_EXP = 2;
 const VOICE_EXP_PER_MINUTE = 5;
@@ -18,17 +18,8 @@ const PERKS_CHANNEL_ID = IDs.channels.info;
 const PERK_ROLE_ID = IDs.roles.PicPerms;
 const LEVEL_ROLE_MAP = new Map([[10, IDs.roles.Level10], [20, IDs.roles.Level20], [30, IDs.roles.Level30], [50, IDs.roles.Level50], [70, IDs.roles.Level70], [100, IDs.roles.Level100], [125, IDs.roles.Level120], [150, IDs.roles.Level150], [200, IDs.roles.Level200],]);
 const PERK_NEAR_LEVEL_DISTANCE = 2;
-const ROLE_MULTIPLIERS = new Map([
-  [IDs.roles.ServerBooster, 2],
-  [IDs.roles.MVP, 2],
-  [IDs.roles.DoubleBooster, 3],
-  [IDs.roles.Donator, 4],
-  [IDs.roles.VIP, 5],
-  [IDs.roles.VIPplus, 6],
-  [IDs.roles.Level100, 1.15],
-  [IDs.roles.Level120, 1.2],
-  [IDs.roles.Level150, 1.25],
-]);
+const ROLE_MULTIPLIERS = new Map([ [IDs.roles.ServerBooster, 2], [IDs.roles.MVP, 2], [IDs.roles.DoubleBooster, 3], [IDs.roles.Donator, 4], [IDs.roles.VIP, 5], [IDs.roles.VIPplus, 6], [IDs.roles.Level100, 1.15], [IDs.roles.Level120, 1.2], [IDs.roles.Level150, 1.25], [IDs.roles.Level200, 1.3], [IDs.roles.Level250, 1.35], [IDs.roles.Level300, 1.4], [IDs.roles.Level350, 1.45], [IDs.roles.Level400, 1.5], [IDs.roles.Level450, 1.55], [IDs.roles.Level500, 1.6], [IDs.roles.Level550, 1.65], [IDs.roles.Level600, 1.7], [IDs.roles.Level650, 1.75], [IDs.roles.Level700, 1.8], [IDs.roles.Level750, 1.85], [IDs.roles.Level800, 1.9], [IDs.roles.Level850, 1.95], [IDs.roles.Level900, 2], [IDs.roles.Level950, 2.05], [IDs.roles.Level1000, 2.1], ]);
+
 function pad2(value) {
   return String(value).padStart(2, "0");
 }

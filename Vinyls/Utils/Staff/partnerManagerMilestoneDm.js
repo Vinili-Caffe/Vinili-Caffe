@@ -2,22 +2,9 @@ const { EmbedBuilder } = require("discord.js");
 const { ActivityUserProfile } = require("../../Schemas/Community/communitySchemas");
 const IDs = require("../Config/ids");
 const { getGuildMemberCached } = require("../Interaction/interactionEntityCache");
+const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 100, 150, 200, 250]);
+const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({ 50: "Custom Role e Custom Voc per 30 giorni", 100: "Ruolo VIP per 30 giorni", 150: "Decorazione a scelta (max 15,99 €)", 200: "Nitro Boost", 250: "5 € PayPal" });
 
-/** Stesse soglie di `PARTNER_MANAGER_REDEEM_TIERS` in `partnerPointsUtils.js`. */
-const PARTNER_MILESTONE_POINT_TIERS = Object.freeze([50, 100, 150, 200]);
-
-/** Premi PM per soglia (stesso ordine di `PARTNER_MANAGER_REDEEM_TIERS`). */
-const PARTNER_MILESTONE_REWARD_LABELS = Object.freeze({
-  50: "Custom Role e Custom Voc per 30 giorni (dal pannello `+profile` staff: riscatto unico con scala punti + premio)",
-  100: "Ruolo VIP per 30 giorni (riscatto unico con scala punti + premio)",
-  150: "Decorazione a scelta (max 15,99 €) — dopo riscatto punti, consegna manuale",
-  200: "Nitro Boost — dopo riscatto punti, consegna manuale",
-});
-
-/**
- * Invia in DM i promemoria riscatto premi quando i punti partner mostrati superano 50, 100, 150 o 200.
- * Usa `staff.partnerMilestoneDmSent` per non duplicare lo stesso avviso.
- */
 async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, beforePoints, afterPoints) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
@@ -40,7 +27,7 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
 
   const ticketCh = String(IDs.channels?.ticket || "").trim();
   const ticketLine = ticketCh
-    ? `Apri un ticket **High Staff** da ${`<#${ticketCh}>`} e indica che vuoi riscattare il premio Partner Manager alla soglia **{tier}**.`
+    ? `Apri un ticket **High Staff** da ${`<#${ticketCh}>`} e indica che vuoi riscattare il premio Partner Manager alla soglia **${tier}**.`
     : "Apri un ticket **High Staff** sul server e indica che vuoi riscattare il premio Partner Manager.";
 
   const fresh = await ActivityUserProfile.findOne({ guildId: gid, userId: uid })
@@ -86,8 +73,4 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client, guild, userId, 
   }
 }
 
-module.exports = {
-  maybeSendPartnerManagerRewardMilestoneDms,
-  PARTNER_MILESTONE_REWARD_LABELS,
-  PARTNER_MILESTONE_POINT_TIERS,
-};
+module.exports = { maybeSendPartnerManagerRewardMilestoneDms, PARTNER_MILESTONE_REWARD_LABELS, PARTNER_MILESTONE_POINT_TIERS };

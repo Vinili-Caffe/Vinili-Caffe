@@ -75,6 +75,7 @@ const ids = {
     categorySystem: "1442569088705630410",
     categoryMidHigh: "1442569091301773312",
     categoryLogs: "1442569092761391178",
+    categoryStanze: "1499754323431788736",
   },
   channels: {
     separator1: "1442569132406083748",

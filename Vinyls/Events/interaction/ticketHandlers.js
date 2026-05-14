@@ -37,14 +37,19 @@ async function handleTicketInteraction(interaction) {
     interaction.client.ticketActionLocks = new Set();
   }
   const TICKET_PERMISSIONS = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AddReactions,];
-  const TICKET_ROLE_SPECTATE = {
-    ViewChannel: true,
-    SendMessages: false,
-    ReadMessageHistory: true,
-    EmbedLinks: true,
-    AttachFiles: true,
-    AddReactions: true,
-  };
+  const TICKET_ROLE_SPECTATE = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true,};
+  
+  function toCreateOverwrite(id, options) {
+    const allow = [];
+    const deny = [];
+    for (const [key, value] of Object.entries(options || {})) {
+      const bit = PermissionFlagsBits[key];
+      if (bit == null) continue;
+      if (value === true) allow.push(bit);
+      else if (value === false) deny.push(bit);
+    }
+    return { id, allow, deny };
+  }
 
   async function safeReply(target, payload) {
     return safeReplyHelper(target, payload);
@@ -395,21 +400,21 @@ async function handleTicketInteraction(interaction) {
               { id: interaction.user.id, allow: TICKET_PERMISSIONS },
               ...(config.type === "supporto"
                 ? [
-                    { id: ROLE_STAFF, ...TICKET_ROLE_SPECTATE },
-                    { id: ROLE_HIGHSTAFF, ...TICKET_ROLE_SPECTATE },
+                    toCreateOverwrite(ROLE_STAFF, TICKET_ROLE_SPECTATE),
+                    toCreateOverwrite(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE),
                     { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
                   ]
                 : []),
               ...(config.type === "partnership"
                 ? [
-                    { id: ROLE_PARTNERMANAGER, ...TICKET_ROLE_SPECTATE },
-                    { id: ROLE_HIGHSTAFF, ...TICKET_ROLE_SPECTATE },
+                    toCreateOverwrite(ROLE_PARTNERMANAGER, TICKET_ROLE_SPECTATE),
+                    toCreateOverwrite(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE),
                     { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
                   ]
                 : []),
               ...(config.type === "high"
                 ? [
-                    { id: ROLE_HIGHSTAFF, ...TICKET_ROLE_SPECTATE },
+                    toCreateOverwrite(ROLE_HIGHSTAFF, TICKET_ROLE_SPECTATE),
                     { id: ROLE_STAFF, deny: [PermissionFlagsBits.ViewChannel] },
                     { id: ROLE_PARTNERMANAGER, deny: [PermissionFlagsBits.ViewChannel] },
                   ]

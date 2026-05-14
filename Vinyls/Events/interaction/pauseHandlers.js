@@ -11,9 +11,16 @@ function pauseListMemberLabel(guild, client, userId) {
 }
 
 async function deletePauseThreadIfAny(guild, requestThreadId) {
-  if (!guild || !requestThreadId) return;
-  const thread = await guild.channels.fetch(requestThreadId).catch(() => null);
-  if (thread?.isThread?.()) await thread.delete().catch(() => null);
+  const tid = String(requestThreadId || "").trim();
+  if (!guild || !tid) return;
+  let ch = await guild.channels.fetch(tid).catch(() => null);
+  if (!ch && guild.client) ch = await guild.client.channels.fetch(tid).catch(() => null);
+  if (!ch?.isThread?.()) return;
+  try {
+    await ch.delete();
+  } catch (err) {
+    global.logger?.warn?.("[pause] delete thread failed:", tid, err?.message || err);
+  }
 }
 const { MS_PER_DAY, parseItalianDate, getPauseDaysBetween, getTodayUtc, getCurrentYearBoundsUtc, countOverlapDays, computeConsumedPauseDays, getMemberRoleLabel, getPauseStatusLabel, computePauseScaledDaysThisYear, getStaffPauseRecord, getStaffAndPauseByRequestMessageId, updatePauseInDb, buildRequestButtonsRow, buildAcceptedButtonsRow, schedulePauseButtonsRemoval, getBasePauseLimit, getPauseRoleLimit, getPauseTimingText, computeStaffersInPauseByRoleForRange, getPauseReasonFromMessage, normalizePauseRoleChoice, getPauseRoleTargets, roleChoiceAppliesTo, PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, getBestStaffPauseBonusDays, grantBestStaffPauseBonusYear } = require("../../Utils/Pause/pauseHandlersUtils");
 const { buildPauseListPayload, buildPauseListMonthRows } = require("../../Utils/Pause/pauseListRuntime");
@@ -211,9 +218,11 @@ async function handlePauseButton(interaction) {
       await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questa richiesta è già stata gestita.", flags: 1 << 6 }).catch(() => {});
       return true;
     }
-    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "rejected" });
+    const threadIdToDelete = String(targetPause.requestThreadId || "").trim();
+    await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { status: "rejected", requestThreadId: null });
     targetPause.status = "rejected";
-    await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
+    targetPause.requestThreadId = null;
+    await deletePauseThreadIfAny(interaction.guild, threadIdToDelete);
     await interaction.deferUpdate();
     const currentContent = interaction.message?.content || "";
     const rejectedSuffix = currentContent.includes("<:cancel:1461730653677551691>") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${effectiveUserId}>.`;
@@ -274,13 +283,26 @@ async function handlePauseButton(interaction) {
 
     await interaction.update({ content: updatedContent, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })] });
 
-    const pmSiblingId = String(targetPause.requestMessageIdPm || "").trim();
-    if (pmSiblingId && interaction.channel?.messages?.fetch) {
-      const pmMsg = await interaction.channel.messages.fetch(pmSiblingId).catch(() => null);
-      if (pmMsg) {
-        const pmContent = String(pmMsg.content || "");
-        const pmUpdated = pmContent.includes(annullataTag) ? pmContent : `${pmContent}\n\n${annullataTag}`;
-        await pmMsg.edit({ content: pmUpdated }).catch(() => {});
+    const staffMsgId = String(targetPause.requestMessageId || "").trim();
+    const pmMsgId = String(targetPause.requestMessageIdPm || "").trim();
+    const currentMsgId = String(interaction.message?.id || "").trim();
+    const siblingId =
+      currentMsgId && pmMsgId && currentMsgId === pmMsgId && staffMsgId
+        ? staffMsgId
+        : currentMsgId && staffMsgId && currentMsgId === staffMsgId && pmMsgId
+          ? pmMsgId
+          : "";
+    if (siblingId && interaction.channel?.messages?.fetch) {
+      const siblingMsg = await interaction.channel.messages.fetch(siblingId).catch(() => null);
+      if (siblingMsg) {
+        const sibContent = String(siblingMsg.content || "");
+        const sibUpdated = sibContent.includes(annullataTag) ? sibContent : `${sibContent}\n\n${annullataTag}`;
+        await siblingMsg
+          .edit({
+            content: sibUpdated,
+            components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: true })],
+          })
+          .catch(() => {});
       }
     }
 
@@ -331,12 +353,14 @@ async function handlePauseButton(interaction) {
     sameRoleActiveCount = overlappingSameRole + 1;
   }
 
+  const threadIdToDelete = String(targetPause.requestThreadId || "").trim();
   const updateResult = await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, {
     status: "accepted",
     ruolo: roleChoice,
     giorniUsati,
     giorniAggiuntivi: bonusBestStaff,
     stafferInPausa: sameRoleActiveCount,
+    requestThreadId: null,
   });
   if (!updateResult.ok) {
     await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Impossibile salvare l'accettazione della pausa nel database. Riprova.", flags: 1 << 6 }).catch(() => {});
@@ -347,6 +371,7 @@ async function handlePauseButton(interaction) {
   targetPause.giorniUsati = giorniUsati;
   targetPause.giorniAggiuntivi = bonusBestStaff;
   targetPause.stafferInPausa = sameRoleActiveCount;
+  targetPause.requestThreadId = null;
 
   if (bonusBestStaff >= 5) {
     await grantBestStaffPauseBonusYear(guildId, effectiveUserId);
@@ -373,7 +398,7 @@ async function handlePauseButton(interaction) {
   const pauseAlreadyEnded = Boolean(pauseEnd && now > pauseEnd);
   const pauseTimingText = getPauseTimingText(targetPause.dataRichiesta, targetPause.dataRitorno);
 
-  await deletePauseThreadIfAny(interaction.guild, targetPause.requestThreadId);
+  await deletePauseThreadIfAny(interaction.guild, threadIdToDelete);
   await interaction.deferUpdate();
 
   if (roleChoice === PAUSE_ROLE_BOTH) {
@@ -384,7 +409,12 @@ async function handlePauseButton(interaction) {
     const acceptancePm = buildAcceptedPauseLogContent({ roleLabel: pmLabel, effectiveUserId, pauseTimingText, dataRichiesta: targetPause.dataRichiesta, dataRitorno: targetPause.dataRitorno, giorniUsati, maxGiorni, giorniRimanenti, sameRoleActiveCount: sameRoleActiveCountPm, roleLimitWarning: roleLimitWarningPm });
     await interaction.message?.edit({ content: acceptanceStaff, components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })] });
     let pmMessageId = null;
-    const sentPm = await interaction.channel?.send({ content: acceptancePm }).catch(() => null);
+    const sentPm = await interaction.channel
+      ?.send({
+        content: acceptancePm,
+        components: [buildAcceptedButtonsRow(effectiveUserId, effectivePauseId, { hideCancel: false, disableCancel: pauseAlreadyEnded })],
+      })
+      .catch(() => null);
     if (sentPm?.id) {
       pmMessageId = String(sentPm.id);
       await updatePauseInDb(guildId, effectiveUserId, effectivePauseId, { requestMessageIdPm: pmMessageId });

@@ -117,6 +117,7 @@ const {
   getDrivingSignQuestions,
   getFastTypingPhrases,
   getHangmanWords,
+  getTreasureHuntEmojiPairs,
   CAPITAL_ITALIAN,
   CAPITAL_COUNTRY_REGION,
   REGION_AREA,
@@ -145,6 +146,8 @@ const REWARD_CHANNEL_ID = IDs.channels.commands;
 const MINIGAME_WIN_EMOJI = "<a:VC_Events:1482706144953897223>";
 const MINIGAME_CORRECT_FALLBACK_EMOJI = "\u2714";
 const MINIGAME_WRONG_EMOJI = "<a:VC_Cross:1482532424570376253>";
+const MINIGAME_COOLDOWN_EMOJI = "<a:VC_Loading:1482526818278969578>";
+const DRIVING_QUIZ_USER_ANSWER_COOLDOWN_DEFAULT_MS = 5000;
 
 const CANVAS_STYLE = {
   bgGradStart: "#2c2419",
@@ -2055,7 +2058,22 @@ function drawRoadSign(ctx, signType, cx, cy, size) {
   ctx.restore();
 }
 
-function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
+function buildHangmanStepThresholds(safeMax) {
+  const ts = new Array(10).fill(safeMax + 1);
+  ts[0] = 1;
+  ts[1] = 2;
+  ts[2] = 3;
+  ts[3] = 4;
+  ts[4] = 5;
+  ts[5] = 6;
+  ts[9] = safeMax;
+  if (safeMax >= 8) ts[6] = 7;
+  if (safeMax >= 9) ts[7] = 8;
+  if (safeMax >= 10) ts[8] = 9;
+  return ts;
+}
+
+function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 10) {
   try {
     registerCanvasFonts(canvasModule);
     const width = 900;
@@ -2076,7 +2094,9 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
     ctx.fill();
     ctx.stroke();
 
-    const m = Math.min(7, Math.max(0, Number(misses) || 0));
+    const safeMax = Math.max(3, Math.min(10, Number(maxMisses) || 10));
+    const m = Math.max(0, Math.min(safeMax, Number(misses) || 0));
+    const ts = buildHangmanStepThresholds(safeMax);
 
     const leftZoneCenterX = 240;
     const wordCenterX = 600;
@@ -2103,7 +2123,7 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
     ctx.lineTo(beamEndX, poleTopY);
     ctx.stroke();
 
-    if (m >= 1) {
+    if (m >= ts[0]) {
       ctx.beginPath();
       ctx.moveTo(headCx, poleTopY);
       ctx.lineTo(headCx, ropeY + 16);
@@ -2112,37 +2132,57 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
       ctx.arc(headCx, headCy, 20, 0, Math.PI * 2);
       ctx.stroke();
     }
-    if (m >= 2) {
+    if (m >= ts[1]) {
       ctx.beginPath();
       ctx.moveTo(headCx, headCy + 20);
       ctx.lineTo(headCx, headCy + 58);
       ctx.stroke();
     }
-    if (m >= 3) {
+    if (m >= ts[2]) {
       ctx.beginPath();
       ctx.moveTo(headCx, headCy + 32);
       ctx.lineTo(headCx - 24, headCy + 52);
       ctx.stroke();
     }
-    if (m >= 4) {
+    if (m >= ts[3]) {
       ctx.beginPath();
       ctx.moveTo(headCx, headCy + 32);
       ctx.lineTo(headCx + 24, headCy + 52);
       ctx.stroke();
     }
-    if (m >= 5) {
+    if (m >= ts[4]) {
       ctx.beginPath();
       ctx.moveTo(headCx, headCy + 58);
       ctx.lineTo(headCx - 20, headCy + 88);
       ctx.stroke();
     }
-    if (m >= 6) {
+    if (m >= ts[5]) {
       ctx.beginPath();
       ctx.moveTo(headCx, headCy + 58);
       ctx.lineTo(headCx + 20, headCy + 88);
       ctx.stroke();
     }
-    if (m >= 7) {
+    if (m >= ts[6]) {
+      ctx.beginPath();
+      ctx.moveTo(headCx - 24, headCy + 52);
+      ctx.lineTo(headCx - 36, headCy + 62);
+      ctx.stroke();
+    }
+    if (m >= ts[7]) {
+      ctx.beginPath();
+      ctx.moveTo(headCx + 24, headCy + 52);
+      ctx.lineTo(headCx + 36, headCy + 62);
+      ctx.stroke();
+    }
+    if (m >= ts[8]) {
+      ctx.beginPath();
+      ctx.moveTo(headCx - 20, headCy + 88);
+      ctx.lineTo(headCx - 32, headCy + 88);
+      ctx.moveTo(headCx + 20, headCy + 88);
+      ctx.lineTo(headCx + 32, headCy + 88);
+      ctx.stroke();
+    }
+    if (m >= ts[9]) {
       ctx.beginPath();
       ctx.moveTo(headCx - 6, headCy - 4);
       ctx.lineTo(headCx + 6, headCy + 12);
@@ -2161,6 +2201,13 @@ function buildHangmanImageAttachment(maskedWord, misses = 0, maxMisses = 7) {
     ctx.fillStyle = "#e8e0d5";
     ctx.font = fontStackPrimaryOnly(44, "700");
     ctx.fillText(wordStr, wordCenterX, (contentTop + contentBottom) / 2, width - 320);
+
+    const isLost = m >= safeMax;
+    ctx.fillStyle = isLost ? "#f5b3a6" : "#c9b89f";
+    ctx.font = fontStackPrimaryOnly(28, "700");
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`Errori: ${m}/${safeMax}`, width / 2, height - 60);
 
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: "hangman.png" });
   } catch {
@@ -2268,7 +2315,7 @@ function buildPromptImageAttachment(title, lines = [], fileBaseName = "minigame"
     const masked = String(lines[0] || "").trim();
     const errMatch = String(lines[1] || "").match(/Errori:\s*(\d+)\/(\d+)/);
     const misses = errMatch ? parseInt(errMatch[1], 10) : 0;
-    const maxMisses = errMatch ? parseInt(errMatch[2], 10) : 7;
+    const maxMisses = errMatch ? parseInt(errMatch[2], 10) : 10;
     const out = buildHangmanImageAttachment(masked, misses, maxMisses);
     if (out) return out;
   }
@@ -4093,6 +4140,7 @@ function getAvailableGameTypes(cfg) {
   if (cfg?.completeProverb !== false) types.push("completeProverb");
   if (cfg?.synonymAntonym !== false) types.push("synonymAntonym");
   if (cfg?.guessCity !== false) types.push("guessCity");
+  if (cfg?.treasureHunt !== false) types.push("treasureHunt");
   return types;
 }
 
@@ -5107,7 +5155,7 @@ async function startHangmanGame(client, cfg) {
 
   const rewardExp = normalizeRewardExp(cfg?.hangman?.rewardExp ?? 150);
   const durationMs = Math.max(60000, Number(cfg?.hangman?.durationMs || 240000),);
-  const maxMisses = Math.max(3, Number(cfg?.hangman?.maxMisses || 7));
+  const maxMisses = Math.max(3, Number(cfg?.hangman?.maxMisses || 10));
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
 
@@ -6066,6 +6114,338 @@ async function startGuessCityGame(client, cfg) {
   return true;
 }
 
+function getTreasureHuntCfg(cfg) {
+  return cfg?.treasureHunt && typeof cfg.treasureHunt === "object"
+    ? cfg.treasureHunt
+    : null;
+}
+
+function pickTreasureHuntBucket(treasureCfg) {
+  const buckets = Array.isArray(treasureCfg?.buckets) ? treasureCfg.buckets : [];
+  const usable = buckets.filter((b) => b && typeof b === "object");
+  if (usable.length === 0) {
+    return { minMessages: 20, maxMessages: 50, minDurationMs: 90000, maxDurationMs: 180000, rewardExp: 150 };
+  }
+  const totalWeight = usable.reduce((acc, b) => acc + (Number(b.weight) > 0 ? Number(b.weight) : 1), 0);
+  let pick = Math.random() * totalWeight;
+  for (const b of usable) {
+    const w = Number(b.weight) > 0 ? Number(b.weight) : 1;
+    if (pick < w) return b;
+    pick -= w;
+  }
+  return usable[usable.length - 1];
+}
+
+function pickTreasureHuntEmojiPair(channelId) {
+  const pairs = getTreasureHuntEmojiPairs() || [];
+  if (!pairs.length) return null;
+  const pick = pickQuestionAvoidRecent(
+    channelId,
+    "treasureHunt",
+    pairs,
+    (p) => `${p.decoy}|${p.winner}`,
+    Math.max(3, Math.floor(pairs.length / 2)),
+  );
+  return pick || pickRandomItem(pairs);
+}
+
+async function fetchTreasureHuntCandidateMessages(channel, count, botUserId) {
+  if (!channel?.messages?.fetch) return [];
+  const fetchLimit = Math.max(20, Math.min(100, Number(count) + 25));
+  const fetched = await channel.messages.fetch({ limit: fetchLimit }).catch(() => null);
+  if (!fetched) return [];
+  const arr = [...fetched.values()];
+  const maxAgeMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const valid = arr.filter((m) => {
+    if (!m || !m.id) return false;
+    if (m.system) return false;
+    if (m.author?.bot) return false;
+    if (botUserId && String(m.author?.id || "") === String(botUserId)) return false;
+    const createdAt = m.createdTimestamp || m.createdAt?.getTime?.() || 0;
+    if (createdAt && now - createdAt > maxAgeMs) return false;
+    return true;
+  });
+  valid.sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+  return valid.slice(0, Math.max(0, Number(count) || 0));
+}
+
+async function applyTreasureHuntReactions(channel, candidates, winnerMessageId, decoyEmoji, winnerEmoji, delayMs) {
+  const delay = Math.max(80, Number(delayMs) || 260);
+  const wait = (ms) => new Promise((resolve) => { const t = setTimeout(resolve, ms); t.unref?.(); });
+  const winnerKey = String(winnerMessageId || "");
+  let appliedDecoys = 0;
+  let appliedWinner = false;
+  for (const msg of candidates) {
+    if (!msg?.react) continue;
+    const isWinner = String(msg.id) === winnerKey;
+    const emoji = isWinner ? winnerEmoji : decoyEmoji;
+    const ok = await msg.react(emoji).then(() => true).catch(() => false);
+    if (ok) {
+      if (isWinner) appliedWinner = true;
+      else appliedDecoys += 1;
+    }
+    await wait(delay);
+  }
+  return { appliedDecoys, appliedWinner };
+}
+
+async function removeTreasureHuntReactions(channel, candidateIds, decoyEmoji, winnerEmoji) {
+  if (!channel?.messages?.fetch || !Array.isArray(candidateIds)) return;
+  const botUser = channel.client?.user;
+  if (!botUser) return;
+  for (const id of candidateIds) {
+    const msg = await channel.messages.fetch(String(id)).catch(() => null);
+    if (!msg?.reactions?.cache) continue;
+    for (const emoji of [decoyEmoji, winnerEmoji]) {
+      const reaction = msg.reactions.cache.find((r) => String(r.emoji?.name || "") === String(emoji));
+      if (reaction) {
+        await reaction.users.remove(botUser.id).catch(() => {});
+      }
+    }
+  }
+}
+
+function buildTreasureHuntStartEmbed(decoyEmoji, winnerEmoji, count, durationMs, rewardExp) {
+  const minutes = Math.max(1, Math.round(Number(durationMs || 0) / 60000));
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("<a:VC_Events:1482706144953897223> Caccia al tesoro<a:VC_Exclamation:1482534702077444217>")
+    .setDescription(
+      [
+        `<:VC_Stats:1482527532682055780> Ho lasciato la reaction ${decoyEmoji} su **${count}** dei messaggi precedenti.`,
+        `<a:VC_Flame:1482725674711126140> Su **uno solo** di quei messaggi ho messo la reaction ${winnerEmoji}: trovalo e cliccaci sopra per primo!`,
+        "",
+        `<:VC_EXP:1482534670896730143> In palio: **${rewardExp} exp**`,
+        `<a:VC_pixeltime:1482535344103620771> Hai circa **${minutes} min** prima che la caccia finisca.`,
+      ].join("\n"),
+    )
+    .setFooter({ text: 'Clicca la reaction "vincente" sul messaggio giusto per vincere.' });
+}
+
+function buildTreasureHuntTimeoutEmbed(decoyEmoji, winnerEmoji, winnerMessageUrl) {
+  const lines = [
+    `<a:VC_pixeltime:1482535344103620771> Tempo scaduto! Nessuno ha trovato la reaction ${winnerEmoji} tra le ${decoyEmoji}.`,
+  ];
+  if (winnerMessageUrl) {
+    lines.push("", `<a:VC_Arrow:1482706699365257397> Era questo messaggio: ${winnerMessageUrl}`);
+  }
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("<a:VC_Alert:1482706673176150077> Caccia al tesoro conclusa")
+    .setDescription(lines.join("\n"));
+}
+
+function buildTreasureHuntFoundEmbed(winnerMessageUrl) {
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setTitle("<a:VC_Winner:1482535294757507255> Tesoro trovato<a:VC_Exclamation:1482534702077444217>")
+    .setDescription(
+      winnerMessageUrl
+        ? `<a:VC_Arrow:1482706699365257397> Il messaggio nascosto era: ${winnerMessageUrl}`
+        : "<a:VC_Arrow:1482706699365257397> La caccia è terminata.",
+    );
+}
+
+function getTreasureHuntMessageUrl(guildId, channelId, messageId) {
+  if (!guildId || !channelId || !messageId) return "";
+  return `https://discord.com/channels/${guildId}/${channelId}/${messageId}`;
+}
+
+async function computeMinigameAwardForUser({ guildId, userId, cfg, baseExp, startedAt }) {
+  const baseExpNorm = normalizeRewardExp(baseExp || 0);
+  const elapsed = typeof startedAt === "number" ? Date.now() - startedAt : Infinity;
+  const fastCfg = cfg?.fastGuess ?? {};
+  const windowMs = Number(fastCfg.windowMs ?? 30000) || 0;
+  const fastMultiplier = Number(fastCfg.multiplier ?? 1.5) || 1;
+  const isFastGuess = windowMs > 0 && elapsed <= windowMs;
+  const fastBonus = isFastGuess ? Math.round(baseExpNorm * (fastMultiplier - 1)) : 0;
+  const streakCfg = cfg?.streak ?? {};
+  const percentPerWin = Number(streakCfg.bonusPercentPerWin ?? 10) || 0;
+  const maxBonusPercent = Number(streakCfg.maxBonusPercent ?? 50) || 0;
+  let doc = await ActivityUserProfile.findOne({ guildId, userId })
+    .select("profile.totals.exp.minigame")
+    .lean()
+    .catch(() => null);
+  const prevStreak = Number(doc?.profile?.totals?.exp?.minigame?.currentStreak ?? 0);
+  const prevBest = Number(doc?.profile?.totals?.exp?.minigame?.bestStreak ?? 0);
+  const newStreak = prevStreak + 1;
+  const bestStreak = Math.max(prevBest, newStreak);
+  const streakBonusPercent = percentPerWin > 0 ? Math.min((newStreak - 1) * percentPerWin, maxBonusPercent) : 0;
+  const streakBonus = Math.round(baseExpNorm * streakBonusPercent / 100);
+  const effectiveExp = baseExpNorm + fastBonus + streakBonus;
+  try {
+    doc = await incrementMinigameWinCounters(guildId, userId, effectiveExp, newStreak, bestStreak);
+  } catch (err) {
+    warnMinigame(err);
+  }
+  const nextTotal = Number(doc?.profile?.totals?.exp?.minigame?.totalExp ?? 0);
+  ActivityUserProfile.updateMany(
+    { guildId, userId: { $ne: userId } },
+    { $set: { "profile.totals.exp.minigame.currentStreak": 0 } },
+  ).catch((err) => warnMinigame(err));
+  const details = (fastBonus > 0 || streakBonus > 0)
+    ? { baseExp: baseExpNorm, fastBonus, streakBonus, newStreak, bestStreak }
+    : null;
+  return { baseExp: baseExpNorm, effectiveExp, nextTotal, details, newStreak, bestStreak };
+}
+
+async function finishTreasureHuntByTimeout(client, cfg, channel, game) {
+  if (!channel?.send) return;
+  if (game?.candidateIds?.length) {
+    removeTreasureHuntReactions(channel, game.candidateIds, game.decoy, game.winner).catch(() => {});
+  }
+  const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game?.winnerMessageId);
+  await channel.send({ embeds: [buildTreasureHuntTimeoutEmbed(game.decoy, game.winner, url)] }).catch(() => {});
+  await clearActiveGame(client, cfg);
+}
+
+async function startTreasureHuntGame(client, cfg) {
+  const channelId = cfg?.channelId;
+  if (!channelId) return false;
+  if (activeGames.has(channelId)) return false;
+  const treasureCfg = getTreasureHuntCfg(cfg);
+  if (treasureCfg === null && cfg?.treasureHunt === false) return false;
+  const bucket = pickTreasureHuntBucket(treasureCfg);
+  const minMessages = Math.max(5, Number(bucket?.minMessages || 20));
+  const maxMessages = Math.max(minMessages, Number(bucket?.maxMessages || minMessages));
+  const minDurationMs = Math.max(30000, Number(bucket?.minDurationMs || 60000));
+  const maxDurationMs = Math.max(minDurationMs, Number(bucket?.maxDurationMs || minDurationMs));
+  const rewardExp = normalizeRewardExp(bucket?.rewardExp ?? 150);
+  const targetCount = randomBetween(minMessages, maxMessages);
+  const durationMs = randomBetween(minDurationMs, maxDurationMs);
+  const channel = await getChannelCached(client, channelId);
+  if (!channel?.isTextBased?.() || !channel.guild) return false;
+  const candidates = await fetchTreasureHuntCandidateMessages(channel, targetCount, client?.user?.id);
+  const minRequired = Math.max(2, Number(treasureCfg?.minRequiredMessages ?? 15));
+  if (candidates.length < minRequired) return false;
+  const pair = pickTreasureHuntEmojiPair(channelId);
+  if (!pair) return false;
+  const winnerCandidate = pickRandomItem(candidates);
+  if (!winnerCandidate?.id) return false;
+  const winnerMessageId = String(winnerCandidate.id);
+  const candidateIds = candidates.map((m) => String(m.id));
+  if (cfg.roleId) {
+    await channel.send({ content: `<@&${cfg.roleId}>` }).catch(() => {});
+  }
+  const introEmbed = buildTreasureHuntStartEmbed(pair.decoy, pair.winner, candidates.length, durationMs, rewardExp);
+  const introMessage = await channel.send({ embeds: [introEmbed] }).catch(() => null);
+  applyTreasureHuntReactions(channel, candidates, winnerMessageId, pair.decoy, pair.winner, Number(treasureCfg?.reactionDelayMs || 260)).catch((err) => warnMinigame(err));
+  const timeout = setTimeout(async () => {
+    const current = activeGames.get(channelId);
+    if (!current || current.type !== "treasureHunt" || current.winnerMessageId !== winnerMessageId) return;
+    if (current._claiming) return;
+    recordNoParticipationIfNeeded(channelId, current);
+    activeGames.delete(channelId);
+    await finishTreasureHuntByTimeout(client, cfg, channel, current);
+  }, durationMs);
+  timeout.unref?.();
+  activeGames.set(channelId, {
+    type: "treasureHunt",
+    rewardExp,
+    startedAt: Date.now(),
+    endsAt: Date.now() + durationMs,
+    timeout,
+    decoy: pair.decoy,
+    winner: pair.winner,
+    winnerMessageId,
+    candidateIds,
+    introMessageId: introMessage?.id || null,
+  });
+  await saveActiveGame(client, cfg, {
+    type: "treasureHunt",
+    target: JSON.stringify({
+      decoy: pair.decoy,
+      winner: pair.winner,
+      winnerMessageId,
+      candidateIds,
+      introMessageId: introMessage?.id || null,
+    }),
+    rewardExp,
+    startedAt: new Date(),
+    endsAt: new Date(Date.now() + durationMs),
+    gameMessageId: introMessage?.id || null,
+  });
+  markSent(channelId);
+  return true;
+}
+
+async function handleMinigameReaction(client, reaction, user) {
+  try {
+    if (!reaction || !user || user.bot) return false;
+    let liveReaction = reaction;
+    if (liveReaction.partial) {
+      liveReaction = await liveReaction.fetch().catch(() => null);
+      if (!liveReaction) return false;
+    }
+    let message = liveReaction.message;
+    if (message?.partial) {
+      message = await message.fetch().catch(() => null);
+      if (!message) return false;
+    }
+    if (!message?.guild) return false;
+    const cfg = getConfig(client || message.client);
+    if (!cfg?.enabled || !cfg.channelId) return false;
+    const game = activeGames.get(cfg.channelId);
+    if (!game || game.type !== "treasureHunt") return false;
+    if (String(message.channelId || message.channel?.id || "") !== String(cfg.channelId)) return false;
+    if (String(message.id) !== String(game.winnerMessageId)) return false;
+    const emojiName = String(liveReaction.emoji?.name || "");
+    if (emojiName !== String(game.winner)) return false;
+    if (game._claiming) return true;
+    game._claiming = true;
+    if (game.timeout) clearTimeout(game.timeout);
+    activeGames.delete(cfg.channelId);
+    clearNoParticipationDelay(cfg.channelId);
+    const guildId = message.guild.id;
+    const channel = message.channel
+      || (await getChannelCached(client || message.client, cfg.channelId));
+    let award;
+    try {
+      award = await computeMinigameAwardForUser({
+        guildId,
+        userId: user.id,
+        cfg,
+        baseExp: game.rewardExp,
+        startedAt: game.startedAt,
+      });
+    } catch (err) {
+      warnMinigame(err);
+      activeGames.delete(cfg.channelId);
+      return true;
+    }
+    const member = await message.guild.members.fetch(user.id).catch(() => null);
+    const ignoreExp = await shouldIgnoreExpForMember({
+      guildId,
+      member,
+      channelId: cfg.channelId,
+    });
+    if (!ignoreExp) {
+      try {
+        await addExpWithLevel(message.guild, user.id, award.effectiveExp, false, true);
+      } catch (err) {
+        warnMinigame(err);
+      }
+    }
+    const winEmbed = buildWinEmbed(user.id, award.effectiveExp, award.nextTotal, award.details);
+    const foundEmbed = buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(guildId, cfg.channelId, game.winnerMessageId));
+    if (channel?.send) {
+      await channel.send({ embeds: [foundEmbed, winEmbed] }).catch(() => {});
+    }
+    if (member) {
+      await handleExpReward(client || message.client, member, award.nextTotal);
+    }
+    if (channel && Array.isArray(game.candidateIds) && game.candidateIds.length) {
+      removeTreasureHuntReactions(channel, game.candidateIds, game.decoy, game.winner).catch(() => {});
+    }
+    await clearActiveGame(client || message.client, { ...cfg, guildId });
+    return true;
+  } catch (err) {
+    warnMinigame(err);
+    return false;
+  }
+}
+
 function is429Error(error) {
   const status = error?.response?.status;
   const msg = error?.message || String(error);
@@ -6100,6 +6480,7 @@ async function safeStartGameByType(client, cfg, gameType) {
     if (gameType === "completeProverb") return startCompleteProverbGame(client, cfg);
     if (gameType === "synonymAntonym") return startSynonymAntonymGame(client, cfg);
     if (gameType === "guessCity") return startGuessCityGame(client, cfg);
+    if (gameType === "treasureHunt") return startTreasureHuntGame(client, cfg);
     return false;
   } catch (error) {
     warnMinigame(error);
@@ -6745,27 +7126,63 @@ async function handleMinigameMessage(message, client) {
   if (game.type === "drivingQuiz") {
     if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     const isMultiple = game.questionType === "multiple" && Array.isArray(game.options) && Number.isFinite(game.correctIndex);
+    let interpretable = false;
     let correct = false;
     if (isMultiple) {
       const norm = normalizeCountryName(contentForGuess);
       const letter = norm.charAt(0);
       const num = Number.parseInt(norm, 10);
-      if (Number.isFinite(num) && num >= 1 && num <= game.options.length && num - 1 === game.correctIndex)
-        correct = true;
-      else if (DRIVING_QUIZ_LETTERS.indexOf(letter.toUpperCase()) >= 0) {
+      if (Number.isFinite(num) && num >= 1 && num <= game.options.length) {
+        interpretable = true;
+        if (num - 1 === game.correctIndex) correct = true;
+      } else if (DRIVING_QUIZ_LETTERS.indexOf(letter.toUpperCase()) >= 0) {
         const idx = DRIVING_QUIZ_LETTERS.indexOf(letter.toUpperCase());
-        if (idx < game.options.length && idx === game.correctIndex) correct = true;
-      } else {
+        if (idx < game.options.length) {
+          interpretable = true;
+          if (idx === game.correctIndex) correct = true;
+        }
+      } else if (norm) {
         const correctText = normalizeCountryName(game.options[game.correctIndex] || "");
         if (
           correctText &&
           (norm === correctText || (compactNoSpaces(norm) && compactNoSpaces(norm) === compactNoSpaces(correctText)))
-        )
+        ) {
+          interpretable = true;
           correct = true;
+        } else {
+          const matchesAnyOption = game.options.some((opt) => {
+            const optNorm = normalizeCountryName(opt || "");
+            if (!optNorm) return false;
+            if (norm === optNorm) return true;
+            const cn = compactNoSpaces(norm);
+            const co = compactNoSpaces(optNorm);
+            return Boolean(cn && co && cn === co);
+          });
+          if (matchesAnyOption) interpretable = true;
+        }
       }
     } else {
       const guess = normalizeTruthValue(contentForGuess);
-      if (guess !== null && guess === game.answer) correct = true;
+      if (guess !== null) {
+        interpretable = true;
+        if (guess === game.answer) correct = true;
+      }
+    }
+    if (interpretable) {
+      const userId = String(message.author?.id || "");
+      const cooldownMs = Math.max(0, Number(cfg?.drivingQuiz?.userAnswerCooldownMs ?? DRIVING_QUIZ_USER_ANSWER_COOLDOWN_DEFAULT_MS));
+      if (userId && cooldownMs > 0) {
+        if (!game.userLastAnswerAt || typeof game.userLastAnswerAt !== "object") {
+          game.userLastAnswerAt = {};
+        }
+        const last = Number(game.userLastAnswerAt[userId] || 0);
+        const nowMs = Date.now();
+        if (last && nowMs - last < cooldownMs) {
+          await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
+          return false;
+        }
+        game.userLastAnswerAt[userId] = nowMs;
+      }
     }
     if (correct) {
       clearTimeout(game.timeout);
@@ -6805,7 +7222,7 @@ async function handleMinigameMessage(message, client) {
   }
 
   if (game.type === "hangman") {
-    const maxMisses = Number(game.maxMisses || 7);
+    const maxMisses = Number(game.maxMisses || 10);
     if (Number(game.misses || 0) >= maxMisses) {
       await finalizeHangmanLoss(message, client, cfg, game);
       return true;
@@ -6832,7 +7249,7 @@ async function handleMinigameMessage(message, client) {
         ? await channel.messages.fetch(game.gameMessageId).catch(() => null)
         : null;
       if (!gameMsg) return;
-      const hmMax = Number(game.maxMisses || 7);
+      const hmMax = Number(game.maxMisses || 10);
       const hmErr = Math.min(hmMax, Number(game.misses || 0));
       const hangmanSolvedAttachment = buildPromptImageAttachment(
         "Impiccato",
@@ -6932,7 +7349,7 @@ async function handleMinigameMessage(message, client) {
         word: game.word,
         guessedLetters: game.guessedLetters,
         misses: Number(game.misses || 0),
-        maxMisses: Number(game.maxMisses || 7),
+        maxMisses: Number(game.maxMisses || 10),
         userMisses: game.userMisses && typeof game.userMisses === "object" ? game.userMisses : {},
       }),
       rewardExp: Number(game.rewardExp || 0),
@@ -6942,7 +7359,7 @@ async function handleMinigameMessage(message, client) {
     });
 
     const maskedWord = maskHangmanWord(game.word, guessed);
-    const hmMaxU = Number(game.maxMisses || 7);
+    const hmMaxU = Number(game.maxMisses || 10);
     const hmErrU = Math.min(hmMaxU, Number(game.misses || 0));
     const hangmanUpdateAttachment = buildPromptImageAttachment("Impiccato", [
       maskedWord,
@@ -7591,6 +8008,24 @@ async function restoreActiveGames(client) {
       await channel
         .send({ embeds: [buildTimeoutGuessCityEmbed(landmark, city)] })
         .catch(() => { });
+    } else if (state.type === "treasureHunt") {
+      let decoy = "", winner = "", winnerMessageId = "", candidateIds = [];
+      try {
+        const parsed = JSON.parse(state.target || "{}");
+        decoy = String(parsed?.decoy || "");
+        winner = String(parsed?.winner || "");
+        winnerMessageId = String(parsed?.winnerMessageId || "");
+        candidateIds = Array.isArray(parsed?.candidateIds) ? parsed.candidateIds.map(String) : [];
+      } catch (err) {
+        warnMinigame(err);
+      }
+      const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, winnerMessageId);
+      await channel
+        .send({ embeds: [buildTreasureHuntTimeoutEmbed(decoy, winner, url)] })
+        .catch(() => { });
+      if (candidateIds.length) {
+        removeTreasureHuntReactions(channel, candidateIds, decoy, winner).catch(() => {});
+      }
     }
     await minigameStateDeleteOne({ guildId, channelId: cfg.channelId }).catch(
       () => { },
@@ -7840,7 +8275,7 @@ async function restoreActiveGames(client) {
     const word = normalizeCountryName(parsed?.word || "");
     const guessedLetters = Array.isArray(parsed?.guessedLetters) ? parsed.guessedLetters : [];
     const misses = Number(parsed?.misses || 0);
-    const maxMisses = Number(parsed?.maxMisses || 7);
+    const maxMisses = Number(parsed?.maxMisses || 10);
     const userMisses = parsed?.userMisses && typeof parsed.userMisses === "object" ? parsed.userMisses : {};
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); await channel.send({ embeds: [buildTimeoutHangmanEmbed(game.word)] }).catch(() => { }); await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.();
     activeGames.set(cfg.channelId, {
@@ -8093,6 +8528,47 @@ async function restoreActiveGames(client) {
     });
     return;
   }
+  if (state.type === "treasureHunt") {
+    const parsed = parseStateTarget(state.target);
+    const decoy = String(parsed?.decoy || "");
+    const winner = String(parsed?.winner || "");
+    const winnerMessageId = String(parsed?.winnerMessageId || "");
+    const candidateIds = Array.isArray(parsed?.candidateIds) ? parsed.candidateIds.map(String) : [];
+    const introMessageId = parsed?.introMessageId ? String(parsed.introMessageId) : null;
+    if (!decoy || !winner || !winnerMessageId) {
+      await clearActiveGame(client, cfg);
+      return;
+    }
+    const winnerExists = await channel.messages.fetch(winnerMessageId).catch(() => null);
+    if (!winnerExists) {
+      const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, winnerMessageId);
+      await channel.send({ embeds: [buildTreasureHuntTimeoutEmbed(decoy, winner, url)] }).catch(() => {});
+      await clearActiveGame(client, cfg);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const game = activeGames.get(cfg.channelId);
+      if (!game || game.type !== "treasureHunt" || game.winnerMessageId !== winnerMessageId) return;
+      if (game._claiming) return;
+      recordNoParticipationIfNeeded(cfg.channelId, game);
+      activeGames.delete(cfg.channelId);
+      await finishTreasureHuntByTimeout(client, cfg, channel, game);
+    }, remainingMs);
+    timeout.unref?.();
+    activeGames.set(cfg.channelId, {
+      type: "treasureHunt",
+      rewardExp: Number(state.rewardExp || 0),
+      startedAt: new Date(state.startedAt).getTime(),
+      endsAt,
+      timeout,
+      decoy,
+      winner,
+      winnerMessageId,
+      candidateIds,
+      introMessageId,
+    });
+    return;
+  }
   if (state.type === "findBot") {
     const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(state.customId).setLabel("trova il bot").setStyle(ButtonStyle.Primary),);
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game || game.customId !== state.customId) return; recordNoParticipationIfNeeded(cfg.channelId, game); activeGames.delete(cfg.channelId); if (game.hintTimeout) clearTimeout(game.hintTimeout); if (game.channelId && game.messageId) { const ch = channel.guild.channels.cache.get(game.channelId) || (await channel.guild.channels.fetch(game.channelId).catch(() => null)); if (ch) { const msg = await ch.messages.fetch(game.messageId).catch(() => null); if (msg) { const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(row.components[0]).setDisabled(true),); await msg.edit({ components: [disabledRow] }).catch(() => { }); } await channel.send({ embeds: [buildTimeoutFindBotEmbed()] }).catch(() => { }); } } await clearActiveGame(client, cfg); }, remainingMs); timeout.unref?.(); const hintTimeout = await scheduleMinuteHint(client, state.targetChannelId, remainingMs, cfg.channelId,);
@@ -8160,4 +8636,4 @@ function isMinigameFloodExemptChannel(message) {
   return false;
 }
 
-module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, clearGameForChannel, isMinigameFloodExemptChannel };
+module.exports = { startMinigameLoop, forceStartMinigame, restoreActiveGames, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, clearGameForChannel, isMinigameFloodExemptChannel };

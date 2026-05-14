@@ -18,6 +18,13 @@ server {
     location ~ ^/users?/(\d{17,20})/?$ {
         try_files /user/index.html =404;
     }
+    # Pagina rimossa: login Serata Film avviene dalla home (token in localStorage).
+    location = /seratafilm/accesso-richiesto {
+        return 301 /;
+    }
+    location = /seratafilm/accesso-richiesto/ {
+        return 301 /;
+    }
     location / {
         # Includere $uri/ qui può dare 403 (cartella senza index, autoindex off), es. /regole incompleto.
         try_files $uri $uri/index.html /index.html;

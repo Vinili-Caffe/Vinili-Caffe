@@ -17,6 +17,25 @@ const autoWeeklyLoops = new WeakSet();
 const serataFilmSessions = new Map();
 let autoValutazioniCleanupStarted = false;
 let autoValutazioniSyncRunning = false;
+const autoValutazioniLocksByKey = new Map();
+
+function autoValutazioniLockKey(guildId, userId, key) {
+  return `${String(guildId || "")}:${String(userId || "")}:${String(key || "")}`;
+}
+
+async function withAutoValutazioneLock(guildId, userId, key, fn) {
+  const lockKey = autoValutazioniLockKey(guildId, userId, key);
+  const prev = autoValutazioniLocksByKey.get(lockKey) || Promise.resolve();
+  const mine = prev.catch(() => {}).then(() => fn());
+  autoValutazioniLocksByKey.set(lockKey, mine);
+  try {
+    return await mine;
+  } finally {
+    if (autoValutazioniLocksByKey.get(lockKey) === mine) {
+      autoValutazioniLocksByKey.delete(lockKey);
+    }
+  }
+}
 
 function autoActor(guild) {
   return { user: guild?.client?.user || { username: "Automazione Staff" }, member: null };
@@ -184,42 +203,43 @@ async function deleteAutoMessage(guild, entry) {
 async function ensureAutoValutazione(guild, member, key, type, reason) {
   if (!guild || !member?.user || !key || !type) return { ok: false };
   if (!isStaffMember(member)) return { ok: false, skipped: "not_staff" };
-
-  let profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
-  let staff = ensureStaff(profileDoc);
-  if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
-  const existing = staff.autoValutazioni.find((entry) => String(entry?.key || "") === String(key));
-  if (existing && existing.type === type) return { ok: true, skipped: "exists" };
-  if (existing) {
-    await removeAutoValutazione(guild, member.id, key);
-    profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
-    staff = ensureStaff(profileDoc);
+  return withAutoValutazioneLock(guild.id, member.id, key, async () => {
+    let profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
+    let staff = ensureStaff(profileDoc);
     if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
-  }
+    const existing = staff.autoValutazioni.find((entry) => String(entry?.key || "") === String(key));
+    if (existing && existing.type === type) return { ok: true, skipped: "exists" };
+    if (existing) {
+      await removeAutoValutazioneInternal(guild, member.id, key);
+      profileDoc = await ensureStaffProfileDoc(await getStaffDoc(guild.id, member.id), guild.id, member.id);
+      staff = ensureStaff(profileDoc);
+      if (!Array.isArray(staff.autoValutazioni)) staff.autoValutazioni = [];
+    }
 
-  const channel = await resolveValutazioniChannel(guild);
-  if (!channel?.isTextBased?.()) return { ok: false, skipped: "no_channel" };
+    const channel = await resolveValutazioniChannel(guild);
+    if (!channel?.isTextBased?.()) return { ok: false, skipped: "no_channel" };
 
-  const result = type === "negative"
-    ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, autoActor(guild), channel)
-    : await valutazionePositiveAddCore(profileDoc, member.user, reason, autoActor(guild), channel);
+    const result = type === "negative"
+      ? await valutazioneNegativeAddCore(guild, profileDoc, member.user, reason, autoActor(guild), channel)
+      : await valutazionePositiveAddCore(profileDoc, member.user, reason, autoActor(guild), channel);
 
-  staff = ensureStaff(profileDoc);
-  staff.autoValutazioni.push({
-    key: String(key),
-    type,
-    reason: String(reason || ""),
-    channelId: String(channel.id || ""),
-    messageId: result?.message?.id ? String(result.message.id) : null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    staff = ensureStaff(profileDoc);
+    staff.autoValutazioni.push({
+      key: String(key),
+      type,
+      reason: String(reason || ""),
+      channelId: String(channel.id || ""),
+      messageId: result?.message?.id ? String(result.message.id) : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    profileDoc.markModified("staff");
+    await profileDoc.save();
+    return { ok: true };
   });
-  profileDoc.markModified("staff");
-  await profileDoc.save();
-  return { ok: true };
 }
 
-async function removeAutoValutazione(guild, userId, key) {
+async function removeAutoValutazioneInternal(guild, userId, key) {
   const profileDoc = await getStaffDoc(guild?.id, userId);
   if (!profileDoc?.staff) return { ok: true, skipped: "missing_profile" };
   const staff = ensureStaff(profileDoc);
@@ -241,6 +261,11 @@ async function removeAutoValutazione(guild, userId, key) {
   await profileDoc.save();
   await deleteAutoMessage(guild, entry);
   return { ok: true };
+}
+
+async function removeAutoValutazione(guild, userId, key) {
+  if (!guild?.id || !userId || !key) return { ok: false };
+  return withAutoValutazioneLock(guild.id, userId, key, () => removeAutoValutazioneInternal(guild, userId, key));
 }
 
 async function cleanupMalformedAutoValutazioni() {

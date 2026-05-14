@@ -711,6 +711,23 @@ function getHangmanWords() {
   return HANGMAN_WORDS;
 }
 
+const TREASURE_HUNT_EMOJI_PAIRS = [
+  { decoy: "\u{1F343}", winner: "\u{1F48E}" },
+  { decoy: "\u{1FAA8}", winner: "\u{1F4B0}" },
+  { decoy: "\u{1F33F}", winner: "\u{1F4E6}" },
+  { decoy: "\u{1F342}", winner: "\u{1F5DD}\u{FE0F}" },
+  { decoy: "\u{1F33E}", winner: "\u{1F4DC}" },
+  { decoy: "\u{1F300}", winner: "\u{1F48D}" },
+  { decoy: "\u{1F311}", winner: "\u{1F31F}" },
+  { decoy: "\u{2B1B}", winner: "\u{1F7E8}" },
+  { decoy: "\u{1F7EB}", winner: "\u{1FA99}" },
+  { decoy: "\u{1F32B}\u{FE0F}", winner: "\u{1F3C6}" },
+];
+
+function getTreasureHuntEmojiPairs() {
+  return TREASURE_HUNT_EMOJI_PAIRS;
+}
+
 module.exports = {
   getGuessYearBank,
   getCompleteVerseBank,
@@ -727,6 +744,7 @@ module.exports = {
   getDrivingSignQuestions,
   getFastTypingPhrases,
   getHangmanWords,
+  getTreasureHuntEmojiPairs,
   CAPITAL_ITALIAN,
   CAPITAL_COUNTRY_REGION,
   REGION_AREA,

@@ -20,6 +20,7 @@ const { addRolesAndGetMember, getClientGuildCached, getGuildChannelCached, getGu
 const { applyDefaultFooterToEmbeds } = require("../Utils/Embeds/defaultFooter");
 const { setWelcomeContextActive } = require("../Utils/Message/officialMessageCommunityHandlers");
 const { restoreUserOnJoin } = require("../Services/Community/userLeaveBackupService");
+const { cancelCustomPerksDiscordCleanupQueue } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const { restoreManagerLeftServerPartnerPointsOnRejoin } = require("../Services/Partner/partnerAuditService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { handleAccessGuildMemberAdd } = require("../Services/Staff/staffAccessMirrorService");
@@ -1114,6 +1115,7 @@ async function sendJoinLog(member) {
   const joinLeaveLogChannel = await resolveGuildChannel(member.guild, JOIN_LEAVE_LOG_CHANNEL_ID,);
   if (!joinLeaveLogChannel) return;
 
+  const createdTs = toUnix(member.user.createdAt);
   const accountAge = formatAccountAge(member.user.createdAt);
   const joinLogEmbed = new EmbedBuilder()
     .setColor("#57F287")
@@ -1559,6 +1561,9 @@ module.exports = { name: "guildMemberAdd", kickForJoinGate, runDeferredJoinAnnou
       }
 
       await restoreUserOnJoin(member.guild.id, member.id, member).catch(() => false);
+      if (String(member.guild?.id || "") === String(IDs.guilds?.main || "")) {
+        await cancelCustomPerksDiscordCleanupQueue(member.guild.id, member.id).catch(() => {});
+      }
 
       await applySponsorGuildAutoVerificato(member).catch((err) => {
         global.logger?.warn?.("[guildMemberAdd] applySponsorGuildAutoVerificato:", err?.message || err);

@@ -94,6 +94,33 @@ function getRomeDayKey(date) {
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
+const ROME_MONTH_NAMES_IT = [
+  "",
+  "gennaio",
+  "febbraio",
+  "marzo",
+  "aprile",
+  "maggio",
+  "giugno",
+  "luglio",
+  "agosto",
+  "settembre",
+  "ottobre",
+  "novembre",
+  "dicembre",
+];
+
+function getRomeMonthKeyPrefix(date = new Date()) {
+  const { year, month } = getRomeDayParts(date);
+  return { year, month, prefix: `${year}-${pad2(month)}-` };
+}
+
+function getRomeMonthLabelIt(date = new Date()) {
+  const { year, month } = getRomeDayParts(date);
+  const name = ROME_MONTH_NAMES_IT[month] || `mese ${month}`;
+  return `${name} ${year}`;
+}
+
 function getWeekKeyRome(date = new Date()) {
   const { year, month, day } = getRomeDayParts(date);
   const utcDate = new Date(Date.UTC(year, month - 1, day));
@@ -195,9 +222,16 @@ async function getEligibleChannelIdSet(guild) {
       .filter(Boolean)
       .map((id) => String(id)),
   );
+  const excludedCategoryIds = new Set(
+    [IDs.categories?.categoryPrivate]
+      .filter(Boolean)
+      .map((id) => String(id)),
+  );
   const set = new Set();
   for (const channel of guild.channels.cache.values()) {
     if (excludedChannelIds.has(String(channel?.id || ""))) continue;
+    if (excludedCategoryIds.has(String(channel?.id || ""))) continue;
+    if (excludedCategoryIds.has(String(channel?.parentId || ""))) continue;
     if (isChannelInTicketCategory(channel)) continue;
     const perms = channel?.permissionsFor?.(role);
     if (!perms?.has("ViewChannel")) continue;
@@ -211,7 +245,12 @@ async function getEligibleChannelIdSet(guild) {
 async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = TOP_LIMIT * 5) {
   if (!guild?.id) return [];
   const weeklyStartMs = mode === "weekly" ? findLastSunday21RomeMs(new Date()) : 0;
-  const key = `${guild.id}:${mode}:${mode === "weekly" ? weeklyStartMs : ""}:n${maxCandidates}`;
+  const romeNow = getRomeDayParts(new Date());
+  const monthlySlice =
+    mode === "monthly" ? `${romeNow.year}-${pad2(romeNow.month)}` : "";
+  const key = `${guild.id}:${mode}:${
+    mode === "weekly" ? weeklyStartMs : mode === "monthly" ? monthlySlice : ""
+  }:n${maxCandidates}`;
   const cached = leaderboardCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.rows;
 
@@ -274,6 +313,72 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
     return rows;
   }
 
+  if (mode === "monthly") {
+    const eligibleChannels = await getEligibleChannelIdSet(guild);
+    if (!eligibleChannels.size) {
+      leaderboardCache.set(key, {
+        rows: [],
+        expiresAt: Date.now() + LEADERBOARD_CACHE_TTL_MS,
+      });
+      return [];
+    }
+    const { prefix: monthDayKeyPrefix } = getRomeMonthKeyPrefix(new Date());
+    const perUserMonthly = new Map();
+    const profileDocsMonthly = await ActivityUserProfile.find({ guildId: guild.id })
+      .select("userId profile.totals.daily")
+      .lean()
+      .catch(() => []);
+    if (profileDocsMonthly.length) {
+      for (const doc of profileDocsMonthly) {
+        const userId = String(doc?.userId || "");
+        if (!userId) continue;
+        const daily = toObjectMap(doc?.profile?.totals?.daily || {});
+        for (const [dayKey, dayRow] of Object.entries(daily)) {
+          if (!String(dayKey).startsWith(monthDayKeyPrefix)) continue;
+          if (!dayRow || typeof dayRow !== "object") continue;
+          let textCount = 0;
+          let voiceSeconds = 0;
+          for (const [channelId, value] of extractChannelEntries(dayRow?.textChannels)) {
+            if (!eligibleChannels.has(String(channelId))) continue;
+            textCount += Math.max(0, Number(value || 0));
+          }
+          for (const [channelId, value] of extractChannelEntries(dayRow?.voiceChannels)) {
+            if (!eligibleChannels.has(String(channelId))) continue;
+            voiceSeconds += Math.max(0, Number(value || 0));
+          }
+          if (textCount <= 0 && voiceSeconds <= 0) continue;
+          const current = perUserMonthly.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+          current.textCount += textCount;
+          current.voiceSeconds += voiceSeconds;
+          perUserMonthly.set(userId, current);
+        }
+      }
+    }
+
+    const rowsMonthly = Array.from(perUserMonthly.values())
+      .map((entry) => {
+        const baseExpFromText = entry.textCount * MESSAGE_EXP;
+        const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
+        const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
+        return {
+          userId: entry.userId,
+          exp,
+          level: getLevelInfo(exp).level,
+          textCount: entry.textCount,
+          voiceSeconds: entry.voiceSeconds,
+        };
+      })
+      .filter((entry) => entry.userId && entry.exp > 0)
+      .sort((a, b) => b.exp - a.exp)
+      .slice(0, Math.max(TOP_LIMIT * 5, maxCandidates));
+
+    leaderboardCache.set(key, {
+      rows: rowsMonthly,
+      expiresAt: Date.now() + LEADERBOARD_CACHE_TTL_MS,
+    });
+    return rowsMonthly;
+  }
+
   const eligibleChannels = await getEligibleChannelIdSet(guild);
   if (!eligibleChannels.size) return [];
 
@@ -324,11 +429,6 @@ async function computeLeaderboardRows(guild, mode = "alltime", maxCandidates = T
   return rows;
 }
 
-/**
- * Messaggi e secondi vocali totali per utente: somma dei bucket giornalieri sui canali idonei
- * (stessa logica della classifica all-time in computeLeaderboardRows), con max rispetto ai
- * totali salvati sul profilo (messagesTotal / voiceTotalSeconds).
- */
 async function computeDailyBucketTotalsByUser(guild) {
   if (!guild?.id) return new Map();
   const eligibleChannels = await getEligibleChannelIdSet(guild);
@@ -506,6 +606,54 @@ async function buildWeeklyEmbed(guild, excludeStaffFromShort = false, useExpUser
     );
 }
 
+async function buildMonthlyEmbed(guild, excludeStaffFromShort = false, useExpUserBoard = false) {
+  const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
+  const candidateRows = await computeLeaderboardRows(guild, "monthly", maxCand);
+  const members = await fetchMembers(guild, candidateRows.map((r) => r.userId),);
+  let rows = candidateRows;
+  if (excludeStaffFromShort) {
+    rows = rows.filter((row) => !memberHasStaffRole(members.get(row.userId)));
+  }
+  rows = rows.slice(0, TOP_LIMIT);
+  const lines = [];
+  rows.forEach((row, index) => {
+    const member = members.get(row.userId);
+    const label = formatUserLabel(member, row.userId);
+    const exp = Number(row.exp || 0);
+    lines.push(`${rankLabel(index)} ${label}`);
+    lines.push(
+      `<:VC_Reply:1482532158080942191> __${exp}__ EXP <:VC_EXP:1482534670896730143>`,
+    );
+  });
+
+  if (lines.length === 0) {
+    lines.push("Nessun dato disponibile per questo mese.");
+  }
+
+  const monthLabelIt = getRomeMonthLabelIt(new Date());
+  const gIconMo = guildIconUrl(guild, { size: 128 });
+  return new EmbedBuilder()
+    .setColor("#6f4e37")
+    .setAuthor({
+      name: guild.name,
+      iconURL: gIconMo || undefined,
+    })
+    .setTitle(`Classifica mensile [Monthly] — ${monthLabelIt}`)
+    .setThumbnail(gIconMo || null)
+    .setDescription(
+      [
+        useExpUserBoard
+          ? "<a:VC_Sparkles:1468546911936974889> I 10 utenti con più EXP nel mese corrente"
+          : null,
+        excludeStaffFromShort ? "" : null,
+      ]
+        .filter((line) => line != null && line !== "")
+        .join("\n") +
+        "\n\n" +
+        lines.join("\n"),
+    );
+}
+
 async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUserBoard = false) {
   const maxCand = excludeStaffFromShort ? TOP_LIMIT * 40 : TOP_LIMIT * 5;
   const candidateRows = await computeExpUserLeaderboardRows(guild, "alltime", maxCand);
@@ -552,13 +700,17 @@ async function buildAllTimeEmbed(guild, excludeStaffFromShort = false, useExpUse
 }
 
 function buildClassificaButtons(mode = "weekly", options = {}) {
-  const active = mode === "alltime" ? "alltime" : "weekly";
+  const active =
+    mode === "alltime" ? "alltime" : mode === "monthly" ? "monthly" : "weekly";
   const ownerId = String(options.ownerId || "").trim();
   const sourceMessageId = String(options.sourceMessageId || "").trim();
   const hasMeta = /^\d{16,20}$/.test(ownerId) && /^\d{16,20}$/.test(sourceMessageId);
   const weeklyId = hasMeta
     ? `${CLASSIFICA_TOGGLE_PREFIX}weekly:${ownerId}:${sourceMessageId}`
     : `${CLASSIFICA_TOGGLE_PREFIX}weekly`;
+  const monthlyId = hasMeta
+    ? `${CLASSIFICA_TOGGLE_PREFIX}monthly:${ownerId}:${sourceMessageId}`
+    : `${CLASSIFICA_TOGGLE_PREFIX}monthly`;
   const alltimeId = hasMeta
     ? `${CLASSIFICA_TOGGLE_PREFIX}alltime:${ownerId}:${sourceMessageId}`
     : `${CLASSIFICA_TOGGLE_PREFIX}alltime`;
@@ -572,6 +724,11 @@ function buildClassificaButtons(mode = "weekly", options = {}) {
         .setStyle(active === "weekly" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
       new ButtonBuilder()
+        .setCustomId(monthlyId)
+        .setStyle(active === "monthly" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+        .setLabel("Mese")
+        .setEmoji("📅"),
+      new ButtonBuilder()
         .setCustomId(alltimeId)
         .setStyle(active === "alltime" ? ButtonStyle.Primary : ButtonStyle.Secondary)
         .setEmoji("<a:vegarightarrow:1443673039156936837>"),
@@ -584,10 +741,14 @@ function buildClassificaButtons(mode = "weekly", options = {}) {
 }
 
 async function buildClassificaPayload(guild, mode = "weekly", options = {}) {
-  const safeMode = mode === "alltime" ? "alltime" : "weekly";
-  const embed = safeMode === "weekly"
-    ? await buildWeeklyEmbed(guild, false, false)
-    : await buildAllTimeEmbed(guild, false, false);
+  const safeMode =
+    mode === "alltime" ? "alltime" : mode === "monthly" ? "monthly" : "weekly";
+  const embed =
+    safeMode === "weekly"
+      ? await buildWeeklyEmbed(guild, false, false)
+      : safeMode === "monthly"
+        ? await buildMonthlyEmbed(guild, false, false)
+        : await buildAllTimeEmbed(guild, false, false);
   return { embeds: [embed], components: buildClassificaButtons(safeMode, options) };
 }
 
@@ -653,9 +814,9 @@ module.exports = {
     const label = "Vai alla classifica";
     const redirectEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setDescription(`Per evitare di intasare la chat, la classifica settimanale` +
-      ` è stata generata nel canale <#${LEADERBOARD_CHANNEL_ID}>.\n` +
-      `[Clicca qui per vederla](${sent.url}) o utilizza il bottone sottostante.`);
+    .setDescription(`Per evitare di intasare la chat, la classifica` +
+      ` (settimanale, mensile o generale) è stata generata nel canale <#${LEADERBOARD_CHANNEL_ID}>.\n` +
+      `[Clicca qui per vederla](${sent.url}) o utilizza i pulsanti sotto il messaggio nel canale indicato.`);
 
     const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(sent.url),);
 
@@ -668,7 +829,7 @@ module.exports = {
   CLASSIFICA_TOGGLE_PREFIX,
   CLASSIFICA_CLOSE_PREFIX,
   buildClassificaPayload,
-  /** Stessa finestra domenica 21 → ora di +classifica weekly (hourly), usata anche dal sito /user */
+  /** Weekly: finestra hourly domenica 21 Europe/Rome. Monthly: somma bucket daily del mese solare Rome. All-time: daily completo. Usata dal sito /user per il breakdown weekly. */
   computeLeaderboardRows,
   computeDailyBucketTotalsByUser,
   sortDailyActivityTotals,

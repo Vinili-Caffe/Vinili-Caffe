@@ -27,6 +27,7 @@ const { runDeferredJoinAnnouncements } = require("./guildMemberAdd");
 const { syncPartnerPmThreadForMemberChange } = require("../Services/Partner/partnerPmDailyThreadService");
 const { autoUnclaimOpenTicketsClaimedByUser } = require("../Utils/Ticket/ticketAutoUnclaimOnStaffLoss");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
+const { syncMutedMirrorRoleFromMemberUpdate } = require("../Services/Moderation/mutedMirrorRoleService");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../Utils/Discord/guildDiscordIdentity");
 const { maybeAnnounceDonationPackageInSupporters } = require("../Utils/Community/donationPackageSupportersAnnounce");
 const { maybeAnnounceManualSocialRolesAndGrantPicPermsBundle } = require("../Utils/Community/manualSocialRoleAnnounceAndPicPerms");
@@ -1689,6 +1690,9 @@ module.exports = {
           global.logger?.warn?.("[guildMemberUpdate] sponsorVerifiedRequiresMain:", err?.message || err);
         });
       await sendMemberUpdateLog(oldMember, newMember);
+      await syncMutedMirrorRoleFromMemberUpdate(oldMember, newMember).catch((err) => {
+        global.logger?.warn?.("[guildMemberUpdate] muted mirror role:", newMember.id, err?.message || err);
+      });
       await sendMemberRoleUpdateLog(oldMember, newMember);
       await enforceJoinGatePostJoinUsername(oldMember, newMember);
       const resolvedClientForClan = client || newMember.client;

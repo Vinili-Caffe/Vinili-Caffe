@@ -10,7 +10,9 @@ function parseToggleCustomId(customId) {
   if (!raw.startsWith(CLASSIFICA_TOGGLE_PREFIX)) return null;
   const payload = raw.slice(CLASSIFICA_TOGGLE_PREFIX.length);
   const [modeToken = "", ownerId = "", sourceMessageId = ""] = payload.split(":");
-  const mode = String(modeToken || "").trim().toLowerCase() === "alltime" ? "alltime" : "weekly";
+  const rawMode = String(modeToken || "").trim().toLowerCase();
+  const mode =
+    rawMode === "alltime" ? "alltime" : rawMode === "monthly" ? "monthly" : "weekly";
   return {
     mode,
     ownerId: /^\d{16,20}$/.test(String(ownerId || "").trim()) ? String(ownerId).trim() : null,

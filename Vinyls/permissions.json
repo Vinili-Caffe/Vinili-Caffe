@@ -1233,6 +1233,28 @@
                 "roles.HighStaff"
             ]
         },
+        "staff_pm_shop:*": {
+            "roles": [
+                "roles.PartnerManager"
+            ],
+            "ownerSegment": 2,
+            "ownerSeparator": ":"
+        },
+        "staff_val_neg_trade:*": {
+            "roles": [
+                "roles.Staff",
+                "roles.PartnerManager",
+                "roles.HighStaff"
+            ],
+            "ownerSegment": 2,
+            "ownerSeparator": ":"
+        },
+        "pm_shop_ack:*": {
+            "roles": [
+                "roles.Member",
+                "roles.PartnerManager"
+            ]
+        },
         "staff_hp:*": {
             "roles": [
                 "roles.HighStaff",

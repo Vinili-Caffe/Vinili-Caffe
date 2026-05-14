@@ -8,7 +8,7 @@ const prism = require("prism-media");
 const ffmpegStatic = require("ffmpeg-static");
 const { readSnapshotWithMeta, writeSnapshotWithMeta } = require("../../../shared/recovery/snapshotStore");
 const { registerShutdownFlush, armShutdownCheckpoint } = require("../../../shared/recovery/shutdownCheckpoint");
-const { voiceFindOneAndUpdate, voiceDeleteOne, voiceFindManyLean, ttsUserLangFindManyLean, ttsUserLangFindOneLean, ttsUserLangUpsert } = require("../../Utils/BotState/domainStatesStore");
+const { voiceFindOneAndUpdate, voiceDeleteOne, voiceFindManyLeanForBot, ttsUserLangFindManyLean, ttsUserLangFindOneLean, ttsUserLangUpsert } = require("../../Utils/BotState/domainStatesStore");
 const IDs = require("../../Utils/Config/ids");
 const { isCoffeePrefixCommandToken } = require("../../../shared/discord/coffeePrefixCommandTokens");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../Utils/Interaction/interactionEntityCache");
@@ -802,14 +802,19 @@ function attachTtsVoiceConnectionDisconnectHandler(connection, voiceChannel) {
       void (async () => {
         try {
           if (shouldIgnoreTtsVoiceDisconnectFinalize(guildId)) return;
-          if (!getLockedChannelId(guildId) && !findLockedChannelIdByGuild(guildId)) return;
           const client = voiceChannel.client;
           const guild = await getClientGuildCached(client, guildId).catch(() => null);
           if (!guild || !client?.user?.id) return;
           await guild.members.fetch({ user: client.user.id, force: true }).catch(() => null);
           const me = guild.members.me;
           if (me?.voice?.channelId) return;
-          await leaveTtsGuild(guildId, client);
+          const hasLock = Boolean(getLockedChannelId(guildId) || findLockedChannelIdByGuild(guildId));
+          if (hasLock) {
+            await leaveTtsGuild(guildId, client);
+          } else {
+            await clearVoiceState(guildId, String(client.user.id));
+            cleanupAllTtsStateForGuild(guildId);
+          }
         } catch (_) {}
       })();
     }, delayMs);
@@ -851,7 +856,7 @@ async function handleTtsBotVoiceMove({ voiceChannel, oldChannelId }) {
 
   clearLockedChannel(guildId, oldId);
   setLockedChannel(guildId, newId);
-  await saveVoiceState(guildId, newId);
+  await saveVoiceState(guildId, newId, String(voiceChannel.client?.user?.id || ""));
   return { ok: true };
 }
 function sleep(ms) {
@@ -933,7 +938,7 @@ async function ensureConnection(state, voiceChannel) {
       connection.subscribe(state.player);
       await entersState(connection, VoiceConnectionStatus.Ready, readyTimeoutMs);
       setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
-      await saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
+      await saveVoiceState(voiceChannel.guild.id, voiceChannel.id, String(voiceChannel.client?.user?.id || ""));
       markTtsVoiceJoinGrace(voiceChannel.guild.id);
       attachTtsVoiceConnectionDisconnectHandler(connection, voiceChannel);
       return connection;
@@ -1076,7 +1081,7 @@ async function handleTtsMessage(message, client, prefix) {
   text = normalizeCaseForTts(text);
   text = normalizePausesForTts(text);
   text = numbersToWordsForTts(text, lang);
-  await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
+  await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp, String(client?.user?.id || ""));
   enqueue(state, { voiceChannel, text, lang });
 }
 async function joinTtsChannel(voiceChannel) {
@@ -1099,7 +1104,7 @@ async function armTtsChannel(voiceChannel) {
   if (!voiceChannel) return { ok: false, reason: "no_voice_channel" };
   if (!voiceChannel.joinable) return { ok: false, reason: "not_joinable" };
   setLockedChannel(voiceChannel.guild.id, voiceChannel.id);
-  await saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
+  await saveVoiceState(voiceChannel.guild.id, voiceChannel.id, String(voiceChannel.client?.user?.id || ""));
   return { ok: true };
 }
 function findLockedChannelIdByGuild(guildId) {
@@ -1164,11 +1169,11 @@ async function leaveTtsGuild(guildId, client) {
       }
       cleanupAllTtsStateForGuild(guildId);
     }
-    await clearVoiceState(guildId);
+    await clearVoiceState(guildId, String(client?.user?.id || ""));
     return { ok: true };
   }
   if (!lockedChannelId) {
-    await clearVoiceState(guildId);
+    await clearVoiceState(guildId, String(client?.user?.id || ""));
     persistTtsQueueSnapshotNow();
     return { ok: false, reason: "not_connected" };
   }
@@ -1195,19 +1200,21 @@ async function leaveTtsGuild(guildId, client) {
     clearLockedChannel(guildId, lockedChannelId);
     cleanupAllTtsStateForGuild(guildId);
   }
-  await clearVoiceState(guildId);
+  await clearVoiceState(guildId, String(client?.user?.id || ""));
   persistTtsQueueSnapshotNow();
   return { ok: true };
 }
 
-async function saveVoiceState(guildId, channelId) {
-  if (!guildId || !channelId) return;
-  if (lastSavedChannels.get(guildId) === channelId) return;
-  lastSavedChannels.set(guildId, channelId);
+async function saveVoiceState(guildId, channelId, botUserId) {
+  const bid = String(botUserId || "").trim();
+  if (!guildId || !channelId || !bid) return;
+  const dedupeKey = `${guildId}:${bid}`;
+  if (lastSavedChannels.get(dedupeKey) === channelId) return;
+  lastSavedChannels.set(dedupeKey, channelId);
   try {
     await voiceFindOneAndUpdate(
-      { guildId },
-      { $set: { guildId, channelId, lockedChannelId: channelId, updatedAt: new Date() } },
+      { guildId, botUserId: bid, claimLegacyVoiceRow: true },
+      { $set: { channelId, lockedChannelId: channelId, updatedAt: new Date() } },
       { upsert: true, new: true },
     );
   } catch (error) {
@@ -1215,28 +1222,29 @@ async function saveVoiceState(guildId, channelId) {
   }
 }
 
-async function clearVoiceState(guildId) {
-  if (!guildId) return;
-  lastSavedChannels.delete(guildId);
+async function clearVoiceState(guildId, botUserId) {
+  const bid = String(botUserId || "").trim();
+  if (!guildId || !bid) return;
+  lastSavedChannels.delete(`${guildId}:${bid}`);
   try {
-    await voiceDeleteOne({ guildId });
+    await voiceDeleteOne({ guildId, botUserId: bid });
   } catch (error) {
     global.logger?.error?.("[TTS] Failed to clear voice state", error);
   }
 }
 
-async function saveTtsLastMessageProgress(guildId, channelId, messageId, createdTimestamp) {
-  if (!guildId || !channelId || !messageId) return;
+async function saveTtsLastMessageProgress(guildId, channelId, messageId, createdTimestamp, botUserId) {
+  const bid = String(botUserId || "").trim();
+  if (!guildId || !channelId || !messageId || !bid) return;
   const gid = String(guildId);
   const cid = String(channelId);
   const mid = String(messageId);
   const ts = createdTimestamp ? new Date(Number(createdTimestamp)) : new Date();
   try {
     await voiceFindOneAndUpdate(
-      { guildId: gid },
+      { guildId: gid, botUserId: bid, claimLegacyVoiceRow: true },
       {
         $set: {
-          guildId: gid,
           channelId: cid,
           lockedChannelId: cid,
           lastTtsMessageId: mid,
@@ -1268,7 +1276,7 @@ async function enqueueTtsMessageFromHistory(message, client, voiceChannel, state
   text = normalizePausesForTts(text);
   text = numbersToWordsForTts(text, lang);
   enqueue(state, { voiceChannel, text, lang });
-  await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp);
+  await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp, String(voiceChannel.client?.user?.id || ""));
 }
 
 async function catchupTtsMessagesForChannel(
@@ -1309,7 +1317,7 @@ async function restoreTtsConnections(client) {
     startTtsQueueSnapshotLoop(client);
     await warmUserTtsLangsFromDb();
     const prefix = String(client?.config?.prefix || "+");
-    const states = await voiceFindManyLean().catch(() => []);
+    const states = await voiceFindManyLeanForBot(String(client.user.id), { includeLegacyWithoutBot: true }).catch(() => []);
 
     for (let i = 0; i < states.length; i += TTS_RESTORE_CONCURRENCY) {
       const batch = states.slice(i, i + TTS_RESTORE_CONCURRENCY);

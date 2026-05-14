@@ -186,7 +186,7 @@ function applyPlaceholderMap(html, map) {
   const assetVersion = encodeURIComponent(String(map.BUILD_ASSET_VERSION || ""));
   if (assetVersion) {
     html = html.replace(
-      /href=(["'])([^"']*\/?css\/(?:tw-build|vc-landing)\.css)(?![?])\1/g,
+      /href=(["'])([^"']*\/?css\/(?:tw-build|vc-landing|seratafilm-page)\.css)(?![?])\1/g,
       `href=$1$2?v=${assetVersion}$1`,
     );
   }
@@ -1533,6 +1533,99 @@ async function main() {
     siteNotifsApiLocalRaw && /^https?:\/\//i.test(siteNotifsApiLocalRaw)
       ? siteNotifsApiLocalRaw
       : "";
+  const seratafilmAccessApiFromEnv = String(process.env.VC_SERATAFILM_ACCESS_API_URL ?? "").trim();
+  const seratafilmAccessApiRaw =
+    seratafilmAccessApiFromEnv || String(cfg.seratafilmAccessApiUrl ?? "").trim();
+  const seratafilmAccessApiResolved =
+    seratafilmAccessApiRaw && /^https?:\/\//i.test(seratafilmAccessApiRaw)
+      ? seratafilmAccessApiRaw
+      : seratafilmAccessApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${seratafilmAccessApiRaw.startsWith("/") ? "" : "/"}${seratafilmAccessApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-seratafilm-access`
+          : "/webhooks/site-seratafilm-access";
+  const seratafilmAccessApiLocalFromEnv = String(process.env.VC_SERATAFILM_ACCESS_API_URL_LOCAL ?? "").trim();
+  const seratafilmAccessApiLocalRaw =
+    seratafilmAccessApiLocalFromEnv || String(cfg.seratafilmAccessApiUrlLocal ?? "").trim();
+  const seratafilmAccessApiLocalResolved =
+    seratafilmAccessApiLocalRaw && /^https?:\/\//i.test(seratafilmAccessApiLocalRaw)
+      ? seratafilmAccessApiLocalRaw
+      : "";
+  const seratafilmBgmRaw = cfg.seratafilmBgm && typeof cfg.seratafilmBgm === "object" ? cfg.seratafilmBgm : {};
+  const seratafilmBgmTrackUrls = Array.isArray(seratafilmBgmRaw.trackUrls)
+    ? seratafilmBgmRaw.trackUrls
+        .map((u) => String(u || "").trim())
+        .filter((u) => /^https?:\/\//i.test(u))
+    : [];
+  const seratafilmYtRaw =
+    seratafilmBgmRaw.youtube && typeof seratafilmBgmRaw.youtube === "object" ? seratafilmBgmRaw.youtube : {};
+  function seratafilmParseYoutubeVideoId(input) {
+    const s = String(input || "").trim();
+    if (!s) return "";
+    if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+    const m =
+      s.match(/[?&]v=([a-zA-Z0-9_-]{11})(?:[&]|$|#)/) ||
+      s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?]|$|\/|#)/) ||
+      s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/);
+    return m ? m[1] : "";
+  }
+  function seratafilmParseYoutubePlaylistId(input) {
+    const s = String(input || "").trim();
+    if (!s) return "";
+    if (/^[a-zA-Z0-9_-]{10,80}$/.test(s) && /^[A-Z]{2}/.test(s)) return s;
+    const m = s.match(/[?&]list=([^&#]+)/);
+    if (!m) return "";
+    try {
+      const id = decodeURIComponent(m[1]).replace(/[^a-zA-Z0-9_-]/g, "");
+      return /^[a-zA-Z0-9_-]{10,80}$/.test(id) && /^[A-Z]{2}/.test(id) ? id : "";
+    } catch {
+      return "";
+    }
+  }
+  const seratafilmBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
+    String(seratafilmYtRaw.playlistId || seratafilmYtRaw.playlistUrl || "").trim(),
+  );
+  const seratafilmBgmYtVideoIdsFromUrls = Array.isArray(seratafilmYtRaw.videoUrls)
+    ? [...new Set(seratafilmYtRaw.videoUrls.map((u) => seratafilmParseYoutubeVideoId(u)).filter(Boolean))]
+    : [];
+  const seratafilmBgmYtVideoIdsDirect = Array.isArray(seratafilmYtRaw.videoIds)
+    ? [...new Set(seratafilmYtRaw.videoIds.map((x) => seratafilmParseYoutubeVideoId(x)).filter(Boolean))]
+    : [];
+  const seratafilmBgmYtVideoIds = [
+    ...new Set([...seratafilmBgmYtVideoIdsDirect, ...seratafilmBgmYtVideoIdsFromUrls]),
+  ];
+  let seratafilmBgmYoutubePublic = null;
+  if (seratafilmBgmYtPlaylistId) {
+    seratafilmBgmYoutubePublic = { playlistId: seratafilmBgmYtPlaylistId, videoIds: [] };
+  } else if (seratafilmBgmYtVideoIds.length) {
+    seratafilmBgmYoutubePublic = { playlistId: "", videoIds: seratafilmBgmYtVideoIds };
+  }
+  const seratafilmBgmPayload = {
+    trackUrls: seratafilmBgmTrackUrls,
+    fadeStartSeconds: Math.max(5, Math.min(3600, Number(seratafilmBgmRaw.fadeStartSeconds) || 120)),
+    baseVolume: Math.min(1, Math.max(0.02, Number(seratafilmBgmRaw.baseVolume) || 0.34)),
+  };
+  if (seratafilmBgmYoutubePublic) seratafilmBgmPayload.youtube = seratafilmBgmYoutubePublic;
+  const seratafilmBgmUri = encodeURIComponent(JSON.stringify(seratafilmBgmPayload)).replace(/'/g, "%27");
+  const seratafilmEventRaw = cfg.seratafilmEvent && typeof cfg.seratafilmEvent === "object" ? cfg.seratafilmEvent : {};
+  const seratafilmRec = seratafilmEventRaw.recurring || seratafilmEventRaw.weekly || {};
+  const seratafilmEventPayload = {
+    timezone: String(seratafilmEventRaw.timezone || "Europe/Rome").trim() || "Europe/Rome",
+    recurring: {
+      weekday: Number.isFinite(Number(seratafilmRec.weekday))
+        ? Math.max(0, Math.min(6, Math.floor(Number(seratafilmRec.weekday))))
+        : 6,
+      hour: Number.isFinite(Number(seratafilmRec.hour))
+        ? Math.max(0, Math.min(23, Math.floor(Number(seratafilmRec.hour))))
+        : 21,
+      minute: Number.isFinite(Number(seratafilmRec.minute))
+        ? Math.max(0, Math.min(59, Math.floor(Number(seratafilmRec.minute))))
+        : 30,
+    },
+    overrideIso: String(seratafilmEventRaw.overrideIso || seratafilmEventRaw.fixedIso || "").trim(),
+    linkFilm: String(seratafilmEventRaw.linkFilm || "").trim(),
+  };
+  const seratafilmEventUri = encodeURIComponent(JSON.stringify(seratafilmEventPayload)).replace(/'/g, "%27");
   const reviewsApiFromEnv = String(process.env.VC_REVIEWS_API_URL ?? "").trim();
   const reviewsApiRaw = reviewsApiFromEnv || String(cfg.reviewsApiUrl ?? "").trim();
   const reviewsApiResolved =
@@ -1710,6 +1803,10 @@ async function main() {
     VOTE_API_URL_LOCAL: escAttr(voteApiLocalResolved),
     SITE_NOTIFICATIONS_API_URL: escAttr(siteNotifsApiResolved),
     SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(siteNotifsApiLocalResolved),
+    SERATAFILM_ACCESS_API_URL: escAttr(seratafilmAccessApiResolved),
+    SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(seratafilmAccessApiLocalResolved),
+    SERATAFILM_BGM_URI: seratafilmBgmUri,
+    SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
     REVIEWS_API_URL: escAttr(reviewsApiResolved),
     REVIEWS_API_URL_LOCAL: escAttr(reviewsApiLocalResolved),
@@ -1946,6 +2043,23 @@ async function main() {
     fs.writeFileSync(suggestionsIndexPath, suggestionsHtml, "utf8");
   } else {
     console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
+  }
+
+  const seratafilmIndexPath = path.join(DIST, "seratafilm", "index.html");
+  if (fs.existsSync(seratafilmIndexPath)) {
+    let seratafilmHtml = fs.readFileSync(seratafilmIndexPath, "utf8");
+    seratafilmHtml = applyPlaceholderMap(seratafilmHtml, map);
+    warnLeftoverPlaceholders(seratafilmHtml, "seratafilm/index.html");
+    fs.writeFileSync(seratafilmIndexPath, seratafilmHtml, "utf8");
+  } else {
+    console.warn("[build-site] Manca seratafilm/index.html (saltato placeholder).");
+  }
+  const seratafilmAccessoPath = path.join(DIST, "seratafilm", "accesso-richiesto", "index.html");
+  if (fs.existsSync(seratafilmAccessoPath)) {
+    let seratafilmAccessoHtml = fs.readFileSync(seratafilmAccessoPath, "utf8");
+    seratafilmAccessoHtml = applyPlaceholderMap(seratafilmAccessoHtml, map);
+    warnLeftoverPlaceholders(seratafilmAccessoHtml, "seratafilm/accesso-richiesto/index.html");
+    fs.writeFileSync(seratafilmAccessoPath, seratafilmAccessoHtml, "utf8");
   }
 
   const faqIndexPath = path.join(DIST, "faq", "index.html");

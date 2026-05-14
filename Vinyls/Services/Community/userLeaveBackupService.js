@@ -237,6 +237,16 @@ async function purgeExpiredUserLeaveBackups() {
   return Number(result?.deletedCount || 0);
 }
 
+/** Data/ora di scadenza del backup leave corrente (o nuova finestra default) — allinea cleanup Discord alla TTL restore. */
+async function resolveNextLeaveBackupExpiryClock(guildId, userId) {
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!isValidGuildUserId(gid, uid)) return resolveExpiryDate();
+  const b = await UserLeaveBackup.findOne({ guildId: gid, userId: uid }).select("expiresAt").lean().catch(() => null);
+  if (b?.expiresAt) return new Date(b.expiresAt);
+  return resolveExpiryDate();
+}
+
 module.exports = {
   backupUserOnLeave,
   restoreUserOnJoin,
@@ -244,4 +254,5 @@ module.exports = {
   purgeDueStaffGraceProfiles,
   startStaffGracePurgeLoop,
   clearStaffPendingPurgeAt,
+  resolveNextLeaveBackupExpiryClock,
 };

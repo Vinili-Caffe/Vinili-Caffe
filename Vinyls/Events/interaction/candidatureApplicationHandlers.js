@@ -10,6 +10,7 @@ const { clearStaffPendingPurgeAt } = require("../../Services/Community/userLeave
 const { applyDefaultFooterToEmbeds } = require("../../Utils/Embeds/defaultFooter");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../Utils/Discord/guildDiscordIdentity");
 const { getBotState, setBotState } = require("../../Utils/BotState/botStateStore");
+const { getUserExpStats } = require("../../Services/Community/expService");
 const BOT_ROOT = path.resolve(__dirname, "..", "..");
 const APPLY_HELPER_BUTTON = "apply_helper";
 const APPLY_PM_BUTTON = "apply_partnermanager";
@@ -31,6 +32,8 @@ const MEMBER_ROLE_ID = IDs.roles.Member;
 const HELPER_ROLE_ID = IDs.roles.Helper;
 const PARTNER_MANAGER_ROLE_ID = IDs.roles.PartnerManager;
 const HELPER_REAPPLY_BLOCK_ROLE_IDS = [IDs.roles.Staff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.HighStaff, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Founder].filter(Boolean);
+const HELPER_CANDIDATURE_MIN_LEVEL = 10;
+const HELPER_CANDIDATURE_MIN_TENURE_MS = 14 * 24 * 60 * 60 * 1000;
 const pendingApplications = new Map();
 const cooldownByUserAndType = new Map();
 let cooldownLoaded = false;
@@ -330,6 +333,63 @@ function buildNoModuliDeniedEmbed() {
     );
 }
 
+function buildHelperRequirementsDeniedEmbed(message) {
+  const text = String(message || "").trim() || "Non soddisfi i requisiti per candidarti come Helper.";
+  return new EmbedBuilder()
+    .setColor("Red")
+    .setTitle("<:VC_Lock:1482526739044368476> Requisiti Helper")
+    .setDescription(
+      [
+        `<a:VC_Alert:1482706673176150077> ${text}`,
+        "",
+        "<:VC_InactiveStatus:1482526984234860574> Per **Helper** servono: **livello 10** nel server e almeno **2 settimane** nel server (non valgono per **Partner Manager**).",
+      ].join("\n"),
+    );
+}
+
+/**
+ * Requisiti extra candidatura Helper (livello + anzianità). Non usare per Partner Manager.
+ * @param {import("discord.js").GuildMember | null} member
+ * @returns {Promise<{ ok: true } | { ok: false, code: string, message: string }>}
+ */
+async function evaluateHelperCandidatureGate(member) {
+  if (!member?.guild?.id) {
+    return {
+      ok: false,
+      code: "helper_requirements",
+      message: "Impossibile verificare i requisiti: membro non valido.",
+    };
+  }
+  const joined = member.joinedAt;
+  if (!joined || !(joined instanceof Date) || Number.isNaN(joined.getTime())) {
+    return {
+      ok: false,
+      code: "helper_join_unknown",
+      message: "Impossibile verificare la data di ingresso nel server. Riprova tra qualche minuto o contatta lo staff.",
+    };
+  }
+  const ageMs = Date.now() - joined.getTime();
+  if (ageMs < HELPER_CANDIDATURE_MIN_TENURE_MS) {
+    const remain = HELPER_CANDIDATURE_MIN_TENURE_MS - ageMs;
+    const daysLeft = Math.max(1, Math.ceil(remain / (24 * 60 * 60 * 1000)));
+    return {
+      ok: false,
+      code: "helper_tenure",
+      message: `Per candidarti come Helper devi essere nel server da almeno 2 settimane (mancano ancora circa ${daysLeft} giorno/i).`,
+    };
+  }
+  const stats = await getUserExpStats(member.guild.id, member.id);
+  const level = Math.max(0, Math.floor(Number(stats?.level || 0)));
+  if (level < HELPER_CANDIDATURE_MIN_LEVEL) {
+    return {
+      ok: false,
+      code: "helper_level",
+      message: `Per candidarti come Helper devi aver raggiunto almeno il livello ${HELPER_CANDIDATURE_MIN_LEVEL} nel server (livello attuale: ${level}).`,
+    };
+  }
+  return { ok: true };
+}
+
 function buildCooldownDeniedEmbed(untilTs, type) {
   const unix = Math.floor(Number(untilTs) / 1000);
   const label =
@@ -357,20 +417,26 @@ function buildIntroEmbed(type) {
       .setColor("#6f4e37")
       .setTitle("<:VC_PartnerManager:1494286911286808576> Candidatura Partner Manager")
       .setDescription(
-        "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
-        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
-        "",
-        "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",);
+        [
+          "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Partner Manager del server.",
+          "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
+          "",
+          "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+        ].join("\n"),
+      );
   }
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<:VC_Helper:1502328751638450426> Candidatura Helper")
     .setDescription(
-      "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
-      "<a:VC_Timer:1482527426557775954> Il **double staff** su altri server è assolutamente vietato: se, dopo essere stato accettato, un membro dello staff risulta ancora staff su altri server, verrà immediatamente depexato.",
-      "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
-      "",
-      "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+      [
+        "<:VC_Poll:1482535102436216832> Compilando questo modulo potrai candidarti come Helper del server.",
+        "<:VC_InactiveStatus:1482526984234860574> **Requisiti Helper:** livello **10** nel server e almeno **2 settimane** nel server.",
+        "<a:VC_Timer:1482527426557775954> Il **double staff** su altri server è assolutamente vietato: se, dopo essere stato accettato, un membro dello staff risulta ancora staff su altri server, verrà immediatamente depexato.",
+        "<:VC_Ticket:1482535175283019888> Se hai dei dubbi apri un ticket `HIGH STAFF`.",
+        "",
+        "<a:VC_Alert:1482706673176150077> **__LEGGI BENE ALL'INTERNO DEI RIQUADRI LA DOMANDA E POI RISPONDI__**",
+      ].join("\n"),
     );
 }
 
@@ -474,6 +540,16 @@ async function enforceEligibility(interaction, type) {
       flags: 1 << 6,
     }).catch(() => null);
     return false;
+  }
+  if (type === "helper") {
+    const gate = await evaluateHelperCandidatureGate(interaction.member);
+    if (!gate.ok) {
+      await interaction.reply({
+        embeds: [buildHelperRequirementsDeniedEmbed(gate.message)],
+        flags: 1 << 6,
+      }).catch(() => null);
+      return false;
+    }
   }
   return true;
 }
@@ -721,6 +797,18 @@ async function postCandidatureToVisioneModuli(client, guild, user, type, answers
 
 async function finalizeApplication(interaction, type, state, stateKey = null) {
   const sk = stateKey || getStateKey(interaction, type);
+  if (type === "helper") {
+    const member =
+      (await interaction.guild.members.fetch(interaction.user.id).catch(() => null)) || interaction.member;
+    const gate = await evaluateHelperCandidatureGate(member);
+    if (!gate.ok) {
+      await interaction.reply({
+        embeds: [buildHelperRequirementsDeniedEmbed(gate.message)],
+        flags: 1 << 6,
+      }).catch(() => null);
+      return true;
+    }
+  }
   const result = await postCandidatureToVisioneModuli(interaction.client, interaction.guild, interaction.user, type, state.answers, sk);
   if (!result.ok) {
     const content =
@@ -768,6 +856,12 @@ async function checkMemberCandidatureEligibility(member, type) {
       until,
       message: "Hai già inviato una candidatura di questo tipo di recente: attendi il cooldown.",
     };
+  }
+  if (type === "helper") {
+    const gate = await evaluateHelperCandidatureGate(member);
+    if (!gate.ok) {
+      return { ok: false, code: gate.code, message: gate.message };
+    }
   }
   return { ok: true };
 }
@@ -1179,6 +1273,18 @@ async function handleModalSubmit(interaction, type, stepRaw) {
     }).catch(() => null);
     return true;
   }
+  if (type === "helper") {
+    const gate = await evaluateHelperCandidatureGate(interaction.member);
+    if (!gate.ok) {
+      pendingApplications.delete(stateKey);
+      await clearDraftState(stateKey);
+      await interaction.reply({
+        embeds: [buildHelperRequirementsDeniedEmbed(gate.message)],
+        flags: 1 << 6,
+      }).catch(() => null);
+      return true;
+    }
+  }
 
   const cfg = APPLICATIONS[type];
   if (!cfg) return false;
@@ -1413,6 +1519,7 @@ module.exports = {
   handleCandidatureApplicationInteraction,
   submitCandidatureWebsite,
   getCandidatureEligibilitySummary,
+  resolveWebsiteCandidatureMember,
   resolveSubmissionChannel,
   bumpApplicationCooldownAfterStaffDepex,
 };

@@ -267,6 +267,7 @@ async function startWebhookServer(client) {
     const isSiteForum = pathStr.startsWith("/webhooks/site-forum");
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
+    const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
     if (
       !isCandidature &&
       !isUnban &&
@@ -281,7 +282,8 @@ async function startWebhookServer(client) {
       !isSiteNotifications &&
       !isSiteForum &&
       !isSiteVerify &&
-      !isSitePayments
+      !isSitePayments &&
+      !isSiteSeratafilmAccess
     ) {
       return next();
     }
@@ -313,7 +315,8 @@ async function startWebhookServer(client) {
       isSiteReviews ||
       isSiteSuggestions ||
       isSiteNotifications ||
-      isSitePayments
+      isSitePayments ||
+      isSiteSeratafilmAccess
     ) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
@@ -524,6 +527,7 @@ async function startWebhookServer(client) {
     updateSiteForumThread,
   } = require("../../Utils/Web/siteForumApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
+  const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -548,6 +552,7 @@ async function startWebhookServer(client) {
   app.post("/webhooks/site-notifications/clear", (req, res) => {
     return handleSiteNotificationsClearPost(client, req, res);
   });
+  app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
   app.get("/webhooks/site-payments/plans", (req, res) => {
     try {
       return res.status(200).json({ ok: true, items: listSitePaymentPlans() });

@@ -535,6 +535,33 @@ const userLeaveBackupSchema = new Schema(
 userLeaveBackupSchema.index({ guildId: 1, userId: 1 }, { unique: true });
 userLeaveBackupSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
+const communicationTimeoutRoleSnapshotSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    userId: { type: String, required: true, index: true },
+    roleIds: { type: [String], default: [] },
+  },
+  { timestamps: true },
+);
+communicationTimeoutRoleSnapshotSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+
+/** Dopo leave: snapshot ID Discord da ripulire quando scade la finestra di restore (stessa TTL di `UserLeaveBackup`). */
+const customPerksDiscordCleanupQueueSchema = new Schema(
+  {
+    guildId: { type: String, required: true },
+    userId: { type: String, required: true },
+    runAt: { type: Date, required: true },
+    roleId: { type: String, default: null },
+    secondaryRoleId: { type: String, default: null },
+    customVocChannelId: { type: String, default: null },
+    customVocEmoji: { type: String, default: null },
+    clearMentionReactions: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+customPerksDiscordCleanupQueueSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+customPerksDiscordCleanupQueueSchema.index({ runAt: 1 });
+
 /** Aggregati orari per guild (+server / contest): un solo documento per guildId, ore in `hours`. */
 const activityGuildHourlySchema = new Schema(
   {
@@ -1159,6 +1186,16 @@ const QuotePrivacy = buildProfileSubdocModel({
 const ActivityUserProfile = models.ActivityUserProfile || model("ActivityUserProfile", activityUserProfileSchema, "activityuserprofiles");
 const ActivityGuildHourly = models.ActivityGuildHourly || model("ActivityGuildHourly", activityGuildHourlySchema, "activityguildhourlys");
 const UserLeaveBackup = models.UserLeaveBackup || model("UserLeaveBackup", userLeaveBackupSchema, "userleavebackups");
+const CommunicationTimeoutRoleSnapshot =
+  models.CommunicationTimeoutRoleSnapshot ||
+  model(
+    "CommunicationTimeoutRoleSnapshot",
+    communicationTimeoutRoleSnapshotSchema,
+    "comtimeoutrolesnapshots",
+  );
+const CustomPerksDiscordCleanupQueue =
+  models.CustomPerksDiscordCleanupQueue ||
+  model("CustomPerksDiscordCleanupQueue", customPerksDiscordCleanupQueueSchema, "customperksdiscordcleanupqueues");
 const SiteDocument = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");
 const ModCase = USE_LEGACY_MOD_CASE_MODEL ? (models.mod_case || model("mod_case", modCaseSchema, MOD_CASE_COLLECTION)) : null;
 
@@ -1180,6 +1217,8 @@ module.exports = {
   BannerPrivacy,
   QuotePrivacy,
   UserLeaveBackup,
+  CommunicationTimeoutRoleSnapshot,
+  CustomPerksDiscordCleanupQueue,
   SiteDocument,
   SITE_DOCUMENT_TYPE,
 };

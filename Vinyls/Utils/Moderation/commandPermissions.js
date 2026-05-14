@@ -112,6 +112,7 @@ function isBackupInteraction(customId) {
 function isTicketInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
   const id = String(customId).trim();
+  if (id.startsWith("pm_shop_ack:")) return true;
   if (TICKET_INTERACTION_IDS.has(id)) return true;
   if (id.startsWith("modal_close_ticket"))
     return true;
@@ -127,7 +128,7 @@ function isTicketInteraction(customId) {
 
 function isProfilePanelInteraction(customId) {
   if (!customId || typeof customId !== "string") return false;
-  return String(customId).trim().startsWith("profile_panel:");
+  return String(customId).trim().startsWith("profile_panel:") || String(customId).trim().startsWith("staff_profile_panel:") || String(customId).trim().startsWith("staff_pm_shop:") || String(customId).trim().startsWith("staff_val_neg_trade:");
 }
 
 function isCustomRoleSystemInteraction(customId) {

@@ -11,6 +11,7 @@ const { getStaffRoleEmojiByRoleId } = require("../Utils/Community/staffRoleEmoji
 const { queueIdsCatalogSync } = require("../Utils/Config/idsAutoSync");
 const { runCleanupAfterMemberLeave } = require("../Services/Community/cleanupUsersNotInServerService");
 const { backupUserOnLeave } = require("../Services/Community/userLeaveBackupService");
+const { enqueueCustomPerksDiscordCleanupAfterLeave } = require("../Services/Community/customPerksDiscordCleanupQueueService");
 const sponsorVerifiedRequiresMain = require("../Services/Community/sponsorVerifiedRequiresMainService");
 const { buildAuditExtraLines } = require("../Utils/Logging/channelRolesLogUtils");
 const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../Services/Moderation/antiNukeService");
@@ -437,6 +438,9 @@ module.exports = {
       await handlePartnershipOnLeave(member, client);
       const activeClient = client || member.client;
       await backupUserOnLeave(guild.id, member.id, member);
+      if (!member.user.bot && String(guild.id) === String(MAIN_GUILD_ID)) {
+        await enqueueCustomPerksDiscordCleanupAfterLeave(guild.id, member.id).catch(() => {});
+      }
       await cleanupUserData(guild.id, member.id);
       void runCleanupAfterMemberLeave(activeClient, guild).catch((err) => {
         global.logger?.warn?.("[guildMemberRemove] cleanup not-in-server:", err?.message || err);

@@ -1616,9 +1616,37 @@ function isAutomodMediaEmbedUrl(url) {
   return false;
 }
 
+/**
+ * La regex di extractUrls interpreta "1.30", "2.30min", "8=1.30min" come host finti.
+ * Per la sola regola 2.4 (attachment_link) non devono contare come link.
+ */
+function isAutomodNumericDecimalFalsePositiveUrl(url) {
+  if (!url) return false;
+  const host = String(url.hostname || "").toLowerCase().trim();
+  if (!host) return false;
+  const path = String(url.pathname || "");
+  const search = String(url.search || "");
+  if (path !== "/" && path !== "") return false;
+  if (search) return false;
+  const labels = host.split(".").filter(Boolean);
+  if (!labels.length) return false;
+  if (labels.every((lab) => /^\d+$/.test(lab))) return true;
+  if (labels.length === 2 && /^\d+$/.test(labels[0])) {
+    const tail = labels[1];
+    if (
+      /^\d+(min|mins|minuti|sec|secs|secondi|ore|h|ms|rpm|kg|serie|rep|reps)s?$/i.test(tail)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function filterUrlsForAttachmentLinkRule(urls) {
   if (!Array.isArray(urls) || !urls.length) return [];
-  return urls.filter((u) => !isAutomodMediaEmbedUrl(u));
+  return urls.filter(
+    (u) => !isAutomodMediaEmbedUrl(u) && !isAutomodNumericDecimalFalsePositiveUrl(u),
+  );
 }
 
 function toAbsoluteUrl(location, base) {

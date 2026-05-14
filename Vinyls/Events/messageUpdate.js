@@ -62,9 +62,9 @@ function buildEditLogText(previous, updated, beforeNames, afterNames) {
   return [
     "------ LOG MODIFICA MESSAGGIO ------",
     `<:VC_Server:1494287244156049448> Server: ${updated?.guild?.name || "sconosciuto"} (${updated?.guild?.id || "-"})`,
-    `<:VC_Channel:1494287251091494963> Canale: ${updated?.channel?.name || "sconosciuto"} (${updated?.channelId || "-"})`,
+    `<a:VC_Channel:1482534583944871996> Canale: ${updated?.channel?.name || "sconosciuto"} (${updated?.channelId || "-"})`,
     `<:VC_id:1478517313618575419> ID Messaggio: ${updated?.id || "-"}`,
-    `<:VC_User:1494287244156049448> Autore: ${updated?.author?.tag || "sconosciuto"} (${updated?.author?.id || "-"})`,
+    `<:VC_User:1482527453586002103> Autore: ${updated?.author?.tag || "sconosciuto"} (${updated?.author?.id || "-"})`,
     `<:VC_Clock:1473359204189474886> Data Modifica: <t:${nowTs}:F>`,
     "",
     "<:VC_Modifica:1478859646587633717> **Contenuto precedente:**",
