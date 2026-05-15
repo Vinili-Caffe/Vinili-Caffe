@@ -1622,9 +1622,10 @@ async function main() {
     ...new Set([...hogwartsBgmYtVideoIdsDirect, ...hogwartsBgmYtVideoIdsFromUrls]),
   ];
   let hogwartsBgmYoutubePublic = null;
-  const hogwartsBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
-    String(hogwartsYtRaw.playlistId || hogwartsYtRaw.playlistUrl || "").trim(),
-  );
+  const hogwartsPlaylistUrlRaw = Array.isArray(hogwartsYtRaw.playlistUrl)
+    ? String(hogwartsYtRaw.playlistUrl[0] || "").trim()
+    : String(hogwartsYtRaw.playlistId || hogwartsYtRaw.playlistUrl || "").trim();
+  const hogwartsBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(hogwartsPlaylistUrlRaw);
   if (hogwartsBgmYtPlaylistId) {
     hogwartsBgmYoutubePublic = { playlistId: hogwartsBgmYtPlaylistId, videoIds: [] };
   } else if (hogwartsBgmYtVideoIds.length) {

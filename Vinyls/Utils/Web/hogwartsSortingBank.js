@@ -3,7 +3,7 @@ const HOUSES = Object.freeze(["gryffindor", "ravenclaw", "hufflepuff", "slytheri
 const HOUSE_META = Object.freeze({
   gryffindor: {
     id: "gryffindor",
-    label: "Gryffindor",
+    label: "Grifondoro",
     motto: "Coraggio, audacia e cuore.",
     primary: "#740001",
     accent: "#D3A625",
@@ -11,7 +11,7 @@ const HOUSE_META = Object.freeze({
   },
   ravenclaw: {
     id: "ravenclaw",
-    label: "Ravenclaw",
+    label: "Corvonero",
     motto: "Saggezza, creatività e mente lucida.",
     primary: "#0E1A40",
     accent: "#946B2D",
@@ -19,7 +19,7 @@ const HOUSE_META = Object.freeze({
   },
   hufflepuff: {
     id: "hufflepuff",
-    label: "Hufflepuff",
+    label: "Tassorosso",
     motto: "Lealtà, pazienza e fatica onesta.",
     primary: "#ECB939",
     accent: "#372E29",
@@ -27,7 +27,7 @@ const HOUSE_META = Object.freeze({
   },
   slytherin: {
     id: "slytherin",
-    label: "Slytherin",
+    label: "Serpeverde",
     motto: "Ambizione, astuzia e determinazione.",
     primary: "#1A472A",
     accent: "#AAAAAA",

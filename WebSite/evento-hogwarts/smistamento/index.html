@@ -29,15 +29,15 @@
         <p class="vc-hw-loading__text">Verifica accesso…</p>
       </div>
     </div>
-    <div id="vc-hw-cinema" class="vc-hw-cinema vc-hw-cinema--boot" aria-hidden="false">
+    <div id="vc-hw-cinema" class="vc-hw-cinema" hidden>
       <div class="vc-hw-cinema__vignette" aria-hidden="true"></div>
-      <video id="vc-hw-cinema-video" class="vc-hw-cinema__video" playsinline preload="auto" muted></video>
+      <video id="vc-hw-cinema-video" class="vc-hw-cinema__video" playsinline preload="auto"></video>
       <p id="vc-hw-cinema-err" class="vc-hw-cinema__err" hidden></p>
-      <button type="button" id="vc-hw-cinema-play" class="vc-hw-cinema__play">
-        <span class="vc-hw-cinema__play-ring" aria-hidden="true"><i class="fa fa-play"></i></span>
-        <span class="vc-hw-cinema__play-label">Entra a Hogwarts</span>
+      <button type="button" id="vc-hw-cinema-start" class="vc-hw-cinema-start" aria-label="Inizia il video intro" onclick="if(window.__vcHogwartsCinemaStart)window.__vcHogwartsCinemaStart(event)">
+        <span class="vc-hw-cinema-start__ring" aria-hidden="true"><i class="fa fa-play"></i></span>
+        <span class="vc-hw-cinema-start__title">Smistamento Hogwarts</span>
+        <span class="vc-hw-cinema-start__hint">Tocca per iniziare</span>
       </button>
-      <button type="button" id="vc-hw-cinema-skip" class="vc-hw-cinema__skip">Salta intro</button>
       <div class="vc-hw-cinema__magic" aria-hidden="true">
         <div class="vc-hw-cinema__flash"></div>
         <div class="vc-hw-cinema__sparkles"></div>
@@ -45,7 +45,6 @@
         <p class="vc-hw-cinema__sigil" aria-hidden="true">✦</p>
       </div>
     </div>
-    <script src="../../js/hogwarts-intro-cinema.js"></script>
     <div id="vc-hogwarts-app" style="display: none">
     <div class="vc-hw-stars" aria-hidden="true"></div>
     <div class="vc-blob vc-blob-a" aria-hidden="true"></div>
@@ -140,10 +139,11 @@
       };
       window.__VC_HOGWARTS_BGM = {{HOGWARTS_BGM_JSON}};
     </script>
-    <script src="../../js/hogwarts-bgm-youtube.js" defer></script>
+    <script src="../../js/hogwarts-intro-cinema.js"></script>
+    <script src="../../js/hogwarts-bgm-youtube.js"></script>
+    <script src="../../js/hogwarts-sorting-page.js"></script>
     <script src="../../js/hogwarts-access-gate.js" defer></script>
     <script src="../../js/discord-auth.js" defer></script>
     <script src="../../js/vc-landing.js" defer></script>
-    <script src="../../js/hogwarts-sorting-page.js" defer></script>
   </body>
 </html>

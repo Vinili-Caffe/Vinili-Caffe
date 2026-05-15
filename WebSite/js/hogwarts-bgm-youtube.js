@@ -1,10 +1,15 @@
 (function () {
   var hintEl = null;
   var detachFirst = null;
+  var listenersArmed = false;
   var started = false;
+  var pendingGesture = false;
+  var holdMutedUntilIntroEnd = false;
+  var playAudibleAfterIntro = false;
   var baseVol = 0.2;
   var player = null;
   var playerReady = false;
+  var playerBooting = false;
 
   function youtubePublicCfg() {
     try {
@@ -13,7 +18,8 @@
       if (!y || typeof y !== "object") return null;
       var playlistId = String(y.playlistId || "").trim();
       if (!playlistId && y.playlistUrl) {
-        var pu = String(y.playlistUrl || "").trim();
+        var rawPl = y.playlistUrl;
+        var pu = Array.isArray(rawPl) ? String(rawPl[0] || "").trim() : String(rawPl || "").trim();
         var plist = pu.match(/[?&]list=([^&#]+)/);
         if (plist) {
           try {
@@ -37,7 +43,8 @@
           var m =
             s.match(/[?&]v=([a-zA-Z0-9_-]{11})(?:[&]|$|#)/) ||
             s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})(?:[?]|$|\/|#)/) ||
-            s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/);
+            s.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/) ||
+            s.match(/youtube-nocookie\.com\/embed\/([a-zA-Z0-9_-]{11})(?:[?]|$|#)/);
           if (m && m[1]) clean.push(m[1]);
         }
       }
@@ -67,19 +74,33 @@
   }
 
   function ensureHint(msg) {
+    if (!bgmAllowedNow()) return;
+    var text =
+      msg ||
+      "Tocca qui per la musica di sottofondo (richiesto dal browser).";
     if (hintEl) {
-      hintEl.textContent = msg || hintEl.textContent;
+      var spanUpd = hintEl.querySelector(".vc-hw-bgm-hint-text");
+      if (spanUpd) spanUpd.textContent = text;
       return;
     }
-    hintEl = document.createElement("div");
+    hintEl = document.createElement("button");
+    hintEl.type = "button";
     hintEl.className = "vc-hw-bgm-hint";
-    hintEl.setAttribute("role", "status");
+    hintEl.setAttribute("aria-label", "Avvia musica di sottofondo");
     hintEl.innerHTML =
       '<span class="vc-hw-bgm-hint-ico" aria-hidden="true"><i class="fa fa-volume-up"></i></span>' +
       '<span class="vc-hw-bgm-hint-text">' +
-      (msg ||
-        "Musica di sottofondo: tocca la pagina o premi un tasto per avviare la riproduzione.") +
+      text +
       "</span>";
+    hintEl.addEventListener("click", function (ev) {
+      if (ev) {
+        try {
+          ev.preventDefault();
+          ev.stopPropagation();
+        } catch (e0) {}
+      }
+      startFromUserGesture();
+    });
     document.body.appendChild(hintEl);
   }
 
@@ -169,7 +190,7 @@
     var pub = youtubePublicCfg();
     if (!pub) return;
     ensureHost();
-    var bootVid = pub.videoIds.length ? pub.videoIds[0] : "wtHra9tFISY";
+    var bootVid = pub.videoIds.length ? pub.videoIds[0] : "jfKfPfyJRdk";
     var playerVars = {
       playsinline: 1,
       controls: 0,
@@ -179,6 +200,10 @@
       disablekb: 1,
       enablejsapi: 1,
     };
+    if (pub.playlistId) {
+      playerVars.listType = "playlist";
+      playerVars.list = pub.playlistId;
+    }
     try {
       var originStr = String(window.location.origin || "").trim();
       if (originStr) playerVars.origin = originStr;
@@ -200,16 +225,61 @@
             return;
           }
           playerReady = true;
+          playerBooting = false;
           try {
             player.setVolume(Math.round(baseVol * 100));
           } catch (e6) {}
+          if (playAudibleAfterIntro) {
+            startAudibleAfterIntro();
+          } else if (holdMutedUntilIntroEnd && pendingGesture) {
+            tryPlayMuted();
+          } else if (pendingGesture) {
+            tryPlayFromGesture();
+          }
         },
         onError: function (ev) {
-          var code = ev && ev.data != null ? String(ev.data) : "?";
-          ensureHint("YouTube non disponibile (codice " + code + "). Il video potrebbe non permettere l'embed.");
+          if (!bgmAllowedNow()) return;
+          var code = ev && ev.data != null ? Number(ev.data) : 0;
+          var embedBlocked = code === 101 || code === 150;
+          if (embedBlocked && pub.playlistId && player && typeof player.nextVideo === "function") {
+            try {
+              player.nextVideo();
+              return;
+            } catch (eNext) {}
+          }
+          if (embedBlocked && pub.videoIds.length > 1) {
+            try {
+              var cur = player && player.getVideoData ? player.getVideoData() : null;
+              var curId = cur && cur.video_id ? String(cur.video_id) : "";
+              var idx = pub.videoIds.indexOf(curId);
+              var nextIdx = idx >= 0 ? idx + 1 : 1;
+              if (nextIdx < pub.videoIds.length) {
+                player.loadVideoById(pub.videoIds[nextIdx]);
+                return;
+              }
+            } catch (eVid) {}
+          }
+          playerBooting = false;
+          pendingGesture = false;
+          holdMutedUntilIntroEnd = false;
+          playAudibleAfterIntro = false;
+          ensureHint(
+            "Musica non disponibile (codice " +
+              String(code) +
+              "). Cambia playlist in site.config: servono brani con embed consentito.",
+          );
         },
         onStateChange: function (ev) {
           try {
+            if (ev && ev.data === window.YT.PlayerState.PLAYING) {
+              if (holdMutedUntilIntroEnd) {
+                try {
+                  player.mute();
+                } catch (eMu) {}
+                return;
+              }
+              markBgmStarted();
+            }
             if (ev && ev.data === window.YT.PlayerState.ENDED && pub.videoIds.length === 1) {
               player.seekTo(0, true);
               player.playVideo();
@@ -219,45 +289,115 @@
       },
     };
     opts.videoId = bootVid;
+    playerBooting = true;
     player = new window.YT.Player("vc-hw-yt-player", opts);
   }
 
-  var startRetryTimer = null;
-
-  function startFromUserGesture() {
-    if (started || !youtubePublicCfg()) return;
-    if (!playerReady || !player) {
-      ensureHint("Caricamento musica… tocca di nuovo tra un attimo.");
-      try {
-        if (startRetryTimer) clearTimeout(startRetryTimer);
-      } catch (eRt) {}
-      startRetryTimer = setTimeout(function () {
-        startRetryTimer = null;
-        if (!started) startFromUserGesture();
-      }, 700);
-      return;
-    }
-    try {
-      if (startRetryTimer) clearTimeout(startRetryTimer);
-    } catch (eRt2) {}
-    startRetryTimer = null;
+  function markBgmStarted() {
+    if (started) return;
     started = true;
+    pendingGesture = false;
+    playAudibleAfterIntro = false;
     hideHint();
     if (typeof detachFirst === "function") {
       detachFirst();
       detachFirst = null;
     }
+  }
+
+  function tryPlayMuted() {
+    if (!pendingGesture || !playerReady || !player) return;
     try {
+      player.mute();
       player.playVideo();
-    } catch (e8) {}
+    } catch (eMu2) {}
+  }
+
+  function tryPlayFromGesture() {
+    if (started || !pendingGesture || !playerReady || !player) return;
+    try {
+      player.unMute();
+      player.setVolume(Math.round(baseVol * 100));
+      player.playVideo();
+    } catch (e8) {
+      ensureHint("Tocca di nuovo per avviare la musica.");
+    }
+  }
+
+  function bgmAllowedNow() {
+    try {
+      return window.__vcHogwartsBgmAllowed === true;
+    } catch (eA) {}
+    return false;
+  }
+
+  function introStillPlaying() {
+    try {
+      if (window.__vcHogwartsIntroCompleted === true) return false;
+    } catch (eI) {}
+    try {
+      if (typeof window.__vcHogwartsIntroIsRunning === "function" && window.__vcHogwartsIntroIsRunning()) {
+        return true;
+      }
+    } catch (eR) {}
+    var cinema = document.getElementById("vc-hw-cinema");
+    if (cinema && !cinema.hidden) return true;
+    return false;
+  }
+
+  function startAudibleAfterIntro() {
+    if (!youtubePublicCfg()) return;
+    if (started || introStillPlaying()) return;
+    try {
+      window.__vcHogwartsBgmAllowed = true;
+    } catch (eAl) {}
+    holdMutedUntilIntroEnd = false;
+    playAudibleAfterIntro = true;
+    pendingGesture = true;
+    hideHint();
+    ensurePlayerBoot();
+    if (!playerReady || !player) return;
+    tryPlayFromGesture();
+  }
+
+  function startFromUserGesture() {
+    if (!bgmAllowedNow() || introStillPlaying()) return;
+    if (started || !youtubePublicCfg()) return;
+    pendingGesture = true;
+    ensurePlayerBoot();
+    if (!playerReady || !player) {
+      ensureHint("Caricamento musica… tocca di nuovo se non parte.");
+      return;
+    }
+    tryPlayFromGesture();
+  }
+
+  function ensurePlayerBoot() {
+    if (!bgmAllowedNow() || !youtubePublicCfg() || player || playerBooting) return;
+    readVolumeFromCfg();
+    loadYoutubeIframeApi()
+      .then(function () {
+        if (!youtubePublicCfg() || player) return;
+        createPlayerAndCue();
+      })
+      .catch(function () {
+        ensureHint("Impossibile caricare il player YouTube.");
+      });
   }
 
   function armFirstPointer() {
+    if (listenersArmed) return;
+    listenersArmed = true;
     detachFirst = function () {
+      listenersArmed = false;
       document.removeEventListener("pointerdown", onPointer, true);
       document.removeEventListener("keydown", onKey, true);
     };
-    function onPointer() {
+    function onPointer(ev) {
+      if (ev && ev.target) {
+        var cinema = document.getElementById("vc-hw-cinema");
+        if (cinema && cinema.contains(ev.target)) return;
+      }
       startFromUserGesture();
     }
     function onKey(ev) {
@@ -272,33 +412,17 @@
   window.__vcHogwartsYoutubeSetupIfConfigured = function () {
     if (!youtubePublicCfg()) return false;
     readVolumeFromCfg();
-    ensureHint();
-    armFirstPointer();
-    loadYoutubeIframeApi()
-      .then(function () {
-        if (!youtubePublicCfg()) return;
-        if (player) return;
-        createPlayerAndCue();
-      })
-      .catch(function () {
-        ensureHint("Impossibile caricare il player YouTube.");
-      });
+    ensurePlayerBoot();
+    if (bgmAllowedNow()) startAudibleAfterIntro();
     return true;
   };
 
-  function autoBootBgm() {
-    try {
-      if (typeof window.__vcHogwartsYoutubeSetupIfConfigured === "function") {
-        window.__vcHogwartsYoutubeSetupIfConfigured();
-      }
-    } catch (eBoot) {}
-  }
+  window.__vcHogwartsYoutubeStartFromGesture = startFromUserGesture;
+  window.__vcHogwartsYoutubeStartAfterIntro = startAudibleAfterIntro;
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", autoBootBgm);
-  } else {
-    autoBootBgm();
-  }
+  try {
+    window.__vcHogwartsBgmAllowed = false;
+  } catch (eBoot0) {}
 
   window.__vcHogwartsYoutubeStop = function () {
     hideHint();
@@ -314,7 +438,12 @@
     } catch (e11) {}
     player = null;
     playerReady = false;
+    playerBooting = false;
     started = false;
+    pendingGesture = false;
+    holdMutedUntilIntroEnd = false;
+    playAudibleAfterIntro = false;
+    listenersArmed = false;
     try {
       var h = document.getElementById("vc-hw-yt-host");
       if (h && h.parentNode) h.parentNode.removeChild(h);

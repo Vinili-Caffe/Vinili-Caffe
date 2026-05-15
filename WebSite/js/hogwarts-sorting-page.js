@@ -234,11 +234,23 @@
       method: "GET",
       headers: { Authorization: "Bearer " + token },
     });
-    state.eligibility = out.data;
+    state.eligibility = out.data || {};
+    if (out.res.status === 401) {
+      state.eligibility = { ok: false, needsLogin: true };
+      return;
+    }
+    if (out.res.status === 403 && out.data && out.data.error === "preview_forbidden") {
+      state.eligibility = {
+        ok: false,
+        previewForbidden: true,
+        canSort: false,
+        message: out.data.message || "In anteprima lo smistamento è riservato all'High Staff del server.",
+      };
+      return;
+    }
     if (!out.res.ok && out.data.error !== "missing_token" && out.data.error !== "invalid_token") {
       return;
     }
-    if (out.res.status === 401) state.eligibility = { ok: false, needsLogin: true };
   }
 
   function syncUiFromState() {
@@ -272,12 +284,48 @@
       return;
     }
 
+    if (elig && elig.previewForbidden) {
+      showGate(elig.message || "In anteprima lo smistamento è riservato all'High Staff del server.");
+      return;
+    }
+
     if (elig && elig.canSort === false && !elig.alreadySorted) {
       showGate(elig.message || "Smistamento non disponibile.");
       return;
     }
 
+    if (introJustFinished() && canShowQuizNow(ev, elig, token)) {
+      startQuiz();
+      scrollToQuizPanel();
+      return;
+    }
+
     revealIntroSection();
+  }
+
+  function introJustFinished() {
+    try {
+      return window.__vcHogwartsIntroCompleted === true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function canShowQuizNow(ev, elig, token) {
+    if (!token || (elig && elig.needsLogin)) return false;
+    if (elig && elig.previewForbidden) return false;
+    if (elig && elig.alreadySorted && elig.houseMeta) return false;
+    if (ev && ev.open === false && !(ev.previewMode && token)) return false;
+    if (elig && elig.canSort === false && !elig.alreadySorted) return false;
+    if (!state.questions.length) return false;
+    return true;
+  }
+
+  function scrollToQuizPanel() {
+    try {
+      var el = byId("vc-hw-quiz");
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (eSc) {}
   }
 
   function revealIntroSection() {
@@ -479,6 +527,52 @@
   }
 
   window.__vcHogwartsInit = init;
+
+  window.__vcHogwartsStartQuizAfterIntro = function (retried) {
+    var ev = state.bootstrap && state.bootstrap.event;
+    var elig = state.eligibility;
+    var token = getToken();
+    if (!state.bootstrap || !state.questions.length) {
+      if (retried) {
+        showGate("Non riesco a caricare il quiz. Ricarica la pagina.");
+        return;
+      }
+      init()
+        .then(function () {
+          window.__vcHogwartsStartQuizAfterIntro(true);
+        })
+        .catch(function () {
+          showGate("Non riesco a caricare il quiz. Ricarica la pagina.");
+        });
+      return;
+    }
+    if (!token || (elig && elig.needsLogin)) {
+      if (ev && ev.previewMode) {
+        showGate("Anteprima staff: accedi con Discord (account High Staff) per avviare il quiz.");
+      } else {
+        showGate("Accedi con Discord per fare lo smistamento.");
+      }
+      return;
+    }
+    if (elig && elig.previewForbidden) {
+      showGate(elig.message || "In anteprima lo smistamento è riservato all'High Staff del server.");
+      return;
+    }
+    if (elig && elig.alreadySorted && elig.houseMeta) {
+      showResult(elig.houseMeta, elig.message || "", false);
+      return;
+    }
+    if (ev && ev.open === false && !ev.previewMode) {
+      showGate(elig && elig.message ? elig.message : "Smistamento non ancora disponibile.");
+      return;
+    }
+    if (elig && elig.canSort === false && !elig.alreadySorted) {
+      showGate(elig.message || "Smistamento non disponibile.");
+      return;
+    }
+    startQuiz();
+    scrollToQuizPanel();
+  };
 
   function setupBgm() {
     try {

@@ -1,64 +1,20 @@
 (function () {
-  function isLocalOrigin() {
-    try {
-      var h = String(window.location.hostname || "").toLowerCase();
-      return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
-    } catch (e) {
-      return false;
+  function whenQuizReady(cb, attempt) {
+    var n = typeof attempt === "number" ? attempt : 0;
+    if (
+      typeof window.__vcHogwartsInit === "function" &&
+      typeof window.__vcHogwartsStartQuizAfterIntro === "function"
+    ) {
+      cb();
+      return;
     }
-  }
-
-  function hogwartsCfg() {
-    return (typeof window !== "undefined" && window.__VC_HOGWARTS) || {};
-  }
-
-  function apiBase() {
-    var c = hogwartsCfg();
-    var local = String(c.apiUrlLocal || "").trim();
-    var direct = String(c.apiUrl || "").trim();
-    if (isLocalOrigin() && local) return local.replace(/\/+$/, "");
-    if (direct) return direct.replace(/\/+$/, "");
-    return "/webhooks/site-hogwarts-sorting";
-  }
-
-  function accessApiUrl() {
-    return apiBase() + "/access";
-  }
-
-  function bootstrapApiUrl() {
-    return apiBase() + "/bootstrap";
-  }
-
-  function getToken() {
-    try {
-      var t = localStorage.getItem("vc_discord_access_token");
-      var exp = Number(localStorage.getItem("vc_discord_expires_at") || "0");
-      if (!t || !exp || Date.now() >= exp) return "";
-      return t;
-    } catch (e) {
-      return "";
+    if (n >= 240) {
+      cb();
+      return;
     }
-  }
-
-  function redirectHome() {
-    hideLoading();
-    try {
-      if (typeof window.__vcHogwartsIntroForceClose === "function") {
-        window.__vcHogwartsIntroForceClose();
-      }
-    } catch (e0) {}
-    var raw = "";
-    try {
-      raw = String((window.__VC_SITE_HOME_URL || hogwartsCfg().homeUrl || "").trim());
-    } catch (e1) {}
-    try {
-      var u = raw ? new URL(raw) : new URL("/", window.location.origin);
-      window.location.replace(u.href);
-    } catch (e2) {
-      try {
-        window.location.replace("/");
-      } catch (e3) {}
-    }
+    setTimeout(function () {
+      whenQuizReady(cb, n + 1);
+    }, 25);
   }
 
   function hideLoading() {
@@ -83,110 +39,82 @@
     try {
       document.body.classList.add("vc-hw-app-revealed");
       document.body.classList.add("vc-hw-intro-finished");
+      window.__vcHogwartsIntroCompleted = true;
+      window.__vcHogwartsBgmAllowed = true;
     } catch (eR) {}
     hideLoading();
+    var cinema = document.getElementById("vc-hw-cinema");
+    if (cinema) {
+      cinema.hidden = true;
+      cinema.setAttribute("hidden", "");
+    }
+    try {
+      document.body.classList.remove("vc-hw-cinema-active");
+      document.documentElement.classList.remove("vc-hw-cinema-active");
+    } catch (eC) {}
     var app = document.getElementById("vc-hogwarts-app");
-    if (app) app.style.display = "";
+    if (app) {
+      try {
+        app.removeAttribute("style");
+      } catch (eSt) {}
+    }
     try {
-      if (typeof window.__vcHogwartsInit === "function") window.__vcHogwartsInit();
-    } catch (eInit) {}
-    try {
-      if (typeof window.__vcHogwartsYoutubeSetupIfConfigured === "function") {
-        window.__vcHogwartsYoutubeSetupIfConfigured();
+      if (typeof window.__vcHogwartsYoutubeStartAfterIntro === "function") {
+        window.__vcHogwartsYoutubeStartAfterIntro();
       }
     } catch (eBgm) {}
-  }
-
-  function playIntroThen(next) {
-    hideLoading();
-    if (typeof window.__vcHogwartsIntroOpen === "function") {
-      window.__vcHogwartsIntroOpen(next);
-      return;
-    }
-    if (typeof next === "function") next();
-  }
-
-  function fetchWithTimeout(url, options, timeoutMs) {
-    var ms = Math.max(5000, Math.min(16000, Number(timeoutMs) || 12000));
-    var base = {
-      method: (options && options.method) || "GET",
-      headers: (options && options.headers) || {},
-      mode: "cors",
-      credentials: "omit",
-    };
-    if (typeof AbortController === "undefined") {
-      return fetch(url, base);
-    }
-    var ctrl = new AbortController();
-    var id = setTimeout(function () {
+    whenQuizReady(function () {
+      var initPromise = null;
       try {
-        ctrl.abort();
-      } catch (eAbort) {}
-    }, ms);
-    return fetch(url, Object.assign({}, base, { signal: ctrl.signal })).finally(function () {
-      clearTimeout(id);
-    });
-  }
-
-  async function loadBootstrapPreview() {
-    var res = await fetchWithTimeout(bootstrapApiUrl());
-    var data = await res.json().catch(function () {
-      return {};
-    });
-    if (!res.ok || !data.ok) return { previewMode: false, ok: false };
-    var ev = data.event && typeof data.event === "object" ? data.event : {};
-    return { previewMode: Boolean(ev.previewMode), ok: true };
-  }
-
-  async function checkPreviewAccess() {
-    var token = getToken();
-    if (!token) return false;
-    try {
-      var res = await fetchWithTimeout(accessApiUrl(), {
-        headers: { Authorization: "Bearer " + token },
-      });
-      var data = await res.json().catch(function () {
-        return {};
-      });
-      return Boolean(res.ok && data && data.ok);
-    } catch (err) {
-      return false;
-    }
-  }
-
-  async function afterIntro() {
-    var preview = false;
-    try {
-      var boot = await loadBootstrapPreview();
-      if (!boot.ok) {
-        revealApp();
-        return;
+        if (typeof window.__vcHogwartsInit === "function") initPromise = window.__vcHogwartsInit();
+      } catch (eInit) {}
+      function goQuiz() {
+        try {
+          if (typeof window.__vcHogwartsStartQuizAfterIntro === "function") {
+            window.__vcHogwartsStartQuizAfterIntro();
+          }
+        } catch (eQ) {}
+        try {
+          var quiz = document.getElementById("vc-hw-quiz");
+          if (quiz && !quiz.hidden && quiz.scrollIntoView) {
+            quiz.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          var gate = document.getElementById("vc-hw-gate");
+          if (gate && !gate.hidden && gate.scrollIntoView) {
+            gate.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          var intro = document.getElementById("vc-hw-intro");
+          if (intro && !intro.hidden && intro.scrollIntoView) {
+            intro.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          var main = document.querySelector("#vc-hogwarts-app main");
+          if (main && main.scrollIntoView) main.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (eSc) {}
       }
-      preview = Boolean(boot.previewMode);
-    } catch (eBoot) {
-      revealApp();
-      return;
-    }
-
-    if (!preview) {
-      revealApp();
-      return;
-    }
-
-    if (await checkPreviewAccess()) {
-      revealApp();
-      return;
-    }
-
-    redirectHome();
+      if (initPromise && typeof initPromise.then === "function") {
+        initPromise.then(goQuiz).catch(goQuiz);
+      } else {
+        goQuiz();
+      }
+    });
   }
 
   function run() {
     try {
       document.body.classList.remove("vc-hw-app-revealed");
       document.body.classList.remove("vc-hw-intro-finished");
+      window.__vcHogwartsIntroCompleted = false;
+      window.__vcHogwartsBgmAllowed = false;
     } catch (eR1) {}
-    playIntroThen(afterIntro);
+    hideLoading();
+    if (typeof window.__vcHogwartsIntroOpen === "function") {
+      window.__vcHogwartsIntroOpen(revealApp);
+      return;
+    }
+    revealApp();
   }
 
   if (document.readyState === "loading") {
