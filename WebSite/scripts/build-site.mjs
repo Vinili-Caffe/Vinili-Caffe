@@ -1551,6 +1551,29 @@ async function main() {
     seratafilmAccessApiLocalRaw && /^https?:\/\//i.test(seratafilmAccessApiLocalRaw)
       ? seratafilmAccessApiLocalRaw
       : "";
+  const hogwartsSortingApiFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL ?? "").trim();
+  const hogwartsSortingApiRaw =
+    hogwartsSortingApiFromEnv || String(cfg.hogwartsSortingApiUrl ?? "").trim();
+  const hogwartsSortingApiResolved =
+    hogwartsSortingApiRaw && /^https?:\/\//i.test(hogwartsSortingApiRaw)
+      ? hogwartsSortingApiRaw
+      : hogwartsSortingApiRaw && siteBaseNoSlash
+        ? `${siteBaseNoSlash.replace(/\/+$/, "")}${hogwartsSortingApiRaw.startsWith("/") ? "" : "/"}${hogwartsSortingApiRaw}`
+        : siteBaseNoSlash
+          ? `${siteBaseNoSlash}/webhooks/site-hogwarts-sorting`
+          : "/webhooks/site-hogwarts-sorting";
+  const hogwartsSortingApiLocalFromEnv = String(process.env.VC_HOGWARTS_SORTING_API_URL_LOCAL ?? "").trim();
+  const hogwartsSortingApiLocalRaw =
+    hogwartsSortingApiLocalFromEnv || String(cfg.hogwartsSortingApiUrlLocal ?? "").trim();
+  const hogwartsSortingApiLocalResolved =
+    hogwartsSortingApiLocalRaw && /^https?:\/\//i.test(hogwartsSortingApiLocalRaw)
+      ? hogwartsSortingApiLocalRaw
+      : "";
+  const hogwartsSortingPageUrl = siteBaseNoSlash
+    ? `${siteBaseNoSlash}/evento-hogwarts/smistamento`
+    : "/evento-hogwarts/smistamento";
+  const hogwartsCrestsPath = "../../images/evento-hogwarts/crests/";
+  const hogwartsIntroVideo = "/images/evento-hogwarts/inizio.mp4";
   const seratafilmBgmRaw = cfg.seratafilmBgm && typeof cfg.seratafilmBgm === "object" ? cfg.seratafilmBgm : {};
   const seratafilmBgmTrackUrls = Array.isArray(seratafilmBgmRaw.trackUrls)
     ? seratafilmBgmRaw.trackUrls
@@ -1582,6 +1605,37 @@ async function main() {
       return "";
     }
   }
+  const hogwartsBgmRaw = cfg.hogwartsBgm && typeof cfg.hogwartsBgm === "object" ? cfg.hogwartsBgm : {};
+  const hogwartsYtRaw =
+    hogwartsBgmRaw.youtube && typeof hogwartsBgmRaw.youtube === "object" ? hogwartsBgmRaw.youtube : {};
+  const hogwartsBgmYtVideoIdsFromUrls = Array.isArray(hogwartsYtRaw.videoUrls)
+    ? [
+        ...new Set(
+          hogwartsYtRaw.videoUrls.map((u) => seratafilmParseYoutubeVideoId(u)).filter(Boolean),
+        ),
+      ]
+    : [];
+  const hogwartsBgmYtVideoIdsDirect = Array.isArray(hogwartsYtRaw.videoIds)
+    ? [...new Set(hogwartsYtRaw.videoIds.map((x) => seratafilmParseYoutubeVideoId(x)).filter(Boolean))]
+    : [];
+  const hogwartsBgmYtVideoIds = [
+    ...new Set([...hogwartsBgmYtVideoIdsDirect, ...hogwartsBgmYtVideoIdsFromUrls]),
+  ];
+  let hogwartsBgmYoutubePublic = null;
+  const hogwartsBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
+    String(hogwartsYtRaw.playlistId || hogwartsYtRaw.playlistUrl || "").trim(),
+  );
+  if (hogwartsBgmYtPlaylistId) {
+    hogwartsBgmYoutubePublic = { playlistId: hogwartsBgmYtPlaylistId, videoIds: [] };
+  } else if (hogwartsBgmYtVideoIds.length) {
+    hogwartsBgmYoutubePublic = { playlistId: "", videoIds: hogwartsBgmYtVideoIds };
+  }
+  const hogwartsBgmPayload = {
+    baseVolume: Math.min(1, Math.max(0.02, Number(hogwartsBgmRaw.baseVolume) || 0.2)),
+  };
+  if (hogwartsBgmYoutubePublic) hogwartsBgmPayload.youtube = hogwartsBgmYoutubePublic;
+  const hogwartsBgmUri = encodeURIComponent(JSON.stringify(hogwartsBgmPayload)).replace(/'/g, "%27");
+  const hogwartsBgmJson = JSON.stringify(hogwartsBgmPayload);
   const seratafilmBgmYtPlaylistId = seratafilmParseYoutubePlaylistId(
     String(seratafilmYtRaw.playlistId || seratafilmYtRaw.playlistUrl || "").trim(),
   );
@@ -1805,6 +1859,19 @@ async function main() {
     SITE_NOTIFICATIONS_API_URL_LOCAL: escAttr(siteNotifsApiLocalResolved),
     SERATAFILM_ACCESS_API_URL: escAttr(seratafilmAccessApiResolved),
     SERATAFILM_ACCESS_API_URL_LOCAL: escAttr(seratafilmAccessApiLocalResolved),
+    HOGWARTS_SORTING_API_URL: escAttr(hogwartsSortingApiResolved),
+    HOGWARTS_SORTING_API_URL_LOCAL: escAttr(hogwartsSortingApiLocalResolved),
+    HOGWARTS_CRESTS_PATH: escAttr(hogwartsCrestsPath),
+    HOGWARTS_INTRO_VIDEO: escAttr(hogwartsIntroVideo),
+    HOGWARTS_BGM_URI: hogwartsBgmUri,
+    HOGWARTS_BGM_JSON: hogwartsBgmJson,
+    HOGWARTS_SORTING_PAGE_URL: escAttr(hogwartsSortingPageUrl),
+    HOGWARTS_SORTING_PAGE_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
+    HOGWARTS_SORTING_META_DESCRIPTION: escAttr(
+      `Quiz di smistamento Harry Potter: scopri la tua casa a Hogwarts nell'evento estivo ${siteName}.`,
+    ),
+    HOGWARTS_SORTING_OG_TITLE: escAttr(`${siteName} | Smistamento Hogwarts`),
+    HOGWARTS_SORTING_OG_URL: escAttr(hogwartsSortingPageUrl),
     SERATAFILM_BGM_URI: seratafilmBgmUri,
     SERATAFILM_EVENT_URI: seratafilmEventUri,
     REVIEWS_PAGE_URL: escAttr(reviewsPageUrl),
@@ -2043,6 +2110,32 @@ async function main() {
     fs.writeFileSync(suggestionsIndexPath, suggestionsHtml, "utf8");
   } else {
     console.warn("[build-site] Manca suggerimenti/index.html (saltato placeholder).");
+  }
+
+  const hogwartsSortingIndexPath = path.join(DIST, "evento-hogwarts", "smistamento", "index.html");
+  if (fs.existsSync(hogwartsSortingIndexPath)) {
+    let hogwartsHtml = fs.readFileSync(hogwartsSortingIndexPath, "utf8");
+    hogwartsHtml = applyPlaceholderMap(hogwartsHtml, map);
+    warnLeftoverPlaceholders(hogwartsHtml, "evento-hogwarts/smistamento/index.html");
+    fs.writeFileSync(hogwartsSortingIndexPath, hogwartsHtml, "utf8");
+    const crestDir = path.join(DIST, "images", "evento-hogwarts", "crests");
+    const crestNames = ["gryffindor.png", "ravenclaw.png", "hufflepuff.png", "slytherin.png"];
+    const missingCrests = crestNames.filter((name) => !fs.existsSync(path.join(crestDir, name)));
+    if (missingCrests.length) {
+      console.warn(
+        "[build-site] Stemmi Hogwarts mancanti in dist (" +
+          missingCrests.join(", ") +
+          "). Copia i PNG in WebSite/images/evento-hogwarts/crests/ e rifai il build.",
+      );
+    }
+    const introMp4 = path.join(DIST, "images", "evento-hogwarts", "inizio.mp4");
+    if (!fs.existsSync(introMp4)) {
+      console.warn(
+        "[build-site] Video intro Hogwarts mancante: WebSite/images/evento-hogwarts/inizio.mp4 (copiato in dist al build).",
+      );
+    }
+  } else {
+    console.warn("[build-site] Manca evento-hogwarts/smistamento/index.html (saltato placeholder).");
   }
 
   const seratafilmIndexPath = path.join(DIST, "seratafilm", "index.html");

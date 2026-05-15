@@ -42,6 +42,19 @@
   "liveEventApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-live-event",
   "seratafilmAccessApiUrl": "https://www.viniliecaffe.it/webhooks/site-seratafilm-access",
   "seratafilmAccessApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-seratafilm-access",
+  "hogwartsSortingApiUrl": "https://www.viniliecaffe.it/webhooks/site-hogwarts-sorting",
+  "hogwartsSortingApiUrlLocal": "http://127.0.0.1:3042/webhooks/site-hogwarts-sorting",
+  "hogwartsEvent": {
+    "previewMode": true,
+    "startDate": "2026-06-01",
+    "endDate": "2026-08-30"
+  },
+  "hogwartsBgm": {
+    "youtube": {
+      "videoUrls": ["https://www.youtube.com/watch?v=wtHra9tFISY"]
+    },
+    "baseVolume": 0.5
+  },
   "seratafilmBgm": {
     "youtube": {
       "videoUrls": ["https://www.youtube.com/watch?v=7wnVYIJipzU"]

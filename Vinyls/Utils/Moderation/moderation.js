@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const IDs = require("../Config/ids");
 const { GlobalSettings } = require("../../Schemas/Community/communitySchemas");
 const { normalizeModConfigFromGlobal } = require("../Global/globalSettingsGuildStores");
 const { sendStaffActionToModLogs } = require("../Logging/modAuditLogUtils");
@@ -13,6 +14,23 @@ async function getModConfig(guildId) {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   return normalizeModConfigFromGlobal(doc);
+}
+
+const MODERATION_HIERARCHY_IGNORED_ROLE_IDS = new Set(
+  [IDs?.roles?.Muted, IDs?.roles?.blackilistPartner, IDs?.roles?.blacklistTicket, IDs?.roles?.blacklistModuli]
+    .map((id) => String(id || "").trim())
+    .filter(Boolean),
+);
+
+function getHighestModerationRelevantRolePosition(member) {
+  if (!member?.roles?.cache) return -1;
+  let highest = -1;
+  for (const role of member.roles.cache.values()) {
+    if (role.id === member.guild?.id) continue;
+    if (MODERATION_HIERARCHY_IGNORED_ROLE_IDS.has(role.id)) continue;
+    if (role.position > highest) highest = role.position;
+  }
+  return highest;
 }
 
 function isExempt(member, config, channelId) {
@@ -134,4 +152,4 @@ async function tryDmUser(user, content) {
   }
 }
 
-module.exports = { getModConfig, isExempt, createModCase, appendCaseEdit, closeCase, closeCasePersist, logModCase, formatDuration, parseDuration, tryDmUser };
+module.exports = { getModConfig, isExempt, getHighestModerationRelevantRolePosition, createModCase, appendCaseEdit, closeCase, closeCasePersist, logModCase, formatDuration, parseDuration, tryDmUser };

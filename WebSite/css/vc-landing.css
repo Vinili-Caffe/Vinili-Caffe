@@ -19495,3 +19495,687 @@ html body.vc-body > footer.vc-premium-footer .vc-premium-footer__glass {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+.vc-hw-page {
+  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(56, 32, 18, 0.55), transparent 55%),
+    linear-gradient(180deg, #0a0706 0%, #120d0a 45%, #0a0706 100%);
+}
+
+.vc-hw-stars {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.35;
+  background-image: radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 80px 120px, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1.5px 1.5px at 160px 60px, rgba(212, 168, 136, 0.35), transparent);
+  background-size: 200px 200px;
+}
+
+.vc-hw-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(212, 168, 136, 0.85);
+}
+
+.vc-hw-title {
+  margin-top: 0.75rem;
+  font-family: "Cinzel", "Cormorant Garamond", serif;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f7ecdf;
+  text-shadow: 0 0 40px rgba(212, 168, 136, 0.25);
+}
+
+.vc-hw-subtitle {
+  margin-top: 1rem;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.vc-hw-window {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: rgba(212, 168, 136, 0.9);
+}
+
+.vc-hw-card,
+.vc-hw-notice {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.32);
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.vc-hw-notice {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  color: #fde68a;
+}
+
+.vc-hw-notice[hidden] {
+  display: none !important;
+}
+
+.vc-hw-notice .fa {
+  margin-top: 0.15rem;
+  font-size: 1.1rem;
+}
+
+.vc-hw-progress-wrap {
+  margin-bottom: 1.25rem;
+}
+
+.vc-hw-progress-track {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.vc-hw-progress-bar {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #946b2d, #d3a625);
+  transition: width 0.35s ease;
+}
+
+.vc-hw-progress-label {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.vc-hw-question {
+  font-family: "Cormorant Garamond", serif;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 600;
+  line-height: 1.35;
+  color: #fff;
+}
+
+.vc-hw-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.vc-hw-choice {
+  width: 100%;
+  text-align: left;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.85rem 1rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.vc-hw-choice:hover {
+  border-color: rgba(212, 168, 136, 0.45);
+  background: rgba(212, 168, 136, 0.08);
+}
+
+.vc-hw-choice--on {
+  border-color: rgba(211, 166, 37, 0.75);
+  background: rgba(116, 0, 1, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(211, 166, 37, 0.25);
+}
+
+.vc-hw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.95rem;
+  padding: 0.7rem 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.vc-hw-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vc-hw-btn--primary {
+  border: 1px solid rgba(211, 166, 37, 0.5);
+  background: linear-gradient(135deg, rgba(116, 0, 1, 0.85), rgba(58, 0, 1, 0.95));
+  color: #fef3c7;
+}
+
+.vc-hw-btn--primary:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.vc-hw-btn--ghost {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.vc-hw-sorting {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.vc-hw-hat {
+  font-size: 4rem;
+  animation: vc-hw-hat-bob 1.2s ease-in-out infinite;
+}
+
+@keyframes vc-hw-hat-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(4deg);
+  }
+}
+
+.vc-hw-sorting-text {
+  margin-top: 1rem;
+  font-family: "Cinzel", serif;
+  font-size: 1.1rem;
+  color: #d4a888;
+}
+
+.vc-hw-result {
+  text-align: center;
+  padding: 2rem 1.25rem 2.5rem;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(165deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.2));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.vc-hw-result--reveal {
+  animation: vc-hw-reveal 0.7s ease forwards;
+}
+
+@keyframes vc-hw-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.vc-hw-result-eyebrow {
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(212, 168, 136, 0.85);
+}
+
+.vc-hw-result-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.vc-hw-result-crest {
+  width: 7rem;
+  height: 7rem;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.45));
+}
+
+.vc-hw-result-crest[hidden] {
+  display: none !important;
+}
+
+.vc-hw-result-house {
+  margin-top: 0;
+  font-family: "Cinzel", serif;
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 700;
+  color: var(--hw-accent, #d3a625);
+  text-shadow: 0 0 32px color-mix(in srgb, var(--hw-primary, #740001) 40%, transparent);
+}
+
+.vc-hw-result-house--gryffindor {
+  color: #d3a625;
+}
+
+.vc-hw-result-house--ravenclaw {
+  color: #946b2d;
+}
+
+.vc-hw-result-house--hufflepuff {
+  color: #ecb939;
+}
+
+.vc-hw-result-house--slytherin {
+  color: #aaaaaa;
+}
+
+.vc-hw-result-motto {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  font-style: italic;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.vc-hw-result-msg {
+  font-size: 0.92rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.vc-hw-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0706;
+}
+
+html.vc-hw-loading-done .vc-hw-loading {
+  display: none !important;
+}
+
+.vc-hw-loading__card {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 1.5rem 2rem;
+  text-align: center;
+}
+
+.vc-hw-loading__text {
+  font-family: "Cinzel", serif;
+  font-size: 1rem;
+  color: #d4a888;
+}
+
+body:not(.vc-hw-app-revealed) #vc-hogwarts-app {
+  display: none !important;
+}
+
+.vc-hw-bgm-hint {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10040;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  max-width: min(20rem, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(211, 166, 37, 0.35);
+  background: rgba(20, 8, 6, 0.92);
+  color: rgba(247, 236, 223, 0.92);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.vc-hw-bgm-hint--hide {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.vc-hw-bgm-hint-ico {
+  color: #d3a625;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.vc-hw-cinema {
+  position: fixed;
+  inset: 0;
+  z-index: 100500;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.vc-hw-cinema[hidden] {
+  display: none !important;
+}
+
+.vc-hw-cinema--open,
+.vc-hw-cinema--boot {
+  display: flex !important;
+}
+
+body:not(.vc-hw-intro-finished) #vc-hw-cinema.vc-hw-cinema--boot {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+html.vc-hw-cinema-active,
+body.vc-hw-cinema-active {
+  overflow: hidden;
+}
+
+body.vc-hw-cinema-active #vc-hogwarts-app,
+body.vc-hw-cinema-active #vc-hw-loading {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.vc-hw-cinema__err {
+  position: relative;
+  z-index: 8;
+  max-width: 20rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(40, 8, 8, 0.88);
+  color: #fecaca;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.vc-hw-cinema__err[hidden] {
+  display: none !important;
+}
+
+.vc-hw-cinema__video {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.6s ease, filter 0.8s ease, transform 1s ease;
+}
+
+.vc-hw-cinema__video--out {
+  opacity: 0;
+  filter: blur(10px) brightness(1.35);
+  transform: scale(1.06);
+}
+
+.vc-hw-cinema__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 55% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.55) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, transparent 28%, transparent 72%, rgba(0, 0, 0, 0.65) 100%);
+}
+
+.vc-hw-cinema__play {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  cursor: pointer;
+  pointer-events: auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.vc-hw-cinema--playing .vc-hw-cinema__play {
+  display: none;
+}
+
+.vc-hw-cinema__play-ring {
+  display: block;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 50%;
+  border: 2px solid rgba(211, 166, 37, 0.75);
+  box-shadow: 0 0 0 8px rgba(116, 0, 1, 0.18), 0 0 48px rgba(211, 166, 37, 0.35);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 230, 180, 0.2), rgba(58, 0, 1, 0.75) 68%);
+  animation: vc-hw-cinema-pulse 2.2s ease-in-out infinite;
+}
+
+.vc-hw-cinema__play-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vc-hw-cinema__play-ring .fa {
+  font-size: 1.45rem;
+  color: #f7ecdf;
+  margin-left: 0.2rem;
+  text-shadow: 0 0 16px rgba(211, 166, 37, 0.5);
+}
+
+@keyframes vc-hw-cinema-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(116, 0, 1, 0.18), 0 0 48px rgba(211, 166, 37, 0.35);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 14px rgba(116, 0, 1, 0.1), 0 0 64px rgba(211, 166, 37, 0.5);
+  }
+}
+
+.vc-hw-cinema__play-label {
+  font-family: "Cinzel", serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f7ecdf;
+  text-shadow: 0 0 24px rgba(211, 166, 37, 0.45);
+}
+
+.vc-hw-cinema__skip {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 20;
+  pointer-events: auto;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(247, 236, 223, 0.9);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.vc-hw-cinema__skip:hover {
+  border-color: rgba(211, 166, 37, 0.55);
+  background: rgba(116, 0, 1, 0.45);
+}
+
+.vc-hw-cinema--playing .vc-hw-cinema__skip {
+  opacity: 0.85;
+}
+
+.vc-hw-cinema__magic {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.vc-hw-cinema--magic .vc-hw-cinema__magic {
+  opacity: 1;
+}
+
+.vc-hw-cinema__flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 48%, rgba(255, 236, 200, 0.95) 0%, rgba(211, 166, 37, 0.35) 28%, transparent 62%);
+  opacity: 0;
+  animation: vc-hw-cinema-flash 0.85s ease-out forwards;
+}
+
+@keyframes vc-hw-cinema-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+.vc-hw-cinema__sparkles {
+  position: absolute;
+  inset: -20%;
+  background-image: radial-gradient(2px 2px at 12% 28%, rgba(255, 245, 220, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 78% 18%, rgba(211, 166, 37, 0.9), transparent),
+    radial-gradient(2px 2px at 44% 72%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 88% 64%, rgba(255, 220, 160, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 22% 82%, rgba(211, 166, 37, 0.75), transparent);
+  background-size: 220px 220px;
+  opacity: 0;
+  animation: vc-hw-cinema-sparkles 1.6s ease-out 0.15s forwards;
+}
+
+@keyframes vc-hw-cinema-sparkles {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) rotate(0deg);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4) rotate(18deg);
+  }
+}
+
+.vc-hw-cinema__mist {
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    rgba(211, 166, 37, 0.22) 40deg,
+    transparent 80deg,
+    rgba(116, 0, 1, 0.28) 140deg,
+    transparent 200deg,
+    rgba(255, 230, 180, 0.2) 280deg,
+    transparent 360deg
+  );
+  opacity: 0;
+  animation: vc-hw-cinema-mist 2s ease-in-out 0.2s forwards;
+}
+
+@keyframes vc-hw-cinema-mist {
+  0% {
+    opacity: 0;
+    transform: rotate(0deg) scale(0.5);
+  }
+  40% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(120deg) scale(2.5);
+  }
+}
+
+.vc-hw-cinema__sigil {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  margin: 0;
+  font-family: "Cinzel", serif;
+  font-size: clamp(3rem, 12vw, 5.5rem);
+  color: #f7ecdf;
+  text-shadow: 0 0 40px rgba(211, 166, 37, 0.85), 0 0 80px rgba(116, 0, 1, 0.5);
+  transform: translate(-50%, -50%) scale(0.3);
+  opacity: 0;
+  animation: vc-hw-cinema-sigil 1.4s ease-out 0.35s forwards;
+}
+
+@keyframes vc-hw-cinema-sigil {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2) rotate(-30deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15) rotate(8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.4) rotate(20deg);
+  }
+}
+
+.vc-hw-cinema--done {
+  pointer-events: none;
+  animation: vc-hw-cinema-vanish 0.9s ease forwards;
+}
+
+@keyframes vc-hw-cinema-vanish {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+body.vc-hw-main-reveal #vc-hogwarts-app {
+  animation: vc-hw-main-reveal 1s ease forwards;
+}
+
+@keyframes vc-hw-main-reveal {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}

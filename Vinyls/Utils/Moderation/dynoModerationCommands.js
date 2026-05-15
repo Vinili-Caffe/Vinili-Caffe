@@ -1,7 +1,7 @@
 const { EmbedBuilder, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js");
 const IDs = require("../Config/ids");
 const { resolveCaseByGuildCaseId, resolveCaseByContextMessageId, appendCaseEditStore, setCaseReasonStore, setCaseDurationStore, findActiveModerations, countModLogsForUser, findModLogsPage, findOpenCases, findActiveWarns } = require("./modCaseStore");
-const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, logModCase, parseDuration, formatDuration } = require("./moderation");
+const { appendCaseEdit, closeCasePersist, createModCase, getModConfig, getHighestModerationRelevantRolePosition, logModCase, parseDuration, formatDuration } = require("./moderation");
 const { resolveTarget } = require("./prefixModeration");
 const { resolveModLogChannel, sendStaffActionToModLogs, sendModCommandUsageToModLogs } = require("../Logging/modAuditLogUtils");
 const { sendDm } = require("../noDmList");
@@ -63,13 +63,13 @@ async function validateModerationTarget(message, member, actionLabel, targetUser
     return { ok: false, error: "<:VC_Lock:1482526739044368476> Non puoi moderare il proprietario del server." };
   }
   const actorMember = message.member;
-  if (actorMember?.roles?.highest != null && targetMember.roles?.highest != null) {
-    if (targetMember.roles.highest.position >= actorMember.roles.highest.position) {
-      return {
-        ok: false,
-        error: "<:VC_Lock:1482526739044368476> Non puoi moderare un utente con ruolo superiore o uguale al tuo.",
-      };
-    }
+  const actorHighest = getHighestModerationRelevantRolePosition(actorMember);
+  const targetHighest = getHighestModerationRelevantRolePosition(targetMember);
+  if (actorHighest >= 0 && targetHighest >= 0 && targetHighest >= actorHighest) {
+    return {
+      ok: false,
+      error: "<:VC_Lock:1482526739044368476> Non puoi moderare un utente con ruolo superiore o uguale al tuo.",
+    };
   }
   const protectedRoleIds = [ IDs?.roles?.Staff, IDs?.roles?.Helper, IDs?.roles?.Mod, IDs?.roles?.SeniorModerator, IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean);
   const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Founder,].map((id) => String(id || "").trim()).filter(Boolean).some((roleId) => message.member?.roles?.cache?.has(roleId));

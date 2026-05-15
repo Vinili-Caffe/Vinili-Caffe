@@ -188,6 +188,24 @@ function mergeSessionSnapshotFromLivePlayer(client, guildId, session) {
   return base;
 }
 
+function getGuildMusicVoiceChannelId(guildId) {
+  const session = guildQueues.get(String(guildId || "").trim());
+  const vc = session?.voiceChannelId;
+  return vc ? String(vc) : null;
+}
+
+function guildHasMusicVoiceResumeHint(guildId) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return false;
+  const session = guildQueues.get(gid);
+  if (!session) return false;
+  const vc = String(session.voiceChannelId || "").trim();
+  if (!vc) return false;
+  if (String(session.playingEncoded || "").trim()) return true;
+  if (session.nowPlaying || (Array.isArray(session.tracks) && session.tracks.length > 0)) return true;
+  return false;
+}
+
 function persistMusicQueueSnapshotNow(client) {
   try {
     const sessions = {};
@@ -308,6 +326,8 @@ async function resumeRestoredMusicSessions(client) {
     }
 
     try {
+      const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+      await purgeTtsVoicePersistence(gid, client).catch(() => {});
       let player = sh.players.get(gid);
       if (!player) {
         player = await sh.joinVoiceChannel({
@@ -1549,21 +1569,32 @@ async function handleMusicBotVoiceDisconnect(client, guild) {
   const hadPlayer = Boolean(sh?.players?.get(gid));
   const hadConn = Boolean(sh?.connections?.get(gid)?.channelId);
   const hadSessionMusic = Boolean(session && (session.tracks?.length || session.nowPlaying));
-  if (!hadPlayer && !hadSessionMusic && !hadConn) return;
+  const hadResumeHint = Boolean(
+    session?.voiceChannelId && String(session.playingEncoded || "").trim(),
+  );
   const textChannelId = session?.textChannelId || null;
-  guildQueues.delete(gid);
-  endListeners.delete(gid);
-  if (sh?.players?.get(gid)) {
+  if (hadPlayer || hadSessionMusic || hadConn || hadResumeHint) {
+    guildQueues.delete(gid);
+    endListeners.delete(gid);
+    if (sh?.players?.get(gid)) {
+      try {
+        await sh.players.get(gid).destroy();
+      } catch (_) {}
+    }
     try {
-      await sh.players.get(gid).destroy();
+      await sh?.leaveVoiceChannel(gid);
     } catch (_) {}
+    if (textChannelId && !intentional) {
+      await sendMusicKickedFromVoiceEmbed(client, textChannelId, gid);
+    }
   }
+  persistMusicQueueSnapshotNow(client);
+  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+  await purgeTtsVoicePersistence(gid, client).catch(() => {});
   try {
-    await sh?.leaveVoiceChannel(gid);
+    const { clearVoiceSession } = require("../Voice/voiceSessionService");
+    clearVoiceSession(gid);
   } catch (_) {}
-  if (textChannelId && !intentional) {
-    await sendMusicKickedFromVoiceEmbed(client, textChannelId, gid);
-  }
 }
 
 /**
@@ -1861,6 +1892,8 @@ async function playMusicRequest(ctx, query) {
   const session = getSession(guildId);
   session.textChannelId = textChannelId;
   session.voiceChannelId = voiceChannel.id;
+  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+  await purgeTtsVoicePersistence(guildId, client).catch(() => {});
 
   let player = shoukaku.players.get(guildId);
   if (!player) {
@@ -2111,6 +2144,13 @@ async function stopGuild(interaction) {
     } catch (_) {}
   }
   await leaveMusicVoiceChannelMarked(client, guildId);
+  persistMusicQueueSnapshotNow(client);
+  const { purgeTtsVoicePersistence } = require("../TTS/ttsService");
+  await purgeTtsVoicePersistence(guildId, client).catch(() => {});
+  try {
+    const { clearVoiceSession } = require("../Voice/voiceSessionService");
+    clearVoiceSession(guildId);
+  } catch (_) {}
   return { ok: true, message: "<a:VC_Verified:1482532479637127188> Musica fermata e coda svuotata." };
 }
 
@@ -2520,4 +2560,4 @@ async function clearGuildQueue(interaction) {
   return { ok: true };
 }
 
-module.exports = { initLavalinkMusicIfEnabled, isLavalinkUsable, markMusicVoiceLeaveIntentional, fetchGuildQueueEntryRows, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails, playMusicRequest, setGuildMusicVolume, skipGuild, stopGuild, formatQueue, clearGuildQueue, shuffleGuildQueue, toggleRepeatOneGuild, previousGuildTrack, pauseToggle, pauseGuildTrack, resumeGuildTrack, rewindGuildTrack, restartQueueGuild, nowPlayingStatus, handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc };
+module.exports = { initLavalinkMusicIfEnabled, isLavalinkUsable, markMusicVoiceLeaveIntentional, fetchGuildQueueEntryRows, fetchGuildUpcomingQueueRows, fetchGuildRequestedSessionRows, fetchGuildNextUpDetails, fetchGuildNowPlayingDetails, playMusicRequest, setGuildMusicVolume, skipGuild, stopGuild, formatQueue, clearGuildQueue, shuffleGuildQueue, toggleRepeatOneGuild, previousGuildTrack, pauseToggle, pauseGuildTrack, resumeGuildTrack, rewindGuildTrack, restartQueueGuild, nowPlayingStatus, handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc, getGuildMusicVoiceChannelId, guildHasMusicVoiceResumeHint };

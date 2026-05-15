@@ -579,6 +579,7 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   REVIEW: "review",
   SUGGESTION: "suggestion",
   PAYMENT: "payment",
+  HOGWARTS_SORTING: "hogwarts_sorting",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -718,6 +719,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, userId: 1, createdAt: -1 },
   { partialFilterExpression: { docType: SITE_DOC.PAYMENT } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SORTING } },
 );
 
 const MOD_CASE_COLLECTION = process.env.MOD_CASE_COLLECTION ? String(process.env.MOD_CASE_COLLECTION).trim() : "mod_case";

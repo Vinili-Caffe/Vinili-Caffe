@@ -1,0 +1,250 @@
+const HOUSES = Object.freeze(["gryffindor", "ravenclaw", "hufflepuff", "slytherin"]);
+
+const HOUSE_META = Object.freeze({
+  gryffindor: {
+    id: "gryffindor",
+    label: "Gryffindor",
+    motto: "Coraggio, audacia e cuore.",
+    primary: "#740001",
+    accent: "#D3A625",
+    crestFile: "gryffindor.png",
+  },
+  ravenclaw: {
+    id: "ravenclaw",
+    label: "Ravenclaw",
+    motto: "Saggezza, creatività e mente lucida.",
+    primary: "#0E1A40",
+    accent: "#946B2D",
+    crestFile: "ravenclaw.png",
+  },
+  hufflepuff: {
+    id: "hufflepuff",
+    label: "Hufflepuff",
+    motto: "Lealtà, pazienza e fatica onesta.",
+    primary: "#ECB939",
+    accent: "#372E29",
+    crestFile: "hufflepuff.png",
+  },
+  slytherin: {
+    id: "slytherin",
+    label: "Slytherin",
+    motto: "Ambizione, astuzia e determinazione.",
+    primary: "#1A472A",
+    accent: "#AAAAAA",
+    crestFile: "slytherin.png",
+  },
+});
+
+/** @type {{ id: string, text: string, choices: { id: string, text: string, weights: Record<string, number> }[] }[]} */
+const QUESTIONS = [
+  {
+    id: "q01",
+    text: "Un oggetto magico ti offre un solo dono. Cosa scegli?",
+    choices: [
+      { id: "a", text: "Il coraggio di affrontare ciò che tutti evitano", weights: { gryffindor: 4, ravenclaw: 0, hufflepuff: 1, slytherin: 1 } },
+      { id: "b", text: "La conoscenza di un segreto che nessuno conosce", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 2 } },
+      { id: "c", text: "Un legame che non si spezza mai, nemmeno sotto pressione", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Il potere di cambiare le regole a tuo favore", weights: { gryffindor: 1, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q02",
+    text: "Di notte nel castello senti un rumore nel corridoio proibito. Tu…",
+    choices: [
+      { id: "a", text: "Entri subito: qualcuno potrebbe aver bisogno di aiuto", weights: { gryffindor: 4, ravenclaw: 0, hufflepuff: 2, slytherin: 0 } },
+      { id: "b", text: "Osservi da lontano e cerchi di capire il pattern", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 2 } },
+      { id: "c", text: "Avvisi un compagno e resti con lui, senza lasciarlo solo", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Sfrutti il momento per ottenere un vantaggio personale", weights: { gryffindor: 0, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q03",
+    text: "Quale materia ti entusiasma di più?",
+    choices: [
+      { id: "a", text: "Difesa contro le Arti Oscure", weights: { gryffindor: 4, ravenclaw: 1, hufflepuff: 1, slytherin: 2 } },
+      { id: "b", text: "Incantesimi e teoria avanzata", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 1 } },
+      { id: "c", text: "Erbologia e cura delle creature", weights: { gryffindor: 1, ravenclaw: 1, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Pozioni: precisione, effetto, controllo", weights: { gryffindor: 0, ravenclaw: 2, hufflepuff: 1, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q04",
+    text: "Un amico è in difficoltà prima di un esame importante.",
+    choices: [
+      { id: "a", text: "Lo sfidi a credere in sé stesso e ci vai insieme", weights: { gryffindor: 4, ravenclaw: 0, hufflepuff: 2, slytherin: 0 } },
+      { id: "b", text: "Gli prepari un piano di studio su misura", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 2, slytherin: 1 } },
+      { id: "c", text: "Resti con lui finché non si sente pronto", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Gli mostri come trasformare la situazione a suo vantaggio", weights: { gryffindor: 1, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q05",
+    text: "Preferisci lavorare…",
+    choices: [
+      { id: "a", text: "In prima fila, anche se rischi di sbagliare", weights: { gryffindor: 4, ravenclaw: 1, hufflepuff: 1, slytherin: 1 } },
+      { id: "b", text: "Da solo, finché non hai capito ogni dettaglio", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 2 } },
+      { id: "c", text: "In squadra, dividendo compiti e responsabilità", weights: { gryffindor: 1, ravenclaw: 1, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Solo se sai che il risultato ti porterà in alto", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q06",
+    text: "Cosa ti spaventa di più?",
+    choices: [
+      { id: "a", text: "Non avere il coraggio quando conta davvero", weights: { gryffindor: 4, ravenclaw: 1, hufflepuff: 2, slytherin: 0 } },
+      { id: "b", text: "Restare ignorante di qualcosa di fondamentale", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 1 } },
+      { id: "c", text: "Deludere le persone che contano su di te", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Perdere controllo su ciò che hai costruito", weights: { gryffindor: 0, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q07",
+    text: "Al Quidditch, il ruolo che ti rappresenta di più è…",
+    choices: [
+      { id: "a", text: "Cercatore: decidi tu quando lanciarti", weights: { gryffindor: 4, ravenclaw: 1, hufflepuff: 1, slytherin: 2 } },
+      { id: "b", text: "Battitore: strategia e tempismo", weights: { gryffindor: 2, ravenclaw: 3, hufflepuff: 2, slytherin: 1 } },
+      { id: "c", text: "Giovane: supporti la squadra senza fare rumore", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Capitano: guidi e vinci a ogni costo", weights: { gryffindor: 2, ravenclaw: 0, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q08",
+    text: "Cosa ammiri di più in una persona?",
+    choices: [
+      { id: "a", text: "Onestà nel rischio e lealtà nelle prove", weights: { gryffindor: 4, ravenclaw: 0, hufflepuff: 2, slytherin: 0 } },
+      { id: "b", text: "Curiosità e capacità di risolvere enigmi", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 1 } },
+      { id: "c", text: "Gentilezza costante, anche quando nessuno guarda", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Fredda determinazione nel raggiungere obiettivi", weights: { gryffindor: 0, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q09",
+    text: "Trovi una bacchetta spezzata nel bosco proibito.",
+    choices: [
+      { id: "a", text: "La porti allo staff: potrebbe essere pericolosa", weights: { gryffindor: 3, ravenclaw: 1, hufflepuff: 3, slytherin: 0 } },
+      { id: "b", text: "La studi per capire chi l'ha usata e come", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 2 } },
+      { id: "c", text: "La lasci dove sta: non è affare tuo", weights: { gryffindor: 0, ravenclaw: 2, hufflepuff: 3, slytherin: 2 } },
+      { id: "d", text: "La tieni: potrebbe servirti più avanti", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q10",
+    text: "Una pozione ha un effetto imprevisto su tutta la classe.",
+    choices: [
+      { id: "a", text: "Ti metti in mezzo per proteggere gli altri", weights: { gryffindor: 4, ravenclaw: 0, hufflepuff: 3, slytherin: 0 } },
+      { id: "b", text: "Annoti ogni sintomo per trovare l'antidoto", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 2, slytherin: 1 } },
+      { id: "c", text: "Aiuti chi è più fragile, uno alla volta", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Usi il caos per coprire un tuo errore", weights: { gryffindor: 0, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q11",
+    text: "In una competizione tra case, la tua priorità è…",
+    choices: [
+      { id: "a", text: "Vincere onestamente, anche a costo di fatica", weights: { gryffindor: 4, ravenclaw: 1, hufflepuff: 2, slytherin: 1 } },
+      { id: "b", text: "Battere il record con il metodo più intelligente", weights: { gryffindor: 1, ravenclaw: 4, hufflepuff: 1, slytherin: 2 } },
+      { id: "c", text: "Che tutti si sentano parte del gruppo", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Portare punti alla tua fazione, qualunque sia il prezzo", weights: { gryffindor: 0, ravenclaw: 0, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+  {
+    id: "q12",
+    text: "Il Cappello Parlante ti chiede: «Cosa desideri davvero?»",
+    choices: [
+      { id: "a", text: "Essere ricordato per aver fatto la cosa giusta", weights: { gryffindor: 4, ravenclaw: 1, hufflepuff: 2, slytherin: 0 } },
+      { id: "b", text: "Capire il mondo meglio di chiunque altro", weights: { gryffindor: 0, ravenclaw: 4, hufflepuff: 1, slytherin: 1 } },
+      { id: "c", text: "Avere persone fidate accanto per tutta la vita", weights: { gryffindor: 1, ravenclaw: 0, hufflepuff: 4, slytherin: 0 } },
+      { id: "d", text: "Lasciare un segno che nessuno possa ignorare", weights: { gryffindor: 1, ravenclaw: 1, hufflepuff: 0, slytherin: 4 } },
+    ],
+  },
+];
+
+const questionById = new Map(QUESTIONS.map((q) => [q.id, q]));
+
+function getPublicQuestions() {
+  return QUESTIONS.map((q) => ({
+    id: q.id,
+    text: q.text,
+    choices: q.choices.map((c) => ({ id: c.id, text: c.text })),
+  }));
+}
+
+function normalizeAnswers(raw) {
+  if (!Array.isArray(raw)) return null;
+  const out = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") return null;
+    const questionId = String(row.questionId || row.q || "").trim();
+    const choiceId = String(row.choiceId || row.c || "").trim();
+    if (!questionId || !choiceId) return null;
+    out.push({ questionId, choiceId });
+  }
+  return out;
+}
+
+function computeHouseFromAnswers(answerRows) {
+  const totals = { gryffindor: 0, ravenclaw: 0, hufflepuff: 0, slytherin: 0 };
+  const decisive = { gryffindor: 0, ravenclaw: 0, hufflepuff: 0, slytherin: 0 };
+  const seen = new Set();
+
+  for (const row of answerRows) {
+    const q = questionById.get(row.questionId);
+    if (!q) return { ok: false, error: "invalid_question", questionId: row.questionId };
+    if (seen.has(row.questionId)) return { ok: false, error: "duplicate_question", questionId: row.questionId };
+    seen.add(row.questionId);
+    const choice = q.choices.find((c) => c.id === row.choiceId);
+    if (!choice) return { ok: false, error: "invalid_choice", questionId: row.questionId, choiceId: row.choiceId };
+    let maxW = -1;
+    for (const h of HOUSES) {
+      const w = Number(choice.weights[h] || 0);
+      if (w > maxW) maxW = w;
+    }
+    for (const h of HOUSES) {
+      const w = Number(choice.weights[h] || 0);
+      totals[h] += w;
+      if (w === maxW && maxW > 0) decisive[h] += 1;
+    }
+  }
+
+  if (seen.size !== QUESTIONS.length) {
+    return { ok: false, error: "incomplete_answers", expected: QUESTIONS.length, got: seen.size };
+  }
+
+  let bestScore = -1;
+  let winners = [];
+  for (const h of HOUSES) {
+    if (totals[h] > bestScore) {
+      bestScore = totals[h];
+      winners = [h];
+    } else if (totals[h] === bestScore) {
+      winners.push(h);
+    }
+  }
+
+  let house = winners[0];
+  if (winners.length > 1) {
+    let bestDec = -1;
+    let decWinners = [];
+    for (const h of winners) {
+      if (decisive[h] > bestDec) {
+        bestDec = decisive[h];
+        decWinners = [h];
+      } else if (decisive[h] === bestDec) {
+        decWinners.push(h);
+      }
+    }
+    if (decWinners.length === 1) house = decWinners[0];
+    else house = decWinners[Math.floor(Math.random() * decWinners.length)];
+  }
+
+  return { ok: true, house, totals, decisive };
+}
+
+function getHouseMeta(houseId, crestUrlOverride) {
+  const base = HOUSE_META[String(houseId || "").trim()];
+  if (!base) return null;
+  const crestUrl = String(crestUrlOverride || "").trim();
+  return crestUrl ? { ...base, crestUrl } : { ...base };
+}
+
+module.exports = { HOUSES, HOUSE_META, QUESTIONS, getPublicQuestions, normalizeAnswers, computeHouseFromAnswers, getHouseMeta };

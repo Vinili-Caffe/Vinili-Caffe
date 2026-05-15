@@ -151,31 +151,15 @@ module.exports = (client) => {
     }
 
     for (const guildId of allowedGuildIds) {
-      const deployCheck = isCommandDeployRequired(BOT_DEPLOY_CACHE_KEY,{clientId,guildId},client.commandArray,);
-      const forceDeploy = shouldForceSlashDeploy() || forceDeployEmpty;
-      if (!deployCheck.required && !forceDeploy) {
-        if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] No changes to commands for guild ${guildId}, REST deploy skipped. scope=${deployCheck.scopeKey} hash=${deployCheck.hash}`);
-        continue;
-      }
-      if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Deploy requested. scope=${deployCheck.scopeKey} prev=${deployCheck.previousHash || "none"} next=${deployCheck.hash}${forceDeploy ? " force=true" : ""}`);
       try {
-        await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-          body: client.commandArray,
-        });
-        markCommandDeployComplete(
-          BOT_DEPLOY_CACHE_KEY,
-          { clientId, guildId },
-          deployCheck.hash,
-        );
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] });
+        if (LOG_COMMANDS) global.logger?.info?.(`[COMMANDS] Guild slash commands cleared for ${guildId} (solo globali).`);
       } catch (error) {
         if (Number(error?.code) === 50001 || Number(error?.status) === 403) {
-          if (LOG_COMMANDS) global.logger?.warn?.(`[COMMANDS] Skip deploy guild ${guildId}: Missing Access (bot non presente o senza scope applications.commands).`);
+          if (LOG_COMMANDS) global.logger?.warn?.(`[COMMANDS] Skip clearing guild ${guildId} slash commands: Missing Access.`);
           continue;
         }
-        global.logger?.error?.(
-          `[COMMANDS] Failed to deploy to guild ${guildId}:`,
-          error,
-        );
+        global.logger?.error?.(`[COMMANDS] Failed to clear guild slash commands for ${guildId}:`, error);
       }
     }
 

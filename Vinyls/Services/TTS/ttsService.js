@@ -880,6 +880,38 @@ function destroyVoiceConnectionSafe(connection, logPrefix = "[TTS] connection de
   }
 }
 
+function getMusicVoiceCoordination() {
+  try {
+    return require("../Music/lavalinkMusicService");
+  } catch {
+    return null;
+  }
+}
+
+function musicOwnsGuildVoice(guildId) {
+  const music = getMusicVoiceCoordination();
+  if (!music) return false;
+  if (typeof music.guildHasMusicVoiceResumeHint === "function" && music.guildHasMusicVoiceResumeHint(guildId)) {
+    return true;
+  }
+  const vc = typeof music.getGuildMusicVoiceChannelId === "function"
+    ? music.getGuildMusicVoiceChannelId(guildId)
+    : null;
+  return Boolean(vc);
+}
+
+async function purgeTtsVoicePersistence(guildId, client) {
+  if (guildId == null) return;
+  const gid = String(guildId);
+  markTtsVoiceDisconnectSuppress(gid);
+  clearTtsPostJoinVoiceGrace(gid);
+  clearGuildTtsLock(gid);
+  cleanupAllTtsStateForGuild(gid);
+  if (client?.user?.id) {
+    await clearVoiceState(gid, String(client.user.id));
+  }
+}
+
 function shouldLogTtsJoinWarning(guildId, channelId, errMessage, ttlMs = 30000) {
   const key = `${String(guildId || "")}:${String(channelId || "")}:${String(errMessage || "")}`;
   const now = Date.now();
@@ -1208,6 +1240,7 @@ async function leaveTtsGuild(guildId, client) {
 async function saveVoiceState(guildId, channelId, botUserId) {
   const bid = String(botUserId || "").trim();
   if (!guildId || !channelId || !bid) return;
+  if (musicOwnsGuildVoice(guildId)) return;
   const dedupeKey = `${guildId}:${bid}`;
   if (lastSavedChannels.get(dedupeKey) === channelId) return;
   lastSavedChannels.set(dedupeKey, channelId);
@@ -1236,6 +1269,7 @@ async function clearVoiceState(guildId, botUserId) {
 async function saveTtsLastMessageProgress(guildId, channelId, messageId, createdTimestamp, botUserId) {
   const bid = String(botUserId || "").trim();
   if (!guildId || !channelId || !messageId || !bid) return;
+  if (musicOwnsGuildVoice(guildId)) return;
   const gid = String(guildId);
   const cid = String(channelId);
   const mid = String(messageId);
@@ -1316,8 +1350,11 @@ async function restoreTtsConnections(client) {
   try {
     startTtsQueueSnapshotLoop(client);
     await warmUserTtsLangsFromDb();
+    if (!booleanFromConfig(client?.config?.tts?.restoreVoiceOnRestart, true)) {
+      return;
+    }
     const prefix = String(client?.config?.prefix || "+");
-    const states = await voiceFindManyLeanForBot(String(client.user.id), { includeLegacyWithoutBot: true }).catch(() => []);
+    const states = await voiceFindManyLeanForBot(String(client.user.id), { includeLegacyWithoutBot: false }).catch(() => []);
 
     for (let i = 0; i < states.length; i += TTS_RESTORE_CONCURRENCY) {
       const batch = states.slice(i, i + TTS_RESTORE_CONCURRENCY);
@@ -1325,6 +1362,20 @@ async function restoreTtsConnections(client) {
         batch.map(async (entry) => {
           const channel = await getClientChannelCached(client, entry?.channelId);
           if (!channel || !channel.isVoiceBased?.()) return;
+          const gid = String(channel.guild?.id || entry?.guildId || "");
+          if (!gid) return;
+          if (musicOwnsGuildVoice(gid)) {
+            await purgeTtsVoicePersistence(gid, client);
+            return;
+          }
+          const music = getMusicVoiceCoordination();
+          const musicVc = typeof music?.getGuildMusicVoiceChannelId === "function"
+            ? music.getGuildMusicVoiceChannelId(gid)
+            : null;
+          if (musicVc && String(musicVc) !== String(channel.id)) {
+            await purgeTtsVoicePersistence(gid, client);
+            return;
+          }
 
           await joinTtsChannel(channel).catch((e) =>
             global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
@@ -1367,4 +1418,5 @@ module.exports = {
   restoreTtsConnections,
   handleTtsBotVoiceMove,
   isTtsPostJoinVoiceGraceActive,
+  purgeTtsVoicePersistence,
 };

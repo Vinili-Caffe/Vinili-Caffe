@@ -6149,47 +6149,6 @@ function pickTreasureHuntEmojiPair(channelId) {
   return pick || pickRandomItem(pairs);
 }
 
-async function fetchTreasureHuntCandidateMessages(channel, count, botUserId) {
-  if (!channel?.messages?.fetch) return [];
-  const fetchLimit = Math.max(20, Math.min(100, Number(count) + 25));
-  const fetched = await channel.messages.fetch({ limit: fetchLimit }).catch(() => null);
-  if (!fetched) return [];
-  const arr = [...fetched.values()];
-  const maxAgeMs = 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  const valid = arr.filter((m) => {
-    if (!m || !m.id) return false;
-    if (m.system) return false;
-    if (m.author?.bot) return false;
-    if (botUserId && String(m.author?.id || "") === String(botUserId)) return false;
-    const createdAt = m.createdTimestamp || m.createdAt?.getTime?.() || 0;
-    if (createdAt && now - createdAt > maxAgeMs) return false;
-    return true;
-  });
-  valid.sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
-  return valid.slice(0, Math.max(0, Number(count) || 0));
-}
-
-async function applyTreasureHuntReactions(channel, candidates, winnerMessageId, decoyEmoji, winnerEmoji, delayMs) {
-  const delay = Math.max(80, Number(delayMs) || 260);
-  const wait = (ms) => new Promise((resolve) => { const t = setTimeout(resolve, ms); t.unref?.(); });
-  const winnerKey = String(winnerMessageId || "");
-  let appliedDecoys = 0;
-  let appliedWinner = false;
-  for (const msg of candidates) {
-    if (!msg?.react) continue;
-    const isWinner = String(msg.id) === winnerKey;
-    const emoji = isWinner ? winnerEmoji : decoyEmoji;
-    const ok = await msg.react(emoji).then(() => true).catch(() => false);
-    if (ok) {
-      if (isWinner) appliedWinner = true;
-      else appliedDecoys += 1;
-    }
-    await wait(delay);
-  }
-  return { appliedDecoys, appliedWinner };
-}
-
 async function removeTreasureHuntReactions(channel, candidateIds, decoyEmoji, winnerEmoji) {
   if (!channel?.messages?.fetch || !Array.isArray(candidateIds)) return;
   const botUser = channel.client?.user;
@@ -6206,21 +6165,72 @@ async function removeTreasureHuntReactions(channel, candidateIds, decoyEmoji, wi
   }
 }
 
-function buildTreasureHuntStartEmbed(decoyEmoji, winnerEmoji, count, durationMs, rewardExp) {
+function buildTreasureHuntStartEmbed(decoyEmoji, winnerEmoji, targetCount, durationMs, rewardExp) {
   const minutes = Math.max(1, Math.round(Number(durationMs || 0) / 60000));
   return new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("<a:VC_Events:1482706144953897223> Caccia al tesoro<a:VC_Exclamation:1482534702077444217>")
     .setDescription(
       [
-        `<:VC_Stats:1482527532682055780> Ho lasciato la reaction ${decoyEmoji} su **${count}** dei messaggi precedenti.`,
-        `<a:VC_Flame:1482725674711126140> Su **uno solo** di quei messaggi ho messo la reaction ${winnerEmoji}: trovalo e cliccaci sopra per primo!`,
+        `<:VC_Stats:1482527532682055780> Sui prossimi messaggi in chat metterò la reaction ${decoyEmoji} (fino a **${targetCount}** messaggi).`,
+        `<a:VC_Flame:1482725674711126140> Su **uno solo** comparirà ${winnerEmoji}: trovalo e cliccaci sopra per primo!`,
         "",
         `<:VC_EXP:1482534670896730143> In palio: **${rewardExp} exp**`,
         `<a:VC_pixeltime:1482535344103620771> Hai circa **${minutes} min** prima che la caccia finisca.`,
       ].join("\n"),
     )
     .setFooter({ text: 'Clicca la reaction "vincente" sul messaggio giusto per vincere.' });
+}
+
+function serializeTreasureHuntTarget(game) {
+  return JSON.stringify({
+    decoy: game.decoy,
+    winner: game.winner,
+    winnerMessageId: game.winnerMessageId || "",
+    candidateIds: Array.isArray(game.candidateIds) ? game.candidateIds : [],
+    introMessageId: game.introMessageId || null,
+    winnerIndex: Number(game.winnerIndex || 0),
+    targetCount: Number(game.targetCount || 0),
+    collectedCount: Number(game.collectedCount || 0),
+  });
+}
+
+async function persistTreasureHuntState(client, cfg, game) {
+  if (!game || game.type !== "treasureHunt") return;
+  await saveActiveGame(client, cfg, {
+    type: "treasureHunt",
+    target: serializeTreasureHuntTarget(game),
+    rewardExp: game.rewardExp,
+    startedAt: new Date(game.startedAt),
+    endsAt: new Date(game.endsAt),
+    gameMessageId: game.introMessageId || null,
+  });
+}
+
+async function handleTreasureHuntIncomingMessage(message, client, cfg, game) {
+  const targetCount = Math.max(1, Number(game.targetCount || 0));
+  const collected = Number(game.collectedCount || 0);
+  if (collected >= targetCount) return false;
+  const startedAt = Number(game.startedAt || 0);
+  const createdAt = message.createdTimestamp || message.createdAt?.getTime?.() || 0;
+  if (startedAt && createdAt < startedAt - 500) return false;
+  if (message.system) return false;
+  const channelId = cfg.channelId;
+  const live = activeGames.get(channelId);
+  if (!live || live.type !== "treasureHunt" || live !== game) return false;
+  if (Number(live.collectedCount || 0) >= targetCount) return false;
+  const nextCount = Number(live.collectedCount || 0) + 1;
+  const msgId = String(message.id);
+  live.collectedCount = nextCount;
+  if (!Array.isArray(live.candidateIds)) live.candidateIds = [];
+  live.candidateIds.push(msgId);
+  const winnerIndex = Math.max(1, Number(live.winnerIndex || 1));
+  const isWinner = nextCount === winnerIndex;
+  const emoji = isWinner ? live.winner : live.decoy;
+  if (isWinner) live.winnerMessageId = msgId;
+  await message.react(emoji).catch((err) => warnMinigame(err));
+  if (isWinner) await persistTreasureHuntState(client, cfg, live);
+  return true;
 }
 
 function buildTreasureHuntTimeoutEmbed(decoyEmoji, winnerEmoji, winnerMessageUrl) {
@@ -6313,59 +6323,44 @@ async function startTreasureHuntGame(client, cfg) {
   const maxDurationMs = Math.max(minDurationMs, Number(bucket?.maxDurationMs || minDurationMs));
   const rewardExp = normalizeRewardExp(bucket?.rewardExp ?? 150);
   const targetCount = randomBetween(minMessages, maxMessages);
+  const winnerIndex = randomBetween(1, targetCount);
   const durationMs = randomBetween(minDurationMs, maxDurationMs);
   const channel = await getChannelCached(client, channelId);
   if (!channel?.isTextBased?.() || !channel.guild) return false;
-  const candidates = await fetchTreasureHuntCandidateMessages(channel, targetCount, client?.user?.id);
-  const minRequired = Math.max(2, Number(treasureCfg?.minRequiredMessages ?? 15));
-  if (candidates.length < minRequired) return false;
   const pair = pickTreasureHuntEmojiPair(channelId);
   if (!pair) return false;
-  const winnerCandidate = pickRandomItem(candidates);
-  if (!winnerCandidate?.id) return false;
-  const winnerMessageId = String(winnerCandidate.id);
-  const candidateIds = candidates.map((m) => String(m.id));
+  const startedAt = Date.now();
   if (cfg.roleId) {
     await channel.send({ content: `<@&${cfg.roleId}>` }).catch(() => {});
   }
-  const introEmbed = buildTreasureHuntStartEmbed(pair.decoy, pair.winner, candidates.length, durationMs, rewardExp);
+  const introEmbed = buildTreasureHuntStartEmbed(pair.decoy, pair.winner, targetCount, durationMs, rewardExp);
   const introMessage = await channel.send({ embeds: [introEmbed] }).catch(() => null);
-  applyTreasureHuntReactions(channel, candidates, winnerMessageId, pair.decoy, pair.winner, Number(treasureCfg?.reactionDelayMs || 260)).catch((err) => warnMinigame(err));
   const timeout = setTimeout(async () => {
     const current = activeGames.get(channelId);
-    if (!current || current.type !== "treasureHunt" || current.winnerMessageId !== winnerMessageId) return;
+    if (!current || current.type !== "treasureHunt") return;
     if (current._claiming) return;
     recordNoParticipationIfNeeded(channelId, current);
     activeGames.delete(channelId);
     await finishTreasureHuntByTimeout(client, cfg, channel, current);
   }, durationMs);
   timeout.unref?.();
-  activeGames.set(channelId, {
+  const game = {
     type: "treasureHunt",
     rewardExp,
-    startedAt: Date.now(),
-    endsAt: Date.now() + durationMs,
+    startedAt,
+    endsAt: startedAt + durationMs,
     timeout,
     decoy: pair.decoy,
     winner: pair.winner,
-    winnerMessageId,
-    candidateIds,
+    winnerMessageId: null,
+    winnerIndex,
+    targetCount,
+    collectedCount: 0,
+    candidateIds: [],
     introMessageId: introMessage?.id || null,
-  });
-  await saveActiveGame(client, cfg, {
-    type: "treasureHunt",
-    target: JSON.stringify({
-      decoy: pair.decoy,
-      winner: pair.winner,
-      winnerMessageId,
-      candidateIds,
-      introMessageId: introMessage?.id || null,
-    }),
-    rewardExp,
-    startedAt: new Date(),
-    endsAt: new Date(Date.now() + durationMs),
-    gameMessageId: introMessage?.id || null,
-  });
+  };
+  activeGames.set(channelId, game);
+  await persistTreasureHuntState(client, cfg, game);
   markSent(channelId);
   return true;
 }
@@ -6389,10 +6384,12 @@ async function handleMinigameReaction(client, reaction, user) {
     const game = activeGames.get(cfg.channelId);
     if (!game || game.type !== "treasureHunt") return false;
     if (String(message.channelId || message.channel?.id || "") !== String(cfg.channelId)) return false;
+    if (!game.winnerMessageId) return false;
     if (String(message.id) !== String(game.winnerMessageId)) return false;
     const emojiName = String(liveReaction.emoji?.name || "");
     if (emojiName !== String(game.winner)) return false;
     if (game._claiming) return true;
+    game.hadParticipation = true;
     game._claiming = true;
     if (game.timeout) clearTimeout(game.timeout);
     activeGames.delete(cfg.channelId);
@@ -6782,6 +6779,9 @@ async function handleMinigameMessage(message, client) {
     game.hadParticipation = true;
   }
   if (!game) return false;
+  if (game.type === "treasureHunt") {
+    return handleTreasureHuntIncomingMessage(message, client, cfg, game);
+  }
 
   const content = String(message.content || "").trim();
   const contentForGuess = normalizeUserAnswerText(content);
@@ -8532,23 +8532,28 @@ async function restoreActiveGames(client) {
     const parsed = parseStateTarget(state.target);
     const decoy = String(parsed?.decoy || "");
     const winner = String(parsed?.winner || "");
-    const winnerMessageId = String(parsed?.winnerMessageId || "");
+    const winnerMessageId = parsed?.winnerMessageId ? String(parsed.winnerMessageId) : null;
     const candidateIds = Array.isArray(parsed?.candidateIds) ? parsed.candidateIds.map(String) : [];
     const introMessageId = parsed?.introMessageId ? String(parsed.introMessageId) : null;
-    if (!decoy || !winner || !winnerMessageId) {
+    const targetCount = Math.max(1, Number(parsed?.targetCount || candidateIds.length || 0));
+    const winnerIndex = Math.max(1, Number(parsed?.winnerIndex || 1));
+    const collectedCount = Math.max(0, Number(parsed?.collectedCount ?? candidateIds.length));
+    if (!decoy || !winner || !targetCount) {
       await clearActiveGame(client, cfg);
       return;
     }
-    const winnerExists = await channel.messages.fetch(winnerMessageId).catch(() => null);
-    if (!winnerExists) {
-      const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, winnerMessageId);
-      await channel.send({ embeds: [buildTreasureHuntTimeoutEmbed(decoy, winner, url)] }).catch(() => {});
-      await clearActiveGame(client, cfg);
-      return;
+    if (winnerMessageId) {
+      const winnerExists = await channel.messages.fetch(winnerMessageId).catch(() => null);
+      if (!winnerExists) {
+        const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, winnerMessageId);
+        await channel.send({ embeds: [buildTreasureHuntTimeoutEmbed(decoy, winner, url)] }).catch(() => {});
+        await clearActiveGame(client, cfg);
+        return;
+      }
     }
     const timeout = setTimeout(async () => {
       const game = activeGames.get(cfg.channelId);
-      if (!game || game.type !== "treasureHunt" || game.winnerMessageId !== winnerMessageId) return;
+      if (!game || game.type !== "treasureHunt") return;
       if (game._claiming) return;
       recordNoParticipationIfNeeded(cfg.channelId, game);
       activeGames.delete(cfg.channelId);
@@ -8564,6 +8569,9 @@ async function restoreActiveGames(client) {
       decoy,
       winner,
       winnerMessageId,
+      winnerIndex,
+      targetCount,
+      collectedCount,
       candidateIds,
       introMessageId,
     });

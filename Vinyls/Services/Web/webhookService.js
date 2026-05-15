@@ -268,6 +268,7 @@ async function startWebhookServer(client) {
     const isSiteVerify = pathStr.startsWith("/webhooks/site-verify");
     const isSitePayments = pathStr.startsWith("/webhooks/site-payments");
     const isSiteSeratafilmAccess = pathStr.startsWith("/webhooks/site-seratafilm-access");
+    const isSiteHogwartsSorting = pathStr.startsWith("/webhooks/site-hogwarts-sorting");
     if (
       !isCandidature &&
       !isUnban &&
@@ -283,7 +284,8 @@ async function startWebhookServer(client) {
       !isSiteForum &&
       !isSiteVerify &&
       !isSitePayments &&
-      !isSiteSeratafilmAccess
+      !isSiteSeratafilmAccess &&
+      !isSiteHogwartsSorting
     ) {
       return next();
     }
@@ -316,7 +318,8 @@ async function startWebhookServer(client) {
       isSiteSuggestions ||
       isSiteNotifications ||
       isSitePayments ||
-      isSiteSeratafilmAccess
+      isSiteSeratafilmAccess ||
+      isSiteHogwartsSorting
     ) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
@@ -528,6 +531,12 @@ async function startWebhookServer(client) {
   } = require("../../Utils/Web/siteForumApi");
   const { completeSiteVerify } = require("../../Utils/Web/siteVerifyApi");
   const { handleSiteSeratafilmAccessGet } = require("../../Utils/Web/siteSeratafilmAccessApi");
+  const {
+    handleHogwartsSortingBootstrap,
+    handleHogwartsSortingEligibility,
+    handleHogwartsSortingSubmit,
+    handleHogwartsSortingAccessGet,
+  } = require("../../Utils/Web/siteHogwartsSortingApi");
   app.get("/webhooks/site-rules", (req, res) => {
     try {
       res.setHeader("Cache-Control", "public, max-age=120");
@@ -553,6 +562,12 @@ async function startWebhookServer(client) {
     return handleSiteNotificationsClearPost(client, req, res);
   });
   app.get("/webhooks/site-seratafilm-access", (req, res) => handleSiteSeratafilmAccessGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/bootstrap", (req, res) => handleHogwartsSortingBootstrap(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/access", (req, res) => handleHogwartsSortingAccessGet(client, req, res));
+  app.get("/webhooks/site-hogwarts-sorting/eligibility", (req, res) =>
+    handleHogwartsSortingEligibility(client, req, res),
+  );
+  app.post("/webhooks/site-hogwarts-sorting", (req, res) => handleHogwartsSortingSubmit(client, req, res));
   app.get("/webhooks/site-payments/plans", (req, res) => {
     try {
       return res.status(200).json({ ok: true, items: listSitePaymentPlans() });

@@ -9,6 +9,11 @@ const SKIP_JS_OBFUSCATION = new Set([
   "pace.min.js",
   "modernizr.js",
   "plugins.js",
+  "hogwarts-intro-cinema.js",
+  "hogwarts-sorting-page.js",
+  "hogwarts-access-gate.js",
+  "hogwarts-bgm-youtube.js",
+  "vc-suppress-extension-errors.js",
 ]);
 
 const OBF_OPTIONS = {

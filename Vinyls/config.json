@@ -235,7 +235,8 @@
     "lang": "it",
     "autojoin": false,
     "includeUsername": false,
-    "stayConnected": false
+    "stayConnected": false,
+    "restoreVoiceOnRestart": true
   },
   "ai": {
     "enabled": false
@@ -434,9 +435,7 @@
         { "weight": 1, "minMessages": 20, "maxMessages": 30, "minDurationMs": 60000,  "maxDurationMs": 120000, "rewardExp": 100 },
         { "weight": 1, "minMessages": 30, "maxMessages": 50, "minDurationMs": 90000,  "maxDurationMs": 180000, "rewardExp": 150 },
         { "weight": 1, "minMessages": 40, "maxMessages": 70, "minDurationMs": 120000, "maxDurationMs": 240000, "rewardExp": 200 }
-      ],
-      "minRequiredMessages": 15,
-      "reactionDelayMs": 260
+      ]
     }
   },
   "categoryNumbering": {
@@ -478,5 +477,20 @@
     "1471512555762483330": "1471628002050838790",
     "1471512797140484230": "1471627880575275008",
     "1471512808448458958": "1471627711901470781"
+  },
+  "hogwartsEvent": {
+    "enabled": true,
+    "previewMode": true,
+    "timezone": "Europe/Rome",
+    "startDate": "2026-06-01",
+    "endDate": "2026-08-30",
+    "eventKey": "hogwarts_summer_2026",
+    "houses": {
+      "gryffindor": { "roleId": "1504791825657888898", "label": "Gryffindor" },
+      "ravenclaw": { "roleId": "1504791921246339072", "label": "Ravenclaw" },
+      "hufflepuff": { "roleId": "1504791899100155987", "label": "Hufflepuff" },
+      "slytherin": { "roleId": "1504791872671973537", "label": "Slytherin" }
+    },
+    "staffBypassUserIds": []
   }
 }

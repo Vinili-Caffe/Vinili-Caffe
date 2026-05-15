@@ -4,6 +4,7 @@ const blacklistCommand = require("../Prefix/Staff/blacklist");
 const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../Utils/Partner/partnersChatChannelUtils");
 const PREFIX = "blacklist_ui";
 const MODAL_PREFIX = "blacklist_ui_modal";
+const PRIVATE_FLAG = 1 << 6;
 
 function parseCustomId(customId) {
   const parts = String(customId || "").split(":");
